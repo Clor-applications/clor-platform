@@ -20,7 +20,7 @@ function ProductsMenu({ onPick }) {
                     <Mark product={p} size={34} />
                     <span className="mega-text">
                       <span className="mega-name">
-                        Clor {p.name} <Status product={p} />
+                        CLOR {p.name} <Status product={p} />
                       </span>
                       <span className="mega-line">{p.line}</span>
                     </span>
@@ -194,7 +194,7 @@ export default function Nav() {
                   <Mark product={p} size={32} />
                   <span className="mega-text">
                     <span className="mega-name">
-                      Clor {p.name} <Status product={p} />
+                      CLOR {p.name} <Status product={p} />
                     </span>
                   </span>
                 </Link>

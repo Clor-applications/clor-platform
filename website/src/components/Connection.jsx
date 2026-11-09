@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AttendanceWindow, BooksWindow, PayrollWindow, PeopleWindow } from './Windows.jsx';
 
 /*
- * "Clor Connection" — the site's one orchestrated moment.
+ * "Clor Connection": the site's one orchestrated moment.
  *
  * Four Clor products, each a window of its own, joined by the paths that
  * exist in the platform today: People gives Attendance its people, the closed
@@ -128,7 +128,7 @@ export default function Connection() {
           <BooksWindow className="stage-win" />
         </div>
       </div>
-      <figcaption className="caption">Clor screens drawn with sample data. The lines are links that work today.</figcaption>
+      <figcaption className="caption">CLOR screens drawn with sample data. Each line is a link between products that works today.</figcaption>
     </figure>
   );
 }

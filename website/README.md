@@ -12,8 +12,7 @@ npm run preview   # http://localhost:5191, the built site
 ```
 
 - Content and product status: `src/site.js`, `src/content.js`. Pages: `src/pages`. Routes and page titles: `src/routes.jsx`.
-- Design: light only, tokens at the top of `src/styles/site.css`; Manrope for headings, Inter for text; the
-  orange is kept for primary actions, the current-page marker and the Clor dot.
+- Design: light only, white ground, tokens at the top of `src/styles/site.css`; one face, Plus Jakarta Sans; Blaze Orange (#FF5400) is kept for primary actions, the current-page marker and the focus ring, and #BA3900 for orange words.
 - The one animation is the "Clor Connection" on the home page (`src/components/Connection.jsx`); with reduced
   motion, or before the script runs, the finished picture is shown.
 - Before publishing: `CONTENT_CHECKLIST.md`.
