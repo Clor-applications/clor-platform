@@ -202,15 +202,29 @@ export function Pricing() {
                   <td>
                     <Status product={p} />
                   </td>
-                  <td className="small">{p.status === 'available' ? 'Being finalised' : 'At launch'}</td>
+                  <td className="small">
+                    {p.status === 'available' ? 'Being finalised' : 'At launch'}
+                    {p.status === 'available' ? (
+                      <>
+                        {' · '}
+                        <a href={`${SITE.startUrl}?app=${p.slug}`}>Start free trial</a>
+                      </>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="small price-note">Prices are being set now. Until they are published, talk to us and we will tell you what your company would pay.</p>
+          <p className="small price-note">Prices are being set now. Until they are published, talk to us and we will tell you what your company would pay. Every product can be tried free, with no card.</p>
           <div className="actions price-actions">
-            <Link className="btn btn--primary" href="/contact?about=pricing">
+            <a className="btn btn--primary" href={`${SITE.startUrl}?app=books`}>
+              Start free trial
+            </a>
+            <Link className="btn btn--quiet" href="/contact?about=pricing">
               Ask about pricing
+            </Link>
+            <Link className="btn btn--quiet" href={SITE.demoUrl}>
+              Request a demo
             </Link>
           </div>
         </div>

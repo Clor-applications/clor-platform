@@ -8,7 +8,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { PLAN_CATALOG } from '../constants/planCatalog.js';
-import { getSubscription, appAccess, setSubscription, applyGatewayEvent } from '../services/subscriptions.js';
+import { getSubscription, appAccess, setSubscription, applyGatewayEvent, lapseReason } from '../services/subscriptions.js';
 import { getGateway } from '../billing/gateway.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
@@ -111,7 +111,8 @@ billingRouter.get('/billing/subscription', async (req, res) => {
    */
   const mayViewPlan = !(await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile'));
   const plan = mayViewPlan && sub ? (({ gatewayCustomerId: _c, gatewaySubscriptionId: _s, ...rest }) => rest)(sub) : null;
-  res.json({ subscription: plan, ...access, subscribedApps: access.entitledApps });
+  /* `reason`: why the apps are read-only when they are (a trial that ended), in the sentence the shell shows. */
+  res.json({ subscription: plan, ...access, subscribedApps: access.entitledApps, reason: lapseReason(sub) });
 });
 
 /**

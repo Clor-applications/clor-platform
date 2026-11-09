@@ -121,6 +121,7 @@ import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsExploreRouter } from './routes/opsExplore.js';
+import { opsSignupsRouter, signupRouter } from './routes/signup.js';
 import { opsRouter } from './routes/ops.js';
 import { exploreRouter } from './routes/explore.js';
 import { exploreReadOnly } from './middleware/exploreReadOnly.js';
@@ -405,6 +406,8 @@ export function buildApp() {
   app.use('/api', invitationsRouter);
   /* "Request a demo" from clor.in: no sign-in, no account yet. */
   app.use('/api', demoRequestsRouter);
+  /* A free trial from clor.in's pricing page: email checked by a link, then the account (routes/signup.ts). */
+  app.use('/api', signupRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
@@ -435,6 +438,7 @@ export function buildApp() {
   app.use('/api', opsRouter);
   app.use('/api', opsDemoRequestsRouter);
   app.use('/api', opsExploreRouter);
+  app.use('/api', opsSignupsRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.

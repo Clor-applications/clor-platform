@@ -13,6 +13,7 @@ import SignIn from '../shell/SignIn';
 import OperatorBrand from './OperatorBrand';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 import { ExploreLinks, SampleCompany } from './Explore';
+import { Trials } from './Trials';
 import {
   opsAccount,
   opsAccounts,
@@ -663,6 +664,7 @@ const NAV = [
   ['overview', 'Overview', ICON.home],
   ['accounts', 'Accounts', ICON.companies],
   ['demos', 'Demo requests', ICON.mail],
+  ['trials', 'Trials', ICON.plan],
   ['links', 'Explore links', ICON.invite],
   ['sample', 'Sample company', ICON.company],
   ['audit', 'Operator log', ICON.history],
@@ -747,6 +749,8 @@ function Console() {
             <Accounts key={accountsStatus} initialStatus={accountsStatus} openAccount={setAccountId} />
           ) : page === 'demos' ? (
             <DemoRequests openRequest={setDemoId} />
+          ) : page === 'trials' ? (
+            <Trials role={me.role} openAccount={setAccountId} />
           ) : page === 'links' ? (
             <ExploreLinks role={me.role} openRequest={setDemoId} />
           ) : page === 'sample' ? (

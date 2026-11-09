@@ -111,6 +111,23 @@ The link works once and for {{days}} days. If it has run out, use "Forgot passwo
     transactional: true,
   },
   {
+    key: 'signup.confirm',
+    label: 'Confirm your email to start your trial',
+    description: 'Sent when somebody starts a free trial from clor.in: the link that checks their email and opens the setup page.',
+    subject: 'Your {{appName}} trial: confirm your email',
+    body: `Hello,
+
+You asked to start a free trial of {{apps}} on CLOR. Confirm this is your email and set up your company here:
+
+{{startUrl}}
+
+The link works for {{hours}} hours. No card is needed; the trial runs for {{days}} days.
+
+If you did not ask for this, ignore this mail and nothing is made.`,
+    fields: ['apps', 'startUrl', 'hours', 'days', 'appName'],
+    transactional: true,
+  },
+  {
     key: 'explore.pass',
     label: 'Look around CLOR',
     description: 'Sent to somebody who asked for a demo on clor.in: a 14-day link to a sample company they can look around, read-only.',

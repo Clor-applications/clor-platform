@@ -35,3 +35,6 @@ export const opsBuildSample = (force = false) => apiFetch('/ops/explore/sample/b
 export const opsExplorePasses = (params) => apiFetch(`/ops/explore/passes${q(params)}`, o);
 export const opsResendPass = (id) => apiFetch(`/ops/explore/passes/${encodeURIComponent(id)}/resend`, { ...o, method: 'POST' });
 export const opsEndPass = (id) => apiFetch(`/ops/explore/passes/${encodeURIComponent(id)}/end`, { ...o, method: 'POST' });
+/* Trials (server: routes/signup.ts): free trials started from clor.in, pending and made. Trial accounts themselves come from opsAccounts({ status: 'trialing' }). */
+export const opsSignups = (params) => apiFetch(`/ops/signups${q(params)}`, o);
+export const opsResendSignup = (id) => apiFetch(`/ops/signups/${encodeURIComponent(id)}/resend`, { ...o, method: 'POST' });
