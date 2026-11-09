@@ -49,6 +49,7 @@ import { peopleTimeRulesRouter } from './routes/peopleTimeRules.js';
 import { peopleCompanyChoicesRouter } from './routes/peopleCompanyChoices.js';
 import { peopleTimePortalRouter } from './routes/peopleTimePortal.js';
 import { peopleEngagementRouter } from './routes/peopleEngagement.js';
+import { automationsRouter } from './routes/automations.js';
 import { peopleEngagementPortalRouter } from './routes/peopleEngagementPortal.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
@@ -477,6 +478,7 @@ export function buildApp() {
   app.use('/api', peopleTimeRulesRouter);
   app.use('/api', peopleCompanyChoicesRouter);
   app.use('/api', peopleEngagementRouter);
+  app.use('/api', automationsRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
   app.use('/api', peoplePoliciesRouter);

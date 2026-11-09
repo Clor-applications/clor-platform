@@ -7,6 +7,7 @@ import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { getPermissionCatalog } from '@ui/api/permissions';
 import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
+import TemplateDrift from './TemplateDrift';
 import PermissionMatrix from './PermissionMatrix';
 import { catalogKeys, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
@@ -397,6 +398,7 @@ export function SettingsRoles({ orgId }) {
           <div className="grid gap-4">
             {selectedRole.description ? <p className="ws-card-blurb">{selectedRole.description}</p> : null}
             {selectedRole.ownDocumentsOnly ? <p className="text-sm"><span className="ws-pill">Own documents only</span></p> : null}
+            <TemplateDrift template={selectedRole.template} modules={catalog.modules} />
             {/* The same matrix as Edit, from the server catalogue, read-only. */}
             <fieldset disabled aria-label="Permissions (read only)">
               <PermissionMatrix modules={catalog.modules} granted={viewedPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={1} />
