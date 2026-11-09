@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 
-import { PageHeader } from '../ui/Primitives';
+import { EmptyState, PageHeader } from '../ui/Primitives';
 import { useTabIndicator } from '../ui/RecordTabs';
 
 /**
@@ -99,4 +99,9 @@ export function SegmentedControl({ options, value, onChange, label }) {
       ))}
     </div>
   );
+}
+
+/** A list's empty state: the heading, one sentence on what the screen is for, and at most a secondary way in. */
+export function ListEmpty(props) {
+  return <EmptyState describe {...props} />;
 }

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRightLeft } from '@ui/components/ui/lineIcons';
 
-import { EmptyState } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import DataTable from '@ui/components/ui/DataTable';

@@ -26,7 +26,7 @@ import * as timeOff from '@ui/timeOff/api';
 import * as personnel from '@ui/personnel/api';
 import { getInbox } from '../apps/people/src/api/approvals';
 import { SideBlock, SideLine, ago } from '@ui/components/list/SidePanel';
-import { ApprovalsPanel, EmployeesPanel, LeaveRequestsPanel } from '../apps/people/src/panels';
+import { EmployeesPanel } from '../apps/people/src/panels';
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -53,54 +53,7 @@ describe('the side panel beside a list', () => {
 });
 
 describe('People list panels', () => {
-  it('Leave requests: names a clash when two of a department are off the same day', async () => {
-    timeOff.listLeaveRequests.mockImplementation(async (p) => (p.from ? [
-      { id: 'a', employeeId: 'e1', employeeName: 'Ravi Kumar', department: 'Sales', leaveTypeName: 'Casual Leave', fromDate: iso(2), toDate: iso(2), status: 'APPROVED' },
-      { id: 'b', employeeId: 'e2', employeeName: 'Meera Shah', department: 'Sales', leaveTypeName: 'Sick Leave', fromDate: iso(1), toDate: iso(3), status: 'PENDING' },
-      { id: 'c', employeeId: 'e3', employeeName: 'Sunil Nair', department: 'Sales', leaveTypeName: 'Sick Leave', fromDate: iso(2), toDate: iso(2), status: 'REJECTED' },
-    ] : []));
-    render(<LeaveRequestsPanel openScreen={vi.fn()} />);
-    expect(await screen.findByText(/^Sales is short on/)).toBeTruthy();
-    expect(screen.getByText('2 people off the same day')).toBeTruthy();
-    expect(screen.getByText('Ravi Kumar')).toBeTruthy();
-    /* A rejected request is nobody away. */
-    expect(screen.queryByText('Sunil Nair')).toBeNull();
-  });
-
-  it('Leave requests: no leave this year draws no "Recent activity" heading over Quick links', async () => {
-    timeOff.listLeaveRequests.mockImplementation(async () => []);
-    render(<LeaveRequestsPanel openScreen={vi.fn()} />);
-    expect(await screen.findByText('Quick links')).toBeTruthy();
-    expect(screen.queryByText('Recent activity')).toBeNull();
-  });
-
-  it('Leave requests: each quick link is tinted by where it goes, none marigold', async () => {
-    render(<LeaveRequestsPanel openScreen={vi.fn()} />);
-    const links = (await screen.findByText('Quick links')).closest('section');
-    const tint = (name) => within(links).getByRole('button', { name }).getAttribute('data-tint');
-    expect(tint('Calendar')).toBe('mint');
-    expect(tint('Holidays')).toBe('mint');
-    expect(tint('Policy')).toBe('peach');
-  });
-
-  it('Approvals: a kind narrows the list, the oldest waits on top', async () => {
-    const old = new Date(Date.now() - 4 * 86_400_000).toISOString();
-    getInbox.mockResolvedValue({
-      items: [
-        { key: 'L:1', kind: 'LEAVE', employeeName: 'New One', what: 'Casual Leave', since: new Date().toISOString() },
-        { key: 'L:2', kind: 'LEAVE', employeeName: 'Old One', what: 'Sick Leave', since: old },
-      ],
-      counts: { LEAVE: 2 },
-    });
-    const openScreen = vi.fn();
-    render(<ApprovalsPanel openScreen={openScreen} />);
-    await screen.findByText('Old One');
-    const names = screen.getAllByText(/One$/).map((n) => n.textContent);
-    expect(names[0]).toBe('Old One');
-    fireEvent.click(screen.getByRole('button', { name: /^Leave\s*2$/ }));
-    expect(openScreen).toHaveBeenCalledWith('approvals', { kind: 'LEAVE' });
-  });
-
+  /* Leave requests and Approvals lost their side columns (People plan 8 Nov 2026, §3 rule 3): the list says it all. */
   it('Employees: a department opens the list filtered to it', async () => {
     personnel.listAllEmployees.mockResolvedValue({ employees: [
       { id: '1', name: 'A', departmentId: 'd1', department: 'Sales', reportingManagerId: 'm', workEmail: 'a@x' },

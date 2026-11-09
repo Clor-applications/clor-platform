@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';

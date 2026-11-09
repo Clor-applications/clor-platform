@@ -233,6 +233,9 @@ export const EmptyState = ({
   onClearFilters = null,
   /** [{ label, description, onSelect }] — the real ways to a first record. */
   routes = [],
+  /** Say the description on a nothing-yet state too. People's lists do (plan 8 Nov 2026, §3 rule 4: one sentence on
+      what the screen is for and one action); Accounting's keep the heading alone, as decided before. */
+  describe = false,
 }) => {
   const isFiltered = kind === 'filtered';
   const isDisabled = kind === 'disabled';
@@ -279,7 +282,7 @@ export const EmptyState = ({
         records exist and the filters are hiding them, which the heading
         cannot say on its own.
       */}
-      {body && isFiltered ? <div className="ui-muted ui-t-body mt-1 max-w-md">{body}</div> : null}
+      {body && (isFiltered || describe) ? <div className="ui-muted ui-t-body mt-1 max-w-md">{body}</div> : null}
 
       {isFiltered && filters.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5 justify-center">

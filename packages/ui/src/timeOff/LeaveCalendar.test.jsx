@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
 import LeaveCalendar from './LeaveCalendar';
@@ -57,4 +57,15 @@ it('says a month failed to load instead of showing the month before under its na
   fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
   expect(await screen.findByRole('alert')).toBeTruthy();
   expect(screen.queryByText('Asha November')).toBeNull();
+});
+
+/* People plan 8 Nov 2026, §3 rule 4: a calendar always draws its month, weekends shaded, even with nobody away. */
+it('draws the month grid with nobody away, and says so in the grid rather than instead of it', async () => {
+  listLeaveRequests.mockResolvedValueOnce([]);
+  render(<LeaveCalendar />);
+  expect(await screen.findByRole('status')).toBeTruthy();
+  expect(screen.getByRole('status').textContent).toContain('Nobody is away or working elsewhere in November 2026');
+  const grid = screen.getByRole('group', { name: 'Days of November 2026' });
+  expect(within(grid).getAllByRole('columnheader')).toHaveLength(31);
+  expect(within(grid).getByRole('rowheader', { name: 'Away' })).toBeTruthy();
 });

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, Printer } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import ErrorState from '@ui/components/ui/ErrorState';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';

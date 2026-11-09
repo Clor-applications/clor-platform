@@ -6,8 +6,7 @@ import { useSuggestions } from '../workforce/suggestions';
 import { Plus, X } from '@ui/components/ui/lineIcons';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 
-import { EmptyState } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';

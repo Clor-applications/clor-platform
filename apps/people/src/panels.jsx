@@ -12,8 +12,7 @@ import { listAllEmployees } from '@ui/personnel/api';
 import { OWNER_WORD, pageTasks } from '@ui/lifecycle/api';
 import { todayIst } from '@ui/timeOff/api';
 import { listDesk } from './api/desk';
-import { listItems, structureHistory } from './organization/api';
-import { listSalaryRevisions } from '../../payroll/src/api/payrollRevisions';
+import { structureHistory } from './organization/api';
 import { addDaysIso as plusDays } from '@ui/utils/dates';
 
 /**
@@ -134,25 +133,6 @@ export function HelpDeskPanel() {
   );
 }
 
-/* Departments: the ones without a head, and the biggest, as bars. */
-export function DepartmentsPanel({ openScreen }) {
-  const req = useRequest(() => quiet(listItems('departments')), []);
-  const items = (req.data || []).filter((r) => r.isActive !== false);
-  const headless = items.filter((r) => !r.headName || r.headLeft);
-  const peak = Math.max(1, ...items.map((r) => r.employeeCount || 0));
-  return (
-    <>
-      <SideBlock title="Headcount" count={items.reduce((a, r) => a + (r.employeeCount || 0), 0)}>
-        {headless.length ? <SideAlert title={`${headless.length} without a head`} sub={headless.slice(0, 3).map((r) => r.name).join(', ') + (headless.length > 3 ? '…' : '')} tone="warn" /> : null}
-        {[...items].sort((a, b) => (b.employeeCount || 0) - (a.employeeCount || 0)).slice(0, 7).map((r) => (
-          <SideLine key={r.id} title={r.name} sub={r.headName ? `Head: ${r.headName}` : undefined} meta={r.employeeCount || 0} tone="count" bar={((r.employeeCount || 0) / peak) * 100}
-            onClick={() => openScreen?.('employees', { dept: r.id })} />
-        ))}
-      </SideBlock>
-    </>
-  );
-}
-
 /* Branches: where people work, and who has no branch yet. */
 export function BranchesPanel({ openScreen }) {
   const req = useRequest(() => quiet(listAllEmployees({ status: 'CURRENT' }).then((r) => r?.employees || [])), []);
@@ -172,35 +152,6 @@ export function BranchesPanel({ openScreen }) {
 
 const words = (s) => String(s || '').toLowerCase().replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 const countBy = (rows, f) => rows.reduce((m, r) => { const k = f(r); m.set(k, (m.get(k) || 0) + 1); return m; }, new Map());
-const daysTo = (iso) => Math.round((new Date(`${String(iso).slice(0, 10)}T00:00:00Z`) - new Date(`${todayIso()}T00:00:00Z`)) / 86_400_000);
-
-/* Designations: the biggest ones, the ones nobody holds, and the ones tied to no department. */
-export function DesignationsPanel() {
-  const req = useRequest(() => Promise.all([quiet(listItems('job-positions')), quiet(listItems('departments'))]), []);
-  const [items, depts] = req.data || [];
-  if (!items) return null;
-  const live = items.filter((r) => r.isActive !== false);
-  const empty = live.filter((r) => !r.employeeCount);
-  const loose = live.filter((r) => !r.departmentId);
-  const deptName = new Map((depts || []).map((d) => [d.id, d.name]));
-  const peak = Math.max(1, ...live.map((r) => r.employeeCount || 0));
-  return (
-    <>
-      <SideBlock title="Largest" count={live.length}>
-        {[...live].sort((a, b) => (b.employeeCount || 0) - (a.employeeCount || 0)).slice(0, 6).map((r) => (
-          <SideLine key={r.id} title={r.name} sub={deptName.get(r.departmentId)} meta={r.employeeCount || 0} tone="count" bar={((r.employeeCount || 0) / peak) * 100} />
-        ))}
-      </SideBlock>
-      <SideBlock title="Nobody holds" count={empty.length}>
-        {empty.length ? <SideAlert title={`${empty.length} with no one in them`} sub={empty.slice(0, 3).map((r) => r.name).join(', ') + (empty.length > 3 ? '…' : '')} tone="warn" /> : null}
-      </SideBlock>
-      <SideBlock title="No department" count={loose.length}>
-        {loose.length ? <SideAlert title={`${loose.length} not tied to a department`} sub={loose.slice(0, 3).map((r) => r.name).join(', ')} tone="warn" /> : null}
-      </SideBlock>
-      {!empty.length && !loose.length ? <SideBlock title="Tidy"><SideClear>Every designation is held and has a department</SideClear></SideBlock> : null}
-    </>
-  );
-}
 
 /* Change history: how much changed lately, of what kind, and by whom. */
 export function ChangesPanel() {
@@ -222,26 +173,6 @@ export function ChangesPanel() {
       <SideBlock title="Made by" count={who.size || null}>
         {[...who].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => <SideLine key={k} lead={face(k)} title={k} meta={`${n} change${n === 1 ? '' : 's'}`} />)}
       </SideBlock>
-    </>
-  );
-}
-
-/* Salary revisions: what waits for a decision and what takes effect soon. */
-export function SalaryRevisionsPanel() {
-  const req = useRequest(() => quiet(listSalaryRevisions()), []);
-  const rows = req.data;
-  if (!rows) return null;
-  const waiting = rows.filter((r) => ['DRAFT', 'REVIEWED'].includes(r.status));
-  const soon = rows.filter((r) => r.status === 'APPROVED' && r.effectiveFrom && daysTo(r.effectiveFrom) >= 0 && daysTo(r.effectiveFrom) <= 60).sort((a, b) => String(a.effectiveFrom).localeCompare(String(b.effectiveFrom)));
-  return (
-    <>
-      <SideBlock title="Waiting for a decision" count={waiting.length} tone="warn">
-        {waiting.slice(0, 4).map((r) => <SideLine key={r.id} title={r.employeeName || 'Employee'} sub={r.reason || words(r.status)} tone="warn" />)}
-      </SideBlock>
-      <SideBlock title="Taking effect soon" count={soon.length}>
-        {soon.slice(0, 4).map((r) => <SideLine key={r.id} title={r.employeeName || 'Employee'} meta={day(r.effectiveFrom)} />)}
-      </SideBlock>
-      {!waiting.length && !soon.length ? <SideBlock title="Nothing pending"><SideClear>No revision waits or starts in the next 60 days</SideClear></SideBlock> : null}
     </>
   );
 }

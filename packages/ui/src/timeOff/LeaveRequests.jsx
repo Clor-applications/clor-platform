@@ -5,8 +5,7 @@ import { HoursChoice, PreviewNotes } from './LeaveShape';
 import { hoursBody, hoursReady, hoursText, isHourly } from './partOfDay';
 import { Check, Download, Plus, X } from '@ui/components/ui/lineIcons';
 
-import { EmptyState } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';

@@ -30,15 +30,17 @@ describe('counts that wait on you are marigold', () => {
     expect(people).toMatch(/:is\(\.ui-tab-count, \.ui-side-count\)\[data-tone='warn'\] \{ background: rgb\(var\(--warm\)\) !important; color: rgb\(var\(--oxblood\)\) !important;/);
   });
 
+  /* The tabs are ListHeader's now (People plan 8 Nov 2026, step 3): a screen names the tone, the header draws the count. */
   it.each([
-    ['apps/people/src/screens/Approvals.jsx', 'data-tone="warn"'],
-    ['packages/ui/src/timeOff/LeaveRequests.jsx', "data-tone={k === 'PENDING' ? 'warn' : undefined}"],
-    ['packages/ui/src/timeOff/AttendanceRequests.jsx', "data-tone={k === 'PENDING' ? 'warn' : undefined}"],
-    ['packages/ui/src/timeOff/TeamAttendance.jsx', "data-tone={k === 'NONE' ? 'warn' : undefined}"],
-    ['packages/ui/src/lifecycle/Tasks.jsx', "data-tone={k === 'late' ? 'warn' : undefined}"],
-    ['packages/ui/src/lifecycle/Changes.jsx', "data-tone={k === 'approval' ? 'warn' : undefined}"],
+    ['apps/people/src/screens/Approvals.jsx', "tone: 'warn'"],
+    ['packages/ui/src/timeOff/LeaveRequests.jsx', "tone: k === 'PENDING' ? 'warn' : undefined"],
+    ['packages/ui/src/timeOff/AttendanceRequests.jsx', "tone: k === 'PENDING' ? 'warn' : undefined"],
+    ['packages/ui/src/timeOff/TeamAttendance.jsx', "tone: k === 'NONE' ? 'warn' : undefined"],
+    ['packages/ui/src/lifecycle/Tasks.jsx', "tone: k === 'late' ? 'warn' : undefined"],
+    ['packages/ui/src/lifecycle/Changes.jsx', "tone: k === 'approval' ? 'warn' : undefined"],
   ])('%s marks its waiting tab', (file, mark) => {
-    expect(read(file)).toContain(`<span className="ui-tab-count tabular-nums" ${mark}>`);
+    expect(read(file)).toContain(mark);
+    expect(read('packages/ui/src/components/list/ListHeader.jsx')).toContain('<span className="ui-tab-count tabular-nums" data-tone={t.tone || undefined}>');
   });
 
   it('the bell count is 12px, red by default and marigold in People, with a dot on unread lines', () => {
@@ -54,7 +56,7 @@ describe('counts that wait on you are marigold', () => {
   it('side blocks whose count waits on you mark it, and the timeline warning dot is a marigold mark', () => {
     expect(read('packages/ui/src/components/list/SidePanel.jsx')).toContain('<span className="ui-side-count" data-tone={tone}>');
     const panels = read('apps/people/src/panels.jsx');
-    for (const t of ['Waiting longest', 'Needs setting up', 'Late, by owner', 'Waiting for a decision']) expect(panels, t).toMatch(new RegExp(`title="${t}"[^>]*tone="warn"`));
+    for (const t of ['Needs setting up', 'Late, by owner']) expect(panels, t).toMatch(new RegExp(`title="${t}"[^>]*tone="warn"`));
     expect(index).toMatch(/\.ui-side-timeline > li\[data-tone='warn'\] \.ui-side-dot \{ background: rgb\(var\(--warn-mark, var\(--warn\)\)\);/);
   });
 
@@ -118,15 +120,9 @@ describe('tints are named by meaning, not handed out by position', () => {
     expect(report).toMatchObject({ 'Headcount today': 'sky', Joiners: 'mint', Leavers: 'peach', Attrition: 'lilac' });
     expect(read('packages/ui/src/components/list/ListPageParts.jsx')).toMatch(/data-tint=\{card\.tint \|\| undefined\}/);
   });
-  it('every quick link in People names a tint, and marigold only for Approvals', () => {
-    const panels = read('apps/people/src/panels.jsx');
-    const links = [...panels.matchAll(/\{ label: '([^']+)', icon: \w+,(?: screen: '\w+',)?( tint: '(\w+)',)? onClick/g)];
-    expect(links.length).toBeGreaterThan(40);
-    for (const [, label, , tint] of links) {
-      expect(tint, label).toMatch(/^(sky|mint|peach|lilac|butter)$/);
-      expect(tint === 'butter', label).toBe(label === 'Approvals');
-    }
-    for (const [, label, tint] of panels.matchAll(/\['([^']+)', \w+, '\w+', '(\w+)'\]/g)) expect(tint, label).not.toBe('butter');
+  it('no quick links in People any more: the module panel names the screens (plan 8 Nov 2026, §3 rule 3)', () => {
+    expect(read('apps/people/src/panels.jsx')).not.toMatch(/SideLinks|Quick links/);
+    expect(read('packages/ui/src/components/list/SidePanel.jsx')).not.toMatch(/ui-side-today/);
   });
   it.each([
     'apps/people/src/workforce/Directory.jsx',
@@ -228,7 +224,7 @@ describe('status tokens in brand D', () => {
   });
 
   it('a clash is a look-here line, not an error', () => {
-    expect(read('apps/people/src/panels.jsx')).toContain('<SideAlert key={`c-${c.dept}`} tone="warn"');
+    expect(read('apps/people/src/panels.jsx')).toMatch(/<SideAlert title=\{`\$\{noManager\} without a manager`\}[^>]*tone="warn"/);
     expect(block).toMatch(/\.ui-side-alert\[data-tone='warn'\] \{ box-shadow: inset 3px 0 0 rgb\(var\(--warm\)\); \}/);
   });
 

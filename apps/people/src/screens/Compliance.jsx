@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { FileText, Plus, X } from '@ui/components/ui/lineIcons';
-import { EmptyState } from '@ui/components/ui/Primitives';
-import ListHeader, { SegmentedControl } from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState, SegmentedControl } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';

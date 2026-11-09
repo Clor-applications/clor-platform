@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';

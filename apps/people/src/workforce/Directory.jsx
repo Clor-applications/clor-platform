@@ -4,8 +4,7 @@ import { useSuggestions } from './suggestions';
 import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, TreePalm, Upload, UserCheck, UserMinus, Users, X } from '@ui/components/ui/lineIcons';
 import { useContentIcon } from '@ui/components/ui/colorSwap';
 
-import { EmptyState } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable, { ColumnSettings } from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';

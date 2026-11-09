@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState } from '@ui/components/ui/Primitives';
-import ListHeader from '@ui/components/list/ListHeader';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -65,7 +64,7 @@ export default function Plans({ params = {} }) {
               <span className="block truncate ui-caption tabular-nums">{day(p.startDate)} – {day(p.endDate)}</span>
             </span>
           )}
-          empty={<EmptyState title={status ? 'No plans here' : 'No plans running'} description="A plan is agreed with someone whose work needs to change: why, what is expected, and by when." routes={canStart && !status ? [{ label: 'New plan', onSelect: () => setCreating(true) }] : undefined} />} />
+          empty={<EmptyState title={status ? 'No plans here' : 'No plans running'} description="A plan is agreed with someone whose work needs to change: why, what is expected, and by when." />} />
       )}
       {current ? <PlanDrawer plan={current} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {creating ? <PlanForm hr={Boolean(req.data?.hr)} reports={req.data?.reports || []} onClose={() => setCreating(false)} onSaved={(p) => { setCreating(false); req.reload(); setOpen(p.id); }} /> : null}
