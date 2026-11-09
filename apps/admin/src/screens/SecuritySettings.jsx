@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, KeyRound, LogOut, Save } from 'lucide-react';
+import { ChevronRight, KeyRound, LogOut, Save } from '@ui/components/ui/lineIcons';
 
 import {
   changePassword,

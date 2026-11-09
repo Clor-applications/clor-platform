@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, KeyRound, LogOut, Search } from 'lucide-react';
+import { ArrowLeft, KeyRound, LogOut, Search } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
 
 import { ClorLogo } from '@ui/components/brand';
+import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 import Toaster from '@ui/components/ui/Toaster';
 import { notify } from '@ui/components/ui/notify';
 import { ICON, PageHead, Panel, Stat, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
@@ -755,7 +756,18 @@ function Console() {
   );
 }
 
+/* The console draws in the icon family of every app but Accounting (owner, 9 Nov 2026): two-tone marks, Fluent line icons. */
 export default function OpsConsole() {
+  return (
+    <IconSetContext.Provider value="duo">
+      <LineSetContext.Provider value="fluent">
+        <OpsScreens />
+      </LineSetContext.Provider>
+    </IconSetContext.Provider>
+  );
+}
+
+function OpsScreens() {
   const { user, restoring } = useSession();
   if (restoring) return null;
   if (!user) {

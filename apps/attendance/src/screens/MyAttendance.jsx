@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { HelpCircle, LogIn, LogOut } from 'lucide-react';
+import { HelpCircle, LogIn, LogOut } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';

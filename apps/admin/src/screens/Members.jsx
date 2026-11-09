@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Search, ShieldAlert, UserX } from 'lucide-react';
+import { ChevronRight, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
 
 import { confirmDialog } from '@ui/components/ui/notify';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';

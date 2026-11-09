@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import { MoreButton } from '@ui/components/list/ListPageParts';

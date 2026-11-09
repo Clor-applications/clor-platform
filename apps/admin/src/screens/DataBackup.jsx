@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download } from '@ui/components/ui/lineIcons';
 
 import NotConnected from '@ui/components/ui/NotConnected';
 import { notify } from '@ui/components/ui/notify';

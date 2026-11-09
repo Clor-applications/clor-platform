@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import { downloadCsv } from '@ui/utils/csv';

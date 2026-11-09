@@ -1,6 +1,6 @@
 import ShownOnce from '@ui/components/ui/ShownOnce';
 import React, { useCallback, useEffect, useState } from 'react';
-import { KeyRound, Plug, Plus, Server, Webhook } from 'lucide-react';
+import { KeyRound, Plug, Plus, Server, Webhook } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { confirmDialog, notify } from '@ui/components/ui/notify';

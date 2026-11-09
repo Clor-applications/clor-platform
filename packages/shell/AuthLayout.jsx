@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 

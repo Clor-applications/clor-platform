@@ -1691,18 +1691,7 @@
 }
 :root[data-palette='sky'] .ui-balance-low { color: rgb(var(--warm-ink)); }
 
-/*
- * People in Fluent Color (owner, 28 Oct 2026). A colour icon keeps its own colours, so "you are here" is a soft
- * teal tile with a hairline ring behind it, not a solid teal tile (a full-colour mark on teal clashed) and not a
- * recolour. Rail marks at 24px, menu marks at 18px: the colour sets need the size to read.
- */
-:root[data-palette='sky'] .ui-split-mod > svg.ui-color-icon { width: 1.5rem; height: 1.5rem; font-size: 1.5rem; }
-:root[data-palette='sky'] .ui-split-mod[data-current] > svg.ui-color-icon {
-  color: inherit;
-  background: rgb(var(--brand-soft));
-  box-shadow: inset 0 0 0 1px rgb(var(--brand-border));
-}
-:root[data-palette='sky'] .ui-split-item > svg.ui-color-icon { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; flex: none; }
+/* The open screen's name in the menu. (The Fluent Color rules of 28 Oct 2026 went with the colour set, 9 Nov 2026.) */
 :root[data-palette='sky'] .ui-split-item[aria-current='page'] { font-weight: 600; }
 
 /*

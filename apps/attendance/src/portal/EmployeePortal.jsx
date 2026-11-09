@@ -1,6 +1,6 @@
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
+import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { REASON_CODES, STATUS } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';

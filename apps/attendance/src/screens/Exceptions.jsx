@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, HelpCircle, UserRoundCheck } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, HelpCircle, UserRoundCheck } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { History, Upload } from 'lucide-react';
+import { History, Upload } from '@ui/components/ui/lineIcons';
 import Drawer from '@ui/components/ui/Drawer';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { SkeletonCard } from '@ui/components/ui/Primitives';

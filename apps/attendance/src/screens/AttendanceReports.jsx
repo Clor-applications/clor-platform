@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Download, FileSpreadsheet, History, Mail, Play, Printer } from 'lucide-react';
+import { Download, FileSpreadsheet, History, Mail, Play, Printer } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { MoreButton } from '@ui/components/list/ListPageParts';

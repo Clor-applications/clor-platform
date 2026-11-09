@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, Info } from '@ui/components/ui/lineIcons';
 
 import { notify } from "@ui/components/ui/notify";
 import SuggestInput from "@ui/components/ui/SuggestInput";

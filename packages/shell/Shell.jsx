@@ -31,8 +31,6 @@ import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
-import { AlertColor, PersonColor } from '@fluentui/react-icons';
-import { colorIcon } from '@ui/components/ui/iconSet';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
 import NoCompanyAccess from './NoCompanyAccess';
@@ -188,11 +186,22 @@ function ScreenState({ title, text, action }) {
   );
 }
 
-/* The bar's own icons in the colour set, for an app that draws in it (manifest iconSet: 'color'). */
-const BellColor = colorIcon(AlertColor, 'Alert');
-const ProfileColor = colorIcon(PersonColor, 'Person');
-
+/*
+ * The platform's own pages (sign-in, company setup, an app's public page) draw in the icon family every app but
+ * Accounting uses (owner, 9 Nov 2026): Phosphor two-tone marks and Fluent line icons. Inside, the open app's
+ * manifest decides, so Accounting keeps its Lucide line icons exactly as before.
+ */
 export default function Shell() {
+  return (
+    <IconSetContext.Provider value="duo">
+      <LineSetContext.Provider value="fluent">
+        <ShellScreens />
+      </LineSetContext.Provider>
+    </IconSetContext.Provider>
+  );
+}
+
+function ShellScreens() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
   const [navOpen, setNavOpen] = useState(false);
@@ -1018,8 +1027,8 @@ export default function Shell() {
   return (
     /* The open app's icon set (`iconSet` in its manifest): shared marks such as
        the page-header icon draw in it. No icon set, the line icons as before. */
-    <IconSetContext.Provider value={app?.iconSet || 'line'}>
-    <LineSetContext.Provider value={app?.lineIcons || 'lucide'}>
+    <IconSetContext.Provider value={app ? app.iconSet || 'line' : 'duo'}>
+    <LineSetContext.Provider value={app ? app.lineIcons || 'lucide' : 'fluent'}>
       <div
         className="ui-min-h-viewport"
         /* Which app is open, for styling: People, Attendance and Payroll wear the
@@ -1217,7 +1226,6 @@ export default function Shell() {
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}
-            icon={app?.iconSet === 'color' ? BellColor : undefined}
             /* The one waiting number the rail shows (manifest railCounts), so the bell never disagrees with Home or the Inbox. */
             waiting={waitingOnRail.count}
             onOpenWaiting={waitingOnRail.screen ? () => goTo(waitingOnRail.screen) : undefined}
@@ -1250,8 +1258,6 @@ export default function Shell() {
               ) : user?.fullName ? (
                 /* No photo yet: the person's initials, so the button is theirs at a glance (in the colour set too: a stock figure is nobody's). */
                 <span className="ui-topbar-initials" aria-hidden="true">{String(user.fullName).trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
-              ) : app?.iconSet === 'color' ? (
-                <ProfileColor size={20} />
               ) : (
                 <UserRound size={18} aria-hidden="true" />
               )}

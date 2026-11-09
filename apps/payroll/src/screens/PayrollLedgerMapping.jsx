@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
