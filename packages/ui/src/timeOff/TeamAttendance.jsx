@@ -211,7 +211,8 @@ export default function TeamAttendance() {
       />
 
       {/* The day in one bar; its figures are on the tabs, so there is no second row of them (8 Nov 2026 plan, step 3). */}
-      {view === 'day' && !loading ? (
+      {/* The bar only once something is marked: a day of nobody marked is one grey band saying nothing. */}
+      {view === 'day' && !loading && SUMMARY.some(([k]) => k !== 'NONE' && counts[k]) ? (
         <section className="att-summary" aria-label="The day at a glance">
           <div className="att-summary-bar" role="img" aria-label={SUMMARY.map(([k, l]) => `${l} ${counts[k] || 0}`).join(', ')}>
             {SUMMARY.map(([k, , tone]) => (counts[k] ? <span key={k} data-tone={tone} style={{ flexGrow: counts[k] }} /> : null))}

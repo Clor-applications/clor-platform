@@ -95,8 +95,7 @@ export default function LeaveBalances({ openScreen }) {
         </> : null}
       />
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : !data ? <SkeletonCard lines={6} /> : !types.length ? (
-        <EmptyState title="No paid leave types yet" description="Balances count each person's days of each kind of leave. Set up the leave types in Settings › Leave policy and the balances appear here."
-          action={setUpTypes ? <button type="button" className="ui-btn ui-btn-secondary" onClick={setUpTypes}>Set up leave types</button> : null} />
+        <EmptyState title="No paid leave types yet" description={<>Leave balances need at least one paid leave type. Set them up under {setUpTypes ? <button type="button" className="ui-link" onClick={setUpTypes}>Settings › Leave policy</button> : 'Settings › Leave policy'}.</>} />
       ) : (
         <DataTable
           label="Leave balances"

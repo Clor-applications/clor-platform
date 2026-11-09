@@ -72,9 +72,12 @@ it('with no paid leave types, Set up leave types is the primary and opens Leave 
   const openScreen = vi.fn();
   render(<PermissionContext.Provider value={{ loading: false, error: '', isAdmin: true, permissions: new Set() }}><LeaveBalances openScreen={openScreen} /></PermissionContext.Provider>);
   expect(await screen.findByText('No paid leave types yet')).toBeTruthy();
+  /* Once: the header's primary. The empty state is a sentence with the way there as a link, not a second button. */
   const buttons = screen.getAllByRole('button', { name: 'Set up leave types' });
-  expect(buttons.filter((b) => b.className.includes('ui-btn-primary'))).toHaveLength(1);
+  expect(buttons).toHaveLength(1);
+  expect(buttons[0].className).toContain('ui-btn-primary');
+  expect(screen.getByText(/need at least one paid leave type/)).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Grant leave to many' })).toBeNull();
-  fireEvent.click(buttons[0]);
+  fireEvent.click(screen.getByRole('button', { name: 'Settings › Leave policy' }));
   expect(openScreen).toHaveBeenCalledWith('leaveTypes');
 });

@@ -167,8 +167,8 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         ) : filtered ? (
           <EmptyState kind="filtered" title="No requests match" onClearFilters={() => set({ q: null, type: null, page: null })} />
         ) : noTypes ? (
-          <EmptyState title="No leave types yet" description="Leave waits here for a decision once there are kinds of leave to ask for. Set them up in Settings › Leave policy."
-            action={setUpTypes ? <button type="button" className="ui-btn ui-btn-secondary" onClick={setUpTypes}>Set up leave types</button> : null} />
+          /* The one action is the header's primary; here only the sentence, with the way there as a link. */
+          <EmptyState title="No leave types yet" description={<>Leave requests need at least one leave type. Set them up under {setUpTypes ? <button type="button" className="ui-link" onClick={setUpTypes}>Settings › Leave policy</button> : 'Settings › Leave policy'}.</>} />
         ) : tab === 'PENDING' ? (
           <EmptyState title="Nothing waiting" description="Leave asked for in the employee app, or entered here, waits here for a decision." />
         ) : (
