@@ -39,6 +39,7 @@ import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js'
 import { QuotaBusyError } from '../services/quotaLock.js';
 import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
 import { closedForOutsider } from '../services/outsideAccess.js';
+import { exploreInfo } from '../services/explore.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
@@ -587,6 +588,8 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
     accounts,
     allowedBranchIds,
     twoFactorSetupRequired,
+    /* Explore: this session is the read-only sample company (services/explore.ts); the shell says so, with the days left. */
+    explore: auth.explorePassId ? await exploreInfo(auth.explorePassId) : null,
   });
 });
 

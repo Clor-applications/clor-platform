@@ -90,6 +90,11 @@ export const demoRequestLimiter = [
 export const pricingQuoteLimiter = [bucket(60 * 1000, 120, 'price quotes', (req) => `price-quote:${ipOf(req)}`)];
 /** Test connection calls the payment provider; a few a minute is plenty. */
 export const paymentTestLimiter = [bucket(60 * 1000, 10, 'connection tests', (req) => `payment-test:${req.auth?.userId || ipOf(req)}`)];
+/* Opening an Explore link (routes/explore.ts): a few a quarter-hour from one address, and per link, so tokens cannot be walked. */
+export const exploreLimiter = [
+  guard(15 * 60 * 1000, 30, 'attempts to open a sample link', (req) => `explore-ip:${ipOf(req)}`),
+  guard(15 * 60 * 1000, 10, 'attempts to open a sample link', (req) => `explore-t:${digest(String(req.body?.token || ''))}`, (req) => !req.body?.token),
+];
 
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 

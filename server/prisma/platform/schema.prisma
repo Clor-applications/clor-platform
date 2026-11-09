@@ -573,7 +573,11 @@ model Session {
   // Set when this session is rotated, so a replayed old token is detectable.
   replacedBySessionId String?
 
+  /// An Explore session (the read-only sample company, routes/explore.ts): the pass it came from. Carried through every rotation.
+  explorePassId String?
+
   @@index([accountId, userId, revokedAt])
+  @@index([explorePassId])
   @@index([expiresAt])
 }
 
@@ -1454,4 +1458,30 @@ model PlatformSetting {
   value           Json
   updatedByUserId String?
   updatedAt       DateTime @updatedAt
+}
+
+/// An Explore pass (roadmap item 6): a link, mailed after a demo request, that
+/// opens the shared sample company read-only for 14 days. Only the token's hash
+/// is kept. Platform data with no account of its own, like DemoRequest.
+model ExplorePass {
+  id              String    @id @default(cuid())
+  demoRequestId   String?
+  /// Lower-cased; where the link was sent.
+  email           String
+  /// SHA-256 of the link's token; a new token (Resend) replaces it.
+  tokenHash       String    @unique
+  /// The app the visitor asked for first, for the link to open.
+  app             String?
+  expiresAt       DateTime
+  sentAt          DateTime?
+  sendCount       Int       @default(0)
+  lastUsedAt      DateTime?
+  useCount        Int       @default(0)
+  revokedAt       DateTime?
+  revokedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([demoRequestId])
+  @@index([email])
 }

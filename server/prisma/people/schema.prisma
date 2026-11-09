@@ -4018,6 +4018,8 @@ model ExpenseClaim {
   payrollPeriodName   String?
   /// Paid now: TO_RECORD until someone marks it entered in Books, then RECORDED.
   booksStatus         String?
+  /// HR recorded this claim on the person's behalf (a paper bill handed over): who did.
+  recordedByUserId    String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

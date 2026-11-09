@@ -4,7 +4,7 @@ import { notifyUsers } from '../notifications.js';
 import { type Actor, writeChangeLog } from './changeLog.js';
 import { writeEvent } from './outbox.js';
 import { textPdf } from './pdf.js';
-import { startChecklist } from './checklists.js';
+import { startChecklist, tickWhenDone } from './checklists.js';
 import { addDays, todayIst } from '../../utils/istDate.js';
 
 /**
@@ -320,6 +320,8 @@ export async function issueLetter(actor: Actor, employeeId: string, input: { kin
   });
   const person = await peoplePrisma.employee.findFirst({ where: { id: employeeId }, select: { userId: true } });
   if (person?.userId && classification === 'EMPLOYEE_VISIBLE') await notifyUsers(actor.accountId, actor.orgId, [person.userId], { kind: 'people.letter', title: `Your ${template.name.toLowerCase()} is ready`, body: 'Open Me → Documents to download it.', link: { app: 'people', screen: 'overview' } as any }).catch(() => undefined);
+  /* An appointment letter on file is a joining step: it closes by itself (People plan 8 Nov 2026, step 4). */
+  if (kind === 'APPOINTMENT') await tickWhenDone(actor.orgId, employeeId, 'JOINING', ['appointment letter'], `Issued: ${title}`, actor.userId);
   /* A letter asked for is now issued: the task for it is ticked. */
   await peoplePrisma.checklistTask.updateMany({ where: { orgId: actor.orgId, employeeId, kind: 'LETTER', doneAt: null, title: { startsWith: `Issue ${LETTER_LABEL[kind].toLowerCase()}` } }, data: { doneAt: new Date(), doneByUserId: actor.userId, note: `Issued: ${title}` } });
   return { document: { id: doc.id, title, kind: 'LETTER', mime: 'application/pdf', size: pdf.length, templateId: template.id, templateVersion: template.version, classification }, text };

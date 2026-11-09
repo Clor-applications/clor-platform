@@ -188,7 +188,7 @@ describe('employee referrals, end to end', () => {
     expect((await app1.post('/people/referrals/apply', { openingId: opening.id }).expect(409)).body.code).toBe('DUPLICATE');
     await api(c).post(`/talent/candidates/${a.id}/stage`, { stage: 'OFFER' }).expect(200);
     const before = await runInTenant(c.orgId, () => peoplePrisma.employee.count({ where: { orgId: c.orgId } }));
-    const h = (await api(c).post(`/talent/candidates/${a.id}/hire`, {}).expect(201)).body;
+    const h = (await api(c).post(`/talent/candidates/${a.id}/hire`, { withoutOffer: true, reason: 'Terms agreed by phone' }).expect(201)).body;
     expect(h).toMatchObject({ movedFromWithin: true, employee: { id: ravi.id } });
     expect(await runInTenant(c.orgId, () => peoplePrisma.employee.count({ where: { orgId: c.orgId } }))).toBe(before);
     expect((await app1.get('/people/referrals').expect(200)).body.applications[0]).toMatchObject({ job: 'Sales executive', status: 'Moved to this job' });
@@ -212,7 +212,7 @@ describe('employee referrals, end to end', () => {
     expect(updates.some((u: any) => u.kind === 'referral' && /Anil Rao was not taken forward/.test(u.text))).toBe(true);
     /* Priya: offer, hire with a joining date in the past so the bonus date has come. */
     await api(c).post(`/talent/candidates/${priya.candidateId}/stage`, { stage: 'OFFER' }).expect(200);
-    await api(c).post(`/talent/candidates/${priya.candidateId}/hire`, { dateOfJoining: plus(-40) }).expect(201);
+    await api(c).post(`/talent/candidates/${priya.candidateId}/hire`, { dateOfJoining: plus(-40), withoutOffer: true, reason: 'Terms agreed by phone' }).expect(201);
     const after = await runInTenant(c.orgId, () => peoplePrisma.referral.findUniqueOrThrow({ where: { id: priya.id } }));
     expect(after).toMatchObject({ outcome: 'JOINED', bonusStatus: 'WAITING', bonusDueOn: plus(-10) });
     mine = (await app1.get('/people/referrals').expect(200)).body;
@@ -261,7 +261,7 @@ describe('the referral bonus with Payroll', () => {
     const [one, two] = await runInTenant(c.orgId, () => peoplePrisma.referral.findMany({ where: { orgId: c.orgId }, orderBy: { phoneKey: 'asc' } }));
     for (const r of [one, two]) {
       await api(c).post(`/talent/candidates/${r.candidateId}/stage`, { stage: 'OFFER' }).expect(200);
-      await api(c).post(`/talent/candidates/${r.candidateId}/hire`, { dateOfJoining: plus(-35) }).expect(201);
+      await api(c).post(`/talent/candidates/${r.candidateId}/hire`, { dateOfJoining: plus(-35), withoutOffer: true, reason: 'Terms agreed by phone' }).expect(201);
     }
     /* Cook Two left after a week. */
     const twoHire = await runInTenant(c.orgId, () => peoplePrisma.candidate.findUniqueOrThrow({ where: { id: two.candidateId } }));
@@ -323,7 +323,7 @@ describe('review fixes: links, the bonus clock and the referrer rule', () => {
     await me.post('/people/referrals/refer', { openingId: o.id, name: `Friend ${phone.slice(-2)}`, phone }).expect(201);
     const r = await runInTenant(c.orgId, () => peoplePrisma.referral.findFirstOrThrow({ where: { orgId: c.orgId, phoneKey: phone } }));
     await api(c).post(`/talent/candidates/${r.candidateId}/stage`, { stage: 'OFFER' }).expect(200);
-    await api(c).post(`/talent/candidates/${r.candidateId}/hire`, { dateOfJoining: joined }).expect(201);
+    await api(c).post(`/talent/candidates/${r.candidateId}/hire`, { dateOfJoining: joined, withoutOffer: true, reason: 'Terms agreed by phone' }).expect(201);
     return r;
   }
   const month = async (c: Ctx) => {
@@ -364,7 +364,7 @@ describe('review fixes: links, the bonus clock and the referrer rule', () => {
     await me.post('/people/referrals/refer', { openingId: o.id, name: 'Swept One', phone: '9500000001' }).expect(201);
     const r = await runInTenant(c.orgId, () => peoplePrisma.referral.findFirstOrThrow({ where: { orgId: c.orgId, phoneKey: '9500000001' } }));
     await api(c).post(`/talent/candidates/${r.candidateId}/stage`, { stage: 'OFFER' }).expect(200);
-    await api(c).post(`/talent/candidates/${r.candidateId}/hire`, { dateOfJoining: plus(-10) }).expect(201);
+    await api(c).post(`/talent/candidates/${r.candidateId}/hire`, { dateOfJoining: plus(-10), withoutOffer: true, reason: 'Terms agreed by phone' }).expect(201);
     /* As if the call after the hire had failed. */
     await runInTenant(c.orgId, () => peoplePrisma.referral.update({ where: { id: r.id }, data: { outcome: null, outcomeAt: null, bonusStatus: 'NONE', bonusDueOn: null } }));
     await runInTenant(c.orgId, () => sweepOutcomes(r.accountId, c.orgId));
@@ -436,10 +436,10 @@ describe('review fixes: links, the bonus clock and the referrer rule', () => {
     const a = (await (await portal(c, kiran)).post('/people/referrals/apply', { openingId: o.id }).expect(201)).body.application;
     const b = (await (await portal(c, susi)).post('/people/referrals/apply', { openingId: o.id }).expect(201)).body.application;
     for (const x of [a, b]) await api(c).post(`/talent/candidates/${x.id}/stage`, { stage: 'OFFER' }).expect(200);
-    await api(c).post(`/talent/candidates/${a.id}/hire`, { dateOfJoining: plus(7) }).expect(201);
+    await api(c).post(`/talent/candidates/${a.id}/hire`, { dateOfJoining: plus(7), withoutOffer: true, reason: 'Terms agreed by phone' }).expect(201);
     const changes = await runInTenant(c.orgId, () => peoplePrisma.scheduledChange.findMany({ where: { orgId: c.orgId, employeeId: kiran.id, status: 'PENDING' } }));
     expect(changes.map((x) => [x.field, x.toValue, x.effectiveOn])).toEqual([['departmentId', store.id, plus(7)]]);
     await runInTenant(c.orgId, () => peoplePrisma.employee.update({ where: { id: susi.id }, data: { status: 'SUSPENDED' } }));
-    expect((await api(c).post(`/talent/candidates/${b.id}/hire`, {}).expect(409)).body.error).toMatch(/suspended/);
+    expect((await api(c).post(`/talent/candidates/${b.id}/hire`, { withoutOffer: true, reason: 'Agreed in person' }).expect(409)).body.error).toMatch(/suspended/);
   }, 90_000);
 });

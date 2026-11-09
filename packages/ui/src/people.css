@@ -2373,5 +2373,5 @@ html:root:is([data-palette='sky'], [data-palette='blaze']) :is(#main-content, .u
  * line through its own `data-brand="d"`, not the sky palette, so Attendance's web screens keep Blaze and the app keeps
  * its layout. Light theme only.
  */
-:root:not([data-theme='dark']) .ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--marigold)); color: rgb(var(--oxblood)); }
+:root:not([data-theme='dark']) .ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--marigold)); color: rgb(var(--oxblood, var(--ink))); }
 :root:not([data-theme='dark']) .ui-portal[data-brand='d'] nav[aria-label='Portal'] button[aria-current='page'] { box-shadow: inset 0 3px 0 rgb(var(--marigold)); }

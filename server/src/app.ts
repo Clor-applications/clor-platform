@@ -122,7 +122,10 @@ import { billingRouter, billingOperatorRouter, billingWebhook, providerWebhook }
 import { opsPaymentsRouter } from './routes/opsPayments.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsPricingRouter, pricingCors, pricingRouter } from './routes/pricing.js';
+import { opsExploreRouter } from './routes/opsExplore.js';
 import { opsRouter } from './routes/ops.js';
+import { exploreRouter } from './routes/explore.js';
+import { exploreReadOnly } from './middleware/exploreReadOnly.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { internalJobsRouter } from './routes/internalJobs.js';
 import { auditMutations } from './middleware/auditMutations.js';
@@ -263,6 +266,12 @@ export function buildApp() {
     })
   );
   /*
+   * Explore (roadmap item 6): a session on the sample company reads and
+   * changes nothing. Here, after CORS so the app can read the refusal, and
+   * ahead of every body parser and router, so no route can forget it.
+   */
+  app.use(exploreReadOnly);
+  /*
    * Biometric readers (ZKTeco / eSSL push). Plain-text bodies, no login: a
    * reader is known by its serial number, which a company claims under
    * Attendance → Readers. Mounted before the JSON parser and outside /api, so
@@ -392,6 +401,8 @@ export function buildApp() {
   /* Single sign-on lands here from the identity provider; mounted before the password routes. */
   /* A ceiling on every API call, per session and per address (FX-05). */
   app.use('/api', ...apiLimiter);
+  /* Explore: a link from the demo request's mail, traded for a read-only session on the sample company. */
+  app.use('/api', exploreRouter);
   app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
   /* W-3: an invited person's side of an invitation — before they belong to any company, so not company-scoped. */
@@ -433,6 +444,7 @@ export function buildApp() {
   app.use('/api', opsDemoRequestsRouter);
   app.use('/api', opsPricingRouter);
   app.use('/api', opsPaymentsRouter);
+  app.use('/api', opsExploreRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.

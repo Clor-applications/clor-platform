@@ -1,14 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const api = vi.hoisted(() => ({ list: vi.fn(), one: vi.fn(), set: vi.fn(), create: vi.fn() }));
+const api = vi.hoisted(() => ({ list: vi.fn(), one: vi.fn(), set: vi.fn(), create: vi.fn(), resend: vi.fn(), end: vi.fn() }));
 vi.mock('./api', () => ({
   opsDemoRequests: (p) => api.list(p),
   opsDemoRequest: (id) => api.one(id),
   opsSetDemoStatus: (id, b) => api.set(id, b),
   opsCreateDemoAccount: (id, b) => api.create(id, b),
+  opsResendExplore: (id) => api.resend(id),
+  opsEndExplore: (id) => api.end(id),
 }));
-vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: vi.fn(() => Promise.resolve(true)) }));
 
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 
@@ -66,5 +68,29 @@ describe('Demo requests in the operator console', () => {
     render(<DemoRequestDetail id="d1" role="SUPPORT" back={() => {}} openAccount={() => {}} />);
     expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create account' })).toBeNull();
+  });
+
+  it('shows the Explore link (sent, last used, times used, until) with Resend and End access', async () => {
+    const pass = { id: 'p1', email: 'asha@rao.in', app: 'people', state: 'active', sentAt: '2026-11-09T05:00:00Z', sendCount: 1, lastUsedAt: '2026-11-09T06:00:00Z', useCount: 3, expiresAt: '2026-11-23T05:00:00Z', revokedAt: null };
+    api.one.mockResolvedValue({ request: asha, account: null, explore: pass, history: [] });
+    api.end.mockResolvedValue({ explore: { ...pass, state: 'ended' }, sessionsEnded: 1 });
+    api.resend.mockResolvedValue({ explore: pass });
+    render(<DemoRequestDetail id="d1" role="SUPPORT" back={() => {}} openAccount={() => {}} />);
+    expect(await screen.findByText('Explore link')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Times used').nextElementSibling.textContent).toBe('3');
+    expect(screen.getByText('23 Nov 2026')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'End access' }));
+    await waitFor(() => expect(api.end).toHaveBeenCalledWith('d1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    await waitFor(() => expect(api.resend).toHaveBeenCalledWith('d1'));
+  });
+
+  it('offers to send a link for a request that has none', async () => {
+    api.one.mockResolvedValue({ request: asha, account: null, explore: null, history: [] });
+    render(<DemoRequestDetail id="d1" role="BILLING" back={() => {}} openAccount={() => {}} />);
+    expect(await screen.findByText('No link was sent with this request.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send a link' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'End access' })).toBeNull();
   });
 });

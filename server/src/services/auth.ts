@@ -35,7 +35,8 @@ export function getJwtSecret() {
  * (AuthPolicy.accessTokenMinutes, the strictest of them — services/policy.ts
  * sessionPolicyFor). Absent, the deployment's JWT_EXPIRES_IN.
  */
-export function signAccessToken(payload: { userId: string; accountId: string; sid?: string }, minutes?: number) {
+/** `xp`: the Explore pass an Explore session came from (services/explore.ts); its holder may only read (middleware/exploreReadOnly.ts). */
+export function signAccessToken(payload: { userId: string; accountId: string; sid?: string; xp?: string }, minutes?: number) {
   const secret = getJwtSecret();
   if (!secret) throw new Error('Server misconfigured: JWT_SECRET missing');
   return jwt.sign(payload, secret, {
@@ -63,6 +64,8 @@ export async function createSession(opts: {
   userAgent?: string;
   days?: number;
   notAfter?: Date;
+  /** An Explore session: the pass it came from, carried through every rotation. */
+  explorePassId?: string | null;
 }) {
   const refreshToken = randomBytes(48).toString('base64url');
   const days = opts.days && opts.days > 0 ? opts.days : REFRESH_TOKEN_DAYS;
@@ -77,6 +80,7 @@ export async function createSession(opts: {
       ip: opts.ip || null,
       userAgent: opts.userAgent ? String(opts.userAgent).slice(0, 300) : null,
       expiresAt,
+      ...(opts.explorePassId ? { explorePassId: opts.explorePassId } : {}),
     },
   });
 
@@ -139,6 +143,12 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
   });
   if (!user) throw new AuthError('Account is no longer active');
 
+  /* An Explore session lives only while its pass does: an operator's End access, or the pass running out, ends it here too. */
+  if (session.explorePassId) {
+    const pass = await platformPrisma.explorePass.findUnique({ where: { id: session.explorePassId }, select: { revokedAt: true, expiresAt: true } });
+    if (!pass || pass.revokedAt || pass.expiresAt.getTime() < Date.now()) throw new AuthError('This link has ended.', 401, 'EXPLORE_ENDED');
+  }
+
   /* Review N5: a refresh is a sign-in without the password; if no company's rules let the person in now, it is refused like one. */
   const entry = await signInEntry(user.id, user);
   if (entry.refusal) throw new AuthError(entry.refusal.error, 403, entry.refusal.code);
@@ -179,11 +189,12 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     userAgent: ctx.userAgent,
     days: policy.sessionDays,
     notAfter: session.expiresAt,
+    explorePassId: session.explorePassId,
   });
   await platformPrisma.session.update({ where: { id: session.id }, data: { replacedBySessionId: next.session.id } });
 
   return {
-    accessToken: signAccessToken({ userId: user.id, accountId: user.accountId, sid: next.session.id }, policy.accessTokenMinutes),
+    accessToken: signAccessToken({ userId: user.id, accountId: user.accountId, sid: next.session.id, ...(session.explorePassId ? { xp: session.explorePassId } : {}) }, policy.accessTokenMinutes),
     refreshToken: next.refreshToken,
     session: next.session,
   };

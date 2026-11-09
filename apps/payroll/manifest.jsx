@@ -78,6 +78,8 @@ export const payrollApp = {
   available: true,
   database: 'payroll.db',
   home: 'overview',
+  /** Electric Cyan (packages/ui/src/index.css, [data-palette='payroll']): neon brand, owner 5–6 Nov 2026. */
+  palette: 'payroll',
   /* People's icon family: two-tone marks, and Fluent line icons on buttons and actions. */
   iconSet: 'duo',
   lineIcons: 'fluent',

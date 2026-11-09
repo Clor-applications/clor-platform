@@ -15,6 +15,7 @@ import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 import { Payments } from './Payments';
 import { Pricing } from './Pricing';
 import { Settings } from './Settings';
+import { ExploreLinks, SampleCompany } from './Explore';
 import {
   opsAccount,
   opsAccounts,
@@ -667,6 +668,8 @@ const NAV = [
   ['demos', 'Demo requests', ICON.mail],
   ['pricing', 'Pricing', ICON.plan],
   ['payments', 'Payments', ICON.payments],
+  ['links', 'Explore links', ICON.invite],
+  ['sample', 'Sample company', ICON.company],
   ['audit', 'Operator log', ICON.history],
   ['operators', 'Operators', ICON.secure, 'SUPER_ADMIN'],
   ['settings', 'Settings', ICON.settings],
@@ -756,6 +759,10 @@ function Console() {
             <Payments role={me.role} />
           ) : page === 'settings' ? (
             <Settings role={me.role} />
+          ) : page === 'links' ? (
+            <ExploreLinks role={me.role} openRequest={setDemoId} />
+          ) : page === 'sample' ? (
+            <SampleCompany role={me.role} openLinks={() => open('links')} />
           ) : page === 'audit' ? (
             <AuditLog />
           ) : page === 'operators' && me.role === 'SUPER_ADMIN' ? (

@@ -1,6 +1,7 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { exclusive, leaseFor } from './jobLease.js';
 import { registerJob } from './jobRegistry.js';
+import { isSampleOrg } from './sampleIdentity.js';
 
 /**
  * In-app notifications: the bell every app shares.
@@ -55,6 +56,8 @@ export async function usersHoldingRoles(accountId: string, orgId: string, roleId
 export async function sendNotice(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null; dedupeKey?: string | null; subjectKey?: string | null } = {}) {
   let ids = [...new Set(userIds)].filter((id) => id && !id.startsWith('portal:') && id !== 'system' && id !== opts.except);
   if (!ids.length) return 0;
+  /* Explore's sample company: its visitor starts with, and keeps, a clean bell. */
+  if (await isSampleOrg(orgId)) return 0;
   /* People who muted this kind for this company are skipped. */
   const muted = await platformPrisma.notificationMute.findMany({ where: { orgId, kind: notice.kind, userId: { in: ids } }, select: { userId: true } });
   const off = new Set(muted.map((m) => m.userId));
@@ -79,6 +82,7 @@ export async function sendNotice(accountId: string, orgId: string, userIds: stri
  */
 export async function upsertNotice(accountId: string, orgId: string, userId: string, notice: Notice, dedupeKey: string, opts: { retire?: { startsWith: string } } = {}) {
   if (!userId || userId.startsWith('portal:') || userId === 'system') return 0;
+  if (await isSampleOrg(orgId)) return 0;
   if (await platformPrisma.notificationMute.findFirst({ where: { orgId, kind: notice.kind, userId }, select: { id: true } })) return 0;
   const key = String(dedupeKey).slice(0, 300);
   const data = { kind: notice.kind, title: notice.title.slice(0, 200), body: notice.body ? String(notice.body).slice(0, 1000) : null, linkJson: notice.link ? JSON.stringify(notice.link) : null };

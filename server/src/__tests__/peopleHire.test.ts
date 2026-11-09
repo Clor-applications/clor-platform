@@ -6,6 +6,7 @@ import request from 'supertest';
  * step, in the opening's department, with the joining checklist started.
  */
 const { buildApp } = await import('../app.js');
+const { platformPrisma } = await import('../utils/platformPrisma.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -29,11 +30,17 @@ describe('hire a candidate', () => {
     /* Hiring lives in Talent (routes/peopleTalent.ts): an opening, a candidate on it, Offer, then Hire. */
     const job = (await people('post', '/talent/openings', { title: 'Accountant', departmentId: finance.id, places: 2, status: 'OPEN' }).expect(201)).body.opening;
     const cand = (await people('post', '/talent/candidates', { openingId: job.id, name: 'Meera K', email: 'meera@example.com', phone: '9800000001' }).expect(201)).body.candidate;
+    const concurrentLater = (await people('post', '/talent/candidates', { openingId: job.id, name: 'Concurrent Hire', email: 'concurrent@example.com' }).expect(201)).body.candidate;
 
-    /* Not before an offer. */
-    await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409);
-    await people('post', `/talent/candidates/${cand.id}/stage`, { stage: 'OFFER' }).expect(200);
-    await people('post', `/talent/candidates/${cand.id}/hire`, {}).expect(400);
+    /* Not before an accepted offer (People plan 8 Nov 2026, step 4); the offer goes by e-mail and is accepted through its link. */
+    expect((await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409)).body.code).toBe('NO_ACCEPTED_OFFER');
+    await people('post', '/offers', { candidateId: cand.id, designation: 'Accountant', annualCtc: 360000, signatory: 'Owner', lines: [] }).expect(201);
+    expect((await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409)).body.code).toBe('NO_ACCEPTED_OFFER');
+    const mail = await platformPrisma.emailOutbox.findFirst({ where: { orgId: c.orgId, templateKey: 'people.offer', toEmail: 'meera@example.com' }, orderBy: { createdAt: 'desc' } });
+    const token = /\/api\/people\/offer\/([a-f0-9]{64})/.exec(mail?.bodyText || '')?.[1] || '';
+    await request(app).post(`/api/people/offer/${token}/accept`).send({}).expect(200);
+    /* Without an offer, HR says so and why; without a reason it is refused. */
+    expect((await people('post', `/talent/candidates/${concurrentLater.id}/hire`, { dateOfJoining: '2026-11-02', withoutOffer: true }).expect(400)).body.code).toBe('REASON_NEEDED');
 
     const hired = (await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02', code: 'F-21' }).expect(201)).body.employee;
     const file = (await people('get', `/employees/${hired.id}`).expect(200)).body.employee;
@@ -44,9 +51,10 @@ describe('hire a candidate', () => {
     expect(after).toMatchObject({ stage: 'HIRED', employeeId: hired.id });
 
     await people('post', `/talent/candidates/${cand.id}/hire`, { dateOfJoining: '2026-11-02' }).expect(409);
-    const concurrent = (await people('post', '/talent/candidates', { openingId: job.id, name: 'Concurrent Hire', email: 'concurrent@example.com' }).expect(201)).body.candidate;
+    const concurrent = concurrentLater;
     await people('post', `/talent/candidates/${concurrent.id}/stage`, { stage: 'OFFER' }).expect(200);
-    const attempts = await Promise.all([people('post', `/talent/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' }), people('post', `/talent/candidates/${concurrent.id}/hire`, { dateOfJoining: '2026-11-02' })]);
+    const flag = { dateOfJoining: '2026-11-02', withoutOffer: true, reason: 'Terms agreed in person' };
+    const attempts = await Promise.all([people('post', `/talent/candidates/${concurrent.id}/hire`, flag), people('post', `/talent/candidates/${concurrent.id}/hire`, flag)]);
     expect(attempts.map((a: any) => a.status).sort()).toEqual([201, 409]);
     const directory = (await people('get', '/employees?q=Concurrent').expect(200)).body.employees;
     expect(directory).toHaveLength(1);

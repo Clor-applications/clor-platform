@@ -14,6 +14,7 @@ import { requireOperatorStepUp } from '../services/stepUp.js';
 import { ProvisionError, provisionAccount } from '../services/accountProvisioning.js';
 import { QuotaBusyError } from '../services/quotaLock.js';
 import { deriveStateCodeFromInput } from '../utils/gstin.js';
+import { endExplorePass, issueExplorePass, passSummary, resendExplorePass } from '../services/explore.js';
 import { audit } from './ops.js';
 
 /**
@@ -173,7 +174,21 @@ demoRequestsRouter.post('/public/demo-requests', ...demoRequestLimiter, (req, re
         opsUrl: process.env.OPS_URL || 'https://ops.clor.in',
       },
     });
-    res.status(201).json({ ok: true });
+    /*
+     * Explore (roadmap item 6): a 14-day link to the sample company, mailed to
+     * them and shown on the thank-you. It opens a made-up company read-only,
+     * nothing of anybody's, so handing it to whoever filled the form is safe.
+     * A pass that cannot be made must not lose the request: it is kept, and
+     * an operator can send one from the console.
+     */
+    let explore: { url: string; expiresAt: Date } | null = null;
+    try {
+      const issued = await issueExplorePass({ demoRequestId: row.id, email: d.email, name: d.name, apps: d.apps });
+      explore = { url: issued.url, expiresAt: issued.pass.expiresAt };
+    } catch (e) {
+      console.error('Explore pass for a demo request failed:', (e as Error)?.message || e);
+    }
+    res.status(201).json({ ok: true, explore });
   }),
 );
 
@@ -231,7 +246,8 @@ opsDemoRequestsRouter.get('/ops/demo-requests/:id', (req, res) =>
     const people = await platformPrisma.user.findMany({ where: { id: { in: [...new Set(events.map((e) => e.operatorUserId))] } }, select: { id: true, fullName: true } });
     const who = new Map(people.map((p) => [p.id, p.fullName]));
     const account = r.accountId ? await platformPrisma.account.findUnique({ where: { id: r.accountId }, select: { id: true, name: true, code: true } }) : null;
-    res.json({ request: shape(r), account, history: events.map((e) => ({ id: e.id, action: e.action, at: e.at, operatorName: who.get(e.operatorUserId) || null, detail: e.detail })) });
+    const pass = await platformPrisma.explorePass.findFirst({ where: { demoRequestId: id }, orderBy: { createdAt: 'desc' } });
+    res.json({ request: shape(r), account, explore: passSummary(pass), history: events.map((e) => ({ id: e.id, action: e.action, at: e.at, operatorName: who.get(e.operatorUserId) || null, detail: e.detail })) });
   }),
 );
 
@@ -328,5 +344,45 @@ opsDemoRequestsRouter.post('/ops/demo-requests/:id/create-account', requireOpera
     });
     await audit(req, 'DEMO_ACCOUNT_CREATED', { accountId: result.account.id, userId: result.user.id }, { demoRequestId: id, apps, trialDays, state: parsed.data.state });
     res.status(201).json({ created: true, ...(await made({ accountId: result.account.id, ownerUserId: result.user.id })) });
+  }),
+);
+
+/* ------------------------------------------------------------- explore */
+
+/**
+ * The request's Explore pass (services/explore.ts): Resend mails a new link
+ * (the old one stops working; a pass that had ended or run out opens for
+ * another 14 days), End access stops the link and ends every session it
+ * opened. Support or billing, with step-up, on the record like the rest.
+ * A request from before Explore has no pass: Resend makes its first.
+ */
+opsDemoRequestsRouter.post('/ops/demo-requests/:id/explore/resend', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: resend an Explore link', async () => {
+    const id = String(req.params.id);
+    const r = await platformPrisma.demoRequest.findUnique({ where: { id } });
+    if (!r) return res.status(404).json({ error: 'No such request' });
+    const existing = await platformPrisma.explorePass.findFirst({ where: { demoRequestId: id }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+    let pass;
+    let reopened = false;
+    if (existing) {
+      const done = await resendExplorePass(existing.id, r.name, r.apps);
+      pass = done?.pass;
+      reopened = Boolean(done?.reopened);
+    } else {
+      pass = (await issueExplorePass({ demoRequestId: id, email: r.email, name: r.name, apps: r.apps })).pass;
+    }
+    await audit(req, 'EXPLORE_RESENT', {}, { demoRequestId: id, explorePassId: pass?.id, reopened, first: !existing });
+    res.json({ explore: passSummary(pass) });
+  }),
+);
+
+opsDemoRequestsRouter.post('/ops/demo-requests/:id/explore/end', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: end an Explore link', async () => {
+    const id = String(req.params.id);
+    const existing = await platformPrisma.explorePass.findFirst({ where: { demoRequestId: id }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+    if (!existing) return res.status(404).json({ error: 'This request has no Explore link.' });
+    const done = await endExplorePass(existing.id, req.auth!.userId);
+    await audit(req, 'EXPLORE_ENDED', {}, { demoRequestId: id, explorePassId: existing.id, sessionsEnded: done?.sessionsEnded ?? 0 });
+    res.json({ explore: passSummary(done?.pass), sessionsEnded: done?.sessionsEnded ?? 0 });
   }),
 );

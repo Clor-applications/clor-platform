@@ -253,12 +253,46 @@ export async function acceptOffer(o: any, ip: string | null) {
   return { status: 'ACCEPTED', acceptedAt: now, next };
 }
 
+/**
+ * Decline: the offer closes, and a candidate who declines is out of the
+ * running (Withdrew, with "Declined the offer" as the reason), so the opening
+ * counts them no longer and their place is free for the next person (People
+ * plan 8 Nov 2026, step 4). A draft hire who declines keeps their record; HR
+ * decides what happens to it.
+ */
 export async function declineOffer(o: any) {
   if (o.status !== 'SENT' || o.expiresAt < new Date()) throw new OfferError('This offer is no longer open.', 410);
   const r = await peoplePrisma.offer.updateMany({ where: { id: o.id, status: 'SENT' }, data: { status: 'DECLINED', declinedAt: new Date() } });
   if (r.count !== 1) throw new OfferError('This offer is no longer open.', 410);
-  await tellHr(o, `${o.name} declined the offer`, `For ${o.designation}.`);
+  if (o.candidateId) {
+    const c = await peoplePrisma.candidate.findFirst({ where: { id: o.candidateId, orgId: o.orgId }, select: { id: true, stage: true } });
+    if (c && !['HIRED', 'REJECTED', 'WITHDRAWN'].includes(c.stage)) {
+      await peoplePrisma.$transaction([
+        peoplePrisma.candidate.update({ where: { id: c.id }, data: { stage: 'WITHDRAWN', stageAt: new Date(), closedReason: 'Declined the offer' } }),
+        peoplePrisma.candidateEvent.create({ data: { accountId: o.accountId, orgId: o.orgId, candidateId: c.id, kind: 'STAGE', fromStage: c.stage, toStage: 'WITHDRAWN', text: 'Declined the offer' } }),
+      ]);
+      /* Who referred them is told their story ended (talent/referrals.ts); loaded here so offers and hiring do not import each other in a ring. */
+      const { afterCandidateMoved } = await import('./talent/referrals.js');
+      await afterCandidateMoved(o.accountId, o.orgId, c.id).catch((e) => console.error('[offers] referral:', e instanceof Error ? e.message : e));
+    }
+  }
+  await tellHr(o, `${o.name} declined the offer`, o.candidateId ? `For ${o.designation}. They are out of the running; the place is open for the next candidate.` : `For ${o.designation}.`);
   return { status: 'DECLINED' };
+}
+
+/**
+ * A candidate's accepted offer, filed on the employee record made from them
+ * (People plan 8 Nov 2026, step 4): the letter as a PDF among their documents,
+ * the offer pointing at the record, so the offer is found from the employee
+ * as it is for a draft hire. Inside the hire's own transaction.
+ */
+export async function fileOfferOnEmployee(tx: any, actor: Actor, offer: { id: string; letterText: string; email: string; designation: string; annualCtc: unknown; acceptBy: string }, employeeId: string) {
+  const org = await platformPrisma.org.findUnique({ where: { id: actor.orgId }, select: { name: true } });
+  const pdf = textPdf({ title: 'Offer letter', paragraphs: offer.letterText.split(/\n/), footer: `${org?.name || ''} - Offer letter` });
+  const doc = await tx.employeeDocument.create({ data: { accountId: actor.accountId, orgId: actor.orgId, employeeId, kind: 'LETTER', title: `Offer letter - ${words(todayIst())}`, mime: 'application/pdf', size: pdf.length, data: pdf, classification: 'EMPLOYEE_VISIBLE', visibleToEmployee: true, uploadedByUserId: actor.userId || 'CLOR' } });
+  await tx.offer.update({ where: { id: offer.id }, data: { employeeId, documentId: doc.id } });
+  await writeChangeLog(tx, actor, { kind: 'Employee', id: employeeId, employeeId }, [{ field: 'offer', before: null, after: `accepted offer filed: ${offer.designation}, CTC ${rupees(Number(offer.annualCtc))}`, redacted: false }]);
+  return doc;
 }
 
 /** The letter as a PDF, for the person to keep. */
