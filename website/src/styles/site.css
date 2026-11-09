@@ -3174,3 +3174,38 @@ html.is-scrolled .nav {
     transform: translateX(14px);
   }
 }
+
+/* ===================================== header colour (owner, 10 Nov 2026)
+ * "I asked change header colour": a white bar read as no change. The strip
+ * above is solid brand orange with white words; the menu bar is a light
+ * warm peach, still light, with the options in full ink.
+ */
+.topbar {
+  background: #ff5400;
+  border-bottom: 0;
+  color: #fff;
+}
+.topbar a,
+.topbar a:hover {
+  color: #fff;
+}
+.topbar a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.nav {
+  background: #fff1e8;
+  border-bottom: 1px solid #ffd9c4;
+}
+.nav::before {
+  display: none;
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: #fff;
+  color: var(--accent-text);
+}
+.nav-burger {
+  background: #fff;
+  border-color: #ffd0b8;
+}
