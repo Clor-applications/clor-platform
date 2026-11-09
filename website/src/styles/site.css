@@ -2100,3 +2100,13 @@ main:focus {
   mask-image: linear-gradient(90deg, transparent 0%, #000 13%);
   object-position: left center;
 }
+/* Photos with a CLOR screen on the device: a content surface, 12px corners. The Books laptop stays a cut-out. */
+.app-sec-photo:not(.app-sec-photo--books) img {
+  border-radius: var(--r-panel);
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.app-sec-photo--payroll {
+  max-width: 440px;
+  justify-self: center;
+}

@@ -96,6 +96,14 @@ function Stage({ children, flip }) {
   );
 }
 
+/** Each section's photo: a real CLOR screen (sample data) on the device in the picture. */
+const SHOTS = {
+  books: { src: ['/people/books-invoice-560.webp', '/people/books-invoice-980.webp'], w: [560, 980], h: 620, alt: 'A tax invoice in CLOR Books on a laptop, with sample data' },
+  people: { src: ['/people/people-hr-700.webp', '/people/people-hr-1400.webp'], w: [700, 1400], h: 788, alt: 'An HR manager looking at an employee’s profile in CLOR People' },
+  payroll: { src: ['/people/payroll-payslip-560.webp', '/people/payroll-payslip-1120.webp'], w: [560, 1120], h: 1400, alt: 'An employee reading her October payslip from CLOR Payroll on her phone' },
+  attendance: { src: ['/people/attendance-reader-700.webp', '/people/attendance-reader-1400.webp'], w: [700, 1400], h: 1050, alt: 'An employee punching in on a biometric reader showing CLOR Attendance' },
+};
+
 /** One product's section: what it does in a few plain lines, beside a photo and its screen. */
 function AppSection({ slug, title, lines, flip }) {
   const p = productBySlug(slug);
@@ -120,16 +128,16 @@ function AppSection({ slug, title, lines, flip }) {
             More about CLOR&nbsp;{p.name}
           </Link>
         </div>
-        {slug === 'books' ? (
-          <figure className="app-sec-photo">
+        {SHOTS[slug] ? (
+          <figure className={`app-sec-photo app-sec-photo--${slug}`}>
             <img
-              src="/people/books-invoice-980.webp"
-              srcSet="/people/books-invoice-560.webp 560w, /people/books-invoice-980.webp 980w"
+              src={SHOTS[slug].src[1]}
+              srcSet={`${SHOTS[slug].src[0]} ${SHOTS[slug].w[0]}w, ${SHOTS[slug].src[1]} ${SHOTS[slug].w[1]}w`}
               sizes="(max-width: 900px) 100vw, 560px"
-              width="980"
-              height="620"
+              width={SHOTS[slug].w[1]}
+              height={SHOTS[slug].h}
               loading="lazy"
-              alt="A tax invoice in CLOR Books on a laptop, with sample data"
+              alt={SHOTS[slug].alt}
             />
           </figure>
         ) : (
