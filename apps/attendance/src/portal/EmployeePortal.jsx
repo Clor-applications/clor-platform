@@ -150,7 +150,7 @@ export default function EmployeePortal() {
     <div className="ui-portal min-h-dvh pb-20" data-brand="d" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <header className="sticky top-0 z-10 border-b px-4 py-3" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
         <div className="mx-auto flex max-w-md items-center gap-2">
-          <Fingerprint size={20} aria-hidden="true" style={{ color: 'rgb(var(--accent))' }} />
+          <Fingerprint size={20} aria-hidden="true" style={{ color: 'rgb(var(--brand-ink))' }} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{me?.company?.name || 'Employee portal'}</div>
             <div className="ui-caption truncate">{me ? `${me.employee.name}${me.employee.code ? ` · ${me.employee.code}` : ''}` : ' '}</div>
@@ -199,7 +199,8 @@ export default function EmployeePortal() {
                 <button
                   type="button"
                   className="flex w-full flex-col items-center gap-0.5 py-2 text-[11px]"
-                  style={{ color: on ? 'rgb(var(--accent))' : 'rgb(var(--fg-muted))', fontWeight: on ? 600 : 400 }}
+                  /* The open tab's words in the brand's ink: the neon itself (amber, orange) is too light for text on white. */
+                  style={{ color: on ? 'rgb(var(--brand-ink))' : 'rgb(var(--fg-muted))', fontWeight: on ? 600 : 400 }}
                   aria-current={on ? 'page' : undefined}
                   onClick={() => setTab(t.key)}
                 >
@@ -275,7 +276,7 @@ export function PortalSignIn({ onDone }) {
     <div className="grid min-h-dvh place-items-center px-4 py-8" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <div className="w-full max-w-sm space-y-5">
         <div className="space-y-1 text-center">
-          <Fingerprint size={36} aria-hidden="true" className="mx-auto" style={{ color: 'rgb(var(--accent))' }} />
+          <Fingerprint size={36} aria-hidden="true" className="mx-auto" style={{ color: 'rgb(var(--brand-ink))' }} />
           <h1 className="ui-display text-xl">Employee portal</h1>
           <p className="ui-caption">Your attendance, schedule and leave.</p>
         </div>
