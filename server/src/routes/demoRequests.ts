@@ -312,8 +312,8 @@ opsDemoRequestsRouter.post('/ops/demo-requests/:id/create-account', requireOpera
         companyName: r.company,
         state: parsed.data.state,
         plan: { apps, status: 'trialing', trialEndsAt },
-        /* requestedApp: the app the owner asked for first, for the shell to open (roadmap item 5). */
-        profile: { requestedApp: apps[0], city: r.city, companySize: r.companySize, expectedUsers: r.users, source: 'demo-request' },
+        /* requestedApp: the app the owner came for (the form puts the product page's app first), for the shell to open (roadmap item 5). */
+        profile: { requestedApp: r.apps.find((a) => apps.includes(a)) || apps[0], city: r.city, companySize: r.companySize, expectedUsers: r.users, source: 'demo-request' },
         ip: clientIp(req),
         actor: 'a CLOR operator',
       });

@@ -9,6 +9,7 @@ vi.mock('./api', () => ({
   opsEnableTwoFactor: (code) => api.opsEnableTwoFactor(code),
   opsAccounts: vi.fn(), opsAccount: vi.fn(), opsSuspend: vi.fn(), opsReinstate: vi.fn(), opsExtendTrial: vi.fn(),
   opsGrantPlan: vi.fn(), opsAudit: vi.fn(), opsOperators: vi.fn(), opsAddOperator: vi.fn(), opsChangeOperator: vi.fn(),
+  opsDemoRequests: vi.fn(), opsDemoRequest: vi.fn(), opsSetDemoStatus: vi.fn(), opsCreateDemoAccount: vi.fn(),
 }));
 const session = vi.hoisted(() => ({ value: { user: { id: 'u1' }, restoring: false, signOut: vi.fn() } }));
 vi.mock('../shell/session', () => ({ useSession: () => session.value }));
