@@ -1,4 +1,5 @@
 import React from 'react';
+import { Calculator, ChartLineUp, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
@@ -54,21 +55,25 @@ const APPS = [
 
 const TEAMS = [
   {
+    icon: Storefront,
     title: 'Business owners',
     text: 'File GSTR-1 and GSTR-3B from the invoices you already raised. Import masters and opening balances from Tally. Reconcile the bank statement against Books.',
     link: ['/solutions/businesses', 'CLOR for businesses'],
   },
   {
+    icon: Calculator,
     title: 'Accountants and CA firms',
     text: 'Your client invites you with your own login and decides what you may see and change. You switch between clients from the company menu without signing out.',
     link: ['/solutions/accounting-firms', 'CLOR for accounting firms'],
   },
   {
+    icon: ChartLineUp,
     title: 'Finance teams',
     text: 'Invoices, bills and the salary run post their own journals. Invoices above an amount wait for approval, and a change to bank details needs a second person.',
     link: ['/products/books', 'CLOR Books'],
   },
   {
+    icon: UsersThree,
     title: 'HR teams',
     text: 'Joining and exit checklists that HR, IT and the manager each tick off. Documents remind you before they expire. One record per person, from offer letter to final settlement.',
     link: ['/products/people', 'CLOR People'],
@@ -276,6 +281,9 @@ export default function Home() {
           <ul className="groups">
             {TEAMS.map((t) => (
               <li key={t.title}>
+                <span className="tile" aria-hidden="true">
+                  <t.icon size={22} weight="duotone" />
+                </span>
                 <h3 className="h-3">{t.title}</h3>
                 <p className="body">{t.text}</p>
                 <Link className="text-link" href={t.link[0]}>

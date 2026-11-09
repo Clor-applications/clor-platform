@@ -2862,3 +2862,315 @@ html.is-scrolled .nav {
   max-width: 420px;
   justify-self: center;
 }
+
+/* ===================================== clean white + moving pictures (10 Nov)
+ * Owner: a clean white page, and some life in Setting up and the plain lists.
+ */
+.hero--home,
+.p-hero,
+.sol-hero,
+.section--tint {
+  background: var(--bg);
+}
+.section--tint + .section,
+.section + .section--tint {
+  border-top: 1px solid var(--line);
+}
+
+/* An icon tile: duotone icon in the brand orange on its tint. */
+.tile {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid #ffe0cf;
+  flex: none;
+}
+.groups li .tile {
+  margin-bottom: var(--s-2);
+}
+
+/* Where your data lives: three points, each with its icon. */
+.icon-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-5);
+}
+.icon-facts li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s-4);
+  align-items: start;
+}
+.split > .stack > .icon-facts {
+  grid-row: span 2;
+}
+
+/* The wire between two marks: a dot runs along it. */
+.links-wire::after {
+  animation: wire-run 2.6s var(--ease) infinite;
+}
+@keyframes wire-run {
+  0% { right: 100%; opacity: 0; }
+  15% { opacity: 1; }
+  70%, 100% { right: -4px; opacity: 1; }
+}
+
+/* ---- Setting up: three steps, each a small looping picture over its words */
+.setup {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-col);
+  counter-reset: step;
+}
+.setup-step {
+  display: grid;
+  gap: var(--s-5);
+  align-content: start;
+}
+.setup-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 220px;
+  border-radius: var(--r-panel);
+  background:
+    radial-gradient(60% 70% at 50% 0%, var(--accent-soft), transparent 70%),
+    var(--surface-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.setup-copy {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+}
+.setup-copy .tile {
+  margin-bottom: var(--s-1);
+}
+.setup-tally {
+  margin-top: var(--gap-head);
+  padding: var(--s-5) var(--s-6);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 var(--r-panel) var(--r-panel) 0;
+  color: var(--ink-2);
+  max-width: none;
+}
+.setup-tally strong {
+  color: var(--ink);
+}
+
+/* Step 1: the company form types itself in. */
+.sf {
+  width: min(260px, 80%);
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.35);
+  font-size: 12px;
+}
+.sf-label {
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+.sf-field {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sf-type {
+  white-space: nowrap;
+  overflow: hidden;
+  border-right: 1.5px solid var(--accent);
+  clip-path: inset(0 100% 0 0);
+  animation: sf-type 8s steps(22) infinite;
+}
+.sf-type--2 {
+  animation-name: sf-type-2;
+  animation-timing-function: steps(15);
+}
+@keyframes sf-type {
+  0%, 6% { clip-path: inset(0 100% 0 0); }
+  30%, 92% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 100% 0 0); }
+}
+@keyframes sf-type-2 {
+  0%, 34% { clip-path: inset(0 100% 0 0); }
+  55%, 92% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 100% 0 0); }
+}
+.sf-ok {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 700;
+  font-size: 11px;
+  opacity: 0;
+  animation: sf-ok 8s var(--ease) infinite;
+}
+@keyframes sf-ok {
+  0%, 58% { opacity: 0; transform: translateY(4px); }
+  64%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+/* Step 2: products switch on one by one. */
+.sw {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(270px, 84%);
+  display: grid;
+  gap: 8px;
+}
+.sw li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.sw li > span:nth-child(2) {
+  flex: 1;
+}
+.sw-toggle {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  animation: sw-bg 8s var(--ease) infinite;
+  animation-delay: calc(var(--i) * 0.7s);
+}
+.sw-toggle span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  animation: sw-knob 8s var(--ease) infinite;
+  animation-delay: calc(var(--i) * 0.7s);
+}
+@keyframes sw-bg {
+  0%, 12% { background: var(--line-strong); }
+  18%, 90% { background: var(--app); }
+  100% { background: var(--line-strong); }
+}
+@keyframes sw-knob {
+  0%, 12% { transform: none; }
+  18%, 90% { transform: translateX(14px); }
+  100% { transform: none; }
+}
+
+/* Step 3: the team arrives, each with a tick. */
+.tm {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(250px, 80%);
+  display: grid;
+  gap: 10px;
+}
+.tm li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 18px -14px rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  animation: tm-in 8s var(--ease) infinite;
+  animation-delay: calc(var(--i) * 0.8s);
+}
+.tm-av {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tm-role {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.tm-ok {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #15803d;
+}
+@keyframes tm-in {
+  0%, 6% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  14%, 88% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+@media (max-width: 900px) {
+  .setup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Less motion: every picture shows its finished state, still. */
+@media (prefers-reduced-motion: reduce) {
+  .sf-type,
+  .sf-ok,
+  .sw-toggle,
+  .sw-toggle span,
+  .tm li,
+  .links-wire::after {
+    animation: none !important;
+  }
+  .sf-type {
+    clip-path: none;
+    border-right: 0;
+  }
+  .sf-ok,
+  .tm li {
+    opacity: 1;
+  }
+  .sw-toggle {
+    background: var(--app);
+  }
+  .sw-toggle span {
+    transform: translateX(14px);
+  }
+}
