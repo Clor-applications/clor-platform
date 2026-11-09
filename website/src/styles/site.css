@@ -2758,3 +2758,107 @@ html.is-scrolled .nav {
 .mega-feature:hover .mega-name {
   color: var(--accent-text);
 }
+
+/* =========================================== layout fixes (owner, 10 Nov 2026)
+ * "Huge empty places": a heading alone in a left column beside a long right
+ * column left half the screen bare. Every two-column section now stacks: the
+ * heading across the top, its content in columns underneath.
+ */
+.split {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap-head);
+}
+.split > .head,
+.split > .sec-head {
+  position: static;
+  max-width: 46rem;
+}
+.split > .stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-5) var(--gap-col);
+  align-items: start;
+}
+.split > .stack > * + * {
+  margin-top: 0;
+}
+.split > .stack > .text-link {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: 0;
+}
+.split > .facts-list {
+  max-width: none;
+  columns: 2;
+  column-gap: var(--gap-col);
+  display: block;
+}
+.split > .facts-list li {
+  break-inside: avoid;
+  margin-bottom: var(--s-3);
+}
+.split > .btn--text {
+  grid-column: auto;
+}
+/* Connections: three across, each under a hairline. */
+.split > .links {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 var(--gap-col);
+  border-top: 0;
+}
+.split > .links li {
+  border-bottom: 0;
+  border-top: 2px solid var(--line);
+  padding-top: var(--s-5);
+}
+/* Questions: two columns of question and answer. */
+.faq {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap-head);
+}
+.faq > .h-2 {
+  font-size: var(--t-h1);
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+}
+.faq-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--gap-col);
+  border-top: 0;
+}
+.faq-item {
+  border-bottom: 0;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 900px) {
+  .split > .stack,
+  .split > .links,
+  .faq-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .split > .facts-list {
+    columns: 1;
+  }
+}
+
+/* A product's hero photo. */
+.p-photo {
+  margin: 0;
+}
+.p-photo img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-panel);
+  box-shadow: 0 24px 48px -28px rgba(15, 23, 42, 0.35);
+}
+.p-photo--cut img {
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent);
+  mask-image: linear-gradient(180deg, #000 80%, transparent);
+}
+.p-photo--tall {
+  max-width: 420px;
+  justify-self: center;
+}

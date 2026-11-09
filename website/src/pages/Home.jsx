@@ -190,11 +190,10 @@ export default function Home() {
               srcSet="/people/hero-books-700.webp 700w, /people/hero-books-1400.webp 1400w"
               sizes="(max-width: 900px) 100vw, 640px"
               width="1400"
-              height="875"
+              height="835"
               fetchPriority="high"
               alt="An accountant at his desk with the CLOR Books dashboard open on his laptop"
             />
-            <figcaption className="caption">Screens show sample data.</figcaption>
           </figure>
         </div>
       </section>

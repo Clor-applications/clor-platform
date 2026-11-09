@@ -3,12 +3,12 @@ import { BookOpen } from 'lucide-react';
 import { Briefcase, CalendarDots, Fingerprint, UsersThree, Wallet } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 
-/** The CLOR logo, as the apps draw it (packages/ui ClorLogo): orange C-mark and O, slate L and R (public/brand/clor-logo.png, 434 x 147). */
+/** The CLOR logo, as the apps draw it (packages/ui ClorLogo): orange C-mark and O, slate L and R (public/brand/clor-logo-2026-11.png; renamed so no browser keeps the old oxblood file, 434 x 147). */
 /** The header's copy loads first; the footer's (lazy) waits until it is near. */
 export function Logo({ height = 22, lazy = false, light = false }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src={light ? '/brand/clor-logo-light.png' : '/brand/clor-logo.png'} alt="CLOR" height={height} width={Math.round((height * 434) / 147)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
+      <img src={light ? '/brand/clor-logo-2026-11-light.png' : '/brand/clor-logo-2026-11.png'} alt="CLOR" height={height} width={Math.round((height * 434) / 147)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
     </Link>
   );
 }
