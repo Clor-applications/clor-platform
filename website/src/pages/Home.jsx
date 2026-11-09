@@ -110,7 +110,7 @@ function AppSection({ slug, title, lines, flip }) {
   // The hero already shows Books' invoice, so Books' own section shows the GSTR-1 it feeds.
   const Win = slug === 'books' ? GstrWindow : WINDOWS[slug];
   return (
-    <section className="section" aria-labelledby={`${slug}-title`}>
+    <section className="section app-sec-wrap" aria-labelledby={`${slug}-title`} style={{ '--app': p.accent }}>
       <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
         <div className="app-sec-copy">
           <p className="app-sec-name">
@@ -199,7 +199,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section" aria-labelledby="suite-title">
+      <section className="section section--tint" aria-labelledby="suite-title">
         <div className="wrap">
           <div className="head head--center">
             <h2 className="h-1" id="suite-title">
@@ -247,7 +247,7 @@ export default function Home() {
         <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
       ))}
 
-      <section className="section" aria-labelledby="connected-title">
+      <section className="section section--tint" aria-labelledby="connected-title">
         <div className="wrap split">
           <Head
             id="connected-title"

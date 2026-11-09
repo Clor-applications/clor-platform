@@ -123,9 +123,9 @@ h4 {
   outline-offset: 3px;
   border-radius: 4px;
 }
-/* An in-page target clears the 68px sticky bar (and a little air). */
+/* An in-page target clears the 72px sticky bar (and a little air). */
 [id] {
-  scroll-margin-top: 84px;
+  scroll-margin-top: 92px;
 }
 /* Focus moves to the page after an in-page navigation; the page itself needs no ring. */
 main:focus {
@@ -544,7 +544,7 @@ main:focus {
 .mobile {
   position: fixed;
   z-index: 49;
-  inset: 68px 0 0;
+  inset: 72px 0 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bg);
@@ -2132,4 +2132,442 @@ main:focus {
   .sol-hero-split {
     grid-template-columns: 1fr;
   }
+}
+
+/* -------------------------------------------------------------- header, 10 Nov 2026
+ * Like the corporate HR suites: a quiet strip above the bar for sales, the employee portal
+ * and help; the bar itself holds the menus, a plain Sign in and the one orange button.
+ * Products opens wide, with the apps on the left and a picture of the home screen on the right.
+ */
+.topbar {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+}
+.topbar-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  height: 36px;
+}
+.topbar a {
+  color: inherit;
+  text-decoration: none;
+}
+.topbar a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.topbar ul {
+  display: flex;
+  gap: var(--s-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.nav-bar {
+  height: 72px;
+}
+.logo img {
+  height: 24px;
+}
+.nav-main > ul {
+  justify-content: center;
+  gap: var(--s-1);
+}
+.nav-trigger {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.nav-signin {
+  font-weight: 600;
+}
+.nav-demo {
+  height: 44px;
+}
+.mega--products {
+  width: min(1040px, calc(100vw - 2 * var(--gutter)));
+}
+.mega-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+.mega-feature {
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  margin: var(--s-4) var(--s-4) var(--s-4) 0;
+  padding: var(--s-3);
+  border-radius: var(--r-panel);
+  background: var(--surface-2);
+  color: var(--ink);
+  text-decoration: none;
+}
+.mega-feature img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-control);
+  margin-bottom: var(--s-2);
+}
+.mega-feature:hover .mega-name {
+  color: var(--accent);
+}
+/* The products menu hangs from the whole bar, centred, so its wide panel always stays on screen. */
+.nav-bar {
+  position: relative;
+}
+.nav-main li:first-child {
+  position: static;
+}
+.nav-main li:first-child .mega-wrap {
+  left: var(--gutter);
+  right: var(--gutter);
+  display: flex;
+  justify-content: center;
+}
+@media (max-width: 960px) {
+  .topbar {
+    display: none;
+  }
+  .nav-signin {
+    display: none;
+  }
+}
+@media (max-width: 1180px) {
+  .mega-body {
+    grid-template-columns: 1fr;
+  }
+  .mega-feature {
+    display: none;
+  }
+}
+
+/* ===================================================== polish, 10 Nov 2026
+ * One rhythm for the whole site: one section heading size, tighter section
+ * padding, links that sit clear of the text above them, and quiet motion —
+ * the hero rises in once, later blocks fade up as they reach the screen.
+ * Everything here switches off under prefers-reduced-motion.
+ */
+:root {
+  --section: clamp(56px, 7vw, 112px);
+  --t-h1: clamp(1.875rem, 1.2rem + 1.8vw, 2.75rem);
+  --gap-head: clamp(var(--s-6), 3.5vw, var(--s-7));
+}
+
+/* Type: every section heading one size, whatever block it sits in. */
+.h-1,
+.split > .head .h-1,
+.split > .sec-head .h-1,
+.band > .sec-head .h-1,
+.app-sec-copy .h-1 {
+  font-size: var(--t-h1);
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+}
+.h-hero {
+  letter-spacing: -0.028em;
+}
+.lede {
+  line-height: 1.6;
+}
+.head {
+  gap: var(--s-3);
+}
+.head--center {
+  margin-inline: auto;
+  max-width: 760px;
+}
+/* The product name over a section heading reads as a small label. */
+.app-sec-name {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.01em;
+}
+.app-sec-copy {
+  gap: var(--s-5);
+}
+.app-sec-copy .app-sec-name + .h-1 {
+  margin-top: calc(-1 * var(--s-2));
+}
+.facts-list {
+  gap: var(--s-3);
+  line-height: 1.6;
+}
+
+/* Spacing: a link after a list or paragraph stands clear of it. */
+.stack > .text-link {
+  display: inline-block;
+  margin-top: var(--s-5);
+}
+.split {
+  align-items: start;
+}
+.split > .head {
+  padding-top: 2px;
+}
+/* The payroll phone photo lines up with the page edge like the other photos. */
+.app-sec-photo--payroll {
+  max-width: 460px;
+  justify-self: start;
+}
+.app-sec-photo img {
+  width: 100%;
+  height: auto;
+}
+
+/* Links: the underline draws in from the left. */
+.text-link {
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1.5px no-repeat;
+  padding-bottom: 2px;
+  transition: background-size 280ms var(--ease);
+}
+.text-link:hover {
+  text-decoration: none;
+  background-size: 100% 1.5px;
+}
+
+/* Buttons lift a pixel; the arrow in a card button nudges forward. */
+.btn {
+  transition: background-color 180ms var(--ease), color 180ms var(--ease), border-color 180ms var(--ease), transform 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+.btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -8px rgba(255, 84, 0, 0.55);
+}
+.btn--primary:active {
+  transform: none;
+  box-shadow: none;
+}
+.app-card-btn span {
+  display: inline-block;
+  transition: transform 220ms var(--ease);
+}
+.app-card:hover .app-card-btn span,
+.app-card-btn:hover span {
+  transform: translateX(3px);
+}
+.app-card-pic {
+  transition: transform 600ms var(--ease);
+}
+.app-card:hover .app-card-pic {
+  transform: scale(1.03);
+}
+
+/* The header gains a hairline shadow once the page has scrolled. */
+.nav {
+  transition: box-shadow 200ms var(--ease);
+}
+html.is-scrolled .nav {
+  box-shadow: 0 1px 0 var(--line), 0 6px 18px -14px rgba(15, 23, 42, 0.25);
+}
+
+/* Hero: the words rise in, then the photo, once on load. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.home-hero .hero-copy > *,
+.sol-hero-split > :first-child > *,
+.p-hero .wrap > * {
+  animation: rise 700ms var(--ease) both;
+}
+.home-hero .hero-copy > :nth-child(2),
+.sol-hero-split > :first-child > :nth-child(2),
+.p-hero .wrap > :nth-child(2) {
+  animation-delay: 80ms;
+}
+.home-hero .hero-copy > :nth-child(3),
+.sol-hero-split > :first-child > :nth-child(3),
+.p-hero .wrap > :nth-child(3) {
+  animation-delay: 160ms;
+}
+.hero-photo,
+.sol-hero-photo {
+  animation: settle 900ms var(--ease) 120ms both;
+}
+
+/* Scroll reveal: set by App.jsx only on blocks below the first screen, and only with motion allowed. */
+.rv {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.rv.rv-in {
+  opacity: 1;
+  transform: none;
+  transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+  transition-delay: calc(var(--rv-i, 0) * 70ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rv {
+    opacity: 1;
+    transform: none;
+  }
+  .app-card:hover,
+  .app-card:hover .app-card-pic,
+  .btn--primary:hover {
+    transform: none;
+  }
+}
+/* The footer's hairline lines up with the content edge, not the padded box. */
+.footer-base {
+  border-top: 0;
+  background: linear-gradient(var(--line), var(--line)) var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px no-repeat;
+}
+.stack > .facts-list {
+  margin-top: var(--s-5);
+}
+
+/* ===================================================== colour, 10 Nov 2026
+ * A deep navy frames the page (top strip, closing band, footer); a warm
+ * orange glow sits behind the hero and the closing call; tinted bands set
+ * the product cards and the connections apart; each product section takes
+ * its own colour for its label.
+ */
+:root {
+  --navy: #0b1530;
+  --navy-2: #071022;
+  --navy-line: rgba(255, 255, 255, 0.1);
+  --on-navy: #ffffff;
+  --on-navy-2: rgba(226, 232, 240, 0.78);
+  --on-navy-3: rgba(203, 213, 225, 0.6);
+  --tint: #f6f7fb;
+  --glow: rgba(255, 84, 0, 0.14);
+  --glow-cool: rgba(56, 97, 251, 0.08);
+}
+
+/* Top strip: navy, light words. */
+.topbar {
+  background: var(--navy);
+  border-bottom: 0;
+  color: var(--on-navy-2);
+}
+.topbar a:hover {
+  color: var(--on-navy);
+}
+
+/* Header: frosted white over the page, an orange hairline under the strip. */
+.nav {
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.nav::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent) 30%, #ff9a3d 70%, transparent);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.topbar + .nav-bar,
+.nav .nav-bar {
+  background: transparent;
+}
+.nav-trigger {
+  border-radius: var(--r-control);
+  transition: background-color 160ms var(--ease), color 160ms var(--ease);
+}
+.nav-trigger:hover,
+.nav-trigger[aria-expanded='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Hero: a warm glow top right, a cool one bottom left. */
+.hero--home,
+.p-hero,
+.sol-hero {
+  background:
+    radial-gradient(55% 70% at 88% 18%, var(--glow), transparent 70%),
+    radial-gradient(45% 60% at 0% 100%, var(--glow-cool), transparent 70%),
+    var(--bg);
+}
+
+/* Tinted bands. */
+.section--tint {
+  background: var(--tint);
+}
+.section--tint + .section,
+.section + .section--tint {
+  border-top: 0;
+}
+.section--tint .app-card {
+  border-color: rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -24px rgba(15, 23, 42, 0.25);
+}
+/* Each card carries its product colour as a thin line along the top. */
+.app-card::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--app);
+  opacity: 0.9;
+  z-index: 3;
+}
+
+/* Product sections: the label in the product's colour. */
+.app-sec-wrap .app-sec-name {
+  color: var(--app);
+}
+.app-sec-wrap .facts-list li::marker {
+  color: var(--app);
+}
+
+/* Closing call: navy with an orange glow. */
+.closing-band {
+  background:
+    radial-gradient(50% 90% at 92% 10%, rgba(255, 84, 0, 0.32), transparent 70%),
+    radial-gradient(40% 80% at 0% 100%, rgba(56, 97, 251, 0.22), transparent 70%),
+    var(--navy);
+}
+
+/* Footer: the deepest navy, light text, orange on hover. */
+.footer {
+  background: var(--navy-2);
+  border-top: 1px solid var(--navy-line);
+  color: var(--on-navy-2);
+}
+.footer .small,
+.footer .caption {
+  color: var(--on-navy-3);
+}
+.footer-title {
+  color: var(--on-navy);
+}
+.footer a {
+  color: var(--on-navy-2);
+}
+.footer a:hover {
+  color: #ff9a6b;
+  text-decoration: none;
+}
+.footer-base {
+  background: linear-gradient(var(--navy-line), var(--navy-line)) var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px no-repeat;
+}
+.footer :focus-visible {
+  outline-color: #ff9a6b;
 }
