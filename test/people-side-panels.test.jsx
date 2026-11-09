@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@ui/personnel/Employees', () => ({ Avatar: () => null }));
 vi.mock('@platform/context', () => ({ orgId: () => 'org1' }));
@@ -22,15 +22,12 @@ vi.mock('../apps/people/src/api/approvals', () => ({ getInbox: vi.fn(async () =>
 vi.mock('../apps/people/src/api/desk', () => ({ listDesk: vi.fn(async () => ({ requests: [] })) }));
 vi.mock('../apps/people/src/organization/api', () => ({ listItems: vi.fn(async () => []) }));
 
-import * as timeOff from '@ui/timeOff/api';
 import * as personnel from '@ui/personnel/api';
-import { getInbox } from '../apps/people/src/api/approvals';
 import { SideBlock, SideLine, ago } from '@ui/components/list/SidePanel';
 import { EmployeesPanel } from '../apps/people/src/panels';
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-const iso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 describe('the side panel beside a list', () => {
   it('draws no block that has nothing to say', () => {
