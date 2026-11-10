@@ -3540,3 +3540,7 @@ html.is-scrolled .nav {
     gap: var(--s-2);
   }
 }
+
+/* Product page: a quiet line under the actions for people who already have an account. */
+.p-signin{margin-top:var(--s-4);font-size:.9375rem;color:var(--ink-2)}
+.p-signin a{color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px}

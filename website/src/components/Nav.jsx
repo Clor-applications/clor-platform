@@ -7,19 +7,13 @@ import { useProducts } from '../catalogue.js';
 
 const CATEGORIES = ['Finance', 'HR', 'Operations'];
 
-/* A product on sale opens at its own address (books.clor.in) in a new tab; one not out yet keeps its page here. */
+/* Every product opens its page here first: a visitor reads about it before signing in.
+   The page itself links on to the product's own address (books.clor.in) for people who have an account. */
 function ProductLink({ product, className, onClick, children }) {
-  if (product.status !== 'available') {
-    return (
-      <Link href={`/products/${product.slug}`} className={className} onClick={onClick}>
-        {children}
-      </Link>
-    );
-  }
   return (
-    <a href={SITE.appHomeFor(product.slug)} target="_blank" rel="noopener" className={className} onClick={onClick}>
+    <Link href={`/products/${product.slug}`} className={className} onClick={onClick}>
       {children}
-    </a>
+    </Link>
   );
 }
 
