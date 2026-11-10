@@ -26,6 +26,7 @@ import { AppCatalogue } from './AppCatalogue';
 import { AuditLog } from './AuditLog';
 import { Health } from './Health';
 import { TicketPage, Tickets } from './Tickets';
+import { Alerts } from './Alerts';
 import { OpsSearch } from './OpsSearch';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
@@ -88,7 +89,7 @@ export const NAV = [
       ['emailLog', 'Log', ICON.history],
     ],
   },
-  { label: 'System', items: [['health', 'System health', ICON.alert]] },
+  { label: 'System', items: [['alerts', 'Alerts', ICON.warning], ['health', 'System health', ICON.alert]] },
   { label: 'Team', items: [['staff', 'Staff and roles', ICON.team, 'SUPER_ADMIN']] },
   { items: [['audit', 'Audit log', ICON.security]] },
 ];
@@ -143,6 +144,7 @@ export const SCREENS = {
     ) : (
       <Tickets key={route.params.status || 'active'} me={me} initialStatus={route.params.status || 'active'} openTicket={(id) => go('tickets', {}, id)} />
     ),
+  alerts: ({ go, me }) => <Alerts go={go} me={me} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
 };

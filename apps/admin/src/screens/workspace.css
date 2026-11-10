@@ -679,6 +679,18 @@ button.ws-item:hover {
   font-size: 0.75rem;
   color: rgb(var(--ws-muted));
 }
+.ws-item-actions {
+  flex: none;
+}
+/* On a phone the buttons go under the words instead of squeezing them. */
+@media (max-width: 600px) {
+  .ws-item--wrap {
+    flex-wrap: wrap;
+  }
+  .ws-item--wrap > .ws-item-actions {
+    flex-basis: 100%;
+  }
+}
 .ws-item-end {
   font-size: 0.75rem;
   color: rgb(var(--ws-muted));

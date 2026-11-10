@@ -25,6 +25,26 @@ export function Home({ go, has }) {
         error ? null : <Loading />
       ) : (
         <div className="ws-stats">
+          {d.alertsOpen != null ? (
+            <Stat
+              icon={ICON.alert}
+              tone={d.alertsCritical ? 'danger' : d.alertsOpen ? 'warn' : null}
+              label="Alerts"
+              value={d.alertsOpen}
+              note={d.alertsOpen ? (d.alertsCritical ? `${n(d.alertsCritical, 'is urgent', 'are urgent')}` : 'Nothing urgent') : 'Everything is working'}
+              onOpen={() => go('alerts')}
+            />
+          ) : null}
+          {d.ticketsOpen != null ? (
+            <Stat
+              icon={ICON.chat}
+              tone={d.ticketsOpen ? 'warn' : null}
+              label="Tickets"
+              value={d.ticketsOpen}
+              note={d.ticketsOpen ? `${n(d.ticketsOpen, 'customer waits', 'customers wait')} for an answer` : 'No customer is waiting'}
+              onOpen={() => go('tickets')}
+            />
+          ) : null}
           <Stat
             icon={ICON.mail}
             tone={d.newDemos ? 'warn' : null}

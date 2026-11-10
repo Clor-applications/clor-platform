@@ -1688,3 +1688,32 @@ model SupportMessage {
 
   @@index([ticketId, createdAt])
 }
+
+/// Something CLOR staff should know without looking (Ops plan P1, alerts): a
+/// job failing, mail stuck, a customer's readers offline, an overdue CLOR
+/// invoice, a ticket left waiting. Raised and closed by the alerts job as the
+/// condition appears and clears; one open row per key.
+model OpsAlert {
+  id             String    @id @default(cuid())
+  /// What the condition is, e.g. "worker:mail.outbox" or "invoice:<id>". One open alert per key.
+  key            String
+  /// worker | email | webhook | readers | closure | invoice | ticket | trial
+  kind           String
+  /// critical | warning
+  severity       String
+  /// Which staff it is for: SUPPORT | BILLING | SALES (owners see all).
+  audience       String
+  title          String
+  detail         String?
+  accountId      String?
+  /// Where the console opens it: { page, id?, params? }
+  link           Json?
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  resolvedAt     DateTime?
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+
+  @@index([resolvedAt, severity])
+  @@index([key, resolvedAt])
+}
