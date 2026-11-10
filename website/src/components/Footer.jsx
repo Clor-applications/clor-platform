@@ -18,17 +18,6 @@ export default function Footer() {
         <div className="footer-brand">
           <Logo height={20} lazy light />
           <p className="small">Accounting, HR, attendance and payroll for Indian companies. Your data is kept in {SITE.hosting}.</p>
-          <ul className="footer-mail">
-            {[
-              ['General', SITE.contactEmail],
-              ['Sales', SITE.salesEmail],
-              ['Support', SITE.supportEmail],
-            ].map(([k, v]) => (
-              <li key={v}>
-                <span className="caption">{k}</span> <a href={`mailto:${v}`}>{v}</a>
-              </li>
-            ))}
-          </ul>
         </div>
         {cols.map(([title, items]) => (
           <nav key={title} className="footer-col" aria-label={title}>
@@ -44,10 +33,24 @@ export default function Footer() {
         ))}
       </div>
       <div className="wrap footer-base">
-        <p className="caption">
-          © <span suppressHydrationWarning>{new Date().getFullYear()}</span> {SITE.company} · {SITE.address}
-        </p>
-        <p className="caption">Made in India</p>
+        {/* The inboxes, side by side along the bottom (owner, 10 Nov 2026). */}
+        <ul className="footer-mail footer-mail--row">
+          {[
+            ['General', SITE.contactEmail],
+            ['Sales', SITE.salesEmail],
+            ['Support', SITE.supportEmail],
+          ].map(([k, v]) => (
+            <li key={v}>
+              <span className="caption">{k}</span> <a href={`mailto:${v}`}>{v}</a>
+            </li>
+          ))}
+        </ul>
+        <div className="footer-legal">
+          <p className="caption">
+            © <span suppressHydrationWarning>{new Date().getFullYear()}</span> {SITE.company} · {SITE.address}
+          </p>
+          <p className="caption">Made in India</p>
+        </div>
       </div>
     </footer>
   );

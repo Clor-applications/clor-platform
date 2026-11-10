@@ -43,7 +43,7 @@ export const MODULE_APP = {
 /** The sections, in the order they are offered. */
 export const PERMISSION_APPS = [
   { id: 'company', label: 'Company' },
-  { id: 'accounting', label: 'Accounting' },
+  { id: 'accounting', label: 'Books' },
   { id: 'people', label: 'People' },
   { id: 'attendance', label: 'Attendance' },
   { id: 'payroll', label: 'Payroll' },

@@ -7,6 +7,16 @@ import { useProducts } from '../catalogue.js';
 
 const CATEGORIES = ['Finance', 'HR', 'Operations'];
 
+/* Every product opens its page here first: a visitor reads about it before signing in.
+   The page itself links on to the product's own address (books.clor.in) for people who have an account. */
+function ProductLink({ product, className, onClick, children }) {
+  return (
+    <Link href={`/products/${product.slug}`} className={className} onClick={onClick}>
+      {children}
+    </Link>
+  );
+}
+
 function ProductsMenu({ onPick }) {
   const PRODUCTS = useProducts();
   return (
@@ -19,7 +29,7 @@ function ProductsMenu({ onPick }) {
               <ul>
                 {PRODUCTS.filter((p) => p.category === cat).map((p) => (
                   <li key={p.slug}>
-                    <Link href={`/products/${p.slug}`} className="mega-item" onClick={onPick}>
+                    <ProductLink product={p} className="mega-item" onClick={onPick}>
                       <Mark product={p} size={34} />
                       <span className="mega-text">
                         <span className="mega-name">
@@ -27,7 +37,7 @@ function ProductsMenu({ onPick }) {
                         </span>
                         <span className="mega-line">{p.line}</span>
                       </span>
-                    </Link>
+                    </ProductLink>
                   </li>
                 ))}
               </ul>
@@ -234,14 +244,14 @@ export default function Nav() {
           <ul className="mobile-products">
             {PRODUCTS.map((p) => (
               <li key={p.slug}>
-                <Link href={`/products/${p.slug}`} className="mega-item" onClick={close}>
+                <ProductLink product={p} className="mega-item" onClick={close}>
                   <Mark product={p} size={32} />
                   <span className="mega-text">
                     <span className="mega-name">
                       CLOR&nbsp;{p.name} <Status product={p} />
                     </span>
                   </span>
-                </Link>
+                </ProductLink>
               </li>
             ))}
           </ul>
@@ -277,7 +287,7 @@ export default function Nav() {
           <Link href={SITE.demoUrl} className="btn btn--primary btn--lg mobile-demo" onClick={close}>
             Request a demo
           </Link>
-          <a href={SITE.startUrl} className="btn btn--quiet btn--lg mobile-demo">
+          <a href={SITE.startUrl} className="btn btn--trial btn--lg mobile-demo">
             Start free trial
           </a>
         </div>

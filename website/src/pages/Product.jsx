@@ -47,7 +47,7 @@ function Hero({ p, c, soon }) {
                 <Link className="btn btn--primary btn--lg" href={demoFor(p.slug)}>
                   Request a demo
                 </Link>
-                <a className="btn btn--quiet btn--lg" href={`${SITE.startUrl}?app=${p.slug}`}>
+                <a className="btn btn--trial btn--lg" href={`${SITE.startUrl}?app=${p.slug}`}>
                   Start free trial
                 </a>
               </>
@@ -56,6 +56,12 @@ function Hero({ p, c, soon }) {
               {soon ? 'See what’s available now' : 'All products'}
             </Link>
           </div>
+          {soon ? null : (
+            <p className="p-signin">
+              Already using CLOR {p.name}?{' '}
+              <a href={SITE.appHomeFor(p.slug)}>Sign in at {SITE.appHomeFor(p.slug).replace(/^https?:\/\//, '')}</a>
+            </p>
+          )}
         </div>
         {ph ? (
           <figure className={`p-photo${ph.cut ? ' p-photo--cut' : ''}${ph.tall ? ' p-photo--tall' : ''}`}>

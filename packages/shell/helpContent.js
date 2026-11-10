@@ -202,7 +202,7 @@ export const HELP_TOPICS = [
   {
     key: 'accounting',
     group: 'apps',
-    title: 'Accounting',
+    title: 'Books',
     summary: 'Invoices, bills, GST and the books behind them.',
     sections: [
       {

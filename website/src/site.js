@@ -25,6 +25,8 @@ export const SITE = {
   signUpUrl: `${APP_URL}/signup`,
   /* A free trial from the pricing page: /start?app=<slug> checks the email, then asks for the company and the apps. No card. */
   startUrl: `${APP_URL}/start`,
+  /* Each product's own address (books.clor.in, people.clor.in, ...): the header's product menu opens it in a new tab. */
+  appHomeFor: (slug) => APP_URL.replace('//app.', `//${slug}.`),
   /* Staff punch, apply for leave and read payslips here, with no CLOR user of their own. */
   portalUrl: `${APP_URL.replace('//app.', '//attendance.')}/#/portal`,
   /* The Request a demo form (pages/Demo.jsx); the header's button opens it with no app chosen. */

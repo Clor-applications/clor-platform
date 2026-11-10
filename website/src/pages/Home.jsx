@@ -162,7 +162,7 @@ export default function Home() {
               <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
                 Request a demo
               </Link>
-              <a className="btn btn--quiet btn--lg" href={SITE.startUrl}>
+              <a className="btn btn--trial btn--lg" href={SITE.startUrl}>
                 Start free trial
               </a>
             </div>

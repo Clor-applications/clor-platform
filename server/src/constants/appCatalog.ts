@@ -23,7 +23,7 @@ export type AppDef = {
 };
 
 export const APP_CATALOG: AppDef[] = [
-  { code: 'accounting', name: 'Accounting', blurb: 'Invoicing, bills, inventory and the books.', available: true, defaultTier: 'FULL' },
+  { code: 'accounting', name: 'Books', blurb: 'Invoicing, bills, inventory and the books.', available: true, defaultTier: 'FULL' },
   { code: 'payroll', name: 'Payroll', blurb: 'Pay runs, statutory, payslips.', available: true, featureKey: 'payroll' },
   // Native cloud attendance; ClorTime remains the separate on-premise biometric product.
   { code: 'attendance', name: 'Attendance', blurb: 'Shifts, clock in/out, late, overtime and payable days.', available: true, featureKey: 'attendance' },
