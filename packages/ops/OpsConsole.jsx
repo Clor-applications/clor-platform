@@ -24,6 +24,8 @@ import { Staff } from './Staff';
 import { EmailAddresses, EmailLog, EmailTemplates } from './Email';
 import { AppCatalogue } from './AppCatalogue';
 import { AuditLog } from './AuditLog';
+import { Health } from './Health';
+import { OpsSearch } from './OpsSearch';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
 
@@ -84,6 +86,7 @@ export const NAV = [
       ['emailLog', 'Log', ICON.history],
     ],
   },
+  { label: 'System', items: [['health', 'System health', ICON.alert]] },
   { label: 'Team', items: [['staff', 'Staff and roles', ICON.team, 'SUPER_ADMIN']] },
   { items: [['audit', 'Audit log', ICON.security]] },
 ];
@@ -132,6 +135,7 @@ export const SCREENS = {
   emailTemplates: ({ me }) => <EmailTemplates role={me.role} />,
   emailLog: ({ route, go, me }) => <EmailLog key={route.params.status || 'all'} role={me.role} initialStatus={route.params.status || 'all'} openCustomer={(id) => go('customers', {}, id)} />,
   staff: ({ me }) => <Staff me={me} />,
+  health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
 };
 
@@ -306,6 +310,7 @@ function Console() {
         </button>
         <ClorLogo size={22} />
         <span className="ops-badge">Operator</span>
+        <OpsSearch go={go} />
         <span className="ops-who">{me.user.fullName} · {ROLE[me.role] || me.role}</span>
         <button type="button" className="ui-icon-btn" aria-label="Sign out" title={`Sign out ${me.user.fullName} · ${ROLE[me.role] || me.role}`} onClick={signOut}>
           <LogOut size={16} aria-hidden="true" />

@@ -13,7 +13,7 @@ import type { NextFunction, Request, Response } from 'express';
  */
 const PROD = () => process.env.NODE_ENV === 'production' && !process.env.VITEST;
 const SERVICE = { service: 'clor-api', version: process.env.K_REVISION || process.env.npm_package_version || 'dev' };
-const ID = /^[A-Za-z0-9._:-]{8,80}$/;
+export const REQUEST_ID = /^[A-Za-z0-9._:-]{8,80}$/;
 
 export function writeLog(severity: 'INFO' | 'WARNING' | 'ERROR', entry: Record<string, unknown>) {
   const line = JSON.stringify({ severity, time: new Date().toISOString(), ...entry });
@@ -25,7 +25,7 @@ export function writeLog(severity: 'INFO' | 'WARNING' | 'ERROR', entry: Record<s
 export function requestId(req: Request, res: Response, next: NextFunction) {
   const given = String(req.headers['x-request-id'] || '').trim();
   const trace = String(req.headers['x-cloud-trace-context'] || '').split('/')[0];
-  const id = ID.test(given) ? given : ID.test(trace) ? trace : randomUUID();
+  const id = REQUEST_ID.test(given) ? given : REQUEST_ID.test(trace) ? trace : randomUUID();
   (req as any).id = id;
   res.setHeader('X-Request-Id', id);
   next();

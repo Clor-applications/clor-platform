@@ -10,6 +10,7 @@ import {
   opsCancelSubscription,
   opsChangeApps,
   opsCustomerActivity,
+  opsCustomerConnections,
   opsCustomerPayments,
   opsCustomerRequests,
   opsCustomerUsers,
@@ -18,6 +19,9 @@ import {
   opsReinstate,
   opsReopenSubscription,
   opsResendInvitation,
+  opsResetAuthenticator,
+  opsRetryEmails,
+  opsUnlockUser,
   opsSendResetLink,
   opsSignOutEverywhere,
   opsSuspend,
@@ -163,6 +167,7 @@ const TABS = [
   ['money', 'Invoices and payments'],
   ['requests', 'Requests'],
   ['users', 'Users'],
+  ['connections', 'Connections'],
   ['activity', 'Activity'],
 ];
 
@@ -211,6 +216,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo }) {
         {tab === 'money' ? <Money id={id} /> : null}
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} /> : null}
         {tab === 'users' ? <Users id={id} role={role} /> : null}
+        {tab === 'connections' ? <Connections id={id} role={role} /> : null}
         {tab === 'activity' ? <Activity id={id} /> : null}
       </div>
     </>
@@ -521,6 +527,19 @@ function Requests({ id, openDemo }) {
 }
 
 /* ------------------------------------------------------------------ users */
+/* What each user action does, said before it is done. */
+const DRAWER = {
+  reset: { title: 'Send a password reset link', confirm: 'Send link', what: (who) => `${who} gets an email with a link to set a new password. It works for 30 minutes. You never see the link or the password.` },
+  signout: { title: 'Sign out everywhere', confirm: 'Sign out everywhere', what: (who) => `${who} is signed out on every phone and computer. A page they have open may keep working for up to 15 minutes.` },
+  invite: { title: 'Resend the invitation', confirm: 'Resend invite', what: (who) => `${who} gets a new invitation email. The old link stops working; the new one works for 7 days.` },
+  unlock: { title: 'Unlock sign-in', confirm: 'Unlock', what: (who) => `${who} was locked out after too many wrong passwords. Unlocking lets them try again now. Their password does not change.` },
+  authenticator: {
+    title: 'Remove their authenticator',
+    confirm: 'Remove authenticator',
+    what: (who) => `${who} can then sign in with only their password, and is signed out everywhere and told by email. Do this only after checking it is really them, for example by calling the number on file. Write who asked and how you checked.`,
+  },
+};
+
 const ACCOUNT_ROLE = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing administrator', MEMBER: 'Member' };
 
 function Users({ id, role }) {
@@ -532,6 +551,7 @@ function Users({ id, role }) {
   }, [id]);
   useEffect(load, [load]);
   const support = may(role, 'SUPPORT');
+  const owner = role === 'SUPER_ADMIN';
 
   const run = async (reason) => {
     if (act.kind === 'reset') {
@@ -541,6 +561,14 @@ function Users({ id, role }) {
     if (act.kind === 'signout') {
       const r = await opsSignOutEverywhere(id, act.user.userId, reason);
       notify.success(r.sessionsEnded ? `Signed out on ${r.sessionsEnded} ${r.sessionsEnded === 1 ? 'device' : 'devices'}.` : 'They were not signed in anywhere.');
+    }
+    if (act.kind === 'unlock') {
+      await opsUnlockUser(id, act.user.userId, reason);
+      notify.success(`${act.user.name || act.user.email} can sign in again.`);
+    }
+    if (act.kind === 'authenticator') {
+      const r = await opsResetAuthenticator(id, act.user.userId, reason);
+      notify.success(`Authenticator taken off. Signed out on ${r.sessionsEnded} ${r.sessionsEnded === 1 ? 'device' : 'devices'}${r.told ? '; they were told by email' : ''}.`);
     }
     if (act.kind === 'invite') {
       await opsResendInvitation(id, act.invitation.id, reason);
@@ -573,6 +601,7 @@ function Users({ id, role }) {
                 <td className="ops-primary">
                   <strong style={{ fontWeight: 600 }}>{u.name || '—'}</strong>
                   {u.status === 'off' ? <> <span className="ws-pill ws-pill--off">Off</span></> : null}
+                  {u.lockedUntil ? <> <span className="ws-pill ws-pill--warn" title={`Locked until ${when(u.lockedUntil)}`}>Locked out</span></> : null}
                   <div className="ws-item-sub">{u.email}{u.emailConfirmed ? '' : ' · email not confirmed'}</div>
                 </td>
                 <td className="hidden sm:table-cell" data-label="Role">{ACCOUNT_ROLE[u.role] || u.role}</td>
@@ -584,6 +613,8 @@ function Users({ id, role }) {
                     <div className="flex flex-wrap justify-end gap-1">
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={u.status === 'off'} onClick={() => setAct({ kind: 'reset', user: u })}>Send reset link</button>
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={!u.signedInOn} onClick={() => setAct({ kind: 'signout', user: u })}>Sign out everywhere</button>
+                      {u.lockedUntil || u.wrongPasswords ? <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setAct({ kind: 'unlock', user: u })}>Unlock</button> : null}
+                      {owner && u.authenticator ? <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setAct({ kind: 'authenticator', user: u })}>Remove authenticator</button> : null}
                     </div>
                   </td>
                 ) : null}
@@ -615,18 +646,112 @@ function Users({ id, role }) {
       </Panel>
       <ReasonDrawer
         open={Boolean(act)}
-        title={act?.kind === 'reset' ? 'Send a password reset link' : act?.kind === 'signout' ? 'Sign out everywhere' : 'Resend the invitation'}
-        what={
-          act?.kind === 'reset'
-            ? `${who} gets an email with a link to set a new password. It works for 30 minutes. You never see the link or the password.`
-            : act?.kind === 'signout'
-              ? `${who} is signed out on every phone and computer. A page they have open may keep working for up to 15 minutes.`
-              : `${who} gets a new invitation email. The old link stops working; the new one works for 7 days.`
-        }
-        confirmLabel={act?.kind === 'reset' ? 'Send link' : act?.kind === 'signout' ? 'Sign out everywhere' : 'Resend invite'}
-        tone={act?.kind === 'signout' ? 'danger' : 'primary'}
+        title={DRAWER[act?.kind]?.title || ''}
+        what={act ? DRAWER[act.kind].what(who) : ''}
+        confirmLabel={DRAWER[act?.kind]?.confirm || ''}
+        tone={act?.kind === 'signout' || act?.kind === 'authenticator' ? 'danger' : 'primary'}
         onClose={() => setAct(null)}
         onConfirm={run}
+      />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------ connections */
+const CONNECTION_STATE = {
+  ok: ['Working', 'ws-pill--ok'],
+  off: ['Off', 'ws-pill--off'],
+  offline: ['Not heard from', 'ws-pill--warn'],
+  error: ['Reports an error', 'ws-pill--danger'],
+};
+const CREDENTIAL_KIND = { API_KEY: 'API keys', SCIM: 'Directory sync tokens', AGENT: 'Site agent tokens', DEVICE_PUSH: 'Reader push keys', PAY_LINK: 'Payment links', SHARE_LINK: 'Share links' };
+
+/**
+ * What this customer has connected — attendance readers, site agents, HR
+ * and sign-on connections, e-invoicing — and whether each last worked; and
+ * their failed email, which Support can send again. Names and errors only.
+ */
+function Connections({ id, role }) {
+  const [d, setD] = useState(null);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(false);
+  const load = useCallback(() => {
+    opsCustomerConnections(id).then(setD).catch((e) => setError(String(e?.message || e)));
+  }, [id]);
+  useEffect(load, [load]);
+
+  if (!d) return error ? <Err>{error}</Err> : <Loading />;
+  const troubled = d.items.filter((i) => i.state === 'error' || i.state === 'offline').length;
+  return (
+    <>
+      <Facts
+        rows={[
+          ['Connections', d.items.length ? `${d.items.length}${troubled ? `, ${troubled} need a look` : ', all fine'}` : 'None set up'],
+          ['Emails that failed this week', <span key="m" className="tabular-nums">{d.emailsFailedThisWeek}</span>],
+          ['Webhook deliveries that failed this week', <span key="w" className="tabular-nums">{d.webhooksFailedThisWeek}</span>],
+          ['Open reader alerts', <span key="r" className="tabular-nums">{d.openReaderAlerts}</span>],
+        ]}
+      />
+      {d.emailsFailedThisWeek && may(role, 'SUPPORT') ? (
+        <div>
+          <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setRetry(true)}>Send failed emails again</button>
+        </div>
+      ) : null}
+      <Panel title="What they have connected">
+        {d.items.length ? (
+          <ul className="ws-list">
+            {d.items.map((i) => {
+              const [word, cls] = CONNECTION_STATE[i.state] || [i.state, ''];
+              return (
+                <li key={`${i.kind}-${i.id}`}>
+                  <div className="ws-item">
+                    <span className="ws-item-text">
+                      <span className="ws-item-title">{i.name}</span>
+                      <span className="ws-item-sub">
+                        {i.kind}
+                        {i.lastAt ? ` · last seen ${ago(i.lastAt)}` : ''}
+                        {i.error ? ` · ${i.error}` : ''}
+                      </span>
+                    </span>
+                    <span className={`ws-pill ${cls}`}>{word}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Empty>No readers, agents, HR, sign-on or e-invoice connections.</Empty>
+        )}
+      </Panel>
+      {d.credentials.length ? (
+        <Panel title="Keys and tokens they have made">
+          <ul className="ws-list">
+            {d.credentials.map((c) => (
+              <li key={`${c.kind}-${c.status}`}>
+                <div className="ws-item">
+                  <span className="ws-item-text">
+                    <span className="ws-item-title">{CREDENTIAL_KIND[c.kind] || c.kind}</span>
+                    <span className="ws-item-sub">{c.status.toLowerCase()}</span>
+                  </span>
+                  <span className="tabular-nums">{c.count}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      ) : null}
+      <ReasonDrawer
+        open={retry}
+        title="Send failed emails again"
+        what={`Every email to this customer that failed in the last week (${d.emailsFailedThisWeek}, at most 50) is tried once more, as it was.`}
+        confirmLabel="Send again"
+        onClose={() => setRetry(false)}
+        onConfirm={async (reason) => {
+          const r = await opsRetryEmails(id, reason);
+          notify.success(r.tried ? `${r.sent} of ${r.tried} went. ${r.stillFailing ? `${r.stillFailing} still failing; see Email, Log.` : ''}` : 'Nothing was waiting.');
+          setRetry(false);
+          load();
+        }}
       />
     </>
   );
