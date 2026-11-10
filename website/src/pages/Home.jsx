@@ -163,7 +163,7 @@ export default function Home() {
                 Request a demo
               </Link>
               <a className="btn btn--quiet btn--lg" href={SITE.signUpUrl}>
-                Try it free
+                Start free trial
               </a>
             </div>
             <p className="small hero-note">
@@ -313,7 +313,7 @@ export default function Home() {
               Request a demo
             </Link>
             <a className="btn btn--onphoto" href={SITE.signUpUrl}>
-              Try it free
+              Start free trial
             </a>
           </div>
         </div>

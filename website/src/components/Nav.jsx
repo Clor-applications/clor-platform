@@ -211,7 +211,7 @@ export default function Nav() {
             Sign in
           </a>
           <a href={SITE.signUpUrl} className="btn nav-trial">
-            Try it free
+            Start free trial
           </a>
           <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
             Request a demo
@@ -275,7 +275,7 @@ export default function Nav() {
             Request a demo
           </Link>
           <a href={SITE.signUpUrl} className="btn btn--quiet btn--lg mobile-demo">
-            Try it free
+            Start free trial
           </a>
         </div>
       </div>
