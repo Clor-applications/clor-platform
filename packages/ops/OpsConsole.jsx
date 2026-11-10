@@ -12,6 +12,8 @@ import SignIn from '../shell/SignIn';
 import OperatorBrand from './OperatorBrand';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 import { Payments } from './Payments';
+import { InvoicePage, Invoices } from './Invoices';
+import { InvoiceSettings } from './InvoiceSettings';
 import { Trials } from './Trials';
 import { Pricing } from './Pricing';
 import { Settings as TaxSettings } from './Settings';
@@ -60,9 +62,11 @@ export const NAV = [
     label: 'Money',
     items: [
       ['pricing', 'Pricing', ICON.plan],
+      ['invoices', 'Invoices', ICON.guide],
       ['payments', 'Payments', ICON.payroll],
       ['gateways', 'Gateways', ICON.secure],
       ['tax', 'Tax', ICON.guide],
+      ['invoicing', 'Invoice settings', ICON.settings],
     ],
   },
   {
@@ -115,6 +119,13 @@ export const SCREENS = {
   /* Payments holds the gateways too (keys, test and live), so the Gateways place stays empty. */
   payments: ({ me }) => <Payments role={me.role} />,
   tax: ({ me }) => <TaxSettings role={me.role} />,
+  invoices: ({ route, go, me }) =>
+    route.id ? (
+      <InvoicePage key={route.id} id={route.id} role={me.role} back={() => go('invoices')} openCustomer={(id) => go('customers', {}, id)} />
+    ) : (
+      <Invoices key={route.params.status || 'all'} role={me.role} initialStatus={route.params.status || 'all'} openInvoice={(id) => go('invoices', {}, id)} />
+    ),
+  invoicing: ({ go, me }) => <InvoiceSettings role={me.role} openTax={() => go('tax')} openPayments={() => go('payments')} />,
   catalogue: ({ me }) => <AppCatalogue role={me.role} />,
   sample: ({ go, me }) => <SampleCompany role={me.role} openLinks={() => go('links')} />,
   emailAddresses: ({ me }) => <EmailAddresses role={me.role} />,

@@ -18,6 +18,8 @@ import { acrossCompanies } from '../utils/tenantScope.js';
 import { publishedBook } from '../services/pricing/books.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { publicPricing } from './pricing.js';
+import { invoiceForAccount, invoicesForAccount } from '../billing/invoices.js';
+import { PaymentsError } from '../billing/providers.js';
 
 export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
@@ -166,4 +168,25 @@ billingRouter.get('/billing/subscription', async (req, res) => {
  */
 billingRouter.post('/billing/subscription', (_req, res) => {
   res.status(403).json({ error: 'Only CLOR can change a subscription by hand.', code: 'OPERATOR_ONLY' });
+});
+
+/**
+ * This account's invoices from CLOR (roadmap item 8): issued, paid and
+ * cancelled, never a draft. An unpaid one carries how to pay it: a UPI QR
+ * with the amount and invoice number, and CLOR's bank account. For whoever
+ * may see the plan.
+ */
+billingRouter.get('/billing/invoices', async (req, res) => {
+  if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
+  res.json({ invoices: await invoicesForAccount(req.tenant!.accountId) });
+});
+
+billingRouter.get('/billing/invoices/:id', async (req, res) => {
+  if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
+  try {
+    res.json(await invoiceForAccount(req.tenant!.accountId, String(req.params.id)));
+  } catch (e) {
+    if (e instanceof PaymentsError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
 });

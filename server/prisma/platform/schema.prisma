@@ -1580,3 +1580,62 @@ model AppCatalogueEntry {
   updatedByUserId String?
   updatedAt       DateTime @updatedAt
 }
+
+/// An invoice CLOR raises to a customer account (roadmap item 8). Made as a
+/// DRAFT in the operator console (Money, Invoices), then ISSUED with the next
+/// number of the financial year's series, then PAID (Mark paid, or a gateway
+/// payment) or VOID. Once issued, what it says is frozen: the seller, buyer,
+/// lines, tax and the way to pay are copied in, so a later change to CLOR's
+/// UPI ID or a customer's address never rewrites an invoice already sent.
+/// Money in paise. `books*` is the CLOR Books connector (item 10): the draft
+/// raised in CLOR's own Books company, and what became of it.
+model BillingInvoice {
+  id               String    @id @default(cuid())
+  /// CLOR/26-27/0001; null while a draft, so a discarded draft leaves no gap in the series.
+  number           String?   @unique
+  accountId        String
+  /// DRAFT | ISSUED | PAID | VOID
+  status           String    @default("DRAFT")
+  issueDate        DateTime?
+  dueDate          DateTime?
+  /// The months it bills, as YYYY-MM-DD dates.
+  periodStart      String?
+  periodEnd        String?
+  /// [{ description, appCode?, quantity, unitAmount, amount }]
+  lines            Json      @default("[]")
+  subtotal         Int       @default(0)
+  /// gstOn()'s answer: { charged, kind, ratePercent, cgst, sgst, igst, amount, note }
+  tax              Json      @default("{}")
+  taxTotal         Int       @default(0)
+  total            Int       @default(0)
+  /// { name, gstin, stateCode, address, email }
+  buyer            Json      @default("{}")
+  /// CLOR as seller when issued: { legalName, gstin, stateCode, sac, address }
+  seller           Json?
+  /// The way to pay when issued: UPI ID, QR, bank account (billing/gateway.ts manualPayTo).
+  payTo            Json?
+  note             String?
+  /// How many months a payment of this invoice pays for.
+  months           Int       @default(1)
+  paidAt           DateTime?
+  paidAmount       Int?
+  paymentReference String?
+  paymentEventId   String?
+  voidedAt         DateTime?
+  voidReason       String?
+  /// NOT_SENT | SENT | FAILED (the CLOR Books connector)
+  booksStatus      String    @default("NOT_SENT")
+  booksInvoiceId   String?
+  booksError       String?
+  booksAttempts    Int       @default(0)
+  booksSentAt      DateTime?
+  createdByUserId  String?
+  issuedByUserId   String?
+  paidByUserId     String?
+  voidedByUserId   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([accountId])
+  @@index([status, createdAt])
+}
