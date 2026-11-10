@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   accountAudit: vi.fn(),
   memberDirectory: vi.fn(),
   getAccountOverview: vi.fn(),
+  listTickets: vi.fn(),
 }));
 vi.mock('@platform/admin/account', () => ({
   getAccountMe: (...a) => api.getAccountMe(...a),
@@ -16,6 +17,7 @@ vi.mock('@platform/admin/account', () => ({
   listInvitations: (...a) => api.listInvitations(...a),
   accountAudit: (...a) => api.accountAudit(...a),
   memberDirectory: (...a) => api.memberDirectory(...a),
+  listTickets: (...a) => api.listTickets(...a),
 }));
 vi.mock('@platform/admin/admin', () => ({ getAccountOverview: (...a) => api.getAccountOverview(...a) }));
 vi.mock('@platform/operator', () => ({ operator: { contactEmail: 'info@clor.in' } }));
@@ -39,6 +41,7 @@ beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   http.apiFetch.mockReset();
   api.getAccountMe.mockResolvedValue({ role: 'OWNER', apps: ['accounting', 'payroll'] });
+  api.listTickets.mockResolvedValue({ tickets: [] });
   api.getAccountOverview.mockResolvedValue({ account: { name: 'Neev Group' }, plan: { name: 'Growth', inGoodStanding: true, limits: { maxCompanies: 3, maxUsers: 10 } }, usage: { companies: 1, users: 4 }, companies: [{ orgId: 'c1', name: 'Neev Steels', gstin: '' }],
     entities: { companies: 1, branches: 3, taxProfiles: 2, companiesWithoutGstin: 0, costCentres: 0 },
     seats: [{ app: 'accounting', bought: null }, { app: 'payroll', bought: 5 }],

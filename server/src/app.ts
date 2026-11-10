@@ -123,6 +123,8 @@ import { billingRouter, billingOperatorRouter, billingWebhook, providerWebhook }
 import { opsPaymentsRouter } from './routes/opsPayments.js';
 import { opsInvoicesRouter } from './routes/opsInvoices.js';
 import { opsHealthRouter } from './routes/opsHealth.js';
+import { opsTicketsRouter } from './routes/opsTickets.js';
+import { supportRouter } from './routes/support.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsPricingRouter, pricingCors, pricingRouter } from './routes/pricing.js';
 import { opsExploreRouter } from './routes/opsExplore.js';
@@ -459,6 +461,8 @@ export function buildApp() {
   app.use('/api', opsPaymentsRouter);
   app.use('/api', opsInvoicesRouter);
   app.use('/api', opsHealthRouter);
+  app.use('/api', opsTicketsRouter);
+  app.use('/api', supportRouter);
   app.use('/api', opsExploreRouter);
   app.use('/api', opsSignupsRouter);
   app.use('/api', opsCustomersRouter);

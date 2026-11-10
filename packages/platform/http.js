@@ -1,3 +1,7 @@
+let lastError = null;
+/** The code of the last server fault in this tab within the hour, or null (Help and support offers it on a new ticket). */
+export const lastErrorRef = () => (lastError && Date.now() - lastError.at < 3600_000 ? lastError.requestId : null);
+
 // In dev, Vite proxies `/api` to the backend (see vite.config.js).
 // Use a relative default to avoid CORS/mixed-content issues that often show up as "Failed to fetch".
 // Exported so callers that must bypass apiFetch — a file download, where the
@@ -314,6 +318,8 @@ export async function apiFetch(
     err.data = data;
     /* The reference a person can quote to support (spec v1 §8 "API unavailable"). */
     err.requestId = res.headers?.get?.('x-request-id') || null;
+    /* A server fault, kept so Help and support can offer its code when the person asks for help. */
+    if (res.status >= 500 && err.requestId) lastError = { requestId: err.requestId, at: Date.now() };
     /* 402 APP_NOT_SUBSCRIBED and friends: callers branch on the code, not the text. */
     err.code = data?.code || null;
     /* An account Clor has suspended: the shell replaces everything with one plain page (W-8.2). */

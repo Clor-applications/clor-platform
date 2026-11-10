@@ -2151,3 +2151,58 @@ button.ws-item:hover {
   color: rgb(var(--ws-ink));
   text-align: right;
 }
+
+/* Help and support: a ticket's conversation. CLOR's replies sit on a soft tint so who said what reads at a glance. */
+.ws-list--ground {
+  border-top: 1px solid rgb(var(--ws-line));
+}
+.ws-thread {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-msg {
+  padding: 14px 16px;
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  background: rgb(var(--ws-surface));
+}
+.ws-msg--staff {
+  background: rgb(var(--brand-subtle));
+  border-color: rgb(var(--brand-border));
+}
+.ws-msg-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0 0 6px;
+  font-size: 0.875rem;
+}
+.ws-msg-head span {
+  color: rgb(var(--ws-muted));
+  font-size: 0.8125rem;
+}
+.ws-msg-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: rgb(var(--ws-ink));
+}
+/* An internal note (operator console): dashed, so nobody mistakes it for something the customer read. */
+.ws-msg--note {
+  background: rgb(var(--warn-soft));
+  border-style: dashed;
+  border-color: rgb(var(--ws-line));
+}
+.ws-row-link {
+  cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws-row-link:hover > td {
+    background: rgb(var(--ws-line) / 0.45);
+  }
+}

@@ -32,6 +32,7 @@ const AccountOverview = screen('AccountOverview');
 const BillingPreview = screen('BillingPreview');
 const DataBackup = screen('DataBackup');
 const CloseCompany = screen('CloseCompany');
+const Support = screen('Support');
 
 /**
  * Workspace: the company's own administration, not any one app's (ADR-010).
@@ -73,7 +74,7 @@ export const adminApp = {
   lineIcons: 'fluent',
 
   modules: [
-    { key: 'home', label: 'Overview', icon: ICON.home, items: ['home'] },
+    { key: 'home', label: 'Overview', icon: ICON.home, items: ['home', 'support'] },
     { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications'] },
     { key: 'access', label: 'Access', icon: ICON.people, groups: [
       { label: null, items: ['accessHome'] },
@@ -91,6 +92,8 @@ export const adminApp = {
   /* `permission`: the shell shows an item only to somebody who holds it, and read-only to somebody who cannot change it. */
   nav: [
     { key: 'home', label: 'Overview', icon: ICON.home },
+    /* Everyone may ask CLOR for help; what each sees is the server's (their own tickets, or the account's). */
+    { key: 'support', label: 'Help and support', icon: ICON.chat },
     { key: 'companies', label: 'Companies', icon: ICON.companies, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'company', label: 'Company profile', icon: ICON.company, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'branches', label: 'Branches', icon: ICON.companies, permission: 'MASTERS::Company/Branch setup::VIEW' },
@@ -143,5 +146,6 @@ export const adminApp = {
     billing: BillingPreview,
     export: DataBackup,
     close: CloseCompany,
+    support: Support,
   },
 };

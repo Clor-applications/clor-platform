@@ -119,3 +119,9 @@ export const opsSaveInvoicing = (body) => apiFetch('/ops/invoicing', { ...o, met
 export const opsBooksChoices = (search) => apiFetch(`/ops/invoicing/books/choices${q({ q: search })}`, o);
 export const opsSaveBooksLink = (body) => apiFetch('/ops/invoicing/books', { ...o, method: 'PUT', body });
 export const opsTestBooks = () => apiFetch('/ops/invoicing/books/test', { ...o, method: 'POST', body: {} });
+
+/* Customer tickets (Ops plan P1; server: routes/opsTickets.ts). */
+export const opsTickets = (params) => apiFetch(`/ops/tickets${q(params)}`, o);
+export const opsTicket = (id) => apiFetch(`/ops/tickets/${encodeURIComponent(id)}`, o).then((r) => r?.ticket);
+export const opsTicketReply = (id, body) => apiFetch(`/ops/tickets/${encodeURIComponent(id)}/reply`, { ...o, method: 'POST', body });
+export const opsTicketChange = (id, body) => apiFetch(`/ops/tickets/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body }).then((r) => r?.ticket);

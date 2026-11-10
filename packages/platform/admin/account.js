@@ -41,3 +41,10 @@ export const signOutMember = (userId) => apiFetch(`/account/members/${encodeURIC
 
 /* W-7.3: the account's own name. */
 export const renameAccount = (name) => apiFetch('/account', { method: 'PATCH', body: { name }, ...opts });
+
+/* Help and support (Ops plan P1): this person's tickets to CLOR, or the whole account's for owners and admins. */
+export const listTickets = () => apiFetch('/support/tickets', { skipWarehouseHeader: true });
+export const getTicket = (id) => apiFetch(`/support/tickets/${encodeURIComponent(id)}`, { skipWarehouseHeader: true }).then((r) => r?.ticket);
+export const openTicket = (body) => apiFetch('/support/tickets', { method: 'POST', body, skipWarehouseHeader: true }).then((r) => r?.ticket);
+export const replyTicket = (id, body) => apiFetch(`/support/tickets/${encodeURIComponent(id)}/reply`, { method: 'POST', body: { body }, skipWarehouseHeader: true }).then((r) => r?.ticket);
+export const ticketSolved = (id) => apiFetch(`/support/tickets/${encodeURIComponent(id)}/solved`, { method: 'POST', body: {}, skipWarehouseHeader: true }).then((r) => r?.ticket);

@@ -25,6 +25,7 @@ import { EmailAddresses, EmailLog, EmailTemplates } from './Email';
 import { AppCatalogue } from './AppCatalogue';
 import { AuditLog } from './AuditLog';
 import { Health } from './Health';
+import { TicketPage, Tickets } from './Tickets';
 import { OpsSearch } from './OpsSearch';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
@@ -55,6 +56,7 @@ export const NAV = [
     label: 'Customers',
     items: [
       ['customers', 'Customers', ICON.companies],
+      ['tickets', 'Tickets', ICON.chat],
       ['trials', 'Trials', ICON.plan],
       ['demos', 'Demo requests', ICON.mail],
       ['links', 'Explore links', ICON.invite],
@@ -135,6 +137,12 @@ export const SCREENS = {
   emailTemplates: ({ me }) => <EmailTemplates role={me.role} />,
   emailLog: ({ route, go, me }) => <EmailLog key={route.params.status || 'all'} role={me.role} initialStatus={route.params.status || 'all'} openCustomer={(id) => go('customers', {}, id)} />,
   staff: ({ me }) => <Staff me={me} />,
+  tickets: ({ route, go, me }) =>
+    route.id ? (
+      <TicketPage key={route.id} id={route.id} me={me} back={() => go('tickets')} openCustomer={(id) => go('customers', {}, id)} lookUp={(request) => go('health', { request })} />
+    ) : (
+      <Tickets key={route.params.status || 'active'} me={me} initialStatus={route.params.status || 'active'} openTicket={(id) => go('tickets', {}, id)} />
+    ),
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
 };

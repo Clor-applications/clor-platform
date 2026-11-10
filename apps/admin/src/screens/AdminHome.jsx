@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronRight } from '@ui/components/ui/lineIcons';
 
-import { accountAudit, getAccountMe, listAccountMembers, listInvitations, memberDirectory } from '@platform/admin/account';
+import { accountAudit, getAccountMe, listAccountMembers, listInvitations, listTickets, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
@@ -97,6 +97,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [directory, setDirectory] = useState(null);
   const [activity, setActivity] = useState(null);
   const [waiting, setWaiting] = useState(null);
+  const [tickets, setTickets] = useState(null);
   const attentionRef = useRef(null);
 
   useEffect(() => {
@@ -115,6 +116,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             .then((d) => live && setDirectory(d?.members || []))
             .catch(() => {});
         }
+        listTickets().then((t) => live && setTickets(t?.tickets || [])).catch(() => {});
         /* What waits on this person in People or Attendance, for anyone who can open either here. */
         const apps = Array.isArray(r?.apps) ? r.apps : [];
         if (apps.includes('people') || apps.includes('attendance')) getWaiting().then((w) => live && setWaiting(w || null)).catch(() => {});
@@ -173,6 +175,10 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     notAssigned.length ? { key: 'na', icon: ICON.person, tone: null, title: `You can’t open ${notAssigned.map((s) => s.app.name).join(', ')} yet`, sub: 'An administrator gives access with a role.', go: null } : null,
     isAdmin && overview && overview.companies?.some((c) => !c.gstin && !c.archived) ? { key: 'gstin', icon: ICON.company, tone: null, title: 'Company details incomplete', sub: `${overview.companies.filter((c) => !c.gstin && !c.archived).map((c) => c.name).join(', ')}: no GSTIN on record.`, go: go('companies') } : null,
   ].filter(Boolean);
+  const repliedTo = (tickets || []).filter((t) => t.status === 'WAITING');
+  /* CLOR answered and waits on the customer: after the urgent items, before the routine ones. */
+  const firstCalm = attention.findIndex((a) => a.tone !== 'danger' && a.tone !== 'warn');
+  if (repliedTo.length) attention.splice(firstCalm < 0 ? attention.length : firstCalm, 0, { key: 'tickets', icon: ICON.chat, tone: 'brand', title: repliedTo.length === 1 ? `CLOR replied to ${repliedTo[0].code}` : `CLOR replied to ${repliedTo.length} tickets`, sub: repliedTo.length === 1 ? repliedTo[0].subject : 'They are waiting for your answer.', go: go('support') });
   const urgent = attention.filter((a) => a.tone === 'danger' || a.tone === 'warn').length;
 
   const name = firstName(user);
@@ -548,6 +554,19 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                     </button>
                   </li>
                 ))}
+                {go('support') ? (
+                  <li>
+                    <button type="button" className="ws-item ws-item--button" onClick={go('support')}>
+                      <span className="ws-tile" aria-hidden="true">
+                        <ICON.chat size={18} />
+                      </span>
+                      <span className="ws-item-text">
+                        <span className="ws-item-title">Ask CLOR support</span>
+                        <span className="ws-item-sub">{tickets?.some((t) => t.status === 'OPEN' || t.status === 'WAITING') ? `${tickets.filter((t) => t.status === 'OPEN' || t.status === 'WAITING').length} open · see your tickets` : 'Open a ticket and get the answer by email'}</span>
+                      </span>
+                    </button>
+                  </li>
+                ) : null}
                 {operator.contactEmail ? (
                   <li>
                     <a className="ws-item" href={`mailto:${operator.contactEmail}`}>
