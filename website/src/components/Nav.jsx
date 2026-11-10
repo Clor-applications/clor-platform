@@ -9,30 +9,37 @@ const CATEGORIES = ['Finance', 'HR', 'Operations'];
 function ProductsMenu({ onPick }) {
   return (
     <div className="mega mega--products">
-      <div className="mega-grid">
-        {CATEGORIES.map((cat) => (
-          <div key={cat} className="mega-col">
-            <p className="mega-cat">{cat}</p>
-            <ul>
-              {PRODUCTS.filter((p) => p.category === cat).map((p) => (
-                <li key={p.slug}>
-                  <Link href={`/products/${p.slug}`} className="mega-item" onClick={onPick}>
-                    <Mark product={p} size={34} />
-                    <span className="mega-text">
-                      <span className="mega-name">
-                        CLOR&nbsp;{p.name} <Status product={p} />
+      <div className="mega-body">
+        <div className="mega-grid">
+          {CATEGORIES.map((cat) => (
+            <div key={cat} className="mega-col">
+              <p className="mega-cat">{cat}</p>
+              <ul>
+                {PRODUCTS.filter((p) => p.category === cat).map((p) => (
+                  <li key={p.slug}>
+                    <Link href={`/products/${p.slug}`} className="mega-item" onClick={onPick}>
+                      <Mark product={p} size={34} />
+                      <span className="mega-text">
+                        <span className="mega-name">
+                          CLOR&nbsp;{p.name} <Status product={p} />
+                        </span>
+                        <span className="mega-line">{p.line}</span>
                       </span>
-                      <span className="mega-line">{p.line}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <Link href="/solutions/businesses" className="mega-feature" onClick={onPick}>
+          <img src="/people/business-workspace-700.webp" width="700" height="394" alt="" loading="lazy" />
+          <span className="mega-name">One login for every app</span>
+          <span className="mega-line">Books, People, Payroll and Attendance share one list of employees and one set of books.</span>
+        </Link>
       </div>
       <div className="mega-foot">
-        <p className="small">Choose the products you need. They share one workspace, one sign-in and one set of people.</p>
+        <p className="small">Choose the products you need and add the rest later.</p>
         <Link href="/products" className="btn btn--text" onClick={onPick}>
           See all products
         </Link>
@@ -65,25 +72,6 @@ const DOORS = [
   { href: SITE.signInUrl, name: 'Company sign-in', line: 'Owners, HR, managers and accountants.' },
   { href: SITE.portalUrl, name: 'Employee portal', line: 'Punch in, ask for leave, see your payslips.' },
 ];
-
-function SignInMenu({ onPick }) {
-  return (
-    <div className="mega mega--list">
-      <ul>
-        {DOORS.map((d) => (
-          <li key={d.name}>
-            <a href={d.href} className="mega-item mega-item--plain" onClick={onPick}>
-              <span className="mega-text">
-                <span className="mega-name">{d.name}</span>
-                <span className="mega-line">{d.line}</span>
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 const MENUS = [
   { key: 'products', label: 'Products' },
@@ -179,9 +167,25 @@ export default function Nav() {
 
   return (
     <>
+    <div className="topbar">
+      <div className="wrap topbar-in">
+        <a href={`mailto:${SITE.salesEmail}`}>Talk to sales: {SITE.salesEmail}</a>
+        <ul>
+          <li>
+            <a href={SITE.portalUrl}>Employee portal</a>
+          </li>
+          <li>
+            <Link href="/resources">Help and guides</Link>
+          </li>
+          <li>
+            <Link href="/contact">Contact</Link>
+          </li>
+        </ul>
+      </div>
+    </div>
     <header className="nav" ref={ref}>
       <div className="wrap nav-bar">
-        <Logo />
+        <Logo light />
         <nav className="nav-main" aria-label="Main">
           <ul>
             {MENUS.map((m) =>
@@ -204,15 +208,9 @@ export default function Nav() {
           </ul>
         </nav>
         <div className="nav-end">
-          <div className="nav-doors" {...hover('signin')}>
-            <button type="button" className="nav-trigger" aria-expanded={open === 'signin'} onClick={toggle('signin')}>
-              Sign in
-              <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
-            </button>
-            <div className={`mega-wrap mega-wrap--end${open === 'signin' ? ' is-open' : ''}`}>
-              <SignInMenu onPick={close} />
-            </div>
-          </div>
+          <a href={SITE.signInUrl} className="nav-trigger nav-signin">
+            Sign in
+          </a>
           <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
             Request a demo
           </Link>

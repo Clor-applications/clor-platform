@@ -47,7 +47,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   if (failure) {
     return (
-      <AuthLayout title="This invitation can’t be used" subtitle={failure} onHome={onHome}>
+      <AuthLayout scene="invite" title="This invitation can’t be used" subtitle={failure} onHome={onHome}>
         <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={onSignIn}>
           Go to sign in
         </button>
@@ -56,7 +56,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
   }
   if (!invite) {
     return (
-      <AuthLayout title="Opening your invitation…" onHome={onHome}>
+      <AuthLayout scene="invite" title="Opening your invitation…" onHome={onHome}>
         <p className="ui-caption" role="status">
           Checking the link.
         </p>
@@ -70,7 +70,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   if (user && !signedInAsInvited) {
     return (
-      <AuthLayout title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
+      <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
         <p className="text-sm">
           You are signed in as {user.email}. This invitation is for {invite.email}: sign out, then open the link again.
         </p>
@@ -83,7 +83,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   if (signedInAsInvited) {
     return (
-      <AuthLayout title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
+      <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
         <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={() => run(async () => { await acceptInvitationSignedIn(token); done(); })}>
           {busy ? 'Joining…' : `Join ${invite.accountName}`}
         </button>
@@ -94,7 +94,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   /* Not signed in. */
   return (
-    <AuthLayout title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
+    <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
       <form
         className="grid gap-4"
         onSubmit={(e) => {

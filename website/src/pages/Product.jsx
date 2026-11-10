@@ -3,7 +3,6 @@ import { Link } from '../router.jsx';
 import { CONNECTIONS, PRODUCTS, demoFor, productBySlug } from '../site.js';
 import { PRODUCT_CONTENT } from '../content.js';
 import { Mark, Status } from '../components/Brand.jsx';
-import { WINDOWS } from '../components/Windows.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 
@@ -14,11 +13,21 @@ import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
  * page names it in the message.
  */
 
+/* Each product's hero photo: a person at work with that product's real screen on the device. */
+const PHOTOS = {
+  books: { src: ['/people/books-invoice-560.webp', '/people/books-invoice-980.webp'], w: [560, 980], h: 620, alt: 'A tax invoice in CLOR Books on a laptop, with sample data', cut: true },
+  people: { src: ['/people/people-hr-700.webp', '/people/people-hr-1400.webp'], w: [700, 1400], h: 788, alt: 'An HR manager looking at an employee’s profile in CLOR People' },
+  payroll: { src: ['/people/payroll-payslip-560.webp', '/people/payroll-payslip-1120.webp'], w: [560, 1120], h: 1400, alt: 'An employee reading her October payslip from CLOR Payroll on her phone', tall: true },
+  attendance: { src: ['/people/attendance-reader-700.webp', '/people/attendance-reader-1400.webp'], w: [700, 1400], h: 1050, alt: 'An employee punching in on a biometric reader showing CLOR Attendance' },
+  projects: { src: ['/people/projects-360.webp', '/people/projects-720.webp'], w: [454, 909], h: 720, alt: 'Two colleagues planning project work at a desk' },
+  timesheet: { src: ['/people/timesheet-360.webp', '/people/timesheet-720.webp'], w: [372, 744], h: 720, alt: 'A consultant logging time at his laptop' },
+};
+
 function Hero({ p, c, soon }) {
-  const Win = WINDOWS[p.slug];
+  const ph = PHOTOS[p.slug];
   return (
     <section className="hero p-hero" aria-labelledby="p-title">
-      <div className={`wrap${Win ? ' p-hero-grid' : ''}`}>
+      <div className={`wrap${ph ? ' p-hero-grid' : ''}`}>
         <div className="hero-copy">
           <h1 id="p-title" className="h-hero">
             CLOR&nbsp;{p.name}
@@ -42,10 +51,17 @@ function Hero({ p, c, soon }) {
             </Link>
           </div>
         </div>
-        {Win ? (
-          <figure className="p-shot">
-            <Win />
-            <figcaption className="caption">Drawn with sample data. Real screenshots are on the way.</figcaption>
+        {ph ? (
+          <figure className={`p-photo${ph.cut ? ' p-photo--cut' : ''}${ph.tall ? ' p-photo--tall' : ''}`}>
+            <img
+              src={ph.src[1]}
+              srcSet={`${ph.src[0]} ${ph.w[0]}w, ${ph.src[1]} ${ph.w[1]}w`}
+              sizes="(max-width: 900px) 100vw, 560px"
+              width={ph.w[1]}
+              height={ph.h || undefined}
+              fetchPriority="high"
+              alt={ph.alt}
+            />
           </figure>
         ) : null}
       </div>
