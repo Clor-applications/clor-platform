@@ -183,9 +183,14 @@ export async function listInvitations(accountId: string) {
   );
 }
 
-/** Resend: a new token and a new expiry; the old link stops working. */
-export async function resendInvitation(req: Request, id: string) {
-  const accountId = String(req.tenant?.accountId || '');
+/**
+ * Resend: a new token and a new expiry; the old link stops working.
+ * `asOperator`: a CLOR operator resends from the console (routes/opsCustomers.ts),
+ * outside the account; the mail still names the person who invited them, and
+ * the operator's own record is kept by the console.
+ */
+export async function resendInvitation(req: Request, id: string, asOperator?: { accountId: string }) {
+  const accountId = String(asOperator?.accountId || req.tenant?.accountId || '');
   const actor = String(req.auth?.userId || '');
   return outsideTenant('account invitation: resend', async () => {
     const row = await platformPrisma.accountInvitation.findFirst({ where: { id, accountId } });
@@ -197,7 +202,8 @@ export async function resendInvitation(req: Request, id: string) {
       where: { id },
       data: { tokenHash: sha256(token), expiresAt, status: 'PENDING', sendCount: { increment: 1 }, lastSentAt: new Date() },
     });
-    await sendInvitationEmail(accountId, actor, row.email, token, expiresAt, parseGrants(row.grants));
+    await sendInvitationEmail(accountId, asOperator ? row.invitedByUserId : actor, row.email, token, expiresAt, parseGrants(row.grants));
+    if (asOperator) return shapeInvitation(updated);
     await recordAccountEvent({ accountId, actorUserId: actor, action: 'INVITATION_RESENT', targetType: 'AccountInvitation', targetId: id, message: `Sent the invitation to ${row.email} again` });
     return shapeInvitation(updated);
   });

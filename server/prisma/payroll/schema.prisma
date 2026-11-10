@@ -1392,6 +1392,21 @@ model PayrollSetting {
   firstPayrollYearBy     String?
   firstPayrollYearAt     DateTime?
 
+  /// Professional tax is registered state by state, so the number lives here
+  /// rather than on the one PT scheme: JSON array of
+  /// { state, registrationNumber } with the state in its canonical spelling.
+  ptRegistrationsJson String @default("[]")
+  /// Form 24Q names the deductor's kind and the person responsible for
+  /// deducting tax: COMPANY | COMPANY_BRANCH | FIRM | INDIVIDUAL_HUF |
+  /// AOP_TRUST | GOVERNMENT | OTHER, and that person's name and designation.
+  tdsDeductorType           String?
+  tdsResponsibleName        String?
+  tdsResponsibleDesignation String?
+  /// When somebody answered the statutory registrations step (in setup or in
+  /// Compliance). Whether the step is done is still read from the numbers
+  /// themselves; this only records that the question was put and answered.
+  statutoryRegistrationsAt DateTime?
+
   updatedByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

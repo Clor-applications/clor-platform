@@ -4,7 +4,8 @@ import { PRODUCT_CONTENT } from './content.js';
 import Home from './pages/Home.jsx';
 import Demo from './pages/Demo.jsx';
 import Product, { Products } from './pages/Product.jsx';
-import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Pricing, Resources, Security } from './pages/Pages.jsx';
+import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security } from './pages/Pages.jsx';
+import Pricing from './pages/Pricing.jsx';
 
 /** Every page: its address, title, description and component. The sitemap is made from this list. */
 export const ROUTES = [
@@ -18,7 +19,7 @@ export const ROUTES = [
   })),
   { path: '/solutions/businesses', title: 'CLOR for businesses', description: 'GST invoices, staff records, attendance and salaries for small Indian companies, under one login.', page: () => <Businesses /> },
   { path: '/solutions/accounting-firms', title: 'CLOR for accounting firms', description: 'Work in your clients’ CLOR books with your own login and the access they give you.', page: () => <Firms /> },
-  { path: '/pricing', title: 'Pricing', description: 'Each CLOR product has its own subscription: pay for the products you use.', page: () => <Pricing /> },
+  { path: '/pricing', title: 'Pricing', description: 'Plans and prices for CLOR Books, Payroll, People and Attendance. Each product has its own subscription: pay for the products you use.', page: () => <Pricing /> },
   { path: '/integrations', title: 'Integrations', description: 'Biometric readers, Tally, HR tools, single sign-on, SCIM, the API, UPI and GST e-invoicing.', page: () => <Integrations /> },
   { path: '/resources', title: 'Guides', description: 'How to set up readers, the on-site connector, Tally, HR tools, single sign-on and directory sync.', page: () => <Resources /> },
   { path: '/company/about', title: 'About', description: `${SITE.company} makes CLOR in Bengaluru: accounting, HR, payroll and attendance on one set of records.`, page: () => <About /> },

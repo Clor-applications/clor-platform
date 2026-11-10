@@ -8,11 +8,16 @@ import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { PLAN_CATALOG } from '../constants/planCatalog.js';
-import { getSubscription, appAccess, setSubscription, applyGatewayEvent, lapseReason } from '../services/subscriptions.js';
-import { getGateway } from '../billing/gateway.js';
+import { getSubscription, appAccess, setSubscription, lapseReason } from '../services/subscriptions.js';
+import { applyGatewayEvent, recordRejected } from '../billing/events.js';
+import { activeGateway, isCode, manualPayTo, webhookGateway } from '../billing/providers.js';
+import { rawText } from '../billing/webhookKit.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
 import { acrossCompanies } from '../utils/tenantScope.js';
+import { publishedBook } from '../services/pricing/books.js';
+import { taxSetting } from '../services/pricing/settings.js';
+import { publicPricing } from './pricing.js';
 
 export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
@@ -31,12 +36,43 @@ billingOperatorRouter.use(acrossCompanies('billing operator: a customer account,
  * over. Under the manual gateway it still does nothing (202 ignored); a real
  * gateway adapter verifies the signature in verifyWebhook.
  */
+const rawBody = (req: Request) => (Buffer.isBuffer(req.body) ? req.body : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {})));
+
 export async function billingWebhook(req: Request, res: Response) {
-  const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
-  const ev = getGateway().verifyWebhook(raw, req.headers as Record<string, unknown>);
+  const raw = rawBody(req);
+  const ev = (await activeGateway()).verifyWebhook(raw, req.headers as Record<string, unknown>);
   if (!ev) return res.status(202).json({ ignored: true });
   const r = await applyGatewayEvent(ev);
-  res.json(r);
+  res.json({ applied: r.applied });
+}
+
+/**
+ * One provider's webhook: POST /api/billing/webhook/cashfree or /razorpay,
+ * the address the operator console shows with a Copy button. The signature is
+ * checked over the exact bytes received, with that provider's saved secret.
+ * A refused event is kept (with why) for the Payments log and answered 400,
+ * so it shows as failed in the provider's dashboard too. A replay is answered
+ * 200 and changes nothing. An event kept but not applied is answered 200: it
+ * waits in the Payments log for Retry, and the provider need not resend it.
+ */
+export async function providerWebhook(req: Request, res: Response) {
+  const code = String(req.params.provider || '');
+  if (!isCode(code) || code === 'manual') return res.status(404).json({ error: 'No such payment provider.' });
+  const raw = rawBody(req);
+  const found = await webhookGateway(code);
+  if ('reason' in found) {
+    await recordRejected(code, found.reason, rawText(raw));
+    return res.status(400).json({ error: found.reason });
+  }
+  const check = found.gateway.checkWebhook
+    ? found.gateway.checkWebhook(raw, req.headers as Record<string, unknown>)
+    : ((ev) => (ev ? { ok: true as const, event: ev } : { ok: false as const, reason: 'The signature did not match.' }))(found.gateway.verifyWebhook(raw, req.headers as Record<string, unknown>));
+  if (!check.ok) {
+    await recordRejected(code, check.reason, rawText(raw));
+    return res.status(400).json({ error: check.reason });
+  }
+  const r = await applyGatewayEvent(check.event);
+  res.json({ received: true, duplicate: Boolean(r.duplicate) });
 }
 
 const setSchema = z.object({
@@ -52,6 +88,7 @@ const setSchema = z.object({
     )
     .min(1),
   status: z.enum(['trialing', 'active', 'past_due', 'paused', 'cancelled']).optional(),
+  reason: z.string().trim().max(500).optional(),
   billingInterval: z.enum(['month', 'year']).nullish(),
   trialDays: z.number().int().positive().nullish(),
 });
@@ -88,15 +125,22 @@ billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireA
     userAgent: req.headers['user-agent'] as string | undefined,
     detail: JSON.stringify({ before: shape(before), after: shape(sub) }).slice(0, 1000),
   });
+  /* And on CLOR's own operator record, with everything else operators do (Audit log). */
+  await platformPrisma.operatorAuditEvent.create({
+    data: { operatorUserId: req.auth!.userId, action: 'SUBSCRIPTION_SET', targetAccountId: accountId, detail: { before: shape(before), after: shape(sub), reason: typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : undefined } as any, ip: clientIp(req) ?? null },
+  });
   res.json({ subscription: sub });
 });
 
 // Everything else is tenant-scoped.
 billingRouter.use(requireAuth, requireTenantContext);
 
-/** The catalog: which apps can be bought and the accounting plans. Pricing TBD. */
-billingRouter.get('/billing/catalog', (_req, res) => {
-  res.json({ apps: APP_CATALOG, accountingPlans: PLAN_CATALOG, gateway: getGateway().name });
+/** The catalog: which apps can be bought, the accounting plans, and the published price list (services/pricing/). */
+billingRouter.get('/billing/catalog', async (_req, res) => {
+  const [book, gst, gateway] = await Promise.all([publishedBook(), taxSetting(), activeGateway()]);
+  /* With manual payments active, how to pay: CLOR's UPI ID, a QR and the bank account. */
+  const payTo = gateway.name === 'manual' ? await manualPayTo(gateway) : null;
+  res.json({ apps: APP_CATALOG, accountingPlans: PLAN_CATALOG, gateway: gateway.name, payTo, pricing: book ? publicPricing(book, gst) : null });
 });
 
 /** This account's subscription + the apps it may currently open. */

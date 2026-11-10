@@ -29,6 +29,7 @@ export const APP_CATALOG: AppDef[] = [
   { code: 'attendance', name: 'Attendance', blurb: 'Shifts, clock in/out, late, overtime and payable days.', available: true, featureKey: 'attendance' },
   { code: 'people', name: 'People', blurb: 'The staff directory every app refers to.', available: true, featureKey: 'people' },
   { code: 'projects', name: 'Projects', blurb: 'Projects, time, and what each cost.', available: false },
+  { code: 'timesheet', name: 'Timesheet', blurb: 'Time logged against projects and clients, approved and billed.', available: false },
 ];
 
 export const APP_CODES = APP_CATALOG.map((a) => a.code);

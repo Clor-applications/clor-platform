@@ -178,6 +178,56 @@ export async function peopleMoneyLines(orgId: string, employeeId: string): Promi
 }
 
 /**
+ * What the leaving's clearance sign-off (people/engagement/clearance.ts) adds (People plan step 5):
+ *
+ *  - a line where a department recorded money either way (a lost ID card the leaver owes, a deposit
+ *    the company owes back): a deduction or an earning at that amount, with the department's note;
+ *  - an asset from the register still with them, on a line that recorded no money: a deduction at
+ *    ₹0 for HR to price, since the register keeps no value. Remove it once the asset comes back.
+ *
+ * Accounts' own line is left out: its figure is the advances, loans and claims, which come above
+ * from their records. A withdrawn leaving's lines are not read.
+ */
+export async function clearanceLines(orgId: string, employeeId: string, leaving: string): Promise<SettlementLine[]> {
+  const rows = await peoplePrisma.clearanceLine.findMany({
+    where: { orgId, employeeId, leavingDate: leaving, status: { not: 'WITHDRAWN' }, dept: { not: 'FINANCE' } },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+  const items = (raw: unknown) => (Array.isArray(raw) ? raw : []).filter((i: any) => i && i.title) as Array<{ title: string; assetId?: string | null; tag?: string | null; returned?: boolean }>;
+  const assetIds = rows.flatMap((r) => items(r.items).map((i) => i.assetId)).filter(Boolean) as string[];
+  /* Marked returned in the register counts, whichever screen it was marked on. */
+  const back = new Set(assetIds.length ? (await peoplePrisma.peopleRecord.findMany({ where: { orgId, id: { in: assetIds }, status: { not: 'ASSIGNED' } }, select: { id: true } })).map((a) => a.id) : []);
+  const named = (i: { title: string; tag?: string | null }) => `${i.title}${i.tag ? ` (${i.tag})` : ''}`;
+  const out: SettlementLine[] = [];
+  rows.forEach((r, n) => {
+    const missing = items(r.items).filter((i) => !i.returned && !(i.assetId && back.has(i.assetId)));
+    const amount = round2(Number(r.amount));
+    const code = `CLEARANCE_${r.dept}_${n + 1}`.slice(0, 40);
+    if ((r.direction === 'OWES' || r.direction === 'OWED') && amount > 0) {
+      const notBack = missing.length ? ` Not handed back: ${missing.map(named).join(', ')}.` : '';
+      out.push({
+        code,
+        label: `Clearance: ${r.label}`.slice(0, 120),
+        kind: r.direction === 'OWES' ? 'DEDUCTION' : 'EARNING',
+        amount,
+        explanation: `${r.direction === 'OWES' ? 'They owe the company' : 'The company owes them'} ${inr(amount)}, recorded on the clearance sign-off.${r.note ? ` ${r.note}` : ''}${notBack}`.slice(0, 500),
+      });
+      return;
+    }
+    missing.filter((i) => i.assetId).forEach((i, k) => {
+      out.push({
+        code: `${code}_${k + 1}`.slice(0, 40),
+        label: `Not returned: ${named(i)}`.slice(0, 120),
+        kind: 'DEDUCTION',
+        amount: 0,
+        explanation: `Still with them in the asset register. Enter what the company recovers for it, or remove this line once it comes back.`,
+      });
+    });
+  });
+  return out;
+}
+
+/**
  * The sources an edited set of lines may keep: only those the settlement
  * already carried, each on one line only. A line's source decides what paying
  * it closes, so it is never taken from the request.

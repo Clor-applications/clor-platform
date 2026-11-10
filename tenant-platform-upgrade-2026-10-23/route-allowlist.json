@@ -163,6 +163,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/billing/webhook/:provider",
+      "reason": "One payment provider's webhook (cashfree, razorpay), the address shown in the operator console: raw body ahead of the JSON parser; the provider's HMAC signature is checked with its secret saved (encrypted) in Payments, refused events are kept at most 200 an hour; idempotent on the provider event id; billingWebhookLimiter."
+    },
+    {
+      "method": "POST",
       "path": "/api/orgs/:orgId/notifications/inbox/mutes",
       "reason": "Self-service: mutes kinds for the caller only (where userId = caller)."
     },
@@ -992,6 +997,11 @@
       "reason": "Explore link from a demo request's mail (explore.ts): the token is the credential, kept only as a SHA-256 hash, 14 days, revocable by an operator; exploreLimiter (30 per address and 10 per token a quarter-hour); the same 410 for unknown, run-out and ended links; opens a session only as the shared sample company's viewer, and middleware/exploreReadOnly.ts refuses every write that session makes."
     },
     {
+      "method": "GET",
+      "path": "/api/public/app-catalogue",
+      "reason": "The app catalogue clor.in and the app switcher read (opsCatalogue.ts): each app's name, Available or Coming soon, and its one-line blurb, the same for everybody; Hidden apps are left out; reads one platform table with no accountId and nothing of any customer's; changes nothing. CORS open to any origin for GET, without credentials."
+    },
+    {
       "method": "POST",
       "path": "/api/public/demo-requests",
       "reason": "Request a demo on clor.in (demoRequests.ts): no account exists yet; demoRequestLimiter (10 an hour per address, 3 per email); hidden trap field drops bots; fields validated; writes one platform DemoRequest row (no accountId), a DEMO_REQUESTED auth event, a mail to sales, and an Explore pass mailed to the visitor whose link it answers with (a read-only view of the shared sample company, nothing of anybody's); reads nothing else back. CORS open to the site origins only, without credentials."
@@ -1015,6 +1025,16 @@
       "method": "POST",
       "path": "/api/public/signup/confirm",
       "reason": "Free trial link (signup.ts): the token is the credential (SHA-256 hash, 24 hours, single use via a conditional claim so two tabs cannot both start); signupLinkLimiter; creates the account through provisionAccount, the same code as the operator console Create account, then opens a session for that new owner only."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/pricing",
+      "reason": "clor.in's pricing page (pricing.ts): CLOR's own published price book as operators made it (plans shown on the site, their apps, amounts in paise, trial days) and whether GST is charged; 404 when nothing is published; no customer data, no draft, archived or hidden plan. Read-only, cached a minute per instance and in the browser. CORS open to the site origins only, without credentials."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/pricing/quote",
+      "reason": "A price quote on clor.in (pricing.ts): arithmetic over the published price book for the website plans, period and counts sent; validated by zod; pricingQuoteLimiter (120 a minute per address, in-process); writes nothing and reads only the published book and CLOR's GST setting. CORS open to the site origins only, without credentials."
     },
     {
       "method": "GET",

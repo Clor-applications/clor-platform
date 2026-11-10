@@ -1,6 +1,5 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { APP_CATALOG, APP_CODES, SELLABLE_APP_CODES, appByCode, appForFeature, isSellableApp } from '../constants/appCatalog.js';
-import { getGateway, type NormalizedEvent } from '../billing/gateway.js';
 
 /**
  * A tenant's subscription: which apps it bought, and where it sits in the
@@ -251,36 +250,6 @@ export async function syncAccountEntitlement(accountId: string) {
   });
 }
 
-/**
- * Apply a verified, normalized gateway event. Idempotent: the same provider
- * event id is recorded once and replays are no-ops.
- */
-export async function applyGatewayEvent(ev: NormalizedEvent): Promise<{ applied: boolean }> {
-  try {
-    await platformPrisma.paymentEvent.create({
-      data: { gateway: ev.gateway, eventId: ev.eventId, type: ev.type, accountId: ev.accountId ?? null, payload: JSON.stringify(ev.raw) },
-    });
-  } catch {
-    return { applied: false }; // unique(gateway,eventId) -> already seen
-  }
-  if (ev.accountId && ev.subscription) {
-    const s = ev.subscription;
-    await platformPrisma.subscription.updateMany({
-      where: { accountId: ev.accountId },
-      data: {
-        status: s.status ?? undefined,
-        currentPeriodEnd: s.currentPeriodEnd ?? undefined,
-        gatewayName: ev.gateway,
-        gatewaySubscriptionId: s.gatewaySubscriptionId ?? undefined,
-      },
-    });
-    await syncAccountEntitlement(ev.accountId);
-  }
-  await platformPrisma.paymentEvent.updateMany({
-    where: { gateway: ev.gateway, eventId: ev.eventId },
-    data: { processed: true },
-  });
-  return { applied: true };
-}
+/* Gateway events (webhooks, manual payments, retries) are applied in billing/events.ts. */
 
 export { APP_CODES, appByCode };
