@@ -3,7 +3,7 @@ import { Link, useSearch } from '../router.jsx';
 import { PRODUCTS, SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
-import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
+import { Head } from '../components/Sections.jsx';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
 
 export function PageHead({ title, intro, children }) {
@@ -111,8 +111,6 @@ export function Businesses() {
         </div>
       </section>
 
-      <SettingUp />
-      <TrustBand />
       <Closing />
     </>
   );
@@ -182,7 +180,6 @@ export function Firms() {
         </div>
       </section>
 
-      <TrustBand />
       <Closing demoHref="/contact?about=firm" title="Working with clients on CLOR already?" text="Ask your client to invite you from their Workspace, under Access and then Invitations. Or ask us for a demo of how firms work in CLOR." />
     </>
   );
