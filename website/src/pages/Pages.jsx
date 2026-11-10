@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearch } from '../router.jsx';
 import { SITE, productBySlug } from '../site.js';
-import { useProducts } from '../catalogue.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head } from '../components/Sections.jsx';
