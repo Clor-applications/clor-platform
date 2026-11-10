@@ -129,3 +129,11 @@ export const opsTicketChange = (id, body) => apiFetch(`/ops/tickets/${encodeURIC
 /* Alerts (Ops plan P1; server: routes/opsHealth.ts). */
 export const opsAlerts = () => apiFetch('/ops/alerts', o);
 export const opsAcknowledgeAlert = (id) => apiFetch(`/ops/alerts/${encodeURIComponent(id)}/acknowledge`, { ...o, method: 'POST', body: {} });
+
+/* Announcements (Ops plan P1; server: routes/opsAnnouncements.ts). */
+export const opsAnnouncements = () => apiFetch('/ops/announcements', o);
+const ann = (id) => `/ops/announcements/${encodeURIComponent(id)}`;
+export const opsAnnouncementSave = (id, body) => (id ? apiFetch(ann(id), { ...o, method: 'PATCH', body }) : apiFetch('/ops/announcements', { ...o, method: 'POST', body }));
+export const opsAnnouncementPublish = (id, reason) => apiFetch(`${ann(id)}/publish`, { ...o, method: 'POST', body: { reason } });
+export const opsAnnouncementEnd = (id, reason) => apiFetch(`${ann(id)}/end`, { ...o, method: 'POST', body: { reason } });
+export const opsAnnouncementDelete = (id, reason) => apiFetch(ann(id), { ...o, method: 'DELETE', body: { reason } });

@@ -27,6 +27,7 @@ import { AuditLog } from './AuditLog';
 import { Health } from './Health';
 import { TicketPage, Tickets } from './Tickets';
 import { Alerts } from './Alerts';
+import { Announcements } from './Announcements';
 import { OpsSearch } from './OpsSearch';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
@@ -79,6 +80,7 @@ export const NAV = [
     items: [
       ['catalogue', 'App catalogue', ICON.apps],
       ['sample', 'Sample company', ICON.company],
+      ['announcements', 'Announcements', ICON.alert],
     ],
   },
   {
@@ -146,6 +148,7 @@ export const SCREENS = {
       <Tickets key={route.params.status || 'active'} me={me} initialStatus={route.params.status || 'active'} openTicket={(id) => go('tickets', {}, id)} />
     ),
   alerts: ({ go, me }) => <Alerts go={go} me={me} />,
+  announcements: ({ me }) => <Announcements me={me} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
 };

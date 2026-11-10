@@ -20,6 +20,7 @@ import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import { AnnouncementBar } from './Announcements';
 import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
 import { EXPLORE_READ_ONLY_TEXT, confirmDialog, notify } from '@ui/components/ui/notify';
 import { ExploreEnded, ExploreLanding, ExploreNotice } from './Explore';
@@ -1328,6 +1329,7 @@ function ShellScreens() {
 
         <ExploreNotice explore={explore} demoUrl={DEMO_URL} />
         <SubscriptionBanner billing={tenant.billing} />
+        <AnnouncementBar app={activeAppId} />
         {tenant.archivedAt ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
             <span className="min-w-0 flex-1">This company is archived. You can read and export its records; nothing new can be saved. An account owner or admin can reactivate it in Workspace → Companies.</span>
@@ -1787,7 +1789,7 @@ function SubscriptionBanner({ billing }) {
       {/* The server's own sentence when it has one (a trial that ended, routes/billing.ts `reason`); the old line otherwise. */}
       {billing.reason || (
         <>
-          Your Clor subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
+          Your CLOR subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
           and still visible; renew to keep working. Contact suresh@clor.in.
         </>
       )}

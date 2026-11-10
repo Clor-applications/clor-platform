@@ -1717,3 +1717,40 @@ model OpsAlert {
   @@index([resolvedAt, severity])
   @@index([key, resolvedAt])
 }
+
+/// A notice from CLOR shown at the top of the app (Ops plan P1): news, planned maintenance or a problem being fixed.
+/// Written on ops.clor.in; a draft until published; shown from startsAt until endsAt or until ended by hand.
+model Announcement {
+  id              String    @id @default(cuid())
+  title           String
+  body            String
+  /// info | maintenance | incident. An incident cannot be dismissed while it lasts.
+  kind            String    @default("info")
+  /// App codes it is about; empty means every customer.
+  apps            String[]  @default([])
+  /// everyone | admins (account owners, administrators and billing administrators)
+  audience        String    @default("everyone")
+  startsAt        DateTime  @default(now())
+  endsAt          DateTime?
+  publishedAt     DateTime?
+  endedAt         DateTime?
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  dismissals AnnouncementDismissal[]
+
+  @@index([publishedAt, endedAt, startsAt])
+}
+
+/// One person closed one announcement; it stays closed for them on every device.
+model AnnouncementDismissal {
+  announcementId String
+  userId         String
+  at             DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+}
