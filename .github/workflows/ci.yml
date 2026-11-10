@@ -253,6 +253,9 @@ jobs:
 
       - name: Upload the report
         if: always()
+        # A full artifact store must not fail a run whose tests passed: the
+        # results are already in the log ("Results by scenario").
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: e2e-report-${{ github.run_id }}-${{ github.run_attempt }}
@@ -260,7 +263,7 @@ jobs:
             e2e/report/
             e2e/test-results/
             docs/people/qa/E2E-RESULTS.md
-          retention-days: 14
+          retention-days: 5
           if-no-files-found: ignore
 
       - name: Drop this run's database
@@ -303,6 +306,9 @@ jobs:
 
       - name: Upload the report
         if: always()
+        # A full artifact store must not fail a run whose tests passed: the
+        # results are already in the log ("Results by scenario").
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: e2e-staging-report-${{ github.run_id }}
@@ -310,7 +316,7 @@ jobs:
             e2e/report/
             e2e/test-results/
             docs/people/qa/E2E-RESULTS.md
-          retention-days: 14
+          retention-days: 5
           if-no-files-found: ignore
 
   # Deploy runs only after verify and the server tests pass, only on main, and never on a pull
