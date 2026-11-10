@@ -3321,3 +3321,142 @@ html.is-scrolled .nav {
 .nav :focus-visible {
   outline-color: #ffb08a;
 }
+
+/* ===================================== audit fixes (owner, 10 Nov 2026)
+ * Built with the frontend-design and taste-skill review: one alignment for
+ * every section heading (left), the four ready products as a 2 by 2 set of
+ * larger cards with nothing cropped, the two coming next as a quiet row, menu
+ * labels in sentence case, phone tap targets at 44px, a free-trial button
+ * beside the demo request.
+ */
+.head--center,
+.sec-head--center {
+  justify-items: start;
+  text-align: left;
+}
+.closing-inner {
+  justify-items: start;
+  text-align: left;
+}
+.closing-inner .lede {
+  max-width: 60ch;
+}
+.closing-band-inner {
+  text-align: left;
+}
+.apps {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-5);
+}
+.app-card {
+  min-height: 300px;
+}
+.app-card-pic {
+  object-fit: contain;
+  object-position: right bottom;
+}
+@media (max-width: 760px) {
+  .apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.apps-next {
+  margin-top: var(--s-6);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+.apps-next-title {
+  margin: 0;
+  padding-top: 6px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.apps-next ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+.apps-next-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  margin: -10px -12px;
+  border-radius: var(--r-control);
+  color: inherit;
+  text-decoration: none;
+}
+.apps-next-item:hover {
+  background: var(--surface-2);
+}
+.apps-next-item > span {
+  display: grid;
+  gap: 2px;
+}
+.apps-next-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .apps-next,
+  .apps-next ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.mega-cat {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8125rem;
+}
+/* Free trial beside the demo request: outlined, so the demo stays the one primary action. */
+.nav-trial {
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent;
+  color: #fff;
+}
+.nav-trial:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #fff;
+}
+@media (max-width: 1100px) {
+  .nav-trial {
+    display: none;
+  }
+}
+.hero-note {
+  margin-top: var(--s-3);
+  color: var(--ink-3);
+}
+.mobile-demo + .mobile-demo {
+  margin-top: var(--s-3);
+}
+/* Phone: every link and button at least 44px tall to tap. */
+@media (max-width: 760px) {
+  .text-link,
+  .btn--text,
+  .topbar a,
+  .faq a,
+  .footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+@media (max-width: 760px) {
+  .logo,
+  .stage-products a,
+  .int-product {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

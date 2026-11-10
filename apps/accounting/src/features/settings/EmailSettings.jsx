@@ -13,6 +13,8 @@ import {
 } from '../../api/email';
 import { EmptyState, Spinner, StatusPill, SkeletonCard } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
+import EmailSwitchList from '@ui/notifications/EmailSwitchList';
+import { emailGroups, switchesBody, toggleEmail } from '@ui/notifications/emailApps';
 
 const TABS = [
   { key: 'server', label: 'Mail server' },
@@ -380,28 +382,18 @@ export const EmailSettings = () => {
             <EmptyState icon={Mail} title="No optional notifications" description="Nothing to configure yet." />
           ) : (
             <>
-              {events.map((e, idx) => (
-                <label
-                  key={e.key}
-                  className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-[rgb(var(--surface-sunken))]"
-                  style={idx ? { borderTop: '1px solid rgb(var(--border))' } : undefined}
-                >
-                  <input
-                    type="checkbox"
-                    className="ui-checkbox mt-1"
-                    checked={Boolean(e.enabled)}
-                    onChange={(ev) =>
-                      setEvents((prev) =>
-                        prev.map((x) => (x.key === e.key ? { ...x, enabled: ev.target.checked } : x))
-                      )
-                    }
-                  />
-                  <span className="min-w-0">
-                    <span className="ui-title text-sm block">{e.label}</span>
-                    <span className="ui-muted text-xs">{e.description}</span>
-                  </span>
-                </label>
-              ))}
+              <div className="px-4">
+                {emailGroups(events).map((g) => (
+                  <section key={g.id} aria-labelledby={`email-app-${g.id}`} className="pt-3">
+                    <h3 id={`email-app-${g.id}`} className="ui-label">{g.label}</h3>
+                    <EmailSwitchList
+                      events={g.events}
+                      labelledBy={`email-app-${g.id}`}
+                      onToggle={(key, on) => setEvents((prev) => toggleEmail(prev, key, on))}
+                    />
+                  </section>
+                ))}
+              </div>
 
               <div
                 className="px-4 py-3 flex items-center gap-2"
@@ -415,9 +407,7 @@ export const EmailSettings = () => {
                     run(
                       'notif',
                       async () => {
-                        await saveNotifications(
-                          events.map((e) => ({ eventKey: e.key, enabled: Boolean(e.enabled) }))
-                        );
+                        await saveNotifications(switchesBody(events));
                         setEventBaseline(events);
                       },
                       'Notifications saved'

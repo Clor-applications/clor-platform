@@ -16,6 +16,7 @@ export const GROUPS = [
       ['jobPositions', 'The designations people hold'],
       ['orgChanges', 'Every change to the structure: what, who, when'],
       ['compliance', 'Statutory deadlines and the rules behind them, with what is due and what is late'],
+      ['emailNotifications', 'Which emails go out, such as a document about to expire or the Monday summary, in Workspace'],
     ],
   },
   {

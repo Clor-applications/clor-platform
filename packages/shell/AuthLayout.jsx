@@ -3,7 +3,7 @@ import { Check } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 import { appFromHost } from './appHosts';
-import { factsFor, sceneFile, sceneSrc } from './authScenes';
+import { QUOTES, sceneFile, sceneRatio, sceneSrc } from './authScenes';
 
 /**
  * The frame both sign-in and sign-up sit in.
@@ -50,44 +50,47 @@ function CustomerBrand() {
 }
 
 /**
- * Facts about the app that turn over every few seconds on the picture's navy
- * fade. Held still for anyone who asks for less motion; the dots let a reader
- * pick one.
+ * Lines worth reading, turning over one after another on the picture. Held still
+ * for anyone who asks for less motion; the dots let a reader pick one.
  */
-function Facts({ app }) {
-  const facts = factsFor(app);
+function Quotes() {
   const [i, setI] = useState(0);
   useEffect(() => {
     if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const t = setInterval(() => setI((n) => (n + 1) % facts.length), 6000);
+    const t = setInterval(() => setI((n) => (n + 1) % QUOTES.length), 7000);
     return () => clearInterval(t);
-  }, [facts.length, i]);
+  }, [i]);
+  const q = QUOTES[i];
   return (
-    <div className="ui-auth-facts">
-      <p key={i} className="ui-auth-fact">
-        {facts[i]}
-      </p>
+    <figure className="ui-auth-facts">
+      <div key={i} className="ui-auth-fact">
+        <blockquote>“{q.text}”</blockquote>
+        <figcaption>{q.by}</figcaption>
+      </div>
       <div className="ui-auth-fact-dots">
-        {facts.map((f, n) => (
-          <button key={f} type="button" aria-label={`Fact ${n + 1} of ${facts.length}`} aria-current={n === i ? 'true' : undefined} onClick={() => setI(n)} />
+        {QUOTES.map((x, n) => (
+          <button key={x.text} type="button" aria-label={`Quote ${n + 1} of ${QUOTES.length}`} aria-current={n === i ? 'true' : undefined} onClick={() => setI(n)} />
         ))}
       </div>
-    </div>
+    </figure>
   );
 }
 
 /**
- * The picture side: one scene filling 60% of the screen, its own title top left,
- * the logo and the app's facts along the bottom. On a phone it is a short band above the form.
+ * The picture side: the whole picture, never cropped (owner, 10 Nov 2026). The side is
+ * cut to the picture's own shape where the screen allows; where it is narrower, the
+ * picture is shown whole over a soft, blurred copy of itself. Quotes along the bottom.
+ * On a phone it is a band above the form.
  */
-function Scene({ file, band = false, app = null }) {
+function Scene({ file, band = false }) {
   const { src, srcSet } = sceneSrc(file);
   return (
     <div className={band ? 'ui-auth-scene-band lg:hidden' : 'ui-auth-scene'}>
-      <img src={src} srcSet={srcSet} sizes={band ? '100vw' : '60vw'} alt="" decoding="async" fetchpriority="high" />
+      <img className="ui-auth-scene-fill" src={src} alt="" aria-hidden="true" decoding="async" />
+      <img className="ui-auth-scene-pic" src={src} srcSet={srcSet} sizes={band ? '100vw' : '70vw'} alt="" decoding="async" fetchpriority="high" />
       {band ? null : (
         <div className="ui-auth-scene-top">
-          <Facts app={app} />
+          <Quotes />
         </div>
       )}
     </div>
@@ -102,8 +105,8 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
     <div className={`ui-auth min-h-dvh${file ? ' has-scene' : ''}`}>
       <div className="ui-min-h-viewport flex">
         {file ? (
-          <aside className="ui-auth-brand ui-auth-brand--scene hidden lg:flex" aria-label="About CLOR">
-            <Scene file={file} app={app} />
+          <aside className="ui-auth-brand ui-auth-brand--scene hidden lg:flex" aria-label="About CLOR" style={{ '--scene-ratio': sceneRatio(file) }}>
+            <Scene file={file} />
           </aside>
         ) : (
           <aside className={`ui-auth-brand hidden lg:flex${brand ? '' : ' is-board'}`} aria-label="About CLOR">
