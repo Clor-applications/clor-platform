@@ -95,3 +95,19 @@ export const opsResendEmail = (id, reason) => apiFetch(`/ops/email/log/${encodeU
 /* The app catalogue (server: routes/opsCatalogue.ts). */
 export const opsApps = () => apiFetch('/ops/apps', o);
 export const opsSaveApp = (code, body) => apiFetch(`/ops/apps/${encodeURIComponent(code)}`, { ...o, method: 'PUT', body });
+/* CLOR's invoices to customers, and Invoice settings with the CLOR Books connector (server: routes/opsInvoices.ts). */
+export const opsInvoices = (params) => apiFetch(`/ops/invoices${q(params)}`, o);
+export const opsInvoice = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}`, o);
+export const opsInvoiceStart = (accountId) => apiFetch(`/ops/invoices/start${q({ accountId })}`, o);
+export const opsNewInvoice = (body) => apiFetch('/ops/invoices', { ...o, method: 'POST', body });
+export const opsSaveInvoice = (id, body) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body });
+export const opsDiscardInvoice = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}`, { ...o, method: 'DELETE' });
+export const opsIssueInvoice = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/issue`, { ...o, method: 'POST', body: {} });
+export const opsMarkInvoicePaid = (id, body) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/mark-paid`, { ...o, method: 'POST', body });
+export const opsVoidInvoice = (id, reason) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/void`, { ...o, method: 'POST', body: { reason } });
+export const opsSendInvoiceToBooks = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/books`, { ...o, method: 'POST', body: {} });
+export const opsInvoicing = () => apiFetch('/ops/invoicing', o);
+export const opsSaveInvoicing = (body) => apiFetch('/ops/invoicing', { ...o, method: 'PUT', body });
+export const opsBooksChoices = (search) => apiFetch(`/ops/invoicing/books/choices${q({ q: search })}`, o);
+export const opsSaveBooksLink = (body) => apiFetch('/ops/invoicing/books', { ...o, method: 'PUT', body });
+export const opsTestBooks = () => apiFetch('/ops/invoicing/books/test', { ...o, method: 'POST', body: {} });

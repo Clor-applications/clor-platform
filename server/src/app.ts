@@ -121,6 +121,7 @@ import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { billingRouter, billingOperatorRouter, billingWebhook, providerWebhook } from './routes/billing.js';
 import { opsPaymentsRouter } from './routes/opsPayments.js';
+import { opsInvoicesRouter } from './routes/opsInvoices.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsPricingRouter, pricingCors, pricingRouter } from './routes/pricing.js';
 import { opsExploreRouter } from './routes/opsExplore.js';
@@ -455,6 +456,7 @@ export function buildApp() {
   app.use('/api', opsDemoRequestsRouter);
   app.use('/api', opsPricingRouter);
   app.use('/api', opsPaymentsRouter);
+  app.use('/api', opsInvoicesRouter);
   app.use('/api', opsExploreRouter);
   app.use('/api', opsSignupsRouter);
   app.use('/api', opsCustomersRouter);
