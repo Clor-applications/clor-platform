@@ -16,6 +16,9 @@ vi.mock('./AppCatalogue', () => ({ AppCatalogue: () => <h1>Catalogue screen</h1>
 vi.mock('./AuditLog', () => ({ AuditLog: () => <h1>Audit screen</h1> }));
 vi.mock('./DemoRequests', () => ({ DemoRequests: () => <h1>Demo screen</h1>, DemoRequestDetail: () => <h1>Demo detail</h1> }));
 vi.mock('./Explore', () => ({ ExploreLinks: () => <h1>Links screen</h1>, SampleCompany: () => <h1>Sample screen</h1> }));
+vi.mock('./Pricing', () => ({ Pricing: () => <h1>Pricing screen</h1> }));
+vi.mock('./Payments', () => ({ Payments: () => <h1>Payments screen</h1> }));
+vi.mock('./Settings', () => ({ Settings: () => <h1>Tax screen</h1> }));
 const session = vi.hoisted(() => ({ value: { user: { id: 'u1' }, restoring: false, signOut: vi.fn() } }));
 vi.mock('../shell/session', () => ({ useSession: () => session.value }));
 vi.mock('qrcode', () => ({ default: { toDataURL: async () => 'data:image/png;base64,' } }));
@@ -69,9 +72,9 @@ describe('the operator console', () => {
     expect(await screen.findByText('Asha · Support')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Home screen' })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Operator console' });
-    expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Product', 'Email']);
+    expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Money', 'Product', 'Email']);
     expect([...nav.querySelectorAll('button')].map((b) => b.textContent.trim())).toEqual([
-      'Home', 'Customers', 'Demo requests', 'Explore links', 'App catalogue', 'Sample company', 'Addresses', 'Templates', 'Log', 'Audit log',
+      'Home', 'Customers', 'Demo requests', 'Explore links', 'Pricing', 'Payments', 'Tax', 'App catalogue', 'Sample company', 'Addresses', 'Templates', 'Log', 'Audit log',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
   });

@@ -1,15 +1,16 @@
 /**
  * The payment-gateway seam.
  *
- * No gateway is chosen yet (Razorpay vs Stripe vs manual/offline is a later
- * decision), so the rest of the system talks to this PORT, never to a provider.
- * Choosing a gateway later means writing one adapter that implements this
- * interface and switching getGateway() — nothing else changes.
+ * The rest of the system talks to this PORT, never to a provider. Each
+ * provider is one adapter: ManualGateway here (UPI and bank transfer, marked
+ * paid by CLOR staff), CashfreeGateway (billing/cashfree.ts) and
+ * RazorpayGateway (billing/razorpay.ts). Which one is active, and its keys,
+ * are set in the operator console, Payments (billing/providers.ts), never in
+ * code or env; env is only a silent fallback for a developer's machine.
  *
- * Until then ManualGateway runs the whole business model with no provider at
- * all: free plans, manually-granted subscriptions, and offline/invoice billing
- * all work. A tenant can be created, trialed, entitled and lapsed without a
- * single external call.
+ * ManualGateway runs the whole business model with no provider at all: free
+ * plans, manually granted subscriptions, and offline/invoice billing. A tenant
+ * can be created, trialed, entitled and lapsed without a single external call.
  */
 export type GatewayCustomer = { customerId: string };
 export type GatewaySubscription = {
@@ -24,8 +25,16 @@ export type NormalizedEvent = {
   accountId?: string | null;
   /** Fields the service applies to the local subscription, provider-neutral. */
   subscription?: Partial<GatewaySubscription> & { gatewaySubscriptionId?: string };
+  /** Amount in paise, when the event carries one. */
+  amount?: number | null;
+  /** The provider's payment id, or a UTR. */
+  reference?: string | null;
   raw: unknown;
 };
+/** A webhook checked: the event, or the plain reason it was refused. */
+export type WebhookCheck = { ok: true; event: NormalizedEvent } | { ok: false; reason: string };
+/** "Test connection", in a sentence CLOR staff can act on. */
+export type ConnectionResult = { ok: boolean; message: string };
 
 export interface PaymentGateway {
   readonly name: string;
@@ -42,23 +51,48 @@ export interface PaymentGateway {
   cancelSubscription(subscriptionId: string, atPeriodEnd: boolean): Promise<void>;
   /** Verify + normalize a webhook. Returns null when invalid. */
   verifyWebhook(rawBody: string | Buffer, headers: Record<string, unknown>): NormalizedEvent | null;
+  /** The same, saying why a webhook was refused (for the Payments log). */
+  checkWebhook?(rawBody: string | Buffer, headers: Record<string, unknown>): WebhookCheck;
+  /** Ask the provider whether the saved keys work. Never charges anything. */
+  testConnection?(): Promise<ConnectionResult>;
 }
 
-/** The no-provider gateway. Everything succeeds locally; there are no webhooks. */
+/** What customers paying by hand are shown: CLOR's UPI ID, a QR, and the bank account. */
+export type ManualDetails = {
+  upiId?: string | null;
+  payeeName?: string | null;
+  /** An uploaded QR image (data: URL). Without one, a QR is drawn from the UPI ID. */
+  qrImage?: string | null;
+  bank?: { accountName?: string | null; accountNumber?: string | null; ifsc?: string | null; bankName?: string | null; branch?: string | null } | null;
+  instructions?: string | null;
+};
+
+const last4 = (s: string) => s.slice(-4);
+
+/** Whether the manual details are enough for a customer to pay: a UPI ID, or a whole bank account. */
+export function manualProblems(d: ManualDetails): string[] {
+  const out: string[] = [];
+  const b = d.bank || {};
+  const anyBank = Boolean(b.accountName || b.accountNumber || b.ifsc || b.bankName);
+  if (!d.upiId && !anyBank) out.push('Add CLOR’s UPI ID, or the bank account customers pay into.');
+  if (anyBank) {
+    if (!b.accountName) out.push('Add the name on the bank account.');
+    if (!b.accountNumber) out.push('Add the bank account number.');
+    if (!b.ifsc) out.push('Add the IFSC code of the branch.');
+  }
+  return out;
+}
+
+/** The no-provider gateway: UPI and bank transfer, marked paid in the operator console. No webhooks. */
 export class ManualGateway implements PaymentGateway {
   readonly name = 'manual';
   readonly external = false;
+  constructor(readonly details: ManualDetails = {}) {}
   async createCustomer(input: { accountId: string }): Promise<GatewayCustomer> {
     return { customerId: `manual_${input.accountId}` };
   }
-  async createSubscription(input: {
-    accountId: string;
-    trialDays?: number | null;
-  }): Promise<GatewaySubscription> {
-    const end =
-      input.trialDays && input.trialDays > 0
-        ? new Date(Date.now() + input.trialDays * 86400000)
-        : null;
+  async createSubscription(input: { accountId: string; trialDays?: number | null }): Promise<GatewaySubscription> {
+    const end = input.trialDays && input.trialDays > 0 ? new Date(Date.now() + input.trialDays * 86400000) : null;
     return {
       subscriptionId: `manual_sub_${input.accountId}`,
       status: input.trialDays && input.trialDays > 0 ? 'trialing' : 'active',
@@ -72,27 +106,36 @@ export class ManualGateway implements PaymentGateway {
     // Manual billing has no inbound webhooks.
     return null;
   }
+  checkWebhook(): WebhookCheck {
+    return { ok: false, reason: 'Manual payments have no webhooks. Record a payment by hand in Payments.' };
+  }
+  async testConnection(): Promise<ConnectionResult> {
+    const problems = manualProblems(this.details);
+    if (problems.length) return { ok: false, message: problems.join(' ') };
+    const ways = [this.details.upiId ? `UPI ID ${this.details.upiId}` : '', this.details.bank?.accountNumber ? `the bank account ending ${last4(this.details.bank.accountNumber)}` : ''].filter(Boolean);
+    return { ok: true, message: `Manual payments are ready. Customers are shown ${ways.join(' and ')}.` };
+  }
 }
 
-let _gateway: PaymentGateway | null = null;
+let _override: PaymentGateway | null = null;
+let _active: PaymentGateway | null = null;
 
 /**
- * The active gateway. Manual until PAYMENT_GATEWAY names a real one AND its
- * adapter is added here. Kept behind a factory so the choice is one line.
+ * The active gateway, as last read from the database by billing/providers.ts
+ * (activeGateway() there refreshes it). Manual until a provider is made
+ * active in the operator console.
  */
 export function getGateway(): PaymentGateway {
-  if (_gateway) return _gateway;
-  const name = String(process.env.PAYMENT_GATEWAY || 'manual').trim().toLowerCase();
-  switch (name) {
-    // case 'razorpay': _gateway = new RazorpayGateway(); break;
-    // case 'stripe':   _gateway = new StripeGateway();   break;
-    default:
-      _gateway = new ManualGateway();
-  }
-  return _gateway;
+  return _override ?? _active ?? new ManualGateway();
 }
 
-/** Test hook. */
-export function __setGateway(g: PaymentGateway | null) {
-  _gateway = g;
+/** billing/providers.ts sets what it read; nothing else should. */
+export function setActiveGateway(g: PaymentGateway | null) {
+  _active = g;
 }
+
+/** Test hook: wins over the database. */
+export function __setGateway(g: PaymentGateway | null) {
+  _override = g;
+}
+export const __gatewayOverride = () => _override;

@@ -11,6 +11,9 @@ import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
 import OperatorBrand from './OperatorBrand';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
+import { Payments } from './Payments';
+import { Pricing } from './Pricing';
+import { Settings as TaxSettings } from './Settings';
 import { ExploreLinks, SampleCompany } from './Explore';
 import { CustomerPage, Customers } from './Customers';
 import { Home } from './Home';
@@ -106,6 +109,10 @@ export const SCREENS = {
       <DemoRequests openRequest={(id) => go('demos', {}, id)} />
     ),
   links: ({ go, me }) => <ExploreLinks role={me.role} openRequest={(id) => go('demos', {}, id)} />,
+  pricing: ({ me }) => <Pricing role={me.role} />,
+  /* Payments holds the gateways too (keys, test and live), so the Gateways place stays empty. */
+  payments: ({ me }) => <Payments role={me.role} />,
+  tax: ({ me }) => <TaxSettings role={me.role} />,
   catalogue: ({ me }) => <AppCatalogue role={me.role} />,
   sample: ({ go, me }) => <SampleCompany role={me.role} openLinks={() => go('links')} />,
   emailAddresses: ({ me }) => <EmailAddresses role={me.role} />,

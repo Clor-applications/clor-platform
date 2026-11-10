@@ -119,8 +119,10 @@ import { gstinRouter } from './routes/gstin.js';
 import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
-import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
+import { billingRouter, billingOperatorRouter, billingWebhook, providerWebhook } from './routes/billing.js';
+import { opsPaymentsRouter } from './routes/opsPayments.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
+import { opsPricingRouter, pricingCors, pricingRouter } from './routes/pricing.js';
 import { opsExploreRouter } from './routes/opsExplore.js';
 import { opsRouter } from './routes/ops.js';
 import { opsCustomersRouter } from './routes/opsCustomers.js';
@@ -249,6 +251,8 @@ export function buildApp() {
 
   /* clor.in's "Request a demo" form: open to the site's origins, without credentials, and only that route (routes/demoRequests.ts). */
   app.use('/api/public/demo-requests', demoRequestCors);
+  /* clor.in's pricing page: the published price list and a quote, the same way (routes/pricing.ts). */
+  app.use('/api/public/pricing', pricingCors);
   /* The app catalogue clor.in reads: any origin, GET only, no credentials (routes/opsCatalogue.ts). */
   app.use('/api/public/app-catalogue', appCatalogueCors);
   app.use(
@@ -323,6 +327,8 @@ export function buildApp() {
   app.use('/api/portal/people/money/lines', express.json({ limit: '7mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
   app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
+  /* Each payment provider's own webhook (Cashfree, Razorpay): the address Payments in the operator console shows. */
+  app.post('/api/billing/webhook/:provider', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), providerWebhook);
   app.use(express.json({ limit: '1mb' }));
   /* Invoices, receipts, payments and payroll writes are never made twice by a double click or a retry. */
   app.use(webIdempotency);
@@ -411,6 +417,8 @@ export function buildApp() {
   app.use('/api', invitationsRouter);
   /* "Request a demo" from clor.in: no sign-in, no account yet. */
   app.use('/api', demoRequestsRouter);
+  /* The published price list and quotes for clor.in: no sign-in. */
+  app.use('/api', pricingRouter);
   /* The app catalogue, read-only and public: clor.in and the app switcher list apps from it. */
   app.use('/api', publicAppCatalogueRouter);
 
@@ -442,6 +450,8 @@ export function buildApp() {
   /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
   app.use('/api', opsRouter);
   app.use('/api', opsDemoRequestsRouter);
+  app.use('/api', opsPricingRouter);
+  app.use('/api', opsPaymentsRouter);
   app.use('/api', opsExploreRouter);
   app.use('/api', opsCustomersRouter);
   app.use('/api', opsEmailRouter);

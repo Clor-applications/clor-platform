@@ -1140,41 +1140,95 @@ main:focus {
   }
 }
 
-/* Pricing. */
-.price-table {
-  width: 100%;
-  border-collapse: collapse;
-  border-top: 1px solid var(--line-strong);
-  text-align: left;
+/* Pricing: plans from the operator console, on the page ground under hairlines. */
+.section--tight {
+  padding-block: var(--s-7) var(--section);
 }
-.price-table th,
-.price-table td {
-  padding: var(--s-4) var(--s-1);
-  border-bottom: 1px solid var(--line);
-  vertical-align: middle;
-}
-.price-table thead th {
-  font-size: var(--t-xs);
-  color: var(--ink-3);
-  font-weight: 600;
-  padding-block: var(--s-3);
-}
-.price-table tbody th {
-  width: 50%;
-  font-weight: 600;
-}
-.price-name {
-  display: flex;
-  align-items: center;
+.price-head {
+  display: grid;
   gap: var(--s-3);
+  justify-items: start;
+}
+.period {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+}
+.period-btn {
+  min-height: 38px;
+  padding: 0 var(--s-4);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 var(--t-sm) / 1 var(--font-text);
+  cursor: pointer;
+}
+.period-btn[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-panel);
+}
+.period-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.price-provisional {
+  color: var(--accent-text);
   font-weight: 600;
 }
-.price-note {
-  margin-top: var(--s-5);
-  max-width: 60ch;
+.price-group {
+  display: grid;
+  gap: var(--s-4);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--line-strong);
 }
-.price-actions {
-  margin-top: var(--s-5);
+.price-group-head {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+}
+.plans {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0 var(--s-7);
+}
+.plan {
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  padding-block: var(--s-5);
+  border-top: 1px solid var(--line);
+}
+/* The plan the team highlights: an orange rule, nothing more. */
+.plan--lead {
+  border-top: 2px solid var(--accent);
+}
+.plan-price {
+  margin-top: var(--s-2);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+.plan-amount {
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.plan-terms {
+  font-variant-numeric: tabular-nums;
+  max-width: 40ch;
+}
+.plan-actions {
+  margin-top: var(--s-3);
 }
 
 /* Integrations and guides. */

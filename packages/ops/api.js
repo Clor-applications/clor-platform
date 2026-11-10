@@ -26,6 +26,30 @@ export const opsDemoRequests = (params) => apiFetch(`/ops/demo-requests${q(param
 export const opsDemoRequest = (id) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}`, o);
 export const opsSetDemoStatus = (id, body) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body });
 export const opsCreateDemoAccount = (id, body) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}/create-account`, { ...o, method: 'POST', body });
+/* Pricing and Settings, Tax (server: routes/pricing.ts). */
+export const opsPricing = () => apiFetch('/ops/pricing', o);
+export const opsPriceBook = (id) => apiFetch(`/ops/pricing/books/${encodeURIComponent(id)}`, o);
+export const opsSamplePlans = () => apiFetch('/ops/pricing/sample', o);
+export const opsPricePreview = (body) => apiFetch('/ops/pricing/preview', { ...o, method: 'POST', body });
+export const opsNewPriceBook = (body) => apiFetch('/ops/pricing/books', { ...o, method: 'POST', body });
+export const opsSavePriceBook = (id, body) => apiFetch(`/ops/pricing/books/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body });
+export const opsPublishPriceBook = (id) => apiFetch(`/ops/pricing/books/${encodeURIComponent(id)}/publish`, { ...o, method: 'POST', body: {} });
+export const opsArchivePriceBook = (id) => apiFetch(`/ops/pricing/books/${encodeURIComponent(id)}/archive`, { ...o, method: 'POST', body: {} });
+export const opsRollBackPriceBook = (id) => apiFetch(`/ops/pricing/books/${encodeURIComponent(id)}/roll-back`, { ...o, method: 'POST', body: {} });
+export const opsTax = () => apiFetch('/ops/settings/tax', o);
+export const opsSaveTax = (body) => apiFetch('/ops/settings/tax', { ...o, method: 'PUT', body });
+
+/* Payments (server: routes/opsPayments.ts). */
+const prov = (code) => `/ops/payments/providers/${encodeURIComponent(code)}`;
+export const opsPayments = () => apiFetch('/ops/payments', o);
+export const opsSaveProvider = (code, body) => apiFetch(prov(code), { ...o, method: 'PUT', body });
+export const opsProviderMode = (code, mode, confirm) => apiFetch(`${prov(code)}/mode`, { ...o, method: 'POST', body: { mode, confirm } });
+export const opsActivateProvider = (code) => apiFetch(`${prov(code)}/activate`, { ...o, method: 'POST', body: {} });
+export const opsTestProvider = (code) => apiFetch(`${prov(code)}/test`, { ...o, method: 'POST', body: {} });
+export const opsPaymentEvents = (params) => apiFetch(`/ops/payments/events${q(params)}`, o);
+export const opsRetryPaymentEvent = (id) => apiFetch(`/ops/payments/events/${encodeURIComponent(id)}/retry`, { ...o, method: 'POST', body: {} });
+export const opsPaymentAccounts = (text) => apiFetch(`/ops/payments/accounts${q({ q: text })}`, o);
+export const opsRecordPayment = (body) => apiFetch('/ops/payments/manual', { ...o, method: 'POST', body });
 /* The request's Explore link (server: routes/demoRequests.ts, services/explore.ts). */
 export const opsResendExplore = (id) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}/explore/resend`, { ...o, method: 'POST' });
 export const opsEndExplore = (id) => apiFetch(`/ops/demo-requests/${encodeURIComponent(id)}/explore/end`, { ...o, method: 'POST' });
