@@ -47,7 +47,7 @@ function Hero({ p, c, soon }) {
                 <Link className="btn btn--primary btn--lg" href={demoFor(p.slug)}>
                   Request a demo
                 </Link>
-                <a className="btn btn--quiet btn--lg" href={`${SITE.startUrl}?app=${p.slug}`}>
+                <a className="btn btn--trial btn--lg" href={`${SITE.startUrl}?app=${p.slug}`}>
                   Start free trial
                 </a>
               </>

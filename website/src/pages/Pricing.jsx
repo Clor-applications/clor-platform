@@ -63,7 +63,7 @@ function Plan({ plan, period }) {
       )}
       <div className="actions plan-actions">
         {plan.trialDays ? (
-          <a className={`btn ${plan.highlight ? 'btn--primary' : 'btn--quiet'}`} href={trialUrl(plan)}>
+          <a className={`btn ${plan.highlight ? 'btn--primary' : 'btn--trial'}`} href={trialUrl(plan)}>
             Start free trial
           </a>
         ) : null}
@@ -160,7 +160,7 @@ export default function Pricing() {
               <Link className="btn btn--primary" href={SITE.demoUrl}>
                 Request a demo
               </Link>
-              <a className="btn btn--quiet" href={SITE.startUrl}>
+              <a className="btn btn--trial" href={SITE.startUrl}>
                 Start free trial
               </a>
               <Link className="btn btn--text" href="/contact?about=pricing">

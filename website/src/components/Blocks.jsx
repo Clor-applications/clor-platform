@@ -40,7 +40,7 @@ export function Closing({ title = 'See CLOR with your own company’s figures.',
           <Link className="btn btn--primary" href={demoHref}>
             Request a demo
           </Link>
-          <a className="btn btn--quiet" href={SITE.startUrl}>
+          <a className="btn btn--trial" href={SITE.startUrl}>
             Start free trial
           </a>
           <Link className="btn btn--text" href="/contact">
