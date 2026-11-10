@@ -80,7 +80,7 @@ function Facts({ app }) {
  * The picture side: one scene filling 60% of the screen, its own title top left,
  * the logo and the app's facts along the bottom. On a phone it is a short band above the form.
  */
-function Scene({ file, onHome, band = false, app = null }) {
+function Scene({ file, band = false, app = null }) {
   const { src, srcSet } = sceneSrc(file);
   return (
     <div className={band ? 'ui-auth-scene-band lg:hidden' : 'ui-auth-scene'}>
@@ -103,7 +103,7 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
       <div className="ui-min-h-viewport flex">
         {file ? (
           <aside className="ui-auth-brand ui-auth-brand--scene hidden lg:flex" aria-label="About CLOR">
-            <Scene file={file} onHome={onHome} app={app} />
+            <Scene file={file} app={app} />
           </aside>
         ) : (
           <aside className={`ui-auth-brand hidden lg:flex${brand ? '' : ' is-board'}`} aria-label="About CLOR">

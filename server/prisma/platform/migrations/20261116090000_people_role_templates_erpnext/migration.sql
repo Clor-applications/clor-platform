@@ -344,6 +344,18 @@ WITH old_template ("name", "module", "subModule", "action") AS (
     ('hr manager', 'PEOPLE', 'Requests', 'VIEW'),
     ('hr manager', 'PEOPLE', 'Statutory Details', 'EDIT'),
     ('hr manager', 'PEOPLE', 'Statutory Details', 'VIEW'),
+    -- Live HR Manager roles also hold what 20261121090000_attendance_role_grants gave them. It is named
+    -- after this file but went live first, so an HR Manager role made from the template holds these too.
+    ('hr manager', 'ATTENDANCE', 'Attendance Records', 'APPROVE'),
+    ('hr manager', 'ATTENDANCE', 'Attendance Records', 'CREATE'),
+    ('hr manager', 'ATTENDANCE', 'Attendance Records', 'DELETE'),
+    ('hr manager', 'ATTENDANCE', 'Attendance Records', 'EDIT'),
+    ('hr manager', 'ATTENDANCE', 'Attendance Records', 'EXPORT'),
+    ('hr manager', 'ATTENDANCE', 'Attendance Records', 'VIEW'),
+    ('hr manager', 'ATTENDANCE', 'Shifts', 'CREATE'),
+    ('hr manager', 'ATTENDANCE', 'Shifts', 'DELETE'),
+    ('hr manager', 'ATTENDANCE', 'Shifts', 'EDIT'),
+    ('hr manager', 'ATTENDANCE', 'Shifts', 'VIEW'),
     ('viewer', 'ACCOUNTING', 'Chart of Accounts', 'VIEW'),
     ('viewer', 'ACCOUNTING', 'Journal Entries', 'VIEW'),
     ('viewer', 'ACCOUNTING', 'Ledger', 'VIEW'),
