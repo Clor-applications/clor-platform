@@ -19,8 +19,10 @@ vi.mock('@platform/admin/account', () => ({
 }));
 vi.mock('@platform/admin/admin', () => ({ getAccountOverview: (...a) => api.getAccountOverview(...a) }));
 vi.mock('@platform/operator', () => ({ operator: { contactEmail: 'info@clor.in' } }));
+const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
+vi.mock('@platform/http', () => ({ apiFetch: (...a) => http.apiFetch(...a) }));
 
-import AdminHome, { appState } from './AdminHome';
+import AdminHome, { appState, renewalNotice } from './AdminHome';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 
 const CATALOG = [
@@ -31,15 +33,17 @@ const CATALOG = [
   { id: 'projects', name: 'Projects', icon: Briefcase, blurb: 'Later.', available: false },
 ];
 const tenant = { id: 'c1', name: 'Neev Steels', subscriptions: ['accounting', 'payroll'], billing: { restricted: true, ownedApps: ['accounting', 'payroll'] } };
-const NAV = ['home', 'companies', 'members', 'invitations', 'account', 'accountActivity'].map((key) => ({ key, label: key }));
+const NAV = ['home', 'companies', 'members', 'invitations', 'account', 'billing', 'accountActivity', 'securityHome', 'roles'].map((key) => ({ key, label: key }));
 
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
+  http.apiFetch.mockReset();
   api.getAccountMe.mockResolvedValue({ role: 'OWNER', apps: ['accounting', 'payroll'] });
   api.getAccountOverview.mockResolvedValue({ account: { name: 'Neev Group' }, plan: { name: 'Growth', inGoodStanding: true, limits: { maxCompanies: 3, maxUsers: 10 } }, usage: { companies: 1, users: 4 }, companies: [{ orgId: 'c1', name: 'Neev Steels', gstin: '' }],
     entities: { companies: 1, branches: 3, taxProfiles: 2, companiesWithoutGstin: 0, costCentres: 0 },
     seats: [{ app: 'accounting', bought: null }, { app: 'payroll', bought: 5 }],
     runRate: { monthly: 249900, currency: 'INR', interval: 'month', status: 'active', unpriced: [] },
+    renewal: { status: 'active', warn: null, endsAt: null, daysLeft: null, renewsAt: '2026-12-01T00:00:00Z', invoices: { unpaid: 0, overdue: 0, due: 0 } },
     dataHealth: { status: 'attention', issues: 1, sources: [{ key: 'readers', label: 'Attendance readers', total: 2, issues: 1 }], alerts: [{ title: 'Gate is offline', severity: 'high' }] },
   });
   api.listAccountMembers.mockResolvedValue({ members: [{ status: 'ACTIVE' }, { status: 'ACTIVE' }, { status: 'SUSPENDED' }] });
@@ -69,39 +73,74 @@ describe('the Workspace overview', () => {
     expect(appState(CATALOG[3], { subscriptions: [], billing: null }).label).toBe('Not switched on');
   });
 
-  it('shows an owner the account’s figures, what needs attention and recent activity', async () => {
+  it('shows an owner the business at a glance, what needs attention first, and the subscription', async () => {
     const openScreen = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
-    expect(await screen.findByText('Monthly run rate')).toBeInTheDocument();
-    /* The banner: the person's name (not the account's), the account-level role in words, the account's name. */
+    const glance = within(await screen.findByLabelText('Your business at a glance'));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Welcome back, Kavya');
     expect(screen.getByText('Account Owner')).toBeInTheDocument();
     expect(screen.getByText('Neev Group')).toBeInTheDocument();
-    expect(screen.getByText('Your workspace, applications and team, all in one place.')).toBeInTheDocument();
-    /* The spec's five figures: entities, seats, data health, security, run rate. */
-    const figures = within(screen.getByLabelText('Workspace figures'));
-    expect(figures.getByText('Entities').closest('.ws-stat')).toHaveTextContent('3 branches · 2 GST registrations');
-    expect(await figures.findByText('Active seats')).toBeInTheDocument();
-    /* The owner opens both apps and the member one; a suspended member holds no seat. */
-    expect(figures.getByText('Active seats').closest('.ws-stat')).toHaveTextContent('3across 2 apps · 2 members');
-    expect(figures.getByText('Data health').closest('.ws-stat')).toHaveTextContent('1 problem');
-    expect(figures.getByText('Security').closest('.ws-stat')).toHaveTextContent('50%1 of 2 members sign in with an authenticator');
-    expect(figures.getByText('Monthly run rate').closest('.ws-stat')).toHaveTextContent('₹2,499');
-    const seatPanel = within(screen.getByRole('region', { name: 'Seats by app' }));
-    expect(seatPanel.getByText('2 / 5')).toBeInTheDocument();
-    expect(seatPanel.getByText('1 · no limit')).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Data health' })).getByText('Needs a look')).toBeInTheDocument();
+    /* One primary action, top right. */
+    fireEvent.click(screen.getByRole('button', { name: 'Add people' }));
+    expect(openScreen).toHaveBeenCalledWith('invitations');
+    /* Four tiles: companies, team, applications, attention. */
+    expect((await glance.findByText('Companies')).closest('.ws-stat')).toHaveTextContent('3 branches · 2 GST registrations');
+    expect((await glance.findByText('Team')).closest('.ws-stat')).toHaveTextContent('2');
+    /* Payroll's seats are bought, Accounting's are not metered: no "of" total that would be wrong. */
+    expect(glance.getByText('Team').closest('.ws-stat')).toHaveTextContent('3 app seats in use');
+    expect(glance.getByText('Applications').closest('.ws-stat')).toHaveTextContent('2 of 3');
+    expect(glance.getByText('Applications').closest('.ws-stat')).toHaveTextContent('You can open 2 apps');
+    expect(glance.getByText('Needs attention').closest('.ws-stat')).toHaveTextContent('2 urgent items');
     const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
     expect(await attention.findByText('1 pending invitation')).toBeInTheDocument();
     expect(await attention.findByText('1 administrator without an authenticator')).toBeInTheDocument();
     expect(attention.getByText('Company details incomplete')).toBeInTheDocument();
-    expect(attention.getByText('1 sync problem')).toBeInTheDocument();
     expect(attention.getByText('Gate is offline')).toBeInTheDocument();
+    /* Urgent first: the sync problem sits above the invitation. */
+    const titles = attention.getAllByRole('listitem').map((li) => li.textContent);
+    expect(titles.findIndex((t) => t.includes('sync problem'))).toBeLessThan(titles.findIndex((t) => t.includes('pending invitation')));
+    const sub = within(screen.getByRole('region', { name: 'Subscription' }));
+    expect(sub.getByText('₹2,499')).toBeInTheDocument();
+    expect(sub.getByText('Renews')).toBeInTheDocument();
+    expect(sub.getByText('Nothing')).toBeInTheDocument();
+    expect(sub.getByText('2 / 5')).toBeInTheDocument();
+    expect(sub.queryByText('Books seats')).toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Security' })).getByText('1 / 2')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Connections' })).getByText('Needs a look')).toBeInTheDocument();
     expect(await screen.findByText('Invitation sent')).toBeInTheDocument();
-    fireEvent.click(attention.getByRole('button', { name: /1 pending invitation/ }));
-    expect(openScreen).toHaveBeenCalledWith('invitations');
-    /* The administration link grid is gone from the Overview. */
-    expect(screen.queryByRole('navigation', { name: 'Access' })).toBeNull();
+    /* Product chrome is monochrome (DESIGN.md): no per-app colour on the tiles. */
+    expect(document.querySelector('.ws-apps .ws-tile[style]')).toBeNull();
+  });
+
+  it('puts a trial about to end and an overdue CLOR invoice at the top', async () => {
+    api.getAccountOverview.mockResolvedValue({ plan: { name: 'Growth', inGoodStanding: true, limits: {} }, usage: {}, companies: [], dataHealth: { status: 'none', issues: 0, sources: [], alerts: [] },
+      runRate: { monthly: null, unpriced: ['payroll'] },
+      renewal: { status: 'trialing', warn: 'trial-ending', endsAt: '2026-11-16T00:00:00Z', daysLeft: 5, renewsAt: null, invoices: { unpaid: 1, overdue: 1, due: 118000 } } });
+    const openScreen = vi.fn();
+    render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} />);
+    const attention = within(await screen.findByRole('region', { name: 'Needs your attention' }));
+    const first = (await attention.findAllByRole('listitem'))[0];
+    expect(first).toHaveTextContent('1 CLOR invoice overdue');
+    expect(first).toHaveTextContent('₹1,180');
+    expect(attention.getByText('Your trial ends in 5 days')).toBeInTheDocument();
+    fireEvent.click(attention.getByRole('button', { name: /CLOR invoice overdue/ }));
+    expect(openScreen).toHaveBeenCalledWith('billing');
+    const sub = within(screen.getByRole('region', { name: 'Subscription' }));
+    expect(sub.getByText('Trial')).toBeInTheDocument();
+    expect(sub.getByText('Trial ends')).toBeInTheDocument();
+    expect(sub.getByText('Not priced yet (Payroll)')).toBeInTheDocument();
+  });
+
+  it('shows what waits for this person in People, and opens People', async () => {
+    api.getAccountMe.mockResolvedValue({ role: 'MEMBER', apps: ['people'] });
+    http.apiFetch.mockResolvedValue({ waiting: 4, approvals: 3, tasks: 1 });
+    const openApp = vi.fn();
+    render(<AdminHome tenant={{ ...tenant, subscriptions: ['people'] }} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={openApp} />);
+    const item = await screen.findByRole('button', { name: /4 things waiting for you/ });
+    expect(item).toHaveTextContent('3 approvals · 1 task');
+    expect(http.apiFetch.mock.calls[0][0]).toMatch(/\/people\/inbox\/waiting$/);
+    fireEvent.click(item);
+    expect(openApp).toHaveBeenCalledWith('people');
   });
 
   it('shows a member their apps and help, and no account figures', async () => {
@@ -109,24 +148,31 @@ describe('the Workspace overview', () => {
     render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={() => {}} />);
     expect(await screen.findByText('No app access yet')).toBeInTheDocument();
     expect(screen.getByText('Member', { selector: '.ws-pill' })).toBeInTheDocument();
-    expect(screen.getByText('Your applications and work, all in one place.')).toBeInTheDocument();
     expect(screen.queryByText('Account Owner')).toBeNull();
-    expect(screen.queryByLabelText('Workspace figures')).toBeNull();
-    expect(screen.queryByText('Monthly run rate')).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Quick actions' })).toBeNull();
-    expect(screen.getByRole('region', { name: 'Help and resources' })).toBeInTheDocument();
+    expect(screen.queryByText('Companies')).toBeNull();
+    expect(screen.queryByText('Team')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Subscription' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Shortcuts' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add people' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Help and support' })).toBeInTheDocument();
     expect(api.getAccountOverview).not.toHaveBeenCalled();
+    expect(http.apiFetch).not.toHaveBeenCalled();
   });
 
-  /* A price nobody has set is not a zero: the run rate says which app is waiting for one. */
-  it('says the run rate is not priced, and why, instead of drawing a zero', async () => {
-    api.getAccountOverview.mockResolvedValue({ plan: { name: 'Growth', inGoodStanding: true, limits: {} }, usage: {}, companies: [], runRate: { monthly: null, currency: 'INR', interval: 'month', status: 'active', unpriced: ['payroll'] }, dataHealth: { status: 'none', issues: 0, sources: [], alerts: [] } });
+  it('a billing administrator sees the subscription, not the team', async () => {
+    api.getAccountMe.mockResolvedValue({ role: 'BILLING_ADMIN', apps: [] });
     render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={NAV} openApp={() => {}} />);
-    const stat = (await screen.findByText('Monthly run rate')).closest('.ws-stat');
-    expect(stat).toHaveTextContent('Not priced yet');
-    expect(stat).toHaveTextContent('CLOR has not set a price for Payroll');
-    expect(screen.getByText('Data health').closest('.ws-stat')).toHaveTextContent('Nothing to sync');
-    expect(screen.queryByRole('region', { name: 'Data health' })).toBeNull();
+    expect(await screen.findByRole('region', { name: 'Subscription' })).toBeInTheDocument();
+    expect(screen.queryByText('Team')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add people' })).toBeNull();
+    expect(api.memberDirectory).not.toHaveBeenCalled();
+  });
+
+  it('says plainly when the subscription is about to end', () => {
+    expect(renewalNotice({ warn: 'trial-ending', daysLeft: 1, endsAt: '2026-11-12' }).title).toBe('Your trial ends tomorrow');
+    expect(renewalNotice({ warn: 'ending', daysLeft: 0, endsAt: '2026-11-11' }).title).toBe('Your plan stops today');
+    expect(renewalNotice({ warn: 'lapsed' }, true)).toBeNull();
+    expect(renewalNotice({ warn: null })).toBeNull();
   });
 });
 

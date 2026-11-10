@@ -113,3 +113,43 @@ export async function dataHealth(accountId: string, orgIds: string[], now = new 
     alerts: alerts.slice(0, 5).map((a) => ({ title: a.title, severity: a.severity, orgId: a.orgId, since: a.openedAt })),
   };
 }
+
+/**
+ * What the Workspace should warn about the subscription itself (Workspace plan
+ * 11 Nov 2026, "expiring subscription"): a trial about to end, a plan set to
+ * stop at the end of its period, a lapsed one, and CLOR invoices not yet paid.
+ * Dates are the subscription's own; nothing is guessed when one is missing.
+ */
+export const ENDING_SOON_DAYS = 14;
+
+
+export function subscriptionWatch(
+  sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; cancelAtPeriodEnd: boolean } | null,
+  invoices: { status: string; dueDate: Date | null; total: number }[],
+  now = new Date(),
+) {
+  const unpaid = invoices.filter((i) => i.status === 'ISSUED');
+  const overdue = unpaid.filter((i) => i.dueDate && i.dueDate < now);
+  const bills = { unpaid: unpaid.length, overdue: overdue.length, due: unpaid.reduce((n, i) => n + (i.total || 0), 0) };
+  if (!sub) return { status: null, warn: null, endsAt: null, daysLeft: null, renewsAt: null, invoices: bills };
+  const status = sub.status;
+  const daysTo = (d: Date | null) => (d ? Math.ceil((d.getTime() - now.getTime()) / DAY) : null);
+  let warn: 'lapsed' | 'trial-ending' | 'ending' | null = null;
+  let endsAt: Date | null = null;
+  if (['past_due', 'unpaid', 'canceled', 'cancelled', 'expired', 'paused'].includes(status)) warn = 'lapsed';
+  else if (status === 'trialing' && sub.trialEndsAt) {
+    endsAt = sub.trialEndsAt;
+    if ((daysTo(endsAt) ?? Infinity) <= ENDING_SOON_DAYS) warn = 'trial-ending';
+  } else if (sub.cancelAtPeriodEnd && sub.currentPeriodEnd) {
+    endsAt = sub.currentPeriodEnd;
+    if ((daysTo(endsAt) ?? Infinity) <= ENDING_SOON_DAYS) warn = 'ending';
+  }
+  return {
+    status,
+    warn,
+    endsAt,
+    daysLeft: daysTo(endsAt),
+    renewsAt: !sub.cancelAtPeriodEnd && status === 'active' ? sub.currentPeriodEnd : null,
+    invoices: bills,
+  };
+}

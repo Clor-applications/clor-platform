@@ -2096,3 +2096,58 @@ button.ws-item:hover {
     display: none;
   }
 }
+
+/* Overview header (Workspace plan P0): the one primary action sits top right of the greeting. */
+.ws-hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ws-hero-action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-stat-of {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--ws-muted));
+}
+@media (max-width: 600px) {
+  .ws-hero-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ws-hero-action {
+    justify-content: center;
+  }
+}
+/* Label and value on one line, hairline between: facts inside a panel without a second box. */
+.ws-rows {
+  display: grid;
+  margin: 0;
+}
+.ws-rows > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgb(var(--ws-line));
+}
+.ws-rows > div:last-child {
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ws-rows dt {
+  font-size: 0.875rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-rows dd {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+  text-align: right;
+}

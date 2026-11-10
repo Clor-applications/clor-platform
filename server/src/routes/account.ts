@@ -24,7 +24,7 @@ import { entitlementFor } from '../services/entitlements.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { getFeatures } from '../services/features.js';
 import { appAccess, getSubscription } from '../services/subscriptions.js';
-import { accountEntities, dataHealth, monthlyRunRate } from '../services/accountHealth.js';
+import { accountEntities, dataHealth, monthlyRunRate, subscriptionWatch } from '../services/accountHealth.js';
 
 /**
  * The account, above any one company.
@@ -125,7 +125,13 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
    * read-only and off the plan's count).
    */
   const openIds = orgs.filter((o) => !o.archivedAt).map((o) => o.id);
-  const [entities, subscription, health] = await Promise.all([accountEntities(accountId, openIds), getSubscription(accountId), dataHealth(accountId, openIds)]);
+  const [entities, subscription, health, bills] = await Promise.all([
+    accountEntities(accountId, openIds),
+    getSubscription(accountId),
+    dataHealth(accountId, openIds),
+    /* CLOR's own invoices to this account that still want paying (roadmap item 8). */
+    platformPrisma.billingInvoice.findMany({ where: { accountId, status: 'ISSUED' }, select: { status: true, dueDate: true, total: true } }),
+  ]);
 
   const headByOrg = new Map(headOffices.map((b) => [b.orgId, b]));
   const peopleByOrg = new Map(memberships.map((m) => [m.orgId, Number(m._count) || 0]));
@@ -151,6 +157,7 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
     /* Seats bought per app; null where an app is not seat-metered. Seats in use are the Workspace's to count from the directory. */
     seats: subscription ? subscription.items.map((i) => ({ app: i.appCode, bought: i.seats ?? null })) : null,
     runRate: monthlyRunRate(subscription),
+    renewal: subscriptionWatch(subscription, bills),
     dataHealth: health,
     companies: orgs.map((o) => {
       const billing = billedByOrg.get(o.id) || { count: 0, billed: 0, settled: 0 };

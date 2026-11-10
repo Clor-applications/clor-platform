@@ -3,7 +3,7 @@ import request from 'supertest';
 import { buildApp } from '../app.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
-import { monthlyRunRate } from '../services/accountHealth.js';
+import { monthlyRunRate, subscriptionWatch } from '../services/accountHealth.js';
 
 /**
  * The Workspace Overview's account-wide figures: entities and GST
@@ -152,5 +152,43 @@ describe('the overview’s account-wide figures', () => {
     const body = await overview(owner);
     expect(body.entities.taxProfiles).toBe(1);
     expect(body.dataHealth.sources.find((s: any) => s.key === 'readers').total).toBe(1);
+  });
+});
+
+describe('subscription watch (Workspace plan, expiring subscription)', () => {
+  const now = new Date('2026-11-11T06:00:00Z');
+  const days = (n: number) => new Date(now.getTime() + n * 86400000);
+  const sub = (o: Partial<{ status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null; cancelAtPeriodEnd: boolean }>) => ({ status: 'active', trialEndsAt: null, currentPeriodEnd: null, cancelAtPeriodEnd: false, ...o });
+
+  it('warns when a trial ends within fourteen days, not before', () => {
+    expect(subscriptionWatch(sub({ status: 'trialing', trialEndsAt: days(5) }), [], now)).toMatchObject({ warn: 'trial-ending', daysLeft: 5 });
+    expect(subscriptionWatch(sub({ status: 'trialing', trialEndsAt: days(30) }), [], now)).toMatchObject({ warn: null, daysLeft: 30 });
+  });
+
+  it('warns when a plan is set to stop at the end of its period; an active one renews', () => {
+    expect(subscriptionWatch(sub({ cancelAtPeriodEnd: true, currentPeriodEnd: days(3) }), [], now)).toMatchObject({ warn: 'ending', daysLeft: 3, renewsAt: null });
+    expect(subscriptionWatch(sub({ currentPeriodEnd: days(3) }), [], now)).toMatchObject({ warn: null, renewsAt: days(3) });
+  });
+
+  it('a lapsed plan is said as such', () => {
+    expect(subscriptionWatch(sub({ status: 'past_due' }), [], now).warn).toBe('lapsed');
+  });
+
+  it('counts unpaid and overdue CLOR invoices and what is due', () => {
+    const r = subscriptionWatch(sub({}), [
+      { status: 'ISSUED', dueDate: days(-2), total: 118000 },
+      { status: 'ISSUED', dueDate: days(10), total: 59000 },
+    ], now);
+    expect(r.invoices).toEqual({ unpaid: 2, overdue: 1, due: 177000 });
+  });
+
+  it('no subscription: no dates invented', () => {
+    expect(subscriptionWatch(null, [], now)).toMatchObject({ status: null, warn: null, endsAt: null, daysLeft: null });
+  });
+
+  it('the overview carries it', async () => {
+    const o = await overview(owner);
+    expect(o.renewal).toHaveProperty('invoices');
+    expect(o.renewal.invoices).toEqual({ unpaid: 0, overdue: 0, due: 0 });
   });
 });
