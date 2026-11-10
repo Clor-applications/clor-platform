@@ -24,6 +24,8 @@ import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
 import { EXPLORE_READ_ONLY_TEXT, confirmDialog, notify } from '@ui/components/ui/notify';
 import { ExploreEnded, ExploreLanding, ExploreNotice } from './Explore';
 import { isExplorePath } from './exploreLink';
+import Start from './Start';
+import { isStartPath } from './startLink';
 
 /* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
@@ -560,6 +562,8 @@ function ShellScreens() {
   const [publicPage, setPublicPageState] = useState(publicPageFromPath);
   /* Explore's link, latched on the way in: a signed-in session's company code may join the address a moment later. */
   const [exploreLink] = useState(() => isExplorePath());
+  /* Start a free trial (/start, from clor.in's pricing page), latched the same way. */
+  const [startLink] = useState(() => isStartPath());
   /* W-3: app.clor.in/invite?token=... — read once; the page itself never puts the token anywhere else. */
   const [inviteToken, setInviteToken] = useState(() => {
     try {
@@ -761,6 +765,18 @@ function ShellScreens() {
       <div className="min-h-dvh grid place-items-center" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
         <ClorMark size={40} />
       </div>
+    );
+  }
+
+  /* A free trial from clor.in: the email step, or the setup step the mailed link opens (Start.jsx), signed in or not. */
+  if (startLink) {
+    return (
+      <Start
+        onHome={() => window.location.assign(MARKETING_URL)}
+        onSignIn={() => window.location.assign('/signin')}
+        signedIn={user && !explore ? { name: user.fullName || user.email || '' } : null}
+        signOut={signOut}
+      />
     );
   }
 
@@ -1248,6 +1264,12 @@ function ShellScreens() {
               <CalendarDays size={15} aria-hidden="true" />
               {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
             </time>
+          ) : null}
+          {/* A trial says when it ends, quietly, where the Workspace says the date (roadmap item 7). */}
+          {inWorkspace && !phone && tenant?.billing?.status === 'trialing' && tenant.billing.trialEndsAt ? (
+            <span className="text-sm ui-muted whitespace-nowrap" data-testid="trial-ends">
+              Trial ends {new Date(tenant.billing.trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+            </span>
           ) : null}
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
@@ -1762,8 +1784,13 @@ function SubscriptionBanner({ billing }) {
       className="px-6 py-2 text-sm"
       style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}
     >
-      Your Clor subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
-      and still visible; renew to keep working. Contact suresh@clor.in.
+      {/* The server's own sentence when it has one (a trial that ended, routes/billing.ts `reason`); the old line otherwise. */}
+      {billing.reason || (
+        <>
+          Your Clor subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
+          and still visible; renew to keep working. Contact suresh@clor.in.
+        </>
+      )}
     </div>
   );
 }

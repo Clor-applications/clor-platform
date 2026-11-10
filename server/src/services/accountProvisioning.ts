@@ -20,11 +20,11 @@ import { sendTemplate } from './mailer.js';
 /**
  * Making an account: the one code path.
  *
- * Self-serve sign-up (routes/auth.ts: /signup then /setup-company) and an
- * operator's Create account from a demo request (routes/demoRequests.ts) both
- * come through here, so an account made either way has the same owner,
- * subscription, company, branch, warehouse, roles and ledger. A later
- * self-serve sign-up that skips the wizard calls provisionAccount directly.
+ * Self-serve sign-up (routes/auth.ts: /signup then /setup-company), an
+ * operator's Create account from a demo request (routes/demoRequests.ts) and
+ * a free trial started from clor.in (routes/signup.ts, provisionAccount) all
+ * come through here, so an account made any way has the same owner,
+ * subscription, company, branch, warehouse, roles and ledger.
  */
 
 export class ProvisionError extends Error {

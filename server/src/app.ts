@@ -124,6 +124,7 @@ import { opsPaymentsRouter } from './routes/opsPayments.js';
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsPricingRouter, pricingCors, pricingRouter } from './routes/pricing.js';
 import { opsExploreRouter } from './routes/opsExplore.js';
+import { opsSignupsRouter, signupRouter } from './routes/signup.js';
 import { opsRouter } from './routes/ops.js';
 import { opsCustomersRouter } from './routes/opsCustomers.js';
 import { opsEmailRouter } from './routes/opsEmail.js';
@@ -417,6 +418,8 @@ export function buildApp() {
   app.use('/api', invitationsRouter);
   /* "Request a demo" from clor.in: no sign-in, no account yet. */
   app.use('/api', demoRequestsRouter);
+  /* A free trial from clor.in's pricing page: email checked by a link, then the account (routes/signup.ts). */
+  app.use('/api', signupRouter);
   /* The published price list and quotes for clor.in: no sign-in. */
   app.use('/api', pricingRouter);
   /* The app catalogue, read-only and public: clor.in and the app switcher list apps from it. */
@@ -453,6 +456,7 @@ export function buildApp() {
   app.use('/api', opsPricingRouter);
   app.use('/api', opsPaymentsRouter);
   app.use('/api', opsExploreRouter);
+  app.use('/api', opsSignupsRouter);
   app.use('/api', opsCustomersRouter);
   app.use('/api', opsEmailRouter);
   app.use('/api', opsCatalogueRouter);

@@ -96,6 +96,17 @@ export const exploreLimiter = [
   guard(15 * 60 * 1000, 10, 'attempts to open a sample link', (req) => `explore-t:${digest(String(req.body?.token || ''))}`, (req) => !req.body?.token),
 ];
 
+/* Starting a free trial from clor.in (routes/signup.ts): like the demo form, a few an hour from one address, fewer for one email. */
+export const signupStartLimiter = [
+  guard(60 * 60 * 1000, 10, 'trial sign-ups', (req) => `trial-ip:${ipOf(req)}`),
+  guard(60 * 60 * 1000, 3, 'trial sign-ups', (req) => `trial-id:${digest(identityOf(req))}`, (req) => !identityOf(req)),
+];
+/* Opening or confirming a trial link: per address and per token, so tokens cannot be walked. */
+export const signupLinkLimiter = [
+  guard(15 * 60 * 1000, 30, 'attempts to open a trial link', (req) => `trial-link-ip:${ipOf(req)}`),
+  guard(15 * 60 * 1000, 10, 'attempts to open a trial link', (req) => `trial-link-t:${digest(String(req.body?.token || req.query?.t || ''))}`, (req) => !(req.body?.token || req.query?.t)),
+];
+
 export const codeLimiter = [guard(15 * 60 * 1000, 10, 'code attempts', (req) => `code:${req.auth?.userId || ipOf(req)}`)];
 
 /** Machine clients with a bearer token (SCIM providers, on-site connectors): per token, and per address for the ones guessing. */

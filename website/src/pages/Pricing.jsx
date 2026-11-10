@@ -14,7 +14,8 @@ import { BUILT_PRICING, UNIT, inr, provisional } from '../pricing.js';
  * offers a demo instead.
  */
 const unitWord = (unit, n) => (UNIT[unit] || ['unit', 'units'])[n === 1 ? 0 : 1];
-const trialUrl = (plan) => `${SITE.appUrl}/signup?app=${encodeURIComponent(plan.apps[0])}&plan=${encodeURIComponent(plan.code)}`;
+/* The trial flow (app.clor.in/start): checks the email, then sets up the company with this app and plan. */
+const trialUrl = (plan) => `${SITE.startUrl}?app=${encodeURIComponent(plan.apps[0])}&plan=${encodeURIComponent(plan.code)}`;
 const slugOf = (app) => PRODUCTS.find((p) => appIdFor(p.slug) === app)?.slug;
 
 function usePricing() {
@@ -159,7 +160,10 @@ export default function Pricing() {
               <Link className="btn btn--primary" href={SITE.demoUrl}>
                 Request a demo
               </Link>
-              <Link className="btn btn--quiet" href="/contact?about=pricing">
+              <a className="btn btn--quiet" href={SITE.startUrl}>
+                Start free trial
+              </a>
+              <Link className="btn btn--text" href="/contact?about=pricing">
                 Ask about pricing
               </Link>
             </div>

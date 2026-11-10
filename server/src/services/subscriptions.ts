@@ -91,6 +91,37 @@ export async function appAccess(accountId: string): Promise<AppAccess> {
   };
 }
 
+/** 24 Nov 2026, the way a sentence to the customer says a date. */
+const onDay = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+
+/**
+ * Why an owned app is not usable right now, in a plain sentence, or null
+ * while it is. A trial that ran out is said as that; anything else as the
+ * subscription's own state. The shell shows it under the bar and every
+ * refused change carries it (middleware/rbac.ts).
+ */
+export function lapseReason(sub: { status: string; trialEndsAt: Date | null; currentPeriodEnd: Date | null } | null | undefined): string | null {
+  if (!sub || inGoodStanding(sub)) return null;
+  if (sub.status === 'trialing') return `Your free trial ended${sub.trialEndsAt ? ` on ${onDay(sub.trialEndsAt)}` : ''}. Everything is still here to read. To keep working, choose a plan or write to sales@clor.in.`;
+  if (sub.status === 'past_due') return 'A payment for your CLOR subscription is overdue. Everything is still here to read; to keep working, settle it or write to sales@clor.in.';
+  return `Your CLOR subscription is ${sub.status}. Everything is still here to read; to keep working, write to sales@clor.in.`;
+}
+
+export type AppStanding = { state: 'entitled' } | { state: 'lapsed'; reason: string } | { state: 'none' };
+
+/**
+ * Where an app stands for an account: usable, owned but lapsed (a trial that
+ * ended, a payment overdue), or not on the subscription at all. A lapsed app
+ * is read-only: the data is the customer's, so reading goes on; changes stop,
+ * with the reason.
+ */
+export async function appStanding(accountId: string, appCode: string): Promise<AppStanding> {
+  const access = await appAccess(accountId);
+  if (access.entitledApps.includes(appCode)) return { state: 'entitled' };
+  if (!access.ownedApps.includes(appCode)) return { state: 'none' };
+  return { state: 'lapsed', reason: lapseReason({ status: access.status || 'cancelled', trialEndsAt: access.trialEndsAt, currentPeriodEnd: access.currentPeriodEnd }) || 'This subscription has lapsed.' };
+}
+
 /** App codes the account may use right now. */
 export async function subscribedAppCodes(accountId: string): Promise<string[]> {
   return (await appAccess(accountId)).entitledApps;

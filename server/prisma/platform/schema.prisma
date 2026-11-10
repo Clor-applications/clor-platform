@@ -1364,6 +1364,47 @@ model DemoRequest {
   @@index([email, createdAt])
 }
 
+/// A free trial started from clor.in's pricing page (roadmap item 7): the
+/// visitor gives an email, a link checks it, and the link's page asks for the
+/// company and the apps before the account is made. Only the link token's
+/// SHA-256 is kept. Platform data with no account of its own, like
+/// DemoRequest, until confirm makes one (accountId). Written by the public
+/// routes in routes/signup.ts; read by CLOR operators (Trials in the console).
+model TrialSignup {
+  id             String    @id @default(cuid())
+  /// Lower-cased; where the link was sent.
+  email          String
+  /// SHA-256 of the link's token; asking again replaces it.
+  tokenHash      String    @unique
+  /// The app the pricing page's button named (accounting, people, attendance, payroll), for the setup step to tick first.
+  app            String?
+  /// The published plan the button named (?plan=), when pricing says one.
+  planCode       String?
+  /// PENDING | CONFIRMED | EXPIRED (set when a later request finds it ran out)
+  status         String    @default("PENDING")
+  expiresAt      DateTime
+  sendCount      Int       @default(0)
+  lastSentAt     DateTime?
+  /// Set while confirm runs, so a double click cannot make two accounts.
+  provisioningAt DateTime?
+  confirmedAt    DateTime?
+  /// What the setup step said, kept for the console.
+  companyName    String?
+  apps           String[]  @default([])
+  state          String?
+  trialDays      Int?
+  /// The account made from this signup (one at most).
+  accountId      String?   @unique
+  ownerUserId    String?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([email, createdAt])
+  @@index([status, createdAt])
+}
+
 /// One version of CLOR's own price list (roadmap item 9). Everything in it is
 /// data an operator makes in the operator console; nothing about prices is in
 /// the code. Prices change by making a new version, never by editing one that

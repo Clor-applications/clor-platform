@@ -57,6 +57,18 @@ export const logout = () => apiFetch('/auth/logout', { method: 'POST', skipAuth:
 /** Explore: the link's token for a read-only session on the sample company (server: routes/explore.ts). */
 export const exploreExchange = (token) => apiFetch('/explore/exchange', { method: 'POST', body: { token }, skipAuth: true });
 
+/*
+ * Starting a free trial from clor.in (server: routes/signup.ts). Public: the
+ * visitor has no account yet, and a stale token in this browser must not go
+ * with them. The confirm answers with a session, as a sign-in does.
+ */
+export const signupOptions = (app) => apiFetch(`/public/signup/options${app ? `?app=${encodeURIComponent(app)}` : ''}`, { skipAuth: true });
+export const signupStart = ({ email, app, plan, website }) =>
+  apiFetch('/public/signup/start', { method: 'POST', body: { email, ...(app ? { app } : {}), ...(plan ? { plan } : {}), ...(website ? { website } : {}) }, skipAuth: true });
+export const signupPending = (token) => apiFetch(`/public/signup/pending?t=${encodeURIComponent(token)}`, { skipAuth: true });
+export const signupConfirm = ({ token, ownerName, companyName, apps, state }) =>
+  apiFetch('/public/signup/confirm', { method: 'POST', body: { token, ownerName, companyName, apps, ...(state ? { state } : {}) }, skipAuth: true });
+
 /* The signed-in person's own profile. Platform data, so every app shows the
    same page: Accounting in its settings, the shell for apps that use its menu. */
 export const getProfile = () =>

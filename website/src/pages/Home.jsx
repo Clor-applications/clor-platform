@@ -162,7 +162,7 @@ export default function Home() {
               <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
                 Request a demo
               </Link>
-              <a className="btn btn--quiet btn--lg" href={SITE.signUpUrl}>
+              <a className="btn btn--quiet btn--lg" href={SITE.startUrl}>
                 Start free trial
               </a>
             </div>
@@ -312,7 +312,7 @@ export default function Home() {
             <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
               Request a demo
             </Link>
-            <a className="btn btn--onphoto" href={SITE.signUpUrl}>
+            <a className="btn btn--onphoto" href={SITE.startUrl}>
               Start free trial
             </a>
           </div>
