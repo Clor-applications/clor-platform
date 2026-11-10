@@ -1002,6 +1002,11 @@
       "reason": "Explore link from a demo request's mail (explore.ts): the token is the credential, kept only as a SHA-256 hash, 14 days, revocable by an operator; exploreLimiter (30 per address and 10 per token a quarter-hour); the same 410 for unknown, run-out and ended links; opens a session only as the shared sample company's viewer, and middleware/exploreReadOnly.ts refuses every write that session makes."
     },
     {
+      "method": "GET",
+      "path": "/api/public/app-catalogue",
+      "reason": "The app catalogue clor.in and the app switcher read (opsCatalogue.ts): each app's name, Available or Coming soon, and its one-line blurb, the same for everybody; Hidden apps are left out; reads one platform table with no accountId and nothing of any customer's; changes nothing. CORS open to any origin for GET, without credentials."
+    },
+    {
       "method": "POST",
       "path": "/api/public/demo-requests",
       "reason": "Request a demo on clor.in (demoRequests.ts): no account exists yet; demoRequestLimiter (10 an hour per address, 3 per email); hidden trap field drops bots; fields validated; writes one platform DemoRequest row (no accountId), a DEMO_REQUESTED auth event, a mail to sales, and an Explore pass mailed to the visitor whose link it answers with (a read-only view of the shared sample company, nothing of anybody's); reads nothing else back. CORS open to the site origins only, without credentials."

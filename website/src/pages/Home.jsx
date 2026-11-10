@@ -101,14 +101,6 @@ function Stage({ children, flip }) {
   );
 }
 
-/** Each section's photo: a real CLOR screen (sample data) on the device in the picture. */
-const SHOTS = {
-  books: { src: ['/people/books-invoice-560.webp', '/people/books-invoice-980.webp'], w: [560, 980], h: 620, alt: 'A tax invoice in CLOR Books on a laptop, with sample data' },
-  people: { src: ['/people/people-hr-700.webp', '/people/people-hr-1400.webp'], w: [700, 1400], h: 788, alt: 'An HR manager looking at an employee’s profile in CLOR People' },
-  payroll: { src: ['/people/payroll-payslip-560.webp', '/people/payroll-payslip-1120.webp'], w: [560, 1120], h: 1400, alt: 'An employee reading her October payslip from CLOR Payroll on her phone' },
-  attendance: { src: ['/people/attendance-reader-700.webp', '/people/attendance-reader-1400.webp'], w: [700, 1400], h: 1050, alt: 'An employee punching in on a biometric reader showing CLOR Attendance' },
-};
-
 /** One product's section: what it does in a few plain lines, beside a photo and its screen. */
 function AppSection({ slug, title, lines, flip }) {
   const p = productBySlug(slug);
@@ -133,29 +125,17 @@ function AppSection({ slug, title, lines, flip }) {
             More about CLOR&nbsp;{p.name}
           </Link>
         </div>
-        {SHOTS[slug] ? (
-          <figure className={`app-sec-photo app-sec-photo--${slug}`}>
-            <img
-              src={SHOTS[slug].src[1]}
-              srcSet={`${SHOTS[slug].src[0]} ${SHOTS[slug].w[0]}w, ${SHOTS[slug].src[1]} ${SHOTS[slug].w[1]}w`}
-              sizes="(max-width: 900px) 100vw, 560px"
-              width={SHOTS[slug].w[1]}
-              height={SHOTS[slug].h}
-              loading="lazy"
-              alt={SHOTS[slug].alt}
-            />
-          </figure>
-        ) : (
-          <Stage flip={flip}>
-            <Win />
-          </Stage>
-        )}
+        {/* The product's own screen, drawn with sample data. Each product's photo is on its own page, so no picture repeats. */}
+        <Stage flip={flip}>
+          <Win />
+        </Stage>
       </div>
     </section>
   );
 }
 
-const SUITE = ['books', 'people', 'payroll', 'attendance', 'projects', 'timesheet'];
+const SUITE = ['books', 'people', 'payroll', 'attendance'];
+const NEXT = ['projects', 'timesheet'];
 
 /** Each card's picture: a person cut out on the page ground, or a scene that fades into the card. */
 const PICS = {
@@ -163,8 +143,6 @@ const PICS = {
   people: { kind: 'cut' },
   payroll: { kind: 'cut' },
   attendance: { kind: 'scene' },
-  projects: { kind: 'scene' },
-  timesheet: { kind: 'scene' },
 };
 
 export default function Home() {
@@ -184,15 +162,18 @@ export default function Home() {
               <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
                 Request a demo
               </Link>
-              <Link className="btn btn--text" href="/pricing">
-                See pricing
-              </Link>
+              <a className="btn btn--quiet btn--lg" href={SITE.signUpUrl}>
+                Start free trial
+              </a>
             </div>
+            <p className="small hero-note">
+              No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
+            </p>
           </div>
           <figure className="hero-photo">
             <img
-              src="/people/hero-books-1400.webp"
-              srcSet="/people/hero-books-700.webp 700w, /people/hero-books-1400.webp 1400w"
+              src="/people/hero-books-soft-1400.webp"
+              srcSet="/people/hero-books-soft-700.webp 700w, /people/hero-books-soft-1400.webp 1400w"
               sizes="(max-width: 900px) 100vw, 640px"
               width="1400"
               height="835"
@@ -205,7 +186,7 @@ export default function Home() {
 
       <section className="section section--tint" aria-labelledby="suite-title">
         <div className="wrap">
-          <div className="head head--center">
+          <div className="head">
             <h2 className="h-1" id="suite-title">
               Connected business applications
             </h2>
@@ -215,8 +196,7 @@ export default function Home() {
             {SUITE.map((slug) => {
               const p = productBySlug(slug);
               const pic = PICS[slug];
-              const soon = p.status !== 'available';
-              return (
+                            return (
                 <li key={slug} className={`app-card app-card--${pic.kind} app-card--${slug}`} style={{ '--app': p.accent }}>
                   <div className="app-card-copy">
                     <div className="app-card-name">
@@ -228,7 +208,7 @@ export default function Home() {
                     </div>
                     <p className="body">{p.line}</p>
                     <Link className="app-card-btn" href={`/products/${slug}`}>
-                      {soon ? 'See what’s planned' : `Explore ${p.name}`}
+                      {`Explore ${p.name}`}
                       <span aria-hidden="true">→</span>
                     </Link>
                   </div>
@@ -244,6 +224,25 @@ export default function Home() {
               );
             })}
           </ul>
+          <div className="apps-next">
+            <p className="apps-next-title">Coming next</p>
+            <ul>
+              {NEXT.map((slug) => {
+                const p = productBySlug(slug);
+                return (
+                  <li key={slug}>
+                    <Link href={`/products/${slug}`} className="apps-next-item">
+                      <Mark product={p} size={32} />
+                      <span>
+                        <span className="apps-next-name">CLOR {p.name}</span>
+                        <span className="body">{p.line}</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       </section>
 
@@ -313,9 +312,9 @@ export default function Home() {
             <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
               Request a demo
             </Link>
-            <Link className="btn btn--onphoto" href="/contact">
-              Write to us
-            </Link>
+            <a className="btn btn--onphoto" href={SITE.signUpUrl}>
+              Start free trial
+            </a>
           </div>
         </div>
       </section>

@@ -38,6 +38,7 @@ import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
 import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSetting";
 import StatutoryGapsPanel from "../components/StatutoryGapsPanel";
+import { RegistrationNotice } from "../components/StatutoryRegistrationsStep";
 import { openMonthsOf } from "../components/runGuardText";
 import { wholeRupees as money } from "@ui/utils/money";
 
@@ -443,6 +444,8 @@ const RunWorkflow = ({ runId, onBack }) => {
       ) : null}
       {/* Statutory lines nothing worked out: not approved until set up, or the owner records they do not apply. */}
       <StatutoryGapsPanel run={run} gaps={data.statutoryGaps} canWaive={data.canWaiveStatutory} onSaved={load} />
+      {/* Returns this payroll cannot be filed under yet: the registration numbers setup asks for. */}
+      <RegistrationNotice gaps={data.registrationGaps} />
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Tile label="People" value={run.employeeCount} />
         <Tile label="Gross" value={money(run.grossTotal)} />

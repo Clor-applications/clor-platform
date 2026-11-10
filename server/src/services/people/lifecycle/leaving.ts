@@ -16,6 +16,7 @@ import { writeChangeLog, type Actor } from '../changeLog.js';
 import { registerJob } from '../../jobRegistry.js';
 import { todayIst } from '../../../utils/istDate.js';
 import { lettersOnLeaving } from '../letters.js';
+import { noticeFor } from './notice.js';
 
 /**
  * Someone leaves (docs/people/02-PRD.md LIFE-05): the last day, how and why.
@@ -53,15 +54,8 @@ export const NO_SETTLEMENT = new Set(['NOT_JOINED', 'DUPLICATE']);
 type Existing = { id: string; status: string; code: string | null; devicePin: string | null; name?: string | null; currentEpisodeSeq?: number | null; dateOfJoining?: string | null; createdAt?: Date | null } & Record<string, unknown>;
 type Input = { lastDay: string; leavingType: string; reason: string | null; resignedOn?: string | null; noticeWaived?: boolean };
 
-/* Notice owed, served and short (W15): from the employment type's notice days and the day the resignation came. Payroll recovers or waives from these. */
-async function noticeOf(orgId: string, existing: Existing, input: Input) {
-  const typeId = existing.employeeTypeId as string | null | undefined;
-  const owed = typeId ? (await peoplePrisma.employeeType.findFirst({ where: { id: typeId, orgId }, select: { noticeDays: true } }))?.noticeDays ?? null : null;
-  const from = input.resignedOn || null;
-  const served = from ? Math.max(0, Math.round((Date.parse(`${input.lastDay}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1) : null;
-  const short = owed != null && served != null && !input.noticeWaived ? Math.max(0, owed - served) : null;
-  return { noticeDays: owed, resignedOn: from, servedDays: served, shortfallDays: short, noticeWaived: Boolean(input.noticeWaived) };
-}
+/* Notice owed, served and short (W15): lifecycle/notice.ts, shared with Payroll's final settlement. */
+const noticeOf = (orgId: string, existing: Existing, input: Input) => noticeFor(orgId, { employeeTypeId: existing.employeeTypeId as string | null | undefined, lastDay: input.lastDay, resignedOn: input.resignedOn, noticeWaived: input.noticeWaived });
 
 export async function leaveEmployee(who: Who, existing: Existing, input: Input, opts: { now?: Date } = {}) {
   /* The last working day is worked: someone whose last day is today stays on notice, on the doors and in attendance until it is over (W-A1). An offer withdrawn or a duplicate closes at once. */

@@ -72,6 +72,7 @@ import {
   Chair,
   DeviceMobile,
   EnvelopeSimple,
+  PaperPlaneTilt,
   Factory,
   Fingerprint,
   Hourglass,
@@ -191,6 +192,7 @@ const DataProtection = screen('DataProtection');
 const DataRequests = screen('DataRequests');
 const SsoSettings = screen('SsoSettings');
 const RolesAccess = screen('RolesAccess');
+const EmailNotifications = screen('EmailNotifications');
 /* Request types HR sets up, their report, shift swaps and a person's own requests (FEATURE-UI-AUDIT gaps 24, 25). */
 const RequestForms = screen('RequestForms');
 const RequestsReport = screen('RequestsReport');
@@ -237,7 +239,7 @@ const ITEM_KIND = {
   leaver: 'leave', exit: 'leave',
   salary: 'pay', expense: 'pay', benefit: 'pay', statutory: 'pay', grade: 'pay', costCentre: 'pay',
   folder: 'docs', asset: 'docs', import: 'docs', export: 'docs', audit: 'docs', evidence: 'docs', field: 'docs', tag: 'docs', history: 'docs',
-  letter: 'docs', consent: 'docs', trash: 'docs',
+  letter: 'docs', mailOut: 'docs', consent: 'docs', trash: 'docs',
   news: 'work', event: 'work', hrCase: 'work', oneOnOne: 'work',
   job: 'talent', candidate: 'talent', goal: 'talent', training: 'talent', interview: 'talent', review: 'talent', plan: 'talent',
 };
@@ -328,6 +330,7 @@ const I = kinded({
   steps: duo(ListNumbers, 'ListNumbers'),
   /* One glyph per Settings row (plan rule 8). */
   letter: duo(EnvelopeSimple, 'EnvelopeSimple'),
+  mailOut: duo(PaperPlaneTilt, 'PaperPlaneTilt'),
   choices: duo(SlidersHorizontal, 'SlidersHorizontal'),
   requestType: duo(ListPlus, 'ListPlus'),
   attRules: duo(Timer, 'Timer'),
@@ -574,6 +577,7 @@ export const peopleApp = {
     { key: 'costCentres', label: 'Cost centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
     { key: 'sso', label: 'Users & security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
     { key: 'rolesAccess', label: 'Roles & permissions', icon: I.roles, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
+    { key: 'emailNotifications', label: 'Email notifications', icon: I.mailOut, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     /* Its routes answer only where Attendance is on (attendanceRouteOk). */
     { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings', feature: 'attendance' },
     /* Any one read behind its datasets (DataExport.jsx `need`); the screen lists only those this person holds. */
@@ -686,6 +690,7 @@ export const peopleApp = {
     costCentres: OrgCostCentres,
     sso: SsoSettings,
     rolesAccess: RolesAccess,
+    emailNotifications: EmailNotifications,
     integrations: Integrations,
     dataExport: DataExport,
     recycleBin: RecycleBin,

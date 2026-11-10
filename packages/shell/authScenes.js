@@ -61,36 +61,22 @@ export const sceneSrc = (file) => ({
 });
 
 /**
- * Short facts that turn over on the picture, one app's worth on its own address.
- * Plain statements of what the product does, no claims or numbers we cannot stand behind.
+ * Width over height of each picture, so the picture side is cut to the picture's own
+ * shape and the whole picture shows, top to bottom (owner, 10 Nov 2026: nothing cropped).
  */
-const FACTS = {
-  workspace: [
-    'One login opens Books, People, Payroll and Attendance.',
-    'Your accountant gets their own login, with only what you allow.',
-    'Every change is written to an audit trail with a name on it.',
-  ],
-  accounting: [
-    'GSTR-1 fills itself from the invoices you raise.',
-    'E-invoices and e-way bills come from the same invoice.',
-    'Masters and opening balances import straight from Tally.',
-  ],
-  people: [
-    'One record per employee, from offer letter to final settlement.',
-    'Documents remind you before they expire.',
-    'Leave requests reach the manager on their phone.',
-  ],
-  payroll: [
-    'PF, ESI, PT and TDS worked out on every payslip.',
-    'Payslips reach each phone the moment the run is locked.',
-    'Locking a pay run posts its journal to Books.',
-  ],
-  attendance: [
-    'ZKTeco, eSSL, Hikvision and Matrix readers send punches as they happen.',
-    'Field staff punch from a phone inside the site’s geofence.',
-    'Closing the month hands paid days to Payroll.',
-  ],
-};
+const RATIO = { team: 1.5, 'signin-people': 1.113, 'signin-payroll': 1.113, 'signin-attendance': 1.113 };
+export const sceneRatio = (file) => RATIO[file] || 1;
 
-/** The facts for an app's address (`app`, or null on app.clor.in). */
-export const factsFor = (app) => FACTS[app] || FACTS.workspace;
+/**
+ * Lines worth reading on the way in, one after another on every sign-in page
+ * (owner, 10 Nov 2026). Well-known lines with the name they are known by.
+ */
+export const QUOTES = [
+  { text: 'Arise, awake, and stop not till the goal is reached.', by: 'Swami Vivekananda' },
+  { text: 'You have a right to your work, but never to the fruits of your work.', by: 'Bhagavad Gita' },
+  { text: 'You can’t cross the sea merely by standing and staring at the water.', by: 'Rabindranath Tagore' },
+  { text: 'If you want to shine like a sun, first burn like a sun.', by: 'A. P. J. Abdul Kalam' },
+  { text: 'The journey of a thousand miles begins with a single step.', by: 'Lao Tzu' },
+  { text: 'Well done is better than well said.', by: 'Benjamin Franklin' },
+  { text: 'Excellence is a continuous process and not an accident.', by: 'A. P. J. Abdul Kalam' },
+];

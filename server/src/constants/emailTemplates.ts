@@ -29,6 +29,8 @@ export const EMAIL_TEMPLATES: TemplateDef[] = [
 The full table is in this message; open {{appUrl}} for the report with filters and export.
 To stop these, ask whoever set the schedule up under Attendance → Reports → Scheduled.`,
     fields: ['reportTitle', 'period', 'companyName', 'summary', 'appName', 'appUrl'],
+    /* Its sender always sent it as transactional (services/attendance/reportSchedules.ts): somebody asked for it, and the schedule is its off switch. Listing it among the company's switches offered one that did nothing. */
+    transactional: true,
   },
   {
     key: 'auth.verify_email',
@@ -297,6 +299,8 @@ The link works once and runs out on {{expiresOn}}. You see only your own details
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'joiningDate', 'link', 'expiresOn', 'message'],
+    /* The link is the invite: switched off, the invite was saved as sent and the joiner never got it (lifecycle/invites.ts). HR sends it on purpose, one person at a time. */
+    transactional: true,
   },
   {
     key: 'people.offer',
@@ -314,6 +318,8 @@ The offer is open until {{acceptBy}}.
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'designation', 'ctc', 'link', 'acceptBy', 'message'],
+    /* The accept link is the offer: switched off, the offer was saved SENT and the candidate could never accept it (offers.ts). HR sends it on purpose, one person at a time. */
+    transactional: true,
   },
   {
     key: 'people.interview',
@@ -395,7 +401,7 @@ Questions: {{contact}}. You can also complain to the Data Protection Board of In
   {
     key: 'people.weekly_summary',
     label: 'Monday summary',
-    description: 'Each Monday, to owners and HR: who is away this week, what waits for a decision, lapsing leave, and who joins or leaves (services/people/weeklySummary.ts).',
+    description: 'Each Monday, to owners and HR: who is away this week, what waits for a decision, lapsing leave, and who joins or leaves.',
     subject: '{{orgName}} this week: {{headline}}',
     body: `Hello {{name}},
 
@@ -428,6 +434,33 @@ This notice is also in your documents in the {{orgName}} employee app.`,
 
 Open the {{orgName}} employee app to see it there too.`,
     fields: ['name', 'orgName', 'headline', 'body', 'appName', 'appUrl'],
+    transactional: true,
+  },
+  {
+    key: 'ops.staff_invited',
+    label: 'CLOR staff invited',
+    description: 'Sent when the CLOR owner adds somebody to the operator console (ops.clor.in, Team).',
+    subject: 'You have been added to the CLOR operator console',
+    body: `Hello,
+
+{{inviterName}} has added you to the CLOR operator console as {{role}}.
+
+{{firstStep}}
+Then open {{opsUrl}} and sign in. You will be asked to set up an authenticator app (Google Authenticator, Microsoft Authenticator or 1Password) before the console opens.
+
+If you did not expect this, reply and tell us.`,
+    fields: ['inviterName', 'role', 'firstStep', 'opsUrl'],
+    transactional: true,
+  },
+  {
+    key: 'ops.sender_test',
+    label: 'Sender address test',
+    description: 'Sent from the operator console (Email, Addresses) to check a sender address works.',
+    subject: 'Test from {{senderEmail}}',
+    body: `This is a test from the CLOR operator console.
+
+It was sent from {{senderEmail}}, the {{purpose}} address. If you are reading it, mail from this address arrives.`,
+    fields: ['senderEmail', 'purpose'],
     transactional: true,
   },
 ];

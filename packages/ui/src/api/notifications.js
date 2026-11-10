@@ -14,3 +14,12 @@ export const markRead = (ids) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/
 export const markAllRead = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/read`, { ...opts, method: 'POST', body: { all: true } });
 export const getMutes = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/mutes`, opts).then((r) => r?.mutes || []);
 export const setMute = (kind, muted) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/mutes`, { ...opts, method: 'POST', body: { kind, muted } }).then((r) => r?.mutes || []);
+
+/**
+ * The company's email switches (server: routes/email.ts, SETTINGS::Company Profile):
+ * { events: [{ key, label, description, enabled }] }. Mail that has to arrive
+ * (sign-in, password, invitations) is not listed and cannot be switched off.
+ */
+export const getEmailSwitches = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications`, opts);
+export const saveEmailSwitches = (events) =>
+  apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications`, { ...opts, method: 'PUT', body: { events } });

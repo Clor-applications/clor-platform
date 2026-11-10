@@ -254,7 +254,7 @@ opsDemoRequestsRouter.get('/ops/demo-requests/:id', (req, res) =>
 const statusBody = z.object({ status: z.enum(SETTABLE), note: z.string().trim().max(1000).optional().nullable() });
 
 /** Move a request along, with a note. */
-opsDemoRequestsRouter.patch('/ops/demo-requests/:id', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
+opsDemoRequestsRouter.patch('/ops/demo-requests/:id', requireOperatorRole('SALES', 'SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: demo request status', async () => {
     const id = String(req.params.id);
     const parsed = statusBody.safeParse(req.body);
@@ -294,7 +294,7 @@ async function made(r: { accountId: string | null; ownerUserId: string | null })
  * the account already made. The claim (provisioningAt) is taken with a
  * conditional update, so two at once cannot both start.
  */
-opsDemoRequestsRouter.post('/ops/demo-requests/:id/create-account', requireOperatorRole('BILLING'), requireOperatorStepUp, (req: Request, res) =>
+opsDemoRequestsRouter.post('/ops/demo-requests/:id/create-account', requireOperatorRole('SALES', 'BILLING'), requireOperatorStepUp, (req: Request, res) =>
   outsideTenant('ops: create an account from a demo request', async () => {
     const id = String(req.params.id);
     const r = await platformPrisma.demoRequest.findUnique({ where: { id } });
@@ -356,7 +356,7 @@ opsDemoRequestsRouter.post('/ops/demo-requests/:id/create-account', requireOpera
  * opened. Support or billing, with step-up, on the record like the rest.
  * A request from before Explore has no pass: Resend makes its first.
  */
-opsDemoRequestsRouter.post('/ops/demo-requests/:id/explore/resend', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
+opsDemoRequestsRouter.post('/ops/demo-requests/:id/explore/resend', requireOperatorRole('SALES', 'SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: resend an Explore link', async () => {
     const id = String(req.params.id);
     const r = await platformPrisma.demoRequest.findUnique({ where: { id } });
@@ -376,7 +376,7 @@ opsDemoRequestsRouter.post('/ops/demo-requests/:id/explore/resend', requireOpera
   }),
 );
 
-opsDemoRequestsRouter.post('/ops/demo-requests/:id/explore/end', requireOperatorRole('SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
+opsDemoRequestsRouter.post('/ops/demo-requests/:id/explore/end', requireOperatorRole('SALES', 'SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: end an Explore link', async () => {
     const id = String(req.params.id);
     const existing = await platformPrisma.explorePass.findFirst({ where: { demoRequestId: id }, orderBy: { createdAt: 'desc' }, select: { id: true } });

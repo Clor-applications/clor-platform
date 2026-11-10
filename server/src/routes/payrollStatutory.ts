@@ -13,6 +13,7 @@ import { SCHEME_NAMES, SEED_CATALOGUE_VERSION } from '../services/payroll/statut
 import { canonicalState, stateLabel } from '../constants/stateLevies.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { todayIst } from '../utils/istDate.js';
+import { compactNumber, registrationProblem } from '../services/payroll/statutoryRegistrations.js';
 
 /**
  * The statutory schemes a company runs under, and the dated rules behind them.
@@ -211,6 +212,10 @@ payrollStatutoryRouter.put(
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Say whether the scheme applies.' });
 
+    /* The same shape the portal wants, whichever screen types it (statutoryRegistrations.ts). */
+    const problem = registrationProblem(scheme.code, parsed.data.registrationNumber);
+    if (problem) return res.status(400).json({ error: problem, code: 'BAD_REGISTRATION_NUMBER' });
+
     /* Switching a scheme on with no rule behind it would compute nothing and
        say nothing about why. */
     if (parsed.data.isEnabled) {
@@ -225,8 +230,16 @@ payrollStatutoryRouter.put(
 
     const row = await payrollPrisma.statutoryScheme.update({
       where: { id: scheme.id },
-      data: { isEnabled: parsed.data.isEnabled, registrationNumber: parsed.data.registrationNumber?.trim() || null },
+      data: { isEnabled: parsed.data.isEnabled, registrationNumber: compactNumber(parsed.data.registrationNumber) || null },
     });
+    /* A number typed here answers the setup step's question as much as the step does. */
+    if (parsed.data.registrationNumber !== undefined) {
+      await payrollPrisma.payrollSetting.upsert({
+        where: { orgId },
+        update: { statutoryRegistrationsAt: new Date(), updatedByUserId: req.auth!.userId },
+        create: { accountId, orgId, statutoryRegistrationsAt: new Date(), updatedByUserId: req.auth!.userId },
+      });
+    }
     res.json({ scheme: { id: row.id, code: row.code, isEnabled: row.isEnabled, registrationNumber: row.registrationNumber || '' } });
   }
 );
