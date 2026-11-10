@@ -160,12 +160,25 @@ describe('#4 Team Manager sees their own team’s days', () => {
     const teamMgr = await roleOf(plain, 'Team Manager');
     const hrChanged = await roleOf(changed, 'HR Manager');
     const wideMgr = await roleOf(changed, 'Team Manager');
-    const all = [hrMgr.id, teamMgr.id, hrChanged.id, wideMgr.id];
     const later = await outsideTenant('test: the new grants', () => platformPrisma.permission.findMany({ where: { module: 'ATTENDANCE', subModule: { in: ['Attendance Records', 'Shifts'] } }, select: { id: true, subModule: true, action: true } }));
     const key = new Map(later.map((p) => [p.id, `${p.subModule}::${p.action}`]));
     const someOther = await outsideTenant('test: a permission', () => platformPrisma.permission.findFirstOrThrow({ where: { module: 'PEOPLE', subModule: 'Employees', action: 'DELETE' } }));
+    /* Roles exactly as the templates made them before this migration (its own old_template), not as today's
+       templates make them: later template changes (20261116090000_people_role_templates_erpnext) moved on. */
+    const before = new Map<string, string[]>();
+    for (const m of sql.matchAll(/\('(hr manager|team manager)', '([^']+)', '([^']+)', '([^']+)'\)/g)) before.set(m[1], [...(before.get(m[1]) || []), `${m[2]}::${m[3]}::${m[4]}`]);
+    const setGrants = (roleId: string, keys: string[]) => outsideTenant('test: old grants', async () => {
+      const role = await platformPrisma.role.findUniqueOrThrow({ where: { id: roleId } });
+      await platformPrisma.rolePermission.deleteMany({ where: { roleId } });
+      for (const k of keys) {
+        const [module, subModule, action] = k.split('::');
+        const p = await platformPrisma.permission.upsert({ where: { module_subModule_action: { module, subModule, action } }, create: { module, subModule, action }, update: {} });
+        await platformPrisma.rolePermission.create({ data: { accountId: role.accountId, orgId: role.orgId, roleId, permissionId: p.id, allowed: true, permLevel: 0 } });
+      }
+    });
+    for (const id of [hrMgr.id, hrChanged.id]) await setGrants(id, before.get('hr manager')!);
+    for (const id of [teamMgr.id, wideMgr.id]) await setGrants(id, before.get('team manager')!);
     await outsideTenant('test: roles as made before the change, and as administrators changed some', async () => {
-      await platformPrisma.rolePermission.deleteMany({ where: { roleId: { in: all }, permissionId: { in: later.map((x) => x.id) } } });
       /* An administrator unticked something on this HR Manager. */
       await platformPrisma.rolePermission.deleteMany({ where: { roleId: hrChanged.id, permissionId: someOther.id } });
       /* Someone made this Team Manager company-wide: records view would show everyone. */

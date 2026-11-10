@@ -258,6 +258,7 @@ export default function Demo() {
             </p>
           </form>
           <aside className="contact-aside stack">
+            <img className="demo-pic" src="/people/demo-team-3d-1120.webp" srcSet="/people/demo-team-3d-560.webp 560w, /people/demo-team-3d-1120.webp 1120w" sizes="(max-width: 900px) 100vw, 420px" width="1120" height="747" loading="lazy" alt="" />
             <h2 className="h-3">What happens next</h2>
             <ol className="demo-steps body">
               <li>We call you within one working day and fix a time.</li>

@@ -35,7 +35,7 @@ export default function ResetPassword({ token, onDone }) {
   };
 
   return (
-    <AuthLayout
+    <AuthLayout scene="reset"
       title={done ? 'Password changed' : 'Choose a new password'}
       subtitle={done ? 'Sign in with your new password.' : 'This link works once and expires 30 minutes after it was sent.'}
       onHome={onDone}

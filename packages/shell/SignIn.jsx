@@ -121,7 +121,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
 
   if (challenge) {
     return (
-      <AuthLayout title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
+      <AuthLayout scene="twoStep" title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
         <form onSubmit={submitCode} className="space-y-5">
           <div>
             <label className="ui-label" htmlFor="signin-code">Code</label>
@@ -157,7 +157,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
   return (
     <AuthLayout
       title="Sign in"
-      subtitle={subtitle}
+      subtitle={brand ? subtitle : null}
       onHome={onHome}
       brand={brand}
       footer={
@@ -203,14 +203,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
         ) : null}
 
         <div>
-          <div className="flex items-baseline justify-between gap-3">
-            <label className="ui-label" htmlFor="signin-password">Password</label>
-            {onForgot ? (
-              <button type="button" className="ui-link text-sm" onClick={onForgot}>
-                Forgot password?
-              </button>
-            ) : null}
-          </div>
+          <label className="ui-label" htmlFor="signin-password">Password</label>
           <PasswordInput
             id="signin-password"
             className="ui-input h-11 w-full"
@@ -218,6 +211,14 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
           />
+          {/* Under the field, where the eye lands after a wrong password (owner, 10 Nov 2026). */}
+          {onForgot ? (
+            <div className="mt-2 flex justify-end">
+              <button type="button" className="ui-link text-sm" onClick={onForgot}>
+                Forgot password?
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {error ? (
