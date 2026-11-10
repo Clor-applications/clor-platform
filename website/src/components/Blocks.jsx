@@ -41,7 +41,7 @@ export function Closing({ title = 'See CLOR with your own company’s figures.',
             Request a demo
           </Link>
           <a className="btn btn--quiet" href={SITE.signUpUrl}>
-            Try it free
+            Start free trial
           </a>
           <Link className="btn btn--text" href="/contact">
             Write to us
