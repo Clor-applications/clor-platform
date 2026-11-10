@@ -15,6 +15,7 @@ import { activeRule, saveRule, submitRequest } from '../approvals/engine.js';
 import { writeChangeLog, type Actor } from '../changeLog.js';
 import { registerJob } from '../../jobRegistry.js';
 import { todayIst } from '../../../utils/istDate.js';
+import { lettersOnLeaving } from '../letters.js';
 
 /**
  * Someone leaves (docs/people/02-PRD.md LIFE-05): the last day, how and why.
@@ -118,6 +119,8 @@ async function finishLeaving(who: Who, existing: Existing, input: Input) {
   await successorsFor(who, employee, input.lastDay);
   /* The removal is queued, not done: the reader task waits until every reader confirms (JCL-A02; lifecycle/readersDone.ts). */
   await settleReaderTask({ accountId, orgId, userId: who.userId }, employee, removed);
+  /* Relieving and experience letters, where the company has its own: after the plan, so its step ticks (People plan 8 Nov 2026, step 6). */
+  await lettersOnLeaving(actor, employee);
   /* A CLOR sign-in is not turned off by CLOR on its own (it may also be someone's admin access): HR gets the task (W-A5). */
   if (employee.userId && !(await peoplePrisma.checklistTask.count({ where: { orgId, employeeId: employee.id, kind: 'LEAVING', title: { startsWith: 'Turn off' } } }))) {
     await startChecklist({ accountId, orgId, userId: who.userId }, employee, 'LEAVING', input.lastDay, { items: [{ title: `Turn off ${employee.name}’s CLOR sign-in`, owner: 'HR', dueDays: 0, note: 'Settings, Users & Security. Hand their approvals and tasks to someone first.' }] });

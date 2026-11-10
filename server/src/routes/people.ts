@@ -47,7 +47,7 @@ import { SelfServiceError, saveSettings, settingsOf } from '../services/people/s
 import { CustomFieldError, FIELD_TYPES, defsOf, saveDef as saveCustomFieldDef, setValues as setCustomValues, valuesFor as customValuesFor } from '../services/people/customFields.js';
 import { PERMIT_KINDS, daysUntil } from '../services/people/documentReminders.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
-import { NO_ORIGINALS_STATES } from '../services/people/letters.js';
+import { NO_ORIGINALS_STATES, appointmentOnHire } from '../services/people/letters.js';
 import { ask as askToRead, remind as ackRemind, report as ackReport } from '../services/people/acknowledgements.js';
 import { dataHealth, readinessOf } from '../services/people/dataHealth.js';
 import { KIND_LABEL, MERGEABLE, OrgError, STRUCTURE_KINDS, actionOf, ensureOrgDetail, headFields, headsOf, inUseRefusal, logStructure, mergeInto, movePeople, organizationOverview, peopleIn, retireBranch, structureChanges, structureHistory, targetFor, type Kind } from '../services/people/organization.js';
@@ -1102,6 +1102,8 @@ peopleRouter.post('/orgs/:orgId/people/employees', can(PermissionAction.CREATE, 
     } as any);
     if (b.tagIds?.length) await setTags(accountId, orgId, row.id, b.tagIds, actorOf(req, 'FORM'));
     await startChecklist({ accountId, orgId, userId: req.auth!.userId }, row, 'JOINING', row.dateOfJoining);
+    /* The company's appointment letter, on its own, once the plan is there to tick (People plan 8 Nov 2026, step 6). */
+    await appointmentOnHire(actorOf(req, 'FORM'), row);
     /* On every reader straight away, as ClorTime does: enrolment can start the same minute. */
     await pushEmployeeToReaders(orgId, row, req.auth!.userId);
     /* Created from a wizard draft (EMP-02): the draft has done its job. */

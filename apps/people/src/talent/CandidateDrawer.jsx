@@ -334,7 +334,9 @@ const handoffWords = (h) => {
   if (!h) return '';
   const parts = [];
   if (h.joiningForm === 'SENT') parts.push('the joining form and app invite are on their way');
-  if (h.offerFiled) parts.push('the offer letter is on their record');
+  if (h.offerFiled && h.appointmentLetter) parts.push('the offer and appointment letters are on their record');
+  else if (h.offerFiled) parts.push('the offer letter is on their record');
+  else if (h.appointmentLetter) parts.push('the appointment letter is on their record');
   if (h.salary?.made) parts.push(`their salary waits in Payroll to confirm (${h.salary.structureName})`);
   else if (h.salary && !h.salary.made) parts.push(h.salary.why);
   return parts.length ? ` ${parts.join('; ')}.`.replace(/^ (\w)/, (m, ch) => ` ${ch.toUpperCase()}`) : '';

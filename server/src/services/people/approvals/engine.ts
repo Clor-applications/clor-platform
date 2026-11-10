@@ -57,6 +57,12 @@ export const isFormType = (t: unknown): t is FormRequestType => typeof t === 'st
  * through this engine, so LEAVE is not a RequestType.
  */
 export const RULE_TYPES = [...REQUEST_TYPES, 'LEAVE'] as const;
+/**
+ * Help-desk escalations and seat requests: nothing in CLOR asks for them, so
+ * the Approval rules screen does not offer them (People plan 8 Nov 2026,
+ * step 6). The engine still reads a rule or request a company already has.
+ */
+export const UNASKED_TYPES = new Set<string>(['DESK_ESCALATION', 'SEAT_REQUEST']);
 export type RuleType = (typeof RULE_TYPES)[number] | FormRequestType;
 
 export type { ApproverSpec, Condition, StepSpec } from './spec.js';

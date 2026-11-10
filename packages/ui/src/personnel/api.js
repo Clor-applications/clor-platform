@@ -71,6 +71,7 @@ export const remindToAccept = (docId) => send(`/documents/${encodeURIComponent(d
 export const getLetterTemplates = () => apiFetch(`${base()}/letter-templates`, opts);
 export const getLetterTemplateVersions = (kind) => apiFetch(`${base()}/letter-templates/${encodeURIComponent(kind)}/versions`, opts).then((r) => r?.versions || []);
 export const saveLetterTemplate = (body) => send('/letter-templates', 'POST', body);
+export const saveLetterSettings = (body) => send('/letter-settings', 'PUT', body);
 export const issueLetter = (id, body) => send(`/employees/${encodeURIComponent(id)}/letters`, 'POST', body);
 export const serviceCertificateDue = (id, askedOn) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/letters/service-certificate${askedOn ? `?askedOn=${encodeURIComponent(askedOn)}` : ''}`, opts);
 export const requestLetter = (id, body) => send(`/employees/${encodeURIComponent(id)}/letters/requests`, 'POST', body);

@@ -1650,6 +1650,11 @@ model EmployeeDocument {
   /// A letter issued from a template (DOC-04): which template and version made it.
   templateId        String?
   templateVersion   Int?
+  /// The letter kind (APPOINTMENT, RELIEVING…) for a letter CLOR issued from a template.
+  letterKind        String?
+  /// What a letter was issued for, once each (People plan 8 Nov 2026, step 6): "APPOINTMENT:stint2",
+  /// "INCREMENT:<revision id>", "REQUEST:<request id>". Null for letters HR issues by hand.
+  issuedFor         String?
   /// Who can see it (docs/people/02-PRD.md DOC-01): EMPLOYEE_VISIBLE (the person and
   /// anyone with Documents VIEW) | HR_ONLY (Documents VIEW) | RESTRICTED (Documents EDIT)
   /// | CONFIDENTIAL (Confidential Documents VIEW). `visibleToEmployee` is kept in step
@@ -1664,6 +1669,7 @@ model EmployeeDocument {
   @@index([orgId, employeeId])
   @@index([orgId, expiresOn])
   @@index([orgId, supersededById])
+  @@unique([orgId, employeeId, issuedFor])
 }
 
 /// Policies (docs/people/02-PRD.md POL-01..06; services/people/policies.ts): a
@@ -1928,6 +1934,8 @@ model PeopleSetting {
   /// Referrals (A20): a bonus is not paid when the referrer has left before the bonus date
   /// (serving notice counts as still here). Off: it is paid anyway, in their final settlement or by hand.
   referralForfeitIfReferrerLeaves Boolean @default(true)
+  /// Who signs the letters CLOR issues on its own (People plan 8 Nov 2026, step 6), e.g. "Meera Shah, HR Manager".
+  letterSignatory String?
   /// Company choices (docs/people/workflow-engine/SPEC.md 3.2, services/people/companyChoices.ts). Who decides missed punch,
   /// work from home, on duty, permission and shift change requests: HR_OR_MANAGER | MANAGER | HR | MANAGER_THEN_HR.
   /// Null: not chosen here yet, so AttendanceSettings.correctionApproval is read (its HR means HR_OR_MANAGER).

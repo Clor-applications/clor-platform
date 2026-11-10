@@ -552,6 +552,16 @@
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reads only their own notice state and waiting resignation."
     },
     {
+      "method": "GET",
+      "path": "/api/portal/people/me/letters",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; lists only the letters they may ask for and their own letter and document requests (People plan step 6)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/letters",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks for a letter or a document copy about themselves only, as a LETTER_REQUEST or DOCUMENT_REQUEST HR approves (People plan step 6)."
+    },
+    {
       "method": "POST",
       "path": "/api/portal/people/me/resign",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; resigns on their own employee id only; becomes a LEAVING request the manager and HR decide (LIFE-05)."

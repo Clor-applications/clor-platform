@@ -21,6 +21,7 @@ import MyMoney from './MyMoney';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
+import AskLetter from './AskLetter';
 import { FixNotices, MyMarks, NightConsent } from './TimeRules';
 import { Celebrations, ExitInterview, TodayPosts } from './Engagement';
 import {
@@ -1063,6 +1064,8 @@ function MyLeave({ guard }) {
 
 function Account({ me, guard, onSignOut }) {
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
+  /* A letter approved at once (no approver but me) reloads My documents. */
+  const [docsAt, setDocsAt] = useState(0);
   const [note, setNote] = useState(null);
   const save = async (e) => {
     e.preventDefault();
@@ -1086,7 +1089,8 @@ function Account({ me, guard, onSignOut }) {
         </section>
       ) : null}
       <MyTax guard={guard} />
-      <MyDocuments guard={guard} />
+      <MyDocuments key={docsAt} guard={guard} />
+      <AskLetter guard={guard} onIssued={() => setDocsAt(Date.now())} />
       <MyData guard={guard} />
       <Devices guard={guard} />
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">

@@ -16,6 +16,7 @@ import * as growth from '../services/people/talent/growth.js';
 import { TalentError } from '../services/people/talent/hiring.js';
 import { MAX_SWAP_DAYS, MIN_REST_HOURS, SwapError, answerSwap, askSwap, colleaguesFor, shapeSwaps, swapsOf, withdrawSwap } from '../services/people/shiftSwaps.js';
 import { FormError, fileFor, formsFor, myFormRequests, raise, replyOwn, withdrawOwn } from '../services/people/requestForms.js';
+import { LetterError, askFromApp, myLetterRequests } from '../services/people/letters.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -170,6 +171,33 @@ peoplePortalRouter.post('/me/requests/:id/withdraw', async (req, res) => {
     res.json(await withdrawFromApp({ accountId, orgId, employeeId, correlationId: correlationOf(req as any) }, String(req.params.id)));
   } catch (e) {
     selfServiceError(res, e);
+  }
+});
+
+/*
+ * Letters and copies of documents (People plan 8 Nov 2026, step 6): what I may ask for and what I asked;
+ * asking makes a LETTER_REQUEST or DOCUMENT_REQUEST that HR approves, and an approved letter lands in My documents.
+ */
+const letterError = (res: any, e: unknown) => {
+  if (e instanceof LetterError) return res.status(e.status).json({ error: e.message });
+  if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
+  console.error('[people-portal letters]', e instanceof Error ? e.message : e);
+  return res.status(500).json({ error: 'Something went wrong.' });
+};
+peoplePortalRouter.get('/me/letters', async (req, res) => {
+  try {
+    res.json(await myLetterRequests(me(req)));
+  } catch (e) {
+    letterError(res, e);
+  }
+});
+peoplePortalRouter.post('/me/letters', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    res.status(201).json(await askFromApp({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, { kind: body.kind, what: body.what, note: body.note }));
+  } catch (e) {
+    letterError(res, e);
   }
 });
 

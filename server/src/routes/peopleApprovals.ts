@@ -15,7 +15,7 @@ import { todayIst } from '../services/people/lifecycle/board.js';
 import { leavingReasonFilter } from '../services/people/companyChoices.js';
 import { cleanTypes, covers, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn, timeOnly } from '../services/people/approvals/standIns.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
-import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
+import { ApprovalError, REQUEST_TYPES, RULE_TYPES, UNASKED_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { inScope, teamScope } from '../services/people/scope.js';
@@ -58,7 +58,7 @@ peopleApprovalsRouter.get(`${base}/approval-rules`, can(PermissionAction.VIEW, A
     ...r, steps: legacySteps(r.steps), spec: stepsOfRule(r), editableHere: v1Exact(r.steps) && !r.variantKey && !normaliseAutoApprove(r.autoApprove).length,
     appliesWhen: normaliseConditions(r.appliesWhen), autoApprove: normaliseAutoApprove(r.autoApprove),
   }));
-  res.json({ rules, requestTypes: RULE_TYPES, forms: forms.map((f) => ({ requestType: `FORM:${f.id}`, name: f.name, active: f.active })) });
+  res.json({ rules, requestTypes: RULE_TYPES.filter((t) => !UNASKED_TYPES.has(t)), forms: forms.map((f) => ({ requestType: `FORM:${f.id}`, name: f.name, active: f.active })) });
 });
 
 /** A fixed type, or one of this company's own request types (FORM:<id>). */
