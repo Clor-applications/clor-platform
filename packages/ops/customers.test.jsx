@@ -128,12 +128,15 @@ describe('a customer’s page', () => {
 
   it('lists the demo request on Requests and opens it', async () => {
     api.opsAccount.mockResolvedValue(detail());
-    api.opsCustomerRequests.mockResolvedValue({ demoRequests: [{ id: 'd1', name: 'Asha Rao', company: 'Rao Textiles', email: 'asha@rao.in', status: 'ACCOUNT_CREATED', apps: ['people'], message: 'Pay 18 people', createdAt: '2026-11-01T00:00:00Z' }], support: [] });
+    api.opsCustomerRequests.mockResolvedValue({ demoRequests: [{ id: 'd1', name: 'Asha Rao', company: 'Rao Textiles', email: 'asha@rao.in', status: 'ACCOUNT_CREATED', apps: ['people'], message: 'Pay 18 people', createdAt: '2026-11-01T00:00:00Z' }], support: [{ id: 't1', code: 'T-1004', subject: 'Payslip PDF blank', status: 'OPEN', priority: 'URGENT', createdAt: '2026-11-09T00:00:00Z' }] });
     const openDemo = vi.fn();
-    render(<CustomerPage id="a1" tab="requests" role="SALES" back={() => {}} setTab={() => {}} openDemo={openDemo} />);
+    const openLink = vi.fn();
+    render(<CustomerPage id="a1" tab="requests" role="SALES" back={() => {}} setTab={() => {}} openDemo={openDemo} openLink={openLink} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Asha Rao, Rao Textiles' }));
     expect(openDemo).toHaveBeenCalledWith('d1');
-    expect(screen.getByText(/does not take support messages in the app yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Needs an answer · Urgent/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'T-1004 Payslip PDF blank' }));
+    expect(openLink).toHaveBeenCalledWith({ page: 'tickets', id: 't1' });
   });
 
   it('lets Support send a reset link, sign out everywhere and resend an invitation', async () => {
@@ -221,19 +224,36 @@ describe('a customer’s page', () => {
     expect(notify.success).toHaveBeenCalledWith('2 of 3 went. 1 still failing; see Email, Log.');
   });
 
-  it('shows Activity and narrows it to what CLOR did', async () => {
+  it('shows the Timeline by day, hides sign-ins until asked, opens links and loads older events', async () => {
     api.opsAccount.mockResolvedValue(detail());
-    api.opsCustomerActivity.mockResolvedValue({
-      lines: [
-        { id: 'op-1', kind: 'clor', at: '2026-11-10T05:00:00Z', who: 'Ravi', what: 'Extended a trial', detail: 'Needs a week' },
-        { id: 'se-1', kind: 'sign-in', at: '2026-11-09T05:00:00Z', who: 'asha@rao.in', what: 'Signed in', detail: '' },
-      ],
-    });
-    render(<CustomerPage id="a1" tab="activity" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
-    expect(await screen.findByText('Signed in')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'clor' } });
+    api.opsCustomerActivity
+      .mockResolvedValueOnce({
+        lines: [
+          { id: 'inv-1', kind: 'money', at: '2026-11-10T05:00:00Z', what: 'Invoice CLOR/26-27/0042 paid', amount: 118000, tone: 'good', link: { page: 'invoices', id: 'i1' } },
+          { id: 'op-1', kind: 'clor', at: '2026-11-10T04:00:00Z', who: 'Ravi, CLOR', what: 'Extended a trial', detail: 'Needs a week' },
+          { id: 'se-1', kind: 'sign-in', at: '2026-11-09T05:00:00Z', who: 'asha@rao.in', what: 'Signed in' },
+        ],
+        older: '2026-11-09T05:00:00Z',
+        upcoming: [{ id: 'trial-end', at: '2026-11-20T00:00:00Z', what: 'Trial ends' }],
+      })
+      .mockResolvedValueOnce({ lines: [{ id: 'start', kind: 'account', at: '2026-10-01T05:00:00Z', what: 'Account created' }], older: null });
+    const openLink = vi.fn();
+    render(<CustomerPage id="a1" tab="activity" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} openLink={openLink} />);
+    expect(await screen.findByText('Trial ends')).toBeInTheDocument();
+    expect(screen.getByText('₹1,180')).toBeInTheDocument();
     expect(screen.queryByText('Signed in')).toBeNull();
-    expect(screen.getByText(/Ravi, CLOR .* Needs a week/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'all' } });
+    expect(screen.getByText('Signed in')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'clor' } });
+    expect(screen.queryByText('Invoice CLOR/26-27/0042 paid')).toBeNull();
+    expect(screen.getByText(/Ravi, CLOR · Needs a week/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'key' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Invoice CLOR/26-27/0042 paid' }));
+    expect(openLink).toHaveBeenCalledWith({ page: 'invoices', id: 'i1' });
+    fireEvent.click(screen.getByRole('button', { name: 'Show older events' }));
+    expect(await screen.findByText('Account created')).toBeInTheDocument();
+    expect(api.opsCustomerActivity).toHaveBeenLastCalledWith('a1', '2026-11-09T05:00:00Z');
+    expect(screen.queryByRole('button', { name: 'Show older events' })).toBeNull();
   });
 
   it('moves between tabs', async () => {
@@ -241,7 +261,7 @@ describe('a customer’s page', () => {
     const setTab = vi.fn();
     render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={setTab} openDemo={() => {}} />);
     const tabs = await screen.findByRole('tablist');
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Invoices and payments', 'Requests', 'Users', 'Connections', 'Activity']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Invoices and payments', 'Requests', 'Users', 'Connections', 'Timeline']);
     fireEvent.click(within(tabs).getByRole('tab', { name: 'Users' }));
     expect(setTab).toHaveBeenCalledWith('users');
   });

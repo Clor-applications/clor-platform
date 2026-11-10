@@ -70,7 +70,7 @@ export const opsReopenSubscription = (id, reason) => apiFetch(`${acct(id)}/reope
 export const opsCustomerPayments = (id) => apiFetch(`${acct(id)}/payments`, o);
 export const opsCustomerRequests = (id) => apiFetch(`${acct(id)}/requests`, o);
 export const opsCustomerUsers = (id) => apiFetch(`${acct(id)}/users`, o);
-export const opsCustomerActivity = (id) => apiFetch(`${acct(id)}/activity`, o);
+export const opsCustomerActivity = (id, before) => apiFetch(`${acct(id)}/activity${before ? `?before=${encodeURIComponent(before)}` : ''}`, o);
 export const opsSendResetLink = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/reset-link`, { ...o, method: 'POST', body: { reason } });
 export const opsSignOutEverywhere = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/sign-out`, { ...o, method: 'POST', body: { reason } });
 export const opsResendInvitation = (id, invitationId, reason) => apiFetch(`${acct(id)}/invitations/${encodeURIComponent(invitationId)}/resend`, { ...o, method: 'POST', body: { reason } });

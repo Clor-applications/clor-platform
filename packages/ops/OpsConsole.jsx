@@ -109,6 +109,7 @@ export const SCREENS = {
         back={() => go('customers')}
         setTab={(tab) => go('customers', {}, route.id, tab, true)}
         openDemo={(id) => go('demos', {}, id)}
+        openLink={(l) => go(l.page, {}, l.id || '')}
       />
     ) : (
       <Customers key={route.params.status || 'all'} initialStatus={route.params.status || 'all'} openCustomer={(id) => go('customers', {}, id)} />

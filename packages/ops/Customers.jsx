@@ -3,6 +3,7 @@ import { ArrowLeft, Search } from '@ui/components/ui/lineIcons';
 
 import { notify } from '@ui/components/ui/notify';
 import { ICON, PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
+import { inr } from './money';
 import { APP_NAMES, Empty, Err, Loading, Pager, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
 import {
   opsAccount,
@@ -168,10 +169,10 @@ const TABS = [
   ['requests', 'Requests'],
   ['users', 'Users'],
   ['connections', 'Connections'],
-  ['activity', 'Activity'],
+  ['activity', 'Timeline'],
 ];
 
-export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo }) {
+export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, openLink = () => {} }) {
   /* An old or mistyped link opens the overview rather than an empty page. */
   const tab = TABS.some(([k]) => k === asked) ? asked : 'overview';
   const [d, setD] = useState(null);
@@ -214,10 +215,10 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo }) {
         {tab === 'overview' ? <Overview d={d} plan={plan} /> : null}
         {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} /> : null}
         {tab === 'money' ? <Money id={id} /> : null}
-        {tab === 'requests' ? <Requests id={id} openDemo={openDemo} /> : null}
+        {tab === 'requests' ? <Requests id={id} openDemo={openDemo} openLink={openLink} /> : null}
         {tab === 'users' ? <Users id={id} role={role} /> : null}
         {tab === 'connections' ? <Connections id={id} role={role} /> : null}
-        {tab === 'activity' ? <Activity id={id} /> : null}
+        {tab === 'activity' ? <Timeline id={id} openLink={openLink} /> : null}
       </div>
     </>
   );
@@ -489,7 +490,9 @@ function Money({ id }) {
 /* --------------------------------------------------------------- requests */
 const DEMO_WORDS = { NEW: 'New', CONTACTED: 'Contacted', DEMO_DONE: 'Demo done', ACCOUNT_CREATED: 'Account created', NOT_A_FIT: 'Not a fit' };
 
-function Requests({ id, openDemo }) {
+const TICKET_WORDS = { OPEN: 'Needs an answer', WAITING: 'Waiting on customer', SOLVED: 'Solved', CLOSED: 'Closed' };
+
+function Requests({ id, openDemo, openLink }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -519,8 +522,25 @@ function Requests({ id, openDemo }) {
           <p className="ws-card-blurb">No demo request from this customer’s addresses.</p>
         )}
       </Panel>
-      <Panel title="Support messages">
-        <p className="ws-card-blurb">CLOR does not take support messages in the app yet. When it does, this customer’s show here.</p>
+      <Panel title="Help tickets">
+        {d.support?.length ? (
+          <ul className="ws-list">
+            {d.support.map((t) => (
+              <li key={t.id}>
+                <div className="ws-item">
+                  <span className="ws-item-text">
+                    <button type="button" className="ws-name-link" style={{ textAlign: 'left' }} onClick={() => openLink({ page: 'tickets', id: t.id })}>
+                      {t.code} {t.subject}
+                    </button>
+                    <span className="ws-item-sub">{[TICKET_WORDS[t.status] || t.status, t.priority === 'URGENT' ? 'Urgent' : null, `opened ${day(t.createdAt)}`].filter(Boolean).join(' · ')}</span>
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="ws-card-blurb">This customer has not asked for help in the app.</p>
+        )}
       </Panel>
     </>
   );
@@ -757,48 +777,141 @@ function Connections({ id, role }) {
   );
 }
 
-/* --------------------------------------------------------------- activity */
+/* --------------------------------------------------------------- timeline */
+/* The customer's story (server: services/ops/timeline.ts). Sign-ins are many and rarely the point, so they have their own view. */
 const KINDS = [
+  ['key', 'Everything but sign-ins'],
   ['all', 'Everything'],
+  ['account', 'Account and companies'],
+  ['money', 'Invoices and payments'],
+  ['support', 'Help, demos and alerts'],
   ['clor', 'What CLOR did'],
-  ['account', 'What their people did'],
+  ['people', 'What their people did'],
   ['sign-in', 'Sign-ins'],
 ];
+const TONE = { good: 'rgb(var(--ws-ok))', bad: 'rgb(var(--ws-danger))' };
+const dayHead = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const clock = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 
-function Activity({ id }) {
+function TimelineRow({ l, openLink }) {
+  return (
+    <div className="ws-item" style={{ alignItems: 'flex-start' }}>
+      <span className="ws-item-sub ui-num" style={{ flex: 'none', width: 64, paddingTop: 2 }}>
+        {clock(l.at)}
+      </span>
+      <span className="ws-item-text">
+        {l.link ? (
+          <button type="button" className="ws-name-link" style={{ textAlign: 'left' }} onClick={() => openLink(l.link)}>
+            {l.what}
+          </button>
+        ) : (
+          <span className="ws-item-title">{l.what}</span>
+        )}
+        {l.who || l.detail ? <span className="ws-item-sub">{[l.who, l.detail].filter(Boolean).join(' · ')}</span> : null}
+      </span>
+      {l.amount != null ? (
+        <span className="ui-num" style={{ flex: 'none', textAlign: 'right', color: TONE[l.tone] || undefined }}>
+          {inr(l.amount)}
+        </span>
+      ) : l.tone === 'bad' ? (
+        <span className="ws-pill ws-pill--danger" style={{ flex: 'none' }}>
+          Problem
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function Timeline({ id, openLink }) {
   const [d, setD] = useState(null);
-  const [kind, setKind] = useState('all');
+  const [kind, setKind] = useState('key');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     opsCustomerActivity(id).then(setD).catch((e) => setError(String(e?.message || e)));
   }, [id]);
+  const older = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const next = await opsCustomerActivity(id, d.older);
+      setD((was) => ({ ...was, lines: [...was.lines, ...next.lines], older: next.older }));
+    } catch (e) {
+      setError(String(e?.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
   if (!d) return error ? <Err>{error}</Err> : <Loading />;
-  const lines = d.lines.filter((l) => kind === 'all' || l.kind === kind);
+  const lines = d.lines.filter((l) => kind === 'all' || (kind === 'key' ? l.kind !== 'sign-in' : l.kind === kind));
+  const days = [];
+  for (const l of lines) {
+    const head = dayHead(l.at);
+    if (days.length && days[days.length - 1].head === head) days[days.length - 1].lines.push(l);
+    else days.push({ head, lines: [l] });
+  }
   return (
     <>
-      <select className="ui-select" style={{ width: 'auto' }} aria-label="Show" value={kind} onChange={(e) => setKind(e.target.value)}>
-        {KINDS.map(([k, label]) => (
-          <option key={k} value={k}>{label}</option>
-        ))}
-      </select>
-      {lines.length ? (
-        <ul className="ws-list">
-          {lines.map((l) => (
-            <li key={l.id}>
-              <div className="ws-item">
-                <span className="ws-item-text">
-                  <span className="ws-item-title">{l.what}</span>
-                  <span className="ws-item-sub">
-                    {[l.kind === 'clor' ? `${l.who}, CLOR` : l.who, when(l.at), l.detail].filter(Boolean).join(' · ')}
+      {d.upcoming?.length ? (
+        <Panel title="Coming up">
+          <ul className="ws-list">
+            {d.upcoming.map((u) => (
+              <li key={u.id}>
+                <div className="ws-item">
+                  <span className="ws-item-text">
+                    {u.link ? (
+                      <button type="button" className="ws-name-link" style={{ textAlign: 'left' }} onClick={() => openLink(u.link)}>
+                        {u.what}
+                      </button>
+                    ) : (
+                      <span className="ws-item-title" style={u.tone === 'bad' ? { color: TONE.bad } : undefined}>
+                        {u.what}
+                      </span>
+                    )}
                   </span>
-                </span>
-              </div>
-            </li>
+                  <span className="ws-item-end">{day(u.at)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      ) : null}
+      <div style={{ maxWidth: 280 }}>
+        <select className="ui-select" aria-label="Show" value={kind} onChange={(e) => setKind(e.target.value)}>
+          {KINDS.map(([k, label]) => (
+            <option key={k} value={k}>
+              {label}
+            </option>
           ))}
-        </ul>
+        </select>
+      </div>
+      <Err>{error}</Err>
+      {days.length ? (
+        days.map((g) => (
+          <section key={g.head} aria-label={g.head}>
+            <h3 className="ws-item-sub" style={{ fontWeight: 600, margin: '16px 0 2px' }}>
+              {g.head}
+            </h3>
+            <ul className="ws-list">
+              {g.lines.map((l) => (
+                <li key={l.id}>
+                  <TimelineRow l={l} openLink={openLink} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
       ) : (
-        <Empty>Nothing recorded yet.</Empty>
+        <Empty>{d.older ? 'Nothing of this kind on this page. Show older events to look further back.' : 'Nothing of this kind recorded yet.'}</Empty>
       )}
+      {d.older ? (
+        <div>
+          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy} onClick={older}>
+            {busy ? 'Loading…' : 'Show older events'}
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
+
