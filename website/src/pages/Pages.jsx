@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearch } from '../router.jsx';
-import { PRODUCTS, SITE, productBySlug } from '../site.js';
+import { SITE, productBySlug } from '../site.js';
+import { useProducts } from '../catalogue.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head } from '../components/Sections.jsx';
@@ -187,6 +188,7 @@ export function Firms() {
 
 /* ----------------------------------------------------------------- pricing */
 export function Pricing() {
+  const PRODUCTS = useProducts();
   return (
     <>
       <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />

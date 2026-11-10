@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { CONNECTIONS, PRODUCTS, demoFor, productBySlug } from '../site.js';
+import { CONNECTIONS, demoFor, productBySlug } from '../site.js';
+import { useProducts } from '../catalogue.js';
 import { PRODUCT_CONTENT } from '../content.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
@@ -184,6 +185,7 @@ export default function Product({ slug }) {
 }
 
 export function Products() {
+  const PRODUCTS = useProducts();
   return (
     <>
       <section className="hero hero--product">

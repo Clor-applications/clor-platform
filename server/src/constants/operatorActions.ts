@@ -1,0 +1,45 @@
+/**
+ * What each operator action is called in the console's audit log and in its
+ * CSV export: plain words, not the code kept on the record. An action not
+ * listed shows as its code made readable (CUSTOMER_THING → "customer thing").
+ */
+export const OPERATOR_ACTION_LABELS: Record<string, string> = {
+  ACCOUNT_SUSPENDED: 'Suspended a customer',
+  ACCOUNT_REINSTATED: 'Resumed a customer',
+  TRIAL_EXTENDED: 'Extended a trial',
+  SUBSCRIPTION_SET: 'Set a plan by hand',
+  SUBSCRIPTION_APPS_CHANGED: 'Changed the apps on a plan',
+  SUBSCRIPTION_CANCELLED: 'Cancelled a subscription',
+  SUBSCRIPTION_REOPENED: 'Reopened a subscription',
+  USER_RESET_LINK_SENT: 'Sent a password reset link',
+  USER_SIGNED_OUT_EVERYWHERE: 'Signed a user out everywhere',
+  USER_INVITE_RESENT: 'Sent an invitation again',
+  OPERATOR_ADDED: 'Added a staff member',
+  OPERATOR_INVITED: 'Invited a staff member',
+  OPERATOR_INVITE_ACCEPTED: 'Accepted a staff invitation',
+  OPERATOR_INVITE_REVOKED: 'Withdrew a staff invitation',
+  OPERATOR_CHANGED: 'Changed a staff member’s role',
+  OPERATOR_REMOVED: 'Removed a staff member',
+  EMAIL_SENDER_CHANGED: 'Changed a sender address',
+  EMAIL_SENDER_TESTED: 'Sent a test from a sender address',
+  EMAIL_TEMPLATE_CHANGED: 'Changed an email’s wording',
+  EMAIL_TEMPLATE_RESET: 'Put an email back to its default wording',
+  EMAIL_TEMPLATE_TESTED: 'Sent a test email',
+  EMAIL_RESENT: 'Sent an email again',
+  APP_CATALOGUE_CHANGED: 'Changed an app in the catalogue',
+  DEMO_REQUEST_STATUS: 'Moved a demo request on',
+  DEMO_ACCOUNT_CREATED: 'Made an account from a demo request',
+  EXPLORE_RESENT: 'Sent an Explore link again',
+  EXPLORE_ENDED: 'Ended an Explore link',
+  EXPLORE_SAMPLE_BUILT: 'Built the sample company',
+  EXPLORE_SAMPLE_REBUILT: 'Rebuilt the sample company',
+  PAYROLL_LIVE_LINE_INDEX: 'Built the payroll payment index',
+  TWO_FACTOR_ENABLED: 'Set up an authenticator',
+  TWO_FACTOR_SETUP_REFUSED: 'Authenticator set-up refused: wrong password',
+  STEP_UP_FAILED: 'Typed a wrong authenticator code',
+  STEP_UP_LOCKED: 'Locked out after wrong codes',
+  AUDIT_EXPORTED: 'Downloaded the audit log',
+};
+
+export const operatorActionLabel = (action: string) =>
+  OPERATOR_ACTION_LABELS[action] || action.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());

@@ -709,6 +709,16 @@ button.ws-item:hover {
 .ws-btn--danger:hover {
   filter: brightness(0.95);
 }
+/* The secondary destructive button: outlined, in the danger colour, for an act that sits beside ordinary ones. */
+.ws-btn--danger-quiet {
+  background: rgb(var(--ws-surface));
+  color: rgb(var(--ws-danger));
+  border-color: rgb(var(--ws-danger) / 0.4);
+}
+.ws-btn--danger-quiet:hover {
+  background: rgb(var(--ws-danger-soft));
+  border-color: rgb(var(--ws-danger) / 0.6);
+}
 /* Usage against an allowance. */
 .ws-meter {
   display: grid;
@@ -1653,14 +1663,116 @@ button.ws-item:hover {
   font-weight: 700;
   letter-spacing: 0.02em;
 }
-.ops-nav {
+/* The menu: a side panel in groups (Home · Customers · Money · Product · Email · Team · Audit log); a sheet on a phone. */
+.ops-shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  align-items: start;
+}
+.ops-side {
+  position: sticky;
+  top: 56px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  height: calc(100dvh - 56px);
+  overflow-y: auto;
+  padding: 16px 12px 24px;
+  background: rgb(var(--ws-surface));
+  border-right: 1px solid rgb(var(--ws-line));
+}
+.ops-group {
+  display: grid;
+  gap: 2px;
+}
+.ops-group-label {
+  padding: 0 12px 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+.ops-menu-btn {
+  display: none;
+}
+.ops-scrim {
+  display: none;
+}
+@media (max-width: 900px) {
+  .ops-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ops-menu-btn {
+    display: inline-grid;
+  }
+  .ops-side {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    z-index: 11;
+    width: min(280px, 86vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 200ms var(--ws-ease), visibility 200ms;
+  }
+  .ops-side[data-open] {
+    transform: none;
+    visibility: visible;
+    box-shadow: var(--shadow-lift);
+  }
+  .ops-scrim {
+    display: block;
+    position: fixed;
+    inset: 56px 0 0;
+    z-index: 10;
+    border: 0;
+    background: rgb(var(--ws-ink) / 0.25);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ops-side {
+    transition: none;
+  }
+}
+/* Audit log filters: a row on a desk, a stack on a phone. */
+.ops-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.ops-picker {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 8px;
+  box-shadow: var(--shadow-lift);
+}
+.ops-picker button {
   display: flex;
-  gap: 4px;
-  margin-left: 12px;
-  overflow-x: auto;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  font-size: 0.875rem;
+  color: rgb(var(--ws-ink));
+  cursor: pointer;
+}
+.ops-picker button:hover {
+  background: rgb(var(--ws-stone));
 }
 .ops-nav-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   height: 36px;
@@ -1745,6 +1857,9 @@ button.ws-item:hover {
     padding: 0 12px;
     gap: 8px;
   }
+  .ops-bar-top > .ui-icon-btn:last-child {
+    margin-left: auto;
+  }
 }
 
 /* Operator sign-in: the drawing sits in the brand panel where clor.in's hero art would. */
@@ -1783,4 +1898,87 @@ button.ws-item:hover {
   grid-template-columns: repeat(2, max-content);
   gap: 8px 16px;
   font-size: 0.9375rem;
+}
+
+/* A customer's subscription actions: ordinary ones on the left, the destructive ones set apart on the right. */
+.ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+.ops-actions-main,
+.ops-actions-danger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 639px) {
+  .ops-actions-danger {
+    padding-top: 12px;
+    border-top: 1px solid rgb(var(--ws-line));
+    width: 100%;
+  }
+}
+
+/*
+ * A table that becomes a list on a phone: each row a block, the cell marked
+ * ops-primary the bold line on top, every other cell a "label: value" line from its data-label. Cells
+ * hidden on narrow desks (hidden sm:table-cell…) come back as lines here, so
+ * nothing is lost and nothing scrolls sideways.
+ */
+@media (max-width: 639px) {
+  .ops-stack {
+    border-collapse: separate;
+  }
+  .ops-stack thead {
+    display: none;
+  }
+  .ops-stack tbody {
+    display: block;
+  }
+  .ops-stack tr {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgb(var(--ws-line));
+  }
+  .ops-stack tr:last-child {
+    border-bottom: 0;
+  }
+  .ops-stack td,
+  .ops-stack td.hidden {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .ops-stack td.ops-primary {
+    order: -1;
+    display: block;
+    font-weight: 600;
+    padding-bottom: 4px;
+  }
+  .ops-stack td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 104px;
+    color: rgb(var(--ws-muted));
+    font-weight: 400;
+  }
+  .ops-stack td.num {
+    justify-content: flex-start;
+  }
+  .ops-stack td.ops-stack-actions {
+    flex-wrap: wrap;
+    padding-top: 8px;
+  }
+  .ops-stack td:empty {
+    display: none;
+  }
 }

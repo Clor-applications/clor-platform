@@ -1,0 +1,277 @@
+import { Router } from 'express';
+import type { Request } from 'express';
+import { z } from 'zod';
+
+import { requireAuth } from '../middleware/auth.js';
+import { requireOperator, requireOperatorRole } from '../middleware/operator.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
+import { outsideTenant } from '../utils/tenantScope.js';
+import { clearAccessCache } from '../utils/accessCache.js';
+import { clientIp, issuePasswordResetToken, revokeAllSessions } from '../services/auth.js';
+import { requireOperatorStepUp } from '../services/stepUp.js';
+import { getSubscription, setSubscription, syncAccountEntitlement } from '../services/subscriptions.js';
+import { InvitationError, resendInvitation } from '../services/accountInvitations.js';
+import { sendTemplate } from '../services/mailer.js';
+import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
+import { operatorActionLabel } from '../constants/operatorActions.js';
+import { audit, auditSummary } from './ops.js';
+
+/**
+ * One page per customer (operator console, Customers; roadmap item 13): the
+ * parts of a customer's page that are not on GET /ops/accounts/:id — their
+ * payments, their requests, their users and everything that happened — and
+ * what CLOR staff may do from it.
+ *
+ * Account metadata only, as everywhere in the console: never a customer's
+ * books, people or payroll. Every change needs a fresh authenticator code, a
+ * reason, and is written to the operator record and to the customer's own
+ * security log (ops.ts audit()).
+ */
+export const opsCustomersRouter = Router();
+opsCustomersRouter.use('/ops/accounts', requireAuth, requireOperator);
+
+const reasonBody = z.object({ reason: z.string().trim().min(3).max(500) });
+const SAY_WHY = 'Say why, in a sentence.';
+
+const accountOr404 = async (id: string) => platformPrisma.account.findUnique({ where: { id }, select: { id: true, name: true } });
+
+/* ---------------------------------------------------------- subscription */
+
+const appsBody = reasonBody.extend({ apps: z.array(z.string()).min(1).max(20) });
+
+/** Change which apps the plan carries. Apps kept keep their tier and seats; an app added comes in free until priced. */
+opsCustomersRouter.post('/ops/accounts/:id/apps', requireOperatorRole('BILLING'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: change apps', async () => {
+    const id = String(req.params.id);
+    const parsed = appsBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Choose at least one app, and say why.' });
+    if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
+    const unknown = parsed.data.apps.filter((a) => !SELLABLE_APP_CODES.includes(a));
+    if (unknown.length) return res.status(400).json({ error: `These apps cannot be sold yet: ${unknown.join(', ')}.` });
+    const sub = await getSubscription(id);
+    if (!sub) return res.status(409).json({ error: 'This customer has no plan yet. Use Set a plan first.' });
+    const keep = new Map(sub.items.map((i) => [i.appCode, i]));
+    const before = sub.items.map((i) => i.appCode).sort();
+    const apps = [...new Set(parsed.data.apps)].map((appCode) => {
+      const k = keep.get(appCode);
+      return k ? { appCode, tier: k.tier, seats: k.seats, priceModel: k.priceModel, unitAmount: k.unitAmount } : { appCode, priceModel: 'free' };
+    });
+    const after = await setSubscription(id, { apps, status: sub.status });
+    clearAccessCache();
+    await audit(req, 'SUBSCRIPTION_APPS_CHANGED', { accountId: id }, { from: before, to: (after?.items || []).map((i) => i.appCode).sort(), reason: parsed.data.reason });
+    res.json({ apps: (after?.items || []).map((i) => i.appCode).sort() });
+  }),
+);
+
+/** Cancel the subscription: the apps stop for every company in the account. The account and its data stay. */
+opsCustomersRouter.post('/ops/accounts/:id/cancel', requireOperatorRole('BILLING'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: cancel subscription', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
+    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true } });
+    if (!sub) return res.status(409).json({ error: 'This customer has no subscription to cancel.' });
+    if (sub.status === 'cancelled') return res.status(409).json({ error: 'Already cancelled.' });
+    await platformPrisma.subscription.update({ where: { accountId: id }, data: { status: 'cancelled', cancelAtPeriodEnd: false } });
+    await syncAccountEntitlement(id);
+    clearAccessCache();
+    await audit(req, 'SUBSCRIPTION_CANCELLED', { accountId: id }, { from: sub.status, reason: parsed.data.reason });
+    res.json({ status: 'cancelled' });
+  }),
+);
+
+/** Undo a cancellation: back on trial if the trial has days left, else active. */
+opsCustomersRouter.post('/ops/accounts/:id/reopen', requireOperatorRole('BILLING'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: reopen subscription', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
+    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true } });
+    if (!sub) return res.status(409).json({ error: 'This customer has no subscription.' });
+    if (sub.status !== 'cancelled') return res.status(409).json({ error: 'Only a cancelled subscription can be reopened.' });
+    const status = sub.trialEndsAt && sub.trialEndsAt.getTime() > Date.now() ? 'trialing' : 'active';
+    await platformPrisma.subscription.update({ where: { accountId: id }, data: { status } });
+    await syncAccountEntitlement(id);
+    clearAccessCache();
+    await audit(req, 'SUBSCRIPTION_REOPENED', { accountId: id }, { to: status, reason: parsed.data.reason });
+    res.json({ status });
+  }),
+);
+
+/* ---------------------------------------------------- invoices, payments */
+
+/**
+ * What the payment side knows about this customer. Today that is the payment
+ * events a gateway sent; invoices and payments recorded in the console join
+ * it once payments are switched on.
+ */
+opsCustomersRouter.get('/ops/accounts/:id/payments', (req, res) =>
+  outsideTenant('ops: customer payments', async () => {
+    const id = String(req.params.id);
+    if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
+    const events = await platformPrisma.paymentEvent.findMany({
+      where: { accountId: id },
+      orderBy: { receivedAt: 'desc' },
+      take: 100,
+      select: { id: true, gateway: true, type: true, processed: true, receivedAt: true },
+    });
+    res.json({ invoices: [], payments: events.map((e) => ({ id: e.id, gateway: e.gateway, type: e.type, applied: e.processed, at: e.receivedAt })) });
+  }),
+);
+
+/* --------------------------------------------------------------- requests */
+
+/** Demo requests from this customer (by the account it made, or any of its people's addresses). */
+opsCustomersRouter.get('/ops/accounts/:id/requests', (req, res) =>
+  outsideTenant('ops: customer requests', async () => {
+    const id = String(req.params.id);
+    if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
+    const users = await platformPrisma.user.findMany({ where: { accountId: id }, select: { email: true } });
+    const emails = [...new Set(users.map((u) => u.email.toLowerCase()))];
+    const demos = await platformPrisma.demoRequest.findMany({
+      where: { OR: [{ accountId: id }, { email: { in: emails } }] },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: { id: true, name: true, company: true, email: true, status: true, apps: true, message: true, createdAt: true },
+    });
+    /* Support messages: the product has no in-app support inbox yet; the list fills when it does. */
+    res.json({ demoRequests: demos, support: [] });
+  }),
+);
+
+/* ------------------------------------------------------------------ users */
+
+const memberOr404 = async (accountId: string, userId: string) => {
+  const m = await platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId } }, select: { role: true } });
+  if (!m) return null;
+  return platformPrisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, fullName: true, accountId: true, isActive: true } });
+};
+
+/** Everybody in the account, their sign-in state, and invitations not yet taken up. */
+opsCustomersRouter.get('/ops/accounts/:id/users', (req, res) =>
+  outsideTenant('ops: customer users', async () => {
+    const id = String(req.params.id);
+    if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
+    const members = await platformPrisma.accountMembership.findMany({ where: { accountId: id }, select: { userId: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: 'asc' } });
+    const ids = members.map((m) => m.userId);
+    const [users, sessions, invites] = await Promise.all([
+      platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, emailVerifiedAt: true } }),
+      platformPrisma.session.groupBy({ by: ['userId'], where: { userId: { in: ids }, revokedAt: null, expiresAt: { gt: new Date() } }, _count: true }),
+      platformPrisma.accountInvitation.findMany({ where: { accountId: id, status: { in: ['PENDING', 'EXPIRED'] } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, accountRole: true, status: true, expiresAt: true, lastSentAt: true, sendCount: true } }),
+    ]);
+    const userBy = new Map(users.map((u) => [u.id, u]));
+    const sessionsBy = new Map(sessions.map((s) => [s.userId, Number(s._count) || 0]));
+    res.json({
+      users: members.map((m) => {
+        const u = userBy.get(m.userId);
+        return {
+          userId: m.userId,
+          name: u?.fullName || null,
+          email: u?.email || null,
+          role: m.role,
+          status: m.status === 'SUSPENDED' || !u?.isActive ? 'off' : 'active',
+          lastLoginAt: u?.lastLoginAt || null,
+          authenticator: Boolean(u?.totpEnabledAt),
+          emailConfirmed: Boolean(u?.emailVerifiedAt),
+          signedInOn: sessionsBy.get(m.userId) || 0,
+        };
+      }),
+      invitations: invites.map((i) => ({ ...i, expired: i.status === 'EXPIRED' || i.expiresAt.getTime() < Date.now() })),
+    });
+  }),
+);
+
+const APP_URL = () => (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+
+/** Mail the person a link to set a new password. CLOR never sees the link or the password. */
+opsCustomersRouter.post('/ops/accounts/:id/users/:userId/reset-link', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req: Request, res) =>
+  outsideTenant('ops: send reset link', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
+    const user = await memberOr404(id, String(req.params.userId));
+    if (!user) return res.status(404).json({ error: 'This person is not in this account.' });
+    if (!user.isActive) return res.status(409).json({ error: 'This person’s sign-in is switched off. Their own owner switches it back on first.' });
+    const token = await issuePasswordResetToken({ id: user.id, accountId: user.accountId }, clientIp(req));
+    const sent = await sendTemplate({
+      templateKey: 'auth.password_reset',
+      to: user.email,
+      accountId: user.accountId,
+      transactional: true,
+      relatedType: 'User',
+      relatedId: user.id,
+      data: { userName: user.fullName || user.email, resetUrl: `${APP_URL()}/?reset=${token}` },
+    });
+    await audit(req, 'USER_RESET_LINK_SENT', { accountId: id, userId: user.id }, { email: user.email, reason: parsed.data.reason });
+    res.json({ sent: sent?.status === 'SENT', status: sent?.status || null, email: user.email });
+  }),
+);
+
+/** End every session the person has, on every device. */
+opsCustomersRouter.post('/ops/accounts/:id/users/:userId/sign-out', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: sign out everywhere', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
+    const user = await memberOr404(id, String(req.params.userId));
+    if (!user) return res.status(404).json({ error: 'This person is not in this account.' });
+    const r = await revokeAllSessions(user.id, 'OPERATOR_SIGN_OUT');
+    await audit(req, 'USER_SIGNED_OUT_EVERYWHERE', { accountId: id, userId: user.id }, { email: user.email, sessions: r.count, reason: parsed.data.reason });
+    res.json({ sessionsEnded: r.count });
+  }),
+);
+
+/** Send an invitation again: a new link, seven more days; the old link stops working. */
+opsCustomersRouter.post('/ops/accounts/:id/invitations/:invitationId/resend', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: resend invitation', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
+    try {
+      const inv = await resendInvitation(req, String(req.params.invitationId), { accountId: id });
+      await audit(req, 'USER_INVITE_RESENT', { accountId: id }, { email: inv.email, invitationId: inv.id, reason: parsed.data.reason });
+      res.json({ invitation: inv });
+    } catch (e) {
+      if (e instanceof InvitationError) return res.status(e.status).json({ error: e.message, code: e.code });
+      throw e;
+    }
+  }),
+);
+
+/* --------------------------------------------------------------- activity */
+
+const SECURITY_WORDS: Record<string, string> = {
+  LOGIN_SUCCESS: 'Signed in',
+  LOGIN_FAILED: 'Sign-in failed',
+  LOCKED_OUT: 'Locked out after wrong passwords',
+  LOGOUT: 'Signed out',
+  PASSWORD_RESET_REQUESTED: 'Asked for a password reset',
+  PASSWORD_RESET: 'Set a new password',
+  SESSION_REVOKED: 'A session was ended',
+};
+
+/** Everything that happened on this account: what CLOR did, and what its own people did, newest first. */
+opsCustomersRouter.get('/ops/accounts/:id/activity', (req, res) =>
+  outsideTenant('ops: customer activity', async () => {
+    const id = String(req.params.id);
+    if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
+    const [ops, security, account] = await Promise.all([
+      platformPrisma.operatorAuditEvent.findMany({ where: { targetAccountId: id }, orderBy: { at: 'desc' }, take: 100 }),
+      platformPrisma.authEvent.findMany({ where: { accountId: id, NOT: { eventType: { startsWith: 'OPERATOR_' } } }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, eventType: true, email: true, createdAt: true } }),
+      platformPrisma.accountAuditEvent.findMany({ where: { accountId: id }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, action: true, message: true, actorUserId: true, createdAt: true } }),
+    ]);
+    const people = await platformPrisma.user.findMany({
+      where: { id: { in: [...new Set([...ops.map((o) => o.operatorUserId), ...account.map((a) => a.actorUserId).filter(Boolean)] as string[])] } },
+      select: { id: true, fullName: true, email: true },
+    });
+    const who = new Map(people.map((p) => [p.id, p.fullName || p.email]));
+    const lines = [
+      ...ops.map((o) => ({ id: `op-${o.id}`, kind: 'clor', at: o.at, who: who.get(o.operatorUserId) || 'CLOR staff', what: operatorActionLabel(o.action), detail: auditSummary(o.detail) })),
+      ...account.map((a) => ({ id: `ac-${a.id}`, kind: 'account', at: a.createdAt, who: (a.actorUserId && who.get(a.actorUserId)) || '', what: a.message || operatorActionLabel(a.action), detail: '' })),
+      ...security.map((s) => ({ id: `se-${s.id}`, kind: 'sign-in', at: s.createdAt, who: s.email || '', what: SECURITY_WORDS[s.eventType] || operatorActionLabel(s.eventType), detail: '' })),
+    ]
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 150);
+    res.json({ lines });
+  }),
+);

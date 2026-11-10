@@ -52,6 +52,7 @@ const setSchema = z.object({
     )
     .min(1),
   status: z.enum(['trialing', 'active', 'past_due', 'paused', 'cancelled']).optional(),
+  reason: z.string().trim().max(500).optional(),
   billingInterval: z.enum(['month', 'year']).nullish(),
   trialDays: z.number().int().positive().nullish(),
 });
@@ -87,6 +88,10 @@ billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireA
     ip: clientIp(req),
     userAgent: req.headers['user-agent'] as string | undefined,
     detail: JSON.stringify({ before: shape(before), after: shape(sub) }).slice(0, 1000),
+  });
+  /* And on CLOR's own operator record, with everything else operators do (Audit log). */
+  await platformPrisma.operatorAuditEvent.create({
+    data: { operatorUserId: req.auth!.userId, action: 'SUBSCRIPTION_SET', targetAccountId: accountId, detail: { before: shape(before), after: shape(sub), reason: typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : undefined } as any, ip: clientIp(req) ?? null },
   });
   res.json({ subscription: sub });
 });

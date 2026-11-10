@@ -123,6 +123,9 @@ import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/b
 import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
 import { opsExploreRouter } from './routes/opsExplore.js';
 import { opsRouter } from './routes/ops.js';
+import { opsCustomersRouter } from './routes/opsCustomers.js';
+import { opsEmailRouter } from './routes/opsEmail.js';
+import { appCatalogueCors, opsCatalogueRouter, publicAppCatalogueRouter } from './routes/opsCatalogue.js';
 import { exploreRouter } from './routes/explore.js';
 import { exploreReadOnly } from './middleware/exploreReadOnly.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
@@ -246,6 +249,8 @@ export function buildApp() {
 
   /* clor.in's "Request a demo" form: open to the site's origins, without credentials, and only that route (routes/demoRequests.ts). */
   app.use('/api/public/demo-requests', demoRequestCors);
+  /* The app catalogue clor.in reads: any origin, GET only, no credentials (routes/opsCatalogue.ts). */
+  app.use('/api/public/app-catalogue', appCatalogueCors);
   app.use(
     cors({
       origin(origin, cb) {
@@ -406,6 +411,8 @@ export function buildApp() {
   app.use('/api', invitationsRouter);
   /* "Request a demo" from clor.in: no sign-in, no account yet. */
   app.use('/api', demoRequestsRouter);
+  /* The app catalogue, read-only and public: clor.in and the app switcher list apps from it. */
+  app.use('/api', publicAppCatalogueRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
@@ -436,6 +443,9 @@ export function buildApp() {
   app.use('/api', opsRouter);
   app.use('/api', opsDemoRequestsRouter);
   app.use('/api', opsExploreRouter);
+  app.use('/api', opsCustomersRouter);
+  app.use('/api', opsEmailRouter);
+  app.use('/api', opsCatalogueRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.
