@@ -191,8 +191,8 @@ export default function Home() {
           </div>
           <figure className="hero-photo">
             <img
-              src="/people/hero-books-1400.webp"
-              srcSet="/people/hero-books-700.webp 700w, /people/hero-books-1400.webp 1400w"
+              src="/people/hero-books-soft-1400.webp"
+              srcSet="/people/hero-books-soft-700.webp 700w, /people/hero-books-soft-1400.webp 1400w"
               sizes="(max-width: 900px) 100vw, 640px"
               width="1400"
               height="835"
