@@ -13,6 +13,7 @@ import { paramsForOpen } from './openParams';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
+import { useAppCatalogue, listingFor } from './appCatalogue';
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
@@ -532,7 +533,7 @@ function ShellScreens() {
   });
   useEffect(() => {
     const onScreen = (e) => {
-      if (e.detail?.screen) goToRef.current?.(e.detail.screen);
+      if (e.detail?.screen) goToRef.current?.(e.detail.screen, e.detail.params || null);
     };
     window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
     return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);
@@ -1613,6 +1614,14 @@ function ShellScreens() {
  */
 function MoreApps({ tenant, onAdd, onOpen }) {
   const has = (id) => (tenant.subscriptions || []).includes(id);
+  /* CLOR's app catalogue (operator console): a hidden app is not offered, one coming soon cannot be added yet. An app the company has stays. */
+  const catalogue = useAppCatalogue();
+  const listed = APPS.filter((a) => !a.platform)
+    .map((a) => {
+      const l = listingFor(catalogue, a.id);
+      return { ...a, blurb: l?.blurb || a.blurb, available: a.available && (!l || l.status === 'AVAILABLE' || has(a.id)), hidden: l?.status === 'HIDDEN' && !has(a.id) };
+    })
+    .filter((a) => !a.hidden);
   /* Unrestricted (no subscription assigned) owns everything sellable. */
   const owned = (id) => !tenant.billing?.restricted || (tenant.billing.ownedApps || []).includes(id);
 
@@ -1628,7 +1637,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
       <PlanCard billing={tenant.billing} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {APPS.filter((a) => !a.platform).map((a) => (
+        {listed.map((a) => (
           <article key={a.id} className="ui-card p-4">
             <div className="flex items-start justify-between gap-3">
               <span
@@ -1645,7 +1654,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
 
             <div className="mt-4">
               {!a.available ? (
-                <span className="ui-caption">Not built yet.</span>
+                <span className="ui-caption">Coming soon.</span>
               ) : has(a.id) ? (
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onOpen(a.id)}>
                   Open {a.name}

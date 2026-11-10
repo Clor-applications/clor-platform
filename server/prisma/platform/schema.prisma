@@ -677,6 +677,8 @@ model EmailOutbox {
 
   @@index([accountId, orgId, status])
   @@index([templateKey, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 model EmailVerificationToken {
@@ -1293,7 +1295,7 @@ model OrgClosure {
 /// CLOR_OPERATOR_USER_IDS names the bootstrap super admins; everyone else is a row here.
 model PlatformOperator {
   userId          String   @id
-  /// SUPER_ADMIN | SUPPORT | BILLING
+  /// SUPER_ADMIN (Owner) | SALES | SUPPORT | BILLING (Finance) | READ_ONLY
   role            String
   active          Boolean  @default(true)
   note            String?
@@ -1318,6 +1320,8 @@ model OperatorAuditEvent {
 
   @@index([at])
   @@index([targetAccountId, at])
+  @@index([operatorUserId, at])
+  @@index([action, at])
 }
 
 /// A "Request a demo" from clor.in. Platform data, not a customer's: there is
@@ -1484,4 +1488,54 @@ model ExplorePass {
 
   @@index([demoRequestId])
   @@index([email])
+}
+
+/// A CLOR operator invited by email (operator console, Team). Becomes a
+/// PlatformOperator row the first time somebody signs in with this address,
+/// confirmed, and opens the console. Lower-cased email; one live invite each.
+model OperatorInvite {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  /// SUPER_ADMIN | SALES | SUPPORT | BILLING | READ_ONLY
+  role            String
+  note            String?
+  invitedByUserId String
+  claimedByUserId String?
+  claimedAt       DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+/// The addresses CLOR's own mail goes out from (operator console, Email):
+/// sales, support, billing, no-reply. Used when a message goes through the
+/// platform's mail server, never a customer's own SMTP.
+model EmailSender {
+  purpose         String   @id
+  name            String
+  email           String
+  replyTo         String?
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// CLOR's own wording for a template in constants/emailTemplates.ts; with no
+/// row the built-in wording is used (Reset to default deletes the row).
+model EmailTemplateOverride {
+  key             String   @id
+  subject         String
+  body            String
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// Each app as clor.in and the app switcher list it: AVAILABLE, COMING_SOON
+/// or HIDDEN, and its one-line blurb. With no row the built-in entry is used
+/// (constants/appCatalogue.ts). Read publicly at /api/public/app-catalogue.
+model AppCatalogueEntry {
+  code            String   @id
+  status          String
+  blurb           String
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
 }

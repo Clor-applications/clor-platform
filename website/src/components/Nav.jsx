@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { Link, usePath } from '../router.jsx';
-import { NAV, PRODUCTS, SITE } from '../site.js';
+import { NAV, SITE } from '../site.js';
 import { Logo, Mark, Status } from './Brand.jsx';
+import { useProducts } from '../catalogue.js';
 
 const CATEGORIES = ['Finance', 'HR', 'Operations'];
 
 function ProductsMenu({ onPick }) {
+  const PRODUCTS = useProducts();
   return (
     <div className="mega mega--products">
       <div className="mega-body">
@@ -33,7 +35,6 @@ function ProductsMenu({ onPick }) {
           ))}
         </div>
         <Link href="/solutions/businesses" className="mega-feature" onClick={onPick}>
-          <img src="/people/business-workspace-700.webp" width="700" height="394" alt="" loading="lazy" />
           <span className="mega-name">One login for every app</span>
           <span className="mega-line">Books, People, Payroll and Attendance share one list of employees and one set of books.</span>
         </Link>
@@ -82,6 +83,7 @@ const MENUS = [
 ];
 
 export default function Nav() {
+  const PRODUCTS = useProducts();
   const path = usePath();
   const [open, setOpen] = useState(null);
   const [mobile, setMobile] = useState(false);
@@ -211,6 +213,9 @@ export default function Nav() {
           <a href={SITE.signInUrl} className="nav-trigger nav-signin">
             Sign in
           </a>
+          <a href={SITE.signUpUrl} className="btn nav-trial">
+            Start free trial
+          </a>
           <Link href={SITE.demoUrl} className="btn btn--primary nav-demo">
             Request a demo
           </Link>
@@ -272,6 +277,9 @@ export default function Nav() {
           <Link href={SITE.demoUrl} className="btn btn--primary btn--lg mobile-demo" onClick={close}>
             Request a demo
           </Link>
+          <a href={SITE.signUpUrl} className="btn btn--quiet btn--lg mobile-demo">
+            Start free trial
+          </a>
         </div>
       </div>
     </>

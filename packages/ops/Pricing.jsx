@@ -135,7 +135,7 @@ export function Pricing({ role }) {
           ) : null
         }
       />
-      <p className="ws-notice">{data.tax.registered ? `GST is charged at ${data.tax.ratePercent}%. ` : 'No GST is charged: CLOR is not registered for GST yet. '}Change it in Settings, Tax.</p>
+      <p className="ws-notice">{data.tax.registered ? `GST is charged at ${data.tax.ratePercent}%. ` : 'No GST is charged: CLOR is not registered for GST yet. '}Change it under Money, Tax.</p>
       {data.books.length === 0 ? (
         <div className="ws-empty">
           <p>No price book yet. Make one with New price book: start empty, or load the sample prices and change them.</p>

@@ -4,6 +4,7 @@ import { PRODUCTS, SITE, appIdFor, demoFor } from '../site.js';
 import { Mark } from '../components/Brand.jsx';
 import { Closing, Faq } from '../components/Blocks.jsx';
 import { PageHead } from './Pages.jsx';
+import { useProducts } from '../catalogue.js';
 import { BUILT_PRICING, UNIT, inr, provisional } from '../pricing.js';
 
 /*
@@ -76,16 +77,18 @@ function Plan({ plan, period }) {
 
 export default function Pricing() {
   const pricing = usePricing();
+  /* Which products are on sale comes from the operator console's app catalogue (catalogue.js). */
+  const products = useProducts();
   const hasYearly = Boolean(pricing?.plans.some((p) => p.yearly));
   const hasMonthly = Boolean(pricing?.plans.some((p) => p.monthly));
   const [chosen, setPeriod] = useState('monthly');
   const period = hasMonthly ? chosen : 'yearly';
   const plans = pricing?.plans || [];
-  const groups = PRODUCTS.filter((p) => p.status === 'available')
+  const groups = products.filter((p) => p.status === 'available')
     .map((product) => ({ product, plans: plans.filter((pl) => pl.apps.length === 1 && pl.apps[0] === appIdFor(product.slug)) }))
     .filter((g) => g.plans.length);
   const bundles = plans.filter((pl) => !groups.some((g) => g.plans.includes(pl)));
-  const soon = PRODUCTS.filter((p) => p.status === 'soon');
+  const soon = products.filter((p) => p.status === 'soon');
 
   return (
     <>

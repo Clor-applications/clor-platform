@@ -26,6 +26,7 @@ import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { eachDay } from '../utils/istDate.js';
 import { LIVE_LINE, paymentLockKey } from '../services/payroll/payment.js';
 import { gapsAdvice, gapsSentence, statutoryGapsOnRun, unwaived, waiverOf } from '../services/payroll/statutoryGaps.js';
+import { missingRegistrations } from '../services/payroll/statutoryRegistrations.js';
 
 /**
  * A payroll run, from who is in it to payslips somebody can approve.
@@ -188,6 +189,8 @@ payrollRunsRouter.get(
       /* Statutory lines nothing worked out (a scheme off, or no rate): the run cannot be approved until they are, or the owner records they do not apply. */
       statutoryGaps: slips.length ? await statutoryGapsOnRun(orgId, run.id) : [],
       canWaiveStatutory: Boolean(req.isAdmin),
+      /* Returns this payroll cannot be filed under yet: the PF establishment code, ESI code, PT registration or TAN still to add (statutoryRegistrations.ts). */
+      registrationGaps: await missingRegistrations(orgId),
       employees: members.map((m) => ({
         employeeId: m.employeeId,
         inclusion: m.inclusion,

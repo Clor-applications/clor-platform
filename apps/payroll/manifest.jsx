@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   CalendarDots,
   ChartBar,
+  EnvelopeSimple,
   FileText,
   HandCoins,
   Handshake,
@@ -48,6 +49,7 @@ const BankChanges = screen('BankChanges');
 const FinalSettlements = screen('FinalSettlements');
 const TaxDeclarations = screen('TaxDeclarations');
 const RolesAccess = screen('RolesAccess');
+const EmailNotifications = screen('EmailNotifications');
 
 /* Payroll draws in People's icon family (owner, 9 Nov 2026: "use same icons which is used in people everywhere
    except books"): Phosphor two-tone marks in the menus, Fluent line icons on buttons. Its cyan stays its own. */
@@ -56,6 +58,7 @@ const I = duoSet({
   adjustments: PlusMinus, assignments: UsersThree, revisions: TrendUp, loans: HandCoins, settlements: Handshake,
   tax: Receipt, reports: ChartBar, setup: ListChecks, calendar: CalendarDots, groups: UsersFour,
   components: SlidersHorizontal, structures: Stack, compliance: SealPercent, ledgers: BookOpenText, roles: Key,
+  mail: EnvelopeSimple,
 });
 
 /**
@@ -104,7 +107,7 @@ export const payrollApp = {
       { label: 'Setup', items: ['setup', 'periods', 'payGroups'] },
       { label: 'Salary design', items: ['components', 'structures'] },
       { label: 'Statutory', items: ['compliance', 'ledgers'] },
-      { label: 'Access', items: ['rolesAccess'] },
+      { label: 'Access', items: ['rolesAccess', 'emailNotifications'] },
     ] },
   ],
   /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open and shows read-only what they cannot change. */
@@ -136,6 +139,7 @@ export const payrollApp = {
     { key: 'ledgers', label: 'Ledger mapping', icon: I.ledgers, permission: 'PAYROLL::Payroll Posting::VIEW' },
     /* Payroll's roles live in Workspace's one role editor; this opens it on Payroll (ADR-010). */
     { key: 'rolesAccess', label: 'Roles & Access', icon: I.roles, permission: 'SETTINGS::Roles::VIEW' },
+    { key: 'emailNotifications', label: 'Email notifications', icon: I.mail, permission: 'SETTINGS::Company Profile::VIEW' },
   ],
 
   screens: {
@@ -159,5 +163,6 @@ export const payrollApp = {
     payGroups: PayGroups,
     setup: PayrollSetup,
     rolesAccess: RolesAccess,
+    emailNotifications: EmailNotifications,
   },
 };

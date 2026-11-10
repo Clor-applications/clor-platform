@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import { CONNECTIONS, PRODUCTS, demoFor, productBySlug } from '../site.js';
+import { CONNECTIONS, demoFor, productBySlug } from '../site.js';
+import { useProducts } from '../catalogue.js';
 import { PRODUCT_CONTENT } from '../content.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
-import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
+import { Head } from '../components/Sections.jsx';
 
 /*
  * Each product's page: what it is, a screen drawn with sample data, what it
@@ -160,16 +161,17 @@ export default function Product({ slug }) {
         </section>
       ) : null}
 
-      <SettingUp />
-
       <section className="section" aria-labelledby="roles-title">
         <div className="wrap split">
           <Head id="roles-title" title="Who sees what" />
-          <p className="lede">{c.roles}</p>
+          <div className="stack">
+            <p className="lede">{c.roles}</p>
+            <Link className="text-link" href="/security">
+              How CLOR keeps your data safe
+            </Link>
+          </div>
         </div>
       </section>
-
-      <TrustBand />
 
       <section className="section">
         <div className="wrap">
@@ -183,6 +185,7 @@ export default function Product({ slug }) {
 }
 
 export function Products() {
+  const PRODUCTS = useProducts();
   return (
     <>
       <section className="hero hero--product">

@@ -59,7 +59,7 @@ describe('Attendance navigation structure', () => {
       ['Organization', ['Attendance setup', 'Punch areas', 'Punch area check', 'Joining & leaving steps']],
       ['Work policy', ['Attendance policy', 'Weekly off policy', 'Overtime policy', 'Leave policy', 'Working week', 'Holidays', 'Leave year end', 'Attendance request types']],
       ['Integrations', ['Integrations']],
-      ['Access & security', ['Users & security', 'Roles & access']],
+      ['Access & security', ['Users & security', 'Roles & access', 'Email notifications']],
       ['Data management', ['Data health', 'Import data', 'Export data', 'Close company']],
       ['Compliance', ['Compliance']],
       ['Privacy', ['Data protection', 'Data requests']],
@@ -97,7 +97,7 @@ it('every screen that existed before the regrouping still has a place in the sid
     });
   }
   it('a person without a screen does not see it, and a module left empty disappears', () => {
-    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'leaveYearEnd', 'requestRules', 'integrations', 'sso', 'rolesAccess', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar', 'journeySteps']);
+    const settings = new Set(['setup', 'sites', 'siteCheck', 'holidays', 'rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'leaveYearEnd', 'requestRules', 'integrations', 'sso', 'rolesAccess', 'emailNotifications', 'dataImport', 'dataExport', 'closeCompany', 'dataProtection', 'dataRequests', 'auditLogs', 'recycleBin', 'dataHealth', 'complianceCalendar', 'journeySteps']);
     const nav = attendanceApp.nav.filter((i) => !settings.has(i.key));
     const labels = resolveModules(attendanceApp, nav).map((m) => m.label);
     expect(labels).not.toContain('Settings');
