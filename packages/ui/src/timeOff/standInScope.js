@@ -20,11 +20,10 @@ export const STAND_IN_TYPES = [
   ['EMPLOYEE_ADVANCE', 'Advances'],
   ['SALARY_ADVANCE', 'Salary advances'],
   ['SHIFT_SWAP', 'Shift swaps'],
-  ['SEAT_REQUEST', 'Seats'],
-  ['DESK_ESCALATION', 'Help desk'],
   ['POLICY_PUBLISH', 'Policies'],
 ];
-const LABEL = Object.fromEntries(STAND_IN_TYPES);
+/* Nothing asks for these any more (People plan 8 Nov 2026, step 6); a delegate named for them earlier still reads in words. */
+const LABEL = { ...Object.fromEntries(STAND_IN_TYPES), SEAT_REQUEST: 'Seats', DESK_ESCALATION: 'Help desk' };
 
 /** One line for what a delegate hands on. */
 export function scopeWords(types) {

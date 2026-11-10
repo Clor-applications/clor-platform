@@ -15,6 +15,7 @@ import { deleteToBin } from '../services/recycleBin.js';
 import { openNextEpisode } from '../services/people/episodes.js';
 import { LEAVING_TYPES, leaveEmployee } from '../services/people/lifecycle/leaving.js';
 import { correlationOf, employeeSummary, withoutSecrets } from '../services/people/employees.js';
+import { appointmentOnHire } from '../services/people/letters.js';
 import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
 import { writeEvent } from '../services/people/outbox.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
@@ -293,6 +294,8 @@ personnelRouter.post(`${base}/employees/:id/rehire`, can(PermissionAction.EDIT, 
   });
   await recordChanges({ accountId, orgId, userId: req.auth!.userId }, existing, employee, { source: 'REHIRE', effectiveDate: parsed.data.rejoinDate, note: `Stint ${employee.currentEpisodeSeq}` });
   await startChecklist({ accountId, orgId, userId: req.auth!.userId }, employee, 'JOINING', employee.dateOfJoining);
+  /* A new stint, a new appointment letter where the company has its own (People plan 8 Nov 2026, step 6). */
+  await appointmentOnHire({ accountId, orgId, userId: req.auth!.userId, source: 'HIRE', correlationId: correlationOf(req as any), reason: 'Rejoined' }, employee);
   /* Their fingerprints and faces were deleted when they left: they enrol again at a reader. */
   const pushed = await pushEmployeeToReaders(orgId, employee, req.auth!.userId);
   res.json({ employee: withoutSecrets(employee as any), readers: pushed.readers });

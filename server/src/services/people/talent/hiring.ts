@@ -12,6 +12,7 @@ import { createInvite } from '../lifecycle/invites.js';
 import { sendAppAccess } from '../lifecycle/appAccess.js';
 import { draftSalaryFromOffer } from '../money/payrollBridge.js';
 import type { Actor } from '../changeLog.js';
+import { appointmentOnHire } from '../letters.js';
 
 /**
  * Talent → Hiring (docs/people/design-v1/TALENT-DECISIONS.md): job openings, candidates on one
@@ -474,7 +475,7 @@ export async function interviewsFor(orgId: string, viewer: { userId: string; hr:
 /* ------------------------------------------------------------------- hiring */
 
 /** What a hire set in motion, for the screen to say and the tests to check. */
-export type HireHandoffs = { offerFiled: boolean; checklist: number; joiningForm: 'SENT' | 'NO_EMAIL' | 'FAILED'; appAccess: 'SENT' | 'PRINT' | 'SKIPPED' | 'FAILED'; salary: { made: true; revisionId: string; structureName: string } | { made: false; why: string } | null };
+export type HireHandoffs = { offerFiled: boolean; checklist: number; /** The company's appointment letter, issued on its own (People plan 8 Nov 2026, step 6). */ appointmentLetter: boolean; joiningForm: 'SENT' | 'NO_EMAIL' | 'FAILED'; appAccess: 'SENT' | 'PRINT' | 'SKIPPED' | 'FAILED'; salary: { made: true; revisionId: string; structureName: string } | { made: false; why: string } | null };
 
 /**
  * Hire: one path (People plan 8 Nov 2026, step 4). A candidate is hired on
@@ -510,7 +511,7 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
     opening?.jobPositionId ? peoplePrisma.jobPosition.findFirst({ where: { id: opening.jobPositionId, orgId: who.orgId }, select: { id: true, name: true } }) : null,
     opening?.hiringManagerId ? peoplePrisma.employee.findFirst({ where: { id: opening.hiringManagerId, orgId: who.orgId, status: { notIn: ['LEFT'] } }, select: { id: true } }) : null,
   ]);
-  const handoffs: HireHandoffs = { offerFiled: false, checklist: 0, joiningForm: 'NO_EMAIL', appAccess: 'SKIPPED', salary: null };
+  const handoffs: HireHandoffs = { offerFiled: false, checklist: 0, appointmentLetter: false, joiningForm: 'NO_EMAIL', appAccess: 'SKIPPED', salary: null };
   const employee = await createEmployee(
     { ...who, source: 'HIRE', reason: `Hired from candidate ${c.name}${opening ? ` for ${opening.title}` : ''}${withoutOffer ? ` without an offer: ${noOfferReason}` : ' on their accepted offer'}` },
     {
@@ -551,6 +552,8 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
 async function afterHire(who: Who, employee: { id: string; name: string; code: string | null }, h: { joining: string; offer: { id: string; email: string; designation: string; structureId: string | null; annualCtc: unknown } | null; email: string | null; designation: string | null }, out: HireHandoffs) {
   const actor: Actor = { ...who, source: 'SYSTEM', correlationId: who.correlationId, reason: 'Hired from Talent' };
   out.checklist = await startChecklist({ accountId: who.accountId, orgId: who.orgId, userId: who.userId }, employee, 'JOINING', h.joining);
+  /* The appointment letter, where the company has its own: after the plan, so its step ticks. */
+  out.appointmentLetter = (await appointmentOnHire(actor, { id: employee.id, dateOfJoining: h.joining, status: 'ACTIVE' })).issued;
   const email = h.offer?.email || h.email;
   if (email) {
     try {

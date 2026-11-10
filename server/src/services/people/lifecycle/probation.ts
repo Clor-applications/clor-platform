@@ -6,6 +6,7 @@ import { writeEvent } from '../outbox.js';
 import { leaveEmployee } from './leaving.js';
 import { activeRule, submitRequest } from '../approvals/engine.js';
 import { todayIst } from '../../../utils/istDate.js';
+import { issueOnEvent, stintKey } from '../letters.js';
 
 /**
  * Probation (docs/people/02-PRD.md LIFE-03). A review names the period, the
@@ -52,7 +53,9 @@ export async function applyOutcome(actor: Actor, employeeId: string, outcome: Pr
       await tx.employmentEvent.create({ data: { accountId: actor.accountId, orgId: actor.orgId, employeeId, kind: 'CONFIRMED', effectiveDate: on, source: 'FORM', note: opts.note ?? 'Confirmed after probation', payrollImpact: 'Confirmed: check the salary structure and benefits that apply after probation.', recordedByUserId: actor.userId } });
       await writeEvent(tx, { accountId: actor.accountId, orgId: actor.orgId, correlationId: actor.correlationId }, 'people.employee.probation_confirmed.v1', { confirmedOn: on, employee: { id: employeeId, code: employee.code, name: employee.name } }, employeeId);
     });
-    result = { confirmedOn: on };
+    /* The company's confirmation letter, on its own where it has one (People plan 8 Nov 2026, step 6). */
+    const letter = await issueOnEvent(actor, employeeId, 'CONFIRMATION', `CONFIRMATION:${await stintKey(actor.orgId, employeeId)}`);
+    result = { confirmedOn: on, confirmationLetter: letter.issued };
   } else if (outcome === 'EXTEND') {
     const to = opts.newEndDate || '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new ProbationError('Give the new probation end date.');

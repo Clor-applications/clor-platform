@@ -10,7 +10,8 @@ import { correlationOf } from '../services/people/employees.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
 import { inScope, teamScope } from '../services/people/scope.js';
 import { OfferError, annexure, createOffer, linesFor, offerSetup, offersOf, withdrawOffer } from '../services/people/offers.js';
-import { LETTER_KINDS, LETTER_LABEL, LetterError, MERGE_FIELDS, issueLetter, recordLetterRequest, saveTemplate, serviceCertificateDue, templatesOf, versionsOf } from '../services/people/letters.js';
+import { EVENT_OF, LETTER_KINDS, LETTER_LABEL, LetterError, MERGE_FIELDS, issueLetter, letterSettings, recordLetterRequest, saveLetterSettings, saveTemplate, serviceCertificateDue, templatesOf, versionsOf } from '../services/people/letters.js';
+import { recordAudit } from '../services/auditTrail.js';
 
 /**
  * Letters (docs/people/02-PRD.md DOC-04, DOC-07): templates under Settings
@@ -34,7 +35,22 @@ const sendError = (res: any, e: unknown) => {
 
 peopleLettersRouter.get(`${base}/letter-templates`, can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  res.json({ templates: await templatesOf(req.tenant!.orgId), kinds: LETTER_KINDS.map((k) => ({ kind: k, label: LETTER_LABEL[k] })), mergeFields: MERGE_FIELDS });
+  const [templates, settings] = await Promise.all([templatesOf(req.tenant!.orgId), letterSettings(req.tenant!.orgId)]);
+  /* `issuedWhen`: the event that issues the company's own letter of this kind by itself (People plan 8 Nov 2026, step 6). */
+  res.json({ templates, kinds: LETTER_KINDS.map((k) => ({ kind: k, label: LETTER_LABEL[k], issuedWhen: EVENT_OF[k] || null })), mergeFields: MERGE_FIELDS, signatory: settings.signatory });
+});
+
+/** Who signs the letters CLOR issues by itself and the ones asked for in the app. */
+peopleLettersRouter.put(`${base}/letter-settings`, can(PermissionAction.EDIT, DOCUMENTS), async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  try {
+    const before = await letterSettings(req.tenant!.orgId);
+    const after = await saveLetterSettings(actorOf(req), { signatory: req.body?.signatory });
+    if (before.signatory !== after.signatory) await recordAudit(req, { entity: 'COMPANY_SETTING', entityId: 'letters.signatory', action: 'CHANGED', message: `Letters signed by: ${before.signatory || 'nobody named'} → ${after.signatory || 'nobody named'}`, metadata: { before: before.signatory, after: after.signatory } });
+    res.json(after);
+  } catch (e) {
+    sendError(res, e);
+  }
 });
 
 peopleLettersRouter.get(`${base}/letter-templates/:kind/versions`, can(PermissionAction.VIEW, DOCUMENTS), async (req, res) => {

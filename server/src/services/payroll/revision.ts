@@ -4,6 +4,7 @@ import { calculateStructure, type EngineComponent, type EngineResult } from './e
 import { loadRules, applyStatutory } from './statutory/resolve.js';
 import { round2 } from '../../utils/money.js';
 import { tickWhenDone } from '../people/checklists.js';
+import { issueOnEvent } from '../people/letters.js';
 
 /**
  * A salary revision, and what it actually costs.
@@ -352,10 +353,15 @@ export async function applyRevision(opts: { accountId: string; orgId: string; us
       data: { status: 'APPLIED', appliedAssignmentId: assignment.id },
     });
 
-    return { revision: row, assignment };
-  }).then(async (out) => {
+    return { revision: row, assignment, raise: Boolean(previous) && annualCtc > Number(previous!.annualCtc) };
+  }).then(async ({ raise, ...out }) => {
     /* Payroll has confirmed their salary: the joining step for it closes by itself (People plan 8 Nov 2026, step 4). */
     await tickWhenDone(opts.orgId, revision.employeeId, 'JOINING', ['salary structure'], `Payroll put them on ${structure.name} at Rs ${annualCtc.toLocaleString('en-IN')} a year, from ${revision.effectiveFrom}.`, opts.userId);
+    /* A pay rise on a salary they already had (not their first): the company's increment letter, once per revision (step 6). */
+    if (raise) {
+      const effectiveFrom = new Date(`${revision.effectiveFrom}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+      await issueOnEvent({ accountId: opts.accountId, orgId: opts.orgId, userId: opts.userId, source: 'SYSTEM', correlationId: `revision_${revision.id}`, reason: 'Salary revision applied' }, revision.employeeId, 'INCREMENT', `INCREMENT:${revision.id}`, { effectiveFrom });
+    }
     return out;
   });
 }

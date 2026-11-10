@@ -2312,7 +2312,7 @@ export function IssueLetter({ employeeId, onClose, onIssued }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!openForm || templates) return;
-    getLetterTemplates().then(setTemplates).catch((e) => notify.error(String(e?.message || 'Could not load letters.')));
+    getLetterTemplates().then((t) => { setTemplates(t); if (t?.signatory) setExtra((x) => ({ signatory: t.signatory, ...x })); }).catch((e) => notify.error(String(e?.message || 'Could not load letters.')));
   }, [openForm, templates]);
   useEffect(() => {
     if (!openForm || kind !== 'SERVICE_CERT') { setDue(null); return; }
@@ -2325,7 +2325,7 @@ export function IssueLetter({ employeeId, onClose, onIssued }) {
     try {
       const r = await issueLetter(employeeId, { kind, extra });
       notify.success(`${r.document.title} is on the record (template v${r.document.templateVersion}).`);
-      setExtra({});
+      setExtra(templates?.signatory ? { signatory: templates.signatory } : {});
       onIssued();
     } catch (err) {
       notify.error(String(err?.message || 'Not issued.'));
@@ -2345,7 +2345,7 @@ export function IssueLetter({ employeeId, onClose, onIssued }) {
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Issue a letter"
       footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="issue-letter" className="ui-btn ui-btn-primary" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></>}>
       <form id="issue-letter" onSubmit={issue} className="grid gap-4">
-        <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => { setKind(v || 'APPOINTMENT'); setExtra({}); }} options={(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => ({ value: k.kind, label: k.label }))} /></div>
+        <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => { setKind(v || 'APPOINTMENT'); setExtra(templates?.signatory ? { signatory: templates.signatory } : {}); }} options={(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => ({ value: k.kind, label: k.label }))} /></div>
         {due ? <p className="text-sm">{due.note}{due.dueOn ? ` Due ${formatDateShort(due.dueOn)} if asked today.` : ''} <button type="button" className="ui-link" onClick={asked}>Record the request</button></p> : null}
         {(t?.extra || []).map((k) => (
           <label key={k} className="block">
