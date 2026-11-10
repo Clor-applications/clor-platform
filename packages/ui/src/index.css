@@ -8721,8 +8721,9 @@ button.ui-side-alert { cursor: pointer; }
  * without its own card, so there is no card beside a picture.
  */
 .ui-auth-brand--scene {
-  /* 70% picture, 30% form (owner, 10 Nov 2026); the form never narrower than 420px. */
-  width: min(70%, calc(100% - 420px));
+  /* Up to 70% picture (owner, 10 Nov 2026), but never wider than the picture's own shape at full
+     height, so the whole picture shows; the form never narrower than 420px. */
+  width: min(70%, calc(100% - 420px), calc(100dvh * var(--scene-ratio, 1)));
   flex: none;
   max-width: none;
   border-right: 0;
@@ -8732,19 +8733,32 @@ button.ui-side-alert { cursor: pointer; }
   position: relative;
   flex: 1;
   min-height: 100%;
+  overflow: hidden;
   background: rgb(var(--surface-sunken));
 }
-.ui-auth-scene img {
+/* The whole picture, never cropped: top-left, so its own title stays in its corner. */
+.ui-auth-scene-pic {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  /* Each picture's title is in its top-left corner: crop from the right and bottom only. */
+  object-fit: contain;
   object-position: 0% 0%;
 }
-.ui-auth-scene {
-  overflow: hidden;
+/* Behind it, a soft blurred copy fills whatever space the picture leaves, slowly drifting. */
+.ui-auth-scene-fill {
+  position: absolute;
+  inset: -40px;
+  width: calc(100% + 80px);
+  height: calc(100% + 80px);
+  object-fit: cover;
+  filter: blur(28px) saturate(110%);
+  opacity: 0.9;
+  animation: ui-auth-drift 26s ease-in-out infinite alternate;
+}
+@keyframes ui-auth-drift {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
 }
 .ui-auth-form-logo {
   margin-bottom: 28px;
@@ -8757,36 +8771,39 @@ button.ui-side-alert { cursor: pointer; }
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  gap: 24px;
   padding: 32px 40px;
 }
-/* The picture drifts closer, slowly, and back. */
-.ui-auth-scene img {
-  transform-origin: 0% 0%;
-  animation: ui-auth-drift 26s ease-in-out infinite alternate;
-}
-@keyframes ui-auth-drift {
-  from { transform: scale(1); }
-  to { transform: scale(1.05); }
-}
-/* A glass card of facts on the navy fade. */
+/* A glass card of quotes along the bottom. */
 .ui-auth-facts {
-  max-width: 340px;
-  padding: 14px 18px 12px;
+  margin: 0;
+  max-width: 400px;
+  padding: 16px 20px 12px;
   border-radius: 12px;
   color: #fff;
-  background: rgb(11 21 48 / 0.55);
+  background: rgb(11 21 48 / 0.6);
   border: 1px solid rgb(255 255 255 / 0.14);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   backdrop-filter: blur(12px) saturate(140%);
 }
 .ui-auth-fact {
+  min-height: 4.75rem;
+  animation: ui-auth-fact-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.ui-auth-fact blockquote {
   margin: 0;
-  min-height: 2.5rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-weight: 500;
-  animation: ui-auth-fact-in 500ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  text-wrap: pretty;
+}
+.ui-auth-fact figcaption {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(255 255 255 / 0.72);
+}
+.ui-auth-fact figcaption::before {
+  content: '— ';
 }
 @keyframes ui-auth-fact-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -8795,7 +8812,7 @@ button.ui-side-alert { cursor: pointer; }
 .ui-auth-fact-dots {
   display: flex;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 .ui-auth-fact-dots button {
   width: 18px;
@@ -8821,27 +8838,19 @@ button.ui-side-alert { cursor: pointer; }
   background: #ff5400;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ui-auth-scene img,
+  .ui-auth-scene-fill,
   .ui-auth-fact {
     animation: none;
   }
 }
-.ui-auth-scene-logo {
-  display: inline-flex;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: rgb(255 255 255 / 0.92);
-}
+/* On a phone: the whole picture in a band above the form. */
 .ui-auth-scene-band {
+  position: relative;
   overflow: hidden;
-  height: 240px;
+  height: min(300px, 40vh);
   margin: 0 -24px 24px;
 }
-.ui-auth-scene-band img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* The picture's own title is in its top-left corner: keep the top in view. */
+.ui-auth-scene-band .ui-auth-scene-pic {
   object-position: 50% 0%;
 }
 .ui-auth.has-scene .ui-auth-card {
