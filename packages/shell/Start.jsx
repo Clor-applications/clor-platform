@@ -215,7 +215,7 @@ function EmailStep({ email, setEmail, firstApp, appName, plan, days, onHome, onS
         {/* A field people never see; a bot fills it and the server thanks it and keeps nothing. */}
         <div className="sr-only" aria-hidden="true">
           <label htmlFor="start-website">Website</label>
-          <input id="start-website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+          <input id="start-website" className="ui-input" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
         </div>
         <Err>{error}</Err>
         <p className="ui-caption">
