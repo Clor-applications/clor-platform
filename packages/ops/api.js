@@ -74,6 +74,14 @@ export const opsCustomerActivity = (id) => apiFetch(`${acct(id)}/activity`, o);
 export const opsSendResetLink = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/reset-link`, { ...o, method: 'POST', body: { reason } });
 export const opsSignOutEverywhere = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/sign-out`, { ...o, method: 'POST', body: { reason } });
 export const opsResendInvitation = (id, invitationId, reason) => apiFetch(`${acct(id)}/invitations/${encodeURIComponent(invitationId)}/resend`, { ...o, method: 'POST', body: { reason } });
+export const opsUnlockUser = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/unlock`, { ...o, method: 'POST', body: { reason } });
+export const opsResetAuthenticator = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/reset-authenticator`, { ...o, method: 'POST', body: { reason } });
+export const opsRetryEmails = (id, reason) => apiFetch(`${acct(id)}/emails/retry`, { ...o, method: 'POST', body: { reason } });
+export const opsCustomerConnections = (id) => apiFetch(`${acct(id)}/connections`, o);
+/* System health, the search box and the request-ID lookup (server: routes/opsHealth.ts). */
+export const opsHealth = () => apiFetch('/ops/health', o);
+export const opsSearch = (q) => apiFetch(`/ops/search?q=${encodeURIComponent(q)}`, o);
+export const opsRequestLookup = (id) => apiFetch(`/ops/request-lookup?id=${encodeURIComponent(id)}`, o);
 /* Home, the audit log and staff (server: routes/ops.ts). */
 export const opsHome = () => apiFetch('/ops/home', o);
 export const opsAuditFilters = () => apiFetch('/ops/audit/filters', o);

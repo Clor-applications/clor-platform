@@ -9,6 +9,7 @@ import { codeLimiter } from '../middleware/rateLimit.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { newSecret, otpauthUri, recoveryCodes, verifyCode } from '../services/totp.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { accountsByPhone } from '../services/ops/phoneSearch.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
@@ -240,7 +241,11 @@ opsRouter.get('/ops/accounts', (req, res) =>
         { users: { some: { OR: [{ code: { contains: q, mode: 'insensitive' } }, { legacyCode: { contains: q, mode: 'insensitive' } }] } } },
         { orgs: { some: { name: { contains: q, mode: 'insensitive' } } } },
         { orgs: { some: { OR: [{ code: { contains: q, mode: 'insensitive' } }, { legacyCode: { contains: q, mode: 'insensitive' } }] } } },
+        /* A GSTIN or a phone number read out over the phone. */
+        { orgs: { some: { branches: { some: { gstin: { contains: q, mode: 'insensitive' } } } } } },
       ];
+      const byPhone = await accountsByPhone(q);
+      if (byPhone.length) where.OR.push({ id: { in: byPhone } });
     }
     if (status === 'suspended') where.suspendedAt = { not: null };
     const accountsAll = await platformPrisma.account.findMany({

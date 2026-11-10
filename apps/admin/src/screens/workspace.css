@@ -1990,3 +1990,109 @@ button.ws-item:hover {
     display: none;
   }
 }
+
+/* Operator console: the search box in the top bar (packages/ops/OpsSearch.jsx). */
+.ops-search {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 460px;
+  min-width: 0;
+}
+.ops-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgb(var(--ws-muted));
+  pointer-events: none;
+}
+.ops-search-input {
+  width: 100%;
+  padding-left: 32px;
+}
+.ops-search-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: min(70dvh, 480px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.18);
+}
+.ops-search-group {
+  padding: 8px 10px 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+.ops-search-option {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ops-search-option[aria-selected='true'] {
+  background: rgb(var(--ws-bg));
+}
+.ops-search-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ops-search-sub,
+.ops-search-note {
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+  overflow-wrap: anywhere;
+}
+.ops-search-note {
+  padding: 10px;
+}
+.ops-count {
+  min-width: 2ch;
+  text-align: right;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+.ops-count--bad {
+  color: rgb(var(--ws-danger));
+}
+@media (max-width: 760px) {
+  .ops-search-input::placeholder {
+    color: transparent;
+  }
+}
+/* The search box takes the free space; whatever follows it sits at the right edge. */
+.ops-search {
+  margin-right: auto;
+}
+.ops-search ~ .ops-who {
+  margin-left: 0;
+}
+.ops-more > summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+/* On a phone the results take the screen's width, and the badge gives the box its room. */
+@media (max-width: 760px) {
+  .ops-search-list {
+    position: fixed;
+    top: 62px;
+    left: 12px;
+    right: 12px;
+  }
+  .ops-search ~ .ops-who,
+  .ops-bar-top .ops-badge {
+    display: none;
+  }
+}

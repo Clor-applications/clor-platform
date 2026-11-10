@@ -11,7 +11,7 @@ import { clientIp, issuePasswordResetToken, revokeAllSessions } from '../service
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { getSubscription, setSubscription, syncAccountEntitlement } from '../services/subscriptions.js';
 import { InvitationError, resendInvitation } from '../services/accountInvitations.js';
-import { sendTemplate } from '../services/mailer.js';
+import { deliver, sendTemplate } from '../services/mailer.js';
 import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
 import { operatorActionLabel } from '../constants/operatorActions.js';
 import { audit, auditSummary } from './ops.js';
@@ -155,7 +155,7 @@ opsCustomersRouter.get('/ops/accounts/:id/users', (req, res) =>
     const members = await platformPrisma.accountMembership.findMany({ where: { accountId: id }, select: { userId: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: 'asc' } });
     const ids = members.map((m) => m.userId);
     const [users, sessions, invites] = await Promise.all([
-      platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, emailVerifiedAt: true } }),
+      platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, emailVerifiedAt: true, failedLoginCount: true, lockedUntil: true } }),
       platformPrisma.session.groupBy({ by: ['userId'], where: { userId: { in: ids }, revokedAt: null, expiresAt: { gt: new Date() } }, _count: true }),
       platformPrisma.accountInvitation.findMany({ where: { accountId: id, status: { in: ['PENDING', 'EXPIRED'] } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, accountRole: true, status: true, expiresAt: true, lastSentAt: true, sendCount: true } }),
     ]);
@@ -174,6 +174,8 @@ opsCustomersRouter.get('/ops/accounts/:id/users', (req, res) =>
           authenticator: Boolean(u?.totpEnabledAt),
           emailConfirmed: Boolean(u?.emailVerifiedAt),
           signedInOn: sessionsBy.get(m.userId) || 0,
+          lockedUntil: u?.lockedUntil && u.lockedUntil.getTime() > Date.now() ? u.lockedUntil : null,
+          wrongPasswords: u?.failedLoginCount || 0,
         };
       }),
       invitations: invites.map((i) => ({ ...i, expired: i.status === 'EXPIRED' || i.expiresAt.getTime() < Date.now() })),
@@ -218,6 +220,80 @@ opsCustomersRouter.post('/ops/accounts/:id/users/:userId/sign-out', requireOpera
     const r = await revokeAllSessions(user.id, 'OPERATOR_SIGN_OUT');
     await audit(req, 'USER_SIGNED_OUT_EVERYWHERE', { accountId: id, userId: user.id }, { email: user.email, sessions: r.count, reason: parsed.data.reason });
     res.json({ sessionsEnded: r.count });
+  }),
+);
+
+/** Let a person in again after too many wrong passwords. The password itself is not touched. */
+opsCustomersRouter.post('/ops/accounts/:id/users/:userId/unlock', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: unlock sign-in', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
+    const user = await memberOr404(id, String(req.params.userId));
+    if (!user) return res.status(404).json({ error: 'This person is not in this account.' });
+    const before = await platformPrisma.user.findUnique({ where: { id: user.id }, select: { failedLoginCount: true, lockedUntil: true } });
+    const locked = Boolean(before?.lockedUntil && before.lockedUntil.getTime() > Date.now());
+    if (!locked && !before?.failedLoginCount) return res.status(409).json({ error: 'This person is not locked out.' });
+    await platformPrisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
+    await audit(req, 'USER_UNLOCKED', { accountId: id, userId: user.id }, { email: user.email, wasLocked: locked, wrongPasswords: before?.failedLoginCount || 0, reason: parsed.data.reason });
+    res.json({ unlocked: true });
+  }),
+);
+
+/**
+ * Take a lost authenticator off a person, so they can sign in with their
+ * password and set up a new one. Owner-level staff only: whoever does this
+ * removes a second factor, so every session is ended too and the person is
+ * told by email. (Two-person approval for this comes with the approvals work.)
+ */
+opsCustomersRouter.post('/ops/accounts/:id/users/:userId/reset-authenticator', requireOperatorRole(), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: reset authenticator', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.extend({ reason: z.string().trim().min(10).max(500) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Say why, in a sentence: who asked, and how you checked it was them.' });
+    const user = await memberOr404(id, String(req.params.userId));
+    if (!user) return res.status(404).json({ error: 'This person is not in this account.' });
+    if (user.id === req.auth?.userId) return res.status(409).json({ error: 'You cannot take your own authenticator off from here.' });
+    const staff = await platformPrisma.platformOperator.findUnique({ where: { userId: user.id }, select: { active: true } });
+    if (staff?.active) return res.status(409).json({ error: 'This person is CLOR staff. Their authenticator is changed under Staff, not here.' });
+    const u = await platformPrisma.user.findUnique({ where: { id: user.id }, select: { totpEnabledAt: true } });
+    if (!u?.totpEnabledAt) return res.status(409).json({ error: 'This person has no authenticator set up.' });
+    await platformPrisma.user.update({ where: { id: user.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryJson: null } });
+    const r = await revokeAllSessions(user.id, 'OPERATOR_AUTHENTICATOR_RESET');
+    const sent = await sendTemplate({
+      templateKey: 'auth.authenticator_removed',
+      to: user.email,
+      accountId: user.accountId,
+      transactional: true,
+      relatedType: 'User',
+      relatedId: user.id,
+      data: { userName: user.fullName || user.email, appUrl: APP_URL() },
+    }).catch(() => null);
+    await audit(req, 'USER_AUTHENTICATOR_RESET', { accountId: id, userId: user.id }, { email: user.email, sessions: r.count, told: sent?.status || 'NOT_SENT', reason: parsed.data.reason });
+    res.json({ reset: true, sessionsEnded: r.count, told: sent?.status === 'SENT' });
+  }),
+);
+
+/** Send again every email that failed for this customer in the last week (at most 50). */
+opsCustomersRouter.post('/ops/accounts/:id/emails/retry', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: retry failed emails', async () => {
+    const id = String(req.params.id);
+    const parsed = reasonBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
+    if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
+    const rows = await platformPrisma.emailOutbox.findMany({
+      where: { accountId: id, status: 'FAILED', createdAt: { gt: new Date(Date.now() - 7 * 86_400_000) } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: { id: true, accountId: true, orgId: true },
+    });
+    let sent = 0;
+    for (const r of rows) {
+      const after = await deliver(r.id, r.accountId, r.orgId).catch(() => null);
+      if ((after as any)?.status === 'SENT') sent += 1;
+    }
+    await audit(req, 'EMAILS_RETRIED', { accountId: id }, { tried: rows.length, sent, reason: parsed.data.reason });
+    res.json({ tried: rows.length, sent, stillFailing: rows.length - sent });
   }),
 );
 

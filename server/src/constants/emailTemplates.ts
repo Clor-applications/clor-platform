@@ -63,6 +63,21 @@ The link is valid for 30 minutes and can be used once. If you did not ask for th
     transactional: true,
   },
   {
+    key: 'auth.authenticator_removed',
+    label: 'Authenticator removed by CLOR support',
+    description: 'Sent when CLOR support takes a lost authenticator app off a person’s sign-in.',
+    subject: 'Your authenticator app was removed',
+    body: `Hello {{userName}},
+
+CLOR support took the authenticator app off your sign-in, as you asked. You are signed out everywhere.
+
+Sign in with your password and set up a new authenticator: {{appUrl}}
+
+If you did not ask for this, reset your password now and reply to this email.`,
+    fields: ['userName', 'appName', 'appUrl'],
+    transactional: true,
+  },
+  {
     key: 'auth.user_invited',
     label: 'User invited',
     description: 'Sent when an administrator creates a user.',

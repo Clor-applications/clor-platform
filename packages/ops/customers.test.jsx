@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => Object.fromEntries(
-  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend'].map((k) => [k, vi.fn()]),
+  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections'].map((k) => [k, vi.fn()]),
 ));
 vi.mock('./api', () => api);
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -166,6 +166,61 @@ describe('a customer’s page', () => {
     await waitFor(() => expect(api.opsResendInvitation).toHaveBeenCalledWith('a1', 'i1', 'Never got it'));
   });
 
+  it('lets Support unlock a locked-out user; only the owner may remove an authenticator', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsCustomerUsers.mockResolvedValue({
+      users: [{ userId: 'u1', name: 'Asha Rao', email: 'asha@rao.in', role: 'OWNER', status: 'active', lastLoginAt: null, authenticator: true, emailConfirmed: true, signedInOn: 1, lockedUntil: '2099-01-01T00:00:00Z', wrongPasswords: 0 }],
+      invitations: [],
+    });
+    api.opsUnlockUser.mockResolvedValue({ unlocked: true });
+    api.opsResetAuthenticator.mockResolvedValue({ reset: true, sessionsEnded: 1, told: true });
+    const reason = (text) => fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: text } });
+
+    const { unmount } = render(<CustomerPage id="a1" tab="users" role="SUPPORT" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByText('Locked out', { selector: '.ws-pill' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove authenticator' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Unlock' }));
+    reason('Owner rang');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unlock' }).at(-1));
+    await waitFor(() => expect(api.opsUnlockUser).toHaveBeenCalledWith('a1', 'u1', 'Owner rang'));
+    expect(notify.success).toHaveBeenCalledWith('Asha Rao can sign in again.');
+    unmount();
+
+    render(<CustomerPage id="a1" tab="users" role="SUPER_ADMIN" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove authenticator' }));
+    expect(screen.getByText(/checking it is really them/)).toBeInTheDocument();
+    reason('Lost phone, called the number on file');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove authenticator' }).at(-1));
+    await waitFor(() => expect(api.opsResetAuthenticator).toHaveBeenCalledWith('a1', 'u1', 'Lost phone, called the number on file'));
+    expect(notify.success).toHaveBeenCalledWith('Authenticator taken off. Signed out on 1 device; they were told by email.');
+  });
+
+  it('shows what the customer has connected, and lets Support send failed email again', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsCustomerConnections.mockResolvedValue({
+      items: [
+        { kind: 'Attendance reader', id: 'd1', name: 'Gate 1', state: 'offline', lastAt: '2026-11-01T00:00:00Z', error: null },
+        { kind: 'Single sign-on', id: 's1', name: 'Google (OIDC)', state: 'error', lastAt: null, error: 'invalid_client' },
+      ],
+      credentials: [{ kind: 'API_KEY', status: 'ACTIVE', count: 2 }],
+      emailsFailedThisWeek: 3,
+      webhooksFailedThisWeek: 0,
+      openReaderAlerts: 1,
+    });
+    api.opsRetryEmails.mockResolvedValue({ tried: 3, sent: 2, stillFailing: 1 });
+    render(<CustomerPage id="a1" tab="connections" role="SUPPORT" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByText('Gate 1')).toBeInTheDocument();
+    expect(screen.getByText('2, 2 need a look')).toBeInTheDocument();
+    expect(screen.getByText('Not heard from')).toBeInTheDocument();
+    expect(screen.getByText(/invalid_client/)).toBeInTheDocument();
+    expect(screen.getByText('API keys')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send failed emails again' }));
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Their server was down' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
+    await waitFor(() => expect(api.opsRetryEmails).toHaveBeenCalledWith('a1', 'Their server was down'));
+    expect(notify.success).toHaveBeenCalledWith('2 of 3 went. 1 still failing; see Email, Log.');
+  });
+
   it('shows Activity and narrows it to what CLOR did', async () => {
     api.opsAccount.mockResolvedValue(detail());
     api.opsCustomerActivity.mockResolvedValue({
@@ -186,7 +241,7 @@ describe('a customer’s page', () => {
     const setTab = vi.fn();
     render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={setTab} openDemo={() => {}} />);
     const tabs = await screen.findByRole('tablist');
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Invoices and payments', 'Requests', 'Users', 'Activity']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Invoices and payments', 'Requests', 'Users', 'Connections', 'Activity']);
     fireEvent.click(within(tabs).getByRole('tab', { name: 'Users' }));
     expect(setTab).toHaveBeenCalledWith('users');
   });
