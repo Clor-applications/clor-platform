@@ -25,7 +25,7 @@ const AccountingRoot = lazy(() => import('./src/App'));
  */
 export const accountingApp = {
   id: 'accounting',
-  name: 'Accounting',
+  name: 'Books',
   icon: BookOpen,
   blurb: 'Invoices, bills, GST, and a double-entry ledger that balances itself.',
   available: true,

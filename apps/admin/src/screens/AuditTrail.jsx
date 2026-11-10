@@ -14,7 +14,7 @@ import './workspace.css';
  */
 const AUDIT_APPS = [
   { id: 'company', label: 'Company' },
-  { id: 'accounting', label: 'Accounting' },
+  { id: 'accounting', label: 'Books' },
   { id: 'attendance', label: 'People & Attendance' },
   { id: 'payroll', label: 'Payroll' },
 ];
