@@ -12,6 +12,9 @@ import { taxSetting } from '../services/pricing/settings.js';
 import { createDraft, deleteDraft, getInvoice, isOverdue, issueInvoice, listInvoices, markInvoicePaid, payToFor, suggestedLines, buyerFor, updateDraft, voidInvoice, INVOICE_STATUSES } from '../billing/invoices.js';
 import { financialYear, formatNumber, invoicing, saveBooksLink, saveInvoicing } from '../billing/invoicing.js';
 import { autoSend, booksChoices, sendToBooks, testBooks } from '../billing/booksConnector.js';
+import { onlinePayment } from '../billing/payLinks.js';
+import { dueRenewals, runRenewals } from '../billing/renewals.js';
+import { accountNames } from './opsDeals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { audit } from './ops.js';
 
@@ -215,12 +218,14 @@ opsInvoicesRouter.get('/ops/invoicing', (_req, res) =>
       nextNumberValue: (s.counters[fy] || 0) + 1,
       gst: { registered: gst.registered, gstin: gst.gstin, legalName: gst.legalName, sac: gst.sac, ratePercent: gst.ratePercent },
       manualPayments: Boolean(manual?.enabled),
+      renewals: s.renewals,
+      online: await onlinePayment(),
       books: { ...s.books, accountName: booksAccount?.name || null, accountCode: booksAccount?.code || null, companyName: booksOrg?.name || null, branchName: booksBranch?.branchName || null },
     });
   }),
 );
 
-const settingsBody = z.object({ prefix: z.string().max(10).optional(), dueDays: z.number().int().optional(), footer: z.string().max(600).nullish(), address: z.string().max(400).nullish(), nextNumber: z.number().int().nullish() });
+const settingsBody = z.object({ prefix: z.string().max(10).optional(), dueDays: z.number().int().optional(), footer: z.string().max(600).nullish(), address: z.string().max(400).nullish(), nextNumber: z.number().int().nullish(), renewalsOn: z.boolean().optional(), renewalDaysBefore: z.number().int().optional() });
 opsInvoicesRouter.put('/ops/invoicing', ...BILLING, (req: Request, res) =>
   outsideTenant('ops: save invoice settings', async () => {
     const parsed = settingsBody.safeParse(req.body);
@@ -232,6 +237,50 @@ opsInvoicesRouter.put('/ops/invoicing', ...BILLING, (req: Request, res) =>
     } catch (e) {
       return refused(res, e);
     }
+  }),
+);
+
+/** Renewals coming up in the next 30 days, and whether each one's invoice is out yet. */
+opsInvoicesRouter.get('/ops/invoicing/renewals', (_req, res) =>
+  outsideTenant('ops: renewals coming up', async () => {
+    const s = await invoicing();
+    const subs = await dueRenewals(new Date(), 30);
+    const ids = subs.map((x) => x.accountId);
+    const [accounts, titles, done] = await Promise.all([
+      platformPrisma.account.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, code: true } }),
+      accountNames(ids),
+      platformPrisma.billingInvoice.findMany({ where: { accountId: { in: ids }, source: 'RENEWAL', renewalFor: { not: null } }, select: { accountId: true, renewalFor: true, id: true, number: true, status: true } }),
+    ]);
+    const name = new Map(accounts.map((a) => [a.id, a]));
+    const istDay = (d: Date) => new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+    res.json({
+      renewals: s.renewals,
+      upcoming: subs.map((x) => {
+        const starts = istDay(x.currentPeriodEnd!);
+        const inv = done.find((d) => d.accountId === x.accountId && d.renewalFor === starts);
+        return {
+          accountId: x.accountId,
+          name: titles.get(x.accountId) || name.get(x.accountId)?.name || 'A customer',
+          code: name.get(x.accountId)?.code || null,
+          planName: x.planName,
+          interval: x.billingInterval,
+          renewsOn: starts,
+          invoice: inv ? { id: inv.id, number: inv.number, status: inv.status } : null,
+          dueNow: x.currentPeriodEnd!.getTime() <= Date.now() + s.renewals.daysBefore * 86_400_000,
+        };
+      }),
+    });
+  }),
+);
+
+/** Issue the renewal invoices that are due now, without waiting for the next run (every six hours). */
+opsInvoicesRouter.post('/ops/invoicing/renewals/run', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: issue renewal invoices now', async () => {
+    const s = await invoicing();
+    if (!s.renewals.on) return res.status(409).json({ error: 'Renewal invoices are turned off. Turn them on in Invoice settings first.' });
+    const r = await runRenewals();
+    await audit(req, 'INVOICE_RENEWALS_RUN', {}, { issued: r.issued, skipped: r.skipped, failed: r.failed.length });
+    res.json(r);
   }),
 );
 

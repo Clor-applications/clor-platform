@@ -127,7 +127,7 @@ export function Payments({ role }) {
       </div>
       {tab === 'providers' ? (
         <>
-          <p className="ws-notice">CLOR does not charge customers through a provider yet: checkout comes later. Keys saved here are used to test the connection and to check the provider’s webhooks.</p>
+          <p className="ws-notice">When Cashfree or Razorpay is the active provider, customers can pay each invoice online on its page (card, UPI or netbanking), and its webhook marks the invoice paid. Nothing is charged on its own: there is no saved card and no automatic charge.</p>
           <div className="ws-table-wrap">
             <table className="ws-table">
               <caption className="sr-only">Payment providers</caption>

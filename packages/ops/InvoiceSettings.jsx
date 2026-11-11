@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
-import { opsBooksChoices, opsInvoicing, opsSaveBooksLink, opsSaveInvoicing, opsTestBooks } from './api';
-import { Err, Loading, may } from './kit';
+import { opsBooksChoices, opsInvoicing, opsRenewals, opsRunRenewals, opsSaveBooksLink, opsSaveInvoicing, opsTestBooks } from './api';
+import { Err, Loading, day, may } from './kit';
 
 /**
  * Invoice settings (server: routes/opsInvoices.ts, billing/invoicing.ts).
@@ -48,6 +48,7 @@ export function InvoiceSettings({ role, openTax, openPayments }) {
       <PageHead crumbs={['Operator', 'Money']} title="Invoice settings" meta={`Next invoice: ${s.nextNumber}`} />
       <div className="grid gap-6" style={{ maxWidth: 820 }}>
         <Numbering s={s} mayChange={mayChange} onSaved={load} />
+        <Renewals s={s} mayChange={mayChange} onSaved={load} />
         <Panel title="Seller and how customers pay">
           <dl className="grid gap-3" style={{ gridTemplateColumns: 'minmax(9rem, auto) 1fr' }}>
             <dt className="ws-item-sub">GST</dt>
@@ -62,6 +63,7 @@ export function InvoiceSettings({ role, openTax, openPayments }) {
             <dt className="ws-item-sub">Way to pay</dt>
             <dd>
               {s.manualPayments ? 'UPI QR and bank account, from Manual: UPI and bank transfer.' : 'Not set up: invoices show no UPI QR or bank account.'}{' '}
+              {s.online?.available ? `Customers can also pay online through ${s.online.gateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}: card, UPI or netbanking.` : 'Online payment is off: turn on Razorpay or Cashfree to let customers pay by card.'}{' '}
               <button type="button" className="ws-name-link" onClick={openPayments}>
                 {s.manualPayments ? 'Change under Money, Payments' : 'Set it up under Money, Payments'}
               </button>
@@ -125,6 +127,107 @@ function Numbering({ s, mayChange, onSaved }) {
             <span className="ws-card-blurb" style={{ marginLeft: 12 }}>
               Asks for a code from your authenticator app.
             </span>
+          </div>
+        ) : null}
+      </form>
+    </Panel>
+  );
+}
+
+/**
+ * Renewal invoices (server: billing/renewals.ts): on, how many days before a
+ * paid period ends, what is coming up, and Issue now.
+ */
+function Renewals({ s: settings, mayChange, onSaved }) {
+  const s = { ...settings, renewals: settings.renewals || { on: true, daysBefore: 7 } };
+  const [on, setOn] = useState(s.renewals.on);
+  const [days, setDays] = useState(String(s.renewals.daysBefore));
+  const [busy, setBusy] = useState('');
+  const [problems, setProblems] = useState([]);
+  const [list, setList] = useState(null);
+  const loadList = useCallback(() => {
+    opsRenewals()
+      .then((r) => setList(r?.upcoming || []))
+      .catch(() => setList([]));
+  }, []);
+  useEffect(loadList, [loadList]);
+  const changed = on !== s.renewals.on || Number(days) !== s.renewals.daysBefore;
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy('save');
+    setProblems([]);
+    try {
+      await opsSaveInvoicing({ renewalsOn: on, renewalDaysBefore: Number(days) });
+      notify.success(on ? `Renewal invoices go out ${days} ${Number(days) === 1 ? 'day' : 'days'} before each period ends.` : 'Renewal invoices are off. Finance drafts each one by hand.');
+      onSaved();
+      loadList();
+    } catch (err) {
+      setProblems(err?.data?.problems?.length ? err.data.problems : [String(err?.message || err)]);
+    } finally {
+      setBusy('');
+    }
+  };
+  const runNow = async () => {
+    setBusy('run');
+    setProblems([]);
+    try {
+      const r = await opsRunRenewals();
+      notify.success(r.issued ? `${r.issued} renewal ${r.issued === 1 ? 'invoice' : 'invoices'} issued.` : 'Nothing was due.');
+      if (r.failed?.length) setProblems(r.failed.map((f) => f.reason));
+      loadList();
+    } catch (err) {
+      setProblems([String(err?.message || err)]);
+    } finally {
+      setBusy('');
+    }
+  };
+  const due = (list || []).filter((r) => r.dueNow && !r.invoice).length;
+  return (
+    <Panel title="Renewal invoices">
+      <form className="grid gap-5" onSubmit={save}>
+        <p className="ws-card-blurb">
+          For a customer on a paid subscription, CLOR issues the next period’s invoice a few days before the paid period ends and emails the account owner. The offer’s price is used while the offer lasts, the list price after. A customer cancelling at the period end gets none.
+        </p>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', alignItems: 'end' }}>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={on} disabled={!mayChange} onChange={(e) => setOn(e.target.checked)} />
+            Issue renewal invoices on their own
+          </label>
+          <Field id="renew-days" label="Days before the period ends">
+            <input id="renew-days" className="ui-input ui-num" inputMode="numeric" disabled={!mayChange || !on} value={days} onChange={(e) => setDays(e.target.value.replace(/\D/g, '').slice(0, 2))} style={{ maxWidth: '8rem' }} />
+          </Field>
+        </div>
+        {list === null ? (
+          <Loading />
+        ) : list.length ? (
+          <ul className="ws-list" aria-label="Renewals in the next 30 days">
+            {list.map((r) => (
+              <li key={r.accountId} className="ws-item" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <span className="ws-item-text">
+                  <span className="ws-item-title">{r.name}</span>
+                  <span className="ws-item-sub">
+                    {r.planName}, {r.interval === 'year' ? 'yearly' : 'monthly'} · renews {day(r.renewsOn)}
+                  </span>
+                </span>
+                <span className="ws-item-sub">{r.invoice ? `Invoice ${r.invoice.number || 'drafted'}` : r.dueNow ? 'Due now' : 'Not yet'}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="ws-card-blurb">No paid subscription renews in the next 30 days.</p>
+        )}
+        <Problems list={problems} />
+        {mayChange ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" className="ws-btn ws-btn--primary" disabled={Boolean(busy) || !changed || (on && !/^\d{1,2}$/.test(days))}>
+              {busy === 'save' ? 'Saving…' : 'Save renewals'}
+            </button>
+            {s.renewals.on ? (
+              <button type="button" className="ws-btn ws-btn--quiet" onClick={runNow} disabled={Boolean(busy) || !due}>
+                {busy === 'run' ? 'Issuing…' : due ? `Issue the ${due} due now` : 'Nothing due now'}
+              </button>
+            ) : null}
+            <span className="ws-card-blurb">Asks for a code from your authenticator app. It also runs on its own every six hours.</span>
           </div>
         ) : null}
       </form>

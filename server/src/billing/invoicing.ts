@@ -18,7 +18,9 @@ import { PaymentsError } from './providers.js';
 export const INVOICING_KEY = 'billing.invoicing';
 
 export type BooksLink = { enabled: boolean; accountId: string | null; orgId: string | null; branchId: string | null; autoSend: boolean };
-export type Invoicing = { prefix: string; dueDays: number; footer: string | null; address: string | null; counters: Record<string, number>; books: BooksLink };
+/** Renewal invoices (billing/renewals.ts): drafted and issued this many days before a paid period ends. */
+export type Renewals = { on: boolean; daysBefore: number };
+export type Invoicing = { prefix: string; dueDays: number; footer: string | null; address: string | null; counters: Record<string, number>; books: BooksLink; renewals: Renewals };
 
 const str = (v: unknown, max = 400) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
 
@@ -34,6 +36,10 @@ export function readInvoicing(value: unknown): Invoicing {
     address: str(v.address, 400),
     counters,
     books: { enabled: b.enabled === true, accountId: str(b.accountId, 40), orgId: str(b.orgId, 40), branchId: str(b.branchId, 40), autoSend: b.autoSend === true },
+    renewals: {
+      on: v.renewals?.on !== false,
+      daysBefore: Number.isInteger(v.renewals?.daysBefore) && v.renewals.daysBefore >= 0 && v.renewals.daysBefore <= 30 ? v.renewals.daysBefore : 7,
+    },
   };
 }
 
@@ -52,7 +58,7 @@ export function financialYear(at: Date): string {
 
 export const formatNumber = (prefix: string, fy: string, n: number) => `${prefix}/${fy}/${String(n).padStart(4, '0')}`;
 
-export type InvoicingInput = { prefix?: string; dueDays?: number; footer?: string | null; address?: string | null; nextNumber?: number | null };
+export type InvoicingInput = { prefix?: string; dueDays?: number; footer?: string | null; address?: string | null; nextNumber?: number | null; renewalsOn?: boolean; renewalDaysBefore?: number };
 
 /** Save the numbering and wording. `nextNumber` sets where this year's series carries on (never backwards past an issued one). */
 export async function saveInvoicing(input: InvoicingInput, userId: string) {
@@ -61,6 +67,7 @@ export async function saveInvoicing(input: InvoicingInput, userId: string) {
   if (prefix !== undefined && !/^[A-Z0-9]{1,6}$/.test(prefix)) problems.push('The prefix is 1 to 6 capital letters or digits, like CLOR.');
   if (input.dueDays != null && !(Number.isInteger(input.dueDays) && input.dueDays >= 0 && input.dueDays <= 90)) problems.push('Payment is due within 0 to 90 days.');
   if (input.nextNumber != null && !(Number.isInteger(input.nextNumber) && input.nextNumber >= 1 && input.nextNumber <= 99999)) problems.push('The next number is a whole number from 1.');
+  if (input.renewalDaysBefore != null && !(Number.isInteger(input.renewalDaysBefore) && input.renewalDaysBefore >= 0 && input.renewalDaysBefore <= 30)) problems.push('Renewal invoices go out 0 to 30 days before the period ends.');
   if (problems.length) throw new PaymentsError('Check the invoice settings.', 400, problems);
   return outsideTenant('billing: save invoice settings', () =>
     platformPrisma.$transaction(async (tx) => {
@@ -74,6 +81,7 @@ export async function saveInvoicing(input: InvoicingInput, userId: string) {
       if (input.dueDays != null) next.dueDays = input.dueDays;
       if (input.footer !== undefined) next.footer = str(input.footer, 600);
       if (input.address !== undefined) next.address = str(input.address, 400);
+      if (input.renewalsOn !== undefined || input.renewalDaysBefore != null) next.renewals = { on: input.renewalsOn ?? cur.renewals.on, daysBefore: input.renewalDaysBefore ?? cur.renewals.daysBefore };
       if (input.nextNumber != null) {
         const used = cur.counters[fy] || 0;
         if (input.nextNumber <= used) throw new PaymentsError(`This year’s series already reached ${formatNumber(prefix ?? cur.prefix, fy, used)}. The next number must be after it.`, 400);

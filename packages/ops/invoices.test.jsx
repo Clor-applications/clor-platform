@@ -36,6 +36,8 @@ vi.mock('./api', () => ({
   opsBooksChoices: (q) => api.choices(q),
   opsSaveBooksLink: (b) => api.link(b),
   opsTestBooks: () => api.test(),
+  opsRenewals: () => Promise.resolve({ renewals: { on: true, daysBefore: 7 }, upcoming: [] }),
+  opsRunRenewals: () => Promise.resolve({ issued: 0, skipped: 0, failed: [] }),
 }));
 vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() } }));
 
@@ -137,6 +139,18 @@ describe('Invoice settings', () => {
     gst: { registered: false }, manualPayments: true,
     books: { enabled: false, autoSend: false, accountId: null, orgId: null, branchId: null },
   };
+  it('turns renewal invoices off and changes how many days before', async () => {
+    api.settings.mockResolvedValue({ ...settings, renewals: { on: true, daysBefore: 7 } });
+    api.saveSettings.mockResolvedValue({ ok: true });
+    render(<InvoiceSettings role="BILLING" openTax={() => {}} openPayments={() => {}} />);
+    const box = await screen.findByLabelText('Issue renewal invoices on their own');
+    expect(await screen.findByText('No paid subscription renews in the next 30 days.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save renewals' }).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Days before the period ends'), { target: { value: '10' } });
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole('button', { name: 'Save renewals' }));
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith({ renewalsOn: false, renewalDaysBefore: 10 }));
+  });
   it('saves the numbering, and chooses CLOR’s Books company for the connector', async () => {
     api.settings.mockResolvedValue(settings);
     api.saveSettings.mockResolvedValue({ ok: true });

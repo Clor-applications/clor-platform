@@ -85,7 +85,7 @@ describe('the operator console', () => {
     const nav = screen.getByRole('navigation', { name: 'Operator console' });
     expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Money', 'Product', 'Email', 'System']);
     expect([...nav.querySelectorAll('button')].map((b) => b.textContent.trim())).toEqual([
-      'Home', 'Customers', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Pricing', 'Custom plans', 'Offers', 'Subscriptions', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Announcements', 'Addresses', 'Templates', 'Log', 'Alerts', 'System health', 'Audit log',
+      'Home', 'Customers', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Pricing', 'Custom plans', 'Offers', 'Subscriptions', 'Approvals', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Announcements', 'Addresses', 'Templates', 'Log', 'Alerts', 'System health', 'Audit log',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
   });

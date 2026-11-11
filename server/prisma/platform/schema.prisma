@@ -1652,6 +1652,18 @@ model BillingInvoice {
   booksError       String?
   booksAttempts    Int       @default(0)
   booksSentAt      DateTime?
+  /// Card, UPI or netbanking through the active gateway (billing/payLinks.ts):
+  /// the provider's payment link for this invoice, made when the customer
+  /// first presses Pay online, and reused while the amount is the same.
+  payLinkGateway   String?
+  payLinkId        String?
+  payLinkUrl       String?
+  payLinkAmount    Int?
+  payLinkAt        DateTime?
+  /// MANUAL (drafted by CLOR staff) | RENEWAL (drafted and issued by the renewal job).
+  source           String    @default("MANUAL")
+  /// For a renewal, the first day of the period it bills (YYYY-MM-DD): one renewal per account and period.
+  renewalFor       String?
   createdByUserId  String?
   issuedByUserId   String?
   paidByUserId     String?
@@ -1659,8 +1671,10 @@ model BillingInvoice {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  @@unique([accountId, renewalFor])
   @@index([accountId])
   @@index([status, createdAt])
+  @@index([payLinkId])
 }
 
 /// A customer's question or problem for CLOR support (Ops plan P1, customer
@@ -1840,5 +1854,38 @@ model CustomPlan {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  @@index([accountId])
+}
+
+/// A change one CLOR operator asked for that a second one must approve
+/// (Ops plan: approval-managed). Today: a subscription deal whose discount is
+/// above the limit in the platform setting `ops.approvals`. The request keeps
+/// what was asked; approving prices it again and applies it as the approver,
+/// with both people on the record. Never approved by the person who asked.
+model OpsApproval {
+  id              String    @id @default(cuid())
+  /// DEAL
+  kind            String
+  accountId       String?
+  /// What was asked, as the route takes it.
+  payload         Json
+  /// One line for the list: "Growth, 25 employees, yearly, 40% off (FEST40)".
+  summary         String
+  /// The share of the list price taken off, in whole percent.
+  discountPercent Int?
+  reason          String
+  requestedBy     String
+  /// PENDING | APPROVED | REJECTED | CANCELLED | EXPIRED
+  status          String    @default("PENDING")
+  decidedBy       String?
+  decidedAt       DateTime?
+  decisionNote    String?
+  expiresAt       DateTime
+  /// What applying it gave: { invoiceId }, or the reason it could not be applied.
+  result          Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status, createdAt])
   @@index([accountId])
 }

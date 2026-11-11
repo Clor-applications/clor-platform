@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import NotConnected from '@ui/components/ui/NotConnected';
+import { notify } from '@ui/components/ui/notify';
 import { getAccountOverview } from '@platform/admin/admin';
 import { getEntitlement } from '@ui/api/features';
 import { apiFetch } from '@platform/http';
@@ -16,9 +17,10 @@ import './workspace.css';
  * offers, and read here from the server — and so is the usage. So are the
  * invoices CLOR has issued to this account (roadmap item 8, server:
  * routes/billing.ts GET /billing/invoices): each opens as the document, and an
- * unpaid one shows how to pay it, a UPI QR with the amount filled in and
- * CLOR's bank account. What does not exist yet is card checkout through a
- * payment provider, and the page says so.
+ * unpaid one shows how to pay it: online by card, UPI or netbanking on the
+ * active gateway's page when CLOR has one turned on (billing/payLinks.ts),
+ * and a UPI QR with the amount filled in and CLOR's bank account. Back from
+ * the gateway (?paid=<invoice>), the page asks whether it was paid.
  */
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const used = (n, limit) => `${n ?? '—'}${limit ? ` / ${limit}` : ''}`;
@@ -28,7 +30,16 @@ export default function BillingPreview() {
   const [usage, setUsage] = useState(null);
   const [invoices, setInvoices] = useState(null);
   const [open, setOpen] = useState(null);
+  const [payOnline, setPayOnline] = useState(false);
+  const [paying, setPaying] = useState(false);
   const paper = useRef(null);
+
+  const openInvoice = useCallback((id) => {
+    setOpen({ loading: true });
+    apiFetch(`/billing/invoices/${encodeURIComponent(id)}`)
+      .then((inv) => setOpen({ inv }))
+      .catch((e) => setOpen({ error: String(e?.message || e) }));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,18 +49,49 @@ export default function BillingPreview() {
       setPlan(ent?.plan || acct?.plan || null);
       setUsage(acct?.usage || ent?.usage || null);
     });
-    apiFetch('/billing/invoices')
-      .then((r) => !cancelled && setInvoices(r?.invoices || []))
-      .catch(() => !cancelled && setInvoices([]));
+    const listInvoices = () =>
+      apiFetch('/billing/invoices')
+        .then((r) => {
+          if (cancelled) return;
+          setInvoices(r?.invoices || []);
+          setPayOnline(Boolean(r?.payOnline));
+        })
+        .catch(() => !cancelled && setInvoices([]));
+    /* Back from the payment page: ask whether the invoice is paid, then show it. */
+    const back = new URLSearchParams(window.location.search).get('paid');
+    if (back) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('paid');
+      window.history.replaceState(null, '', url.toString());
+      apiFetch(`/billing/invoices/${encodeURIComponent(back)}/pay/check`, { method: 'POST', body: {} })
+        .then((r) => {
+          if (cancelled) return;
+          if (r?.paid) notify.success('Paid. Thank you. The invoice is marked paid.');
+          else notify.info('If you paid, it can take a minute to show here. Nothing is charged twice.');
+        })
+        .catch(() => null)
+        .finally(() => {
+          if (cancelled) return;
+          listInvoices();
+          openInvoice(back);
+        });
+    } else listInvoices();
     return () => {
       cancelled = true;
     };
-  }, []);
-  const openInvoice = (id) => {
-    setOpen({ loading: true });
-    apiFetch(`/billing/invoices/${encodeURIComponent(id)}`)
-      .then((inv) => setOpen({ inv }))
-      .catch((e) => setOpen({ error: String(e?.message || e) }));
+  }, [openInvoice]);
+  /* The gateway's page for this invoice; it sends the customer back here with ?paid=<id>. */
+  const payNow = async (inv) => {
+    setPaying(true);
+    try {
+      const here = new URL(window.location.href);
+      here.searchParams.set('paid', inv.id);
+      const r = await apiFetch(`/billing/invoices/${encodeURIComponent(inv.id)}/pay`, { method: 'POST', body: { returnTo: here.toString() } });
+      window.location.assign(r.url);
+    } catch (e) {
+      notify.error(String(e?.message || e));
+      setPaying(false);
+    }
   };
   const unpaid = (invoices || []).filter((i) => i.status === 'ISSUED');
 
@@ -61,9 +103,11 @@ export default function BillingPreview() {
           title="Billing"
         />
 
-        <NotConnected what="card payment">
-          Plan, usage and invoices below are live. Pay each invoice by UPI or bank transfer, as it shows.
-        </NotConnected>
+        {invoices !== null && !payOnline ? (
+          <NotConnected what="card payment">
+            Plan, usage and invoices below are live. Pay each invoice by UPI or bank transfer, as it shows.
+          </NotConnected>
+        ) : null}
 
         <div className="ws-stats">
           <Stat
@@ -110,10 +154,12 @@ export default function BillingPreview() {
             <Panel title="How to pay">
               <p className="ws-card-blurb">
                 {unpaid.length
-                  ? `${unpaid.length === 1 ? 'One invoice is' : `${unpaid.length} invoices are`} unpaid. Open it to scan the UPI QR, or pay into CLOR’s bank account.`
-                  : 'Each invoice shows CLOR’s UPI QR and bank account. Nothing is charged to a card.'}
+                  ? `${unpaid.length === 1 ? 'One invoice is' : `${unpaid.length} invoices are`} unpaid. Open it to ${payOnline ? 'pay online by card, UPI or netbanking, ' : ''}scan the UPI QR, or pay into CLOR’s bank account.`
+                  : payOnline
+                    ? 'Each invoice can be paid online by card, UPI or netbanking, or by UPI QR and bank transfer.'
+                    : 'Each invoice shows CLOR’s UPI QR and bank account. Nothing is charged to a card.'}
               </p>
-              <p className="ws-card-blurb">Once the money reaches CLOR the invoice is marked paid here.</p>
+              <p className="ws-card-blurb">{payOnline ? 'An online payment is marked paid here at once; a transfer, once the money reaches CLOR.' : 'Once the money reaches CLOR the invoice is marked paid here.'}</p>
             </Panel>
           </aside>
         </div>
@@ -129,8 +175,13 @@ export default function BillingPreview() {
                   Close
                 </button>
                 {open.inv ? (
-                  <button type="button" className="ws-btn ws-btn--primary" onClick={() => paper.current?.firstElementChild && printElement({ element: paper.current.firstElementChild, title: `CLOR invoice ${open.inv.number}` })}>
+                  <button type="button" className={open.inv.payOnline ? 'ws-btn ws-btn--quiet' : 'ws-btn ws-btn--primary'} onClick={() => paper.current?.firstElementChild && printElement({ element: paper.current.firstElementChild, title: `CLOR invoice ${open.inv.number}` })}>
                     Print or save as PDF
+                  </button>
+                ) : null}
+                {open.inv?.payOnline ? (
+                  <button type="button" className="ws-btn ws-btn--primary" disabled={paying} onClick={() => payNow(open.inv)}>
+                    {paying ? 'Opening the payment page…' : `Pay ${inr(open.inv.total)} online`}
                   </button>
                 ) : null}
               </>

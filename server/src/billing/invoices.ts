@@ -94,19 +94,27 @@ export async function buyerFor(accountId: string): Promise<Buyer> {
 }
 
 /** Lines to start a draft from: the apps the account's subscription carries, at the price set on it. */
+/**
+ * A deal CLOR staff set (routes/opsDeals.ts) is one line for a period: the
+ * offer's price while it lasts, the list price for a period that starts after
+ * it ends. Null when the subscription has no price.
+ */
+export function dealLine(
+  sub: { periodAmount: number | null; listAmount: number | null; planName: string | null; planUnit: string | null; quantity: number | null; billingInterval: string | null; offerCode: string | null; offerEndsAt: Date | null },
+  periodStarts: Date = new Date(),
+): Line | null {
+  if (sub.periodAmount == null || !sub.planName) return null;
+  const offerOn = Boolean(sub.offerCode) && (!sub.offerEndsAt || sub.offerEndsAt > periodStarts);
+  const amount = offerOn ? sub.periodAmount : (sub.listAmount ?? sub.periodAmount);
+  const per = sub.billingInterval === 'year' ? 'yearly' : 'monthly';
+  const units = sub.quantity && sub.planUnit ? `, ${unitWord(sub.planUnit, sub.quantity)}` : '';
+  return { description: `CLOR ${sub.planName}${units}, ${per}${offerOn ? ` (${sub.offerCode})` : ''}`.slice(0, 200), appCode: null, quantity: 1, unitAmount: amount, amount };
+}
+
 export async function suggestedLines(accountId: string): Promise<Line[]> {
   const sub = await outsideTenant('billing: lines for an invoice', () => platformPrisma.subscription.findUnique({ where: { accountId }, include: { items: true } }));
-  /*
-   * A deal CLOR staff set (routes/opsDeals.ts) is one line for the period: the
-   * offer's price while it lasts, the list price after.
-   */
-  if (sub?.periodAmount != null && sub.planName) {
-    const offerOn = Boolean(sub.offerCode) && (!sub.offerEndsAt || sub.offerEndsAt > new Date());
-    const amount = offerOn ? sub.periodAmount : (sub.listAmount ?? sub.periodAmount);
-    const per = sub.billingInterval === 'year' ? 'yearly' : 'monthly';
-    const units = sub.quantity && sub.planUnit ? `, ${unitWord(sub.planUnit, sub.quantity)}` : '';
-    return [{ description: `CLOR ${sub.planName}${units}, ${per}${offerOn ? ` (${sub.offerCode})` : ''}`.slice(0, 200), appCode: null, quantity: 1, unitAmount: amount, amount }];
-  }
+  const deal = sub ? dealLine(sub) : null;
+  if (deal) return [deal];
   /* Apps with a price set come first; an app without one is not billed by default. With no prices at all, every app is listed for a price to be typed. */
   const priced = (sub?.items || []).filter((it) => it.unitAmount != null && it.unitAmount > 0);
   return (priced.length ? priced : sub?.items || []).map((it) => {
@@ -128,7 +136,7 @@ function cleanPeriod(input: DraftInput, problems: string[]) {
   return { periodStart, periodEnd, months };
 }
 
-export async function createDraft(input: DraftInput, userId: string) {
+export async function createDraft(input: DraftInput, userId: string | null, origin: { source?: 'MANUAL' | 'RENEWAL'; renewalFor?: string | null } = {}) {
   const accountId = String(input.accountId || '');
   const known = await buyerFor(accountId);
   const { lines, problems } = cleanLines(input.lines);
@@ -139,7 +147,21 @@ export async function createDraft(input: DraftInput, userId: string) {
   const t = await totalsFor(lines, buyer.stateCode);
   return outsideTenant('billing: new invoice draft', () =>
     platformPrisma.billingInvoice.create({
-      data: { accountId, status: 'DRAFT', lines: lines as any, buyer: buyer as any, subtotal: t.subtotal, tax: t.tax as any, taxTotal: t.taxTotal, total: t.total, note: str(input.note, 600), ...period, createdByUserId: userId },
+      data: {
+        accountId,
+        status: 'DRAFT',
+        lines: lines as any,
+        buyer: buyer as any,
+        subtotal: t.subtotal,
+        tax: t.tax as any,
+        taxTotal: t.taxTotal,
+        total: t.total,
+        note: str(input.note, 600),
+        ...period,
+        createdByUserId: userId,
+        source: origin.source ?? 'MANUAL',
+        renewalFor: origin.renewalFor ?? null,
+      },
     }),
   );
 }
@@ -181,7 +203,7 @@ export async function payToFor(total: number, number: string) {
 }
 
 /** Issue a draft: the next number of this financial year's series, today's date, and everything on it frozen. */
-export async function issueInvoice(id: string, userId: string) {
+export async function issueInvoice(id: string, userId: string | null) {
   const inv = await getInvoice(id);
   if (inv.status !== 'DRAFT') throw new PaymentsError('This invoice is already issued.', 409);
   if (inv.total <= 0) throw new PaymentsError('An invoice for ₹0 cannot be issued. Put a price on the lines.', 400);
@@ -230,7 +252,7 @@ export async function markInvoicePaid(id: string, input: { reference: string; pa
   if (inv.status === 'PAID') throw new PaymentsError('This invoice is already paid.', 409);
   if (inv.status !== 'ISSUED') throw new PaymentsError('Only an issued invoice can be marked paid.', 409);
   const amount = input.amount ?? inv.total;
-  const r = await recordManualPayment({ accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, note: `Invoice ${inv.number}`, userId });
+  const r = await recordManualPayment({ accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, periodStart: inv.periodStart, note: `Invoice ${inv.number}`, userId });
   const done = await outsideTenant('billing: mark an invoice paid', () =>
     platformPrisma.billingInvoice.updateMany({
       where: { id, status: 'ISSUED' },

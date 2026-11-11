@@ -471,8 +471,14 @@ async function auditNames(rows: { operatorUserId: string; targetAccountId: strin
     platformPrisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true, email: true } }),
     platformPrisma.account.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.targetAccountId).filter(Boolean) as string[])] } }, select: { id: true, name: true } }),
   ]);
-  return { who: new Map(people.map((p) => [p.id, p])), acct: new Map(accounts.map((a) => [a.id, a.name])) };
+  const who = new Map<string, { id: string; fullName: string | null; email: string }>(people.map((p) => [p.id, p]));
+  /* Jobs that act on their own (billing/renewals.ts) write as SYSTEM_OPERATOR. */
+  who.set(SYSTEM_OPERATOR, { id: SYSTEM_OPERATOR, fullName: 'CLOR, automatically', email: '' });
+  return { who, acct: new Map(accounts.map((a) => [a.id, a.name])) };
 }
+
+/** The operator id a job writes in the audit log when no person acted. */
+export const SYSTEM_OPERATOR = 'system';
 
 /** The one line a person reads for what was done: the reason if one was given, else the change. */
 export function auditSummary(detail: any): string {

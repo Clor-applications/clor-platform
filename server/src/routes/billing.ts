@@ -19,6 +19,7 @@ import { publishedBook } from '../services/pricing/books.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { publicPricing } from './pricing.js';
 import { invoiceForAccount, invoicesForAccount } from '../billing/invoices.js';
+import { checkPayLink, onlinePayment, payLinkFor } from '../billing/payLinks.js';
 import { PaymentsError } from '../billing/providers.js';
 
 export const billingRouter = Router();
@@ -176,15 +177,46 @@ billingRouter.post('/billing/subscription', (_req, res) => {
  * with the amount and invoice number, and CLOR's bank account. For whoever
  * may see the plan.
  */
+/** Paying makes a payment link, so it needs the right to change the account's settings, not only to see them. */
+const mayPayInvoices = async (req: Parameters<typeof authorize>[0]) => !(await authorize(req, 'SETTINGS', PermissionAction.EDIT, 'Company Profile'));
+
 billingRouter.get('/billing/invoices', async (req, res) => {
   if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
-  res.json({ invoices: await invoicesForAccount(req.tenant!.accountId) });
+  const [invoices, online, mayPay] = await Promise.all([invoicesForAccount(req.tenant!.accountId), onlinePayment(), mayPayInvoices(req)]);
+  res.json({ invoices, payOnline: online.available && mayPay });
 });
 
 billingRouter.get('/billing/invoices/:id', async (req, res) => {
   if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
   try {
-    res.json(await invoiceForAccount(req.tenant!.accountId, String(req.params.id)));
+    const [inv, online, mayPay] = await Promise.all([invoiceForAccount(req.tenant!.accountId, String(req.params.id)), onlinePayment(), mayPayInvoices(req)]);
+    res.json({ ...inv, payOnline: online.available && mayPay && inv.status === 'ISSUED' });
+  } catch (e) {
+    if (e instanceof PaymentsError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+/**
+ * Pay online: the active gateway's page for exactly this invoice's total
+ * (billing/payLinks.ts). Answers the address to send the customer to; the
+ * provider sends them back to `returnTo` when it is CLOR's own page.
+ */
+billingRouter.post('/billing/invoices/:id/pay', async (req, res) => {
+  if (!(await mayPayInvoices(req))) return res.status(403).json({ error: 'Only the people who may change this account’s settings pay its invoices.' });
+  try {
+    res.json(await payLinkFor(req.tenant!.accountId, String(req.params.id), { returnTo: req.body?.returnTo, userId: req.auth?.userId ?? null }));
+  } catch (e) {
+    if (e instanceof PaymentsError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+/** Back from the payment page: whether the invoice is paid now (asks the provider, so it does not wait for the webhook). */
+billingRouter.post('/billing/invoices/:id/pay/check', async (req, res) => {
+  if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
+  try {
+    res.json(await checkPayLink(req.tenant!.accountId, String(req.params.id)));
   } catch (e) {
     if (e instanceof PaymentsError) return res.status(e.status).json({ error: e.message });
     throw e;

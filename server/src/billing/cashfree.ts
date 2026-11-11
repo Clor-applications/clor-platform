@@ -1,4 +1,4 @@
-import type { ConnectionResult, GatewayCustomer, GatewaySubscription, NormalizedEvent, PaymentGateway, WebhookCheck } from './gateway.js';
+import { PayLinkError, type ConnectionResult, type GatewayCustomer, type GatewaySubscription, type NormalizedEvent, type PayLink, type PayLinkInput, type PayLinkStatus, type PaymentGateway, type WebhookCheck } from './gateway.js';
 import { call, defaultFetch, header, hmac, parseJson, rawText, rupeesToPaise, sameText, type Fetcher } from './webhookKit.js';
 
 /**
@@ -72,6 +72,52 @@ export class CashfreeGateway implements PaymentGateway {
     return { subscriptionId: `local_${input.accountId}`, status: trial ? 'trialing' : 'active', currentPeriodEnd: trial ? new Date(Date.now() + input.trialDays! * 86400000) : null };
   }
 
+  /**
+   * A Cashfree payment link for one invoice (Payment Links API): card, UPI
+   * and netbanking on Cashfree's page, no partial payments, Cashfree's own
+   * SMS and email off. Cashfree needs the payer's phone number.
+   */
+  async createPaymentLink(input: PayLinkInput): Promise<PayLink> {
+    const phone = (input.customer.phone || '').replace(/\D/g, '').slice(-10);
+    if (phone.length !== 10) throw new PayLinkError('Cashfree needs a 10-digit mobile number for the person paying. Add one to your profile, or pay by UPI or bank transfer.');
+    const body = {
+      link_id: `clor_${input.invoiceId}_${Date.now().toString(36)}`.slice(0, 50),
+      link_amount: Number((input.amount / 100).toFixed(2)),
+      link_currency: 'INR',
+      link_purpose: input.description.slice(0, 500),
+      customer_details: { customer_phone: phone, ...(input.customer.email ? { customer_email: input.customer.email } : {}), customer_name: input.customer.name.slice(0, 100) },
+      link_partial_payments: false,
+      link_notify: { send_sms: false, send_email: false },
+      link_meta: { return_url: input.returnUrl },
+      link_notes: { accountId: input.accountId, invoiceId: input.invoiceId, invoiceNumber: input.number },
+      link_expiry_time: input.expiresAt.toISOString(),
+    };
+    const r = await call(this.fetcher, `${cashfreeBase(this.keys.mode)}/links`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+    if (r.status === 0) throw new PayLinkError('CLOR could not reach Cashfree. Try again in a few minutes.');
+    if (r.status >= 200 && r.status < 300 && r.body?.link_url) return { id: String(r.body.link_id || body.link_id), url: String(r.body.link_url) };
+    throw new PayLinkError(`Cashfree did not make the payment page (${r.status}${r.body?.message ? `: ${r.body.message}` : ''}). Try again, or pay by UPI or bank transfer.`);
+  }
+
+  async cancelPaymentLink(linkId: string): Promise<void> {
+    const r = await call(this.fetcher, `${cashfreeBase(this.keys.mode)}/links/${encodeURIComponent(linkId)}/cancel`, { method: 'POST', headers: this.headers() });
+    if (r.status < 200 || r.status >= 300) throw new PayLinkError('Cashfree did not cancel the earlier payment page.');
+  }
+
+  async paymentLinkStatus(linkId: string): Promise<PayLinkStatus> {
+    const base = cashfreeBase(this.keys.mode);
+    const r = await call(this.fetcher, `${base}/links/${encodeURIComponent(linkId)}`, { method: 'GET', headers: this.headers() });
+    if (r.status < 200 || r.status >= 300) throw new PayLinkError('Cashfree did not answer about this payment. Try again in a minute.');
+    const paid = r.body?.link_status === 'PAID';
+    let paymentId: string | null = null;
+    if (paid) {
+      const o = await call(this.fetcher, `${base}/links/${encodeURIComponent(linkId)}/orders`, { method: 'GET', headers: this.headers() });
+      const orders = Array.isArray(o.body) ? o.body : [];
+      const done = orders.find((x: any) => x?.order_status === 'PAID');
+      paymentId = done?.order_id ? String(done.order_id) : null;
+    }
+    return { paid, amountPaid: rupeesToPaise(r.body?.link_amount_paid), paymentId };
+  }
+
   async cancelSubscription(subscriptionId: string): Promise<void> {
     if (!subscriptionId || subscriptionId.startsWith('local_')) return;
     const r = await call(this.fetcher, `${cashfreeBase(this.keys.mode)}/subscriptions/${encodeURIComponent(subscriptionId)}/manage`, {
@@ -100,6 +146,15 @@ export function normalizeCashfree(body: any): NormalizedEvent {
     reference,
     raw: body,
   };
+  if (body.type === 'PAYMENT_LINK_EVENT') {
+    /* A payment link paid: the same event id as the check when the customer comes back, so it is applied once. */
+    ev.accountId = data.link_notes?.accountId || accountId;
+    ev.amount = rupeesToPaise(data.link_amount_paid ?? order.order_amount);
+    ev.reference = order.order_id || order.transaction_id ? String(order.order_id || order.transaction_id) : ev.reference;
+    ev.eventId = `PAYMENT_LINK_EVENT:${data.link_id || ''}:${data.link_status || ''}`;
+    if (data.link_status === 'PAID' && data.link_id) ev.invoice = { invoiceId: data.link_notes?.invoiceId || null, linkId: String(data.link_id), amountPaid: ev.amount };
+    return ev;
+  }
   if (body.type === 'PAYMENT_SUCCESS_WEBHOOK' && accountId) ev.subscription = { status: 'active' };
   if (/^SUBSCRIPTION_/.test(body.type) && SUBSCRIPTION_STATUS[sub.subscription_status]) {
     ev.subscription = { status: SUBSCRIPTION_STATUS[sub.subscription_status], gatewaySubscriptionId: sub.subscription_id || undefined };
