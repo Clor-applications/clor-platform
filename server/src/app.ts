@@ -17,6 +17,7 @@ import { invoicesRouter } from './routes/invoices.js';
 import { ledgerRouter } from './routes/ledger.js';
 import { permissionsRouter } from './routes/permissions.js';
 import { governanceRouter } from './routes/governance.js';
+import { workspaceWaitingRouter } from './routes/workspaceWaiting.js';
 import { featuresRouter } from './routes/features.js';
 import { partiesRouter } from './routes/parties.js';
 import { emailRouter } from './routes/email.js';
@@ -567,6 +568,7 @@ export function buildApp() {
   app.use('/api', invoicesRouter);
   app.use('/api', ledgerRouter);
   app.use('/api', permissionsRouter);
+  app.use('/api', workspaceWaitingRouter);
   app.use('/api', governanceRouter);
   app.use('/api', featuresRouter);
   app.use('/api', partiesRouter);

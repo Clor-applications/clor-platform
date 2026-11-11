@@ -60,8 +60,12 @@ const APP_NAME = { accounting: 'Books', payroll: 'Payroll', people: 'People', at
 const firstName = (user) => String(user?.firstName || user?.fullName || '').trim().split(/\s+/)[0] || '';
 
 
-/** The one waiting number from People (approvals, leave, attendance requests and own tasks): this company, this reader. */
-const getWaiting = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/inbox/waiting`, { skipWarehouseHeader: true });
+/**
+ * What waits on this reader in every app of this company (Workspace plan P1):
+ * People and Attendance, Books approvals, Payroll approvals. Counts and the
+ * screen that owns each; the app decides, Workspace points.
+ */
+const getWaiting = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/workspace/waiting`, { skipWarehouseHeader: true });
 
 const dateWords = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const inDays = (n) => (n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`);
@@ -117,9 +121,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             .catch(() => {});
         }
         listTickets().then((t) => live && setTickets(t?.tickets || [])).catch(() => {});
-        /* What waits on this person in People or Attendance, for anyone who can open either here. */
-        const apps = Array.isArray(r?.apps) ? r.apps : [];
-        if (apps.includes('people') || apps.includes('attendance')) getWaiting().then((w) => live && setWaiting(w || null)).catch(() => {});
+        /* What waits on this person in each app they can open here. */
+        if (Array.isArray(r?.apps) && r.apps.length) Promise.resolve().then(getWaiting).then((w) => live && setWaiting(w || null)).catch(() => {});
       })
       /* No answer hides what depends on it; nothing is guessed. */
       .catch(() => live && setMe(null));
@@ -158,16 +161,27 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const seats = directory ? seatsByApp(directory, overview?.seats, seatApps) : null;
   const seatsInUse = seats ? seats.reduce((n, x) => n + x.used, 0) : null;
   const seatsBought = seats && seats.every((x) => x.bought != null) ? seats.reduce((n, x) => n + x.bought, 0) : null;
-  const inboxApp = myApps?.includes('people') ? 'people' : myApps?.includes('attendance') ? 'attendance' : null;
   const planBad = plan && plan.inGoodStanding === false;
   const renewalLine = seesPlan ? renewalNotice(renewal, planBad) : null;
+
+  /* One line per app and kind of thing waiting, each opening the screen where it is decided; only apps this person can open. */
+  const waitingLines = (waiting?.sources || [])
+    .filter((x) => !myApps || myApps.includes(x.open.app))
+    .map((x) => ({
+      key: `waiting-${x.key}`,
+      icon: productIcon(x.app) || ICON.history,
+      tone: 'brand',
+      title: <><N>{x.count}</N> {x.label}</>,
+      sub: `In ${APP_NAME[x.app] || x.app}.`,
+      go: openApp ? () => openApp(x.open.app, x.open.screen, x.open.params || {}) : null,
+    }));
 
   /* Needs your attention: only what is true and actionable, the most urgent first. */
   const attention = [
     planBad ? { key: 'plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: `Status: ${String(plan.status || '').toLowerCase()}.`, go: go('account') } : null,
     seesPlan && bills?.overdue ? { key: 'overdue', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Open Billing to pay.</>, go: go('billing') } : null,
     renewalLine ? { key: 'renewal', icon: ICON.plan, ...renewalLine, go: go('account') } : null,
-    waiting?.waiting ? { key: 'waiting', icon: ICON.history, tone: 'brand', title: `${plural(waiting.waiting, 'thing')} waiting for you`, sub: [waiting.approvals ? plural(waiting.approvals, 'approval') : '', waiting.tasks ? plural(waiting.tasks, 'task') : ''].filter(Boolean).join(' · ') || 'In your inbox.', go: inboxApp ? () => openApp?.(inboxApp) : null } : null,
+    ...waitingLines,
     health?.status === 'attention' ? { key: 'sync', icon: ICON.data, tone: 'warn', title: `${plural(health.issues, 'sync problem')}`, sub: health.alerts?.[0]?.title || health.sources.filter((x) => x.issues).map((x) => x.label).join(', '), go: null } : null,
     privilegedNo2fa ? { key: '2fa', icon: ICON.warning, tone: 'warn', title: `${privilegedNo2fa} administrator${privilegedNo2fa === 1 ? '' : 's'} without an authenticator`, sub: 'They can change who has access; ask them to switch it on.', go: go('members') } : null,
     seesPlan && bills?.unpaid && !bills.overdue ? { key: 'unpaid', icon: ICON.plan, tone: null, title: `${plural(bills.unpaid, 'CLOR invoice')} to pay`, sub: <><N>{rupees(bills.due)}</N> due. Not overdue yet.</>, go: go('billing') } : null,

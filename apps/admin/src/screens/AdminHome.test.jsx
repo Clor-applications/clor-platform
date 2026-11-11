@@ -134,16 +134,27 @@ describe('the Workspace overview', () => {
     expect(sub.getByText('Not priced yet (Payroll)')).toBeInTheDocument();
   });
 
-  it('shows what waits for this person in People, and opens People', async () => {
-    api.getAccountMe.mockResolvedValue({ role: 'MEMBER', apps: ['people'] });
-    http.apiFetch.mockResolvedValue({ waiting: 4, approvals: 3, tasks: 1 });
+  it('shows what waits for this person in each app they can open, and opens the screen where it is decided', async () => {
+    api.getAccountMe.mockResolvedValue({ role: 'MEMBER', apps: ['people', 'accounting'] });
+    http.apiFetch.mockResolvedValue({
+      total: 7,
+      sources: [
+        { app: 'people', key: 'people.approvals', label: 'requests to approve', count: 3, open: { app: 'people', screen: 'approvals' } },
+        { app: 'accounting', key: 'books.approvals', label: 'documents to approve', count: 2, open: { app: 'accounting', screen: 'approvals' } },
+        /* Payroll is not open to this member: not shown. */
+        { app: 'payroll', key: 'payroll.runs', label: 'payrolls to approve', count: 2, open: { app: 'payroll', screen: 'runs' } },
+      ],
+      unanswered: [],
+    });
     const openApp = vi.fn();
-    render(<AdminHome tenant={{ ...tenant, subscriptions: ['people'] }} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={openApp} />);
-    const item = await screen.findByRole('button', { name: /4 things waiting for you/ });
-    expect(item).toHaveTextContent('3 approvals · 1 task');
-    expect(http.apiFetch.mock.calls[0][0]).toMatch(/\/people\/inbox\/waiting$/);
-    fireEvent.click(item);
-    expect(openApp).toHaveBeenCalledWith('people');
+    render(<AdminHome tenant={{ ...tenant, subscriptions: ['people', 'accounting', 'payroll'] }} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={openApp} />);
+    const people = await screen.findByRole('button', { name: /3 requests to approve/ });
+    expect(people).toHaveTextContent('In People.');
+    expect(http.apiFetch.mock.calls[0][0]).toMatch(/\/workspace\/waiting$/);
+    expect(screen.getByRole('button', { name: /2 documents to approve/ })).toHaveTextContent('In Books.');
+    expect(screen.queryByText(/payrolls to approve/)).toBeNull();
+    fireEvent.click(people);
+    expect(openApp).toHaveBeenCalledWith('people', 'approvals', {});
   });
 
   it('shows a member their apps and help, and no account figures', async () => {
