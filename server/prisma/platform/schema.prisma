@@ -1734,7 +1734,7 @@ model OpsAlert {
   id             String    @id @default(cuid())
   /// What the condition is, e.g. "worker:mail.outbox" or "invoice:<id>". One open alert per key.
   key            String
-  /// worker | email | webhook | readers | closure | invoice | ticket | trial
+  /// worker | email | webhook | readers | closure | invoice | ticket | trial | errors
   kind           String
   /// critical | warning
   severity       String
@@ -1888,4 +1888,23 @@ model OpsApproval {
 
   @@index([status, createdAt])
   @@index([accountId])
+}
+
+// ----------------------------
+// Each time the API fails a request (a 500). For CLOR staff: the alerts job counts them, and a request id finds one.
+// Never the error's message: it can carry a customer's data. Pruned after 14 days.
+// ----------------------------
+model ApiError {
+  id        String   @id @default(cuid())
+  /// The id the customer was shown on the error, to quote to support.
+  requestId String?
+  method    String
+  /// The route as mounted, ids replaced by ":id", no query string.
+  route     String
+  /// The error's class name, e.g. "TypeError" or "PrismaClientKnownRequestError".
+  errorName String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([requestId])
 }

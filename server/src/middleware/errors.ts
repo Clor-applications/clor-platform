@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { reportError } from '../utils/log.js';
 import { safeUrl } from '../utils/safeUrl.js';
+import { noteApiError } from '../services/ops/apiErrors.js';
 
 export function notFound(req: Request, res: Response) {
   res.status(404).json({ error: 'Not found' });
@@ -59,6 +60,8 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
 
   /* Production used to log nothing here at all: a 500 left no trace. Now each one goes to Error Reporting with its request id. */
   if (status >= 500) reportError(err, req, safeUrl);
+  /* And a note for CLOR staff: enough of them together raise an alert (services/ops/apiErrors.ts). */
+  if (status >= 500) noteApiError(err, req);
 
   // Unexpected 500s can carry internals (Prisma/driver text) in err.message —
   // never hand those to the client in production.

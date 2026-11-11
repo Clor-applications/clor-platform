@@ -11,7 +11,7 @@ import { opsAcknowledgeAlert, opsAlerts } from './api';
  * as new. Each alert is for one team; owners see and act on all of them.
  */
 const TEAM = { SUPPORT: 'Support', BILLING: 'Finance', SALES: 'Sales' };
-const KIND = { worker: 'Background job', email: 'Email', webhook: 'Webhooks', readers: 'Readers', closure: 'Company deletion', invoice: 'Invoice', ticket: 'Ticket', trial: 'Trial' };
+const KIND = { worker: 'Background job', email: 'Email', webhook: 'Webhooks', readers: 'Readers', closure: 'Company deletion', invoice: 'Invoice', ticket: 'Ticket', trial: 'Trial', errors: 'Errors' };
 
 export function Alerts({ go, me }) {
   const [d, setD] = useState(null);
