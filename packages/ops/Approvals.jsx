@@ -40,8 +40,9 @@ export function Approvals({ openCustomer }) {
     setTab(t);
   };
   const doStep = async (note) => {
-    await opsApprovalStep(step.a.id, step.k, note);
-    notify.success(STEP[step.k].done);
+    const r = await opsApprovalStep(step.a.id, step.k, note);
+    if (r?.invoiceProblem) notify.info(`${STEP[step.k].done} ${r.invoiceProblem}`);
+    else notify.success(STEP[step.k].done);
     setStep(null);
     load();
   };

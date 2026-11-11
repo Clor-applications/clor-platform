@@ -98,6 +98,11 @@ export class CashfreeGateway implements PaymentGateway {
     throw new PayLinkError(`Cashfree did not make the payment page (${r.status}${r.body?.message ? `: ${r.body.message}` : ''}). Try again, or pay by UPI or bank transfer.`);
   }
 
+  async cancelPaymentLink(linkId: string): Promise<void> {
+    const r = await call(this.fetcher, `${cashfreeBase(this.keys.mode)}/links/${encodeURIComponent(linkId)}/cancel`, { method: 'POST', headers: this.headers() });
+    if (r.status < 200 || r.status >= 300) throw new PayLinkError('Cashfree did not cancel the earlier payment page.');
+  }
+
   async paymentLinkStatus(linkId: string): Promise<PayLinkStatus> {
     const base = cashfreeBase(this.keys.mode);
     const r = await call(this.fetcher, `${base}/links/${encodeURIComponent(linkId)}`, { method: 'GET', headers: this.headers() });

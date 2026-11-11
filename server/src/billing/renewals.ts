@@ -56,7 +56,7 @@ async function tellOwner(accountId: string, inv: { id: string; number: string | 
   const user = owner ? await platformPrisma.user.findUnique({ where: { id: owner.userId }, select: { email: true, fullName: true, isActive: true } }) : null;
   if (!user?.email || !user.isActive) return false;
   const app = (process.env.APP_URL || 'https://app.clor.in').replace(/\/$/, '');
-  await sendTemplate({
+  return sendTemplate({
     templateKey: 'billing.renewal_invoice',
     to: user.email,
     toName: user.fullName ?? undefined,
@@ -73,8 +73,9 @@ async function tellOwner(accountId: string, inv: { id: string; number: string | 
       dueOn: inv.dueDate ? words(istDay(inv.dueDate)) : '',
       billingUrl: `${app}/`,
     },
-  }).catch(() => null);
-  return true;
+  })
+    .then(() => true)
+    .catch(() => false);
 }
 
 /** One pass: invoice every subscription that is due (`only`: just these accounts, for tests). */
@@ -85,46 +86,59 @@ export async function runRenewals(now = new Date(), only?: string[]): Promise<Re
     if (!settings.renewals.on) return out;
     for (const sub of await dueRenewals(now, settings.renewals.daysBefore, only)) {
       const startIso = istDay(sub.currentPeriodEnd!);
-      if (await platformPrisma.billingInvoice.findFirst({ where: { accountId: sub.accountId, renewalFor: startIso }, select: { id: true } })) {
-        out.skipped += 1;
-        continue;
-      }
-      const start = utcDay(startIso);
-      /* The offer's price only if it lasts beyond the moment the paid period ends. */
-      const line = dealLine(sub, sub.currentPeriodEnd!);
-      if (!line || line.amount <= 0) {
-        out.skipped += 1;
-        continue;
-      }
       const period = sub.billingInterval === 'year' ? 'YEARLY' : 'MONTHLY';
-      const lastIso = new Date(periodEnd(start, period).getTime() - 86_400_000).toISOString().slice(0, 10);
-      let draftId: string | null = null;
+      const lastIso = new Date(periodEnd(utcDay(startIso), period).getTime() - 86_400_000).toISOString().slice(0, 10);
+      const had = await platformPrisma.billingInvoice.findFirst({ where: { accountId: sub.accountId, renewalFor: startIso }, select: { id: true, status: true } });
+      /* Issued already, or cancelled by staff: done. A draft left by a run that failed to issue it is tried again. */
+      if (had && had.status !== 'DRAFT') {
+        out.skipped += 1;
+        continue;
+      }
+      let draftId: string | null = had?.id ?? null;
+      let inv: Awaited<ReturnType<typeof issueInvoice>>;
       try {
-        const draft = await createDraft(
-          { accountId: sub.accountId, lines: [line], periodStart: startIso, periodEnd: lastIso, months: period === 'YEARLY' ? 12 : 1, note: 'Renewal of your CLOR subscription.' },
-          null,
-          { source: 'RENEWAL', renewalFor: startIso },
-        );
-        draftId = draft.id;
-        const inv = await issueInvoice(draft.id, null);
-        await platformPrisma.operatorAuditEvent.create({
-          data: { operatorUserId: SYSTEM_OPERATOR, action: 'INVOICE_RENEWAL_ISSUED', targetAccountId: sub.accountId, detail: { invoiceId: inv.id, number: inv.number, total: rupees(inv.total), period: `${startIso} to ${lastIso}` } as any },
-        });
-        await autoSend(inv.id).catch(() => null);
-        await tellOwner(sub.accountId, inv);
-        out.issued += 1;
+        if (!draftId) {
+          /* The offer's price only if it lasts beyond the moment the paid period ends. */
+          const line = dealLine(sub, sub.currentPeriodEnd!);
+          if (!line || line.amount <= 0) {
+            out.skipped += 1;
+            continue;
+          }
+          const draft = await createDraft(
+            { accountId: sub.accountId, lines: [line], periodStart: startIso, periodEnd: lastIso, months: period === 'YEARLY' ? 12 : 1, note: 'Renewal of your CLOR subscription.' },
+            null,
+            { source: 'RENEWAL', renewalFor: startIso },
+          );
+          draftId = draft.id;
+        }
+        inv = await issueInvoice(draftId, null);
       } catch (e) {
         if (isUnique(e)) {
           out.skipped += 1;
           continue;
         }
-        /* A draft that could not be issued stays for Billing to look at, under Invoices, Drafts. */
+        /* A draft that could not be issued stays under Invoices, Drafts, and the next run tries it again. */
         const reason = `${draftId ? 'Drafted, not issued' : 'Not drafted'}: ${String(e instanceof Error ? e.message : e).slice(0, 200)}`;
         out.failed.push({ accountId: sub.accountId, reason });
         await platformPrisma.operatorAuditEvent
           .create({ data: { operatorUserId: SYSTEM_OPERATOR, action: 'INVOICE_RENEWAL_FAILED', targetAccountId: sub.accountId, detail: { invoiceId: draftId, period: `${startIso} to ${lastIso}`, reason } as any } })
           .catch(() => null);
+        continue;
       }
+      out.issued += 1;
+      /* Issued: what follows is told, never counted as a failure to issue. */
+      const emailed = await tellOwner(sub.accountId, inv).catch(() => false);
+      await autoSend(inv.id).catch(() => null);
+      await platformPrisma.operatorAuditEvent
+        .create({
+          data: {
+            operatorUserId: SYSTEM_OPERATOR,
+            action: 'INVOICE_RENEWAL_ISSUED',
+            targetAccountId: sub.accountId,
+            detail: { invoiceId: inv.id, number: inv.number, total: rupees(inv.total), period: `${startIso} to ${lastIso}`, emailed: emailed ? 'yes' : 'no, send it from Billing' } as any,
+          },
+        })
+        .catch(() => null);
     }
     return out;
   });

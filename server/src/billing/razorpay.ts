@@ -109,6 +109,11 @@ export class RazorpayGateway implements PaymentGateway {
     return { paid, amountPaid: Number.isInteger(r.body?.amount_paid) ? r.body.amount_paid : null, paymentId: ok?.payment_id ? String(ok.payment_id) : null };
   }
 
+  async cancelPaymentLink(linkId: string): Promise<void> {
+    const r = await call(this.fetcher, `${RAZORPAY_BASE}/payment_links/${encodeURIComponent(linkId)}/cancel`, { method: 'POST', headers: this.headers() });
+    if (r.status < 200 || r.status >= 300) throw new PayLinkError('Razorpay did not cancel the earlier payment page.');
+  }
+
   async cancelSubscription(subscriptionId: string, atPeriodEnd: boolean): Promise<void> {
     if (!subscriptionId || subscriptionId.startsWith('local_')) return;
     const r = await call(this.fetcher, `${RAZORPAY_BASE}/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, {

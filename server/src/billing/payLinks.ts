@@ -29,6 +29,8 @@ export async function onlinePayment(): Promise<{ available: boolean; gateway: st
 }
 
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//;
+/** CLOR's own customer-facing addresses, named one by one, so a new subdomain is never a way out. */
+const OWN_HOSTS = new Set(['clor.in', 'www.clor.in', 'app.clor.in', 'people.clor.in', 'attendance.clor.in', 'payroll.clor.in', 'accounting.clor.in', 'staging.clor.in']);
 /**
  * Where the provider sends the customer back: the Workspace page they came
  * from, if it is CLOR's own (clor.in, the app address, or this machine in
@@ -40,7 +42,7 @@ export function returnUrlFor(asked: unknown): string {
   if (!u) return `${app}/`;
   try {
     const url = new URL(u);
-    const ours = url.protocol === 'https:' && (url.hostname === 'clor.in' || url.hostname.endsWith('.clor.in'));
+    const ours = url.protocol === 'https:' && OWN_HOSTS.has(url.hostname);
     const sameApp = url.origin === new URL(app).origin;
     const dev = process.env.NODE_ENV !== 'production' && LOCAL.test(u);
     if (ours || sameApp || dev) return url.toString();
@@ -71,6 +73,20 @@ export async function payLinkFor(accountId: string, invoiceId: string, opts: { r
   if (!g.external || !g.createPaymentLink) throw new PaymentsError('Online payment is not open yet. Pay by UPI or bank transfer, as the invoice shows.', 409);
   const fresh = inv.payLinkAt && Date.now() - inv.payLinkAt.getTime() < (LINK_DAYS - 1) * 86_400_000;
   if (inv.payLinkUrl && inv.payLinkGateway === g.name && inv.payLinkAmount === inv.total && fresh) return { url: inv.payLinkUrl, gateway: g.name, reused: true };
+  /*
+   * One live link per invoice: an earlier one (run out, another amount or
+   * gateway) is checked first, in case it was paid, and cancelled, so the
+   * customer cannot pay the invoice twice.
+   */
+  if (inv.payLinkId && inv.payLinkGateway) {
+    const old: PaymentGateway = await gatewayNamed(inv.payLinkGateway).catch(() => null as unknown as PaymentGateway);
+    const s = old?.paymentLinkStatus ? await old.paymentLinkStatus(inv.payLinkId).catch(() => null) : null;
+    if (s?.paid) {
+      await applyGatewayEvent(linkPaidEvent(old.name, inv, s));
+      throw new PaymentsError('This invoice has just been paid. Open Billing again.', 409);
+    }
+    if (old?.cancelPaymentLink) await old.cancelPaymentLink(inv.payLinkId).catch(() => null);
+  }
   const customer = await payerFor(accountId, opts.userId ?? null);
   let link;
   try {
@@ -88,9 +104,19 @@ export async function payLinkFor(accountId: string, invoiceId: string, opts: { r
     if (e instanceof PayLinkError) throw new PaymentsError(e.message, 502);
     throw e;
   }
-  await outsideTenant('billing: keep the payment link', () =>
-    platformPrisma.billingInvoice.updateMany({ where: { id: inv.id, status: 'ISSUED' }, data: { payLinkGateway: g.name, payLinkId: link.id, payLinkUrl: link.url, payLinkAmount: inv.total, payLinkAt: new Date() } }),
+  /* Kept only if no one made another link meanwhile; otherwise that one is used and this one cancelled. */
+  const kept = await outsideTenant('billing: keep the payment link', () =>
+    platformPrisma.billingInvoice.updateMany({
+      where: { id: inv.id, status: 'ISSUED', payLinkId: inv.payLinkId },
+      data: { payLinkGateway: g.name, payLinkId: link.id, payLinkUrl: link.url, payLinkAmount: inv.total, payLinkAt: new Date() },
+    }),
   );
+  if (!kept.count) {
+    if (g.cancelPaymentLink) await g.cancelPaymentLink(link.id).catch(() => null);
+    const now = await ownInvoice(accountId, invoiceId);
+    if (now.status !== 'ISSUED' || !now.payLinkUrl) throw new PaymentsError('This invoice changed a moment ago. Open Billing again.', 409);
+    return { url: now.payLinkUrl, gateway: now.payLinkGateway || g.name, reused: true };
+  }
   return { url: link.url, gateway: g.name, reused: false };
 }
 

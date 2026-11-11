@@ -84,6 +84,7 @@ export function DealDrawer({ open, account, onClose, onDone }) {
   const confirm = async (reason) => {
     const r = await opsSetDeal(account.id, { ...body, status, trialDays: status === 'trialing' ? Number(trialDays) : null, startsOn, draftInvoice: status === 'active' && draftInvoice, reason });
     if (r?.needsApproval) notify.success(`Sent for approval. ${account.name} moves to ${quote.plan.name} when a colleague approves it in Approvals.`);
+    else if (r?.invoiceProblem) notify.info(`${account.name} is on ${quote.plan.name}. ${r.invoiceProblem}`);
     else notify.success(r.invoiceId ? `${account.name} is on ${quote.plan.name}. The first invoice is drafted in Invoices.` : `${account.name} is on ${quote.plan.name}.`);
     onDone(r);
   };

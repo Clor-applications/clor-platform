@@ -78,6 +78,8 @@ export interface PaymentGateway {
   createPaymentLink?(input: PayLinkInput): Promise<PayLink>;
   /** Ask the provider whether a payment link has been paid. */
   paymentLinkStatus?(linkId: string): Promise<PayLinkStatus>;
+  /** Stop a link being paid, before CLOR makes another for the same invoice. */
+  cancelPaymentLink?(linkId: string): Promise<void>;
 }
 
 /** What customers paying by hand are shown: CLOR's UPI ID, a QR, and the bank account. */

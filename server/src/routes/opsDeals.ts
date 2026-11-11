@@ -390,7 +390,7 @@ async function dealOffer(code: string | null | undefined) {
   return o as DealOffer;
 }
 
-async function quoteFor(accountId: string, body: z.infer<typeof dealFields>) {
+export async function quoteFor(accountId: string, body: z.infer<typeof dealFields>) {
   const [plan, offer, gst, buyer, sub] = await Promise.all([
     dealPlan(accountId, body.source, body.ref),
     dealOffer(body.offerCode),
@@ -439,7 +439,7 @@ opsDealsRouter.post('/ops/accounts/:id/deal/quote', (req, res) =>
       const q = await quoteFor(id, p.data);
       const limit = (await approvalSettings()).discountPercent;
       /* Whether setting it will need a second person (Approvals), so the drawer can say so before it is sent. */
-      res.json({ deal: q.deal, needsApproval: !q.held && q.deal.discount > 0 && q.deal.discount * 100 > limit * q.deal.listAmount, limit });
+      res.json({ deal: q.deal, needsApproval: overLimit(q.deal, limit), limit });
     } catch (e) {
       return fail(res, e);
     }
@@ -458,6 +458,13 @@ export type DealBody = z.infer<typeof dealBody>;
 /** One line naming a deal, for the approvals list and the audit log. */
 export const dealSummary = (q: { deal: { plan: { name: string; unit: string }; quantity: number; period: string; offer: { code: string; words: string } | null; periodAmount: number; listAmount: number } }) =>
   `${q.deal.plan.name}, ${unitWord(q.deal.plan.unit, q.deal.quantity)}, ${q.deal.period === 'YEARLY' ? 'yearly' : 'monthly'}, ${rupees(q.deal.periodAmount)} instead of ${rupees(q.deal.listAmount)}${q.deal.offer ? ` (${q.deal.offer.code}: ${q.deal.offer.words})` : ''}`.slice(0, 300);
+
+/**
+ * Whether a deal takes more off the list price than the limit (Approvals), so
+ * a second person must approve it. Every time it is set, also for a customer
+ * who already holds the offer: more units at the same share is more money off.
+ */
+export const overLimit = (d: { discount: number; listAmount: number }, limit: number) => d.discount > 0 && d.discount * 100 > limit * d.listAmount;
 
 /** The share of the list price a deal takes off, in percent (two decimals). */
 export const discountShare = (d: { discount: number; listAmount: number }) => (d.listAmount > 0 ? Math.round((d.discount * 10000) / d.listAmount) / 100 : 0);
@@ -483,7 +490,8 @@ export async function applyDeal(id: string, v: DealBody, operatorUserId: string)
     if (!taken.count) throw new DealError(`${offer.code} has just been used up or paused. Choose another offer.`, 409);
   }
 
-  const start = v.startsOn || new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+  /* Today as it is in India, not in UTC: a deal set at 1 am IST starts that day. */
+  const start = v.startsOn || new Date(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10) + 'T00:00:00.000Z');
   const firstDay = v.status === 'trialing' ? new Date(start.getTime() + v.trialDays! * 86_400_000) : start;
   const end = periodEnd(firstDay, deal.period);
   const keep = new Map((before?.items || []).map((i) => [i.appCode, i]));
@@ -500,7 +508,15 @@ export async function applyDeal(id: string, v: DealBody, operatorUserId: string)
     if (offer && !sameOffer) await platformPrisma.offer.update({ where: { id: offer.id }, data: { redemptions: { decrement: 1 } } });
     throw e;
   }
-  const offerEndsAt = offer && offer.durationPeriods != null ? periodEnd(firstDay, deal.period, offer.durationPeriods) : null;
+  /*
+   * Counted period by period, as renewals move on (each from the last one's
+   * end), so a start on the 31st ends the offer on the day a renewal starts.
+   */
+  let offerEndsAt: Date | null = null;
+  if (offer && offer.durationPeriods != null) {
+    offerEndsAt = firstDay;
+    for (let i = 0; i < offer.durationPeriods; i++) offerEndsAt = periodEnd(offerEndsAt, deal.period);
+  }
   await platformPrisma.subscription.update({
     where: { accountId: id },
     data: {
@@ -520,11 +536,17 @@ export async function applyDeal(id: string, v: DealBody, operatorUserId: string)
   });
   clearAccessCache();
 
+  /* The deal is set by now; a draft that cannot be made is said, not a reason to call the deal failed. */
   let invoice: { id: string } | null = null;
+  let invoiceProblem: string | null = null;
   if (v.draftInvoice) {
     const iso = (d: Date) => d.toISOString().slice(0, 10);
     const lastDay = new Date(end.getTime() - 86_400_000);
-    invoice = await createDraft({ accountId: id, lines: [deal.line], periodStart: iso(firstDay), periodEnd: iso(lastDay), months: deal.period === 'YEARLY' ? 12 : 1 }, operatorUserId);
+    try {
+      invoice = await createDraft({ accountId: id, lines: [deal.line], periodStart: iso(firstDay), periodEnd: iso(lastDay), months: deal.period === 'YEARLY' ? 12 : 1 }, operatorUserId);
+    } catch (e) {
+      invoiceProblem = `The first invoice was not drafted: ${String(e instanceof Error ? e.message : e).slice(0, 200)} Draft it under Invoices.`;
+    }
   }
   const record = {
     plan: plan.name,
@@ -534,15 +556,15 @@ export async function applyDeal(id: string, v: DealBody, operatorUserId: string)
     ...(offer ? { offer: `${offer.code} (${deal.offer?.words})` } : {}),
     ...(v.status === 'trialing' ? { trial: `${v.trialDays} days` } : {}),
     reason: v.reason,
+    ...(invoiceProblem ? { invoice: invoiceProblem } : {}),
   };
-  return { deal, invoiceId: invoice?.id ?? null, subscription: await getSubscription(id), record };
+  return { deal, invoiceId: invoice?.id ?? null, invoiceProblem, subscription: await getSubscription(id), record };
 }
 
 /**
  * Set a deal, or, when its discount is above the limit (Approvals), ask a
  * second person: 202 with the request, and nothing changes until someone
- * else approves it. A customer keeping the offer they already hold is not
- * asked again.
+ * else approves it. One waiting request per customer.
  */
 opsDealsRouter.post('/ops/accounts/:id/deal', ...BILLING, (req, res) =>
   outsideTenant('ops: set a subscription deal', async () => {
@@ -555,14 +577,17 @@ opsDealsRouter.post('/ops/accounts/:id/deal', ...BILLING, (req, res) =>
     try {
       const q = await quoteFor(id, v);
       const limit = (await approvalSettings()).discountPercent;
-      if (!q.held && q.deal.discount > 0 && q.deal.discount * 100 > limit * q.deal.listAmount) {
+      if (overLimit(q.deal, limit)) {
+        /* One request at a time per customer, so two cannot both be approved and set. */
+        const waiting = await platformPrisma.opsApproval.findFirst({ where: { accountId: id, kind: 'DEAL', status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
+        if (waiting) return res.status(409).json({ error: 'A deal for this customer is already waiting in Approvals. Withdraw it there first, or wait for the decision.' });
         const customerName = (await accountNames([id])).get(id) || 'A customer';
         const approval = await askApproval(req, { kind: 'DEAL', accountId: id, customerName, payload: req.body, summary: dealSummary(q), discountPercent: Math.round(discountShare(q.deal)), reason: v.reason });
         return res.status(202).json({ needsApproval: true, approval, limit });
       }
       const r = await applyDeal(id, v, req.auth!.userId);
       await audit(req, 'SUBSCRIPTION_DEAL_SET', { accountId: id }, r.record);
-      res.json({ deal: r.deal, invoiceId: r.invoiceId, subscription: r.subscription });
+      res.json({ deal: r.deal, invoiceId: r.invoiceId, invoiceProblem: r.invoiceProblem, subscription: r.subscription });
     } catch (e) {
       return fail(res, e);
     }

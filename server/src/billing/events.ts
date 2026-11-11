@@ -4,6 +4,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { getSubscription, syncAccountEntitlement } from '../services/subscriptions.js';
 import type { NormalizedEvent } from './gateway.js';
 import { PaymentsError } from './providers.js';
+import { periodEnd } from '../services/pricing/deals.js';
 
 /**
  * Every payment event CLOR hears of, kept in PaymentEvent for the Payments
@@ -49,26 +50,59 @@ async function payInvoice(ev: NormalizedEvent, rowId: string): Promise<{ status:
     (p.invoiceId ? await platformPrisma.billingInvoice.findUnique({ where: { id: p.invoiceId } }) : null) ||
     (await platformPrisma.billingInvoice.findFirst({ where: { payLinkId: p.linkId } }));
   if (!inv) return { status: 'RECORDED', detail: 'The payment did not name an invoice CLOR knows, so nothing changed. Find the customer and mark their invoice paid by hand.' };
-  if (inv.status === 'PAID') return { status: 'RECORDED', detail: `Invoice ${inv.number} was already paid, so nothing changed.` };
+  if (inv.status === 'PAID') {
+    /* A retry of this same event: the invoice was paid by it, only the access update failed. */
+    if (inv.paymentEventId === rowId) {
+      await syncAccountEntitlement(inv.accountId);
+      return { status: 'APPLIED', detail: `Invoice ${inv.number} is paid, and the customer's access is up to date.` };
+    }
+    if (p.amountPaid && p.amountPaid > 0)
+      return { status: 'RECORDED', detail: `Invoice ${inv.number} was already paid, and this second payment of ₹${(p.amountPaid / 100).toFixed(2)} (link ${p.linkId}) changed nothing. Refund it from the provider’s dashboard.` };
+    return { status: 'RECORDED', detail: `Invoice ${inv.number} was already paid, so nothing changed.` };
+  }
   if (inv.status !== 'ISSUED') return { status: 'RECORDED', detail: `Invoice ${inv.number} was cancelled before this payment arrived. Refund the customer from the provider’s dashboard.` };
   if (p.amountPaid != null && p.amountPaid < inv.total)
     return { status: 'RECORDED', detail: `The customer paid ₹${(p.amountPaid / 100).toFixed(2)}, less than invoice ${inv.number}’s ₹${(inv.total / 100).toFixed(2)}, so it stays unpaid. Settle the difference with them.` };
   const sub = await getSubscription(inv.accountId);
-  const from = sub?.currentPeriodEnd && sub.currentPeriodEnd > new Date() ? sub.currentPeriodEnd : new Date();
-  const until = addMonths(from, inv.months);
+  /* A cancelled or paused subscription is not started again by a late payment: a person decides. */
+  const moves = Boolean(sub && LIVE.includes(sub.status));
+  const until = paidUntil(sub?.currentPeriodEnd ?? null, inv.months, inv.periodStart);
   const paid = await platformPrisma.$transaction(async (tx) => {
     const done = await tx.billingInvoice.updateMany({
       where: { id: inv.id, status: 'ISSUED' },
       data: { status: 'PAID', paidAt: new Date(), paidAmount: p.amountPaid ?? inv.total, paymentReference: ev.reference ? String(ev.reference).slice(0, 60) : p.linkId, paymentEventId: rowId },
     });
     if (!done.count) return false;
-    if (sub) await tx.subscription.updateMany({ where: { accountId: inv.accountId }, data: { status: 'active', currentPeriodEnd: until, gatewayName: ev.gateway } });
+    if (moves) await tx.subscription.updateMany({ where: { accountId: inv.accountId }, data: { status: 'active', currentPeriodEnd: until, gatewayName: ev.gateway } });
     return true;
   });
   if (!paid) return { status: 'RECORDED', detail: `Invoice ${inv.number} changed a moment ago, so nothing changed. Open it to check.` };
   if (!sub) return { status: 'APPLIED', detail: `Invoice ${inv.number} is paid. The account has no subscription, so nothing else changed.` };
+  if (!moves)
+    return { status: 'RECORDED', detail: `Invoice ${inv.number} is paid, but the subscription is ${STATUS_WORD[sub.status] || sub.status}, so it was not started again. Restart it or refund the customer.` };
   await syncAccountEntitlement(inv.accountId);
   return { status: 'APPLIED', detail: `Invoice ${inv.number} paid online. The subscription is active, paid until ${day(until)}.` };
+}
+
+/** Subscription states a payment moves on; a cancelled or paused one waits for a person. */
+const LIVE = ['active', 'trialing', 'past_due'];
+
+/**
+ * When a payment for `months` leaves the subscription paid until. An invoice
+ * for a period (periodStart, YYYY-MM-DD) pays to that period's end, and never
+ * shortens what is already paid: the first period's invoice of a deal, whose
+ * period the subscription already shows, adds nothing. A payment for a period
+ * that has already ended, or with no period, counts from when the paid period
+ * ends, or from today if that has passed. Month ends are kept (31 Jan + 1 is 28 Feb).
+ */
+export function paidUntil(currentPeriodEnd: Date | null, months: number, periodStart?: string | null, now = new Date()) {
+  const by = (from: Date) => (months % 12 === 0 ? periodEnd(from, 'YEARLY', months / 12) : periodEnd(from, 'MONTHLY', months));
+  const paidTo = currentPeriodEnd && currentPeriodEnd > now ? currentPeriodEnd : null;
+  if (periodStart && /^\d{4}-\d{2}-\d{2}$/.test(periodStart)) {
+    const end = by(new Date(`${periodStart}T00:00:00.000Z`));
+    if (end > now) return paidTo && paidTo > end ? paidTo : end;
+  }
+  return by(paidTo ?? now);
 }
 
 /** What an event does to the account's subscription, and the sentence the log shows for it. */
@@ -164,11 +198,6 @@ export async function recordRejected(gateway: string, reason: string, raw: strin
   });
 }
 
-const addMonths = (d: Date, n: number) => {
-  const x = new Date(d);
-  x.setMonth(x.getMonth() + n);
-  return x;
-};
 
 /**
  * A payment made by UPI or bank transfer, recorded by CLOR staff ("Mark
@@ -177,12 +206,11 @@ const addMonths = (d: Date, n: number) => {
  * until the end of the months the payment covers, counted from when the
  * current paid period ends (or today, if that has passed).
  */
-export async function recordManualPayment(input: { accountId: string; amount: number; reference: string; paidOn: Date; months: number; note?: string | null; userId: string }) {
+export async function recordManualPayment(input: { accountId: string; amount: number; reference: string; paidOn: Date; months: number; periodStart?: string | null; note?: string | null; userId: string }) {
   const account = await platformPrisma.account.findUnique({ where: { id: input.accountId }, select: { id: true, name: true } });
   if (!account) throw new PaymentsError('No such customer account.', 404);
   const sub = await getSubscription(input.accountId);
-  const from = sub?.currentPeriodEnd && sub.currentPeriodEnd > new Date() ? sub.currentPeriodEnd : new Date();
-  const until = addMonths(from, input.months);
+  const until = paidUntil(sub?.currentPeriodEnd ?? null, input.months, input.periodStart);
   const reference = input.reference.trim().toUpperCase();
   const ev: NormalizedEvent = {
     gateway: 'manual',

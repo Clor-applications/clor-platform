@@ -252,7 +252,7 @@ export async function markInvoicePaid(id: string, input: { reference: string; pa
   if (inv.status === 'PAID') throw new PaymentsError('This invoice is already paid.', 409);
   if (inv.status !== 'ISSUED') throw new PaymentsError('Only an issued invoice can be marked paid.', 409);
   const amount = input.amount ?? inv.total;
-  const r = await recordManualPayment({ accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, note: `Invoice ${inv.number}`, userId });
+  const r = await recordManualPayment({ accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, periodStart: inv.periodStart, note: `Invoice ${inv.number}`, userId });
   const done = await outsideTenant('billing: mark an invoice paid', () =>
     platformPrisma.billingInvoice.updateMany({
       where: { id, status: 'ISSUED' },

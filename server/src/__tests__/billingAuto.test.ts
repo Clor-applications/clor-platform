@@ -20,6 +20,7 @@ const { RazorpayGateway } = await import('../billing/razorpay.js');
 const { createDraft, issueInvoice } = await import('../billing/invoices.js');
 const { runRenewals } = await import('../billing/renewals.js');
 const { returnUrlFor } = await import('../billing/payLinks.js');
+const { paidUntil } = await import('../billing/events.js');
 const { opsKit, lastAudit, at } = await import('./opsTestKit.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
@@ -145,6 +146,7 @@ describe('paying an invoice online', () => {
     expect(returnUrlFor('https://app.clor.in/#/billing?paid=1')).toBe('https://app.clor.in/#/billing?paid=1');
     expect(returnUrlFor('https://people.clor.in/x')).toBe('https://people.clor.in/x');
     expect(returnUrlFor('https://clor.in.evil.com/')).not.toMatch(/evil/);
+    expect(returnUrlFor('https://someone.clor.in/')).not.toMatch(/someone/);
     expect(returnUrlFor('javascript:alert(1)')).not.toMatch(/javascript/);
   });
 });
@@ -222,13 +224,20 @@ describe('two-person approval of big discounts', () => {
     await request(app).post(`/api/ops/approvals/${id}/approve`).set(owner.h).send({}).expect(409);
 
     /* Turned down needs a reason; withdrawn by the person who asked; expired cannot be approved. */
-    const ask2 = async () => (await request(app).post(`/api/ops/accounts/${cust.accountId}/deal`).set(asker.h).send({ ...ask, quantity: 6, reason: 'One more user' }).expect(200)).body;
-    /* The customer now holds the offer, so changing their deal is not asked again. */
-    expect((await ask2()).deal.quantity).toBe(6);
+    /* Holding the offer is no way round the limit: more users at 40% off is asked again. */
+    const held = (await request(app).post(`/api/ops/accounts/${cust.accountId}/deal`).set(asker.h).send({ ...ask, quantity: 6, reason: 'One more user' }).expect(202)).body.approval.id;
+    /* One waiting request per customer. */
+    expect((await request(app).post(`/api/ops/accounts/${cust.accountId}/deal`).set(asker.h).send({ ...ask, quantity: 7, reason: 'Two more users' }).expect(409)).body.error).toMatch(/already waiting/);
+    /* Prices that moved since it was asked are not approved blind. */
+    await platformPrisma.opsApproval.update({ where: { id: held }, data: { discountPercent: 30 } });
+    expect((await request(app).post(`/api/ops/approvals/${held}/approve`).set(approver.h).send({}).expect(409)).body.code).toBe('PRICE_CHANGED');
+    expect((await platformPrisma.subscription.findUnique({ where: { accountId: cust.accountId } }))?.quantity).toBe(5);
+    expect((await platformPrisma.opsApproval.findUnique({ where: { id: held } }))?.status).toBe('FAILED');
     const other = await company('approve');
     const planB = (await request(app).post('/api/ops/custom-plans').set(asker.h).send({ accountId: null, name: 'Open big plan', apps: ['accounting'], unit: 'USER', includedUnits: 5, monthlyPrice: 100000, monthlyExtra: 10000, yearlyPrice: null, yearlyExtra: 0, gstApplies: false }).expect(201)).body.plan;
     const askB = { source: 'custom', ref: planB.id, period: 'MONTHLY', quantity: 5, offerCode: code, reason: 'Rival quote again' };
     const r1 = (await request(app).post(`/api/ops/accounts/${other.accountId}/deal`).set(asker.h).send(askB).expect(202)).body.approval.id;
+    await request(app).post(`/api/ops/accounts/${other.accountId}/deal`).set(asker.h).send(askB).expect(409);
     await request(app).post(`/api/ops/approvals/${r1}/reject`).set(approver.h).send({}).expect(400);
     await request(app).post(`/api/ops/approvals/${r1}/reject`).set(approver.h).send({ note: 'Too deep for this size' }).expect(200);
     const r2 = (await request(app).post(`/api/ops/accounts/${other.accountId}/deal`).set(asker.h).send(askB).expect(202)).body.approval.id;
@@ -270,4 +279,52 @@ describe('Cashfree payment links', () => {
     expect(ev).toMatchObject({ eventId: `PAYMENT_LINK_EVENT:${link.id}:PAID`, accountId: 'acc1', amount: 118050, reference: 'CF_ORDER_1', invoice: { invoiceId: 'inv1', linkId: link.id, amountPaid: 118050 } });
     expect(normalizeCashfree({ type: 'PAYMENT_LINK_EVENT', data: { link_id: 'x', link_status: 'PARTIALLY_PAID' } }).invoice).toBeUndefined();
   });
+});
+
+describe('what a payment pays for', () => {
+  const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+  const now = d('2026-11-10');
+  it('pays to the end of the invoice period, never twice for a period already shown, and keeps month ends', () => {
+    /* A deal's first invoice: the subscription already runs to 10 Dec, so paying it adds nothing. */
+    expect(paidUntil(d('2026-12-10'), 1, '2026-11-10', now).toISOString()).toBe(d('2026-12-10').toISOString());
+    /* A renewal for the next period pays to its end. */
+    expect(paidUntil(d('2026-12-10'), 1, '2026-12-10', now).toISOString()).toBe(d('2027-01-10').toISOString());
+    /* No period on the invoice: counted from the paid end, month ends clamped. */
+    expect(paidUntil(d('2027-01-31'), 1, null, now).toISOString()).toBe(d('2027-02-28').toISOString());
+    /* A period long gone, or a lapsed subscription: counted from today. */
+    expect(paidUntil(d('2026-01-01'), 1, '2026-01-01', now).toISOString()).toBe(d('2026-12-10').toISOString());
+    expect(paidUntil(null, 12, null, now).toISOString()).toBe(d('2027-11-10').toISOString());
+  });
+
+  it('does not start a cancelled subscription again, and says when an invoice is paid twice', async () => {
+    const rzp = fakeRazorpay();
+    __setGateway(rzp.gateway);
+    const { cust, inv } = await customerWithInvoice(40000);
+    await request(app).post(`/api/billing/invoices/${inv.id}/pay`).set(at(cust)).send({}).expect(200);
+    const linkId = (await platformPrisma.billingInvoice.findUnique({ where: { id: inv.id } }))!.payLinkId!;
+    await setSub(cust.accountId, { status: 'cancelled' });
+    const { raw, sig } = signed(paidWebhook(linkId, inv.id, inv.total));
+    await request(app).post('/api/billing/webhook/razorpay').set('content-type', 'application/json').set('x-razorpay-signature', sig).send(raw).expect(200);
+    expect((await platformPrisma.billingInvoice.findUnique({ where: { id: inv.id } }))?.status).toBe('PAID');
+    expect((await platformPrisma.subscription.findUnique({ where: { accountId: cust.accountId } }))?.status).toBe('cancelled');
+    expect((await platformPrisma.paymentEvent.findFirst({ where: { eventId: `payment_link.paid:${linkId}` } }))?.detail).toMatch(/not started again/);
+
+    /* A second link for the same invoice, paid too: staff are told to refund it. */
+    const twice = signed(paidWebhook(`plink_OTHER${tag()}`, inv.id, inv.total));
+    await request(app).post('/api/billing/webhook/razorpay').set('content-type', 'application/json').set('x-razorpay-signature', twice.sig).send(twice.raw).expect(200);
+    const ev = await platformPrisma.paymentEvent.findFirst({ where: { type: 'payment_link.paid', detail: { contains: `${inv.number} was already paid, and this second payment` } } });
+    expect(ev?.detail).toMatch(/Refund it/);
+  }, 120_000);
+
+  it('cancels the earlier link before making a new one', async () => {
+    const rzp = fakeRazorpay();
+    __setGateway(rzp.gateway);
+    const { cust, inv } = await customerWithInvoice(30000);
+    await request(app).post(`/api/billing/invoices/${inv.id}/pay`).set(at(cust)).send({}).expect(200);
+    const old = (await platformPrisma.billingInvoice.findUnique({ where: { id: inv.id } }))!.payLinkId!;
+    await platformPrisma.billingInvoice.update({ where: { id: inv.id }, data: { payLinkAt: new Date(Date.now() - 20 * 86_400_000) } });
+    await request(app).post(`/api/billing/invoices/${inv.id}/pay`).set(at(cust)).send({}).expect(200);
+    expect(rzp.calls.some((c) => c.method === 'POST' && c.url.endsWith(`/payment_links/${old}/cancel`))).toBe(true);
+    expect((await platformPrisma.billingInvoice.findUnique({ where: { id: inv.id } }))!.payLinkId).not.toBe(old);
+  }, 120_000);
 });
