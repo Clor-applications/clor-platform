@@ -46,7 +46,7 @@ export const DOCUMENTS = {
   },
   terms: {
     title: 'Terms of service',
-    summary: 'The agreement for using Clor.',
+    summary: 'The agreement for using CLOR.',
     Body: TermsOfService,
   },
   cookies: {
@@ -66,7 +66,7 @@ function PrivacyNotice() {
     <>
       <Section id="p-who" title="Who we are">
         <p>
-          Clor is operated by <Operator />. In this notice &ldquo;we&rdquo; means the operator. Questions about
+          CLOR is operated by <Operator />. In this notice &ldquo;we&rdquo; means the operator. Questions about
           your data go to <Email field="contactEmail" />; complaints go to our grievance officer,{' '}
           <Fact field="grievanceOfficer" />, at <Email field="grievanceEmail" />.
         </p>
@@ -75,13 +75,13 @@ function PrivacyNotice() {
       <Section id="p-roles" title="Two kinds of data, two roles">
         <p>
           <strong>Your account.</strong> Your name, email address and sign-in records are collected by us so you can
-          use Clor. For these we decide why and how they are used.
+          use CLOR. For these we decide why and how they are used.
         </p>
         <p>
           <strong>Your business&rsquo;s records.</strong> The customers, suppliers, employees, invoices, payments and
-          other records a business keeps in Clor belong to that business. It decides what goes in and what it is used
+          other records a business keeps in CLOR belong to that business. It decides what goes in and what it is used
           for; we store and process them on its behalf, to provide the service. If you are a customer, supplier or
-          employee of a business that uses Clor and want to exercise your rights over those records, ask that business
+          employee of a business that uses CLOR and want to exercise your rights over those records, ask that business
           first — we will help it answer you.
         </p>
       </Section>
@@ -126,7 +126,7 @@ function PrivacyNotice() {
 
       <Section id="p-why" title="Why we use it">
         <ul>
-          <li>To provide the service: keep the books, documents and reports a business asks Clor to keep.</li>
+          <li>To provide the service: keep the books, documents and reports a business asks CLOR to keep.</li>
           <li>To sign you in, keep accounts secure, detect misuse and lock an account after repeated failed attempts.</li>
           <li>To send the account emails listed above. We do not send marketing email.</li>
           <li>To meet legal obligations that apply to us.</li>
@@ -224,7 +224,7 @@ function PrivacyNotice() {
       </Section>
 
       <Section id="p-children" title="Children">
-        <p>Clor is a tool for businesses and is not meant for anyone under 18. We do not knowingly create accounts for children.</p>
+        <p>CLOR is a tool for businesses and is not meant for anyone under 18. We do not knowingly create accounts for children.</p>
       </Section>
 
       <Section id="p-changes" title="Changes to this notice">
@@ -242,26 +242,26 @@ function TermsOfService() {
     <>
       <Section id="t-agreement" title="The agreement">
         <p>
-          These terms are between you and <Operator /> (&ldquo;we&rdquo;). By creating an account or using Clor you
-          accept them. If you use Clor for a business, you accept them for that business and confirm you may do so.
+          These terms are between you and <Operator /> (&ldquo;we&rdquo;). By creating an account or using CLOR you
+          accept them. If you use CLOR for a business, you accept them for that business and confirm you may do so.
         </p>
       </Section>
 
       <Section id="t-service" title="The service">
         <p>
-          Clor is software for accounting, GST invoicing and returns, inventory, point of sale and payroll. Apps
+          CLOR is software for accounting, GST invoicing and returns, inventory, point of sale and payroll. Apps
           marked &ldquo;Coming&rdquo; are not available yet. We may change, add or remove features; we will give
           notice before removing something a business depends on.
         </p>
         <p>
-          Clor helps you prepare records and returns; it does not give tax, legal or accounting advice. You are
+          CLOR helps you prepare records and returns; it does not give tax, legal or accounting advice. You are
           responsible for checking what you file and for meeting your own tax and legal obligations.
         </p>
       </Section>
 
       <Section id="t-fees" title="Fees">
         <p>
-          Clor does not currently charge for use or take payments. Paid plans, when they start, are shown with their
+          CLOR does not currently charge for use or take payments. Paid plans, when they start, are shown with their
           price before you are charged, and cancellations and refunds follow our refund and cancellation policy at
           clor.in/legal/refund.
         </p>
@@ -278,7 +278,7 @@ function TermsOfService() {
       <Section id="t-use" title="Acceptable use">
         <p>You must not:</p>
         <ul>
-          <li>break the law with Clor, including by issuing false invoices or misreporting tax;</li>
+          <li>break the law with CLOR, including by issuing false invoices or misreporting tax;</li>
           <li>enter personal data you have no right to process;</li>
           <li>try to reach data or accounts that are not yours, or test, probe or overload the service without our written permission;</li>
           <li>copy, resell or reverse-engineer the service except where the law allows it.</li>
@@ -301,16 +301,16 @@ function TermsOfService() {
       </Section>
 
       <Section id="t-ip" title="Our software">
-        <p>The software, its design and the Clor name remain ours or our licensors&rsquo;. These terms do not transfer them to you.</p>
+        <p>The software, its design and the CLOR name remain ours or our licensors&rsquo;. These terms do not transfer them to you.</p>
       </Section>
 
       <Section id="t-availability" title="Availability">
-        <p>We work to keep Clor available and your data backed up, but we do not promise it will be uninterrupted or error-free.</p>
+        <p>We work to keep CLOR available and your data backed up, but we do not promise it will be uninterrupted or error-free.</p>
       </Section>
 
       <Section id="t-ending" title="Suspension and ending">
         <p>
-          You may stop using Clor at any time. We may suspend or close an account that breaks these terms or puts the
+          You may stop using CLOR at any time. We may suspend or close an account that breaks these terms or puts the
           service or others at risk, with notice where we reasonably can. Before a business&rsquo;s account is closed
           we will give it a reasonable chance to export its records.
         </p>
@@ -346,7 +346,7 @@ const STORAGE = [
   ['Browser storage', 'uiTheme, uiDensity, navCollapsed, notifSeenKey, ledger_expanded_*, neev:tip:*', 'Display preferences, which menus are open and which tips you have dismissed.', 'Until you clear it'],
   ['Browser storage', 'app-table-widths:*, *:hiddenCols, report-layout:*, report-saved-layouts:*, report-column-widths:*', 'Column widths, hidden columns and report layouts you chose.', 'Until you clear it'],
   ['Browser storage', 'pickerRecents:v1', 'The customers, items and accounts you picked recently, so they appear first. Holds their internal ids, not their names.', 'Until you clear it'],
-  ['Browser storage', 'theme-preset, theme-dark-mode, onboarded:org:*', 'Display choices and a "welcome shown" marker written by earlier versions of Clor. No longer written; harmless if present.', 'Until you clear it'],
+  ['Browser storage', 'theme-preset, theme-dark-mode, onboarded:org:*', 'Display choices and a "welcome shown" marker written by earlier versions of CLOR. No longer written; harmless if present.', 'Until you clear it'],
 ];
 
 function StorageNotice() {
@@ -354,7 +354,7 @@ function StorageNotice() {
     <>
       <Section id="c-summary" title="In short">
         <p>
-          Clor uses one cookie and some browser storage, all of it needed to sign you in or to remember choices you
+          CLOR uses one cookie and some browser storage, all of it needed to sign you in or to remember choices you
           made on screen. There are no analytics, advertising or third-party cookies, and the site loads nothing from
           other companies&rsquo; servers. Because nothing here is optional tracking, there is no consent banner to
           click through.
@@ -364,7 +364,7 @@ function StorageNotice() {
       <Section id="c-list" title="Everything this site stores">
         <div className="ui-table-scroll">
           <table className="legal-table">
-            <caption className="sr-only">Cookies and browser storage used by Clor</caption>
+            <caption className="sr-only">Cookies and browser storage used by CLOR</caption>
             <thead>
               <tr>
                 <th scope="col">Type</th>
@@ -396,7 +396,7 @@ function StorageNotice() {
 
       <Section id="c-changes" title="If this changes">
         <p>
-          If Clor ever adds analytics or anything else that is not strictly needed, it will not run until you have
+          If CLOR ever adds analytics or anything else that is not strictly needed, it will not run until you have
           agreed, and you will be able to change your mind here.
         </p>
       </Section>
@@ -409,9 +409,9 @@ function AccessibilityStatement() {
     <>
       <Section id="a-aim" title="Our aim">
         <p>
-          We want Clor to work for everyone, including people who use a keyboard instead of a mouse, a screen reader,
+          We want CLOR to work for everyone, including people who use a keyboard instead of a mouse, a screen reader,
           zoom or high-contrast settings. We work towards the Web Content Accessibility Guidelines (WCAG) 2.2 at level
-          AA. We have not had Clor independently audited, so we do not claim to meet that standard in full.
+          AA. We have not had CLOR independently audited, so we do not claim to meet that standard in full.
         </p>
       </Section>
 
@@ -435,7 +435,7 @@ function AccessibilityStatement() {
 
       <Section id="a-contact" title="Tell us">
         <p>
-          If something in Clor is hard to use, write to <Email field="contactEmail" /> and say which screen and what
+          If something in CLOR is hard to use, write to <Email field="contactEmail" /> and say which screen and what
           you were trying to do. We will reply and, where we can, fix it.
         </p>
       </Section>

@@ -7,7 +7,7 @@ import { opsBuildSample, opsEndPass, opsExplorePasses, opsResendPass, opsSampleC
 /**
  * Explore on the operator console (server: routes/opsExplore.ts).
  *
- * The owner's rule: Clor's own staff work is done on screens. The sample
+ * The owner's rule: CLOR's own staff work is done on screens. The sample
  * company that Explore links open is built here, and every link sent with a
  * demo request is listed here, to resend or end. Reading is for any operator;
  * a change needs support or billing, an authenticator code, and goes on the

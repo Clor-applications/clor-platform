@@ -137,7 +137,7 @@ async function namesOf(ids: string[]) {
   return new Map(users.map((u) => [u.id, u.fullName || u.email]));
 }
 const actorName = (id: string, names: Map<string, string>) =>
-  id === 'reader' ? 'Reader punches' : id === 'system' ? 'Clor' : id.startsWith('portal:') ? 'The employee (portal)' : names.get(id) || 'A user';
+  id === 'reader' ? 'Reader punches' : id === 'system' ? 'CLOR' : id.startsWith('portal:') ? 'The employee (portal)' : names.get(id) || 'A user';
 
 attendanceInsightsRouter.get(`${base}/days/explain`, can(PermissionAction.VIEW, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;

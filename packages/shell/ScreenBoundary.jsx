@@ -55,7 +55,7 @@ export default class ScreenBoundary extends React.Component {
       <div className="ui-card p-6" style={{ maxWidth: '40rem' }}>
         <h1 className="ui-display text-xl">This screen could not be shown</h1>
         <p className="mt-2 text-sm ui-muted">
-          Something in {this.props.appName || 'this app'} failed while drawing this page. The rest of Clor is unaffected —
+          Something in {this.props.appName || 'this app'} failed while drawing this page. The rest of CLOR is unaffected —
           pick another screen, or another app, from the rail.
         </p>
         <pre

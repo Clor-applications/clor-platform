@@ -46,7 +46,7 @@ type Event = {
   noteId?: string; canDelete?: boolean;
 };
 
-const SOURCE_TITLE: Record<string, string> = { IMPORT: 'Imported', APPROVAL: 'Change approved', BULK: 'Changed in bulk', SCHEDULED: 'Scheduled change took effect', SELF_SERVICE: 'Changed by the employee', HIRE: 'Hired', SYSTEM: 'Changed by Clor' };
+const SOURCE_TITLE: Record<string, string> = { IMPORT: 'Imported', APPROVAL: 'Change approved', BULK: 'Changed in bulk', SCHEDULED: 'Scheduled change took effect', SELF_SERVICE: 'Changed by the employee', HIRE: 'Hired', SYSTEM: 'Changed by CLOR' };
 
 /* A change that is an event in someone's working life reads as that event, not as a field edit. */
 function moveTitle(lines: Array<{ field: string; before: string | null; after: string | null }>): string | null {

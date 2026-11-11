@@ -20,6 +20,7 @@ import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import { AnnouncementBar } from './Announcements';
 import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
 import { EXPLORE_READ_ONLY_TEXT, confirmDialog, notify } from '@ui/components/ui/notify';
 import { ExploreEnded, ExploreLanding, ExploreNotice } from './Explore';
@@ -52,7 +53,7 @@ import { useLegalRoute } from './legal/useLegalRoute';
 import { renderPublicPage, usePublicPage } from './usePublicPage';
 
 /**
- * The Clor shell.
+ * The CLOR shell.
  *
  * It owns the things that are true regardless of which application you are
  * looking at: who is signed in, which company, which apps that company has,
@@ -520,10 +521,10 @@ function ShellScreens() {
     }
   }, [user]);
 
-  /* W-8.2: the account is suspended by Clor — one plain page instead of a half-loaded app. */
+  /* W-8.2: the account is suspended by CLOR — one plain page instead of a half-loaded app. */
   const [suspended, setSuspended] = useState('');
   useEffect(() => {
-    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by Clor.');
+    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by CLOR.');
     window.addEventListener('clor:account-suspended', on);
     return () => window.removeEventListener('clor:account-suspended', on);
   }, []);
@@ -589,7 +590,7 @@ function ShellScreens() {
   const appPublicPage = usePublicPage();
 
   /*
-   * Links in Clor's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
+   * Links in CLOR's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
    * on load; leaving either screen strips the token from the address bar so a
    * reload or a shared screenshot does not carry it.
    */
@@ -1328,6 +1329,7 @@ function ShellScreens() {
 
         <ExploreNotice explore={explore} demoUrl={DEMO_URL} />
         <SubscriptionBanner billing={tenant.billing} />
+        <AnnouncementBar app={activeAppId} />
         {tenant.archivedAt ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
             <span className="min-w-0 flex-1">This company is archived. You can read and export its records; nothing new can be saved. An account owner or admin can reactivate it in Workspace → Companies.</span>
@@ -1628,7 +1630,7 @@ function ShellScreens() {
 }
 
 /**
- * Everything Clor is, and what this company has of it.
+ * Everything CLOR is, and what this company has of it.
  *
  * Reachable from inside every app, and owned by the shell rather than by
  * Accounting — which is what lets a Payroll-only company add Accounting
@@ -1652,7 +1654,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
       <div>
         <h1 className="ui-display text-2xl">More apps</h1>
         <p className="ui-caption mt-1">
-          Everything Clor runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
+          Everything CLOR runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
         </p>
       </div>
 
@@ -1682,7 +1684,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
                   Open {a.name}
                 </button>
               ) : !owned(a.id) ? (
-                <span className="ui-caption">Not on your plan. Contact Clor to add it.</span>
+                <span className="ui-caption">Not on your plan. Contact CLOR to add it.</span>
               ) : (
                 <AddAppButton app={a} tenant={tenant} onAdd={onAdd} />
               )}
@@ -1747,7 +1749,7 @@ const STATUS_LABEL = {
 };
 
 /**
- * Where the company stands with Clor. Says nothing when no subscription has
+ * Where the company stands with CLOR. Says nothing when no subscription has
  * been assigned: an account that was never restricted has no plan to describe,
  * and inventing one would be a claim the server did not make.
  */
@@ -1787,7 +1789,7 @@ function SubscriptionBanner({ billing }) {
       {/* The server's own sentence when it has one (a trial that ended, routes/billing.ts `reason`); the old line otherwise. */}
       {billing.reason || (
         <>
-          Your Clor subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
+          Your CLOR subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
           and still visible; renew to keep working. Contact suresh@clor.in.
         </>
       )}

@@ -27,6 +27,7 @@ import { AuditLog } from './AuditLog';
 import { Health } from './Health';
 import { TicketPage, Tickets } from './Tickets';
 import { Alerts } from './Alerts';
+import { Announcements } from './Announcements';
 import { OpsSearch } from './OpsSearch';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
@@ -79,6 +80,7 @@ export const NAV = [
     items: [
       ['catalogue', 'App catalogue', ICON.apps],
       ['sample', 'Sample company', ICON.company],
+      ['announcements', 'Announcements', ICON.alert],
     ],
   },
   {
@@ -146,6 +148,7 @@ export const SCREENS = {
       <Tickets key={route.params.status || 'active'} me={me} initialStatus={route.params.status || 'active'} openTicket={(id) => go('tickets', {}, id)} />
     ),
   alerts: ({ go, me }) => <Alerts go={go} me={me} />,
+  announcements: ({ me }) => <Announcements me={me} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
 };
@@ -223,7 +226,7 @@ function EnrolAuthenticator({ onDone }) {
   }
   return (
     <div className="ops-enrol">
-      <p className="ws-card-blurb">Clor operators sign in with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password). Set one up now; it takes a minute.</p>
+      <p className="ws-card-blurb">CLOR operators sign in with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password). Set one up now; it takes a minute.</p>
       {setup ? (
         <form onSubmit={confirm} className="ops-enrol-scan">
           {qr ? <img src={qr} alt="QR code to scan with your authenticator app" width={192} height={192} /> : null}
@@ -370,7 +373,7 @@ function OpsScreens() {
     return (
       <SignIn
         brand={<OperatorBrand />}
-        subtitle="Clor staff sign in here with an authenticator."
+        subtitle="CLOR staff sign in here with an authenticator."
         onHome={() => (window.location.href = 'https://clor.in')}
         onForgot={() => (window.location.href = 'https://app.clor.in/forgot-password')}
       />

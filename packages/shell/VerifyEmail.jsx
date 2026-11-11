@@ -33,7 +33,7 @@ export default function VerifyEmail({ token, onDone }) {
     <AuthLayout scene="verify" title={title} subtitle={subtitle} onHome={onDone}>
       {state.status === 'checking' ? null : (
         <button type="button" className="ui-btn ui-btn-brand ui-btn-lg w-full" onClick={onDone}>
-          Continue to Clor <ArrowRight size={16} aria-hidden="true" />
+          Continue to CLOR <ArrowRight size={16} aria-hidden="true" />
         </button>
       )}
     </AuthLayout>
