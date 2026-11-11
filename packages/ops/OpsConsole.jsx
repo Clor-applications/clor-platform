@@ -226,7 +226,7 @@ function EnrolAuthenticator({ onDone }) {
   }
   return (
     <div className="ops-enrol">
-      <p className="ws-card-blurb">Clor operators sign in with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password). Set one up now; it takes a minute.</p>
+      <p className="ws-card-blurb">CLOR operators sign in with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password). Set one up now; it takes a minute.</p>
       {setup ? (
         <form onSubmit={confirm} className="ops-enrol-scan">
           {qr ? <img src={qr} alt="QR code to scan with your authenticator app" width={192} height={192} /> : null}
@@ -373,7 +373,7 @@ function OpsScreens() {
     return (
       <SignIn
         brand={<OperatorBrand />}
-        subtitle="Clor staff sign in here with an authenticator."
+        subtitle="CLOR staff sign in here with an authenticator."
         onHome={() => (window.location.href = 'https://clor.in')}
         onForgot={() => (window.location.href = 'https://app.clor.in/forgot-password')}
       />

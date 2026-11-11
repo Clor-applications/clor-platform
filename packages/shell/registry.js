@@ -7,7 +7,7 @@ import { peopleApp } from '../../apps/people/manifest.jsx';
 import { adminApp } from '../../apps/admin/manifest.jsx';
 
 /**
- * The applications Clor is made of.
+ * The applications CLOR is made of.
  *
  * This is the whole of what the shell knows about any app: a manifest. The
  * shell never imports an app's screens, and an app never imports the shell's
@@ -58,7 +58,7 @@ export const availableApps = (subscriptions) =>
 /**
  * Where somebody lands.
  *
- * One app means that app — a company that bought Clor for Payroll should not
+ * One app means that app — a company that bought CLOR for Payroll should not
  * arrive in a ledger it does not keep. Several means Accounting, because that
  * is where the day starts for the companies that have both.
  */

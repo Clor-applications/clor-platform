@@ -53,7 +53,7 @@ import { useLegalRoute } from './legal/useLegalRoute';
 import { renderPublicPage, usePublicPage } from './usePublicPage';
 
 /**
- * The Clor shell.
+ * The CLOR shell.
  *
  * It owns the things that are true regardless of which application you are
  * looking at: who is signed in, which company, which apps that company has,
@@ -521,10 +521,10 @@ function ShellScreens() {
     }
   }, [user]);
 
-  /* W-8.2: the account is suspended by Clor — one plain page instead of a half-loaded app. */
+  /* W-8.2: the account is suspended by CLOR — one plain page instead of a half-loaded app. */
   const [suspended, setSuspended] = useState('');
   useEffect(() => {
-    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by Clor.');
+    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by CLOR.');
     window.addEventListener('clor:account-suspended', on);
     return () => window.removeEventListener('clor:account-suspended', on);
   }, []);
@@ -590,7 +590,7 @@ function ShellScreens() {
   const appPublicPage = usePublicPage();
 
   /*
-   * Links in Clor's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
+   * Links in CLOR's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
    * on load; leaving either screen strips the token from the address bar so a
    * reload or a shared screenshot does not carry it.
    */
@@ -1630,7 +1630,7 @@ function ShellScreens() {
 }
 
 /**
- * Everything Clor is, and what this company has of it.
+ * Everything CLOR is, and what this company has of it.
  *
  * Reachable from inside every app, and owned by the shell rather than by
  * Accounting — which is what lets a Payroll-only company add Accounting
@@ -1654,7 +1654,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
       <div>
         <h1 className="ui-display text-2xl">More apps</h1>
         <p className="ui-caption mt-1">
-          Everything Clor runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
+          Everything CLOR runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
         </p>
       </div>
 
@@ -1684,7 +1684,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
                   Open {a.name}
                 </button>
               ) : !owned(a.id) ? (
-                <span className="ui-caption">Not on your plan. Contact Clor to add it.</span>
+                <span className="ui-caption">Not on your plan. Contact CLOR to add it.</span>
               ) : (
                 <AddAppButton app={a} tenant={tenant} onAdd={onAdd} />
               )}
@@ -1749,7 +1749,7 @@ const STATUS_LABEL = {
 };
 
 /**
- * Where the company stands with Clor. Says nothing when no subscription has
+ * Where the company stands with CLOR. Says nothing when no subscription has
  * been assigned: an account that was never restricted has no plan to describe,
  * and inventing one would be a claim the server did not make.
  */

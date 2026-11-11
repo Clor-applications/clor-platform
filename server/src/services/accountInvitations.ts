@@ -152,7 +152,7 @@ export async function createInvitation(req: Request, input: { email?: unknown; a
   return outsideTenant('account invitation: create', async () => {
     const existing = await platformPrisma.user.findFirst({ where: { email }, select: { id: true, accountId: true } });
     if (existing && existing.accountId !== accountId) {
-      throw new InvitationError(409, 'This person has a Clor login in another account. Let them into a company under Outside access instead.', 'OTHER_ACCOUNT');
+      throw new InvitationError(409, 'This person has a CLOR login in another account. Let them into a company under Outside access instead.', 'OTHER_ACCOUNT');
     }
     if (existing) {
       const m = await platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId: existing.id } }, select: { status: true } });
@@ -270,7 +270,7 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
         /* The login may have been made a moment ago by this same invitation (a double click): say so, not "sign in". */
         const now = await platformPrisma.accountInvitation.findUnique({ where: { id: row.id }, select: { status: true } });
         if (now?.status === 'ACCEPTED') throw new InvitationError(409, 'This invitation has already been used.', 'ALREADY_ACCEPTED');
-        throw new InvitationError(401, 'You already have a Clor login. Sign in with it to accept.', 'SIGN_IN_REQUIRED');
+        throw new InvitationError(401, 'You already have a CLOR login. Sign in with it to accept.', 'SIGN_IN_REQUIRED');
       }
       if (input.signedInUserId !== user.id) throw new InvitationError(403, `This invitation is for ${row.email}. Sign in with that address to accept it.`, 'WRONG_PERSON');
       if (user.accountId !== row.accountId) throw new InvitationError(409, 'Your login belongs to another account; ask to be let in under Outside access.', 'OTHER_ACCOUNT');

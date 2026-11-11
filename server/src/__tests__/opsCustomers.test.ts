@@ -79,7 +79,7 @@ describe('a customer’s page in the operator console', () => {
     await request(app).post(`/api/ops/accounts/${c.accountId}/suspend`).set(fin.h).send({ reason: 'Three months unpaid' }).expect(200);
     const shut = await write().expect(403);
     expect(shut.body.code).toBe('ACCOUNT_SUSPENDED');
-    expect(shut.body.error).toMatch(/suspended by Clor\. Contact support/);
+    expect(shut.body.error).toMatch(/suspended by CLOR\. Contact support/);
     await request(app).post(`/api/ops/accounts/${c.accountId}/reinstate`).set(fin.h).send({ reason: 'Paid in full' }).expect(200);
     expect((await write()).status).not.toBe(403);
     expect((await lastAudit(fin.userId, 'ACCOUNT_SUSPENDED'))?.detail).toMatchObject({ reason: 'Three months unpaid' });

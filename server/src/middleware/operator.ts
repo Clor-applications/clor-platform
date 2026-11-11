@@ -89,11 +89,11 @@ export async function operatorRole(userId: string | undefined | null): Promise<O
  */
 export async function requireOperator(req: Request, res: Response, next: NextFunction) {
   const role = (await operatorRole(req.auth?.userId)) || (req.auth?.userId ? await claimOperatorInvite(req.auth.userId) : null);
-  if (!role) return res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
+  if (!role) return res.status(403).json({ error: 'This is for CLOR staff only.', code: 'OPERATOR_ONLY' });
   const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true, isActive: true } });
-  if (!user?.isActive) return res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
+  if (!user?.isActive) return res.status(403).json({ error: 'This is for CLOR staff only.', code: 'OPERATOR_ONLY' });
   if (!user.totpEnabledAt) {
-    return res.status(403).json({ error: 'Clor operators must sign in with an authenticator app. Set one up in My profile first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
+    return res.status(403).json({ error: 'CLOR operators must sign in with an authenticator app. Set one up in My profile first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
   }
   /* Read-only looks and changes nothing, on every route, whatever that route's own check says. */
   if (role === 'READ_ONLY' && !READS.has(req.method)) {
@@ -110,9 +110,9 @@ export async function requireOperator(req: Request, res: Response, next: NextFun
  */
 export async function requireOperatorToEnrol(req: Request, res: Response, next: NextFunction) {
   const role = (await operatorRole(req.auth?.userId)) || (req.auth?.userId ? await claimOperatorInvite(req.auth.userId) : null);
-  if (!role) return res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
+  if (!role) return res.status(403).json({ error: 'This is for CLOR staff only.', code: 'OPERATOR_ONLY' });
   const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { isActive: true, totpEnabledAt: true } });
-  if (!user?.isActive) return res.status(403).json({ error: 'This is for Clor staff only.', code: 'OPERATOR_ONLY' });
+  if (!user?.isActive) return res.status(403).json({ error: 'This is for CLOR staff only.', code: 'OPERATOR_ONLY' });
   if (user.totpEnabledAt) return res.status(409).json({ error: 'An authenticator is already set up.', code: 'ALREADY_ENABLED' });
   res.locals.operatorRole = role;
   return next();

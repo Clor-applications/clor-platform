@@ -8,7 +8,7 @@ import { useSession } from './session';
  * The invited person's door (Workspace W-3): app.clor.in/invite?token=...
  *
  * Shows who invited them and to what, then one of three things:
- *  - no Clor login for that address yet: their name and a password they
+ *  - no CLOR login for that address yet: their name and a password they
  *    choose, and they are in;
  *  - a login exists and they are signed in as that address: accept;
  *  - a login exists and they are not (or are someone else): sign in with
