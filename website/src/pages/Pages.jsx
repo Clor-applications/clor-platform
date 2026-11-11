@@ -527,7 +527,98 @@ const DELIVERY = {
     </>
   ),
 };
-const LEGAL = { ...DOCUMENTS, refund: REFUND, delivery: DELIVERY };
+/*
+ * Data processing agreement (DPDP Act 2023): what larger customers ask for before they buy. The website's own page,
+ * like refund and delivery. It states only what the product does today; a lawyer reviews the wording before it is
+ * relied on (docs/compliance/OWNER_INPUT_REQUIRED.md).
+ */
+const DPA = {
+  title: 'Data processing agreement',
+  summary: 'How CLOR handles the personal data your company keeps in it, as your processor. Last updated 11 November 2026.',
+  Body: () => (
+    <>
+      <h2>Who this is between</h2>
+      <p>
+        Your company (the customer) and {SITE.company}, {SITE.address} (CLOR, we). It applies whenever your company keeps personal data in
+        CLOR, and is part of the <Link href="/legal/terms">terms of service</Link>.
+      </p>
+      <h2>Whose data it is</h2>
+      <p>
+        Your company decides what personal data goes into CLOR and why: your employees, your customers and suppliers, and the people you give
+        a login. Under India’s Digital Personal Data Protection Act, 2023, your company is the Data Fiduciary for that data and we are its
+        Data Processor. For the details of your own account with us (your name, email and sign-in history) we are the Data Fiduciary, and
+        the <Link href="/legal/privacy">privacy notice</Link> applies.
+      </p>
+      <h2>What we do with it</h2>
+      <ul>
+        <li>We store and process the data only to provide CLOR to your company, and as your company instructs through the product.</li>
+        <li>We do not sell it, use it for advertising, or use it to train AI models.</li>
+        <li>Our staff do not open your business records. Support works from account details, settings and error logs.</li>
+        <li>Everyone at CLOR who can reach production systems is bound to keep what they see confidential.</li>
+      </ul>
+      <h2>How we protect it</h2>
+      <ul>
+        <li>Each company’s records are kept apart, and the database itself refuses a query that does not name the company it is for.</li>
+        <li>Data is encrypted in transit. Passwords are stored only as hashes; stored credentials for email servers and e-invoice portals are encrypted.</li>
+        <li>Sign-in supports authenticator apps and single sign-on, and locks after repeated failures. CLOR staff must use an authenticator.</li>
+        <li>Changes to records, roles and access are written to an audit trail your administrators can read.</li>
+        <li>The database is backed up every day, with recovery to a point in time for the last 7 days.</li>
+      </ul>
+      <p>
+        More on <Link href="/security">the security page</Link>.
+      </p>
+      <h2>Where it is kept</h2>
+      <p>Servers and the database run in Google Cloud’s Mumbai region, in India.</p>
+      <h2>Others who process it for us</h2>
+      <ul>
+        <li>
+          <strong>Google Cloud</strong> (India): servers, database and backups.
+        </li>
+        <li>
+          <strong>Cloudflare</strong>: delivers the app and protects it from attacks. Traffic passes through its network.
+        </li>
+        <li>
+          <strong>An email service</strong>: delivers account and notification emails, unless your company sets up its own mail server in CLOR.
+        </li>
+      </ul>
+      <p>
+        Only if your company switches the feature on: a GST Suvidha Provider or the Invoice Registration Portal (GSTIN lookup and
+        e-invoices), and an AI service that suggests a role for a new user from a job title. Each of these is bound to protect the data at
+        least as this agreement does. We will tell account owners by email before we add or replace one.
+      </p>
+      <h2>If something goes wrong</h2>
+      <p>
+        If we learn of a breach that affects personal data your company keeps in CLOR, we will tell your account owner without undue delay,
+        with what happened, what data was affected and what we are doing about it, so your company can meet its own duty to tell the people
+        affected and the Data Protection Board of India.
+      </p>
+      <h2>When a person asks about their data</h2>
+      <p>
+        Your company answers requests from its own employees and contacts to see, correct or erase their data. CLOR gives your administrators
+        the tools to do it (export, correction, and erasure with what the law requires you to keep). If such a person writes to us, we pass
+        the request to your company.
+      </p>
+      <h2>Getting your data out, and deletion</h2>
+      <ul>
+        <li>Your company can export its data at any time.</li>
+        <li>When your company closes a company in CLOR, it is deleted after a 30-day notice period, and backups that hold it expire after that.</li>
+        <li>Tax and company law can require your company to keep some records for several years. Keeping your own copy is your company’s duty.</li>
+      </ul>
+      <h2>Showing that we do this</h2>
+      <p>
+        On a written request, at most once a year, we answer reasonable questions about how we meet this agreement. CLOR does not yet hold an
+        ISO 27001 or SOC 2 certificate.
+      </p>
+      <h2>Changes</h2>
+      <p>If we change this agreement in a way that matters, we email account owners before the change takes effect.</p>
+      <h2>Contact</h2>
+      <p>
+        Questions about this agreement, or a signed copy for your records: <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.
+      </p>
+    </>
+  ),
+};
+const LEGAL = { ...DOCUMENTS, refund: REFUND, delivery: DELIVERY, dpa: DPA };
 
 export function Legal({ doc }) {
   const d = LEGAL[doc];
@@ -538,7 +629,7 @@ export function Legal({ doc }) {
       <section className="section section--flush">
         <div className="wrap">
           <nav className="legal-nav" aria-label="Legal documents">
-            {['privacy', 'terms', 'cookies', 'refund', 'delivery'].map((k) => (
+            {['privacy', 'terms', 'dpa', 'cookies', 'refund', 'delivery'].map((k) => (
               <Link key={k} href={`/legal/${k}`} aria-current={k === doc ? 'page' : undefined}>
                 {LEGAL[k].title}
               </Link>
