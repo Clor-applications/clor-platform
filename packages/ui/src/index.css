@@ -8594,7 +8594,7 @@ button.ui-side-line:hover { background: rgb(var(--brand-subtle)); }
 .ui-side-alert[data-tone='neg'] { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
 .ui-side-alert[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
 .ui-side-alert .ui-side-name { font-weight: 600; }
-.ui-side-alert .ui-side-sub { color: inherit; opacity: 0.85; }
+.ui-side-alert .ui-side-sub { color: inherit; }
 button.ui-side-alert { cursor: pointer; }
 .ui-side-clear { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
 .ui-side-clear > svg { flex: none; color: rgb(var(--pos)); }
