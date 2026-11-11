@@ -174,6 +174,9 @@ test.describe('Suresh owns the account', () => {
     await expect(own).toContainText(/logged/i);
     await (await people.approve('Lalitha Rao', /Casual Leave/)).click();
     await expect(people.row('Lalitha Rao', /Casual Leave/)).toHaveCount(0);
+    /* With nothing left to approve, the inbox opens on her own joining tasks; To approve is empty. */
+    await people.main.getByRole('tab', { name: /^To approve/ }).click();
+    await expect(people.main.getByRole('tab', { name: /^To approve/ })).toHaveAttribute('aria-selected', 'true');
     await expect(people.main).toContainText('Nothing waiting for you');
     await people.openMine('My leave');
     await expect(mine).toContainText('Approved');

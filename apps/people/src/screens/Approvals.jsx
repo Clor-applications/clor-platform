@@ -261,7 +261,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
         </>}
         tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: tabCount[k], tone: 'warn' }))}
         tab={tab}
-        onTab={(k) => { setSelected(new Set()); set({ tab: k === 'waiting' ? null : k, page: null }, true); }}
+        onTab={(k) => { setSelected(new Set()); set({ tab: k, page: null }, true); }}
         tabsLabel="Approvals"
       />
 
