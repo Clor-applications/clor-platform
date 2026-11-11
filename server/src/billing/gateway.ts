@@ -29,8 +29,27 @@ export type NormalizedEvent = {
   amount?: number | null;
   /** The provider's payment id, or a UTR. */
   reference?: string | null;
+  /** A payment link for one of CLOR's invoices was paid (billing/payLinks.ts). */
+  invoice?: { invoiceId: string | null; linkId: string; amountPaid: number | null };
   raw: unknown;
 };
+
+/** What a payment link is made from: one CLOR invoice, its amount in paise, and who pays. */
+export type PayLinkInput = {
+  invoiceId: string;
+  accountId: string;
+  number: string;
+  amount: number;
+  description: string;
+  customer: { name: string; email: string | null; phone: string | null };
+  returnUrl: string;
+  expiresAt: Date;
+};
+export type PayLink = { id: string; url: string };
+/** A payment link as the provider sees it now. */
+export type PayLinkStatus = { paid: boolean; amountPaid: number | null; paymentId: string | null };
+/** A provider refused to make a link, in a sentence the customer can act on. */
+export class PayLinkError extends Error {}
 /** A webhook checked: the event, or the plain reason it was refused. */
 export type WebhookCheck = { ok: true; event: NormalizedEvent } | { ok: false; reason: string };
 /** "Test connection", in a sentence CLOR staff can act on. */
@@ -55,6 +74,10 @@ export interface PaymentGateway {
   checkWebhook?(rawBody: string | Buffer, headers: Record<string, unknown>): WebhookCheck;
   /** Ask the provider whether the saved keys work. Never charges anything. */
   testConnection?(): Promise<ConnectionResult>;
+  /** A hosted page where the customer pays one invoice by card, UPI or netbanking. */
+  createPaymentLink?(input: PayLinkInput): Promise<PayLink>;
+  /** Ask the provider whether a payment link has been paid. */
+  paymentLinkStatus?(linkId: string): Promise<PayLinkStatus>;
 }
 
 /** What customers paying by hand are shown: CLOR's UPI ID, a QR, and the bank account. */

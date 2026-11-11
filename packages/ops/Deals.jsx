@@ -33,6 +33,8 @@ export function DealDrawer({ open, account, onClose, onDone }) {
   const [draftInvoice, setDraftInvoice] = useState(true);
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState('');
+  /* The discount limit when this deal needs a second person (Approvals), else null. */
+  const [needs, setNeeds] = useState(null);
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +70,7 @@ export function DealDrawer({ open, account, onClose, onDone }) {
     let live = true;
     const t = setTimeout(() => {
       opsDealQuote(account.id, body)
-        .then((r) => live && (setQuote(r.deal), setQuoteError('')))
+        .then((r) => live && (setQuote(r.deal), setNeeds(r.needsApproval ? r.limit : null), setQuoteError('')))
         .catch((e) => live && (setQuote(null), setQuoteError(String(e?.message || e))));
     }, 200);
     return () => {
@@ -81,7 +83,8 @@ export function DealDrawer({ open, account, onClose, onDone }) {
   const ready = Boolean(quote) && (status === 'active' || Number(trialDays) >= 1);
   const confirm = async (reason) => {
     const r = await opsSetDeal(account.id, { ...body, status, trialDays: status === 'trialing' ? Number(trialDays) : null, startsOn, draftInvoice: status === 'active' && draftInvoice, reason });
-    notify.success(r.invoiceId ? `${account.name} is on ${quote.plan.name}. The first invoice is drafted in Invoices.` : `${account.name} is on ${quote.plan.name}.`);
+    if (r?.needsApproval) notify.success(`Sent for approval. ${account.name} moves to ${quote.plan.name} when a colleague approves it in Approvals.`);
+    else notify.success(r.invoiceId ? `${account.name} is on ${quote.plan.name}. The first invoice is drafted in Invoices.` : `${account.name} is on ${quote.plan.name}.`);
     onDone(r);
   };
 
@@ -91,8 +94,8 @@ export function DealDrawer({ open, account, onClose, onDone }) {
     <ReasonDrawer
       open={open}
       title="New subscription"
-      what={`Puts ${account.name} on a plan at a price: its apps open for every company they have, and the plan replaces whatever they had. Customers pay by invoice; nothing is charged to a card.`}
-      confirmLabel="Set subscription"
+      what={`Puts ${account.name} on a plan at a price: its apps open for every company they have, and the plan replaces whatever they had. They pay each invoice online, by UPI or by bank transfer.`}
+      confirmLabel={needs != null && quote ? 'Ask for approval' : 'Set subscription'}
       ready={ready}
       onClose={onClose}
       onConfirm={confirm}
@@ -214,6 +217,11 @@ export function DealDrawer({ open, account, onClose, onDone }) {
                 {inr(quote.total)} a {PER[quote.period]}
               </dd>
             </dl>
+          ) : null}
+          {needs != null && quote ? (
+            <p className="ws-notice" role="status">
+              This takes more than {needs}% off the list price, so a second person must approve it. It goes to Approvals, and nothing changes for {account.name} until a colleague approves it.
+            </p>
           ) : null}
           {status === 'active' ? (
             <label className="flex items-center gap-2">

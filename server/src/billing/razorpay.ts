@@ -1,4 +1,4 @@
-import type { ConnectionResult, GatewayCustomer, GatewaySubscription, NormalizedEvent, PaymentGateway, WebhookCheck } from './gateway.js';
+import { PayLinkError, type ConnectionResult, type GatewayCustomer, type GatewaySubscription, type NormalizedEvent, type PayLink, type PayLinkInput, type PayLinkStatus, type PaymentGateway, type WebhookCheck } from './gateway.js';
 import { call, defaultFetch, header, hmac, parseJson, rawText, sameText, type Fetcher } from './webhookKit.js';
 
 /**
@@ -72,6 +72,43 @@ export class RazorpayGateway implements PaymentGateway {
     return { subscriptionId: `local_${input.accountId}`, status: trial ? 'trialing' : 'active', currentPeriodEnd: trial ? new Date(Date.now() + input.trialDays! * 86400000) : null };
   }
 
+  /**
+   * A Razorpay payment link for one invoice: card, UPI, netbanking and
+   * wallets on Razorpay's own page, no partial payments, Razorpay's own SMS
+   * and email turned off (CLOR shows the invoice). The reference must be
+   * unique at Razorpay, so it carries a suffix: a second link for the same
+   * invoice (after the amount changed) is still accepted.
+   */
+  async createPaymentLink(input: PayLinkInput): Promise<PayLink> {
+    const body = {
+      amount: input.amount,
+      currency: 'INR',
+      accept_partial: false,
+      description: input.description.slice(0, 2048),
+      reference_id: `${input.number}-${Date.now().toString(36)}`.slice(0, 40),
+      customer: { name: input.customer.name.slice(0, 100), ...(input.customer.email ? { email: input.customer.email } : {}), ...(input.customer.phone ? { contact: input.customer.phone } : {}) },
+      notify: { sms: false, email: false },
+      reminder_enable: false,
+      notes: { accountId: input.accountId, invoiceId: input.invoiceId, invoiceNumber: input.number },
+      callback_url: input.returnUrl,
+      callback_method: 'get',
+      expire_by: Math.floor(input.expiresAt.getTime() / 1000),
+    };
+    const r = await call(this.fetcher, `${RAZORPAY_BASE}/payment_links`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+    if (r.status === 0) throw new PayLinkError('CLOR could not reach Razorpay. Try again in a few minutes.');
+    if (r.status >= 200 && r.status < 300 && r.body?.id && r.body?.short_url) return { id: String(r.body.id), url: String(r.body.short_url) };
+    throw new PayLinkError(`Razorpay did not make the payment page (${r.status}${r.body?.error?.description ? `: ${r.body.error.description}` : ''}). Try again, or pay by UPI or bank transfer.`);
+  }
+
+  async paymentLinkStatus(linkId: string): Promise<PayLinkStatus> {
+    const r = await call(this.fetcher, `${RAZORPAY_BASE}/payment_links/${encodeURIComponent(linkId)}`, { method: 'GET', headers: this.headers() });
+    if (r.status < 200 || r.status >= 300) throw new PayLinkError('Razorpay did not answer about this payment. Try again in a minute.');
+    const paid = r.body?.status === 'paid';
+    const payments = Array.isArray(r.body?.payments) ? r.body.payments : [];
+    const ok = payments.find((p: any) => p?.status === 'captured') || payments[0];
+    return { paid, amountPaid: Number.isInteger(r.body?.amount_paid) ? r.body.amount_paid : null, paymentId: ok?.payment_id ? String(ok.payment_id) : null };
+  }
+
   async cancelSubscription(subscriptionId: string, atPeriodEnd: boolean): Promise<void> {
     if (!subscriptionId || subscriptionId.startsWith('local_')) return;
     const r = await call(this.fetcher, `${RAZORPAY_BASE}/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, {
@@ -98,6 +135,15 @@ export function normalizeRazorpay(body: any, eventIdHeader?: string): Normalized
     reference,
     raw: body,
   };
+  if (body.event === 'payment_link.paid') {
+    /* One id for this link however CLOR hears it was paid (this webhook, or the check when the customer comes back), so it is applied once. */
+    const link = body.payload?.payment_link?.entity || {};
+    ev.eventId = `payment_link.paid:${link.id || reference || ''}`;
+    ev.accountId = link.notes?.accountId || accountId;
+    ev.amount = Number.isInteger(link.amount_paid) ? link.amount_paid : ev.amount;
+    if (link.id) ev.invoice = { invoiceId: link.notes?.invoiceId || null, linkId: String(link.id), amountPaid: ev.amount ?? null };
+    return ev;
+  }
   if (/^subscription\./.test(body.event) && SUBSCRIPTION_STATUS[sub.status]) {
     ev.subscription = { status: SUBSCRIPTION_STATUS[sub.status], gatewaySubscriptionId: sub.id || undefined, currentPeriodEnd: sub.current_end ? new Date(sub.current_end * 1000) : undefined };
   } else if (body.event === 'payment.captured' && accountId) {

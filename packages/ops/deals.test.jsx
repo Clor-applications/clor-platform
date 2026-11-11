@@ -118,6 +118,19 @@ describe('operator console: a subscription deal', () => {
     );
     expect(onDone).toHaveBeenCalled();
   });
+
+  it('says a big discount needs a second person, and sends it for approval', async () => {
+    api.opsDealOptions.mockResolvedValue({ plans, offers: [{ code: 'TEN', words: '40% off', planCodes: [], periods: [] }], current: null });
+    api.opsDealQuote.mockResolvedValue({ deal, needsApproval: true, limit: 20 });
+    api.opsSetDeal.mockResolvedValue({ needsApproval: true, approval: { id: 'ap1', status: 'PENDING' } });
+    const onDone = vi.fn();
+    render(<DealDrawer open account={{ id: 'acc', name: 'Meridian' }} onClose={() => {}} onDone={onDone} />);
+    expect(await screen.findByText(/takes more than 20% off the list price, so a second person must approve it/)).toBeInTheDocument();
+    fireEvent.change(why(), { target: { value: 'Matching a rival quote' } });
+    fireEvent.click(last('Ask for approval'));
+    await waitFor(() => expect(api.opsSetDeal).toHaveBeenCalledWith('acc', expect.objectContaining({ reason: 'Matching a rival quote' })));
+    expect(onDone).toHaveBeenCalled();
+  });
 });
 
 describe('operator console: subscriptions', () => {

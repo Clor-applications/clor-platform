@@ -11,7 +11,8 @@ import { getSubscription, setSubscription } from '../services/subscriptions.js';
 import { publishedBook } from '../services/pricing/books.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { PRICE_PERIODS, PRICE_UNITS, PRICEABLE_APPS, appName, rupees, type PricePeriod } from '../services/pricing/engine.js';
-import { DealError, fromBookPlan, offerProblem, offerWords, periodEnd, priceDeal, type DealOffer, type DealPlan } from '../services/pricing/deals.js';
+import { DealError, fromBookPlan, offerProblem, offerWords, periodEnd, priceDeal, unitWord, type DealOffer, type DealPlan } from '../services/pricing/deals.js';
+import { approvalSettings, askApproval } from '../services/ops/approvals.js';
 import { buyerFor, createDraft } from '../billing/invoices.js';
 import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
 import { audit, customerTitle } from './ops.js';
@@ -270,7 +271,7 @@ const planShape = (p: any, names: Map<string, string>) => ({
 });
 
 /** Customers by the name the console shows them under: their first company, unless the account was named. */
-const accountNames = async (ids: Array<string | null>) => {
+export const accountNames = async (ids: Array<string | null>) => {
   const list = [...new Set(ids.filter(Boolean))] as string[];
   if (!list.length) return new Map<string, string>();
   const [rows, owners] = await Promise.all([
@@ -435,111 +436,136 @@ opsDealsRouter.post('/ops/accounts/:id/deal/quote', (req, res) =>
     const p = dealFields.safeParse(req.body);
     if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Pick a plan, a period and how many.' });
     try {
-      res.json({ deal: (await quoteFor(id, p.data)).deal });
+      const q = await quoteFor(id, p.data);
+      const limit = (await approvalSettings()).discountPercent;
+      /* Whether setting it will need a second person (Approvals), so the drawer can say so before it is sent. */
+      res.json({ deal: q.deal, needsApproval: !q.held && q.deal.discount > 0 && q.deal.discount * 100 > limit * q.deal.listAmount, limit });
     } catch (e) {
       return fail(res, e);
     }
   }),
 );
 
+export const dealBody = dealFields.extend({
+  status: z.enum(['active', 'trialing']).default('active'),
+  trialDays: z.number().int().min(1).max(365).nullable().optional(),
+  startsOn: day.nullable().optional(),
+  draftInvoice: z.boolean().default(false),
+  reason,
+});
+export type DealBody = z.infer<typeof dealBody>;
+
+/** One line naming a deal, for the approvals list and the audit log. */
+export const dealSummary = (q: { deal: { plan: { name: string; unit: string }; quantity: number; period: string; offer: { code: string; words: string } | null; periodAmount: number; listAmount: number } }) =>
+  `${q.deal.plan.name}, ${unitWord(q.deal.plan.unit, q.deal.quantity)}, ${q.deal.period === 'YEARLY' ? 'yearly' : 'monthly'}, ${rupees(q.deal.periodAmount)} instead of ${rupees(q.deal.listAmount)}${q.deal.offer ? ` (${q.deal.offer.code}: ${q.deal.offer.words})` : ''}`.slice(0, 300);
+
+/** The share of the list price a deal takes off, in percent (two decimals). */
+export const discountShare = (d: { discount: number; listAmount: number }) => (d.listAmount > 0 ? Math.round((d.discount * 10000) / d.listAmount) / 100 : 0);
+
 /**
  * Set the deal: the subscription carries the plan's apps, the units, the
  * period and the price, from the start date. An offer counts one customer the
  * first time it is set on them. With draftInvoice, the first period's invoice
- * is drafted for Billing to check and issue.
+ * is drafted for Billing to check and issue. Priced again here, so a deal
+ * approved later uses the offer and plan as they are then.
+ */
+export async function applyDeal(id: string, v: DealBody, operatorUserId: string) {
+  const q = await quoteFor(id, v);
+  const { plan, offer, deal, held: sameOffer } = q;
+  const before = await getSubscription(id);
+
+  /* Count the customer on the offer first, conditionally, so the last place cannot be taken twice. */
+  if (offer && !sameOffer) {
+    const taken = await platformPrisma.offer.updateMany({
+      where: { id: offer.id, archivedAt: null, pausedAt: null, ...(offer.maxRedemptions != null ? { redemptions: { lt: offer.maxRedemptions } } : {}) },
+      data: { redemptions: { increment: 1 } },
+    });
+    if (!taken.count) throw new DealError(`${offer.code} has just been used up or paused. Choose another offer.`, 409);
+  }
+
+  const start = v.startsOn || new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+  const firstDay = v.status === 'trialing' ? new Date(start.getTime() + v.trialDays! * 86_400_000) : start;
+  const end = periodEnd(firstDay, deal.period);
+  const keep = new Map((before?.items || []).map((i) => [i.appCode, i]));
+  try {
+    await setSubscription(id, {
+      /* People carries Attendance, as everywhere else a plan is set. */
+      apps: [...new Set([...plan.apps, ...(plan.apps.includes('people') ? ['attendance'] : [])])].map((appCode) => ({ appCode, tier: keep.get(appCode)?.tier ?? null, seats: deal.quantity, priceModel: 'plan', unitAmount: null })),
+      status: v.status,
+      billingInterval: deal.period === 'YEARLY' ? 'year' : 'month',
+      trialEndsAt: v.status === 'trialing' ? firstDay : null,
+      currentPeriodEnd: end,
+    });
+  } catch (e) {
+    if (offer && !sameOffer) await platformPrisma.offer.update({ where: { id: offer.id }, data: { redemptions: { decrement: 1 } } });
+    throw e;
+  }
+  const offerEndsAt = offer && offer.durationPeriods != null ? periodEnd(firstDay, deal.period, offer.durationPeriods) : null;
+  await platformPrisma.subscription.update({
+    where: { accountId: id },
+    data: {
+      planSource: plan.source,
+      planRef: plan.ref,
+      planName: plan.name,
+      planUnit: plan.unit,
+      quantity: deal.quantity,
+      listAmount: deal.listAmount,
+      periodAmount: deal.periodAmount,
+      offerId: offer?.id ?? null,
+      offerCode: offer?.code ?? null,
+      offerEndsAt,
+      currentPeriodStart: firstDay,
+      ...(v.status === 'active' ? { trialEndsAt: null } : {}),
+    },
+  });
+  clearAccessCache();
+
+  let invoice: { id: string } | null = null;
+  if (v.draftInvoice) {
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const lastDay = new Date(end.getTime() - 86_400_000);
+    invoice = await createDraft({ accountId: id, lines: [deal.line], periodStart: iso(firstDay), periodEnd: iso(lastDay), months: deal.period === 'YEARLY' ? 12 : 1 }, operatorUserId);
+  }
+  const record = {
+    plan: plan.name,
+    units: deal.quantity,
+    period: deal.period === 'YEARLY' ? 'yearly' : 'monthly',
+    price: rupees(deal.periodAmount),
+    ...(offer ? { offer: `${offer.code} (${deal.offer?.words})` } : {}),
+    ...(v.status === 'trialing' ? { trial: `${v.trialDays} days` } : {}),
+    reason: v.reason,
+  };
+  return { deal, invoiceId: invoice?.id ?? null, subscription: await getSubscription(id), record };
+}
+
+/**
+ * Set a deal, or, when its discount is above the limit (Approvals), ask a
+ * second person: 202 with the request, and nothing changes until someone
+ * else approves it. A customer keeping the offer they already hold is not
+ * asked again.
  */
 opsDealsRouter.post('/ops/accounts/:id/deal', ...BILLING, (req, res) =>
   outsideTenant('ops: set a subscription deal', async () => {
     const id = String(req.params.id);
-    const p = dealFields
-      .extend({
-        status: z.enum(['active', 'trialing']).default('active'),
-        trialDays: z.number().int().min(1).max(365).nullable().optional(),
-        startsOn: day.nullable().optional(),
-        draftInvoice: z.boolean().default(false),
-        reason,
-      })
-      .safeParse(req.body);
+    const p = dealBody.safeParse(req.body);
     if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the subscription.' });
     const v = p.data;
     if (!(await platformPrisma.account.findUnique({ where: { id }, select: { id: true } }))) return res.status(404).json({ error: 'No such customer' });
     if (v.status === 'trialing' && !v.trialDays) return res.status(400).json({ error: 'Say how many days the trial lasts.' });
-    let q: Awaited<ReturnType<typeof quoteFor>>;
     try {
-      q = await quoteFor(id, v);
+      const q = await quoteFor(id, v);
+      const limit = (await approvalSettings()).discountPercent;
+      if (!q.held && q.deal.discount > 0 && q.deal.discount * 100 > limit * q.deal.listAmount) {
+        const customerName = (await accountNames([id])).get(id) || 'A customer';
+        const approval = await askApproval(req, { kind: 'DEAL', accountId: id, customerName, payload: req.body, summary: dealSummary(q), discountPercent: Math.round(discountShare(q.deal)), reason: v.reason });
+        return res.status(202).json({ needsApproval: true, approval, limit });
+      }
+      const r = await applyDeal(id, v, req.auth!.userId);
+      await audit(req, 'SUBSCRIPTION_DEAL_SET', { accountId: id }, r.record);
+      res.json({ deal: r.deal, invoiceId: r.invoiceId, subscription: r.subscription });
     } catch (e) {
       return fail(res, e);
     }
-    const { plan, offer, deal, held: sameOffer } = q;
-    const before = await getSubscription(id);
-
-    /* Count the customer on the offer first, conditionally, so the last place cannot be taken twice. */
-    if (offer && !sameOffer) {
-      const taken = await platformPrisma.offer.updateMany({
-        where: { id: offer.id, archivedAt: null, pausedAt: null, ...(offer.maxRedemptions != null ? { redemptions: { lt: offer.maxRedemptions } } : {}) },
-        data: { redemptions: { increment: 1 } },
-      });
-      if (!taken.count) return res.status(409).json({ error: `${offer.code} has just been used up or paused. Choose another offer.` });
-    }
-
-    const start = v.startsOn || new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
-    const firstDay = v.status === 'trialing' ? new Date(start.getTime() + v.trialDays! * 86_400_000) : start;
-    const end = periodEnd(firstDay, deal.period);
-    const keep = new Map((before?.items || []).map((i) => [i.appCode, i]));
-    try {
-      await setSubscription(id, {
-        /* People carries Attendance, as everywhere else a plan is set. */
-        apps: [...new Set([...plan.apps, ...(plan.apps.includes('people') ? ['attendance'] : [])])].map((appCode) => ({ appCode, tier: keep.get(appCode)?.tier ?? null, seats: deal.quantity, priceModel: 'plan', unitAmount: null })),
-        status: v.status,
-        billingInterval: deal.period === 'YEARLY' ? 'year' : 'month',
-        trialEndsAt: v.status === 'trialing' ? firstDay : null,
-        currentPeriodEnd: end,
-      });
-    } catch (e) {
-      if (offer && !sameOffer) await platformPrisma.offer.update({ where: { id: offer.id }, data: { redemptions: { decrement: 1 } } });
-      throw e;
-    }
-    const offerEndsAt = offer && offer.durationPeriods != null ? periodEnd(firstDay, deal.period, offer.durationPeriods) : null;
-    await platformPrisma.subscription.update({
-      where: { accountId: id },
-      data: {
-        planSource: plan.source,
-        planRef: plan.ref,
-        planName: plan.name,
-        planUnit: plan.unit,
-        quantity: deal.quantity,
-        listAmount: deal.listAmount,
-        periodAmount: deal.periodAmount,
-        offerId: offer?.id ?? null,
-        offerCode: offer?.code ?? null,
-        offerEndsAt,
-        currentPeriodStart: firstDay,
-        ...(v.status === 'active' ? { trialEndsAt: null } : {}),
-      },
-    });
-    clearAccessCache();
-
-    let invoice: { id: string } | null = null;
-    if (v.draftInvoice) {
-      const iso = (d: Date) => d.toISOString().slice(0, 10);
-      const lastDay = new Date(end.getTime() - 86_400_000);
-      invoice = await createDraft({ accountId: id, lines: [deal.line], periodStart: iso(firstDay), periodEnd: iso(lastDay), months: deal.period === 'YEARLY' ? 12 : 1 }, req.auth!.userId);
-    }
-    await audit(
-      req,
-      'SUBSCRIPTION_DEAL_SET',
-      { accountId: id },
-      {
-        plan: plan.name,
-        units: deal.quantity,
-        period: deal.period === 'YEARLY' ? 'yearly' : 'monthly',
-        price: rupees(deal.periodAmount),
-        ...(offer ? { offer: `${offer.code} (${deal.offer?.words})` } : {}),
-        ...(v.status === 'trialing' ? { trial: `${v.trialDays} days` } : {}),
-        reason: v.reason,
-      },
-    );
-    res.json({ deal, invoiceId: invoice?.id ?? null, subscription: await getSubscription(id) });
   }),
 );
 

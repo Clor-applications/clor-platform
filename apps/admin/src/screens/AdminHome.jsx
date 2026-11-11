@@ -165,7 +165,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   /* Needs your attention: only what is true and actionable, the most urgent first. */
   const attention = [
     planBad ? { key: 'plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: `Status: ${String(plan.status || '').toLowerCase()}.`, go: go('account') } : null,
-    seesPlan && bills?.overdue ? { key: 'overdue', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Each invoice has a UPI QR.</>, go: go('billing') } : null,
+    seesPlan && bills?.overdue ? { key: 'overdue', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Open Billing to pay.</>, go: go('billing') } : null,
     renewalLine ? { key: 'renewal', icon: ICON.plan, ...renewalLine, go: go('account') } : null,
     waiting?.waiting ? { key: 'waiting', icon: ICON.history, tone: 'brand', title: `${plural(waiting.waiting, 'thing')} waiting for you`, sub: [waiting.approvals ? plural(waiting.approvals, 'approval') : '', waiting.tasks ? plural(waiting.tasks, 'task') : ''].filter(Boolean).join(' · ') || 'In your inbox.', go: inboxApp ? () => openApp?.(inboxApp) : null } : null,
     health?.status === 'attention' ? { key: 'sync', icon: ICON.data, tone: 'warn', title: `${plural(health.issues, 'sync problem')}`, sub: health.alerts?.[0]?.title || health.sources.filter((x) => x.issues).map((x) => x.label).join(', '), go: null } : null,

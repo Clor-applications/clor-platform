@@ -33,6 +33,10 @@ export const opsDealOptions = (id) => apiFetch(`/ops/accounts/${enc(id)}/deal-op
 export const opsDealQuote = (id, body) => apiFetch(`/ops/accounts/${enc(id)}/deal/quote`, { ...o, method: 'POST', body });
 export const opsSetDeal = (id, body) => apiFetch(`/ops/accounts/${enc(id)}/deal`, { ...o, method: 'POST', body });
 export const opsSubscriptions = (params) => apiFetch(`/ops/subscriptions${q(params)}`, o);
+/* Two-person approval (server: routes/opsApprovals.ts). */
+export const opsApprovals = (status) => apiFetch(`/ops/approvals${q({ status })}`, o);
+export const opsApprovalStep = (id, step, note) => apiFetch(`/ops/approvals/${enc(id)}/${step}`, { ...o, method: 'POST', body: note ? { note } : {} });
+export const opsApprovalLimit = (discountPercent, reason) => apiFetch('/ops/approvals/settings', { ...o, method: 'PUT', body: { discountPercent, reason } });
 export const opsAudit = (params) => apiFetch(`/ops/audit${q(params)}`, o);
 export const opsOperators = () => apiFetch('/ops/operators', o);
 export const opsAddOperator = (body) => apiFetch('/ops/operators', { ...o, method: 'POST', body });
@@ -135,6 +139,8 @@ export const opsSaveInvoicing = (body) => apiFetch('/ops/invoicing', { ...o, met
 export const opsBooksChoices = (search) => apiFetch(`/ops/invoicing/books/choices${q({ q: search })}`, o);
 export const opsSaveBooksLink = (body) => apiFetch('/ops/invoicing/books', { ...o, method: 'PUT', body });
 export const opsTestBooks = () => apiFetch('/ops/invoicing/books/test', { ...o, method: 'POST', body: {} });
+export const opsRenewals = () => apiFetch('/ops/invoicing/renewals', o);
+export const opsRunRenewals = () => apiFetch('/ops/invoicing/renewals/run', { ...o, method: 'POST', body: {} });
 
 /* Customer tickets (Ops plan P1; server: routes/opsTickets.ts). */
 export const opsTickets = (params) => apiFetch(`/ops/tickets${q(params)}`, o);

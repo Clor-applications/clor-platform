@@ -135,6 +135,7 @@ import { opsRouter } from './routes/ops.js';
 import { opsCustomersRouter } from './routes/opsCustomers.js';
 import { opsLimitsRouter } from './routes/opsLimits.js';
 import { opsDealsRouter } from './routes/opsDeals.js';
+import { opsApprovalsRouter } from './routes/opsApprovals.js';
 import { opsEmailRouter } from './routes/opsEmail.js';
 import { appCatalogueCors, opsCatalogueRouter, publicAppCatalogueRouter } from './routes/opsCatalogue.js';
 import { exploreRouter } from './routes/explore.js';
@@ -474,6 +475,7 @@ export function buildApp() {
   app.use('/api', opsCustomersRouter);
   app.use('/api', opsLimitsRouter);
   app.use('/api', opsDealsRouter);
+  app.use('/api', opsApprovalsRouter);
   app.use('/api', opsEmailRouter);
   app.use('/api', opsCatalogueRouter);
 

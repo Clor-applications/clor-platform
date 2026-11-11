@@ -23,6 +23,7 @@ import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startOpsAlerts } from './services/ops/alerts.js';
+import { startRenewals } from './billing/renewals.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
@@ -115,6 +116,8 @@ startEngagement();
 startNotificationPruning();
 /* Alerts for CLOR staff on ops.clor.in: failing jobs, stuck mail, offline readers, overdue invoices, waiting tickets. */
 startOpsAlerts();
+/* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
+startRenewals();
 startBooksDigest();
 startWeeklySummary();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

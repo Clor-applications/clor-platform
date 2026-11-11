@@ -78,6 +78,38 @@ If you did not ask for this, reset your password now and reply to this email.`,
     transactional: true,
   },
   {
+    key: 'billing.renewal_invoice',
+    label: 'Renewal invoice (to the customer)',
+    description: 'Sent to the account owner when CLOR issues the invoice for their next period, a few days before it starts (Money, Invoice settings, Renewals).',
+    subject: 'CLOR invoice {{number}} for {{amount}}',
+    body: `Hello {{userName}},
+
+Your CLOR subscription renews on {{renewsOn}}. Invoice {{number}} for {{amount}} covers {{period}} and is due by {{dueOn}}.
+
+Open it to pay online, by UPI or by bank transfer: {{billingUrl}}
+
+Thank you for using CLOR.`,
+    fields: ['userName', 'number', 'amount', 'period', 'renewsOn', 'dueOn', 'billingUrl'],
+    transactional: true,
+  },
+  {
+    key: 'ops.approval_asked',
+    label: 'A discount waits for approval (to CLOR staff)',
+    description: 'Sent to Billing staff and the owner when a colleague sets a deal whose discount is over the limit on the Approvals page. Someone other than the person who asked must approve it.',
+    subject: 'Approve a discount for {{customer}}',
+    body: `Hello {{userName}},
+
+{{askedBy}} asks to set this subscription for {{customer}}:
+
+{{summary}}
+
+Why: {{reason}}
+
+It needs a second person. Approve or turn it down: {{opsUrl}}`,
+    fields: ['userName', 'askedBy', 'customer', 'summary', 'reason', 'opsUrl'],
+    transactional: true,
+  },
+  {
     key: 'ops.alerts_opened',
     label: 'New alerts (to CLOR staff)',
     description: 'Sent to CLOR staff when the alerts job finds something new for them: a failing job, stuck mail, offline readers, an overdue invoice, a waiting ticket.',

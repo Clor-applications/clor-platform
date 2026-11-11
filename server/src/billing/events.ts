@@ -28,15 +28,52 @@ const normalizedOf = (ev: NormalizedEvent) => ({
   amount: ev.amount ?? null,
   reference: ev.reference ?? null,
   subscription: ev.subscription ? { ...ev.subscription, currentPeriodEnd: ev.subscription.currentPeriodEnd ? new Date(ev.subscription.currentPeriodEnd).toISOString() : null } : null,
+  invoice: ev.invoice ?? null,
 });
 const eventFrom = (n: any): NormalizedEvent => ({
   ...n,
   subscription: n.subscription ? { ...n.subscription, currentPeriodEnd: n.subscription.currentPeriodEnd ? new Date(n.subscription.currentPeriodEnd) : undefined } : undefined,
+  invoice: n.invoice ?? undefined,
   raw: null,
 });
 
+/**
+ * A payment link for one of CLOR's invoices was paid (billing/payLinks.ts):
+ * the invoice is marked paid with the provider's payment id, and the
+ * subscription is active and paid for the invoice's months, counted from when
+ * the current paid period ends (or today), as Mark paid does.
+ */
+async function payInvoice(ev: NormalizedEvent, rowId: string): Promise<{ status: EventStatus; detail: string | null }> {
+  const p = ev.invoice!;
+  const inv =
+    (p.invoiceId ? await platformPrisma.billingInvoice.findUnique({ where: { id: p.invoiceId } }) : null) ||
+    (await platformPrisma.billingInvoice.findFirst({ where: { payLinkId: p.linkId } }));
+  if (!inv) return { status: 'RECORDED', detail: 'The payment did not name an invoice CLOR knows, so nothing changed. Find the customer and mark their invoice paid by hand.' };
+  if (inv.status === 'PAID') return { status: 'RECORDED', detail: `Invoice ${inv.number} was already paid, so nothing changed.` };
+  if (inv.status !== 'ISSUED') return { status: 'RECORDED', detail: `Invoice ${inv.number} was cancelled before this payment arrived. Refund the customer from the provider’s dashboard.` };
+  if (p.amountPaid != null && p.amountPaid < inv.total)
+    return { status: 'RECORDED', detail: `The customer paid ₹${(p.amountPaid / 100).toFixed(2)}, less than invoice ${inv.number}’s ₹${(inv.total / 100).toFixed(2)}, so it stays unpaid. Settle the difference with them.` };
+  const sub = await getSubscription(inv.accountId);
+  const from = sub?.currentPeriodEnd && sub.currentPeriodEnd > new Date() ? sub.currentPeriodEnd : new Date();
+  const until = addMonths(from, inv.months);
+  const paid = await platformPrisma.$transaction(async (tx) => {
+    const done = await tx.billingInvoice.updateMany({
+      where: { id: inv.id, status: 'ISSUED' },
+      data: { status: 'PAID', paidAt: new Date(), paidAmount: p.amountPaid ?? inv.total, paymentReference: ev.reference ? String(ev.reference).slice(0, 60) : p.linkId, paymentEventId: rowId },
+    });
+    if (!done.count) return false;
+    if (sub) await tx.subscription.updateMany({ where: { accountId: inv.accountId }, data: { status: 'active', currentPeriodEnd: until, gatewayName: ev.gateway } });
+    return true;
+  });
+  if (!paid) return { status: 'RECORDED', detail: `Invoice ${inv.number} changed a moment ago, so nothing changed. Open it to check.` };
+  if (!sub) return { status: 'APPLIED', detail: `Invoice ${inv.number} is paid. The account has no subscription, so nothing else changed.` };
+  await syncAccountEntitlement(inv.accountId);
+  return { status: 'APPLIED', detail: `Invoice ${inv.number} paid online. The subscription is active, paid until ${day(until)}.` };
+}
+
 /** What an event does to the account's subscription, and the sentence the log shows for it. */
-async function applyTo(ev: NormalizedEvent): Promise<{ status: EventStatus; detail: string | null }> {
+async function applyTo(ev: NormalizedEvent, rowId: string): Promise<{ status: EventStatus; detail: string | null }> {
+  if (ev.invoice) return payInvoice(ev, rowId);
   if (!ev.subscription) return { status: 'RECORDED', detail: null };
   if (!ev.accountId) return { status: 'RECORDED', detail: 'The event did not name a CLOR account, so no subscription changed.' };
   const s = ev.subscription;
@@ -57,7 +94,7 @@ async function applyTo(ev: NormalizedEvent): Promise<{ status: EventStatus; deta
 
 async function applyRow(id: string, ev: NormalizedEvent) {
   try {
-    const r = await applyTo(ev);
+    const r = await applyTo(ev, id);
     await platformPrisma.paymentEvent.update({ where: { id }, data: { status: r.status, detail: r.detail, processed: true, processedAt: new Date(), attempts: { increment: 1 } } });
     return { applied: true, id, status: r.status, detail: r.detail };
   } catch (e) {
@@ -100,7 +137,8 @@ export async function applyGatewayEvent(ev: NormalizedEvent, by?: { userId?: str
 
 /** Whether Retry makes sense: it failed, or it waits for a subscription that may exist now. */
 export const retryable = (row: { status: string; normalized: unknown }) => {
-  const n = row.normalized as { subscription?: unknown; accountId?: string } | null;
+  const n = row.normalized as { subscription?: unknown; accountId?: string; invoice?: unknown } | null;
+  if (n?.invoice) return row.status === 'FAILED';
   return (row.status === 'FAILED' || row.status === 'RECORDED') && Boolean(n?.subscription && n?.accountId);
 };
 
@@ -176,6 +214,8 @@ export function describe(type: string): string {
     'payment.authorized': 'Payment authorised',
     'payment.failed': 'Payment failed',
     'payment.manual': 'Payment recorded by hand',
+    'payment_link.paid': 'Invoice paid online',
+    PAYMENT_LINK_EVENT: 'Payment link event',
     rejected: 'Event refused',
   };
   if (known[type]) return known[type];
