@@ -34,13 +34,17 @@ describe('People navigation', () => {
     ]);
     expect(groupsOf('leave')).toEqual([
       ['Leave', ["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances']],
-      ['Attendance', ['Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent without leave', 'Night work']],
+      ['Attendance', ['Daily attendance', 'All attendance records', 'Days to check', 'Attendance fixes', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work']],
+      /* Shifts, readers and the month's close are People's too (owner, 11 Nov 2026). */
+      ['Shifts', ['Shift calendar', 'Shifts', 'Who is on which shift', 'Temporary shifts', 'Shift swaps']],
+      ['Readers', ['Readers', 'Reader health', 'Punches', 'Punches with no employee']],
+      ['Month end', ['Ready for payroll?', 'Employee confirmations', 'Month close']],
     ]);
     expect(groupsOf('talent').map(([l]) => l)).toEqual(['Hiring', 'Performance']);
     expect(groupsOf('talent')[0][1]).not.toContain('Refer someone');
     expect(groupsOf('reports')).toEqual([
       ['People', ['Headcount & attrition']],
-      ['Time', ['Leave register', 'Requests report']],
+      ['Time', ['Monthly attendance', 'Daily attendance register', 'All attendance reports', 'Leave register', 'Requests report']],
       ['Statutory registers', ['Statutory registers']],
     ]);
   });
@@ -64,7 +68,7 @@ describe('People navigation', () => {
 
   it('Settings is the plan’s seven groups, in order, and every Settings row has its own icon', async () => {
     const { GROUPS } = await import('../apps/people/src/screens/PeopleSettings.jsx');
-    expect(GROUPS.map((g) => g.title)).toEqual(['Company', 'More structure', 'People', 'Time', 'Requests & approvals', 'Data & privacy', 'Access & apps']);
+    expect(GROUPS.map((g) => g.title)).toEqual(['Company', 'More structure', 'People', 'Time', 'Shifts & readers', 'Requests & approvals', 'Data & privacy', 'Access & apps']);
     expect(GROUPS.find((g) => g.title === 'Requests & approvals').items.map(([k]) => k)).toContain('standIns');
     expect(GROUPS.find((g) => g.title === 'Company').items.map(([k]) => k)).toEqual(expect.arrayContaining(['departments', 'jobPositions', 'branches', 'orgChanges', 'compliance']));
     expect(GROUPS.find((g) => g.title === 'Data & privacy').items.map(([k]) => k)).toContain('auditEvidence');
@@ -154,7 +158,7 @@ describe('People navigation in simple mode', () => {
   it('keeps every module that has a screen left, and the leave screens under one naming rule', () => {
     const modules = resolveModules(peopleApp, simple);
     expect(modules.map((m) => m.label)).toEqual(['Home', 'Inbox', 'People', 'Time', 'Workplace', 'Talent', 'Reports', 'Settings']);
-    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Daily attendance', 'Attendance fixes', 'Shift swaps', 'Late marks', 'Absent without leave', 'Night work']);
+    expect(modules.find((m) => m.key === 'leave').items.map((i) => i.label)).toEqual(["Who's away", 'Leave requests', 'Leave calendar', 'Leave balances', 'Daily attendance', 'All attendance records', 'Days to check', 'Attendance fixes', 'Overtime & comp-off', 'Late marks', 'Absent without leave', 'Night work', 'Shift calendar', 'Shifts', 'Who is on which shift', 'Temporary shifts', 'Shift swaps', 'Readers', 'Reader health', 'Punches', 'Punches with no employee', 'Ready for payroll?', 'Employee confirmations', 'Month close']);
   });
 
   it('shows everything when simple mode is off, or when the company’s switches are not known yet', () => {

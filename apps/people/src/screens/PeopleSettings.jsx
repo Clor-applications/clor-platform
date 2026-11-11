@@ -50,7 +50,7 @@ export const GROUPS = [
   },
   {
     title: 'Time',
-    note: 'Leave rules and the company calendar; Attendance uses the same ones.',
+    note: 'Leave rules and the company calendar.',
     items: [
       ['leaveTypes', 'The leave period, and each kind of leave: credits and their dates, who it is for, notice, carry forward, pay-out'],
       ['holidays', 'Company and location holidays'],
@@ -59,6 +59,25 @@ export const GROUPS = [
       ['leaveYearEnd', 'What carries, lapses or is paid out when the leave period ends'],
       ['attendanceRules', 'Late marks that cost part of a day, missing-punch reminders, unexplained absence and night work for women'],
       ['requestRules', 'Work from home, on duty, missed punch and permission hours: what is on, monthly limits, who approves'],
+    ],
+  },
+  {
+    title: 'Shifts & readers',
+    note: 'How shifts repeat, where people may punch from, and how readers know each person.',
+    items: [
+      ['shiftPolicy', 'The shift for anyone with no schedule, and what a late arrival costs'],
+      ['weeklyOffPolicy', 'Which days each shift has off'],
+      ['overtimePolicy', 'When extra hours count as overtime, and how they are paid or given back as time off'],
+      ['departmentSchedule', 'One shift for a whole department'],
+      ['rotations', 'Shifts that change by the week, such as morning then night'],
+      ['sites', 'The places people may punch from on their phone'],
+      ['siteCheck', 'Test a punch area on the map before staff use it'],
+      ['phonePunches', 'Punches made from the employee app, with their place and photo'],
+      ['enrolments', 'Whose fingerprint or face is on which reader'],
+      ['idMapping', 'The number each reader knows a person by'],
+      ['readerSync', 'When each reader last sent its punches'],
+      ['deviceLogs', 'What each reader reported, for finding a fault'],
+      ['contractors', 'Contract labour agencies whose workers punch here'],
     ],
   },
   {
@@ -99,7 +118,7 @@ export const GROUPS = [
     ],
     apps: [
       ['payroll', 'Payroll', 'Salaries, statutory deductions and payslips for these people'],
-      ['attendance', 'Attendance', 'Readers, shifts and days for these people'],
+      ['attendance', 'Attendance', 'The same readers, shifts and days, as an app of its own'],
     ],
   },
 ];

@@ -477,15 +477,17 @@ function ShellScreens() {
   /* Where each screen was opened from (owner, 29 Oct 2026): a Settings page opened from Leave balances or an
      employee's record goes back there, not to the Settings hub. Kept per screen, for the visit in hand. */
   const [cameFrom, setCameFrom] = useState({});
-  const noteOrigin = (next) => {
+  /* `link`: opened by a link on the page being read (a figure on Home, a name in a list), not from the menu. Back
+     then returns to that page, whichever module it is in (owner, 11 Nov 2026); a menu click starts afresh. */
+  const noteOrigin = (next, link = false) => {
     if (!next || next === screenKeyRef.current) return;
     const from = screenKeyRef.current;
-    setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null } : null }));
+    setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null, link } : null }));
   };
-  const goTo = (key, params) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params)); };
+  const goTo = (key, params, link = false) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params, link)); };
   /* `params` open the screen on one thing (a notice about one candidate); a rail click passes none. */
-  const goToNow = (key, params = null) => {
-    noteOrigin(key);
+  const goToNow = (key, params = null, link = false) => {
+    noteOrigin(key, link);
     setScreenKey(key);
     setScreenParams(params && typeof params === 'object' ? params : null);
     setPlatformScreen(null);
@@ -536,7 +538,7 @@ function ShellScreens() {
   });
   useEffect(() => {
     const onScreen = (e) => {
-      if (e.detail?.screen) goToRef.current?.(e.detail.screen, e.detail.params || null);
+      if (e.detail?.screen) goToRef.current?.(e.detail.screen, e.detail.params || null, true);
     };
     window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
     return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);
@@ -1484,10 +1486,15 @@ function ShellScreens() {
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
                       /* Only under a hub (Settings); a page inside a list's module (an employee record) draws its own breadcrumb. */
                       const parent = parentKey && nav.find((n) => n.key === parentKey && n.hub);
-                      if (!parent) return null;
                       /* Opened from elsewhere (a list, a record, a quick link): back goes there, with its tab and filters. */
                       const from = cameFrom[screen];
-                      const origin = from && from.key !== parent.key ? nav.find((n) => n.key === from.key) : null;
+                      /* Any other page reached by a link on another page gets the same way back to where the link was
+                         clicked (owner, 11 Nov 2026). Not when that page is its own list (Employees above a record):
+                         the page's breadcrumb already goes there. */
+                      const linked = !parent && from?.link && from.key !== screen && from.key !== parentKey;
+                      if (!parent && !linked) return null;
+                      const origin = from && from.key !== parent?.key ? nav.find((n) => n.key === from.key) : null;
+                      if (!parent && !origin) return null;
                       const back = () => confirmLeave(askLeave).then((ok) => {
                         if (!ok) return;
                         if (!origin) { goToNow(parent.key); return; }
@@ -1538,7 +1545,7 @@ function ShellScreens() {
                           if (!app?.screens?.[key]) return;
                           confirmLeave(askLeave).then((ok) => {
                             if (!ok) return;
-                            noteOrigin(key);
+                            noteOrigin(key, true);
                             setScreenKey(key);
                             setScreenParams(params && typeof params === 'object' ? params : null);
                             setPlatformScreen(null);
