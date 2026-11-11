@@ -14,7 +14,9 @@ import { InvitationError, resendInvitation } from '../services/accountInvitation
 import { deliver, sendTemplate } from '../services/mailer.js';
 import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
 import { operatorActionLabel } from '../constants/operatorActions.js';
-import { audit, auditSummary } from './ops.js';
+import { audit } from './ops.js';
+import { accountTimeline } from '../services/ops/timeline.js';
+import { ticketCode } from '../services/support/tickets.js';
 
 /**
  * One page per customer (operator console, Customers; roadmap item 13): the
@@ -134,8 +136,13 @@ opsCustomersRouter.get('/ops/accounts/:id/requests', (req, res) =>
       take: 50,
       select: { id: true, name: true, company: true, email: true, status: true, apps: true, message: true, createdAt: true },
     });
-    /* Support messages: the product has no in-app support inbox yet; the list fills when it does. */
-    res.json({ demoRequests: demos, support: [] });
+    const tickets = await platformPrisma.supportTicket.findMany({
+      where: { accountId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: { id: true, number: true, subject: true, status: true, priority: true, createdAt: true, updatedAt: true },
+    });
+    res.json({ demoRequests: demos, support: tickets.map((t) => ({ ...t, code: ticketCode(t.number) })) });
   }),
 );
 
@@ -316,38 +323,14 @@ opsCustomersRouter.post('/ops/accounts/:id/invitations/:invitationId/resend', re
 
 /* --------------------------------------------------------------- activity */
 
-const SECURITY_WORDS: Record<string, string> = {
-  LOGIN_SUCCESS: 'Signed in',
-  LOGIN_FAILED: 'Sign-in failed',
-  LOCKED_OUT: 'Locked out after wrong passwords',
-  LOGOUT: 'Signed out',
-  PASSWORD_RESET_REQUESTED: 'Asked for a password reset',
-  PASSWORD_RESET: 'Set a new password',
-  SESSION_REVOKED: 'A session was ended',
-};
-
-/** Everything that happened on this account: what CLOR did, and what its own people did, newest first. */
+/** The customer's timeline, newest first; `before` (an ISO time from `older`) pages back. Business records stay out (services/ops/timeline.ts). */
 opsCustomersRouter.get('/ops/accounts/:id/activity', (req, res) =>
-  outsideTenant('ops: customer activity', async () => {
+  outsideTenant('ops: customer timeline', async () => {
     const id = String(req.params.id);
-    if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
-    const [ops, security, account] = await Promise.all([
-      platformPrisma.operatorAuditEvent.findMany({ where: { targetAccountId: id }, orderBy: { at: 'desc' }, take: 100 }),
-      platformPrisma.authEvent.findMany({ where: { accountId: id, NOT: { eventType: { startsWith: 'OPERATOR_' } } }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, eventType: true, email: true, createdAt: true } }),
-      platformPrisma.accountAuditEvent.findMany({ where: { accountId: id }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, action: true, message: true, actorUserId: true, createdAt: true } }),
-    ]);
-    const people = await platformPrisma.user.findMany({
-      where: { id: { in: [...new Set([...ops.map((o) => o.operatorUserId), ...account.map((a) => a.actorUserId).filter(Boolean)] as string[])] } },
-      select: { id: true, fullName: true, email: true },
-    });
-    const who = new Map(people.map((p) => [p.id, p.fullName || p.email]));
-    const lines = [
-      ...ops.map((o) => ({ id: `op-${o.id}`, kind: 'clor', at: o.at, who: who.get(o.operatorUserId) || 'CLOR staff', what: operatorActionLabel(o.action), detail: auditSummary(o.detail) })),
-      ...account.map((a) => ({ id: `ac-${a.id}`, kind: 'account', at: a.createdAt, who: (a.actorUserId && who.get(a.actorUserId)) || '', what: a.message || operatorActionLabel(a.action), detail: '' })),
-      ...security.map((s) => ({ id: `se-${s.id}`, kind: 'sign-in', at: s.createdAt, who: s.email || '', what: SECURITY_WORDS[s.eventType] || operatorActionLabel(s.eventType), detail: '' })),
-    ]
-      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-      .slice(0, 150);
-    res.json({ lines });
+    const raw = typeof req.query.before === 'string' ? new Date(req.query.before) : undefined;
+    if (raw && Number.isNaN(raw.getTime())) return res.status(400).json({ error: 'That date is not readable.' });
+    const t = await accountTimeline(id, raw);
+    if (!t) return res.status(404).json({ error: 'No such customer' });
+    res.json(t);
   }),
 );
