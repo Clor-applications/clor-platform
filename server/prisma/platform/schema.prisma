@@ -518,6 +518,10 @@ model AccountEntitlement {
   /// Feature keys sold on top of the plan, comma-separated.
   extraFeatures String @default("")
 
+  /// Feature keys CLOR has turned off for this account although its plan or
+  /// app tier includes them, comma-separated. Wins over the plan and extras.
+  removedFeatures String @default("")
+
   /// Null falls back to the plan's own limit.
   maxCompanies Int?
   maxUsers     Int?

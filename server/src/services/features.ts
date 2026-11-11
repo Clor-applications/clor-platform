@@ -1,7 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { FEATURE_CATALOG, resolveFeatures } from '../constants/featureCatalog.js';
-import { entitlementFor, upgradeHintFor } from './entitlements.js';
+import { entitlementFor, needsAny, upgradeHintFor } from './entitlements.js';
 
 /**
  * Effective feature flags for an organisation.
@@ -108,7 +108,7 @@ export async function getFeatureCatalogWithValues(accountId: string, orgId: stri
         ...f,
         enabled: values[f.key],
         entitled,
-        upgradeHint: entitled ? null : upgradeHintFor(f.key),
+        upgradeHint: entitled ? null : entitlement.removed.has(f.key) || needsAny(f.key, [...entitlement.removed]) ? 'Turned off by CLOR. Ask CLOR support to turn it back on.' : upgradeHintFor(f.key),
       };
     }),
     values,

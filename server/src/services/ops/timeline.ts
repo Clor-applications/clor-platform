@@ -167,7 +167,7 @@ export async function accountTimeline(accountId: string, before?: Date, now = ne
     const d = (o.detail || {}) as Record<string, unknown>;
     /* Taking on an alert reads as what it was about, not its internal key. */
     const onIt = o.action === 'ALERT_ACKNOWLEDGED' && typeof d.title === 'string';
-    add({ id: `op-${o.id}`, kind: 'clor', at: o.at, who: `${who(o.operatorUserId) || 'Staff'}, CLOR`, what: onIt ? `On it: ${plain(String(d.title))}` : operatorActionLabel(o.action), detail: onIt ? '' : auditSummary(o.detail) });
+    add({ id: `op-${o.id}`, kind: 'clor', at: o.at, who: `${who(o.operatorUserId) || 'Staff'}, CLOR`, what: onIt ? `On it: ${plain(String(d.title))}` : typeof d.feature === 'string' ? `${operatorActionLabel(o.action)}: ${d.feature}` : operatorActionLabel(o.action), detail: onIt ? '' : auditSummary(o.detail) });
   }
   for (const a of own) add({ id: `ac-${a.id}`, kind: 'people', at: a.createdAt, who: who(a.actorUserId), what: a.message || operatorActionLabel(a.action) });
   for (const s of security) add({ id: `se-${s.id}`, kind: 'sign-in', at: s.createdAt, who: s.email || '', what: SECURITY_WORDS[s.eventType] || operatorActionLabel(s.eventType) });

@@ -261,7 +261,7 @@ describe('a customer’s page', () => {
     const setTab = vi.fn();
     render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={setTab} openDemo={() => {}} />);
     const tabs = await screen.findByRole('tablist');
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Invoices and payments', 'Requests', 'Users', 'Connections', 'Timeline']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Limits', 'Invoices and payments', 'Requests', 'Users', 'Connections', 'Timeline']);
     fireEvent.click(within(tabs).getByRole('tab', { name: 'Users' }));
     expect(setTab).toHaveBeenCalledWith('users');
   });

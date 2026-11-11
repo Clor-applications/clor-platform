@@ -220,7 +220,8 @@ describe('seat limits', () => {
       })
       .expect(403);
     expect(res.body.code).toBe('USER_LIMIT');
-    expect(String(res.body.error)).toMatch(/Starter/);
+    /* A limit set for this account, not the plan's own: said as the account's. */
+    expect(String(res.body.error)).toMatch(/This account may have 1 user/);
   });
 
   it('allows it while seats remain', async () => {

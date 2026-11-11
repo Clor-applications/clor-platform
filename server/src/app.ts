@@ -133,6 +133,7 @@ import { opsExploreRouter } from './routes/opsExplore.js';
 import { opsSignupsRouter, signupRouter } from './routes/signup.js';
 import { opsRouter } from './routes/ops.js';
 import { opsCustomersRouter } from './routes/opsCustomers.js';
+import { opsLimitsRouter } from './routes/opsLimits.js';
 import { opsEmailRouter } from './routes/opsEmail.js';
 import { appCatalogueCors, opsCatalogueRouter, publicAppCatalogueRouter } from './routes/opsCatalogue.js';
 import { exploreRouter } from './routes/explore.js';
@@ -470,6 +471,7 @@ export function buildApp() {
   app.use('/api', opsExploreRouter);
   app.use('/api', opsSignupsRouter);
   app.use('/api', opsCustomersRouter);
+  app.use('/api', opsLimitsRouter);
   app.use('/api', opsEmailRouter);
   app.use('/api', opsCatalogueRouter);
 
