@@ -17,6 +17,10 @@ export const opsSuspend = (id, reason) => apiFetch(`/ops/accounts/${encodeURICom
 export const opsReinstate = (id, reason) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/reinstate`, { ...o, method: 'POST', body: { reason } });
 export const opsExtendTrial = (id, days, reason) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/extend-trial`, { ...o, method: 'POST', body: { days, reason } });
 export const opsGrantPlan = (id, body) => apiFetch(`/billing/accounts/${encodeURIComponent(id)}/subscription`, { ...o, method: 'POST', body });
+export const opsCustomerLimits = (id) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/limits`, o);
+export const opsSetCustomerLimits = (id, body) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/limits`, { ...o, method: 'POST', body });
+export const opsSetCustomerFeature = (id, key, state, reason) =>
+  apiFetch(`/ops/accounts/${encodeURIComponent(id)}/features/${encodeURIComponent(key)}`, { ...o, method: 'POST', body: { state, reason } });
 export const opsAudit = (params) => apiFetch(`/ops/audit${q(params)}`, o);
 export const opsOperators = () => apiFetch('/ops/operators', o);
 export const opsAddOperator = (body) => apiFetch('/ops/operators', { ...o, method: 'POST', body });

@@ -4,6 +4,7 @@ import { ArrowLeft, Search } from '@ui/components/ui/lineIcons';
 import { notify } from '@ui/components/ui/notify';
 import { ICON, PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { inr } from './money';
+import { Limits } from './Limits';
 import { APP_NAMES, Empty, Err, Loading, Pager, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
 import {
   opsAccount,
@@ -165,6 +166,7 @@ export function Customers({ initialStatus = 'all', openCustomer }) {
 const TABS = [
   ['overview', 'Overview'],
   ['subscription', 'Subscription'],
+  ['limits', 'Limits'],
   ['money', 'Invoices and payments'],
   ['requests', 'Requests'],
   ['users', 'Users'],
@@ -214,6 +216,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
       <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-6">
         {tab === 'overview' ? <Overview d={d} plan={plan} /> : null}
         {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} /> : null}
+        {tab === 'limits' ? <Limits id={id} name={name} role={role} /> : null}
         {tab === 'money' ? <Money id={id} /> : null}
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} openLink={openLink} /> : null}
         {tab === 'users' ? <Users id={id} role={role} /> : null}
