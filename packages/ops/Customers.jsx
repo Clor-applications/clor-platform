@@ -4,7 +4,9 @@ import { ArrowLeft, Search } from '@ui/components/ui/lineIcons';
 import { notify } from '@ui/components/ui/notify';
 import { ICON, PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { inr } from './money';
+import { units } from './CustomPlans';
 import { Limits } from './Limits';
+import { DealDrawer } from './Deals';
 import { APP_NAMES, Empty, Err, Loading, Pager, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
 import {
   opsAccount,
@@ -300,7 +302,8 @@ const toggle = (set, k) => {
 const ACTIONS = {
   trial: { label: 'Extend trial', title: 'Extend the trial', confirm: 'Extend trial', roles: ['BILLING', 'SALES'] },
   apps: { label: 'Change apps', title: 'Change apps', confirm: 'Change apps', roles: ['BILLING'] },
-  plan: { label: 'Set a plan', title: 'Set a plan', confirm: 'Set plan', roles: ['BILLING'] },
+  deal: { label: 'New subscription', roles: ['BILLING'] },
+  plan: { label: 'Free plan by hand', title: 'Set a free plan by hand', confirm: 'Set plan', roles: ['BILLING'] },
   suspend: { label: 'Suspend', title: 'Suspend this customer', confirm: 'Suspend', roles: ['SUPPORT', 'BILLING'], tone: 'danger' },
   resume: { label: 'Resume', title: 'Resume this customer', confirm: 'Resume', roles: ['SUPPORT', 'BILLING'] },
   cancel: { label: 'Cancel subscription', title: 'Cancel the subscription', confirm: 'Cancel subscription', roles: ['BILLING'], tone: 'danger' },
@@ -315,7 +318,9 @@ function Subscription({ d, name, plan, role, reload }) {
   const [apps, setApps] = useState(new Set());
   const [trialDays, setTrialDays] = useState(30);
   const [status, setStatus] = useState('trialing');
+  const [dealOpen, setDealOpen] = useState(false);
   const openAction = (k) => {
+    if (k === 'deal') return setDealOpen(true);
     if (k === 'apps') setApps(withIncluded(new Set(s?.apps || [])));
     if (k === 'plan') setApps(new Set(['accounting']));
     setAction(k);
@@ -323,6 +328,7 @@ function Subscription({ d, name, plan, role, reload }) {
 
   const can = (k) => may(role, ...ACTIONS[k].roles);
   const offered = [
+    can('deal') ? 'deal' : null,
     !s && can('plan') ? 'plan' : null,
     s?.status === 'trialing' && can('trial') ? 'trial' : null,
     s && s.status !== 'cancelled' && can('apps') ? 'apps' : null,
@@ -372,6 +378,12 @@ function Subscription({ d, name, plan, role, reload }) {
         rows={[
           ['Status', <StatusPill key="s" status={plan} />],
           ['Apps', s ? appsText(s.apps) : a.legacyUnrestrictedAt ? 'Every app (older account, no plan)' : 'No plan yet'],
+          ...(s?.deal?.planName
+            ? [
+                ['Plan', `${s.deal.planName}${s.deal.quantity && s.deal.unit ? `, ${units(s.deal.unit, s.deal.quantity)}` : ''}`],
+                ['Price', `${inr(s.deal.amount)} a ${s.billingInterval === 'year' ? 'year' : 'month'} before GST${s.deal.offerCode && s.deal.amount !== s.deal.listAmount ? ` (${s.deal.offerCode}${s.deal.offerEndsAt ? ` until ${day(s.deal.offerEndsAt)}` : ''}; then ${inr(s.deal.listAmount)})` : ''}`],
+              ]
+            : []),
           ['Billed', !s ? '—' : s.billingInterval === 'year' ? 'Yearly' : s.billingInterval === 'month' ? 'Monthly' : s.gateway ? `Through ${s.gateway}` : 'Set by hand (no payment taken)'],
           ['Period', period],
           ['Trial', s?.trialEndsAt ? `Ends ${day(s.trialEndsAt)}` : '—'],
@@ -395,6 +407,15 @@ function Subscription({ d, name, plan, role, reload }) {
       ) : (
         <p className="ws-card-blurb">Your role can look at this subscription but not change it.</p>
       )}
+      <DealDrawer
+        open={dealOpen}
+        account={{ id: a.id, name }}
+        onClose={() => setDealOpen(false)}
+        onDone={() => {
+          setDealOpen(false);
+          reload();
+        }}
+      />
       <ReasonDrawer
         open={Boolean(action)}
         title={action ? ACTIONS[action].title : ''}

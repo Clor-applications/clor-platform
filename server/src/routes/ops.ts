@@ -365,6 +365,19 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
             createdAt: sub.createdAt,
             apps: sub.items.map((i) => i.appCode).sort(),
             items: sub.items.map((i) => ({ appCode: i.appCode, tier: i.tier, seats: i.seats, priceModel: i.priceModel })),
+            /* The deal Finance set (routes/opsDeals.ts): the offer's price while it lasts, the list price after. */
+            deal:
+              (sub as any).periodAmount != null
+                ? {
+                    planName: (sub as any).planName,
+                    unit: (sub as any).planUnit,
+                    quantity: (sub as any).quantity,
+                    listAmount: (sub as any).listAmount,
+                    amount: (sub as any).offerEndsAt && (sub as any).offerEndsAt <= new Date() ? (sub as any).listAmount : (sub as any).periodAmount,
+                    offerCode: (sub as any).offerCode,
+                    offerEndsAt: (sub as any).offerEndsAt,
+                  }
+                : null,
           }
         : null,
       securityEvents: events,

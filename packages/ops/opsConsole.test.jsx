@@ -26,6 +26,9 @@ vi.mock('./Health', () => ({ Health: ({ request }) => <h1>Health screen {request
 vi.mock('./Tickets', () => ({ Tickets: () => <h1>Tickets screen</h1>, TicketPage: ({ id }) => <h1>Ticket {id}</h1> }));
 vi.mock('./Alerts', () => ({ Alerts: () => <h1>Alerts screen</h1> }));
 vi.mock('./Announcements', () => ({ Announcements: () => <h1>Announcements screen</h1> }));
+vi.mock('./Offers', () => ({ Offers: () => <h1>Offers screen</h1> }));
+vi.mock('./CustomPlans', () => ({ CustomPlans: () => <h1>Custom plans screen</h1>, units: (u, n) => `${n} ${u}`, unitName: (u) => u, UNIT: {} }));
+vi.mock('./Deals', () => ({ Subscriptions: () => <h1>Subscriptions screen</h1>, DealDrawer: () => null }));
 vi.mock('./OpsSearch', () => ({ OpsSearch: ({ go }) => <button type="button" onClick={() => go('health', { request: 'req-12345678' })}>Search stand-in</button> }));
 const session = vi.hoisted(() => ({ value: { user: { id: 'u1' }, restoring: false, signOut: vi.fn() } }));
 vi.mock('../shell/session', () => ({ useSession: () => session.value }));
@@ -82,7 +85,7 @@ describe('the operator console', () => {
     const nav = screen.getByRole('navigation', { name: 'Operator console' });
     expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Money', 'Product', 'Email', 'System']);
     expect([...nav.querySelectorAll('button')].map((b) => b.textContent.trim())).toEqual([
-      'Home', 'Customers', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Pricing', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Announcements', 'Addresses', 'Templates', 'Log', 'Alerts', 'System health', 'Audit log',
+      'Home', 'Customers', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Pricing', 'Custom plans', 'Offers', 'Subscriptions', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Announcements', 'Addresses', 'Templates', 'Log', 'Alerts', 'System health', 'Audit log',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
   });
