@@ -137,6 +137,7 @@ import { opsLimitsRouter } from './routes/opsLimits.js';
 import { opsDealsRouter } from './routes/opsDeals.js';
 import { opsEmailRouter } from './routes/opsEmail.js';
 import { appCatalogueCors, opsCatalogueRouter, publicAppCatalogueRouter } from './routes/opsCatalogue.js';
+import { publicStatusRouter, statusCors, storeChecks } from './routes/status.js';
 import { exploreRouter } from './routes/explore.js';
 import { exploreReadOnly } from './middleware/exploreReadOnly.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
@@ -264,6 +265,8 @@ export function buildApp() {
   app.use('/api/public/pricing', pricingCors);
   /* The app catalogue clor.in reads: any origin, GET only, no credentials (routes/opsCatalogue.ts). */
   app.use('/api/public/app-catalogue', appCatalogueCors);
+  /* Is CLOR working: clor.in/status asks from the browser, any origin, GET only (routes/status.ts). */
+  app.use('/api/public/status', statusCors);
   app.use(
     cors({
       origin(origin, cb) {
@@ -397,18 +400,7 @@ export function buildApp() {
    * never how (no connection strings or errors leave the server).
    */
   app.get('/ready', async (_req, res) => {
-    const { prisma } = await import('./utils/prisma.js');
-    const { payrollPrisma } = await import('./utils/payrollPrisma.js');
-    const { peoplePrisma } = await import('./utils/peoplePrisma.js');
-    const { platformPrisma } = await import('./utils/platformPrisma.js');
-    const within = (p: Promise<unknown>) => Promise.race([p.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 2000))]).catch(() => false);
-    const [accounting, payroll, people, platform] = await Promise.all([
-      within(prisma.$queryRaw`SELECT 1`),
-      within(payrollPrisma.$queryRaw`SELECT 1`),
-      within(peoplePrisma.$queryRaw`SELECT 1`),
-      within(platformPrisma.$queryRaw`SELECT 1`),
-    ]);
-    const checks = { accounting, payroll, people, platform };
+    const checks = await storeChecks();
     const ok = Object.values(checks).every(Boolean);
     res.status(ok ? 200 : 503).json({ ok, checks });
   });
@@ -432,6 +424,8 @@ export function buildApp() {
   app.use('/api', pricingRouter);
   /* The app catalogue, read-only and public: clor.in and the app switcher list apps from it. */
   app.use('/api', publicAppCatalogueRouter);
+  /* Is CLOR working, for anybody to ask: no sign-in. */
+  app.use('/api', publicStatusRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'

@@ -4,7 +4,7 @@ import { PRODUCT_CONTENT } from './content.js';
 import Home from './pages/Home.jsx';
 import Demo from './pages/Demo.jsx';
 import Product, { Products } from './pages/Product.jsx';
-import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security } from './pages/Pages.jsx';
+import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security, ServiceStatus } from './pages/Pages.jsx';
 import Pricing from './pages/Pricing.jsx';
 
 /** Every page: its address, title, description and component. The sitemap is made from this list. */
@@ -25,6 +25,7 @@ export const ROUTES = [
   { path: '/company/about', title: 'About', description: `${SITE.company} makes CLOR in Bengaluru: accounting, HR, payroll and attendance on one set of records.`, page: () => <About /> },
   { path: '/demo', title: 'Request a demo', description: 'Tell us about your company and the CLOR apps you want to see. We call within one working day to set up a demo.', page: () => <Demo /> },
   { path: '/contact', title: 'Contact', description: 'Write to the CLOR team about your business, pricing or CLOR for accounting firms.', page: () => <Contact /> },
+  { path: '/status', title: 'Status', description: 'Whether CLOR is working right now: sign-in, Books, People, Attendance and Payroll.', page: () => <ServiceStatus /> },
   { path: '/security', title: 'Security', description: 'How CLOR keeps each company’s data apart and safe: Mumbai hosting, sign-in, second approvals, audit trail and export.', page: () => <Security /> },
   { path: '/legal/privacy', title: 'Privacy notice', description: 'What CLOR collects, why, who else sees it, how long it is kept, and your rights.', page: () => <Legal doc="privacy" /> },
   { path: '/legal/terms', title: 'Terms of service', description: 'The agreement between your company and Clor Applications Pvt Ltd for using CLOR: accounts, fees, your data, and how either side can end it.', page: () => <Legal doc="terms" /> },

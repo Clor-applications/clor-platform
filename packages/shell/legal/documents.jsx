@@ -179,7 +179,7 @@ function PrivacyNotice() {
             Business records: as the business instructs. Tax and company law can require a business to keep its
             accounting records for several years; that obligation is the business&rsquo;s.
           </li>
-          <li>Backups: overwritten on a rolling basis (the most recent 30 daily copies by default).</li>
+          <li>Backups: taken every day and kept for 7 days.</li>
         </ul>
       </Section>
 
