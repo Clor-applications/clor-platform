@@ -1205,6 +1205,21 @@
       "method": "PUT",
       "path": "/api/portal/people/engage/celebrations",
       "reason": "Employee self-service (greetings 4.8): portal token + anyAppLive; the person opts themselves out of being announced, or back in (CelebrationOptOut, idempotent)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/support/tickets",
+      "reason": "Customer support tickets (support.ts): any signed-in member of the account may ask CLOR for help, like the Help link; requireAuth and requireTenantContext; a member reaches only tickets they opened (owners and admins: their own account), never another account; opening is limited to 10 an hour per person; no business records are read or changed."
+    },
+    {
+      "method": "POST",
+      "path": "/api/support/tickets/:id/reply",
+      "reason": "Customer support tickets (support.ts): any signed-in member of the account may ask CLOR for help, like the Help link; requireAuth and requireTenantContext; a member reaches only tickets they opened (owners and admins: their own account), never another account; opening is limited to 10 an hour per person; no business records are read or changed."
+    },
+    {
+      "method": "POST",
+      "path": "/api/support/tickets/:id/solved",
+      "reason": "Customer support tickets (support.ts): any signed-in member of the account may ask CLOR for help, like the Help link; requireAuth and requireTenantContext; a member reaches only tickets they opened (owners and admins: their own account), never another account; opening is limited to 10 an hour per person; no business records are read or changed."
     }
   ]
 }

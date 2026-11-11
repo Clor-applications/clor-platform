@@ -1639,3 +1639,52 @@ model BillingInvoice {
   @@index([accountId])
   @@index([status, createdAt])
 }
+
+/// A customer's question or problem for CLOR support (Ops plan P1, customer
+/// tickets). Opened from the Workspace by anyone signed in to the account;
+/// answered by CLOR staff on ops.clor.in. Platform data with no tenant policy,
+/// like Subscription: the routes scope every read to the account or to staff.
+model SupportTicket {
+  id                 String           @id @default(cuid())
+  /// Shown as T-1001 and up; one sequence for all customers.
+  number             Int              @unique @default(autoincrement())
+  accountId          String
+  orgId              String?
+  openedByUserId     String
+  subject            String
+  /// QUESTION | PROBLEM | BILLING | DATA | OTHER
+  category           String           @default("QUESTION")
+  /// accounting | people | attendance | payroll | workspace, when it is about one app.
+  app                String?
+  /// NORMAL | HIGH | URGENT. The customer may say urgent; staff decide.
+  priority           String           @default("NORMAL")
+  /// OPEN (with CLOR) | WAITING (with the customer) | SOLVED | CLOSED
+  status             String           @default("OPEN")
+  /// The error code the customer saw, if they had one.
+  requestId          String?
+  assignedOperatorId String?
+  lastCustomerAt     DateTime?
+  lastStaffAt        DateTime?
+  solvedAt           DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  messages           SupportMessage[]
+
+  @@index([accountId, status])
+  @@index([status, updatedAt])
+  @@index([openedByUserId])
+}
+
+/// One message on a ticket. An internal note is staff only and never shown to the customer.
+model SupportMessage {
+  id           String        @id @default(cuid())
+  ticketId     String
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorUserId String
+  fromStaff    Boolean       @default(false)
+  internal     Boolean       @default(false)
+  body         String
+  createdAt    DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+}

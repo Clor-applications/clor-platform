@@ -82,7 +82,7 @@ opsRouter.use('/ops', requireAuth, requireOperator);
 const DAY = 86_400_000;
 
 /** What an operator did, on the append-only record, and on the customer's own security log when it is about their account. */
-export async function audit(req: Request, action: string, target: { accountId?: string | null; userId?: string | null }, detail?: unknown) {
+export async function audit(req: Request, action: string, target: { accountId?: string | null; userId?: string | null }, detail?: unknown, opts: { customerLog?: boolean } = {}) {
   await platformPrisma.operatorAuditEvent.create({
     data: {
       operatorUserId: req.auth!.userId,
@@ -95,7 +95,8 @@ export async function audit(req: Request, action: string, target: { accountId?: 
     },
   });
   /* The customer sees, in their own security activity, that Clor acted on their account. */
-  if (target.accountId) {
+  /* Support conversation is not a security event: tickets stay out of it (opts.customerLog false). */
+  if (target.accountId && opts.customerLog !== false) {
     await recordAuthEvent({
       accountId: target.accountId,
       userId: req.auth!.userId,

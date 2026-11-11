@@ -78,6 +78,38 @@ If you did not ask for this, reset your password now and reply to this email.`,
     transactional: true,
   },
   {
+    key: 'support.ticket_reply',
+    label: 'CLOR support replied to a ticket',
+    description: 'Sent to the person who opened a support ticket when CLOR support answers it.',
+    subject: '{{ticket}}: CLOR support replied',
+    body: `Hello {{userName}},
+
+CLOR support replied to your ticket {{ticket}}, "{{subject}}":
+
+{{reply}}
+
+{{solved}}
+
+See the whole conversation: {{ticketUrl}}`,
+    fields: ['userName', 'ticket', 'subject', 'reply', 'solved', 'ticketUrl', 'appName'],
+    transactional: true,
+  },
+  {
+    key: 'support.ticket_opened',
+    label: 'New support ticket (to CLOR staff)',
+    description: 'Sent to CLOR Support staff when a customer opens a ticket.',
+    subject: '{{ticket}} from {{customer}}: {{subject}}',
+    body: `Hello {{userName}},
+
+{{customer}} opened ticket {{ticket}} ({{priority}} priority):
+
+{{subject}}
+
+Answer it on the operator console: {{opsUrl}}`,
+    fields: ['userName', 'ticket', 'customer', 'subject', 'priority', 'opsUrl'],
+    transactional: true,
+  },
+  {
     key: 'auth.user_invited',
     label: 'User invited',
     description: 'Sent when an administrator creates a user.',
