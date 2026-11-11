@@ -63,14 +63,21 @@ copy the runner folder without `.runner`, `.credentials*` and `_work`, then
 `./config.sh --unattended --url https://github.com/Clor-applications/clor-platform --token <token> --name suresh-mac-N --labels clor-mac --work _work`
 and `./svc.sh install && ./svc.sh start`.
 
-## What runs when (30 Oct 2026)
+## What runs when (11 Nov 2026)
 
-| Event | `verify` (lint, schema, typecheck, web tests, build) | `server-tests` (3 shards) |
-|---|---|---|
-| Pull request | yes | only with the `full-tests` label |
-| Push to main (a merge) | yes | yes |
-| Nightly, 03:00 IST | yes | yes |
-| Run workflow by hand | yes | yes |
+| Event | `verify` (lint, schema, typecheck, web tests, build) | `server-tests` (3 shards, full suite) | `server-tests-related` |
+|---|---|---|---|
+| Pull request | yes | only with the `full-tests` label (adding it starts them) | yes, without the label |
+| Push to main (a merge) | yes | no: the pull request was checked | no |
+| Nightly, 03:00 IST | yes | yes | no |
+| Run workflow by hand | yes | yes | no |
+
+`server-tests-related` runs the server test files that import what the pull
+request changed, are named after it, or use a changed test helper
+(`scripts/ci/related-server-tests.mjs`); a schema, migration or test setup
+change runs the whole suite there. Before 11 Nov every merge re-ran the full
+suite on main and held all three runners ~30 minutes while pull requests
+queued. Before a deploy, run the full suite by hand on the commit released.
 
 The web tests (`npm run test:web`, vitest at the repository root, ~1,800
 tests, about four minutes on the two threads CI gives it, no database) joined `verify` on 30 Oct
