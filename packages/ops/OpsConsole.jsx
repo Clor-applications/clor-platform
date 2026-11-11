@@ -28,6 +28,9 @@ import { Health } from './Health';
 import { TicketPage, Tickets } from './Tickets';
 import { Alerts } from './Alerts';
 import { Announcements } from './Announcements';
+import { CustomPlans } from './CustomPlans';
+import { Offers } from './Offers';
+import { Subscriptions } from './Deals';
 import { OpsSearch } from './OpsSearch';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
@@ -68,6 +71,9 @@ export const NAV = [
     label: 'Money',
     items: [
       ['pricing', 'Pricing', ICON.plan],
+      ['customPlans', 'Custom plans', ICON.library],
+      ['offers', 'Offers', ICON.help],
+      ['subscriptions', 'Subscriptions', ICON.payments],
       ['invoices', 'Invoices', ICON.guide],
       ['payments', 'Payments', ICON.payroll],
       ['gateways', 'Gateways', ICON.secure],
@@ -125,6 +131,9 @@ export const SCREENS = {
   trials: ({ go, me }) => <Trials role={me.role} openAccount={(id) => go('customers', {}, id)} />,
   links: ({ go, me }) => <ExploreLinks role={me.role} openRequest={(id) => go('demos', {}, id)} />,
   pricing: ({ me }) => <Pricing role={me.role} />,
+  customPlans: ({ go, me }) => <CustomPlans role={me.role} openCustomer={(id) => go('customers', {}, id)} />,
+  offers: ({ me }) => <Offers role={me.role} />,
+  subscriptions: ({ go }) => <Subscriptions openCustomer={(id) => go('customers', {}, id, 'subscription')} />,
   /* Payments holds the gateways too (keys, test and live), so the Gateways place stays empty. */
   payments: ({ me }) => <Payments role={me.role} />,
   tax: ({ me }) => <TaxSettings role={me.role} />,

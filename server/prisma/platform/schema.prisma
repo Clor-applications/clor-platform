@@ -1098,6 +1098,25 @@ model Subscription {
   /// Money side, left open until a pricing model is decided. INR minor units.
   currency String @default("INR")
 
+  /// The deal CLOR staff set (routes/opsDeals.ts): which plan, how many
+  /// units, and what one period costs before GST after any offer. All null on
+  /// a subscription set without a price (free, or older ones).
+  /// book | custom
+  planSource   String?
+  /// The price book plan's code, or the custom plan's id.
+  planRef      String?
+  planName     String?
+  /// COMPANY | USER | EMPLOYEE, and how many.
+  planUnit     String?
+  quantity     Int?
+  /// Paise per period, list price (before the offer) and what is charged.
+  listAmount   Int?
+  periodAmount Int?
+  offerId      String?
+  offerCode    String?
+  /// The offer's price applies until this date; the list price after.
+  offerEndsAt  DateTime?
+
   /// Which gateway backs this, if any. null = unbilled / manual.
   gatewayName           String?
   gatewayCustomerId     String?
@@ -1757,4 +1776,69 @@ model AnnouncementDismissal {
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 
   @@id([announcementId, userId])
+}
+
+/// An offer CLOR staff make (operator console, Money › Offers): a code that
+/// takes a percent or a fixed amount off a plan's price, for some or all
+/// plans and periods, for a number of billing periods or for good, between
+/// two dates and up to a number of customers. Applied by staff when they set
+/// a customer's subscription (routes/opsDeals.ts). Platform data, no account.
+model Offer {
+  id              String    @id @default(cuid())
+  /// Capitals and digits, unique: what a customer or salesperson quotes.
+  code            String    @unique
+  name            String
+  description     String?
+  /// PERCENT | AMOUNT
+  kind            String
+  /// Percent (1-100) or paise off each period.
+  value           Int
+  /// Price book plan codes it applies to; empty = every plan, custom ones too.
+  planCodes       String[]
+  /// MONTHLY / YEARLY; empty = both.
+  periods         String[]
+  /// Billing periods the price lasts; null = for as long as they subscribe.
+  durationPeriods Int?
+  startsAt        DateTime  @default(now())
+  endsAt          DateTime?
+  /// How many customers may take it; null = no limit.
+  maxRedemptions  Int?
+  redemptions     Int       @default(0)
+  pausedAt        DateTime?
+  archivedAt      DateTime?
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([archivedAt])
+}
+
+/// A plan made for a deal, never shown on clor.in (operator console, Money ›
+/// Custom plans): its own apps, unit and prices. Tied to one customer, or
+/// left open for staff to use with anyone. A subscription copies its price
+/// when set, so changing the plan later changes no running subscription.
+model CustomPlan {
+  id              String    @id @default(cuid())
+  /// The customer it was made for; null = any customer.
+  accountId       String?
+  name            String
+  description     String?
+  apps            String[]
+  /// COMPANY | USER | EMPLOYEE
+  unit            String
+  includedUnits   Int       @default(1)
+  /// Paise per period; null = not offered for that period.
+  monthlyPrice    Int?
+  monthlyExtra    Int       @default(0)
+  yearlyPrice     Int?
+  yearlyExtra     Int       @default(0)
+  gstApplies      Boolean   @default(true)
+  archivedAt      DateTime?
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([accountId])
 }

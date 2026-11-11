@@ -21,6 +21,18 @@ export const opsCustomerLimits = (id) => apiFetch(`/ops/accounts/${encodeURIComp
 export const opsSetCustomerLimits = (id, body) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/limits`, { ...o, method: 'POST', body });
 export const opsSetCustomerFeature = (id, key, state, reason) =>
   apiFetch(`/ops/accounts/${encodeURIComponent(id)}/features/${encodeURIComponent(key)}`, { ...o, method: 'POST', body: { state, reason } });
+/* Offers, custom plans and subscription deals (server: routes/opsDeals.ts). */
+const enc = encodeURIComponent;
+export const opsOffers = () => apiFetch('/ops/offers', o);
+export const opsOfferSave = (id, body) => apiFetch(id ? `/ops/offers/${enc(id)}` : '/ops/offers', { ...o, method: id ? 'PATCH' : 'POST', body });
+export const opsOfferStep = (id, step, reason) => apiFetch(`/ops/offers/${enc(id)}/${step}`, { ...o, method: 'POST', body: { reason } });
+export const opsCustomPlans = (accountId) => apiFetch(`/ops/custom-plans${q({ accountId })}`, o);
+export const opsCustomPlanSave = (id, body) => apiFetch(id ? `/ops/custom-plans/${enc(id)}` : '/ops/custom-plans', { ...o, method: id ? 'PATCH' : 'POST', body });
+export const opsCustomPlanArchive = (id) => apiFetch(`/ops/custom-plans/${enc(id)}/archive`, { ...o, method: 'POST', body: {} });
+export const opsDealOptions = (id) => apiFetch(`/ops/accounts/${enc(id)}/deal-options`, o);
+export const opsDealQuote = (id, body) => apiFetch(`/ops/accounts/${enc(id)}/deal/quote`, { ...o, method: 'POST', body });
+export const opsSetDeal = (id, body) => apiFetch(`/ops/accounts/${enc(id)}/deal`, { ...o, method: 'POST', body });
+export const opsSubscriptions = (params) => apiFetch(`/ops/subscriptions${q(params)}`, o);
 export const opsAudit = (params) => apiFetch(`/ops/audit${q(params)}`, o);
 export const opsOperators = () => apiFetch('/ops/operators', o);
 export const opsAddOperator = (body) => apiFetch('/ops/operators', { ...o, method: 'POST', body });

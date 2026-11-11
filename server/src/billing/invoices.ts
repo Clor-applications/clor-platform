@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { unitWord } from '../services/pricing/deals.js';
 
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
@@ -95,6 +96,17 @@ export async function buyerFor(accountId: string): Promise<Buyer> {
 /** Lines to start a draft from: the apps the account's subscription carries, at the price set on it. */
 export async function suggestedLines(accountId: string): Promise<Line[]> {
   const sub = await outsideTenant('billing: lines for an invoice', () => platformPrisma.subscription.findUnique({ where: { accountId }, include: { items: true } }));
+  /*
+   * A deal CLOR staff set (routes/opsDeals.ts) is one line for the period: the
+   * offer's price while it lasts, the list price after.
+   */
+  if (sub?.periodAmount != null && sub.planName) {
+    const offerOn = Boolean(sub.offerCode) && (!sub.offerEndsAt || sub.offerEndsAt > new Date());
+    const amount = offerOn ? sub.periodAmount : (sub.listAmount ?? sub.periodAmount);
+    const per = sub.billingInterval === 'year' ? 'yearly' : 'monthly';
+    const units = sub.quantity && sub.planUnit ? `, ${unitWord(sub.planUnit, sub.quantity)}` : '';
+    return [{ description: `CLOR ${sub.planName}${units}, ${per}${offerOn ? ` (${sub.offerCode})` : ''}`.slice(0, 200), appCode: null, quantity: 1, unitAmount: amount, amount }];
+  }
   /* Apps with a price set come first; an app without one is not billed by default. With no prices at all, every app is listed for a price to be typed. */
   const priced = (sub?.items || []).filter((it) => it.unitAmount != null && it.unitAmount > 0);
   return (priced.length ? priced : sub?.items || []).map((it) => {
