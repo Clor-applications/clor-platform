@@ -40,6 +40,15 @@
         "VITE_API_PROXY_TARGET=http://127.0.0.1:4013 npx vite --host 127.0.0.1 --port 5185"
       ],
       "port": 5185
+    },
+    {
+      "name": "website",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd website && npx vite --host 127.0.0.1 --port 5190"
+      ],
+      "port": 5190
     }
   ]
 }
