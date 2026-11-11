@@ -8,7 +8,10 @@ import { outsideTenant } from '../utils/tenantScope.js';
 import { REQUEST_ID } from '../utils/log.js';
 import { accountsByPhone } from '../services/ops/phoneSearch.js';
 import { accountConnections, systemHealth } from '../services/ops/systemHealth.js';
-import { customerTitle } from './ops.js';
+import { audit, customerTitle } from './ops.js';
+import { requireOperatorRole } from '../middleware/operator.js';
+import { requireOperatorStepUp } from '../services/stepUp.js';
+import { RULES } from '../services/ops/alerts.js';
 
 /**
  * Operator console, Ops P0: system health, one customer's connections, the
@@ -94,3 +97,44 @@ opsHealthRouter.get('/ops/request-lookup', (req, res) => {
   const logsUrl = `https://console.cloud.google.com/logs/query;query=${encodeURIComponent(query)};duration=P30D?project=${encodeURIComponent(project)}`;
   res.json({ id, logsUrl });
 });
+
+/**
+ * Alerts (Ops plan P1): open ones, most serious and oldest first, and those
+ * closed in the last week. Everyone on the console sees all of them; `mine`
+ * keeps the ones meant for the reader's role.
+ */
+opsHealthRouter.get('/ops/alerts', (req, res) =>
+  outsideTenant('ops: alerts', async () => {
+    const role = res.locals.operatorRole as string;
+    const [open, closed] = await Promise.all([
+      platformPrisma.opsAlert.findMany({ where: { resolvedAt: null }, orderBy: [{ firstSeenAt: 'asc' }], take: 500 }),
+      platformPrisma.opsAlert.findMany({ where: { resolvedAt: { gt: new Date(Date.now() - 7 * 86_400_000) } }, orderBy: { resolvedAt: 'desc' }, take: 200 }),
+    ]);
+    const rank = (a: { severity: string }) => (a.severity === 'critical' ? 0 : 1);
+    open.sort((a, b) => rank(a) - rank(b) || a.firstSeenAt.getTime() - b.firstSeenAt.getTime());
+    const ackIds = [...new Set(open.map((a) => a.acknowledgedBy).filter(Boolean) as string[])];
+    const ackers = ackIds.length ? await platformPrisma.user.findMany({ where: { id: { in: ackIds } }, select: { id: true, fullName: true, email: true } }) : [];
+    const name = new Map(ackers.map((u) => [u.id, u.fullName || u.email]));
+    const shape = (a: any) => ({ ...a, acknowledgedBy: a.acknowledgedBy ? { id: a.acknowledgedBy, name: name.get(a.acknowledgedBy) || 'Staff' } : null, forMe: role === 'SUPER_ADMIN' || a.audience === role });
+    res.json({
+      open: open.map(shape),
+      closed: closed.map(shape),
+      counts: { open: open.length, critical: open.filter((a) => a.severity === 'critical').length, unacknowledged: open.filter((a) => !a.acknowledgedAt).length },
+      rules: RULES,
+    });
+  }),
+);
+
+/** "I have seen it and I am on it": stops it counting as new; it stays open until the problem clears. */
+opsHealthRouter.post('/ops/alerts/:id/acknowledge', requireOperatorRole('SUPPORT', 'BILLING', 'SALES'), requireOperatorStepUp, (req, res) =>
+  outsideTenant('ops: acknowledge an alert', async () => {
+    const a = await platformPrisma.opsAlert.findUnique({ where: { id: String(req.params.id) } });
+    if (!a) return res.status(404).json({ error: 'No such alert.' });
+    if (a.resolvedAt) return res.status(409).json({ error: 'This alert has already cleared.' });
+    const role = res.locals.operatorRole as string;
+    if (role !== 'SUPER_ADMIN' && a.audience !== role) return res.status(403).json({ error: 'This alert is for another team.' });
+    const updated = await platformPrisma.opsAlert.update({ where: { id: a.id }, data: { acknowledgedAt: new Date(), acknowledgedBy: req.auth!.userId } });
+    await audit(req, 'ALERT_ACKNOWLEDGED', { accountId: a.accountId }, { alert: a.key, title: a.title }, { customerLog: false });
+    res.json({ alert: updated });
+  }),
+);

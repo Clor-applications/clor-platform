@@ -24,6 +24,7 @@ vi.mock('./Invoices', () => ({ Invoices: () => <h1>Invoices screen</h1>, Invoice
 vi.mock('./InvoiceSettings', () => ({ InvoiceSettings: () => <h1>Invoice settings screen</h1> }));
 vi.mock('./Health', () => ({ Health: ({ request }) => <h1>Health screen {request}</h1> }));
 vi.mock('./Tickets', () => ({ Tickets: () => <h1>Tickets screen</h1>, TicketPage: ({ id }) => <h1>Ticket {id}</h1> }));
+vi.mock('./Alerts', () => ({ Alerts: () => <h1>Alerts screen</h1> }));
 vi.mock('./OpsSearch', () => ({ OpsSearch: ({ go }) => <button type="button" onClick={() => go('health', { request: 'req-12345678' })}>Search stand-in</button> }));
 const session = vi.hoisted(() => ({ value: { user: { id: 'u1' }, restoring: false, signOut: vi.fn() } }));
 vi.mock('../shell/session', () => ({ useSession: () => session.value }));
@@ -80,7 +81,7 @@ describe('the operator console', () => {
     const nav = screen.getByRole('navigation', { name: 'Operator console' });
     expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Money', 'Product', 'Email', 'System']);
     expect([...nav.querySelectorAll('button')].map((b) => b.textContent.trim())).toEqual([
-      'Home', 'Customers', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Pricing', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Addresses', 'Templates', 'Log', 'System health', 'Audit log',
+      'Home', 'Customers', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Pricing', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Addresses', 'Templates', 'Log', 'Alerts', 'System health', 'Audit log',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
   });

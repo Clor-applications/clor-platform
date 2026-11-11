@@ -78,6 +78,19 @@ If you did not ask for this, reset your password now and reply to this email.`,
     transactional: true,
   },
   {
+    key: 'ops.alerts_opened',
+    label: 'New alerts (to CLOR staff)',
+    description: 'Sent to CLOR staff when the alerts job finds something new for them: a failing job, stuck mail, offline readers, an overdue invoice, a waiting ticket.',
+    subject: '{{headline}}',
+    body: `Hello {{userName}},
+
+{{list}}
+
+See and acknowledge them: {{opsUrl}}`,
+    fields: ['userName', 'count', 'headline', 'list', 'opsUrl'],
+    transactional: true,
+  },
+  {
     key: 'support.ticket_reply',
     label: 'CLOR support replied to a ticket',
     description: 'Sent to the person who opened a support ticket when CLOR support answers it.',

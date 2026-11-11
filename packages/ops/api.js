@@ -125,3 +125,7 @@ export const opsTickets = (params) => apiFetch(`/ops/tickets${q(params)}`, o);
 export const opsTicket = (id) => apiFetch(`/ops/tickets/${encodeURIComponent(id)}`, o).then((r) => r?.ticket);
 export const opsTicketReply = (id, body) => apiFetch(`/ops/tickets/${encodeURIComponent(id)}/reply`, { ...o, method: 'POST', body });
 export const opsTicketChange = (id, body) => apiFetch(`/ops/tickets/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body }).then((r) => r?.ticket);
+
+/* Alerts (Ops plan P1; server: routes/opsHealth.ts). */
+export const opsAlerts = () => apiFetch('/ops/alerts', o);
+export const opsAcknowledgeAlert = (id) => apiFetch(`/ops/alerts/${encodeURIComponent(id)}/acknowledge`, { ...o, method: 'POST', body: {} });

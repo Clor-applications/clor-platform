@@ -22,6 +22,7 @@ import { startEngagement } from './services/people/engagement/index.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
+import { startOpsAlerts } from './services/ops/alerts.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
@@ -112,6 +113,8 @@ startAbsenceChecks();
 /* Ready-made automations, greetings and exit-interview answers past keeping (WORKFLOW-GAP-RESEARCH 4.7, 4.8, 4.9). */
 startEngagement();
 startNotificationPruning();
+/* Alerts for CLOR staff on ops.clor.in: failing jobs, stuck mail, offline readers, overdue invoices, waiting tickets. */
+startOpsAlerts();
 startBooksDigest();
 startWeeklySummary();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

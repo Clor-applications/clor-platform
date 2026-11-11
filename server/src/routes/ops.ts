@@ -550,7 +550,7 @@ opsRouter.get('/ops/home', (_req, res) =>
     const now = Date.now();
     const startOfDay = new Date(`${new Date(now + 5.5 * 3_600_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
     const weekAgo = new Date(now - 7 * DAY);
-    const [newDemos, demosToday, trialsEnding, failedPayments, failedEmails, suspended, overdue] = await Promise.all([
+    const [newDemos, demosToday, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen] = await Promise.all([
       platformPrisma.demoRequest.count({ where: { status: 'NEW' } }),
       platformPrisma.demoRequest.count({ where: { createdAt: { gte: startOfDay } } }),
       platformPrisma.subscription.count({ where: { status: 'trialing', trialEndsAt: { gte: new Date(now), lte: new Date(now + 7 * DAY) } } }),
@@ -559,8 +559,11 @@ opsRouter.get('/ops/home', (_req, res) =>
       platformPrisma.emailOutbox.count({ where: { status: 'FAILED', createdAt: { gte: weekAgo } } }),
       platformPrisma.account.count({ where: { suspendedAt: { not: null } } }),
       platformPrisma.subscription.count({ where: { OR: [{ status: 'past_due' }, { status: 'trialing', trialEndsAt: { lt: new Date(now) } }] } }),
+      platformPrisma.opsAlert.count({ where: { resolvedAt: null } }),
+      platformPrisma.opsAlert.count({ where: { resolvedAt: null, severity: 'critical' } }),
+      platformPrisma.supportTicket.count({ where: { status: 'OPEN' } }),
     ]);
-    res.json({ newDemos, demosToday, trialsEnding, failedPayments, failedEmails, suspended, overdue });
+    res.json({ newDemos, demosToday, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen });
   }),
 );
 

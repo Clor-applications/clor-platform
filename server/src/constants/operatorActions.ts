@@ -19,6 +19,7 @@ export const OPERATOR_ACTION_LABELS: Record<string, string> = {
   TICKET_REPLIED: 'Answered a customer ticket',
   TICKET_NOTE: 'Added an internal note to a ticket',
   TICKET_CHANGED: 'Changed a ticket’s status, priority or owner',
+  ALERT_ACKNOWLEDGED: 'Acknowledged an alert',
   EMAILS_RETRIED: 'Sent failed emails again',
   OPERATOR_ADDED: 'Added a staff member',
   OPERATOR_INVITED: 'Invited a staff member',
