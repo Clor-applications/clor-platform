@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths-ignore: ['**/*.md', 'docs/**']
   pull_request:
+    # `labeled`: adding the full-tests label starts the full server suite on
+    # that pull request itself, so no second run by hand is needed. Any other
+    # label does nothing (each job checks).
+    types: [opened, synchronize, reopened, labeled]
     # Text-only changes (notes, trackers, plans) build nothing and test nothing: no run.
     paths-ignore: ['**/*.md', 'docs/**']
   workflow_dispatch:
@@ -17,11 +21,13 @@ on:
 # commit a newer one replaced). The nightly run and a run started by hand
 # (the release check on a chosen commit) are never cancelled.
 concurrency:
-  group: ci-${{ github.ref }}-${{ github.event_name == 'schedule' && 'nightly' || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || 'push' }}
+  # A label other than full-tests is a run of its own that does nothing, so it never cancels the real one.
+  group: ci-${{ github.ref }}-${{ (github.event.action == 'labeled' && github.event.label.name != 'full-tests') && format('label-{0}', github.run_id) || github.event_name == 'schedule' && 'nightly' || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || 'push' }}
   cancel-in-progress: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
 
 jobs:
   verify:
+    if: github.event.action != 'labeled' || github.event.label.name == 'full-tests'
     # A Mac self-hosted runner (label clor-mac), not GitHub's
     # machines: the organization is on GitHub's free plan, whose Actions
     # minutes for a private repository ran out at ~75 minutes a run (Oct
@@ -112,15 +118,16 @@ jobs:
         working-directory: server
 
   # The server suite, split three ways across the Mac's runners (docs/CI-ON-MAC.md):
-  # ~32 minutes as one job, ~11 as three side by side.
+  # ~32 minutes as one job, ~25 each as three side by side on the one Mac.
   #
-  # Not on pull requests (30 Oct 2026): a pull request gets the quick checks
-  # in `verify` (lint, schema, typecheck, web tests, build, minutes); the server suite
-  # runs after merge on main, nightly, by hand, or on a pull request labelled
-  # `full-tests`. Three Mac runners could not keep up with a full suite per
-  # pull request.
+  # Runs nightly, by hand (workflow_dispatch: before every deploy), and on a
+  # pull request labelled `full-tests`. Not after a merge to main (11 Nov
+  # 2026): the pull request was already checked, the push only repeated it and
+  # held all three runners for ~30 minutes while pull requests queued; the
+  # nightly run covers main. A pull request without the label runs the server
+  # tests for what it changed (server-tests-related).
   server-tests:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-tests')
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-tests') && (github.event.action != 'labeled' || github.event.label.name == 'full-tests'))
     runs-on: [self-hosted, clor-mac]
     timeout-minutes: 90
     strategy:
@@ -170,6 +177,64 @@ jobs:
           CLOR_APP_PASSWORD: clor_ci_app
 
 
+  # A pull request without the full-tests label: the server test files that
+  # import what it changed or are named after it, in one job, usually minutes. A
+  # change to a schema or migration runs the whole suite here, since no test
+  # imports a .prisma file. Anything this misses is caught by the nightly
+  # full run, and the full suite runs by hand before every deploy.
+  server-tests-related:
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled' && !contains(github.event.pull_request.labels.*.name, 'full-tests')
+    runs-on: [self-hosted, clor-mac]
+    timeout-minutes: 90
+    env:
+      PGHOST: localhost
+      PGPORT: 5434
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: What changed on the server
+        id: changed
+        # The test files that import what changed, or are named after it
+        # (scripts/ci/related-server-tests.mjs). A schema, migration or test
+        # setup change runs the whole suite.
+        run: |
+          base="origin/${{ github.base_ref }}"
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          tests=$(node scripts/ci/related-server-tests.mjs $(git diff --name-only --diff-filter=ACMR "$base...HEAD") | tr '\n' ' ')
+          schema=$(git diff --name-only "$base...HEAD" -- server/prisma server/package.json server/vitest.config.ts server/src/__tests__/setup server/src/__tests__/globalSetup.ts | head -1)
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+          echo "all=$([ -n "$schema" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          echo "Tests for this change: ${tests:-none}"
+          echo "Schema or test setup changed: ${schema:-no}"
+
+      - name: Install server deps
+        if: steps.changed.outputs.tests != '' || steps.changed.outputs.all == 'yes'
+        run: npm ci
+        working-directory: server
+
+      - name: Generate Prisma client
+        if: steps.changed.outputs.tests != '' || steps.changed.outputs.all == 'yes'
+        run: npm run prisma:generate
+        working-directory: server
+
+      - name: Server tests for what changed
+        if: steps.changed.outputs.tests != '' || steps.changed.outputs.all == 'yes'
+        working-directory: server
+        run: |
+          if [ "${{ steps.changed.outputs.all }}" = yes ]; then npx vitest run; else npx vitest run ${{ steps.changed.outputs.tests }}; fi
+        env:
+          JWT_SECRET: ci-test-secret
+          PGADMIN_URL: postgresql://clor_ci:clor_ci@localhost:5434/postgres
+          DATABASE_URL: postgresql://clor_app:clor_ci_app@localhost:5434/postgres
+          CLOR_APP_ROLE: clor_app
+          CLOR_APP_PASSWORD: clor_ci_app
+
   # End-to-end (e2e/README.md): Playwright drives the real web app and the
   # employee app, desktop 1440×900 and phone 390×844, through the scenarios of
   # docs/people/qa/PERSONA-SCENARIOS.md. It boots its own API and web app on
@@ -186,7 +251,7 @@ jobs:
   # runners' home, released by the kernel if the job dies or is cancelled). A
   # run waiting for the lock says so in its log.
   e2e:
-    needs: [verify, server-tests]
+    needs: [verify, server-tests, server-tests-related]
     if: ${{ !cancelled() && needs.verify.result == 'success' && github.event_name != 'push' }}
     name: ${{ github.event_name == 'pull_request' && 'e2e-smoke' || 'e2e-full' }}
     runs-on: [self-hosted, clor-mac]
