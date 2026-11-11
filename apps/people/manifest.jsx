@@ -87,6 +87,19 @@ import {
   ToggleLeft,
   Trash,
   Users,
+  ClockAfternoon,
+  CalendarSlash,
+  ClockCountdown,
+  CalendarPlus,
+  Repeat,
+  MapTrifold,
+  Crosshair,
+  DeviceMobileCamera,
+  Scan,
+  Hash,
+  CloudArrowUp,
+  Scroll,
+  HardHat,
 } from '@phosphor-icons/react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
 import { duo } from '@ui/components/ui/duoIcon';
@@ -203,6 +216,46 @@ const AttendanceRulesSettings = screen('AttendanceRulesSettings');
 /* Settings → Automations and Exit interview (WORKFLOW-GAP-RESEARCH 4.7, 4.9). */
 const Automations = screen('Automations');
 const ExitQuestions = screen('ExitQuestions');
+/* Attendance's screens inside People's Time (owner, 11 Nov 2026): shifts, readers, overtime, month end. */
+const AttendanceRecords = screen('AttendanceRecords');
+const Exceptions = screen('Exceptions');
+const ScheduleCalendar = screen('ScheduleCalendar');
+const Shifts = screen('Shifts');
+const ShiftAssignments = screen('ShiftAssignments');
+const DepartmentSchedule = screen('DepartmentSchedule');
+const TemporarySchedule = screen('TemporarySchedule');
+const Rotations = screen('Rotations');
+const OvertimeRequests = screen('OvertimeRequests');
+const MonthConfirmations = screen('MonthConfirmations');
+const MonthClose = screen('MonthClose');
+const PayrollReadiness = screen('PayrollReadiness');
+const AttendanceDevices = screen('AttendanceDevices');
+const ReaderHealth = screen('ReaderHealth');
+const ReaderSync = screen('ReaderSync');
+const DeviceLogs = screen('DeviceLogs');
+const Enrolments = screen('Enrolments');
+const UnmatchedPunches = screen('UnmatchedPunches');
+const IdMapping = screen('IdMapping');
+const PhonePunches = screen('PhonePunches');
+const Geofences = screen('Geofences');
+const SiteCheck = screen('SiteCheck');
+const WeeklyOffPolicy = screen('WeeklyOffPolicy');
+const OvertimePolicy = screen('OvertimePolicy');
+const ShiftPolicy = screen('ShiftPolicy');
+const Contractors = screen('Contractors');
+const AttendanceReports = screen('AttendanceReports');
+const MonthSummary = screen('MonthSummary');
+const AttendanceRegister = screen('AttendanceRegister');
+const Transactions = screen('Transactions');
+/* The punch log under the name People's menu gives it. */
+const PunchLog = (props) => <Transactions {...props} title="Punches" />;
+PunchLog.displayName = 'PunchLog';
+/* A named attendance report as its own entry: the Reports screen opened on that report. */
+const attendanceReport = (id) => {
+  const NamedReport = (props) => <AttendanceReports {...props} initialReport={id} />;
+  NamedReport.displayName = `Report(${id})`;
+  return NamedReport;
+};
 const LateMarks = screen('LateMarks');
 const Absences = screen('Absences');
 const NightWork = screen('NightWork');
@@ -351,6 +404,20 @@ const I = kinded({
   team: duo(Users, 'Users'),
   seat: duo(Chair, 'Chair'),
   trash: duo(Trash, 'Trash'),
+  /* Shifts & readers in Settings: one glyph a row, as every Settings row has. */
+  shiftPolicy: duo(ClockAfternoon, 'ClockAfternoon'),
+  weeklyOff: duo(CalendarSlash, 'CalendarSlash'),
+  overtimeRule: duo(ClockCountdown, 'ClockCountdown'),
+  deptShift: duo(CalendarPlus, 'CalendarPlus'),
+  rotation: duo(Repeat, 'Repeat'),
+  punchArea: duo(MapTrifold, 'MapTrifold'),
+  areaCheck: duo(Crosshair, 'Crosshair'),
+  phonePunch: duo(DeviceMobileCamera, 'DeviceMobileCamera'),
+  enrol: duo(Scan, 'Scan'),
+  readerId: duo(Hash, 'Hash'),
+  readerSync: duo(CloudArrowUp, 'CloudArrowUp'),
+  readerLog: duo(Scroll, 'Scroll'),
+  contractor: duo(HardHat, 'HardHat'),
 }, ITEM_KIND);
 
 /* One register screen per kind, with the shell's props (openScreen, params). */
@@ -400,7 +467,9 @@ export const peopleApp = {
     { label: 'Probation ending', screen: 'employees', params: { prob: 'on' }, keywords: ['probation', 'confirm', 'confirmation'] },
     { label: 'Add an employee', screen: 'employeeNew', keywords: ['new joiner', 'onboard', 'hire', 'add'] },
     { label: 'Fix a punch', screen: 'attendanceRequests', keywords: ['punch', 'missed punch', 'regularise'] },
-    { label: 'Month close', appId: 'attendance', screen: 'monthClose', keywords: ['month close', 'close the month', 'lock attendance'] },
+    { label: 'Shifts', screen: 'shifts', keywords: ['shift', 'roster', 'timing', 'weekly off'] },
+    { label: 'Add a reader', screen: 'readers', keywords: ['reader', 'biometric', 'device', 'machine', 'fingerprint', 'face'] },
+    { label: 'Month close', screen: 'monthClose', keywords: ['month close', 'close the month', 'lock attendance'] },
     { label: 'Payslips', appId: 'payroll', screen: 'slips', keywords: ['payslip', 'salary slip', 'pay slip'] },
     { label: 'Final settlement', appId: 'payroll', screen: 'settlements', keywords: ['final settlement', 'full and final', 'fnf', 'f&f'] },
     { label: 'Run payroll', appId: 'payroll', screen: 'runs', keywords: ['payroll', 'pay run', 'salary'] },
@@ -427,7 +496,12 @@ export const peopleApp = {
        Delegates is set up once: Settings. Night work stays here: HR records consent on it and Home links to it. */
     { key: 'leave', label: 'Time', icon: M.time, groups: [
       { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances'] },
-      { label: 'Attendance', items: ['attendance', 'attendanceRequests', 'shiftSwaps', 'lateMarks', 'absences', 'nightWork'] },
+      { label: 'Attendance', items: ['attendance', 'records', 'exceptions', 'attendanceRequests', 'overtime', 'lateMarks', 'absences', 'nightWork'] },
+      /* Shifts, readers and the month's close live here too (owner, 11 Nov 2026): one app for a company's time. What is
+         set up once (rotations, punch areas, enrolment) is under Settings. */
+      { label: 'Shifts', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'temporarySchedule', 'shiftSwaps'] },
+      { label: 'Readers', items: ['readers', 'readerHealth', 'transactions', 'unmatched'] },
+      { label: 'Month end', items: ['payrollReadiness', 'confirmations', 'monthClose'] },
     ] },
     /* Workplace: what the company offers its staff, news to help. */
     { key: 'workplace', label: 'Workplace', icon: M.engage, groups: [
@@ -444,7 +518,7 @@ export const peopleApp = {
        inside Statutory registers, so it is not listed twice; the compliance calendar and the auditor's evidence are Settings. */
     { key: 'reports', label: 'Reports', icon: M.insights, groups: [
       { label: 'People', items: ['reports'] },
-      { label: 'Time', items: ['leaveRegister', 'requestsReport'] },
+      { label: 'Time', items: ['summary', 'register', 'attendanceReports', 'leaveRegister', 'requestsReport'] },
       { label: 'Statutory registers', items: ['registers'] },
     ] },
     { key: 'settings', label: 'Settings', icon: M.settings, items: ['settings'] },
@@ -495,6 +569,37 @@ export const peopleApp = {
     /* Women's consent to night work (OSH Code s.43), recorded here; Time › Attendance. */
     { key: 'nightWork', label: 'Night work', keywords: ['night shift', 'consent', 'women'], icon: I.night, permission: 'PEOPLE::Employees::VIEW' },
     { key: 'attendanceRules', label: 'Attendance rules', icon: I.attRules, permission: 'ATTENDANCE::Attendance Requests::VIEW', parent: 'settings' },
+    /* Attendance inside People (owner, 11 Nov 2026): the Attendance app's keys, so its screens' links to one another work here. */
+    { key: 'records', label: 'All attendance records', keywords: ['attendance records', 'days', 'present', 'absent'], icon: I.register, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'exceptions', label: 'Days to check', keywords: ['exceptions', 'missing punch', 'odd days'], icon: I.health, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'overtime', label: 'Overtime & comp-off', keywords: ['overtime', 'ot', 'comp off', 'extra hours'], icon: I.attRules, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'scheduleCalendar', label: 'Shift calendar', keywords: ['roster', 'schedule'], icon: asKind(I.calendar, 'time'), permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'shifts', label: 'Shifts', keywords: ['shift', 'timing', 'weekly off'], icon: I.myDays, permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'shiftAssignments', label: 'Who is on which shift', keywords: ['shift assignments', 'assign shift', 'roster'], icon: asKind(I.people, 'time'), permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'temporarySchedule', label: 'Temporary shifts', keywords: ['temporary schedule', 'cover'], icon: asKind(I.calendar, 'time'), permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'readers', label: 'Readers', keywords: ['biometric', 'device', 'machine', 'fingerprint', 'face', 'essl', 'zkteco'], icon: I.consent, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'readerHealth', label: 'Reader health', keywords: ['offline', 'reader status'], icon: asKind(I.health, 'time'), permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'transactions', label: 'Punches', keywords: ['punch log', 'transactions', 'in out'], icon: asKind(I.history, 'time'), permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'unmatched', label: 'Punches with no employee', keywords: ['unmatched punches', 'unknown id'], icon: asKind(I.dataCheck, 'time'), permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'payrollReadiness', label: 'Ready for payroll?', keywords: ['payroll readiness', 'month end'], wholeCompany: true, icon: asKind(I.compliance, 'time'), permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'confirmations', label: 'Employee confirmations', keywords: ['confirm month', 'sign off'], icon: asKind(I.approve, 'time'), permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'monthClose', label: 'Month close', keywords: ['lock attendance', 'close the month'], icon: asKind(I.yearEnd, 'time'), permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'summary', label: 'Monthly attendance', icon: I.summary, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'register', label: 'Daily attendance register', wholeCompany: true, icon: I.register, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'attendanceReports', label: 'All attendance reports', keywords: ['late', 'early', 'absent', 'overtime report', 'timecard'], wholeCompany: true, icon: I.report, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'shiftPolicy', label: 'Default shift & late rule', icon: I.shiftPolicy, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'weeklyOffPolicy', label: 'Weekly off', icon: I.weeklyOff, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'overtimePolicy', label: 'Overtime rules', icon: I.overtimeRule, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'departmentSchedule', label: 'Department shifts', icon: I.deptShift, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'rotations', label: 'Shift rotations', icon: I.rotation, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'sites', label: 'Punch areas', icon: I.punchArea, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'siteCheck', label: 'Punch area check', icon: I.areaCheck, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'phonePunches', label: 'Phone punches', icon: I.phonePunch, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'enrolments', label: 'Fingerprint & face enrolment', icon: I.enrol, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'idMapping', label: 'Reader numbers', icon: I.readerId, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'readerSync', label: 'Reader sync', icon: I.readerSync, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'deviceLogs', label: 'Reader logs', icon: I.readerLog, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'contractors', label: 'Contractors', icon: I.contractor, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'attendance' },
     { key: 'automations', label: 'Automations', icon: I.automation, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'exitQuestions', label: 'Exit interview', icon: I.exit, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'myRequests', label: 'My requests', icon: I.requests, permission: 'ATTENDANCE::My Attendance::VIEW' },
@@ -621,6 +726,41 @@ export const peopleApp = {
     absences: Absences,
     nightWork: NightWork,
     attendanceRules: AttendanceRulesSettings,
+    records: AttendanceRecords,
+    exceptions: Exceptions,
+    overtime: OvertimeRequests,
+    scheduleCalendar: ScheduleCalendar,
+    shifts: Shifts,
+    shiftAssignments: ShiftAssignments,
+    temporarySchedule: TemporarySchedule,
+    departmentSchedule: DepartmentSchedule,
+    rotations: Rotations,
+    readers: AttendanceDevices,
+    readerHealth: ReaderHealth,
+    readerSync: ReaderSync,
+    deviceLogs: DeviceLogs,
+    enrolments: Enrolments,
+    transactions: PunchLog,
+    unmatched: UnmatchedPunches,
+    idMapping: IdMapping,
+    phonePunches: PhonePunches,
+    sites: Geofences,
+    siteCheck: SiteCheck,
+    shiftPolicy: ShiftPolicy,
+    /* The Attendance app's key for the same page: its screens link to it by this name. */
+    rules: ShiftPolicy,
+    weeklyOffPolicy: WeeklyOffPolicy,
+    overtimePolicy: OvertimePolicy,
+    contractors: Contractors,
+    payrollReadiness: PayrollReadiness,
+    confirmations: MonthConfirmations,
+    monthClose: MonthClose,
+    summary: MonthSummary,
+    register: AttendanceRegister,
+    attendanceReports: AttendanceReports,
+    reportLateEarly: attendanceReport('late-early'),
+    reportAbsent: attendanceReport('absent'),
+    reportOvertime: attendanceReport('overtime'),
     companyChoices: CompanyChoices,
     automations: Automations,
     exitQuestions: ExitQuestions,
