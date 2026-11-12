@@ -240,8 +240,14 @@ export const getRules = () => get('/rules').then((r) => r?.rules);
 /* Both unwrap { rules }: the screen keeps what it gets back as the form. */
 export const saveRules = (body) => send('/rules', 'PUT', body).then((r) => r?.rules);
 export const getSchedule = (params) => get(`/schedule${query(params)}`);
+/* The roster planner: the grid, its draft, and publishing it. */
+export const getRoster = (params) => get(`/roster${query(params)}`);
+export const setRosterDraft = (body) => send('/roster/draft', 'POST', body);
+export const copyRosterWeek = (body) => send('/roster/draft/copy-week', 'POST', body);
+export const discardRosterDraft = () => send('/roster/draft', 'DELETE');
+export const publishRoster = () => send('/roster/publish', 'POST', {});
 export const recompute = (body) => send('/recompute', 'POST', body);
-export const SCHEDULE_SOURCE = { TEMPORARY: 'Temporary', EMPLOYEE: 'Own schedule', ROTATION: 'Rotation', DEPARTMENT: 'Department', DEFAULT: 'Company default' };
+export const SCHEDULE_SOURCE = { TEMPORARY: 'Temporary', ROSTER: 'Roster', EMPLOYEE: 'Own schedule', ROTATION: 'Rotation', DEPARTMENT: 'Department', DEFAULT: 'Company default' };
 
 /* Employee portal: who may sign in, activation codes, phone punching, work sites. */
 export const getPortalAccess = () => get('/portal-access');
