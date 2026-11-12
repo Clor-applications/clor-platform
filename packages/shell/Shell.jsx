@@ -1321,11 +1321,16 @@ function ShellScreens() {
               if (!link?.app) return;
               /* A notice raised for Attendance opens People's screen for a company on People. */
               const to = landingFor(link, subscriptions || [], { all: listAll });
-              if (to.app === activeAppId && !Root) {
+              if (to.moved && to.app === activeAppId && !Root) {
                 if (to.screen && app?.screens?.[to.screen]) goTo(to.screen, link.params);
                 return;
               }
-              openApp(to.app, to.screen, link.params || {});
+              if (link.app === activeAppId && !Root) {
+                if (link.screen && app?.screens?.[link.screen]) goTo(link.screen, link.params);
+                return;
+              }
+              /* Another app: openApp lands the link the same way (openAppNow). */
+              openApp(link.app, link.screen || '', link.params || {});
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
