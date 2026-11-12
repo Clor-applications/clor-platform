@@ -23,6 +23,26 @@ import { DEFAULT_SHIFT, type ShiftRule } from './compute.js';
 export type ResolvedShift = { shiftId: string | null; rule: ShiftRule; name: string; code: string | null; color: string | null; source: Source };
 export type Source = 'TEMPORARY' | 'ROSTER' | 'EMPLOYEE' | 'ROTATION' | 'DEPARTMENT' | 'DEFAULT';
 
+/** Dates, inclusive, as YYYY-MM-DD. */
+export type DateSpan = { from: string; to: string };
+/**
+ * Roster days are a row a person a day (500 people: about 180,000 a year), so
+ * they are read for the dates a caller will resolve and no others. A caller
+ * that names no dates gets this many days either side of today.
+ */
+export const ROSTER_DEFAULT_DAYS = 62;
+/** Loaded a day wider than asked at each end: a night shift's morning is scored on the day before, and a rest rule looks a day past the edge. */
+const ROSTER_MARGIN_DAYS = 1;
+const shiftDate = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+/** The dates roster days are read for: the caller's, or the default window about today, a day wider at each end. */
+export function rosterSpan(range?: DateSpan | null, now: Date = new Date()): DateSpan {
+  /* Today in India, as every date in Attendance is. */
+  const today = new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+  const asked = range && range.from && range.to && range.from <= range.to ? range : { from: shiftDate(today, -ROSTER_DEFAULT_DAYS), to: shiftDate(today, ROSTER_DEFAULT_DAYS) };
+  return { from: shiftDate(asked.from, -ROSTER_MARGIN_DAYS), to: shiftDate(asked.to, ROSTER_MARGIN_DAYS) };
+}
+const warned = new WeakSet<object>();
+
 /** A published roster day: a shift to work, or a weekly off. */
 export type RosterMark = { kind: 'SHIFT' | 'OFF'; shiftId: string | null };
 /** Every weekday off: what a rostered weekly off makes of the day's rule. */
@@ -39,6 +59,8 @@ export type ScheduleData = {
   temporary: Map<string, Ranged[]>;
   /** Published roster days, by person then date. Drafts are never loaded. */
   roster?: Map<string, Map<string, RosterMark>>;
+  /** The dates the roster days were loaded for, inclusive: outside them the roster is not known (loadSchedule). */
+  rosterRange?: DateSpan;
   assignments: Map<string, Ranged[]>;
   rotations: Map<string, { sequence: Array<string | null>; periodDays: number; anchorDate: string; isActive: boolean }>;
   rotationAssignments: Map<string, Array<{ rotationId: string; slotOffset: number; from: string; to: string | null }>>;
@@ -92,6 +114,11 @@ export function resolveShift(data: ScheduleData, employeeId: string, date: strin
   if (temp) return shaped(temp.shiftId, 'TEMPORARY');
 
   /* The roster names the day itself, so the shift's weekly pattern steps aside: a rostered shift is a working day, a rostered off is not. */
+  /* A date outside the dates the roster was read for has no roster day here whatever the table holds: the caller asked for too few dates. Said once, loudly, in the log. */
+  if (data.rosterRange && (date < data.rosterRange.from || date > data.rosterRange.to) && !warned.has(data)) {
+    warned.add(data);
+    console.warn(`[schedule] ${date} resolved outside the roster dates loaded (${data.rosterRange.from} to ${data.rosterRange.to}); pass loadSchedule the dates it will be asked for.`);
+  }
   const mark = data.roster?.get(employeeId)?.get(date);
   if (mark?.kind === 'SHIFT' && usable(mark.shiftId)) {
     const r = shaped(mark.shiftId!, 'ROSTER');
@@ -166,9 +193,23 @@ export function weeksBefore(earlier: EarlierWeek[], current: { weeklyOffDays: st
   return kept;
 }
 
-/** Everything resolveShift needs for a company, optionally narrowed to some people. */
-export async function loadSchedule(orgId: string, employeeIds?: string[]): Promise<ScheduleData> {
+/**
+ * Everything resolveShift needs for a company, optionally narrowed to some people.
+ *
+ * `range` is the dates the caller will resolve, inclusive. The ranged tables
+ * (assignments, rotations, department and temporary schedules) are a handful
+ * of rows a person and are read whole; published roster days are a row a
+ * person a day and are read for `range` only (a day wider at each end). Every
+ * caller that knows its dates passes them. With no range the roster is read
+ * for ROSTER_DEFAULT_DAYS either side of today, which is right for "now" and
+ * wrong for a month last year: resolveShift warns when asked for a date
+ * outside what was loaded. The query is served by the indexes the table has:
+ * (employeeId, date, state) when people are named, (orgId, state, date) when
+ * the whole company is read.
+ */
+export async function loadSchedule(orgId: string, employeeIds?: string[], range?: DateSpan | null): Promise<ScheduleData> {
   const byEmp = employeeIds ? { employeeId: { in: employeeIds } } : {};
+  const span = rosterSpan(range);
   const [shifts, settings, temporary, assignments, rotations, rotationAssignments, people, departmentSchedules, rosterDays] = await Promise.all([
     peoplePrisma.shift.findMany({ where: { orgId } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
@@ -179,7 +220,7 @@ export async function loadSchedule(orgId: string, employeeIds?: string[]): Promi
     peoplePrisma.employee.findMany({ where: { orgId, ...(employeeIds ? { id: { in: employeeIds } } : {}) }, select: { id: true, departmentId: true } }),
     peoplePrisma.departmentSchedule.findMany({ where: { orgId } }),
     /* Published only: a draft is a plan, and must not move anyone's day. */
-    peoplePrisma.rosterDay.findMany({ where: { orgId, state: 'PUBLISHED', ...byEmp }, select: { employeeId: true, date: true, kind: true, shiftId: true } }),
+    peoplePrisma.rosterDay.findMany({ where: { orgId, state: 'PUBLISHED', date: { gte: span.from, lte: span.to }, ...byEmp }, select: { employeeId: true, date: true, kind: true, shiftId: true } }),
   ]);
   const roster = new Map<string, Map<string, RosterMark>>();
   for (const d of rosterDays) {
@@ -193,6 +234,7 @@ export async function loadSchedule(orgId: string, employeeIds?: string[]): Promi
     standardRule: settings ? { ...DEFAULT_SHIFT, weeklyOffDays: settings.weeklyOffDays ?? DEFAULT_SHIFT.weeklyOffDays, offSaturdays: settings.offSaturdays || '' } : DEFAULT_SHIFT,
     standardEarlier: earlierWeeks(settings?.workingWeekEarlier).map((w) => ({ until: w.until, rule: { ...DEFAULT_SHIFT, weeklyOffDays: w.weeklyOffDays, offSaturdays: w.offSaturdays } })),
     roster,
+    rosterRange: span,
     temporary: group(temporary.map((t) => ({ employeeId: t.employeeId, shiftId: t.shiftId, from: t.fromDate, to: t.toDate })), (t) => t.employeeId) as any,
     assignments: group(assignments.map((a) => ({ employeeId: a.employeeId, shiftId: a.shiftId, from: a.effectiveFrom, to: a.effectiveTo })), (a) => a.employeeId) as any,
     rotations: new Map(

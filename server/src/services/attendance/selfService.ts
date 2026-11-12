@@ -47,7 +47,7 @@ export type AttentionItem = {
 export async function attentionFor(e: Who, from: string, to: string): Promise<AttentionItem[]> {
   if (from > to) return [];
   const [schedule, holidays, records, corrections, field, leave, settings] = await Promise.all([
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from, to }),
     loadHolidays(e.orgId, from, to),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: from, lte: to } } }),
     peoplePrisma.attendanceRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: 'PENDING', date: { gte: from, lte: to } }, select: { date: true } }),
@@ -99,7 +99,7 @@ export async function monthReview(e: Who, month: string) {
   const days = monthDays(month);
   const upTo = days.filter((d) => d <= t);
   const [schedule, holidays, records, settings, confirmation, overtime] = await Promise.all([
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from: days[0], to: days[days.length - 1] }),
     loadHolidays(e.orgId, days[0], days[days.length - 1]),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: days[0], lte: days[days.length - 1] } } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId: e.orgId } }),
@@ -198,7 +198,7 @@ const SOURCE_SAYS: Record<string, string> = { TEMPORARY: 'Temporary change', ROS
 export async function upcomingShifts(e: Who, from: string, count: number) {
   const to = plusDays(from, count - 1);
   const [schedule, holidays, leave] = await Promise.all([
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from, to }),
     loadHolidays(e.orgId, from, to),
     peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: { in: ['APPROVED', 'PENDING'] }, fromDate: { lte: to }, toDate: { gte: from } }, select: { fromDate: true, toDate: true, status: true, halfDay: true } }),
   ]);
@@ -234,7 +234,7 @@ export async function overtimeFor(e: Who, month: string) {
   const days = monthDays(month);
   const [records, schedule, holidays, requests, settings] = await Promise.all([
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: days[0], lte: days[days.length - 1] } }, orderBy: { date: 'asc' } }),
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from: days[0], to: days[days.length - 1] }),
     loadHolidays(e.orgId, days[0], days[days.length - 1]),
     peoplePrisma.overtimeRequest.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: days[0], lte: days[days.length - 1] } }, orderBy: { createdAt: 'desc' } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId: e.orgId } }),

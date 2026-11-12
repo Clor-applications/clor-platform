@@ -84,7 +84,7 @@ export async function rosterView(who: { accountId: string; orgId: string }, quer
       select: { id: true, name: true, code: true, department: true, departmentId: true, areaId: true, branchId: true, dateOfJoining: true, dateOfLeaving: true },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     }),
-    loadSchedule(orgId),
+    loadSchedule(orgId, undefined, { from: first, to: last }),
     loadHolidays(orgId, first, last),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId, date: { gte: first, lte: last }, status: 'ON_LEAVE' }, select: { employeeId: true, date: true } }),
     peoplePrisma.rosterDay.findMany({ where: { orgId, state: 'DRAFT', date: { gte: first, lte: last } }, select: { employeeId: true, date: true, kind: true, shiftId: true } }),
@@ -207,7 +207,7 @@ async function writeDraft(who: Who, cells: Cell[]) {
   for (const c of cells) if (c.kind === 'SHIFT') (onShift.get(c.employeeId) || onShift.set(c.employeeId, new Set()).get(c.employeeId)!).add(String(c.shiftId));
   if (onShift.size) await assertNightConsent(orgId, [...onShift].map(([employeeId, ids]) => ({ employeeId, shiftIds: [...ids] })));
 
-  const schedule = await loadSchedule(orgId, employeeIds);
+  const schedule = await loadSchedule(orgId, employeeIds, { from: dates[0], to: dates[dates.length - 1] });
   const byId = new Map(people.map((p) => [p.id, p]));
   const skipped: Skipped[] = [];
   const add: Cell[] = [];
@@ -279,7 +279,7 @@ export async function copyWeek(who: Who, body: { employeeIds: string[]; weekStar
   const source = eachDay(body.weekStart, addDays(body.weekStart, 6));
   return peopleWrite(who.orgId, async () => {
     const [schedule, drafts, people] = await Promise.all([
-      loadSchedule(who.orgId, employeeIds),
+      loadSchedule(who.orgId, employeeIds, { from: source[0], to: source[source.length - 1] }),
       peoplePrisma.rosterDay.findMany({ where: { orgId: who.orgId, state: 'DRAFT', employeeId: { in: employeeIds }, date: { in: source } }, select: { employeeId: true, date: true, kind: true, shiftId: true } }),
       peoplePrisma.employee.findMany({ where: { accountId: who.accountId, orgId: who.orgId, id: { in: employeeIds } }, select: { id: true, dateOfJoining: true, dateOfLeaving: true } }),
     ]);
@@ -367,7 +367,8 @@ export async function publishRoster(who: Who, range: { from?: string | null; to?
     for (const d of live) if (d.kind === 'SHIFT') (onShift.get(d.employeeId) || onShift.set(d.employeeId, new Set()).get(d.employeeId)!).add(String(d.shiftId));
     if (onShift.size) await assertNightConsent(orgId, [...onShift].map(([employeeId, ids]) => ({ employeeId, shiftIds: [...ids] })));
 
-    const before = await loadSchedule(orgId, employeeIds);
+    const span = { from: dates[0], to: dates[dates.length - 1] };
+    const before = await loadSchedule(orgId, employeeIds, span);
     /* The published day each draft replaces goes; the draft becomes it, or (CLEAR) nothing does. */
     const old = live.length ? await peoplePrisma.rosterDay.findMany({ where: { orgId, state: 'PUBLISHED', OR: byPerson(live) }, select: { id: true } }) : [];
     if (old.length) await peoplePrisma.rosterDay.deleteMany({ where: { orgId, id: { in: old.map((o) => o.id) } } });
@@ -375,7 +376,7 @@ export async function publishRoster(who: Who, range: { from?: string | null; to?
     if (clear.length) await peoplePrisma.rosterDay.deleteMany({ where: { orgId, id: { in: clear } } });
     const keep = live.filter((d) => d.kind !== 'CLEAR').map((d) => d.id);
     if (keep.length) await peoplePrisma.rosterDay.updateMany({ where: { orgId, id: { in: keep } }, data: { state: 'PUBLISHED', publishedByUserId: userId, publishedAt: new Date() } });
-    const after = await loadSchedule(orgId, employeeIds);
+    const after = await loadSchedule(orgId, employeeIds, span);
 
     /* Only days that came out different are told: a draft a temporary schedule now covers changes nothing. */
     const changed = new Map<string, Array<{ date: string; line: string }>>();

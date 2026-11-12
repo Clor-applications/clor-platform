@@ -79,7 +79,7 @@ export async function daysWorkedIn(accountId: string, orgId: string, people: Per
   }
 
   /* People only: working days by the week and the holidays. */
-  const [schedule, holidays] = await Promise.all([loadSchedule(orgId, ids), loadHolidays(orgId, lo, hi)]);
+  const [schedule, holidays] = await Promise.all([loadSchedule(orgId, ids, { from: lo, to: hi }), loadHolidays(orgId, lo, hi)]);
   for (const p of people) {
     const off = holidays.forArea(p.areaId ?? null, p.branchId ?? null);
     const m = new Map<string, Worked>();

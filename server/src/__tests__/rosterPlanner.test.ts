@@ -13,7 +13,7 @@ const { buildApp } = await import('../app.js');
 const { peoplePrisma } = await import('../utils/peoplePrisma.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { runInTenant } = await import('../utils/tenantScope.js');
-const { loadSchedule, resolveShift } = await import('../services/attendance/schedule.js');
+const { loadSchedule, resolveShift, rosterSpan } = await import('../services/attendance/schedule.js');
 const { isWeeklyOff } = await import('../services/attendance/compute.js');
 const { rosterNotice } = await import('../services/attendance/roster.js');
 
@@ -55,7 +55,7 @@ const cellOf = (g: any, employeeId: string, d: string) => g.rows.find((r: any) =
 const drafts = (c: Ctx) => peoplePrisma.rosterDay.count({ where: { orgId: c.orgId, state: 'DRAFT' } });
 const published = (c: Ctx) => peoplePrisma.rosterDay.count({ where: { orgId: c.orgId, state: 'PUBLISHED' } });
 const resolved = async (c: Ctx, employeeId: string, d: string) => {
-  const r = resolveShift(await runInTenant(c.orgId, () => loadSchedule(c.orgId, [employeeId])), employeeId, d);
+  const r = resolveShift(await runInTenant(c.orgId, () => loadSchedule(c.orgId, [employeeId], { from: d, to: d })), employeeId, d);
   return { shiftId: r.shiftId, source: r.source, off: isWeeklyOff(r.rule, d) };
 };
 
@@ -273,6 +273,48 @@ describe('draft, then published', () => {
     expect((await att(c).post('/roster/publish').expect(200)).body).toMatchObject({ published: 1, people: 1, notified: 1 });
     expect(await resolved(c, a.id, '2026-10-07')).toEqual({ shiftId: null, source: 'DEFAULT', off: false });
     expect(await platformPrisma.notification.count({ where: { orgId: c.orgId, kind: 'attendance.roster_published', userId: users.a } })).toBe(2);
+  }, 120_000);
+});
+
+describe('the roster days a schedule load reads', () => {
+  it('are the dates asked for, a day wider at each end, or 62 days either side of today', () => {
+    expect(rosterSpan({ from: '2026-10-01', to: '2026-10-31' })).toEqual({ from: '2026-09-30', to: '2026-11-01' });
+    expect(rosterSpan({ from: '2026-10-07', to: '2026-10-07' })).toEqual({ from: '2026-10-06', to: '2026-10-08' });
+    /* 12 Nov 2026, 20:00 UTC is already the 13th in India. */
+    expect(rosterSpan(null, new Date('2026-11-12T20:00:00Z'))).toEqual({ from: '2026-09-11', to: '2027-01-15' });
+    expect(rosterSpan({ from: '2026-10-31', to: '2026-10-01' }, new Date('2026-11-12T06:00:00Z'))).toEqual({ from: '2026-09-10', to: '2027-01-14' });
+  });
+
+  it('a published day inside the range is loaded and resolved; one outside it is not read at all', async () => {
+    const c = await makeOwner();
+    const p = await person(c, 'W1');
+    const day = await shift(c, 'Day', 'D');
+    await att(c).post('/roster/draft', { employeeIds: [p.id], dates: ['2026-10-07', '2026-12-09'], kind: 'SHIFT', shiftId: day.id }).expect(200);
+    await att(c).post('/roster/publish').expect(200);
+    expect(await published(c)).toBe(2);
+    const load = (range?: { from: string; to: string }) => runInTenant(c.orgId, () => loadSchedule(c.orgId, [p.id], range));
+    const loaded = (data: Awaited<ReturnType<typeof load>>) => [...(data.roster?.get(p.id)?.keys() || [])].sort();
+
+    const october = await load({ from: '2026-10-01', to: '2026-10-31' });
+    expect(october.rosterRange).toEqual({ from: '2026-09-30', to: '2026-11-01' });
+    expect(loaded(october)).toEqual(['2026-10-07']);
+    expect(resolveShift(october, p.id, '2026-10-07')).toMatchObject({ shiftId: day.id, source: 'ROSTER' });
+
+    const december = await load({ from: '2026-12-09', to: '2026-12-09' });
+    expect(loaded(december)).toEqual(['2026-12-09']);
+    expect(resolveShift(december, p.id, '2026-12-09')).toMatchObject({ shiftId: day.id, source: 'ROSTER' });
+
+    expect(loaded(await load({ from: '2026-10-01', to: '2026-12-31' }))).toEqual(['2026-10-07', '2026-12-09']);
+    expect(loaded(await load({ from: '2026-11-01', to: '2026-11-30' }))).toEqual([]);
+    /* The day on the edge of the margin is read; the one past it is not. */
+    expect(loaded(await load({ from: '2026-10-08', to: '2026-10-20' }))).toEqual(['2026-10-07']);
+    expect(loaded(await load({ from: '2026-10-09', to: '2026-10-20' }))).toEqual([]);
+
+    /* The screens that know their dates ask for them: the month's calendar and the grid each see their own day. */
+    const cal = (await att(c).get('/schedule?month=2026-12').expect(200)).body.rows.find((r: any) => r.employeeId === p.id).cells;
+    expect(cal.find((x: any) => x.date === '2026-12-09')).toMatchObject({ code: 'D', source: 'ROSTER' });
+    expect(cellOf(await grid(c, 'month=2026-10'), p.id, '2026-10-07')).toMatchObject({ code: 'D', source: 'ROSTER' });
+    expect((await att(c).get('/summary?month=2026-10').expect(200)).body.rows.some((r: any) => r.employeeId === p.id)).toBe(true);
   }, 120_000);
 });
 

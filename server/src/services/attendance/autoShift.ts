@@ -72,7 +72,7 @@ export async function autoPickShift(accountId: string, orgId: string, employeeId
   if (temps.some((t) => !t.pickedByPunch)) return null;
   const mine = temps.find((t) => t.pickedByPunch && t.fromDate === date && t.toDate === date) || null;
   /* What the day would be without a pick: the roster, a personal or a rotation schedule decides, so nothing is picked. */
-  const data = await loadSchedule(orgId, [employeeId]);
+  const data = await loadSchedule(orgId, [employeeId], { from: date, to: date });
   data.temporary.delete(employeeId);
   const without = resolveShift(data, employeeId, date);
   const letGo = async () => {

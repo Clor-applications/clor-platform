@@ -158,7 +158,7 @@ export async function dayPlan(orgId: string, employee: { id: string; branchId: s
   const sandwich = typeof rule === 'boolean' ? rule : Boolean(rule?.sandwich);
   const calendar = typeof rule === 'boolean' ? false : Boolean(rule?.countsCalendarDays);
   const [schedule, holidays] = await Promise.all([
-    loadSchedule(orgId, [employee.id]),
+    loadSchedule(orgId, [employee.id], { from, to }),
     peoplePrisma.holiday.findMany({
       where: {
         orgId, date: { gte: from, lte: to },

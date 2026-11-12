@@ -64,7 +64,7 @@ const dateQ = (v: unknown) => {
 /** `reads`: whether the reader may see a private leave type's name (HR who decide leave, or the person). */
 export async function explainFor(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null; name?: string }, date: string, reads = true) {
   const [schedule, record, punches, clocks, holiday, corrections] = await Promise.all([
-    loadSchedule(orgId, [employee.id]),
+    loadSchedule(orgId, [employee.id], { from: date, to: date }),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } }),
     peoplePrisma.devicePunch.findMany({ where: { orgId, employeeId: employee.id, shiftDate: date }, select: { at: true, kind: true, deviceId: true }, orderBy: { at: 'asc' } }),
     peoplePrisma.attendanceActivity.findMany({
@@ -558,7 +558,8 @@ attendanceInsightsRouter.post(`${base}/records/bulk`, can(PermissionAction.EDIT,
   const scope = await teamScope(req);
   const records = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: b.ids }, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) } });
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(records.map((r) => r.employeeId))] } }, select: { id: true, name: true, branchId: true, areaId: true } })).map((p) => [p.id, p]));
-  const schedule = await loadSchedule(orgId, [...people.keys()]);
+  const recordDates = records.map((r) => r.date).sort();
+  const schedule = await loadSchedule(orgId, [...people.keys()], recordDates.length ? { from: recordDates[0], to: recordDates[recordDates.length - 1] } : null);
   const locks = new Set((await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } })).map((l) => l.month));
 
   const plan = [] as Array<{ id: string; employeeId: string; name: string; date: string; ok: boolean; error?: string; changes: ReturnType<typeof dayDiff>; checkOut?: Date | null }>;
