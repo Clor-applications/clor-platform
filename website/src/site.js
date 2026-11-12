@@ -120,6 +120,7 @@ export const NAV = {
   ],
   company: [
     { href: '/company/about', name: 'About', line: 'Who makes CLOR, and where.' },
+    { href: '/company/team', name: 'Team', line: 'The people behind CLOR.' },
     { href: '/contact', name: 'Contact', line: 'Talk to us about your business.' },
   ],
 };

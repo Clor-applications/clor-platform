@@ -4,7 +4,7 @@ import { PRODUCT_CONTENT } from './content.js';
 import Home from './pages/Home.jsx';
 import Demo from './pages/Demo.jsx';
 import Product, { Products } from './pages/Product.jsx';
-import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security, ServiceStatus } from './pages/Pages.jsx';
+import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security, ServiceStatus, Team } from './pages/Pages.jsx';
 import Pricing from './pages/Pricing.jsx';
 
 /** Every page: its address, title, description and component. The sitemap is made from this list. */
@@ -24,6 +24,7 @@ export const ROUTES = [
   { path: '/integrations', title: 'Integrations', description: 'Biometric readers, Tally, HR tools, single sign-on, SCIM, the API, UPI and GST e-invoicing.', page: () => <Integrations /> },
   { path: '/resources', title: 'Guides', description: 'How to set up readers, the on-site connector, Tally, HR tools, single sign-on and directory sync.', page: () => <Resources /> },
   { path: '/company/about', title: 'About', description: `${SITE.company} makes CLOR in Bengaluru: accounting, HR, payroll and attendance on one set of records.`, page: () => <About /> },
+  { path: '/company/team', title: 'Team', description: 'The founders and directors of CLOR: Anand S R, CA Nalina Kumari, Suresh Kumar and Punar Gowda.', page: () => <Team /> },
   { path: '/demo', title: 'Request a demo', description: 'Tell us about your company and the CLOR apps you want to see. We call within one working day to set up a demo.', page: () => <Demo /> },
   { path: '/contact', title: 'Contact', description: 'Write to the CLOR team about your business, pricing or CLOR for accounting firms.', page: () => <Contact /> },
   { path: '/status', title: 'Status', description: 'Whether CLOR is working right now: sign-in, Books, People, Attendance and Payroll.', page: () => <ServiceStatus /> },
