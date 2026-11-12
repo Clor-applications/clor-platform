@@ -44,8 +44,11 @@ export const JOB_RULES = {
   failedRuns: 3,
 };
 
-/** How often Cloud Scheduler wakes the jobs (deploy/cloudrun.service.yaml records the schedule). */
-export const wakeEveryMs = () => Math.max(MIN, Number(process.env.JOBS_WAKE_EVERY_MS) || 5 * MIN);
+/**
+ * How often Cloud Scheduler wakes the jobs: every ten minutes in production
+ * (job `clor-api-jobs`, DEPLOY.md). Set JOBS_WAKE_EVERY_MS if that schedule changes.
+ */
+export const wakeEveryMs = () => Math.max(MIN, Number(process.env.JOBS_WAKE_EVERY_MS) || 10 * MIN);
 
 export type RunLine = { startedAt: Date; finishedAt: Date | null; outcome: string; error: string | null };
 export type Verdict =
