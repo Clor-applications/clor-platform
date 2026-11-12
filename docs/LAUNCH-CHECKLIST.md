@@ -64,7 +64,7 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [ ] Release record: a script that builds, tags and writes release notes (audit P0 8)
 - [~] People / Attendance boundary, permission rule — on `claude/audit-stage0` (PR #218): Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner chose this list 12 Nov). `middleware/rbac.ts` `ATTENDANCE_OPENS_PEOPLE`, test `attendanceBoundary.test.ts`
 - [~] Boundary, employee app — on PR #218: money, engagement and referrals routes need People (`portalNeedsPeople`); `/portal/me` says `people`, and the app hides Money, Jobs, Growth and Celebrations without it
-- [ ] Boundary, exclusivity: one company cannot hold both People and Attendance; an "Upgrade to People" action that keeps the data (ops subscription change + `accountProvisioning.ts`)
+- [~] Boundary, billing — on PR #218: with People on a plan, Attendance is always free (`peopleIncludesAttendance` in `services/subscriptions.ts`), so nobody pays for both. Upgrade from Attendance to People keeps all data (same tables). Still open: an "Upgrade to People" button for the customer
 - [ ] Hide the Attendance menu for People customers
 - [ ] Error tracker and uptime check with alerts to phone (Sentry free tier or Cloud Monitoring)
 - [ ] **Owner:** GSTIN; prices in ops.clor.in; PAN in ops; lawyer on terms and privacy
