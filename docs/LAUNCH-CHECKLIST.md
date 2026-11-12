@@ -51,6 +51,13 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 
 ## Built, waiting
 
+PR #221 (`claude/trial-and-approvals`, label full-tests): owner to merge on GitHub, then deploy (migration `20261204090000_demo_pipeline`, platform DB, adds 4 nullable columns). Contents:
+- Trial reminder emails to the account owner (7, 3, 1 days before; once at the end)
+- People approval emails (waiting, overdue, handed on, decided)
+- Workspace, Billing: Change the plan (Move to People, add/remove app, seats: a ticket to sales) and Stop renewing / Keep the plan (owner only); Attendance's Today line pointing to it
+- Ops demo pipeline: owner, follow-up date, source (utm/referrer); Mine / Follow up today / Nobody's yet; Home counts follow-ups due
+- clor.in: JSON-LD (Organization, WebSite, SoftwareApplication), a sharing picture per product, CSP enforced in `website/public/_headers`
+
 
 ## Stage 0 — stop the bleeding (audit: about 2 weeks)
 
@@ -62,7 +69,7 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 - [x] People / Attendance boundary: Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner's list) — PR #218, live 12 Nov
 - [x] Employee app: money, engagement, referrals need People; tabs hidden for Attendance-only — PR #218, live 12 Nov
 - [x] Attendance free on any plan with People (never pay twice) — PR #218, live 12 Nov
-- [ ] "Upgrade to People" button for an Attendance customer (data already kept: same tables)
+- [x] "Upgrade to People" for an Attendance customer: Workspace, Billing, Move to People (a ticket to sales) and a line on Attendance's Today — PR #221, waiting
 - [ ] Hide the Attendance menu for People customers
 - [x] Uptime checks every 5 min (api.clor.in/health, app.clor.in, clor.in) and email alerts to the owner: site down, database down, API 5xx > 5 in 5 min, any Cloud Scheduler job failing (job tick, nightly copies) — Cloud Monitoring, 12 Nov. API errors also in Error Reporting and the ops Alerts page (#215)
 - [ ] Alerts to the owner's phone (Google Cloud app push or SMS) — owner to choose
@@ -72,9 +79,9 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 
 - [ ] Invoice tax computed on the server: subtotal, CGST/SGST/IGST and place of supply recomputed, not trusted from the browser — `server/src/routes/invoices.ts:446-452` (audit P0 4)
 - [ ] Admin 2FA and payroll step-up on by default; today a user with no authenticator skips step-up — `server/src/services/stepUp.ts:84`
-- [ ] Enforce CSP on the app (`public/_headers:15` is Report-Only) and add one to clor.in
+- [ ] Enforce CSP on the app (`public/_headers:15` is Report-Only). clor.in has an enforced CSP — PR #221, waiting
 - [ ] SSO session bound to its company, not the whole account — `server/src/routes/sso.ts:227-283`
-- [ ] Approval emails and Android push (in-app bell only today) — `services/approvals/engine.ts:797`
+- [ ] Android push for approvals. Approval emails done — PR #221, waiting
 - [ ] Payroll: EPS exclusions (58+, joined after Sep 2014 above ₹15k) — `statutory/engine.ts:170-176`
 - [ ] Payroll: ESI contribution period (cover holds to end of Apr–Sep / Oct–Mar) — `engine.ts:211-219`
 - [ ] Payroll: full and final notice pay (now ₹0 at `finalSettlement.ts:187`), TDS, s.10(10)/10(10AA), post to Books
@@ -84,7 +91,7 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 
 ## Stage 2 — paid pilot, 10–20 customers (audit: weeks 9–16)
 
-- [ ] Published price book; trial-ending and renewal reminders; dunning; cancel; per-employee usage limits
+- [ ] Published price book; dunning; per-employee usage limits. Trial-ending reminders and self-service stop/keep plan done — PR #221, waiting (renewal invoices already email the owner)
 - [ ] Manual UPI / bank payment with Mark paid, GST invoice from CLOR's own Books (PR #198 / #208, other session)
 - [ ] GSTR-3B with reverse charge and 2B-gated ITC; reverse charge flag on bills (`schema.prisma:287`)
 - [ ] P&L and balance sheet by period, comparatives, Schedule III (server statements partly in #137)
@@ -104,7 +111,7 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 - [ ] Published SLA, 30+ help articles, CA partner programme
 - [ ] Hosted CI, branch protection, credentials off the Mac
 - [ ] PAN and bank encrypted at rest; security questionnaire pack; ISO 27001 plan
-- [ ] greytHR, Keka and Tally migration guides; JSON-LD and comparison pages on clor.in
+- [ ] greytHR, Keka and Tally migration guides; comparison pages on clor.in (JSON-LD and per-product sharing pictures done — PR #221, waiting)
 - [ ] Hindi employee app; native iOS
 
 ## Smaller findings (any time)
@@ -126,3 +133,4 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 - [ ] Public "See a sample company" per product
 - [ ] People form field names simpler (Launch Review)
 - [ ] Close old PR #129 (off-site backup) — replaced by #216
+- [x] Ops demo requests: owner, follow-up date, lead source; sales role could not move a request in the console (fixed) — PR #221, waiting
