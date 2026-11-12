@@ -27,6 +27,7 @@ import {
   HardHat as PHardHat,
   Heartbeat as PHeartbeat,
   Key as PKey,
+  Lightning as PLightning,
   LinkSimple as PLinkSimple,
   ListChecks as PListChecks,
   Lock as PLock,
@@ -120,6 +121,7 @@ const DataProtection = screen('DataProtection');
 const SsoSettings = screen('SsoSettings');
 const RolesAccess = screen('RolesAccess');
 const EmailNotifications = screen('EmailNotifications');
+const Automations = screen('Automations');
 const Exceptions = screen('Exceptions');
 const MonthClose = screen('MonthClose');
 const OvertimeRequests = screen('OvertimeRequests');
@@ -147,6 +149,7 @@ const TrendChart = duo(PChartLineUp, 'TrendChart');
 const CalendarClock = duo(PCalendarPlus, 'CalendarClock');
 const CalendarRange = duo(PCalendarDots, 'CalendarRange');
 const Gavel = duo(PGavel, 'Gavel');
+const Lightning = duo(PLightning, 'Lightning');
 const Briefcase = duo(PBriefcase, 'Briefcase');
 const Building2 = duo(PBuildings, 'Building2');
 const CalendarCheck = duo(PCalendarCheck, 'CalendarCheck');
@@ -280,7 +283,7 @@ export const attendanceApp = {
       { label: 'Organization', items: ['setup', 'sites', 'siteCheck', 'journeySteps'] },
       /* Founder's Work Policy group (NV-02). Weekly off and overtime are views
          over the shifts' own fields and the company rules, not new rules. */
-      { label: 'Work policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'holidays', 'leaveYearEnd', 'requestRules'] },
+      { label: 'Work policy', items: ['rules', 'weeklyOffPolicy', 'overtimePolicy', 'leaveTypes', 'workingWeek', 'holidays', 'leaveYearEnd', 'requestRules', 'automations'] },
       { label: 'Integrations', items: ['integrations'] },
       { label: 'Access & security', items: ['sso', 'rolesAccess', 'emailNotifications'] },
       { label: 'Data management', items: ['dataHealth', 'dataImport', 'dataExport', 'closeCompany'] },
@@ -374,6 +377,8 @@ export const attendanceApp = {
     { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
     { key: 'leaveYearEnd', label: 'Leave year end', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT' },
     { key: 'requestRules', label: 'Attendance request types', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE' },
+    /* What Attendance sends on its own: read with the rules' right, changed with their edit (routes/automations.ts). */
+    { key: 'automations', label: 'Automations', icon: Lightning, permission: 'ATTENDANCE::Shifts::VIEW' },
     { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
     { key: 'sso', label: 'Users & security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
@@ -471,6 +476,7 @@ export const attendanceApp = {
     sso: SsoSettings,
     rolesAccess: RolesAccess,
     emailNotifications: EmailNotifications,
+    automations: Automations,
     dataRequests: DataRequests,
     me: MyAttendance,
     myLeave: MyLeave,
