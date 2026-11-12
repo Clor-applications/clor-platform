@@ -28,16 +28,26 @@ const ACCOUNTING_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY', 'ACCOUNTIN
 
 /**
  * The app(s) a permission module belongs to — any one of them paid for opens
- * it (A-14). People and Attendance share the employee master and leave, so
- * either opens PEOPLE and ATTENDANCE here; each app's own route guard is
- * stricter where it needs to be. SETTINGS and REPORTS are the company's.
+ * it (A-14). SETTINGS and REPORTS are the company's.
+ *
+ * People includes everything Attendance does, so People opens ATTENDANCE.
+ * Attendance, sold alone to small companies, opens only the part of People it
+ * needs (owner, 12 Nov 2026): the employee record and structure, documents,
+ * announcements, and the requests and approvals that carry leave and
+ * regularisation. Hiring, performance, learning, lifecycle, expenses, policies,
+ * privacy, private cases and the rest are People's alone (platform audit,
+ * 11 Nov 2026: an Attendance subscription opened every People permission).
  */
+export const ATTENDANCE_OPENS_PEOPLE = new Set(['Employees', 'Org Structure', 'Documents', 'Announcements', 'Requests', 'Approvals']);
 const MODULE_APPS: Record<string, string[]> = {
   PAYROLL: ['payroll'],
-  PEOPLE: ['people', 'attendance'],
   ATTENDANCE: ['attendance', 'people'],
 };
-export const appsForModule = (m: string): string[] | null => (ACCOUNTING_MODULES.has(m) ? ['accounting'] : MODULE_APPS[m] || null);
+export const appsForModule = (m: string, subModule?: string | null): string[] | null => {
+  if (ACCOUNTING_MODULES.has(m)) return ['accounting'];
+  if (m === 'PEOPLE') return ATTENDANCE_OPENS_PEOPLE.has(String(subModule || '')) ? ['people', 'attendance'] : ['people'];
+  return MODULE_APPS[m] || null;
+};
 
 /**
  * Decides one permission for this request, and records the caller's effective
@@ -86,7 +96,7 @@ export async function authorize(
    * directly. Put the commercial ceiling in the common authorization path so
    * shell visibility and direct API access reach the same answer.
    */
-  const apps = appsForModule(m);
+  const apps = appsForModule(m, sm);
   if (apps) {
     /*
      * Three answers, not two. An app the account never bought is refused

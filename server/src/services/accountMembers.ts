@@ -32,7 +32,10 @@ const SENSITIVE = /^(PAYROLL|PEOPLE)::|Salary|Bank|Payslip|Statutory|Document/i;
 export function appsOfPermissions(permissions: Iterable<string>, isAdmin = false): string[] {
   if (isAdmin) return ['accounting', 'payroll', 'people', 'attendance'];
   const apps = new Set<string>();
-  for (const key of permissions) for (const a of appsForModule(String(key).split('::')[0]) || []) apps.add(a);
+  for (const key of permissions) {
+    const [mod, sub] = String(key).split('::');
+    for (const a of appsForModule(mod, sub) || []) apps.add(a);
+  }
   return [...apps].sort();
 }
 

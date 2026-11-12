@@ -62,7 +62,9 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [x] "Start free trial" lands on Sign in — fixed: `app.clor.in/start` answers 200 on the live app (checked 12 Nov)
 - [x] Production behind main — released through #215 on 12 Nov. Still missing: scripted release with notes and a CHANGELOG entry
 - [ ] Release record: a script that builds, tags and writes release notes (audit P0 8)
-- [ ] People / Attendance boundary: `server/src/middleware/rbac.ts:37-38` maps `PEOPLE: ['people','attendance']` and `ATTENDANCE: ['attendance','people']`, so an Attendance subscription opens every People API. Decide which People modules Attendance includes; gate the rest with `APP_NOT_SUBSCRIBED`; make the two subscriptions exclusive in provisioning (`accountProvisioning.ts:56`)
+- [~] People / Attendance boundary, permission rule — on `claude/audit-stage0` (PR #218): Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner chose this list 12 Nov). `middleware/rbac.ts` `ATTENDANCE_OPENS_PEOPLE`, test `attendanceBoundary.test.ts`
+- [ ] Boundary, employee app: portal routes for expenses, advances and engagement have no app check; hide those portal tabs for Attendance-only companies
+- [ ] Boundary, exclusivity: one company cannot hold both People and Attendance; an "Upgrade to People" action that keeps the data (ops subscription change + `accountProvisioning.ts`)
 - [ ] Hide the Attendance menu for People customers
 - [ ] Error tracker and uptime check with alerts to phone (Sentry free tier or Cloud Monitoring)
 - [ ] **Owner:** GSTIN; prices in ops.clor.in; PAN in ops; lawyer on terms and privacy

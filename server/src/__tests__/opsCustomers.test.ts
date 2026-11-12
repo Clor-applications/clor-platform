@@ -56,7 +56,7 @@ describe('a customer’s page in the operator console', () => {
     await request(app).post(`/api/ops/accounts/${c.accountId}/cancel`).set(fin.h).send({ reason: 'Closing the business' }).expect(200);
     expect((await platformPrisma.subscription.findUnique({ where: { accountId: c.accountId } }))?.status).toBe('cancelled');
     await request(app).post(`/api/ops/accounts/${c.accountId}/cancel`).set(fin.h).send({ reason: 'Again' }).expect(409);
-    expect((await request(app).post(`/api/ops/accounts/${c.accountId}/reopen`).set(fin.h).send({ reason: 'Changed their mind' }).expect(200)).body.status).toBe('active');
+    expect((await request(app).post(`/api/ops/accounts/${c.accountId}/reopen`).set(fin.h).send({ reason: 'Changed their mind' }).expect(200)).body.status).toBe('trialing'); // back to where it was: /signup starts a trial
 
     /* Sales may extend a trial; Support may not. */
     await setSubscription(c.accountId, { apps: [{ appCode: 'accounting' }], status: 'trialing', trialDays: 3 });
