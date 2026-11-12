@@ -65,6 +65,8 @@ export { default as TalentTrainings } from './talent/Trainings';
 export { default as TalentReferrals } from './talent/Referrals';
 export { default as TalentReferSomeone } from './talent/ReferSomeone';
 export { default as PeopleReports } from './screens/PeopleReports';
+export { default as ReportsHome } from './screens/ReportsHome';
+export { default as HrReport } from './screens/HrReport';
 export { default as Registers, LeaveSummaryReport } from './screens/Registers';
 export { default as PeopleDocuments } from './screens/PeopleDocuments';
 export { default as Holidays } from '../../attendance/src/screens/Holidays';

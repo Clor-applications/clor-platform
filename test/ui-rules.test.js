@@ -57,4 +57,15 @@ describe('UI rules, 8 Nov 2026', () => {
     expect(home).toMatch(/'Other'/);
     expect(home).not.toMatch(/\?\? 8\}/);
   });
+
+  it('gives a People report chart three colours too, picked on the server and held by the component', () => {
+    const chart = readFileSync('apps/people/src/components/ReportChart.jsx', 'utf8');
+    const server = readFileSync('server/src/services/people/reports.ts', 'utf8');
+    expect(chart).toMatch(/export const CHART_COLOURS = 3;/);
+    expect(chart).toMatch(/s\.other \|\| i >= CHART_COLOURS \? 0 : i \+ 1/);
+    expect(server).toMatch(/const CHART_COLOURS = 3;/);
+    expect(server).toMatch(/'Other'/);
+    /* Drawn with the series tokens, and no chart library. */
+    expect(chart).not.toMatch(/echarts|recharts|#[0-9a-fA-F]{6}/);
+  });
 });

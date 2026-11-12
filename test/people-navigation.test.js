@@ -43,6 +43,8 @@ describe('People navigation', () => {
     expect(groupsOf('talent').map(([l]) => l)).toEqual(['Hiring', 'Performance']);
     expect(groupsOf('talent')[0][1]).not.toContain('Refer someone');
     expect(groupsOf('reports')).toEqual([
+      /* The reports home first (platform audit, 11 Nov 2026): every report in plain groups; one report opens from it, off the menu. */
+      ['', ['All reports']],
       ['People', ['Headcount & attrition']],
       ['Time', ['Monthly attendance', 'Daily attendance register', 'All attendance reports', 'Leave register', 'Requests report']],
       ['Statutory registers', ['Statutory registers']],
@@ -63,6 +65,9 @@ describe('People navigation', () => {
     expect(keywordsOf('absences')).toContain('absences');
     expect(keywordsOf('companyChoices')).toContain('company choices');
     expect(keywordsOf('reports')).toContain('people report');
+    expect(inModules.has('hrReport')).toBe(false);
+    expect(parentOf.hrReport).toBe('reportsHome');
+    expect(moduleForScreen(modules, 'hrReport', peopleApp.nav)?.label).toBe('Reports');
     expect(keywordsOf('orgChart')).toContain('organisation');
   });
 
