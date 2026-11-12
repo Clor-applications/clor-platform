@@ -38,9 +38,16 @@ import { startIntegrityChecks } from './services/integrity/checks.js';
 import { startOrgDetailBackfill } from './services/people/organization.js';
 import { startStatutoryCatalogueBackfill } from './services/payroll/statutory/resolve.js';
 import { startFullDayFix } from './services/attendance/fullDayFix.js';
+import { hasOwnSecretKey } from './services/mailer.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
+
+/* Stored credentials need their own key in production (services/mailer.ts); say so loudly rather than at the first save. */
+if (process.env.NODE_ENV === 'production' && !hasOwnSecretKey()) {
+  // eslint-disable-next-line no-console
+  console.error('MAIL_SECRET_KEY is not set: saving mail, connector or gateway credentials will be refused until it is.');
+}
 
 const app = buildApp();
 const port = Number(process.env.PORT || 4001);

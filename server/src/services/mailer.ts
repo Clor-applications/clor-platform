@@ -49,7 +49,16 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
  * release read only that during a rolling deploy (and after a rollback).
  * SECRET_FORMAT=v2 writes the new one; it becomes the default next release.
  */
-const currentSecret = () => process.env.MAIL_SECRET_KEY || process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
+/*
+ * Audit 11 Nov 2026: the key that seals stored credentials must not be the key
+ * that signs sessions, or one leak opens both. In production a new secret is
+ * sealed only with MAIL_SECRET_KEY; without it saving a credential is refused.
+ * Secrets sealed earlier under JWT_SECRET still open (candidateSecrets) and
+ * move to the proper key the next time they are saved.
+ */
+const currentSecret = () => process.env.MAIL_SECRET_KEY || (isDevOrTest() ? process.env.JWT_SECRET : '') || (isDevOrTest() ? 'dev-secret' : '');
+/** For the boot check (index.ts): whether stored credentials have their own key. */
+export const hasOwnSecretKey = () => Boolean(String(process.env.MAIL_SECRET_KEY || '').trim());
 const deriveKey = (secret: string) => createHash('sha256').update(String(secret)).digest();
 /** Which key made a secret, without saying anything about the key. */
 export const keyIdOf = (secret: string) => createHash('sha256').update(`clor-key-id:${secret}`).digest('hex').slice(0, 16);
@@ -66,7 +75,7 @@ function candidateSecrets() {
 
 function encryptionKey() {
   const secret = currentSecret();
-  if (!secret) throw new Error('MAIL_SECRET_KEY (or JWT_SECRET) must be set to store credentials.');
+  if (!secret) throw new Error('MAIL_SECRET_KEY must be set to store credentials.');
   return deriveKey(secret);
 }
 
