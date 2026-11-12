@@ -28,6 +28,7 @@ const UserX = duo(PUserMinus, 'UserX');
 const Users = duo(PUsersThree, 'Users');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import MoveToPeople from '../components/MoveToPeople';
 
 /* The reader states the server already decides (Reader health uses the same words). */
 const READER = {
@@ -320,6 +321,7 @@ export default function AttendanceToday({ openScreen }) {
           </div>
         </>
       )}
+      <MoveToPeople />
       </div>
     </div>
   );

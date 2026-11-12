@@ -158,6 +158,21 @@
     },
     {
       "method": "POST",
+      "path": "/api/billing/plan-change",
+      "reason": "Asks CLOR sales for a plan change: only opens a Plan-or-billing support ticket, changes no subscription. Needs SETTINGS::Company Profile::EDIT (mayPayInvoices); the ticket limit per user per hour applies."
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/cancel",
+      "reason": "Turns renewal off (cancelAtPeriodEnd) on the caller's own account; the account OWNER membership is checked in the handler. Nothing is taken away before the paid period ends."
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/resume",
+      "reason": "Turns renewal back on for the caller's own account before the period ends; account OWNER membership checked in the handler."
+    },
+    {
+      "method": "POST",
       "path": "/api/billing/webhook",
       "reason": "Payment-gateway webhook on the app itself, ahead of the JSON parser: express.raw keeps the exact bytes the gateway adapter verifies (A-16); billingWebhookLimiter."
     },

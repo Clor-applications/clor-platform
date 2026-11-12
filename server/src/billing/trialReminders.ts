@@ -45,6 +45,8 @@ export async function runTrialReminders(now = new Date(), only?: string[]): Prom
       where: {
         ...(only ? { accountId: { in: only } } : {}),
         status: 'trialing',
+        /* The owner stopped the plan: no nudges to choose one. */
+        cancelAtPeriodEnd: false,
         trialEndsAt: { not: null, gt: new Date(now.getTime() - ENDED_WITHIN_DAYS * DAY), lte: new Date(now.getTime() + Math.max(...BEFORE_DAYS) * DAY) },
       },
       select: { id: true, accountId: true, trialEndsAt: true },

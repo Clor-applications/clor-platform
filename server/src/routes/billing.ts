@@ -14,7 +14,8 @@ import { activeGateway, isCode, manualPayTo, webhookGateway } from '../billing/p
 import { rawText } from '../billing/webhookKit.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
-import { acrossCompanies } from '../utils/tenantScope.js';
+import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
+import { openTicket, ticketCode, TicketError } from '../services/support/tickets.js';
 import { publishedBook } from '../services/pricing/books.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { publicPricing } from './pricing.js';
@@ -159,7 +160,9 @@ billingRouter.get('/billing/subscription', async (req, res) => {
   const mayViewPlan = !(await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile'));
   const plan = mayViewPlan && sub ? (({ gatewayCustomerId: _c, gatewaySubscriptionId: _s, ...rest }) => rest)(sub) : null;
   /* `reason`: why the apps are read-only when they are (a trial that ended), in the sentence the shell shows. */
-  res.json({ subscription: plan, ...access, subscribedApps: access.entitledApps, reason: lapseReason(sub) });
+  /* Who may ask for a change (anyone who may change settings) and who may stop the plan (the account owner). */
+  const [mayChange, owner] = mayViewPlan ? await Promise.all([mayPayInvoices(req), isOwner(accountId, req.auth!.userId)]) : [false, false];
+  res.json({ subscription: plan, ...access, subscribedApps: access.entitledApps, reason: lapseReason(sub), mayChangePlan: mayChange, mayStopPlan: owner });
 });
 
 /**
@@ -221,4 +224,90 @@ billingRouter.post('/billing/invoices/:id/pay/check', async (req, res) => {
     if (e instanceof PaymentsError) return res.status(e.status).json({ error: e.message });
     throw e;
   }
+});
+
+/*
+ * Changing the plan from Workspace (platform audit, 11 Nov 2026: "no way for a
+ * customer to upgrade, add an app or cancel"). Prices are set by CLOR staff
+ * (routes/opsDeals.ts), so a change of apps or seats is a request: it opens a
+ * Plan-or-billing ticket that sales answers with the new price, and nothing
+ * is charged until the customer agrees. Stopping is the customer's own: the
+ * account owner turns renewal off, the plan runs to the end of the period it
+ * is paid for, and they can turn it back on until then.
+ */
+const CHANGE = {
+  UPGRADE_PEOPLE: 'Move from Attendance to People',
+  ADD_APP: 'Add an app',
+  REMOVE_APP: 'Remove an app',
+  SEATS: 'Change the number of users or employees',
+  OTHER: 'Another change to the plan',
+} as const;
+const changeSchema = z.object({
+  kind: z.enum(Object.keys(CHANGE) as [keyof typeof CHANGE, ...(keyof typeof CHANGE)[]]),
+  app: z.string().trim().max(40).optional().nullable(),
+  note: z.string().trim().max(2000).optional().nullable(),
+});
+
+const mayChangePlan = mayPayInvoices;
+const isOwner = (accountId: string, userId: string) =>
+  outsideTenant('billing: is the account owner', () => platformPrisma.accountMembership.count({ where: { accountId, userId, role: 'OWNER', status: 'ACTIVE' } })).then((n) => n > 0);
+const appName = (code: string | null | undefined) => APP_CATALOG.find((a) => a.code === code)?.name || code || '';
+
+billingRouter.post('/billing/plan-change', async (req, res) => {
+  if (!(await mayChangePlan(req))) return res.status(403).json({ error: 'Only the people who may change this account’s settings ask for a plan change.' });
+  const parsed = changeSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: 'Say what to change.' });
+  const { kind, note } = parsed.data;
+  const accountId = req.tenant!.accountId;
+  const access = await appAccess(accountId);
+  const app = kind === 'UPGRADE_PEOPLE' ? 'people' : parsed.data.app || null;
+  if ((kind === 'ADD_APP' || kind === 'REMOVE_APP') && !APP_CATALOG.some((a) => a.code === app)) return res.status(400).json({ error: 'Choose the app.' });
+  if (kind === 'UPGRADE_PEOPLE' && access.ownedApps.includes('people')) return res.status(409).json({ error: 'People is already on this plan.' });
+  if (kind === 'ADD_APP' && access.ownedApps.includes(app!)) return res.status(409).json({ error: `${appName(app)} is already on this plan.` });
+  if (kind === 'REMOVE_APP' && !access.ownedApps.includes(app!)) return res.status(409).json({ error: `${appName(app)} is not on this plan.` });
+  const what = kind === 'ADD_APP' || kind === 'REMOVE_APP' ? `${CHANGE[kind]}: ${appName(app)}` : CHANGE[kind];
+  const body = [
+    `Plan change asked from Workspace: ${what}.`,
+    `Apps now: ${access.ownedApps.map(appName).join(', ') || 'none'}.`,
+    kind === 'UPGRADE_PEOPLE' ? 'People includes everything in Attendance; the Attendance line comes off the bill when People is on.' : '',
+    note ? `\nFrom the customer:\n${note}` : '',
+  ].filter(Boolean).join('\n');
+  try {
+    const t = await openTicket({ accountId, orgId: req.tenant?.orgId ?? null, userId: req.auth!.userId, subject: `Plan change: ${what}`, body, category: 'BILLING', app, urgent: false, requestId: null });
+    res.status(201).json({ ticket: { id: t.id, code: ticketCode(t.number), subject: t.subject } });
+  } catch (e) {
+    if (e instanceof TicketError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
+
+/** Stop renewing: the account owner only. The plan runs to the end of what is paid; nothing is taken away early. */
+billingRouter.post('/billing/cancel', async (req, res) => {
+  const accountId = req.tenant!.accountId;
+  if (!(await isOwner(accountId, req.auth!.userId))) return res.status(403).json({ error: 'Only the account owner can stop the plan.' });
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 2000);
+  const sub = await getSubscription(accountId);
+  if (!sub || !['active', 'trialing', 'past_due'].includes(sub.status)) return res.status(409).json({ error: 'There is no running plan to stop.' });
+  if (sub.cancelAtPeriodEnd) return res.status(409).json({ error: 'The plan is already set to stop.' });
+  const endsAt = sub.status === 'trialing' ? sub.trialEndsAt : sub.currentPeriodEnd;
+  await outsideTenant('billing: stop renewing', () => platformPrisma.subscription.update({ where: { accountId }, data: { cancelAtPeriodEnd: true } }));
+  const until = endsAt ? endsAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : null;
+  /* Sales hears it as a ticket, with the reason, so a person can follow up; a failure to open one never undoes the stop. */
+  await openTicket({
+    accountId, orgId: req.tenant?.orgId ?? null, userId: req.auth!.userId, category: 'BILLING', app: null, urgent: false, requestId: null,
+    subject: 'Plan stopped: will not renew',
+    body: `The account owner turned renewal off from Workspace.${until ? ` The plan runs until ${until}.` : ''}${reason ? `\n\nWhy:\n${reason}` : ''}`,
+  }).catch(() => undefined);
+  res.json({ cancelAtPeriodEnd: true, endsAt });
+});
+
+/** Changed their mind before the end: renewal back on. */
+billingRouter.post('/billing/resume', async (req, res) => {
+  const accountId = req.tenant!.accountId;
+  if (!(await isOwner(accountId, req.auth!.userId))) return res.status(403).json({ error: 'Only the account owner can turn renewal back on.' });
+  const sub = await getSubscription(accountId);
+  if (!sub?.cancelAtPeriodEnd) return res.status(409).json({ error: 'The plan is not set to stop.' });
+  if (!['active', 'trialing', 'past_due'].includes(sub.status)) return res.status(409).json({ error: 'This plan has ended. Write to sales@clor.in to start again.' });
+  await outsideTenant('billing: renew again', () => platformPrisma.subscription.update({ where: { accountId }, data: { cancelAtPeriodEnd: false } }));
+  res.json({ cancelAtPeriodEnd: false });
 });
