@@ -363,6 +363,13 @@ model Shift {
   startTime            String
   endTime              String
   breakMinutes         Int     @default(60)
+  /// The shift's breaks, when it names them (services/attendance/breaks.ts):
+  /// [{ name, startTime?, endTime?, minutes, paid }]. breakMinutes is then their unpaid total.
+  /// Empty: the one unpaid break of breakMinutes, as before.
+  breaks               Json    @default("[]")
+  /// FIXED: the breaks above come off the day. PUNCHED: the break time punched out and in does,
+  /// less the paid breaks, on a day that has break punches.
+  breakMode            String  @default("FIXED")
   /// Arriving within this many minutes of the start is not late.
   graceMinutes         Int     @default(10)
   /// Leaving within this many minutes of the end is not early.
@@ -476,6 +483,9 @@ model AttendanceRecord {
   earlyOutMinutes  Int     @default(0)
   overtimeMinutes  Int     @default(0)
   overtimeApproved Boolean @default(false)
+  /// The unpaid break time taken from the day's punches (a shift on punched breaks); null when the
+  /// shift's fixed breaks were taken off, as on every day before this column.
+  breakMinutes     Int?
 
   /// PRESENT | HALF_DAY | ABSENT | ON_LEAVE | HOLIDAY | WEEKLY_OFF
   status String

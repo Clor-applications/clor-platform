@@ -1,5 +1,6 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { DEFAULT_SHIFT, type ShiftRule } from './compute.js';
+import { breaksOf } from './breaks.js';
 
 /**
  * Which shift someone works on a date. One answer for the whole product —
@@ -49,6 +50,8 @@ export const toRule = (s: any): ShiftRule => ({
   offSaturdays: s.offSaturdays || '',
   checkInBeforeMinutes: s.checkInBeforeMinutes ?? null,
   checkOutAfterMinutes: s.checkOutAfterMinutes ?? null,
+  breaks: breaksOf(s.breaks),
+  breakMode: s.breakMode === 'PUNCHED' ? 'PUNCHED' : 'FIXED',
 });
 
 const dayNumber = (date: string) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))) / 86_400_000;
