@@ -10,15 +10,23 @@ import { DEFAULT_SHIFT, type ShiftRule } from './compute.js';
  *
  * Precedence, ClorTime's (attendance_engine.js shiftFor, rotations.js):
  *   1. a temporary schedule covering the date
- *   2. the person's own schedule (latest start on or before the date, not ended)
- *   3. a rotation they are on (a hand-entered schedule always beats a pattern)
- *   4. their department's schedule
- *   5. the company default shift (Attendance rules), else 09:00–18:00, Sunday off
+ *   2. the day on the published roster (the roster planner): that shift, worked
+ *      whatever the shift's own weekly offs say, or a weekly off on whatever
+ *      shift the steps below give. A roster draft is never read here.
+ *   3. the person's own schedule (latest start on or before the date, not ended)
+ *   4. a rotation they are on (a hand-entered schedule always beats a pattern)
+ *   5. their department's schedule
+ *   6. the company default shift (Attendance rules), else 09:00–18:00, Sunday off
  * A schedule pointing at a switched-off shift is skipped, as ClorTime's join does.
  */
 
 export type ResolvedShift = { shiftId: string | null; rule: ShiftRule; name: string; code: string | null; color: string | null; source: Source };
-export type Source = 'TEMPORARY' | 'EMPLOYEE' | 'ROTATION' | 'DEPARTMENT' | 'DEFAULT';
+export type Source = 'TEMPORARY' | 'ROSTER' | 'EMPLOYEE' | 'ROTATION' | 'DEPARTMENT' | 'DEFAULT';
+
+/** A published roster day: a shift to work, or a weekly off. */
+export type RosterMark = { kind: 'SHIFT' | 'OFF'; shiftId: string | null };
+/** Every weekday off: what a rostered weekly off makes of the day's rule. */
+const EVERY_DAY_OFF = '0,1,2,3,4,5,6';
 
 type Ranged = { shiftId: string; from: string; to: string | null };
 export type ScheduleData = {
@@ -29,6 +37,8 @@ export type ScheduleData = {
   /** Earlier working weeks, oldest first: a date before `until` follows that week instead (a change made from a date). */
   standardEarlier?: Array<{ until: string; rule: ShiftRule }>;
   temporary: Map<string, Ranged[]>;
+  /** Published roster days, by person then date. Drafts are never loaded. */
+  roster?: Map<string, Map<string, RosterMark>>;
   assignments: Map<string, Ranged[]>;
   rotations: Map<string, { sequence: Array<string | null>; periodDays: number; anchorDate: string; isActive: boolean }>;
   rotationAssignments: Map<string, Array<{ rotationId: string; slotOffset: number; from: string; to: string | null }>>;
@@ -80,6 +90,24 @@ export function resolveShift(data: ScheduleData, employeeId: string, date: strin
 
   const temp = (data.temporary.get(employeeId) || []).find((t) => t.from <= date && (!t.to || t.to >= date) && usable(t.shiftId));
   if (temp) return shaped(temp.shiftId, 'TEMPORARY');
+
+  /* The roster names the day itself, so the shift's weekly pattern steps aside: a rostered shift is a working day, a rostered off is not. */
+  const mark = data.roster?.get(employeeId)?.get(date);
+  if (mark?.kind === 'SHIFT' && usable(mark.shiftId)) {
+    const r = shaped(mark.shiftId!, 'ROSTER');
+    return { ...r, rule: { ...r.rule, weeklyOffDays: '', offSaturdays: '' } };
+  }
+  const under = schedulesOf(data, employeeId, date);
+  return mark?.kind === 'OFF' ? { ...under, rule: { ...under.rule, weeklyOffDays: EVERY_DAY_OFF, offSaturdays: '' }, source: 'ROSTER' } : under;
+}
+
+/** Steps 3 to 6 of resolveShift: own schedule, rotation, department, company default. */
+function schedulesOf(data: ScheduleData, employeeId: string, date: string): ResolvedShift {
+  const usable = (id: string | null | undefined) => (id && data.shifts.get(id)?.isActive ? id : null);
+  const shaped = (id: string, source: Source): ResolvedShift => {
+    const s = data.shifts.get(id)!;
+    return { shiftId: id, rule: s.rule, name: s.name, code: s.code, color: s.color, source };
+  };
 
   const own = covering((data.assignments.get(employeeId) || []).filter((a) => usable(a.shiftId)), date);
   if (own) return shaped(own.shiftId, 'EMPLOYEE');
@@ -141,7 +169,7 @@ export function weeksBefore(earlier: EarlierWeek[], current: { weeklyOffDays: st
 /** Everything resolveShift needs for a company, optionally narrowed to some people. */
 export async function loadSchedule(orgId: string, employeeIds?: string[]): Promise<ScheduleData> {
   const byEmp = employeeIds ? { employeeId: { in: employeeIds } } : {};
-  const [shifts, settings, temporary, assignments, rotations, rotationAssignments, people, departmentSchedules] = await Promise.all([
+  const [shifts, settings, temporary, assignments, rotations, rotationAssignments, people, departmentSchedules, rosterDays] = await Promise.all([
     peoplePrisma.shift.findMany({ where: { orgId } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
     peoplePrisma.temporarySchedule.findMany({ where: { orgId, ...byEmp } }),
@@ -150,12 +178,21 @@ export async function loadSchedule(orgId: string, employeeIds?: string[]): Promi
     peoplePrisma.rotationAssignment.findMany({ where: { orgId, ...byEmp } }),
     peoplePrisma.employee.findMany({ where: { orgId, ...(employeeIds ? { id: { in: employeeIds } } : {}) }, select: { id: true, departmentId: true } }),
     peoplePrisma.departmentSchedule.findMany({ where: { orgId } }),
+    /* Published only: a draft is a plan, and must not move anyone's day. */
+    peoplePrisma.rosterDay.findMany({ where: { orgId, state: 'PUBLISHED', ...byEmp }, select: { employeeId: true, date: true, kind: true, shiftId: true } }),
   ]);
+  const roster = new Map<string, Map<string, RosterMark>>();
+  for (const d of rosterDays) {
+    if (d.kind !== 'SHIFT' && d.kind !== 'OFF') continue;
+    if (!roster.has(d.employeeId)) roster.set(d.employeeId, new Map());
+    roster.get(d.employeeId)!.set(d.date, { kind: d.kind, shiftId: d.shiftId });
+  }
   return {
     shifts: new Map(shifts.map((s) => [s.id, { rule: toRule(s), name: s.name, code: s.code, color: s.color, isActive: s.isActive }])),
     defaultShiftId: settings?.defaultShiftId || null,
     standardRule: settings ? { ...DEFAULT_SHIFT, weeklyOffDays: settings.weeklyOffDays ?? DEFAULT_SHIFT.weeklyOffDays, offSaturdays: settings.offSaturdays || '' } : DEFAULT_SHIFT,
     standardEarlier: earlierWeeks(settings?.workingWeekEarlier).map((w) => ({ until: w.until, rule: { ...DEFAULT_SHIFT, weeklyOffDays: w.weeklyOffDays, offSaturdays: w.offSaturdays } })),
+    roster,
     temporary: group(temporary.map((t) => ({ employeeId: t.employeeId, shiftId: t.shiftId, from: t.fromDate, to: t.toDate })), (t) => t.employeeId) as any,
     assignments: group(assignments.map((a) => ({ employeeId: a.employeeId, shiftId: a.shiftId, from: a.effectiveFrom, to: a.effectiveTo })), (a) => a.employeeId) as any,
     rotations: new Map(

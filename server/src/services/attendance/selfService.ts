@@ -193,7 +193,7 @@ export async function confirmationsFor(orgId: string, month: string) {
 // Upcoming shifts
 // ---------------------------------------------------------------------------
 
-const SOURCE_SAYS: Record<string, string> = { TEMPORARY: 'Temporary change', ROTATION: 'Rotation', EMPLOYEE: 'Your shift', DEPARTMENT: 'Department shift', DEFAULT: 'Company shift' };
+const SOURCE_SAYS: Record<string, string> = { TEMPORARY: 'Temporary change', ROSTER: 'Roster', ROTATION: 'Rotation', EMPLOYEE: 'Your shift', DEPARTMENT: 'Department shift', DEFAULT: 'Company shift' };
 
 export async function upcomingShifts(e: Who, from: string, count: number) {
   const to = plusDays(from, count - 1);
