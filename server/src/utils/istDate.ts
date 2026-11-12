@@ -50,3 +50,11 @@ export const daysBetween = (from: string, to: string): number => {
   if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return 0;
   return Math.round((b - a) / DAY_MS) + 1;
 };
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "23 Oct 2026" for an ISO day, the way every People screen writes a date; anything else comes back as given. */
+export const dayWords = (d: string | null | undefined): string => {
+  const s = String(d || '');
+  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return s;
+  return `${Number(s.slice(8, 10))} ${MONTHS_SHORT[Number(s.slice(5, 7)) - 1]} ${s.slice(0, 4)}`;
+};

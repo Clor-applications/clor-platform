@@ -8,7 +8,7 @@ import { useSession } from './session';
  * The invited person's door (Workspace W-3): app.clor.in/invite?token=...
  *
  * Shows who invited them and to what, then one of three things:
- *  - no Clor login for that address yet: their name and a password they
+ *  - no CLOR login for that address yet: their name and a password they
  *    choose, and they are in;
  *  - a login exists and they are signed in as that address: accept;
  *  - a login exists and they are not (or are someone else): sign in with
@@ -47,7 +47,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   if (failure) {
     return (
-      <AuthLayout title="This invitation can’t be used" subtitle={failure} onHome={onHome}>
+      <AuthLayout scene="invite" title="This invitation can’t be used" subtitle={failure} onHome={onHome}>
         <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={onSignIn}>
           Go to sign in
         </button>
@@ -56,7 +56,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
   }
   if (!invite) {
     return (
-      <AuthLayout title="Opening your invitation…" onHome={onHome}>
+      <AuthLayout scene="invite" title="Opening your invitation…" onHome={onHome}>
         <p className="ui-caption" role="status">
           Checking the link.
         </p>
@@ -70,7 +70,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   if (user && !signedInAsInvited) {
     return (
-      <AuthLayout title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
+      <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
         <p className="text-sm">
           You are signed in as {user.email}. This invitation is for {invite.email}: sign out, then open the link again.
         </p>
@@ -83,7 +83,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   if (signedInAsInvited) {
     return (
-      <AuthLayout title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
+      <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
         <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={() => run(async () => { await acceptInvitationSignedIn(token); done(); })}>
           {busy ? 'Joining…' : `Join ${invite.accountName}`}
         </button>
@@ -94,7 +94,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
 
   /* Not signed in. */
   return (
-    <AuthLayout title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
+    <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
       <form
         className="grid gap-4"
         onSubmit={(e) => {
@@ -136,7 +136,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
             required
             minLength={8}
           />
-          {invite.hasLogin ? null : <span id="invite-password-help" className="ui-caption">At least eight characters.</span>}
+          {invite.hasLogin ? null : <span id="invite-password-help" className="ui-caption">At least eight characters, and not a common one.</span>}
         </div>
         <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={busy}>
           {busy ? 'Joining…' : invite.hasLogin ? 'Sign in and join' : 'Create my login and join'}

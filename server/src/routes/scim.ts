@@ -6,7 +6,9 @@ import { randomBytes } from 'node:crypto';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { recordAuthEvent, clientIp } from '../services/auth.js';
 import { notifyPermission } from '../services/notifications.js';
-import { userIsAdmin } from '../services/roleGuards.js';
+import { LAST_ADMIN_ERROR, automaticRoleUsable, userIsAdmin, wouldRemoveLastAdmin } from '../services/roleGuards.js';
+import { ACCOUNT_ADMINS } from '../services/accountMembership.js';
+import { domainRefusalFor } from '../services/policy.js';
 import { outsideTenant, enterTenant } from '../utils/tenantScope.js';
 import { verifyCredential, touchLastUsed } from '../services/credentials.js';
 import { scimKind } from '../services/scimTokens.js';
@@ -35,7 +37,7 @@ const SCHEMA_PATCH = 'urn:ietf:params:scim:api:messages:2.0:PatchOp';
 const scim = (res: Response, status: number, body: unknown) => res.status(status).type('application/scim+json').send(JSON.stringify(body));
 const fail = (res: Response, status: number, detail: string, scimType?: string) => scim(res, status, { schemas: [SCHEMA_ERROR], status: String(status), detail, ...(scimType ? { scimType } : {}) });
 
-type Tenant = { id: string; accountId: string; orgId: string; defaultRoleId: string | null };
+type Tenant = { id: string; accountId: string; orgId: string; defaultRoleId: string | null; createdByUserId: string | null };
 declare module 'express-serve-static-core' {
   interface Request {
     scim?: Tenant;
@@ -56,7 +58,7 @@ scimRouter.use(async (req: Request, res: Response, next: NextFunction) => {
     return fail(res, 401, 'That token is not known (revoked, or made for another server).');
   }
   const t = v.row;
-  req.scim = { id: t.id, accountId: t.accountId, orgId: t.orgId, defaultRoleId: t.defaultRoleId };
+  req.scim = { id: t.id, accountId: t.accountId, orgId: t.orgId, defaultRoleId: t.defaultRoleId, createdByUserId: t.createdByUserId ?? null };
   /* A-30: the rest of this request runs as the company the token named — the last-used stamp included (A-35). */
   enterTenant(t.orgId);
   if (v.credential.expiresAt) res.setHeader('X-Clor-Credential-Expires', v.credential.expiresAt.toISOString());
@@ -197,6 +199,10 @@ scimRouter.post('/Users', async (req, res) => {
   const ip = clientIp(req);
   const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
 
+  /* #4: the company's allowed email domains bind its directory as well as its administrators. */
+  const domainRefused = await domainRefusalFor([t.orgId], email);
+  if (domainRefused) return fail(res, 400, domainRefused, 'invalidValue');
+
   let user = await platformPrisma.user.findFirst({ where: { email }, select: SELECT });
   /* A person of another CLOR account is theirs: neither attached nor described here. Invite them instead. */
   if (user && user.accountId !== t.accountId) return fail(res, 409, `${email} already has a CLOR login under another account; invite them from Settings → Users instead.`, 'uniqueness');
@@ -212,14 +218,32 @@ scimRouter.post('/Users', async (req, res) => {
     await platformPrisma.userOrgMembership.create({ data: { accountId: t.accountId, orgId: t.orgId, userId: user.id } });
     await ensureAccountMembership(t.accountId, user.id);
   }
-  if (t.defaultRoleId) {
-    await platformPrisma.userRoleAssignment.create({ data: { accountId: t.accountId, orgId: t.orgId, userId: user.id, roleId: t.defaultRoleId, createdByUserId: user.id } }).catch(() => {});
+  /*
+   * #2: the token's role, checked again now — still this company's, still not
+   * an administrator's, and still within what the token's maker holds. If not,
+   * the person arrives with no role and an administrator assigns one.
+   */
+  const roleGiven = await automaticRoleUsable(t.accountId, t.orgId, t.defaultRoleId, t.createdByUserId);
+  if (roleGiven) {
+    await platformPrisma.userRoleAssignment.create({ data: { accountId: t.accountId, orgId: t.orgId, userId: user.id, roleId: t.defaultRoleId!, createdByUserId: t.createdByUserId || user.id } }).catch(() => {});
   }
-  await recordAuthEvent({ accountId: t.accountId, userId: user.id, email, eventType: 'USER_PROVISIONED', ip, userAgent, detail: 'SCIM directory sync' });
-  await notifyPermission(t.accountId, t.orgId, 'SETTINGS::Users::EDIT', { kind: 'scim.user', title: `${fullName} (${email}) was added by directory sync`, body: t.defaultRoleId ? 'With the role chosen for directory sync.' : 'With no role yet: assign one under Settings → Users.', link: { app: 'accounting', screen: 'settingsUsers' } });
+  await recordAuthEvent({ accountId: t.accountId, userId: user.id, email, eventType: 'USER_PROVISIONED', ip, userAgent, detail: t.defaultRoleId && !roleGiven ? 'SCIM directory sync; the token’s role was not given (no longer allowed)' : 'SCIM directory sync' });
+  await notifyPermission(t.accountId, t.orgId, 'SETTINGS::Users::EDIT', { kind: 'scim.user', title: `${fullName} (${email}) was added by directory sync`, body: roleGiven ? 'With the role chosen for directory sync.' : 'With no role yet: assign one under Settings → Users.', link: { app: 'accounting', screen: 'settingsUsers' } });
   res.setHeader('Location', `${base(req)}/Users/${user.id}`);
   scim(res, 201, resource(req, user));
 });
+
+/**
+ * #1: people a directory-sync token never switches off or removes — an owner
+ * or administrator of the account (ACCOUNT_ADMINS, review S4), and anyone who
+ * administers this company. The token is not
+ * an administrator, so the Users route's rule ("an administrator only by an
+ * administrator") leaves them out of its reach entirely.
+ */
+async function protectedFromDirectory(t: Tenant, userId: string) {
+  const leader = await platformPrisma.accountMembership.findFirst({ where: { accountId: t.accountId, userId, role: { in: ACCOUNT_ADMINS } }, select: { id: true } });
+  return Boolean(leader) || (await userIsAdmin(t.accountId, t.orgId, userId));
+}
 
 /** What a replace or a patch may change, applied the same way. */
 async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName?: string; active?: boolean }) {
@@ -239,12 +263,14 @@ async function applyChanges(t: Tenant, u: U, changes: { email?: string; fullName
     const elsewhere = await outsideTenant('SCIM: does this person work in other companies?', () =>
       platformPrisma.userOrgMembership.count({ where: { userId: u.id, NOT: { orgId: t.orgId } } }),
     );
-    if (elsewhere || (await userIsAdmin(t.accountId, t.orgId, u.id))) {
+    if (elsewhere || (await protectedFromDirectory(t, u.id))) {
       throw Object.assign(new Error('This person administers this company or works in others; their sign-in is changed in CLOR, not by directory sync.'), { status: 403, scimType: 'mutability' });
     }
   }
   if (changes.email && changes.email !== u.email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(changes.email)) throw Object.assign(new Error('userName must be an e-mail address.'), { status: 400, scimType: 'invalidValue' });
+    const domainRefused = await domainRefusalFor([t.orgId], changes.email);
+    if (domainRefused) throw Object.assign(new Error(domainRefused), { status: 400, scimType: 'invalidValue' });
     if (await platformPrisma.user.findFirst({ where: { email: changes.email, NOT: { id: u.id } }, select: { id: true } })) throw Object.assign(new Error(`${changes.email} is already another user’s address.`), { status: 409, scimType: 'uniqueness' });
     data.email = changes.email;
     /* An address nobody has proven yet: the directory says so, the person has not. */
@@ -339,7 +365,21 @@ scimRouter.delete(
     const t = req.scim!;
     const u = await memberById(t, String(req.params.id));
     if (!u) return fail(res, 404, 'No such user in this organisation.');
+    /*
+     * #1: the same guards as removing someone under Users. A token is not an
+     * administrator, so it never removes one — nor an owner of the account,
+     * nor (by construction) the last administrator. Removing them is done in
+     * CLOR by another administrator.
+     */
+    if (await protectedFromDirectory(t, u.id)) {
+      return fail(res, 403, 'This person owns the account or administers this company; they are removed in CLOR, not by directory sync.', 'mutability');
+    }
+    if (await wouldRemoveLastAdmin(t.accountId, t.orgId, u.id)) return fail(res, 409, LAST_ADMIN_ERROR.error, 'mutability');
     await platformPrisma.userRoleAssignment.deleteMany({ where: { orgId: t.orgId, userId: u.id } });
+    /* Profiles too, as the Users route does: a profile left behind is a set of roles waiting to come back on re-add. */
+    await platformPrisma.userRoleProfile.deleteMany({ where: { accountId: t.accountId, orgId: t.orgId, userId: u.id } });
+    await platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId: t.accountId, orgId: t.orgId, userId: u.id } });
+    await platformPrisma.userBranchMembership.deleteMany({ where: { accountId: t.accountId, orgId: t.orgId, userId: u.id } });
     await platformPrisma.userOrgMembership.deleteMany({ where: { orgId: t.orgId, userId: u.id } });
     /* Their own account's person with nowhere left to sign in to is switched off; a person of another company keeps theirs. */
     if (u.accountId === t.accountId) {

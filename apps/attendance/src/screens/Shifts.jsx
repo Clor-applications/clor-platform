@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clock3, Moon, Plus, Users } from 'lucide-react';
+import { CheckCircle2, Clock3, Moon, Plus, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -31,6 +31,26 @@ const BLANK = {
   isActive: true,
 };
 const NTH = ['1st', '2nd', '3rd', '4th', '5th'];
+
+const toMin = (hhmm) => {
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+/**
+ * The minutes worked by someone in at the start and out at the end: the span
+ * (past midnight for a night shift) less the break, as the server works it
+ * out (compute.ts scheduledMinutes). A full day can be at most this, and
+ * someone in within the grace and out on time gets a full day.
+ */
+const netMinutes = (f) => {
+  const a = toMin(f.startTime);
+  const b = toMin(f.endTime);
+  if (a === null || b === null) return null;
+  const span = b - a > 0 ? b - a : b - a + 24 * 60;
+  const half = Number(f.halfDayMinutes) || 0;
+  return span > half ? Math.max(half, span - (Number(f.breakMinutes) || 0)) : span;
+};
+const hoursWords = (m) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 const offs = (s, sats) => {
   const days = s ? s.split(',').map((d) => DAYS[Number(d)]) : [];
   const nth = sats ? sats.split(',').map((n) => `${NTH[Number(n) - 1]} Sat`) : [];
@@ -181,9 +201,34 @@ export default function Shifts({ openScreen }) {
 const blankIfNone = (v) => (v == null ? '' : v);
 
 function ShiftForm({ initial, onClose, onSaved }) {
-  const [form, setForm] = useState(() => ({ ...initial, checkInBeforeMinutes: blankIfNone(initial.checkInBeforeMinutes), checkOutAfterMinutes: blankIfNone(initial.checkOutAfterMinutes) }));
+  const [form, setForm] = useState(() => {
+    const f = { ...initial, checkInBeforeMinutes: blankIfNone(initial.checkInBeforeMinutes), checkOutAfterMinutes: blankIfNone(initial.checkOutAfterMinutes) };
+    /* A new shift's full day is the shift itself; it follows the times until someone types their own. */
+    return initial.id ? f : { ...f, fullDayMinutes: netMinutes(f) ?? f.fullDayMinutes };
+  });
+  /* The full day follows the times and break while it equals the shift's own minutes (or the shift is new). */
+  const [fullDayFollows, setFullDayFollows] = useState(() => !initial.id || Number(initial.fullDayMinutes) === netMinutes(initial));
   const [saving, setSaving] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const SHAPE = ['startTime', 'endTime', 'breakMinutes', 'halfDayMinutes'];
+  const set = (k) => (e) => {
+    const value = e.target.value;
+    if (k === 'fullDayMinutes') setFullDayFollows(Number(value) === netMinutes(form));
+    setForm((f) => {
+      const next = { ...f, [k]: value };
+      if (fullDayFollows && SHAPE.includes(k)) {
+        const net = netMinutes(next);
+        if (net !== null) next.fullDayMinutes = net;
+      }
+      return next;
+    });
+  };
+  const net = netMinutes(form);
+  /* Checked only when the hours change (as the server does): an older shift whose full day is longer than its hours can still be renamed or turned off. */
+  const hoursChanged = !initial.id || [...SHAPE, 'fullDayMinutes'].some((k) => String(form[k]) !== String(initial[k]));
+  const overShift = net !== null && Number(form.fullDayMinutes) > net;
+  const fullDayTooLong = hoursChanged && overShift;
+  /* Said aloud once someone tries to save, not on every key. */
+  const [tried, setTried] = useState(false);
   const offSet = new Set(String(form.weeklyOffDays || '').split(',').filter(Boolean));
   const toggleOff = (i) => {
     const n = new Set(offSet);
@@ -194,6 +239,10 @@ function ShiftForm({ initial, onClose, onSaved }) {
 
   const save = async (e) => {
     e.preventDefault();
+    if (fullDayTooLong) {
+      setTried(true);
+      return;
+    }
     setSaving(true);
     const body = {
       name: form.name,
@@ -271,7 +320,17 @@ function ShiftForm({ initial, onClose, onSaved }) {
         {num('graceMinutes', 'Late grace (minutes)')}
         {num('earlyOutGraceMinutes', 'Early-out grace (minutes)')}
         {num('halfDayMinutes', 'Half day (minutes worked)')}
-        {num('fullDayMinutes', 'Full day (minutes worked)')}
+        <label className="block">
+          <span className="ui-label">Full day (minutes worked)</span>
+          <input type="number" min={0} className="ui-input w-full" value={form.fullDayMinutes} onChange={set('fullDayMinutes')} aria-invalid={fullDayTooLong || undefined} data-invalid={fullDayTooLong ? 'true' : undefined} aria-describedby={net !== null ? 'full-day-hint' : undefined} />
+          {fullDayTooLong ? (
+            <span id="full-day-hint" className="ui-field-error block" role={tried ? 'alert' : undefined}>Longer than the shift: {form.startTime}–{form.endTime} less the break is {hoursWords(net)} ({net} min).</span>
+          ) : overShift ? (
+            <span id="full-day-hint" className="ui-caption">Longer than the shift less its break ({hoursWords(net)}): kept as it is, as nobody can work it. In within the grace and out on time is still a full day.</span>
+          ) : net !== null ? (
+            <span id="full-day-hint" className="ui-caption">The shift less its break is {hoursWords(net)}. In within the grace and out on time, or this many minutes worked, is a full day.</span>
+          ) : null}
+        </label>
         {num('overtimeAfterMinutes', 'Overtime after (minutes)', 'Blank = after a full day.')}
         {num('checkInBeforeMinutes', 'Earliest check-in (minutes before start)', 'A punch earlier than this does not count. Blank = no limit.')}
         {num('checkOutAfterMinutes', 'Latest check-out (minutes after end)', 'A punch later than this does not count. Blank = no limit.')}

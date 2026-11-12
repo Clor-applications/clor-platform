@@ -14,7 +14,7 @@ import { CornerDownLeft, Search } from '@ui/components/ui/lineIcons';
  * is worse than one you can anticipate.
  */
 
-const score = (label, group, q) => {
+const score = (label, group, q, keywords = []) => {
   const l = label.toLowerCase();
   const g = String(group || '').toLowerCase();
   if (!q) return 1;
@@ -22,6 +22,8 @@ const score = (label, group, q) => {
   if (l.startsWith(q)) return 80;
   // Word-boundary hit: "sales returns" should match "ret".
   if (l.split(/\s+/).some((w) => w.startsWith(q))) return 60;
+  // The word people use for a job, not the screen's name: "probation", "punch", "payslip".
+  if (keywords.some((k) => k.toLowerCase().startsWith(q) || (q.length > 3 && k.toLowerCase().includes(q)))) return 50;
   if (l.includes(q)) return 40;
   if (g.startsWith(q) || g.includes(q)) return 20;
   return 0;
@@ -32,8 +34,19 @@ const score = (label, group, q) => {
  * there is no reset-on-open effect to synchronise. A palette that reopens
  * showing the previous query is a palette people stop trusting.
  */
-export default function CommandPalette({ onClose, items = [], onSelect, searchRecords, placeholder = 'Search invoices, customers, reports, settings…' }) {
+export default function CommandPalette({ onClose, items = [], onSelect, searchRecords, loadRecords, placeholder = 'Search invoices, customers, reports, settings…' }) {
   const [query, setQuery] = useState('');
+  /* Records found on the server for a query (`loadRecords(q)`: people by name, code or email), kept with the query they answer. */
+  const [loaded, setLoaded] = useState({ q: '', items: [] });
+  useEffect(() => {
+    const q = query.trim();
+    if (typeof loadRecords !== 'function' || q.length < 2) return undefined;
+    let live = true;
+    const t = setTimeout(() => {
+      Promise.resolve(loadRecords(q)).then((found) => { if (live) setLoaded({ q, items: found || [] }); }).catch(() => {});
+    }, 180);
+    return () => { live = false; clearTimeout(t); };
+  }, [query, loadRecords]);
   // The highlight is stored with the query it belongs to, so a new query
   // resets it during render rather than in an effect that fires a second pass.
   const [highlight, setHighlight] = useState({ q: '', i: 0 });
@@ -43,14 +56,17 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     const destinations = items
-      .map((it) => ({ ...it, _s: score(it.label, it.group, q) }))
+      .map((it) => ({ ...it, _s: score(it.label, it.group, q, it.keywords) }))
       .filter((it) => it._s > 0)
       .sort((a, b) => b._s - a._s || a.label.localeCompare(b.label))
       .slice(0, 40);
 
     // Records only appear once there is something to match. An empty palette
     // showing eight hundred documents is a list, not an answer.
-    const records = q && typeof searchRecords === 'function' ? searchRecords(q) : [];
+    const records = [
+      ...(q && typeof searchRecords === 'function' ? searchRecords(q) : []),
+      ...(q && loaded.q.toLowerCase() === q ? loaded.items.map((r) => ({ _s: 70, ...r })) : []),
+    ];
     if (!records.length) return destinations;
 
     // A document number is a precise thing to type. When the query looks like
@@ -58,7 +74,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
     // screen whose name merely contains the same letters.
     const merged = [...records, ...destinations];
     return merged.sort((a, b) => b._s - a._s).slice(0, 40);
-  }, [items, query, searchRecords]);
+  }, [items, query, searchRecords, loaded]);
 
   // Focus lands in the input on mount; nothing else needs synchronising.
   useEffect(() => {

@@ -22,6 +22,8 @@ import { startEngagement } from './services/people/engagement/index.js';
 import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
+import { startOpsAlerts } from './services/ops/alerts.js';
+import { startRenewals } from './billing/renewals.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
@@ -34,6 +36,7 @@ import { startCredentialChecks } from './services/credentialReview.js';
 import { startIntegrityChecks } from './services/integrity/checks.js';
 import { startOrgDetailBackfill } from './services/people/organization.js';
 import { startStatutoryCatalogueBackfill } from './services/payroll/statutory/resolve.js';
+import { startFullDayFix } from './services/attendance/fullDayFix.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
@@ -111,6 +114,10 @@ startAbsenceChecks();
 /* Ready-made automations, greetings and exit-interview answers past keeping (WORKFLOW-GAP-RESEARCH 4.7, 4.8, 4.9). */
 startEngagement();
 startNotificationPruning();
+/* Alerts for CLOR staff on ops.clor.in: failing jobs, stuck mail, offline readers, overdue invoices, waiting tickets. */
+startOpsAlerts();
+/* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
+startRenewals();
 startBooksDigest();
 startWeeklySummary();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
@@ -127,3 +134,5 @@ startIntegrityChecks();
 startOrgDetailBackfill();
 /* Payroll: every company that took the standard statutory rates gets CLOR's newer PT and LWF figures, once per catalogue. */
 startStatutoryCatalogueBackfill();
+/* Attendance: days scored under the old full-day rule set to present in open months; closed months are listed, never changed. */
+startFullDayFix();

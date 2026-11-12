@@ -38,5 +38,21 @@ export function sameBlock(a: string, b: string) {
   return a.replace(/:/g, '').slice(0, 14) === b.replace(/:/g, '').slice(0, 14);
 }
 
+/**
+ * The block an address belongs to, as a key: its /24 for IPv4, its /64 for IPv6 (what one line or one
+ * provider customer gets). Anything that keys a limit or a cap on unknown callers keys it on this, so
+ * moving through the addresses of one block does not buy more (review of #144). Accepts any form of
+ * address; null when it is not one.
+ */
+export function blockOf(ip: string | null | undefined): string | null {
+  const raw = String(ip || '').trim().replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, '');
+  if (/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(raw)) {
+    const o = raw.split('.').map(Number);
+    return o.every((x) => x <= 255) ? `${o.slice(0, 3).join('.')}.0/24` : null;
+  }
+  const v6 = expandV6(raw);
+  return v6 ? `${v6.split(':').slice(0, 4).join(':')}::/64` : null;
+}
+
 /** At most this many approved addresses per reader; the oldest goes first. */
 export const MAX_NETWORKS = 20;

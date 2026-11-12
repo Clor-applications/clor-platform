@@ -2,7 +2,8 @@ import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
 import { balancesFor, leaveYearOf } from '../attendance/leaveBalances.js';
-import { peopleMoneyLines } from './finalSettlementSources.js';
+import { clearanceLines, peopleMoneyLines } from './finalSettlementSources.js';
+import { noticeFor } from '../people/lifecycle/notice.js';
 import { applyRecoveryCap, fnfCapPercent, leavingSlipBasis } from './fnfRecoveryCap.js';
 
 /**
@@ -23,6 +24,10 @@ import { applyRecoveryCap, fnfCapPercent, leavingSlipBasis } from './fnfRecovery
  * - Expense advances not settled: recovered; expense claims approved and
  *   unpaid: paid; deductions a payroll carried forward: recovered
  *   (finalSettlementSources.ts). Each line names its record.
+ * - Notice: a resignation's shortfall, not waived, is recovered at a day's
+ *   pay per day short (noticeLine).
+ * - Clearance: money each department's sign-off found, and register assets
+ *   not handed back (finalSettlementSources.ts).
  * - The salary for the final month is paid by the pay run for that period
  *   (it prorates to the leaving date), so it is shown here, not added.
  */
@@ -97,24 +102,26 @@ async function lastDrawnWages(orgId: string, employeeId: string) {
     select: { id: true, payrollDate: true },
     orderBy: { payrollDate: 'desc' },
   });
-  if (!runs.length) return { wage: 0, from: null as string | null };
+  if (!runs.length) return { wage: 0, gross: 0, from: null as string | null };
   const slip = await payrollPrisma.salarySlip.findFirst({
     where: { orgId, employeeId, runId: { in: runs.map((r) => r.id) } },
     orderBy: { createdAt: 'desc' },
     select: { id: true, number: true, runId: true },
   });
-  if (!slip) return { wage: 0, from: null };
+  if (!slip) return { wage: 0, gross: 0, from: null };
   const lines = await payrollPrisma.salarySlipLine.findMany({ where: { slipId: slip.id, type: 'EARNING' }, select: { componentId: true, amount: true, fullAmount: true } });
   const counted = new Set(
     (await payrollPrisma.salaryComponent.findMany({ where: { orgId, id: { in: lines.map((l) => l.componentId) }, includeInGratuityWage: true }, select: { id: true } })).map((c) => c.id)
   );
   /* The full month, not a month cut short by leave: "last drawn wages" are the rate, not what one month paid. */
   const wage = round2(lines.filter((l) => counted.has(l.componentId)).reduce((t, l) => t + Number(l.fullAmount ?? l.amount), 0));
-  return { wage, from: slip.number };
+  /* Every earning at its full-month rate: a day's pay for notice is gross ÷ 30, notice days being calendar days. */
+  const gross = round2(lines.reduce((t, l) => t + Number(l.fullAmount ?? l.amount), 0));
+  return { wage, gross, from: slip.number };
 }
 
 export async function proposeSettlement(accountId: string, orgId: string, employeeId: string) {
-  const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: employeeId }, select: { name: true, dateOfJoining: true, dateOfLeaving: true, status: true } });
+  const person = await peoplePrisma.employee.findFirst({ where: { orgId, id: employeeId }, select: { name: true, dateOfJoining: true, dateOfLeaving: true, status: true, leavingType: true, resignedOn: true, noticeWaived: true, employeeTypeId: true } });
   if (!person) throw Object.assign(new Error('No such employee.'), { status: 404 });
   if (!person.dateOfLeaving) throw Object.assign(new Error('Set their date of leaving first.'), { status: 400, code: 'NO_LEAVING_DATE' });
   const leaving = person.dateOfLeaving;
@@ -128,7 +135,7 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
     explanation: 'Paid in the pay run for the leaving month, which prorates to the leaving date. Once that payroll is approved, it counts toward the final wages loans and advances are recovered from.',
   });
 
-  const { wage, from } = await lastDrawnWages(orgId, employeeId);
+  const { wage, gross, from } = await lastDrawnWages(orgId, employeeId);
   const wageNote = `from payslip ${from}`;
 
   if (person.dateOfJoining) {
@@ -184,11 +191,50 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
   /* Expense advances and claims from People, and deductions a payroll carried forward. */
   lines.push(...(await peopleMoneyLines(orgId, employeeId)));
 
-  lines.push({ code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 0, explanation: 'Owed to them, or enter it as a deduction if they did not serve their notice.' });
+  lines.push(await noticeLine(orgId, person, leaving, gross, from));
+
+  /* Money the clearance sign-off found, and register assets not handed back (finalSettlementSources.ts). */
+  lines.push(...(await clearanceLines(orgId, employeeId, leaving)));
 
   /* Loans and advances come off the final pay only up to the company's share of the final wages; the rest stays owed (fnfRecoveryCap.ts). */
   const capped = applyRecoveryCap(lines, { percent: await fnfCapPercent(orgId), slip: await leavingSlipBasis(orgId, employeeId, leaving) });
   return { leavingDate: leaving, dueDate: settlementDueDate(leaving), lines: capped.lines, cap: capped.cap };
+}
+
+const dmy = (iso: string) => iso.split('-').reverse().join('/');
+
+/**
+ * The notice line (People plan step 5): from the resignation date People keeps and the employment type's
+ * notice days. A shortfall not waived is recovered at a day's pay (gross ÷ 30) per day short; HR can change
+ * or remove it, since a company may agree to let someone go early.
+ */
+export async function noticeLine(
+  orgId: string,
+  person: { leavingType: string | null; resignedOn: string | null; noticeWaived: boolean; employeeTypeId: string | null },
+  leaving: string,
+  gross: number,
+  from: string | null
+): Promise<SettlementLine> {
+  const manual: SettlementLine = { code: 'NOTICE', label: 'Notice pay', kind: 'EARNING', amount: 0, explanation: 'Owed to them, or enter it as a deduction if they did not serve their notice.' };
+  if (person.leavingType !== 'RESIGNED') return manual;
+  if (!person.resignedOn) return { ...manual, explanation: 'No resignation date on their leaving, so notice served is not known. Add it in People, or enter the notice pay here.' };
+  const n = await noticeFor(orgId, { employeeTypeId: person.employeeTypeId, lastDay: leaving, resignedOn: person.resignedOn, noticeWaived: person.noticeWaived });
+  const days = (d: number) => `${d} day${d === 1 ? '' : 's'}`;
+  const head = `Resigned on ${dmy(n.resignedOn!)}, last day ${dmy(leaving)}: ${days(n.servedDays ?? 0)} served`;
+  if (n.noticeDays == null) return { ...manual, explanation: `${head}. Their employment type sets no notice period, so enter any notice pay here.` };
+  if (n.noticeWaived) return { ...manual, explanation: `${head} of ${days(n.noticeDays)}' notice. The company waived the rest, so nothing is recovered.` };
+  const short = n.shortfallDays ?? 0;
+  if (short <= 0) return { ...manual, explanation: `${head} of ${days(n.noticeDays)}' notice: served in full, nothing to recover.` };
+  const daily = round2(gross / 30);
+  return {
+    code: 'NOTICE',
+    label: 'Notice not served',
+    kind: 'DEDUCTION',
+    amount: from ? round2(short * daily) : 0,
+    explanation: from
+      ? `${head} of ${days(n.noticeDays)}' notice, ${days(short)} short × a day's pay ₹${daily.toLocaleString('en-IN')} (gross ₹${gross.toLocaleString('en-IN')} from payslip ${from} ÷ 30). Remove it if the company lets them go early.`
+      : `${head} of ${days(n.noticeDays)}' notice, ${days(short)} short. No approved payslip yet, so enter ${days(short)} × a day's pay.`,
+  };
 }
 
 export const netOf = (lines: SettlementLine[]) =>

@@ -295,6 +295,20 @@ describe('the employee portal', () => {
     expect(sched.body.days[0]).toHaveProperty('kind');
   });
 
+  it('lists leave asked for beyond this leave year, so it can still be withdrawn', async () => {
+    const type = (await hr(c).get('/leave/types').expect(200)).body.types.find((t: any) => t.name === 'Casual');
+    const next = Number(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4)) + 1;
+    let d = new Date(Date.UTC(next, 0, 20));
+    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d = new Date(d.getTime() + 86_400_000);
+    const day = d.toISOString().slice(0, 10);
+    const asked = await me(token).post('/leave', { leaveTypeId: type.id, fromDate: day, toDate: day, reason: 'January trip' }).expect(201);
+    const mine = (await me(token).get('/leave').expect(200)).body.requests.map((r: any) => r.id);
+    expect(mine).toContain(asked.body.request.id);
+    const lastYear = (await me(token).get(`/leave?year=${next - 2}`).expect(200)).body.requests.map((r: any) => r.id);
+    expect(lastYear).not.toContain(asked.body.request.id);
+    await me(token).post(`/leave/${asked.body.request.id}/cancel`).expect(200);
+  });
+
   it('ends every session on a new password, a switch-off or a reset', async () => {
     await me(token).post('/password', { current: 'wrong', next: 'newer pass 2' }).expect(400);
     const changed = await me(token).post('/password', { current: 'mine pass 1', next: 'newer pass 2' }).expect(200);

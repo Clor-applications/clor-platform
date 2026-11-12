@@ -3,10 +3,16 @@ import { createHash, randomBytes } from 'node:crypto';
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../../utils/platformPrisma.js';
 import { notifyUsers, usersWithPermission } from '../../notifications.js';
+import { sendTemplate } from '../../mailer.js';
 import { createEmployee } from '../employees.js';
 import { startChecklist } from '../checklists.js';
 import { scheduleChanges } from '../effectiveDating.js';
+import { fileOfferOnEmployee } from '../offers.js';
+import { createInvite } from '../lifecycle/invites.js';
+import { sendAppAccess } from '../lifecycle/appAccess.js';
+import { draftSalaryFromOffer } from '../money/payrollBridge.js';
 import type { Actor } from '../changeLog.js';
+import { appointmentOnHire } from '../letters.js';
 
 /**
  * Talent → Hiring (docs/people/design-v1/TALENT-DECISIONS.md): job openings, candidates on one
@@ -239,13 +245,47 @@ export async function moveCandidate(who: Who, id: string, stage: string, reason?
   if (c.stage === stage) return c;
   const why = text(reason, 500);
   if ((stage === 'REJECTED' || stage === 'WITHDRAWN') && !why) throw new TalentError(stage === 'REJECTED' ? 'Say why they are not taken forward. It stays on their card.' : 'Say why they withdrew.');
-  return peoplePrisma.$transaction(async (tx) => {
+  const moved = await peoplePrisma.$transaction(async (tx) => {
     const r = await tx.candidate.updateMany({ where: { id, orgId: who.orgId, stage: c.stage }, data: { stage, stageAt: new Date(), closedReason: stage === 'REJECTED' || stage === 'WITHDRAWN' ? why : null } });
     if (!r.count) throw new TalentError('Someone else moved this candidate. Reload.', 409);
     await event(tx, who, id, { kind: 'STAGE', fromStage: c.stage, toStage: stage, text: why });
     return tx.candidate.findFirstOrThrow({ where: { id } });
   });
+  /* Not taken forward: the candidate hears it from the company, plainly and kindly; the reason stays on the card (People plan 8 Nov 2026, step 4). */
+  if (stage === 'REJECTED' && c.email) await mailCandidate(who, c, 'people.candidate_not_taken', {});
+  return moved;
 }
+
+/* ---------------------------------------------------------- candidate e-mail */
+
+/**
+ * E-mail to a candidate about their own application: an interview set or
+ * moved, or the decision not to go ahead. Only to a candidate with an
+ * e-mail who is still a person on the card (not anonymised); a failure to
+ * queue never undoes the step it tells about.
+ */
+async function mailCandidate(who: Who, c: { id: string; name: string; email: string | null; openingId: string; anonymisedAt?: Date | null }, templateKey: 'people.interview' | 'people.candidate_not_taken', data: Record<string, string>) {
+  if (!c.email || c.anonymisedAt) return false;
+  try {
+    const [org, opening] = await Promise.all([
+      platformPrisma.org.findUnique({ where: { id: who.orgId }, select: { name: true } }),
+      peoplePrisma.jobOpening.findFirst({ where: { id: c.openingId, orgId: who.orgId }, select: { title: true } }),
+    ]);
+    await sendTemplate({ templateKey, to: c.email, toName: c.name, accountId: who.accountId, orgId: who.orgId, relatedType: 'Candidate', relatedId: c.id, data: { name: c.name, orgName: org?.name || '', jobTitle: opening?.title || 'the', ...data } });
+    return true;
+  } catch (e) {
+    console.error('[talent] candidate e-mail:', e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
+const MODE_WORD: Record<string, string> = { IN_PERSON: 'In person', PHONE: 'By phone', VIDEO: 'Video call' };
+const IST = { timeZone: 'Asia/Kolkata' } as const;
+/** "Monday, 16 November 2026" and "10:30 am", as the candidate reads them. */
+const dayWords = (d: Date) => d.toLocaleDateString('en-IN', { ...IST, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const timeWords = (d: Date) => d.toLocaleTimeString('en-IN', { ...IST, hour: 'numeric', minute: '2-digit' });
+/** First names only: a candidate is told whom they meet, not the company's e-mail directory. */
+const firstNames = (names: string[]) => [...new Set(names.map((n) => n.trim().split(/\s+/)[0]).filter(Boolean))].sort((a, b) => a.localeCompare(b)).join(', ') || 'the team';
 
 export async function noteCandidate(who: Who, id: string, note: unknown) {
   const t = text(note, 4000);
@@ -375,6 +415,17 @@ export async function scheduleInterview(who: Who, candidateId: string, raw: any,
   });
   const others = ids.filter((u) => u !== who.userId);
   await notifyUsers(who.accountId, who.orgId, others, { kind: 'people.hiring', title: `Interview: ${c.name}`, body: at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }), link: { app: 'people', screen: 'interviews', params: { id: row.id } } as any });
+  /* The candidate hears too: the day, the time, how and whom they meet (People plan 8 Nov 2026, step 4). */
+  if (c.email) {
+    const users = await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { fullName: true, email: true }, orderBy: { fullName: 'asc' } });
+    const place = text(raw?.place, 300);
+    await mailCandidate(who, c, 'people.interview', {
+      headline: id ? 'Your interview has moved' : 'Your interview is set',
+      day: dayWords(at), time: timeWords(at), minutes: String(minutes), mode: MODE_WORD[mode] || mode,
+      placeLine: place ? `\n${mode === 'VIDEO' ? 'Join here' : mode === 'PHONE' ? 'Details' : 'Where'}: ${place}` : '',
+      interviewers: firstNames(users.map((u) => u.fullName || u.email || '')),
+    });
+  }
   return row;
 }
 
@@ -423,19 +474,33 @@ export async function interviewsFor(orgId: string, viewer: { userId: string; hr:
 
 /* ------------------------------------------------------------------- hiring */
 
+/** What a hire set in motion, for the screen to say and the tests to check. */
+export type HireHandoffs = { offerFiled: boolean; checklist: number; /** The company's appointment letter, issued on its own (People plan 8 Nov 2026, step 6). */ appointmentLetter: boolean; joiningForm: 'SENT' | 'NO_EMAIL' | 'FAILED'; appAccess: 'SENT' | 'PRINT' | 'SKIPPED' | 'FAILED'; salary: { made: true; revisionId: string; structureName: string } | { made: false; why: string } | null };
+
 /**
- * Hire: the employee record from the opening (department, designation, branch, type, the
- * hiring manager as manager) and the candidate (name, contacts), the joining date from the form
- * or the accepted offer; the joining plan starts. Once per candidate (a guarded update).
- * When an opening's places are all taken it is marked Filled.
+ * Hire: one path (People plan 8 Nov 2026, step 4). A candidate is hired on
+ * an accepted offer; without one, HR says so in as many words
+ * (`withoutOffer: true`) and why, and the reason goes on the candidate's
+ * timeline. The employee record comes from the opening (department,
+ * designation, branch, type, the hiring manager as manager) and the candidate
+ * (name, contacts); the joining date from the form or the accepted offer. Then
+ * the hand-offs a draft hire already got: the accepted offer filed on the
+ * record, the joining plan, the joining form and the employee-app invite by
+ * e-mail, and the offer's pay drafted in Payroll for Payroll to confirm. Once
+ * per candidate (a guarded update). When an opening's places are all taken it
+ * is marked Filled.
  */
 export async function hireCandidate(who: Who, id: string, raw: any) {
   const c = await peoplePrisma.candidate.findFirst({ where: { id, orgId: who.orgId, anonymisedAt: null } });
   if (!c) throw new TalentError('No such candidate.', 404);
   if (c.employeeId || c.stage === 'HIRED') throw new TalentError('Already hired.', 409);
-  if (c.stage !== 'OFFER') throw new TalentError('Move them to Offer first: only someone offered the job is hired.', 409);
-  if (c.internalEmployeeId) return moveFromWithin(who, c, raw);
-  const offer = await peoplePrisma.offer.findFirst({ where: { orgId: who.orgId, candidateId: id, status: 'ACCEPTED' }, orderBy: { createdAt: 'desc' } });
+  if (!OPEN_STAGES.includes(c.stage)) throw new TalentError('This candidate is no longer in the running. Bring them back to Applied first.', 409);
+  const offer = await peoplePrisma.offer.findFirst({ where: { orgId: who.orgId, candidateId: id, status: 'ACCEPTED' }, orderBy: { acceptedAt: 'desc' } });
+  const withoutOffer = !offer;
+  const noOfferReason = withoutOffer ? text(raw?.reason, 500) : null;
+  if (withoutOffer && raw?.withoutOffer !== true) throw new TalentError('No accepted offer yet. Wait for them to accept, or choose Hire without an offer and say why.', 409, 'NO_ACCEPTED_OFFER');
+  if (withoutOffer && !noOfferReason) throw new TalentError('Say why they are hired without an accepted offer. It stays on their card.', 400, 'REASON_NEEDED');
+  if (c.internalEmployeeId) return moveFromWithin(who, c, raw, offer, noOfferReason);
   const joining = dateOrNull(raw?.dateOfJoining) || offer?.joiningDate || null;
   if (!joining) throw new TalentError('Choose the joining date.');
   const code = text(raw?.code, 40);
@@ -446,8 +511,9 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
     opening?.jobPositionId ? peoplePrisma.jobPosition.findFirst({ where: { id: opening.jobPositionId, orgId: who.orgId }, select: { id: true, name: true } }) : null,
     opening?.hiringManagerId ? peoplePrisma.employee.findFirst({ where: { id: opening.hiringManagerId, orgId: who.orgId, status: { notIn: ['LEFT'] } }, select: { id: true } }) : null,
   ]);
+  const handoffs: HireHandoffs = { offerFiled: false, checklist: 0, appointmentLetter: false, joiningForm: 'NO_EMAIL', appAccess: 'SKIPPED', salary: null };
   const employee = await createEmployee(
-    { ...who, source: 'HIRE', reason: `Hired from candidate ${c.name}${opening ? ` for ${opening.title}` : ''}` },
+    { ...who, source: 'HIRE', reason: `Hired from candidate ${c.name}${opening ? ` for ${opening.title}` : ''}${withoutOffer ? ` without an offer: ${noOfferReason}` : ' on their accepted offer'}` },
     {
       accountId: who.accountId, orgId: who.orgId, name: c.name, code,
       email: c.email, phone: c.phone, dateOfJoining: joining, status: 'ACTIVE',
@@ -459,9 +525,13 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
     } as any,
     {
       afterWrite: async (tx, row) => {
-        const r = await tx.candidate.updateMany({ where: { id, orgId: who.orgId, employeeId: null, stage: 'OFFER' }, data: { stage: 'HIRED', stageAt: new Date(), employeeId: row.id } });
+        const r = await tx.candidate.updateMany({ where: { id, orgId: who.orgId, employeeId: null, stage: c.stage }, data: { stage: 'HIRED', stageAt: new Date(), employeeId: row.id } });
         if (!r.count) throw new TalentError('Already hired.', 409);
-        await event(tx, who, id, { kind: 'HIRED', fromStage: 'OFFER', toStage: 'HIRED', text: `Joins on ${joining}` });
+        await event(tx, who, id, { kind: 'HIRED', fromStage: c.stage, toStage: 'HIRED', text: withoutOffer ? `Joins on ${joining}. Hired without an accepted offer: ${noOfferReason}` : `Joins on ${joining}, on the offer accepted ${offer!.acceptedAt ? offer!.acceptedAt.toISOString().slice(0, 10) : ''}`.trim() });
+        if (offer) {
+          await fileOfferOnEmployee(tx, { ...who, source: 'HIRE', correlationId: who.correlationId, reason: null } as Actor, offer, row.id);
+          handoffs.offerFiled = true;
+        }
         if (opening) {
           const hired = await tx.candidate.count({ where: { orgId: who.orgId, openingId: opening.id, stage: 'HIRED' } });
           if (hired >= opening.places && ['OPEN', 'ON_HOLD', 'DRAFT'].includes(opening.status)) await tx.jobOpening.update({ where: { id: opening.id }, data: { status: 'FILLED', applyOpen: false } });
@@ -469,8 +539,56 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
       },
     },
   );
-  await startChecklist({ accountId: who.accountId, orgId: who.orgId, userId: who.userId }, employee, 'JOINING', joining);
-  return employee;
+  await afterHire(who, employee, { joining, offer, email: c.email, designation: desig?.name ?? offer?.designation ?? null }, handoffs);
+  return Object.assign(employee, { handoffs });
+}
+
+/**
+ * What follows a hire, whichever way it came (People plan 8 Nov 2026, step 4):
+ * the joining plan; the joining form by e-mail and the employee-app invite,
+ * as a draft hire gets when they accept; and the offer's pay drafted in
+ * Payroll. Each step stands alone: one failing is reported, not fatal.
+ */
+async function afterHire(who: Who, employee: { id: string; name: string; code: string | null }, h: { joining: string; offer: { id: string; email: string; designation: string; structureId: string | null; annualCtc: unknown } | null; email: string | null; designation: string | null }, out: HireHandoffs) {
+  const actor: Actor = { ...who, source: 'SYSTEM', correlationId: who.correlationId, reason: 'Hired from Talent' };
+  out.checklist = await startChecklist({ accountId: who.accountId, orgId: who.orgId, userId: who.userId }, employee, 'JOINING', h.joining);
+  /* The appointment letter, where the company has its own: after the plan, so its step ticks. */
+  out.appointmentLetter = (await appointmentOnHire(actor, { id: employee.id, dateOfJoining: h.joining, status: 'ACTIVE' })).issued;
+  const email = h.offer?.email || h.email;
+  if (email) {
+    try {
+      await createInvite(actor, employee.id, { channel: 'EMAIL', sentTo: email, message: `Welcome${h.designation ? ` as ${h.designation}` : ''}. Fill in your details before you join on ${h.joining}.` });
+      out.joiningForm = 'SENT';
+    } catch (e) {
+      out.joiningForm = 'FAILED';
+      console.error('[talent] joining form:', e instanceof Error ? e.message : e);
+    }
+    /* The app invite needs an employee code to sign in with; without one it is skipped and the joining step for it stays open. */
+    if (employee.code) {
+      try {
+        const r = await sendAppAccess(actor, [employee.id]);
+        out.appAccess = r.sent.length ? (r.sent[0].channel === 'EMAIL' ? 'SENT' : 'PRINT') : 'SKIPPED';
+      } catch (e) {
+        out.appAccess = 'FAILED';
+        console.error('[talent] app access:', e instanceof Error ? e.message : e);
+      }
+    }
+  }
+  if (h.offer?.structureId && who.userId) {
+    try {
+      const r = await draftSalaryFromOffer({ accountId: who.accountId, orgId: who.orgId, userId: who.userId, employeeId: employee.id, structureId: h.offer.structureId, annualCtc: Number(h.offer.annualCtc), effectiveFrom: h.joining, offerId: h.offer.id });
+      out.salary = r.made ? { made: true, revisionId: r.revisionId, structureName: r.structureName } : r;
+      if (r.made) {
+        const payroll = (await usersWithPermission(who.accountId, who.orgId, 'PAYROLL::Salary Revisions::APPROVE').catch(() => [] as string[])).filter((u) => u !== who.userId);
+        await notifyUsers(who.accountId, who.orgId, payroll, { kind: 'payroll.revision', title: `Salary to confirm: ${employee.name}`, body: `From their accepted offer: ${r.structureName}. Review and apply it in Payroll.`, link: { app: 'payroll', screen: 'revisions', params: { id: r.revisionId } } as any }).catch(() => undefined);
+      }
+    } catch (e) {
+      out.salary = { made: false, why: 'Payroll could not take the salary from the offer. Set it there by hand.' };
+      console.error('[talent] salary draft:', e instanceof Error ? e.message : e);
+    }
+  } else if (h.offer) {
+    out.salary = { made: false, why: 'The offer typed its own monthly lines, not a Payroll structure. Set their salary in Payroll by hand.' };
+  }
 }
 
 /**
@@ -481,12 +599,11 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
  * cancel it on the record. Pay is Payroll's: the offer's pay is noted for a salary revision there.
  * Someone suspended or gone is not moved.
  */
-async function moveFromWithin(who: Who, c: { id: string; name: string; openingId: string; internalEmployeeId: string | null }, raw: any) {
+async function moveFromWithin(who: Who, c: { id: string; name: string; stage: string; openingId: string; internalEmployeeId: string | null }, raw: any, offer: { joiningDate: string | null; annualCtc: unknown } | null, noOfferReason: string | null) {
   const employee = await peoplePrisma.employee.findFirst({ where: { id: c.internalEmployeeId!, orgId: who.orgId } });
   if (!employee || employee.status === 'LEFT') throw new TalentError('They no longer work here, so they cannot move to this job.', 409);
   if (employee.status === 'SUSPENDED') throw new TalentError('They are suspended: settle that before moving them to a new job.', 409);
   const opening = await peoplePrisma.jobOpening.findFirst({ where: { id: c.openingId, orgId: who.orgId } });
-  const offer = await peoplePrisma.offer.findFirst({ where: { orgId: who.orgId, candidateId: c.id, status: 'ACCEPTED' }, orderBy: { createdAt: 'desc' } });
   const tomorrow = new Date(Date.now() + 330 * 60_000 + 86_400_000).toISOString().slice(0, 10);
   const effectiveOn = dateOrNull(raw?.dateOfJoining) || offer?.joiningDate || tomorrow;
   const fields: Record<string, string | null> = {};
@@ -497,9 +614,9 @@ async function moveFromWithin(who: Who, c: { id: string; name: string; openingId
   if (opening?.hiringManagerId && opening.hiringManagerId !== employee.id) fields.reportingManagerId = opening.hiringManagerId;
   const pay = offer ? ` Pay in the offer: ₹${Number(offer.annualCtc).toLocaleString('en-IN')} a year; record the salary revision in Payroll.` : '';
   await peoplePrisma.$transaction(async (tx) => {
-    const r = await tx.candidate.updateMany({ where: { id: c.id, orgId: who.orgId, employeeId: null, stage: 'OFFER' }, data: { stage: 'HIRED', stageAt: new Date(), employeeId: employee.id } });
+    const r = await tx.candidate.updateMany({ where: { id: c.id, orgId: who.orgId, employeeId: null, stage: c.stage }, data: { stage: 'HIRED', stageAt: new Date(), employeeId: employee.id } });
     if (!r.count) throw new TalentError('Already hired.', 409);
-    await event(tx, who, c.id, { kind: 'HIRED', fromStage: 'OFFER', toStage: 'HIRED', text: `Moves from within on ${effectiveOn}: the job change waits on their record until then.${pay}` });
+    await event(tx, who, c.id, { kind: 'HIRED', fromStage: c.stage, toStage: 'HIRED', text: `Moves from within on ${effectiveOn}: the job change waits on their record until then.${pay}${noOfferReason ? ` Taken without an accepted offer: ${noOfferReason}` : ''}` });
     if (opening) {
       const hired = await tx.candidate.count({ where: { orgId: who.orgId, openingId: opening.id, stage: 'HIRED' } });
       if (hired >= opening.places && ['OPEN', 'ON_HOLD', 'DRAFT'].includes(opening.status)) await tx.jobOpening.update({ where: { id: opening.id }, data: { status: 'FILLED', applyOpen: false } });

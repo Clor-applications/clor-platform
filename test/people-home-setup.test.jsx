@@ -21,6 +21,11 @@ vi.mock('@ui/personnel/api', () => ({
   summaryOpened: vi.fn(async () => ({ ok: true })),
 }));
 
+/* Home's other lists answer empty: a list that fails is now said as failed, never as "All caught up" (UI audit, 7 Nov 2026). */
+vi.mock('@ui/timeOff/api', () => ({ approveLeave: vi.fn(), listLeaveRequests: vi.fn(async () => []) }));
+vi.mock('../apps/people/src/api/workspace', () => ({ listRecords: vi.fn(async () => []) }));
+vi.mock('../apps/people/src/api/engagement', () => ({ finalPayList: vi.fn(async () => []) }));
+
 import * as api from '@ui/personnel/api';
 import { setFeature } from '@platform/auth';
 import PeopleOverview from '../apps/people/src/screens/PeopleOverview';

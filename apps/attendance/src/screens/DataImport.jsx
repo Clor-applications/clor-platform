@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Download, Upload } from 'lucide-react';
+import { CheckCircle2, Download, Upload } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
+import { usePermissions } from '@ui/permissions/usePermissions';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { normaliseDateColumns, toIsoDate } from '@ui/utils/importDates';
 import { matchColumns, normaliseTimeColumns, rowsByColumn, toStatus } from '@ui/utils/importColumns';
@@ -108,6 +109,8 @@ const KINDS = [
       { key: 'reason', label: 'Reason' },
     ],
     sample: { employeeCode: 'E-001', leaveType: 'Casual', from: '2026-09-15', to: '2026-09-16', halfDay: '', reason: 'Family function' },
+    /* Each row is approved as it lands, so it is for who may approve leave (HR User may not; owner, 8 Nov 2026). */
+    needs: 'ATTENDANCE::Leave Requests::APPROVE',
     run: importLeaveHistory,
     unit: 'leave rows',
   },
@@ -164,7 +167,9 @@ const MADE_BY = { DEVICE: 'from a reader', MANUAL: 'entered by hand', IMPORT: 'i
 
 /* `params.kind` opens it on one kind: the Import entry on a list (Holidays, Records, ...) says which. */
 export default function DataImport({ params } = {}) {
-  const [kindId, setKindId] = useState(() => (KINDS.some((k) => k.id === params?.kind) ? params.kind : 'records'));
+  const perms = usePermissions();
+  const kinds = KINDS.filter((k) => !k.needs || perms?.isAdmin || perms?.permissions?.has?.(k.needs));
+  const [kindId, setKindId] = useState(() => (kinds.some((k) => k.id === params?.kind) ? params.kind : 'records'));
   const kind = useMemo(() => KINDS.find((k) => k.id === kindId), [kindId]);
   const [file, setFile] = useState(null);
   const [rows, setRows] = useState(null);
@@ -230,13 +235,13 @@ export default function DataImport({ params } = {}) {
 
   return (
     <div className="space-y-3">
-      <PageHeader entity="settings" title="Import Data" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
+      <PageHeader entity="settings" title="Import data" description="Bring a spreadsheet in: pick what it holds, use the template, drop the file." />
       <div className="pb-8 space-y-6">
       <ol className="grid gap-4 lg:grid-cols-3">
         <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">1</span>What the file holds</h2>
           <div className="space-y-1">
-            {KINDS.map((k) => (
+            {kinds.map((k) => (
               <label key={k.id} className="flex items-start gap-2 rounded-lg p-2 ui-hover-sunken cursor-pointer" style={kindId === k.id ? { backgroundColor: 'rgb(var(--surface-sunken))' } : undefined}>
                 <input type="radio" name="kind" className="mt-1" checked={kindId === k.id} onChange={() => { setKindId(k.id); reset(); }} />
                 <span><span className="block text-sm font-medium">{k.label}</span><span className="ui-caption">{k.blurb}</span></span>

@@ -4,6 +4,7 @@ import { ArrowRight } from '@ui/components/ui/lineIcons';
 import AuthLayout from './AuthLayout';
 import { useSession } from './session';
 import { API_BASE, apiFetch } from '@platform/http';
+import { resendVerificationForSignIn } from '@platform/auth';
 import PasswordInput from '@ui/components/ui/PasswordInput';
 
 /**
@@ -26,6 +27,8 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  /* Refused because the company asks for a confirmed address: the token that asks for a new link, and whether it went. */
+  const [resend, setResend] = useState(null);
   const [error, setError] = useState(() => {
     /* Back from a provider that could not finish: the API sends the reason in the address. */
     try {
@@ -66,6 +69,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
 
     setBusy(true);
     setError('');
+    setResend(null);
     try {
       const r = await signIn({ email: email.trim(), password });
       if (r?.twoFactorRequired) {
@@ -77,6 +81,21 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
          is this: saying "no such account" tells somebody probing which
          addresses are registered. */
       setError(String(err?.message || 'Could not sign you in.'));
+      if (err?.code === 'EMAIL_NOT_CONFIRMED' && err?.data?.resendChallenge) setResend({ challenge: err.data.resendChallenge, sent: false });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendLink = async () => {
+    setBusy(true);
+    try {
+      await resendVerificationForSignIn(resend.challenge);
+      setResend({ ...resend, sent: true });
+      setError('');
+    } catch (err) {
+      setError(String(err?.message || 'Could not send the link.'));
+      setResend(null);
     } finally {
       setBusy(false);
     }
@@ -102,7 +121,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
 
   if (challenge) {
     return (
-      <AuthLayout title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
+      <AuthLayout scene="twoStep" title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
         <form onSubmit={submitCode} className="space-y-5">
           <div>
             <label className="ui-label" htmlFor="signin-code">Code</label>
@@ -138,7 +157,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
   return (
     <AuthLayout
       title="Sign in"
-      subtitle={subtitle}
+      subtitle={brand ? subtitle : null}
       onHome={onHome}
       brand={brand}
       footer={
@@ -184,14 +203,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
         ) : null}
 
         <div>
-          <div className="flex items-baseline justify-between gap-3">
-            <label className="ui-label" htmlFor="signin-password">Password</label>
-            {onForgot ? (
-              <button type="button" className="ui-link text-sm" onClick={onForgot}>
-                Forgot password?
-              </button>
-            ) : null}
-          </div>
+          <label className="ui-label" htmlFor="signin-password">Password</label>
           <PasswordInput
             id="signin-password"
             className="ui-input h-11 w-full"
@@ -199,10 +211,27 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
           />
+          {/* Under the field, where the eye lands after a wrong password (owner, 10 Nov 2026). */}
+          {onForgot ? (
+            <div className="mt-2 flex justify-end">
+              <button type="button" className="ui-link text-sm" onClick={onForgot}>
+                Forgot password?
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {error ? (
           <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
+        ) : null}
+        {resend ? (
+          resend.sent ? (
+            <p role="status" className="text-sm">We sent a new link to {email.trim()}. Open it, then sign in again.</p>
+          ) : (
+            <button type="button" className="ui-btn ui-btn-secondary w-full" disabled={busy} onClick={sendLink}>
+              Send the link again
+            </button>
+          )
         ) : null}
 
         <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy}>

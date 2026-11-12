@@ -20,10 +20,30 @@ export const peopleEnabled = async (req: Request, res: Response): Promise<boolea
   return false;
 };
 
+/*
+ * The staff list Attendance shares (People plan, 8 Nov 2026): the employee
+ * directory, its structure lists, contractors, joining and leaving tasks,
+ * resignations and transfers — Attendance's own People section. A company
+ * that bought Attendance alone opens these; every other /people route stays
+ * People's. Matched on the route's template, so a new route is People-only
+ * until it is added here.
+ */
+const SHARED_DIRECTORY = [
+  /^\/orgs\/:orgId\/people\/employees(\/(counts|next-code|export|export\/columns|import|import\/batches|bulk|transfer))?$/,
+  /^\/orgs\/:orgId\/people\/employees\/:id(\/(history|activity|journey|checklist|checklist\/:kind|custom-fields|statutory|identity|statutory\/reveal|readiness|scheduled\/:changeId|change-impact|resign|stay|rehire))?$/,
+  /^\/orgs\/:orgId\/people\/structure(-history|\/:kind(\/:id(\/merge)?)?)$/,
+  /^\/orgs\/:orgId\/people\/contractors(\/import|\/:id)?$/,
+  /^\/orgs\/:orgId\/people\/(suggestions|settings|custom-fields|saved-views|saved-views\/:id|tags|tags\/:id)$/,
+];
+export const isSharedDirectoryRoute = (path: string | undefined): boolean => Boolean(path && SHARED_DIRECTORY.some((re) => re.test(path)));
+
 export const peopleRouteOk = async (req: Request, res: Response): Promise<boolean> => {
   if (!orgMatches(req, res)) return false;
+  const { accountId } = req.tenant!;
+  const entitled = (await isAppEntitled(accountId, 'people'))
+    || (isSharedDirectoryRoute(req.route?.path) && (await isAppEntitled(accountId, 'attendance')));
   /* A-15: one order for every app — not bought (402) before switched off (403), so an unowned app says so instead of reading as a setting. */
-  if (!(await isAppEntitled(req.tenant!.accountId, 'people'))) {
+  if (!entitled) {
     res.status(402).json({ error: 'People is not on this account’s subscription.', app: 'people', code: 'APP_NOT_SUBSCRIBED' });
     return false;
   }
@@ -37,8 +57,10 @@ export const PEOPLE_RESOURCE = {
   structure: 'Org Structure',
   notes: 'Employee Notes',
   documents: 'Documents',
+  hrOnlyDocuments: 'HR-only Documents',
   confidentialDocuments: 'Confidential Documents',
   statutory: 'Statutory Details',
+  fullIdentifiers: 'Full Identifiers',
   approvals: 'Approvals',
   requests: 'Requests',
   lifecycle: 'Lifecycle',

@@ -185,6 +185,9 @@ export const getUpdates = () => call('/updates');
 /** Every holiday of mine in a calendar year, restricted ones marked: { year, quota, picked, left, holidays: [{ id, date, name, restricted, picked, past }] }. */
 export const getHolidays = (year) => call(`/holidays${year ? `?year=${encodeURIComponent(year)}` : ''}`);
 
+/* Letters and document copies I ask HR for (server: peoplePortal /me/letters): { kinds: [{ kind, label }], requests: [{ id, type, title, status, createdAt, issued }] }. */
+export const getMyLetters = () => call('/people/me/letters');
+export const askLetter = (body) => call('/people/me/letters', { method: 'POST', body });
 /* Leaving the company (server: peoplePortal /me/resign, /me/leaving). */
 export const resign = (body) => call('/people/me/resign', { method: 'POST', body });
 export const getLeaving = () => call('/people/me/leaving');

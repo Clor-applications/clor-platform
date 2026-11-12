@@ -23,7 +23,7 @@ beforeEach(() => vi.clearAllMocks());
 
 /* A rule the old shape cannot say: two people (all of them), approved on its own when late and in some cases, HR may step in, own requests go up. */
 const seats = (over = {}) => rule({
-  requestType: 'SEAT_REQUEST', name: 'Seats', editableHere: false,
+  requestType: 'DOCUMENT_REQUEST', name: 'Copies', editableHere: false,
   spec: [
     { order: 1, approvers: [{ kind: 'DEPARTMENT_HEAD' }, { kind: 'HR' }], mode: 'ALL', when: [], due: { hours: 8 }, overdue: { action: 'AUTO_APPROVE', afterHours: 4 }, stepIn: 'HR', ifRequester: 'NEXT_UP' },
     { order: 2, approvers: [{ kind: 'OWNER' }], mode: 'ANY', when: [{ field: 'gradeId', op: 'eq', value: 'g-1' }], due: { workingDays: 2 } },
@@ -34,12 +34,12 @@ const seats = (over = {}) => rule({
 
 it('reads each kind’s main rule in words, naming auto-approve, step-in, own requests and variants (review of PR #93)', async () => {
   api.listRules.mockResolvedValue({
-    requestTypes: ['JOB_CHANGE', 'SEAT_REQUEST', 'LETTER_REQUEST'],
+    requestTypes: ['JOB_CHANGE', 'DOCUMENT_REQUEST', 'LETTER_REQUEST'],
     forms: [],
     rules: [
       rule({}),
       seats(),
-      rule({ requestType: 'SEAT_REQUEST', name: 'Pune seats', variantKey: 'pune', appliesWhen: [{ field: 'branchId', op: 'eq', value: 'b-1' }], spec: [{ order: 1, approvers: [{ kind: 'HR' }], mode: 'ANY', when: [], due: { workingDays: 1 } }] }),
+      rule({ requestType: 'DOCUMENT_REQUEST', name: 'Pune seats', variantKey: 'pune', appliesWhen: [{ field: 'branchId', op: 'eq', value: 'b-1' }], spec: [{ order: 1, approvers: [{ kind: 'HR' }], mode: 'ANY', when: [], due: { workingDays: 1 } }] }),
       rule({ requestType: 'LETTER_REQUEST', name: 'Pune letters', variantKey: 'pune', steps: [{ order: 1, approver: { kind: 'HR' }, dueDays: 1 }] }),
     ],
   });
@@ -58,9 +58,9 @@ it('reads each kind’s main rule in words, naming auto-approve, step-in, own re
 });
 
 it('opens a rule it cannot edit read only, saying everything it does: the note, the steps in words, no save', async () => {
-  api.listRules.mockResolvedValue({ requestTypes: ['SEAT_REQUEST'], forms: [], rules: [seats(), rule({ requestType: 'SEAT_REQUEST', name: 'Pune seats', variantKey: 'pune', appliesWhen: [{ field: 'branchId', op: 'eq', value: 'b-1' }], spec: [{ order: 1, approvers: [{ kind: 'HR' }], mode: 'ANY', when: [], due: { workingDays: 1 } }] })] });
+  api.listRules.mockResolvedValue({ requestTypes: ['DOCUMENT_REQUEST'], forms: [], rules: [seats(), rule({ requestType: 'DOCUMENT_REQUEST', name: 'Pune seats', variantKey: 'pune', appliesWhen: [{ field: 'branchId', op: 'eq', value: 'b-1' }], spec: [{ order: 1, approvers: [{ kind: 'HR' }], mode: 'ANY', when: [], due: { workingDays: 1 } }] })] });
   render(<ApprovalRules />);
-  fireEvent.click((await screen.findAllByText('Position requests'))[0]);
+  fireEvent.click((await screen.findAllByText('Document copies'))[0]);
   const drawer = await screen.findByRole('dialog');
   expect(within(drawer).getByRole('note').textContent).toMatch(/does more than this screen can edit yet/);
   const text = drawer.textContent;
@@ -83,10 +83,10 @@ it('an editable rule still saves in the shape it was shown in', async () => {
   await vi.waitFor(() => expect(api.saveRule).toHaveBeenCalledWith({ requestType: 'JOB_CHANGE', name: 'Job changes, two', steps: [{ order: 1, approver: { kind: 'MANAGER' }, condition: null, dueDays: 2, overdue: { action: 'REMIND' } }] }));
 });
 
-it('offers conditions only where the request carries them: none for a help desk escalation (re-review of PR #93)', async () => {
-  api.listRules.mockResolvedValue({ requestTypes: ['DESK_ESCALATION', 'JOB_CHANGE'], forms: [], rules: [] });
+it('offers conditions only where the request carries them: none for a letter request (re-review of PR #93)', async () => {
+  api.listRules.mockResolvedValue({ requestTypes: ['LETTER_REQUEST', 'JOB_CHANGE'], forms: [], rules: [] });
   render(<ApprovalRules />);
-  fireEvent.click((await screen.findAllByText('Help desk escalations'))[0]);
+  fireEvent.click((await screen.findAllByText('Letter requests'))[0]);
   const drawer = await screen.findByRole('dialog');
   expect(within(drawer).queryByText('Only when')).toBeNull();
 });

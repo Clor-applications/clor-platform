@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -11,7 +12,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { assignSeats, certificateFile, deleteTraining, expiringCertificates, getTraining, listTrainings, markSeat, readFile, removeSeat, saveTraining } from '../api/talent';
-import { FormError, Footer, Pill, SHEET, Tabs, WIDE_SHEET, day, staffOptions, todayIst, useParamState, usePerm, usedValues, useStaff } from './shared';
+import { FormError, Footer, Pill, SHEET, WIDE_SHEET, day, staffOptions, tabItems, todayIst, useParamState, usePerm, usedValues, useStaff } from './shared';
 
 /**
  * Training (TALENT-DECISIONS.md): one training, many people. Each attendee is assigned, completes
@@ -52,10 +53,18 @@ export default function Trainings({ params = {} }) {
   ];
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Training' }]} title="Training"
-        actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> New training</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="Training"
+        description="Trainings, who attends them, and the certificates that lapse."
+        primary={canCreate ? { label: 'New training', icon: Plus, onClick: () => setEditing({}) } : null}
+        toolbar={expiring ? null : <SearchField value={q} onSearch={setQ} placeholder="Search training or provider" label="Search trainings" className="w-full sm:w-80" />}
+        tabs={tabItems(TABS)}
+        tab={tab}
+        onTab={setTab}
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable tabs={<Tabs label="Training" tabs={TABS} value={tab} onChange={setTab} />}
+        <DataTable
           label="Training" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun={expiring ? 'certificates' : 'trainings'}
           onRowClick={(r) => setOpen(expiring ? r.trainingId : r.id)}
           card={(r) => (expiring ? (
@@ -65,8 +74,7 @@ export default function Trainings({ params = {} }) {
           ))}
           empty={expiring ? <EmptyState title="Nothing lapsing" description="No certificate lapses in the next 60 days." />
             : q || tab ? <EmptyState kind="filtered" title="No trainings match" description="Nothing here matches the search or the tab." />
-              : <EmptyState title="No trainings yet" description="Fire safety, first aid, forklift: add a training and who attends it." routes={canCreate ? [{ label: 'New training', onSelect: () => setEditing({}) }] : undefined} />}
-          toolbar={expiring ? null : <SearchField value={q} onSearch={setQ} placeholder="Search training or provider" label="Search trainings" className="w-full sm:w-80" />} />
+              : <EmptyState title="No trainings yet" description="Fire safety, first aid, forklift: add a training and who attends it." routes={canCreate ? [{ label: 'New training', onSelect: () => setEditing({}) }] : undefined} />} />
       )}
       {open ? <TrainingDrawer id={open} onEdit={(t) => { setOpen(null); setEditing(t); }} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {editing ? <TrainingForm value={editing} rows={expiring ? [] : rows} onClose={() => setEditing(null)} onSaved={(t) => { setEditing(null); req.reload(); setOpen(t.id); }} /> : null}

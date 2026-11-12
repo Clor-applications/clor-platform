@@ -10,7 +10,7 @@ import { Prisma as PayrollPrisma } from '../generated/payroll/index.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { currentLease, exclusive, leaseFor, LeaseLost, shuttingDown } from './jobLease.js';
 import { userIsAdmin } from './roleGuards.js';
-import { getGateway } from '../billing/gateway.js';
+import { gatewayNamed } from '../billing/providers.js';
 import { fileStore } from './fileStore.js';
 import { registerJob } from './jobRegistry.js';
 
@@ -264,7 +264,7 @@ export async function closeEmptyAccount(accountId: string, now = new Date()) {
     if (sub && sub.status !== 'cancelled') {
       if (sub.gatewaySubscriptionId) {
         try {
-          await getGateway().cancelSubscription(sub.gatewaySubscriptionId, false);
+          await (await gatewayNamed(sub.gatewayName)).cancelSubscription(sub.gatewaySubscriptionId, false);
         } catch (e) {
           gatewayError = String(e instanceof Error ? e.message : e).slice(0, 300);
           // eslint-disable-next-line no-console

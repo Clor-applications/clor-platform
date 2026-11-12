@@ -23,7 +23,7 @@ describe('forgot password', () => {
     render(<ForgotPassword onHome={() => {}} onSignIn={() => {}} />);
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: ' owner@example.com ' } });
     fireEvent.click(screen.getByRole('button', { name: /email me a reset link/i }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('If owner@example.com has a Clor account'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('If owner@example.com has a CLOR account'));
     expect(api.forgotPassword).toHaveBeenCalledWith('owner@example.com');
   });
 

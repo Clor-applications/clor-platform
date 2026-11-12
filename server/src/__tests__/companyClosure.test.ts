@@ -45,7 +45,7 @@ async function makeCompany(): Promise<Ctx> {
 /** Enrol an authenticator for this person and return a fresh step-up token. */
 async function stepUp(c: Ctx) {
   const sec = (p: string, b: unknown = {}) => request(app).post(`/api/orgs/${c.orgId}/security${p}`).set(at(c)).send(b as any);
-  const { secret } = (await sec('/two-factor/setup').expect(200)).body;
+  const { secret } = (await sec('/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body;
   /* One time step for both codes: reading the clock twice failed when a 30-second boundary fell between the calls. */
   await clearOfStepEdge();
   const s0 = stepNow();

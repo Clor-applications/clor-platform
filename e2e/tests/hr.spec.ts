@@ -214,7 +214,7 @@ test.describe('Kavya runs HR', () => {
     await kavya.goto();
     /* A short window, so the page has room to scroll past the list's top with five departments. */
     await kavya.page.setViewportSize({ width: 700, height: 300 });
-    await kavya.open('Departments');
+    await kavya.openSetting('Departments');
     const m = await kavya.page.evaluate(() => {
       window.scrollTo(0, 0);
       const th = document.querySelector('#main-content .ui-table thead th')!;

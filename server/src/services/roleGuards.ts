@@ -89,6 +89,47 @@ export const OWN_ACCESS_ERROR = {
   code: 'own_access',
 };
 
+/**
+ * #2, #3: a role given automatically — to everyone a directory-sync token or
+ * a single sign-on provider creates. Whoever chooses it is handing that role
+ * to people they may never see, so the same bounds as assigning it by hand
+ * apply, and more: it must be a role of this company, never an Administrator
+ * role, and the chooser must hold everything it grants, company-wide.
+ * Returns the refusal, or null.
+ */
+export async function automaticRoleRefusal(
+  req: { tenant?: { accountId: string; orgId: string }; auth?: { userId: string } },
+  roleId: string | null | undefined
+): Promise<Refusal | null> {
+  if (!roleId) return null;
+  const { accountId, orgId } = req.tenant!;
+  const role = await platformPrisma.role.findFirst({ where: { id: roleId, accountId, orgId }, select: { id: true, roleType: true, branchId: true } });
+  if (!role) return { status: 400, body: { error: 'That role is not in this company.', code: 'FOREIGN_ROLE' } };
+  if (role.roleType === RoleType.ADMIN) {
+    return { status: 400, body: { error: 'People who are added automatically cannot be given an Administrator role; assign it by hand.', code: 'ADMIN_ROLE_AUTOMATIC' } };
+  }
+  const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Users', 'EDIT'));
+  if (refusal) return refusal;
+  const missing = unheldGrants(authority, await rolePermissionKeys(role.id));
+  if (missing.length) return { status: 403, body: cannotGrantError(missing) };
+  return null;
+}
+
+/**
+ * The same, when somebody is actually provisioned: the role may have been
+ * changed into an Administrator role, or the person who chose it may since
+ * have lost what it grants. Then nobody gets it automatically; an
+ * administrator assigns a role by hand.
+ */
+export async function automaticRoleUsable(accountId: string, orgId: string, roleId: string | null | undefined, chosenByUserId?: string | null): Promise<boolean> {
+  if (!roleId) return false;
+  const role = await platformPrisma.role.findFirst({ where: { id: roleId, accountId, orgId }, select: { id: true, roleType: true } });
+  if (!role || role.roleType === RoleType.ADMIN) return false;
+  if (!chosenByUserId) return true;
+  const chooser = await resolveAccess(accountId, orgId, chosenByUserId, COMPANY_WIDE);
+  return !unheldGrants({ isAdmin: chooser.isAdmin, permissions: chooser.permissions }, await rolePermissionKeys(role.id)).length;
+}
+
 /** Every permission key a role currently grants. */
 export async function rolePermissionKeys(roleId: string): Promise<Set<string>> {
   const rows = await platformPrisma.rolePermission.findMany({

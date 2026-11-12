@@ -64,9 +64,45 @@ import {
   ListNumbers,
   SignIn,
   SignOut,
-  UserCirclePlus,
+  Tray,
+  Bank,
+  BookOpen,
+  BuildingOffice,
+  CalendarX,
+  Chair,
+  DeviceMobile,
+  EnvelopeSimple,
+  PaperPlaneTilt,
+  Factory,
+  Fingerprint,
+  Hourglass,
+  Key,
+  Lightning,
+  ListPlus,
+  MoonStars,
+  Question,
+  SlidersHorizontal,
+  Storefront,
+  Timer,
+  ToggleLeft,
+  Trash,
+  Users,
+  ClockAfternoon,
+  CalendarSlash,
+  ClockCountdown,
+  CalendarPlus,
+  Repeat,
+  MapTrifold,
+  Crosshair,
+  DeviceMobileCamera,
+  Scan,
+  Hash,
+  CloudArrowUp,
+  Scroll,
+  HardHat,
 } from '@phosphor-icons/react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
+import { duo } from '@ui/components/ui/duoIcon';
 import { withSidePanel } from '@ui/components/list/SidePanel';
 
 /* Screens load as one file the first time the app opens (WX-03). */
@@ -112,7 +148,6 @@ const OrgCostCentres = screen('OrgCostCentres');
 const Tags = screen('Tags');
 const DataHealth = screen('DataHealth');
 const LifecycleTasks = screen('LifecycleTasks');
-const LifecycleOverview = screen('LifecycleOverview');
 const Joiners = screen('Joiners');
 const LifecycleChanges = screen('LifecycleChanges');
 const Leavers = screen('Leavers');
@@ -170,6 +205,7 @@ const DataProtection = screen('DataProtection');
 const DataRequests = screen('DataRequests');
 const SsoSettings = screen('SsoSettings');
 const RolesAccess = screen('RolesAccess');
+const EmailNotifications = screen('EmailNotifications');
 /* Request types HR sets up, their report, shift swaps and a person's own requests (FEATURE-UI-AUDIT gaps 24, 25). */
 const RequestForms = screen('RequestForms');
 const RequestsReport = screen('RequestsReport');
@@ -180,39 +216,98 @@ const AttendanceRulesSettings = screen('AttendanceRulesSettings');
 /* Settings → Automations and Exit interview (WORKFLOW-GAP-RESEARCH 4.7, 4.9). */
 const Automations = screen('Automations');
 const ExitQuestions = screen('ExitQuestions');
+/* Attendance's screens inside People's Time (owner, 11 Nov 2026): shifts, readers, overtime, month end. */
+const AttendanceRecords = screen('AttendanceRecords');
+const Exceptions = screen('Exceptions');
+const ScheduleCalendar = screen('ScheduleCalendar');
+const Shifts = screen('Shifts');
+const ShiftAssignments = screen('ShiftAssignments');
+const DepartmentSchedule = screen('DepartmentSchedule');
+const TemporarySchedule = screen('TemporarySchedule');
+const Rotations = screen('Rotations');
+const OvertimeRequests = screen('OvertimeRequests');
+const MonthConfirmations = screen('MonthConfirmations');
+const MonthClose = screen('MonthClose');
+const PayrollReadiness = screen('PayrollReadiness');
+const AttendanceDevices = screen('AttendanceDevices');
+const ReaderHealth = screen('ReaderHealth');
+const ReaderSync = screen('ReaderSync');
+const DeviceLogs = screen('DeviceLogs');
+const Enrolments = screen('Enrolments');
+const UnmatchedPunches = screen('UnmatchedPunches');
+const IdMapping = screen('IdMapping');
+const PhonePunches = screen('PhonePunches');
+const Geofences = screen('Geofences');
+const SiteCheck = screen('SiteCheck');
+const WeeklyOffPolicy = screen('WeeklyOffPolicy');
+const OvertimePolicy = screen('OvertimePolicy');
+const ShiftPolicy = screen('ShiftPolicy');
+const Contractors = screen('Contractors');
+const AttendanceReports = screen('AttendanceReports');
+const MonthSummary = screen('MonthSummary');
+const AttendanceRegister = screen('AttendanceRegister');
+const Transactions = screen('Transactions');
+/* The punch log under the name People's menu gives it. */
+const PunchLog = (props) => <Transactions {...props} title="Punches" />;
+PunchLog.displayName = 'PunchLog';
+/* A named attendance report as its own entry: the Reports screen opened on that report. */
+const attendanceReport = (id) => {
+  const NamedReport = (props) => <AttendanceReports {...props} initialReport={id} />;
+  NamedReport.displayName = `Report(${id})`;
+  return NamedReport;
+};
 const LateMarks = screen('LateMarks');
 const Absences = screen('Absences');
 const NightWork = screen('NightWork');
 
-/* A Phosphor line mark, for the app's own tile in the bar (white on teal), where a full-colour icon would clash. */
-const line = (Icon, name, tint) => {
-  // eslint-disable-next-line no-unused-vars -- Lucide's strokeWidth and the old tint are taken off so neither reaches the svg
-  const Line = ({ size = 16, strokeWidth, weight = 'duotone', className = '', ...rest }) => <Icon size={size} weight={weight} className={`ui-glyph ${className}`.trim()} {...rest} />;
-  void tint;
-  Line.displayName = `Line(${name})`;
-  return Line;
+/* People's icons in brand D (owner, 29 Oct 2026, option C of six): Phosphor's two-tone set, the shared `duo`
+   helper (@ui/components/ui/duoIcon), now the icon family of every app but Accounting. The fill turns on the open
+   module and screen (.ui-glyph in people.css). */
+/* Each kind of work wears its own colour (owner, 8 Nov 2026, option A): the line and a light fill in the kind's
+   colour (people.css, `.ui-glyph[data-kind]`). Kinds: people, time, join, leave, pay, docs, work, talent, admin. */
+const kinded = (icons, kinds) => Object.fromEntries(Object.entries(icons).map(([key, Icon]) => {
+  const kind = kinds[key] || 'admin';
+  const Kinded = (props) => <Icon data-kind={kind} {...props} />;
+  Kinded.displayName = `${Icon.displayName}:${kind}`;
+  return [key, Kinded];
+}));
+/* The same icon on a screen of another kind wears that kind (Shift swaps is time, though its arrows are Job changes'). */
+const asKind = (Icon, kind) => {
+  const Kinded = (props) => <Icon {...props} data-kind={kind} />;
+  Kinded.displayName = `${Icon.displayName}>${kind}`;
+  return Kinded;
 };
-/* People's icons in brand D (owner, 29 Oct 2026, option C of six): Phosphor's two-tone set, an indigo line over
-   a lilac fill, and the fill turns marigold on the open module and screen (.ui-glyph in people.css). One family
-   and three brand colours, where Fluent's full-colour set brought blue, teal, green and pink. */
-const duo = (Icon, name) => {
-  // eslint-disable-next-line no-unused-vars -- Lucide's strokeWidth is taken off so it is not passed to the svg
-  const Duo = ({ size = 16, strokeWidth, className = '', ...rest }) => <Icon size={size} weight="duotone" className={`ui-glyph ${className}`.trim()} {...rest} />;
-  Duo.displayName = `Duo(${name})`;
-  return Duo;
+const MODULE_KIND = {
+  home: 'people', inbox: 'time', workforce: 'people', time: 'time', insights: 'admin',
+  hiring: 'talent', growth: 'talent', engage: 'work', settings: 'admin',
 };
-const M = {
+/* Every Settings row has its own glyph (People plan, 8 Nov 2026, rule 8): the kind keeps the colour sensible. */
+const ITEM_KIND = {
+  home: 'people', people: 'people', key: 'people', type: 'people', designation: 'people', change: 'people', delegate: 'people',
+  team: 'people', seat: 'people', phone: 'people',
+  approve: 'time', leave: 'time', balance: 'time', policy: 'time', myLeave: 'time', holiday: 'time', calendar: 'time',
+  register: 'time', attendance: 'time', myDays: 'time', workType: 'time', away: 'time', attRequest: 'time', summary: 'time',
+  leavePolicy: 'time', blockDates: 'time', yearEnd: 'time', attRules: 'time', attTypes: 'time', night: 'time',
+  checklist: 'join', joiner: 'join', offer: 'join', task: 'join', steps: 'join',
+  leaver: 'leave', exit: 'leave',
+  salary: 'pay', expense: 'pay', benefit: 'pay', statutory: 'pay', grade: 'pay', costCentre: 'pay',
+  folder: 'docs', asset: 'docs', import: 'docs', export: 'docs', audit: 'docs', evidence: 'docs', field: 'docs', tag: 'docs', history: 'docs',
+  letter: 'docs', mailOut: 'docs', consent: 'docs', trash: 'docs',
+  news: 'work', event: 'work', hrCase: 'work', oneOnOne: 'work',
+  job: 'talent', candidate: 'talent', goal: 'talent', training: 'talent', interview: 'talent', review: 'talent', plan: 'talent',
+};
+const M = kinded({
   home: duo(House, 'House'),
+  inbox: duo(Tray, 'Tray'),
   workforce: duo(UsersThree, 'UsersThree'),
-  org: duo(Buildings, 'Buildings'),
   time: duo(CalendarCheck, 'CalendarCheck'),
   insights: duo(ChartPieSlice, 'ChartPieSlice'),
   hiring: duo(Star, 'Star'),
   growth: duo(Trophy, 'Trophy'),
   engage: duo(Megaphone, 'Megaphone'),
   settings: duo(GearSix, 'GearSix'),
-};
-const I = {
+}, MODULE_KIND);
+const I = kinded({
   home: duo(House, 'House'),
   people: duo(UsersThree, 'UsersThree'),
   org: duo(TreeStructure, 'TreeStructure'),
@@ -280,14 +375,50 @@ const I = {
   orgChart: duo(TreeStructure, 'TreeStructure'),
   dataCheck: duo(ShieldCheck, 'ShieldCheck'),
   field: duo(Textbox, 'Textbox'),
-  lifecycle: duo(UserCirclePlus, 'UserCirclePlus'),
   joiner: duo(SignIn, 'SignIn'),
   offer: duo(FileText, 'FileText'),
   leaver: duo(SignOut, 'SignOut'),
   change: duo(ArrowsLeftRight, 'ArrowsLeftRight'),
   task: duo(ListChecks, 'ListChecks'),
   steps: duo(ListNumbers, 'ListNumbers'),
-};
+  /* One glyph per Settings row (plan rule 8). */
+  letter: duo(EnvelopeSimple, 'EnvelopeSimple'),
+  mailOut: duo(PaperPlaneTilt, 'PaperPlaneTilt'),
+  choices: duo(SlidersHorizontal, 'SlidersHorizontal'),
+  requestType: duo(ListPlus, 'ListPlus'),
+  attRules: duo(Timer, 'Timer'),
+  automation: duo(Lightning, 'Lightning'),
+  exit: duo(Question, 'Question'),
+  leavePolicy: duo(BookOpen, 'BookOpen'),
+  attTypes: duo(ToggleLeft, 'ToggleLeft'),
+  night: duo(MoonStars, 'MoonStars'),
+  phone: duo(DeviceMobile, 'DeviceMobile'),
+  blockDates: duo(CalendarX, 'CalendarX'),
+  yearEnd: duo(Hourglass, 'Hourglass'),
+  office: duo(BuildingOffice, 'BuildingOffice'),
+  legal: duo(Bank, 'Bank'),
+  branch: duo(Storefront, 'Storefront'),
+  site: duo(Factory, 'Factory'),
+  roles: duo(Key, 'Key'),
+  consent: duo(Fingerprint, 'Fingerprint'),
+  team: duo(Users, 'Users'),
+  seat: duo(Chair, 'Chair'),
+  trash: duo(Trash, 'Trash'),
+  /* Shifts & readers in Settings: one glyph a row, as every Settings row has. */
+  shiftPolicy: duo(ClockAfternoon, 'ClockAfternoon'),
+  weeklyOff: duo(CalendarSlash, 'CalendarSlash'),
+  overtimeRule: duo(ClockCountdown, 'ClockCountdown'),
+  deptShift: duo(CalendarPlus, 'CalendarPlus'),
+  rotation: duo(Repeat, 'Repeat'),
+  punchArea: duo(MapTrifold, 'MapTrifold'),
+  areaCheck: duo(Crosshair, 'Crosshair'),
+  phonePunch: duo(DeviceMobileCamera, 'DeviceMobileCamera'),
+  enrol: duo(Scan, 'Scan'),
+  readerId: duo(Hash, 'Hash'),
+  readerSync: duo(CloudArrowUp, 'CloudArrowUp'),
+  readerLog: duo(Scroll, 'Scroll'),
+  contractor: duo(HardHat, 'HardHat'),
+}, ITEM_KIND);
 
 /* One register screen per kind, with the shell's props (openScreen, params). */
 const register = (kind) => {
@@ -308,7 +439,7 @@ const register = (kind) => {
 export const peopleApp = {
   id: 'people',
   name: 'People',
-  icon: line(UsersThree, 'UsersThree', 'sky'),
+  icon: duo(UsersThree, 'UsersThree'),
   blurb: 'Every HR job in one place: people, time off, hiring, growth and the workplace.',
   available: true,
   database: 'people.db',
@@ -326,42 +457,70 @@ export const peopleApp = {
   profileLinks: ['myLeave', 'myDays', 'myRequests'],
   /* Grant- and membership-based access the shell merges with the person's permissions (src/api/access.js). */
   access: () => import('./src/api/access.js').then((m) => m.myPeopleAccess()),
+  /* A rail tap opens the module's first screen with its panel (People plan, 8 Nov 2026: a click opens a screen, not only a panel). */
+  railOpensHome: true,
+  /* Counts beside rail entries: what waits in the Inbox (src/api/railCounts.js). */
+  railCounts: () => import('./src/api/railCounts.js').then((m) => m.peopleRailCounts()),
+  /* Search (People plan, 8 Nov 2026): people by name, code or email; and jobs by the words people use for them. */
+  searchRecords: (q) => import('@ui/personnel/search').then((m) => m.findPeople(q)),
+  searchActions: [
+    { label: 'Probation ending', screen: 'employees', params: { prob: 'on' }, keywords: ['probation', 'confirm', 'confirmation'] },
+    { label: 'Add an employee', screen: 'employeeNew', keywords: ['new joiner', 'onboard', 'hire', 'add'] },
+    { label: 'Fix a punch', screen: 'attendanceRequests', keywords: ['punch', 'missed punch', 'regularise'] },
+    { label: 'Shifts', screen: 'shifts', keywords: ['shift', 'roster', 'timing', 'weekly off'] },
+    { label: 'Add a reader', screen: 'readers', keywords: ['reader', 'biometric', 'device', 'machine', 'fingerprint', 'face'] },
+    { label: 'Month close', screen: 'monthClose', keywords: ['month close', 'close the month', 'lock attendance'] },
+    { label: 'Payslips', appId: 'payroll', screen: 'slips', keywords: ['payslip', 'salary slip', 'pay slip'] },
+    { label: 'Final settlement', appId: 'payroll', screen: 'settlements', keywords: ['final settlement', 'full and final', 'fnf', 'f&f'] },
+    { label: 'Run payroll', appId: 'payroll', screen: 'runs', keywords: ['payroll', 'pay run', 'salary'] },
+  ],
 
   /* The sidebar holds the day's work; everything set up once lives on one Settings page (PeopleSettings), its pages marked `parent: 'settings'`. */
   modules: [
-    { key: 'overview', label: 'Home', icon: M.home, items: ['overview', 'approvals'] },
+    { key: 'overview', label: 'Home', icon: M.home, items: ['overview'] },
+    /* One Inbox for everything waiting on you, on the rail with its count (People plan, 8 Nov 2026). */
+    { key: 'approvals', label: 'Inbox', icon: M.inbox, items: ['approvals'] },
     /* Menu by what the owner is trying to do (owner, 28 Oct 2026 audit): records about people here; the
        service staff come to (help desk, policies, news) under Workplace. Screen keys stay, so old links work. */
+    /* The menu of the People plan (docs/people/10-PEOPLE-PLAN-2026-11-08.md §2): the Organisation module is gone.
+       The org chart is a People screen; the company's shape (departments, designations, branches, the detailed
+       lists) is set up once, so it lives in Settings. */
     { key: 'employees', label: 'People', icon: M.workforce, groups: [
-      { label: 'People', items: ['employees', 'documents'] },
+      { label: '', items: ['employees', 'orgChart', 'documents'] },
       /* Joining & leaving (JOINING-LEAVING-DECISIONS.md): who is joining or leaving, what is not done yet, and whose it is. `checklists` keeps its key (old links); it is now Tasks. */
-      { label: 'Joining & leaving', items: ['lifecycle', 'joiners', 'offers', 'lifecycleChanges', 'leavers', 'checklists'] },
-      { label: 'Pay, benefits & assets', items: ['compensation', 'expenses', 'benefits', 'assets'] },
-    ] },
-    /* Organisation: one flat list; headings over one item each only made it longer. The detailed lists
-       (Detailed structure switch) follow under one heading. */
-    { key: 'organization', label: 'Organisation', icon: M.org, groups: [
-      { label: '', items: ['organization', 'departments', 'jobPositions', 'orgChart', 'branches', 'orgChanges'] },
-      { label: 'Detailed structure', items: ['establishments', 'areas', 'teams', 'seats', 'businessUnits', 'grades', 'costCentres', 'jobRoles'] },
+      { label: 'Joining & leaving', items: ['joiners', 'offers', 'lifecycleChanges', 'leavers', 'checklists'] },
+      { label: 'Pay & assets', items: ['compensation', 'expenses', 'benefits', 'assets'] },
     ] },
     /* Time: leave and attendance in one module whose name fits the rail on one line. Your own leave and
-       days live under My profile, not in the admin menu. Leave register is a statutory form: Reports. */
+       days live under My profile, not in the admin menu. Leave register is a statutory form: Reports.
+       Delegates is set up once: Settings. Night work stays here: HR records consent on it and Home links to it. */
     { key: 'leave', label: 'Time', icon: M.time, groups: [
-      { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances', 'standIns'] },
-      { label: 'Attendance', items: ['attendance', 'attendanceRequests', 'shiftSwaps', 'lateMarks', 'absences', 'nightWork'] },
-    ] },
-    /* Talent (owner, 28 Oct 2026): hiring and growing people, one module so the rail has room for what comes next. */
-    { key: 'talent', label: 'Talent', icon: M.hiring, groups: [
-      { label: 'Hiring', items: ['recruitment', 'candidates', 'interviews', 'referrals', 'referMe'] },
-      { label: 'Growth', items: ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning'] },
+      { label: 'Leave', items: ['timeOverview', 'leaveRequests', 'leaveCalendar', 'leaveBalances'] },
+      { label: 'Attendance', items: ['attendance', 'records', 'exceptions', 'attendanceRequests', 'overtime', 'lateMarks', 'absences', 'nightWork'] },
+      /* Shifts, readers and the month's close live here too (owner, 11 Nov 2026): one app for a company's time. What is
+         set up once (rotations, punch areas, enrolment) is under Settings. */
+      { label: 'Shifts', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'temporarySchedule', 'shiftSwaps'] },
+      { label: 'Readers', items: ['readers', 'readerHealth', 'transactions', 'unmatched'] },
+      { label: 'Month end', items: ['payrollReadiness', 'confirmations', 'monthClose'] },
     ] },
     /* Workplace: what the company offers its staff, news to help. */
     { key: 'workplace', label: 'Workplace', icon: M.engage, groups: [
       { label: 'News', items: ['announcements', 'events'] },
       { label: 'Help', items: ['helpdesk', 'policies', 'privateCases'] },
     ] },
-    /* Reports holds reports only (and the outside auditor's evidence); data checks, privacy and audit logs live once, in Settings. */
-    { key: 'reports', label: 'Reports', icon: M.insights, items: ['reports', 'leaveSummary', 'leaveRegister', 'requestsReport', 'registers', 'compliance', 'auditEvidence'] },
+    /* Talent (owner, 28 Oct 2026): hiring and growing people, one module so the rail has room for what comes next.
+       Refer someone is the primary action on Referrals, not a menu entry. */
+    { key: 'talent', label: 'Talent', icon: M.hiring, groups: [
+      { label: 'Hiring', items: ['recruitment', 'candidates', 'interviews', 'referrals'] },
+      { label: 'Performance', items: ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning'] },
+    ] },
+    /* Reports holds reports only, in the plan's groups (Pay comes with the payroll reports). Leave summary is a tab
+       inside Statutory registers, so it is not listed twice; the compliance calendar and the auditor's evidence are Settings. */
+    { key: 'reports', label: 'Reports', icon: M.insights, groups: [
+      { label: 'People', items: ['reports'] },
+      { label: 'Time', items: ['summary', 'register', 'attendanceReports', 'leaveRegister', 'requestsReport'] },
+      { label: 'Statutory registers', items: ['registers'] },
+    ] },
     { key: 'settings', label: 'Settings', icon: M.settings, items: ['settings'] },
   ],
 
@@ -372,61 +531,95 @@ export const peopleApp = {
      delegates, policies, compliance, privacy and the like are always shown, as a small business needs them. */
   nav: [
     { key: 'overview', label: 'Home', icon: I.home, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'approvals', label: 'Approvals', icon: I.approve, permission: 'PEOPLE::Requests::VIEW' },
-    { key: 'employees', label: 'Employees', icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'approvals', label: 'Inbox', keywords: ['approve', 'pending', 'waiting', 'requests'], icon: I.approve, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'employees', label: 'Employees', keywords: ['staff', 'employee', 'directory', 'team', 'worker'], icon: I.people, permission: 'PEOPLE::Employees::VIEW' },
     /* Pages inside Workforce (profile, add, import): reached from the directory, never their own sidebar entries; the shell shows "← Workforce". */
     { key: 'employee', label: 'Employee', icon: I.people, permission: 'PEOPLE::Employees::VIEW', parent: 'employees' },
     { key: 'employeeNew', label: 'Add employee', icon: I.people, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
     { key: 'employeeImport', label: 'Import employees', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'employees' },
-    { key: 'orgChart', label: 'Org chart', icon: I.orgChart, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'organization', label: 'Overview', icon: I.orgOverview, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'branches', label: 'Branches', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'orgChanges', label: 'Change history', icon: I.history, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'documents', label: 'Documents', icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
+    { key: 'orgChart', label: 'Org chart', keywords: ['organisation', 'organization', 'hierarchy', 'reporting line'], icon: I.orgChart, permission: 'PEOPLE::Employees::VIEW' },
+    /* The old Organisation overview: off the menu (People plan, 8 Nov 2026), still at its address for links that name it. */
+    { key: 'organization', label: 'Organisation overview', keywords: ['organisation', 'organization'], icon: I.orgOverview, permission: 'PEOPLE::Employees::VIEW', parent: 'orgChart' },
+    { key: 'branches', label: 'Branches', keywords: ['organisation', 'office'], icon: I.branch, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'orgChanges', label: 'Org changes', keywords: ['change history', 'organisation', 'history'], icon: I.history, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'documents', label: 'Documents', keywords: ['id proof', 'aadhaar', 'pan card', 'certificate'], icon: I.folder, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'policies', label: 'Policies', icon: I.policy, permission: 'PEOPLE::Policies::VIEW' },
-    { key: 'lifecycle', label: 'Joining & leaving', icon: I.lifecycle, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'joiners', label: 'Joining', icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'joiners', label: 'Joining', keywords: ['onboarding', 'new joiner', 'induction', 'joining & leaving'], icon: I.joiner, permission: 'PEOPLE::Employees::VIEW' },
     /* Offers sent with an accept link: status and withdraw (FEATURE-UI-AUDIT gap 7). */
     { key: 'offers', label: 'Offers', icon: I.offer, permission: 'PEOPLE::Documents::VIEW' },
     { key: 'lifecycleChanges', label: 'Job changes', icon: I.change, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'leavers', label: 'Leaving', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'leavers', label: 'Leaving', keywords: ['exit', 'resignation', 'offboarding', 'notice period', 'relieving'], icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
     /* Anyone with a task on their name opens Tasks (their own only); the server decides what each sees. */
     { key: 'checklists', label: 'Tasks', icon: I.task },
     { key: 'journeySteps', label: 'Joining & leaving steps', icon: I.steps, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
-    { key: 'selfService', label: 'Employee app', icon: I.key, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
-    { key: 'letterTemplates', label: 'Letters', icon: I.policy, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
+    { key: 'selfService', label: 'Employee app', icon: I.phone, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
+    { key: 'letterTemplates', label: 'Letters', keywords: ['offer letter', 'appointment letter', 'experience letter', 'relieving letter'], icon: I.letter, permission: 'PEOPLE::Documents::VIEW', parent: 'settings' },
     { key: 'customFields', label: 'Custom fields', icon: I.field, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'selfServiceChanges', label: 'Self-service edits', icon: I.key, permission: 'PEOPLE::Org Structure::EDIT', parent: 'settings' },
     { key: 'approvalRules', label: 'Approval rules', icon: I.checklist, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     /* The decisions HR and the owner make for the company (docs/people/workflow-engine/SPEC.md 3). */
-    { key: 'companyChoices', label: 'Company choices', icon: I.policy, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
-    { key: 'requestForms', label: 'Request types', icon: I.policy, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
+    { key: 'companyChoices', label: 'Who decides & who sees', keywords: ['company choices', 'choices', 'who decides', 'who sees'], icon: I.choices, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
+    { key: 'requestForms', label: 'Request types', icon: I.requestType, permission: 'PEOPLE::Approvals::VIEW', parent: 'settings' },
     { key: 'requestsReport', label: 'Requests report', icon: I.report, permission: 'PEOPLE::Approvals::VIEW' },
     /* Swaps asked in the employee app; HR sees all, a manager their team (the server decides). */
-    { key: 'shiftSwaps', label: 'Shift swaps', icon: I.change, permission: 'PEOPLE::Requests::VIEW' },
+    { key: 'shiftSwaps', label: 'Shift swaps', icon: asKind(I.change, 'time'), permission: 'PEOPLE::Requests::VIEW' },
     { key: 'lateMarks', label: 'Late marks', icon: I.myDays, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
-    { key: 'absences', label: 'Absences', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'nightWork', label: 'Night work', icon: I.policy, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'attendanceRules', label: 'Attendance rules', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::VIEW', parent: 'settings' },
-    { key: 'automations', label: 'Automations', icon: I.policy, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
-    { key: 'exitQuestions', label: 'Exit interview', icon: I.policy, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
+    /* Absent working day after working day with no leave and no word (Absences.jsx): the label says so. */
+    { key: 'absences', label: 'Absent without leave', keywords: ['absences', 'absconding', 'no show', 'missing'], icon: asKind(I.leaver, 'time'), permission: 'PEOPLE::Employees::VIEW' },
+    /* Women's consent to night work (OSH Code s.43), recorded here; Time › Attendance. */
+    { key: 'nightWork', label: 'Night work', keywords: ['night shift', 'consent', 'women'], icon: I.night, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'attendanceRules', label: 'Attendance rules', icon: I.attRules, permission: 'ATTENDANCE::Attendance Requests::VIEW', parent: 'settings' },
+    /* Attendance inside People (owner, 11 Nov 2026): the Attendance app's keys, so its screens' links to one another work here. */
+    { key: 'records', label: 'All attendance records', keywords: ['attendance records', 'days', 'present', 'absent'], icon: I.register, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'exceptions', label: 'Days to check', keywords: ['exceptions', 'missing punch', 'odd days'], icon: I.health, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'overtime', label: 'Overtime & comp-off', keywords: ['overtime', 'ot', 'comp off', 'extra hours'], icon: I.attRules, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'scheduleCalendar', label: 'Shift calendar', keywords: ['roster', 'schedule'], icon: asKind(I.calendar, 'time'), permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'shifts', label: 'Shifts', keywords: ['shift', 'timing', 'weekly off'], icon: I.myDays, permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'shiftAssignments', label: 'Who is on which shift', keywords: ['shift assignments', 'assign shift', 'roster'], icon: asKind(I.people, 'time'), permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'temporarySchedule', label: 'Temporary shifts', keywords: ['temporary schedule', 'cover'], icon: asKind(I.calendar, 'time'), permission: 'ATTENDANCE::Shifts::VIEW', feature: 'attendance' },
+    { key: 'readers', label: 'Readers', keywords: ['biometric', 'device', 'machine', 'fingerprint', 'face', 'essl', 'zkteco'], icon: I.consent, permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'readerHealth', label: 'Reader health', keywords: ['offline', 'reader status'], icon: asKind(I.health, 'time'), permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'transactions', label: 'Punches', keywords: ['punch log', 'transactions', 'in out'], icon: asKind(I.history, 'time'), permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'unmatched', label: 'Punches with no employee', keywords: ['unmatched punches', 'unknown id'], icon: asKind(I.dataCheck, 'time'), permission: 'ATTENDANCE::Attendance Devices::VIEW', feature: 'attendance' },
+    { key: 'payrollReadiness', label: 'Ready for payroll?', keywords: ['payroll readiness', 'month end'], wholeCompany: true, icon: asKind(I.compliance, 'time'), permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'confirmations', label: 'Employee confirmations', keywords: ['confirm month', 'sign off'], icon: asKind(I.approve, 'time'), permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'monthClose', label: 'Month close', keywords: ['lock attendance', 'close the month'], icon: asKind(I.yearEnd, 'time'), permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'summary', label: 'Monthly attendance', icon: I.summary, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'register', label: 'Daily attendance register', wholeCompany: true, icon: I.register, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'attendanceReports', label: 'All attendance reports', keywords: ['late', 'early', 'absent', 'overtime report', 'timecard'], wholeCompany: true, icon: I.report, permission: 'ATTENDANCE::Attendance Records::VIEW', feature: 'attendance' },
+    { key: 'shiftPolicy', label: 'Default shift & late rule', icon: I.shiftPolicy, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'weeklyOffPolicy', label: 'Weekly off', icon: I.weeklyOff, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'overtimePolicy', label: 'Overtime rules', icon: I.overtimeRule, permission: 'ATTENDANCE::Attendance Records::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'departmentSchedule', label: 'Department shifts', icon: I.deptShift, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'rotations', label: 'Shift rotations', icon: I.rotation, permission: 'ATTENDANCE::Shifts::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'sites', label: 'Punch areas', icon: I.punchArea, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'siteCheck', label: 'Punch area check', icon: I.areaCheck, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'phonePunches', label: 'Phone punches', icon: I.phonePunch, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'enrolments', label: 'Fingerprint & face enrolment', icon: I.enrol, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'idMapping', label: 'Reader numbers', icon: I.readerId, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'readerSync', label: 'Reader sync', icon: I.readerSync, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'deviceLogs', label: 'Reader logs', icon: I.readerLog, permission: 'ATTENDANCE::Attendance Devices::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'contractors', label: 'Contractors', icon: I.contractor, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'attendance' },
+    { key: 'automations', label: 'Automations', icon: I.automation, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
+    { key: 'exitQuestions', label: 'Exit interview', icon: I.exit, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'myRequests', label: 'My requests', icon: I.requests, permission: 'ATTENDANCE::My Attendance::VIEW' },
-    { key: 'timeOverview', label: "Who's away", icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveRequests', label: 'Leave requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveBalances', label: 'Leave balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'timeOverview', label: "Who's away", keywords: ['who is away', 'on leave today', 'absent today'], icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRequests', label: 'Leave requests', keywords: ['leave', 'time off', 'approve leave', 'absence request'], short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveBalances', label: 'Leave balances', keywords: ['leave balance', 'remaining leave'], icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveRegister', label: 'Leave register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     { key: 'leaveCalendar', label: 'Leave calendar', icon: I.calendar, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'standIns', label: 'Delegates', icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'attendanceRequests', label: 'Attendance requests', short: 'Requests', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
-    { key: 'attendance', label: 'Daily attendance', icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    /* Who decides for an absent approver: set up once, so Settings › Requests & approvals (People plan, 8 Nov 2026). */
+    { key: 'standIns', label: 'Delegates', keywords: ['stand-in', 'stand in', 'away', 'hand on approvals'], icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW', parent: 'settings' },
+    { key: 'attendanceRequests', label: 'Attendance fixes', keywords: ['attendance requests', 'punch', 'missed punch', 'regularise', 'regularize', 'fix punch'], short: 'Fixes', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'attendance', label: 'Daily attendance', keywords: ['who is in', 'absent', 'present', 'late', 'today'], icon: I.attendance, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     { key: 'myDays', label: 'My attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
     { key: 'myLeave', label: 'My leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
-    { key: 'leaveTypes', label: 'Leave policy', icon: I.policy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
-    { key: 'holidays', label: 'Holidays', icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
-    { key: 'leaveBlocks', label: 'Leave block dates', icon: I.holiday, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
+    { key: 'leaveTypes', label: 'Leave policy', icon: I.leavePolicy, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
+    { key: 'holidays', label: 'Holidays', keywords: ['holiday list', 'festival'], icon: I.holiday, permission: 'ATTENDANCE::Holidays::VIEW', parent: 'settings' },
+    { key: 'leaveBlocks', label: 'Leave block dates', icon: I.blockDates, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
     { key: 'workingWeek', label: 'Working week', icon: I.calendar, permission: 'ATTENDANCE::Leave Types::VIEW', parent: 'settings' },
-    { key: 'leaveYearEnd', label: 'Leave year end', icon: I.register, permission: 'ATTENDANCE::Leave Requests::EDIT', parent: 'settings' },
-    { key: 'requestRules', label: 'Attendance request types', icon: I.policy, permission: 'ATTENDANCE::Attendance Requests::APPROVE', parent: 'settings' },
+    { key: 'leaveYearEnd', label: 'Leave year end', icon: I.yearEnd, permission: 'ATTENDANCE::Leave Requests::EDIT', parent: 'settings' },
+    { key: 'requestRules', label: 'Attendance request types', icon: I.attTypes, permission: 'ATTENDANCE::Attendance Requests::APPROVE', parent: 'settings' },
     /* Talent. Interviews and one-on-ones need no right of their own: anyone can sit on an interview or
        manage someone, and the server shows each person only their own. Goals, reviews and plans are not
        read-only without Performance Edit (`writeGuard: false`): a manager acts on their own team there, and
@@ -436,7 +629,8 @@ export const peopleApp = {
     { key: 'interviews', label: 'Interviews', icon: I.interview, feature: 'peopleHiring' },
     /* Referrals (A20): HR's list and report with Recruitment; Refer someone for anyone who works here (the server finds their record from the session). */
     { key: 'referrals', label: 'Referrals', icon: I.candidate, permission: 'PEOPLE::Recruitment::VIEW', feature: 'peopleHiring' },
-    { key: 'referMe', label: 'Refer someone', icon: I.job, feature: 'peopleHiring', writeGuard: false },
+    /* Off the menu: the primary action on Referrals opens it, and notices still name it. */
+    { key: 'referMe', label: 'Refer someone', keywords: ['referral', 'refer'], icon: I.job, feature: 'peopleHiring', writeGuard: false, parent: 'referrals' },
     { key: 'performance', label: 'Goals', icon: I.goal, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance', writeGuard: false },
     { key: 'reviews', label: 'Reviews', icon: I.review, permission: 'PEOPLE::Performance::VIEW', feature: 'peoplePerformance', writeGuard: false },
     { key: 'oneOnOnes', label: 'One-on-ones', icon: I.oneOnOne, feature: 'peoplePerformance' },
@@ -444,31 +638,34 @@ export const peopleApp = {
     { key: 'learning', label: 'Training', icon: I.training, permission: 'PEOPLE::Learning::VIEW', feature: 'peoplePerformance' },
     { key: 'announcements', label: 'Announcements', icon: I.news, permission: 'PEOPLE::Announcements::VIEW', feature: 'peopleEngage' },
     { key: 'events', label: 'Events', icon: I.event, permission: 'PEOPLE::Events::VIEW', feature: 'peopleEngage' },
-    { key: 'helpdesk', label: 'Help desk', icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
+    { key: 'helpdesk', label: 'Help desk', keywords: ['ticket', 'query', 'complaint'], icon: I.hrCase, permission: 'PEOPLE::HR Cases::VIEW' },
     /* Who the case routes let in (gap 5): the grant to take cases in and set committees, or a seat on a case or committee. */
-    { key: 'privateCases', label: 'Confidential cases', icon: I.privacy, permission: ['PEOPLE::Private Cases::VIEW', 'PEOPLE::Private Cases::CREATE', 'PEOPLE::Case committee::VIEW'] },
+    { key: 'privateCases', label: 'Confidential cases', keywords: ['posh', 'grievance', 'harassment', 'icc'], icon: I.privacy, permission: ['PEOPLE::Private Cases::VIEW', 'PEOPLE::Private Cases::CREATE', 'PEOPLE::Case committee::VIEW'] },
     { key: 'helpDeskSettings', label: 'Help desk settings', icon: I.hrCase, permission: 'PEOPLE::HR Cases::EDIT', parent: 'settings' },
-    { key: 'assets', label: 'Assets', icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
+    { key: 'assets', label: 'Assets', keywords: ['laptop', 'phone', 'sim', 'company property', 'asset'], icon: I.asset, permission: 'PEOPLE::Assets::VIEW', feature: 'peopleBenefits' },
     { key: 'benefits', label: 'Benefits', icon: I.benefit, permission: 'PEOPLE::Benefits::VIEW', feature: 'peopleBenefits' },
-    { key: 'compensation', label: 'Salary revisions', icon: I.salary, permission: ['PAYROLL::Salary Revisions::VIEW', 'PEOPLE::Salary revisions read::VIEW'], feature: 'peopleBenefits' },
+    { key: 'compensation', label: 'Salary revisions', keywords: ['salary', 'hike', 'increment', 'raise', 'revision'], icon: I.salary, permission: ['PAYROLL::Salary Revisions::VIEW', 'PEOPLE::Salary revisions read::VIEW'], feature: 'peopleBenefits' },
     /* Claims approved in Approvals, paid here; advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
-    { key: 'expenses', label: 'Expenses', icon: I.expense, permission: 'PEOPLE::Expenses::VIEW' },
-    { key: 'reports', label: 'People report', icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'expenses', label: 'Expenses', keywords: ['claim', 'reimbursement', 'advance', 'bill'], icon: I.expense, permission: 'PEOPLE::Expenses::VIEW' },
+    { key: 'reports', label: 'Headcount & attrition', keywords: ['people report', 'headcount', 'attrition', 'joiners', 'leavers'], icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     /* What an inspector asks for (HR view audit, gap 4), and leave taken by department and type (gap 9). */
-    { key: 'registers', label: 'Statutory registers', icon: I.statutory, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'leaveSummary', label: 'Leave summary', icon: I.summary, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'registers', label: 'Statutory registers', keywords: ['muster roll', 'statutory form', 'form', 'leave summary', 'leave taken'], icon: I.statutory, permission: 'PEOPLE::Employees::VIEW' },
+    /* Leave summary is a tab of Statutory registers; its own address stays for links, not the menu (People plan, 8 Nov 2026). */
+    { key: 'leaveSummary', label: 'Leave summary', keywords: ['leave taken'], icon: I.summary, permission: 'PEOPLE::Employees::VIEW', parent: 'registers' },
     { key: 'dataHealth', label: 'Data check', icon: I.dataCheck, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
-    { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
+    /* Statutory deadlines and the rules behind them: set up and watched from Settings › Company. */
+    { key: 'compliance', label: 'Compliance calendar', keywords: ['compliance', 'deadline', 'statutory', 'due date'], icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     /* The old compliance calendar, retired into Compliance (gap 10): a link or notice that still names it opens Compliance. */
-    { key: 'complianceCalendar', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', parent: 'compliance' },
+    { key: 'complianceCalendar', label: 'Compliance calendar', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW', parent: 'compliance' },
     { key: 'privacy', label: 'Privacy controls', icon: I.privacy, permission: 'PEOPLE::Privacy::VIEW', parent: 'settings' },
-    /* The external auditor's own list: what a live grant names (PRV-06). */
-    { key: 'auditEvidence', label: 'Audit evidence', icon: I.evidence, permission: ['PEOPLE::Audit grant::VIEW'] },
-    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'teams', label: 'Teams', icon: I.people, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
-    { key: 'seats', label: 'Positions', icon: I.org, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
-    { key: 'jobPositions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'jobRoles', label: 'Job roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    /* The external auditor's own list: what a live grant names (PRV-06). Settings › Data & privacy. */
+    { key: 'auditEvidence', label: 'Audit evidence', icon: I.evidence, permission: ['PEOPLE::Audit grant::VIEW'], parent: 'settings' },
+    /* The company's shape, set up once: Settings › Company; the detailed lists under More structure, in detailed mode only. */
+    { key: 'departments', label: 'Departments', keywords: ['organisation', 'structure'], icon: I.department, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'teams', label: 'Teams', icon: I.team, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
+    { key: 'seats', label: 'Positions', icon: I.seat, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
+    { key: 'jobPositions', label: 'Designations', keywords: ['organisation', 'title', 'job title'], icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
+    { key: 'jobRoles', label: 'Job roles', icon: I.role, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
     { key: 'employeeTypes', label: 'Employment types', icon: I.type, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'workTypes', label: 'Work modes', icon: I.workType, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
     { key: 'tags', label: 'Tags', icon: I.tag, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings' },
@@ -476,29 +673,32 @@ export const peopleApp = {
     { key: 'settings', label: 'Settings', icon: I.settings, hub: true },
     /* Founder, 22 Oct 2026: modules switch on and off, within what the subscription carries. */
     { key: 'modules', label: 'Features & apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
-    { key: 'companyDetails', label: 'Company details', icon: I.company, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
-    { key: 'legalEntities', label: 'Legal entity', icon: I.company, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'peopleDetailed' },
-    { key: 'establishments', label: 'Work sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
-    { key: 'businessUnits', label: 'Business units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
-    { key: 'areas', label: 'Locations', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
-    { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
-    { key: 'costCentres', label: 'Cost centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail' },
+    { key: 'companyDetails', label: 'Company details', icon: I.office, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
+    { key: 'legalEntities', label: 'Legal entity', icon: I.legal, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'peopleDetailed' },
+    { key: 'establishments', label: 'Work sites', icon: I.site, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
+    { key: 'businessUnits', label: 'Business units', icon: I.unit, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
+    { key: 'areas', label: 'Locations', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
+    { key: 'grades', label: 'Grades', icon: I.grade, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
+    { key: 'costCentres', label: 'Cost centres', icon: I.costCentre, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
     { key: 'sso', label: 'Users & security', icon: I.sso, permission: 'SETTINGS::Users::VIEW', parent: 'settings' },
-    { key: 'rolesAccess', label: 'Roles & permissions', icon: I.sso, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
+    { key: 'rolesAccess', label: 'Roles & permissions', icon: I.roles, permission: 'SETTINGS::Roles::VIEW', parent: 'settings' },
+    { key: 'emailNotifications', label: 'Email notifications', icon: I.mailOut, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     /* Its routes answer only where Attendance is on (attendanceRouteOk). */
     { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW', parent: 'settings', feature: 'attendance' },
     /* Any one read behind its datasets (DataExport.jsx `need`); the screen lists only those this person holds. */
     { key: 'dataExport', label: 'Export data', icon: I.export, permission: ['ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Attendance Devices::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'ATTENDANCE::Attendance Requests::VIEW', 'ATTENDANCE::Holidays::VIEW', 'ATTENDANCE::Shifts::VIEW'], parent: 'settings' },
     /* Each kind in the bin opens to whoever may delete it (server/src/services/recycleBin.ts BIN_KINDS). */
-    { key: 'recycleBin', label: 'Recycle bin', icon: I.bin, permission: ['PEOPLE::Employees::DELETE', 'PEOPLE::Employee Notes::DELETE', 'PEOPLE::Documents::DELETE', 'PEOPLE::Org Structure::DELETE', 'ATTENDANCE::Holidays::DELETE', 'ATTENDANCE::Leave Types::DELETE', 'ATTENDANCE::Shifts::DELETE', 'ATTENDANCE::Attendance Records::DELETE'], parent: 'settings' },
-    { key: 'dataProtection', label: 'Data protection', icon: I.privacy, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
+    { key: 'recycleBin', label: 'Recycle bin', icon: I.trash, permission: ['PEOPLE::Employees::DELETE', 'PEOPLE::Employee Notes::DELETE', 'PEOPLE::Documents::DELETE', 'PEOPLE::Org Structure::DELETE', 'ATTENDANCE::Holidays::DELETE', 'ATTENDANCE::Leave Types::DELETE', 'ATTENDANCE::Shifts::DELETE', 'ATTENDANCE::Attendance Records::DELETE'], parent: 'settings' },
+    { key: 'dataProtection', label: 'Data protection', icon: I.consent, permission: 'ATTENDANCE::Employee Portal::VIEW', parent: 'settings' },
     { key: 'dataRequests', label: 'Data requests', icon: I.requests, permission: 'PEOPLE::Employees::VIEW', parent: 'settings' },
     { key: 'auditLogs', label: 'Audit logs', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW', parent: 'settings' },
   ],
 
+  /* Side panels stay only where they carry data the list lacks (People plan 8 Nov 2026, §3 rule 3): the date, quick
+     links and "nothing pending" columns on Inbox, Documents, Who's away, the request lists, the registers are gone. */
   screens: {
     overview: PeopleOverview,
-    approvals: withSidePanel(Approvals, panel('ApprovalsPanel')),
+    approvals: Approvals,
     policies: Policies,
     employees: withSidePanel(Employees, panel('EmployeesPanel')),
     employee: EmployeeRecord,
@@ -508,9 +708,8 @@ export const peopleApp = {
     organization: OrganizationOverview,
     branches: withSidePanel(Branches, panel('BranchesPanel')),
     orgChanges: withSidePanel(OrgChanges, panel('ChangesPanel')),
-    documents: withSidePanel(PeopleDocuments, panel('DocumentsPanel')),
+    documents: PeopleDocuments,
     checklists: withSidePanel(LifecycleTasks, panel('ChecklistsPanel')),
-    lifecycle: LifecycleOverview,
     joiners: Joiners,
     offers: Offers,
     lifecycleChanges: LifecycleChanges,
@@ -527,20 +726,55 @@ export const peopleApp = {
     absences: Absences,
     nightWork: NightWork,
     attendanceRules: AttendanceRulesSettings,
+    records: AttendanceRecords,
+    exceptions: Exceptions,
+    overtime: OvertimeRequests,
+    scheduleCalendar: ScheduleCalendar,
+    shifts: Shifts,
+    shiftAssignments: ShiftAssignments,
+    temporarySchedule: TemporarySchedule,
+    departmentSchedule: DepartmentSchedule,
+    rotations: Rotations,
+    readers: AttendanceDevices,
+    readerHealth: ReaderHealth,
+    readerSync: ReaderSync,
+    deviceLogs: DeviceLogs,
+    enrolments: Enrolments,
+    transactions: PunchLog,
+    unmatched: UnmatchedPunches,
+    idMapping: IdMapping,
+    phonePunches: PhonePunches,
+    sites: Geofences,
+    siteCheck: SiteCheck,
+    shiftPolicy: ShiftPolicy,
+    /* The Attendance app's key for the same page: its screens link to it by this name. */
+    rules: ShiftPolicy,
+    weeklyOffPolicy: WeeklyOffPolicy,
+    overtimePolicy: OvertimePolicy,
+    contractors: Contractors,
+    payrollReadiness: PayrollReadiness,
+    confirmations: MonthConfirmations,
+    monthClose: MonthClose,
+    summary: MonthSummary,
+    register: AttendanceRegister,
+    attendanceReports: AttendanceReports,
+    reportLateEarly: attendanceReport('late-early'),
+    reportAbsent: attendanceReport('absent'),
+    reportOvertime: attendanceReport('overtime'),
     companyChoices: CompanyChoices,
     automations: Automations,
     exitQuestions: ExitQuestions,
     myRequests: MyRequests,
     selfService: PortalAccess,
-    timeOverview: withSidePanel(TimeOverview, panel('TimeOverviewPanel')),
+    timeOverview: TimeOverview,
     workingWeek: WorkingWeek,
     leaveYearEnd: LeaveYearEnd,
     standIns: StandIns,
     leaveBlocks: LeaveBlocks,
-    attendanceRequests: withSidePanel(statusFromTab(AttendanceRequests), panel('AttendanceRequestsPanel')),
+    attendanceRequests: statusFromTab(AttendanceRequests),
     requestRules: RequestRules,
-    leaveRequests: withSidePanel(statusFromTab(LeaveRequests), panel('LeaveRequestsPanel')),
-    leaveBalances: withSidePanel(LeaveBalances, panel('LeaveBalancesPanel')),
+    leaveRequests: statusFromTab(LeaveRequests),
+    leaveBalances: LeaveBalances,
     myLeave: MyLeave,
     leaveTypes: LeaveTypes,
     holidays: Holidays,
@@ -558,14 +792,14 @@ export const peopleApp = {
     learning: TalentTrainings,
     referrals: TalentReferrals,
     referMe: TalentReferSomeone,
-    announcements: withSidePanel(register('announcements'), panel('AnnouncementsPanel')),
-    events: withSidePanel(register('events'), panel('EventsPanel')),
+    announcements: register('announcements'),
+    events: register('events'),
     helpdesk: withSidePanel(HelpDesk, panel('HelpDeskPanel')),
     privateCases: PrivateCases,
     helpDeskSettings: HelpDeskSettings,
-    assets: withSidePanel(register('assets'), panel('AssetsPanel')),
-    benefits: withSidePanel(register('benefits'), panel('BenefitsPanel')),
-    compensation: withSidePanel(SalaryRevisions, panel('SalaryRevisionsPanel')),
+    assets: register('assets'),
+    benefits: register('benefits'),
+    compensation: SalaryRevisions,
     expenses: Expenses,
     reports: PeopleReports,
     registers: Registers,
@@ -575,10 +809,10 @@ export const peopleApp = {
     complianceCalendar: Compliance,
     privacy: Privacy,
     auditEvidence: AuditEvidence,
-    departments: withSidePanel(OrgDepartments, panel('DepartmentsPanel')),
+    departments: OrgDepartments,
     teams: OrgTeams,
     seats: OrgPositions,
-    jobPositions: withSidePanel(OrgDesignations, panel('DesignationsPanel')),
+    jobPositions: OrgDesignations,
     jobRoles: OrgJobRoles,
     employeeTypes: OrgEmploymentTypes,
     workTypes: OrgWorkModes,
@@ -596,6 +830,7 @@ export const peopleApp = {
     costCentres: OrgCostCentres,
     sso: SsoSettings,
     rolesAccess: RolesAccess,
+    emailNotifications: EmailNotifications,
     integrations: Integrations,
     dataExport: DataExport,
     recycleBin: RecycleBin,

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import { type PermissionAction as PermissionActionType } from '../constants/enums.js';
+import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
 import { resolveAccess } from '../services/access.js';
-import { isAppEntitled } from '../services/subscriptions.js';
+import { appStanding } from '../services/subscriptions.js';
 
 // DB-stored RBAC:
 // - UserRoleAssignment can be org-wide (branchId null) or branch-scoped
@@ -88,14 +88,26 @@ export async function authorize(
    */
   const apps = appsForModule(m);
   if (apps) {
-    let owned = false;
+    /*
+     * Three answers, not two. An app the account never bought is refused
+     * outright. An app it owns whose trial ran out (or whose payment is
+     * overdue) is read-only: the data is the customer's, so reading goes on
+     * and every change is refused with the reason in plain words (roadmap
+     * item 7: a trial blocks nothing until it ends, then the account reads).
+     */
+    let usable = false;
+    let lapsed: string | null = null;
     for (const app of apps) {
-      if (await isAppEntitled(accountId, app)) {
-        owned = true;
+      const standing = await appStanding(accountId, app);
+      if (standing.state === 'entitled') {
+        usable = true;
         break;
       }
+      if (standing.state === 'lapsed') lapsed = standing.reason;
     }
-    if (!owned) {
+    if (!usable && lapsed && action === PermissionAction.VIEW) usable = true;
+    if (!usable) {
+      if (lapsed) return { status: 402, body: { error: lapsed, app: apps[0], code: 'SUBSCRIPTION_LAPSED' } };
       return {
         status: 402,
         body: { error: `The ${apps[0]} app is not on this account's subscription.`, app: apps[0], code: 'APP_NOT_SUBSCRIBED' },

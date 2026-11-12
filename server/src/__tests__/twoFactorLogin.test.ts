@@ -37,7 +37,7 @@ async function makeOwner(): Promise<Ctx> {
 
 /** Switch on an authenticator for this person; returns its secret and recovery codes. */
 async function enable2fa(c: Ctx) {
-  const setup = await sec(c, '/two-factor/setup').expect(200);
+  const setup = await sec(c, '/two-factor/setup', { password: PASSWORD }).expect(200);
   const secret = setup.body.secret as string;
   await clearOfStepEdge();
   const on = await sec(c, '/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);

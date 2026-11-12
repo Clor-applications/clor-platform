@@ -6,7 +6,7 @@ import { HELP_GROUPS, HELP_TOPICS, searchHelp } from './helpContent';
 
 /**
  * The Help centre, a page of the shell like My profile: every app opens it
- * from Help, and it never leaves Clor. Topics down the left (searchable), the
+ * from Help, and it never leaves CLOR. Topics down the left (searchable), the
  * article on the right with a way straight to the screen it describes. The
  * longer integration guides open as their own pages under /docs.
  */

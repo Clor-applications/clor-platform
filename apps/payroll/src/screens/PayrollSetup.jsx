@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, Wallet } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowRight, Check, Wallet } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
@@ -7,6 +7,7 @@ import { getPayrollSetup } from '../api/payrollSetup';
 import { ProvisionalDaysSetting } from '../components/ProvisionalDaysSetting';
 import { DeductionCapSetting } from '../components/DeductionCapSetting';
 import { FnfRecoverySetting } from '../components/FnfRecoverySetting';
+import { StatutoryRegistrationsStep } from '../components/StatutoryRegistrationsStep';
 /*
  * Switching payroll on goes through the platform, not through a module of this
  * app's own. There is one record of what a company has bought — the feature
@@ -15,7 +16,7 @@ import { FnfRecoverySetting } from '../components/FnfRecoverySetting';
  * in nobody's navigation: mounting it broke the page.
  */
 import { setFeature } from '@platform/auth';
-import { orgId as platformOrgId, branchId as platformBranchId } from '@platform/context';
+import { orgId as platformOrgId, branchId as platformBranchId, requestOpenScreen } from '@platform/context';
 import { useFeatures } from '@ui/permissions/useFeatures';
 
 /**
@@ -37,7 +38,20 @@ import { useFeatures } from '@ui/permissions/useFeatures';
  * back to undone if somebody deletes what made it true.
  */
 
-export default function PayrollSetup({ onOpen = () => {} }) {
+/* The step list names screens the way the server does; the shell knows them by their navigation keys. */
+const SCREEN_KEYS = {
+  payrollRuns: 'runs',
+  payrollPeriods: 'periods',
+  payrollComponents: 'components',
+  salaryStructures: 'structures',
+  payrollCompliancePage: 'compliance',
+  payrollLedgerMapping: 'ledgers',
+  salaryAssignments: 'assignments',
+  payrollSetup: 'setup',
+};
+const openScreen = (key) => requestOpenScreen(SCREEN_KEYS[key] || key);
+
+export default function PayrollSetup({ onOpen = openScreen, params }) {
   /* Switching the app on changes the navigation, so the flags the rest of the
      app reads have to be re-read — otherwise Payroll stays a single "start
      using" link until somebody reloads the page. */
@@ -46,6 +60,16 @@ export default function PayrollSetup({ onOpen = () => {} }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
+  /* The registrations step is answered on this page: its "Set up" opens the form below and goes to it. */
+  const [registrationsOpen, setRegistrationsOpen] = useState(params?.step === 'registrations');
+  const registrationsRef = useRef(null);
+  const openRegistrations = () => {
+    setRegistrationsOpen(true);
+    registrationsRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  };
+  useEffect(() => {
+    if (params?.step === 'registrations') registrationsRef.current?.scrollIntoView?.({ block: 'start' });
+  }, [params?.step, loading]);
 
   const load = useCallback(async () => {
     try {
@@ -135,7 +159,9 @@ export default function PayrollSetup({ onOpen = () => {} }) {
         title="Set up Payroll"
         description={
           setup.ready
-            ? 'Everything payroll needs is in place. It is ready to run.'
+            ? setup.done === setup.total
+              ? 'Everything payroll needs is in place. It is ready to run.'
+              : `${setup.done} of ${setup.total} done. Payroll can run; the rest can be added later.`
             : `${setup.done} of ${setup.total} done. Payroll can run once the rest are.`
         }
         actions={
@@ -178,12 +204,21 @@ export default function PayrollSetup({ onOpen = () => {} }) {
               <p className="ui-caption">{step.detail}</p>
             </div>
 
-            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" onClick={() => onOpen(step.screen)}>
+            <button
+              type="button"
+              className="ui-btn ui-btn-secondary ui-btn-sm shrink-0"
+              onClick={() => (step.key === 'registrations' ? openRegistrations() : onOpen(step.screen))}
+            >
               {step.done ? 'Review' : 'Set up'}
             </button>
           </li>
         ))}
       </ol>
+
+      {/* The numbers each return is filed under: asked here, kept where Compliance keeps them. */}
+      <div ref={registrationsRef}>
+        <StatutoryRegistrationsStep startOpen={registrationsOpen} onSaved={load} />
+      </div>
 
       {/* How a run treats the days of the month that have not happened yet (O-11). */}
       <ProvisionalDaysSetting />

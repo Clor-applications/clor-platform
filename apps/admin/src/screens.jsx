@@ -27,9 +27,11 @@ export { default as SsoSettings } from './screens/SsoSettings';
 export { default as Credentials } from './screens/Credentials';
 export { default as AuditTrail } from './screens/AuditTrail';
 export { default as Invitations } from './screens/Invitations';
+export { default as Support } from './screens/Support';
 export { default as Members } from './screens/Members';
 export { default as AccountActivity } from './screens/AccountActivity';
 export { default as Companies } from './screens/Companies';
+export { default as NotificationSettings } from './screens/NotificationSettings';
 export { AccessHome, SecurityHome, DataHome } from './screens/Landings';
 
 const companyOf = (tenant) => ({ name: tenant?.name || '', profile: tenant?.profile || {} });

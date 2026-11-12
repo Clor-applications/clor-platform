@@ -46,6 +46,9 @@ export const punchLocationRetentionDays = () => Math.max(366, days('PUNCH_LOCATI
 /** Originals of what readers sent: 13 months by default, never under a year. */
 export const readerEventRetentionDays = () => Math.max(366, days('READER_EVENT_RETENTION_DAYS', 395)!);
 
+/** Unknown reader serials (routes/iclock.ts remember): kept a month after they were last heard from. */
+export const UNCLAIMED_READER_KEEP_DAYS = 30;
+
 export async function purgeExpiredRecords() {
   const tokenDays = days('TOKEN_RETENTION_DAYS', 7)!;
   const sessionDays = days('SESSION_RETENTION_DAYS', 90)!;
@@ -67,6 +70,9 @@ export async function purgeExpiredRecords() {
 
   /* Originals of reader lines (ReaderEvent): kept at least a year — the minimum the DPDP Rules set for processing logs — then deleted. */
   const readerEvents = await peoplePrisma.readerEvent.deleteMany({ where: { receivedAt: { lt: ago(readerEventRetentionDays()) } } });
+
+  /* Reader serials no company added, not heard from in 30 days (audit 7 Nov 2026, #10): nobody signs in to send one. */
+  const unclaimed = await peoplePrisma.unclaimedReader.deleteMany({ where: { lastSeenAt: { lt: ago(UNCLAIMED_READER_KEEP_DAYS) } } });
 
   /* The position of old phone punches: the punch and its site stay, the coordinates go. */
   const located = await peoplePrisma.devicePunch.updateMany({
@@ -107,6 +113,7 @@ export async function purgeExpiredRecords() {
 
   return {
     readerEvents: readerEvents.count,
+    unclaimedReaders: unclaimed.count,
     punchLocations: located.count,
     biometricTemplates: templates,
     passwordResetTokens: resets.count,

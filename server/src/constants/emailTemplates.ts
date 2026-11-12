@@ -29,6 +29,8 @@ export const EMAIL_TEMPLATES: TemplateDef[] = [
 The full table is in this message; open {{appUrl}} for the report with filters and export.
 To stop these, ask whoever set the schedule up under Attendance → Reports → Scheduled.`,
     fields: ['reportTitle', 'period', 'companyName', 'summary', 'appName', 'appUrl'],
+    /* Its sender always sent it as transactional (services/attendance/reportSchedules.ts): somebody asked for it, and the schedule is its off switch. Listing it among the company's switches offered one that did nothing. */
+    transactional: true,
   },
   {
     key: 'auth.verify_email',
@@ -58,6 +60,98 @@ Use this link to set a new password:
 
 The link is valid for 30 minutes and can be used once. If you did not ask for this, you can ignore it — your password has not changed.`,
     fields: ['userName', 'appName', 'resetUrl'],
+    transactional: true,
+  },
+  {
+    key: 'auth.authenticator_removed',
+    label: 'Authenticator removed by CLOR support',
+    description: 'Sent when CLOR support takes a lost authenticator app off a person’s sign-in.',
+    subject: 'Your authenticator app was removed',
+    body: `Hello {{userName}},
+
+CLOR support took the authenticator app off your sign-in, as you asked. You are signed out everywhere.
+
+Sign in with your password and set up a new authenticator: {{appUrl}}
+
+If you did not ask for this, reset your password now and reply to this email.`,
+    fields: ['userName', 'appName', 'appUrl'],
+    transactional: true,
+  },
+  {
+    key: 'billing.renewal_invoice',
+    label: 'Renewal invoice (to the customer)',
+    description: 'Sent to the account owner when CLOR issues the invoice for their next period, a few days before it starts (Money, Invoice settings, Renewals).',
+    subject: 'CLOR invoice {{number}} for {{amount}}',
+    body: `Hello {{userName}},
+
+Your CLOR subscription renews on {{renewsOn}}. Invoice {{number}} for {{amount}} covers {{period}} and is due by {{dueOn}}.
+
+Open it to pay online, by UPI or by bank transfer: {{billingUrl}}
+
+Thank you for using CLOR.`,
+    fields: ['userName', 'number', 'amount', 'period', 'renewsOn', 'dueOn', 'billingUrl'],
+    transactional: true,
+  },
+  {
+    key: 'ops.approval_asked',
+    label: 'A discount waits for approval (to CLOR staff)',
+    description: 'Sent to Billing staff and the owner when a colleague sets a deal whose discount is over the limit on the Approvals page. Someone other than the person who asked must approve it.',
+    subject: 'Approve a discount for {{customer}}',
+    body: `Hello {{userName}},
+
+{{askedBy}} asks to set this subscription for {{customer}}:
+
+{{summary}}
+
+Why: {{reason}}
+
+It needs a second person. Approve or turn it down: {{opsUrl}}`,
+    fields: ['userName', 'askedBy', 'customer', 'summary', 'reason', 'opsUrl'],
+    transactional: true,
+  },
+  {
+    key: 'ops.alerts_opened',
+    label: 'New alerts (to CLOR staff)',
+    description: 'Sent to CLOR staff when the alerts job finds something new for them: a failing job, stuck mail, offline readers, an overdue invoice, a waiting ticket.',
+    subject: '{{headline}}',
+    body: `Hello {{userName}},
+
+{{list}}
+
+See and acknowledge them: {{opsUrl}}`,
+    fields: ['userName', 'count', 'headline', 'list', 'opsUrl'],
+    transactional: true,
+  },
+  {
+    key: 'support.ticket_reply',
+    label: 'CLOR support replied to a ticket',
+    description: 'Sent to the person who opened a support ticket when CLOR support answers it.',
+    subject: '{{ticket}}: CLOR support replied',
+    body: `Hello {{userName}},
+
+CLOR support replied to your ticket {{ticket}}, "{{subject}}":
+
+{{reply}}
+
+{{solved}}
+
+See the whole conversation: {{ticketUrl}}`,
+    fields: ['userName', 'ticket', 'subject', 'reply', 'solved', 'ticketUrl', 'appName'],
+    transactional: true,
+  },
+  {
+    key: 'support.ticket_opened',
+    label: 'New support ticket (to CLOR staff)',
+    description: 'Sent to CLOR Support staff when a customer opens a ticket.',
+    subject: '{{ticket}} from {{customer}}: {{subject}}',
+    body: `Hello {{userName}},
+
+{{customer}} opened ticket {{ticket}} ({{priority}} priority):
+
+{{subject}}
+
+Answer it on the operator console: {{opsUrl}}`,
+    fields: ['userName', 'ticket', 'customer', 'subject', 'priority', 'opsUrl'],
     transactional: true,
   },
   {
@@ -91,6 +185,77 @@ Accept the invitation here:
 
 The link works once and expires on {{expiresOn}}. If you were not expecting this, you can ignore it.`,
     fields: ['inviterName', 'accountName', 'appName', 'inviteUrl', 'expiresOn', 'companies'],
+    transactional: true,
+  },
+  {
+    key: 'account.welcome',
+    label: 'Your account is ready',
+    description: 'Sent to a new owner when the CLOR team creates their account (after a demo). Carries the link to set a password.',
+    subject: 'Your {{appName}} account for {{companyName}} is ready',
+    body: `Hello {{userName}},
+
+Your {{appName}} account for {{companyName}} is ready, with {{apps}}.{{trialNote}}
+
+Set your password here, then sign in with {{email}}:
+
+{{setPasswordUrl}}
+
+The link works once and for {{days}} days. If it has run out, use "Forgot password" on the sign-in page.`,
+    fields: ['userName', 'companyName', 'apps', 'trialNote', 'setPasswordUrl', 'email', 'days', 'appName'],
+    transactional: true,
+  },
+  {
+    key: 'signup.confirm',
+    label: 'Confirm your email to start your trial',
+    description: 'Sent when somebody starts a free trial from clor.in: the link that checks their email and opens the setup page.',
+    subject: 'Your {{appName}} trial: confirm your email',
+    body: `Hello,
+
+You asked to start a free trial of {{apps}} on CLOR. Confirm this is your email and set up your company here:
+
+{{startUrl}}
+
+The link works for {{hours}} hours. No card is needed; the trial runs for {{days}} days.
+
+If you did not ask for this, ignore this mail and nothing is made.`,
+    fields: ['apps', 'startUrl', 'hours', 'days', 'appName'],
+    transactional: true,
+  },
+  {
+    key: 'explore.pass',
+    label: 'Look around CLOR',
+    description: 'Sent to somebody who asked for a demo on clor.in: a 14-day link to a sample company they can look around, read-only.',
+    subject: 'Look around {{appName}} while we set up your demo',
+    body: `Hello {{name}},
+
+Thank you for asking for a demo of {{apps}}. We will call you to fix a time.
+
+Until then, you can look around now. This link opens Sample Traders Pvt Ltd, a made-up company with a few months of invoices, pay runs, people and attendance in it. Open any screen you like; nothing you change is saved.
+
+{{exploreUrl}}
+
+The link works for {{days}} days, until {{expiresOn}}. Anyone with it sees the same sample company, and nothing of yours.`,
+    fields: ['name', 'apps', 'exploreUrl', 'days', 'expiresOn', 'appName'],
+    transactional: true,
+  },
+  {
+    key: 'sales.demo_requested',
+    label: 'Demo requested',
+    description: 'Sent to the CLOR sales inbox when somebody asks for a demo on clor.in.',
+    subject: 'Demo request: {{company}} ({{apps}})',
+    body: `{{name}} from {{company}} asked for a demo.
+
+Apps: {{apps}}
+Company size: {{companySize}} employees
+People who will sign in: {{users}}
+City: {{city}}
+Email: {{email}}
+Phone: {{phone}}
+
+{{message}}
+
+Open it in the operator console: {{opsUrl}}`,
+    fields: ['name', 'company', 'apps', 'companySize', 'users', 'city', 'email', 'phone', 'message', 'opsUrl'],
     transactional: true,
   },
   {
@@ -243,6 +408,8 @@ The link works once and runs out on {{expiresOn}}. You see only your own details
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'joiningDate', 'link', 'expiresOn', 'message'],
+    /* The link is the invite: switched off, the invite was saved as sent and the joiner never got it (lifecycle/invites.ts). HR sends it on purpose, one person at a time. */
+    transactional: true,
   },
   {
     key: 'people.offer',
@@ -260,6 +427,40 @@ The offer is open until {{acceptBy}}.
 {{message}}
 If you did not expect this, ignore it.`,
     fields: ['name', 'orgName', 'designation', 'ctc', 'link', 'acceptBy', 'message'],
+    /* The accept link is the offer: switched off, the offer was saved SENT and the candidate could never accept it (offers.ts). HR sends it on purpose, one person at a time. */
+    transactional: true,
+  },
+  {
+    key: 'people.interview',
+    label: 'Interview set or moved',
+    description: 'Sent to a candidate when an interview is set for them, and again when it is moved: the day, the time, how it is held and who they will meet.',
+    subject: '{{headline}}: {{orgName}}, {{day}} at {{time}}',
+    body: `Hello {{name}},
+
+{{headline}} for the {{jobTitle}} position at {{orgName}}.
+
+When: {{day}} at {{time}} ({{minutes}} minutes)
+How: {{mode}}{{placeLine}}
+You will meet: {{interviewers}}
+
+If the time does not suit you, reply to this e-mail and we will find another.
+
+{{orgName}}`,
+    fields: ['name', 'headline', 'jobTitle', 'orgName', 'day', 'time', 'minutes', 'mode', 'placeLine', 'interviewers'],
+  },
+  {
+    key: 'people.candidate_not_taken',
+    label: 'Candidate not taken forward',
+    description: 'Sent to a candidate when the company decides not to go ahead with their application. Plain and kind; it gives no reason.',
+    subject: 'Your application to {{orgName}}',
+    body: `Hello {{name}},
+
+Thank you for applying for the {{jobTitle}} position at {{orgName}}, and for the time you gave us.
+
+We will not be taking your application further this time. We were glad to meet you, and we wish you well in your search.
+
+{{orgName}}`,
+    fields: ['name', 'jobTitle', 'orgName'],
   },
   {
     key: 'people.task_assigned',
@@ -309,7 +510,7 @@ Questions: {{contact}}. You can also complain to the Data Protection Board of In
   {
     key: 'people.weekly_summary',
     label: 'Monday summary',
-    description: 'Each Monday, to owners and HR: who is away this week, what waits for a decision, lapsing leave, and who joins or leaves (services/people/weeklySummary.ts).',
+    description: 'Each Monday, to owners and HR: who is away this week, what waits for a decision, lapsing leave, and who joins or leaves.',
     subject: '{{orgName}} this week: {{headline}}',
     body: `Hello {{name}},
 
@@ -342,6 +543,33 @@ This notice is also in your documents in the {{orgName}} employee app.`,
 
 Open the {{orgName}} employee app to see it there too.`,
     fields: ['name', 'orgName', 'headline', 'body', 'appName', 'appUrl'],
+    transactional: true,
+  },
+  {
+    key: 'ops.staff_invited',
+    label: 'CLOR staff invited',
+    description: 'Sent when the CLOR owner adds somebody to the operator console (ops.clor.in, Team).',
+    subject: 'You have been added to the CLOR operator console',
+    body: `Hello,
+
+{{inviterName}} has added you to the CLOR operator console as {{role}}.
+
+{{firstStep}}
+Then open {{opsUrl}} and sign in. You will be asked to set up an authenticator app (Google Authenticator, Microsoft Authenticator or 1Password) before the console opens.
+
+If you did not expect this, reply and tell us.`,
+    fields: ['inviterName', 'role', 'firstStep', 'opsUrl'],
+    transactional: true,
+  },
+  {
+    key: 'ops.sender_test',
+    label: 'Sender address test',
+    description: 'Sent from the operator console (Email, Addresses) to check a sender address works.',
+    subject: 'Test from {{senderEmail}}',
+    body: `This is a test from the CLOR operator console.
+
+It was sent from {{senderEmail}}, the {{purpose}} address. If you are reading it, mail from this address arrives.`,
+    fields: ['senderEmail', 'purpose'],
     transactional: true,
   },
 ];

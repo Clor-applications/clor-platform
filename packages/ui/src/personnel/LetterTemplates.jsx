@@ -7,7 +7,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { getLetterTemplateVersions, getLetterTemplates, saveLetterTemplate } from './api';
+import { getLetterTemplateVersions, getLetterTemplates, saveLetterSettings, saveLetterTemplate } from './api';
 import { istDay } from '@ui/utils/dates';
 
 /**
@@ -16,6 +16,9 @@ import { istDay } from '@ui/utils/dates';
  * issuing. Each save is a new version; an issued letter names the version
  * that made it. Until the company writes its own, the built-in one is used.
  * Pick the letter, edit it, Save top right; a field goes in with a click.
+ * The company's own appointment, confirmation, increment, relieving and
+ * experience letters go out by themselves on the event (People plan 8 Nov
+ * 2026, step 6), signed by the person named under Signed by.
  */
 
 export default function LetterTemplates() {
@@ -71,7 +74,8 @@ function Editor({ data, current, kind, setKind, onSaved }) {
         <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => v && switchTo(v)} options={data.kinds.map((k) => ({ value: k.kind, label: k.label }))} /></div>
         <label className="block"><span className="ui-label">Name</span><input className="ui-input w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={120} /></label>
       </div>
-      <p className="ui-caption">{current.builtIn ? 'CLOR’s built-in letter. Saving makes it the company’s own, version 1.' : `Version ${current.version} is in use.`}</p>
+      <p className="ui-caption">{captionOf(current, data.kinds.find((k) => k.kind === kind)?.issuedWhen)}</p>
+      <Signatory key={data.signatory || ''} saved={data.signatory || ''} onSaved={onSaved} />
       {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <label className="block"><span className="ui-label">Letter</span><textarea ref={bodyRef} className="ui-input w-full text-sm leading-relaxed" rows={22} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>
@@ -100,5 +104,41 @@ function Editor({ data, current, kind, setKind, onSaved }) {
         </aside>
       </div>
     </div>
+  );
+}
+
+/* What is in use, and when CLOR sends it by itself. */
+function captionOf(current, issuedWhen) {
+  if (current.builtIn) return issuedWhen ? `CLOR’s built-in letter. Save it as the company’s own and CLOR issues it by itself when ${issuedWhen}.` : 'CLOR’s built-in letter. Saving makes it the company’s own, version 1.';
+  return issuedWhen ? `Version ${current.version} is in use. CLOR issues it by itself when ${issuedWhen}.` : `Version ${current.version} is in use.`;
+}
+
+/** Who signs the letters CLOR issues by itself and the ones people ask for in the app: one name for every letter. */
+function Signatory({ saved, onSaved }) {
+  const [value, setValue] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  const changed = value.trim() !== saved;
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await saveLetterSettings({ signatory: value });
+      notify.success(r.signatory ? `Letters are signed by ${r.signatory}.` : 'No one is named to sign letters.');
+      onSaved();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not saved.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={save} className="flex flex-wrap items-end gap-3">
+      <label className="block min-w-0 flex-1" style={{ maxWidth: '28rem' }}>
+        <span className="ui-label">Signed by</span>
+        <input className="ui-input w-full" value={value} onChange={(e) => setValue(e.target.value)} maxLength={200} placeholder="Meera Shah, HR Manager" />
+      </label>
+      <button type="submit" className="ui-btn ui-btn-secondary" disabled={!changed || busy} aria-busy={busy || undefined}>Save</button>
+      <p className="ui-caption w-full">{saved ? 'Goes under every letter CLOR issues by itself, and under letters people ask for in the employee app.' : 'Name who signs. Until then, CLOR leaves letters that need a signature for HR to issue by hand.'}</p>
+    </form>
   );
 }

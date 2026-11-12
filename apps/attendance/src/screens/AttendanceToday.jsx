@@ -1,36 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from '@ui/components/ui/lineIcons';
 import {
-  CalendarCancelColor,
-  CalendarCheckmarkColor,
-  ClockColor,
-  DocumentEditColor,
-  PeopleColor,
-  PersonAvailableColor,
-  PersonWarningColor,
-  ScanPersonColor,
-  StarColor,
-  TextBulletListSquareColor,
-  WeatherSunnyLowColor,
-} from '@fluentui/react-icons';
-import { colorIcon } from '@ui/components/ui/iconSet';
+  CalendarCheck as PCalendarCheck,
+  CalendarX as PCalendarX,
+  Clock as PClock,
+  Cpu as PCpu,
+  ListChecks as PListChecks,
+  NotePencil as PNotePencil,
+  UserCheck as PUserCheck,
+  UserMinus as PUserMinus,
+  UsersThree as PUsersThree,
+} from '@phosphor-icons/react';
+import { duo as duoIcon } from '@ui/components/ui/duoIcon';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
-import { currentUser } from '@platform/context';
 
-/* Attendance draws in the shared full-colour icon set (Fluent). */
-const CalendarCheck = colorIcon(CalendarCheckmarkColor, 'CalendarCheckmark');
-const CalendarOff = colorIcon(CalendarCancelColor, 'CalendarCancel');
-const Clock = colorIcon(ClockColor, 'Clock');
-const Cpu = colorIcon(ScanPersonColor, 'ScanPerson');
-const Inbox = colorIcon(DocumentEditColor, 'DocumentEdit');
-const ListChecks = colorIcon(TextBulletListSquareColor, 'TextBulletListSquare');
-const Moon = colorIcon(StarColor, 'Star');
-const Sun = colorIcon(WeatherSunnyLowColor, 'WeatherSunnyLow');
-const Sunrise = colorIcon(WeatherSunnyLowColor, 'WeatherSunnyLow');
-const UserCheck = colorIcon(PersonAvailableColor, 'PersonAvailable');
-const UserX = colorIcon(PersonWarningColor, 'PersonWarning');
-const Users = colorIcon(PeopleColor, 'People');
+/* Today's figures in People's two-tone marks (owner, 9 Nov 2026), the same family as the rail beside them. */
+const duo = (Icon, name) => duoIcon(Icon, name, 20);
+const CalendarCheck = duo(PCalendarCheck, 'CalendarCheck');
+const CalendarOff = duo(PCalendarX, 'CalendarOff');
+const Clock = duo(PClock, 'Clock');
+const Cpu = duo(PCpu, 'Cpu');
+const Inbox = duo(PNotePencil, 'Inbox');
+const ListChecks = duo(PListChecks, 'ListChecks');
+const UserCheck = duo(PUserCheck, 'UserCheck');
+const UserX = duo(PUserMinus, 'UserX');
+const Users = duo(PUsersThree, 'Users');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 
@@ -53,14 +48,6 @@ const ago = (iso) => {
 };
 const weekday = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' });
 const longDate = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
-/* The greeting follows the clock in India, where the company's day runs. */
-const greeting = () => {
-  const h = Number(new Date().toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }));
-  if (h < 12) return { text: 'Good morning', Icon: Sunrise, time: 'morning' };
-  if (h < 17) return { text: 'Good afternoon', Icon: Sun, time: 'afternoon' };
-  return { text: 'Good evening', Icon: Moon, time: 'evening' };
-};
-const firstName = () => String(currentUser()?.fullName || '').trim().split(/\s+/)[0] || '';
 
 /** One plain sentence for the day: who is in, who is late, who is away. */
 function daySentence(data, isToday) {
@@ -107,7 +94,6 @@ function DpdpNotice({ openScreen }) {
 }
 
 export default function AttendanceToday({ openScreen }) {
-  const hello = greeting();
   const [date, setDate] = useState(todayIst());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -170,7 +156,7 @@ export default function AttendanceToday({ openScreen }) {
     <div className="space-y-3">
       <PageHeader
         entity="attendance"
-        title="Dashboard"
+        title="Today"
         description={data?.holiday ? `Holiday: ${data.holiday}` : 'Attendance at a glance.'}
         actions={
           <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
@@ -184,12 +170,8 @@ export default function AttendanceToday({ openScreen }) {
         <>
           <section className="ui-today-hero" aria-labelledby="hello-h">
             <div className="ui-today-hero-main">
-              <span className="ui-today-hero-sun" data-time={hello.time} aria-hidden="true">
-                <hello.Icon size={22} />
-              </span>
               <div className="ui-today-hero-text">
-              <p className="ui-today-hero-date">{longDate(date)}</p>
-              <h2 id="hello-h" className="ui-today-hero-greet"><span className="ui-today-hero-hi">{hello.text}</span>{firstName() ? `, ${firstName()}` : ''}</h2>
+              <h2 id="hello-h" className="ui-today-hero-greet">{longDate(date)}</h2>
               <p className="ui-today-hero-line">{daySentence(data, date === todayIst())}</p>
               {data.headcount ? (
                 <div className="ui-today-hero-meter" role="img" aria-label={`${data.present + data.halfDay} of ${data.headcount} in`}>

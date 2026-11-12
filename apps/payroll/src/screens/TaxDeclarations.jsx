@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Clock, Download, FileText, Printer, Receipt, RotateCcw } from 'lucide-react';
+import { Check, Clock, Download, FileText, Printer, Receipt, RotateCcw } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -12,7 +12,10 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { get24q, getForm16, getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import OpeningYtdPanel from '../components/OpeningYtdPanel';
+import OpeningYtdSection from '../components/OpeningYtdSection';
 import { wholeRupees as money } from '@ui/utils/money';
+import SuggestInput from '@ui/components/ui/SuggestInput';
 import { escapeHtml } from '@ui/utils/html';
 
 const STATUS = {
@@ -101,7 +104,12 @@ export default function TaxDeclarations() {
       tight
       denseCards
       search={{ value: search.query, onChange: search.setQuery, placeholder: 'Search people…', label: 'Search tax declarations' }}
-      headerExtras={<Return24q fy={fy} />}
+      headerExtras={
+        <>
+          <OpeningYtdPanel fy={fy} onOpenPerson={setOpen} />
+          <Return24q fy={fy} />
+        </>
+      }
       moreItems={people.length ? [exportMenuItem('Export declarations')] : null}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
@@ -197,6 +205,12 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       landlordPan: row.landlordPan || '',
       seniorSelf: row.seniorSelf,
       seniorParents: row.seniorParents,
+      previousEmployer: {
+        name: row.previousEmployer?.name || '',
+        income: row.previousEmployer?.income || '',
+        professionalTax: row.previousEmployer?.professionalTax || '',
+        tds: row.previousEmployer?.tds || '',
+      },
     });
   };
   useEffect(() => {
@@ -206,6 +220,9 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
   }, [employeeId, fy]);
 
   const verified = d?.status === 'VERIFIED';
+  /* The regime is fixed once a payslip went out (CBDT Circular 04/2023); an owner or administrator may change it with a reason. */
+  const [regimeLocked, setRegimeLocked] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const setItem = (code, patch) => setForm((f) => ({ ...f, items: f.items.map((i) => (i.code === code ? { ...i, ...patch } : i)) }));
 
@@ -214,8 +231,11 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
     try {
       take(await fn());
       notify.success(done);
+      setRegimeLocked(false);
+      setOverrideReason('');
       onChanged();
     } catch (e) {
+      if (e?.code === 'REGIME_LOCKED') setRegimeLocked(true);
       notify.error(String(e?.message || 'Not saved.'));
     } finally {
       setBusy(false);
@@ -223,13 +243,21 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
   };
   const body = () => ({
     regime: form.regime,
+    ...(regimeLocked && overrideReason.trim() ? { regimeOverrideReason: overrideReason.trim() } : {}),
     items: form.items.map((i) => ({ code: i.code, declared: Number(i.declared) || 0, verified: i.verified === '' ? null : Number(i.verified) || 0, note: i.note || null })),
     monthlyRent: Number(form.monthlyRent) || 0,
     metroCity: form.metroCity,
     landlordPan: form.landlordPan || null,
     seniorSelf: form.seniorSelf,
     seniorParents: form.seniorParents,
+    previousEmployer: {
+      name: form.previousEmployer.name || null,
+      income: Number(form.previousEmployer.income) || 0,
+      professionalTax: Number(form.previousEmployer.professionalTax) || 0,
+      tds: Number(form.previousEmployer.tds) || 0,
+    },
   });
+  const setPrevious = (patch) => setForm((f) => ({ ...f, previousEmployer: { ...f.previousEmployer, ...patch } }));
   const save = () => run(() => saveTaxDeclaration(employeeId, fy, body()), 'Saved.');
   const verify = async () => {
     const ok = await confirmDialog({
@@ -296,6 +324,13 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
                 </label>
               ))}
             </div>
+            {regimeLocked ? (
+              <div className="mt-2 max-w-xl">
+                <label className="ui-label" htmlFor="tx-regime-why">Why the regime changes after payslips went out</label>
+                <SuggestInput id="tx-regime-why" value={overrideReason} onChange={setOverrideReason} maxLength={300} placeholder="e.g. Chose the old regime in April; entered wrongly" suggestions={[]} aria-label="Why the regime changes" />
+                <span className="ui-caption">Only an owner or administrator can change it now. It is recorded in the audit log.</span>
+              </div>
+            ) : null}
           </div>
 
           {form.regime === 'OLD' ? (
@@ -358,8 +393,35 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
           ) : (
             <p className="ui-caption">Under the new regime only the standard deduction applies; nothing else needs declaring.</p>
           )}
+
+          <div className="space-y-3">
+            <div>
+              <span className="ui-label">Earlier employer this year (Form 12B)</span>
+              <p className="ui-caption">If they joined from another job this financial year, the year’s tax is worked on both salaries, less what that employer already withheld.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-name">Employer</label>
+                <input id="tx-prev-name" className="ui-input w-full" maxLength={200} value={form.previousEmployer.name} onChange={(e) => setPrevious({ name: e.target.value })} />
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-income">Taxable salary paid</label>
+                <input id="tx-prev-income" type="number" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.income} onChange={(e) => setPrevious({ income: e.target.value })} />
+                <span className="ui-caption">After that employer’s section 10 exemptions.</span>
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-pt">Professional tax taken</label>
+                <input id="tx-prev-pt" type="number" min="0" max="2500" className="ui-input ui-num w-full" value={form.previousEmployer.professionalTax} onChange={(e) => setPrevious({ professionalTax: e.target.value })} />
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="tx-prev-tds">Income tax withheld</label>
+                <input id="tx-prev-tds" type="number" min="0" className="ui-input ui-num w-full" value={form.previousEmployer.tds} onChange={(e) => setPrevious({ tds: e.target.value })} />
+              </div>
+            </div>
+          </div>
         </fieldset>
       )}
+      {form ? <OpeningYtdSection employeeId={employeeId} fy={fy} onChanged={onChanged} joinedOn={d?.dateOfJoining} previousEmployer={form.previousEmployer} /> : null}
     </Drawer>
   );
 }
@@ -445,7 +507,11 @@ async function printForm16(employeeId, fy) {
   const row = (label, amount, strong) => `<tr${strong ? ' class="t"' : ''}><td>${escapeHtml(label)}</td><td class="r">${inr(amount)}</td></tr>`;
   const lines = (rows) => rows.map((l) => row(`${l.label}${l.claimed !== l.allowed ? ` (claimed ${inr(l.claimed)})` : ''}`, l.allowed)).join('');
   const sum = (rows) => rows.reduce((t, l) => t + l.allowed, 0);
-  const months = p.months.map((m) => `<tr><td>${escapeHtml(m.month)}</td><td>${escapeHtml(formatDateIn(m.paymentDate))}</td><td class="r">${inr(m.gross)}</td><td class="r">${inr(m.tds)}</td></tr>`).join('');
+  /* Pay from before payroll moved to CLOR this year: already inside the totals above. */
+  const earlier = p.openingYtd
+    ? `<tr><td>${escapeHtml(`Earlier this year${p.openingYtd.throughMonth ? `, to ${p.openingYtd.throughMonth}` : ''}`)}</td><td>before CLOR</td><td class="r">${inr(p.openingYtd.grossPay)}</td><td class="r">${inr(p.openingYtd.tds)}</td></tr>`
+    : '';
+  const months = earlier + p.months.map((m) => `<tr><td>${escapeHtml(m.month)}</td><td>${escapeHtml(formatDateIn(m.paymentDate))}</td><td class="r">${inr(m.gross)}</td><td class="r">${inr(m.tds)}</td></tr>`).join('');
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Form 16 Part B ${escapeHtml(p.name)} FY ${escapeHtml(fy)}</title>
 <style>body{font:12px system-ui,sans-serif;margin:16px;color:#111}h1{font-size:16px;margin:0}h2{font-size:13px;margin:16px 0 6px}p{margin:2px 0;color:#333}
 table{border-collapse:collapse;width:100%;margin-top:4px}td,th{border:1px solid #bbb;padding:4px 6px;text-align:left}th{background:#f2f2f2}.r{text-align:right}tr.t td{font-weight:600;background:#fafafa}.n{color:#555;margin-top:12px}
@@ -457,19 +523,24 @@ table{border-collapse:collapse;width:100%;margin-top:4px}td,th{border:1px solid 
 <tr><th>Employee</th><td>${escapeHtml(p.name)}${p.designation ? `, ${escapeHtml(p.designation)}` : ''}</td><th>PAN</th><td>${escapeHtml(p.pan || 'not on file')}</td><th>Period</th><td>${escapeHtml(formatDateIn(p.periodFrom))} – ${escapeHtml(formatDateIn(p.periodTo))}</td></tr></table>
 <h2>Computation (${p.regime === 'OLD' ? 'old regime' : 'new regime, section 115BAC'})</h2>
 <table>
-${row('1. Gross salary', p.gross, true)}
+${row('1. Gross salary (taxable components and employer NPS)', p.taxableSalary ?? p.gross, true)}
+${p.previousEmployer ? row(`   Add: salary from ${p.previousEmployer.name || 'a previous employer'} (Form 12B)`, p.previousEmployer.income) : ''}
 ${lines(p.exemptions)}
 ${row('2. Less: allowances exempt under section 10', sum(p.exemptions))}
 ${row('3. Less: standard deduction under section 16(ia)', p.standardDeduction)}
+${p.professionalTax ? row('   Less: professional tax under section 16(iii)', p.professionalTax) : ''}
+${p.employerNps ? row('   Less: employer NPS under section 80CCD(2)', p.employerNps) : ''}
 ${p.houseProperty.length ? lines(p.houseProperty) + row('4. Less: loss from house property (interest on housing loan)', sum(p.houseProperty)) : ''}
 ${lines(p.chapterVIA)}
 ${row('5. Less: deductions under Chapter VI-A', sum(p.chapterVIA))}
 ${row('6. Total taxable income', p.taxable, true)}
 ${row('7. Tax on total income', p.slabTax)}
 ${row('8. Less: rebate under section 87A', p.rebate)}
+${p.surcharge ? row('   Add: surcharge (after marginal relief)', p.surcharge) : ''}
 ${row('9. Health and education cess', p.cess)}
 ${row('10. Tax payable', p.taxPayable, true)}
 ${row('11. Tax deducted at source', p.tdsDeducted)}
+${p.previousEmployer?.tds ? row('   Tax deducted by the previous employer', p.previousEmployer.tds) : ''}
 ${row(p.balance >= 0 ? '12. Tax still payable' : '12. Deducted in excess', Math.abs(p.balance || 0), true)}
 </table>
 <h2>Tax deducted, month by month</h2>

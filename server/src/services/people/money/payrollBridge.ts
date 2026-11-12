@@ -256,6 +256,43 @@ export async function makeSalaryAdvanceLoan(o: { accountId: string; orgId: strin
   return { made: true, loanId: loan.id, number: loan.number, status: loan.status };
 }
 
+export type SalaryDrafted = { made: true; revisionId: string; structureName: string; existed: boolean } | { made: false; why: string };
+
+/**
+ * The pay in an accepted offer, handed to Payroll as a draft salary revision
+ * for the new employee (People plan 8 Nov 2026, step 4): the offer's structure
+ * and CTC from the joining date, waiting in Payroll › Salary revisions for
+ * someone there to review, approve and apply. Applying writes the salary
+ * assignment, the one way a salary is written in CLOR, and ticks the joining
+ * step "Assign the salary structure". People never writes a salary itself.
+ *
+ * One offer is one draft: its id is the offer's, so a retry finds the draft
+ * made before. An open revision for the person from elsewhere is left alone.
+ */
+export async function draftSalaryFromOffer(o: { accountId: string; orgId: string; userId: string; employeeId: string; structureId: string; annualCtc: number; effectiveFrom: string; offerId: string }): Promise<SalaryDrafted> {
+  if (!(await payrollOn(o.accountId, o.orgId))) return { made: false, why: 'This company does not run payroll in CLOR.' };
+  const structure = await payrollPrisma.salaryStructure.findFirst({ where: { orgId: o.orgId, id: o.structureId }, select: { id: true, name: true, status: true } });
+  if (!structure) return { made: false, why: 'The salary structure in the offer is no longer in Payroll. Set their salary there by hand.' };
+  if (structure.status === 'ARCHIVED') return { made: false, why: `${structure.name}, the structure in the offer, is archived in Payroll. Set their salary there by hand.` };
+  const id = `offer-salary:${o.offerId}`;
+  const prior = await payrollPrisma.salaryRevision.findFirst({ where: { orgId: o.orgId, id }, select: { id: true, status: true } });
+  if (prior) return prior.status === 'REJECTED' ? { made: false, why: 'Payroll turned down the salary drafted from the offer. Set their salary there by hand.' } : { made: true, revisionId: prior.id, structureName: structure.name, existed: true };
+  const open = await payrollPrisma.salaryRevision.findFirst({ where: { orgId: o.orgId, employeeId: o.employeeId, status: { in: ['DRAFT', 'REVIEWED', 'APPROVED'] } }, select: { id: true } });
+  if (open) return { made: false, why: 'Payroll already has a salary revision open for them. Finish that one there.' };
+  const current = await payrollPrisma.salaryAssignment.findFirst({ where: { orgId: o.orgId, employeeId: o.employeeId, status: 'ACTIVE' }, orderBy: { effectiveFrom: 'desc' }, select: { id: true, structureId: true, annualCtc: true } });
+  const row: { id: string } = await forLiveEmployee(o.orgId, o.employeeId, (tx) => tx.salaryRevision.create({
+    data: {
+      id, accountId: o.accountId, orgId: o.orgId, employeeId: o.employeeId,
+      currentAssignmentId: current?.id ?? null, currentStructureId: current?.structureId ?? null, currentAnnualCtc: Number(current?.annualCtc ?? 0),
+      proposedStructureId: structure.id, proposedAnnualCtc: round2(o.annualCtc), incrementPercent: 0,
+      effectiveFrom: o.effectiveFrom, reason: 'From the accepted offer', notes: 'Drafted by People when the candidate was hired. Review, approve and apply it to put them on this salary.',
+      status: 'DRAFT', createdByUserId: o.userId,
+    },
+    select: { id: true },
+  }));
+  return { made: true, revisionId: row.id, structureName: structure.name, existed: false };
+}
+
 /** A loan's state for the screens: what is left to repay and the next instalment. */
 export async function loanState(orgId: string, loanId: string) {
   const l = await payrollPrisma.payrollLoan.findFirst({ where: { orgId, id: loanId }, select: { id: true, number: true, status: true, principal: true, installmentAmount: true, installmentCount: true, outstandingBalance: true } });

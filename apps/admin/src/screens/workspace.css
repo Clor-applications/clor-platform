@@ -1,6 +1,6 @@
 /*
- * The Workspace home's own look (decision D-3): the spec palette — warm
- * porcelain, white, soft stone, graphite, Blaze Orange for the one primary
+ * The Workspace home's own look (decision D-3): the spec palette — white,
+ * soft stone, graphite, Blaze Orange for the one primary
  * action — scoped to `.ws` so no app's screens change. Colours are tokens
  * here, like index.css; nothing below uses a literal outside this block.
  * Radii follow DESIGN.md: 8px clickable, 12px content, 999px pills.
@@ -13,16 +13,16 @@
   --ws-ink: 39 39 42;
   --ws-muted: 113 113 122;
   --ws-line: 228 228 231;
-  --ws-accent: 244 81 30;
-  --ws-accent-hover: 217 67 19;
-  --ws-accent-soft: 255 240 232;
+  --ws-accent: 212 69 0;
+  --ws-accent-hover: 186 57 0;
+  --ws-accent-soft: 255 244 236;
   --ws-ok: 22 133 107;
   --ws-ok-soft: 231 243 236;
   --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ws-warn: 183 121 31;
   --ws-warn-soft: 253 244 228;
-  --ws-danger: 196 60 69;
-  --ws-danger-soft: 252 236 237;
+  --ws-danger: 185 28 28;
+  --ws-danger-soft: 253 236 236;
 }
 
 .ws {
@@ -32,14 +32,14 @@
   --ws-ink: 39 39 42;
   --ws-muted: 113 113 122;
   --ws-line: 228 228 231;
-  --ws-accent: 244 90 40;
-  --ws-accent-hover: 221 77 30;
-  --ws-accent-soft: 253 236 229;
+  --ws-accent: 212 69 0;
+  --ws-accent-hover: 186 57 0;
+  --ws-accent-soft: 255 244 236;
   --ws-ok: 47 122 85;
   --ws-ok-soft: 231 243 236;
   --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  background: rgb(var(--ws-bg));
+  background: rgb(var(--ws-surface));
   color: rgb(var(--ws-ink));
   min-height: 100%;
   /* One even frame from the rail and the bar: 24px, 16px on a phone. */
@@ -113,6 +113,13 @@
   border: 1px solid transparent;
   cursor: pointer;
   transition: background-color 0.18s var(--ws-ease), border-color 0.18s var(--ws-ease), transform 0.12s var(--ws-ease), box-shadow 0.18s var(--ws-ease);
+}
+/* DESIGN.md, button states: a disabled button is faded and not clickable. */
+.ws-btn:disabled,
+.ws-btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 .ws-btn:active {
   transform: translateY(1px);
@@ -515,17 +522,18 @@
    W-R: the Workspace redesign's shared pieces (spec "Complete premium
    SaaS UI/UX redesign"): page head with breadcrumb, a main column with a
    side column, stat strip, panels, a data table, usage meters and a
-   danger zone. Tokens as above; brand #F4511E per the redesign spec.
+   danger zone. Tokens as above; the action is the neon brand's button
+   orange #D44500, white on it 4.5:1 (DESIGN.md).
    ====================================================================== */
 .ws {
-  --ws-accent: 244 81 30;
-  --ws-accent-hover: 217 67 19;
-  --ws-accent-soft: 255 240 232;
+  --ws-accent: 212 69 0;
+  --ws-accent-hover: 186 57 0;
+  --ws-accent-soft: 255 244 236;
   --ws-ok: 22 133 107;
   --ws-warn: 183 121 31;
   --ws-warn-soft: 253 244 228;
-  --ws-danger: 196 60 69;
-  --ws-danger-soft: 252 236 237;
+  --ws-danger: 185 28 28;
+  --ws-danger-soft: 253 236 236;
 }
 .ws-crumbs {
   display: flex;
@@ -678,6 +686,18 @@ button.ws-item:hover {
   font-size: 0.75rem;
   color: rgb(var(--ws-muted));
 }
+.ws-item-actions {
+  flex: none;
+}
+/* On a phone the buttons go under the words instead of squeezing them. */
+@media (max-width: 600px) {
+  .ws-item--wrap {
+    flex-wrap: wrap;
+  }
+  .ws-item--wrap > .ws-item-actions {
+    flex-basis: 100%;
+  }
+}
 .ws-item-end {
   font-size: 0.75rem;
   color: rgb(var(--ws-muted));
@@ -707,6 +727,16 @@ button.ws-item:hover {
 }
 .ws-btn--danger:hover {
   filter: brightness(0.95);
+}
+/* The secondary destructive button: outlined, in the danger colour, for an act that sits beside ordinary ones. */
+.ws-btn--danger-quiet {
+  background: rgb(var(--ws-surface));
+  color: rgb(var(--ws-danger));
+  border-color: rgb(var(--ws-danger) / 0.4);
+}
+.ws-btn--danger-quiet:hover {
+  background: rgb(var(--ws-danger-soft));
+  border-color: rgb(var(--ws-danger) / 0.6);
 }
 /* Usage against an allowance. */
 .ws-meter {
@@ -1328,40 +1358,24 @@ button.ws-item:hover {
 }
 
 /* ------------------------------------------------------------ overview hero
- * Who and where you are, a greeting, the date, and a quiet drawing of an
- * office on the right that fades into the card.
+ * Who and where you are and a greeting, said plainly on the white page: no
+ * banner card and no picture (owner, 9 Nov 2026: no AI art anywhere).
  */
 :root {
-  /* Cards are a soft veil of white over the page ground, not opaque slabs.
-     The ground is the shell's own cool neutral (zinc), so the rail, the bar
-     and the page read as one surface — a warm cream beside the cool rail read
-     as faintly dingy. */
+  /* Cards are a soft veil of white over the page ground, not opaque slabs. */
   --ws-card-bg: rgb(255 255 255 / 0.72);
   --ws-card-line: rgb(228 228 231 / 0.85);
 }
 :root {
-  /* Welcome banner (spec: banner refinement). */
+  /* Welcome greeting. */
   --ws-hero-line: 228 228 231;
-  --ws-hero-ink: 39 39 42;
-  --ws-hero-muted: 113 113 122;
+  --ws-hero-ink: 15 23 42;
+  --ws-hero-muted: 75 85 99;
 }
 .ws-hero {
-  position: relative;
-  overflow: hidden;
   display: grid;
-  align-content: center;
-  min-height: 264px;
-  padding: 36px 44px;
-  /* The words keep the left ~58%; the picture has the rest. */
-  padding-right: calc(42% + 24px);
-  /* 20px on this banner by request; DESIGN.md's content radius is 12px elsewhere. */
-  border-radius: 20px;
-  border: 1px solid var(--ws-card-line);
-  background: var(--ws-card-bg);
 }
 .ws-hero-text {
-  position: relative;
-  z-index: 1;
   display: grid;
   gap: 12px;
   min-width: 0;
@@ -1402,59 +1416,12 @@ button.ws-item:hover {
   line-height: 1.5;
   color: rgb(var(--ws-hero-muted));
 }
-.ws-hero-media {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  /* Wider than the picture's solid part: its left third dissolves into the card. */
-  width: 54%;
-}
-.ws-hero-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* The building and its sign sit left of centre in the picture. */
-  object-position: 70% 60%;
-  display: block;
-  opacity: 0;
-  transition: opacity 240ms var(--ws-ease);
-}
-/* The picture fades in when it has loaded rather than popping in after the text. */
-.ws-hero-media img[data-loaded] {
-  opacity: 1;
-}
-/* The picture dissolves leftward into the white card: transparent at its left
-   edge, solid by the time the building starts, so nothing covers the building. */
-.ws-hero-media img {
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.25) 14%, rgb(0 0 0 / 0.75) 26%, #000 38%);
-  mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.25) 14%, rgb(0 0 0 / 0.75) 26%, #000 38%);
-}
-@media (max-width: 1100px) {
-  .ws-hero {
-    min-height: 228px;
-    padding: 28px 28px;
-    padding-right: calc(44% + 16px);
-  }
-  .ws-hero-media {
-    width: 46%;
-  }
-}
 @media (max-width: 767px) {
-  .ws-hero {
-    min-height: 0;
-    padding: 22px 20px;
-    border-radius: 16px;
-  }
   .ws .ws-hero-title {
     font-size: clamp(1.625rem, 1.2rem + 2vw, 1.875rem) !important;
   }
   .ws-hero-lede {
     font-size: 0.9375rem;
-  }
-  /* Decorative: on a phone the greeting matters, the picture does not. */
-  .ws-hero-media {
-    display: none;
   }
 }
 /* Two lines at most; the rest is in the title on hover. */
@@ -1715,14 +1682,116 @@ button.ws-item:hover {
   font-weight: 700;
   letter-spacing: 0.02em;
 }
-.ops-nav {
+/* The menu: a side panel in groups (Home · Customers · Money · Product · Email · Team · Audit log); a sheet on a phone. */
+.ops-shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  align-items: start;
+}
+.ops-side {
+  position: sticky;
+  top: 56px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  height: calc(100dvh - 56px);
+  overflow-y: auto;
+  padding: 16px 12px 24px;
+  background: rgb(var(--ws-surface));
+  border-right: 1px solid rgb(var(--ws-line));
+}
+.ops-group {
+  display: grid;
+  gap: 2px;
+}
+.ops-group-label {
+  padding: 0 12px 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+.ops-menu-btn {
+  display: none;
+}
+.ops-scrim {
+  display: none;
+}
+@media (max-width: 900px) {
+  .ops-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ops-menu-btn {
+    display: inline-grid;
+  }
+  .ops-side {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    z-index: 11;
+    width: min(280px, 86vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 200ms var(--ws-ease), visibility 200ms;
+  }
+  .ops-side[data-open] {
+    transform: none;
+    visibility: visible;
+    box-shadow: var(--shadow-lift);
+  }
+  .ops-scrim {
+    display: block;
+    position: fixed;
+    inset: 56px 0 0;
+    z-index: 10;
+    border: 0;
+    background: rgb(var(--ws-ink) / 0.25);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ops-side {
+    transition: none;
+  }
+}
+/* Audit log filters: a row on a desk, a stack on a phone. */
+.ops-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.ops-picker {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 8px;
+  box-shadow: var(--shadow-lift);
+}
+.ops-picker button {
   display: flex;
-  gap: 4px;
-  margin-left: 12px;
-  overflow-x: auto;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  font-size: 0.875rem;
+  color: rgb(var(--ws-ink));
+  cursor: pointer;
+}
+.ops-picker button:hover {
+  background: rgb(var(--ws-stone));
 }
 .ops-nav-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   height: 36px;
@@ -1768,6 +1837,29 @@ button.ws-item:hover {
   font-size: 0.75rem;
   color: rgb(var(--ws-muted));
 }
+/* One demo request: label, value, on the page ground. */
+.ops-facts {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
+  gap: 10px 20px;
+  margin: 0;
+}
+.ops-facts dt {
+  color: rgb(var(--ws-muted));
+}
+.ops-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .ops-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .ops-facts dd {
+    margin-bottom: 10px;
+  }
+}
 .ops-refused {
   display: grid;
   justify-items: start;
@@ -1776,13 +1868,24 @@ button.ws-item:hover {
   margin: 12vh auto;
   padding: 0 24px;
 }
-@media (max-width: 760px) {
+/* Nine sections: below 1600px the name gives way to them (it stays on the sign-out button's tooltip), below 1360px the icons do too. */
+@media (max-width: 1599px) {
   .ops-who {
     display: none;
   }
+}
+@media (max-width: 1359px) {
+  .ops-nav-item svg {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
   .ops-bar-top {
     padding: 0 12px;
     gap: 8px;
+  }
+  .ops-bar-top > .ui-icon-btn:last-child {
+    margin-left: auto;
   }
 }
 
@@ -1822,4 +1925,303 @@ button.ws-item:hover {
   grid-template-columns: repeat(2, max-content);
   gap: 8px 16px;
   font-size: 0.9375rem;
+}
+
+/* A customer's subscription actions: ordinary ones on the left, the destructive ones set apart on the right. */
+.ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+.ops-actions-main,
+.ops-actions-danger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 639px) {
+  .ops-actions-danger {
+    padding-top: 12px;
+    border-top: 1px solid rgb(var(--ws-line));
+    width: 100%;
+  }
+}
+
+/*
+ * A table that becomes a list on a phone: each row a block, the cell marked
+ * ops-primary the bold line on top, every other cell a "label: value" line from its data-label. Cells
+ * hidden on narrow desks (hidden sm:table-cell…) come back as lines here, so
+ * nothing is lost and nothing scrolls sideways.
+ */
+@media (max-width: 639px) {
+  .ops-stack {
+    border-collapse: separate;
+  }
+  .ops-stack thead {
+    display: none;
+  }
+  .ops-stack tbody {
+    display: block;
+  }
+  .ops-stack tr {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgb(var(--ws-line));
+  }
+  .ops-stack tr:last-child {
+    border-bottom: 0;
+  }
+  .ops-stack td,
+  .ops-stack td.hidden {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .ops-stack td.ops-primary {
+    order: -1;
+    display: block;
+    font-weight: 600;
+    padding-bottom: 4px;
+  }
+  .ops-stack td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 104px;
+    color: rgb(var(--ws-muted));
+    font-weight: 400;
+  }
+  .ops-stack td.num {
+    justify-content: flex-start;
+  }
+  .ops-stack td.ops-stack-actions {
+    flex-wrap: wrap;
+    padding-top: 8px;
+  }
+  .ops-stack td:empty {
+    display: none;
+  }
+}
+
+/* Operator console: the search box in the top bar (packages/ops/OpsSearch.jsx). */
+.ops-search {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 460px;
+  min-width: 0;
+}
+.ops-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgb(var(--ws-muted));
+  pointer-events: none;
+}
+.ops-search-input {
+  width: 100%;
+  padding-left: 32px;
+}
+.ops-search-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: min(70dvh, 480px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: rgb(var(--ws-surface));
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.18);
+}
+.ops-search-group {
+  padding: 8px 10px 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+.ops-search-option {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ops-search-option[aria-selected='true'] {
+  background: rgb(var(--ws-bg));
+}
+.ops-search-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ops-search-sub,
+.ops-search-note {
+  font-size: 0.8125rem;
+  color: rgb(var(--ws-muted));
+  overflow-wrap: anywhere;
+}
+.ops-search-note {
+  padding: 10px;
+}
+.ops-count {
+  min-width: 2ch;
+  text-align: right;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+.ops-count--bad {
+  color: rgb(var(--ws-danger));
+}
+@media (max-width: 760px) {
+  .ops-search-input::placeholder {
+    color: transparent;
+  }
+}
+/* The search box takes the free space; whatever follows it sits at the right edge. */
+.ops-search {
+  margin-right: auto;
+}
+.ops-search ~ .ops-who {
+  margin-left: 0;
+}
+.ops-more > summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-muted));
+}
+/* On a phone the results take the screen's width, and the badge gives the box its room. */
+@media (max-width: 760px) {
+  .ops-search-list {
+    position: fixed;
+    top: 62px;
+    left: 12px;
+    right: 12px;
+  }
+  .ops-search ~ .ops-who,
+  .ops-bar-top .ops-badge {
+    display: none;
+  }
+}
+
+/* Overview header (Workspace plan P0): the one primary action sits top right of the greeting. */
+.ws-hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ws-hero-action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-stat-of {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--ws-muted));
+}
+@media (max-width: 600px) {
+  .ws-hero-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ws-hero-action {
+    justify-content: center;
+  }
+}
+/* Label and value on one line, hairline between: facts inside a panel without a second box. */
+.ws-rows {
+  display: grid;
+  margin: 0;
+}
+.ws-rows > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgb(var(--ws-line));
+}
+.ws-rows > div:last-child {
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ws-rows dt {
+  font-size: 0.875rem;
+  color: rgb(var(--ws-muted));
+}
+.ws-rows dd {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--ws-ink));
+  text-align: right;
+}
+
+/* Help and support: a ticket's conversation. CLOR's replies sit on a soft tint so who said what reads at a glance. */
+.ws-list--ground {
+  border-top: 1px solid rgb(var(--ws-line));
+}
+.ws-thread {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ws-msg {
+  padding: 14px 16px;
+  border: 1px solid rgb(var(--ws-line));
+  border-radius: 12px;
+  background: rgb(var(--ws-surface));
+}
+.ws-msg--staff {
+  background: rgb(var(--brand-subtle));
+  border-color: rgb(var(--brand-border));
+}
+.ws-msg-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0 0 6px;
+  font-size: 0.875rem;
+}
+.ws-msg-head span {
+  color: rgb(var(--ws-muted));
+  font-size: 0.8125rem;
+}
+.ws-msg-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: rgb(var(--ws-ink));
+}
+/* An internal note (operator console): dashed, so nobody mistakes it for something the customer read. */
+.ws-msg--note {
+  background: rgb(var(--warn-soft));
+  border-style: dashed;
+  border-color: rgb(var(--ws-line));
+}
+.ws-row-link {
+  cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws-row-link:hover > td {
+    background: rgb(var(--ws-line) / 0.45);
+  }
 }

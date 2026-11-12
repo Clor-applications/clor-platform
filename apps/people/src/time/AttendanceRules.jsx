@@ -35,7 +35,7 @@ const marksBody = (f) => ({
   cost: f.cost === '1' ? 1 : 0.5,
   takeFrom: f.takeFrom,
   cutMode: f.cutMode,
-  roundToMinutes: Number(f.roundTo) === 30 ? 30 : Number(f.roundTo) === 60 ? 60 : 15,
+  roundToMinutes: [15, 30, 60].includes(Number(f.roundTo)) ? Number(f.roundTo) : 15,
 });
 /* How much a mark cuts (DECISIONS.md 1): the time missed is what the law allows (Code on Wages 2019, s.20). */
 const CUTS = [

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArchiveRestore, Trash2 } from 'lucide-react';
+import { ArchiveRestore, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -75,7 +75,7 @@ export default function RecycleBin() {
   return (
     <DocumentListShell
       entity="settings"
-      title="Recycle Bin"
+      title="Recycle bin"
       description={`Deleted employees, shifts, holidays, schedules and days stay here for ${data?.days || 30} days. Restore puts them back as they were.`}
       compact
       tight

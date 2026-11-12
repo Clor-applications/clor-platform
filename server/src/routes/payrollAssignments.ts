@@ -10,6 +10,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
+import { ownPayRefusal } from '../services/payroll/ownPay.js';
+import { tickWhenDone } from '../services/people/checklists.js';
 
 /**
  * What one person is paid, from a date.
@@ -155,6 +157,9 @@ payrollAssignmentsRouter.post(
     ]);
     if (!employee) return res.status(400).json({ error: 'No such employee.' });
     if (!structure) return res.status(400).json({ error: 'No such salary structure.' });
+    /* Nobody sets their own pay (audit 7 Nov 2026, #6). */
+    const own = await ownPayRefusal(req, body.employeeId, { what: 'salary', does: 'set it', module: PAYROLL_MODULE, resource: RESOURCE, action: 'CREATE', entity: 'PAYROLL_SALARY_ASSIGNMENT' });
+    if (own) return res.status(own.status).json(own.body);
     const ccRefused = await costCentreRefusal(accountId, orgId, blank(body.costCenterId));
     if (ccRefused) return res.status(400).json({ error: ccRefused });
 
@@ -228,6 +233,9 @@ payrollAssignmentsRouter.post(
       });
     });
 
+    /* Their salary is set: the joining step asking for it closes by itself (People plan 8 Nov 2026, step 4). */
+    await tickWhenDone(orgId, body.employeeId, 'JOINING', ['salary structure'], `Payroll put them on ${structure.name} at Rs ${body.annualCtc.toLocaleString('en-IN')} a year, from ${body.effectiveFrom}.`, req.auth!.userId);
+
     res.status(201).json({ assignment: shape(row, { employee, structure }) });
   }
 );
@@ -265,6 +273,8 @@ payrollAssignmentsRouter.put(
     if (body.employeeId !== existing.employeeId) {
       return res.status(400).json({ error: 'A salary cannot be moved to another person. Record one for them instead.' });
     }
+    const own = await ownPayRefusal(req, existing.employeeId, { what: 'salary', does: 'change it', module: PAYROLL_MODULE, resource: RESOURCE, action: 'EDIT', entity: 'PAYROLL_SALARY_ASSIGNMENT', entityId: existing.id });
+    if (own) return res.status(own.status).json(own.body);
     const ccRefused = await costCentreRefusal(req.tenant!.accountId, orgId, blank(body.costCenterId), existing.costCenterId);
     if (ccRefused) return res.status(400).json({ error: ccRefused });
 
@@ -311,6 +321,9 @@ payrollAssignmentsRouter.delete(
         code: 'ASSIGNMENT_PAID',
       });
     }
+    /* Deleting your own salary brings back the one before it: still setting your own pay. */
+    const own = await ownPayRefusal(req, existing.employeeId, { what: 'salary', does: 'remove it', module: PAYROLL_MODULE, resource: RESOURCE, action: 'DELETE', entity: 'PAYROLL_SALARY_ASSIGNMENT', entityId: existing.id });
+    if (own) return res.status(own.status).json(own.body);
 
     /* Deleting the current salary reopens the one it superseded, otherwise the
        person is left with no salary at all on a day they were employed. */

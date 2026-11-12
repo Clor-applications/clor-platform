@@ -2,6 +2,7 @@ import 'express-async-errors';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { authRouter } from './routes/auth.js';
@@ -16,6 +17,7 @@ import { invoicesRouter } from './routes/invoices.js';
 import { ledgerRouter } from './routes/ledger.js';
 import { permissionsRouter } from './routes/permissions.js';
 import { governanceRouter } from './routes/governance.js';
+import { workspaceWaitingRouter } from './routes/workspaceWaiting.js';
 import { featuresRouter } from './routes/features.js';
 import { partiesRouter } from './routes/parties.js';
 import { emailRouter } from './routes/email.js';
@@ -48,6 +50,7 @@ import { peopleTimeRulesRouter } from './routes/peopleTimeRules.js';
 import { peopleCompanyChoicesRouter } from './routes/peopleCompanyChoices.js';
 import { peopleTimePortalRouter } from './routes/peopleTimePortal.js';
 import { peopleEngagementRouter } from './routes/peopleEngagement.js';
+import { automationsRouter } from './routes/automations.js';
 import { peopleEngagementPortalRouter } from './routes/peopleEngagementPortal.js';
 import { peopleJoinRouter } from './routes/peopleJoin.js';
 import { peopleInvitesRouter } from './routes/peopleInvites.js';
@@ -117,8 +120,28 @@ import { gstinRouter } from './routes/gstin.js';
 import { stockDocumentsRouter } from './routes/stockDocuments.js';
 import { stockLedgerRouter } from './routes/stockLedger.js';
 import { notFound, errorHandler } from './middleware/errors.js';
-import { billingRouter, billingOperatorRouter, billingWebhook } from './routes/billing.js';
+import { billingRouter, billingOperatorRouter, billingWebhook, providerWebhook } from './routes/billing.js';
+import { opsPaymentsRouter } from './routes/opsPayments.js';
+import { opsInvoicesRouter } from './routes/opsInvoices.js';
+import { opsHealthRouter } from './routes/opsHealth.js';
+import { opsTicketsRouter } from './routes/opsTickets.js';
+import { supportRouter } from './routes/support.js';
+import { opsAnnouncementsRouter } from './routes/opsAnnouncements.js';
+import { announcementsRouter } from './routes/announcements.js';
+import { demoRequestCors, demoRequestsRouter, opsDemoRequestsRouter } from './routes/demoRequests.js';
+import { opsPricingRouter, pricingCors, pricingRouter } from './routes/pricing.js';
+import { opsExploreRouter } from './routes/opsExplore.js';
+import { opsSignupsRouter, signupRouter } from './routes/signup.js';
 import { opsRouter } from './routes/ops.js';
+import { opsCustomersRouter } from './routes/opsCustomers.js';
+import { opsLimitsRouter } from './routes/opsLimits.js';
+import { opsDealsRouter } from './routes/opsDeals.js';
+import { opsApprovalsRouter } from './routes/opsApprovals.js';
+import { opsEmailRouter } from './routes/opsEmail.js';
+import { appCatalogueCors, opsCatalogueRouter, publicAppCatalogueRouter } from './routes/opsCatalogue.js';
+import { publicStatusRouter, statusCors, storeChecks } from './routes/status.js';
+import { exploreRouter } from './routes/explore.js';
+import { exploreReadOnly } from './middleware/exploreReadOnly.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
 import { internalJobsRouter } from './routes/internalJobs.js';
 import { auditMutations } from './middleware/auditMutations.js';
@@ -185,6 +208,21 @@ export function buildApp() {
 
   app.use(helmet());
   /*
+   * Gzip what a browser asks for: a list of 5,000 exceptions is 1.8 MB as
+   * JSON and about 120 KB compressed. Reader devices (/iclock for ZKTeco, /matrix
+   * for Matrix COSEC) and ingest hooks are left alone, since their clients may not unpack it, and a
+   * server-sent event stream would be held back by the compressor's buffer.
+   */
+  app.use(
+    compression({
+      filter: (req, res) => {
+        if (req.path.startsWith('/iclock') || req.path.startsWith('/ingest') || req.path.startsWith('/matrix')) return false;
+        if (String(res.getHeader('Content-Type') || '').includes('text/event-stream')) return false;
+        return compression.filter(req, res);
+      },
+    })
+  );
+  /*
    * Nothing this server answers is for a browser or proxy to keep: company
    * data, employee files and tokens alike (GAP-012). A route that wants
    * otherwise sets its own header, which replaces this one.
@@ -223,6 +261,14 @@ export function buildApp() {
    */
   const nativeShellAllow = new Set(['https://localhost', 'capacitor://localhost']);
 
+  /* clor.in's "Request a demo" form: open to the site's origins, without credentials, and only that route (routes/demoRequests.ts). */
+  app.use('/api/public/demo-requests', demoRequestCors);
+  /* clor.in's pricing page: the published price list and a quote, the same way (routes/pricing.ts). */
+  app.use('/api/public/pricing', pricingCors);
+  /* The app catalogue clor.in reads: any origin, GET only, no credentials (routes/opsCatalogue.ts). */
+  app.use('/api/public/app-catalogue', appCatalogueCors);
+  /* Is CLOR working: clor.in/status asks from the browser, any origin, GET only (routes/status.ts). */
+  app.use('/api/public/status', statusCors);
   app.use(
     cors({
       origin(origin, cb) {
@@ -240,13 +286,20 @@ export function buildApp() {
     })
   );
   /*
+   * Explore (roadmap item 6): a session on the sample company reads and
+   * changes nothing. Here, after CORS so the app can read the refusal, and
+   * ahead of every body parser and router, so no route can forget it.
+   */
+  app.use(exploreReadOnly);
+  /*
    * Biometric readers (ZKTeco / eSSL push). Plain-text bodies, no login: a
    * reader is known by its serial number, which a company claims under
    * Attendance → Readers. Mounted before the JSON parser and outside /api, so
-   * none of the user-session middleware applies. Bodies are capped: a real
-   * batch of punches is a few hundred KB (ClorTime caps at 8 MB).
+   * none of the user-session middleware applies. Bodies are capped inside the
+   * router: 8 MB for a reader a company added (a real batch is a few hundred KB;
+   * ClorTime caps at 8 MB), 64 KB for any other serial (routes/iclock.ts, iclockBody).
    */
-  app.use('/iclock', express.text({ type: () => true, limit: '8mb' }), iclockRouter);
+  app.use('/iclock', iclockRouter);
   /* Any shape of body: JSON when it says so, a form, or plain text we try as JSON. */
   /* The exact bytes are kept beside the parsed body, so a signed push can be checked (routes/ingest.ts). */
   const keepRaw = (req: any, _res: any, buf: Buffer) => {
@@ -288,6 +341,8 @@ export function buildApp() {
   app.use('/api/portal/people/money/lines', express.json({ limit: '7mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
   app.post('/api/billing/webhook', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), billingWebhook);
+  /* Each payment provider's own webhook (Cashfree, Razorpay): the address Payments in the operator console shows. */
+  app.post('/api/billing/webhook/:provider', ...billingWebhookLimiter, express.raw({ type: () => true, limit: '1mb' }), providerWebhook);
   app.use(express.json({ limit: '1mb' }));
   /* Invoices, receipts, payments and payroll writes are never made twice by a double click or a retry. */
   app.use(webIdempotency);
@@ -347,18 +402,7 @@ export function buildApp() {
    * never how (no connection strings or errors leave the server).
    */
   app.get('/ready', async (_req, res) => {
-    const { prisma } = await import('./utils/prisma.js');
-    const { payrollPrisma } = await import('./utils/payrollPrisma.js');
-    const { peoplePrisma } = await import('./utils/peoplePrisma.js');
-    const { platformPrisma } = await import('./utils/platformPrisma.js');
-    const within = (p: Promise<unknown>) => Promise.race([p.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 2000))]).catch(() => false);
-    const [accounting, payroll, people, platform] = await Promise.all([
-      within(prisma.$queryRaw`SELECT 1`),
-      within(payrollPrisma.$queryRaw`SELECT 1`),
-      within(peoplePrisma.$queryRaw`SELECT 1`),
-      within(platformPrisma.$queryRaw`SELECT 1`),
-    ]);
-    const checks = { accounting, payroll, people, platform };
+    const checks = await storeChecks();
     const ok = Object.values(checks).every(Boolean);
     res.status(ok ? 200 : 503).json({ ok, checks });
   });
@@ -366,12 +410,24 @@ export function buildApp() {
   /* Single sign-on lands here from the identity provider; mounted before the password routes. */
   /* A ceiling on every API call, per session and per address (FX-05). */
   app.use('/api', ...apiLimiter);
+  /* Explore: a link from the demo request's mail, traded for a read-only session on the sample company. */
+  app.use('/api', exploreRouter);
   app.use('/api/auth/sso', ssoRouter);
   app.use('/api/auth', authRouter);
   /* W-3: an invited person's side of an invitation — before they belong to any company, so not company-scoped. */
   /* Cloud Scheduler's wake call for background jobs (token-guarded; 404 without JOBS_TOKEN). */
   app.use('/api', internalJobsRouter);
   app.use('/api', invitationsRouter);
+  /* "Request a demo" from clor.in: no sign-in, no account yet. */
+  app.use('/api', demoRequestsRouter);
+  /* A free trial from clor.in's pricing page: email checked by a link, then the account (routes/signup.ts). */
+  app.use('/api', signupRouter);
+  /* The published price list and quotes for clor.in: no sign-in. */
+  app.use('/api', pricingRouter);
+  /* The app catalogue, read-only and public: clor.in and the app switcher list apps from it. */
+  app.use('/api', publicAppCatalogueRouter);
+  /* Is CLOR working, for anybody to ask: no sign-in. */
+  app.use('/api', publicStatusRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'
@@ -400,6 +456,23 @@ export function buildApp() {
   app.use('/api', billingOperatorRouter);
   /* W-8.2: the operator console — Clor staff, outside every customer account, so ahead of the tenant routers. */
   app.use('/api', opsRouter);
+  app.use('/api', opsDemoRequestsRouter);
+  app.use('/api', opsPricingRouter);
+  app.use('/api', opsPaymentsRouter);
+  app.use('/api', opsInvoicesRouter);
+  app.use('/api', opsHealthRouter);
+  app.use('/api', opsTicketsRouter);
+  app.use('/api', supportRouter);
+  app.use('/api', opsAnnouncementsRouter);
+  app.use('/api', announcementsRouter);
+  app.use('/api', opsExploreRouter);
+  app.use('/api', opsSignupsRouter);
+  app.use('/api', opsCustomersRouter);
+  app.use('/api', opsLimitsRouter);
+  app.use('/api', opsDealsRouter);
+  app.use('/api', opsApprovalsRouter);
+  app.use('/api', opsEmailRouter);
+  app.use('/api', opsCatalogueRouter);
 
   /*
    * Mounted before every tenant-scoped router, and that position is the point.
@@ -442,6 +515,7 @@ export function buildApp() {
   app.use('/api', peopleTimeRulesRouter);
   app.use('/api', peopleCompanyChoicesRouter);
   app.use('/api', peopleEngagementRouter);
+  app.use('/api', automationsRouter);
   app.use('/api', peopleInvitesRouter);
   app.use('/api', peopleLettersRouter);
   app.use('/api', peoplePoliciesRouter);
@@ -488,6 +562,7 @@ export function buildApp() {
   app.use('/api', invoicesRouter);
   app.use('/api', ledgerRouter);
   app.use('/api', permissionsRouter);
+  app.use('/api', workspaceWaitingRouter);
   app.use('/api', governanceRouter);
   app.use('/api', featuresRouter);
   app.use('/api', partiesRouter);

@@ -98,15 +98,18 @@ describe('the change log', () => {
     const job = (await people(hr).post('/talent/openings', { title: 'Guard', status: 'OPEN' }).expect(201)).body.opening;
     const candidate = (await people(hr).post('/talent/candidates', { openingId: job.id, name: 'Hired Person', email: 'h@example.com' }).expect(201)).body.candidate;
     await people(hr).post(`/talent/candidates/${candidate.id}/stage`, { stage: 'OFFER' }).expect(200);
-    const hired = (await request(app).post(`/api/orgs/${hr.orgId}/people/talent/candidates/${candidate.id}/hire`).set(at(hr)).send({ code: 'L-7', dateOfJoining: '2026-02-01' }).expect(201)).body.employee;
+    const hired = (await request(app).post(`/api/orgs/${hr.orgId}/people/talent/candidates/${candidate.id}/hire`).set(at(hr)).send({ code: 'L-7', dateOfJoining: '2026-02-01', withoutOffer: true, reason: 'Terms agreed in person' }).expect(201)).body.employee;
     for (const [id, source] of [[fromForm.id, 'FORM'], [fromImport, 'IMPORT'], [hired.id, 'HIRE']] as const) {
       const lines = await logOf(hr, id);
-      expect(lines, source).toEqual([expect.objectContaining({ field: 'record', after: 'created', source })]);
+      /* A hire also sends the joining form and the app invite (People plan 8 Nov 2026, step 4): those lines follow the one for the record. */
+      expect(lines.filter((l: any) => l.field === 'record'), source).toEqual([expect.objectContaining({ field: 'record', after: 'created', source })]);
+      if (source === 'HIRE') expect(lines.map((l: any) => l.field), source).toEqual(expect.arrayContaining(['invite', 'appAccess']));
       expect(await runInTenant(hr.orgId, () => peoplePrisma.employmentEpisode.count({ where: { employeeId: id } })), source).toBe(1);
       const history = (await people(hr).get(`/employees/${id}/history`).expect(200)).body;
       expect(history.events.map((x: any) => x.kind), source).toContain('JOINED');
       const events = await runInTenant(hr.orgId, () => peoplePrisma.outboxEvent.findMany({ where: { employeeId: id } }));
-      expect(events.map((x) => x.name), source).toEqual(['people.employee.created.v1']);
+      expect(events.map((x) => x.name), source).toContain('people.employee.created.v1');
+      if (source !== 'HIRE') expect(events.map((x) => x.name), source).toEqual(['people.employee.created.v1']);
     }
   });
 });

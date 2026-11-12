@@ -25,6 +25,10 @@ export type Entitlement = {
   /** Every feature key the account may use. */
   features: Set<string>;
   limits: { maxCompanies: number | null; maxUsers: number | null };
+  /** Features CLOR turned off for this account (and so not in `features`). */
+  removed: Set<string>;
+  /** True when CLOR set either limit for this account, not the plan. */
+  limitsSetByClor: boolean;
   /** True while the plan is being honoured — trial and active both count. */
   inGoodStanding: boolean;
 };
@@ -48,6 +52,27 @@ export function appOfFeature(key: string): string | null {
   return null;
 }
 
+/** A comma-separated list of feature keys, as AccountEntitlement keeps them. */
+export const splitKeys = (v: string | null | undefined) =>
+  String(v || '')
+    .split(',')
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+/** Whether a feature needs any of these, through its parents or its other needs. */
+export function needsAny(key: string, gone: string[]): boolean {
+  const seen = new Set<string>();
+  const walk = (k: string): boolean => {
+    if (seen.has(k)) return false;
+    seen.add(k);
+    const f = FEATURE_CATALOG.find((x) => x.key === k);
+    if (!f) return false;
+    const up = [...(f.dependsOn ? [f.dependsOn] : []), ...(f.alsoNeeds || [])];
+    return up.some((u) => gone.includes(u) || walk(u));
+  };
+  return walk(key);
+}
+
 export async function entitlementFor(accountId: string): Promise<Entitlement> {
   const row = await platformPrisma.accountEntitlement.findUnique({ where: { accountId } });
   const plan = planFor(row?.planKey ?? DEFAULT_PLAN_KEY);
@@ -63,12 +88,7 @@ export async function entitlementFor(accountId: string): Promise<Entitlement> {
    * fall away when an account stops being in good standing — the plan itself
    * is honoured a little longer than the add-ons.
    */
-  const extras = inGoodStanding
-    ? String(row?.extraFeatures || '')
-        .split(',')
-        .map((k) => k.trim())
-        .filter(Boolean)
-    : [];
+  const extras = inGoodStanding ? splitKeys(row?.extraFeatures) : [];
 
   /*
    * The accounting plan is Accounting's ceiling. An app sold on its own
@@ -97,7 +117,23 @@ export async function entitlementFor(accountId: string): Promise<Entitlement> {
       features.add(k);
     }
   }
-  if (ownsAccounting) for (const k of extras) features.add(k);
+  /*
+   * An extra CLOR added (ops Limits) counts only inside an app the account
+   * owns: Accounting's for an Accounting feature, that app's for a module.
+   */
+  for (const k of extras) {
+    const app = appOfFeature(k);
+    if (app ? access.ownedApps.includes(app) : ownsAccounting) features.add(k);
+  }
+  /*
+   * Turned off by CLOR wins over the plan and the extras, and takes with it
+   * everything that needs it: a module whose parent is gone cannot work.
+   */
+  const removed = splitKeys(row?.removedFeatures);
+  if (removed.length) {
+    for (const k of removed) features.delete(k);
+    for (const k of [...features]) if (needsAny(k, removed)) features.delete(k);
+  }
   return {
     planKey: plan.key,
     planName: plan.name,
@@ -107,6 +143,8 @@ export async function entitlementFor(accountId: string): Promise<Entitlement> {
       maxCompanies: row?.maxCompanies ?? plan.limits.maxCompanies,
       maxUsers: row?.maxUsers ?? plan.limits.maxUsers,
     },
+    removed: new Set(removed),
+    limitsSetByClor: row?.maxCompanies != null || row?.maxUsers != null,
     inGoodStanding,
   };
 }
@@ -139,9 +177,8 @@ export async function companyLimitReason(accountId: string): Promise<string | nu
   /* Archived companies (read-only, kept for their records) do not take a place on the plan. */
   const count = await platformPrisma.org.count({ where: { accountId, archivedAt: null } });
   if (count < e.limits.maxCompanies) return null;
-  return `The ${e.planName} plan includes ${e.limits.maxCompanies} ${
-    e.limits.maxCompanies === 1 ? 'company' : 'companies'
-  }, and this account has ${count}.`;
+  const n = `${e.limits.maxCompanies} ${e.limits.maxCompanies === 1 ? 'company' : 'companies'}`;
+  return e.limitsSetByClor ? `This account may have ${n}, and it has ${count}.` : `The ${e.planName} plan includes ${n}, and this account has ${count}.`;
 }
 
 /** Same question for users. */
@@ -150,5 +187,7 @@ export async function userLimitReason(accountId: string): Promise<string | null>
   if (e.limits.maxUsers == null) return null;
   const count = await platformPrisma.user.count({ where: { accountId, isActive: true } });
   if (count < e.limits.maxUsers) return null;
-  return `The ${e.planName} plan includes ${e.limits.maxUsers} users, and this account has ${count}.`;
+  return e.limitsSetByClor
+    ? `This account may have ${e.limits.maxUsers} ${e.limits.maxUsers === 1 ? 'user' : 'users'}, and it has ${count}.`
+    : `The ${e.planName} plan includes ${e.limits.maxUsers} users, and this account has ${count}.`;
 }

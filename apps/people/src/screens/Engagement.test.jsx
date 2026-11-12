@@ -14,6 +14,7 @@ import { codeOf } from './exitAnswerCode';
 const api = vi.hoisted(() => ({
   getAutomations: vi.fn(),
   saveAutomations: vi.fn(),
+  getAutomationHistory: vi.fn(),
   getExitQuestions: vi.fn(),
   saveExitQuestions: vi.fn(),
   resetExitQuestions: vi.fn(),

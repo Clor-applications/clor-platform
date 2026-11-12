@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from '../router.jsx';
-import { PRODUCTS, SITE, productBySlug } from '../site.js';
+import { Link, useSearch } from '../router.jsx';
+import { SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
-import { Closing, Faq, Reveal, RevealGroup, SectionHead, Steps } from '../components/Blocks.jsx';
-import { Head, HowItWorks, TrustBand } from '../components/Sections.jsx';
-import { ArrowRight, Building2, Clock, FileText, History, KeyRound, Mail, ShieldCheck, Users, Wallet } from 'lucide-react';
-import Illustration from '../components/Illustration.jsx';
+import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
+import { Head } from '../components/Sections.jsx';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
 
-function PageHead({ title, intro, children }) {
+export function PageHead({ title, intro, children }) {
   return (
     <section className="hero hero--product">
       <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
@@ -21,31 +19,32 @@ function PageHead({ title, intro, children }) {
 }
 
 /* ------------------------------------------------------------- solutions
- * Businesses and accounting firms, in the home page's language: an orange
- * label, a title, the product artwork, cards that arrive in turn, and the
- * shared How it works and Trust sections. Everything said here is true of
- * the product today; what is planned is marked planned.
+ * Businesses and accounting firms: a title, what is true today as plain
+ * lists on the page ground, and the shared Setting up and data sections.
+ * What is planned is marked planned.
  */
-function SolutionHero({ eyebrow, title, accent, intro, art, children }) {
+function SolutionHero({ title, intro, pic, children }) {
+  const copy = (
+    <div className="hero-copy">
+      <h1 id="sol-title" className="h-hero">
+        {title}
+      </h1>
+      <p className="lede">{intro}</p>
+      <div className="actions">{children}</div>
+    </div>
+  );
   return (
     <section className="hero sol-hero" aria-labelledby="sol-title">
-      <div className="wrap sol-hero-grid">
-        <div className="sol-hero-copy">
-          <p className="eyebrow hero-in" style={{ '--d': 0 }}>
-            {eyebrow}
-          </p>
-          <h1 id="sol-title" className="h-hero sol-title hero-in" style={{ '--d': 0 }}>
-            {title} {accent ? <span className="accent-word">{accent}</span> : null}
-          </h1>
-          <p className="lede hero-in" style={{ '--d': 1 }}>
-            {intro}
-          </p>
-          <div className="actions hero-in" style={{ '--d': 2 }}>
-            {children}
-          </div>
+      {pic ? (
+        <div className="wrap sol-hero-split">
+          {copy}
+          <figure className="sol-hero-photo">
+            <img src={pic.src[1]} srcSet={`${pic.src[0]} ${pic.w[0]}w, ${pic.src[1]} ${pic.w[1]}w`} sizes="(max-width: 900px) 100vw, 640px" width={pic.w[1]} height={pic.h} fetchPriority="high" alt={pic.alt} />
+          </figure>
         </div>
-        <div className="sol-hero-art">{art}</div>
-      </div>
+      ) : (
+        <div className="wrap">{copy}</div>
+      )}
     </section>
   );
 }
@@ -54,38 +53,35 @@ export function Businesses() {
   const stages = [
     ['Just starting', 'Begin with Books for GST invoices and accounts. Add the rest as people join.', ['books']],
     ['A growing team', 'Add People and Attendance when you hire, and Payroll when salaries need to be right every month.', ['people', 'attendance', 'payroll']],
-    ['Several companies or branches', 'One workspace holds all your companies; each branch keeps its own GSTIN, stock and books.', ['books', 'payroll']],
+    ['Several companies or branches', 'One login holds all your companies; each branch keeps its own GSTIN, stock and books.', ['books', 'payroll']],
   ];
   const changes = [
-    [Users, 'Added once', 'A new employee is added once, and appears on the readers, in payroll and in the employee app.'],
-    [Wallet, 'Payroll in the books', 'Payroll posts its own journal, so the books show salary cost the day the run is locked.'],
-    [KeyRound, 'One sign-in', 'Everyone signs in once and sees only the companies, branches and apps you gave them.'],
-    [History, 'One audit trail', 'Every change — an invoice edited, a role granted — is in one audit trail you can read.'],
+    ['Added once', 'A new employee is added once, and appears on the readers, in payroll and in the employee app.'],
+    ['Payroll in the books', 'Payroll posts its own journal, so the books show salary cost the day the run is locked.'],
+    ['One sign-in', 'Everyone signs in once and sees only the companies, branches and products you gave them.'],
+    ['One audit trail', 'Every change, from an edited invoice to a role given to someone, is written to one audit trail you can read.'],
   ];
   return (
     <>
       <SolutionHero
-        eyebrow="For businesses"
-        title="Run the whole business from"
-        accent="one workspace."
-        intro="Small and mid-sized Indian companies use Clor to keep accounts, people, payroll and attendance in one place, without stitching tools together."
-        art={<Illustration className="sol-art" src="/illustrations/team.webp" width={1000} height={772} priority alt="A business owner at a laptop, with team productivity, tasks and monthly revenue beside him." />}
+        title="CLOR for businesses"
+        pic={{ src: ['/people/business-workspace-700.webp', '/people/business-workspace-1400.webp'], w: [700, 1400], h: 788, alt: 'A manager at her laptop on the CLOR home screen, with Books, People, Payroll and Attendance' }}
+        intro="Growing Indian companies use CLOR to raise GST invoices, keep each employee’s record, take attendance from the reader at the gate and pay salaries, without copying figures from one tool into the next."
       >
-        <a className="btn btn--primary btn--lg" href={SITE.signUpUrl}>
-          Get started <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
-        </a>
-        <Link className="btn btn--quiet btn--lg" href="/contact">
-          Talk to us
+        <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
+          Request a demo
+        </Link>
+        <Link className="btn btn--text" href="/contact">
+          Write to us
         </Link>
       </SolutionHero>
 
       <section className="section" aria-labelledby="stages-title">
         <div className="wrap">
-          <Head center id="stages-title" eyebrow="Start where you are" title="Pick the app for today’s problem" intro="There is no bundle to buy. Each app works on its own; add the others when you need them." />
-          <RevealGroup as="ul" className="p-cards sol-stages">
-            {stages.map(([t, d, ps], n) => (
-              <li key={t} className="p-card" style={{ '--i': n }}>
-                <span className="sol-step">{n + 1}</span>
+          <Head id="stages-title" title="Pick the product for today’s problem" intro="There is no bundle to buy. Each product works on its own; add the others when you need them." />
+          <ul className="groups">
+            {stages.map(([t, d, ps]) => (
+              <li key={t}>
                 <h3 className="h-3">{t}</h3>
                 <p className="body">{d}</p>
                 <p className="stage-products">
@@ -97,41 +93,24 @@ export function Businesses() {
                 </p>
               </li>
             ))}
-          </RevealGroup>
+          </ul>
         </div>
       </section>
 
-      <section className="section section--tint" aria-labelledby="change-title">
-        <div className="wrap">
-          <Head center id="change-title" eyebrow="Better together" title="What changes when it’s all in one place" />
-          <Reveal className="connect-stage">
-            <Illustration className="connect-art" src="/illustrations/connected-apps.webp" width={1400} height={933} alt="People, Attendance, Payroll and Books joined at Clor." />
-          </Reveal>
-          <RevealGroup as="ul" className="trust-cards sol-changes">
-            {changes.map(([Icon, t, d], n) => (
-              <li key={t} className="trust-card" style={{ '--i': n }}>
-                <span className="trust-icon tone-orange" aria-hidden="true">
-                  <Icon size={24} strokeWidth={1.75} />
-                </span>
-                <h3 className="h-3">{t}</h3>
-                <p className="body">{d}</p>
-              </li>
+      <section className="section" aria-labelledby="change-title">
+        <div className="wrap split">
+          <Head id="change-title" title="What changes when the products share records" />
+          <dl className="steps">
+            {changes.map(([t, d]) => (
+              <div key={t}>
+                <dt className="h-3">{t}</dt>
+                <dd className="body">{d}</dd>
+              </div>
             ))}
-          </RevealGroup>
+          </dl>
         </div>
       </section>
 
-      <section className="section" aria-labelledby="sol-devices-title">
-        <div className="wrap split devices">
-          <Head id="sol-devices-title" eyebrow="Anywhere you work" title="In the office, on the floor, on the road" intro="In the browser on any computer, and in the Clor apps on your phone: employees punch in, see payslips and ask for leave from theirs." />
-          <Reveal className="devices-art-wrap">
-            <Illustration className="devices-art" src="/illustrations/devices.webp" width={1300} height={815} alt="A laptop, a phone and a tablet, each showing Clor, connected to the same workspace." />
-          </Reveal>
-        </div>
-      </section>
-
-      <HowItWorks />
-      <TrustBand />
       <Closing />
     </>
   );
@@ -139,130 +118,69 @@ export function Businesses() {
 
 export function Firms() {
   const today = [
-    [Mail, 'Your client invites you', 'The client invites your email address from their Workspace (Access › Invitations). You join with your own login — never theirs.'],
-    [Building2, 'Every client, one login', 'Accept invitations from as many clients as you work for, and switch between their companies from the company menu without signing out.'],
-    [ShieldCheck, 'Access the client controls', 'The client chooses your role — for example, post entries but not approve payments — and can change it or end it at any time.'],
-    [Clock, 'Time-limited if they prefer', 'A client can give you outside access that ends on a date they choose (Access › Outside access), for an audit or a filing season.'],
-    [History, 'Everything recorded', 'Every change you make is in the client’s own audit trail, in plain words, with your name on it.'],
-    [FileText, 'GST and TDS where the work is', 'Returns come from the client’s own invoices and bills, so the month’s work is review, not re-entry.'],
+    ['Your client invites you', 'The client invites your email address from their Workspace (Access, then Invitations). You join with your own login, never theirs.'],
+    ['Every client, one login', 'Accept invitations from as many clients as you work for, and switch between their companies from the company menu without signing out.'],
+    ['Access the client controls', 'The client chooses your role, for example posting entries but not approving payments, and can change it or end it at any time.'],
+    ['Time-limited if they prefer', 'A client can give you outside access that ends on a date they choose (Access, then Outside access), for an audit or a filing season.'],
+    ['Everything recorded', 'Every change you make is in the client’s own audit trail, in plain words, with your name on it.'],
+    ['GST and TDS where the work is', 'Returns come from the client’s own invoices and bills, so the month’s work is review, not re-entry.'],
   ];
   const steps = [
-    ['Your client invites you', 'From their Workspace: Access › Invitations, with your email and the role you need.'],
-    ['You accept with your login', 'One Clor login for you, whatever number of clients.'],
+    ['Your client invites you', 'From their Workspace, under Access and then Invitations, with your email and the role you need.'],
+    ['You accept with your login', 'One CLOR login for you, however many clients you have.'],
     ['Work in their books', 'Switch between clients from the company menu; each keeps its own records.'],
     ['They stay in control', 'The client sees what you changed, and can change your role or end your access.'],
   ];
   return (
     <>
       <SolutionHero
-        eyebrow="For accounting firms"
-        title="Your clients’ books, with their"
-        accent="permission."
-        intro="Each client invites you into their Clor workspace with your own login. You work in their books; they decide what you can see and change, and can end it at any time."
-        art={<Illustration className="sol-art" src="/illustrations/hero-workspace.webp" width={1400} height={787} priority alt="The Clor workspace on a laptop and a phone, with every app connected to it." />}
+        title="CLOR for accounting firms"
+        intro="Each client invites you into their CLOR company with your own login. You work in their books; they decide what you can see and change, and can end it at any time."
       >
-        <a className="btn btn--primary btn--lg" href={SITE.signUpUrl}>
-          Get started <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
-        </a>
-        <Link className="btn btn--quiet btn--lg" href="/contact?about=firms">
-          Talk to us
+        <Link className="btn btn--primary btn--lg" href="/contact?about=firm">
+          Request a demo
+        </Link>
+        <Link className="btn btn--text" href="/contact?about=firm">
+          Write to us
         </Link>
       </SolutionHero>
 
       <section className="section" aria-labelledby="firm-today-title">
         <div className="wrap">
-          <Head center id="firm-today-title" eyebrow="Available today" title="How firms work with clients on Clor" />
-          <RevealGroup as="ul" className="trust-cards sol-cards-3">
-            {today.map(([Icon, t, d], n) => (
-              <li key={t} className="trust-card" style={{ '--i': n }}>
-                <span className="trust-icon tone-orange" aria-hidden="true">
-                  <Icon size={24} strokeWidth={1.75} />
-                </span>
+          <Head id="firm-today-title" title="How firms work with clients on CLOR today" />
+          <ul className="groups">
+            {today.map(([t, d]) => (
+              <li key={t}>
                 <h3 className="h-3">{t}</h3>
                 <p className="body">{d}</p>
               </li>
             ))}
-          </RevealGroup>
+          </ul>
         </div>
       </section>
 
-      <section className="section section--tint" aria-labelledby="firm-steps-title">
+      <section className="section" aria-labelledby="firm-steps-title">
         <div className="wrap split">
-          <Head id="firm-steps-title" eyebrow="How it works" title="From invitation to the month’s work" />
+          <Head id="firm-steps-title" title="From invitation to the month’s work" />
           <Steps steps={steps} />
         </div>
       </section>
 
       <section className="section" aria-labelledby="firm-planned-title">
-        <div className="wrap split firms-planned">
+        <div className="wrap split">
+          <Head id="firm-planned-title" title="Planned: a workspace for the firm itself" intro="In development, not yet available. What we are building:" />
           <div className="stack">
-            <Head id="firm-planned-title" eyebrow="Planned" title="A workspace for the firm itself" intro="In development, not yet available. What we are building:" />
-            <ul className="ticks ticks--lg">
+            <ul className="facts-list">
               <li>Your firm’s own account, with your staff and their roles.</li>
-              <li>Client engagements the client approves, with which apps you may use and until when.</li>
+              <li>Client engagements the client approves, with which products you may use and until when.</li>
               <li>Assigning staff to clients, and one view of who can reach which client.</li>
             </ul>
-            <p className="small">Plans, not promises: the direction may change before release.</p>
+            <p className="small">The direction may change before release.</p>
           </div>
-          <Reveal className="firms-art-wrap">
-            <Illustration className="firms-art" src="/illustrations/ca-firm.webp" width={1200} height={848} alt="Planned: a CA firm’s own account, with its client companies under it and the firm’s people on each." />
-          </Reveal>
         </div>
       </section>
 
-      <TrustBand />
-      <Closing title="Working with clients on Clor already?" text="Ask your client to invite you from their Workspace: Access › Invitations. Or talk to us about the firm workspace." />
-    </>
-  );
-}
-
-/* ----------------------------------------------------------------- pricing */
-export function Pricing() {
-  return (
-    <>
-      <PageHead title="Pay for the products you use." intro="Every Clor product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
-      <section className="section">
-        <div className="wrap">
-          <div className="price-table" role="table" aria-label="Products and pricing">
-            <div className="price-row price-row--head" role="row">
-              <span role="columnheader">Product</span>
-              <span role="columnheader">Status</span>
-              <span role="columnheader">Price</span>
-            </div>
-            {PRODUCTS.map((p) => (
-              <div key={p.slug} className="price-row" role="row">
-                <span role="cell" className="price-name">
-                  <Mark product={p} size={28} /> Clor {p.name}
-                </span>
-                <span role="cell">
-                  <Status product={p} />
-                </span>
-                <span role="cell" className="small">
-                  {p.status === 'available' ? 'Being finalised' : 'At launch'}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="small price-note">Prices are being set now. Until they are published, talk to us and we will tell you what your company would pay.</p>
-          <div className="actions price-actions">
-            <Link className="btn btn--primary" href="/contact?about=pricing">
-              Ask about pricing
-            </Link>
-          </div>
-        </div>
-      </section>
-      <section className="section section--tint">
-        <div className="wrap">
-          <Faq
-            title="How subscriptions work"
-            items={[
-              ['Is there one plan for everything?', 'No. Each product is subscribed to on its own, for the companies in your workspace that use it.'],
-              ['What happens to my data if I stop a product?', 'The data stays in your workspace and can be exported. Switching the product back on brings it back.'],
-              ['Do accountants and employees count as users?', 'Employees using only the employee app are not workspace users. How outside accountants are counted will be set out with the prices.'],
-            ]}
-          />
-        </div>
-      </section>
+      <Closing demoHref="/contact?about=firm" title="Working with clients on CLOR already?" text="Ask your client to invite you from their Workspace, under Access and then Invitations. Or ask us for a demo of how firms work in CLOR." />
     </>
   );
 }
@@ -274,7 +192,7 @@ const INTEGRATIONS = [
   ['HR tools', 'Send punches to greytHR, Keka or Zoho People, and bring employees across from them.', 'attendance'],
   ['Single sign-on', 'Sign in with your company’s identity provider over SAML or OpenID Connect.', null],
   ['Directory sync (SCIM)', 'Add, change and remove users from your identity provider automatically.', null],
-  ['API and webhooks', 'Read employees and attendance, send punches, and get told when things happen — with keys you create and can revoke.', 'attendance'],
+  ['API and webhooks', 'Read employees and attendance, send punches, and get told when things happen, with keys you create and can revoke.', 'attendance'],
   ['UPI payment links', 'A link on each invoice that your customer pays by UPI; the payment is recorded against the invoice.', 'books'],
   ['GST e-invoice and e-way bill', 'Generate the IRN and e-way bill from the invoice itself.', 'books'],
 ];
@@ -282,7 +200,7 @@ const INTEGRATIONS = [
 export function Integrations() {
   return (
     <>
-      <PageHead title="What connects to Clor" intro="Only what works today is listed here. If you need something that isn’t, tell us." />
+      <PageHead title="What connects to CLOR" intro="Only what works today is listed here. If you need something that isn’t, tell us." />
       <section className="section">
         <div className="wrap">
           <ul className="integrations">
@@ -292,10 +210,10 @@ export function Integrations() {
                 <p className="body">{text}</p>
                 {product ? (
                   <Link className="small int-product" href={`/products/${product}`}>
-                    <Mark product={productBySlug(product)} size={20} /> Clor {productBySlug(product).name}
+                    <Mark product={productBySlug(product)} size={20} /> CLOR&nbsp;{productBySlug(product).name}
                   </Link>
                 ) : (
-                  <span className="small int-product">Every Clor product</span>
+                  <span className="small int-product">Every CLOR product</span>
                 )}
               </li>
             ))}
@@ -320,7 +238,7 @@ const GUIDES = [
 export function Resources() {
   return (
     <>
-      <PageHead title="Guides" intro="Step-by-step help for setting up Clor. More guides follow as the products grow." />
+      <PageHead title="Guides" intro="Help with setting up CLOR. More guides follow as the products grow." />
       <section className="section">
         <div className="wrap">
           <ul className="guides">
@@ -344,7 +262,14 @@ export function Resources() {
 export function About() {
   return (
     <>
-      <PageHead title="We build the software Indian businesses run on." intro={`${SITE.company} makes Clor: accounting, HR, payroll and attendance that share one set of records, so a business keeps its books and its people in one place.`} />
+      <PageHead
+        title="About CLOR"
+        intro={`${SITE.company} makes CLOR: accounting, HR, payroll and attendance that read the same records, so an employee added in People is the same person on the attendance reader, in the salary run and in the books.`}
+      >
+        <p className="body">
+          We work from our office in {SITE.city}: {SITE.address}. You are welcome to visit; write to {SITE.contactEmail} first so someone is there to meet you.
+        </p>
+      </PageHead>
       <section className="section">
         <div className="wrap split">
           <SectionHead title="What we hold to" />
@@ -363,31 +288,34 @@ export function About() {
             </li>
             <li>
               <h3 className="h-3">Say what is true</h3>
-              <p className="body">If a product or a feature isn’t ready, we say so — on this site and in the app.</p>
+              <p className="body">If a product or a feature isn’t ready, we say so, on this site and in the app.</p>
             </li>
           </ul>
         </div>
       </section>
-      <Closing title="Want to know more?" text="Tell us about your business and what you’d like Clor to do for it." />
+      <Closing title="Want to know more?" text="Tell us about your business and what you’d like CLOR to do for it." />
     </>
   );
 }
 
 /* ----------------------------------------------------------------- contact */
-/* Questions about buying go to sales; everything else to the general inbox. */
+/* Questions about buying go to sales; everything else to the general inbox. A demo has its own form (/demo). */
 const SALES_TOPICS = new Set(['pricing', 'projects', 'timesheet', 'firm']);
-const TOPICS = { general: 'A question about Clor', pricing: 'Pricing for my company', projects: 'Clor Projects, when it’s ready', timesheet: 'Clor Timesheet, when it’s ready', firm: 'Clor for my accounting firm' };
+const TOPICS = { general: 'A question about CLOR', pricing: 'Pricing for my company', projects: 'CLOR Projects, when it’s ready', timesheet: 'CLOR Timesheet, when it’s ready', firm: 'CLOR for my accounting firm' };
 
 export function Contact() {
   const [about, setAbout] = useState('general');
   const [form, setForm] = useState({ name: '', company: '', email: '', message: '' });
+  /* The query comes from the router, so an in-page link to another ?about= is heard too. */
+  const search = useSearch();
   useEffect(() => {
-    /* The address is read after hydration (the server has none); on the next frame, not inside the effect. */
-    const q = new URLSearchParams(window.location.search).get('about');
-    if (!q || !TOPICS[q]) return undefined;
-    const frame = requestAnimationFrame(() => setAbout(q));
+    /* The address is read after hydration (the server has none); on the next frame, not inside the effect. ?about= picks the topic. */
+    const q = new URLSearchParams(search);
+    const topic = TOPICS[q.get('about')] ? q.get('about') : null;
+    if (!topic) return undefined;
+    const frame = requestAnimationFrame(() => setAbout(topic));
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [search]);
   /* No form backend yet: the message opens in the visitor's own email app, addressed to us. */
   const mailto = () => {
     const body = `${form.message}\n\nName: ${form.name}\nCompany: ${form.company}\nEmail: ${form.email}`;
@@ -449,7 +377,7 @@ export function Contact() {
               <dd>
                 <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>
               </dd>
-              <dt>Buying Clor</dt>
+              <dt>Buying CLOR</dt>
               <dd>
                 <a href={`mailto:${SITE.salesEmail}`}>{SITE.salesEmail}</a>
               </dd>
@@ -490,7 +418,7 @@ const SECURITY = [
 export function Security() {
   return (
     <>
-      <PageHead title="How Clor keeps your data safe" intro="What we do today, described plainly. Nothing on this page is a plan." />
+      <PageHead title="How CLOR keeps your data safe" intro="What we do today, described plainly. Nothing on this page is a plan." />
       <section className="section">
         <div className="wrap">
           <dl className="features">
@@ -503,13 +431,72 @@ export function Security() {
           </dl>
         </div>
       </section>
-      <section className="section section--tint">
+      <section className="section">
         <div className="wrap split">
-          <SectionHead title="Found a problem?" intro="If you believe you have found a security issue in Clor, write to us. We read every report." />
+          <SectionHead title="Found a problem?" intro="If you believe you have found a security issue in CLOR, write to us. We read every report." />
           <p>
             <a className="btn btn--quiet" href={`mailto:${SITE.contactEmail}?subject=${encodeURIComponent('Security report')}`}>
               Report a security issue
             </a>
+          </p>
+        </div>
+      </section>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ status */
+/*
+ * Is CLOR working (clor.in/status). The page is static, so it loads even when the API does not; the browser then asks
+ * the API (GET /api/public/status) and asks again every minute. An answer that never comes is itself the answer.
+ */
+const STATUS_PARTS = ['Sign-in and Workspace', 'Books', 'People and Attendance', 'Payroll'];
+const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+export function ServiceStatus() {
+  /* null: not asked yet. { down: true }: the API did not answer. Otherwise what it said. */
+  const [state, setState] = useState(null);
+  useEffect(() => {
+    let live = true;
+    const ask = () =>
+      fetch(`${SITE.apiUrl}/public/status`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('not ok'))))
+        .then((body) => live && setState(body))
+        .catch(() => live && setState({ down: true, checkedAt: new Date().toISOString() }));
+    ask();
+    const timer = setInterval(ask, 60000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, []);
+  const parts = state?.parts || STATUS_PARTS.map((name) => ({ key: name, name, ok: state ? false : null }));
+  const headline = !state ? 'Checking…' : state.down ? 'CLOR is not answering' : state.ok ? 'Everything is working' : 'Some parts are not working';
+  const intro = !state
+    ? 'Asking CLOR now.'
+    : state.down
+      ? 'We could not reach CLOR from your browser. Check your own internet first. If it is working, CLOR is down: please write to us.'
+      : state.ok
+        ? 'Every part of CLOR answered just now.'
+        : 'The parts marked below did not answer just now. The others are working.';
+  return (
+    <>
+      <PageHead title={headline} intro={intro} />
+      <section className="section section--flush">
+        <div className="wrap">
+          <ul className="status-list" aria-live="polite">
+            {parts.map((p) => (
+              <li key={p.key}>
+                <span>{p.name}</span>
+                <span className={`status-mark${p.ok === false ? ' status-mark--bad' : p.ok === null ? ' status-mark--wait' : ''}`}>
+                  {p.ok === null ? 'Checking' : p.ok ? 'Working' : 'Not working'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="body status-note">
+            {state ? `Checked at ${clock(state.checkedAt)}. This page checks again every minute. ` : null}
+            Something wrong that this page does not show? Write to <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>.
           </p>
         </div>
       </section>
@@ -525,7 +512,7 @@ export function Security() {
  */
 const REFUND = {
   title: 'Refund & cancellation',
-  summary: 'How billing, cancellation and refunds work for Clor. Last updated 11 October 2026.',
+  summary: 'How billing, cancellation and refunds work for CLOR. Last updated 11 October 2026.',
   Body: () => (
     <>
       <h2>Cloud subscriptions</h2>
@@ -558,7 +545,139 @@ const REFUND = {
     </>
   ),
 };
-const LEGAL = { ...DOCUMENTS, refund: REFUND };
+/*
+ * Delivery (shipping) policy. CLOR ships nothing physical; payment providers
+ * still ask how and when a buyer receives what they paid for. Like the refund
+ * page, the website's own, not one of the app's shared legal documents.
+ */
+const DELIVERY = {
+  title: 'Delivery policy',
+  summary: 'How you receive CLOR after you sign up or pay. Last updated 9 November 2026.',
+  Body: () => (
+    <>
+      <h2>Nothing is shipped</h2>
+      <p>
+        CLOR is software used in a web browser and in our phone apps. We do not send any physical goods, so there are no shipping charges and
+        no delivery address is needed.
+      </p>
+      <h2>Cloud plans</h2>
+      <p>
+        Access is delivered by email to the address you sign up with. When you create an account yourself, you can use it as soon as you have
+        confirmed your email. When our team creates the account for you after a demo, we email the owner a link to set a password, and the
+        apps you chose are ready when you sign in.
+      </p>
+      <p>
+        A paid plan or an added app starts as soon as the payment is confirmed. Nothing changes in how you sign in: the new apps appear in the
+        same account.
+      </p>
+      <h2>On-premise licenses</h2>
+      <p>The license key and the installation guide are emailed to the address on the order once the payment is confirmed.</p>
+      <h2>Invoices</h2>
+      <p>The invoice for each payment is emailed to the account owner.</p>
+      <h2>If something has not arrived</h2>
+      <p>
+        Check your spam folder first. If the email is still missing, write to{' '}
+        <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a> from the address you signed up with, and we will send it again.
+      </p>
+      <h2>Who delivers it</h2>
+      <p>
+        {SITE.company}, {SITE.address}.
+      </p>
+    </>
+  ),
+};
+/*
+ * Data processing agreement (DPDP Act 2023): what larger customers ask for before they buy. The website's own page,
+ * like refund and delivery. It states only what the product does today; a lawyer reviews the wording before it is
+ * relied on (docs/compliance/OWNER_INPUT_REQUIRED.md).
+ */
+const DPA = {
+  title: 'Data processing agreement',
+  summary: 'How CLOR handles the personal data your company keeps in it, as your processor. Last updated 11 November 2026.',
+  Body: () => (
+    <>
+      <h2>Who this is between</h2>
+      <p>
+        Your company (the customer) and {SITE.company}, {SITE.address} (CLOR, we). It applies whenever your company keeps personal data in
+        CLOR, and is part of the <Link href="/legal/terms">terms of service</Link>.
+      </p>
+      <h2>Whose data it is</h2>
+      <p>
+        Your company decides what personal data goes into CLOR and why: your employees, your customers and suppliers, and the people you give
+        a login. Under India’s Digital Personal Data Protection Act, 2023, your company is the Data Fiduciary for that data and we are its
+        Data Processor. For the details of your own account with us (your name, email and sign-in history) we are the Data Fiduciary, and
+        the <Link href="/legal/privacy">privacy notice</Link> applies.
+      </p>
+      <h2>What we do with it</h2>
+      <ul>
+        <li>We store and process the data only to provide CLOR to your company, and as your company instructs through the product.</li>
+        <li>We do not sell it, use it for advertising, or use it to train AI models.</li>
+        <li>Our staff do not open your business records. Support works from account details, settings and error logs.</li>
+        <li>Everyone at CLOR who can reach production systems is bound to keep what they see confidential.</li>
+      </ul>
+      <h2>How we protect it</h2>
+      <ul>
+        <li>Each company’s records are kept apart, and the database itself refuses a query that does not name the company it is for.</li>
+        <li>Data is encrypted in transit. Passwords are stored only as hashes; stored credentials for email servers and e-invoice portals are encrypted.</li>
+        <li>Sign-in supports authenticator apps and single sign-on, and locks after repeated failures. CLOR staff must use an authenticator.</li>
+        <li>Changes to records, roles and access are written to an audit trail your administrators can read.</li>
+        <li>The database is backed up every day, with recovery to a point in time for the last 7 days.</li>
+      </ul>
+      <p>
+        More on <Link href="/security">the security page</Link>.
+      </p>
+      <h2>Where it is kept</h2>
+      <p>Servers and the database run in Google Cloud’s Mumbai region, in India.</p>
+      <h2>Others who process it for us</h2>
+      <ul>
+        <li>
+          <strong>Google Cloud</strong> (India): servers, database and backups.
+        </li>
+        <li>
+          <strong>Cloudflare</strong>: delivers the app and protects it from attacks. Traffic passes through its network.
+        </li>
+        <li>
+          <strong>An email service</strong>: delivers account and notification emails, unless your company sets up its own mail server in CLOR.
+        </li>
+      </ul>
+      <p>
+        Only if your company switches the feature on: a GST Suvidha Provider or the Invoice Registration Portal (GSTIN lookup and
+        e-invoices), and an AI service that suggests a role for a new user from a job title. Each of these is bound to protect the data at
+        least as this agreement does. We will tell account owners by email before we add or replace one.
+      </p>
+      <h2>If something goes wrong</h2>
+      <p>
+        If we learn of a breach that affects personal data your company keeps in CLOR, we will tell your account owner without undue delay,
+        with what happened, what data was affected and what we are doing about it, so your company can meet its own duty to tell the people
+        affected and the Data Protection Board of India.
+      </p>
+      <h2>When a person asks about their data</h2>
+      <p>
+        Your company answers requests from its own employees and contacts to see, correct or erase their data. CLOR gives your administrators
+        the tools to do it (export, correction, and erasure with what the law requires you to keep). If such a person writes to us, we pass
+        the request to your company.
+      </p>
+      <h2>Getting your data out, and deletion</h2>
+      <ul>
+        <li>Your company can export its data at any time.</li>
+        <li>When your company closes a company in CLOR, it is deleted after a 30-day notice period, and backups that hold it expire after that.</li>
+        <li>Tax and company law can require your company to keep some records for several years. Keeping your own copy is your company’s duty.</li>
+      </ul>
+      <h2>Showing that we do this</h2>
+      <p>
+        On a written request, at most once a year, we answer reasonable questions about how we meet this agreement. CLOR does not yet hold an
+        ISO 27001 or SOC 2 certificate.
+      </p>
+      <h2>Changes</h2>
+      <p>If we change this agreement in a way that matters, we email account owners before the change takes effect.</p>
+      <h2>Contact</h2>
+      <p>
+        Questions about this agreement, or a signed copy for your records: <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.
+      </p>
+    </>
+  ),
+};
+const LEGAL = { ...DOCUMENTS, refund: REFUND, delivery: DELIVERY, dpa: DPA };
 
 export function Legal({ doc }) {
   const d = LEGAL[doc];
@@ -569,7 +688,7 @@ export function Legal({ doc }) {
       <section className="section section--flush">
         <div className="wrap">
           <nav className="legal-nav" aria-label="Legal documents">
-            {['privacy', 'terms', 'cookies', 'refund'].map((k) => (
+            {['privacy', 'terms', 'dpa', 'cookies', 'refund', 'delivery'].map((k) => (
               <Link key={k} href={`/legal/${k}`} aria-current={k === doc ? 'page' : undefined}>
                 {LEGAL[k].title}
               </Link>

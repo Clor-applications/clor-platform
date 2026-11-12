@@ -12,6 +12,8 @@ import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
 import { sentOnly } from '../utils/sentOnly.js';
+import { teamScope } from '../services/people/scope.js';
+import { docAccess, docAccessOfBoth, docAccessOfUser, docWhere, type DocAccess } from '../services/people/documentAccess.js';
 
 /**
  * Attendance reports — ClorTime's catalogue (routes/reports.js) and its
@@ -27,6 +29,16 @@ export const attendanceReportsRouter = Router();
 attendanceReportsRouter.use(requireAuth, requireTenantContext);
 
 const can = () => requirePermission(ATTENDANCE_MODULE, PermissionAction.VIEW as any, ATTENDANCE_RESOURCE.records);
+/*
+ * The reports are the whole company's (registers, readers, documents, everyone's birthdays). A
+ * team-scoped role (a Team Manager, audit 7 Nov 2026 #3) holds Records VIEW for its team today, not
+ * these: it is refused rather than shown company-wide figures. The calendar alone narrows to its team.
+ */
+const wholeCompany = async (req: any, res: any) => {
+  if ((await teamScope(req)).all) return true;
+  res.status(403).json({ error: 'Attendance reports cover the whole company. Your team’s days are under Daily attendance.', code: 'TEAM_SCOPED' });
+  return false;
+};
 const MAX_DAYS = 92;
 const hm = (m: number) => `${Math.floor(Math.max(0, m) / 60)}:${String(Math.max(0, m) % 60).padStart(2, '0')}`;
 
@@ -99,6 +111,8 @@ function dayStatus(ctx: Awaited<ReturnType<typeof periodContext>>, p: { id: stri
   if (ctx.holidaysFor(p as any).has(date)) return 'HOLIDAY';
   if (isWeeklyOff(ctx.shiftOn(p.id, date).rule, date)) return 'WEEKLY_OFF';
   if (date > ctx.today) return null;
+  /* Before the company kept attendance on CLOR: not tracked, not absent (#5). */
+  if (ctx.untracked(p.id, date)) return null;
   return 'ABSENT';
 }
 
@@ -228,7 +242,7 @@ const inScope = (f: Scope) => (p: { id?: string; departmentId?: string | null; a
   (!f.contractorId || p.contractorId === f.contractorId) &&
   (!f.employeeId || p.id === f.employeeId);
 
-export async function build(id: string, accountId: string, orgId: string, q: any): Promise<Report> {
+export async function build(id: string, accountId: string, orgId: string, q: any, as: { docs?: DocAccess; asUserId?: string | null } = {}): Promise<Report> {
   const scope = params(q);
   const { month, date, from, to, departmentId, employeeId } = scope;
   const inDept = (_d: string | null) => inScope(scope);
@@ -702,7 +716,9 @@ export async function build(id: string, accountId: string, orgId: string, q: any
 
   if (id === 'documents') {
     const limit = istDate(new Date(Date.now() + 90 * 86_400_000));
-    const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, expiresOn: { not: null, lte: limit } }, select: { title: true, kind: true, expiresOn: true, employeeId: true }, orderBy: { expiresOn: 'asc' } });
+    /* Only the files the reader may open in People are listed (audit 7 Nov 2026); a scheduled mail reads as whoever set it up. */
+    const access = as.docs ?? (await docAccessOfUser(accountId, orgId, as.asUserId));
+    const docs = await peoplePrisma.employeeDocument.findMany({ where: { orgId, expiresOn: { not: null, lte: limit }, ...docWhere(access) }, select: { title: true, kind: true, expiresOn: true, employeeId: true }, orderBy: { expiresOn: 'asc' } });
     const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, ...(departmentId ? { departmentId } : {}) }, select: { id: true, code: true, name: true, department: true } })).map((p) => [p.id, p]));
     const t = today();
     const rows = docs.filter((d) => people.has(d.employeeId)).map((d) => { const p = people.get(d.employeeId)!; return { expires: d.expiresOn, code: p.code, name: p.name, department: p.department, document: d.title, kind: d.kind, state: d.expiresOn! < t ? 'Expired' : 'Expiring' }; });
@@ -781,7 +797,9 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/calendar', can(), async (re
   const { accountId, orgId } = req.tenant!;
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
   const days = daysOfMonth(month);
-  const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1]);
+  /* A team-scoped role's calendar counts its own team (the Attendance dashboard's week). */
+  const team = await teamScope(req);
+  const ctx = await periodContext(accountId, orgId, days[0], days[days.length - 1], team.all ? {} : { employeeIds: team.ids });
   const q = (k: string) => String(req.query[k] || '').trim() || null;
   const people = ctx.people.filter(inScope({ departmentId: q('departmentId'), areaId: q('areaId'), contractorId: q('contractorId'), employeeId: null }));
   const out = days.map((date) => {
@@ -824,6 +842,7 @@ const publicSchedule = (s: any) => ({ ...s, params: JSON.parse(s.paramsJson || '
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const rows = await peoplePrisma.reportSchedule.findMany({ where: { accountId, orgId }, orderBy: { createdAt: 'asc' } });
   res.json({ schedules: rows.map(publicSchedule) });
@@ -831,6 +850,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules', can(), 
 
 attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const parsed = scheduleSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the schedule.' });
@@ -843,6 +863,7 @@ attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules', can(),
 
 attendanceReportsRouter.put('/orgs/:orgId/attendance/reports/schedules/:id', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
@@ -850,12 +871,15 @@ attendanceReportsRouter.put('/orgs/:orgId/attendance/reports/schedules/:id', can
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the schedule.' });
   const b = sentOnly(parsed.data, req.body);
   const cadence = b.cadence || s.cadence;
-  const row = await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { ...(b.reportId ? { reportId: b.reportId } : {}), ...(b.params ? { paramsJson: JSON.stringify(b.params) } : {}), cadence, dayOfWeek: cadence === 'WEEKLY' ? b.dayOfWeek ?? s.dayOfWeek ?? 1 : null, dayOfMonth: cadence === 'MONTHLY' ? b.dayOfMonth ?? s.dayOfMonth ?? 1 : null, ...(b.hour !== undefined ? { hour: b.hour } : {}), ...(b.recipients ? { recipients: b.recipients.trim() } : {}), ...(b.enabled !== undefined ? { enabled: b.enabled } : {}) } });
+  /* Whoever changes what a schedule sends, or to whom, becomes the one it reads as (the mail can name files). */
+  const redirected = b.reportId !== undefined || b.params !== undefined || b.recipients !== undefined;
+  const row = await peoplePrisma.reportSchedule.update({ where: { id: s.id }, data: { ...(redirected ? { createdByUserId: req.auth!.userId } : {}), ...(b.reportId ? { reportId: b.reportId } : {}), ...(b.params ? { paramsJson: JSON.stringify(b.params) } : {}), cadence, dayOfWeek: cadence === 'WEEKLY' ? b.dayOfWeek ?? s.dayOfWeek ?? 1 : null, dayOfMonth: cadence === 'MONTHLY' ? b.dayOfMonth ?? s.dayOfMonth ?? 1 : null, ...(b.hour !== undefined ? { hour: b.hour } : {}), ...(b.recipients ? { recipients: b.recipients.trim() } : {}), ...(b.enabled !== undefined ? { enabled: b.enabled } : {}) } });
   res.json({ schedule: publicSchedule(row) });
 });
 
 attendanceReportsRouter.delete('/orgs/:orgId/attendance/reports/schedules/:id', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
@@ -866,6 +890,7 @@ attendanceReportsRouter.delete('/orgs/:orgId/attendance/reports/schedules/:id', 
 /** When a schedule ran, and whether it went. */
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules/:id/runs', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
@@ -876,14 +901,18 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/schedules/:id/runs'
 /** Send it now, for the period it would cover if it ran this morning. */
 attendanceReportsRouter.post('/orgs/:orgId/attendance/reports/schedules/:id/send', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const s = await peoplePrisma.reportSchedule.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!s) return res.status(404).json({ error: 'No such schedule.' });
-  res.json(await runSchedule(s, build));
+  /* Sent now, it reads as both the person pressing it and the one who set it up: only what both may open. */
+  const docs = docAccessOfBoth(await docAccess(req), await docAccessOfUser(accountId, orgId, s.createdByUserId));
+  res.json(await runSchedule(s, (reportId, acc, org, q) => build(reportId, acc, org, q, { docs })));
 });
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const departments = await peoplePrisma.department.findMany({ where: { orgId: req.tenant!.orgId }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
   const employees = await peoplePrisma.employee.findMany({ where: { orgId: req.tenant!.orgId, status: { not: 'LEFT' } }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } });
   const [areas, contractors] = await Promise.all([
@@ -901,6 +930,7 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports', can(), async (req
  */
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/insights', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const count = Math.min(12, Math.max(3, Number(req.query.months) || 6));
   const scope = { departmentId: String(req.query.departmentId || '') || null, areaId: String(req.query.areaId || '') || null, contractorId: String(req.query.contractorId || '') || null, employeeId: null };
@@ -966,10 +996,11 @@ attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/insights', can(), a
 
 attendanceReportsRouter.get('/orgs/:orgId/attendance/reports/:id', can(), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const id = String(req.params.id);
-    const report = await build(id, accountId, orgId, req.query);
+    const report = await build(id, accountId, orgId, req.query, id === 'documents' ? { docs: await docAccess(req) } : {});
     res.json({ id, ...report, figures: figuresFor(id, report) });
   } catch (e: any) {
     if (e?.status) return res.status(e.status).json({ error: e.message });

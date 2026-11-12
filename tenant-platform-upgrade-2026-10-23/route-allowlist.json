@@ -83,6 +83,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/auth/resend-verification/sign-in",
+      "reason": "Needs the 15-minute challenge a refused sign-in returns only after the right password (#4); sends the link to that person's own address; resetLimiter."
+    },
+    {
+      "method": "POST",
       "path": "/api/auth/reset-password",
       "reason": "Needs the single-use reset token from the e-mail, consumed atomically (A-06); resetLimiter."
     },
@@ -155,6 +160,11 @@
       "method": "POST",
       "path": "/api/billing/webhook",
       "reason": "Payment-gateway webhook on the app itself, ahead of the JSON parser: express.raw keeps the exact bytes the gateway adapter verifies (A-16); billingWebhookLimiter."
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/webhook/:provider",
+      "reason": "One payment provider's webhook (cashfree, razorpay), the address shown in the operator console: raw body ahead of the JSON parser; the provider's HMAC signature is checked with its secret saved (encrypted) in Payments, refused events are kept at most 200 an hour; idempotent on the provider event id; billingWebhookLimiter."
     },
     {
       "method": "POST",
@@ -545,6 +555,16 @@
       "method": "GET",
       "path": "/api/portal/people/me/leaving",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reads only their own notice state and waiting resignation."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/me/letters",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; lists only the letters they may ask for and their own letter and document requests (People plan step 6)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/letters",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks for a letter or a document copy about themselves only, as a LETTER_REQUEST or DOCUMENT_REQUEST HR approves (People plan step 6)."
     },
     {
       "method": "POST",
@@ -982,6 +1002,56 @@
       "reason": "Lists People outbox events that used every retry (leave and request notices among them) for the operator: ids, company, event name, attempts and last error, no payload; same JOBS_TOKEN check, 404 when unset (closure audit O-07)."
     },
     {
+      "method": "POST",
+      "path": "/api/explore/exchange",
+      "reason": "Explore link from a demo request's mail (explore.ts): the token is the credential, kept only as a SHA-256 hash, 14 days, revocable by an operator; exploreLimiter (30 per address and 10 per token a quarter-hour); the same 410 for unknown, run-out and ended links; opens a session only as the shared sample company's viewer, and middleware/exploreReadOnly.ts refuses every write that session makes."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/app-catalogue",
+      "reason": "The app catalogue clor.in and the app switcher read (opsCatalogue.ts): each app's name, Available or Coming soon, and its one-line blurb, the same for everybody; Hidden apps are left out; reads one platform table with no accountId and nothing of any customer's; changes nothing. CORS open to any origin for GET, without credentials."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/status",
+      "reason": "Service status for clor.in/status (status.ts): up or down for each part (sign-in, database, mail, files), the same for everybody; no error text, hosts or timings; cached 20 seconds so it cannot load the database; reads nothing of any account; changes nothing. CORS open to any origin for GET, without credentials."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/demo-requests",
+      "reason": "Request a demo on clor.in (demoRequests.ts): no account exists yet; demoRequestLimiter (10 an hour per address, 3 per email); hidden trap field drops bots; fields validated; writes one platform DemoRequest row (no accountId), a DEMO_REQUESTED auth event, a mail to sales, and an Explore pass mailed to the visitor whose link it answers with (a read-only view of the shared sample company, nothing of anybody's); reads nothing else back. CORS open to the site origins only, without credentials."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/signup/options",
+      "reason": "Free trial on clor.in (signup.ts): no account exists yet; answers only the published self-serve offer (which apps can start alone, trial days, link hours), the same facts the public pricing page shows; reads nothing of any account."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/signup/start",
+      "reason": "Free trial on clor.in (signup.ts): no account exists yet; signupStartLimiter (10 an hour per address, 3 per email); hidden trap field drops bots; email validated; writes one platform TrialSignup row (no accountId) holding only a SHA-256 of a 24-hour token and mails the link to that address. Says when an email already signs in (409); rate-limited like the demo form, so address probing is bounded."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/signup/pending",
+      "reason": "Free trial link (signup.ts): the token is the credential, kept only as a SHA-256 hash, 24 hours; signupLinkLimiter (30 per address and 10 per token a quarter-hour) so tokens cannot be walked; answers only that sign-up row's own email, chosen app and the public offer; the same error for unknown and run-out links."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/signup/confirm",
+      "reason": "Free trial link (signup.ts): the token is the credential (SHA-256 hash, 24 hours, single use via a conditional claim so two tabs cannot both start); signupLinkLimiter; creates the account through provisionAccount, the same code as the operator console Create account, then opens a session for that new owner only."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/pricing",
+      "reason": "clor.in's pricing page (pricing.ts): CLOR's own published price book as operators made it (plans shown on the site, their apps, amounts in paise, trial days) and whether GST is charged; 404 when nothing is published; no customer data, no draft, archived or hidden plan. Read-only, cached a minute per instance and in the browser. CORS open to the site origins only, without credentials."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/pricing/quote",
+      "reason": "A price quote on clor.in (pricing.ts): arithmetic over the published price book for the website plans, period and counts sent; validated by zod; pricingQuoteLimiter (120 a minute per address, in-process); writes nothing and reads only the published book and CLOR's GST setting. CORS open to the site origins only, without credentials."
+    },
+    {
       "method": "GET",
       "path": "/api/people/apply/:token",
       "reason": "Talent apply page (TALENT-DECISIONS.md): token kept only as sha256, works while the opening is open and its link is on; shows the job title, company and description only; outsideTenant lookup then enterTenant."
@@ -1140,6 +1210,26 @@
       "method": "PUT",
       "path": "/api/portal/people/engage/celebrations",
       "reason": "Employee self-service (greetings 4.8): portal token + anyAppLive; the person opts themselves out of being announced, or back in (CelebrationOptOut, idempotent)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/support/tickets",
+      "reason": "Customer support tickets (support.ts): any signed-in member of the account may ask CLOR for help, like the Help link; requireAuth and requireTenantContext; a member reaches only tickets they opened (owners and admins: their own account), never another account; opening is limited to 10 an hour per person; no business records are read or changed."
+    },
+    {
+      "method": "POST",
+      "path": "/api/support/tickets/:id/reply",
+      "reason": "Customer support tickets (support.ts): any signed-in member of the account may ask CLOR for help, like the Help link; requireAuth and requireTenantContext; a member reaches only tickets they opened (owners and admins: their own account), never another account; opening is limited to 10 an hour per person; no business records are read or changed."
+    },
+    {
+      "method": "POST",
+      "path": "/api/support/tickets/:id/solved",
+      "reason": "Customer support tickets (support.ts): any signed-in member of the account may ask CLOR for help, like the Help link; requireAuth and requireTenantContext; a member reaches only tickets they opened (owners and admins: their own account), never another account; opening is limited to 10 an hour per person; no business records are read or changed."
+    },
+    {
+      "method": "POST",
+      "path": "/api/announcements/:id/dismiss",
+      "reason": "Close a CLOR announcement for yourself (announcements.ts): requireAuth; only an announcement live and showing to that person (their account’s apps and role) can be closed, never a problem notice; writes one AnnouncementDismissal row keyed to the signed-in user; no business records read or changed."
     }
   ]
 }

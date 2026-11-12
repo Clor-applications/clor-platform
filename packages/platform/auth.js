@@ -16,6 +16,10 @@ import { orgId as contextOrgId } from './context';
 export const login = ({ email, password }) =>
   apiFetch('/auth/login', { method: 'POST', body: { email, password }, skipAuth: true });
 
+/* A sign-in refused for an unconfirmed address carries a short token that asks for a new link (#4). */
+export const resendVerificationForSignIn = (challenge) =>
+  apiFetch('/auth/resend-verification/sign-in', { method: 'POST', body: { challenge }, skipAuth: true });
+
 /* The second step for someone with an authenticator: the challenge /auth/login returned, and a code. */
 export const loginTwoFactor = ({ challenge, code }) =>
   apiFetch('/auth/login/two-factor', { method: 'POST', body: { challenge, code }, skipAuth: true });
@@ -49,6 +53,21 @@ export const verifyEmail = (token) =>
 export const me = () => apiFetch('/auth/me', { skipBranchHeader: true, skipWarehouseHeader: true });
 
 export const logout = () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true });
+
+/** Explore: the link's token for a read-only session on the sample company (server: routes/explore.ts). */
+export const exploreExchange = (token) => apiFetch('/explore/exchange', { method: 'POST', body: { token }, skipAuth: true });
+
+/*
+ * Starting a free trial from clor.in (server: routes/signup.ts). Public: the
+ * visitor has no account yet, and a stale token in this browser must not go
+ * with them. The confirm answers with a session, as a sign-in does.
+ */
+export const signupOptions = (app) => apiFetch(`/public/signup/options${app ? `?app=${encodeURIComponent(app)}` : ''}`, { skipAuth: true });
+export const signupStart = ({ email, app, plan, website }) =>
+  apiFetch('/public/signup/start', { method: 'POST', body: { email, ...(app ? { app } : {}), ...(plan ? { plan } : {}), ...(website ? { website } : {}) }, skipAuth: true });
+export const signupPending = (token) => apiFetch(`/public/signup/pending?t=${encodeURIComponent(token)}`, { skipAuth: true });
+export const signupConfirm = ({ token, ownerName, companyName, apps, state }) =>
+  apiFetch('/public/signup/confirm', { method: 'POST', body: { token, ownerName, companyName, apps, ...(state ? { state } : {}) }, skipAuth: true });
 
 /* The signed-in person's own profile. Platform data, so every app shows the
    same page: Accounting in its settings, the shell for apps that use its menu. */

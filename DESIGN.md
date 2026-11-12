@@ -8,13 +8,13 @@ Preview (rendered): https://claude.ai/code/artifact/b5f06c26-a4de-4879-979f-fbb1
 - **Space:** Tally, Zoho Books, Vyapar, QuickBooks India. All either dated or generic.
 - **Project type:** dense data web application.
 - **Memorable thing:** *Serious software for serious work.* Calm, obviously accurate, never shouts. Trust is the product.
-- **Brand idea (Direction D, 2026-10-29; red since 2026-11-03):** *Done, daily.* Books, GST, people and pay, ticked off before tea.
+- **What we say (8 Nov 2026):** accounts, GST, staff and salaries for small businesses in India, in plain words. No slogan or tagline on screens (*Done, daily* and *ticked off before tea* retired: they read as machine-made).
 
 ## Brand
-- **Logo (owner's wordmark, 3 Nov 2026):** **CLOR** in the owner's own letterforms, always capitals, drawn from outlines traced curve for curve from the owner's artwork (within 0.3% of its pixels) — never typed. The C holds a marigold dot, its own shape. `ClorLogo` (`packages/ui/src/components/brand`) draws it; the outlines live once, in `clorPaths.js`. Oxblood `#5C0A16` letters on light grounds (owner, 3 Nov 2026: "logo color do not keep red"), white on dark (`--logo-mark`); the dot is marigold everywhere (`--logo-dot`); ink `#1F1A1C` for one-colour print. Red is never the logo's colour; it is the app icon's tile. The C-tick mark of 29 Oct is retired.
-- **Mark:** the C with its dot (`ClorMark`, `public/brand/clor-mark.svg`): the favicon, the app icon, the phone bar.
-- **App icons:** one family — a red tile, a white glyph and a marigold accent (`public/icon.svg`, `public/icons/*.svg` and their PNGs). The mark sits at 60% of the tile so it survives a maskable crop.
-- **Sign-in:** the oxblood logo over the board's "Done, daily." panel on cream `#FFF8F0` (light only, the promise in red with a marigold underline) with a Today card whose done rows carry a white tick on red, and a marigold halftone. The operator console keeps its own light side.
+- **Logo (6 Nov 2026; supersedes neon wordmark of 5 Nov):** Full mark = `[C-mark icon] [CLOR wordmark]` side by side. Wordmark letterforms traced from Plus Jakarta Sans 800 — C (slate `#0F172A`), L (slate), **O** (orange `#FF5400`), R (slate); orange dot inside the C. Only the O carries the orange. `ClorLogo` variant `'horizontal'` renders both; `'wordmark'` renders the word alone; `'mark'` the icon alone. Outlines in `clorPaths.js`. One-colour print: ink `#1F1A1C` throughout. Red is never the logo colour.
+- **Mark / C-icon (6 Nov 2026 — locked vector):** Ribbon C-arc + central nexus dot, both solid orange `#FF5400`. viewBox `"10 0 60 60"` — matches the favicon spec exactly. Path and viewBox are verbatim from the master vector; do NOT recalculate. Do NOT use `clorPaths.js` C/DOT here — those are WORDMARK letter outlines, not the icon mark. `ClorMark` in `packages/ui/src/components/brand`. Used as favicon, app-icon, browser tab, phone bar.
+- **App icons (9 Nov 2026):** one CLOR icon for every app: a Blaze Orange `#FF5400` tile with the white C-mark (`public/icon.svg`). The PWA icons (`public/icons/*`, `public/clor-icon-*.png`), the phone app icons and splash screens (`mobile/*`, white splash with the orange mark) and the site's logo files (`website/public/brand/*`) are all rendered from the production logo in `packages/ui/src/components/brand`. The old red, navy and oxblood icon families are gone. The maskable icon keeps the mark at 60% of a full-bleed tile.
+- **Sign-in (8 Nov 2026):** a white page. The brand side carries the logo, one plain sentence in ink saying what CLOR does, and a Today card (two lines done with a white tick on green, one waiting; plain lines split by hairlines, no box round each), parted from the form by a hairline. No cream, accent word, underline or halftone. The operator console keeps its own side.
 - **Never:** the blue `#1F7EFD` from the owner's source image (owner, 3 Nov 2026: "do not use this color").
 
 ## Aesthetic Direction
@@ -35,11 +35,12 @@ component, read this one.
   redefinition, so a literal colour is a light-mode-only colour.
 - **Set every amount in tabular figures** and align it by what it is, not by
   being a number — see *Value alignment*.
-- **Use the shared control height**: 36px, or 28px where a table cell genuinely
-  cannot hold 36.
+- **Use the shared control height**: 40px in People and Attendance (44px on a
+  phone), 36px in Accounting and Payroll, or 28px where a table cell genuinely
+  cannot hold the full height (UI rules, 8 Nov 2026).
 - **Give a status both colour and text.** Colour alone is not a state.
 - **Let one screen have one primary action**, top right.
-- **Name menus in sentence case, and make each page title equal its menu label.** (People rail, 2026-10-28: Home · People · Organisation · Time · Talent · Workplace · Reports · Settings; one Approvals inbox; *My leave* and *My attendance* open from My profile.) A test enforces the case in People; Attendance keeps Title Case.
+- **Name menus in sentence case, and make each page title equal its menu label.** (People rail, 2026-11-08: Home · Inbox · People · Time · Workplace · Talent · Reports · Settings; the company's shape under Settings; one Inbox; *My leave* and *My attendance* open from My profile.) A test enforces the case in People.
 - **Write the brand as CLOR**, in capitals, in every logo, wordmark and app header.
 - **Look at the screen while building it** — desktop and phone screenshots, fixed as seen, before it is called done.
 - **Measure before you change geometry.** Every number in this document came
@@ -74,63 +75,63 @@ component, read this one.
 - **Don't write an arbitrary z-index.** The layer tokens are the whole scale;
   `z-[9999]` is what a number becomes when nobody knows what it must beat.
 - **Don't pick an icon size by eye.** Four roles: 12 / 14 / **16 default** / 18.
+- **Don't use the marks that make a screen read as machine-made** (owner, 8 Nov 2026, measured with SlopCop): a time-of-day greeting (*Good morning*) — a home page is titled by its date or name; small wide-tracked capitals over blocks or columns — labels are sentence case; a coloured bar along the top of a figure card — a waiting figure shows it in its number; a highlighted or underlined accent word in a heading; a slogan; a second typeface for numbers.
 - **Don't write filler.** No page or drawer descriptions, no step subtitles, no help that restates its label, no "(optional)" tags. Plain names: *First name*, not *Legal first name*; no code keys shown to people.
 - **Don't add a card, colour or style without a reason.** A list sits on the page ground, a record is one sheet, a form being filled is one sheet, a side task opens in a drawer. People writes the reason per screen in `docs/people/design-v1/WORKFORCE-LAYOUT.md`.
 
 ## Typography
-Self-hosted (Fontsource) in `packages/ui/src/index.css`. **Inter for the work,
-Bricolage Grotesque for the brand** (2026-10-29, Direction D): warm display,
-plain Inter for figures. Bricolage is the wordmark and page titles (`h1`,
-`.ui-t-page`) and the sign-in display — nothing else. Rank inside a screen
-still comes from size and weight.
+Self-hosted (Fontsource) in `packages/ui/src/index.css`. **One face outside Accounting (8 Nov 2026): Plus Jakarta Sans for words and numbers, numbers in tabular figures.** JetBrains Mono for numbers (5–6 Nov) is retired: a second face for numbers read as machine-made. Accounting keeps Inter throughout.
 
-- **Display:** Bricolage Grotesque Variable (optical size auto), 700–800. In People it also sets large figures (count tiles, figure cards) via `--font-display`; tables, money and running text stay Inter.
-- **Everything else:** Inter — tabular figures, large x-height, wide weight range.
-- **Money:** Inter, `font-variant-numeric: tabular-nums` (inherited from `html`) — columns align to the digit, right-aligned.
-- **Code / voucher numbers:** Inter with ligatures off (`.ui-mono`); marked by alignment and context, not a second typeface.
+- **Words (outside Accounting):** Plus Jakarta Sans Variable, 400–800. The wordmark/logo uses 800; page titles, card headers and UI labels use 700–800.
+- **Numbers (outside Accounting):** Plus Jakarta Sans with `font-variant-numeric: tabular-nums` — metrics, counts, money figures, any displayed number (`.font-mono`, `.ui-mono`, `.ui-metric`, `.tabular-nums`, `ui-amount*` all resolve to it).
+- **Accounting:** Inter for everything (unchanged).
+- **Money:** the words' face, `font-variant-numeric: tabular-nums`, right-aligned in tables.
+- **Code / voucher numbers:** the words' face with tabular figures (`.ui-mono`). Only `code` and `pre` use the system monospace.
 
-### Scale
+### Scale (neon spec, 5–6 Nov 2026)
 | Role | Font | Size / line | Weight | Notes |
 |------|------|-------------|--------|-------|
-| Page title | Bricolage Grotesque | 24 / 29 | 700 | `letter-spacing: -.025em` |
-| Section title | Inter | 16 / 24 | 600 | |
-| Body, UI | Inter | 14 / 20 | 400–500 | |
-| Table cell | Inter | 13 / 18 | 400 | |
-| Money | Inter | 13 / 18 | 400 | tabular-nums, right-aligned |
-| Label, caption | Inter | 12 / 16 | 500 | `.04em`, uppercase |
+| Page / card title | Plus Jakarta Sans | 20 / 26 | 800 | |
+| Card header | Plus Jakarta Sans | 14 / 20 | 700 | |
+| Metric / figure | Plus Jakarta Sans, tabular | 22 / 26 | 800 | `.ui-metric` |
+| Badge / label | Plus Jakarta Sans | 12 / 16 | 600–700 | sentence case, no tracking |
+| Body, UI | Plus Jakarta Sans | 14 / 20 | 400–500 | |
+| Table cell | Plus Jakarta Sans | 13 / 18 | 400 | |
+| Money | Plus Jakarta Sans | 13 / 18 | 400 | tabular-nums, right-aligned |
 
-All visible headings use weight 700. Table headings use the shared lilac
-header surface and step to the next tint on hover, so sortable and filterable
-columns provide a clear cursor response without introducing another colour.
-
-Nothing below 12px. Nothing between 16 and 24.
+All visible headings use weight 700–800. Nothing below 12px, labels included. Labels are sentence case outside Accounting (column heads, eyebrows, section labels); Accounting keeps its capitals until its own pass, and printed documents are untouched.
 
 ## Color
-- **Approach:** restrained. The red brand (owner, 3 Nov 2026: "go with red combination"; supersedes Direction D's indigo) — six colours, each with one job. Tokens in `packages/ui/src/index.css` (platform), `people.css` (People) and the `blaze` palette block (Attendance).
-- **CLOR Red `#C8102E`** (`--red`, `--brand`): what you press, and the app icon's tile — the primary action, the open tab's line, the focus ring. White on it 5.9:1. As words it is `#A50D26` (`--brand-ink`, `--link`, 7.8:1 on white, 6.6:1 on blush); hover `#A50D26`, pressed `#8A0B20`.
-- **Oxblood `#5C0A16`** (`--oxblood`, `--brand-deep`): the deep brand — the logo's letters, People's rail, headings in People, a solid block (Home's greeting, the record's header, an open view tab, the rail's open module pill). White on it 13.9:1.
-- **Blush `#FBE8EA`** (`--blush`, `--brand-soft`): chosen and done — the module panel, a selected row, header bands, Filed / Paid / Approved chips. Ink on it 14.6:1.
-- **Marigold `#F5A623`** (`--marigold`): the dot in the C, "waiting on you", and the dark theme's action. A fill, never text on white (2.0:1); oxblood on it 6.9:1.
-- **Ink `#1F1A1C`** (`--ink`, `--fg`): running text and the one-colour logo, 17.2:1 on white. Muted `#5B4F53` (7.8:1), subtle `#74686C` (5.0:1 on the ground).
-- **A chosen view** (a segmented switch: In use / Retired, Pending / Approved / All) is marigold with oxblood words, 6.9:1, on a warm neutral tray (`--choice`, `--on-choice`, `--choice-tray`; owner, 3 Nov 2026: "use different color like green or orange"). Not red, which is the action; not green, which means done. Every app on the red brand; Accounting's indigo palette unsets the tokens and keeps its indigo fill.
-- **Grounds:** white for the work area and the top bar of every app (owner, 3 Nov 2026: "header keep white only"); the page ground is a warm white `#FAF6F4`; cream `#FFF8F0` is paper (sign-in, the website). Hairline `#EADFE1`, strong `#CEBCC0`, sunken `#F5EFEE`.
-- **Money, now that red is the brand:** money in stays green `#15803D`; **money out is ink with a minus sign** (`--money-out`, `.ui-amount-neg`), not red; attention `#A16207`. Red for meaning is the error colour `#B91C1C` (`--neg`) only — rejected, overdue, failed — and an error always carries its warning mark and its own edge, so it never reads as the brand.
-- **Per-app palettes (2026-10-24):** an app may name one shared palette in its manifest (`palette`), and that palette may redefine only colour tokens; it never restates type, radius, spacing or shadow, and nothing is scoped to an app id. Payroll and the workspace wear the red brand through the platform tokens; Attendance the `blaze` palette (the name predates the colours: oxblood rail, marigold on the open module, red actions); People the `sky` palette (also a historical name). **Accounting keeps Direction D** (owner, 3 Nov 2026: "do not change color to accounting") through the `indigo` palette: indigo `#232A66` acts, lilac `#E9E5F4` is chosen and done, cotton `#FAF6EE` is the page, and money out stays red. It wears the same CLOR logo as every other app; its app icon keeps its navy tile.
+- **Approach:** neon multi-app (owner, 5–6 Nov 2026, PR #131; supersedes red brand 3 Nov). Pure white everywhere outside Accounting. Each app wears one neon, stated through its palette block; the platform token `--brand` follows the active palette. Light only (dark CSS inert; `useTheme` forces light).
+- **Logo colours:** orange `#FF5400` ribbon C + O (`--logo-mark-orange`), slate `#0F172A` L + R (`--logo-mark-slate`), orange dot (`--logo-dot`). Shared across all apps; Accounting's `indigo` palette does not override logo tokens.
+- **App neons on pure white:**
+  - **Workspace — Blaze Orange `#FF5400`** (`--brand`): the open tab's line, the rail bar, the focus ring — a mark, never words (3.2:1 on white). The primary button is the same orange one step deeper, `#D44500` (`--btn-primary-bg`), so its white label clears AA at 4.5:1; hover `#BA3900`, pressed `#A33200`. Ink `#BA3900` (`--brand-ink`) for words: 5.7:1 on white. This is the platform default (no palette), so the shell's sign-in pages and the operator console wear it too. A chosen view in a segmented switch is slate `#0F172A` with white words, so the orange stays the action.
+  - **People — Coral `#C93F28`** (`--brand`, via `sky` palette; owner, 8 Nov 2026, replaces red `#C8102E`): action fill, the open screen, the app tile. White on it 5.0:1. Ink `#9A2E1B` (`--brand-ink`, links, 7.5:1), focus ring `#E8553D`, chosen tint `#FDEDEA`. **Second colour teal `#0F766E`** (replaces marigold; owner: "secondary colour yellow not suiting"): a chosen view (white on it 5.5:1), what waits on you (teal ink `#0F5F59` on `#E6F4F2`, or a white count on teal), the open module's mark, the tab indicator and the icons in white buttons. A warning is amber-brown `#B45309` on `#FEF3E8`; no yellow fill anywhere in People.
+  - **People icons, coloured by kind of work** (owner, 8 Nov 2026, option A of three): Phosphor duotone, the line and a fill at 18% in the kind's colour, 32% on the open screen or module. Kinds (`data-kind` from the manifest): people coral `#C93F28`, time and inbox teal `#0F766E`, joining green `#15803D`, leaving stone `#57534E`, pay violet `#6D28D9`, documents and assets amber-brown `#B45309`, workplace fuchsia `#A21CAF`, talent cyan `#0E7490`, reports, settings and structure slate `#475569`. In the rail, where an icon stands without its word at rest, the line is drawn heavier (a 6-unit stroke) and the fill sits at 30%, 45% when open. An icon reused on another kind's screen wears that kind (Shift swaps is time).
+  - **People module panel 216px** (owner, 9 Nov 2026: back from 192, so the plan's names fit on one line). People's menu says "Attendance fixes" for Attendance requests.
+  - **Attendance — Solar Amber `#EAB308`** (`--brand`, via `blaze` palette): action fill, bars, the rail's current-module tint. Slate `#0F172A` words on its button, 9.3:1 (white would be 1.9:1, so never white). Ink `#854D0E` for text uses, 6.9:1; focus ring `#A16207`, 4.9:1. The rail is white over a hairline, like every app outside Accounting.
+  - **Payroll — Electric Cyan** (`--brand`, via `payroll` palette): `#0079BF` (owner's pick) is the action fill, the bars and the focus ring. White on it 4.7:1; hover `#006AA8`, pressed `#005A8F`. Cyan as words `#005A8F` (7.3:1), on the tint `#E6F6FD` 6.6:1.
+  - **Accounting** — unchanged Direction D indigo (owner: "do not change color to accounting"). `indigo` palette restates Direction D tokens exactly; money out stays red; logo tokens untouched.
+- **Sidebar (outside Accounting):** rail 64px wide; 3px neon bar + 5% neon wash on the current module. Sub-nav 180px (People: 216px).
+- **Grounds:** pure white for the work area and all chrome in every app (neon brand). The page ground `#FFFFFF`. Hairlines `#E5E7EB`.
+- **Money:** money in green `#15803D`; **money out is ink with a minus sign** (`--money-out`, `.ui-amount-neg`), not the neon brand colour; attention `#A16207`. The brand neon is never an error colour: errors stay `#B91C1C` (`--neg`), always with a warning mark.
+- **Per-app palettes:** palette key in each app's manifest (`palette`); the block redefines only colour tokens (never type, radius, spacing, shadow). Palette keys: `sky` (People), `blaze` (Attendance), `payroll` (Payroll), `indigo` (Accounting). Workspace and the shell use the platform tokens directly. **Accounting's `indigo` palette is the sole exception to the neon brand** — keep it untouched. The 3 Nov red brand's tokens (`--red`, `--oxblood`, `--blush`) survive only under `sky` and `indigo`, which were drawn on top of them (9 Nov 2026); no other app sees them, and new work must not reach for them outside People.
 - **People (light theme only):**
   - **Frame (3 Nov 2026: "header keep white only", then "sidebar complete red background" removed).** The top bar, the rail and the phone tab bar are white over a hairline. The rail's icons are oxblood on a light duotone; the open module's icon sits on a blush tile with its marigold fill and its label is red and bold. The top bar carries the oxblood logo, the app's tile red with a white mark, and the search on the sunken tone. The module panel is a warm neutral `#F7F5F2` (`--frame-panel`) with a `#E4DFDA` hairline, ink words (15.8:1) and group names `#5B4F53` (7.2:1); the open screen in it is a white tile with red words (`--brand-ink`), weight 700 and a 3px red edge.
   - **White work area, colour in the accents (owner, 4 Nov 2026: "except sidebars use complete white background, use more different colours along with red, yellow, make right parts very clean").** Everything right of the module panel is white: no tinted tiles, trays, bands or blocks (the record's header too). Colour lives in small marks, in five tint families beside red, each named by meaning through `data-tint` (`sky`, `mint`, `peach`, `lilac`, `butter`) and never handed out by position: teal `#0F6860` on `#E6F4F2` for people and structure (headcount, departments, branches); green `#166534` on `#E7F5EC` for done, present and joining; clay `#A63F12` on `#FFEDE3` for leaving, gaps and rules (leavers, without a manager, policy); violet `#5B21B6` on `#F1EBFD` for notice, records and what is coming; and marigold `#7A4F00` on `#FEF1D6` only for what waits on you (To decide, Tasks late, Approvals). Every ink is at least 5:1 on its tint. Never the banned blue. **Accent teal is a tint family for small marks, not the brand: it is distinct from the retired lagoon teal `#0E7C7B`, which was People's action and brand colour and stays retired.**
-  - **Home:** the greeting on the white page (an oxblood title, a blush date pill, quick links as secondary buttons, Add an employee the one red primary). Each figure is a white card over a hairline with its mark and number in its own tint (Headcount teal, Out today green, To approve clay, On notice violet); the one that waits on you, above nought, gets a marigold bar along its top. Panel heads follow the same meanings: Waiting for you marigold, Your tasks and Company snapshot teal, Out today green, Announcements and Coming up violet, Celebrate clay. News and events are coloured by what they are, never by their place in the list (a post for a group clay, for everyone violet; a Fun Friday clay, any other event violet). A figure's caption wraps to a second line rather than being cut off. Panel heads are white over a hairline, the tinted chip beside the title carrying the colour.
+  - **Home:** the greeting on the white page (an oxblood title, a blush date pill, quick links as secondary buttons, Add an employee the one red primary). Each figure is a white card over a hairline with its mark and number in its own tint (Headcount teal, Out today green, To approve clay, On notice violet); the one that waits on you, above nought, shows its number in the waiting ink (no bar along its top, 8 Nov 2026). Panel heads follow the same meanings: Waiting for you marigold, Your tasks and Company snapshot teal, Out today green, Announcements and Coming up violet, Celebrate clay. News and events are coloured by what they are, never by their place in the list (a post for a group clay, for everyone violet; a Fun Friday clay, any other event violet). A figure's caption wraps to a second line rather than being cut off. Panel heads are white over a hairline, the tinted chip beside the title carrying the colour.
   - **Lists:** the figures strip is white with a hairline, each figure's mark in the tint its screen names (Employees: Working now teal, Joining green, Left this month clay, On notice violet; Leave: Waiting for a decision marigold); a figure with no tint keeps a muted mark. View tabs and segmented switches sit on a white tray with a hairline, the chosen view marigold; the head row white over a hairline. Shared figure cards (`StatCards`, `tint` on each card) do the same: Salary revisions' To decide marigold, Approved green, Yearly rise teal, Average rise violet; the People report's Headcount teal, Joiners green, Leavers clay, Attrition violet.
   - **The right-hand panel is plain:** blocks parted by space, not rules, and a block with nothing in it is not drawn (no lone heading); quick links a single list of words, not a grid of boxes, each mark tinted by where it goes (`tint` on each link: teal people and structure, green time and leave, clay rules and policy, violet records and documents, marigold only Approvals).
   - **Marigold is the one warm "look here":** the bell's count and a dot on each unread line; the count on a tab whose rows wait on you; a 3px bar along the top of a figure that waits on you and is above nought; Waiting and To do pills (solid marigold, oxblood words); warning marks. Drawn as a line on white it is deep marigold `#C98200` (`--btn-icon-on-white`, 3.2:1), never running text; marigold's text form is `#7A4F00`. A look-here line (a clash, a gap in the data) is marigold-soft `#FEF1D6` with a 3px marigold edge — not red.
   - **Away `#A86E7C`** (`--away`) marks on leave and out today, a mark only (4.1:1 on white).
+  - **A chart carries three colours at most** (UI rules, 8 Nov 2026): the three biggest series take `--dept-1..3`, everything else is one grey "Other" (`--dept-0`). People Home's team bar and its keys do this; the gender split draws its fourth answer grey.
   - **Charts and categories** use one series: oxblood, marigold, away, deep marigold, red, `#5B4F53`, `#968A8C`, `#74686C` (`--dept-1..8`; `--dept-0`, no team, grey). Initials on a face take one of four tint washes (teal, green, violet, clay), picked from the name so a person is always the same colour (`data-hue`, 0–3), the record's header included; never marigold. Home's small faces beside a leave or a birthday take their team's chart-series wash (`--dept-*`, 16%), so they match the snapshot's team bars. A department or branch tile, card or chart node takes one tint from its name (`tintOf`, `apps/people/src/organization/tints.js`, four families, never marigold), the same on the Organisation overview, the org chart and the structure pages. Leave types draw from the same family (`--leave-0..7`), never red, as a leave is not an error.
   - **Zero is quiet:** a figure at nought is subtle grey at weight 600.
   - **Shapes and order (unchanged):** buttons, fields, search and tabs 8px; cards, trays and figure tiles 12px; 999px only for status pills, faces and dots. Page titles 28px (Bricolage 800); Home's greeting 34px, 28px on a phone. Rail labels and panel group names 12px. The module panel is 216px wide (owner, 3 Nov 2026: "reduce width of the second sidebar bit"; was 224px, then 200px cut "Attendance requests"). Home has one primary action (Add an employee).
   - **The employee app** (shared with Attendance) wears the brand's "waiting" — solid marigold pills with oxblood words, a marigold line over the open tab — through its own `data-brand="d"`.
   - **Dark theme:** People keeps its earlier dark values (teal `#2DD4BF` on near-black) until a dark red brand is designed for it.
   - Superseded and not to be reused: Burnished Rose `#A45761` (2026-10-24), Sky blue `#0B72B5` and lagoon teal `#0E7C7B` (2026-10-28), Direction D indigo `#232A66` / `#1B2152`, lilac `#E9E5F4` and cotton `#FAF6EE` (2026-10-29 to 2026-11-03), Blaze orange `#FF6700` (2026-10-21 to 2026-11-03).
-- **Dark mode:** redefine tokens only, never restyle components inside a theme block. Surfaces are the red brand's night (`#1A0C0F` ground, `#24141A` card), text warm white, the logo white with its marigold dot, marigold takes the action with oxblood words; money greens, ambers and reds remain available for meaning.
+- **Dark mode** (inert today; `useTheme` forces light): redefine tokens only, never restyle components inside a theme block. Outside People and Accounting the night is neutral (`#0B0F17` ground, `#111827` card), text near-white, and each app's neon lifts (orange `#FF7A33`, amber `#FACC15`, cyan `#38BDF8`) with slate words on it; no red. People and Accounting keep their own dark values. Money greens, ambers and reds remain available for meaning.
 
 ## Spacing
 - **Base:** 8px.
@@ -158,7 +159,8 @@ reading an older version of this file.
 
 | Context | Row | Control |
 | --- | --- | --- |
-| List / data table (`.ui-table`) | **55px** (9px cell padding); People: **46–49px** a name over an email (6px, 2026-10-28) | 36px |
+| List / data table (`.ui-table`), People and Attendance | **48px** with its hairline (5.5px cell padding, a name over an email fits; 8 Nov 2026) | 40px; 44px on a phone |
+| List / data table (`.ui-table`), Accounting and Payroll | **55px** (9px cell padding) | 36px |
 | Dense line grid (`.ui-grid-dense`) | **40px** (1px cell padding) | **34px** |
 
 Header rows: 37px on a list, 29px on a dense grid. The control tiers those
@@ -236,7 +238,8 @@ Fixed points across the whole band:
 
 - Content caps at **1920px** and centres beyond it. It does not keep growing.
 - Page padding is **24px**, dropping to 16px below `sm`.
-- Control heights never change with viewport — 36px is 36px at every width.
+- Control heights change once: People and Attendance controls are 40px, and 44px
+  under 768px where a thumb hits them. Accounting and Payroll stay 36px at every width.
 - **A table that scrolls inside its container is not a defect. A page that
   scrolls sideways is.** Those are the two different results, and only the
   second one is a bug.
@@ -248,12 +251,14 @@ Fixed points across the whole band:
 
 | Tier | Height | Where |
 | --- | --- | --- |
-| Baseline | **36px** | Every input, select and button in app chrome |
+| Baseline, People and Attendance | **40px**; **44px** under 768px | Every button, input, select, search field, icon button and filter chip (`.ui-choice-chip`) in the work area and in dialogs (UI rules, 8 Nov 2026; `people.css`, end of file) |
+| Baseline, Accounting and Payroll | **36px** | Every input, select and button in app chrome |
 | Compact | **28px** | `.ui-ctl-compact`, `.ui-btn-sm` — column filters and in-table editors, where 36 will not fit |
 | Dense grid | **34px** | `.ui-grid-dense .ui-input` / `.ui-select` — the line grid only |
 
-The baseline is **36, not 40**. A generic spec will tell you 40; this product
-was measured before that was adopted and 36 is what every screen already uses.
+Accounting's baseline is **36**: it was measured before the 8 Nov rules and is
+left as it is until its own pass. People and Attendance moved to 40 with the
+owner's UI rules; compact (28px) and the dense grid (34px) keep their sizes there.
 An override that merely restates the baseline (`!h-9`) is noise and
 `src/test/control-geometry.test.js` fails on it.
 
@@ -279,7 +284,10 @@ That is not a scale, it is two people's defaults.
 | **XS** | 12px | very compact metadata, tiny supporting marks — only where 12 stays legible |
 | **SM** | 14px | compact table actions, compact buttons, dense inline marks |
 | **MD** | **16px** | **the default.** Buttons, form and entity icons, toolbar controls, menu items, ordinary inline icons |
-| **LG** | 18px | page-heading icons, prominent navigation and context icons |
+| **LG** | 18px | page-heading icons, prominent navigation and context icons; **every rail and menu icon in People and Attendance** (8 Nov 2026) |
+
+In People and Attendance (UI rules, 8 Nov 2026): rail and menu icons are 18px,
+and icons inside buttons and table cells are 16px, compact buttons included.
 
 Reach for MD unless the context is genuinely compact or genuinely a heading.
 
@@ -293,6 +301,7 @@ deliberately prominent buttons.
 
 ### Icon stroke — three different things
 
+- **Which family** (9 Nov 2026): Accounting draws Lucide; every other app, the shell's own pages and the operator console draw Phosphor two-tone for places and content (menus, rails, app tiles, figure marks) and Fluent Regular for actions (buttons, row actions). A screen imports icons from `@ui/components/ui/lineIcons`, never from `lucide-react`, so the open app decides.
 - **UI icons** (Lucide) take the library's own stroke. It is not overridden per
   call site, and the library default is the product default because a mixed
   stroke across one toolbar reads as a rendering fault.
@@ -455,7 +464,7 @@ There is no sixth. **Icon-only is a size of ghost, not a type**
 (`.ui-icon-btn`): it always has an accessible name (`aria-label`), and a 44px
 tap area on phones even when the glyph is smaller.
 
-Sizes: **36px** baseline, **28px** compact (`.ui-btn-sm`, in tables and
+Sizes: **40px** baseline in People and Attendance (36px in Accounting and Payroll), **28px** compact (`.ui-btn-sm`, in tables and
 toolbars where 36 will not fit), and **44px on phones** as the target for
 every button a thumb has to hit. Where it is enforced today: in People (sky
 palette, under 768px) every `.ui-btn`, `.ui-btn-sm` and page button in the work
@@ -632,6 +641,11 @@ because focus, portals and event order cannot be read off the source.
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-09 | The neon brand actually reaches Workspace, Payroll and Attendance; no AI art in Workspace | Owner: "color should be blaze orange nor red". PR #131 wrote the neon brand down but only the logo moved: the 3 Nov red block still set the platform defaults, so Workspace, Payroll, the operator console and the sign-in pages showed red `#C8102E` buttons on rose-tinted grounds, and Attendance's `blaze` palette was still red too. The platform default is now Blaze Orange on pure white with `#E5E7EB` hairlines and slate headings; `blaze` is Solar Amber; a new `payroll` palette is Electric Cyan. White on `#FF5400` is 3.2:1, not the 4.5:1 written before, so the button takes `#D44500` (4.5:1) and the neon stays for marks. The red block is kept only under `sky` and `indigo`, so People and Accounting are pixel-for-pixel as they were. Workspace Overview's illustrated office building was AI art, removed; the greeting stands on the white page |
+| 2026-11-09 | One icon family in every app but Accounting | Owner: "use same icons which is used in people everywhere except books". Payroll, Attendance, Workspace, the shell's own pages (sign-in, company setup) and the operator console draw the way People does: menus, rails, app tiles and content marks in Phosphor two-tone (`duo()` in `@ui/components/ui/duoIcon`, `iconSet: 'duo'`), buttons and actions in Fluent Regular line icons (`lineIcons: 'fluent'`, via `@ui/components/ui/lineIcons`). The Fluent Color set (Attendance, Workspace) is retired. Each app keeps its own palette; only the icon family changed. On clor.in the People, Payroll and Attendance marks are the same Phosphor two-tone glyphs. Accounting keeps Lucide (no `iconSet` in its manifest), and Books keeps its Lucide book on clor.in |
+| 2026-11-08 | People: coral primary, teal second colour, icons coloured by kind, 192px panel | Owner: primary and white background OK, "secondary colour yellow not suiting, each kind of function visually different colour, secondary sidebar reduce width, icons are not at all good". From a three-way preview the owner chose duotone icons coloured by kind and teal over slate and violet. Coral `#C93F28` is the action; teal `#0F766E` takes every marigold job (chosen view, waiting, the open module, tab line, button icons); gold leaves the chart and leave series; a warning is amber-brown, never a yellow fill. Each icon wears its kind's colour (nine kinds). The module panel goes from 216px to 192px, so People's menu calls Attendance requests "Attendance fixes". Supersedes the marigold decisions of 3 Nov and 31 Oct for People; other apps and the employee app unchanged |
+| 2026-11-08 | UI rules: 48px rows, 40/44px controls, 18/16px icons, 3 chart colours, white page kept | Owner took the recommendation on the UI-rules paste. People and Attendance only: table rows 48px (was 46–49 in People, 55 in Attendance); buttons, fields, search, icon buttons and filter chips 40px, 44px under 768px (was 36); rail and menu icons 18px, button and table icons 16px; a chart three colours, the rest one grey "Other". The page stays a clean white ground with no card round a list (the paste's grey page with white cards was declined). Accounting, Payroll and printed documents unchanged |
+| 2026-11-08 | Marks that read as machine-made are dropped | Owner approved decision 6 of the 8 Nov People plan. The checker (SlopCop, 14 patterns) and GPTZero scored CLOR's surfaces as machine-made. Out: the cream sign-in board with the underlined accent word *daily.* and the *ticked off before tea* line (now a white page with one plain sentence), the halftone, Attendance's *Good morning* with its animated sun (now the date), small wide-tracked capitals on column heads, eyebrows and section labels outside Accounting (now 12px sentence case), the marigold bar along the top of a waiting figure card (now the number in the waiting ink), and JetBrains Mono for numbers (now Plus Jakarta Sans with tabular figures, one face). Accounting and printed documents are unchanged |
 | 2026-11-04 | People: marigold off faces, news, events and org colours | Re-review of #123: Home's Waiting for you panel was clay while Announcements and Celebrate were marigold; news and event marks cycled by index (the newest post always marigold); org cards, the org chart and the structure page each picked a department's colour their own way, so Sales was teal, marigold and green on three screens; one face in five was marigold and the record's face a marigold disc. Now Waiting for you is the marigold panel; news, events, Fun Friday and the birthday badge take violet or clay by kind; one `tintOf(name)` over four families colours a department or branch everywhere; faces hash over four washes and the record's face keeps its own. A test scans People's JSX for tints picked by index |
 | 2026-11-04 | People: tints by meaning, not by position; accent teal is not lagoon | Code review of #123: figure cards, list strips and quick links took their tint from their place (`nth-child`), so marigold, kept for "look here", landed on Yearly rise and Leavers while To decide was teal, and a figure changed colour when the one beside it was hidden. Each caller now names its tint (`data-tint` / a `tint` field: teal people and structure, green done, present and joining, clay leaving, gaps and rules, violet notice, records and what is coming, marigold only what waits on you), and no People rule picks a colour by position. Department and branch cards cycle four tints, leaving marigold out. Accent teal `#0F6860` is one of those tint families for small marks; it is not the retired lagoon teal `#0E7C7B`, which was People's action and brand colour and stays retired. Faces, which take one of five washes from the name, are written down as the code does it |
 | 2026-11-04 | People: a white work area, colour in the accents, a plain right panel | Owner: "except sidebars use complete white background, use more different colours along with red, yellow… make right parts very clean". Tinted figure tiles, grey trays, the neutral head row and the record's oxblood header turn white; colour moves into small marks in five families (teal, green, clay, violet, marigold) beside red; table faces keep their own hues instead of solid oxblood. The right panel drops its dividers and its grid of boxed quick links for a plain list. The module panel goes to 216px: at 200px "Attendance requests" was cut |

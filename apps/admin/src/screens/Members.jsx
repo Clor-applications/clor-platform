@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Search, ShieldAlert, UserX } from 'lucide-react';
+import { ChevronRight, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
 
 import { confirmDialog } from '@ui/components/ui/notify';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
@@ -23,7 +23,7 @@ import './workspace.css';
  */
 
 const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
-const APP_LABEL = { accounting: 'Accounting', payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
+const APP_LABEL = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never');
 
 /** The directory rows that pass the filters. */

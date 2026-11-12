@@ -1,74 +1,77 @@
 import React from 'react';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 import { requestOpenScreen } from '@platform/context';
 import {
-  AlertColor,
-  AppsColor,
-  BookColor,
-  BriefcaseColor,
-  BuildingColor,
-  BuildingMultipleColor,
-  CalendarCheckmarkColor,
-  CalendarClockColor,
-  ChatColor,
-  DatabaseColor,
-  DocumentTextColor,
-  HistoryColor,
-  HomeColor,
-  LibraryColor,
-  LightbulbColor,
-  MailColor,
-  PeopleColor,
-  PeopleTeamColor,
-  PersonAddColor,
-  PersonColor,
-  ReceiptColor,
-  SettingsColor,
-  ShieldCheckmarkColor,
-  ShieldColor,
-  WarningColor,
-} from '@fluentui/react-icons';
+  Bell,
+  BookOpen,
+  Books,
+  Briefcase,
+  BuildingOffice,
+  Buildings,
+  CalendarDots,
+  ChatCircle,
+  ClockCounterClockwise,
+  CreditCard,
+  Database,
+  EnvelopeSimple,
+  FileText,
+  Fingerprint,
+  GearSix,
+  House,
+  Lightbulb,
+  Receipt,
+  Shield,
+  ShieldCheck,
+  SquaresFour,
+  User,
+  UserPlus,
+  UsersFour,
+  UsersThree,
+  Wallet,
+  Warning,
+} from '@phosphor-icons/react';
 
 import Drawer from '@ui/components/ui/Drawer';
-import { colorIcon } from '@ui/components/ui/iconSet';
+import { duoSet } from '@ui/components/ui/duoIcon';
 import './workspace.css';
 
 /**
  * The Workspace's page kit (redesign W-R2): one page head, stat, panel and
  * meter, so every Workspace page is built from the same few pieces. Icons are
- * Microsoft Fluent colour icons, the set Clor Attendance draws in
- * (iconSet: 'color'); line icons stay for small affordances (chevrons).
+ * People's two-tone Phosphor marks (owner, 9 Nov 2026: one icon family in every
+ * app but Accounting); line icons stay for small affordances (chevrons).
  */
-export const ICON = {
-  home: colorIcon(HomeColor, 'Home'),
-  company: colorIcon(BuildingColor, 'Building'),
-  companies: colorIcon(BuildingMultipleColor, 'BuildingMultiple'),
-  people: colorIcon(PeopleColor, 'People'),
-  team: colorIcon(PeopleTeamColor, 'PeopleTeam'),
-  person: colorIcon(PersonColor, 'Person'),
-  invite: colorIcon(PersonAddColor, 'PersonAdd'),
-  mail: colorIcon(MailColor, 'Mail'),
-  security: colorIcon(ShieldColor, 'Shield'),
-  secure: colorIcon(ShieldCheckmarkColor, 'ShieldCheckmark'),
-  history: colorIcon(HistoryColor, 'History'),
-  plan: colorIcon(ReceiptColor, 'Receipt'),
-  data: colorIcon(DatabaseColor, 'Database'),
-  apps: colorIcon(AppsColor, 'Apps'),
-  settings: colorIcon(SettingsColor, 'Settings'),
-  alert: colorIcon(AlertColor, 'Alert'),
-  warning: colorIcon(WarningColor, 'Warning'),
-  help: colorIcon(LightbulbColor, 'Lightbulb'),
-  guide: colorIcon(DocumentTextColor, 'DocumentText'),
-  library: colorIcon(LibraryColor, 'Library'),
-  chat: colorIcon(ChatColor, 'Chat'),
-  /* Products, as clor.in names them. */
-  accounting: colorIcon(BookColor, 'Book'),
-  payroll: colorIcon(ReceiptColor, 'Receipt'),
-  people_app: colorIcon(PeopleTeamColor, 'PeopleTeam'),
-  attendance: colorIcon(CalendarCheckmarkColor, 'CalendarCheckmark'),
-  projects: colorIcon(BriefcaseColor, 'Briefcase'),
-  timesheet: colorIcon(CalendarClockColor, 'CalendarClock'),
-};
+export const ICON = duoSet({
+  home: House,
+  company: BuildingOffice,
+  companies: Buildings,
+  people: UsersThree,
+  team: UsersFour,
+  person: User,
+  invite: UserPlus,
+  mail: EnvelopeSimple,
+  security: Shield,
+  secure: ShieldCheck,
+  history: ClockCounterClockwise,
+  plan: Receipt,
+  payments: CreditCard,
+  data: Database,
+  apps: SquaresFour,
+  settings: GearSix,
+  alert: Bell,
+  warning: Warning,
+  help: Lightbulb,
+  guide: FileText,
+  library: Books,
+  chat: ChatCircle,
+  /* Products, as clor.in names them, each its own app tile's mark. */
+  accounting: BookOpen,
+  payroll: Wallet,
+  people_app: UsersThree,
+  attendance: Fingerprint,
+  projects: Briefcase,
+  timesheet: CalendarDots,
+}, 20);
 
 /**
  * The Workspace side panel: one width, the Workspace colours and field styles,

@@ -14,10 +14,8 @@ export const testEmailConnection = (settings) =>
 
 export const sendTestEmail = () => apiFetch(`${base()}/email/send-test`, { method: 'POST', ...opts });
 
-export const getNotifications = () => apiFetch(`${base()}/notifications`, opts);
-
-export const saveNotifications = (events) =>
-  apiFetch(`${base()}/notifications`, { method: 'PUT', body: { events }, ...opts });
+/* The email switches are shared with Workspace → Email notifications: one client for both. */
+export { getEmailSwitches as getNotifications, saveEmailSwitches as saveNotifications } from '@ui/api/notifications';
 
 export const getOutbox = (status) =>
   apiFetch(`${base()}/email/outbox${status ? `?status=${encodeURIComponent(status)}` : ''}`, opts);

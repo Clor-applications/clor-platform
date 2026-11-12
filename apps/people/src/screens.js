@@ -42,7 +42,6 @@ export { OrgDepartments, OrgDesignations, OrgJobRoles, OrgTeams, OrgPositions, O
 export { default as Tags } from './screens/Tags';
 export { DataHealth } from './screens/DataHealth';
 export { default as LifecycleTasks } from '@ui/lifecycle/Tasks';
-export { default as LifecycleOverview } from '@ui/lifecycle/Overview';
 export { default as Joiners } from '@ui/lifecycle/Joining';
 export { default as LifecycleChanges } from '@ui/lifecycle/Changes';
 export { default as Leavers } from '@ui/lifecycle/Leaving';
@@ -91,6 +90,38 @@ export { default as MyDays } from '@ui/timeOff/MyDays';
 export { default as AttendanceRequests } from '@ui/timeOff/AttendanceRequests';
 export { default as RequestRules } from '@ui/timeOff/RequestRules';
 export { default as MyLeave } from '../../attendance/src/screens/MyLeave';
+/* Shifts, readers, overtime and the month's close are People's too (owner, 11 Nov 2026): the Attendance app's own
+   screens over the same records, so a company on People never has to switch apps to run its time. */
+export { default as AttendanceRecords } from '../../attendance/src/screens/AttendanceRecords';
+export { default as Exceptions } from '../../attendance/src/screens/Exceptions';
+export { default as ScheduleCalendar } from '../../attendance/src/screens/ScheduleCalendar';
+export { default as Shifts } from '../../attendance/src/screens/Shifts';
+export { default as ShiftAssignments } from '../../attendance/src/screens/ShiftAssignments';
+export { default as DepartmentSchedule } from '../../attendance/src/screens/DepartmentSchedule';
+export { default as TemporarySchedule } from '../../attendance/src/screens/TemporarySchedule';
+export { default as Rotations } from '../../attendance/src/screens/Rotations';
+export { default as OvertimeRequests } from '../../attendance/src/screens/OvertimeRequests';
+export { default as MonthConfirmations } from '../../attendance/src/screens/MonthConfirmations';
+export { default as MonthClose } from '../../attendance/src/screens/MonthClose';
+export { default as PayrollReadiness } from '../../attendance/src/screens/PayrollReadiness';
+export { default as AttendanceDevices } from '../../attendance/src/screens/AttendanceDevices';
+export { default as ReaderHealth } from '../../attendance/src/screens/ReaderHealth';
+export { default as ReaderSync } from '../../attendance/src/screens/ReaderSync';
+export { default as DeviceLogs } from '../../attendance/src/screens/DeviceLogs';
+export { default as Enrolments } from '../../attendance/src/screens/Enrolments';
+export { default as UnmatchedPunches } from '../../attendance/src/screens/UnmatchedPunches';
+export { default as IdMapping } from '../../attendance/src/screens/IdMapping';
+export { default as PhonePunches } from '../../attendance/src/screens/PhonePunches';
+export { default as Geofences } from '../../attendance/src/screens/Geofences';
+export { default as SiteCheck } from '../../attendance/src/screens/SiteCheck';
+export { default as WeeklyOffPolicy } from '../../attendance/src/screens/WeeklyOffPolicy';
+export { default as OvertimePolicy } from '../../attendance/src/screens/OvertimePolicy';
+export { default as ShiftPolicy } from '../../attendance/src/screens/AttendanceRules';
+export { default as Contractors } from '../../attendance/src/screens/Contractors';
+export { default as AttendanceReports } from '../../attendance/src/screens/AttendanceReports';
+export { default as MonthSummary } from '../../attendance/src/screens/MonthSummary';
+export { default as AttendanceRegister } from '../../attendance/src/screens/AttendanceRegister';
+export { default as Transactions } from '../../attendance/src/screens/Transactions';
 export { default as DataImport } from '../../attendance/src/screens/DataImport';
 /* One audit trail for the company, in Workspace (ADR-010); this opens it on People and Attendance's share. */
 export const AuditLogs = () => React.createElement(OpenInCompanyAdmin, { title: 'Audit Logs', screen: 'audit', forApp: 'attendance' });
@@ -107,4 +138,6 @@ export { default as DataRequests } from '../../attendance/src/screens/DataReques
 export const SsoSettings = () => React.createElement(OpenInCompanyAdmin, { title: 'Users & Security', screen: 'sso' });
 /* This app's roles and permissions, in Workspace's one role editor, opened on People's share (ADR-010). */
 export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'people' });
+/* Which of the company's emails go out is set once for every app, in Workspace (automations B5). */
+export const EmailNotifications = () => React.createElement(OpenInCompanyAdmin, { title: 'Email notifications', screen: 'notifications' });
 

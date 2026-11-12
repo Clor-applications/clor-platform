@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight } from '@ui/components/ui/lineIcons';
 
 import { apiFetch } from '@platform/http';
 import { getAccountMe, listInvitations, memberDirectory } from '@platform/admin/account';

@@ -22,7 +22,7 @@ import { inScope, teamScope } from '../services/people/scope.js';
 export const peopleInvitesRouter = Router();
 peopleInvitesRouter.use(requireAuth, requireTenantContext);
 
-const { lifecycle: LIFECYCLE, statutory: STATUTORY } = PEOPLE_RESOURCE;
+const { lifecycle: LIFECYCLE, statutory: STATUTORY, fullIdentifiers: FULL_IDS } = PEOPLE_RESOURCE;
 const can = (action: string, resource: string) => requirePermission(PEOPLE_MODULE, action as any, resource);
 const base = '/orgs/:orgId/people';
 const actorOf = (req: Request, source: ChangeSource = 'FORM', reason: string | null = null): Actor => ({
@@ -78,10 +78,10 @@ const statutoryActor = (req: Request) => ({ ...actorOf(req, 'FORM', typeof req.b
 
 /**
  * The approval view: the one place PAN, UAN, ESIC and the bank account are
- * shown in full, and only while they wait for a decision. Needs the
- * Statutory Details grant; every opening is written to the access log.
+ * shown in full, and only while they wait for a decision. Needs Statutory
+ * Details and Full identifiers; every opening is written to the access log.
  */
-peopleInvitesRouter.get(`${base}/invites/:id/statutory`, can(PermissionAction.VIEW, STATUTORY), async (req, res) => {
+peopleInvitesRouter.get(`${base}/invites/:id/statutory`, can(PermissionAction.VIEW, STATUTORY), can(PermissionAction.VIEW, FULL_IDS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {

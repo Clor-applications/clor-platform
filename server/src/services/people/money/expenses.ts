@@ -140,9 +140,9 @@ export async function ensureRule(who: { accountId: string; orgId: string }, type
 }
 
 /** Sends a money request through the approval engine; refusals come back as plain MoneyErrors. */
-export async function sendForApproval(e: { id: string; name: string; userId: string | null }, who: { accountId: string; orgId: string; correlationId: string }, type: RequestType & keyof typeof DEFAULT_RULES, title: string, payload: Record<string, unknown>, key: string) {
+export async function sendForApproval(e: { id: string; name: string; userId: string | null }, who: { accountId: string; orgId: string; correlationId: string }, type: RequestType & keyof typeof DEFAULT_RULES, title: string, payload: Record<string, unknown>, key: string, reason = 'Asked in the employee app') {
   await ensureRule(who, type);
-  const actor: Actor = { accountId: who.accountId, orgId: who.orgId, userId: requesterOf(e), source: 'SELF_SERVICE', correlationId: who.correlationId, reason: 'Asked in the employee app' };
+  const actor: Actor = { accountId: who.accountId, orgId: who.orgId, userId: requesterOf(e), source: 'SELF_SERVICE', correlationId: who.correlationId, reason };
   try {
     return await submitRequest(actor, { requestType: type, subjectEmployeeId: e.id, title, payload: { employeeId: e.id, ...payload }, idempotencyKey: key });
   } catch (err) {
@@ -291,6 +291,84 @@ export function decodeBill(input: unknown): { mime: string; data: Buffer; sha256
 // ---------------------------------------------------------------------------
 
 type LineInput = { spentOn?: unknown; categoryId?: unknown; amount?: unknown; merchant?: unknown; note?: unknown; companyGstin?: unknown; supplierGstin?: unknown; taxAmount?: unknown; bill?: unknown; billName?: unknown; notDuplicate?: unknown };
+
+/** One bill, checked: the date, the amount, the shop, the category, the GSTIN and tax, the photo. Shared by the person's own bills and HR's recording. */
+async function lineInput(orgId: string, input: LineInput) {
+  const spentOn = String(input.spentOn || '').slice(0, 10);
+  if (!ISO.test(spentOn)) throw new MoneyError('When did you spend it?');
+  if (spentOn > todayIst()) throw new MoneyError('That date is in the future.');
+  if (spentOn < addDays(todayIst(), -365)) throw new MoneyError('Bills older than a year cannot be claimed here. Ask HR.');
+  const amount = round2(Number(input.amount));
+  if (!Number.isFinite(amount) || amount <= 0) throw new MoneyError('How much did you spend?');
+  if (amount > MAX_AMOUNT) throw new MoneyError('That is more than ₹10,00,000. Ask HR to pay it directly.');
+  const merchant = String(input.merchant ?? '').trim().slice(0, 120);
+  if (!merchant) throw new MoneyError('Where did you spend it? The shop, cab or hotel.');
+  const category = await peoplePrisma.expenseCategory.findFirst({ where: { id: String(input.categoryId || ''), orgId, active: true } });
+  if (!category) throw new MoneyError('Choose what it was for.');
+  const companyGstin = Boolean(input.companyGstin);
+  const supplierGstin = String(input.supplierGstin ?? '').trim().toUpperCase() || null;
+  if (supplierGstin && !isValidGstinChecksum(supplierGstin)) throw new MoneyError('That GSTIN does not check out. It is 15 characters, like 29ABCDE1234F1Z5; check each one against the bill.');
+  const tax = input.taxAmount === '' || input.taxAmount == null ? null : round2(Number(input.taxAmount));
+  if (tax != null && (!Number.isFinite(tax) || tax < 0 || tax > amount)) throw new MoneyError('The GST on the bill is part of the amount, so it cannot be more.');
+  let bill: { mime: string; data: Buffer; sha256: string } | null = null;
+  if (input.bill) {
+    const d = decodeBill(input.bill);
+    if ('error' in d) throw new MoneyError(d.error);
+    bill = d;
+  }
+  const note = String(input.note ?? '').trim().slice(0, 300) || null;
+  return { spentOn, amount, merchant, category, companyGstin, supplierGstin, tax, bill, note, billName: String(input.billName || 'bill').trim().slice(0, 120) || 'bill' };
+}
+
+/**
+ * HR records a claim on a person's behalf (People plan 8 Nov 2026, step 4): a
+ * paper bill handed over, someone without the app. The same shape and checks
+ * as the person's own claim, sent straight for approval under their name, and
+ * marked with who recorded it. It never touches the person's own draft.
+ */
+export async function recordClaim(staff: Staff, input: { employeeId?: unknown; title?: unknown; advanceId?: unknown; lines?: unknown }) {
+  const e = await personOf(staff.orgId, String(input.employeeId || ''));
+  if (e.status === 'LEFT') throw new MoneyError('They have left the company. Settle what they are owed in their final settlement instead.', 409);
+  const raw = Array.isArray(input.lines) ? (input.lines as LineInput[]) : [];
+  if (!raw.length) throw new MoneyError('Add at least one bill.');
+  if (raw.length > 50) throw new MoneyError('Up to 50 bills in one claim.');
+  const lines: Awaited<ReturnType<typeof lineInput>>[] = [];
+  for (const l of raw) lines.push(await lineInput(staff.orgId, l));
+  const title = String(input.title ?? '').trim().slice(0, 120) || 'Spent for work';
+  let advanceId: string | null = null;
+  if (input.advanceId) {
+    const adv = await peoplePrisma.employeeAdvance.findFirst({ where: { id: String(input.advanceId), orgId: staff.orgId, employeeId: e.id, status: 'PAID' } });
+    if (!adv || advanceOpen(adv) <= 0) throw new MoneyError('That advance is not open any more.', 409);
+    advanceId = adv.id;
+  }
+  const key = pendingLink();
+  const total = round2(lines.reduce((t, l) => t + l.amount, 0));
+  const me: Me = { accountId: staff.accountId, orgId: staff.orgId, employeeId: e.id, correlationId: staff.correlationId };
+  const made = await peoplePrisma.$transaction(async (tx) => {
+    await lock(tx, `people-money-draft:${e.id}`);
+    const claim = await tx.expenseClaim.create({ data: { accountId: staff.accountId, orgId: staff.orgId, employeeId: e.id, number: await nextNumber(tx, staff.orgId, 'claim'), title, status: 'SUBMITTED', advanceId, claimedTotal: total, submittedAt: new Date(), approvalRequestId: `${PENDING}${key}`, recordedByUserId: staff.userId } });
+    for (const l of lines) {
+      if (l.bill) {
+        await lock(tx, `people-money-bill:${staff.orgId}:${l.bill.sha256}`);
+        const same = await tx.expenseBill.findMany({ where: { orgId: staff.orgId, sha256: l.bill.sha256 }, select: { id: true } });
+        if (same.length && (await tx.expenseLine.findFirst({ where: { orgId: staff.orgId, billId: { in: same.map((b) => b.id) }, claim: { status: { in: OPEN_CLAIM } } }, select: { id: true } }))) throw new MoneyError(`The bill from ${l.merchant} has already been claimed.`, 409, 'DUPLICATE_BILL');
+      }
+      const twin = await tx.expenseLine.findFirst({ where: { orgId: staff.orgId, spentOn: l.spentOn, amount: l.amount, merchant: { equals: l.merchant, mode: 'insensitive' }, claim: { status: { in: OPEN_CLAIM }, id: { not: claim.id } } }, select: { id: true } });
+      const billRow = l.bill ? await tx.expenseBill.create({ data: { accountId: staff.accountId, orgId: staff.orgId, employeeId: e.id, name: l.billName, mime: l.bill.mime, size: l.bill.data.length, sha256: l.bill.sha256, data: l.bill.data } }) : null;
+      await tx.expenseLine.create({ data: { accountId: staff.accountId, orgId: staff.orgId, claimId: claim.id, employeeId: e.id, spentOn: l.spentOn, categoryId: l.category.id, categoryName: l.category.name, merchant: l.merchant, amount: l.amount, note: l.note, billId: billRow?.id ?? null, companyGstin: l.companyGstin, supplierGstin: l.supplierGstin, taxAmount: l.tax, duplicateOf: twin?.id ?? null } });
+    }
+    return { claim, monthTotal: await sentThisMonth(tx, staff.orgId, e.id, 'claim') };
+  });
+  try {
+    const r = await sendForApproval(e, me, 'EXPENSE_CLAIM', `${e.name}: ${title} · ${inr(total)} (${made.claim.number})`, { amount: total, monthTotal: made.monthTotal, claimId: made.claim.id, number: made.claim.number, bills: lines.length, recordedByUserId: staff.userId }, `expense-claim:${key}`, 'Recorded by HR on their behalf');
+    await peoplePrisma.expenseClaim.updateMany({ where: { id: made.claim.id, orgId: staff.orgId, approvalRequestId: `${PENDING}${key}` }, data: { approvalRequestId: r.request.id } });
+  } catch (err) {
+    /* HR's record, not the person's draft: it goes, bills and all, rather than appearing in their app unasked. */
+    await peoplePrisma.expenseClaim.deleteMany({ where: { id: made.claim.id, orgId: staff.orgId } });
+    throw err;
+  }
+  return claimForStaff(staff.orgId, made.claim.id);
+}
 
 export async function addLine(me: Me, input: LineInput) {
   const e = await personOf(me.orgId, me.employeeId);
@@ -534,6 +612,7 @@ function shapeClaim(c: ClaimRow, extra: { words?: { status: string; comment: str
     payMode: c.payMode, paidOn: c.paidOn, paidMethod: c.paidMethod, paidReference: c.paidReference, payrollPeriodName: c.payrollPeriodName, booksStatus: c.booksStatus,
     submittedAt: c.submittedAt, decidedAt: c.decidedAt, createdAt: c.createdAt, approvalRequestId: c.approvalRequestId && !c.approvalRequestId.startsWith(PENDING) ? c.approvalRequestId : null,
     comment: extra.words?.comment ?? null, canReply: Boolean(extra.words?.canReply), canWithdraw: c.status === 'SUBMITTED', canReopen: c.status === 'REJECTED',
+    recordedByUserId: c.recordedByUserId ?? null,
     lines: lines.map((l) => {
       const cat = l.categoryId ? extra.categories?.get(l.categoryId) : undefined;
       return {

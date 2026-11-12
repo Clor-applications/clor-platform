@@ -1,17 +1,10 @@
 import { Router } from 'express';
-import { track } from '../services/productEvents.js';
-import { assignOrgCode, assignUserCode } from '../services/displayCodes.js';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
-import { companyLimitReason } from '../services/entitlements.js';
-import { suggestSlug } from '../services/slug.js';
-import { PermissionAction, RoleType } from '../constants/enums.js';
-import { ensureLedgerSetup } from '../services/ledger.js';
-import { ensurePermissionCatalog } from '../services/permissionCatalogSeed.js';
+import { RoleType } from '../constants/enums.js';
 import { clearRefreshCookie, refreshTokenFrom, setRefreshCookie } from '../utils/refreshCookie.js';
 import { codeLimiter, loginLimiter, refreshLimiter, resetLimiter, signupLimiter } from '../middleware/rateLimit.js';
 import {
@@ -36,17 +29,17 @@ import {
 import { decryptSecret, sendTemplate } from '../services/mailer.js';
 import { hashRecovery, verifyCode } from '../services/totp.js';
 import { adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
-import { DEFAULT_POLICY, policyForUser, validatePassword, getAuthPolicy } from '../services/policy.js';
-import { expandPreset, permKey } from '../constants/permissionCatalog.js';
+import { DEFAULT_POLICY, policyForUser, sessionPolicyFor, validatePassword, getAuthPolicy } from '../services/policy.js';
+import { type EntryRefusal, resendChallengeFor, resendChallengeUser, signInEntry } from '../services/signInRules.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
 import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
-import { APP_CATALOG } from '../constants/appCatalog.js';
-import { appAccess } from '../services/subscriptions.js';
+import { ProvisionError, SIGNUP_APPS, createAccountWithOwner, createCompany } from '../services/accountProvisioning.js';
 import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js';
-import { QuotaBusyError, lockQuota } from '../services/quotaLock.js';
+import { QuotaBusyError } from '../services/quotaLock.js';
 import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
 import { closedForOutsider } from '../services/outsideAccess.js';
+import { exploreInfo } from '../services/explore.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
@@ -59,53 +52,6 @@ const LOCKOUT_NOTICE = Number(process.env.LOCKOUT_MINUTES || 15);
 
 function getJwtSecret() {
   return process.env.JWT_SECRET || (isDevOrTest() ? 'dev-secret' : '');
-}
-
-async function bootstrapOwnerRole(accountId: string, orgId: string, userId: string) {
-  // Seed every catalog permission once, then grant the whole Administrator
-  // preset to the org creator's Owner role.
-  await ensurePermissionCatalog();
-
-  const roleName = 'Owner';
-  const role =
-    (await platformPrisma.role.findFirst({
-      where: { accountId, orgId, branchId: null, name: roleName },
-      select: { id: true },
-    })) ||
-    (await platformPrisma.role.create({
-      data: {
-        accountId,
-        orgId,
-        branchId: null,
-        name: roleName,
-        description: 'Full access. Created automatically for the account owner.',
-        roleType: RoleType.ADMIN,
-        createdByUserId: userId,
-      },
-      select: { id: true },
-    }));
-
-  const wanted = new Set(expandPreset('ADMIN').map((r) => permKey(r.module, r.subModule, r.action)));
-  const permissions = await platformPrisma.permission.findMany({
-    select: { id: true, module: true, subModule: true, action: true },
-  });
-
-  /* One insert for every permission, not one each: row by row this was the slowest part of setting up a company. */
-  await platformPrisma.rolePermission.createMany({
-    data: permissions
-      .filter((p) => wanted.has(permKey(p.module, p.subModule, p.action)))
-      .map((p) => ({ accountId, orgId, roleId: role.id, permissionId: p.id, allowed: true })),
-    skipDuplicates: true,
-  });
-
-  try {
-    await platformPrisma.userRoleAssignment.create({
-      data: { accountId, orgId, branchId: null, userId, roleId: role.id, createdByUserId: userId },
-      select: { id: true },
-    });
-  } catch (err: any) {
-    if (String(err?.code || '') !== 'P2002') throw err;
-  }
 }
 
 authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
@@ -136,6 +82,7 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
       lockedUntil: true,
       totpEnabledAt: true,
       totpSecretEnc: true,
+      emailVerifiedAt: true,
     },
   });
 
@@ -186,6 +133,9 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
    * guessed after a correct password still count towards the lockout.
    */
   if (user.totpEnabledAt && user.totpSecretEnc) {
+    /* #4: refused by every company's rules — said now, before asking for a code that would not help. */
+    const entry = await signInEntry(user.id, user);
+    if (entry.refusal) return refuseEntry(res, user, entry.refusal, identity, ip, userAgent);
     const challenge = jwt.sign({ typ: 'login2fa', uid: user.id }, getJwtSecret(), { expiresIn: LOGIN_2FA_TTL_S, audience: LOGIN_2FA_AUDIENCE });
     return res.json({ twoFactorRequired: true, challenge, expiresIn: LOGIN_2FA_TTL_S });
   }
@@ -196,20 +146,39 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
 const LOGIN_2FA_TTL_S = 5 * 60;
 const LOGIN_2FA_AUDIENCE = 'clor-login-2fa';
 
-type LoginUser = { id: string; accountId: string; email: string | null; fullName: string | null };
+type LoginUser = { id: string; accountId: string; email: string | null; fullName: string | null; emailVerifiedAt: Date | null };
+
+/**
+ * #4: the right password, but none of the person's companies lets them in
+ * (an address not confirmed, or outside the allowed domains). No session is
+ * made. An unconfirmed address gets a way to ask for a new link.
+ */
+async function refuseEntry(res: Response, user: { id: string; accountId: string }, refusal: EntryRefusal, identity: string, ip: ReturnType<typeof clientIp>, userAgent: string | undefined) {
+  await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOGIN_REFUSED', ip, userAgent, detail: refusal.code });
+  return res.status(refusal.status).json({
+    error: refusal.error,
+    code: refusal.code,
+    ...(refusal.code === 'EMAIL_NOT_CONFIRMED' ? { resendChallenge: resendChallengeFor(user.id) } : {}),
+  });
+}
 
 /** Everything after the person is known to be who they say: session, token, companies. */
 async function completeLogin(req: Request, res: Response, user: LoginUser, identity: string, ip: ReturnType<typeof clientIp>, userAgent: string | undefined) {
+  const entry = await signInEntry(user.id, user);
+  if (entry.refusal) return refuseEntry(res, user, entry.refusal, identity, ip, userAgent);
   await clearFailedLogins(user.id);
+  /* #4: how long this sign-in lasts, and each access token, are the companies' rules (the strictest of them). */
+  const policy = await sessionPolicyFor(user.id);
   const { session, refreshToken } = await createSession({
     accountId: user.accountId,
     userId: user.id,
     ip,
     userAgent,
+    days: policy.sessionDays,
   });
   await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOGIN_SUCCESS', ip, userAgent });
 
-  const token = signAccessToken({ userId: user.id, accountId: user.accountId, sid: session.id });
+  const token = signAccessToken({ userId: user.id, accountId: user.accountId, sid: session.id }, policy.accessTokenMinutes);
 
   /*
    * Every company this person can open, not only the ones their own account
@@ -236,7 +205,7 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
 
   /* GAP-006: a company from another account whose engagement is not live is not offered. */
   const closedHere = await closedForOutsider(user.id, user.accountId, memberships);
-  const companies = memberships.filter((m) => !closedHere.has(m.orgId)).map((m) => ({
+  const companies = memberships.filter((m) => !closedHere.has(m.orgId) && !entry.closed.has(m.orgId)).map((m) => ({
     orgId: m.orgId,
     id: m.org?.id ?? m.orgId,
     name: m.org?.name ?? '',
@@ -263,7 +232,7 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
    * which is the thing the cookie exists to prevent — the browser can hold a
    * credential the page itself cannot see, and that is the whole point.
    */
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, refreshToken, session.expiresAt);
 
   /* Any company that requires an authenticator of this owner or admin, who has none yet: the app opens on the set-up. */
   let twoFactorSetupRequired = false;
@@ -277,7 +246,7 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
   return res.json({
     token,
     twoFactorSetupRequired,
-    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+    expiresIn: `${policy.accessTokenMinutes}m`,
     user: { id: user.id, email: user.email, fullName: user.fullName, accountId: user.accountId },
     companies,
     activeOrgId: firstOrgId,
@@ -303,7 +272,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
 
   const user = await platformPrisma.user.findUnique({
     where: { id: String(claims.uid) },
-    select: { id: true, accountId: true, email: true, fullName: true, isActive: true, lockedUntil: true, totpEnabledAt: true, totpSecretEnc: true, totpLastStep: true, totpRecoveryJson: true },
+    select: { id: true, accountId: true, email: true, fullName: true, isActive: true, lockedUntil: true, totpEnabledAt: true, totpSecretEnc: true, totpLastStep: true, totpRecoveryJson: true, emailVerifiedAt: true },
   });
   if (!user || !user.isActive || !user.totpEnabledAt || !user.totpSecretEnc) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
   const identity = String(user.email || '').toLowerCase();
@@ -360,7 +329,7 @@ authRouter.post('/refresh', refreshLimiter, async (req: Request, res: Response) 
       ip: clientIp(req),
     });
     // The rotated token replaces the cookie and, again, is not in the body.
-    setRefreshCookie(res, rotated.refreshToken);
+    setRefreshCookie(res, rotated.refreshToken, rotated.session.expiresAt);
     return res.json({ token: rotated.accessToken });
   } catch (e: any) {
     /*
@@ -371,7 +340,7 @@ authRouter.post('/refresh', refreshLimiter, async (req: Request, res: Response) 
     /* Lost a race with another tab: the winner's response has just set the new cookie, so this one must not clear it. */
     if (e instanceof AuthError && e.code === 'refresh_raced') return res.status(409).json({ error: e.message, code: e.code });
     clearRefreshCookie(res);
-    if (e instanceof AuthError) return res.status(e.status).json({ error: e.message });
+    if (e instanceof AuthError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
     throw e;
   }
 });
@@ -458,7 +427,8 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
   });
   /* GAP-006: and only those whose engagement, for a company of another account, is live. */
   const closedForMe = await closedForOutsider(auth.userId, user.accountId, everyMembership);
-  const orgMemberships = everyMembership.filter((m) => !closedForMe.has(m.orgId));
+  const entryClosed = (await signInEntry(auth.userId, user)).closed;
+  const orgMemberships = everyMembership.filter((m) => !closedForMe.has(m.orgId) && !entryClosed.has(m.orgId));
 
   let isOrgAdmin = false;
   let allowedBranchIds: string[] = [];
@@ -618,6 +588,8 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
     accounts,
     allowedBranchIds,
     twoFactorSetupRequired,
+    /* Explore: this session is the read-only sample company (services/explore.ts); the shell says so, with the days left. */
+    explore: auth.explorePassId ? await exploreInfo(auth.explorePassId) : null,
   });
 });
 
@@ -644,45 +616,12 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
   const passwordHash = await bcrypt.hash(body.password, rounds);
 
   /*
-   * Provision identity and commercial access atomically. New accounts never
+   * Provision identity and commercial access atomically, through the one
+   * account-making path (services/accountProvisioning.ts). New accounts never
    * rely on the legacy fail-open rule: every available app they receive is an
-   * explicit subscription item. Pricing is still manual/open-ended today, so
-   * this preserves the pre-upgrade signup experience without ambiguous access.
+   * explicit subscription item.
    */
-  const { account, user } = await platformPrisma.$transaction(async (tx) => {
-    const createdAccount = await tx.account.create({
-      data: { name: body.name.trim() || email },
-      select: { id: true, name: true },
-    });
-    await tx.subscription.create({
-      data: {
-        accountId: createdAccount.id,
-        status: 'active',
-        items: {
-          create: APP_CATALOG.filter((app) => app.available).map((app) => ({
-            appCode: app.code,
-            tier: app.defaultTier ?? null,
-            priceModel: 'free',
-          })),
-        },
-      },
-    });
-    const createdUser = await tx.user.create({
-      data: {
-        accountId: createdAccount.id,
-        email,
-        username: null,
-        fullName: body.name.trim(),
-        passwordHash,
-        isActive: true,
-        ...(body.noticeVersion ? { noticeVersion: body.noticeVersion, noticeAcceptedAt: new Date() } : {}),
-      },
-      select: { id: true, accountId: true, email: true, fullName: true },
-    });
-    /* Whoever makes the account owns it (W-1.1), in the same transaction: no account is ever left without an owner. */
-    await tx.accountMembership.create({ data: { accountId: createdAccount.id, userId: createdUser.id, role: 'OWNER' } });
-    return { account: createdAccount, user: createdUser };
-  });
+  const { user } = await createAccountWithOwner({ email, name: body.name, passwordHash, noticeVersion: body.noticeVersion, plan: SIGNUP_APPS });
 
   const { session, refreshToken } = await createSession({
     accountId: user.accountId,
@@ -712,7 +651,7 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
     transactional: true,
   });
 
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, refreshToken, session.expiresAt);
 
   return res.json({
     token,
@@ -757,9 +696,6 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
   // code disagrees with the state that was chosen.
   validateGstinOrThrow(gstin, stateName);
 
-  const now = new Date();
-
-  // Create org + head-office branch, assign memberships
   /*
    * A-04 / W-1.4: whoever creates a company becomes its Administrator, so
    * creating one is an account-level act. Allowed for the account's very first
@@ -778,179 +714,15 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
     }
   }
 
-  /*
-   * The public handle, derived from the name and free at the moment of
-   * creation. Offered for editing later rather than fixed here: `agc-traders-2`
-   * is a URL somebody has to live with, and only they can say whether it is the
-   * one they want.
-   */
-  const slug = await suggestSlug(body.companyName);
-
-  /*
-   * The company master, kept.
-   *
-   * Everything the signup wizard asks after the name — trade name, entity
-   * type, industries, the financial year it starts, the currency, the
-   * registered address — was parsed and thrown away: the schema accepted a
-   * `profile` object and nothing ever read it. Somebody answered eleven
-   * questions about their business and the app kept three of the answers, so
-   * the profile screen greeted them empty and asked again.
-   *
-   * State and GSTIN are stored here as well as on the head-office branch. The
-   * branch is where tax is computed from; this is what the browser reads to
-   * know which company it is looking at.
-   */
-  const profileJson = JSON.stringify({
-    ...(body.profile && typeof body.profile === 'object' ? body.profile : {}),
-    state: stateName,
-    gstin: gstin || null,
-  });
-
-  /*
-   * The plan's company allowance, checked and used under the account's quota
-   * lock (W-6.1): two requests at once can no longer both see room. An
-   * account with no entitlement row is on the default plan, which is
-   * unlimited — so this refuses nobody until a plan is deliberately assigned.
-   */
-  let releaseQuota: () => Promise<void>;
+  /* Everything a new company needs, in the one account-making path (services/accountProvisioning.ts). */
+  let made;
   try {
-    releaseQuota = await lockQuota(auth.accountId, 'COMPANIES');
+    made = await createCompany({ accountId: auth.accountId, userId: auth.userId, companyName: body.companyName, state: stateName, gstin, profile: body.profile });
   } catch (e) {
-    if (e instanceof QuotaBusyError) return res.status(e.status).json({ error: e.message, code: e.code });
+    if (e instanceof QuotaBusyError || e instanceof ProvisionError) return res.status(e.status).json({ error: e.message, code: e.code });
     throw e;
   }
-  let org: { id: string; name: string; slug: string | null };
-  try {
-    const overLimit = await companyLimitReason(auth.accountId);
-    if (overLimit) return res.status(403).json({ error: overLimit, code: 'COMPANY_LIMIT' });
-    org = await platformPrisma.org.create({
-      data: {
-        accountId: auth.accountId,
-        name: body.companyName.trim(),
-        legalName: body.companyName.trim(),
-        slug,
-        profileJson,
-        createdByUserId: auth.userId,
-      },
-      select: { id: true, name: true, slug: true },
-    });
-  } finally {
-    await releaseQuota();
-  }
-  await assignOrgCode(auth.accountId, org.id, body.companyName.trim());
-  await assignUserCode(auth.userId, org.id);
-
-  const branch = await platformPrisma.branch.create({
-    data: {
-      accountId: auth.accountId,
-      orgId: org.id,
-      branchCode: 'HO',
-      branchName: 'Head Office',
-      addressLine1: '',
-      city: '',
-      state: stateName,
-      country: 'India',
-      // A business that gives a GSTIN is registered by definition; one that
-      // does not is composition-or-unregistered and can say so later.
-      gstRegistrationType: gstin ? 'REGULAR' : 'UNREGISTERED',
-      gstin: gstin || null,
-      parentBranchId: null,
-      shareHeadOfficeSettings: false,
-      createdByUserId: auth.userId,
-      createdAt: now,
-    },
-    select: { id: true },
-  });
-
-  await platformPrisma.userOrgMembership.create({
-    data: { accountId: auth.accountId, orgId: org.id, userId: auth.userId },
-  });
-
-  await platformPrisma.userBranchMembership.create({
-    data: { accountId: auth.accountId, orgId: org.id, branchId: branch.id, userId: auth.userId },
-  });
-
-  /*
-   * A new company starts with the apps its account owns, switched on for it.
-   *
-   * App switches follow subscription CHANGES (syncAppSwitches), so an org
-   * created under a standing subscription never sees one — without this the
-   * owned apps would sit at the catalog default (off) and the customer would
-   * find an empty shelf behind a pay-up tile. Only owned-but-lapsed apps keep
-   * it too (ownedApps, not entitledApps): a lapsed app stays visible, its
-   * routes refuse work, and the switch is still where the customer left it.
-   * Other companies of the account are untouched; failures cannot sink the
-   * company the account just paid for.
-   */
-  try {
-    const owned = (await appAccess(auth.accountId)).ownedApps;
-    for (const app of APP_CATALOG.filter((a) => a.available && a.featureKey && owned.includes(a.code))) {
-      await platformPrisma.featureSetting.upsert({
-        where: { orgId_key: { orgId: org.id, key: app.featureKey! } },
-        update: {},
-        create: { accountId: auth.accountId, orgId: org.id, key: app.featureKey!, enabled: true, updatedByUserId: 'subscription' },
-      });
-    }
-  } catch {
-    /* The org exists even if its switches could not be written. */
-  }
-
-  /*
-   * Simple mode (PRODUCT-VIEW §6), on for a new company: it has no employees
-   * and one user, so it fits (up to 10 and up to 2). Only ever written here,
-   * once: a company that already exists keeps the menus it has, and one that
-   * grows is offered the switch on Home, never switched for it.
-   */
-  try {
-    await platformPrisma.featureSetting.upsert({
-      where: { orgId_key: { orgId: org.id, key: 'peopleSimpleMode' } },
-      update: {},
-      create: { accountId: auth.accountId, orgId: org.id, key: 'peopleSimpleMode', enabled: true, updatedByUserId: 'system' },
-    });
-    void track(org.id, auth.userId, 'simple_mode_toggled', { on: true, trigger: 'company_created', app: 'people' });
-  } catch {
-    /* The full menus are the fallback. */
-  }
-
-  /*
-   * Every org gets a warehouse, for the same reason it gets a branch.
-   *
-   * Warehouse is a required field on an invoice, a bill and a stock transfer.
-   * A tenant created with a branch and no warehouse could not raise its first
-   * invoice at all: the form demanded a warehouse and the dropdown held only
-   * "Select Warehouse". The first thing a new customer tried to do was the one
-   * thing they could not.
-   *
-   * Named "Main Store" rather than after the branch, because a business with
-   * one location still calls it the store, not the head office.
-   */
-  const mainWarehouse = await prisma.warehouse.create({
-    data: {
-      accountId: auth.accountId,
-      orgId: org.id,
-      branchId: branch.id,
-      code: 'MAIN',
-      name: 'Main Store',
-      createdByUserId: auth.userId,
-    },
-  });
-
-  await platformPrisma.userWarehouseAccess.create({
-    data: {
-      accountId: auth.accountId,
-      orgId: org.id,
-      branchId: branch.id,
-      warehouseId: mainWarehouse.id,
-      userId: auth.userId,
-    },
-  });
-
-  // Ensure the creator can manage setup screens immediately.
-  await bootstrapOwnerRole(auth.accountId, org.id, auth.userId);
-
-  // Every org gets a chart of accounts and journals up front, so the first
-  // invoice has somewhere to post.
-  await ensureLedgerSetup(auth.accountId, org.id, auth.userId);
+  const { org, branch } = made;
 
   // Frontend expects { company: { id, name, orgId }, branch: { id } }
   return res.json({
@@ -1094,6 +866,33 @@ authRouter.post('/resend-verification', resetLimiter, requireLiveAuth, async (re
     ok: true,
     ...(isDevOrTest() ? { devVerifyToken: token } : {}),
   });
+});
+
+/**
+ * #4: a new link for someone whose sign-in was refused because their company
+ * asks for a confirmed address. They have no session, so the refusal carried
+ * a short-lived token (services/signInRules.ts) that only the right password
+ * earned; it asks for the link and nothing else.
+ */
+authRouter.post('/resend-verification/sign-in', resetLimiter, async (req: Request, res: Response) => {
+  const userId = resendChallengeUser(String(req.body?.challenge || ''));
+  if (!userId) return res.status(400).json({ error: 'That took too long. Sign in again to ask for a new link.', code: 'CHALLENGE_EXPIRED' });
+  const user = await platformPrisma.user.findFirst({ where: { id: userId, isActive: true }, select: { id: true, accountId: true, email: true, fullName: true, emailVerifiedAt: true } });
+  if (!user) return res.status(400).json({ error: 'That took too long. Sign in again to ask for a new link.', code: 'CHALLENGE_EXPIRED' });
+  if (user.emailVerifiedAt) return res.json({ ok: true, alreadyVerified: true });
+  const token = await issueEmailVerificationToken(user);
+  await sendTemplate({
+    templateKey: 'auth.verify_email',
+    to: user.email,
+    toName: user.fullName,
+    accountId: user.accountId,
+    data: { userName: user.fullName, email: user.email, verifyUrl: `${process.env.APP_URL || 'http://localhost:5173'}/?verify=${token}` },
+    relatedType: 'User',
+    relatedId: user.id,
+    transactional: true,
+  });
+  await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: user.email, eventType: 'VERIFICATION_RESENT', ip: clientIp(req), detail: 'From a refused sign-in' });
+  return res.json({ ok: true, ...(isDevOrTest() ? { devVerifyToken: token } : {}) });
 });
 
 /** Update your own name. Email changes go through verification separately. */

@@ -281,7 +281,7 @@ describe('what the bank did', () => {
     expect(preview.body.preview.problems.map((p: any) => p.code)).toContain('LINES_PENDING');
   });
 
-  it('marks the run paid once everybody has been', async () => {
+  it('marks the slips paid once everybody has been, and keeps a posted run posted', async () => {
     const c = await makeOwner();
     const { runId } = await payrollThroughToPosted(c);
     const bank = await bankLedger(c);
@@ -295,8 +295,13 @@ describe('what the bank did', () => {
       .expect(200);
     await api.post(c, `/payments/${made.body.payment.id}/post`).expect(200);
 
+    /* This run was posted to the books before it was paid. Paying it must not
+       move it back from POSTED to PAID (audit #20); the slips carry the payment. */
     const run = await payrollPrisma.payrollRun.findFirst({ where: { id: runId } });
-    expect(run!.status).toBe('PAID');
+    expect(run!.status).toBe('POSTED');
+    const slips = await payrollPrisma.salarySlip.findMany({ where: { runId } });
+    expect(slips.length).toBeGreaterThan(0);
+    expect(slips.every((s: any) => s.paymentStatus === 'PAID')).toBe(true);
   });
 });
 
@@ -449,7 +454,7 @@ describe('calling a batch off', () => {
 });
 
 describe('a failed line', () => {
-  it('is owed again in the next batch, and is not in the file for this one', async () => {
+  it('is owed again in the next batch, and neither it nor the paid line is in the file for this one', async () => {
     const c = await makeOwner();
     const { runId } = await payrollThroughToPosted(c);
     const bank = await bankLedger(c);
@@ -468,7 +473,8 @@ describe('a failed line', () => {
       .expect(200);
 
     const advice = await api.get(c, `/payments/${paymentId}/advice`).expect(200);
-    expect(advice.body.rows).toHaveLength(1);
+    /* Only what is still waiting at the bank goes in the file (review of #145, S1): the paid line would be paid twice, the failed one goes in the next batch. */
+    expect(advice.body.rows).toHaveLength(0);
 
     /* The person the bank rejected is payable again; the one who was paid is
        not. */

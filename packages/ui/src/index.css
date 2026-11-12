@@ -1,17 +1,10 @@
-/* One face: Inter. The Graphite decision, adopted ahead of the rest of that
-   system — it has tabular figures, a large x-height and a wide weight range,
-   which is everything a dense financial UI asks of type. Numbers and codes
-   are Inter too, marked by tabular-nums and alignment rather than a second
-   family. display=swap so text is never invisible while fonts load.
-   Served from this app (Fontsource, SIL OFL 1.1), not from Google: loading
-   it from fonts.googleapis.com sent every visitor's IP address to Google
-   before they had signed in to anything. */
+/* One face outside Accounting (8 Nov 2026): Plus Jakarta Sans for words and, with tabular
+   figures, for numbers. The second face for numbers (JetBrains Mono) is retired.
+   Inter kept for Accounting (indigo palette). Bricolage Grotesque retired.
+   All self-hosted (Fontsource, SIL OFL 1.1), not Google — no IP leakage before sign-in. */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/plus-jakarta-sans';
-/* Bricolage Grotesque, the brand's display face (Direction D): the wordmark
-   and page titles only. Figures, tables and forms stay Inter — warm display,
-   plain Inter for figures. Self-hosted for the same reason as Inter. */
-@import '@fontsource-variable/bricolage-grotesque/opsz.css';
+/* Bricolage Grotesque retired in neon brand (5–6 Nov 2026). */
 
 @tailwind base;
 @tailwind components;
@@ -703,8 +696,136 @@
 }
 
 /* ---------------------------------------------------------------------------
-   CLOR — the red brand (owner, 3 Nov 2026: "go with red combination", over
-   indigo; brand board "CLOR red"). Supersedes Direction D's indigo.
+   CLOR — the neon brand, platform default (owner, 5–6 Nov 2026, PR #131;
+   owner, 9 Nov 2026: "color should be blaze orange nor red").
+
+   Workspace, the shell's sign-in pages and the operator console wear this
+   directly; an app with its own palette (People `sky`, Attendance `blaze`,
+   Payroll `payroll`, Accounting `indigo`) restates what it needs.
+
+     Blaze Orange #FF5400  the neon: the open tab's line, the rail bar, focus.
+                           A mark, not words (3.2:1 on white).
+     Button       #D44500  the primary action's fill, the same orange one step
+                           deeper so its white label clears AA (4.5:1);
+                           hover #BA3900 (5.7:1), pressed #A33200 (7.0:1).
+     Ink          #BA3900  orange as words: links, the open tab. 5.7:1 on white.
+     Grounds      pure white; hairlines #E5E7EB; slate headings #0F172A.
+
+   Errors keep their own red, #B91C1C (--neg), always with a warning mark.
+   Money paid out is ink with a minus sign; money in is green.
+
+   Every key here is also set by the red block below, so People and
+   Accounting, which still sit on that block, see no value from this one.
+--------------------------------------------------------------------------- */
+:root {
+  --marigold: 245 166 35; --ink: 15 23 42;
+  --logo-mark: 255 84 0; --logo-dot: 255 84 0;
+  --logo-mark-orange: 255 84 0; --logo-mark-slate: 15 23 42; /* two-color logo tokens */
+  --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 249 250 251; --border: 229 231 235; --border-strong: 209 213 219;
+  --border-field: 209 213 219; --doc-section: 249 250 251;
+  /* fg 17.7:1, muted 7.6:1, subtle 5.3:1 on white. */
+  --fg: 17 24 39; --fg-muted: 75 85 99; --fg-subtle: 101 108 121; --fg-heading: 15 23 42;
+  --brand: 255 84 0; --brand-deep: 186 57 0; --brand-hover: 186 57 0; --brand-pressed: 163 50 0;
+  --btn-primary-bg: 212 69 0; --btn-primary-hover: 186 57 0;
+  --brand-soft: 255 244 236; --brand-subtle: 255 250 246; --brand-border: 255 212 189;
+  --brand-ink: 186 57 0; --brand-panel: 15 23 42; --on-brand: 255 255 255;
+  --doc-link: 186 57 0; --doc-link-wash: 255 244 236; --accent-soft: var(--brand-soft);
+  --ring: 255 84 0; --link: 186 57 0; --link-hover: 163 50 0; --info: 71 85 105; --info-soft: 241 245 249;
+  /* Ink on the strong tint 5.0:1. */
+  --st-all-soft: 255 247 241; --st-all-strong: 255 236 224; --st-all-key: 255 84 0; --st-all-ink: 186 57 0;
+  --nav-fg: 17 24 39; --nav-fg-muted: 75 85 99; --nav-fg-subtle: 107 114 128;
+  --rail-bg: 255 255 255; --rail-border: 229 231 235; --rail-hover: 249 250 251; --rail-active: 255 244 236;
+  --heading-bg: 249 250 251; --heading-hover: 243 244 246; --page-heading-bg: 255 255 255; --header-bg: 255 255 255;
+  --cursor-bg: 255 255 255; --cursor-fg: 17 24 39;
+  --nav-dashboard: 71 85 105; --nav-sales: 71 85 105; --nav-crm: 71 85 105;
+  --nav-purchases: 71 85 105; --nav-cashbank: 71 85 105; --nav-expenses: 71 85 105;
+  --nav-inventory: 71 85 105; --nav-journal: 71 85 105; --nav-approvals: 71 85 105;
+  --nav-reports: 71 85 105; --nav-masterdata: 71 85 105; --nav-settings: 71 85 105;
+  --nav-dashboard-ink: 241 245 249; --nav-sales-ink: 241 245 249; --nav-crm-ink: 241 245 249;
+  --nav-purchases-ink: 241 245 249; --nav-cashbank-ink: 241 245 249; --nav-expenses-ink: 241 245 249;
+  --nav-inventory-ink: 241 245 249; --nav-journal-ink: 241 245 249; --nav-approvals-ink: 241 245 249;
+  --nav-reports-ink: 241 245 249; --nav-masterdata-ink: 241 245 249; --nav-settings-ink: 241 245 249;
+  --ov-blue: 15 23 42; --ov-blue-soft: 241 245 249; --ov-blue-wash: 249 250 251;
+  --ov-green: 71 85 105; --ov-green-soft: 241 245 249; --ov-green-wash: 249 250 251;
+  --ov-amber: 71 85 105; --ov-amber-soft: 241 245 249; --ov-amber-wash: 249 250 251;
+  --ov-violet: 15 23 42; --ov-violet-soft: 241 245 249; --ov-violet-wash: 249 250 251;
+  --ov-orange: 186 57 0; --ov-orange-soft: 255 244 236; --ov-orange-wash: 255 250 246;
+  --kpi-line: 229 231 235;
+  --kpi-sales-bg: 249 250 251; --kpi-sales-ink: 17 24 39;
+  --kpi-invoices-bg: 255 247 241; --kpi-invoices-ink: 186 57 0;
+  --kpi-received-bg: 240 253 244; --kpi-received-ink: 21 128 61;
+  --kpi-due-bg: 249 250 251; --kpi-due-ink: 75 85 99;
+  --kpi-overdue-bg: 254 242 242; --kpi-overdue-ink: 185 28 28;
+  --kpi-credit-bg: 255 247 241; --kpi-credit-ink: 186 57 0;
+  /* Money: in is green; out is ink (see .ui-amount-neg). --neg is the error red only. */
+  --pos: 21 128 61; --pos-soft: 235 247 239; --money-out: var(--ink);
+  --neg: 185 28 28; --neg-hover: 153 27 27; --neg-soft: 253 236 236;
+  /* Attention is amber-brown, never the brand orange. */
+  --warn: 161 98 7; --warn-ink: 133 77 14; --warn-soft: 254 249 231;
+  /* The admin rail's selected module: the orange tint, words in orange ink (5.3:1). */
+  --ws-nav-selected: 255 244 236; --ws-nav-selected-ink: 186 57 0; --ws-brand: 255 84 0;
+  /* A chosen view in a segmented switch: slate with white words (17.9:1), so the orange stays the action. */
+  --choice: 15 23 42; --on-choice: 255 255 255; --choice-tray: 249 250 251;
+}
+
+/* Dark (inert: useTheme forces light). Neutral near-black, the orange lifted
+   to #FF7A33 with slate words on it (6.8:1). No red. */
+:root[data-theme='dark'] {
+  --app-bg: 11 15 23; --surface: 17 24 39; --surface-sunken: 31 41 55; --surface-raised: 39 50 68;
+  --border: 55 65 81; --border-strong: 75 85 99; --border-field: 75 85 99; --doc-section: 24 32 48;
+  --fg: 243 244 246; --fg-muted: 209 213 219; --fg-subtle: 156 163 175; --fg-heading: 243 244 246;
+  --brand: 255 122 51; --brand-deep: 255 154 92; --brand-hover: 255 154 92; --brand-pressed: 234 98 26;
+  --btn-primary-bg: 255 122 51; --btn-primary-hover: 255 154 92;
+  --brand-soft: 58 30 14; --brand-subtle: 36 22 14; --brand-border: 120 56 20; --brand-ink: 255 154 92;
+  --on-brand: 15 23 42; --on-primary: 15 23 42; --on-accent: 15 23 42; --accent-soft: 58 30 14;
+  --ring: 255 122 51; --doc-link: 255 154 92; --doc-link-wash: 58 30 14;
+  --link: 255 154 92; --link-hover: 255 186 140; --info: 209 213 219; --info-soft: 31 41 55;
+  --st-all-soft: 36 22 14; --st-all-strong: 58 30 14; --st-all-key: 255 122 51; --st-all-ink: 255 210 180;
+  --rail-bg: 11 15 23; --rail-border: 31 41 55; --rail-hover: 17 24 39; --rail-active: 58 30 14;
+  --heading-bg: 31 41 55; --heading-hover: 39 50 68; --page-heading-bg: 17 24 39; --header-bg: 17 24 39;
+  --cursor-bg: 31 41 55; --cursor-fg: 243 244 246;
+  --nav-fg: 243 244 246; --nav-fg-muted: 209 213 219; --nav-fg-subtle: 156 163 175;
+  --nav-dashboard: 209 213 219; --nav-sales: 209 213 219; --nav-crm: 209 213 219;
+  --nav-purchases: 209 213 219; --nav-cashbank: 209 213 219; --nav-expenses: 209 213 219;
+  --nav-inventory: 209 213 219; --nav-journal: 209 213 219; --nav-approvals: 209 213 219;
+  --nav-reports: 209 213 219; --nav-masterdata: 209 213 219; --nav-settings: 209 213 219;
+  --nav-dashboard-ink: 31 41 55; --nav-sales-ink: 31 41 55; --nav-crm-ink: 31 41 55;
+  --nav-purchases-ink: 31 41 55; --nav-cashbank-ink: 31 41 55; --nav-expenses-ink: 31 41 55;
+  --nav-inventory-ink: 31 41 55; --nav-journal-ink: 31 41 55; --nav-approvals-ink: 31 41 55;
+  --nav-reports-ink: 31 41 55; --nav-masterdata-ink: 31 41 55; --nav-settings-ink: 31 41 55;
+  --kpi-line: 55 65 81;
+  --kpi-sales-bg: 24 32 48; --kpi-sales-ink: 243 244 246;
+  --kpi-invoices-bg: 36 22 14; --kpi-invoices-ink: 255 210 180;
+  --kpi-received-bg: 5 46 22; --kpi-received-ink: 74 222 128;
+  --kpi-due-bg: 31 41 55; --kpi-due-ink: 209 213 219;
+  --kpi-overdue-bg: 69 10 10; --kpi-overdue-ink: 248 113 113;
+  --kpi-credit-bg: 36 22 14; --kpi-credit-ink: 255 210 180;
+  --money-out: 243 244 246;
+  --choice: 243 244 246; --on-choice: 15 23 42; --choice-tray: 31 41 55;
+  --ws-nav-selected: 58 30 14; --ws-nav-selected-ink: 243 244 246; --ws-brand: 255 122 51;
+}
+
+/* The neon default and Payroll's palette press the deeper button fill. */
+:root:is(:not([data-palette]), [data-palette='payroll']) :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--btn-primary-bg)) !important;
+  border-color: rgb(var(--btn-primary-bg)) !important;
+  color: rgb(var(--on-brand)) !important;
+}
+:root:is(:not([data-palette]), [data-palette='payroll']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--btn-primary-hover)) !important;
+  border-color: rgb(var(--btn-primary-hover)) !important;
+}
+:root:is(:not([data-palette]), [data-palette='payroll']) :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
+  background-color: rgb(var(--brand-pressed)) !important;
+  border-color: rgb(var(--brand-pressed)) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   CLOR — the red brand (owner, 3 Nov 2026), superseded by the neon brand above
+   (5–6 Nov 2026). Kept only under People's `sky` and Accounting's `indigo`
+   palettes, which were drawn on top of it and must look exactly as before;
+   no app without one of those palettes sees a value below.
 
    Six colours, each with one job:
      Red      #C8102E  what you press: the primary action,
@@ -724,10 +845,13 @@
    with a minus sign, money in stays green. An error keeps its own red,
    #B91C1C, always with a warning mark, so it never reads as the brand.
 --------------------------------------------------------------------------- */
-:root {
+:root:where([data-palette='sky'], [data-palette='indigo']) {
   --red: 200 16 46; --oxblood: 92 10 22; --blush: 251 232 234; --marigold: 245 166 35;
   --ink: 31 26 28; --cream: 255 248 240;
-  --logo-mark: var(--oxblood); --logo-dot: var(--marigold);
+  --logo-mark: 255 84 0; --logo-dot: 255 84 0; /* neon orange #FF5400; L/R slate handled in component */
+  --logo-mark-orange: 255 84 0; --logo-mark-slate: 15 23 42; /* two-color logo tokens */
+  /* The Explore notice (shell): Workspace Blaze in every app; no palette sets these, so it reads the same over People, Payroll or Books. Ink 5.4:1 on the soft. */
+  --explore-mark: 255 84 0; --explore-ink: 186 57 0; --explore-soft: 255 243 235; --explore-line: 255 212 184;
   /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
   --app-bg: 250 246 244; --surface: 255 255 255; --surface-raised: 255 255 255;
   --surface-sunken: 245 239 238; --border: 234 223 225; --border-strong: 206 188 192;
@@ -782,7 +906,7 @@
 /* Dark is the red brand's night: an oxblood-black ground, warm white text, and
    marigold taking over the action (red on near-black is too dim to press),
    with oxblood words on it at 6.9:1. */
-:root[data-theme='dark'] {
+:root[data-theme='dark']:where([data-palette='sky'], [data-palette='indigo']) {
   --logo-mark: 255 255 255; --logo-dot: var(--marigold);
   --app-bg: 26 12 15; --surface: 36 20 26; --surface-sunken: 46 26 32; --surface-raised: 56 32 40;
   --border: 62 38 46; --border-strong: 96 64 72; --border-field: 82 52 60; --doc-section: 40 22 28;
@@ -921,7 +1045,7 @@
 @layer base {
   html {
     /* Inter, matching the reference the module overviews are drawn from. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     /* Tabular figures everywhere: money columns must not jitter between rows. */
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
@@ -1012,9 +1136,6 @@
     color: rgb(var(--fg-subtle));
   }
   .ui-mono {
-    /* Inter, like everything else. A code is marked by disabled ligatures
-       and the tabular figures it inherits, not by a second typeface. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0; /* no ligatures in IDs and codes */
   }
   .ui-amount {
@@ -2183,7 +2304,7 @@
      Inter at display sizes for headline moments — one face, ranked by size
      and weight rather than by switching family. */
   .ui-display {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'ss01', 'cv11';
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -2555,7 +2676,7 @@
     font-size: 0.8125rem;
   }
   .ui-table-totals .fig {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 500, per DESIGN.md. At 600 every figure in every table read as
        emphasised, which means none of them did — a column where each cell
@@ -2638,7 +2759,7 @@
     box-shadow: 0 -2px 10px rgb(28 25 23 / 0.06);
   }
   .ui-entry-summary .fig {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
@@ -2872,6 +2993,7 @@
     background: rgb(var(--surface-sunken));
   }
   .ui-split-mod {
+    position: relative;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -3164,7 +3286,7 @@
      doing 200 vouchers a day and an owner reading outstandings.
   --------------------------------------------------------------------------- */
   .ui-t-page {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.75rem;       /* 28px — Graphite's title size */
     line-height: 2.25rem;     /* 36px */
     font-weight: 700;
@@ -3289,7 +3411,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -3303,7 +3425,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -3330,7 +3452,7 @@
     font-weight: 500;
   }
   .ui-total-row > :last-child {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;
     font-weight: 400;
@@ -3407,7 +3529,7 @@
   /* The scan anchor. Mono so digits align down the column and the eye can run
      it like a list of codes rather than prose. */
   .ui-col-id.ui-col-id {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -3472,7 +3594,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -3491,7 +3613,7 @@
      or a glyph.
   ------------------------------------------------------------------------- */
   .ui-cell-ref {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--doc-link));
     font-weight: 600;
@@ -3548,7 +3670,7 @@
     overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 
@@ -4372,7 +4494,7 @@
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.10);
   }
   .ui-segment-count {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -4617,7 +4739,7 @@
      left-aligned, which is why a column of rates did not line up on the
      decimal and had to be read one cell at a time. */
   .ui-grid-dense input[type='number'] {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
     text-align: right;
@@ -5105,8 +5227,32 @@ label {
    h2 smaller than a neighbouring card label. Element-level sizes are made
    authoritative here so the same heading means the same thing on every page. */
 body, button, input, select, textarea, table,
-.font-sans, .font-serif, .font-mono {
+.font-sans, .font-serif {
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+/* Numbers outside Accounting: the words' face with tabular figures, so digits line up. */
+.font-mono, .ui-mono, .ui-metric,
+.tabular-nums, [class*='ui-amount'] {
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+code, pre { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+/* Accounting keeps Inter throughout — the indigo palette restores the original face. */
+[data-palette='indigo'] body,
+[data-palette='indigo'] button,
+[data-palette='indigo'] input,
+[data-palette='indigo'] select,
+[data-palette='indigo'] textarea,
+[data-palette='indigo'] table,
+[data-palette='indigo'],
+[data-palette='indigo'] * {
   font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+[data-palette='indigo'] .font-mono,
+[data-palette='indigo'] .ui-mono,
+[data-palette='indigo'] code,
+[data-palette='indigo'] pre {
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
 h1, h1[class], .ui-t-page {
@@ -5116,7 +5262,7 @@ h1, h1[class], .ui-t-page {
   letter-spacing: -0.025em;
 }
 h1, .ui-t-page, .ui-wordmark {
-  font-family: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: normal;
 }
 /* The wordmark: always CLOR, ExtraBold, tight, in the theme's logo ink. */
@@ -6706,25 +6852,8 @@ th.ui-th {
 }
 .ui-today-hero-main { min-width: 0; display: flex; align-items: flex-start; gap: 1rem; }
 .ui-today-hero-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
-.ui-today-hero-sun {
-  position: relative; flex: none;
-  display: grid; place-items: center;
-  width: 3rem; height: 3rem; margin-top: 0.125rem;
-  border-radius: 999px;
-  color: rgb(var(--brand-ink));
-  background: rgb(var(--brand-soft));
-}
-.ui-today-hero-sun::before,
-.ui-today-hero-sun::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
-  border: 1.5px solid rgb(var(--brand) / 0.45);
-  opacity: 0; pointer-events: none;
-}
-.ui-today-hero-sun > svg { position: relative; }
-.ui-today-hero-date { font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
 /* The one display line on the page, so it steps outside the forced heading scale. */
 .ui-today-hero .ui-today-hero-greet { font-size: 1.75rem !important; line-height: 2.125rem !important; font-weight: 700; letter-spacing: -0.025em; color: inherit; }
-.ui-today-hero-hi { color: rgb(var(--hero-hi, var(--brand))); }
 .ui-today-hero-line { font-size: 0.9375rem; color: rgb(var(--fg-muted)); max-width: 62ch; }
 .ui-today-hero-meter {
   margin-top: 0.625rem; height: 0.375rem; max-width: 28rem; border-radius: 999px; overflow: hidden;
@@ -6755,24 +6884,11 @@ th.ui-th {
 
 @keyframes ui-hero-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes ui-hero-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes ui-hero-pop { from { opacity: 0; transform: scale(0.6) rotate(-30deg); } to { opacity: 1; transform: none; } }
-@keyframes ui-hero-ring { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
-@keyframes ui-hero-turn { to { transform: rotate(360deg); } }
-@keyframes ui-hero-dawn { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-2px); } }
-@keyframes ui-hero-sway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .ui-today-hero-sun { animation: ui-hero-pop 520ms cubic-bezier(.2,.9,.3,1.3) both; }
-  /* Two rings ripple out from the mark, a beat apart, then rest for a while. */
-  .ui-today-hero-sun::before { animation: ui-hero-ring 2.8s ease-out 700ms infinite; }
-  .ui-today-hero-sun::after { animation: ui-hero-ring 2.8s ease-out 2.1s infinite; }
-  .ui-today-hero-sun[data-time='morning'] > svg { animation: ui-hero-dawn 3.6s ease-in-out infinite; }
-  .ui-today-hero-sun[data-time='afternoon'] > svg { animation: ui-hero-turn 24s linear infinite; }
-  .ui-today-hero-sun[data-time='evening'] > svg { animation: ui-hero-sway 5s ease-in-out infinite; transform-origin: 50% 60%; }
   .ui-today-hero-text > *,
   .ui-today-hero-side > *,
   .ui-today-hero-queue > li { animation: ui-hero-rise 480ms cubic-bezier(.2,.7,.2,1) both; }
-  .ui-today-hero-date { animation-delay: 60ms; }
   .ui-today-hero .ui-today-hero-greet { animation-delay: 120ms; }
   .ui-today-hero-line { animation-delay: 200ms; }
   .ui-today-hero-meter { animation-delay: 260ms; }
@@ -6949,6 +7065,10 @@ th.ui-th {
 .ui-check-mark { flex: none; color: rgb(var(--pos)); display: inline-flex; }
 .ui-check-row[data-state='block'] .ui-check-mark { color: rgb(var(--neg)); }
 .ui-check-row[data-state='check'] .ui-check-mark { color: rgb(var(--warn-ink, 180 83 9)); }
+/* Days docked as unpaid absence on close (audit #5): never a green tick, and closing names them. */
+.ui-check-row[data-state='confirm'] .ui-check-mark { color: rgb(var(--warn-ink, 180 83 9)); }
+.ui-readiness.is-warn { border-left-color: rgb(var(--warn-ink, 180 83 9)); }
+.ui-readiness.is-warn > div > svg { color: rgb(var(--warn-ink, 180 83 9)); }
 .ui-check-count { min-width: 2.5rem; text-align: right; font-weight: 650; font-size: 1rem; }
 .ui-check-row[data-state='ok'] .ui-check-count { color: rgb(var(--fg-subtle)); font-weight: 500; }
 
@@ -7051,8 +7171,9 @@ th.ui-th {
 }
 
 /*
- * The Blaze palette, now in the red brand (3 Nov 2026; Blaze Orange and Graphite
- * from 2026-10-21 until then). The name stays so manifests keep working. Shared.
+ * The Blaze palette: Attendance in Solar Amber (neon brand, owner 5–6 Nov
+ * 2026; the red brand 3–9 Nov, Blaze Orange and Graphite 21 Oct–3 Nov). The
+ * name stays so manifests keep working. Shared.
  *
  * A palette, not an app's styling: any CLOR app opts in with
  * `palette: 'blaze'` in its manifest, and the shell sets data-palette="blaze"
@@ -7060,13 +7181,14 @@ th.ui-th {
  * below is colour only (no size, spacing or layout) and works through the
  * shared tokens, so the shared components pick it up without changes.
  *
- *   page ground          warm white #FAF6F4
- *   ink                  #1F1A1C (16.0:1 on the ground)
- *   sidebar (icon rail)  oxblood #5C0A16, labels #E2B2B9 (7.5:1)
- *   current module       marigold edge bar and icon (6.9:1), label white
- *   primary buttons      CLOR red #C8102E with white text (5.9:1)
- *   accent on light      red for focus, active bars, the tab underline;
- *                        #A50D26 where red is text (7.8:1)
+ *   page ground          pure white
+ *   ink                  #111827 (17.7:1)
+ *   sidebar (icon rail)  white over a hairline, labels slate #4B5563 (7.6:1)
+ *   current module       amber edge bar and tint, icon in amber ink #854D0E (6.9:1)
+ *   primary buttons      Solar Amber #EAB308 with slate words #0F172A (9.3:1);
+ *                        white on amber would be 1.9:1, so never white
+ *   accent on light      amber for the tab underline and bars; #854D0E where
+ *                        amber is text (6.9:1); focus #A16207 (4.9:1)
  *   tables, forms        neutral white and grey, names in ink
  *
  * Tokens it sets (others keep the platform values): --app-bg, --fg, --brand*,
@@ -7075,78 +7197,81 @@ th.ui-th {
  */
 :root[data-palette='blaze'],
 [data-palette='blaze'] {
-  --app-bg: 250 246 244;
-  --fg: 31 26 28;
-  --brand: 200 16 46;
-  --brand-deep: 92 10 22;
-  --brand-hover: 165 13 38;
-  --brand-pressed: 138 11 32;
-  --btn-primary-bg: 200 16 46;
-  --btn-primary-hover: 165 13 38;
-  --brand-soft: 251 232 234;
-  --brand-subtle: 253 244 245;
-  --brand-border: 243 211 215;
-  --brand-ink: 165 13 38;
-  --on-brand: 255 255 255;
-  --accent-soft: 251 232 234;
-  --ring: 200 16 46;
-  --link: 165 13 38;
-  --link-hover: 138 11 32;
-  --col-party: 31 26 28;
-  --page-heading-bg: 253 244 245;
-  --heading-bg: 253 244 245;
-  --rail-graphite: 92 10 22;
-  --rail-graphite-top: 104 14 28;
-  --rail-graphite-hover: 122 20 34;
-  --rail-ink: 226 178 185;
-  --rail-ink-strong: 255 255 255;
-  --rail-blaze: 245 166 35;
-  --rail-blaze-ink: 92 10 22;
-  /* Red on the warm ground is 5.6:1, so the greeting may wear it at any size. */
-  --hero-hi: 200 16 46;
+  --app-bg: 255 255 255;
+  --fg: 17 24 39;
+  --brand: 234 179 8;
+  --brand-deep: 133 77 14;
+  --brand-hover: 202 138 4;
+  --brand-pressed: 161 98 7;
+  --btn-primary-bg: 234 179 8;
+  --btn-primary-hover: 202 138 4;
+  --brand-soft: 254 249 231;
+  --brand-subtle: 254 252 243;
+  --brand-border: 253 230 138;
+  --brand-ink: 133 77 14;
+  --on-brand: 15 23 42;
+  --accent-soft: 254 249 231;
+  --ring: 161 98 7;
+  --link: 133 77 14;
+  --link-hover: 113 63 18;
+  --col-party: 17 24 39;
+  --page-heading-bg: 255 255 255;
+  --heading-bg: 249 250 251;
+  --rail-graphite: 255 255 255;
+  --rail-graphite-top: 255 255 255;
+  --rail-graphite-hover: 249 250 251;
+  --rail-ink: 75 85 99;
+  --rail-ink-strong: 15 23 42;
+  --rail-blaze: 234 179 8;
+  --rail-blaze-ink: 133 77 14;
+  /* The greeting's coloured word is amber ink: amber itself is 1.9:1 on white. */
+  --hero-hi: 133 77 14;
 }
 :root[data-theme='dark'][data-palette='blaze'],
 :root[data-theme='dark'] [data-palette='blaze'] {
-  --app-bg: 26 12 15;
-  --fg: 243 233 235;
-  --brand: 245 166 35;
-  --brand-deep: 250 196 102;
-  --brand-hover: 250 186 74;
-  --brand-pressed: 224 146 20;
-  --btn-primary-bg: 245 166 35;
-  --btn-primary-hover: 250 186 74;
-  --brand-soft: 74 22 34;
-  --brand-subtle: 46 20 28;
-  --brand-border: 120 48 62;
-  --brand-ink: 250 200 110;
-  --on-brand: 92 10 22;
-  --accent-soft: 74 22 34;
-  --ring: 245 166 35;
-  --link: 244 160 172;
-  --link-hover: 251 232 234;
-  --col-party: 243 233 235;
-  --page-heading-bg: 36 20 26;
-  --heading-bg: 36 20 26;
-  --rail-graphite: 20 9 12;
-  --rail-graphite-top: 30 14 18;
-  --rail-graphite-hover: 46 26 32;
+  --app-bg: 11 15 23;
+  --fg: 243 244 246;
+  --brand: 250 204 21;
+  --brand-deep: 253 224 71;
+  --brand-hover: 253 224 71;
+  --brand-pressed: 234 179 8;
+  --btn-primary-bg: 250 204 21;
+  --btn-primary-hover: 253 224 71;
+  --brand-soft: 54 42 10;
+  --brand-subtle: 36 30 12;
+  --brand-border: 113 63 18;
+  --brand-ink: 253 224 71;
+  --on-brand: 15 23 42;
+  --accent-soft: 54 42 10;
+  --ring: 250 204 21;
+  --link: 253 224 71;
+  --link-hover: 254 240 138;
+  --col-party: 243 244 246;
+  --page-heading-bg: 17 24 39;
+  --heading-bg: 17 24 39;
+  --rail-graphite: 11 15 23;
+  --rail-graphite-top: 17 24 39;
+  --rail-graphite-hover: 31 41 55;
+  --rail-ink: 209 213 219;
+  --rail-ink-strong: 243 244 246;
+  --rail-blaze: 250 204 21;
+  --rail-blaze-ink: 250 204 21;
 }
 
-/* The dashboard ground is the warm white; cards, tables and forms stay white on it. */
+/* The dashboard ground is the palette's own (white); cards, tables and forms stay white on it. */
 :root[data-palette='blaze'] main.ui-content {
   background-color: rgb(var(--app-bg));
 }
 
 /*
- * Sidebar: the icon rail in oxblood. The module you are in gets a marigold bar
- * on the rail's edge, a marigold icon and a warm tint behind it; the label stays
- * white so it reads at 11px. Hover lifts the icon a touch. "Me" is about you,
- * not the company, so it sits apart at the foot of the rail.
+ * Sidebar: the icon rail, white over a hairline. The module you are in gets an
+ * amber bar on the rail's edge, an amber tint behind it and its icon in amber
+ * ink; the label is slate and bold. Hover lifts the icon a touch. "Me" is about
+ * you, not the company, so it sits apart at the foot of the rail.
  */
 :root[data-palette='blaze'] .ui-split-rail {
   background: linear-gradient(to bottom, rgb(var(--rail-graphite-top)), rgb(var(--rail-graphite)) 14rem);
-  border-right-color: rgb(var(--rail-graphite));
-  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
+  border-right-color: rgb(var(--border));
   gap: 0.375rem;
 }
 :root[data-palette='blaze'] .ui-split-mod {
@@ -7159,7 +7284,7 @@ th.ui-th {
   transition: transform var(--dur-surface, 150ms) ease, color var(--dur-surface, 150ms) ease;
 }
 :root[data-palette='blaze'] .ui-split-mod:hover {
-  background: rgb(255 255 255 / 0.06);
+  background: rgb(var(--rail-graphite-hover));
   color: rgb(var(--rail-ink-strong));
 }
 :root[data-palette='blaze'] .ui-split-mod:hover > svg { transform: translateY(-1px); }
@@ -7169,7 +7294,7 @@ th.ui-th {
   font-weight: 600;
   box-shadow: inset 0 0 0 1px rgb(var(--rail-blaze) / 0.28);
 }
-:root[data-palette='blaze'] .ui-split-mod[data-current] > svg { color: rgb(var(--rail-blaze)); }
+:root[data-palette='blaze'] .ui-split-mod[data-current] > svg { color: rgb(var(--rail-blaze-ink)); }
 /* The bar sits on the rail's left edge, outside the tile's padding. */
 :root[data-palette='blaze'] .ui-split-mod[data-current]::before {
   content: '';
@@ -7180,9 +7305,9 @@ th.ui-th {
   background: rgb(var(--rail-blaze));
 }
 :root[data-palette='blaze'] .ui-split-mod[aria-pressed='true']:not([data-current]) {
-  background: rgb(255 255 255 / 0.09);
+  background: rgb(var(--rail-graphite-hover));
   color: rgb(var(--rail-ink-strong));
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(var(--border));
 }
 :root[data-palette='blaze'] .ui-split-mod:focus-visible {
   outline-color: rgb(var(--rail-ink-strong));
@@ -7195,14 +7320,14 @@ th.ui-th {
   position: absolute;
   left: 22%; right: 22%; top: -0.5rem;
   height: 1px;
-  background: rgb(255 255 255 / 0.1);
+  background: rgb(var(--border));
 }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes ui-rail-mark { from { transform: scaleY(0); } to { transform: scaleY(1); } }
   :root[data-palette='blaze'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
 }
 
-/* The current screen in the module panel: red bar and icon, the name in ink. */
+/* The current screen in the module panel: amber bar, the icon in amber ink, the name in ink. */
 :root[data-palette='blaze'] .ui-split-item[aria-current='page'] {
   box-shadow: inset 3px 0 0 rgb(var(--brand));
 }
@@ -7210,7 +7335,7 @@ th.ui-th {
   color: rgb(var(--brand-ink));
 }
 
-/* Phone tab bar: the screen you are on gets a red top bar and icon. */
+/* Phone tab bar: the screen you are on gets an amber top bar and an amber-ink icon. */
 :root[data-palette='blaze'] .ui-tabbar-item[aria-current='page'] {
   box-shadow: inset 0 2px 0 rgb(var(--brand));
 }
@@ -7271,6 +7396,69 @@ th.ui-th {
 }
 :root[data-theme='dark'][data-palette='blaze'] .ui-tab.is-active::after {
   background-color: rgb(var(--brand));
+}
+
+/*
+ * The Payroll palette: Electric Cyan (neon brand, owner 5–6 Nov 2026).
+ * `palette: 'payroll'` in apps/payroll/manifest.jsx. Colour only, like Blaze;
+ * everything it does not set keeps the neon platform values (white grounds,
+ * #E5E7EB hairlines, slate headings). Its primary-button rule sits with the
+ * neon default's.
+ *
+ *   action, bars, focus  #0079BF (owner's pick), white on it 4.7:1
+ *   hover / pressed      #006AA8 (5.8:1) / #005A8F (7.3:1)
+ *   cyan as words        #005A8F, 7.3:1 on white, 6.6:1 on the tint #E6F6FD
+ */
+:root[data-palette='payroll'],
+[data-palette='payroll'] {
+  --brand: 0 121 191;
+  --brand-deep: 0 90 143;
+  --brand-hover: 0 106 168;
+  --brand-pressed: 0 90 143;
+  --btn-primary-bg: 0 121 191;
+  --btn-primary-hover: 0 106 168;
+  --brand-soft: 230 246 253;
+  --brand-subtle: 243 250 254;
+  --brand-border: 179 229 252;
+  --brand-ink: 0 90 143;
+  --on-brand: 255 255 255;
+  --accent-soft: 230 246 253;
+  --ring: 0 121 191;
+  --link: 0 90 143;
+  --link-hover: 0 74 117;
+  --doc-link: 0 90 143;
+  --doc-link-wash: 230 246 253;
+  --st-all-soft: 243 250 254; --st-all-strong: 230 246 253; --st-all-key: 0 121 191; --st-all-ink: 0 90 143;
+  --rail-active: 230 246 253;
+  --ov-orange: 0 90 143; --ov-orange-soft: 230 246 253; --ov-orange-wash: 243 250 254;
+  --kpi-invoices-bg: 243 250 254; --kpi-invoices-ink: 0 90 143;
+  --kpi-credit-bg: 243 250 254; --kpi-credit-ink: 0 90 143;
+  --hero-hi: 0 90 143;
+}
+:root[data-theme='dark'][data-palette='payroll'],
+:root[data-theme='dark'] [data-palette='payroll'] {
+  --brand: 56 189 248;
+  --brand-deep: 125 211 252;
+  --brand-hover: 125 211 252;
+  --brand-pressed: 14 165 233;
+  --btn-primary-bg: 56 189 248;
+  --btn-primary-hover: 125 211 252;
+  --brand-soft: 8 47 73;
+  --brand-subtle: 12 30 46;
+  --brand-border: 7 89 133;
+  --brand-ink: 125 211 252;
+  --on-brand: 15 23 42;
+  --accent-soft: 8 47 73;
+  --ring: 56 189 248;
+  --link: 125 211 252;
+  --link-hover: 186 230 253;
+  --doc-link: 125 211 252;
+  --doc-link-wash: 8 47 73;
+  --st-all-soft: 12 30 46; --st-all-strong: 8 47 73; --st-all-key: 56 189 248; --st-all-ink: 186 230 253;
+  --rail-active: 8 47 73;
+  --kpi-invoices-bg: 12 30 46; --kpi-invoices-ink: 186 230 253;
+  --kpi-credit-bg: 12 30 46; --kpi-credit-ink: 186 230 253;
+  --hero-hi: 125 211 252;
 }
 
 /*
@@ -7372,6 +7560,10 @@ th.ui-th {
   font-size: 0.75rem; line-height: 1.25rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums;
   background: rgb(var(--neg)); color: rgb(255 255 255);
   box-shadow: 0 0 0 2px rgb(var(--surface));
+}
+/* On the neon brand a count is news, not an error: it wears the app's action colour (orange, amber, cyan). */
+:root:is(:not([data-palette]), [data-palette='blaze'], [data-palette='payroll']) .ui-bell-count {
+  background: rgb(var(--btn-primary-bg)); color: rgb(var(--on-brand));
 }
 /* An unread line's dot: drawn only where a palette gives it a colour. */
 .ui-bell-unread { display: none; width: 0.5rem; height: 0.5rem; margin-inline-end: 0.375rem; border-radius: 999px; vertical-align: 0.1em; }
@@ -7654,18 +7846,18 @@ th.ui-th {
 }
 
 /* ------------------------------------------------------------------ sign-in and sign-up (packages/shell/AuthLayout.jsx)
- * The brand board's "Done, daily" panel beside a white form on the warm ground,
- * kept light: cream paper, the promise in red with a marigold stroke under its
- * one word, a day ticked off, and the marigold halftone (red brand, 3 Nov 2026). The operator console passes its
- * own brand side and keeps the light ground (no `is-board`).
+ * A plain white page: the brand side says what CLOR does in ink and shows a
+ * day in it, parted from the form by one hairline. No cream, accent word,
+ * underline or halftone (owner, 8 Nov 2026). The operator console passes its
+ * own brand side (no `is-board`).
  */
 .ui-auth {
-  --auth-bg: 250 246 244;
+  --auth-bg: 255 255 255;
   --auth-ink: var(--ink);
-  --auth-ink-2: 91 79 83;
-  --auth-line: 234 223 225;
-  --auth-accent: var(--red);
-  --auth-accent-hover: 165 13 38;
+  --auth-ink-2: var(--fg-muted);
+  --auth-line: var(--border);
+  --auth-accent: var(--btn-primary-bg);
+  --auth-accent-hover: var(--btn-primary-hover);
   background: rgb(var(--auth-bg));
   color: rgb(var(--auth-ink));
 }
@@ -7678,27 +7870,17 @@ th.ui-th {
   background: rgb(var(--auth-bg));
 }
 .ui-auth-brand.is-board {
-  --auth-bg: var(--cream);
   --auth-ink: var(--ink);
-  --auth-ink-2: 91 79 83;
-  --auth-line: 240 224 214;
+  --auth-ink-2: var(--fg-muted);
   color: rgb(var(--auth-ink));
-}
-/* The promise is red, 5.6:1 on cream; marigold is 2.0:1 there, so it underlines the word, never colours it. */
-.ui-auth-brand.is-board .ui-auth-title { color: rgb(var(--red)); }
-.ui-auth-brand.is-board .ui-auth-accent {
-  color: rgb(var(--red));
-  background: linear-gradient(rgb(var(--marigold)), rgb(var(--marigold))) 0 88% / 100% 0.16em no-repeat;
 }
 .ui-auth-brand.is-board .ui-caption { color: rgb(var(--auth-ink-2)); }
 .ui-auth-brand.is-board .ui-auth-copy { margin-top: auto; }
-.ui-auth-brand.is-board .ui-auth .ui-auth-title,
 .ui-auth-brand.is-board .ui-auth-title {
-  font-family: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(3.25rem, 1.5rem + 3.6vw, 5.25rem) !important;
-  line-height: 0.92 !important;
-  letter-spacing: -0.045em;
-  max-width: none;
+  max-width: 22ch;
+  font-size: clamp(1.75rem, 1.1rem + 1.2vw, 2.25rem) !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em;
 }
 /* A day in CLOR: the board's "Today" card, two rows done, one waiting. */
 .ui-auth-today {
@@ -7709,40 +7891,37 @@ th.ui-th {
   border-radius: 12px;
   background: rgb(255 255 255);
   color: rgb(var(--ink));
-  box-shadow: 0 1px 0 rgb(var(--oxblood) / 0.04), 0 18px 36px -24px rgb(var(--oxblood) / 0.35);
+  box-shadow: inset 0 0 0 1px rgb(var(--border));
 }
 .ui-auth-today-title {
   margin-bottom: 12px;
-  font-family: 'Bricolage Grotesque Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
-.ui-auth-today ul { display: grid; gap: 8px; }
+/* Plain ticked lines split by hairlines, not a box per line (8 Nov 2026: no card-in-card). */
+.ui-auth-today ul { display: grid; }
 .ui-auth-today li {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgb(255 255 255);
-  box-shadow: inset 0 0 0 1px rgb(var(--border));
+  padding: 10px 0;
   font-size: 0.9375rem;
   font-weight: 500;
 }
+.ui-auth-today li + li { border-top: 1px solid rgb(var(--border)); }
 .ui-auth-today li.is-waiting {
-  background: rgb(var(--marigold));
-  box-shadow: none;
   font-weight: 700;
 }
 .ui-auth-today-ring {
   width: 18px;
   height: 18px;
   flex: none;
-  border: 2px solid rgb(var(--oxblood));
+  border: 2px solid rgb(var(--brand));
   border-radius: 999px;
 }
-/* A done row: a white tick on red, the brand's own "done". */
+/* A done row: a white tick on green, the done tint. */
 .ui-auth-today-done {
   display: grid;
   place-items: center;
@@ -7750,23 +7929,8 @@ th.ui-th {
   height: 18px;
   flex: none;
   border-radius: 999px;
-  background: rgb(var(--red));
+  background: rgb(22 101 52);
   color: rgb(255 255 255);
-}
-/* The marigold halftone: dots in rings, fading out from the corner. */
-.ui-auth-halftone {
-  position: absolute;
-  right: -140px;
-  bottom: -140px;
-  width: 460px;
-  height: 460px;
-  pointer-events: none;
-  background: radial-gradient(circle, rgb(var(--marigold)) 1.6px, transparent 2.2px) 0 0 / 12px 12px;
-  -webkit-mask: repeating-radial-gradient(circle, #000 0 9px, transparent 9px 18px), radial-gradient(circle, #000 30%, transparent 70%);
-  -webkit-mask-composite: source-in;
-  mask: repeating-radial-gradient(circle, #000 0 9px, transparent 9px 18px), radial-gradient(circle, #000 30%, transparent 70%);
-  mask-composite: intersect;
-  opacity: 0.9;
 }
 .ui-auth-brand.is-board .ui-auth-brand-inner { position: relative; z-index: 1; }
 .ui-auth-brand-inner {
@@ -7780,6 +7944,38 @@ th.ui-th {
   display: grid;
   gap: 16px;
   margin-top: 8px;
+}
+
+/*
+ * Settings (People plan, 8 Nov 2026): plain rows in groups, on the page ground under one hairline, not a grid
+ * of cards. Each row: an icon, the name, what it is for, a chevron; 48px with its hairline. On a phone the note
+ * goes under the name.
+ */
+.ui-settings-rows { border-top: 1px solid rgb(var(--border)); max-width: 64rem; }
+.ui-settings-rows > li { border-bottom: 1px solid rgb(var(--border)); }
+.ui-settings-row {
+  display: grid;
+  grid-template-columns: 16px minmax(10rem, 14rem) minmax(0, 1fr) 16px;
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
+  min-height: 47px;
+  padding: 6px 8px;
+  text-align: left;
+  color: rgb(var(--fg));
+  transition: background-color 150ms ease;
+}
+.ui-settings-row:hover { background: rgb(var(--surface-sunken)); }
+.ui-settings-row:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: -2px; }
+.ui-settings-row-icon { width: 16px; height: 16px; color: rgb(var(--fg-muted)); }
+.ui-settings-row-label { font-size: 0.875rem; font-weight: 600; }
+.ui-settings-row-note { min-width: 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-settings-row-go { color: rgb(var(--fg-subtle)); }
+@media (max-width: 767px) {
+  .ui-settings-row { grid-template-columns: 16px minmax(0, 1fr) 16px; row-gap: 2px; padding: 10px 4px; }
+  .ui-settings-row-icon { grid-row: 1 / span 2; }
+  .ui-settings-row-note { grid-column: 2; }
+  .ui-settings-row-go { grid-column: 3; grid-row: 1 / span 2; }
 }
 .ui-auth-eyebrow {
   font-size: 0.8125rem;
@@ -8398,7 +8594,7 @@ button.ui-side-line:hover { background: rgb(var(--brand-subtle)); }
 .ui-side-alert[data-tone='neg'] { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
 .ui-side-alert[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
 .ui-side-alert .ui-side-name { font-weight: 600; }
-.ui-side-alert .ui-side-sub { color: inherit; opacity: 0.85; }
+.ui-side-alert .ui-side-sub { color: inherit; }
 button.ui-side-alert { cursor: pointer; }
 .ui-side-clear { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
 .ui-side-clear > svg { flex: none; color: rgb(var(--pos)); }
@@ -8474,4 +8670,192 @@ button.ui-side-alert { cursor: pointer; }
   .ui-touch-44 .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
   /* As People's: a checkbox is 24px to see and hit, and the row or label beside it takes the tap too. */
   .ui-touch-44 input[type='checkbox'] { width: 1.5rem; height: 1.5rem; flex: none; }
+}
+
+/* ------------------------------------------------------------------ labels in sentence case (owner, 8 Nov 2026)
+ * Small wide-tracked capitals over every block were one of the marks that make
+ * a screen read as machine-made. Outside Accounting, column heads, eyebrows and
+ * section labels are 12px sentence case at their own weight. Accounting keeps
+ * its labels until its own pass; printed documents (`.ui-doc-section`) are untouched.
+ */
+:root:not([data-palette='indigo']) :is(
+  .ui-table thead th, .ui-th, .ui-eyebrow, .ui-section-label, .ui-t-label,
+  .ui-kpi-label, .ui-label-eyebrow, .ui-calendar-head, .ui-cell-settled,
+  .ui-impact .ui-impact-heading, .ui-auth-eyebrow
+) {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+/* A rail entry's count (manifest `railCounts`): what waits there, in the waiting colour, at the icon's corner. */
+.ui-split-mod-count {
+  position: absolute;
+  top: 0.25rem;
+  left: calc(50% + 0.375rem);
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: 999px;
+  background: rgb(var(--marigold));
+  color: rgb(var(--ink));
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* One list header (People plan, 8 Nov 2026 §3 rule 2): title row, one line on the job, toolbar on one line, tabs, list. */
+.ui-list-header { display: grid; gap: 0.75rem; }
+.ui-list-header > .ui-page-heading { margin-bottom: 0; }
+.ui-list-header > .ui-record-tablist, .ui-list-header > .ui-segmented { justify-self: start; }
+.ui-list-desc { margin: -0.25rem 0 0; font-size: 0.875rem; line-height: 1.25rem; max-width: 64rem; }
+.ui-list-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
+.ui-list-toolbar-end { margin-inline-start: auto; display: flex; align-items: center; gap: 0.5rem; }
+/* A segmented switch is a radio group; the chosen segment reads as chosen without a colour of its own. */
+.ui-segment[aria-checked='true'] { background-color: rgb(var(--surface)); color: rgb(var(--fg)); border-color: rgb(var(--border)); }
+
+/*
+ * The picture side (owner, 10 Nov 2026): a scene fills 60% of the screen beside the form, the logo on its
+ * bottom-left corner (the picture's own title is top left); on a phone the scene is a short band above the form. The form sits on the white page
+ * without its own card, so there is no card beside a picture.
+ */
+.ui-auth-brand--scene {
+  /* Up to 70% picture (owner, 10 Nov 2026), but never wider than the picture's own shape at full
+     height, so the whole picture shows; the form never narrower than 420px. */
+  width: min(70%, calc(100% - 420px), calc(100dvh * var(--scene-ratio, 1)));
+  flex: none;
+  max-width: none;
+  border-right: 0;
+  padding: 0;
+}
+.ui-auth-scene {
+  position: relative;
+  flex: 1;
+  min-height: 100%;
+  overflow: hidden;
+  background: rgb(var(--surface-sunken));
+}
+/* The whole picture, never cropped: top-left, so its own title stays in its corner. */
+.ui-auth-scene-pic {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 0% 0%;
+}
+/* Behind it, a soft blurred copy fills whatever space the picture leaves, slowly drifting. */
+.ui-auth-scene-fill {
+  position: absolute;
+  inset: -40px;
+  width: calc(100% + 80px);
+  height: calc(100% + 80px);
+  object-fit: cover;
+  filter: blur(28px) saturate(110%);
+  opacity: 0.9;
+  animation: ui-auth-drift 26s ease-in-out infinite alternate;
+}
+@keyframes ui-auth-drift {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+.ui-auth-form-logo {
+  margin-bottom: 28px;
+}
+.ui-auth-scene-top {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 32px 40px;
+}
+/* A glass card of quotes along the bottom. */
+.ui-auth-facts {
+  margin: 0;
+  max-width: 400px;
+  padding: 16px 20px 12px;
+  border-radius: 12px;
+  color: #fff;
+  background: rgb(11 21 48 / 0.6);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+}
+.ui-auth-fact {
+  min-height: 4.75rem;
+  animation: ui-auth-fact-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.ui-auth-fact blockquote {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+  text-wrap: pretty;
+}
+.ui-auth-fact figcaption {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(255 255 255 / 0.72);
+}
+.ui-auth-fact figcaption::before {
+  content: '— ';
+}
+@keyframes ui-auth-fact-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.ui-auth-fact-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.ui-auth-fact-dots button {
+  width: 18px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: width 200ms;
+}
+.ui-auth-fact-dots button::before {
+  content: '';
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+  transition: background-color 200ms;
+}
+.ui-auth-fact-dots button[aria-current='true'] {
+  width: 28px;
+}
+.ui-auth-fact-dots button[aria-current='true']::before {
+  background: #ff5400;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-auth-scene-fill,
+  .ui-auth-fact {
+    animation: none;
+  }
+}
+/* On a phone: the whole picture in a band above the form. */
+.ui-auth-scene-band {
+  position: relative;
+  overflow: hidden;
+  height: min(300px, 40vh);
+  margin: 0 -24px 24px;
+}
+.ui-auth-scene-band .ui-auth-scene-pic {
+  object-position: 50% 0%;
+}
+.ui-auth.has-scene .ui-auth-card {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }

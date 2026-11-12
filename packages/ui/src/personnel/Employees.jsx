@@ -12,7 +12,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import JoiningStatutory from './JoiningStatutory';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
-import { formatDateIn, istDay as istDayOf, plusDaysIso } from '@ui/utils/dates';
+import { istDay as istDayOf, plusDaysIso } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import {
@@ -459,7 +459,7 @@ export default function Employees({ description = '' } = {}) {
                     <td className="ui-col-meta">{p.department || '—'}</td>
                     <td className="ui-col-meta">{p.designation || '—'}</td>
                     <td className="ui-col-meta">{p.reportingManagerName || '—'}</td>
-                    <td className="ui-col-h-center">{p.dateOfJoining ? formatDateIn(p.dateOfJoining) : '—'}</td>
+                    <td className="ui-col-h-center">{p.dateOfJoining ? formatDateShort(p.dateOfJoining) : '—'}</td>
                     <td className="ui-col-h-center"><span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span></td>
                   </tr>
                 ))}
@@ -589,13 +589,13 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const [extendTo, setExtendTo] = useState('');
   /* Probation (LIFE-03): confirm, or extend to a later date; with a rule it becomes a request. */
   const probation = async (outcome) => {
-    const ok = await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend ${person.name}'s probation to ${formatDateIn(extendTo)}?`, message: outcome === 'CONFIRM' ? 'The confirmation date goes on their record and history, and they are told.' : 'The new end date goes on their record and history, and they are told.', confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' });
+    const ok = await confirmDialog({ title: outcome === 'CONFIRM' ? `Confirm ${person.name} after probation?` : `Extend ${person.name}'s probation to ${formatDateShort(extendTo)}?`, message: outcome === 'CONFIRM' ? 'The confirmation date goes on their record and history, and they are told.' : 'The new end date goes on their record and history, and they are told.', confirmLabel: outcome === 'CONFIRM' ? 'Confirm' : 'Extend', tone: 'primary' });
     if (!ok) return;
     try {
       const r = await decideProbation(person.id, outcome === 'CONFIRM' ? { outcome } : { outcome, newEndDate: extendTo });
       if (r.request) notify.success(`Sent for approval: ${r.request.title}.`);
       else {
-        notify.success(outcome === 'CONFIRM' ? `${person.name} confirmed.` : `Probation now ends ${formatDateIn(extendTo)}.`);
+        notify.success(outcome === 'CONFIRM' ? `${person.name} confirmed.` : `Probation now ends ${formatDateShort(extendTo)}.`);
         setPerson((x) => ({ ...x, ...(r.applied || {}) }));
       }
       setExtendTo('');
@@ -604,7 +604,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
     }
   };
   const withdrawChange = async (c) => {
-    if (!(await confirmDialog({ title: `Withdraw the change on ${formatDateIn(c.effectiveOn)}?`, message: `${SCHEDULED_LABELS[c.field] || c.field} stays ${c.fromLabel || 'as it is'}.`, confirmLabel: 'Withdraw' }))) return;
+    if (!(await confirmDialog({ title: `Withdraw the change on ${formatDateShort(c.effectiveOn)}?`, message: `${SCHEDULED_LABELS[c.field] || c.field} stays ${c.fromLabel || 'as it is'}.`, confirmLabel: 'Withdraw' }))) return;
     try {
       await cancelScheduledChange(person.id, c.id);
       setPerson((x) => ({ ...x, scheduledChanges: (x.scheduledChanges || []).filter((y) => y.id !== c.id) }));
@@ -616,7 +616,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
   const rehire = async () => {
     if (!rejoinDate) return notify.error('Give the rejoin date first.');
     if (person.dateOfLeaving && rejoinDate <= person.dateOfLeaving) return notify.error(`The rejoin date must be after their last day, ${person.dateOfLeaving}.`);
-    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateIn(rejoinDate)}?`, message: `A new period of employment starts on that date; their first joining date (${person.firstJoiningDate ? formatDateIn(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
+    const ok = await confirmDialog({ title: `Rehire ${person.name} from ${formatDateShort(rejoinDate)}?`, message: `A new period of employment starts on that date; their first joining date (${person.firstJoiningDate ? formatDateShort(person.firstJoiningDate) : 'on file'}) stays. They become active again and are put back on every reader; fingerprints and faces were deleted when they left, so they enrol again.`, confirmLabel: 'Rehire', tone: 'primary' });
     if (!ok) return;
     try {
       const r = await rehireEmployee(person.id, { rejoinDate });
@@ -800,7 +800,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   <dd className="mt-1 space-y-1">
                     {person.scheduledChanges.map((c) => (
                       <div key={c.id} className="text-sm flex flex-wrap items-center gap-2">
-                        <span className="tabular-nums">{formatDateIn(c.effectiveOn)}</span>
+                        <span className="tabular-nums">{formatDateShort(c.effectiveOn)}</span>
                         <span>{SCHEDULED_LABELS[c.field] || c.field}: <span className="ui-muted">{c.fromLabel || 'None'}</span> → <strong>{c.toLabel || 'None'}</strong></span>
                         {c.reason ? <span className="ui-caption">{c.reason}</span> : null}
                         <button type="button" className="ui-link" onClick={() => withdrawChange(c)}>Withdraw</button>
@@ -918,7 +918,7 @@ export function EmploymentHistory({ employeeId }) {
         {episodes.map((st) => (
           <li key={st.seq} className="text-sm flex flex-wrap items-center gap-2">
             <span className={`ui-pill ${st.current ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>Period {st.seq}</span>
-            <span className="tabular-nums">{formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span>
+            <span className="tabular-nums">{formatDateShort(st.startDate)} – {st.endDate ? formatDateShort(st.endDate) : 'now'}</span>
             {st.endType ? <span className="ui-caption">{st.endType.replaceAll('_', ' ').toLowerCase()}{st.endReason ? ` · ${st.endReason}` : ''}</span> : null}
           </li>
         ))}
@@ -985,7 +985,7 @@ export function Journey({ employeeId }) {
         const st = data.episodes.find((x) => x.seq === seq);
         return (
           <section key={seq} aria-label={`Employment period ${seq}`} className="space-y-2">
-            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Employment period {seq}{st ? <span className="ui-caption font-normal"> · {formatDateIn(st.startDate)} – {st.endDate ? formatDateIn(st.endDate) : 'now'}</span> : null}</h3> : null}
+            {data.episodes.length > 1 || st ? <h3 className="text-sm font-semibold">Employment period {seq}{st ? <span className="ui-caption font-normal"> · {formatDateShort(st.startDate)} – {st.endDate ? formatDateShort(st.endDate) : 'now'}</span> : null}</h3> : null}
             <ol className="divide-y">
               {data.entries.filter((e) => e.stint === seq).map((e) => (
                 <li key={e.key} className="py-2.5 flex flex-wrap items-start gap-2">
@@ -1105,7 +1105,7 @@ function PayQuestion({ employeeId }) {
             </table>
           ) : null}
           {data.payslip ? <p className="ui-caption">Rules: {data.payslip.ruleSet}, version {data.payslip.ruleVersion}.</p> : null}
-          {data.days ? <p>{data.days.payableDays} payable days, {data.days.lopDays} loss-of-pay{data.days.absences.length ? `: ${data.days.absences.map((a) => `${formatDateIn(a.date)} (${a.reason})`).join(', ')}` : ''}.</p> : null}
+          {data.days ? <p>{data.days.payableDays} payable days, {data.days.lopDays} loss-of-pay{data.days.absences.length ? `: ${data.days.absences.map((a) => `${formatDateShort(a.date)} (${a.reason})`).join(', ')}` : ''}.</p> : null}
           {data.missing.length ? <ul className="ui-muted list-disc pl-4 space-y-0.5">{data.missing.map((m) => <li key={m.evidence}>{m.evidence}: {m.why}</li>)}</ul> : null}
           <p className="ui-caption">{data.correction.note}</p>
         </div>
@@ -1124,7 +1124,7 @@ function WhyPanel({ why }) {
       <Row label="What changed">
         <ul>{why.what.map((c, i) => <li key={i}>{c.field}: {c.redacted ? <span className="ui-muted">changed (not shown)</span> : <><span className="ui-muted">{c.before || '—'}</span> → <strong>{c.after || '—'}</strong></>}</li>)}</ul>
       </Row>
-      <Row label="When">{why.recordedAt ? `${formatDateIn(why.when)} (recorded ${whenAt(why.recordedAt)})` : whenAt(why.when)}</Row>
+      <Row label="When">{why.recordedAt ? `${formatDateShort(why.when)} (recorded ${whenAt(why.recordedAt)})` : whenAt(why.when)}</Row>
       <Row label="Who asked">{why.askedBy || <span className="ui-muted">Not known</span>}</Row>
       <Row label="Who approved">{why.approvedBy?.length ? why.approvedBy.join('; ') : <span className="ui-muted">Not known</span>}</Row>
       <Row label="Rule">{why.rule ? `${why.rule.name}, version ${why.rule.version}` : <span className="ui-muted">No rule recorded</span>}{why.request ? <span className="ui-caption block">Request: {why.request.title} · {why.request.status.toLowerCase()}</span> : null}</Row>
@@ -1132,7 +1132,7 @@ function WhyPanel({ why }) {
       <Row label="Evidence">{why.evidence?.length ? <ul>{why.evidence.map((e) => <li key={e.id}>{e.title}{e.version ? <span className="ui-caption"> · version {e.version} when decided</span> : null}</li>)}</ul> : <span className="ui-muted">None attached</span>}</Row>
       {why.decision ? (
         <Row label="Policies it rested on">
-          {why.decision.policies.length ? <ul>{why.decision.policies.map((p) => <li key={p.versionId}>{p.title}, version {p.version}<span className="ui-caption"> · in force from {formatDateIn(p.effectiveFrom)}</span></li>)}</ul> : <span className="ui-muted">No policy applied to the person that day</span>}
+          {why.decision.policies.length ? <ul>{why.decision.policies.map((p) => <li key={p.versionId}>{p.title}, version {p.version}<span className="ui-caption"> · in force from {formatDateShort(p.effectiveFrom)}</span></li>)}</ul> : <span className="ui-muted">No policy applied to the person that day</span>}
           <span className="ui-caption block">As they stood when it was decided, {whenAt(why.decision.decidedAt)}.</span>
         </Row>
       ) : null}
@@ -1286,7 +1286,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
       <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
       <dd className={`${embedded ? '' : 'mt-1 '}text-sm flex items-center gap-2`}>
         <span className="tabular-nums">{shown[field] ?? (value || <span className="ui-muted">{embedded ? 'Not provided' : 'Not set'}</span>)}</span>
-        {value && !shown[field] ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
+        {value && !shown[field] && d.canReveal !== false ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
       </dd>
     </div>
   );
@@ -1310,7 +1310,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
       <div className="flex items-center justify-between gap-2">
         {embedded
           ? <span />
-          : <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">masked; a full value needs your authenticator code and is logged</span></h3>}
+          : <h3 className="text-sm font-semibold">Statutory details <span className="ui-caption font-normal">{d.canReveal === false ? 'masked' : 'masked; a full value needs your authenticator code and is logged'}</span></h3>}
         {d.canEdit && !editing ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setEditing({ aadhaarLast4: '', passportNumber: '', passportExpiry: id.passportExpiry || '', workPermitNumber: '', workPermitExpiry: id.workPermitExpiry || '', statutoryCategory: id.statutoryCategory || '', categoryFrom: id.categoryFrom || '' })}>Edit identifiers</button> : null}
       </div>
       {editing ? (
@@ -1649,7 +1649,7 @@ export function JoiningDetails({ person, onChecked }) {
           ) : null}
         </>
       ) : null}
-      {latest.statutory ? <JoiningStatutory key={latest.id} invite={latest} canView={allowed('PEOPLE::Statutory Details::VIEW')} canApprove={allowed('PEOPLE::Statutory Details::EDIT')} /> : null}
+      {latest.statutory ? <JoiningStatutory key={latest.id} invite={latest} canView={allowed('PEOPLE::Statutory Details::VIEW') && allowed('PEOPLE::Full Identifiers::VIEW')} canApprove={allowed('PEOPLE::Statutory Details::EDIT')} /> : null}
     </section>
   );
 }
@@ -2065,6 +2065,9 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
   const perms = usePermissions();
   /* Asking a person to read and accept a file, and reminding them, take Documents EDIT (DOC-05), as the server checks. */
   const canAsk = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Documents::EDIT'));
+  /* Adding, replacing and removing a file are Documents CREATE and DELETE on the server: a read-only role sees no such button. */
+  const canAdd = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Documents::CREATE'));
+  const canRemove = Boolean(perms?.isAdmin || perms?.permissions?.has?.('PEOPLE::Documents::DELETE'));
   const [docs, setDocs] = useState(null);
   const [form, setForm] = useState({ kind: 'ID_PROOF', title: '', expiresOn: '', classification: 'EMPLOYEE_VISIBLE', ask: false });
   const [file, setFile] = useState(null);
@@ -2207,13 +2210,15 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       <input ref={replaceInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xlsx,.txt" className="hidden" onChange={replaceWith} aria-label="Replacement file" />
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="ui-t-sec">Documents{docs?.length ? <span className="ui-section-count tabular-nums">{docs.length}</span> : null}</h2>
-        <span className="ml-auto flex gap-2">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setLettering(true)}>Issue a letter</button>
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>
-        </span>
+        {canAdd ? (
+          <span className="ml-auto flex gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setLettering(true)}>Issue a letter</button>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>
+          </span>
+        ) : null}
       </div>
       {!docs ? <SkeletonCard lines={3} /> : !docs.length ? (
-        <EmptyState icon={FileDown} title="No documents yet" action={<button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button>} />
+        <EmptyState icon={FileDown} title="No documents yet" action={canAdd ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button> : null} />
       ) : (
         <ul className="ui-doc-list" aria-label="Documents">
           {docs.map((d) => {
@@ -2232,15 +2237,15 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
                   </span>
                   <span className="flex items-center gap-1">
                     <button type="button" className="ui-icon-btn" aria-label={`Download ${d.title}`} onClick={() => open(d)}><FileDown size={16} aria-hidden="true" /></button>
-                    <button ref={(el) => { menuBtn.current[d.id] = el; }} type="button" className="ui-icon-btn" aria-label={`More for ${d.title}`} aria-haspopup="menu" aria-expanded={menu === d.id} onClick={() => setMenu(menu === d.id ? null : d.id)}><MoreHorizontal size={16} aria-hidden="true" /></button>
+                    {canAdd || canAsk || canRemove || d.version > 1 ? <button ref={(el) => { menuBtn.current[d.id] = el; }} type="button" className="ui-icon-btn" aria-label={`More for ${d.title}`} aria-haspopup="menu" aria-expanded={menu === d.id} onClick={() => setMenu(menu === d.id ? null : d.id)}><MoreHorizontal size={16} aria-hidden="true" /></button> : null}
                     {menu === d.id ? (
                       <Popover anchorRef={{ current: menuBtn.current[d.id] }} onClose={() => setMenu(null)} minWidth={200}>
                         <div role="menu" className="ui-menu">
-                          {d.kind !== 'LETTER' ? <button type="button" role="menuitem" data-autofocus="" className="ui-menu-item" disabled={busy} onClick={() => { setMenu(null); pickReplacement(d); }}>Replace with a new version</button> : null}
+                          {canAdd && d.kind !== 'LETTER' ? <button type="button" role="menuitem" data-autofocus="" className="ui-menu-item" disabled={busy} onClick={() => { setMenu(null); pickReplacement(d); }}>Replace with a new version</button> : null}
                           {canAsk && d.classification === 'EMPLOYEE_VISIBLE' && !d.acceptance ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); ask(d); }}>Ask to read and accept</button> : null}
                           {canAsk && d.acceptance && !d.acceptance.acceptedAt ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); remind(d); }}>Remind to accept</button> : null}
                           {d.version > 1 ? <button type="button" role="menuitem" className="ui-menu-item" onClick={() => { setMenu(null); showVersions(d); }}>{versions[d.id] ? 'Hide earlier versions' : 'Earlier versions'}</button> : null}
-                          <button type="button" role="menuitem" data-autofocus={d.kind === 'LETTER' ? '' : undefined} className="ui-menu-item is-danger" onClick={() => { setMenu(null); remove(d); }}>Remove</button>
+                          {canRemove ? <button type="button" role="menuitem" data-autofocus={d.kind === 'LETTER' || !canAdd ? '' : undefined} className="ui-menu-item is-danger" onClick={() => { setMenu(null); remove(d); }}>Remove</button> : null}
                         </div>
                       </Popover>
                     ) : null}
@@ -2298,7 +2303,7 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
  * template asks for, and a PDF lands under Documents naming the template
  * version. A service certificate shows when it is due (DOC-07).
  */
-function IssueLetter({ employeeId, onClose, onIssued }) {
+export function IssueLetter({ employeeId, onClose, onIssued }) {
   const openForm = true;
   const [templates, setTemplates] = useState(null);
   const [kind, setKind] = useState('APPOINTMENT');
@@ -2307,7 +2312,7 @@ function IssueLetter({ employeeId, onClose, onIssued }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!openForm || templates) return;
-    getLetterTemplates().then(setTemplates).catch((e) => notify.error(String(e?.message || 'Could not load letters.')));
+    getLetterTemplates().then((t) => { setTemplates(t); if (t?.signatory) setExtra((x) => ({ signatory: t.signatory, ...x })); }).catch((e) => notify.error(String(e?.message || 'Could not load letters.')));
   }, [openForm, templates]);
   useEffect(() => {
     if (!openForm || kind !== 'SERVICE_CERT') { setDue(null); return; }
@@ -2320,7 +2325,7 @@ function IssueLetter({ employeeId, onClose, onIssued }) {
     try {
       const r = await issueLetter(employeeId, { kind, extra });
       notify.success(`${r.document.title} is on the record (template v${r.document.templateVersion}).`);
-      setExtra({});
+      setExtra(templates?.signatory ? { signatory: templates.signatory } : {});
       onIssued();
     } catch (err) {
       notify.error(String(err?.message || 'Not issued.'));
@@ -2340,7 +2345,7 @@ function IssueLetter({ employeeId, onClose, onIssued }) {
     <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)]" title="Issue a letter"
       footer={<><button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>Cancel</button><button type="submit" form="issue-letter" className="ui-btn ui-btn-primary" disabled={busy || !t}>{busy ? 'Issuing…' : 'Issue as PDF'}</button></>}>
       <form id="issue-letter" onSubmit={issue} className="grid gap-4">
-        <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => { setKind(v || 'APPOINTMENT'); setExtra({}); }} options={(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => ({ value: k.kind, label: k.label }))} /></div>
+        <div><PopupSelect showValueSubtext={false} label="Letter" value={kind} onChange={(v) => { setKind(v || 'APPOINTMENT'); setExtra(templates?.signatory ? { signatory: templates.signatory } : {}); }} options={(templates?.kinds || [{ kind: 'APPOINTMENT', label: 'Appointment letter' }]).map((k) => ({ value: k.kind, label: k.label }))} /></div>
         {due ? <p className="text-sm">{due.note}{due.dueOn ? ` Due ${formatDateShort(due.dueOn)} if asked today.` : ''} <button type="button" className="ui-link" onClick={asked}>Record the request</button></p> : null}
         {(t?.extra || []).map((k) => (
           <label key={k} className="block">

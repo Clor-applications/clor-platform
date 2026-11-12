@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -46,8 +47,12 @@ export default function Reviews({ params = {} }) {
   ];
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Reviews' }]} title="Reviews"
-        actions={hr ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" /> New cycle</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="Reviews"
+        description="Review cycles: a period, everyone working in it, and how far the self, manager and final reviews have got."
+        primary={hr ? { label: 'New cycle', icon: Plus, onClick: () => setCreating(true) } : null}
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable label="Review cycles" columns={columns} rows={cycles} loading={req.loading} refreshing={req.refreshing} total={cycles.length} pageSize={Math.max(25, cycles.length)} noun="cycles"
           onRowClick={(c) => setOpen(c.id)}

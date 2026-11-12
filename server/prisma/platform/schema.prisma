@@ -518,6 +518,10 @@ model AccountEntitlement {
   /// Feature keys sold on top of the plan, comma-separated.
   extraFeatures String @default("")
 
+  /// Feature keys CLOR has turned off for this account although its plan or
+  /// app tier includes them, comma-separated. Wins over the plan and extras.
+  removedFeatures String @default("")
+
   /// Null falls back to the plan's own limit.
   maxCompanies Int?
   maxUsers     Int?
@@ -573,7 +577,11 @@ model Session {
   // Set when this session is rotated, so a replayed old token is detectable.
   replacedBySessionId String?
 
+  /// An Explore session (the read-only sample company, routes/explore.ts): the pass it came from. Carried through every rotation.
+  explorePassId String?
+
   @@index([accountId, userId, revokedAt])
+  @@index([explorePassId])
   @@index([expiresAt])
 }
 
@@ -673,6 +681,8 @@ model EmailOutbox {
 
   @@index([accountId, orgId, status])
   @@index([templateKey, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 model EmailVerificationToken {
@@ -781,6 +791,8 @@ model AuthProvider {
   /// Create a user on first successful sign-in instead of refusing.
   autoProvision     Boolean @default(false)
   defaultRoleId     String?
+  /// Who chose defaultRoleId: the role is given only while they still hold everything it grants (review N2).
+  defaultRoleSetByUserId String?
 
   lastUsedAt DateTime?
   lastError  String?
@@ -1086,6 +1098,25 @@ model Subscription {
   /// Money side, left open until a pricing model is decided. INR minor units.
   currency String @default("INR")
 
+  /// The deal CLOR staff set (routes/opsDeals.ts): which plan, how many
+  /// units, and what one period costs before GST after any offer. All null on
+  /// a subscription set without a price (free, or older ones).
+  /// book | custom
+  planSource   String?
+  /// The price book plan's code, or the custom plan's id.
+  planRef      String?
+  planName     String?
+  /// COMPANY | USER | EMPLOYEE, and how many.
+  planUnit     String?
+  quantity     Int?
+  /// Paise per period, list price (before the offer) and what is charged.
+  listAmount   Int?
+  periodAmount Int?
+  offerId      String?
+  offerCode    String?
+  /// The offer's price applies until this date; the list price after.
+  offerEndsAt  DateTime?
+
   /// Which gateway backs this, if any. null = unbilled / manual.
   gatewayName           String?
   gatewayCustomerId     String?
@@ -1135,8 +1166,51 @@ model PaymentEvent {
   processed  Boolean  @default(false)
   receivedAt DateTime @default(now())
 
+  /// What became of it: APPLIED (changed a subscription), RECORDED (kept,
+  /// nothing to change), FAILED (could not be applied; Retry), REJECTED (the
+  /// signature did not match).
+  status           String    @default("RECORDED")
+  /// The plain sentence the Payments log shows with it: why it failed or was rejected, or what it changed.
+  detail           String?
+  /// Amount in paise, when the event carries one.
+  amount           Int?
+  /// The payment's own reference: a gateway payment id, or a UTR for a manual payment.
+  reference        String?
+  /// The provider-neutral event, kept so a failed one can be applied again.
+  normalized       Json?
+  attempts         Int       @default(0)
+  processedAt      DateTime?
+  recordedByUserId String?
+
   @@unique([gateway, eventId])
   @@index([accountId])
+  @@index([receivedAt])
+  @@index([status])
+}
+
+/// A way customers pay CLOR: cashfree, razorpay or manual (UPI and bank
+/// transfer). Set up only in the operator console, Payments. At most one is
+/// active (a partial unique index). Test and Live keys are kept apart.
+/// Secrets are AES-256-GCM encrypted (services/mailer.ts encryptSecret) as
+/// one JSON blob and never leave the server; the console sees only their
+/// last four characters, in secretHints.
+model PaymentProvider {
+  code            String    @id
+  enabled         Boolean   @default(false)
+  active          Boolean   @default(false)
+  /// TEST | LIVE
+  mode            String    @default("TEST")
+  /// Not secret: { test: { appId }, live: { appId } }, or the manual details (UPI ID, QR, bank).
+  config          Json      @default("{}")
+  secretsEnc      String?
+  secretHints     Json      @default("{}")
+  lastTestAt      DateTime?
+  lastTestOk      Boolean?
+  lastTestMessage String?
+  lastTestMode    String?
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 /// Which API instance runs a background job right now. The API runs on more
@@ -1244,7 +1318,7 @@ model OrgClosure {
 /// CLOR_OPERATOR_USER_IDS names the bootstrap super admins; everyone else is a row here.
 model PlatformOperator {
   userId          String   @id
-  /// SUPER_ADMIN | SUPPORT | BILLING
+  /// SUPER_ADMIN (Owner) | SALES | SUPPORT | BILLING (Finance) | READ_ONLY
   role            String
   active          Boolean  @default(true)
   note            String?
@@ -1269,4 +1343,568 @@ model OperatorAuditEvent {
 
   @@index([at])
   @@index([targetAccountId, at])
+  @@index([operatorUserId, at])
+  @@index([action, at])
+}
+
+/// A "Request a demo" from clor.in. Platform data, not a customer's: there is
+/// no account yet, so no accountId and no row-level policy. Written only by the
+/// public form; read and changed only by CLOR operators (routes/demoRequests.ts,
+/// behind requireOperator).
+model DemoRequest {
+  id                    String    @id @default(cuid())
+  name                  String
+  company               String
+  /// Lower-cased.
+  email                 String
+  phone                 String
+  city                  String
+  /// Employees: 1-10 | 11-20 | 21-50 | 51-200 | 200+
+  companySize           String
+  /// How many people will sign in.
+  users                 Int
+  /// App codes (accounting, payroll, people, attendance), in the order ticked.
+  apps                  String[]
+  message               String?
+  /// NEW | CONTACTED | DEMO_DONE | ACCOUNT_CREATED | NOT_A_FIT
+  status                String    @default("NEW")
+  /// The operator's latest note; every change is also in OperatorAuditEvent.
+  note                  String?
+  statusChangedAt       DateTime?
+  statusChangedByUserId String?
+  /// Set while Create account runs, so a second click cannot start a second one.
+  provisioningAt        DateTime?
+  /// The account made from this request (one at most).
+  accountId             String?   @unique
+  ownerUserId           String?
+  ip                    String?
+  userAgent             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([email, createdAt])
+}
+
+/// A free trial started from clor.in's pricing page (roadmap item 7): the
+/// visitor gives an email, a link checks it, and the link's page asks for the
+/// company and the apps before the account is made. Only the link token's
+/// SHA-256 is kept. Platform data with no account of its own, like
+/// DemoRequest, until confirm makes one (accountId). Written by the public
+/// routes in routes/signup.ts; read by CLOR operators (Trials in the console).
+model TrialSignup {
+  id             String    @id @default(cuid())
+  /// Lower-cased; where the link was sent.
+  email          String
+  /// SHA-256 of the link's token; asking again replaces it.
+  tokenHash      String    @unique
+  /// The app the pricing page's button named (accounting, people, attendance, payroll), for the setup step to tick first.
+  app            String?
+  /// The published plan the button named (?plan=), when pricing says one.
+  planCode       String?
+  /// PENDING | CONFIRMED | EXPIRED (set when a later request finds it ran out)
+  status         String    @default("PENDING")
+  expiresAt      DateTime
+  sendCount      Int       @default(0)
+  lastSentAt     DateTime?
+  /// Set while confirm runs, so a double click cannot make two accounts.
+  provisioningAt DateTime?
+  confirmedAt    DateTime?
+  /// What the setup step said, kept for the console.
+  companyName    String?
+  apps           String[]  @default([])
+  state          String?
+  trialDays      Int?
+  /// The account made from this signup (one at most).
+  accountId      String?   @unique
+  ownerUserId    String?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([email, createdAt])
+  @@index([status, createdAt])
+}
+
+/// One version of CLOR's own price list (roadmap item 9). Everything in it is
+/// data an operator makes in the operator console; nothing about prices is in
+/// the code. Prices change by making a new version, never by editing one that
+/// was published: a draft is made (empty, or copied from another book), edited
+/// and published, and the book it replaces is archived and kept. At most one is
+/// PUBLISHED (partial unique index PriceBook_one_published, migration
+/// 20261123090100_price_book_one_published); with none, clor.in shows Request
+/// a demo instead of prices. Platform data, not a customer's: no accountId and
+/// no row-level policy. Written only by CLOR operators (routes/pricing.ts).
+model PriceBook {
+  id                String    @id @default(cuid())
+  /// 1, 2, 3... in the order the books were made.
+  version           Int       @unique
+  /// DRAFT | PUBLISHED | ARCHIVED
+  status            String    @default("DRAFT")
+  currency          String    @default("INR")
+  /// What this version is, in a line ("Sample prices — not final").
+  note              String?
+  /// The book this one was copied from (a copy, or a roll back).
+  copiedFromId      String?
+  createdByUserId   String?
+  publishedAt       DateTime?
+  publishedByUserId String?
+  archivedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  plans PricePlan[]
+
+  @@index([status])
+}
+
+/// A plan in a price book: a name, the apps it carries, how it is counted and
+/// what it costs in each billing period it is offered for.
+model PricePlan {
+  id                String   @id @default(cuid())
+  priceBookId       String
+  /// Small letters, unique in the book: the ?plan= in a trial link.
+  code              String
+  name              String
+  description       String?
+  /// App codes from constants/appCatalog.ts. A plan with an app that is not
+  /// available yet stays off clor.in until it is.
+  apps              String[]
+  /// COMPANY | USER | EMPLOYEE: what one unit is.
+  unit              String
+  /// Units the base price covers.
+  includedUnits     Int      @default(1)
+  trialDays         Int      @default(0)
+  /// MONTHLY and/or YEARLY.
+  periods           String[]
+  /// Set: the yearly price is twelve months of the monthly one less this
+  /// percent, worked out by the engine. Unset: the yearly price is its own row.
+  yearlyDiscountPct Int?
+  displayOrder      Int      @default(0)
+  showOnWebsite     Boolean  @default(true)
+  /// Drawn a little stronger on clor.in. A plain flag, no ribbon.
+  highlight         Boolean  @default(false)
+  /// Whether GST is added once CLOR charges GST (PlatformSetting billing.gst).
+  gstApplies        Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  priceBook PriceBook   @relation(fields: [priceBookId], references: [id], onDelete: Cascade)
+  prices    PlanPrice[]
+
+  @@unique([priceBookId, code])
+}
+
+/// What a plan costs for one billing period. Paise, integers. Subscriptions
+/// already running are not priced from here: SubscriptionItem keeps its own
+/// unitAmount.
+model PlanPrice {
+  id             String   @id @default(cuid())
+  planId         String
+  /// MONTHLY | YEARLY
+  period         String
+  /// Paise for the period, covering the plan's included units.
+  basePrice      Int
+  /// Paise for each unit beyond the included ones, for the period.
+  extraUnitPrice Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  plan PricePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, period])
+}
+
+/// CLOR's own settings as a seller, one row per key, set in the operator
+/// console. `billing.gst` (Settings, Tax) holds { registered, gstin, legalName,
+/// stateCode, sac, ratePercent }: until CLOR is registered no quote carries
+/// GST (services/pricing/settings.ts).
+model PlatformSetting {
+  key             String   @id
+  value           Json
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// An Explore pass (roadmap item 6): a link, mailed after a demo request, that
+/// opens the shared sample company read-only for 14 days. Only the token's hash
+/// is kept. Platform data with no account of its own, like DemoRequest.
+model ExplorePass {
+  id              String    @id @default(cuid())
+  demoRequestId   String?
+  /// Lower-cased; where the link was sent.
+  email           String
+  /// SHA-256 of the link's token; a new token (Resend) replaces it.
+  tokenHash       String    @unique
+  /// The app the visitor asked for first, for the link to open.
+  app             String?
+  expiresAt       DateTime
+  sentAt          DateTime?
+  sendCount       Int       @default(0)
+  lastUsedAt      DateTime?
+  useCount        Int       @default(0)
+  revokedAt       DateTime?
+  revokedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([demoRequestId])
+  @@index([email])
+}
+
+/// A CLOR operator invited by email (operator console, Team). Becomes a
+/// PlatformOperator row the first time somebody signs in with this address,
+/// confirmed, and opens the console. Lower-cased email; one live invite each.
+model OperatorInvite {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  /// SUPER_ADMIN | SALES | SUPPORT | BILLING | READ_ONLY
+  role            String
+  note            String?
+  invitedByUserId String
+  claimedByUserId String?
+  claimedAt       DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+/// The addresses CLOR's own mail goes out from (operator console, Email):
+/// sales, support, billing, no-reply. Used when a message goes through the
+/// platform's mail server, never a customer's own SMTP.
+model EmailSender {
+  purpose         String   @id
+  name            String
+  email           String
+  replyTo         String?
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// CLOR's own wording for a template in constants/emailTemplates.ts; with no
+/// row the built-in wording is used (Reset to default deletes the row).
+model EmailTemplateOverride {
+  key             String   @id
+  subject         String
+  body            String
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// Each app as clor.in and the app switcher list it: AVAILABLE, COMING_SOON
+/// or HIDDEN, and its one-line blurb. With no row the built-in entry is used
+/// (constants/appCatalogue.ts). Read publicly at /api/public/app-catalogue.
+model AppCatalogueEntry {
+  code            String   @id
+  status          String
+  blurb           String
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// An invoice CLOR raises to a customer account (roadmap item 8). Made as a
+/// DRAFT in the operator console (Money, Invoices), then ISSUED with the next
+/// number of the financial year's series, then PAID (Mark paid, or a gateway
+/// payment) or VOID. Once issued, what it says is frozen: the seller, buyer,
+/// lines, tax and the way to pay are copied in, so a later change to CLOR's
+/// UPI ID or a customer's address never rewrites an invoice already sent.
+/// Money in paise. `books*` is the CLOR Books connector (item 10): the draft
+/// raised in CLOR's own Books company, and what became of it.
+model BillingInvoice {
+  id               String    @id @default(cuid())
+  /// CLOR/26-27/0001; null while a draft, so a discarded draft leaves no gap in the series.
+  number           String?   @unique
+  accountId        String
+  /// DRAFT | ISSUED | PAID | VOID
+  status           String    @default("DRAFT")
+  issueDate        DateTime?
+  dueDate          DateTime?
+  /// The months it bills, as YYYY-MM-DD dates.
+  periodStart      String?
+  periodEnd        String?
+  /// [{ description, appCode?, quantity, unitAmount, amount }]
+  lines            Json      @default("[]")
+  subtotal         Int       @default(0)
+  /// gstOn()'s answer: { charged, kind, ratePercent, cgst, sgst, igst, amount, note }
+  tax              Json      @default("{}")
+  taxTotal         Int       @default(0)
+  total            Int       @default(0)
+  /// { name, gstin, stateCode, address, email }
+  buyer            Json      @default("{}")
+  /// CLOR as seller when issued: { legalName, gstin, stateCode, sac, address }
+  seller           Json?
+  /// The way to pay when issued: UPI ID, QR, bank account (billing/gateway.ts manualPayTo).
+  payTo            Json?
+  note             String?
+  /// How many months a payment of this invoice pays for.
+  months           Int       @default(1)
+  paidAt           DateTime?
+  paidAmount       Int?
+  paymentReference String?
+  paymentEventId   String?
+  voidedAt         DateTime?
+  voidReason       String?
+  /// NOT_SENT | SENT | FAILED (the CLOR Books connector)
+  booksStatus      String    @default("NOT_SENT")
+  booksInvoiceId   String?
+  booksError       String?
+  booksAttempts    Int       @default(0)
+  booksSentAt      DateTime?
+  /// Card, UPI or netbanking through the active gateway (billing/payLinks.ts):
+  /// the provider's payment link for this invoice, made when the customer
+  /// first presses Pay online, and reused while the amount is the same.
+  payLinkGateway   String?
+  payLinkId        String?
+  payLinkUrl       String?
+  payLinkAmount    Int?
+  payLinkAt        DateTime?
+  /// MANUAL (drafted by CLOR staff) | RENEWAL (drafted and issued by the renewal job).
+  source           String    @default("MANUAL")
+  /// For a renewal, the first day of the period it bills (YYYY-MM-DD): one renewal per account and period.
+  renewalFor       String?
+  createdByUserId  String?
+  issuedByUserId   String?
+  paidByUserId     String?
+  voidedByUserId   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([accountId, renewalFor])
+  @@index([accountId])
+  @@index([status, createdAt])
+  @@index([payLinkId])
+}
+
+/// A customer's question or problem for CLOR support (Ops plan P1, customer
+/// tickets). Opened from the Workspace by anyone signed in to the account;
+/// answered by CLOR staff on ops.clor.in. Platform data with no tenant policy,
+/// like Subscription: the routes scope every read to the account or to staff.
+model SupportTicket {
+  id                 String           @id @default(cuid())
+  /// Shown as T-1001 and up; one sequence for all customers.
+  number             Int              @unique @default(autoincrement())
+  accountId          String
+  orgId              String?
+  openedByUserId     String
+  subject            String
+  /// QUESTION | PROBLEM | BILLING | DATA | OTHER
+  category           String           @default("QUESTION")
+  /// accounting | people | attendance | payroll | workspace, when it is about one app.
+  app                String?
+  /// NORMAL | HIGH | URGENT. The customer may say urgent; staff decide.
+  priority           String           @default("NORMAL")
+  /// OPEN (with CLOR) | WAITING (with the customer) | SOLVED | CLOSED
+  status             String           @default("OPEN")
+  /// The error code the customer saw, if they had one.
+  requestId          String?
+  assignedOperatorId String?
+  lastCustomerAt     DateTime?
+  lastStaffAt        DateTime?
+  solvedAt           DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  messages           SupportMessage[]
+
+  @@index([accountId, status])
+  @@index([status, updatedAt])
+  @@index([openedByUserId])
+}
+
+/// One message on a ticket. An internal note is staff only and never shown to the customer.
+model SupportMessage {
+  id           String        @id @default(cuid())
+  ticketId     String
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorUserId String
+  fromStaff    Boolean       @default(false)
+  internal     Boolean       @default(false)
+  body         String
+  createdAt    DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+/// Something CLOR staff should know without looking (Ops plan P1, alerts): a
+/// job failing, mail stuck, a customer's readers offline, an overdue CLOR
+/// invoice, a ticket left waiting. Raised and closed by the alerts job as the
+/// condition appears and clears; one open row per key.
+model OpsAlert {
+  id             String    @id @default(cuid())
+  /// What the condition is, e.g. "worker:mail.outbox" or "invoice:<id>". One open alert per key.
+  key            String
+  /// worker | email | webhook | readers | closure | invoice | ticket | trial | errors
+  kind           String
+  /// critical | warning
+  severity       String
+  /// Which staff it is for: SUPPORT | BILLING | SALES (owners see all).
+  audience       String
+  title          String
+  detail         String?
+  accountId      String?
+  /// Where the console opens it: { page, id?, params? }
+  link           Json?
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  resolvedAt     DateTime?
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+
+  @@index([resolvedAt, severity])
+  @@index([key, resolvedAt])
+}
+
+/// A notice from CLOR shown at the top of the app (Ops plan P1): news, planned maintenance or a problem being fixed.
+/// Written on ops.clor.in; a draft until published; shown from startsAt until endsAt or until ended by hand.
+model Announcement {
+  id              String    @id @default(cuid())
+  title           String
+  body            String
+  /// info | maintenance | incident. An incident cannot be dismissed while it lasts.
+  kind            String    @default("info")
+  /// App codes it is about; empty means every customer.
+  apps            String[]  @default([])
+  /// everyone | admins (account owners, administrators and billing administrators)
+  audience        String    @default("everyone")
+  startsAt        DateTime  @default(now())
+  endsAt          DateTime?
+  publishedAt     DateTime?
+  endedAt         DateTime?
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  dismissals AnnouncementDismissal[]
+
+  @@index([publishedAt, endedAt, startsAt])
+}
+
+/// One person closed one announcement; it stays closed for them on every device.
+model AnnouncementDismissal {
+  announcementId String
+  userId         String
+  at             DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+}
+
+/// An offer CLOR staff make (operator console, Money › Offers): a code that
+/// takes a percent or a fixed amount off a plan's price, for some or all
+/// plans and periods, for a number of billing periods or for good, between
+/// two dates and up to a number of customers. Applied by staff when they set
+/// a customer's subscription (routes/opsDeals.ts). Platform data, no account.
+model Offer {
+  id              String    @id @default(cuid())
+  /// Capitals and digits, unique: what a customer or salesperson quotes.
+  code            String    @unique
+  name            String
+  description     String?
+  /// PERCENT | AMOUNT
+  kind            String
+  /// Percent (1-100) or paise off each period.
+  value           Int
+  /// Price book plan codes it applies to; empty = every plan, custom ones too.
+  planCodes       String[]
+  /// MONTHLY / YEARLY; empty = both.
+  periods         String[]
+  /// Billing periods the price lasts; null = for as long as they subscribe.
+  durationPeriods Int?
+  startsAt        DateTime  @default(now())
+  endsAt          DateTime?
+  /// How many customers may take it; null = no limit.
+  maxRedemptions  Int?
+  redemptions     Int       @default(0)
+  pausedAt        DateTime?
+  archivedAt      DateTime?
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([archivedAt])
+}
+
+/// A plan made for a deal, never shown on clor.in (operator console, Money ›
+/// Custom plans): its own apps, unit and prices. Tied to one customer, or
+/// left open for staff to use with anyone. A subscription copies its price
+/// when set, so changing the plan later changes no running subscription.
+model CustomPlan {
+  id              String    @id @default(cuid())
+  /// The customer it was made for; null = any customer.
+  accountId       String?
+  name            String
+  description     String?
+  apps            String[]
+  /// COMPANY | USER | EMPLOYEE
+  unit            String
+  includedUnits   Int       @default(1)
+  /// Paise per period; null = not offered for that period.
+  monthlyPrice    Int?
+  monthlyExtra    Int       @default(0)
+  yearlyPrice     Int?
+  yearlyExtra     Int       @default(0)
+  gstApplies      Boolean   @default(true)
+  archivedAt      DateTime?
+  createdByUserId String
+  updatedByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([accountId])
+}
+
+/// A change one CLOR operator asked for that a second one must approve
+/// (Ops plan: approval-managed). Today: a subscription deal whose discount is
+/// above the limit in the platform setting `ops.approvals`. The request keeps
+/// what was asked; approving prices it again and applies it as the approver,
+/// with both people on the record. Never approved by the person who asked.
+model OpsApproval {
+  id              String    @id @default(cuid())
+  /// DEAL
+  kind            String
+  accountId       String?
+  /// What was asked, as the route takes it.
+  payload         Json
+  /// One line for the list: "Growth, 25 employees, yearly, 40% off (FEST40)".
+  summary         String
+  /// The share of the list price taken off, in whole percent.
+  discountPercent Int?
+  reason          String
+  requestedBy     String
+  /// PENDING | APPROVED | REJECTED | CANCELLED | EXPIRED
+  status          String    @default("PENDING")
+  decidedBy       String?
+  decidedAt       DateTime?
+  decisionNote    String?
+  expiresAt       DateTime
+  /// What applying it gave: { invoiceId }, or the reason it could not be applied.
+  result          Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([accountId])
+}
+
+// ----------------------------
+// Each time the API fails a request (a 500). For CLOR staff: the alerts job counts them, and a request id finds one.
+// Never the error's message: it can carry a customer's data. Pruned after 14 days.
+// ----------------------------
+model ApiError {
+  id        String   @id @default(cuid())
+  /// The id the customer was shown on the error, to quote to support.
+  requestId String?
+  method    String
+  /// The route as mounted, ids replaced by ":id", no query string.
+  route     String
+  /// The error's class name, e.g. "TypeError" or "PrismaClientKnownRequestError".
+  errorName String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([requestId])
 }
