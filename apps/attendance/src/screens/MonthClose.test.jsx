@@ -5,7 +5,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import MonthClose from './MonthClose';
 
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true, permissions: new Set() }) }));
-import { closeMonth, getMonthReadiness, setAttendanceStartDate } from '../api/attendance';
+import { closeMonth, downloadPayrollExport, getMonthReadiness, listPayrollExportLayouts, setAttendanceStartDate } from '../api/attendance';
 
 /*
  * Month close in a bigger company: every person with something open can be
@@ -15,6 +15,7 @@ import { closeMonth, getMonthReadiness, setAttendanceStartDate } from '../api/at
 vi.mock('../components/HeldPunches', () => ({ default: () => <section aria-label="Held for a look" /> }));
 vi.mock('../api/attendance', () => ({
   closeMonth: vi.fn(), getMonthReadiness: vi.fn(), getMonthSnapshot: vi.fn(), reopenMonth: vi.fn(), setAttendanceStartDate: vi.fn(),
+  listPayrollExportLayouts: vi.fn(), downloadPayrollExport: vi.fn(),
   dayLabel: (d) => d,
   todayIst: () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10),
 }));
@@ -98,6 +99,75 @@ it('does not offer a team-scoped role Reopen on a closed month', async () => {
   render(<MonthClose params={{ month: '2026-09' }} />);
   await screen.findByText(/is closed/);
   expect(screen.queryByRole('button', { name: /Reopen/ })).toBeNull();
+  /* Nor the payroll export, which is the whole company's. */
+  expect(screen.queryByRole('region', { name: 'Export for another payroll' })).toBeNull();
+});
+
+/*
+ * Platform audit, 11 Nov 2026: a company that pays salaries outside CLOR takes
+ * a closed month as a file, in CLOR's layout or another payroll's.
+ */
+const LAYOUTS = [
+  { id: 'generic', name: 'Generic', about: 'Every figure for the month.', formats: ['xlsx', 'csv'] },
+  { id: 'keka', name: 'Keka', about: 'For Keka’s loss of pay import.', formats: ['xlsx', 'csv'] },
+  { id: 'tally', name: 'Tally', about: 'An attendance voucher for the month.', formats: ['xml', 'xlsx', 'csv'] },
+];
+
+it('offers the payroll export only once the month is closed', async () => {
+  listPayrollExportLayouts.mockResolvedValue(LAYOUTS);
+  getMonthReadiness.mockResolvedValue(readiness([]));
+  const { unmount } = render(<MonthClose params={{ month: '2026-09' }} />);
+  await screen.findByText('0 people have something open');
+  expect(screen.queryByRole('region', { name: 'Export for another payroll' })).toBeNull();
+  unmount();
+
+  getMonthReadiness.mockResolvedValue({ ...readiness([]), closed: { at: '2026-10-02T05:00:00Z', byUserId: 'u1' } });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  const box = await screen.findByRole('region', { name: 'Export for another payroll' });
+  await within(box).findByLabelText('Layout');
+  expect(within(box).getByText(/take September 2026 as a file/)).toBeTruthy();
+});
+
+it('downloads the closed month in the layout and file type chosen, the type following the layout', async () => {
+  listPayrollExportLayouts.mockResolvedValue(LAYOUTS);
+  downloadPayrollExport.mockReset();
+  downloadPayrollExport.mockResolvedValue('file');
+  getMonthReadiness.mockResolvedValue({ ...readiness([]), closed: { at: '2026-10-02T05:00:00Z', byUserId: 'u1' } });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  const box = await screen.findByRole('region', { name: 'Export for another payroll' });
+  const layout = await within(box).findByLabelText('Layout');
+  const type = within(box).getByLabelText('File type');
+  expect([...layout.options].map((o) => o.textContent)).toEqual(['Generic', 'Keka', 'Tally']);
+  expect([...type.options].map((o) => o.value)).toEqual(['xlsx', 'csv']);
+
+  fireEvent.change(type, { target: { value: 'csv' } });
+  fireEvent.click(within(box).getByRole('button', { name: /Download/ }));
+  await waitFor(() => expect(downloadPayrollExport).toHaveBeenCalledWith('2026-09', 'generic', 'csv'));
+
+  /* Tally's own file is offered for Tally alone, and is its first choice. */
+  fireEvent.change(layout, { target: { value: 'tally' } });
+  expect([...type.options].map((o) => o.value)).toEqual(['xml', 'xlsx', 'csv']);
+  expect(type.value).toBe('csv');
+  fireEvent.change(type, { target: { value: 'xml' } });
+  fireEvent.change(layout, { target: { value: 'keka' } });
+  /* Keka has no XML: the type falls back to its first. */
+  expect(type.value).toBe('xlsx');
+  expect(within(box).getByText('For Keka’s loss of pay import.')).toBeTruthy();
+  await waitFor(() => expect(within(box).getByRole('button', { name: /Download/ }).disabled).toBe(false));
+  fireEvent.click(within(box).getByRole('button', { name: /Download/ }));
+  await waitFor(() => expect(downloadPayrollExport).toHaveBeenLastCalledWith('2026-09', 'keka', 'xlsx'));
+});
+
+it('says why when the server will not make the file', async () => {
+  listPayrollExportLayouts.mockResolvedValue(LAYOUTS);
+  downloadPayrollExport.mockReset();
+  downloadPayrollExport.mockRejectedValue(new Error('Close the month first.'));
+  getMonthReadiness.mockResolvedValue({ ...readiness([]), closed: { at: '2026-10-02T05:00:00Z', byUserId: 'u1' } });
+  render(<MonthClose params={{ month: '2026-09' }} />);
+  const box = await screen.findByRole('region', { name: 'Export for another payroll' });
+  fireEvent.click(await within(box).findByRole('button', { name: /Download/ }));
+  await waitFor(() => expect(downloadPayrollExport).toHaveBeenCalled());
+  await waitFor(() => expect(within(box).getByRole('button', { name: /Download/ }).disabled).toBe(false));
 });
 
 /*

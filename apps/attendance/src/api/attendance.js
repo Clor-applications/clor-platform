@@ -1,6 +1,6 @@
 import { formatDateIn, todayIst } from '@ui/utils/dates';
 import { API_BASE, apiFetch } from '@platform/http';
-import { requireOrgId as orgId } from '@platform/context';
+import { branchId, requireOrgId as orgId } from '@platform/context';
 import { queryString as query } from '@platform/query';
 export { todayIst };
 
@@ -275,6 +275,46 @@ export const getMonthReadiness = (month) => get(`/months/${encodeURIComponent(mo
 /* Payroll readiness across Attendance and People / Payroll data, with money at stake (server: services/payroll/readinessTower.ts). */
 export const getPayrollReadiness = (month) => get(`/months/${encodeURIComponent(month)}/payroll-readiness`);
 export const getMonthSnapshot = (month, version) => get(`/months/${encodeURIComponent(month)}/snapshots/${encodeURIComponent(version)}`);
+/**
+ * A closed month for a payroll outside CLOR (server: services/attendance/payrollExport.ts).
+ * The layouts it can be taken in, each with what it is for and the files it comes as.
+ */
+export const listPayrollExportLayouts = () => get('/payroll-export/layouts').then((r) => r?.layouts || []);
+/**
+ * The file itself, built by the server and saved by the browser under the
+ * server's name for it. apiFetch reads text, and a workbook is bytes, so this
+ * asks with the same headers and keeps them. A sign-in that has just run out
+ * is renewed by one ordinary call, then the file is asked for once more.
+ */
+export async function downloadPayrollExport(month, layout, format, { retried = false } = {}) {
+  let token = '';
+  try { token = String(localStorage.getItem('token') || '').trim(); } catch { /* private window */ }
+  const branch = branchId();
+  const res = await fetch(`${API_BASE}${base()}/months/${encodeURIComponent(month)}/payroll-export${query({ layout, format })}`, {
+    credentials: 'include',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-org-id': orgId(), ...(branch ? { 'x-branch-id': branch } : {}) },
+  });
+  if (res.status === 401 && !retried) {
+    await listPayrollExportLayouts();
+    return downloadPayrollExport(month, layout, format, { retried: true });
+  }
+  if (!res.ok) {
+    let message = 'Could not make the file.';
+    let code = null;
+    try { const data = await res.json(); message = data?.error || message; code = data?.code || null; } catch { /* not JSON */ }
+    throw Object.assign(new Error(message), { status: res.status, code });
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || `CLOR attendance ${month}.${format}`;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
 /** What a schedule change would do, before it is saved. */
 export const checkSchedule = (body) => send('/schedule/check', 'POST', body);
 /** Many days at once: preview first (`preview: true`), then apply. */

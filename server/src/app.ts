@@ -282,7 +282,8 @@ export function buildApp() {
       /* Browsers may reuse a preflight for 2 h (Chrome caps it there) instead of asking before every call. */
       maxAge: 7200,
       allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id', 'x-step-up', 'Idempotency-Key'],
-      exposedHeaders: ['X-Request-Id', 'Idempotency-Replayed'],
+      /* Content-Disposition: a file the server names (an export) keeps that name when the web app saves it. */
+      exposedHeaders: ['X-Request-Id', 'Idempotency-Replayed', 'Content-Disposition'],
     })
   );
   /*
