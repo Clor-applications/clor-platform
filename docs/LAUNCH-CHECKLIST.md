@@ -64,7 +64,8 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 - [x] Attendance free on any plan with People (never pay twice) — PR #218, live 12 Nov
 - [ ] "Upgrade to People" button for an Attendance customer (data already kept: same tables)
 - [ ] Hide the Attendance menu for People customers
-- [ ] Error tracker and uptime check with alerts to phone (Sentry free tier or Cloud Monitoring)
+- [x] Uptime checks every 5 min (api.clor.in/health, app.clor.in, clor.in) and email alerts to the owner: site down, database down, API 5xx > 5 in 5 min, any Cloud Scheduler job failing (job tick, nightly copies) — Cloud Monitoring, 12 Nov. API errors also in Error Reporting and the ops Alerts page (#215)
+- [ ] Alerts to the owner's phone (Google Cloud app push or SMS) — owner to choose
 - [ ] **Owner:** GSTIN; prices in ops.clor.in; PAN in ops; lawyer on terms and privacy
 
 ## Stage 1 — private beta, 3–5 free design partners (audit: weeks 3–8)
@@ -110,7 +111,7 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 
 - [ ] Cloud Run settings in the repo (timeout ≥ 300s, min/max instances); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` still describe the retired VM
 - [ ] Migrations run at every container start with runtime credentials; a bad one crash-loops all instances (seen 12 Nov). Move to a pre-deploy Cloud Run Job
-- [ ] Alert when a background job fails or goes stale (`JobRun`)
+- [~] Alert when a background job fails: scheduler-level alert done 12 Nov; a single job failing inside a tick still only shows in `JobRun`
 - [ ] Idempotency keyed by user and company, not the Authorization header (`middleware/idempotency.ts:23`)
 - [ ] E-invoice calls: queue, retry, timeout (`services/einvoice.ts:367`)
 - [ ] zod validation on the 47 route files without it, employee portal first
