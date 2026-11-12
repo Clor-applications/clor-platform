@@ -64,7 +64,8 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [~] People / Attendance boundary, permission rule — on `claude/audit-stage0` (PR #218): Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner chose this list 12 Nov). `middleware/rbac.ts` `ATTENDANCE_OPENS_PEOPLE`, test `attendanceBoundary.test.ts`
 - [~] Boundary, employee app — on PR #218: money, engagement and referrals routes need People (`portalNeedsPeople`); `/portal/me` says `people`, and the app hides Money, Jobs, Growth and Celebrations without it
 - [~] Boundary, billing — on PR #218: with People on a plan, Attendance is always free (`peopleIncludesAttendance` in `services/subscriptions.ts`), so nobody pays for both. Upgrade from Attendance to People keeps all data (same tables). Still open: an "Upgrade to People" button for the customer
-- [ ] Hide the Attendance menu for People customers
+- [~] Hide the Attendance menu for People customers — on `claude/attendance-boundary-export` (not merged): a company on People is not listed Attendance (rail, switcher, More apps, Workspace), and attendance.clor.in or a notice link opens the matching People screen (`packages/platform/includedApps.js`, test `packages/shell/includedApps.test.js`). Not yet seen in a browser. The employee app stays at attendance.clor.in/#/portal
+- [~] Payroll export for companies paying salaries outside CLOR — same branch: a closed month as Generic, greytHR, Keka or Tally (`services/attendance/payrollExport.ts`, test `attendancePayrollExport.test.ts`), offered on Month close. The greytHR, Keka and Tally headings were not checked against a live account
 - [ ] Error tracker and uptime check with alerts to phone (Sentry free tier or Cloud Monitoring)
 - [ ] **Owner:** GSTIN; prices in ops.clor.in; PAN in ops; lawyer on terms and privacy
 
