@@ -392,6 +392,8 @@ model AuditLog {
   createdAt       DateTime @default(now())
   /// The request id (X-Request-Id) that wrote it; People's change log shares it (D-V8).
   correlationId   String?
+  /// Before and after values of the change, `{ field: { from, to } }`, masked (middleware/auditMutations.ts).
+  changes         Json?
 
   org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
