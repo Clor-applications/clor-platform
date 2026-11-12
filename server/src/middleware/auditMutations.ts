@@ -1,6 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { prisma } from '../utils/prisma.js';
+import { auditScope, type TxAudit } from '../utils/auditScope.js';
+import { diffSnapshots, rowSnapshot, type Changes, type Snapshot } from '../services/auditDiff.js';
+import { timeRulesFor } from '../services/attendance/timeRules.js';
 
 /**
  * Every change a member of staff makes goes in the audit log: who, when, what,
@@ -16,8 +21,144 @@ import { platformPrisma } from '../utils/platformPrisma.js';
  *
  * Only successful changes (POST / PUT / PATCH / DELETE answered below 400).
  * A handler that writes a richer entry itself (services/auditTrail.ts) marks
- * the response, and is not logged twice. Never delays or fails the request.
+ * the response, and is not logged twice.
+ *
+ * Before and after values (Rule 3(1), platform audit 11 Nov 2026). For the
+ * records in EDIT_LOG below — the platform's own administration, and People's
+ * and Attendance's masters and rules — a loader reads the record as it was,
+ * once the request's company is known and before the handler runs
+ * (`auditBefore`, called from middleware/tenantContext.ts), and again after the
+ * change. The entry carries `changes: { field: { from, to } }`, masked as
+ * services/auditDiff.ts says (secrets, passwords, tokens, Aadhaar, PAN, bank
+ * numbers). Books, Accounting and Payroll are not in the list.
+ *
+ * Written together. For who may do what — roles and their permissions, role
+ * profiles, a person's roles and permissions, the security policy, sign-in
+ * providers, directory-sync tokens and outside access — the change and its
+ * entry succeed or fail together. All of those records live in the platform
+ * database with the audit table, so the entry is written inside the change's
+ * own transaction, before it commits: the platform client runs the request's
+ * `TxAudit` (utils/auditScope.ts) inside every transaction that writes one of
+ * the route's models, and runs a lone write in a transaction of its own so it
+ * can join it. An entry that cannot be written throws, the transaction rolls
+ * back, and the person is answered 503 "not made" (AuditUnavailableError);
+ * the role stays as it was. The first such transaction carries the entry; a
+ * handler that writes in several separate transactions has the rest of its
+ * work recorded by the after-diff of that first one only. A write that reaches
+ * none of those transactions (a batch transaction) falls back to the entry at
+ * the end, as before. A handler that also writes its own named entry (deleting
+ * a role, a role's permissions) still does, after the change: that one is the
+ * readable line, the together one the guarantee.
+ *
+ * Everything else keeps the old rule: written after the answer, never delays
+ * or fails the request, a failure reported in the log.
  */
+
+/** Refused because the change's audit entry could not be written with it. */
+export class AuditUnavailableError extends Error {
+  status = 503;
+  expose = true;
+  code = 'AUDIT_UNAVAILABLE';
+  constructor(cause?: unknown) {
+    super('Not changed: the audit log could not record this change, so it was not made. Try again in a moment.');
+    (this as any).cause = cause;
+  }
+}
+
+type Ctx = { orgId: string; accountId: string; ids: string[]; body: any };
+type Db = any;
+type Entry = {
+  /** `METHOD shape`, shape as below (ids as :id, after the company). */
+  key: RegExp;
+  /** Written together with the change (platform models, camelCase as on the client). */
+  together?: string[];
+  /** The record as a person would read it; `db` is the platform transaction for together entries. */
+  load?: (db: Db, c: Ctx) => Promise<Snapshot | null>;
+};
+
+const permKeyOf = (p: { module: string; subModule: string | null; action: string }) => [p.module, p.subModule, p.action].filter(Boolean).join('::');
+const sorted = (a: string[]) => [...new Set(a)].sort();
+
+async function roleSnapshot(db: Db, c: Ctx) {
+  const r = await db.role.findFirst({
+    where: { id: c.ids[0], orgId: c.orgId },
+    select: { name: true, description: true, roleType: true, branchId: true, ownDocumentsOnly: true, permissions: { where: { allowed: true }, select: { permLevel: true, permission: { select: { module: true, subModule: true, action: true } } } } },
+  });
+  if (!r) return null;
+  const { permissions, ...rest } = r;
+  return { ...rest, permissions: sorted(permissions.map((p: any) => `${permKeyOf(p.permission)}${p.permLevel ? ` (level ${p.permLevel})` : ''}`)) };
+}
+
+async function profileSnapshot(db: Db, c: Ctx) {
+  const p = await db.roleProfile.findFirst({ where: { id: c.ids[0], orgId: c.orgId }, select: { name: true, description: true, roles: { select: { roleId: true } } } });
+  if (!p) return null;
+  const names = new Map((await db.role.findMany({ where: { orgId: c.orgId, id: { in: p.roles.map((r: any) => r.roleId) } }, select: { id: true, name: true } })).map((r: any) => [r.id, r.name]));
+  return { name: p.name, description: p.description, roles: sorted(p.roles.map((r: any) => names.get(r.roleId) || r.roleId)) };
+}
+
+/** What a person may do in this company: their roles, role profiles and record permissions. */
+async function accessSnapshot(db: Db, c: Ctx) {
+  const userId = c.ids[0];
+  const [roles, profiles, perms] = await Promise.all([
+    db.userRoleAssignment.findMany({ where: { orgId: c.orgId, userId }, select: { branchId: true, role: { select: { name: true } } } }),
+    db.userRoleProfile.findMany({ where: { orgId: c.orgId, userId }, select: { branchId: true, profile: { select: { name: true } } } }),
+    db.userPermission.findMany({ where: { orgId: c.orgId, userId }, select: { entityType: true, entityId: true, label: true } }),
+  ]);
+  const at = (b: string | null) => (b ? ` (branch ${b})` : '');
+  return {
+    roles: sorted(roles.map((r: any) => `${r.role?.name ?? '?'}${at(r.branchId)}`)),
+    roleProfiles: sorted(profiles.map((p: any) => `${p.profile?.name ?? '?'}${at(p.branchId)}`)),
+    recordPermissions: sorted(perms.map((p: any) => `${p.entityType}: ${p.label || p.entityId}`)),
+  };
+}
+
+const byId = (model: string, drop: string[] = []) => async (db: Db, c: Ctx) => rowSnapshot(await db[model].findFirst({ where: { id: c.ids[0], orgId: c.orgId } }), drop);
+const people = (model: string, drop: string[] = []) => async (_db: Db, c: Ctx) => rowSnapshot(await (peoplePrisma as any)[model].findFirst({ where: { id: c.ids[0], orgId: c.orgId } }), drop);
+
+const EMPLOYEE_NOT_MASTER = ['portalPasswordHash', 'portalPasswordSetAt', 'portalSetupHash', 'portalSetupExpires', 'portalSessionsRevokedAt', 'privacyNoticeAckAt', 'privacyNoticeVersion', 'searchText'];
+
+/**
+ * The records whose changes carry before and after values. First match wins. `together`: written in one
+ * transaction with the change (see the header).
+ */
+const EDIT_LOG: Entry[] = [
+  /* Who may do what: written together. */
+  { key: /^POST roles$/, together: ['role', 'rolePermission'] },
+  { key: /^(PATCH|DELETE) roles\/:id$|^(PUT|POST|DELETE) roles\/:id\/permissions(\/|$)/, together: ['role', 'rolePermission', 'roleProfileRole'], load: roleSnapshot },
+  { key: /^POST role-profiles$/, together: ['roleProfile', 'roleProfileRole'] },
+  { key: /^(PUT|DELETE) role-profiles\/:id$/, together: ['roleProfile', 'roleProfileRole'], load: profileSnapshot },
+  { key: /^(PUT|POST|DELETE) users\/:id\/(role|roles|role-profiles|permissions)(\/|$)/, together: ['userRoleAssignment', 'userRoleProfile', 'userPermission'], load: accessSnapshot },
+  { key: /^PUT security\/policy$/, together: ['authPolicy'], load: async (db, c) => rowSnapshot(await db.authPolicy.findFirst({ where: { orgId: c.orgId } })) },
+  { key: /^POST security\/providers$/, together: ['authProvider'] },
+  { key: /^(PATCH|DELETE) security\/providers\/:id$|^POST security\/providers\/:id\/verify-domains$/, together: ['authProvider'], load: byId('authProvider') },
+  { key: /^POST security\/scim$/, together: ['scimToken'] },
+  { key: /^DELETE security\/scim\/:id$/, together: ['scimToken'], load: byId('scimToken', ['lastUsedAt', 'lastError']) },
+  { key: /^(PATCH outside-access\/:id|POST outside-access\/:id\/(suspend|resume|revoke))$/, together: ['outsideAccess'], load: byId('outsideAccess') },
+  /* The company's settings: before and after, written after the answer. */
+  { key: /^DELETE approval-rules\/:id$/, load: async (_db, c) => rowSnapshot(await (prisma as any).approvalRule.findFirst({ where: { id: c.ids[0], orgId: c.orgId } })) },
+  {
+    key: /^PUT features$/,
+    load: async (db, c) => Object.fromEntries((await db.featureSetting.findMany({ where: { orgId: c.orgId }, select: { key: true, enabled: true } })).map((f: any) => [f.key, f.enabled])),
+  },
+  { key: /^(PATCH|DELETE) branches\/:id$/, load: byId('branch') },
+  { key: /^PUT company-profile$/, load: async (db, c) => rowSnapshot(await db.org.findFirst({ where: { id: c.orgId } }), ['code', 'archivedAt', 'closingAt']) },
+  /* People and Attendance. */
+  { key: /^(PUT|PATCH|DELETE) people\/employees\/:id$/, load: people('employee', EMPLOYEE_NOT_MASTER) },
+  { key: /^PUT people\/attendance-rules$/, load: async (_db, c) => (await timeRulesFor(c.orgId)) as unknown as Snapshot },
+  { key: /^(PUT|DELETE) attendance\/shifts\/:id$/, load: people('shift') },
+  { key: /^(PUT|DELETE) attendance\/leave\/types\/:id$/, load: people('leaveType') },
+  {
+    /* A day marked or corrected by HR: the day is named in the body. */
+    key: /^PUT attendance\/records$/,
+    load: async (_db, c) => {
+      const employeeId = typeof c.body?.employeeId === 'string' ? c.body.employeeId.trim() : '';
+      const date = typeof c.body?.date === 'string' ? c.body.date : '';
+      if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+      return rowSnapshot(await peoplePrisma.attendanceRecord.findFirst({ where: { orgId: c.orgId, employeeId, date } }), ['employeeId', 'date']);
+    },
+  },
+  { key: /^DELETE attendance\/records\/:id$/, load: people('attendanceRecord') },
+];
 
 const MODULES: Record<string, string> = { payroll: 'PAYROLL', attendance: 'ATTENDANCE', people: 'PEOPLE' };
 
@@ -202,50 +343,139 @@ function redact(value: unknown, depth = 0, extra: RegExp | null = null): unknown
 
 const ID = /^(c[a-z0-9]{20,}|[0-9a-f-]{24,}|\d{4}-\d{2})$/i;
 
-export function auditMutations(req: Request, res: Response, next: NextFunction) {
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+/** Where a write's path says it goes: its first part after the company, and the rest. */
+function routeOf(req: Request) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return null;
   const path = req.originalUrl.split('?')[0];
   /* Under a company, or a person's companies (PUT /api/users/:id/companies), which is the company admin's too. */
   const m = /^\/api\/(?:orgs\/[^/]+\/)?([a-z][a-z-]*)(\/.*)?$/.exec(path);
-  if (!m || SKIP.some((re) => re.test(path))) return next();
-  if (!/^\/api\/orgs\//.test(path) && m[1] !== 'users') return next();
+  if (!m || SKIP.some((re) => re.test(path))) return null;
+  if (!/^\/api\/orgs\//.test(path) && m[1] !== 'users') return null;
+  const parts = [m[1], ...(m[2] || '').split('/').filter(Boolean)];
+  const ids = parts.filter((p) => ID.test(p));
+  const shape = parts.map((p) => (ID.test(p) ? ':id' : p)).join('/');
+  return { m, parts, ids, shape, key: `${req.method} ${shape}` };
+}
+type Route = NonNullable<ReturnType<typeof routeOf>>;
+
+/** The entry's who, what and which record, as the generic log writes it. */
+function describe(req: Request, r: Route, changes: Changes | null) {
+  const { m, parts, ids, shape, key } = r;
+  const company = MODULES[m[1]] ? null : COMPANY_ENTITIES.find(([re]) => re.test(shape))?.[1] || null;
+  /* Payroll, Attendance and People by their module; the company's administration by name; the rest is Accounting's. */
+  const resource = MODULES[m[1]]
+    ? (parts.slice(1).find((p) => !ID.test(p)) || m[1]).replace(/s$/, '').replace(/-/g, '_').toUpperCase()
+    : m[1].replace(/s$/, '').replace(/-/g, '_').toUpperCase();
+  const entity = MODULES[m[1]] ? `${MODULES[m[1]]}_${resource}` : company || `ACCOUNTING_${resource}`;
+  const last = parts[parts.length - 1];
+  const verb = ID.test(last) || parts.length <= 2 || last === parts[1]
+    ? { POST: 'CREATE', PUT: 'UPDATE', PATCH: 'UPDATE', DELETE: 'DELETE' }[req.method]!
+    : last.replace(/-/g, '_').toUpperCase();
+  const phrase = PHRASES.find(([re]) => re.test(key))?.[1] || (entity.startsWith('ACCOUNTING_') ? accountingPhrase(req.method, parts) : null);
+  return {
+    accountId: req.tenant!.accountId,
+    orgId: req.tenant!.orgId,
+    branchId: req.tenant!.branchId || '',
+    entity: entity.slice(0, 40),
+    entityId: (ids[0] || '').slice(0, 60),
+    action: verb.slice(0, 40),
+    message: (phrase || `${req.method} ${shape}`).slice(0, 500),
+    metadata: JSON.stringify({ path: shape, ids, body: redact(req.body, 0, leavingBody(shape, req.body) ? LEAVING_HIDDEN : null) }).slice(0, 8_000),
+    createdByUserId: req.auth!.userId,
+    correlationId: typeof (req as any).id === 'string' ? String((req as any).id).slice(0, 80) : null,
+    ...(changes ? { changes } : {}),
+  };
+}
+
+type Pending = {
+  route: Route;
+  entry: Entry;
+  ctx: Ctx;
+  /** undefined: not read (or could not be). */
+  before?: Snapshot | null;
+  together?: TxAudit;
+};
+const pendingOf = (res: Response): Pending | undefined => res.locals.editLog;
+
+/** The record now, through `db`, compared with how it was; null when there is no loader or no "before". */
+async function changesNow(p: Pending, db: Db): Promise<Changes | null> {
+  if (!p.entry.load || p.before === undefined) return null;
+  return diffSnapshots(p.before, await p.entry.load(db, p.ctx));
+}
+
+/**
+ * Called by requireTenantContext once the company is known, before the handler: reads the record as it was,
+ * and, for who-may-do-what, arranges for the entry to be written inside the change's transaction. Runs `next`
+ * inside that arrangement. Never refuses the request itself.
+ */
+export async function auditBefore(req: Request, res: Response, next: () => unknown) {
+  let p = pendingOf(res);
+  if (!p && !res.locals.editLogChecked) {
+    res.locals.editLogChecked = true;
+    const route = routeOf(req);
+    const entry = route ? EDIT_LOG.find((e) => e.key.test(route.key)) : undefined;
+    if (route && entry && req.tenant?.orgId && req.auth?.userId) {
+      const pending: Pending = { route, entry, ctx: { orgId: req.tenant.orgId, accountId: req.tenant.accountId, ids: route.ids, body: req.body } };
+      if (entry.load) {
+        try {
+          pending.before = await entry.load(platformPrisma, pending.ctx);
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error('[audit] before not read:', route.key, e instanceof Error ? e.message : e);
+        }
+      }
+      if (entry.together) {
+        const models = new Set(entry.together);
+        const together: TxAudit = {
+          done: false,
+          async inTransaction(tx, wrote) {
+            if (together.done || ![...wrote].some((w) => models.has(w))) return;
+            try {
+              await tx.auditLog.create({ data: describe(req, pending.route, await changesNow(pending, tx)) });
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.error('[audit] change refused, entry not written:', pending.route.key, e instanceof Error ? e.message : e);
+              throw new AuditUnavailableError(e);
+            }
+            together.done = true;
+          },
+        };
+        pending.together = together;
+      }
+      res.locals.editLog = pending;
+      p = pending;
+    }
+  }
+  return p?.together ? auditScope.run(p.together, next) : next();
+}
+
+/** The before-and-after of this request's change, read now, for a handler that writes its own entry (auditTrail.ts). */
+export async function editLogChanges(req: Request): Promise<Changes | null> {
+  const p = req.res ? pendingOf(req.res) : undefined;
+  if (!p || p.together?.done) return null;
+  try {
+    return await changesNow(p, platformPrisma);
+  } catch {
+    return null;
+  }
+}
+
+export function auditMutations(req: Request, res: Response, next: NextFunction) {
+  const route = routeOf(req);
+  if (!route) return next();
 
   res.on('finish', () => {
     if (res.statusCode >= 400 || res.locals.audited || !req.auth?.userId || !req.tenant?.orgId) return;
-    const parts = [m[1], ...(m[2] || '').split('/').filter(Boolean)];
-    const ids = parts.filter((p) => ID.test(p));
-    const shape = parts.map((p) => (ID.test(p) ? ':id' : p)).join('/');
-    const key = `${req.method} ${shape}`;
-    const company = MODULES[m[1]] ? null : COMPANY_ENTITIES.find(([re]) => re.test(shape))?.[1] || null;
-    /* Payroll, Attendance and People by their module; the company's administration by name; the rest is Accounting's. */
-    const resource = MODULES[m[1]]
-      ? (parts.slice(1).find((p) => !ID.test(p)) || m[1]).replace(/s$/, '').replace(/-/g, '_').toUpperCase()
-      : m[1].replace(/s$/, '').replace(/-/g, '_').toUpperCase();
-    const entity = MODULES[m[1]] ? `${MODULES[m[1]]}_${resource}` : company || `ACCOUNTING_${resource}`;
-    const last = parts[parts.length - 1];
-    const verb = ID.test(last) || parts.length <= 2 || last === parts[1]
-      ? { POST: 'CREATE', PUT: 'UPDATE', PATCH: 'UPDATE', DELETE: 'DELETE' }[req.method]!
-      : last.replace(/-/g, '_').toUpperCase();
-    const phrase = PHRASES.find(([re]) => re.test(key))?.[1] || (entity.startsWith('ACCOUNTING_') ? accountingPhrase(req.method, parts) : null);
-    platformPrisma.auditLog
-      .create({
-        data: {
-          accountId: req.tenant.accountId,
-          orgId: req.tenant.orgId,
-          branchId: req.tenant.branchId || '',
-          entity: entity.slice(0, 40),
-          entityId: (ids[0] || '').slice(0, 60),
-          action: verb.slice(0, 40),
-          message: (phrase || `${req.method} ${shape}`).slice(0, 500),
-          metadata: JSON.stringify({ path: shape, ids, body: redact(req.body, 0, leavingBody(shape, req.body) ? LEAVING_HIDDEN : null) }).slice(0, 8_000),
-          createdByUserId: req.auth.userId,
-          correlationId: typeof (req as any).id === 'string' ? String((req as any).id).slice(0, 80) : null,
-        },
-      })
-      .catch((e) => {
-        // eslint-disable-next-line no-console
-        console.error('[audit] not recorded:', key, e instanceof Error ? e.message : e);
-      });
+    const p = pendingOf(res);
+    /* Written with the change already. */
+    if (p?.together?.done) return;
+    void (async () => {
+      const changes = p ? await changesNow(p, platformPrisma).catch((e) => { console.error('[audit] after not read:', route.key, e instanceof Error ? e.message : e); return null; }) : null;
+      await platformPrisma.auditLog.create({ data: describe(req, route, changes) as any });
+    })().catch((e) => {
+      // eslint-disable-next-line no-console
+      console.error('[audit] not recorded:', route.key, e instanceof Error ? e.message : e);
+    });
   });
   next();
 }

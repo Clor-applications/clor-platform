@@ -1,5 +1,6 @@
 import { PrismaClient } from '../generated/platform/index.js';
 import { tenantScoped } from './tenantScope.js';
+import { auditScope } from './auditScope.js';
 
 /**
  * The platform database: who can sign in, which company they belong to, and
@@ -23,10 +24,14 @@ import { tenantScoped } from './tenantScope.js';
  * that writes to both does it in two steps, each idempotent, in an order where
  * a crash in between leaves a state the next attempt can recognise and finish.
  */
-/* Told which company the request is for (utils/tenantScope.ts). */
+/* Told which company the request is for (utils/tenantScope.ts). A change to who may do what is written in one
+   transaction with its audit entry, which lives in this database (utils/auditScope.ts). */
 export const platformPrisma = tenantScoped(new PrismaClient({
   log: ['warn', 'error'],
-}));
+}), { txHook: () => {
+  const pending = auditScope.getStore();
+  return pending && !pending.done ? pending : undefined;
+} });
 
 /** The platform equivalent of `DbClient`: a transaction, or the client itself. */
 export type PlatformDb = Parameters<Parameters<typeof platformPrisma.$transaction>[0]>[0] | typeof platformPrisma;

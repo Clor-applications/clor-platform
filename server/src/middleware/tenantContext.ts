@@ -8,6 +8,7 @@ import { TWO_FACTOR_SETUP_PATHS, adminTwoFactorMissing } from '../services/twoFa
 import { userIsAdmin } from '../services/roleGuards.js';
 import { outsideAccessFor } from '../services/outsideAccess.js';
 import { companyEntryRefusal } from '../services/signInRules.js';
+import { auditBefore } from './auditMutations.js';
 
 export type TenantContext = {
   accountId: string;
@@ -96,8 +97,9 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
     return res.status(403).json({ error: 'This company asks owners and admins to sign in with an authenticator app. Set one up under My profile → Security first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
   }
 
-  /* From here on every query this request makes names its company to the database (utils/tenantScope.ts). */
-  runInTenant(req.tenant.orgId, () => next());
+  /* From here on every query this request makes names its company to the database (utils/tenantScope.ts).
+     A change the edit log records is read as it was first, before the handler (middleware/auditMutations.ts). */
+  return runInTenant(req.tenant.orgId, () => auditBefore(req, res, next));
 }
 
 type TenantResult = { tenant: TenantContext } | { status: number; error: string; code?: string };
