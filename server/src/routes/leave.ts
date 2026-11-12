@@ -2159,6 +2159,8 @@ leaveRouter.delete(`${base}/adjustments/:id`, can(PermissionAction.EDIT, R.leave
     if (!row || !inScope(await leaveScope(req), row.employeeId)) throw fail(404, 'No such adjustment.');
     const earning = row.kind === 'ENCASH' ? await payrollPrisma.payrollAdjustment.findUnique({ where: { id: `leave-encash:${row.id}` } }) : null;
     if (row.paidInRunId || (earning && earning.status !== 'CANCELLED')) throw fail(409, 'This encashment is linked to payroll. Cancel its unconsumed earning first, or use a correcting adjustment.');
+    /* A comp-off grant whose unused days lapsed: taking the grant out as well would take those days twice (compOff.ts). */
+    if (row.lapsedAt && (row.lapsedDays || 0) > 0) throw fail(409, 'This comp-off expired and its unused days were taken back. To give them back, remove the lapse entry instead.', 'COMP_OFF_LAPSED');
     await deleteToBin(req, 'leaveAdjustment', row);
     return row;
   });

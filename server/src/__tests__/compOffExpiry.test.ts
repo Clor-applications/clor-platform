@@ -220,6 +220,17 @@ describe('comp-off expiry in a company', () => {
     expect(await lapses(asha.id)).toHaveLength(1);
   });
 
+  it('a lapsed grant cannot be removed (its days would go twice); removing the lapse gives them back', async () => {
+    const refused = await (request(app) as any).delete(`/api/orgs/${hr.orgId}/attendance/leave/adjustments/${g2.id}`).set(at(hr)).expect(409);
+    expect(refused.body.error).toMatch(/expired and its unused days were taken back/);
+    const [lapse] = await lapses(asha.id);
+    await (request(app) as any).delete(`/api/orgs/${hr.orgId}/attendance/leave/adjustments/${lapse.id}`).set(at(hr)).expect(200);
+    expect((await myType()).available).toBe(2.5);
+    /* The grant stays marked, so the job does not take them again. */
+    expect((await runCompOffExpiry()).lapsed).toBe(0);
+    expect((await myType()).available).toBe(2.5);
+  });
+
   it('what was earned before the validity is never touched', async () => {
     const old = await row(g0.id);
     expect(old.expiresOn).toBeNull();
