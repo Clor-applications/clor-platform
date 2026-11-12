@@ -4,6 +4,7 @@ import { SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head } from '../components/Sections.jsx';
+import { TEAM } from '../team.js';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
 
 export function PageHead({ title, intro, children }) {
@@ -258,6 +259,54 @@ export function Resources() {
   );
 }
 
+/* -------------------------------------------------------------------- team
+ * One row per person under a hairline: name and role on the left, their own
+ * words on the right. No cards; initials stand in until we have photos.
+ */
+export function Team() {
+  return (
+    <>
+      <PageHead title="The people behind CLOR" intro={`CLOR is made in ${SITE.city} by a team with backgrounds in accounting, taxation, finance and IT.`} />
+      <section className="section">
+        <div className="wrap">
+          <ul className="team">
+            {TEAM.map((p) => (
+              <li key={p.name} className="team-row">
+                <div className="team-who">
+                  {p.photo ? (
+                    <img className="team-face" src={p.photo} width="96" height="96" loading="lazy" alt="" />
+                  ) : (
+                    <span className="team-face" aria-hidden="true">
+                      {p.initials}
+                    </span>
+                  )}
+                  <div>
+                    <h2 className="h-3">{p.name}</h2>
+                    <p className="small">{p.role}</p>
+                  </div>
+                </div>
+                <div className="team-words stack">
+                  {p.bio.map((para) => (
+                    <p key={para.slice(0, 24)} className="body">
+                      {para}
+                    </p>
+                  ))}
+                  {p.quote ? (
+                    <blockquote className="team-quote">
+                      <p>“{p.quote}”</p>
+                    </blockquote>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+      <Closing title="Want to talk to us?" text="Tell us about your business and what you’d like CLOR to do for it." />
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------- about */
 export function About() {
   return (
@@ -268,6 +317,9 @@ export function About() {
       >
         <p className="body">
           We work from our office in {SITE.city}: {SITE.address}. You are welcome to visit; write to {SITE.contactEmail} first so someone is there to meet you.
+        </p>
+        <p className="body">
+          <Link href="/company/team">Meet the people behind CLOR</Link>
         </p>
       </PageHead>
       <section className="section">

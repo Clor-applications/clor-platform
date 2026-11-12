@@ -96,7 +96,7 @@ export function Settings({ role }) {
             <label htmlFor="ops-tax-name" className="text-sm font-medium">
               Legal name
             </label>
-            <input id="ops-tax-name" className="ui-input" maxLength={160} value={f.legalName} disabled={!mayChange} onChange={set('legalName')} placeholder="Clor Applications Pvt Ltd" />
+            <input id="ops-tax-name" className="ui-input" maxLength={160} value={f.legalName} disabled={!mayChange} onChange={set('legalName')} placeholder="CLOR Applications Private Limited" />
             <span className="ws-card-blurb">Exactly as it is on the registration certificate. It is printed on CLOR’s invoices.</span>
           </div>
           <div className="grid gap-1">

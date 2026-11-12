@@ -3093,7 +3093,7 @@ html.is-scrolled .nav {
   overflow: hidden;
   border-right: 1.5px solid var(--accent);
   clip-path: inset(0 100% 0 0);
-  animation: sf-type 8s steps(25) infinite;
+  animation: sf-type 8s steps(33) infinite;
 }
 .sf-type--2 {
   animation-name: sf-type-2;
@@ -3613,4 +3613,70 @@ html.is-scrolled .nav {
   max-width: 40rem;
   margin-top: var(--s-5);
   color: var(--ink-2);
+}
+
+/* -------------------------------------------------------------------- team */
+/* People as rows on the page ground, each under a hairline: who on the left, their words on the right. */
+.team {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.team-row {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: var(--gap-col, var(--s-7));
+  padding-block: var(--s-7);
+  border-top: 1px solid var(--line);
+}
+.team-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.team-who {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  align-self: start;
+  position: sticky;
+  top: 100px;
+}
+.team-who .small {
+  margin-top: var(--s-1);
+}
+.team-face {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-panel);
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: var(--t-lg);
+  letter-spacing: 0.02em;
+  object-fit: cover;
+}
+.team-quote {
+  margin: var(--s-5) 0 0;
+  padding-left: var(--s-4);
+  border-left: 2px solid var(--accent);
+  max-width: 60ch;
+}
+.team-quote p {
+  color: var(--ink);
+  font-size: var(--t-lg);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+}
+@media (max-width: 900px) {
+  .team-row {
+    grid-template-columns: 1fr;
+    gap: var(--s-5);
+  }
+  .team-who {
+    position: static;
+  }
 }
