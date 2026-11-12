@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+
+import { getJwtSecret } from '../services/auth.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 
 /**
@@ -26,16 +29,37 @@ const WAIT_MS = 10_000;
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** The signed-in person, from a token that verifies; requireAuth still decides whether the request goes ahead. */
+function personOf(req: Request): string | null {
+  const header = String(req.headers.authorization || '').trim();
+  const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
+  if (!token) return null;
+  try {
+    const p = jwt.verify(token, getJwtSecret(), { issuer: process.env.JWT_ISSUER || 'accounting', audience: process.env.JWT_AUDIENCE || 'accounting-web', algorithms: ['HS256'] }) as any;
+    return String(p?.userId || '').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export const isGuardedWrite = (method: string, path: string) => method === 'POST' && GUARDED.test(path);
 
 export function webIdempotency(req: Request, res: Response, next: NextFunction) {
   const path = req.originalUrl.split('?')[0];
   if (!isGuardedWrite(req.method, path)) return next();
-  const auth = String(req.headers.authorization || '');
   const given = String(req.get('idempotency-key') || '').trim();
-  if (!auth || !given) return next();
+  if (!given) return next();
+  /*
+   * A key belongs to a person in a company. It used to belong to the
+   * Authorization header, which changes every fifteen minutes: a retry sent
+   * after the token was refreshed looked like a new request and saved a second
+   * record (audit 11 Nov 2026). A missing or stale token is left for
+   * requireAuth to refuse; the retry with a fresh one is then guarded.
+   */
+  const who = personOf(req);
+  if (!who) return next();
   if (given.length > 128) return res.status(400).json({ error: 'Idempotency-Key is at most 128 characters.' });
-  const scope = sha(auth).slice(0, 40);
+  const scope = sha(`${who}|${path.split('/')[3]}`).slice(0, 40);
   const bodyHash = sha(JSON.stringify(req.body ?? null));
   const key = `k:${given}`;
   const ttl = KEY_WINDOW_MS;
