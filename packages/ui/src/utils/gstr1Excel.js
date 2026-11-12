@@ -1,4 +1,5 @@
 import { notify } from '@ui/components/ui/notify';
+import { b2clLimitFor } from './gstrExport';
 
 const n = (value) => Number(value) || 0;
 const text = (value) => String(value ?? '').trim();
@@ -49,14 +50,16 @@ const detailColumns = [
   ['sgst', 'SGST / UTGST', 'money'], ['igst', 'IGST', 'money'], ['cess', 'Cess', 'money'], ['tax', 'Total Tax', 'money'],
 ];
 
-export function buildGstr1ExcelModel({ db, company, gstin, periodLabel }) {
+export function buildGstr1ExcelModel({ db, company, gstin, periodLabel, portalPeriod }) {
   const allInvoices = db.invoices || [];
   const allCreditNotes = db.creditNotes || [];
   const invoices = allInvoices.filter(active);
   const creditNotes = allCreditNotes.filter(active);
   const receipts = (db.payments || []).filter((row) => active(row) && /receipt/i.test(text(row?.voucherType || row?.direction || row?.type)));
   const journals = (db.journalEntries || []).filter((row) => active(row));
-  const b2clDocs = invoices.filter((row) => !gstinOf(row) && !isNil(row) && !isExport(row) && isInterstate(row) && n(row.total) > 250000);
+  // The B2CL limit depends on the return period (₹2.5 lakh before August 2024, ₹1 lakh after).
+  const periodOf = (row) => portalPeriod || `${text(row.date).slice(5, 7)}${text(row.date).slice(0, 4)}`;
+  const b2clDocs = invoices.filter((row) => !gstinOf(row) && !isNil(row) && !isExport(row) && isInterstate(row) && n(row.total) > b2clLimitFor(periodOf(row)));
   const b2clIds = new Set(b2clDocs.map((row) => row.id || row.number));
 
   const detail = (docs, sign = 1) => docs.map((row) => invoiceDetail(row, sign));

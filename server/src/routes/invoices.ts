@@ -116,6 +116,8 @@ const invoiceUpsertSchema = z.object({
   posSale: z.boolean().optional(),
   tender: z.string().optional().nullable(),
   customerMobile: z.string().optional().nullable(),
+  /// e-invoice supply type when the buyer alone does not decide it (deemed export, SEZ or export with/without IGST).
+  supplyType: z.enum(['B2B', 'SEZWP', 'SEZWOP', 'EXPWP', 'EXPWOP', 'DEXP']).optional().nullable(),
   items: z.array(invoiceItemSchema).default([]),
 });
 
@@ -134,6 +136,7 @@ const EXTRA_KEYS = [
   'posSale',
   'tender',
   'customerMobile',
+  'supplyType',
 ] as const;
 
 const extrasFrom = (body: any) => {

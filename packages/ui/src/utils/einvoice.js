@@ -1,16 +1,12 @@
 import { GST_STATE_BY_CODE } from './gst';
 
 /**
- * e-Invoice (INV-01) and e-Way Bill (EWB-01) payloads in the NIC schema.
+ * e-Way Bill (EWB-01) payload in the NIC schema, for the ewaybillgst portal's
+ * bulk-generation tool — no GSP account needed.
  *
- * Two ways to use these: today, download the JSON and upload it through the
- * NIC portal's bulk-generation tool — no GSP account needed; later, the same
- * payload posts to a GSP's IRP endpoint once credentials exist (the payload
- * is the hard part, the transport is a POST).
- *
- * Schema: e-Invoice 1.1 (IRN generation), e-Way Bill JSON as accepted by the
- * ewaybillgst portal's bulk tool. Only sections this product has data for are
- * emitted; the bulk tools treat absent optional sections as empty.
+ * The e-invoice (INV-01) payload is not built here: it is a filing, so the
+ * server builds it from the stored invoice and checks it against NIC's schema
+ * (server/src/gst/inv01.ts, GET …/einvoice/payload).
  */
 
 const STATE_CODE_BY_NAME = Object.fromEntries(
@@ -72,45 +68,6 @@ const itemList = (invoice, isIntra) => {
     };
   });
 };
-
-export function buildEInvoicePayload({ invoice, company, customer = {} }) {
-  const sellerState = stateCode(company.state, company.gstin);
-  const buyerGstin = String(invoice.customerGstin || customer.gstin || '').trim();
-  const buyerState = stateCode(invoice.placeOfSupplyState || customer.state, buyerGstin) || sellerState;
-  const isIntra = Number(invoice.igstTotal ?? 0) <= 0.004;
-
-  return {
-    Version: '1.1',
-    TranDtls: { TaxSch: 'GST', SupTyp: buyerGstin ? 'B2B' : 'B2C', RegRev: 'N', IgstOnIntra: 'N' },
-    DocDtls: { Typ: 'INV', No: String(invoice.number || ''), Dt: nicDate(invoice.date) },
-    SellerDtls: {
-      Gstin: String(company.gstin || '').trim(),
-      LglNm: String(company.name || ''),
-      Addr1: String(company.address || company.addressLine1 || '-'),
-      Loc: String(company.city || company.state || '-'),
-      Pin: Number(String(company.pincode || '000000').replace(/\D/g, '')) || 0,
-      Stcd: sellerState,
-    },
-    BuyerDtls: {
-      Gstin: buyerGstin || 'URP',
-      LglNm: String(invoice.customerName || customer.name || 'Customer'),
-      Pos: buyerState,
-      Addr1: String(customer.billingAddress?.line1 || customer.address || '-'),
-      Loc: String(customer.billingAddress?.city || invoice.placeOfSupplyState || '-'),
-      Pin: Number(String(customer.billingAddress?.pincode || '000000').replace(/\D/g, '')) || 0,
-      Stcd: buyerState,
-    },
-    ItemList: itemList(invoice, isIntra),
-    ValDtls: {
-      AssVal: r2(invoice.subtotal ?? invoice.taxableTotal ?? 0),
-      IgstVal: r2(invoice.igstTotal ?? 0),
-      CgstVal: r2(invoice.cgstTotal ?? 0),
-      SgstVal: r2(invoice.sgstTotal ?? 0),
-      CesVal: 0,
-      TotInvVal: r2(invoice.total ?? 0),
-    },
-  };
-}
 
 export function buildEwayBillPayload({ invoice, company, customer = {}, transport = {}, docType = 'INV', subSupplyType = '1' }) {
   const sellerState = stateCode(company.state, company.gstin);
