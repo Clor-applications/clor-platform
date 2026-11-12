@@ -53,12 +53,12 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [~] **PR #137** ledger safety — merged to main, **not live**: its migration failed on Cloud SQL (12 Nov) and was rolled back safely
 - [~] **PR #217** fix for #137's migration — CI running; merge, then release #137 + #217 together
 - [~] **PR #136** GST returns: GSTR-1 (B2CL ₹1L from Aug 2024, exports, cdnur, nil, Table 13), GSTR-3B, e-invoice INV-01 — CI running; merge and release with #217
-- [~] **Branch `claude/audit-stage0`** (no PR yet): timed jobs fix done and tested (commit f0a0b419). Add the rest of Stage 0 below, then open one PR with `full-tests`
+- [~] **PR on branch `claude/audit-stage0`**: timed jobs fix + `/signup` trial + this checklist. Add the rest of Stage 0 to it if CI has not finished
 
 ## Stage 0 — stop the bleeding (audit: about 2 weeks)
 
 - [~] Timed jobs see no data when Cloud Scheduler wakes them (recurring invoices, reminders, digests, purges) — fixed on `claude/audit-stage0`, `server/src/routes/internalJobs.ts`
-- [ ] `/signup` gives every app free forever — `server/src/routes/auth.ts:624` uses `SIGNUP_APPS` (status `active`); make it a trial like `routes/signup.ts:212` (`status: 'trialing'`, `trialEndsAt`)
+- [~] `/signup` gives every app free forever — fixed on `claude/audit-stage0`: now a dated trial (published trial length, 14 days default), test `signupTrial.test.ts`
 - [x] "Start free trial" lands on Sign in — fixed: `app.clor.in/start` answers 200 on the live app (checked 12 Nov)
 - [x] Production behind main — released through #215 on 12 Nov. Still missing: scripted release with notes and a CHANGELOG entry
 - [ ] Release record: a script that builds, tags and writes release notes (audit P0 8)
