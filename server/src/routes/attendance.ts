@@ -1000,6 +1000,8 @@ const shiftSchema = z.object({
   code: z.string().trim().max(6).optional().nullable(),
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Colours are #RRGGBB.').optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
+  /* The fewest people the roster should have on this shift a day; blank = no minimum. Read by the roster's coverage row only. */
+  minStaff: z.coerce.number().int('Minimum staffing is a whole number.').min(1, 'Minimum staffing is 1 or more, or blank.').max(9999).optional().nullable().or(z.literal('')),
 });
 
 /** A shift's full day, or, left out, its own net minutes (start to end less the break). */
@@ -1048,7 +1050,7 @@ attendanceRouter.post('/orgs/:orgId/attendance/shifts', can(PermissionAction.CRE
   if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
   parsed.data.fullDayMinutes = data.fullDayMinutes;
   try {
-    const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, createdByUserId: req.auth!.userId } as any });
+    const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, minStaff: parsed.data.minStaff || null, createdByUserId: req.auth!.userId } as any });
     res.status(201).json({ shift });
   } catch (e) {
     return sendError(res, e);
@@ -1089,7 +1091,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
       const noConsent = await nightRefusal(orgId, on.map((id) => ({ employeeId: id, shiftIds: [existing.id] })), { shifts: [{ id: existing.id, name: next.name, startTime: next.startTime, endTime: next.endTime }] });
       if (noConsent) return sendError(res, noConsent);
     }
-    const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null } as any });
+    const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, ...(parsed.data.minStaff === undefined ? {} : { minStaff: parsed.data.minStaff || null }) } as any });
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(shift))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'SHIFT', ref: shift.id, name: shift.name, before: scoring(existing), after: scoring(shift) });
     }
@@ -1105,8 +1107,9 @@ attendanceRouter.delete('/orgs/:orgId/attendance/shifts/:id', can(PermissionActi
   const existing = await peoplePrisma.shift.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such shift.' });
   const used = (await peoplePrisma.shiftAssignment.count({ where: { orgId, shiftId: existing.id } })) +
+    (await peoplePrisma.rosterDay.count({ where: { orgId, shiftId: existing.id } })) +
     (await peoplePrisma.attendanceRecord.count({ where: { orgId, shiftId: existing.id } }));
-  if (used) return res.status(409).json({ error: 'This shift is assigned or has days recorded on it. Mark it inactive instead.' });
+  if (used) return res.status(409).json({ error: 'This shift is assigned, on the roster, or has days recorded on it. Mark it inactive instead.' });
   await deleteToBin(req, 'shift', existing);
   res.json({ ok: true });
 });

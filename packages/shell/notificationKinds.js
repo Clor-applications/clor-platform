@@ -59,6 +59,7 @@ export const KIND = {
   'attendance.punch_team': 'Team missed punches',
   'attendance.request_asked': 'Attendance requests',
   'attendance.request_decided': 'Attendance request decisions',
+  'attendance.roster_published': 'Roster changes',
   'credentials.expiring': 'Keys about to expire',
   'credentials.review': 'Keys to review',
   'payment.claimed': 'UPI payments to confirm',

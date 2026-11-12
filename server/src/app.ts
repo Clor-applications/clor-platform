@@ -84,6 +84,7 @@ import { payPageRouter, payRequestsRouter } from './routes/payRequests.js';
 import { agentLimiter, apiLimiter, billingWebhookLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
+import { rosterRouter } from './routes/roster.js';
 import { portalRouter } from './routes/portal.js';
 import { portalAdminRouter } from './routes/portalAdmin.js';
 import { readerOpsRouter } from './routes/readerOps.js';
@@ -529,6 +530,7 @@ export function buildApp() {
   app.use('/api', attendanceInsightsRouter);
   app.use('/api', dataProtectionRouter);
   app.use('/api', schedulingRouter);
+  app.use('/api', rosterRouter);
   app.use('/api', portalAdminRouter);
   app.use('/api', readerOpsRouter);
   app.use('/api', leaveRouter);
