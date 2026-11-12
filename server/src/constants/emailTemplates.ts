@@ -289,6 +289,30 @@ Open it in the operator console: {{opsUrl}}`,
     transactional: true,
   },
   {
+    key: 'people.approval_waiting',
+    label: 'People: a request waits for your decision',
+    description: 'Sent to each approver when a People request (job change, resignation, probation, request form, and others) reaches their step, and again if it is handed on to them or goes overdue.',
+    subject: '{{headline}}: {{title}}',
+    body: `Hello {{userName}},
+
+{{headline}}: {{title}}, in {{orgName}}. {{dueLine}}
+
+Open Approvals in People to decide: {{appUrl}}`,
+    fields: ['userName', 'headline', 'title', 'orgName', 'dueLine', 'appUrl'],
+  },
+  {
+    key: 'people.approval_decided',
+    label: 'People: your request was decided',
+    description: 'Sent to the person who raised a People request when it is approved, rejected or sent back.',
+    subject: '{{title}}',
+    body: `Hello {{userName}},
+
+{{title}}, in {{orgName}}.{{noteLine}}
+
+See it in People: {{appUrl}}`,
+    fields: ['userName', 'title', 'orgName', 'noteLine', 'appUrl'],
+  },
+  {
     key: 'approval.requested',
     label: 'Approval requested',
     description: 'Sent to holders of the approving role when a document exceeds a threshold.',
