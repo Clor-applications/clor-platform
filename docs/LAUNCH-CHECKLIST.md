@@ -18,7 +18,7 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - **Release recipe:** memory file `deploy-recipe.md`. Backup first
   (`gcloud sql backups create --instance clor-pg`), build with the `clor-build` account,
   deploy `--no-traffic --tag rel-<sha>`, test `/ready`, then move traffic. Web: `clor-app`
-  Pages; website: `clor` Pages. Live now: **rel-467eaaf** (rollback **rel-c74c38d**).
+  Pages; website: `clor` Pages. Live now: **rel-d4433c9** (rollback **rel-467eaaf**).
 - **Migrations run as a non-superuser on Cloud SQL.** Local tests run as superuser and will
   not catch permission errors. Test a new migration with a NOSUPERUSER role
   (see PR #217). Never put `SET clor.x = ...` in a function header; use `set_config`.
@@ -43,6 +43,8 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [x] Off-site backup: nightly copy of 4 databases to Delhi bucket `clor-apps-511409-db-copies`, 30 days, deletes recoverable 30 days; first copies verified 12 Nov
 - [x] Database server keeps its backups if deleted (`retainBackupsOnDelete`)
 - [x] Grievance officer name and email set (`VITE_GRIEVANCE_*` in `.env.production`)
+- [x] Ledger safety: database refuses unbalanced or edited posted entries, one reversal per entry, lock history — PR #137 + #217, live 12 Nov (rel-d4433c9)
+- [x] GST returns in government formats: GSTR-1 (B2CL ₹1L from Aug 2024, exports, cdnur, nil, Table 13), GSTR-3B, e-invoice INV-01 — PR #136, live 12 Nov
 - [x] Leave engine complete (audit score 88)
 - [x] Payroll statutory engine, ECR, Form 16 Part B (audit: verified correct)
 - [x] Row-level security fail-closed, refresh token rotation (audit: verified)
@@ -50,9 +52,6 @@ write the PR number and date. Last updated: 12 Nov 2026.
 ## Built, waiting
 
 - [~] **PR #216** nightly backup script — CI green, owner to press Merge (no deploy needed)
-- [~] **PR #137** ledger safety — merged to main, **not live**: its migration failed on Cloud SQL (12 Nov) and was rolled back safely
-- [~] **PR #217** fix for #137's migration — CI running; merge, then release #137 + #217 together
-- [~] **PR #136** GST returns: GSTR-1 (B2CL ₹1L from Aug 2024, exports, cdnur, nil, Table 13), GSTR-3B, e-invoice INV-01 — CI running; merge and release with #217
 - [~] **PR on branch `claude/audit-stage0`**: timed jobs fix + `/signup` trial + this checklist. Add the rest of Stage 0 to it if CI has not finished
 
 ## Stage 0 — stop the bleeding (audit: about 2 weeks)
