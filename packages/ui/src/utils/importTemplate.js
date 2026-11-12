@@ -17,7 +17,7 @@ export const getImportTemplate = (kind) =>
 export async function downloadImportTemplate(kind, fileName) {
   const text = String(await getImportTemplate(kind));
   /* The byte-order mark is lost when the response is read as text; Excel needs it to read the file as UTF-8. */
-  const blob = new Blob([text.startsWith('﻿') ? text : `﻿${text}`], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob([text.startsWith('\ufeff') ? text : `\ufeff${text}`], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

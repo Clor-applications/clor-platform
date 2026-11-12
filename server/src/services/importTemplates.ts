@@ -179,5 +179,5 @@ export function templateCsv(t: ImportTemplate): string {
     t.columns.map((c) => cell(c.key)).join(','),
     t.columns.map((c) => cell(c.example)).join(','),
   ];
-  return `﻿${lines.join('\r\n')}\r\n`;
+  return `\ufeff${lines.join('\r\n')}\r\n`;
 }
