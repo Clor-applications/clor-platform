@@ -10,6 +10,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listStructure } from '@ui/personnel/api';
 import { readFileText } from '@ui/utils/csv';
+import ReaderAllowList, { allowListOf, allowListText } from './ReaderAllowList';
 import {
   addDevice,
   lastPayload,
@@ -1329,6 +1330,9 @@ const QUEUE_STATUS = {
 
 function ReaderDrawer({ device, onClose, onChanged }) {
   const [form, setForm] = useState({ name: device.name, direction: device.direction, isActive: device.isActive, areaId: device.areaId || '' });
+  /* Only readers that push to CLOR by serial number have an allow-list (the server ignores it for the rest). */
+  const hasAllowList = (device.capabilities || []).includes('networkLock');
+  const [allowList, setAllowList] = useState(allowListText(device.ipAllowList));
   const [queue, setQueue] = useState(null);
   const [queueStatus, setQueueStatus] = useState('');
   const [users, setUsers] = useState(null);
@@ -1348,8 +1352,12 @@ function ReaderDrawer({ device, onClose, onChanged }) {
   const save = async (e) => {
     e.preventDefault();
     try {
-      const r = await updateDevice(device.id, { ...form, areaId: form.areaId || null });
+      const r = await updateDevice(device.id, { ...form, areaId: form.areaId || null, ...(hasAllowList ? { ipAllowList: allowListOf(allowList) } : {}) });
       notify.success(r?.areaChanged ? 'Reader saved. Its area changed — see Sync status to add the new people and remove the rest.' : 'Reader saved.');
+      /* Saved as asked, but the real reader is outside the list: say so before the punches stop arriving. */
+      if (r?.readerOutsideAllowList) {
+        notify.error(`This reader last called from ${r.readerOutsideAllowList}, which is not in the list you saved. Its punches will be refused until that address is added.`);
+      }
       onChanged();
       onClose();
     } catch (err) {
@@ -1417,6 +1425,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" className="ui-checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Collecting punches
           </label>
+          {hasAllowList ? <ReaderAllowList value={allowList} onChange={setAllowList} readerAddresses={device.allowedNetworks || []} /> : null}
         </form>
 
         <section aria-labelledby="actions-h">
