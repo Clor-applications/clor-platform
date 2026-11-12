@@ -24,6 +24,7 @@ import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startOpsAlerts } from './services/ops/alerts.js';
 import { startRenewals } from './billing/renewals.js';
+import { startTrialReminders } from './billing/trialReminders.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
@@ -118,6 +119,7 @@ startNotificationPruning();
 startOpsAlerts();
 /* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
 startRenewals();
+startTrialReminders();
 startBooksDigest();
 startWeeklySummary();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

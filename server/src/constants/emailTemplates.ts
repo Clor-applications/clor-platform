@@ -78,6 +78,36 @@ If you did not ask for this, reset your password now and reply to this email.`,
     transactional: true,
   },
   {
+    key: 'billing.trial_ending',
+    label: 'Trial ending (to the customer)',
+    description: 'Sent to the account owner 7, 3 and 1 days before their free trial ends (billing/trialReminders.ts).',
+    subject: 'Your CLOR trial ends in {{days}}',
+    body: `Hello {{userName}},
+
+The free trial for {{companyName}} ends on {{endsOn}}, in {{days}}.
+
+After that, everything you entered stays and you can still read it, but nothing new can be added until you choose a plan. See the plans: {{plansUrl}}
+
+Questions, or want more time? Reply to this email.`,
+    fields: ['userName', 'companyName', 'days', 'endsOn', 'plansUrl', 'appUrl'],
+    transactional: true,
+  },
+  {
+    key: 'billing.trial_ended',
+    label: 'Trial ended (to the customer)',
+    description: 'Sent to the account owner once, when their free trial has ended and the account is read-only (billing/trialReminders.ts).',
+    subject: 'Your CLOR trial has ended',
+    body: `Hello {{userName}},
+
+The free trial for {{companyName}} ended on {{endsOn}}. Your data is safe and you can still sign in and read it at {{appUrl}}.
+
+To keep working, choose a plan: {{plansUrl}}
+
+Reply to this email if you need more time or have a question.`,
+    fields: ['userName', 'companyName', 'endsOn', 'plansUrl', 'appUrl'],
+    transactional: true,
+  },
+  {
     key: 'billing.renewal_invoice',
     label: 'Renewal invoice (to the customer)',
     description: 'Sent to the account owner when CLOR issues the invoice for their next period, a few days before it starts (Money, Invoice settings, Renewals).',
