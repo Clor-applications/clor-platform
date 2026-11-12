@@ -14,8 +14,9 @@ import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
 import { useAppCatalogue, listingFor } from './appCatalogue';
-import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
+import { APPS, appById, availableApps, catalogueFor, landingApp, landingFor, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
+import { includedForward } from './includedForward';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
@@ -244,7 +245,10 @@ function ShellScreens() {
   /* Null while the company's apps are still being read, which is not the same
      as none: treating it as none would flash an empty rail. */
   const subscriptions = tenant?.subscriptions;
-  const mine = useMemo(() => subscribedApps(subscriptions || []), [subscriptions]);
+  /* The sample company somebody is exploring keeps every app apart; a real one on People has Attendance inside People. */
+  const listAll = Boolean(explore);
+  const mine = useMemo(() => subscribedApps(subscriptions || [], { all: listAll }), [subscriptions, listAll]);
+  const catalog = useMemo(() => catalogueFor(subscriptions || [], { all: listAll }), [subscriptions, listAll]);
 
   /*
    * What this person may open in this company, so an app's menu offers only
@@ -291,9 +295,12 @@ function ShellScreens() {
     /* The front door is the company's own workspace, not a doorway into the last app (ADR-010). */
     return isFrontDoor() ? ADMIN_APP_ID : null;
   });
-  const activeAppId = mine.some((a) => a.id === chosenAppId)
-    ? chosenAppId
-    : landingApp(subscriptions || [])?.id || null;
+  /* Asked for an app this company has inside another (Attendance, on People): the app it is inside. */
+  const chosenLanding = chosenAppId ? landingFor({ app: chosenAppId }, subscriptions || [], { all: listAll }) : null;
+  const wantedAppId = chosenLanding?.moved ? chosenLanding.app : chosenAppId;
+  const activeAppId = mine.some((a) => a.id === wantedAppId)
+    ? wantedAppId
+    : landingApp(subscriptions || [], { all: listAll })?.id || null;
   /*
    * Access no role gives: an app may name keys its own server grants this
    * person (`access()`, e.g. People's live auditor grant or a seat on a case
@@ -434,7 +441,9 @@ function ShellScreens() {
   /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
   const openApp = (...args) => { confirmLeave(askLeave).then((ok) => ok && openAppNow(...args)); };
   const pickCompany = (id) => { if (id !== tenant.id) confirmLeave(askLeave).then((ok) => ok && setTenantId(id)); };
-  const openAppNow = (id, open = '', params = {}) => {
+  const openAppNow = (askedId, askedOpen = '', params = {}) => {
+    /* A link into Attendance (a notice, another app's button) opens the same screen in People for a company on People. */
+    const { app: id, screen: open } = landingFor({ app: askedId, screen: askedOpen }, subscriptions || [], { all: listAll });
     const next = appById(id);
     const query = new URLSearchParams();
     if (open) query.set('open', open);
@@ -729,11 +738,39 @@ function ShellScreens() {
   const frontDoorHost = user && tenant && !emailLink && isFrontDoor() && activeAppId ? hostForApp(activeAppId) : null;
   /* Workspace lives here: its host is this one, and forwarding to it would loop. */
   const frontDoorTarget = frontDoorHost && frontDoorHost !== window.location.hostname ? frontDoorHost : null;
+  /*
+   * An address for an app this company has inside another (attendance.clor.in,
+   * for a company on People): on to the same screen in that app, never a dead
+   * end. Not the employee portal (#/portal), which is a public page of its own.
+   * Known only once the company's apps are read.
+   */
+  const includedTarget =
+    user && tenant && subscriptions && !emailLink && !legalDoc && !exploreLink && !appPublicPage
+      ? includedForward(window.location, subscriptions, { code: tenant.code || '', all: listAll })
+      : null;
   useEffect(() => {
-    if (!frontDoorTarget) return;
+    if (includedTarget) window.location.replace(includedTarget);
+  }, [includedTarget]);
+  /* Where apps have no addresses of their own (localhost, the phone app), the same move in place. */
+  useEffect(() => {
+    if (!user || !tenant || !subscriptions || includedTarget || !chosenAppId) return undefined;
+    const to = landingFor({ app: chosenAppId, screen: screenKey || '' }, subscriptions, { all: listAll });
+    if (!to.moved) return undefined;
+    let off = false;
+    Promise.resolve().then(() => {
+      if (off) return;
+      setChosenAppId(to.app);
+      setScreenKey(to.screen || null);
+    });
+    return () => {
+      off = true;
+    };
+  }, [user, tenant, subscriptions, includedTarget, chosenAppId, screenKey, listAll]);
+  useEffect(() => {
+    if (!frontDoorTarget || includedTarget) return;
     const { protocol, pathname, search, hash } = window.location;
     window.location.replace(frontDoorForward({ protocol, host: frontDoorTarget, pathname, search, hash, code: tenant?.code || '' }));
-  }, [frontDoorTarget, tenant?.code]);
+  }, [frontDoorTarget, includedTarget, tenant?.code]);
 
   /*
    * A token in this browser is checked before anything is drawn.
@@ -880,7 +917,7 @@ function ShellScreens() {
   const screenDenied = Boolean(screenItem?.permission && !holds(screenItem.permission) && (extraAccess || !app?.access));
   /* An app may draw its own navigation instead of handing the shell a list. */
   const Root = app?.Root || null;
-  const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
+  const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith] && !chosenLanding?.moved);
   /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
   const modules = resolveModules(app, nav);
   /* What the rail counts as waiting, in all, and the screen the first counted module opens: the bell says the same number. */
@@ -1282,11 +1319,13 @@ function ShellScreens() {
             onOpenWaiting={waitingOnRail.screen ? () => goTo(waitingOnRail.screen) : undefined}
             onOpen={(link) => {
               if (!link?.app) return;
-              if (link.app === activeAppId && !Root) {
-                if (link.screen && app?.screens?.[link.screen]) goTo(link.screen, link.params);
+              /* A notice raised for Attendance opens People's screen for a company on People. */
+              const to = landingFor(link, subscriptions || [], { all: listAll });
+              if (to.app === activeAppId && !Root) {
+                if (to.screen && app?.screens?.[to.screen]) goTo(to.screen, link.params);
                 return;
               }
-              openApp(link.app, link.screen || '', link.params || {});
+              openApp(to.app, to.screen, link.params || {});
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
@@ -1354,7 +1393,7 @@ function ShellScreens() {
           <ScreenBoundary appName={app?.name} resetKey={`${app?.id}:${tenant.id}`}>
             {showMoreApps ? (
               <main className="p-6">
-                <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+                <MoreApps tenant={tenant} catalog={catalog} onAdd={addApp} onOpen={openApp} />
               </main>
             ) : (
               /* Keyed on the company: changing it has to remount the app, or the
@@ -1427,7 +1466,7 @@ function ShellScreens() {
               </p>
             ) : null}
             {showMoreApps ? (
-              <MoreApps tenant={tenant} onAdd={addApp} onOpen={openApp} />
+              <MoreApps tenant={tenant} catalog={catalog} onAdd={addApp} onOpen={openApp} />
             ) : platformScreen === 'help' ? (
               <ScreenBoundary appName="Help centre" resetKey={`help:${helpTopic}`}>
                 <div className={app?.id === ADMIN_APP_ID ? 'ws ws-legacy' : undefined}>
@@ -1533,7 +1572,7 @@ function ShellScreens() {
                         tenant={tenant}
                         user={user}
                         apps={mine}
-                        catalog={APPS}
+                        catalog={catalog}
                         companies={tenants.filter((t) => t.accountId && t.accountId === tenant.accountId)}
                         accountName={accounts.find((x) => x.id === tenant.accountId)?.name || ''}
                         openApp={openApp}
@@ -1643,11 +1682,13 @@ function ShellScreens() {
  * Accounting — which is what lets a Payroll-only company add Accounting
  * without first entering a product it has not bought.
  */
-function MoreApps({ tenant, onAdd, onOpen }) {
+function MoreApps({ tenant, catalog = APPS, onAdd, onOpen }) {
   const has = (id) => (tenant.subscriptions || []).includes(id);
+  /* `catalog` leaves out an app the company has inside another (Attendance, on People): neither opened nor offered apart. */
+  const mineCount = catalog.filter((a) => !a.platform && has(a.id)).length;
   /* CLOR's app catalogue (operator console): a hidden app is not offered, one coming soon cannot be added yet. An app the company has stays. */
   const catalogue = useAppCatalogue();
-  const listed = APPS.filter((a) => !a.platform)
+  const listed = catalog.filter((a) => !a.platform)
     .map((a) => {
       const l = listingFor(catalogue, a.id);
       return { ...a, blurb: l?.blurb || a.blurb, available: a.available && (!l || l.status === 'AVAILABLE' || has(a.id)), hidden: l?.status === 'HIDDEN' && !has(a.id) };
@@ -1661,7 +1702,7 @@ function MoreApps({ tenant, onAdd, onOpen }) {
       <div>
         <h1 className="ui-display text-2xl">More apps</h1>
         <p className="ui-caption mt-1">
-          Everything CLOR runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
+          Everything CLOR runs. {tenant.name} has {mineCount} of them.
         </p>
       </div>
 
