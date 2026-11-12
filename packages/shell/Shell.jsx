@@ -1437,7 +1437,7 @@ function ShellScreens() {
                         <ArrowLeft size={16} aria-hidden="true" /> Back{app ? ` to ${app.name}` : ''}
                       </button>
                     </div>
-                    <HelpCenter key={helpTopic} initialTopic={helpTopic} onOpen={(appId, screenKey2) => { setPlatformScreen(null); openApp(appId, screenKey2 || ''); }} />
+                    <HelpCenter key={helpTopic} initialTopic={helpTopic} apps={mine.map((a) => a.id)} onOpen={(appId, screenKey2) => { setPlatformScreen(null); openApp(appId, screenKey2 || ''); }} />
                   </div>
                 </div>
               </ScreenBoundary>
