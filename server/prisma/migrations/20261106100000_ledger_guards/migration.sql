@@ -22,9 +22,11 @@
 -- other append-only tables do. Nothing honours clor.bypass here: background
 -- jobs run under the bypass and are exactly the writers these rules are for.
 --
--- The guard functions read the parent entry with clor.bypass set for their own
--- duration only, so row security can never hide the row they are checking and
--- let a change through by default.
+-- The guard functions read the parent entry with clor.bypass on for their own
+-- read only, so row security can never hide the row they are checking and let a
+-- change through by default. They switch it on with set_config and put the
+-- caller's value back before returning: a function-level SET clause for a
+-- custom setting needs superuser, which Cloud SQL's migration user is not.
 --
 -- IF NOT EXISTS / OR REPLACE throughout: the test suite builds tables with
 -- `prisma db push` and then replays this file.
@@ -45,7 +47,6 @@ END $$;
 -- 2. Balance, at commit.
 CREATE OR REPLACE FUNCTION ledger_entry_balances() RETURNS trigger
 LANGUAGE plpgsql
-SET clor.bypass = 'on'
 AS $$
 DECLARE
   eid text;
@@ -53,6 +54,7 @@ DECLARE
   dr numeric;
   cr numeric;
   n integer;
+  was text := current_setting('clor.bypass', true);
 BEGIN
   IF current_setting('clor.purge', true) = 'on' THEN RETURN NULL; END IF;
   IF TG_TABLE_NAME = 'JournalEntry' THEN
@@ -62,10 +64,12 @@ BEGIN
   ELSE
     eid := NEW."entryId";
   END IF;
+  PERFORM set_config('clor.bypass', 'on', true);
   EXECUTE format('SELECT "status" FROM %I."JournalEntry" WHERE "id" = $1', TG_TABLE_SCHEMA) INTO st USING eid;
-  IF st IS NULL OR st NOT IN ('POSTED', 'REVERSED') THEN RETURN NULL; END IF;
   EXECUTE format('SELECT COALESCE(SUM("debit"), 0), COALESCE(SUM("credit"), 0), COUNT(*) FROM %I."JournalLine" WHERE "entryId" = $1', TG_TABLE_SCHEMA)
     INTO dr, cr, n USING eid;
+  PERFORM set_config('clor.bypass', COALESCE(was, ''), true);
+  IF st IS NULL OR st NOT IN ('POSTED', 'REVERSED') THEN RETURN NULL; END IF;
   IF n < 2 OR dr <> cr THEN
     RAISE EXCEPTION 'ledger_unbalanced: entry % has debits % and credits % over % lines', eid, dr, cr, n
       USING ERRCODE = 'check_violation';
@@ -143,13 +147,15 @@ CREATE TRIGGER ledger_entry_append_only
 -- removed by that entry's own (guarded) delete cascading to it.
 CREATE OR REPLACE FUNCTION ledger_line_append_only() RETURNS trigger
 LANGUAGE plpgsql
-SET clor.bypass = 'on'
 AS $$
 DECLARE
   st text;
+  was text := current_setting('clor.bypass', true);
 BEGIN
   IF TG_OP = 'DELETE' AND current_setting('clor.purge', true) = 'on' THEN RETURN OLD; END IF;
+  PERFORM set_config('clor.bypass', 'on', true);
   EXECUTE format('SELECT "status" FROM %I."JournalEntry" WHERE "id" = $1', TG_TABLE_SCHEMA) INTO st USING OLD."entryId";
+  PERFORM set_config('clor.bypass', COALESCE(was, ''), true);
   IF st IN ('POSTED', 'REVERSED') THEN
     RAISE EXCEPTION 'ledger_append_only: a line of a posted entry cannot be %', lower(TG_OP) || 'd'
       USING ERRCODE = 'restrict_violation';
