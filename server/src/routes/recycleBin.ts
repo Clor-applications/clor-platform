@@ -11,6 +11,8 @@ import { assertMonthOpen } from '../services/attendance/days.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { docAccess, docOpens, writeGrantFor, type DocLike } from '../services/people/documentAccess.js';
+import { z } from 'zod';
+import { check, id } from '../middleware/validate.js';
 
 /**
  * The recycle bin (services/recycleBin.ts). Someone sees, restores and
@@ -47,7 +49,11 @@ async function allowedKinds(req: any) {
   return out;
 }
 
-recycleBinRouter.get(base, async (req, res) => {
+/* The company and the item's id are checked before the handler (middleware/validate.ts); no route here takes anything else. */
+const ORG_PARAMS = z.object({ orgId: id });
+const ITEM_PARAMS = z.object({ orgId: id, id });
+
+recycleBinRouter.get(base, check({ params: ORG_PARAMS }), async (req, res) => {
   if (!orgOk(req, res)) return;
   const { orgId } = req.tenant!;
   const kinds = await allowedKinds(req);
@@ -113,7 +119,7 @@ async function itemFor(req: any, res: any) {
   return item;
 }
 
-recycleBinRouter.post(`${base}/:id/restore`, async (req, res) => {
+recycleBinRouter.post(`${base}/:id/restore`, check({ params: ITEM_PARAMS }), async (req, res) => {
   const item = await itemFor(req, res);
   if (!item) return;
   const { orgId } = req.tenant!;
@@ -137,7 +143,7 @@ recycleBinRouter.post(`${base}/:id/restore`, async (req, res) => {
   }
 });
 
-recycleBinRouter.delete(`${base}/:id`, async (req, res) => {
+recycleBinRouter.delete(`${base}/:id`, check({ params: ITEM_PARAMS }), async (req, res) => {
   const item = await itemFor(req, res);
   if (!item) return;
   await peoplePrisma.deletedItem.delete({ where: { id: item.id } });

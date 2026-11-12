@@ -8,6 +8,8 @@ import { myMarks } from '../services/attendance/markRules.js';
 import { fixesFor } from '../services/attendance/punchNudge.js';
 import { noticesFor } from '../services/people/absconding.js';
 import { ConsentError, consentHistory, consentOf, nightDaysAhead, recordConsent } from '../services/people/nightConsent.js';
+import { z } from 'zod';
+import { check, q, rawText, text } from '../middleware/validate.js';
 
 /**
  * The employee app's side of the attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6,
@@ -30,7 +32,8 @@ const fail = (res: Response, e: any) => {
   return res.status(500).json({ error: 'Something went wrong. Try again in a moment.' });
 };
 
-peopleTimePortalRouter.get('/marks', async (req, res) => {
+/* A month that is not one reads as this month (the handler's fallback), so it is only checked for being short text. */
+peopleTimePortalRouter.get('/marks', check({ query: z.object({ month: q(text(40)) }) }), async (req, res) => {
   try {
     const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
     res.json(await myMarks(me(req), month));
@@ -62,7 +65,9 @@ peopleTimePortalRouter.get('/night-consent', async (req, res) => {
   }
 });
 
-peopleTimePortalRouter.post('/night-consent', async (req, res) => {
+/* Given or withdrawn is the service's to refuse, in its own words; the signed copy comes as base64 or a data URL inside the body's 1 MB. */
+const CONSENT_BODY = z.object({ status: text(40).nullish(), note: text(5000).nullish(), file: z.object({ name: rawText(2000).nullish(), mime: text(200).nullish(), data: rawText(1_100_000).nullish() }).nullish() });
+peopleTimePortalRouter.post('/night-consent', check({ body: CONSENT_BODY }), async (req, res) => {
   try {
     const e = me(req);
     const rules = (await timeRulesFor(e.orgId)).night;

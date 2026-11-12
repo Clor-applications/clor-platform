@@ -17,6 +17,8 @@ import { RulesError, mergeRules, saveTimeRules, timeRulesFor, timeRulesSchema, c
 import * as marks from '../services/attendance/markRules.js';
 import * as absence from '../services/people/absconding.js';
 import * as night from '../services/people/nightConsent.js';
+import { z } from 'zod';
+import { anyBody, check, flag, id, idParams, list, q, rawText, text, ym, ymd } from '../middleware/validate.js';
 
 /**
  * People's attendance rules (WORKFLOW-GAP-RESEARCH-2026-10-30 4.4, 4.5, 4.6, B19), HR's and the
@@ -58,6 +60,20 @@ const handle = (fn: (req: Request, res: Response) => Promise<unknown>) => async 
   }
 };
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; whether a field must be there, and the words for it,
+ * stay the handler's and the services'. The rules themselves go whole into timeRules.ts, which has its own schema
+ * (timeRulesSchema), so here they are only checked for being an object. A month the lists fall back from (last
+ * month, this month) is left as text, so a malformed one still falls back.
+ */
+const DAY_WORDS = 'Dates are YYYY-MM-DD.';
+const MONTH_QUERY = z.object({ month: q(text(40)) });
+const MONTH_BODY = z.object({ month: q(ym('Month must be YYYY-MM.').nullable()) });
+const PERSON_PARAMS = z.object({ employeeId: id });
+/* The signed copy is a data URL (or base64 with its type beside it), within the 1 MB a request may carry. */
+const CONSENT_BODY = z.object({ status: text(40).nullish(), onDate: q(ymd(DAY_WORDS).nullable()), note: text(5000).nullish(), file: z.object({ name: text(1000).nullish(), mime: text(200).nullish(), data: rawText(2_000_000).nullish() }).nullish() });
+
 /* ------------------------------------------------------------- the rules */
 
 peopleTimeRulesRouter.get(`${base}/attendance-rules`, att(PermissionAction.VIEW, R.requests), handle(async (req, res) => {
@@ -75,7 +91,7 @@ peopleTimeRulesRouter.get(`${base}/attendance-rules`, att(PermissionAction.VIEW,
  * one that decides attendance requests, which the Team Manager preset holds too, for its own team: so a role limited
  * to its team (ownDocumentsOnly) is refused here, whatever rights it holds (attendanceRules.test, lateMarkCut.test).
  */
-peopleTimeRulesRouter.put(`${base}/attendance-rules`, att(PermissionAction.APPROVE, R.requests), handle(async (req, res) => {
+peopleTimeRulesRouter.put(`${base}/attendance-rules`, att(PermissionAction.APPROVE, R.requests), check({ body: anyBody }), handle(async (req, res) => {
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Attendance rules are set by someone who decides for the whole company.' });
   const { accountId, orgId } = req.tenant!;
   const before = await timeRulesFor(orgId);
@@ -94,7 +110,7 @@ peopleTimeRulesRouter.put(`${base}/attendance-rules`, att(PermissionAction.APPRO
 /* ------------------------------------------------------------- late marks */
 
 /** The month's penalties: the viewer's team only, for a team role. */
-peopleTimeRulesRouter.get(`${base}/late-marks`, att(PermissionAction.VIEW, R.requests), handle(async (req, res) => {
+peopleTimeRulesRouter.get(`${base}/late-marks`, att(PermissionAction.VIEW, R.requests), check({ query: MONTH_QUERY }), handle(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const month = isMonth(req.query.month) ? String(req.query.month) : lastMonth();
   const scope = await teamScope(req);
@@ -103,7 +119,7 @@ peopleTimeRulesRouter.get(`${base}/late-marks`, att(PermissionAction.VIEW, R.req
 }));
 
 /** What a rule not yet saved would do to a month: each person now and with the change. */
-peopleTimeRulesRouter.post(`${base}/late-marks/preview`, att(PermissionAction.VIEW, R.requests), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/late-marks/preview`, att(PermissionAction.VIEW, R.requests), check({ body: z.object({ month: text(40).nullish(), marks: z.looseObject({}).nullish() }) }), handle(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const month = isMonth(req.body?.month) ? String(req.body.month) : lastMonth();
   const parsed = timeRulesSchema.safeParse({ marks: req.body?.marks || {} });
@@ -124,7 +140,7 @@ peopleTimeRulesRouter.post(`${base}/late-marks/preview`, att(PermissionAction.VI
   res.json({ month, rules: draft, rows, totals: { now: now.totals.days, then: then.totals.days, people: rows.filter((r) => r.then > 0).length } });
 }));
 
-peopleTimeRulesRouter.post(`${base}/late-marks/:employeeId/waive`, att(PermissionAction.APPROVE, R.requests), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/late-marks/:employeeId/waive`, att(PermissionAction.APPROVE, R.requests), check({ params: PERSON_PARAMS, body: MONTH_BODY.extend({ reason: text(5000).nullish() }) }), handle(async (req, res) => {
   const employeeId = String(req.params.employeeId);
   const scope = await teamScope(req);
   if (!inScope(scope, employeeId)) return res.status(404).json({ error: 'No such person in your team.' });
@@ -136,7 +152,7 @@ peopleTimeRulesRouter.post(`${base}/late-marks/:employeeId/waive`, att(Permissio
   res.status(201).json({ penalty: row });
 }));
 
-peopleTimeRulesRouter.post(`${base}/late-marks/:employeeId/undo`, att(PermissionAction.APPROVE, R.requests), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/late-marks/:employeeId/undo`, att(PermissionAction.APPROVE, R.requests), check({ params: PERSON_PARAMS, body: MONTH_BODY }), handle(async (req, res) => {
   const employeeId = String(req.params.employeeId);
   const scope = await teamScope(req);
   if (!inScope(scope, employeeId)) return res.status(404).json({ error: 'No such person in your team.' });
@@ -145,14 +161,14 @@ peopleTimeRulesRouter.post(`${base}/late-marks/:employeeId/undo`, att(Permission
   res.json(await marks.undo(who(req), employeeId, month, { hr: scope.all }));
 }));
 
-peopleTimeRulesRouter.post(`${base}/late-marks/apply`, att(PermissionAction.APPROVE, R.requests), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/late-marks/apply`, att(PermissionAction.APPROVE, R.requests), check({ body: MONTH_BODY.extend({ employeeIds: list(text(80), 5000).nullish() }) }), handle(async (req, res) => {
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'HR applies the month for the whole company.' });
   const ids = Array.isArray(req.body?.employeeIds) ? req.body.employeeIds.map(String).slice(0, 2000) : null;
   res.json(await marks.apply(who(req), String(req.body?.month || ''), ids));
 }));
 
 /** The signed-in person's own month (People's My attendance). */
-peopleTimeRulesRouter.get(`${base}/my/late-marks`, handle(async (req, res) => {
+peopleTimeRulesRouter.get(`${base}/my/late-marks`, check({ query: MONTH_QUERY }), handle(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const me = await myEmployee(accountId, orgId, req.auth!.userId).catch(() => null);
   if (!me) return res.json({ on: false });
@@ -162,7 +178,7 @@ peopleTimeRulesRouter.get(`${base}/my/late-marks`, handle(async (req, res) => {
 
 /* ------------------------------------------------------------- absences */
 
-peopleTimeRulesRouter.get(`${base}/absences`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.get(`${base}/absences`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), check({ query: z.object({ status: q(text(40)) }) }), handle(async (req, res) => {
   const scope = await teamScope(req);
   const status = ['open', 'closed', 'absconded', 'all'].includes(String(req.query.status)) ? String(req.query.status) : 'open';
   res.json({ ...(await absence.listCases(req.tenant!.orgId, { status, scopeIds: scope.all ? null : scope.ids })), canAct: scope.all });
@@ -180,32 +196,32 @@ const hrOnly = async (req: Request, res: Response) => {
   return false;
 };
 
-peopleTimeRulesRouter.post(`${base}/absences/:id/notice`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/absences/:id/notice`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), check({ params: idParams, body: z.object({ reportBy: q(ymd(DAY_WORDS).nullable()), signatory: text(1000).nullish(), email: flag.nullish(), postRef: text(1000).nullish() }) }), handle(async (req, res) => {
   if (!(await hrOnly(req, res))) return;
   res.status(201).json({ notice: await absence.sendAbsenceNotice(whoC(req), String(req.params.id), req.body || {}) });
 }));
 
-peopleTimeRulesRouter.get(`${base}/absences/notices/:id`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.get(`${base}/absences/notices/:id`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), check({ params: idParams }), handle(async (req, res) => {
   if (!(await hrOnly(req, res))) return;
   res.json({ notice: await absence.noticeCopy(req.tenant!.orgId, String(req.params.id)) });
 }));
 
-peopleTimeRulesRouter.post(`${base}/absences/:id/close`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/absences/:id/close`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), check({ params: idParams, body: z.object({ outcome: text(40).nullish(), note: text(5000).nullish() }) }), handle(async (req, res) => {
   if (!(await hrOnly(req, res))) return;
   res.json({ case: await absence.closeCase(whoC(req), String(req.params.id), req.body || {}) });
 }));
 
-peopleTimeRulesRouter.post(`${base}/absences/:id/absconded`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/absences/:id/absconded`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), check({ params: idParams, body: z.object({ lastWorkingDay: q(ymd(DAY_WORDS).nullable()), reason: text(5000).nullish(), hold: flag.nullish(), holdReason: text(5000).nullish(), confirmBack: flag.nullish() }) }), handle(async (req, res) => {
   if (!(await hrOnly(req, res))) return;
   res.json({ case: await absence.recordAbsconded(whoC(req), String(req.params.id), req.body || {}) });
 }));
 
-peopleTimeRulesRouter.post(`${base}/absences/:id/hold`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/absences/:id/hold`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), check({ params: idParams, body: z.object({ reason: text(5000).nullish() }) }), handle(async (req, res) => {
   if (!(await hrOnly(req, res))) return;
   res.json({ case: await absence.holdSettlement(whoC(req), String(req.params.id), String(req.body?.reason || '')) });
 }));
 
-peopleTimeRulesRouter.post(`${base}/absences/:id/release`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/absences/:id/release`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), check({ params: idParams, body: z.object({ note: text(5000).nullish() }) }), handle(async (req, res) => {
   if (!(await hrOnly(req, res))) return;
   /* Never by the person held: somebody else in HR, or the owner, lifts it (as Payroll's release-hold does). */
   const held = await peoplePrisma.absenceCase.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { employeeId: true } });
@@ -228,13 +244,13 @@ peopleTimeRulesRouter.get(`${base}/night-work`, ppl(PermissionAction.VIEW, PEOPL
   res.json({ ...(await night.nightReport(req.tenant!.orgId, scope.all ? null : scope.ids, { hr: scope.all })), canEdit: scope.all });
 }));
 
-peopleTimeRulesRouter.get(`${base}/night-work/:employeeId`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.get(`${base}/night-work/:employeeId`, ppl(PermissionAction.VIEW, PEOPLE_RESOURCE.employees), check({ params: PERSON_PARAMS }), handle(async (req, res) => {
   /* Consent notes and history are HR's: a manager sees the status in the report, nothing more. */
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Consent history is kept by HR.' });
   res.json({ history: await night.consentHistory(req.tenant!.orgId, String(req.params.employeeId)) });
 }));
 
-peopleTimeRulesRouter.post(`${base}/night-work/:employeeId`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), handle(async (req, res) => {
+peopleTimeRulesRouter.post(`${base}/night-work/:employeeId`, ppl(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), check({ params: PERSON_PARAMS, body: CONSENT_BODY }), handle(async (req, res) => {
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'HR records consent.' });
   let file = null;
   if (req.body?.file?.data) {

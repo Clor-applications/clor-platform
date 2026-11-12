@@ -10,6 +10,8 @@ import { isFeatureEnabled } from '../services/features.js';
 import { leaveSummary, musterRoll } from '../services/people/registers.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { z } from 'zod';
+import { check, id, idParams, jsonObject, list, q, rawText, text, ym, ymd } from '../middleware/validate.js';
 import { ComplianceError, REGISTRATION_TYPES, addOwnObligation, addProof, checkRule, employeeRegister, leaveRegister, obligationsOf, proofFile, registrationLabel, registrationsOf, removeProof, rulesOf, saveRuleVersion, updateObligation } from '../services/people/complianceRules.js';
 
 /**
@@ -32,6 +34,24 @@ const sendError = (res: any, e: unknown) => {
 };
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; whether a field must be there, and the words for it,
+ * stay the service's (complianceRules.ts). A rule's due rule is stored as it is once the service has checked its
+ * kind and numbers, so here it is only an object. Dates in a body stay text: the service has its own words for one
+ * that is not a date, after its words for what is missing.
+ */
+const RULE = z.object({
+  ruleId: text(200).nullish(), title: text(1000).nullish(), jurisdiction: text(40).nullish(), establishmentKinds: list(text(200), 200).nullish(), employeeCategories: list(text(200), 200).nullish(),
+  legalSource: text(5000).nullish(), notificationRef: text(2000).nullish(), effectiveFrom: text(40).nullish(), obligation: text(20_000).nullish(),
+  threshold: z.looseObject({ minHeadcount: z.union([z.number(), text(20)]).nullish() }).nullish(), ownerRole: text(40).nullish(), dueRule: jsonObject(20).nullish(), requiredProof: list(text(200), 200).nullish(),
+});
+const OWNER = { ownerUserId: text(80).nullish(), ownerName: text(1000).nullish(), note: text(20_000).nullish() };
+const PROOF_PARAMS = z.object({ id, proofId: id });
+const SITE = { establishmentId: q(text(80)) };
+const RANGE_WORDS = 'Give the range as from and to, YYYY-MM-DD.';
+const RANGE_QUERY = z.object({ ...SITE, from: q(ymd(RANGE_WORDS)), to: q(ymd(RANGE_WORDS)) });
+
 /** The company's filings are whole-company HR work. */
 async function wholeCompany(req: any, res: any) {
   if ((await teamScope(req)).all) return true;
@@ -46,13 +66,13 @@ async function keepsRegisters(req: any, res: any) {
   return false;
 }
 
-peopleComplianceRouter.get(`${base}/rules`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.get(`${base}/rules`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: z.object({ all: q(text(10)) }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   res.json({ rules: await rulesOf(accountId, orgId, { all: req.query.all === '1' }) });
 });
 
-peopleComplianceRouter.post(`${base}/rules`, can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+peopleComplianceRouter.post(`${base}/rules`, can(PermissionAction.EDIT, STRUCTURE), check({ body: RULE }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
@@ -62,7 +82,7 @@ peopleComplianceRouter.post(`${base}/rules`, can(PermissionAction.EDIT, STRUCTUR
   }
 });
 
-peopleComplianceRouter.post(`${base}/rules/:ruleId/versions/:v/check`, can(PermissionAction.EDIT, STRUCTURE), async (req, res) => {
+peopleComplianceRouter.post(`${base}/rules/:ruleId/versions/:v/check`, can(PermissionAction.EDIT, STRUCTURE), check({ params: z.object({ ruleId: id, v: text(20) }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     res.json({ rule: await checkRule({ orgId: req.tenant!.orgId, userId: req.auth!.userId }, String(req.params.ruleId), Number(req.params.v)) });
@@ -72,14 +92,14 @@ peopleComplianceRouter.post(`${base}/rules/:ruleId/versions/:v/check`, can(Permi
 });
 
 /* The company's filings are whole-company HR work; Payroll's statutory deadlines (and their challans) only for those who see statutory details. */
-peopleComplianceRouter.get(`${base}/obligations`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.get(`${base}/obligations`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: z.object({ status: q(text(40)), ...SITE, id: q(text(80)) }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   res.json({ obligations: await obligationsOf(accountId, orgId, { status: String(req.query.status || '').toUpperCase() || undefined, establishmentId: String(req.query.establishmentId || '') || undefined, id: String(req.query.id || '') || undefined, statutory: await seesPersonal(req) }) });
 });
 
 /** A deadline of the company's own, beside what the rules bring. */
-peopleComplianceRouter.post(`${base}/obligations`, can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.post(`${base}/obligations`, can(PermissionAction.EDIT, EMPLOYEES), check({ body: z.object({ title: text(1000).nullish(), dueOn: text(40).nullish(), establishmentId: text(80).nullish(), ...OWNER }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
@@ -90,7 +110,7 @@ peopleComplianceRouter.post(`${base}/obligations`, can(PermissionAction.EDIT, EM
   }
 });
 
-peopleComplianceRouter.patch(`${base}/obligations/:id`, can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.patch(`${base}/obligations/:id`, can(PermissionAction.EDIT, EMPLOYEES), check({ params: idParams, body: z.object({ status: text(40).nullish(), ...OWNER, reference: text(1000).nullish(), proofDocIds: list(text(80), 200).nullish(), title: text(1000).nullish(), dueOn: text(40).nullish() }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   try {
     await updateObligation({ orgId: req.tenant!.orgId, userId: req.auth!.userId }, String(req.params.id), req.body || {});
@@ -102,7 +122,7 @@ peopleComplianceRouter.patch(`${base}/obligations/:id`, can(PermissionAction.EDI
 });
 
 /** Proof files: the challan, the receipt, the certificate. */
-peopleComplianceRouter.post(`${base}/obligations/:id/proofs`, can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.post(`${base}/obligations/:id/proofs`, can(PermissionAction.EDIT, EMPLOYEES), check({ params: idParams, body: z.object({ name: text(1000).nullish(), mime: text(200).nullish(), dataUrl: rawText(7_500_000).nullish() }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
@@ -112,7 +132,7 @@ peopleComplianceRouter.post(`${base}/obligations/:id/proofs`, can(PermissionActi
   }
 });
 
-peopleComplianceRouter.get(`${base}/obligations/:id/proofs/:proofId`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.get(`${base}/obligations/:id/proofs/:proofId`, can(PermissionAction.VIEW, EMPLOYEES), check({ params: PROOF_PARAMS }), async (req, res) => {
   if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   try {
     res.json({ proof: await proofFile(req.tenant!.orgId, String(req.params.id), String(req.params.proofId), { statutory: await seesPersonal(req) }) });
@@ -121,7 +141,7 @@ peopleComplianceRouter.get(`${base}/obligations/:id/proofs/:proofId`, can(Permis
   }
 });
 
-peopleComplianceRouter.delete(`${base}/obligations/:id/proofs/:proofId`, can(PermissionAction.EDIT, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.delete(`${base}/obligations/:id/proofs/:proofId`, can(PermissionAction.EDIT, EMPLOYEES), check({ params: PROOF_PARAMS }), async (req, res) => {
   if (!(await peopleRouteOk(req, res)) || !(await wholeCompany(req, res))) return;
   try {
     await removeProof({ orgId: req.tenant!.orgId, userId: req.auth!.userId }, String(req.params.id), String(req.params.proofId));
@@ -155,13 +175,13 @@ peopleComplianceRouter.get(`${base}/registrations`, can(PermissionAction.VIEW, E
   });
 });
 
-peopleComplianceRouter.get(`${base}/registers/employees`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.get(`${base}/registers/employees`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: z.object(SITE) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   if (!(await keepsRegisters(req, res))) return;
   res.json(await employeeRegister(req.tenant!.orgId, String(req.query.establishmentId || '') || null));
 });
 
-peopleComplianceRouter.get(`${base}/registers/leave`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.get(`${base}/registers/leave`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: RANGE_QUERY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   if (!(await keepsRegisters(req, res))) return;
   const from = String(req.query.from || '');
@@ -171,7 +191,7 @@ peopleComplianceRouter.get(`${base}/registers/leave`, can(PermissionAction.VIEW,
 });
 
 /** Muster roll for a month (YYYY-MM), from the day record; built for a People-only company too (services/people/registers.ts). */
-peopleComplianceRouter.get(`${base}/registers/muster`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.get(`${base}/registers/muster`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: z.object({ ...SITE, month: q(ym('Give the month as YYYY-MM.')) }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   if (!(await keepsRegisters(req, res))) return;
   const month = String(req.query.month || '');
@@ -181,7 +201,7 @@ peopleComplianceRouter.get(`${base}/registers/muster`, can(PermissionAction.VIEW
 });
 
 /** Leave taken in a range by department and type, paid and unpaid. */
-peopleComplianceRouter.get(`${base}/registers/leave-summary`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleComplianceRouter.get(`${base}/registers/leave-summary`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: RANGE_QUERY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   if (!(await keepsRegisters(req, res))) return;
   const from = String(req.query.from || '');

@@ -10,6 +10,8 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { teamScope } from '../services/people/scope.js';
 import '../services/people/engagement/index.js';
+import { z } from 'zod';
+import { anyBody, check, id, q, qInt, text } from '../middleware/validate.js';
 import { AutomationError, automationHistory, companyUsers, listAutomations, recipesOf, saveAutomations, RECIPE, type AutomationModule } from '../services/people/engagement/automations.js';
 
 /**
@@ -107,11 +109,18 @@ export async function putAutomations(req: Request, res: Response, module: string
 
 const moduleOf = (req: Request) => String(req.query.module || 'people');
 
-automationsRouter.get(base, (req, res) => getAutomations(req, res, moduleOf(req)));
-automationsRouter.put(base, (req, res) => putAutomations(req, res, moduleOf(req)));
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). What is saved goes whole into
+ * saveAutomations, which has its own schema (saveSchema) and its own words, so here it is only checked for being
+ * an object. How far back a history reads is clamped by the service; the bound here is only against nonsense.
+ */
+const MODULE_QUERY = z.object({ module: q(text(40)) });
+
+automationsRouter.get(base, check({ query: MODULE_QUERY }), (req, res) => getAutomations(req, res, moduleOf(req)));
+automationsRouter.put(base, check({ query: MODULE_QUERY, body: anyBody }), (req, res) => putAutomations(req, res, moduleOf(req)));
 
 /** One recipe's history: the editor's, since it names who was told. Its module is the recipe's own. */
-automationsRouter.get(`${base}/:key/history`, async (req, res) => {
+automationsRouter.get(`${base}/:key/history`, check({ params: z.object({ key: id }), query: z.object({ limit: qInt(-1_000_000, 1_000_000) }) }), async (req, res) => {
   try {
     const r = RECIPE.get(String(req.params.key));
     if (!r) return res.status(404).json({ error: 'There is no such automation.' });

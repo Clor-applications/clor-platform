@@ -6,6 +6,8 @@ import { applyLimiter, referViewLimiter } from '../middleware/rateLimit.js';
 import { TalentError, applyFromLink, openingByToken } from '../services/people/talent/hiring.js';
 import { applyThroughLink, byLinkToken } from '../services/people/talent/referrals.js';
 import { escapeHtml as esc } from '../utils/html.js';
+import { z } from 'zod';
+import { check, text } from '../middleware/validate.js';
 
 /**
  * A job opening's public apply page (Talent, TALENT-DECISIONS.md): the link HR shares on
@@ -19,6 +21,21 @@ const page = (title: string, body: string) =>
   `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title>` +
   `<style>body{font-family:Inter,system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 1rem;color:#1a1d3d}label{display:block;margin:.9rem 0 .25rem;font-size:.875rem;font-weight:600}input,textarea{width:100%;box-sizing:border-box;font:inherit;padding:.55rem .7rem;border:1px solid #d0cdde;border-radius:8px}button{margin-top:1.2rem;font:inherit;padding:.65rem 1.2rem;border-radius:8px;border:0;background:#232a66;color:#fff;cursor:pointer}.muted{color:#484d78}.trap{position:absolute;left:-9999px}</style>` +
   `<body>${body}</body>`;
+
+/*
+ * What the page's form sends, checked before the handler (middleware/validate.ts): short text in each box, far
+ * above what the boxes allow, so only something that is not the form is refused. A name, a phone or an e-mail
+ * that does not look right stays the service's, in its own words on the page. The token is whatever the link
+ * carried: a wrong one is the page's own "not taking applications".
+ */
+const TOKEN_PARAMS = z.object({ token: text(500) });
+const APPLY_BODY = z.object({
+  name: text(2000).nullish(), email: text(2000).nullish(), phone: text(200).nullish(), resumeUrl: text(5000).nullish(), note: text(20_000).nullish(),
+  /* The hidden box that catches bots. */
+  website: text(2000).nullish(),
+  /* Not on the page, but the services read them when sent (hiring.ts candidateInput, referrals.ts friendInput). */
+  sourceDetail: text(2000).nullish(), currentEmployer: text(2000).nullish(), relation: text(2000).nullish(),
+});
 
 async function findOpening(token: string) {
   const o = await outsideTenant('apply link: find the opening', () => openingByToken(token));
@@ -44,13 +61,13 @@ const form = (title: string, orgName: string, description: string | null, error 
     <button type="submit">Send application</button>
   </form>`);
 
-peopleTalentApplyRouter.get('/people/apply/:token', async (req, res) => {
+peopleTalentApplyRouter.get('/people/apply/:token', check({ params: TOKEN_PARAMS }), async (req, res) => {
   const found = await findOpening(String(req.params.token || ''));
   if (!found || !found.o.applyOpen || found.o.status !== 'OPEN') return res.status(410).type('html').send(page('Not taking applications', '<h1 style="font-size:1.25rem">This job is not taking applications</h1><p class="muted">It may have been filled or closed.</p>'));
   res.type('html').send(form(found.o.title, found.orgName, found.o.description));
 });
 
-peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded({ extended: false, limit: '16kb' }), async (req, res) => {
+peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded({ extended: false, limit: '16kb' }), check({ params: TOKEN_PARAMS, body: APPLY_BODY }), async (req, res) => {
   const found = await findOpening(String(req.params.token || ''));
   if (!found || !found.o.applyOpen || found.o.status !== 'OPEN') return res.status(410).type('html').send(page('Not taking applications', '<h1 style="font-size:1.25rem">This job is not taking applications</h1>'));
   const b = (req.body || {}) as Record<string, string>;
@@ -77,13 +94,13 @@ peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded
 const firstName = (n: string | undefined) => String(n || '').trim().split(/\s+/)[0] || '';
 const closedPage = (res: any) => res.status(410).type('html').send(page('Not taking applications', '<h1 style="font-size:1.25rem">This job is not taking applications</h1><p class="muted">It may have been filled or closed.</p>'));
 
-peopleTalentApplyRouter.get('/people/refer/:token', ...referViewLimiter, async (req, res) => {
+peopleTalentApplyRouter.get('/people/refer/:token', ...referViewLimiter, check({ params: TOKEN_PARAMS }), async (req, res) => {
   const found = await byLinkToken(String(req.params.token || ''));
   if (!found?.live) return closedPage(res);
   res.type('html').send(form(found.opening.title, found.orgName, found.opening.description, '', {}, firstName(found.referrer?.name)));
 });
 
-peopleTalentApplyRouter.post('/people/refer/:token', ...applyLimiter, urlencoded({ extended: false, limit: '16kb' }), async (req, res) => {
+peopleTalentApplyRouter.post('/people/refer/:token', ...applyLimiter, urlencoded({ extended: false, limit: '16kb' }), check({ params: TOKEN_PARAMS, body: APPLY_BODY }), async (req, res) => {
   const found = await byLinkToken(String(req.params.token || ''));
   if (!found?.live) return closedPage(res);
   const b = (req.body || {}) as Record<string, string>;
