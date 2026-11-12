@@ -3680,3 +3680,114 @@ html.is-scrolled .nav {
     position: static;
   }
 }
+
+/* ======================================================= fuller page, 13 Nov 2026
+ * Owner: too much empty space, weak type and colour, a plain background.
+ * Tighter section padding; darker, slightly heavier text; sections alternate
+ * white and a cool tint instead of white under hairlines; a glow and a faint
+ * grid behind the hero; scroll reveals start before a block is on screen,
+ * so fast scrolling never shows blank space.
+ */
+:root {
+  --section: clamp(48px, 5.5vw, 84px);
+  --ink-2: #334155;
+  --ink-3: #556070;
+  --tint: #f4f6fa;
+  --tint-line: #e6eaf1;
+}
+body {
+  font-weight: 450;
+}
+.lede {
+  color: var(--ink-2);
+  font-weight: 450;
+}
+.body,
+.small,
+.facts-list li {
+  color: var(--ink-2);
+}
+.h-hero,
+.h-1,
+.h-2 {
+  letter-spacing: -0.025em;
+}
+.h-3 {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Bands: every second section on the tint, no hairline where the colour changes. */
+main > .section:nth-child(odd of .section) {
+  background: var(--tint);
+  border-top: 0;
+}
+main > .section:nth-child(even of .section) {
+  background: var(--bg);
+  border-top: 0;
+}
+main > .section + .section {
+  border-top: 0;
+}
+main > .section:nth-child(odd of .section) .faq-item,
+main > .section:nth-child(odd of .section) .groups > li,
+main > .section:nth-child(odd of .section) .problems li {
+  border-color: var(--tint-line);
+}
+
+/* Hero: a warm glow on the right, a cool one low left, and a faint grid that fades out. */
+.hero--home,
+.hero--product,
+.p-hero,
+.sol-hero {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(50% 70% at 92% 10%, rgba(255, 84, 0, 0.1), transparent 70%),
+    radial-gradient(40% 60% at 0% 100%, rgba(56, 97, 251, 0.07), transparent 70%),
+    var(--bg);
+}
+.hero--home::before,
+.hero--product::before,
+.p-hero::before,
+.sol-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(80% 90% at 70% 20%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(80% 90% at 70% 20%, #000 20%, transparent 75%);
+}
+.hero--product {
+  padding-block: clamp(40px, 5vw, 72px);
+}
+
+/* Reveals: shorter and nearer, so nothing waits on screen empty. */
+.rv {
+  transform: translateY(10px);
+}
+.rv.rv-in {
+  transition: opacity 420ms var(--ease), transform 420ms var(--ease);
+  transition-delay: calc(var(--rv-i, 0) * 50ms);
+}
+
+/* Where your data lives: the link sits right under the lede, not at the foot of the facts. */
+.split > .stack:has(> .icon-facts) {
+  grid-template-rows: auto 1fr;
+  align-items: start;
+}
+.split > .stack:has(> .icon-facts) > .text-link {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+}
+@media (max-width: 900px) {
+  .split > .stack:has(> .icon-facts) > .text-link {
+    grid-row: auto;
+  }
+}

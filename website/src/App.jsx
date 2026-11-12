@@ -34,7 +34,7 @@ function useReveal(route) {
           io.unobserve(en.target);
         }
       },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.06 },
+      { rootMargin: '0px 0px 20% 0px', threshold: 0 },
     );
     for (const el of els) {
       const sibs = el.parentElement ? [...el.parentElement.children] : [];
