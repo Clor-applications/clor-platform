@@ -445,6 +445,65 @@ export function Security() {
   );
 }
 
+/* ------------------------------------------------------------------ status */
+/*
+ * Is CLOR working (clor.in/status). The page is static, so it loads even when the API does not; the browser then asks
+ * the API (GET /api/public/status) and asks again every minute. An answer that never comes is itself the answer.
+ */
+const STATUS_PARTS = ['Sign-in and Workspace', 'Books', 'People and Attendance', 'Payroll'];
+const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+export function ServiceStatus() {
+  /* null: not asked yet. { down: true }: the API did not answer. Otherwise what it said. */
+  const [state, setState] = useState(null);
+  useEffect(() => {
+    let live = true;
+    const ask = () =>
+      fetch(`${SITE.apiUrl}/public/status`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('not ok'))))
+        .then((body) => live && setState(body))
+        .catch(() => live && setState({ down: true, checkedAt: new Date().toISOString() }));
+    ask();
+    const timer = setInterval(ask, 60000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, []);
+  const parts = state?.parts || STATUS_PARTS.map((name) => ({ key: name, name, ok: state ? false : null }));
+  const headline = !state ? 'Checking…' : state.down ? 'CLOR is not answering' : state.ok ? 'Everything is working' : 'Some parts are not working';
+  const intro = !state
+    ? 'Asking CLOR now.'
+    : state.down
+      ? 'We could not reach CLOR from your browser. Check your own internet first. If it is working, CLOR is down: please write to us.'
+      : state.ok
+        ? 'Every part of CLOR answered just now.'
+        : 'The parts marked below did not answer just now. The others are working.';
+  return (
+    <>
+      <PageHead title={headline} intro={intro} />
+      <section className="section section--flush">
+        <div className="wrap">
+          <ul className="status-list" aria-live="polite">
+            {parts.map((p) => (
+              <li key={p.key}>
+                <span>{p.name}</span>
+                <span className={`status-mark${p.ok === false ? ' status-mark--bad' : p.ok === null ? ' status-mark--wait' : ''}`}>
+                  {p.ok === null ? 'Checking' : p.ok ? 'Working' : 'Not working'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="body status-note">
+            {state ? `Checked at ${clock(state.checkedAt)}. This page checks again every minute. ` : null}
+            Something wrong that this page does not show? Write to <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>.
+          </p>
+        </div>
+      </section>
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------- legal */
 /*
  * Refund and cancellation: published on clor.in before this site (11 October

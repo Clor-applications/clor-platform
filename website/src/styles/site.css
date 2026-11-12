@@ -3568,3 +3568,49 @@ html.is-scrolled .nav {
   background: #eef1f7;
   border-color: #eef1f7;
 }
+
+/* Service status (/status): one row a part, its state in words and a dot, never colour alone. */
+.status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 40rem;
+  border-top: 1px solid var(--line);
+}
+.status-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-md);
+  color: var(--ink);
+}
+.status-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ok);
+  white-space: nowrap;
+}
+.status-mark::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-mark--bad {
+  color: var(--bad);
+}
+.status-mark--wait {
+  color: var(--ink-3);
+}
+.status-note {
+  max-width: 40rem;
+  margin-top: var(--s-5);
+  color: var(--ink-2);
+}
