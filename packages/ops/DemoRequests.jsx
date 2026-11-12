@@ -4,13 +4,17 @@ import { ArrowLeft } from 'lucide-react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
-import { opsCreateDemoAccount, opsDemoRequest, opsDemoRequests, opsEndExplore, opsResendExplore, opsSetDemoStatus } from './api';
+import { opsCreateDemoAccount, opsDemoRequest, opsDemoRequests, opsDemoTeam, opsEndExplore, opsResendExplore, opsSetDemoStatus } from './api';
 
 /**
  * Demo requests from clor.in/demo (server: routes/demoRequests.ts). The team
  * calls, holds the demo, then makes the account from here: Create account
  * makes the owner and company with the chosen apps on a trial and emails the
  * owner a link to set their password. A second click returns the same account.
+ *
+ * A pipeline (platform audit, 11 Nov 2026): each lead has someone on the team
+ * who looks after it and a date to call next; Mine, Follow up today and
+ * Nobody's yet find them, and Source says where the visitor came from.
  */
 const DEMO_STATUS = { NEW: 'New', CONTACTED: 'Contacted', DEMO_DONE: 'Demo done', ACCOUNT_CREATED: 'Account created', NOT_A_FIT: 'Not a fit' };
 const SETTABLE = ['NEW', 'CONTACTED', 'DEMO_DONE', 'NOT_A_FIT'];
@@ -32,7 +36,16 @@ const may = (role, ...roles) => role === 'SUPER_ADMIN' || roles.includes(role);
 const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
 
 /* What the team did, in a line each. */
-const HISTORY = { DEMO_ACCOUNT_CREATED: 'Account created', EXPLORE_RESENT: 'Explore link sent again', EXPLORE_ENDED: 'Explore access ended' };
+const HISTORY = { DEMO_ACCOUNT_CREATED: 'Account created', EXPLORE_RESENT: 'Explore link sent again', EXPLORE_ENDED: 'Explore access ended', DEMO_REQUEST_ASSIGNED: 'Given to someone', DEMO_REQUEST_FOLLOW_UP: 'Follow-up date set' };
+const VIEWS = [
+  ['all', 'Everyone’s'],
+  ['mine', 'Mine'],
+  ['due', 'Follow up today'],
+  ['unassigned', 'Nobody’s yet'],
+];
+/* A follow-up date as the day in India, and whether it is today or earlier. */
+const istDay = (d) => new Date(new Date(d).getTime() + 330 * 60_000).toISOString().slice(0, 10);
+const isDue = (d) => Boolean(d) && istDay(d) <= istDay(Date.now());
 const when = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—');
 
 export function DemoPill({ status }) {
@@ -42,12 +55,13 @@ export function DemoPill({ status }) {
 
 /* ------------------------------------------------------------------ list */
 export function DemoRequests({ openRequest }) {
-  const [view, setView] = useState({ status: 'all', page: 0 });
+  const [view, setView] = useState({ status: 'all', page: 0, view: 'all', source: '' });
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
     let live = true;
-    opsDemoRequests(view)
+    /* Only the filters in use go on the address. */
+    opsDemoRequests({ status: view.status, page: view.page, ...(view.view !== 'all' ? { view: view.view } : {}), ...(view.source ? { source: view.source } : {}) })
       .then((r) => live && (setData(r), setError('')))
       .catch((e) => live && setError(String(e?.message || e)));
     return () => {
@@ -60,7 +74,15 @@ export function DemoRequests({ openRequest }) {
     <>
       <PageHead crumbs={['Operator']} title="Demo requests" meta={data ? `${waiting} new` : null} />
       <div className="flex flex-wrap gap-2 items-center">
-        <select className="ui-select" style={{ width: 'auto' }} aria-label="Status" value={view.status} onChange={(e) => setView({ status: e.target.value, page: 0 })}>
+        <select className="ui-select" style={{ width: 'auto' }} aria-label="Whose" value={view.view} onChange={(e) => setView((v) => ({ ...v, view: e.target.value, page: 0 }))}>
+          {VIEWS.map(([k, l]) => (
+            <option key={k} value={k}>
+              {l}
+              {k !== 'all' && data?.views?.[k] ? ` (${data.views[k]})` : ''}
+            </option>
+          ))}
+        </select>
+        <select className="ui-select" style={{ width: 'auto' }} aria-label="Status" value={view.status} onChange={(e) => setView((v) => ({ ...v, status: e.target.value, page: 0 }))}>
           <option value="all">Every status</option>
           {Object.entries(DEMO_STATUS).map(([k, v]) => (
             <option key={k} value={k}>
@@ -69,13 +91,31 @@ export function DemoRequests({ openRequest }) {
             </option>
           ))}
         </select>
+        {data?.sources?.length ? (
+          <select className="ui-select" style={{ width: 'auto' }} aria-label="Source" value={view.source} onChange={(e) => setView((v) => ({ ...v, source: e.target.value, page: 0 }))}>
+            <option value="">Every source</option>
+            {data.sources.map((x) => (
+              <option key={x.source} value={x.source}>{x.source} ({x.count})</option>
+            ))}
+          </select>
+        ) : null}
       </div>
       <Err>{error}</Err>
       {!data ? (
         <p className="ws-card-blurb">Loading…</p>
       ) : data.requests.length === 0 ? (
         <div className="ws-empty">
-          <p>{view.status === 'all' ? 'Nobody has asked for a demo yet. Requests from clor.in/demo land here.' : `No request is ${DEMO_STATUS[view.status].toLowerCase()}.`}</p>
+          <p>
+            {view.view === 'due'
+              ? 'No follow-up is due today.'
+              : view.view === 'mine'
+                ? 'No open request is yours.'
+                : view.view === 'unassigned'
+                  ? 'Every open request has someone looking after it.'
+                  : view.status === 'all' && !view.source
+                    ? 'Nobody has asked for a demo yet. Requests from clor.in/demo land here.'
+                    : 'No request matches.'}
+          </p>
         </div>
       ) : (
         <div className="ws-table-wrap">
@@ -89,6 +129,8 @@ export function DemoRequests({ openRequest }) {
                 <th>Apps</th>
                 <th>Size</th>
                 <th className="num">Users</th>
+                <th>Looked after by</th>
+                <th>Follow up</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -105,11 +147,13 @@ export function DemoRequests({ openRequest }) {
                   </td>
                   <td>
                     <div>{r.company}</div>
-                    <div className="ws-item-sub">{r.city}</div>
+                    <div className="ws-item-sub">{r.city}{r.source ? ` · ${r.source}` : ''}</div>
                   </td>
                   <td>{appsText(r.apps)}</td>
                   <td>{SIZE[r.companySize] || r.companySize}</td>
                   <td className="num">{r.users}</td>
+                  <td>{r.assignedToName || <span className="ws-item-sub">Nobody yet</span>}</td>
+                  <td>{r.followUpAt ? <span className={isDue(r.followUpAt) && !['ACCOUNT_CREATED', 'NOT_A_FIT'].includes(r.status) ? 'ws-pill ws-pill--warn' : undefined}>{day(r.followUpAt)}</span> : '—'}</td>
                   <td><DemoPill status={r.status} /></td>
                 </tr>
               ))}
@@ -134,6 +178,9 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('NEW');
   const [note, setNote] = useState('');
+  const [owner, setOwner] = useState('');
+  const [followUp, setFollowUp] = useState('');
+  const [team, setTeam] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -143,24 +190,38 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
         setD(r);
         setStatus(r.request.status);
         setNote(r.request.note || '');
+        setOwner(r.request.assignedToUserId || '');
+        setFollowUp(r.request.followUpAt ? istDay(r.request.followUpAt) : '');
       })
       .catch((e) => setError(String(e?.message || e)));
   }, [id]);
   useEffect(load, [load]);
+  useEffect(() => {
+    opsDemoTeam()
+      .then((t) => setTeam(t?.team || []))
+      .catch(() => setTeam([]));
+  }, []);
 
   if (!d) return error ? <Err>{error}</Err> : <p className="ws-card-blurb">Loading…</p>;
   const r = d.request;
   const closed = r.status === 'ACCOUNT_CREATED';
-  const mayMove = may(role, 'SUPPORT', 'BILLING');
+  const mayMove = may(role, 'SALES', 'SUPPORT', 'BILLING');
   const mayCreate = may(role, 'BILLING');
-  const changed = status !== r.status || note.trim() !== (r.note || '');
+  const wasFollowUp = r.followUpAt ? istDay(r.followUpAt) : '';
+  const changed = status !== r.status || note.trim() !== (r.note || '') || owner !== (r.assignedToUserId || '') || followUp !== wasFollowUp;
 
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     setSaveError('');
     try {
-      await opsSetDemoStatus(r.id, { status, note: note.trim() || null });
+      await opsSetDemoStatus(r.id, {
+        status,
+        note: note.trim() || null,
+        ...(owner !== (r.assignedToUserId || '') ? { assignedToUserId: owner || null } : {}),
+        /* A date is a day in India: midnight IST, due all that day. */
+        ...(followUp !== wasFollowUp ? { followUpAt: followUp ? `${followUp}T00:00:00+05:30` : null } : {}),
+      });
       notify.success('Saved. It is on the record.');
       load();
     } catch (err) {
@@ -215,6 +276,12 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
               <dd>{appsText(r.apps)}</dd>
               <dt>Message</dt>
               <dd style={{ whiteSpace: 'pre-line' }}>{r.message || '—'}</dd>
+              <dt>Came from</dt>
+              <dd>
+                {r.source || '—'}
+                {r.sourceDetail?.utm_campaign ? <div className="ws-item-sub">Campaign: {r.sourceDetail.utm_campaign}{r.sourceDetail.utm_medium ? ` (${r.sourceDetail.utm_medium})` : ''}</div> : null}
+                {r.sourceDetail?.landing ? <div className="ws-item-sub">First page: clor.in{r.sourceDetail.landing}</div> : null}
+              </dd>
             </dl>
           </Panel>
         </div>
@@ -223,6 +290,7 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
             {closed || !mayMove ? (
               <div className="grid gap-2">
                 <div><DemoPill status={r.status} /></div>
+                <p className="ws-card-blurb">Looked after by {r.assignedToName || 'nobody yet'}{r.followUpAt && !closed ? `; follow up on ${day(r.followUpAt)}` : ''}.</p>
                 {r.note ? <p className="ws-card-blurb" style={{ whiteSpace: 'pre-line' }}>{r.note}</p> : null}
               </div>
             ) : (
@@ -234,6 +302,20 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                       <option key={k} value={k}>{DEMO_STATUS[k]}</option>
                     ))}
                   </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-sm font-medium">Looked after by</span>
+                  <select className="ui-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
+                    <option value="">Nobody yet</option>
+                    {team.map((t) => (
+                      <option key={t.userId} value={t.userId}>{t.name}</option>
+                    ))}
+                    {owner && !team.some((t) => t.userId === owner) ? <option value={owner}>{r.assignedToName || 'Someone who left the team'}</option> : null}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-sm font-medium">Follow up on</span>
+                  <input type="date" className="ui-input" value={followUp} onChange={(e) => setFollowUp(e.target.value)} disabled={status === 'NOT_A_FIT'} />
                 </label>
                 <label className="grid gap-1">
                   <span className="text-sm font-medium">Note</span>
@@ -255,7 +337,11 @@ export function DemoRequestDetail({ id, role, back, openAccount }) {
                     <div className="ws-item">
                       <span className="ws-item-text">
                         <span className="ws-item-title">
-                          {HISTORY[e.action] || `${DEMO_STATUS[e.detail?.from] || e.detail?.from} → ${DEMO_STATUS[e.detail?.to] || e.detail?.to}`}
+                          {e.action === 'DEMO_REQUEST_ASSIGNED'
+                            ? `Given to ${team.find((t) => t.userId === e.detail?.to)?.name || (e.detail?.to ? 'someone' : 'nobody')}`
+                            : e.action === 'DEMO_REQUEST_FOLLOW_UP'
+                              ? e.detail?.at ? `Follow up on ${day(e.detail.at)}` : 'Follow-up date cleared'
+                              : HISTORY[e.action] || `${DEMO_STATUS[e.detail?.from] || e.detail?.from} → ${DEMO_STATUS[e.detail?.to] || e.detail?.to}`}
                         </span>
                         <span className="ws-item-sub">{e.operatorName || 'operator'} · {ago(e.at)}{e.detail?.note ? ` · ${e.detail.note}` : ''}</span>
                       </span>
