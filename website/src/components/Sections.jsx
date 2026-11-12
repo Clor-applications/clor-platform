@@ -52,7 +52,7 @@ export function SettingUp() {
             <div className="setup-art" aria-hidden="true">
               <div className="sf">
                 <span className="sf-label">Company name</span>
-                <span className="sf-field"><span className="sf-type sf-type--1">Clor Applications Pvt Ltd</span></span>
+                <span className="sf-field"><span className="sf-type sf-type--1">CLOR Applications Private Limited</span></span>
                 <span className="sf-label">GSTIN</span>
                 <span className="sf-field"><span className="sf-type sf-type--2">29AAACA1234F1Z5</span></span>
                 <span className="sf-ok"><Check size={12} weight="bold" /> Saved</span>

@@ -16,7 +16,7 @@ const API_URL = env.VITE_API_URL || `${APP_URL.replace('//app.', '//api.')}/api`
 
 export const SITE = {
   name: 'CLOR',
-  company: 'Clor Applications Pvt Ltd',
+  company: 'CLOR Applications Private Limited',
   url: SITE_URL,
   appUrl: APP_URL,
   apiUrl: API_URL,

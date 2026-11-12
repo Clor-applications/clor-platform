@@ -117,7 +117,7 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
 
               {brand || <CustomerBrand />}
 
-              <p className="ui-caption">© 2026 Clor Applications Pvt Ltd</p>
+              <p className="ui-caption">© 2026 CLOR Applications Private Limited</p>
             </div>
           </aside>
         )}
