@@ -123,8 +123,16 @@ const KEEP = new Set(['OrgClosure']);
  * round made progress. A round that deletes nothing while rows remain means
  * something outside the company still points at them — stop and report.
  */
-/** Tables whose rows are never edited or deleted except by this purge (prisma/people/migrations/20261025020000_change_log_purge). */
-const APPEND_ONLY = new Set(['people.ChangeLog', 'platform.AuditLog', 'platform.ProductEvent']);
+/** Tables whose rows are never edited or deleted except by this purge (prisma/people/migrations/20261025020000_change_log_purge and others). */
+const APPEND_ONLY = new Set([
+  'people.ChangeLog',
+  'platform.AuditLog',
+  'platform.ProductEvent',
+  /* Posted journal entries and their lines (prisma/migrations/20261106100000_ledger_guards). */
+  'accounting.JournalEntry',
+  'accounting.JournalLine',
+  'accounting.PeriodLockChange',
+]);
 
 async function purgeDatabase(client: any, dmmf: Dmmf, prefix: string, orgId: string) {
   const models = dmmf.datamodel.models.filter((m) => !KEEP.has(m.name) && m.fields.some((f) => f.name === 'orgId'));

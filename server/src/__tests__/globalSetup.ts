@@ -263,6 +263,8 @@ export default async function setup() {
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014110000_reconciliation_on_server');
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014120000_stock_ledger');
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261018070100_payment_requests_rls');
+  /* The ledger's balance and append-only rules, and the lock history's policy. */
+  await applyPolicies(asOwner(accounting), 'prisma/migrations/20261106100000_ledger_guards');
   /* A-35: fail closed — last, after every policy above exists. */
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20260924120000_row_level_security');

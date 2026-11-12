@@ -132,7 +132,7 @@ describe('who may raise them', () => {
 
 describe('closed periods', () => {
   const lock = (through: string | null) =>
-    request(app).post(`/api/orgs/${owner.orgId}/ledger/fiscal-years/2026-27/lock`).set(auth(owner)).send({ lockedThrough: through }).expect(200);
+    request(app).post(`/api/orgs/${owner.orgId}/ledger/fiscal-years/2026-27/lock`).set(auth(owner)).send({ lockedThrough: through, reason: 'Test clean-up' }).expect(200);
 
   it('refuses a new document, a change or a removal on or before the lock', async () => {
     const id = uid();

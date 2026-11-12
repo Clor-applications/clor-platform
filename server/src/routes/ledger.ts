@@ -5,7 +5,17 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
-import { ensureLedgerSetup, postEntry, reverseEntry, trialBalance, fiscalYearFor } from '../services/ledger.js';
+import {
+  balanceSheet,
+  ensureLedgerSetup,
+  fiscalYearFor,
+  postEntry,
+  profitAndLoss,
+  reverseEntry,
+  trialBalance,
+  verifyHashChain,
+} from '../services/ledger.js';
+import { recordAudit } from '../services/auditTrail.js';
 import { recordBankDateChange } from '../services/bankDateAudit.js';
 import { PAYROLL_SOURCES } from '../services/integrity/crossStore.js';
 
@@ -141,6 +151,60 @@ ledgerRouter.get('/orgs/:orgId/ledger/trial-balance', requirePermission(MODULE, 
     toDate: req.query.to ? String(req.query.to) : undefined,
   });
   res.json(result);
+});
+
+/**
+ * Profit and loss, and the balance sheet, from posted journal lines.
+ *
+ * They were added up in the browser from the balances its own copy of the
+ * books held, so anything posted on the server alone — a payroll journal, an
+ * entry made on another machine — was missing from them while the trial
+ * balance, which is computed here, showed it. Both are now the trial balance
+ * rearranged (services/ledger.ts), with the same branch scope and dates.
+ */
+ledgerRouter.get('/orgs/:orgId/ledger/profit-loss', requirePermission(MODULE, PermissionAction.VIEW, SUB), async (req, res) => {
+  if (!requireOrgMatch(req, res)) return;
+  const allBranches = String(req.query.allBranches || '') === 'true';
+  res.json(
+    await profitAndLoss({
+      accountId: req.tenant!.accountId,
+      orgId: req.tenant!.orgId,
+      branchId: allBranches ? undefined : req.tenant!.branchId,
+      fromDate: req.query.from ? String(req.query.from) : undefined,
+      toDate: req.query.to ? String(req.query.to) : undefined,
+    })
+  );
+});
+
+ledgerRouter.get('/orgs/:orgId/ledger/balance-sheet', requirePermission(MODULE, PermissionAction.VIEW, SUB), async (req, res) => {
+  if (!requireOrgMatch(req, res)) return;
+  const allBranches = String(req.query.allBranches || '') === 'true';
+  res.json(
+    await balanceSheet({
+      accountId: req.tenant!.accountId,
+      orgId: req.tenant!.orgId,
+      branchId: allBranches ? undefined : req.tenant!.branchId,
+      asOf: req.query.asOf ? String(req.query.asOf) : undefined,
+    })
+  );
+});
+
+/**
+ * Checks the tamper-evidence the ledger has always written and never read:
+ * every posted entry's hash recomputed from its lines, and every link to the
+ * entry before it found. `ok: false` means an entry was changed or removed
+ * after posting.
+ */
+ledgerRouter.get('/orgs/:orgId/ledger/verify-chain', requirePermission(MODULE, PermissionAction.VIEW, SUB), async (req, res) => {
+  if (!requireOrgMatch(req, res)) return;
+  const allBranches = String(req.query.allBranches || '') === 'true';
+  res.json(
+    await verifyHashChain({
+      accountId: req.tenant!.accountId,
+      orgId: req.tenant!.orgId,
+      branchId: allBranches ? undefined : req.tenant!.branchId,
+    })
+  );
 });
 
 /**
@@ -334,7 +398,15 @@ ledgerRouter.post('/orgs/:orgId/ledger/entries/:entryId/reverse', requirePermiss
 
 // ---- period lock -----------------------------------------------------------
 
-const lockSchema = z.object({ lockedThrough: z.string().min(1).nullable() });
+const lockSchema = z.object({
+  lockedThrough: z.string().min(1).nullable(),
+  /* Required to reopen: removing a lock, or moving it to an earlier date. */
+  reason: z.string().trim().max(500).optional().nullable(),
+});
+
+/** What a change to a lock does: closes books, closes more of them, or reopens some. */
+const lockAction = (previous: string | null, next: string | null) =>
+  !next || (previous && next < previous) ? 'REOPEN' : !previous ? 'LOCK' : 'EXTEND';
 
 ledgerRouter.get('/orgs/:orgId/ledger/fiscal-years', requirePermission(MODULE, PermissionAction.VIEW, SUB), async (req, res) => {
   if (!requireOrgMatch(req, res)) return;
@@ -366,9 +438,61 @@ ledgerRouter.post('/orgs/:orgId/ledger/fiscal-years/:name/lock', requirePermissi
       });
     })());
 
-  const updated = await prisma.fiscalYear.update({
-    where: { id: fy.id },
-    data: { lockedThrough: body.lockedThrough },
+  const previous = fy.lockedThrough ?? null;
+  const next = body.lockedThrough ?? null;
+  if (previous === next) return res.json({ fiscalYear: fy });
+
+  /*
+   * Reopening closed books is logged with its reason, in the same
+   * transaction as the change, so a period can never have been reopened
+   * without the record saying who did it and why. Anyone with the approve
+   * right may still do it; what changed is that it is never silent.
+   */
+  const action = lockAction(previous, next);
+  const reason = body.reason ? String(body.reason).trim() : '';
+  if (action === 'REOPEN' && reason.length < 3) {
+    return res.status(400).json({ code: 'REASON_REQUIRED', error: 'Say why the books are being reopened.' });
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.fiscalYear.update({ where: { id: fy.id }, data: { lockedThrough: next } });
+    await tx.periodLockChange.create({
+      data: {
+        accountId: req.tenant!.accountId,
+        orgId: req.tenant!.orgId,
+        fiscalYearId: fy.id,
+        fiscalYearName: fy.name,
+        previousLockedThrough: previous,
+        lockedThrough: next,
+        action,
+        reason: reason || null,
+        byUserId: req.auth!.userId,
+      },
+    });
+    return row;
   });
+
+  await recordAudit(req, {
+    entity: 'FiscalYear',
+    entityId: fy.id,
+    action: `PERIOD_${action}`,
+    message:
+      action === 'REOPEN'
+        ? `Books for ${fy.name} reopened${next ? ` back to ${next}` : ''} (were closed through ${previous}): ${reason}`
+        : `Books for ${fy.name} closed through ${next}`,
+    metadata: { fiscalYear: fy.name, previousLockedThrough: previous, lockedThrough: next, reason: reason || null },
+  });
+
   res.json({ fiscalYear: updated });
+});
+
+/** Every change to the locks, newest first: the record an auditor reads. */
+ledgerRouter.get('/orgs/:orgId/ledger/period-lock-changes', requirePermission(MODULE, PermissionAction.VIEW, SUB), async (req, res) => {
+  if (!requireOrgMatch(req, res)) return;
+  const changes = await prisma.periodLockChange.findMany({
+    where: { accountId: req.tenant!.accountId, orgId: req.tenant!.orgId },
+    orderBy: { at: 'desc' },
+    take: 200,
+  });
+  res.json({ changes });
 });

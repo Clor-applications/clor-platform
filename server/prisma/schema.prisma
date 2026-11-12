@@ -846,6 +846,26 @@ model FiscalYear {
   @@index([accountId, orgId])
 }
 
+/// Every change to a period lock: who moved it, from where to where, and why.
+/// A reason is required to reopen closed books. Append-only (migration
+/// 20261106100000_ledger_guards).
+model PeriodLockChange {
+  id                    String   @id @default(cuid())
+  accountId             String
+  orgId                 String
+  fiscalYearId          String
+  fiscalYearName        String
+  previousLockedThrough String?
+  lockedThrough         String?
+  action                String // LOCK | EXTEND | REOPEN
+  reason                String?
+  byUserId              String
+  at                    DateTime @default(now())
+
+  @@index([accountId, orgId, at])
+  @@index([orgId, fiscalYearId])
+}
+
 model Journal {
   id        String  @id @default(cuid())
   accountId String
@@ -915,6 +935,9 @@ model JournalEntry {
   postedAt       DateTime?
   postedByUserId String?
   reversedById   String? // the entry that reverses this one
+  /// On a contra: the entry it reverses. Unique, so one entry can never be
+  /// reversed twice, whatever a retry does (migration 20261106100000).
+  reversesId     String?   @unique
 
   sourceDocType String? // INVOICE | BILL | PAYMENT | RECEIPT | TRANSFER | OPENING
   sourceDocId   String?

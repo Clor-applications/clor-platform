@@ -68,6 +68,8 @@ export type PostingRequest = {
   narration?: string | null;
   sourceDocType?: string | null;
   sourceDocId?: string | null;
+  /** On a contra posted by reverseEntry: the entry it reverses. */
+  reversesId?: string | null;
   lines: PostingLine[];
 };
 
@@ -432,9 +434,12 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
 
     const entryNo = await nextEntryNo(tx, orgId, branchId, journal.code);
 
+    /* REVERSED as well as POSTED: a reversed entry is still a link in the
+       chain. Looking at POSTED alone made the next entry skip back past every
+       entry reversed since, so the chain branched at each reversal. */
     const prev = await tx.journalEntry.findFirst({
-      where: { orgId, branchId, status: 'POSTED' },
-      orderBy: { createdAt: 'desc' },
+      where: { orgId, branchId, status: { in: ['POSTED', 'REVERSED'] }, hash: { not: null } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: { hash: true },
     });
     const prevHash = prev?.hash ?? null;
@@ -466,6 +471,7 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
         postedByUserId: userId,
         sourceDocType: req.sourceDocType ?? null,
         sourceDocId: req.sourceDocId ?? null,
+        reversesId: req.reversesId ?? null,
         prevHash,
         hash,
         createdByUserId: userId,
@@ -499,18 +505,17 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
 /**
  * Reverse a posted entry with a contra entry. Posted rows are never mutated,
  * beyond linking the original to its reversal.
- */
-/**
- * Reverse a posted entry with a contra entry. Posted rows are never mutated,
- * beyond linking the original to its reversal.
  *
- * `tx` composes the same way `postEntry` does: supplied, every read and write
- * here — including the contra posting — uses it, so a reversal can be part of a
- * larger operation that rolls back as one. Omitted, the behaviour is byte for
- * byte what it was: three separate statements against the client, which is not
- * atomic and never was. Making the no-transaction path atomic would be a
- * behaviour change rather than an additive one, so it is left alone and
- * recorded instead.
+ * Always one transaction. Without one the contra could commit and the original
+ * never be marked: both then counted, and a retry posted a second contra. So
+ * `tx`, when given, is joined — the reversal then rolls back with the larger
+ * operation it belongs to — and otherwise one is opened here.
+ *
+ * Idempotent. The original is locked before it is read, so two reversals of
+ * the same entry run one after the other, and the second finds the first's
+ * contra and hands it back instead of posting another. The contra's
+ * `reversesId` is unique in the database, which holds that rule even for a
+ * writer that skips this function.
  */
 export async function reverseEntry(opts: {
   accountId: string;
@@ -521,44 +526,66 @@ export async function reverseEntry(opts: {
   date?: string;
   narration?: string;
 }, tx?: DbClient) {
-  const db: DbClient = tx ?? prisma;
+  const run = async (db: DbClient) => {
+    const t = db as Prisma.TransactionClient;
+    const where = { id: opts.entryId, accountId: opts.accountId, orgId: opts.orgId };
 
-  const original = await db.journalEntry.findFirst({
-    where: { id: opts.entryId, accountId: opts.accountId, orgId: opts.orgId },
-    include: { lines: true, journal: true },
-  });
-  if (!original) throw new PostingError('Journal entry not found', 404);
-  if (original.status !== 'POSTED') throw new PostingError('Only a posted entry can be reversed', 409);
-  if (original.reversedById) throw new PostingError('Entry is already reversed', 409);
+    const located = await t.journalEntry.findFirst({ where, select: { branchId: true } });
+    if (!located) throw new PostingError('Journal entry not found', 404);
+    /* The posting lock first, then the row: the order postEntry takes them
+       in, so a reversal and a posting on the same branch cannot deadlock. */
+    await t.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:${opts.orgId}:${located.branchId ?? ''}`}, 0))`;
+    await t.$queryRaw`SELECT "id" FROM "JournalEntry" WHERE "id" = ${opts.entryId} FOR UPDATE`;
 
-  const reversal = await postEntry({
-    accountId: opts.accountId,
-    orgId: opts.orgId,
-    branchId: original.branchId,
-    userId: opts.userId,
-    date: opts.date || original.date,
-    journalCode: original.journal.code,
-    narration: opts.narration || `Reversal of ${original.entryNo}`,
-    sourceDocType: original.sourceDocType,
-    sourceDocId: original.sourceDocId,
-    lines: original.lines.map((l) => ({
-      ledgerAccountId: l.ledgerAccountId,
-      debit: Number(l.credit),
-      credit: Number(l.debit),
-      partyType: (l.partyType as any) ?? null,
-      partyId: l.partyId,
-      itemId: l.itemId,
-      warehouseId: l.warehouseId,
-      description: `Reversal: ${l.description ?? ''}`.trim(),
-    })),
-  }, tx);
+    const original = await t.journalEntry.findFirst({ where, include: { lines: true, journal: true } });
+    if (!original) throw new PostingError('Journal entry not found', 404);
 
-  await db.journalEntry.update({
-    where: { id: original.id },
-    data: { status: 'REVERSED', reversedById: reversal.id },
-  });
+    /* Already reversed: the contra that did it, not a second one. Found by
+       the contra's own link first, then by the original's, which is all an
+       entry reversed before `reversesId` existed has. */
+    const done =
+      (await t.journalEntry.findFirst({ where: { reversesId: original.id, orgId: opts.orgId }, include: { lines: true } })) ||
+      (original.reversedById
+        ? await t.journalEntry.findFirst({ where: { id: original.reversedById, orgId: opts.orgId }, include: { lines: true } })
+        : null);
+    if (done) return done;
+    if (original.reversedById) throw new PostingError('Entry is already reversed', 409);
+    if (original.status !== 'POSTED') throw new PostingError('Only a posted entry can be reversed', 409);
 
-  return reversal;
+    const reversal = await postEntry({
+      accountId: opts.accountId,
+      orgId: opts.orgId,
+      branchId: original.branchId,
+      userId: opts.userId,
+      date: opts.date || original.date,
+      journalCode: original.journal.code,
+      narration: opts.narration || `Reversal of ${original.entryNo}`,
+      sourceDocType: original.sourceDocType,
+      sourceDocId: original.sourceDocId,
+      reversesId: original.id,
+      lines: original.lines.map((l) => ({
+        ledgerAccountId: l.ledgerAccountId,
+        debit: Number(l.credit),
+        credit: Number(l.debit),
+        partyType: (l.partyType as any) ?? null,
+        partyId: l.partyId,
+        itemId: l.itemId,
+        warehouseId: l.warehouseId,
+        description: `Reversal: ${l.description ?? ''}`.trim(),
+      })),
+    }, t);
+
+    const marked = await t.journalEntry.updateMany({
+      where: { id: original.id, status: 'POSTED', reversedById: null },
+      data: { status: 'REVERSED', reversedById: reversal.id },
+    });
+    // Unreachable while the row lock holds; if it ever is, the contra goes too.
+    if (marked.count !== 1) throw new PostingError('Entry is already reversed', 409);
+
+    return reversal;
+  };
+
+  return tx ? run(tx) : prisma.$transaction((t) => run(t));
 }
 
 /** Journal lines for a sales invoice: AR debit, revenue + tax credits. */
@@ -834,20 +861,38 @@ export async function trialBalance(opts: {
     select: {
       debit: true,
       credit: true,
-      ledgerAccount: { select: { id: true, code: true, name: true, accountType: true, controlKind: true } },
+      ledgerAccount: { select: { id: true, code: true, name: true, accountType: true, controlKind: true, sourceKey: true } },
     },
   });
 
   const byAccount = new Map<
     string,
-    { id: string; code: string; name: string; accountType: string; controlKind: string | null; debitPaise: number; creditPaise: number }
+    {
+      id: string;
+      code: string;
+      name: string;
+      accountType: string;
+      controlKind: string | null;
+      sourceKey: string | null;
+      debitPaise: number;
+      creditPaise: number;
+    }
   >();
 
   for (const l of lines) {
     const a = l.ledgerAccount;
     const row =
       byAccount.get(a.id) ||
-      { id: a.id, code: a.code, name: a.name, accountType: a.accountType, controlKind: a.controlKind, debitPaise: 0, creditPaise: 0 };
+      {
+        id: a.id,
+        code: a.code,
+        name: a.name,
+        accountType: a.accountType,
+        controlKind: a.controlKind,
+        sourceKey: a.sourceKey,
+        debitPaise: 0,
+        creditPaise: 0,
+      };
     row.debitPaise += Math.round(Number(l.debit) * 100);
     row.creditPaise += Math.round(Number(l.credit) * 100);
     byAccount.set(a.id, row);
@@ -862,6 +907,8 @@ export async function trialBalance(opts: {
         name: r.name,
         accountType: r.accountType,
         controlKind: r.controlKind,
+        // The browser's own chart row, for an account it created (routes/ledger.ts).
+        sourceKey: r.sourceKey,
         debit: fromPaise(r.debitPaise),
         credit: fromPaise(r.creditPaise),
         closingDebit: netPaise > 0 ? fromPaise(netPaise) : 0,
@@ -881,5 +928,248 @@ export async function trialBalance(opts: {
       difference: fromPaise(totalDebitPaise - totalCreditPaise),
       balanced: totalDebitPaise === totalCreditPaise,
     },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Financial statements
+//
+// Built from the trial balance itself, not from a second query over the same
+// lines: the statements and the trial balance are then the same numbers
+// arranged differently, and cannot disagree. Each account's balance is shown
+// the way its side of the statement reads it — assets and expenses debit
+// positive, liabilities, equity and income credit positive — so a negative
+// figure means the account is on the wrong side (an overdrawn bank, a sales
+// return larger than the sales).
+// ---------------------------------------------------------------------------
+
+type StatementRow = {
+  accountId: string;
+  code: string;
+  name: string;
+  accountType: string;
+  controlKind: string | null;
+  sourceKey: string | null;
+  balance: number;
+};
+
+type TrialBalanceRow = Awaited<ReturnType<typeof trialBalance>>['rows'][number];
+
+const DEBIT_NORMAL = new Set(['ASSET', 'EXPENSE']);
+
+const statementRow = (r: TrialBalanceRow): StatementRow => {
+  const netPaise = Math.round(r.debit * 100) - Math.round(r.credit * 100);
+  return {
+    accountId: r.accountId,
+    code: r.code,
+    name: r.name,
+    accountType: r.accountType,
+    controlKind: r.controlKind,
+    sourceKey: r.sourceKey,
+    balance: fromPaise(DEBIT_NORMAL.has(r.accountType) ? netPaise : -netPaise),
+  };
+};
+
+const sumPaise = (rows: StatementRow[]) => rows.reduce((s, r) => s + Math.round(r.balance * 100), 0);
+
+/** Profit and loss for a period: income and expense accounts from posted lines. */
+export async function profitAndLoss(opts: {
+  accountId: string;
+  orgId: string;
+  branchId?: string;
+  fromDate?: string;
+  toDate?: string;
+}) {
+  const tb = await trialBalance(opts);
+  const rows = tb.rows.map(statementRow);
+  const income = rows.filter((r) => r.accountType === 'INCOME');
+  const expenses = rows.filter((r) => r.accountType === 'EXPENSE');
+  const incomePaise = sumPaise(income);
+  const expensePaise = sumPaise(expenses);
+  return {
+    from: opts.fromDate ?? null,
+    to: opts.toDate ?? null,
+    income,
+    expenses,
+    totals: {
+      income: fromPaise(incomePaise),
+      expenses: fromPaise(expensePaise),
+      netProfit: fromPaise(incomePaise - expensePaise),
+    },
+    trialBalance: tb.totals,
+  };
+}
+
+/**
+ * The balance sheet as of a date: every posted line up to it.
+ *
+ * Profit not yet closed to capital is shown as the current year's result on
+ * the equity side, which is what makes the two sides agree before the closing
+ * journal is posted. `balanced` is the trial balance's own check restated:
+ * assets equal liabilities, equity and that result exactly when debits equal
+ * credits.
+ */
+export async function balanceSheet(opts: { accountId: string; orgId: string; branchId?: string; asOf?: string }) {
+  const tb = await trialBalance({ accountId: opts.accountId, orgId: opts.orgId, branchId: opts.branchId, toDate: opts.asOf });
+  const rows = tb.rows.map(statementRow);
+  const assets = rows.filter((r) => r.accountType === 'ASSET');
+  const liabilities = rows.filter((r) => r.accountType === 'LIABILITY');
+  const equity = rows.filter((r) => r.accountType === 'EQUITY');
+  const profitPaise =
+    sumPaise(rows.filter((r) => r.accountType === 'INCOME')) - sumPaise(rows.filter((r) => r.accountType === 'EXPENSE'));
+  const assetPaise = sumPaise(assets);
+  const liabilityPaise = sumPaise(liabilities);
+  const equityPaise = sumPaise(equity);
+  const otherSidePaise = liabilityPaise + equityPaise + profitPaise;
+  return {
+    asOf: opts.asOf ?? null,
+    assets,
+    liabilities,
+    equity,
+    totals: {
+      assets: fromPaise(assetPaise),
+      liabilities: fromPaise(liabilityPaise),
+      equity: fromPaise(equityPaise),
+      currentYearProfit: fromPaise(profitPaise),
+      liabilitiesAndEquity: fromPaise(otherSidePaise),
+      difference: fromPaise(assetPaise - otherSidePaise),
+      balanced: assetPaise === otherSidePaise,
+    },
+    trialBalance: tb.totals,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Hash chain verification
+//
+// Each entry's hash is sha256(prevHash + its canonical payload), so an entry
+// whose amounts, accounts, number, date or branch were changed after posting
+// no longer matches its own hash, and an entry deleted from the middle leaves
+// the next one pointing at a hash nobody has.
+//
+// The links are checked as a set rather than in creation order. Entries were
+// chained to "the latest POSTED entry by createdAt", which skipped reversed
+// entries and could disagree with commit order, so older chains branch. A
+// branch is reported as a warning: it is how the chain was written, not
+// evidence of tampering. A missing or mismatched hash is.
+// ---------------------------------------------------------------------------
+
+export type ChainProblem = {
+  entryId: string;
+  entryNo: string;
+  branchId: string;
+  kind: 'MISSING_HASH' | 'HASH_MISMATCH' | 'MISSING_PREVIOUS' | 'EXTRA_START';
+  detail: string;
+};
+
+const CHAIN_PAGE = 500;
+const CHAIN_REPORT_LIMIT = 100;
+
+export async function verifyHashChain(opts: { accountId: string; orgId: string; branchId?: string }) {
+  type Seen = { entryId: string; entryNo: string; prevHash: string | null };
+  const byBranch = new Map<string, Map<string, Seen>>();
+  const problems: ChainProblem[] = [];
+  const report = (p: ChainProblem) => {
+    if (problems.length < CHAIN_REPORT_LIMIT) problems.push(p);
+  };
+  let problemCount = 0;
+  let checked = 0;
+  let cursor: string | undefined;
+
+  for (;;) {
+    const page = await prisma.journalEntry.findMany({
+      where: {
+        accountId: opts.accountId,
+        orgId: opts.orgId,
+        ...(opts.branchId ? { branchId: opts.branchId } : {}),
+        status: { in: ['POSTED', 'REVERSED'] },
+      },
+      orderBy: { id: 'asc' },
+      take: CHAIN_PAGE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      select: {
+        id: true,
+        entryNo: true,
+        date: true,
+        branchId: true,
+        prevHash: true,
+        hash: true,
+        lines: { select: { ledgerAccountId: true, debit: true, credit: true } },
+      },
+    });
+    if (!page.length) break;
+    cursor = page[page.length - 1].id;
+
+    for (const e of page) {
+      checked += 1;
+      if (!e.hash) {
+        problemCount += 1;
+        report({ entryId: e.id, entryNo: e.entryNo, branchId: e.branchId, kind: 'MISSING_HASH', detail: 'Posted without a hash' });
+        continue;
+      }
+      const payload = canonicalPayload({
+        entryNo: e.entryNo,
+        date: e.date,
+        branchId: e.branchId,
+        lines: e.lines.map((l) => ({
+          ledgerAccountId: l.ledgerAccountId,
+          debit: Math.round(Number(l.debit) * 100),
+          credit: Math.round(Number(l.credit) * 100),
+        })),
+      });
+      const expected = createHash('sha256').update(`${e.prevHash ?? ''}${payload}`).digest('hex');
+      if (expected !== e.hash) {
+        problemCount += 1;
+        report({
+          entryId: e.id,
+          entryNo: e.entryNo,
+          branchId: e.branchId,
+          kind: 'HASH_MISMATCH',
+          detail: 'Its lines, number, date or branch differ from what was posted',
+        });
+      }
+      const chain = byBranch.get(e.branchId) || new Map<string, Seen>();
+      chain.set(e.hash, { entryId: e.id, entryNo: e.entryNo, prevHash: e.prevHash });
+      byBranch.set(e.branchId, chain);
+    }
+    if (page.length < CHAIN_PAGE) break;
+  }
+
+  let forks = 0;
+  for (const [branchId, chain] of byBranch) {
+    const children = new Map<string, number>();
+    let starts = 0;
+    for (const seen of chain.values()) {
+      if (!seen.prevHash) {
+        starts += 1;
+        if (starts > 1) {
+          problemCount += 1;
+          report({ entryId: seen.entryId, entryNo: seen.entryNo, branchId, kind: 'EXTRA_START', detail: 'A second entry claims to be the first in its chain' });
+        }
+        continue;
+      }
+      if (!chain.has(seen.prevHash)) {
+        problemCount += 1;
+        report({
+          entryId: seen.entryId,
+          entryNo: seen.entryNo,
+          branchId,
+          kind: 'MISSING_PREVIOUS',
+          detail: 'The entry it was chained to is no longer in the books',
+        });
+      }
+      children.set(seen.prevHash, (children.get(seen.prevHash) || 0) + 1);
+    }
+    for (const n of children.values()) if (n > 1) forks += n - 1;
+  }
+
+  return {
+    ok: problemCount === 0,
+    checked,
+    branches: byBranch.size,
+    problemCount,
+    problems,
+    truncated: problemCount > problems.length,
+    forks,
   };
 }

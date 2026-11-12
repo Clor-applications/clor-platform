@@ -216,7 +216,7 @@ describe('changing a saved expense or bill', () => {
       await request(app)
         .post(`/api/orgs/${owner.orgId}/ledger/fiscal-years/2026-27/lock`)
         .set(auth(owner))
-        .send({ lockedThrough: null })
+        .send({ lockedThrough: null, reason: 'Test clean-up' })
         .expect(200);
     }
   });

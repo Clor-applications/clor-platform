@@ -9,6 +9,8 @@ import { ExpenseForm, JournalEntryForm } from '../expenses/ExpenseScreens';
 import { buildLedgerStatement } from '../../data/db';
 import { exportLedgerToExcel, exportLedgerToPdf, printLedger } from '@ui/utils/ledgerExport';
 import { Download } from 'lucide-react';
+import { getBalanceSheet, getProfitLoss } from '@ui/api/ledger';
+import { hasApiSession } from '@ui/api/purchaseDocs';
 
 // warehouses/activeWarehouseId are needed by the invoice, bill and note editors
 // this view opens from a ledger row. They were referenced below without ever
@@ -780,6 +782,57 @@ export const LedgerView = ({
   );
 };
 
+/**
+ * A statement from the server's posted journal lines, when signed in.
+ *
+ * P&L and the balance sheet were added up from the balances this browser's
+ * copy of the books held, so a payroll journal or an entry made on another
+ * machine was in the trial balance and missing here. The server builds both
+ * from the trial balance itself (services/ledger.ts), so the three agree.
+ * Company-wide, as these screens always were: they match the trial balance
+ * with "All branches" ticked. Signed out there is no server ledger, and the
+ * local figures are the books.
+ */
+const useLedgerStatement = (load, companyId) => {
+  const online = hasApiSession();
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    if (!online) return undefined;
+    let live = true;
+    setData(null);
+    load()
+      .then((d) => {
+        if (live) setData(d);
+      })
+      .catch((e) => {
+        if (live) notify.error(`The statement could not be loaded: ${String(e?.message || e)}`);
+      });
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, companyId]);
+  return { online, data };
+};
+
+/**
+ * Server rows in the shape the screen draws. A row opens this browser's ledger
+ * for the same account — the chart row it was created from, else the one of
+ * the same name — and opens nothing when the browser has no such account.
+ */
+const toScreenRows = (rows, accounts) => {
+  const byId = new Map(accounts.map((a) => [String(a.id), a]));
+  const byName = new Map(accounts.map((a) => [String(a.name || '').trim().toLowerCase(), a]));
+  return (Array.isArray(rows) ? rows : []).map((r) => {
+    const local = (r.sourceKey && byId.get(String(r.sourceKey))) || byName.get(String(r.name || '').trim().toLowerCase());
+    return { id: local ? local.id : r.accountId, key: r.accountId, name: r.name, balance: Number(r.balance || 0), openable: Boolean(local) };
+  });
+};
+
+const openIf = (onOpenLedger, account) => {
+  if (onOpenLedger && account.openable !== false) onOpenLedger(account.id);
+};
+
 export const ProfitLoss = ({ db, currentCompany, onOpenLedger }) => {
   const accounts = db.chartOfAccounts.filter((a) => a.companyId === currentCompany.id);
   const groups = (Array.isArray(db.accountGroups) ? db.accountGroups : []).filter((g) => g.companyId === currentCompany.id);
@@ -838,9 +891,15 @@ export const ProfitLoss = ({ db, currentCompany, onOpenLedger }) => {
       });
   }, [withDerived]);
 
-  const income = incomeAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
-  const expenses = expenseAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
-  const netProfit = income - expenses;
+  const server = useLedgerStatement(() => getProfitLoss({ to: localDateIso(), allBranches: true }), currentCompany.id);
+  const serverIncome = useMemo(() => toScreenRows(server.data?.income, accounts), [server.data, accounts]);
+  const serverExpenses = useMemo(() => toScreenRows(server.data?.expenses, accounts), [server.data, accounts]);
+
+  const incomeRows = server.online ? serverIncome : incomeAccounts;
+  const expenseRows = server.online ? serverExpenses : expenseAccounts;
+  const income = server.online ? Number(server.data?.totals?.income || 0) : incomeAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
+  const expenses = server.online ? Number(server.data?.totals?.expenses || 0) : expenseAccounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
+  const netProfit = server.online ? Number(server.data?.totals?.netProfit || 0) : income - expenses;
 
   return (
     <div className="space-y-6">
@@ -861,9 +920,9 @@ export const ProfitLoss = ({ db, currentCompany, onOpenLedger }) => {
         <div className="space-y-4">
           <div>
             <h5 className="font-bold ui-fg mb-2">REVENUE</h5>
-            {incomeAccounts.map((account) => (
-                <div key={account.id} className="flex justify-between py-1 pl-4">
-                  <button type="button" onClick={() => onOpenLedger && onOpenLedger(account.id)} className="ui-muted text-left hover:underline">
+            {incomeRows.map((account) => (
+                <div key={account.key || account.id} className="flex justify-between py-1 pl-4">
+                  <button type="button" onClick={() => openIf(onOpenLedger, account)} className="ui-muted text-left hover:underline">
                     {account.name}
                   </button>
                   <span className="ui-money">{formatMoney(account.balance || 0, currentCompany)}</span>
@@ -877,9 +936,9 @@ export const ProfitLoss = ({ db, currentCompany, onOpenLedger }) => {
 
           <div>
             <h5 className="font-bold ui-fg mb-2">EXPENSES</h5>
-            {expenseAccounts.map((account) => (
-                <div key={account.id} className="flex justify-between py-1 pl-4">
-                  <button type="button" onClick={() => onOpenLedger && onOpenLedger(account.id)} className="ui-muted text-left hover:underline">
+            {expenseRows.map((account) => (
+                <div key={account.key || account.id} className="flex justify-between py-1 pl-4">
+                  <button type="button" onClick={() => openIf(onOpenLedger, account)} className="ui-muted text-left hover:underline">
                     {account.name}
                   </button>
                   <span className="ui-money">{formatMoney(account.balance || 0, currentCompany)}</span>
@@ -937,12 +996,25 @@ export const BalanceSheet = ({ db, currentCompany, onOpenLedger }) => {
   const balanceSheetAccounts = withDerived.filter((a) => String(a._derivedMain || '').trim() === 'Balance Sheet');
   const pnlAccounts = withDerived.filter((a) => String(a._derivedMain || '').trim() === 'P&L');
 
-  const assets = balanceSheetAccounts.filter((a) => a._derivedClass === 'Asset').reduce((sum, a) => sum + Number(a.balance || 0), 0);
-  const liabilities = balanceSheetAccounts.filter((a) => a._derivedClass === 'Liability').reduce((sum, a) => sum + Number(a.balance || 0), 0);
-  const equity = balanceSheetAccounts.filter((a) => a._derivedClass === 'Equity').reduce((sum, a) => sum + Number(a.balance || 0), 0);
-  const income = pnlAccounts.filter((a) => a._derivedClass === 'Income').reduce((sum, a) => sum + Number(a.balance || 0), 0);
-  const expenses = pnlAccounts.filter((a) => a._derivedClass === 'Expense').reduce((sum, a) => sum + Number(a.balance || 0), 0);
-  const netProfit = income - expenses;
+  const server = useLedgerStatement(() => getBalanceSheet({ asOf: localDateIso(), allBranches: true }), currentCompany.id);
+  const serverRows = useMemo(
+    () => ({
+      Asset: toScreenRows(server.data?.assets, accounts),
+      Liability: toScreenRows(server.data?.liabilities, accounts),
+      Equity: toScreenRows(server.data?.equity, accounts),
+    }),
+    [server.data, accounts]
+  );
+  const rowsOf = (cls) => (server.online ? serverRows[cls] : balanceSheetAccounts.filter((a) => a._derivedClass === cls));
+
+  const localSum = (rows, cls) => rows.filter((a) => a._derivedClass === cls).reduce((sum, a) => sum + Number(a.balance || 0), 0);
+  const totals = server.data?.totals || {};
+  const assets = server.online ? Number(totals.assets || 0) : localSum(balanceSheetAccounts, 'Asset');
+  const liabilities = server.online ? Number(totals.liabilities || 0) : localSum(balanceSheetAccounts, 'Liability');
+  const equity = server.online ? Number(totals.equity || 0) : localSum(balanceSheetAccounts, 'Equity');
+  const netProfit = server.online
+    ? Number(totals.currentYearProfit || 0)
+    : localSum(pnlAccounts, 'Income') - localSum(pnlAccounts, 'Expense');
 
   return (
     <div className="space-y-6">
@@ -963,11 +1035,10 @@ export const BalanceSheet = ({ db, currentCompany, onOpenLedger }) => {
         <div className="grid grid-cols-2 gap-8">
           <div>
             <h5 className="font-bold ui-fg mb-3">ASSETS</h5>
-            {balanceSheetAccounts
-              .filter((a) => a._derivedClass === 'Asset')
+            {rowsOf('Asset')
               .map((account) => (
-                <div key={account.id} className="flex justify-between py-1 pl-4">
-                  <button type="button" onClick={() => onOpenLedger && onOpenLedger(account.id)} className="ui-muted text-left hover:underline">
+                <div key={account.key || account.id} className="flex justify-between py-1 pl-4">
+                  <button type="button" onClick={() => openIf(onOpenLedger, account)} className="ui-muted text-left hover:underline">
                     {account.name}
                   </button>
                   <span className="ui-money">{formatMoney(account.balance || 0, currentCompany)}</span>
@@ -982,11 +1053,10 @@ export const BalanceSheet = ({ db, currentCompany, onOpenLedger }) => {
           <div>
             <div className="mb-6">
               <h5 className="font-bold ui-fg mb-3">LIABILITIES</h5>
-              {balanceSheetAccounts
-                .filter((a) => a._derivedClass === 'Liability')
+              {rowsOf('Liability')
                 .map((account) => (
-                  <div key={account.id} className="flex justify-between py-1 pl-4">
-                    <button type="button" onClick={() => onOpenLedger && onOpenLedger(account.id)} className="ui-muted text-left hover:underline">
+                  <div key={account.key || account.id} className="flex justify-between py-1 pl-4">
+                    <button type="button" onClick={() => openIf(onOpenLedger, account)} className="ui-muted text-left hover:underline">
                       {account.name}
                     </button>
                     <span className="ui-money">{formatMoney(account.balance || 0, currentCompany)}</span>
@@ -1000,11 +1070,10 @@ export const BalanceSheet = ({ db, currentCompany, onOpenLedger }) => {
 
             <div>
               <h5 className="font-bold ui-fg mb-3">EQUITY</h5>
-              {balanceSheetAccounts
-                .filter((a) => a._derivedClass === 'Equity')
+              {rowsOf('Equity')
                 .map((account) => (
-                  <div key={account.id} className="flex justify-between py-1 pl-4">
-                    <button type="button" onClick={() => onOpenLedger && onOpenLedger(account.id)} className="ui-muted text-left hover:underline">
+                  <div key={account.key || account.id} className="flex justify-between py-1 pl-4">
+                    <button type="button" onClick={() => openIf(onOpenLedger, account)} className="ui-muted text-left hover:underline">
                       {account.name}
                     </button>
                     <span className="ui-money">{formatMoney(account.balance || 0, currentCompany)}</span>
