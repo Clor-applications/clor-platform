@@ -15,6 +15,7 @@ export const ROUTES = [
     path: `/products/${p.slug}`,
     title: `CLOR ${p.name}${p.status === 'soon' ? ' (coming soon)' : ''}`,
     description: p.status === 'soon' ? PRODUCT_CONTENT[p.slug].intro : `${p.line} ${PRODUCT_CONTENT[p.slug].intro}`.slice(0, 300),
+    product: p.slug,
     page: () => <Product slug={p.slug} />,
   })),
   { path: '/solutions/businesses', title: 'CLOR for businesses', description: 'GST invoices, staff records, attendance and salaries for small Indian companies, under one login.', page: () => <Businesses /> },
@@ -58,7 +59,48 @@ export function headFor(path) {
     `<meta property="og:title" content="${esc(title)}" />`,
     `<meta property="og:description" content="${esc(r.description)}" />`,
     `<meta property="og:url" content="${url}" />`,
-    `<meta property="og:image" content="${SITE.url}/brand/og.png" />`,
+    `<meta property="og:image" content="${SITE.url}/brand/${r.product ? `og-${r.product}` : 'og'}.png" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
+    ...structuredData(r, url).map((d) => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`),
   ].join('\n    ');
+}
+
+/*
+ * What search engines read about the company and each product (schema.org,
+ * platform audit 11 Nov 2026). Facts only from SITE and PRODUCTS; no prices or
+ * ratings, which go out of date or would be made up.
+ */
+const ORG = {
+  '@type': 'Organization',
+  '@id': `${SITE.url}/#org`,
+  name: SITE.name,
+  legalName: SITE.company,
+  url: `${SITE.url}/`,
+  logo: `${SITE.url}/brand/clor-mark-512.png`,
+  email: SITE.contactEmail,
+  address: { '@type': 'PostalAddress', streetAddress: SITE.address, addressLocality: 'Bengaluru', addressRegion: 'Karnataka', postalCode: '560064', addressCountry: 'IN' },
+};
+function structuredData(r, url) {
+  if (r.noindex) return [];
+  if (r.path === '/') {
+    return [{ '@context': 'https://schema.org', '@graph': [ORG, { '@type': 'WebSite', '@id': `${SITE.url}/#site`, name: SITE.name, url: `${SITE.url}/`, publisher: { '@id': ORG['@id'] }, inLanguage: 'en-IN' }] }];
+  }
+  const p = r.product && PRODUCTS.find((x) => x.slug === r.product);
+  if (p && p.status !== 'soon') {
+    return [{
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: `CLOR ${p.name}`,
+      description: r.description,
+      url,
+      image: `${SITE.url}/brand/og-${p.slug}.png`,
+      applicationCategory: 'BusinessApplication',
+      applicationSubCategory: p.category,
+      operatingSystem: 'Web',
+      publisher: ORG,
+    }];
+  }
+  return [];
 }
