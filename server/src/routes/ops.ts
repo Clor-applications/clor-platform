@@ -569,9 +569,12 @@ opsRouter.get('/ops/home', (_req, res) =>
     const now = Date.now();
     const startOfDay = new Date(`${new Date(now + 5.5 * 3_600_000).toISOString().slice(0, 10)}T00:00:00+05:30`);
     const weekAgo = new Date(now - 7 * DAY);
-    const [newDemos, demosToday, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen] = await Promise.all([
+    const endOfDay = new Date(startOfDay.getTime() + DAY);
+    const [newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen] = await Promise.all([
       platformPrisma.demoRequest.count({ where: { status: 'NEW' } }),
       platformPrisma.demoRequest.count({ where: { createdAt: { gte: startOfDay } } }),
+      /* Leads with a call due today or earlier, still open. */
+      platformPrisma.demoRequest.count({ where: { followUpAt: { lt: endOfDay }, status: { in: ['NEW', 'CONTACTED', 'DEMO_DONE'] } } }),
       platformPrisma.subscription.count({ where: { status: 'trialing', trialEndsAt: { gte: new Date(now), lte: new Date(now + 7 * DAY) } } }),
       /* A payment the gateway told us about that could not be applied, this week. */
       platformPrisma.paymentEvent.count({ where: { processed: false, receivedAt: { gte: weekAgo } } }),
@@ -582,7 +585,7 @@ opsRouter.get('/ops/home', (_req, res) =>
       platformPrisma.opsAlert.count({ where: { resolvedAt: null, severity: 'critical' } }),
       platformPrisma.supportTicket.count({ where: { status: 'OPEN' } }),
     ]);
-    res.json({ newDemos, demosToday, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen });
+    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen });
   }),
 );
 

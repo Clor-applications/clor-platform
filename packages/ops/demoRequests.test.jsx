@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const api = vi.hoisted(() => ({ list: vi.fn(), one: vi.fn(), set: vi.fn(), create: vi.fn(), resend: vi.fn(), end: vi.fn() }));
+const api = vi.hoisted(() => ({ list: vi.fn(), one: vi.fn(), set: vi.fn(), create: vi.fn(), resend: vi.fn(), end: vi.fn(), team: vi.fn() }));
 vi.mock('./api', () => ({
   opsDemoRequests: (p) => api.list(p),
   opsDemoRequest: (id) => api.one(id),
@@ -9,6 +9,7 @@ vi.mock('./api', () => ({
   opsCreateDemoAccount: (id, b) => api.create(id, b),
   opsResendExplore: (id) => api.resend(id),
   opsEndExplore: (id) => api.end(id),
+  opsDemoTeam: () => api.team(),
 }));
 vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: vi.fn(() => Promise.resolve(true)) }));
 
@@ -21,6 +22,7 @@ const asha = {
 
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
+  api.team.mockResolvedValue({ team: [{ userId: 'u-ravi', name: 'Ravi Sales', role: 'SALES' }] });
 });
 
 describe('Demo requests in the operator console', () => {
@@ -92,5 +94,33 @@ describe('Demo requests in the operator console', () => {
     expect(await screen.findByText('No link was sent with this request.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send a link' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'End access' })).toBeNull();
+  });
+});
+
+describe('Demo requests as a pipeline', () => {
+  it('filters to mine, due and nobody’s, by source, and shows who looks after each and when to call', async () => {
+    const due = { ...asha, assignedToUserId: 'u-ravi', assignedToName: 'Ravi Sales', followUpAt: '2020-01-02T18:30:00Z', source: 'google' };
+    api.list.mockResolvedValue({ total: 1, page: 0, pageSize: 25, counts: { NEW: 1 }, views: { due: 1, mine: 1, unassigned: 0 }, sources: [{ source: 'google', count: 1 }], requests: [due] });
+    render(<DemoRequests openRequest={vi.fn()} />);
+    expect(await screen.findByText('Ravi Sales')).toBeInTheDocument();
+    expect(screen.getByText('Mysuru · google')).toBeInTheDocument();
+    expect(screen.getByText('3 Jan 2020')).toHaveClass('ws-pill--warn');
+    fireEvent.change(screen.getByLabelText('Whose'), { target: { value: 'due' } });
+    await waitFor(() => expect(api.list).toHaveBeenLastCalledWith({ status: 'all', page: 0, view: 'due' }));
+    fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'google' } });
+    await waitFor(() => expect(api.list).toHaveBeenLastCalledWith({ status: 'all', page: 0, view: 'due', source: 'google' }));
+  });
+
+  it('gives a lead to someone and sets the follow-up day, sent as that day in India', async () => {
+    api.one.mockResolvedValue({ request: { ...asha, source: 'linkedin.com', sourceDetail: { utm_campaign: 'nov', landing: '/people' } }, account: null, explore: null, history: [] });
+    api.set.mockResolvedValue({});
+    render(<DemoRequestDetail id="d1" role="SALES" back={vi.fn()} openAccount={vi.fn()} />);
+    expect(await screen.findByText('linkedin.com')).toBeInTheDocument();
+    expect(screen.getByText('First page: clor.in/people')).toBeInTheDocument();
+    await screen.findByRole('option', { name: 'Ravi Sales' });
+    fireEvent.change(screen.getByLabelText('Looked after by'), { target: { value: 'u-ravi' } });
+    fireEvent.change(screen.getByLabelText('Follow up on'), { target: { value: '2026-11-20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.set).toHaveBeenCalledWith('d1', { status: 'NEW', note: null, assignedToUserId: 'u-ravi', followUpAt: '2026-11-20T00:00:00+05:30' }));
   });
 });

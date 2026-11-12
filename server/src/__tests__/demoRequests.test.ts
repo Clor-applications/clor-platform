@@ -231,3 +231,61 @@ describe('Demo requests in the operator console', () => {
     expect((await request(app).post(`/api/ops/demo-requests/${id}/create-account`).set({ ...bearer(sup), 'x-step-up': st }).send({ state: 'Karnataka' }).expect(403)).body.code).toBe('OPERATOR_ROLE');
   }, 90_000);
 });
+
+describe('Demo requests as a pipeline (platform audit, 11 Nov 2026)', () => {
+  it('keeps where the visitor came from, as one word and the detail', async () => {
+    const { sourceLabel } = await import('../routes/demoRequests.js');
+    expect(sourceLabel({ utm_source: 'Google' })).toBe('google');
+    expect(sourceLabel({ referrer: 'https://www.linkedin.com/feed/' })).toBe('linkedin.com');
+    expect(sourceLabel({ referrer: 'https://clor.in/pricing' })).toBe('direct');
+    expect(sourceLabel(null)).toBe('direct');
+    const body = good({ source: { utm_source: 'newsletter', utm_campaign: 'nov-launch', referrer: 'https://mail.example.com/', landing: '/people' } });
+    await submit(body).expect(201);
+    const row = await platformPrisma.demoRequest.findFirstOrThrow({ where: { email: body.email as string } });
+    expect(row.source).toBe('newsletter');
+    expect(row.sourceDetail).toMatchObject({ utm_campaign: 'nov-launch', landing: '/people' });
+    /* A form from an older page, or junk in the field: kept, with no source detail. */
+    const old = good({ source: 'nonsense' });
+    await submit(old).expect(201);
+    expect((await platformPrisma.demoRequest.findFirstOrThrow({ where: { email: old.email as string } })).source).toBe('direct');
+  });
+
+  it('gives a lead to someone on the team with a follow-up date; mine, due and unassigned views find it', async () => {
+    const { op, h } = await operator();
+    await platformPrisma.platformOperator.upsert({ where: { userId: op.userId }, create: { userId: op.userId, role: 'SUPER_ADMIN' }, update: { active: true, role: 'SUPER_ADMIN' } });
+    const body = good();
+    await submit(body).expect(201);
+    const id = (await platformPrisma.demoRequest.findFirstOrThrow({ where: { email: body.email as string } })).id;
+    const unassigned = (await request(app).get('/api/ops/demo-requests').query({ view: 'unassigned' }).set(bearer(op)).expect(200)).body;
+    expect(unassigned.requests.map((r: any) => r.id)).toContain(id);
+    expect(unassigned.views.unassigned).toBeGreaterThanOrEqual(1);
+
+    const team = (await request(app).get('/api/ops/demo-requests/team').set(bearer(op)).expect(200)).body;
+    expect(team.team.map((t: any) => t.userId)).toContain(op.userId);
+
+    /* Someone not on the team cannot be given a lead; nothing changes without a fresh code. */
+    await request(app).patch(`/api/ops/demo-requests/${id}`).set(h).send({ assignedToUserId: 'nobody' }).expect(400);
+    await request(app).patch(`/api/ops/demo-requests/${id}`).set(bearer(op)).send({ assignedToUserId: op.userId }).expect(403);
+    await request(app).patch(`/api/ops/demo-requests/${id}`).set(h).send({}).expect(400);
+
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    const given = (await request(app).patch(`/api/ops/demo-requests/${id}`).set(h).send({ assignedToUserId: op.userId, followUpAt: yesterday }).expect(200)).body.request;
+    expect(given).toMatchObject({ status: 'NEW', assignedToUserId: op.userId, assignedToName: 'Owner' });
+    expect(new Date(given.followUpAt).toISOString()).toBe(yesterday);
+
+    const mine = (await request(app).get('/api/ops/demo-requests').query({ view: 'mine' }).set(bearer(op)).expect(200)).body;
+    expect(mine.requests.map((r: any) => r.id)).toEqual([id]);
+    const due = (await request(app).get('/api/ops/demo-requests').query({ view: 'due' }).set(bearer(op)).expect(200)).body;
+    expect(due.requests.map((r: any) => r.id)).toContain(id);
+    expect(due.views.due).toBeGreaterThanOrEqual(1);
+
+    const one = (await request(app).get(`/api/ops/demo-requests/${id}`).set(bearer(op)).expect(200)).body;
+    expect(one.history.map((e: any) => e.action)).toEqual(expect.arrayContaining(['DEMO_REQUEST_ASSIGNED', 'DEMO_REQUEST_FOLLOW_UP']));
+
+    /* Not a fit: off the follow-up list. */
+    const closed = (await request(app).patch(`/api/ops/demo-requests/${id}`).set(h).send({ status: 'NOT_A_FIT', note: 'Wants Tally only' }).expect(200)).body.request;
+    expect(closed.followUpAt).toBeNull();
+    const after = (await request(app).get('/api/ops/demo-requests').query({ view: 'due' }).set(bearer(op)).expect(200)).body;
+    expect(after.requests.map((r: any) => r.id)).not.toContain(id);
+  }, 90_000);
+});

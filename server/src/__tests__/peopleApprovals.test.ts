@@ -101,6 +101,14 @@ describe('the approval engine', () => {
     const lines = await runInTenant(hr.orgId, () => peoplePrisma.changeLog.findMany({ where: { employeeId: meera.id, field: 'gradeId' } }));
     expect(lines).toEqual([expect.objectContaining({ before: g2.id, after: g3.id, source: 'APPROVAL', requestId: r2.body.request.id, reason: 'Promotion' })]);
 
+    /* The same notices by email, beside the bell: the approver hears it is waiting, the requester hears the outcome. */
+    const mail = (userId: string, templateKey: string) =>
+      platformPrisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } }).then((u) =>
+        platformPrisma.emailOutbox.count({ where: { toEmail: u.email, templateKey, relatedType: 'ApprovalRequest', relatedId: r2.body.request.id } }));
+    expect(await mail(manager.userId, 'people.approval_waiting')).toBe(1);
+    expect(await mail(head.userId, 'people.approval_waiting')).toBe(1);
+    expect(await mail(hr.userId, 'people.approval_decided')).toBe(1);
+
     /* The plain move: the manager alone, and done. */
     const moved = (await people(manager).post(`/requests/${r1.body.request.id}/approve`, {}).expect(200)).body;
     expect(moved.request.status).toBe('APPROVED');

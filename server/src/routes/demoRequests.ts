@@ -126,7 +126,32 @@ const demoBody = z.object({
       return codes;
     }),
   message: z.string().trim().max(2000, 'Keep the message under 2,000 characters.').optional().nullable(),
+  /** Where the visitor first landed from, as the website kept it for the visit. Never required; junk is dropped. */
+  source: z
+    .object({
+      utm_source: z.string().trim().max(120).optional().nullable(),
+      utm_medium: z.string().trim().max(120).optional().nullable(),
+      utm_campaign: z.string().trim().max(160).optional().nullable(),
+      referrer: z.string().trim().max(300).optional().nullable(),
+      landing: z.string().trim().max(300).optional().nullable(),
+    })
+    .optional()
+    .nullable()
+    .catch(null),
 });
+
+/** One word for the list: the campaign's source, else the referring site, else direct. */
+export function sourceLabel(src: { utm_source?: string | null; referrer?: string | null } | null | undefined): string {
+  const utm = src?.utm_source?.trim().toLowerCase();
+  if (utm) return utm.slice(0, 60);
+  try {
+    const host = src?.referrer ? new URL(src.referrer).hostname.replace(/^www\./, '') : '';
+    if (host && !/(^|\.)clor\.in$/.test(host)) return host.slice(0, 60);
+  } catch {
+    /* Not a URL: treated as no referrer. */
+  }
+  return 'direct';
+}
 
 /** zod's issues as one message per field, the first for each. */
 const fieldErrors = (e: z.ZodError) => {
@@ -149,7 +174,7 @@ demoRequestsRouter.post('/public/demo-requests', ...demoRequestLimiter, (req, re
     const ip = clientIp(req);
     const userAgent = req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : null;
     const row = await platformPrisma.demoRequest.create({
-      data: { name: d.name, company: d.company, email: d.email, phone: d.phone, city: d.city, companySize: d.companySize, users: d.users, apps: d.apps, message: d.message || null, ip: ip ?? null, userAgent },
+      data: { name: d.name, company: d.company, email: d.email, phone: d.phone, city: d.city, companySize: d.companySize, users: d.users, apps: d.apps, message: d.message || null, source: sourceLabel(d.source), sourceDetail: d.source ? JSON.parse(JSON.stringify(d.source)) : undefined, ip: ip ?? null, userAgent },
       select: { id: true },
     });
     await recordAuthEvent({ email: d.email, eventType: 'DEMO_REQUESTED', ip, userAgent: userAgent ?? undefined, detail: JSON.stringify({ demoRequestId: row.id, apps: d.apps }) });
@@ -211,13 +236,35 @@ const shape = (r: any) => ({
   note: r.note,
   statusChangedAt: r.statusChangedAt,
   accountId: r.accountId,
+  assignedToUserId: r.assignedToUserId ?? null,
+  assignedToName: r.assignedToName ?? null,
+  followUpAt: r.followUpAt ?? null,
+  source: r.source ?? null,
+  sourceDetail: r.sourceDetail ?? null,
   createdAt: r.createdAt,
 });
+
+/** The staff names for a page of requests. */
+async function withOwners<T extends { assignedToUserId?: string | null }>(rows: T[]) {
+  const ids = [...new Set(rows.map((r) => r.assignedToUserId).filter(Boolean))] as string[];
+  const users = ids.length ? await platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, email: true } }) : [];
+  const name = new Map(users.map((u) => [u.id, u.fullName || u.email]));
+  return rows.map((r) => ({ ...r, assignedToName: r.assignedToUserId ? name.get(r.assignedToUserId) || null : null }));
+}
 
 const listQuery = z.object({
   status: z.enum(['all', ...DEMO_STATUSES]).optional(),
   page: z.coerce.number().int().min(0).max(10_000).optional(),
+  /** mine: assigned to the caller; due: a follow-up today or before; unassigned: nobody looks after it yet. */
+  view: z.enum(['all', 'mine', 'due', 'unassigned']).optional(),
+  source: z.string().trim().max(60).optional(),
 });
+/** End of today in India: a follow-up "today" is due all day. */
+const endOfTodayIst = (now = new Date()) => {
+  const ist = new Date(now.getTime() + 330 * 60_000);
+  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + 1) - 330 * 60_000);
+};
+const OPEN_STATUSES = ['NEW', 'CONTACTED', 'DEMO_DONE'];
 const PAGE = 25;
 
 /** Every request, newest first, by status. */
@@ -225,14 +272,44 @@ opsDemoRequestsRouter.get('/ops/demo-requests', (req, res) =>
   outsideTenant('ops: demo requests', async () => {
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
-    const { status = 'all', page = 0 } = parsed.data;
-    const where = status === 'all' ? {} : { status };
-    const [total, rows, counts] = await Promise.all([
+    const { status = 'all', page = 0, view = 'all', source } = parsed.data;
+    const me = req.auth!.userId;
+    const dueBy = endOfTodayIst();
+    const where = {
+      ...(status === 'all' ? {} : { status }),
+      ...(source ? { source } : {}),
+      ...(view === 'mine' ? { assignedToUserId: me } : {}),
+      ...(view === 'unassigned' ? { assignedToUserId: null, status: status === 'all' ? { in: OPEN_STATUSES } : status } : {}),
+      ...(view === 'due' ? { followUpAt: { lte: dueBy }, status: status === 'all' ? { in: OPEN_STATUSES } : status } : {}),
+    };
+    /* Due follow-ups come first, the most overdue at the top; otherwise newest first. */
+    const orderBy = view === 'due' ? [{ followUpAt: 'asc' as const }] : [{ createdAt: 'desc' as const }];
+    const [total, rows, counts, due, mine, unassigned, sources] = await Promise.all([
       platformPrisma.demoRequest.count({ where }),
-      platformPrisma.demoRequest.findMany({ where, orderBy: { createdAt: 'desc' }, skip: page * PAGE, take: PAGE }),
+      platformPrisma.demoRequest.findMany({ where, orderBy, skip: page * PAGE, take: PAGE }),
       platformPrisma.demoRequest.groupBy({ by: ['status'], _count: true }),
+      platformPrisma.demoRequest.count({ where: { followUpAt: { lte: dueBy }, status: { in: OPEN_STATUSES } } }),
+      platformPrisma.demoRequest.count({ where: { assignedToUserId: me, status: { in: OPEN_STATUSES } } }),
+      platformPrisma.demoRequest.count({ where: { assignedToUserId: null, status: { in: OPEN_STATUSES } } }),
+      platformPrisma.demoRequest.groupBy({ by: ['source'], _count: true, where: { source: { not: null } } }),
     ]);
-    res.json({ total, page, pageSize: PAGE, counts: Object.fromEntries(counts.map((c) => [c.status, Number(c._count) || 0])), requests: rows.map(shape) });
+    res.json({
+      total,
+      page,
+      pageSize: PAGE,
+      counts: Object.fromEntries(counts.map((c) => [c.status, Number(c._count) || 0])),
+      views: { due, mine, unassigned },
+      sources: sources.map((x) => ({ source: x.source, count: Number(x._count) || 0 })).sort((a, b) => b.count - a.count),
+      requests: (await withOwners(rows)).map(shape),
+    });
+  }),
+);
+
+/** Who a lead can be given to: CLOR staff who can act (not read-only). Before /:id so "team" is not read as an id. */
+opsDemoRequestsRouter.get('/ops/demo-requests/team', (req, res) =>
+  outsideTenant('ops: demo request team', async () => {
+    const staff = await platformPrisma.platformOperator.findMany({ where: { active: true, role: { not: 'READ_ONLY' } }, select: { userId: true, role: true, user: { select: { fullName: true, email: true } } } });
+    res.json({ me: req.auth!.userId, team: staff.map((s) => ({ userId: s.userId, name: s.user.fullName || s.user.email, role: s.role })).sort((a, b) => a.name.localeCompare(b.name)) });
   }),
 );
 
@@ -247,28 +324,55 @@ opsDemoRequestsRouter.get('/ops/demo-requests/:id', (req, res) =>
     const who = new Map(people.map((p) => [p.id, p.fullName]));
     const account = r.accountId ? await platformPrisma.account.findUnique({ where: { id: r.accountId }, select: { id: true, name: true, code: true } }) : null;
     const pass = await platformPrisma.explorePass.findFirst({ where: { demoRequestId: id }, orderBy: { createdAt: 'desc' } });
-    res.json({ request: shape(r), account, explore: passSummary(pass), history: events.map((e) => ({ id: e.id, action: e.action, at: e.at, operatorName: who.get(e.operatorUserId) || null, detail: e.detail })) });
+    const [withName] = await withOwners([r]);
+    res.json({ request: shape(withName), account, explore: passSummary(pass), history: events.map((e) => ({ id: e.id, action: e.action, at: e.at, operatorName: who.get(e.operatorUserId) || null, detail: e.detail })) });
   }),
 );
 
-const statusBody = z.object({ status: z.enum(SETTABLE), note: z.string().trim().max(1000).optional().nullable() });
+const statusBody = z
+  .object({
+    status: z.enum(SETTABLE).optional(),
+    note: z.string().trim().max(1000).optional().nullable(),
+    /** A CLOR staff member's userId, or null for nobody. */
+    assignedToUserId: z.string().trim().min(1).max(64).optional().nullable(),
+    /** When to call next (an ISO date or date-time), or null for none. */
+    followUpAt: z.coerce.date().optional().nullable(),
+  })
+  .refine((b) => b.status !== undefined || b.note !== undefined || b.assignedToUserId !== undefined || b.followUpAt !== undefined, 'Nothing to change.');
 
 /** Move a request along, with a note. */
 opsDemoRequestsRouter.patch('/ops/demo-requests/:id', requireOperatorRole('SALES', 'SUPPORT', 'BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: demo request status', async () => {
     const id = String(req.params.id);
     const parsed = statusBody.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Choose a status.' });
-    const r = await platformPrisma.demoRequest.findUnique({ where: { id }, select: { status: true, note: true } });
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message === 'Nothing to change.' ? 'Nothing to change.' : 'Check the status, owner and follow-up date.' });
+    const b = parsed.data;
+    const r = await platformPrisma.demoRequest.findUnique({ where: { id }, select: { status: true, note: true, assignedToUserId: true, followUpAt: true } });
     if (!r) return res.status(404).json({ error: 'No such request' });
-    if (r.status === 'ACCOUNT_CREATED') return res.status(409).json({ error: 'The account is made; this request is closed.', code: 'ACCOUNT_CREATED' });
-    const note = parsed.data.note === undefined ? r.note : parsed.data.note || null;
+    if (r.status === 'ACCOUNT_CREATED' && b.status !== undefined) return res.status(409).json({ error: 'The account is made; this request is closed.', code: 'ACCOUNT_CREATED' });
+    if (b.assignedToUserId) {
+      const staff = await platformPrisma.platformOperator.findFirst({ where: { userId: b.assignedToUserId, active: true, role: { not: 'READ_ONLY' } }, select: { userId: true } });
+      if (!staff) return res.status(400).json({ error: 'Choose someone on the CLOR team.' });
+    }
+    const note = b.note === undefined ? r.note : b.note || null;
+    const statusMoved = b.status !== undefined && b.status !== r.status;
     const row = await platformPrisma.demoRequest.update({
       where: { id },
-      data: { status: parsed.data.status, note, statusChangedAt: new Date(), statusChangedByUserId: req.auth!.userId },
+      data: {
+        note,
+        ...(b.status !== undefined ? { status: b.status } : {}),
+        ...(statusMoved ? { statusChangedAt: new Date(), statusChangedByUserId: req.auth!.userId } : {}),
+        ...(b.assignedToUserId !== undefined ? { assignedToUserId: b.assignedToUserId } : {}),
+        ...(b.followUpAt !== undefined ? { followUpAt: b.followUpAt } : {}),
+        /* Closed as not a fit: nothing left to follow up. */
+        ...(b.status === 'NOT_A_FIT' ? { followUpAt: null } : {}),
+      },
     });
-    await audit(req, 'DEMO_REQUEST_STATUS', {}, { demoRequestId: id, from: r.status, to: row.status, note: parsed.data.note || undefined });
-    res.json({ request: shape(row) });
+    if (b.status !== undefined || b.note !== undefined) await audit(req, 'DEMO_REQUEST_STATUS', {}, { demoRequestId: id, from: r.status, to: row.status, note: b.note || undefined });
+    if (b.assignedToUserId !== undefined && b.assignedToUserId !== r.assignedToUserId) await audit(req, 'DEMO_REQUEST_ASSIGNED', {}, { demoRequestId: id, from: r.assignedToUserId, to: row.assignedToUserId });
+    if (b.followUpAt !== undefined && (b.followUpAt?.getTime() ?? null) !== (r.followUpAt?.getTime() ?? null)) await audit(req, 'DEMO_REQUEST_FOLLOW_UP', {}, { demoRequestId: id, at: row.followUpAt });
+    const [withName] = await withOwners([row]);
+    res.json({ request: shape(withName) });
   }),
 );
 

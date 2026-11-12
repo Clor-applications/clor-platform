@@ -8,6 +8,7 @@ import { apiFetch } from '@platform/http';
 import { printElement } from '@ui/utils/printElement';
 import { ICON, PageHead, Panel, Stat, WsDrawer } from './wsKit';
 import { InvoiceDocument, InvoiceStatus, inr } from './InvoiceDocument';
+import PlanChange from './PlanChange';
 import './workspace.css';
 
 /**
@@ -151,6 +152,7 @@ export default function BillingPreview() {
             </Panel>
           </div>
           <aside className="ws-side">
+            <PlanChange />
             <Panel title="How to pay">
               <p className="ws-card-blurb">
                 {unpaid.length

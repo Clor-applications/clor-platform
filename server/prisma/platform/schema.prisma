@@ -1377,12 +1377,22 @@ model DemoRequest {
   /// The account made from this request (one at most).
   accountId             String?   @unique
   ownerUserId           String?
+  /// The CLOR staff member who looks after this lead (a PlatformOperator's userId).
+  assignedToUserId      String?
+  /// When to call them next. Shown as due in Demo requests and on the console's Home.
+  followUpAt            DateTime?
+  /// Where the visitor came from: utm_source, else the referring site, else "direct".
+  source                String?
+  /// The first landing's utm_source, utm_medium, utm_campaign, referrer and page, as the website saw them.
+  sourceDetail          Json?
   ip                    String?
   userAgent             String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@index([status, createdAt])
+  @@index([assignedToUserId, followUpAt])
+  @@index([followUpAt])
   @@index([createdAt])
   @@index([email, createdAt])
 }

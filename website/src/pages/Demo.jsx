@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { firstVisit } from '../firstVisit.js';
 import { Link, useSearch } from '../router.jsx';
 import { AVAILABLE, SITE, productBySlug } from '../site.js';
 import { PageHead } from './Pages.jsx';
@@ -121,7 +122,7 @@ export default function Demo() {
       const r = await fetch(`${SITE.apiUrl}/public/demo-requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, users: Number(form.users), apps: AVAILABLE.filter((p) => apps.has(p.slug)).map((p) => p.slug).sort((x, y) => (y === cameFor) - (x === cameFor)) }),
+        body: JSON.stringify({ ...form, users: Number(form.users), apps: AVAILABLE.filter((p) => apps.has(p.slug)).map((p) => p.slug).sort((x, y) => (y === cameFor) - (x === cameFor)), source: firstVisit() }),
       });
       const body = await r.json().catch(() => ({}));
       if (r.ok) {

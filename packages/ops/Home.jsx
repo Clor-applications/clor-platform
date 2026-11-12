@@ -47,10 +47,14 @@ export function Home({ go, has }) {
           ) : null}
           <Stat
             icon={ICON.mail}
-            tone={d.newDemos ? 'warn' : null}
+            tone={d.newDemos || d.followUpsDue ? 'warn' : null}
             label="Demo requests"
             value={d.newDemos}
-            note={d.newDemos ? `${n(d.newDemos, 'new request waits', 'new requests wait')} for a call${d.demosToday ? ` · ${d.demosToday} came in today` : ''}` : 'Nobody is waiting for a call'}
+            note={[
+              d.newDemos ? `${n(d.newDemos, 'new request waits', 'new requests wait')} for a call` : 'Nobody new is waiting for a call',
+              d.followUpsDue ? n(d.followUpsDue, 'follow-up due today', 'follow-ups due today') : null,
+              d.demosToday ? `${d.demosToday} came in today` : null,
+            ].filter(Boolean).join(' · ')}
             onOpen={() => go('demos')}
           />
           <Stat
