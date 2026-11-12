@@ -109,7 +109,7 @@ if [ -n "$PROBLEMS" ]; then
   if [ "$MODE" = dry ]; then say "NOTE: a real release would refuse: $PROBLEMS."; else stop "$PROBLEMS. Release from a clean checkout of origin/main."; fi
 fi
 if [ "$MODE" != dry ]; then
-  for tool in gcloud curl node npm npx; do command -v "$tool" >/dev/null || stop "$tool is not installed."; done
+  for tool in gcloud curl node npm wrangler; do command -v "$tool" >/dev/null || stop "$tool is not installed (wrangler: the Cloudflare CLI, installed on this Mac outside the project, never fetched by npx)."; done
 fi
 
 PREVIOUS=${SINCE:-$(git tag --list 'rel-*' --merged HEAD --sort=-creatordate | grep -vx "$TAG" | head -1 || true)}
@@ -184,7 +184,7 @@ if [ "$SKIP_WEB" = 1 ]; then
 else
   step "8. Build and publish the web app (Pages project $WEB_PROJECT)   (--go only)"
   run go npm run build
-  run go npx wrangler@3 pages deploy dist --project-name clor-app --branch main
+  run go wrangler pages deploy dist --project-name clor-app --branch main
 fi
 
 if [ "$SKIP_SITE" = 1 ]; then
@@ -192,7 +192,7 @@ if [ "$SKIP_SITE" = 1 ]; then
 else
   step "9. Build and publish clor.in (Pages project $SITE_PROJECT)   (--go only)"
   run_in go website npm run build
-  run_in go website npx wrangler@3 pages deploy dist --project-name clor --branch main
+  run_in go website wrangler pages deploy dist --project-name clor --branch main
 fi
 
 step "10. Record the release   (--go only)"
