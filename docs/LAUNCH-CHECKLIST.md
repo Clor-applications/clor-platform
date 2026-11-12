@@ -111,7 +111,7 @@ write the PR number and date. Last updated: 12 Nov 2026, evening.
 
 - [ ] Cloud Run settings in the repo (timeout ≥ 300s, min/max instances); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` still describe the retired VM
 - [ ] Migrations run at every container start with runtime credentials; a bad one crash-loops all instances (seen 12 Nov). Move to a pre-deploy Cloud Run Job
-- [~] Alert when a background job fails: scheduler-level alert done 12 Nov; a single job failing inside a tick still only shows in `JobRun`
+- [~] Alert when a background job fails: done 12 Nov (a failing job makes the tick answer 500, which the scheduler alert catches). Still open: a job that keeps timing out, or stops running, raises nothing
 - [ ] Idempotency keyed by user and company, not the Authorization header (`middleware/idempotency.ts:23`)
 - [ ] E-invoice calls: queue, retry, timeout (`services/einvoice.ts:367`)
 - [ ] zod validation on the 47 route files without it, employee portal first
