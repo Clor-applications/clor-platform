@@ -1,3 +1,4 @@
+import { isAppEntitled } from '../services/subscriptions.js';
 import { checkPortalSession, endPortalSession, endPortalSessions, legacyCutoff, listPortalSessions, startPortalSession } from '../services/portalSessions.js';
 import { trackFirst } from '../services/productEvents.js';
 import { orgByCode } from '../services/displayCodes.js';
@@ -308,6 +309,8 @@ portalRouter.get('/me', async (req, res) => {
     approver: (await peoplePrisma.employee.count({ where: { orgId: e.orgId, reportingManagerId: e.id, status: { not: 'LEFT' } } })) > 0,
     /* A new or changed privacy notice is shown until they have read it. */
     privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
+    /* Money, growth, jobs and engagement are People's: hidden when the company has Attendance alone. */
+    people: await isAppEntitled(req.portal!.accountId, 'people'),
   });
 });
 

@@ -63,7 +63,7 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [x] Production behind main — released through #215 on 12 Nov. Still missing: scripted release with notes and a CHANGELOG entry
 - [ ] Release record: a script that builds, tags and writes release notes (audit P0 8)
 - [~] People / Attendance boundary, permission rule — on `claude/audit-stage0` (PR #218): Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner chose this list 12 Nov). `middleware/rbac.ts` `ATTENDANCE_OPENS_PEOPLE`, test `attendanceBoundary.test.ts`
-- [ ] Boundary, employee app: portal routes for expenses, advances and engagement have no app check; hide those portal tabs for Attendance-only companies
+- [~] Boundary, employee app — on PR #218: money, engagement and referrals routes need People (`portalNeedsPeople`); `/portal/me` says `people`, and the app hides Money, Jobs, Growth and Celebrations without it
 - [ ] Boundary, exclusivity: one company cannot hold both People and Attendance; an "Upgrade to People" action that keeps the data (ops subscription change + `accountProvisioning.ts`)
 - [ ] Hide the Attendance menu for People customers
 - [ ] Error tracker and uptime check with alerts to phone (Sentry free tier or Cloud Monitoring)

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 
 import { authenticate } from './portal.js';
+import { portalNeedsPeople } from '../services/people/guards.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { istDate } from '../services/attendance/compute.js';
 import '../services/people/engagement/index.js';
@@ -17,6 +18,7 @@ import { feedFor, setOptOut } from '../services/people/engagement/greetings.js';
  */
 export const peopleEngagementPortalRouter = Router();
 peopleEngagementPortalRouter.use(authenticate);
+peopleEngagementPortalRouter.use(portalNeedsPeople);
 
 type Me = { id: string; accountId: string; orgId: string; userId: string | null; departmentId: string | null; reportingManagerId: string | null; areaId: string | null; branchId: string | null };
 const me = (req: Request) => req.portal!.employee as Me;

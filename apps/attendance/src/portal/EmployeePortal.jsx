@@ -172,14 +172,13 @@ export default function EmployeePortal() {
             {/* Steps that are mine while I join or leave come first: they have dates. */}
             <MySteps guard={guard} refreshKey={leavingSent} />
             <ExitInterview guard={guard} refreshKey={leavingSent} />
-            <MyJobs guard={guard} />
-            <MyGrowth guard={guard} />
+            {me?.people !== false ? <><MyJobs guard={guard} /><MyGrowth guard={guard} /></> : null}
             <Payslips guard={guard} />
-            <MyMoney guard={guard} />
+            {me?.people !== false ? <MyMoney guard={guard} /> : null}
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <MyForms guard={guard} />
             <NightConsent guard={guard} />
-            <Celebrations guard={guard} />
+            {me?.people !== false ? <Celebrations guard={guard} /> : null}
             <Policies guard={guard} />
             {deskOn ? <PayCard onAsk={askBank} /> : null}
             <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />

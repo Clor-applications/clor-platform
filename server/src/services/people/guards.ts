@@ -89,3 +89,15 @@ export const hrOrAttendanceRouteOk = async (req: Request, res: Response): Promis
   res.status(402).json({ error: 'Neither People nor Attendance is on this account’s subscription.', app: on[0], code: 'APP_NOT_SUBSCRIBED' });
   return false;
 };
+
+/**
+ * For the employee app's People-only parts (money, engagement, referrals):
+ * the company must have People itself. Attendance alone opens the employee app
+ * for days, leave and documents, not these (platform audit, 11 Nov 2026;
+ * owner's list, 12 Nov 2026).
+ */
+export const portalNeedsPeople = async (req: Request, res: Response, next: () => void) => {
+  const accountId = (req as unknown as { portal?: { accountId?: string } }).portal?.accountId;
+  if (accountId && (await isAppEntitled(accountId, 'people'))) return next();
+  res.status(402).json({ error: 'This needs the People app, which your company does not have.', app: 'people', code: 'APP_NOT_SUBSCRIBED' });
+};

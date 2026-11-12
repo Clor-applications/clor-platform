@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 
 import { authenticate } from './portal.js';
+import { portalNeedsPeople } from '../services/people/guards.js';
 import { referLimiter } from '../middleware/rateLimit.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
@@ -15,6 +16,7 @@ import * as referrals from '../services/people/talent/referrals.js';
  */
 export const peopleReferralsPortalRouter = Router();
 peopleReferralsPortalRouter.use(authenticate);
+peopleReferralsPortalRouter.use(portalNeedsPeople);
 
 async function me(req: Request) {
   const p = req.portal!;
