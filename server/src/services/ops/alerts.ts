@@ -7,6 +7,7 @@ import { sendTemplate } from '../mailer.js';
 import { READER_OFFLINE_MS, workerLines } from './systemHealth.js';
 import { ticketCode } from '../support/tickets.js';
 import { customerTitle } from '../../routes/ops.js';
+import { apiErrorsSince } from './apiErrors.js';
 
 /**
  * Alerts for CLOR staff (Ops plan P1). Every ten minutes the job looks at what
@@ -30,11 +31,13 @@ export const RULES = {
   trialEndingDays: 3,
   /** This many jobs late together means the runner stopped, not each job. */
   lateJobsMeansStopped: 3,
+  /** This many failed requests in a quarter of an hour is an urgent alert; one or two are in Error Reporting only. */
+  apiErrorsPerQuarterHour: 5,
 };
 
 export type Finding = {
   key: string;
-  kind: 'worker' | 'email' | 'webhook' | 'readers' | 'closure' | 'invoice' | 'ticket' | 'trial';
+  kind: 'worker' | 'email' | 'webhook' | 'readers' | 'closure' | 'invoice' | 'ticket' | 'trial' | 'errors';
   severity: 'critical' | 'warning';
   audience: 'SUPPORT' | 'BILLING' | 'SALES';
   title: string;
@@ -112,6 +115,11 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
   for (const s of trials) {
     const days = Math.max(0, Math.ceil(((s.trialEndsAt as Date).getTime() - now) / DAY));
     out.push({ key: `trial:${s.accountId}`, kind: 'trial', severity: 'warning', audience: 'SALES', accountId: s.accountId, title: `${who(s.accountId)}: trial ends in ${plural(days, 'day')}`, detail: 'A good moment to call.', link: { page: 'customers', id: s.accountId } });
+  }
+  /* The API itself failing requests: customers are seeing "Server error" right now. */
+  const failed = await apiErrorsSince(at(15 * MIN), now);
+  if (failed.count >= RULES.apiErrorsPerQuarterHour) {
+    out.push({ key: 'api-errors', kind: 'errors', severity: 'critical', audience: 'SUPPORT', title: `CLOR failed ${plural(failed.count, 'request')} in the last 15 minutes`, detail: failed.worst ? `Most often: ${failed.worst.route} (${plural(failed.worst.count, 'time')}). Tell engineering; the details are in Error Reporting.` : 'Tell engineering; the details are in Error Reporting.', link: { page: 'health' } });
   }
   return out;
 }
