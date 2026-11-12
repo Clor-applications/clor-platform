@@ -67,11 +67,23 @@ export function downloadCsvTemplate({ fileName, columns, sample }) {
 }
 
 /**
+ * A note row in an import template: `# …` in the first cell and nothing after
+ * it. CLOR's People and Attendance templates explain each column this way
+ * (server: services/importTemplates.ts), and a file filled in under them comes
+ * back with the notes still on top.
+ */
+export const isCommentRow = (cells) => {
+  const filled = (Array.isArray(cells) ? cells : []).map((c) => String(c ?? '').trim()).filter(Boolean);
+  return filled.length === 1 && String(cells[0] ?? '').trim().startsWith('#');
+};
+
+/**
  * Parses CSV text into objects keyed by the header row.
  * Handles quoted fields, embedded commas/newlines and doubled quotes — the
- * three things a spreadsheet actually produces.
+ * three things a spreadsheet actually produces. `skipComments` leaves out
+ * a template's note rows (isCommentRow), so the heading row is found under them.
  */
-export function parseCsv(text) {
+export function parseCsv(text, { skipComments = false } = {}) {
   const src = String(text || '').replace(/^\ufeff/, '');
   const rows = [];
   let row = [];
@@ -112,7 +124,7 @@ export function parseCsv(text) {
     rows.push(row);
   }
 
-  const nonEmpty = rows.filter((r) => r.some((c) => String(c).trim() !== ''));
+  const nonEmpty = rows.filter((r) => r.some((c) => String(c).trim() !== '') && !(skipComments && isCommentRow(r)));
   if (!nonEmpty.length) return { headers: [], rows: [] };
 
   const headers = nonEmpty[0].map((h) => String(h).trim());

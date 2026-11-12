@@ -128,7 +128,8 @@ async function dateStyles(entries) {
 }
 
 /** { headers: string[], rows: string[][] } from the first sheet; the first non-empty row is the header. */
-export async function readXlsx(file) {
+/* `skipComments`: leave out an import template's note rows (`# …` alone in the first cell), as the CSV reader does. */
+export async function readXlsx(file, { skipComments = false } = {}) {
   const buf = new Uint8Array(await file.arrayBuffer());
   const entries = zipEntries(buf);
   const shared = all(await xmlOf(entries, 'xl/sharedStrings.xml'), 'si').map(textOf);
@@ -161,7 +162,7 @@ export async function readXlsx(file) {
     }
     grid.push(Array.from(cells, (x) => x ?? ''));
   }
-  const filled = grid.filter((r) => r.some((x) => x));
+  const filled = grid.filter((r) => r.some((x) => x) && !(skipComments && String(r[0] || '').startsWith('#') && r.filter(Boolean).length === 1));
   if (!filled.length) return { headers: [], rows: [] };
   const width = filled.reduce((w, r) => Math.max(w, r.length), 0);
   const pad = (r) => Array.from({ length: width }, (_, i) => r[i] ?? '');
