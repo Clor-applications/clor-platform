@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { registeredJobs, runRegisteredJobs } from '../services/jobRegistry.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 import { failedEvents } from '../services/people/outbox.js';
 
 /**
@@ -29,7 +30,10 @@ internalJobsRouter.post('/internal/jobs/tick', async (req, res) => {
   if (!process.env.JOBS_TOKEN) return res.status(404).json({ error: 'Not found' });
   if (!tokenOk(req.get('x-jobs-token'))) return res.status(401).json({ error: 'Unauthorized' });
   const only = Array.isArray(req.body?.only) ? req.body.only.map(String) : undefined;
-  const runs = await runRegisteredJobs({ only });
+  /* The request runs in a strict scope with no company (beginRequestScope), where row
+     security shows nothing. The jobs work across every company, as they do from the
+     in-process timer, so they run outside it; each enters a company itself (runInTenant). */
+  const runs = await outsideTenant('jobs: wake call', () => runRegisteredJobs({ only }));
   const failed = runs.filter((r) => !r.ok && !r.timedOut);
   res.status(failed.length ? 500 : 200).json({ ran: runs.length, failed: failed.length, runs });
 });
