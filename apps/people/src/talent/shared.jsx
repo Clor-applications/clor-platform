@@ -80,6 +80,9 @@ export function useStaff(enabled = true) {
 }
 export const staffOptions = (staff) => staff.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }));
 
+/** `[[key, label, count]]` as ListHeader's `tabs` want them. */
+export const tabItems = (tabs) => tabs.map(([key, label, count]) => ({ key, label, count: count || 0 }));
+
 /** Status tabs over a list, with the moving indicator every People list has. */
 export function Tabs({ label, tabs, value, onChange }) {
   const ref = useRef(null);

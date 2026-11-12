@@ -96,7 +96,8 @@ describe('who may do what', () => {
 
   it('whoever manages integration keys today gets the new page at deploy, revoke included', async () => {
     const d = await company();
-    const m = await member(d, ['ATTENDANCE::Attendance Integrations::VIEW', 'ATTENDANCE::Attendance Integrations::EDIT']);
+    /* #10: a key reads only what its maker may read, so this person also sees employees. */
+    const m = await member(d, ['ATTENDANCE::Attendance Integrations::VIEW', 'ATTENDANCE::Attendance Integrations::EDIT', 'PEOPLE::Employees::VIEW']);
     /*
      * As on a database whose catalogue has not got the new permission yet: the
      * migration makes it, then grants it. Done inside a transaction that is

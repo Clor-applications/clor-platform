@@ -16,6 +16,7 @@ import * as growth from '../services/people/talent/growth.js';
 import { TalentError } from '../services/people/talent/hiring.js';
 import { MAX_SWAP_DAYS, MIN_REST_HOURS, SwapError, answerSwap, askSwap, colleaguesFor, shapeSwaps, swapsOf, withdrawSwap } from '../services/people/shiftSwaps.js';
 import { FormError, fileFor, formsFor, myFormRequests, raise, replyOwn, withdrawOwn } from '../services/people/requestForms.js';
+import { LetterError, askFromApp, myLetterRequests } from '../services/people/letters.js';
 
 /**
  * People's own employee-facing routes, behind the employee app's sign-in
@@ -148,7 +149,8 @@ peoplePortalRouter.post('/me/change-request', async (req, res) => {
 
 const selfServiceError = (res: any, e: unknown) => {
   if (e instanceof SelfServiceError) return res.status(e.status).json({ error: e.message });
-  if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+  /* A 4xx carries words meant for the person; a 5xx's message is internal and stays in the log (audit 7 Nov 2026 #24). */
+  if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
   console.error('[people-portal me]', e instanceof Error ? e.message : e);
   res.status(500).json({ error: 'Something went wrong.' });
 };
@@ -172,6 +174,33 @@ peoplePortalRouter.post('/me/requests/:id/withdraw', async (req, res) => {
   }
 });
 
+/*
+ * Letters and copies of documents (People plan 8 Nov 2026, step 6): what I may ask for and what I asked;
+ * asking makes a LETTER_REQUEST or DOCUMENT_REQUEST that HR approves, and an approved letter lands in My documents.
+ */
+const letterError = (res: any, e: unknown) => {
+  if (e instanceof LetterError) return res.status(e.status).json({ error: e.message });
+  if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
+  console.error('[people-portal letters]', e instanceof Error ? e.message : e);
+  return res.status(500).json({ error: 'Something went wrong.' });
+};
+peoplePortalRouter.get('/me/letters', async (req, res) => {
+  try {
+    res.json(await myLetterRequests(me(req)));
+  } catch (e) {
+    letterError(res, e);
+  }
+});
+peoplePortalRouter.post('/me/letters', async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    res.status(201).json(await askFromApp({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, { kind: body.kind, what: body.what, note: body.note }));
+  } catch (e) {
+    letterError(res, e);
+  }
+});
+
 /* Resigning from the app (LIFE-05): a LEAVING request the manager and HR decide; the last day goes on the record when it is approved. */
 peoplePortalRouter.post('/me/resign', async (req, res) => {
   const { accountId, orgId, employeeId } = me(req);
@@ -179,7 +208,7 @@ peoplePortalRouter.post('/me/resign', async (req, res) => {
     res.status(202).json(await resignFromApp({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body || {}));
   } catch (e) {
     if (e instanceof ResignError) return res.status(e.status).json({ error: e.message });
-    if ((e as any)?.status) return res.status((e as any).status).json({ error: (e as Error).message });
+    if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
     console.error('[people-portal resign]', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'Something went wrong.' });
   }

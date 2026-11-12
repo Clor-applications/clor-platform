@@ -23,7 +23,8 @@ import { InvitationError, createInvitation, listInvitations, resendInvitation, r
 import { entitlementFor } from '../services/entitlements.js';
 import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { getFeatures } from '../services/features.js';
-import { appAccess } from '../services/subscriptions.js';
+import { appAccess, getSubscription } from '../services/subscriptions.js';
+import { accountEntities, dataHealth, monthlyRunRate, subscriptionWatch } from '../services/accountHealth.js';
 
 /**
  * The account, above any one company.
@@ -117,6 +118,21 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
     appsByOrg.set(o.id, access.restricted ? apps.filter((a) => access.ownedApps.includes(a)) : apps);
   }
 
+  /*
+   * The Overview's account-wide figures: what the account is set up as, what
+   * it pays, the seats it bought per app, and whether what feeds it from
+   * outside is flowing — over the companies still open (an archived one is
+   * read-only and off the plan's count).
+   */
+  const openIds = orgs.filter((o) => !o.archivedAt).map((o) => o.id);
+  const [entities, subscription, health, bills] = await Promise.all([
+    accountEntities(accountId, openIds),
+    getSubscription(accountId),
+    dataHealth(accountId, openIds),
+    /* CLOR's own invoices to this account that still want paying (roadmap item 8). */
+    platformPrisma.billingInvoice.findMany({ where: { accountId, status: 'ISSUED' }, select: { status: true, dueDate: true, total: true } }),
+  ]);
+
   const headByOrg = new Map(headOffices.map((b) => [b.orgId, b]));
   const peopleByOrg = new Map(memberships.map((m) => [m.orgId, Number(m._count) || 0]));
   const billedByOrg = new Map(
@@ -137,6 +153,12 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
       archivedCompanies: orgs.filter((o) => o.archivedAt).length,
       users: users.filter((u) => u.isActive).length,
     },
+    entities,
+    /* Seats bought per app; null where an app is not seat-metered. Seats in use are the Workspace's to count from the directory. */
+    seats: subscription ? subscription.items.map((i) => ({ app: i.appCode, bought: i.seats ?? null })) : null,
+    runRate: monthlyRunRate(subscription),
+    renewal: subscriptionWatch(subscription, bills),
+    dataHealth: health,
     companies: orgs.map((o) => {
       const billing = billedByOrg.get(o.id) || { count: 0, billed: 0, settled: 0 };
       const head = headByOrg.get(o.id);

@@ -1,5 +1,6 @@
 /**
- * Each app on its own address: accounting.clor.in opens Accounting,
+ * Each app on its own address: books.clor.in opens Books (the accounting
+ * app; accounting.clor.in still opens it, for old links and bookmarks),
  * payroll.clor.in opens Payroll. app.clor.in stays the front door (sign-in,
  * sign-up, email links) and sends a signed-in visitor on to their app.
  *
@@ -17,6 +18,11 @@
  * the employee portal at attendance.clor.in/#/portal).
  */
 export const APP_HOST_IDS = ['accounting', 'payroll', 'attendance', 'people'];
+
+/** The address label an app lives at when it differs from its id: the accounting app is Books (10 Nov 2026). */
+const HOST_OF = { accounting: 'books' };
+/** Address label to app: every app's own label, plus each app's old one. */
+const APP_OF_LABEL = Object.fromEntries([...APP_HOST_IDS.map((id) => [id, id]), ...Object.entries(HOST_OF).map(([id, label]) => [label, id])]);
 
 /** The workspace that lives on the front door (apps/admin). */
 export const ADMIN_APP_ID = 'admin';
@@ -37,7 +43,7 @@ export const PINNED_APP = (typeof import.meta !== 'undefined' && import.meta.env
 export const appFromHost = (hostname = globalThis.location?.hostname) => {
   if (PINNED_APP) return PINNED_APP;
   const [first, ...rest] = labels(hostname);
-  return rest.length >= 2 && APP_HOST_IDS.includes(first) ? first : null;
+  return rest.length >= 2 && APP_OF_LABEL[first] ? APP_OF_LABEL[first] : null;
 };
 
 /** Whether this address is the front door, app.<domain>. */
@@ -53,10 +59,10 @@ export const isFrontDoor = (hostname = globalThis.location?.hostname) => {
 export const hostForApp = (id, hostname = globalThis.location?.hostname) => {
   if (PINNED_APP) return null;
   /* Workspace is the front door's own workspace (ADR-010): from any app's address it opens on app.<domain>. */
-  const target = id === ADMIN_APP_ID ? FRONT_DOOR : id;
-  if (target !== FRONT_DOOR && !APP_HOST_IDS.includes(target)) return null;
+  if (id !== ADMIN_APP_ID && !APP_HOST_IDS.includes(id)) return null;
+  const target = id === ADMIN_APP_ID ? FRONT_DOOR : HOST_OF[id] || id;
   const [first, ...rest] = labels(hostname);
   if (rest.length < 2) return null;
-  if (first !== FRONT_DOOR && !APP_HOST_IDS.includes(first)) return null;
+  if (first !== FRONT_DOOR && !APP_OF_LABEL[first]) return null;
   return [target, ...rest].join('.');
 };

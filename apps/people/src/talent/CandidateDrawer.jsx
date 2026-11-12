@@ -55,12 +55,16 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
     if (await confirmDialog({ title: 'Cancel this interview?', message: 'The interviewers stop seeing it as theirs. It stays on the timeline.', confirmLabel: 'Cancel interview' })) act(() => cancelInterview(iv.id), 'Interview cancelled.');
   };
   const offerTarget = c ? { ...c, designation: c.openingTitle || '' } : null;
+  /* One hire path (People plan 8 Nov 2026, step 4): Hire is offered on an accepted offer; otherwise HR hires without one, saying why. */
+  const accepted = Boolean(d?.offers?.some((o) => o.status === 'ACCEPTED'));
+  const waiting = Boolean(d?.offers?.some((o) => o.status === 'SENT'));
   /* The one next step for where they stand; the others sit in the row under the details. */
   const primary = !c || !live ? null
     : c.stage === 'APPLIED' ? ['Move to screening', () => move('SCREENING')]
       : c.stage === 'SCREENING' ? ['Set an interview', () => setSub({ kind: 'interview' })]
         : c.stage === 'INTERVIEW' ? (canOffer ? ['Send an offer', () => setSub({ kind: 'offer' })] : ['Move to offer', () => move('OFFER')])
-          : c.stage === 'OFFER' && canHire ? ['Hire', () => setSub({ kind: 'hire' })] : null;
+          : c.stage === 'OFFER' && canHire && accepted ? ['Hire', () => setSub({ kind: 'hire' })]
+            : c.stage === 'OFFER' && canOffer && !waiting ? ['Send an offer', () => setSub({ kind: 'offer' })] : null;
 
   return (
     <Drawer open onClose={onClose} title={c?.name || 'Candidate'} widthClass={WIDE_SHEET} dirty={Boolean(note.trim())}
@@ -81,6 +85,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
           {d.referral ? <p className="text-sm">Referred by <span className="font-medium">{d.referral.referrer}</span>{d.referral.via === 'LINK' ? ', through their link' : ''} on <span className="tabular-nums">{day(d.referral.referredAt)}</span>{d.referral.relation ? `. How they know them: ${d.referral.relation}` : ''}.{d.referral.note ? <span className="block whitespace-pre-wrap ui-muted">{d.referral.note}</span> : null}</p> : null}
           {c.closedReason ? <p className="text-sm"><span className="ui-label">Why</span> {c.closedReason}</p> : null}
           {c.offerAcceptedOn ? <p className="text-sm">Offer accepted on <span className="tabular-nums">{day(c.offerAcceptedOn)}</span>.</p> : null}
+          {live && c.stage === 'OFFER' && waiting && !accepted ? <p className="text-sm ui-muted">Waiting for them to accept the offer. Hire opens when they do.</p> : null}
           <dl className="ui-field-grid">
             {hr ? <div><dt className="ui-label">E-mail</dt><dd className="text-sm break-all">{c.email || '—'}</dd></div> : null}
             {hr ? <div><dt className="ui-label">Phone</dt><dd className="text-sm tabular-nums">{c.phone || '—'}</dd></div> : null}
@@ -104,7 +109,8 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
             <div className="flex flex-wrap gap-2">
               <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSub({ kind: 'edit' })}>Edit details</button>
               {c.stage !== 'SCREENING' ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSub({ kind: 'interview' })}>Set an interview</button> : null}
-              {canOffer && c.stage !== 'INTERVIEW' ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSub({ kind: 'offer' })}>{d.offers.length ? 'Send a new offer' : 'Send an offer'}</button> : null}
+              {canOffer && c.stage !== 'INTERVIEW' && !(c.stage === 'OFFER' && !waiting && !accepted) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSub({ kind: 'offer' })}>{d.offers.length ? 'Send a new offer' : 'Send an offer'}</button> : null}
+              {canHire && !accepted ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSub({ kind: 'hire', withoutOffer: true })}>Hire without offer…</button> : null}
               <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Move to stage" value="" placeholder="Move to…" onChange={(v) => v && (v === 'WITHDRAWN' ? setSub({ kind: 'withdrawn' }) : move(v))}
                 options={[...OPEN_STAGES.filter((s) => s !== c.stage).map((s) => ({ value: s, label: word(STAGES, s) })), { value: 'WITHDRAWN', label: 'Withdrew' }]} /></div>
             </div>
@@ -180,7 +186,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
       {sub?.kind === 'interview' ? <InterviewForm candidate={c} interview={sub.interview} onClose={() => setSub(null)} onSaved={() => { setSub(null); reload(); }} /> : null}
       {sub?.kind === 'feedback' ? <FeedbackForm interview={sub.interview} name={c.name} onClose={() => setSub(null)} onSaved={() => { setSub(null); reload(); }} /> : null}
       {sub?.kind === 'offer' ? <OfferDrawer candidate={offerTarget} onClose={() => setSub(null)} onSent={() => { setSub(null); reload(); }} /> : null}
-      {sub?.kind === 'hire' ? <HireDrawer candidate={c} acceptedJoining={(d.offers.find((o) => o.status === 'ACCEPTED') || d.offers.find((o) => o.joiningDate))?.joiningDate} onClose={() => setSub(null)} onDone={(e) => { setSub(null); reload(); onHired?.(e); }} /> : null}
+      {sub?.kind === 'hire' ? <HireDrawer candidate={c} withoutOffer={Boolean(sub.withoutOffer)} acceptedJoining={(d.offers.find((o) => o.status === 'ACCEPTED') || d.offers.find((o) => o.joiningDate))?.joiningDate} onClose={() => setSub(null)} onDone={(e) => { setSub(null); reload(); onHired?.(e); }} /> : null}
       {sub?.kind === 'reject' || sub?.kind === 'withdrawn' ? (
         <ReasonDrawer title={sub.kind === 'reject' ? `Not taking ${c.name} forward` : `${c.name} withdrew`} label="Why" action="Save"
           help={sub.kind === 'reject' ? 'Say why. It stays on their card.' : 'Say why they withdrew.'}
@@ -242,7 +248,7 @@ export function CandidateForm({ value, openings = [], known = [], onClose, onSav
 }
 
 /** Set or move an interview: when, how, where, and who sits on it. */
-function InterviewForm({ candidate, interview, onClose, onSaved }) {
+export function InterviewForm({ candidate, interview, onClose, onSaved }) {
   const users = useRequest(() => interviewers().catch(() => []), []);
   /* Rooms and meeting links used before (the company's own places, nobody's private details). */
   const places = useRequest(() => listInterviews({ when: 'all' }).then((r) => usedValues(r?.interviews || [], (i) => i.place)).catch(() => []), []);
@@ -323,32 +329,55 @@ export function FeedbackForm({ interview, name, onClose, onSaved }) {
   );
 }
 
-/** Someone offered the job becomes an employee: their joining date and, if the company sets it, their ID. */
-function HireDrawer({ candidate, acceptedJoining, onClose, onDone }) {
+/** What the hire set in motion, in one line for the notice. */
+const handoffWords = (h) => {
+  if (!h) return '';
+  const parts = [];
+  if (h.joiningForm === 'SENT') parts.push('the joining form and app invite are on their way');
+  if (h.offerFiled && h.appointmentLetter) parts.push('the offer and appointment letters are on their record');
+  else if (h.offerFiled) parts.push('the offer letter is on their record');
+  else if (h.appointmentLetter) parts.push('the appointment letter is on their record');
+  if (h.salary?.made) parts.push(`their salary waits in Payroll to confirm (${h.salary.structureName})`);
+  else if (h.salary && !h.salary.made) parts.push(h.salary.why);
+  return parts.length ? ` ${parts.join('; ')}.`.replace(/^ (\w)/, (m, ch) => ` ${ch.toUpperCase()}`) : '';
+};
+
+/**
+ * Someone becomes an employee: their joining date and, if the company sets it, their ID. On an
+ * accepted offer, or without one when HR says why; the reason goes on their timeline.
+ */
+export function HireDrawer({ candidate, acceptedJoining, withoutOffer = false, onClose, onDone }) {
   const [dateOfJoining, setDate] = useState(acceptedJoining || todayIst());
   const next = useRequest(() => nextEmployeeCode().catch(() => ''), []);
   const [typed, setCode] = useState(null);
   const code = typed ?? next.data ?? '';
+  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const hire = async () => {
     if (!dateOfJoining) { setError({ message: 'Choose the joining date.' }); return; }
+    if (withoutOffer && !reason.trim()) { setError({ message: 'Say why they are hired without an accepted offer. It stays on their card.' }); return; }
     setBusy(true);
     setError(null);
     try {
-      const { employee } = await hireCandidate(candidate.id, { dateOfJoining, code: code.trim() || null });
-      notify.success(`${employee.name} is now an employee. Their joining plan has started.`);
+      const { employee, handoffs } = await hireCandidate(candidate.id, { dateOfJoining, code: code.trim() || null, ...(withoutOffer ? { withoutOffer: true, reason: reason.trim() } : {}) });
+      notify.success(`${employee.name} is now an employee. Their joining plan has started.${handoffWords(handoffs)}`);
       onDone(employee);
     } catch (e) { setError(e); setBusy(false); }
   };
   return (
-    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={`Hire ${candidate.name}`}
+    <Drawer open onClose={onClose} widthClass="w-[min(36rem,96vw)] ui-drawer-sheet" title={withoutOffer ? `Hire ${candidate.name} without an offer` : `Hire ${candidate.name}`} dirty={Boolean(reason.trim())}
       footer={<Footer onCancel={onClose} onSave={hire} busy={busy} label="Hire" />}>
       <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; hire(); }}>
         <FormError error={error} />
+        {withoutOffer ? (
+          <label className="block sm:col-span-2"><span className="ui-label">Why without an offer *</span>
+            <SuggestInput autoFocus maxLength={500} value={reason} onChange={setReason} suggestions={['Terms agreed in person', 'Offer sent outside CLOR', 'Rejoining on earlier terms']} />
+          </label>
+        ) : null}
         <div><label className="ui-label" htmlFor="hire-date">Joining date *</label><DatePicker id="hire-date" value={dateOfJoining} onChange={(v) => setDate(v || '')} /></div>
         <label className="block"><span className="ui-label">Employee ID</span><SuggestInput maxLength={40} value={code} onChange={setCode} suggestions={next.data ? [{ value: next.data, hint: 'Next ID' }] : []} /></label>
-        <p className="sm:col-span-2 ui-caption">Their record takes the opening’s department, designation, branch and hiring manager.</p>
+        <p className="sm:col-span-2 ui-caption">Their record takes the opening’s department, designation, branch and hiring manager. The joining form and the app invite go to their e-mail{withoutOffer ? '.' : ', and the offer’s pay goes to Payroll to confirm.'}</p>
       </form>
     </Drawer>
   );

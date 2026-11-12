@@ -87,7 +87,7 @@ export default function CompanyChoices({ openScreen }) {
   const changed = Object.keys(draft).filter((k) => byKey[k] && draft[k] !== byKey[k].value);
   const dirty = changed.length > 0;
   useUnsavedChanges(dirty);
-  const title = 'Company choices';
+  const title = 'Who decides & who sees';
 
   if (req.error && !req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title={title} /><ErrorState error={req.error} onRetry={req.reload} /></div>;
   if (!req.data) return <div className="space-y-6 max-w-2xl"><PageHeader title={title} /><SkeletonCard lines={8} /></div>;

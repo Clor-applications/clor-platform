@@ -306,6 +306,19 @@ describe('one digest a day (JCL-060)', () => {
     const notes = await runInTenant(c.orgId, () => platformPrisma.notification.findMany({ where: { orgId: c.orgId, userId: c.userId, dedupeKey: { startsWith: 'lifecycle-digest:' } } }));
     expect(notes).toHaveLength(1);
     expect(notes[0].body).toMatch(/Digest Joiner/);
+    /* Dates in words, and my own tasks open Inbox › My tasks (People plan 8 Nov 2026, step 2). */
+    expect(notes[0].body).toMatch(/late since \d{1,2} [A-Z][a-z]{2} \d{4}\)/);
+    expect(notes[0].body).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(JSON.parse(notes[0].linkJson!)).toMatchObject({ app: 'people', screen: 'approvals', params: { tab: 'tasks' } });
+    /* The next morning (and a stale row under the old dated key from before): still one row, refreshed and unread, the old one gone. */
+    await runInTenant(c.orgId, () => platformPrisma.notification.create({ data: { accountId: notes[0].accountId, orgId: c.orgId, userId: c.userId, kind: 'people.task', title: '1 joining and leaving task due or late', dedupeKey: `lifecycle-digest:${c.userId}:2026-10-20` } }));
+    await runInTenant(c.orgId, () => platformPrisma.notification.update({ where: { id: notes[0].id }, data: { readAt: new Date() } }));
+    await runInTenant(c.orgId, () => peoplePrisma.checklistTask.updateMany({ where: { orgId: c.orgId, employeeId: e.id }, data: { remindedOn: plus(istToday(), -1) } }));
+    await runDigests(tenAm);
+    const again = await runInTenant(c.orgId, () => platformPrisma.notification.findMany({ where: { orgId: c.orgId, userId: c.userId, kind: 'people.task' } }));
+    expect(again).toHaveLength(1);
+    expect(again[0].id).toBe(notes[0].id);
+    expect(again[0].readAt).toBeNull();
     /* Before 9 am nothing goes. */
     expect(await runDigests(new Date(`${istToday()}T08:00:00+05:30`))).toBe(0);
   }, 60_000);

@@ -1,16 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Calculator,
-  CalendarClock,
-  Check,
-  Clock,
-  Info,
-  Play,
-  Plus,
-  Wallet,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, Calculator, CalendarClock, Check, Clock, Info, Play, Plus, Wallet } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from "@ui/components/ColumnFilters";
 import { useListSearch } from "@ui/components/ListToolbar";
@@ -48,6 +37,8 @@ import LoadFailed from "@ui/components/ui/LoadFailed";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
 import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSetting";
+import StatutoryGapsPanel from "../components/StatutoryGapsPanel";
+import { RegistrationNotice } from "../components/StatutoryRegistrationsStep";
 import { openMonthsOf } from "../components/runGuardText";
 import { wholeRupees as money } from "@ui/utils/money";
 
@@ -451,6 +442,10 @@ const RunWorkflow = ({ runId, onBack }) => {
       {data.statutoryChecks?.length && ["CALCULATED", "REVIEW"].includes(run.status) ? (
         <StatutoryChecksBlocker checks={data.statutoryChecks} />
       ) : null}
+      {/* Statutory lines nothing worked out: not approved until set up, or the owner records they do not apply. */}
+      <StatutoryGapsPanel run={run} gaps={data.statutoryGaps} canWaive={data.canWaiveStatutory} onSaved={load} />
+      {/* Returns this payroll cannot be filed under yet: the registration numbers setup asks for. */}
+      <RegistrationNotice gaps={data.registrationGaps} />
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Tile label="People" value={run.employeeCount} />
         <Tile label="Gross" value={money(run.grossTotal)} />
@@ -716,8 +711,25 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
             if (ok)
               act(
                 "approve",
-                () => approvePayrollRun(runId),
-                () => notify.success("Payroll approved."),
+                async () => {
+                  try {
+                    return await approvePayrollRun(runId);
+                  } catch (e) {
+                    /* Tax withheld without a PAN: approved only once the approver says so, naming each person. */
+                    const people = e?.data?.people;
+                    if (e?.code !== "NO_PAN_UNACKNOWLEDGED" || !Array.isArray(people)) throw e;
+                    const sure = await confirmDialog({
+                      title: "Approve with tax withheld without a PAN?",
+                      message: `${people.map((p) => p.name).join(", ")} ${people.length === 1 ? "has" : "have"} no valid PAN, so income tax is withheld at 20% where that is more (section 206AA). Adding the PAN and calculating again lowers it. Approving now is recorded in the audit log.`,
+                      confirmLabel: "I know, approve",
+                    });
+                    if (!sure) return null;
+                    return approvePayrollRun(runId, { noPanAcknowledged: people.map((p) => p.employeeId) });
+                  }
+                },
+                (out) => {
+                  if (out) notify.success("Payroll approved.");
+                },
               );
           }}
         >

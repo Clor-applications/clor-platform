@@ -1,12 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, TreePalm, Upload, UserCheck, UserMinus, Users, X } from '@ui/components/ui/lineIcons';
 import { useContentIcon } from '@ui/components/ui/colorSwap';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
-import DataTable from '@ui/components/ui/DataTable';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import DataTable, { ColumnSettings } from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
 import Alert from '@ui/components/ui/Alert';
@@ -96,8 +95,6 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, tab);
   const rows = list.data?.employees || [];
   const total = Number(list.data?.total || 0);
   /* Managers to filter and move people to: everyone still here, by name (500 at most for the picker). */
@@ -166,7 +163,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       const filter = scope === 'all' ? { status: 'CURRENT' } : scope === 'selected' && !viaFilters ? { ids: [...selected].join(',') } : { ...apiParams(p), ...(tab === 'team' ? { team: 'mine' } : {}) };
       if (viaFilters) notify.info(`Exporting the ${total} people the filters match, which are the rows ticked.`);
       const text = await exportEmployees({ ...filter, columns: columns.join(',') });
-      downloadText(text, `employees-${new Date().toISOString().slice(0, 10)}.csv`);
+      downloadText(text, `employees-${todayIst()}.csv`);
       notify.success('Exported.');
     } catch (e) {
       notify.error(String(e?.message || 'Export failed.'));
@@ -201,25 +198,40 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="people-directory space-y-6">
-      <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Employees' }]}
+      <ListHeader
         title="Employees"
-        actions={<>
+        description="Everyone who works here, with where they sit and where they stand."
+        /* The strip's figures (working now, joining, left, on notice) are not the tabs' counts, so it stays. */
+        strip={<MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />}
+        secondary={<>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
           {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
-          {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => openScreen?.('employeeNew', {})}><Plus size={16} aria-hidden="true" /> Add employee</button> : null}
         </>}
+        primary={allowed('PEOPLE::Employees::CREATE') ? { label: 'Add employee', icon: Plus, onClick: () => openScreen?.('employeeNew', {}) } : null}
+        toolbar={tab === 'directory' || tab === 'team' ? <>
+          <SearchField value={p.q || ''} onSearch={(q) => { if (/\d{6,}/.test(q)) { setPrivateQ(q); set({ q: null, page: null }); } else { setPrivateQ(''); set({ q: q || null, page: null }); } }} placeholder="Search name, employee ID or work email" label="Search employees" className="w-full sm:w-80" />
+          <button type="button" className="ui-btn ui-btn-secondary" aria-haspopup="dialog" onClick={() => setFiltersOpen(true)}>
+            <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
+          </button>
+        </> : null}
+        toolbarEnd={tab === 'directory' || tab === 'team' ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: ['manager', 'type', 'location'] }} /> : null}
+        tabs={[{ key: 'directory', label: 'Directory' }, counts.data?.myTeam ? { key: 'team', label: 'My team', count: counts.data.myTeam } : null, { key: 'views', label: 'Saved views' }, pendingCount ? { key: 'pending', label: 'Pending actions', count: pendingCount } : null]}
+        tab={tab}
+        onTab={(k) => set({ tab: k === 'directory' ? null : k }, true)}
       />
-
-      <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
       <Banners openScreen={openScreen} />
-
-      <div ref={tabsRef} role="tablist" aria-label="Employees" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {[['directory', 'Directory'], ...(counts.data?.myTeam ? [['team', 'My team', counts.data.myTeam]] : []), ['views', 'Saved views'], ...(pendingCount ? [['pending', 'Pending actions', pendingCount]] : [])].map(([k, l, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`ui-tab ${tab === k ? 'is-active' : ''}`} onClick={() => set({ tab: k === 'directory' ? null : k }, true)}>{l}{n ? <span className="ui-tab-count tabular-nums">{n}</span> : null}</button>
-        ))}
-        {tabIndicator}
-      </div>
+      {selected.size ? (
+        <div className="ui-bulkbar" role="status" aria-live="polite">
+          <span className="tabular-nums font-medium">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
+          {rows.length && rows.every((r) => selected.has(r.id)) && total > selected.size ? (
+            <button type="button" className="ui-link text-sm" disabled={selectingAll} onClick={selectAllMatching}>{selectingAll ? 'Selecting…' : `Select all ${total} matching`}</button>
+          ) : null}
+          {allowed('PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ field: 'departmentId', value: '', reason: '' })}>Change…</button> : null}
+          {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setExportOpen(true)}>Export…</button> : null}
+          {allowed('PEOPLE::Lifecycle::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAppAccess([...selected].map((id) => ({ id, name: rows.find((r) => r.id === id)?.name || '' })))}>Send employee app access</button> : null}
+          <button type="button" className="ui-link text-sm" onClick={() => setSelected(new Set())}>Clear selection</button>
+        </div>
+      ) : null}
 
       {tab === 'pending' ? <PendingActions data={pending.data} error={pending.error} reload={pending.reload} openScreen={openScreen} /> : tab === 'views' ? <SavedViews params={params || {}} prefs={prefs} onApply={(v) => { const f = v.filters || {}; set({ ...Object.fromEntries([...FILTER_KEYS, 'q', 'sort', 'dir'].map((k) => [k, f[k] || null])), view: v.id, tab: null, page: null }, true); if (f.hidden || f.order || f.density) setPrefs({ hidden: f.hidden ? String(f.hidden).split(',').filter(Boolean) : [], order: f.order ? String(f.order).split(',').filter(Boolean) : [], density: f.density || undefined }); }} canShare={allowed('PEOPLE::Employees::EDIT')} /> : (
         <DataTable
@@ -234,8 +246,6 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
           sort={p.sort ? { key: p.sort, dir: p.dir === 'desc' ? 'desc' : 'asc' } : null}
           onSort={(s) => set({ sort: s.key, dir: s.dir === 'desc' ? 'desc' : null, page: null })}
           prefs={prefs}
-          onPrefs={setPrefs}
-          defaultPrefs={{ hidden: ['manager', 'type', 'location'] }}
           selectable={allowed('PEOPLE::Employees::EDIT') || allowed('PEOPLE::Employees::EXPORT')}
           selected={selected}
           onSelect={setSelected}
@@ -253,24 +263,6 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
               </span>
             </span>
           )}
-          toolbar={<>
-            <SearchField value={p.q || ''} onSearch={(q) => { if (/\d{6,}/.test(q)) { setPrivateQ(q); set({ q: null, page: null }); } else { setPrivateQ(''); set({ q: q || null, page: null }); } }} placeholder="Search name, employee ID or work email" label="Search employees" className="w-full sm:w-80" />
-            <button type="button" className="ui-btn ui-btn-secondary" aria-haspopup="dialog" onClick={() => setFiltersOpen(true)}>
-              <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
-            </button>
-            {selected.size ? (
-              <div className="ui-bulkbar" role="status" aria-live="polite">
-                <span className="tabular-nums font-medium">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
-                {rows.length && rows.every((r) => selected.has(r.id)) && total > selected.size ? (
-                  <button type="button" className="ui-link text-sm" disabled={selectingAll} onClick={selectAllMatching}>{selectingAll ? 'Selecting…' : `Select all ${total} matching`}</button>
-                ) : null}
-                {allowed('PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setBulk({ field: 'departmentId', value: '', reason: '' })}>Change…</button> : null}
-                {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setExportOpen(true)}>Export…</button> : null}
-                {allowed('PEOPLE::Lifecycle::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAppAccess([...selected].map((id) => ({ id, name: rows.find((r) => r.id === id)?.name || '' })))}>Send employee app access</button> : null}
-                <button type="button" className="ui-link text-sm" onClick={() => setSelected(new Set())}>Clear selection</button>
-              </div>
-            ) : null}
-          </>}
           empty={list.error ? (
             <ErrorState error={list.error} onRetry={list.reload} />
           ) : (p.q || filtersOn) ? (

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, PenLine, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, PenLine, Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
@@ -15,6 +15,8 @@ import {
   saveLwfSettings,
   adoptStatutoryRate,
 } from '../api/payrollStatutory';
+import { getStatutoryRegistrations, saveStatutoryRegistrations } from '../api/payrollSetup';
+import { PtRegistrationFields } from '../components/StatutoryRegistrationsStep';
 
 /**
  * Provident fund, ESI, professional tax, Labour Welfare Fund and income tax.
@@ -84,11 +86,11 @@ const describeRate = (scheme, rule) => {
   return parts.join(' · ');
 };
 
+/* Professional tax is registered state by state, so it is not one number here: see PtRegistrationFields below. */
 const REG_LABEL = {
   TDS: 'TAN',
   PF: 'PF establishment code',
   ESI: 'ESI employer code',
-  PT: 'PT registration number',
   LWF: 'LWF registration number',
 };
 
@@ -106,6 +108,9 @@ export default function PayrollCompliance() {
   const [adding, setAdding] = useState(null);
   /* Per state scheme: the states with people in payroll, or every state. */
   const [showAll, setShowAll] = useState({});
+  /* The registration numbers, read through the same door the setup step uses (one copy). */
+  const [regs, setRegs] = useState(null);
+  const [ptRows, setPtRows] = useState([]);
 
   const load = useCallback(async () => {
     try {
@@ -116,6 +121,13 @@ export default function PayrollCompliance() {
       setStates(out.states);
       setLwf(out.lwf);
       setError('');
+      /* A reader may not have the settings permission; the rest of the screen still shows. */
+      getStatutoryRegistrations()
+        .then((r) => {
+          setRegs(r);
+          setPtRows(r.pt.registrations);
+        })
+        .catch(() => setRegs(null));
     } catch (e) {
       setError(String(e?.message || 'Could not load the statutory schemes.'));
     } finally {
@@ -157,6 +169,19 @@ export default function PayrollCompliance() {
       notify.error(String(e?.message || 'Could not change that scheme.'));
     } finally {
       setBusy('');
+    }
+  };
+
+  /* Professional tax registrations, state by state, saved as each field is left. */
+  const savePt = async (rows) => {
+    try {
+      const next = await saveStatutoryRegistrations({
+        pt: { applies: schemes.find((s) => s.code === 'PT')?.isEnabled ?? false, registrations: rows.map((r) => ({ state: r.state, registrationNumber: r.registrationNumber || null })) },
+      });
+      setRegs(next);
+      setPtRows(next.pt.registrations);
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not save that number.'));
     }
   };
 
@@ -391,6 +416,11 @@ export default function PayrollCompliance() {
                           onBlur={(e) => saveNumber(scheme, e.target.value.toUpperCase())}
                         />
                       </label>
+                    ) : null}
+                    {scheme.code === 'PT' && regs ? (
+                      <div className="mt-2 max-w-xl">
+                        <PtRegistrationFields value={ptRows} onChange={setPtRows} levyStates={regs.pt.levyStates} onCommit={savePt} />
+                      </div>
                     ) : null}
                   </div>
                   <label className="flex items-center gap-2 text-sm" htmlFor={`scheme-${scheme.id}`}>

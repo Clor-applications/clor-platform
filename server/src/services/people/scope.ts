@@ -32,8 +32,11 @@ export async function teamScope(req: Request): Promise<TeamScope> {
     req.ownDocumentsOnly = access.ownDocumentsOnly;
   }
   if (!req.ownDocumentsOnly) return { all: true };
-  const orgId = req.tenant!.orgId;
-  const userId = req.auth?.userId || '';
+  return teamOf(req.tenant!.orgId, req.auth?.userId || '');
+}
+
+/** The people who report to this user (solid or dotted, any depth), and the user's own record: a team-scoped role's reach. */
+export async function teamOf(orgId: string, userId: string): Promise<TeamScope> {
   const me = userId ? await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } }) : null;
   if (!me) return { all: false, ids: [], selfId: null };
   const ids = new Set<string>([me.id]);

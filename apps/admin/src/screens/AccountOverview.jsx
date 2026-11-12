@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil } from '@ui/components/ui/lineIcons';
 
 import { renameAccount } from '@platform/admin/account';
 import { formatMoney } from '@ui/utils/money';

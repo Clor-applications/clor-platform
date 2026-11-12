@@ -67,7 +67,7 @@ function RowMenu({ label, items }) {
   );
 }
 
-function ColumnSettings({ columns, prefs, onPrefs, defaults }) {
+export function ColumnSettings({ columns, prefs, onPrefs, defaults }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
   const order = visibleColumns(columns, { ...prefs, hidden: [] }).map((c) => c.key);

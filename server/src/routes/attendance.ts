@@ -24,6 +24,8 @@ import {
   istInstant,
   istTime,
   monthSummary,
+  scheduledMinutes,
+  shiftRuleProblem,
   type ShiftRule,
 } from '../services/attendance/compute.js';
 import { clientIp } from '../services/auth.js';
@@ -56,15 +58,17 @@ import {
   periodContext,
   monthRows,
   periodRows,
+  payrollTakenBetween,
 } from '../services/attendance/days.js';
 import { DEFAULT_RULES, KINDS, KIND_WORDS, askRequest, cancelRequest, decideRequest, editRequest, rulesFor, saveRules, shiftChoices, story, usage, type Kind } from '../services/attendance/requests.js';
 import { CHAINS } from '../services/attendance/approvalChain.js';
 import { nightShiftsOn, timesOn } from '../services/attendance/nightShift.js';
-import { clockDateFor } from '../services/attendance/punches.js';
+import { clockDateFor, decideHeldPunch, decideHeldPunches, FUTURE_TOLERANCE_MS, readerClockAhead, workOutPendingDays } from '../services/attendance/punches.js';
 import { inScope, scopeWhere, teamScope } from '../services/people/scope.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { TRUST_LEVELS, readerTrustOn } from '../services/attendance/trust.js';
+import { parseAddressList, plainIp, validEntry, webClockRefusal, webClockSettings } from '../services/attendance/webClock.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -91,13 +95,16 @@ attendanceRouter.get('/orgs/:orgId/attendance/overview', can(PermissionAction.VI
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const date = dateParam(req.query.date, today());
+  /* A team-scoped role's overview is its own team's: headcount, days, late, queues. */
+  const scope = await teamScope(req);
+  const mine = scope.all ? {} : { employeeId: { in: scope.ids } };
   const [people, records, holiday] = await Promise.all([
     peoplePrisma.employee.findMany({
-      where: { accountId, orgId, status: { in: ['ACTIVE', 'ON_NOTICE'] }, attendanceRequired: true },
+      where: { accountId, orgId, status: { in: ['ACTIVE', 'ON_NOTICE'] }, attendanceRequired: true, ...scopeWhere(scope) },
       select: { id: true, name: true, code: true, department: true, photoUrl: true },
       orderBy: { name: 'asc' },
     }),
-    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date } }),
+    peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date, ...mine } }),
     peoplePrisma.holiday.findFirst({ where: { orgId, date, isOptional: false, branchId: null } }),
   ]);
   const byEmployee = new Map(records.map((r) => [r.employeeId, r]));
@@ -118,9 +125,9 @@ attendanceRouter.get('/orgs/:orgId/attendance/overview', can(PermissionAction.VI
       lateMinutes: r.lateMinutes,
     })),
     notIn: people.filter((p) => !byEmployee.get(p.id)?.checkIn && byEmployee.get(p.id)?.status !== 'ON_LEAVE').slice(0, 50),
-    toValidate: await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, validated: false, date: { lt: today() } } }),
-    pendingRequests: await peoplePrisma.attendanceRequest.count({ where: { accountId, orgId, status: 'PENDING' } }),
-    pendingLeave: await peoplePrisma.leaveRequest.count({ where: { accountId, orgId, status: 'PENDING' } }),
+    toValidate: await peoplePrisma.attendanceRecord.count({ where: { accountId, orgId, validated: false, date: { lt: today() }, ...mine } }),
+    pendingRequests: await peoplePrisma.attendanceRequest.count({ where: { accountId, orgId, status: 'PENDING', ...mine } }),
+    pendingLeave: await peoplePrisma.leaveRequest.count({ where: { accountId, orgId, status: 'PENDING', ...mine } }),
   });
 });
 
@@ -133,12 +140,17 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
   /* Reader trust (O-11): the filter and the column only while the company has it on. */
   const readerTrust = await readerTrustOn(accountId, orgId);
   const trust = readerTrust && (TRUST_LEVELS as readonly string[]).includes(String(pick('trust'))) ? pick('trust') : undefined;
+  /* A team-scoped role lists its own team's days only; anyone else's reads as absent. */
+  const scope = await teamScope(req);
   const rows = await peoplePrisma.attendanceRecord.findMany({
     where: {
       accountId,
       orgId,
       date: { gte: from, lte: to },
-      ...(pick('employeeId') ? { employeeId: pick('employeeId') } : {}),
+      /* One person asked for: only if they are in scope, never instead of the scope (review of #144). */
+      ...(pick('employeeId')
+        ? { employeeId: scope.all || scope.ids.includes(pick('employeeId')!) ? pick('employeeId') : '__none__' }
+        : scope.all ? {} : { employeeId: { in: scope.ids } }),
       ...(pick('status') ? { status: pick('status') } : {}),
       ...(pick('validated') ? { validated: pick('validated') === 'true' } : {}),
       ...(pick('late') === 'true' ? { lateMinutes: { gt: 0 } } : {}),
@@ -462,6 +474,14 @@ attendanceRouter.get('/orgs/:orgId/attendance/me', can(PermissionAction.VIEW, R.
       requests,
       /* The phone punch card, when HR has switched it on for this person (Portal access). */
       ...(await phoneStatus(me)),
+      /* Whether the plain clock may be pressed here, and if not why: the screen says so instead of a button the server refuses (#6). */
+      webClock: await (async () => {
+        const no = await webClockRefusal(me, plainIp(clientIp(req)));
+        if (!no) return { allowed: true };
+        /* The day the browser clock opened is closed by it whatever the rules say now (review of #144). */
+        if (open && (await openedByBrowser(orgId, me.id, open))) return { allowed: true, outOnly: true, code: no.code, why: no.message };
+        return { allowed: false, code: no.code, why: no.message };
+      })(),
     });
   } catch (e) {
     return sendError(res, e);
@@ -482,18 +502,32 @@ attendanceRouter.post('/orgs/:orgId/attendance/me/punch', can(PermissionAction.C
   }
 });
 
+/** Whether this open day was started with the browser clock (its IN is in the clock's own log). */
+async function openedByBrowser(orgId: string, employeeId: string, open: { checkIn: Date | null } | null) {
+  if (!open?.checkIn) return false;
+  const opened = await peoplePrisma.attendanceActivity.findFirst({ where: { orgId, employeeId, source: 'CLOCK', kind: 'IN', at: { gte: new Date(open.checkIn.getTime() - 60_000), lte: new Date(open.checkIn.getTime() + 60_000) } }, select: { id: true } });
+  return Boolean(opened);
+}
+
 attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREATE, R.self), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);
     if (me.status === 'LEFT') throw fail(403, 'This employee file is marked as having left.');
+    /* The punch policy applies here too (audit 7 Nov 2026, #6): the company switch, phone-only people, the office addresses. */
     const now = new Date();
     const open = await peoplePrisma.attendanceRecord.findFirst({
       where: { orgId, employeeId: me.id, checkIn: { not: null, gte: new Date(now.getTime() - 20 * 3_600_000) }, checkOut: null },
       orderBy: { checkIn: 'desc' },
     });
     const wanted = req.body?.kind === 'IN' || req.body?.kind === 'OUT' ? req.body.kind : open ? 'OUT' : 'IN';
+    /*
+     * A day this clock opened can always be closed by it (review of #144): someone who clocked in at the
+     * office and left from elsewhere, or whose company changed the rules since, is not stuck "in".
+     */
+    const refused = wanted === 'OUT' && (await openedByBrowser(orgId, me.id, open)) ? null : await webClockRefusal(me, plainIp(clientIp(req)));
+    if (refused) throw fail(403, refused.message, refused.code);
     let record;
     if (wanted === 'OUT') {
       if (!open) throw fail(409, 'You are not clocked in.');
@@ -513,6 +547,195 @@ attendanceRouter.post('/orgs/:orgId/attendance/clock', can(PermissionAction.CREA
     return sendError(res, e);
   }
 });
+
+/**
+ * Browser clock-in settings (audit #6): the company switch and the office addresses. Kept with the work
+ * sites, under Employee Portal, as the rest of "where may punches come from" is. `yourAddress` lets the
+ * person setting it up add the network they are on; `recent` are addresses clock-ins came from lately.
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/clock/settings', can(PermissionAction.VIEW, R.portal), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const s = await webClockSettings(orgId);
+  const since = new Date(Date.now() - 30 * 86_400_000);
+  const recent = await peoplePrisma.attendanceActivity.groupBy({ by: ['ip'], where: { orgId, source: 'CLOCK', at: { gte: since }, ip: { not: null } }, _count: { _all: true }, orderBy: { _count: { ip: 'desc' } }, take: 10 });
+  res.json({ allowed: s.allowed, addresses: s.addresses, yourAddress: plainIp(clientIp(req)), recent: recent.map((r) => ({ address: plainIp(r.ip), clockIns: r._count._all })).filter((r) => r.address) });
+});
+
+const webClockSchema = z.object({
+  allowed: z.boolean(),
+  addresses: z.array(z.string().trim().max(64)).max(50).default([]),
+});
+attendanceRouter.put('/orgs/:orgId/attendance/clock/settings', can(PermissionAction.EDIT, R.portal), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  /* A company setting: a team-scoped role does not change it for everyone. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Browser clock-in is set by someone who decides for the whole company.', code: 'TEAM_SCOPED' });
+  const parsed = webClockSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Send allowed and up to 50 addresses.' });
+  const addresses = parseAddressList(parsed.data.addresses.join('\n'));
+  const bad = addresses.filter((a) => !validEntry(a));
+  if (bad.length) return res.status(400).json({ error: `${bad[0]} is not an address or a block like 49.205.10.0/24.`, code: 'BAD_ADDRESS' });
+  const data = { webClockAllowed: parsed.data.allowed, webClockIps: addresses.join('\n'), updatedByUserId: req.auth!.userId };
+  const before = await peopleWrite(orgId, async () => {
+    const old = await webClockSettings(orgId);
+    await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...data }, update: data });
+    return old;
+  });
+  await recordAudit(req, { entity: 'ATTENDANCE_SETTINGS', entityId: orgId, action: 'UPDATE', message: `Browser clock-in ${data.webClockAllowed ? (addresses.length ? `on, from ${addresses.length} address${addresses.length === 1 ? '' : 'es'}` : 'on, from anywhere') : 'off'}`, metadata: { before, after: { allowed: data.webClockAllowed, addresses } } });
+  res.json({ allowed: data.webClockAllowed, addresses });
+});
+
+/**
+ * The first day the company kept attendance on CLOR (audit #5). Days before it with no record are not
+ * absent, not loss of pay and not "no record" on month close. Set by whoever closes months, for the whole
+ * company; refused when it would change a closed month's days.
+ */
+attendanceRouter.put('/orgs/:orgId/attendance/start-date', can(PermissionAction.APPROVE, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'The attendance start date is set by someone who sees the whole company.', code: 'TEAM_SCOPED' });
+  const raw = req.body?.date;
+  const date = raw === null || raw === '' ? null : String(raw || '');
+  if (date !== null) {
+    const t = new Date(`${date}T00:00:00Z`);
+    if (!ISO_DATE.test(date) || Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== date) return res.status(400).json({ error: 'Dates are YYYY-MM-DD.' });
+    if (date > today()) return res.status(400).json({ error: 'The start date cannot be after today.' });
+  }
+  try {
+    const before = await peopleWrite(orgId, async () => {
+      const old = (await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { attendanceStartDate: true } }))?.attendanceStartDate ?? null;
+      /*
+       * Every month whose days this moves: between the two dates, or — when one side is "no start date" —
+       * every month before the other. None of them may be closed: their figures went to Payroll.
+       */
+      if (old !== date) {
+        const set = [old, date].filter((x): x is string => Boolean(x)).sort();
+        const lo = old && date ? set[0].slice(0, 7) : '0000-01';
+        const hi = set[set.length - 1].slice(0, 7);
+        const lock = await peoplePrisma.attendanceMonthLock.findFirst({ where: { orgId, month: { gte: lo, lte: hi } }, orderBy: { month: 'asc' }, select: { month: true } });
+        if (lock) throw fail(409, `${lock.month} is closed. Reopen it before moving the start date across it.`, 'ATTENDANCE_MONTH_CLOSED');
+        /* Nor a month a final payroll run has taken, closed or not (review of #144). */
+        const taken = await payrollTakenBetween(orgId, old && date ? set[0] : '0000-01-01', set[set.length - 1]);
+        if (taken) throw fail(409, `Payroll for ${taken.period} is ${taken.state.toLowerCase()} and has taken those days. The start date cannot move across it.`, 'PAYROLL_TAKEN');
+      }
+      await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, attendanceStartDate: date, updatedByUserId: req.auth!.userId }, update: { attendanceStartDate: date, updatedByUserId: req.auth!.userId } });
+      return old;
+    });
+    await recordAudit(req, { entity: 'ATTENDANCE_SETTINGS', entityId: orgId, action: 'UPDATE', message: date ? `Attendance kept on CLOR from ${date}` : 'Attendance start date cleared', metadata: { before: { attendanceStartDate: before }, after: { attendanceStartDate: date } } });
+    res.json({ attendanceStartDate: date });
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+/**
+ * Reader punches held for a look (audit #11): a time ahead of the server's (the reader's clock was
+ * wrong), stored but on no day; and, for the last 31 days, lines whose date does not exist (31 Feb),
+ * kept as evidence only. Count releases a held punch once its time has come; Discard keeps it out.
+ */
+/* Whoever looks after readers, and whoever closes months (the held punches block a close); a team role only its team's (review of #144). */
+const heldView = requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.VIEW, R.devices], [ATTENDANCE_MODULE, PermissionAction.APPROVE, R.records]);
+const heldDecide = requireAnyPermission([ATTENDANCE_MODULE, PermissionAction.EDIT, R.devices], [ATTENDANCE_MODULE, PermissionAction.APPROVE, R.records]);
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+attendanceRouter.get('/orgs/:orgId/attendance/held-punches', heldView, async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const scope = await teamScope(req);
+  /* Month close asks for its month only (by the time on the punch); Unmatched punches for all. */
+  const month = MONTH.test(String(req.query.month || '')) ? String(req.query.month) : null;
+  const where = {
+    orgId,
+    reviewStatus: 'HELD',
+    ...(month ? { localTime: { gte: `${month}-01 00:00:00`, lte: `${month}-31 23:59:59` } } : {}),
+    ...(scope.all ? {} : { employeeId: { in: scope.ids } }),
+  };
+  const due = new Date(Date.now() + FUTURE_TOLERANCE_MS);
+  const [held, total, perReader, countable, impossible, devices] = await Promise.all([
+    peoplePrisma.devicePunch.findMany({ where, orderBy: { at: 'desc' }, take: 1000 }),
+    peoplePrisma.devicePunch.count({ where }),
+    /* Every reader with held punches, however many there are: the bulk actions work from these, not from the 1000 listed. */
+    peoplePrisma.devicePunch.groupBy({ by: ['deviceId'], where, _count: { _all: true } }),
+    peoplePrisma.devicePunch.groupBy({ by: ['deviceId'], where: { ...where, at: { lte: due }, employeeId: scope.all ? { not: null } : { in: scope.ids } }, _count: { _all: true } }),
+    !scope.all || month ? Promise.resolve([]) : peoplePrisma.readerEvent.findMany({ where: { orgId, outcome: 'REJECTED', reason: 'Not a real date and time', receivedAt: { gte: new Date(Date.now() - 31 * 86_400_000) } }, orderBy: { receivedAt: 'desc' }, take: 500, select: { id: true, deviceId: true, pin: true, localTime: true, receivedAt: true } }),
+    peoplePrisma.attendanceDevice.findMany({ where: { orgId }, select: { id: true, name: true, serialNumber: true } }),
+  ]);
+  const reader = new Map(devices.map((d) => [d.id, d.name || d.serialNumber]));
+  const canCount = new Map(countable.map((g) => [g.deviceId, g._count._all]));
+  /* How far ahead each reader's clock looks, so Count all can move its punches back (final review of #144). */
+  const ahead = new Map(await Promise.all(perReader.map(async (g) => [g.deviceId, await readerClockAhead(orgId, { deviceId: g.deviceId, month, employeeIds: scope.all ? null : scope.ids })] as const)));
+  const named = await withNames(orgId, held.map((p) => ({ employeeId: p.employeeId })));
+  res.json({
+    month,
+    total,
+    readers: perReader
+      .map((g) => ({ deviceId: g.deviceId, reader: reader.get(g.deviceId) || '—', count: g._count._all, countable: canCount.get(g.deviceId) || 0, aheadMinutes: ahead.get(g.deviceId) ?? null }))
+      .sort((a, b) => b.count - a.count),
+    held: held.map((p, i) => ({ id: p.id, deviceId: p.deviceId, reader: reader.get(p.deviceId) || p.serialNumber, pin: p.pin, time: p.localTime, receivedAt: p.createdAt, employeeId: p.employeeId, employeeName: p.employeeId ? named[i]?.employeeName || null : null, reason: p.heldReason, due: p.at.getTime() <= Date.now() })),
+    impossible: impossible.map((x) => ({ id: x.id, reader: reader.get(x.deviceId) || '—', pin: x.pin, time: x.localTime, receivedAt: x.receivedAt })),
+  });
+});
+
+/**
+ * Count or discard every held punch from one reader (and, from Month close, one month) at once
+ * (review of #144): a reader whose clock ran ahead for weeks leaves more than anyone can click
+ * through. A team role decides only its people's. One audit entry for the batch, with the counts.
+ */
+attendanceRouter.post('/orgs/:orgId/attendance/held-punches/bulk', heldDecide, async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const action = req.body?.action === 'release' ? 'release' : req.body?.action === 'discard' ? 'discard' : null;
+  const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId : '';
+  const month = req.body?.month == null || req.body.month === '' ? null : String(req.body.month);
+  /* Count only: move each punch back by this many minutes (the reader's clock was ahead), or 0 / null for as recorded. */
+  const shiftRaw = req.body?.shiftMinutes;
+  const shiftMinutes = shiftRaw == null || shiftRaw === '' ? 0 : Number(shiftRaw);
+  if (!action) return res.status(400).json({ error: 'Say whether to count or discard them.' });
+  if (!Number.isInteger(shiftMinutes) || shiftMinutes < 0 || shiftMinutes > 7 * 24 * 60) return res.status(400).json({ error: 'Moving punches back takes whole minutes, at most a week.' });
+  if (!deviceId) return res.status(400).json({ error: 'Choose the reader.' });
+  if (month && !MONTH.test(month)) return res.status(400).json({ error: 'The month should look like 2026-10.' });
+  const device = await peoplePrisma.attendanceDevice.findFirst({ where: { id: deviceId, orgId }, select: { id: true, name: true, serialNumber: true } });
+  if (!device) return res.status(404).json({ error: 'No such reader.' });
+  const scope = await teamScope(req);
+  try {
+    /* One chunk per call, in one transaction (decideHeldPunches): the screen calls again while `left` is above nought. */
+    const out = await peopleWrite(orgId, () => decideHeldPunches(orgId, { deviceId, month, employeeIds: scope.all ? null : scope.ids }, action, { shiftMinutes: action === 'release' ? shiftMinutes : 0 }));
+    const done = action === 'release' ? out.counted : out.discarded;
+    if (done) {
+      const name = device.name || device.serialNumber;
+      await recordAudit(req, {
+        entity: 'DEVICE_PUNCH',
+        entityId: device.id,
+        action: action === 'release' ? 'APPROVE' : 'REJECT',
+        message: `${done} held reader punch${done === 1 ? ' was' : 'es were'} ${action === 'release' ? 'counted' : 'discarded'} from ${name}${month ? ` for ${month}` : ''}${out.shiftMinutes ? `, moved back ${out.shiftMinutes} min (the reader's clock was ahead)` : ''}`,
+        metadata: { deviceId: device.id, month, action, ...out, teamOnly: !scope.all },
+      });
+    }
+    res.json(out);
+  } catch (e) {
+    return sendError(res, e);
+  }
+});
+
+const decideHeld = (action: 'release' | 'discard') => async (req: any, res: any) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const scope = await teamScope(req);
+  if (!scope.all) {
+    const p = await peoplePrisma.devicePunch.findFirst({ where: { id: String(req.params.id), orgId, reviewStatus: 'HELD' }, select: { employeeId: true } });
+    if (!p?.employeeId || !inScope(scope, p.employeeId)) return res.status(404).json({ error: 'No such held punch.' });
+  }
+  try {
+    const out = await peopleWrite(orgId, () => decideHeldPunch(orgId, String(req.params.id), action));
+    if (out.status !== 200) return res.status(out.status).json({ error: out.error, ...('code' in out && out.code ? { code: out.code } : {}) });
+    await recordAudit(req, { entity: 'DEVICE_PUNCH', entityId: String(req.params.id), action: action === 'release' ? 'APPROVE' : 'REJECT', message: action === 'release' ? 'A held reader punch was counted' : 'A held reader punch was discarded', metadata: { punch: out.punch } });
+    res.json(out);
+  } catch (e) {
+    return sendError(res, e);
+  }
+};
+attendanceRouter.post('/orgs/:orgId/attendance/held-punches/:id/release', heldDecide, decideHeld('release'));
+attendanceRouter.post('/orgs/:orgId/attendance/held-punches/:id/discard', heldDecide, decideHeld('discard'));
 
 // ---------------------------------------------------------------------------
 // Correction requests
@@ -765,7 +988,8 @@ const shiftSchema = z.object({
   graceMinutes: z.coerce.number().int().min(0).max(240).default(10),
   earlyOutGraceMinutes: z.coerce.number().int().min(0).max(240).default(0),
   halfDayMinutes: z.coerce.number().int().min(0).max(1440).default(240),
-  fullDayMinutes: z.coerce.number().int().min(1).max(1440).default(480),
+  /* Left out: the shift's own net minutes, start to end less the break (compute.ts scheduledMinutes). */
+  fullDayMinutes: z.coerce.number().int().min(1).max(1440).optional(),
   overtimeAfterMinutes: z.coerce.number().int().min(0).max(1440).optional().nullable(),
   /* The punch window: how early a check-in and how late a check-out still count; blank = no limit. */
   checkInBeforeMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours before the start.').optional().nullable(),
@@ -777,6 +1001,9 @@ const shiftSchema = z.object({
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Colours are #RRGGBB.').optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
+
+/** A shift's full day, or, left out, its own net minutes (start to end less the break). */
+const withFullDay = <T extends z.infer<typeof shiftSchema>>(s: T) => ({ ...s, fullDayMinutes: s.fullDayMinutes ?? scheduledMinutes(s) });
 
 /**
  * A shift's times and rules can change only while no closed month uses it:
@@ -816,7 +1043,10 @@ attendanceRouter.post('/orgs/:orgId/attendance/shifts', can(PermissionAction.CRE
   const { accountId, orgId } = req.tenant!;
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
-  if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  const data = withFullDay(parsed.data);
+  const problem = shiftRuleProblem(data);
+  if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
+  parsed.data.fullDayMinutes = data.fullDayMinutes;
   try {
     const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, createdByUserId: req.auth!.userId } as any });
     res.status(201).json({ shift });
@@ -832,7 +1062,16 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   if (!existing) return res.status(404).json({ error: 'No such shift.' });
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
-  if (parsed.data.halfDayMinutes > parsed.data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.' });
+  const data = withFullDay(parsed.data);
+  if (data.halfDayMinutes > data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.', code: 'SHIFT_RULES' });
+  /*
+   * A full day longer than the shift is refused when the hours change. A shift
+   * saved that way before the check keeps its name, code and colour editable:
+   * the shift worked as scheduled is still a full day (compute.ts workedAsScheduled).
+   */
+  const hours = (x: any) => [x.startTime, x.endTime, x.breakMinutes, x.halfDayMinutes, x.fullDayMinutes].join('|');
+  const problem = hours(data) !== hours(existing) ? shiftRuleProblem(data) : null;
+  parsed.data.fullDayMinutes = data.fullDayMinutes;
   const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
   try {
     /*
@@ -842,6 +1081,8 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
      */
     const next = { ...existing, ...Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined)) };
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(next))) await shiftOpen(orgId, existing.id);
+    /* After the closed-month check, so a month that holds the shift is what is said first. */
+    if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
     /* New times that run into the night reach every woman on this shift (people/nightConsent.ts). */
     if (next.startTime !== existing.startTime || next.endTime !== existing.endTime) {
       const on = await onShiftAhead(orgId, existing.id);
@@ -1092,7 +1333,10 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
   const { accountId, orgId } = req.tenant!;
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today().slice(0, 7);
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
-  res.json({ month, days: daysOfMonth(month).length, rows: await monthRows(accountId, orgId, month), closed: lock ? { at: lock.lockedAt, byUserId: lock.lockedByUserId } : null });
+  /* A team-scoped role sees its own team's rows. */
+  const scope = await teamScope(req);
+  const rows = (await monthRows(accountId, orgId, month)).filter((r: any) => inScope(scope, r.employeeId));
+  res.json({ month, days: daysOfMonth(month).length, rows, closed: lock ? { at: lock.lockedAt, byUserId: lock.lockedByUserId } : null });
 });
 
 /**
@@ -1101,14 +1345,26 @@ attendanceRouter.get('/orgs/:orgId/attendance/summary', can(PermissionAction.VIE
  * the payable days Payroll takes cannot move afterwards. Approve permission,
  * as validating days is; only a month that has ended can be closed.
  */
+const fullDaysPendingError = (n: number) => `${n} day${n === 1 ? ' was' : 's were'} scored a half day or absent under the old full-day rule and ${n === 1 ? 'has' : 'have'} not been corrected yet. Try closing again in a minute; if it keeps happening, tell support.`;
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const month = String(req.params.month);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   if (month >= today().slice(0, 7)) return res.status(400).json({ error: 'Only a month that has ended can be closed.' });
+  /* Closing freezes every person's days: a team role, which sees only its team, does not do it. */
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Closing a month is done by someone who sees the whole company.', code: 'TEAM_SCOPED' });
   /* The checklist first: a month with open items closes only when someone says they have seen them. */
   const { monthReadiness, snapshotMonth } = await import('../services/attendance/readiness.js');
+  /* Days the old full-day rule scored short are corrected before the month is weighed and closed, so none is left behind the lock (fullDayFix.ts). */
+  const { fixFullDaysQuietly } = await import('../services/attendance/fullDayFix.js');
+  await fixFullDaysQuietly({ accountId, orgId });
+  /* Days a reopen did not get to (marked dayPending) are worked out before the month is judged; nothing in a closed month. */
+  await peopleWrite(orgId, () => workOutPendingDays(orgId, month));
+  /* A day the fix could not correct is said before the checklist: the counts the closer would confirm are about to change. */
+  const { fullDaysToCorrect } = await import('../services/attendance/fullDayFix.js');
+  const leftBefore = await fullDaysToCorrect({ accountId, orgId }, month);
+  if (leftBefore.length) return res.status(409).json({ error: fullDaysPendingError(leftBefore.length), code: 'FULL_DAYS_PENDING' });
   const readiness = await monthReadiness(accountId, orgId, month);
   const open = readiness.checks.filter((c) => c.count > 0);
   if (open.length && req.body?.acknowledge !== true) {
@@ -1118,20 +1374,85 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
       readiness,
     });
   }
-  const result = await peopleWrite(orgId, async () => {
-    const latest = await monthReadiness(accountId, orgId, month);
-    if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
-    const lock = await peoplePrisma.attendanceMonthLock.upsert({
-      where: { orgId_month: { orgId, month } },
-      create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
-      update: {},
+  /*
+   * Working days with no record are docked as unpaid absence once the month closes (audit 7 Nov 2026, #5).
+   * A general "I have seen the open items" is not enough for that: the closer sends back the exact number
+   * of days they were shown, so a month whose count changed since, or a close that never looked, is refused.
+   */
+  const confirmed = Number(req.body?.confirmNoRecordDays);
+  const token = String(req.body?.confirmNoRecordToken || '');
+  const unconfirmed = (r: { noRecordDays: number; noRecordToken: string | null }) => r.noRecordDays > 0 && (confirmed !== r.noRecordDays || token !== r.noRecordToken);
+  /* A reader punch held for a look and dated in the month is on nobody's day: it is decided before the month is final (review of #144). */
+  const heldOf = (r: { checks: Array<{ key: string; count: number }> }) => r.checks.find((c) => c.key === 'held')?.count || 0;
+  if (heldOf(readiness)) {
+    return res.status(409).json({ error: `${heldOf(readiness)} reader punch${heldOf(readiness) === 1 ? ' is' : 'es are'} held for a look in this month. Count or discard ${heldOf(readiness) === 1 ? 'it' : 'them'} first.`, code: 'HELD_PUNCHES', readiness });
+  }
+  if (unconfirmed(readiness)) {
+    return res.status(409).json({
+      error: `${readiness.noRecordDays.toLocaleString('en-IN')} working day${readiness.noRecordDays === 1 ? '' : 's'} with no record would be docked as unpaid absence. Confirm them to close the month.`,
+      code: 'NO_RECORD_UNCONFIRMED',
+      noRecordDays: readiness.noRecordDays,
+      people: readiness.people.filter((p) => p.noRecord > 0).map((p) => ({ employeeId: p.employeeId, name: p.name, code: p.code, days: p.noRecordDates })),
     });
-    const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })) });
-    return { month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } };
-  });
-  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'CLOSE', message: `Closed ${month} (snapshot ${result.snapshot.version})${open.length ? `, with ${open.length} checklist item${open.length === 1 ? '' : 's'} acknowledged` : ''}`, metadata: { month, snapshotVersion: result.snapshot.version, acknowledged: open.map((c) => ({ key: c.key, count: c.count })) } });
+  }
+  let result: { month: string; closed: { at: Date; byUserId: string }; snapshot: { version: number } };
+  try {
+    result = await peopleWrite(orgId, async () => {
+      /* Under the lock, only a look: a day the fix above should have corrected (it failed, or the day is new) stops the close, never a write here. */
+      const left = await fullDaysToCorrect({ accountId, orgId }, month);
+      if (left.length) throw fail(409, fullDaysPendingError(left.length), 'FULL_DAYS_PENDING');
+      const latest = await monthReadiness(accountId, orgId, month);
+      if (latest.checks.some((c) => c.count > 0) && req.body?.acknowledge !== true) throw fail(409, 'The register changed. Review the month-close checklist again.', 'MONTH_NOT_READY');
+      if (heldOf(latest)) throw fail(409, 'A reader punch was held for this month since. Review the month-close checklist again.', 'HELD_PUNCHES');
+      if (unconfirmed(latest)) throw fail(409, 'The days with no record changed. Review the month-close checklist again.', 'NO_RECORD_UNCONFIRMED');
+      const lock = await peoplePrisma.attendanceMonthLock.upsert({
+        where: { orgId_month: { orgId, month } },
+        create: { accountId, orgId, month, lockedByUserId: req.auth!.userId },
+        update: {},
+      });
+      const snapshot = await snapshotMonth(accountId, orgId, month, req.auth!.userId, { ...latest, acknowledged: latest.checks.filter((c) => c.count > 0).map((c) => ({ key: c.key, count: c.count })), confirmedNoRecordDays: latest.noRecordDays });
+      return { month, closed: { at: lock.lockedAt, byUserId: lock.lockedByUserId }, snapshot: { version: snapshot.version } };
+    });
+  } catch (e) {
+    /* The refusals above carry their code (MONTH_NOT_READY, FULL_DAYS_PENDING, HELD_PUNCHES, NO_RECORD_UNCONFIRMED) to the screen. */
+    return sendError(res, e);
+  }
+  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'CLOSE', message: `Closed ${month} (snapshot ${result.snapshot.version})${open.length ? `, with ${open.length} checklist item${open.length === 1 ? '' : 's'} acknowledged` : ''}${readiness.noRecordDays ? `; ${readiness.noRecordDays} day${readiness.noRecordDays === 1 ? '' : 's'} with no record confirmed as unpaid absence` : ''}`, metadata: { month, snapshotVersion: result.snapshot.version, acknowledged: open.map((c) => ({ key: c.key, count: c.count })), confirmedNoRecordDays: readiness.noRecordDays } });
   res.json(result);
   emitWebhook(orgId, 'month.closed', { month, closedAt: result.closed.at, byUserId: req.auth!.userId });
+});
+
+/**
+ * Days the old full-day rule paid short, held because a pay run had taken
+ * them or the month was closed (fullDayFix.ts): someone paid the difference,
+ * and says so. Who and when are kept on each day; the audit log names them.
+ */
+attendanceRouter.post('/orgs/:orgId/attendance/full-day/paid', can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(String))].slice(0, 500) as string[] : [];
+  if (!ids.length) return res.status(400).json({ error: 'Say which days were paid.' });
+  const note = String(req.body?.note || '').trim().slice(0, 300) || null;
+  const { settleFullDays } = await import('../services/attendance/fullDayFix.js');
+  const scope = await teamScope(req);
+  const settled = await peopleWrite(orgId, () => settleFullDays(orgId, ids, req.auth!.userId, note, scope.all ? undefined : scope.ids));
+  if (!settled) return res.status(409).json({ error: 'Those days are no longer waiting to be paid. Check again.' });
+  await recordAudit(req, { entity: 'ATTENDANCE_FULL_DAY', entityId: ids[0], action: 'UPDATE', message: `Marked ${settled} day${settled === 1 ? '' : 's'} paid short as paid the difference${note ? `: ${note}` : ''}`, metadata: { ids, settled, note } });
+  res.json({ settled });
+});
+
+/** Undo "Paid the difference": the days are held again. Same right as marking them paid; audited. */
+attendanceRouter.post('/orgs/:orgId/attendance/full-day/unpaid', can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(String))].slice(0, 500) as string[] : [];
+  if (!ids.length) return res.status(400).json({ error: 'Say which days to hold again.' });
+  const { unsettleFullDays } = await import('../services/attendance/fullDayFix.js');
+  const scope = await teamScope(req);
+  const undone = await peopleWrite(orgId, () => unsettleFullDays(orgId, ids, scope.all ? undefined : scope.ids));
+  if (!undone) return res.status(409).json({ error: 'Those days are not marked paid. Check again.' });
+  await recordAudit(req, { entity: 'ATTENDANCE_FULL_DAY', entityId: ids[0], action: 'UPDATE', message: `Undid paid the difference on ${undone} day${undone === 1 ? '' : 's'} paid short: held again`, metadata: { ids, undone } });
+  res.json({ undone });
 });
 
 /**
@@ -1141,15 +1462,26 @@ attendanceRouter.post('/orgs/:orgId/attendance/months/:month/close', can(Permiss
  */
 attendanceRouter.post('/orgs/:orgId/attendance/months/:month/reopen', can(PermissionAction.APPROVE, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const { orgId } = req.tenant!;
+  const { accountId, orgId } = req.tenant!;
   const month = String(req.params.month);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
   const reason = String(req.body?.reason || '').trim().slice(0, 300);
   if (reason.length < 5) return res.status(400).json({ error: 'Say why the month is reopened. It goes in the audit log.', code: 'REASON_NEEDED' });
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Reopening a month is done by someone who sees the whole company.', code: 'TEAM_SCOPED' });
   const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
   if (!lock) return res.status(409).json({ error: `${month} is not closed.` });
-  await peopleWrite(orgId, () => peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } }));
-  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId } });
-  res.json({ month, closed: null });
+  /*
+   * Reader punches counted while it was closed left their days alone: work those days out now (final review of #144),
+   * in the same transaction, so a reopen that fails leaves the month closed with its marks rather than open without them.
+   */
+  const pendingDays = await peopleWrite(orgId, async () => {
+    await peoplePrisma.attendanceMonthLock.deleteMany({ where: { orgId, month } });
+    return workOutPendingDays(orgId, month);
+  });
+  /* The month is open again: days the old full-day rule held in it are corrected now, not at the next daily run (fullDayFix.ts). */
+  const { fixFullDaysQuietly } = await import('../services/attendance/fullDayFix.js');
+  await fixFullDaysQuietly({ accountId, orgId });
+  await recordAudit(req, { entity: 'ATTENDANCE_MONTH', entityId: month, action: 'REOPEN', message: `Reopened ${month}: ${reason}`, metadata: { month, reason, closedAt: lock.lockedAt, closedByUserId: lock.lockedByUserId, pendingDays } });
+  res.json({ month, closed: null, pendingDays });
   emitWebhook(orgId, 'month.reopened', { month: String(req.params.month), byUserId: req.auth!.userId });
 });

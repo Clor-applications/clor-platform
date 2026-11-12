@@ -1,136 +1,81 @@
 import React from 'react';
 import { Link } from '../router.jsx';
-import {
-  ArrowRight,
-  BarChart3,
-  Bell,
-  CalendarDays,
-  Clock,
-  Database,
-  FileText,
-  Fingerprint,
-  MapPin,
-  Receipt,
-  ShieldCheck,
-  UserRound,
-  Users,
-  Wallet,
-} from 'lucide-react';
-import { CONNECTIONS, PRODUCTS, SITE, productBySlug } from '../site.js';
+import { CONNECTIONS, SITE, demoFor, productBySlug } from '../site.js';
+import { useProducts } from '../catalogue.js';
 import { PRODUCT_CONTENT } from '../content.js';
 import { Mark, Status } from '../components/Brand.jsx';
-import { Closing, Faq, Reveal, RevealGroup, SectionHead, Steps } from '../components/Blocks.jsx';
-import Illustration from '../components/Illustration.jsx';
-import { Head, HowItWorks, TrustBand } from '../components/Sections.jsx';
+import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
+import { Head } from '../components/Sections.jsx';
 
 /*
- * Each app's page: its own illustration (the icon tile and its screen, from
- * the product artwork), what it covers, what it fixes, what is in it, a
- * working day in it, and how it joins the other apps. "Start with …" carries
- * the app into sign-up (?app=), so a new workspace opens straight into it.
+ * Each product's page: what it is, a screen drawn with sample data, what it
+ * fixes, what is in it, a working day in it, and how it joins the other
+ * products. The demo request carries the product (?app=), so the contact
+ * page names it in the message.
  */
 
-/** The app id inside app.clor.in, where it differs from the site's slug. */
-const APP_ID = { books: 'accounting' };
-const signUpFor = (slug) => `${SITE.signUpUrl}?app=${APP_ID[slug] || slug}`;
-
-/** What each app covers, as the connected-apps artwork names it. */
-const COVERS = {
-  books: [
-    [FileText, 'Invoices'],
-    [Receipt, 'Bills'],
-    [Database, 'GST'],
-    [BarChart3, 'Reports'],
-  ],
-  people: [
-    [UserRound, 'Employee records'],
-    [CalendarDays, 'Leave & attendance'],
-    [Users, 'Recruitment'],
-    [BarChart3, 'Performance'],
-  ],
-  payroll: [
-    [Wallet, 'Salaries'],
-    [ShieldCheck, 'Statutory compliance'],
-    [FileText, 'Payslips'],
-    [BarChart3, 'TDS & reports'],
-  ],
-  attendance: [
-    [Fingerprint, 'Biometric devices'],
-    [Clock, 'Shifts & leave'],
-    [MapPin, 'Real-time tracking'],
-    [BarChart3, 'Reports'],
-  ],
-  projects: [
-    [CalendarDays, 'Plans and milestones'],
-    [FileText, 'Tasks'],
-    [Clock, 'Time against work'],
-    [BarChart3, 'Project costs'],
-  ],
+/* Each product's hero photo: a person at work with that product's real screen on the device. */
+const PHOTOS = {
+  books: { src: ['/people/books-invoice-560.webp', '/people/books-invoice-980.webp'], w: [560, 980], h: 620, alt: 'A tax invoice in CLOR Books on a laptop, with sample data', cut: true },
+  people: { src: ['/people/people-hr-700.webp', '/people/people-hr-1400.webp'], w: [700, 1400], h: 788, alt: 'An HR manager looking at an employee’s profile in CLOR People' },
+  payroll: { src: ['/people/payroll-payslip-560.webp', '/people/payroll-payslip-1120.webp'], w: [560, 1120], h: 1400, alt: 'An employee reading her October payslip from CLOR Payroll on her phone', tall: true },
+  attendance: { src: ['/people/attendance-reader-700.webp', '/people/attendance-reader-1400.webp'], w: [700, 1400], h: 1050, alt: 'An employee punching in on a biometric reader showing CLOR Attendance' },
+  projects: { src: ['/people/projects-360.webp', '/people/projects-720.webp'], w: [454, 909], h: 720, alt: 'Two colleagues planning project work at a desk' },
+  timesheet: { src: ['/people/timesheet-360.webp', '/people/timesheet-720.webp'], w: [372, 744], h: 720, alt: 'A consultant logging time at his laptop' },
 };
 
-/** The app's artwork: its icon tile over its screen, on the app's own tint. Timesheet has none yet. */
-function ProductArt({ slug, name }) {
-  if (!COVERS[slug]) {
-    return (
-      <div className={`p-art p-art--plain p-art--${slug}`} aria-hidden="true">
-        <span className="p-art-blob" />
-        <span className="p-art-tile">
-          <Clock size={64} strokeWidth={1.75} />
-        </span>
-        <span className="p-art-label">Coming soon</span>
-      </div>
-    );
-  }
-  return (
-    <div className={`p-art p-art--${slug}`}>
-      <img className="p-art-icon" src={`/illustrations/app-${slug}-icon.webp`} width={344} height={180} alt="" decoding="async" fetchPriority="high" />
-      <img className="p-art-ui" src={`/illustrations/app-${slug}-ui.webp`} width={310} height={385} alt={`A screen from Clor ${name}.`} decoding="async" fetchPriority="high" />
-    </div>
-  );
-}
-
 function Hero({ p, c, soon }) {
+  const ph = PHOTOS[p.slug];
   return (
-    <section className={`hero p-hero p-hero--${p.slug}`} aria-labelledby="p-title">
-      <div className="wrap p-hero-grid">
-        <div className="p-hero-copy">
-          <p className="eyebrow hero-in" style={{ '--d': 0 }}>
-            Clor {p.name} {soon ? <Status product={p} /> : null}
-          </p>
-          <h1 id="p-title" className="h-hero p-title hero-in" style={{ '--d': 0 }}>
-            {c.title}
+    <section className="hero p-hero" aria-labelledby="p-title">
+      <div className={`wrap${ph ? ' p-hero-grid' : ''}`}>
+        <div className="hero-copy">
+          <h1 id="p-title" className="h-hero">
+            CLOR&nbsp;{p.name}
           </h1>
-          <p className="lede hero-in" style={{ '--d': 1 }}>
-            {c.intro}
+          {soon ? <Status product={p} /> : null}
+          <p className="lede">
+            {c.title} {c.intro}
           </p>
-          <div className="actions hero-in" style={{ '--d': 2 }}>
+          <div className="actions">
             {soon ? (
               <Link className="btn btn--primary btn--lg" href={`/contact?about=${p.slug}`}>
-                Notify me <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+                Tell me when it’s ready
               </Link>
             ) : (
-              <a className="btn btn--primary btn--lg" href={signUpFor(p.slug)}>
-                Start with {p.name} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
-              </a>
+              <>
+                <Link className="btn btn--primary btn--lg" href={demoFor(p.slug)}>
+                  Request a demo
+                </Link>
+                <a className="btn btn--trial btn--lg" href={`${SITE.startUrl}?app=${p.slug}`}>
+                  Start free trial
+                </a>
+              </>
             )}
-            <Link className="btn btn--quiet btn--lg" href={soon ? '/products' : '/contact'}>
-              {soon ? 'See what’s available now' : 'Talk to us'}
+            <Link className="btn btn--text" href="/products">
+              {soon ? 'See what’s available now' : 'All products'}
             </Link>
           </div>
-          {COVERS[p.slug] ? (
-            <ul className="p-covers hero-in" style={{ '--d': 3 }} aria-label={`What ${p.name} covers`}>
-              {COVERS[p.slug].map(([Icon, label]) => (
-                <li key={label}>
-                  <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
-                  {label}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          {soon ? null : (
+            <p className="p-signin">
+              Already using CLOR {p.name}?{' '}
+              <a href={SITE.appHomeFor(p.slug)}>Sign in at {SITE.appHomeFor(p.slug).replace(/^https?:\/\//, '')}</a>
+            </p>
+          )}
         </div>
-        <div className="p-hero-art">
-          <ProductArt slug={p.slug} name={p.name} />
-        </div>
+        {ph ? (
+          <figure className={`p-photo${ph.cut ? ' p-photo--cut' : ''}${ph.tall ? ' p-photo--tall' : ''}`}>
+            <img
+              src={ph.src[1]}
+              srcSet={`${ph.src[0]} ${ph.w[0]}w, ${ph.src[1]} ${ph.w[1]}w`}
+              sizes="(max-width: 900px) 100vw, 560px"
+              width={ph.w[1]}
+              height={ph.h || undefined}
+              fetchPriority="high"
+              alt={ph.alt}
+            />
+          </figure>
+        ) : null}
       </div>
     </section>
   );
@@ -140,20 +85,17 @@ function SoonPage({ p, c }) {
   return (
     <>
       <Hero p={p} c={c} soon />
-      <section className="section">
-        <div className="wrap">
-          <Head eyebrow="On the way" title="What we are building" intro="Plans, not promises: this is the direction, and it may change before release." />
-          <RevealGroup as="ul" className="p-cards p-cards--plain">
-            {c.planned.map((x, i) => (
-              <li key={x} className="p-card" style={{ '--i': i }}>
-                <span className="p-card-dot" aria-hidden="true" />
-                <h3 className="h-3">{x}</h3>
-              </li>
+      <section className="section" aria-labelledby="plan-title">
+        <div className="wrap split">
+          <Head id="plan-title" title="What we are building" intro="This is the direction, and it may change before release." />
+          <ul className="facts-list">
+            {c.planned.map((x) => (
+              <li key={x}>{x}</li>
             ))}
-          </RevealGroup>
+          </ul>
         </div>
       </section>
-      <Closing title="Use the apps that are ready today." text="Books, People, Payroll and Attendance share one workspace; Projects joins them when it is ready.">
+      <Closing title="Use the products that are ready today." text="Books, Payroll, People and Attendance share one login and one list of employees. Projects joins them when it is ready.">
         <Link href="/products">See every product</Link>
       </Closing>
     </>
@@ -171,125 +113,96 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="fixes-title">
         <div className="wrap">
-          <Head id="fixes-title" eyebrow={`Why ${p.name}`} title="What it fixes" />
-          <RevealGroup as="ul" className="p-cards">
-            {c.problems.map(([prob, fix], i) => (
-              <li key={prob} className="p-card" style={{ '--i': i }}>
+          <Head id="fixes-title" title="What it fixes" />
+          <ul className="groups">
+            {c.problems.map(([prob, fix]) => (
+              <li key={prob}>
                 <h3 className="h-3">{prob}</h3>
                 <p className="body">{fix}</p>
               </li>
             ))}
-          </RevealGroup>
+          </ul>
         </div>
       </section>
 
-      <section className="section section--tint" aria-labelledby="inside-title">
+      <section className="section" aria-labelledby="inside-title">
         <div className="wrap">
-          <Head center id="inside-title" eyebrow="Inside the app" title={`What’s in ${p.name}`} />
-          <RevealGroup as="dl" className={`p-features p-features--${slug}`}>
-            {c.features.map(([k, v], i) => (
-              <div key={k} className="p-feature" style={{ '--i': i }}>
+          <Head id="inside-title" title={`What’s in ${p.name}`} />
+          <dl className="p-features">
+            {c.features.map(([k, v]) => (
+              <div key={k} className="p-feature">
                 <dt className="h-3">{k}</dt>
                 <dd className="body">{v}</dd>
               </div>
             ))}
-          </RevealGroup>
+          </dl>
         </div>
       </section>
 
       <section className="section" aria-labelledby="flow-title">
         <div className="wrap split">
-          <Head id="flow-title" eyebrow="A day in it" title={c.workflow.title} />
+          <Head id="flow-title" title={c.workflow.title} />
           <Steps steps={c.workflow.steps} />
         </div>
       </section>
 
       {links.length ? (
-        <section className="section section--tint" aria-labelledby="links-title">
-          <div className="wrap">
-            <Head
-              center
-              id="links-title"
-              eyebrow="Better together"
-              title={`${p.name} and the other Clor apps`}
-              intro={`${p.name} works on its own. When you use the others too, these links work for you.`}
-            />
-            <Reveal className="connect-stage">
-              <Illustration className="connect-art" src="/illustrations/connected-apps.webp" width={1400} height={933} alt="People, Attendance, Payroll and Books joined at Clor." />
-            </Reveal>
-            <RevealGroup as="ul" className="p-links">
-              {links.map((x, i) => {
+        <section className="section" aria-labelledby="links-title">
+          <div className="wrap split">
+            <Head id="links-title" title={`${p.name} and the other CLOR products`} intro={`${p.name} works on its own. When you use the others too, these links work for you.`} />
+            <ul className="links">
+              {links.map((x) => {
                 const other = productBySlug(x.from === slug ? x.to : x.from);
                 return (
-                  <li key={x.from + x.to} className="p-link" style={{ '--i': i }}>
+                  <li key={x.from + x.to}>
                     <span className="links-pair">
                       <Mark product={productBySlug(x.from)} size={26} />
                       <span className="links-wire" aria-hidden="true" />
                       <Mark product={productBySlug(x.to)} size={26} />
                     </span>
                     <p className="body">{x.text}</p>
-                    <Link className="btn btn--text" href={`/products/${other.slug}`}>
-                      Clor {other.name} <ArrowRight size={16} strokeWidth={2} aria-hidden="true" />
+                    <Link className="text-link" href={`/products/${other.slug}`}>
+                      CLOR&nbsp;{other.name}
                     </Link>
                   </li>
                 );
               })}
-            </RevealGroup>
+            </ul>
           </div>
         </section>
       ) : null}
 
-      <section className="section" aria-labelledby="devices-title">
-        <div className="wrap split devices">
-          <Head
-            id="devices-title"
-            eyebrow="Anywhere you work"
-            title={`${p.name} on every device`}
-            intro={`In the browser on any computer, and in the Clor app on your phone. Sign in once; ${p.name} and your other apps follow you.`}
-          />
-          <Reveal className="devices-art-wrap">
-            <Illustration className="devices-art" src="/illustrations/devices.webp" width={1300} height={815} alt="A laptop, a phone and a tablet, each showing Clor, connected to the same workspace." />
-          </Reveal>
-        </div>
-      </section>
-
-      <HowItWorks />
-
-      <section className="section section--tint" aria-labelledby="roles-title">
+      <section className="section" aria-labelledby="roles-title">
         <div className="wrap split">
-          <Head id="roles-title" eyebrow="Access" title="Who sees what" />
-          <div className="p-roles">
-            <Bell size={22} strokeWidth={1.75} aria-hidden="true" />
+          <Head id="roles-title" title="Who sees what" />
+          <div className="stack">
             <p className="lede">{c.roles}</p>
+            <Link className="text-link" href="/security">
+              How CLOR keeps your data safe
+            </Link>
           </div>
         </div>
       </section>
 
-      <TrustBand />
-
-      <section className="section section--tint">
+      <section className="section">
         <div className="wrap">
           <Faq items={c.faq} />
         </div>
       </section>
 
-      <Closing title={`Try ${p.name} with your own data.`} text="Create a workspace, switch on the app and invite the people who will use it.">
-        <a href={signUpFor(slug)}>Start with {p.name}</a>
-      </Closing>
+      <Closing demoHref={demoFor(slug)} title={`See ${p.name} with your own data.`} text={`Tell us how you handle this today and we will walk you through the same month in CLOR ${p.name}.`} />
     </>
   );
 }
 
 export function Products() {
+  const PRODUCTS = useProducts();
   return (
     <>
       <section className="hero hero--product">
-        <div className="wrap products-hero">
-          <div className="stack" style={{ '--stack': '1.25rem' }}>
-            <h1 className="h-1">The Clor products</h1>
-            <p className="lede">Each one does a job on its own. Together they share one workspace, one sign-in, one list of people and one set of books.</p>
-          </div>
-          <Illustration className="products-hero-art" src="/illustrations/products-hero.webp" width={1240} height={668} priority alt="A Clor dashboard on a laptop and the Clor app on a phone." />
+        <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
+          <h1 className="h-1">The CLOR products</h1>
+          <p className="lede">Each one does a job on its own. Bought together, they share one login, one list of employees and one set of books.</p>
         </div>
       </section>
       <section className="section section--flush">
@@ -303,7 +216,7 @@ export function Products() {
                     <Mark product={p} size={44} />
                     <span className="stack" style={{ '--stack': '0.4rem' }}>
                       <span className="cat-name">
-                        Clor {p.name} <Status product={p} />
+                        CLOR&nbsp;{p.name} <Status product={p} />
                       </span>
                       <span className="body">{p.line}</span>
                     </span>
@@ -314,7 +227,7 @@ export function Products() {
           ))}
         </div>
       </section>
-      <section className="section section--tint">
+      <section className="section">
         <div className="wrap split">
           <SectionHead title="Better together, never required" intro="Links between products appear only when you have both. Nothing in one product stops working without another." />
           <ul className="links">
@@ -322,7 +235,7 @@ export function Products() {
               <li key={x.from + x.to}>
                 <span className="links-pair">
                   <Mark product={productBySlug(x.from)} size={26} />
-                      <span className="links-wire" aria-hidden="true" />
+                  <span className="links-wire" aria-hidden="true" />
                   <Mark product={productBySlug(x.to)} size={26} />
                 </span>
                 <p className="body">{x.text}</p>
@@ -335,4 +248,3 @@ export function Products() {
     </>
   );
 }
-

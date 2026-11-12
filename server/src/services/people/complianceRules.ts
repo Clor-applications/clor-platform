@@ -1,5 +1,6 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
+import { isCompanyUser } from './members.js';
 import { outsideTenant, runInTenant } from '../../utils/tenantScope.js';
 import { exclusive, leaseFor } from '../jobLease.js';
 import { notifyPermission, notifyUsers } from '../notifications.js';
@@ -7,7 +8,7 @@ import { writeEvent } from './outbox.js';
 import { registerJob } from '../jobRegistry.js';
 import { verifiedMime } from '../fileType.js';
 import { applicability, dueDates, staleLevyItem } from './compliance.js';
-import { addDays, istDate, todayIst } from '../../utils/istDate.js';
+import { addDays, dayWords, istDate, todayIst } from '../../utils/istDate.js';
 
 /**
  * The rule library and the obligations it produces (docs/people/02-PRD.md
@@ -329,9 +330,7 @@ export async function obligationsOf(accountId: string, orgId: string, where: { s
 }
 
 /** Someone who may own an obligation: a user of this company. */
-async function memberOf(accountId: string, orgId: string, userId: string) {
-  return Boolean(await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { userId: true } }));
-}
+const memberOf = isCompanyUser;
 const ownerLink = (id: string) => ({ app: 'people', screen: 'compliance', params: { id } });
 
 /**
@@ -474,7 +473,7 @@ export async function runObligationDues(now = new Date()) {
           await tx.obligation.update({ where: { id: o.id }, data: { dueToldAt: now } });
           await writeEvent(tx, { accountId, orgId, correlationId: `obligation_${o.id}` }, 'people.obligation.due.v1', { obligationId: o.id, ruleId: o.ruleId, ruleVersion: o.ruleVersion, establishmentId: o.establishmentId, period: o.period, title: o.title, dueOn: o.dueOn, status: o.status });
         });
-        const notice = { kind: 'people.obligation', title: `${o.status === 'OVERDUE' ? 'Overdue' : 'Due soon'}: ${o.title}`, body: `Due ${o.dueOn}.`, link: ownerLink(o.id) };
+        const notice = { kind: 'people.obligation', title: `${o.status === 'OVERDUE' ? 'Overdue' : 'Due soon'}: ${o.title}`, body: `Due ${dayWords(o.dueOn)}.`, link: ownerLink(o.id) };
         if (o.ownerUserId) await notifyUsers(accountId, orgId, [o.ownerUserId], notice).catch(() => undefined);
         else await notifyPermission(accountId, orgId, 'PEOPLE::Employees::EDIT', notice).catch(() => undefined);
         n += 1;

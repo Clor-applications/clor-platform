@@ -1,5 +1,5 @@
 /**
- * The Help centre's articles. Each says what a part of Clor is for, where it
+ * The Help centre's articles. Each says what a part of CLOR is for, where it
  * is, and the few steps people actually take there. Places are named exactly
  * as the menus name them; `open` is a screen the article can open directly
  * ({ app, screen }). Integration guides that need more room stay as pages
@@ -19,11 +19,11 @@ export const HELP_TOPICS = [
   {
     key: 'welcome',
     group: 'start',
-    title: 'Welcome to Clor',
+    title: 'Welcome to CLOR',
     summary: 'One sign-in for your books, people, payroll and attendance. The Workspace runs the account; each app does its own work.',
     sections: [
       {
-        heading: 'How Clor is laid out',
+        heading: 'How CLOR is laid out',
         points: [
           'The Workspace is where the account is run: companies, who has access, sign-in rules, the plan and your data.',
           'Accounting, Payroll, People and Attendance are the apps. Each company switches on the apps it uses.',
@@ -202,7 +202,7 @@ export const HELP_TOPICS = [
   {
     key: 'accounting',
     group: 'apps',
-    title: 'Accounting',
+    title: 'Books',
     summary: 'Invoices, bills, GST and the books behind them.',
     sections: [
       {
@@ -316,7 +316,7 @@ export const HELP_TOPICS = [
     key: 'scim',
     group: 'integrations',
     title: 'Directory sync (SCIM)',
-    summary: 'Your identity provider adds and removes people in Clor.',
+    summary: 'Your identity provider adds and removes people in CLOR.',
     doc: '/docs/scim.html',
   },
 ];

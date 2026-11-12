@@ -1,7 +1,9 @@
-import React from 'react';
-import { Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
+import { appFromHost } from './appHosts';
+import { QUOTES, sceneFile, sceneRatio, sceneSrc } from './authScenes';
 
 /**
  * The frame both sign-in and sign-up sit in.
@@ -10,9 +12,10 @@ import LegalLinks from './legal/LegalLinks';
  * different form in it — and a sign-up that looked like a different product
  * would make somebody wonder whether they had followed the right link.
  *
- * The brand side is the "Done, daily" panel of the red brand board: cream
- * paper, the promise in red, and a day's list ticked off in red. It carries
- * the platform claim, not the accounting one — somebody signing in may be here for payroll alone.
+ * The brand side says plainly what CLOR does and shows a day in it. It
+ * carries the platform claim, not the accounting one — somebody signing in may
+ * be here for payroll alone. No slogan, accent word or decoration (owner,
+ * 8 Nov 2026: drop what reads as machine-made).
  */
 
 /* What a day in CLOR looks like: two things done, one waiting on you. */
@@ -27,10 +30,7 @@ function CustomerBrand() {
   return (
     <>
       <div className="ui-auth-copy">
-        <h2 className="ui-auth-title">
-          Done, <span className="ui-auth-accent">daily.</span>
-        </h2>
-        <p className="ui-auth-lede">Books, GST, people and pay, ticked off before tea.</p>
+        <h2 className="ui-auth-title">Accounts, GST, staff and salaries for growing companies in India.</h2>
       </div>
 
       <div className="ui-auth-today" aria-label="An example day">
@@ -45,39 +45,102 @@ function CustomerBrand() {
           ))}
         </ul>
       </div>
-      <div className="ui-auth-halftone" aria-hidden="true" />
     </>
   );
 }
 
-export default function AuthLayout({ title, subtitle, wide = false, onHome, children, footer, brand }) {
+/**
+ * Lines worth reading, turning over one after another on the picture. Held still
+ * for anyone who asks for less motion; the dots let a reader pick one.
+ */
+function Quotes() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setInterval(() => setI((n) => (n + 1) % QUOTES.length), 7000);
+    return () => clearInterval(t);
+  }, [i]);
+  const q = QUOTES[i];
   return (
-    <div className="ui-auth min-h-dvh">
+    <figure className="ui-auth-facts">
+      <div key={i} className="ui-auth-fact">
+        <blockquote>“{q.text}”</blockquote>
+        <figcaption>{q.by}</figcaption>
+      </div>
+      <div className="ui-auth-fact-dots">
+        {QUOTES.map((x, n) => (
+          <button key={x.text} type="button" aria-label={`Quote ${n + 1} of ${QUOTES.length}`} aria-current={n === i ? 'true' : undefined} onClick={() => setI(n)} />
+        ))}
+      </div>
+    </figure>
+  );
+}
+
+/**
+ * The picture side: the whole picture, never cropped (owner, 10 Nov 2026). The side is
+ * cut to the picture's own shape where the screen allows; where it is narrower, the
+ * picture is shown whole over a soft, blurred copy of itself. Quotes along the bottom.
+ * On a phone it is a band above the form.
+ */
+function Scene({ file, band = false }) {
+  const { src, srcSet } = sceneSrc(file);
+  return (
+    <div className={band ? 'ui-auth-scene-band lg:hidden' : 'ui-auth-scene'}>
+      <img className="ui-auth-scene-fill" src={src} alt="" aria-hidden="true" decoding="async" />
+      <img className="ui-auth-scene-pic" src={src} srcSet={srcSet} sizes={band ? '100vw' : '70vw'} alt="" decoding="async" fetchpriority="high" />
+      {band ? null : (
+        <div className="ui-auth-scene-top">
+          <Quotes />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function AuthLayout({ title, subtitle, wide = false, onHome, children, footer, brand, scene = 'signin' }) {
+  /* The operator console brings its own brand side; the customer's doors get a picture. */
+  const app = appFromHost();
+  const file = brand ? null : sceneFile(scene, app);
+  return (
+    <div className={`ui-auth min-h-dvh${file ? ' has-scene' : ''}`}>
       <div className="ui-min-h-viewport flex">
-        <aside className={`ui-auth-brand hidden lg:flex${brand ? '' : ' is-board'}`} aria-label="About CLOR">
-          <div className="ui-auth-brand-inner">
-            <button type="button" onClick={onHome} className="text-left" aria-label="CLOR, back to clor.in">
-              <ClorLogo size={30} />
-            </button>
+        {file ? (
+          <aside className="ui-auth-brand ui-auth-brand--scene hidden lg:flex" aria-label="About CLOR" style={{ '--scene-ratio': sceneRatio(file) }}>
+            <Scene file={file} />
+          </aside>
+        ) : (
+          <aside className={`ui-auth-brand hidden lg:flex${brand ? '' : ' is-board'}`} aria-label="About CLOR">
+            <div className="ui-auth-brand-inner">
+              <button type="button" onClick={onHome} className="text-left">
+                <ClorLogo size={30} title="CLOR, back to clor.in" />
+              </button>
 
-            {brand || <CustomerBrand />}
+              {brand || <CustomerBrand />}
 
-            <p className="ui-caption">© 2026 Clor Applications Pvt Ltd</p>
-          </div>
-        </aside>
+              <p className="ui-caption">© 2026 Clor Applications Pvt Ltd</p>
+            </div>
+          </aside>
+        )}
 
-        <div className="relative flex-1 flex items-center justify-center px-6 py-10">
+        <div className="relative flex-1 flex flex-col items-center justify-center px-6 py-10">
           <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-md'}`}>
-            <div className="lg:hidden mb-8 text-center">
-              <button type="button" onClick={onHome} className="inline-flex items-center gap-2" aria-label="CLOR, back to clor.in">
-                <ClorLogo size={30} />
+            <div className="lg:hidden mb-6 text-center">
+              <button type="button" onClick={onHome} className="inline-flex items-center gap-2">
+                <ClorLogo size={30} title="CLOR, back to clor.in" />
               </button>
             </div>
+            {file ? <Scene file={file} band /> : null}
 
             <div className="ui-auth-card ui-in">
               <div className="mb-7">
+                {file ? (
+                  /* Beside a picture the logo sits over the form, above the page's title (owner, 10 Nov 2026). */
+                  <button type="button" onClick={onHome} className="ui-auth-form-logo hidden lg:inline-flex">
+                    <ClorLogo size={30} title="CLOR, back to clor.in" />
+                  </button>
+                ) : null}
                 <h1 className="ui-auth-form-title">{title}</h1>
-                <p className="ui-muted mt-2 text-sm">{subtitle}</p>
+                {subtitle ? <p className="ui-muted mt-2 text-sm">{subtitle}</p> : null}
               </div>
 
               {children}

@@ -33,7 +33,7 @@ export default function ForgotPassword({ onHome, onSignIn }) {
   };
 
   return (
-    <AuthLayout
+    <AuthLayout scene="forgot"
       title="Reset your password"
       subtitle={sent ? 'Check your inbox.' : 'We will email you a link to choose a new one.'}
       onHome={onHome}
@@ -49,7 +49,7 @@ export default function ForgotPassword({ onHome, onSignIn }) {
       {sent ? (
         <div className="space-y-3 text-sm" role="status">
           <p>
-            If <strong>{email.trim()}</strong> has a Clor account, a reset link is on its way. It works once and
+            If <strong>{email.trim()}</strong> has a CLOR account, a reset link is on its way. It works once and
             expires in 30 minutes.
           </p>
           <p className="ui-muted">Nothing arrived after a few minutes? Check spam, or send it again.</p>

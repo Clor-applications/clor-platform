@@ -110,7 +110,7 @@ describe('billing', () => {
    */
   it('says it is not connected, and shows no invented money', async () => {
     render(<BillingPreview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByText(/Preview — billing is not connected yet/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Preview — card payment is not connected yet/)).toBeInTheDocument());
     expect(screen.queryByText(/sample/i)).toBeNull();
     expect(screen.queryByRole('table')).toBeNull();
     expect(screen.getByText(/No invoices/)).toBeInTheDocument();

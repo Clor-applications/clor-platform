@@ -350,6 +350,7 @@ describe('records about people', () => {
 
   it('removes link tokens from a sent email copy', () => {
     expect(withoutLinkTokens('Reset: https://x.test/?token=abc.DEF-123 now')).toBe('Reset: https://x.test/?token=[removed-after-sending] now');
+    expect(withoutLinkTokens('Set it: https://app.test/?reset=abc123 and https://app.test/?verify=xyz')).toBe('Set it: https://app.test/?reset=[removed-after-sending] and https://app.test/?verify=[removed-after-sending]');
   });
 
   it('deletes expired sign-in records', async () => {

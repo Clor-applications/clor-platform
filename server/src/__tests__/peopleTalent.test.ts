@@ -116,10 +116,14 @@ describe('hiring, from opening to employee record', () => {
     expect(after.interviews[0].status).toBe('DONE');
     expect((await api(interviewer).get('/talent/interviews').expect(200)).body.interviews.map((i: any) => i.candidate.name)).toEqual(['Meera K']);
 
-    /* Not hired before an offer; the offer moves them to Offer; hire makes the record with the opening's details. */
-    await api(c).post(`/talent/candidates/${meera.id}/hire`, { dateOfJoining: plus(10) }).expect(409);
+    /* Not hired before an accepted offer (People plan 8 Nov 2026, step 4); the offer moves them to Offer; accepting it opens Hire; hire makes the record with the opening's details. */
+    expect((await api(c).post(`/talent/candidates/${meera.id}/hire`, { dateOfJoining: plus(10) }).expect(409)).body.code).toBe('NO_ACCEPTED_OFFER');
     await api(c).post('/offers', { candidateId: meera.id, email: 'meera@example.com', designation: 'Senior accountant', joiningDate: plus(10), acceptBy: plus(5), annualCtc: 600000, lines: [{ label: 'Basic', monthly: 25000 }], signatory: 'Asha, Owner' }).expect(201);
     expect((await api(c).get(`/talent/candidates/${meera.id}`).expect(200)).body.candidate.stage).toBe('OFFER');
+    expect((await api(c).post(`/talent/candidates/${meera.id}/hire`, { dateOfJoining: plus(10) }).expect(409)).body.code).toBe('NO_ACCEPTED_OFFER');
+    const mail = await platformPrisma.emailOutbox.findFirst({ where: { orgId: c.orgId, templateKey: 'people.offer', toEmail: 'meera@example.com' }, orderBy: { createdAt: 'desc' } });
+    const token = /\/api\/people\/offer\/([a-f0-9]{64})/.exec(mail?.bodyText || '')?.[1] || '';
+    await request(app).post(`/api/people/offer/${token}/accept`).send({}).expect(200);
     const hired = (await api(c).post(`/talent/candidates/${meera.id}/hire`, { dateOfJoining: plus(10), code: 'H-21' }).expect(201)).body.employee;
     const file = (await api(c).get(`/employees/${hired.id}`).expect(200)).body.employee;
     expect(file).toMatchObject({ name: 'Meera K', code: 'H-21', departmentId: dept.id, jobPositionId: desig.id, branchId: c.branchId, reportingManagerId: managerEmp.id, dateOfJoining: plus(10) });

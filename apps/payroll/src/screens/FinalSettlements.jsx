@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Handshake, PauseCircle, Plus, RotateCcw, Trash2, UserMinus, Wallet } from 'lucide-react';
+import { AlertTriangle, Check, Handshake, PauseCircle, Plus, RotateCcw, Trash2, UserMinus, Wallet } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

@@ -28,7 +28,7 @@ export const ARCHIVE_REASON_LABEL: Record<ArchiveReason, string> = {
   MERGED: 'Merged into another company',
   SOLD: 'Business sold',
   DUPLICATE: 'Created by mistake / duplicate',
-  NOT_NEEDED: 'No longer needed in Clor',
+  NOT_NEEDED: 'No longer needed in CLOR',
   OTHER: 'Other',
 };
 

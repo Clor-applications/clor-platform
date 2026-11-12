@@ -1,6 +1,6 @@
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from 'lucide-react';
+import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { REASON_CODES, STATUS } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
@@ -21,6 +21,7 @@ import MyMoney from './MyMoney';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
+import AskLetter from './AskLetter';
 import { FixNotices, MyMarks, NightConsent } from './TimeRules';
 import { Celebrations, ExitInterview, TodayPosts } from './Engagement';
 import {
@@ -150,7 +151,7 @@ export default function EmployeePortal() {
     <div className="ui-portal min-h-dvh pb-20" data-brand="d" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <header className="sticky top-0 z-10 border-b px-4 py-3" style={{ backgroundColor: 'rgb(var(--surface))', borderColor: 'rgb(var(--border))' }}>
         <div className="mx-auto flex max-w-md items-center gap-2">
-          <Fingerprint size={20} aria-hidden="true" style={{ color: 'rgb(var(--accent))' }} />
+          <Fingerprint size={20} aria-hidden="true" style={{ color: 'rgb(var(--brand-ink))' }} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{me?.company?.name || 'Employee portal'}</div>
             <div className="ui-caption truncate">{me ? `${me.employee.name}${me.employee.code ? ` · ${me.employee.code}` : ''}` : ' '}</div>
@@ -199,7 +200,8 @@ export default function EmployeePortal() {
                 <button
                   type="button"
                   className="flex w-full flex-col items-center gap-0.5 py-2 text-[11px]"
-                  style={{ color: on ? 'rgb(var(--accent))' : 'rgb(var(--fg-muted))', fontWeight: on ? 600 : 400 }}
+                  /* The open tab's words in the brand's ink: the neon itself (amber, orange) is too light for text on white. */
+                  style={{ color: on ? 'rgb(var(--brand-ink))' : 'rgb(var(--fg-muted))', fontWeight: on ? 600 : 400 }}
                   aria-current={on ? 'page' : undefined}
                   onClick={() => setTab(t.key)}
                 >
@@ -228,7 +230,12 @@ const fromLink = () => {
   }
 };
 
-function PortalSignIn({ onDone }) {
+const SIGN_IN_TABS = [
+  ['signin', 'Sign in'],
+  ['activate', 'First time? Activate'],
+];
+
+export function PortalSignIn({ onDone }) {
   const [mode, setMode] = useState('signin');
   const [form, setForm] = useState(() => {
     const link = fromLink();
@@ -255,25 +262,48 @@ function PortalSignIn({ onDone }) {
     }
   };
 
+  const choose = (k) => { setMode(k); setError(''); };
+  const onTabKey = (e) => {
+    const at = SIGN_IN_TABS.findIndex(([k]) => k === mode);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: SIGN_IN_TABS.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const [k] = SIGN_IN_TABS[(to + SIGN_IN_TABS.length) % SIGN_IN_TABS.length];
+    choose(k);
+    document.getElementById(`portal-tab-${k}`)?.focus();
+  };
+
   return (
     <div className="grid min-h-dvh place-items-center px-4 py-8" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
       <div className="w-full max-w-sm space-y-5">
         <div className="space-y-1 text-center">
-          <Fingerprint size={36} aria-hidden="true" className="mx-auto" style={{ color: 'rgb(var(--accent))' }} />
+          <Fingerprint size={36} aria-hidden="true" className="mx-auto" style={{ color: 'rgb(var(--brand-ink))' }} />
           <h1 className="ui-display text-xl">Employee portal</h1>
           <p className="ui-caption">Your attendance, schedule and leave.</p>
         </div>
-        <div className="grid grid-cols-2 gap-1 rounded-lg p-1" role="tablist" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-          {[
-            ['signin', 'Sign in'],
-            ['activate', 'First time? Activate'],
-          ].map(([k, label]) => (
-            <button key={k} type="button" role="tab" aria-selected={mode === k} className={`ui-btn ui-btn-sm ${mode === k ? 'ui-btn-primary' : 'ui-btn-ghost'}`} onClick={() => { setMode(k); setError(''); }}>
+        {/*
+          * The whole tab pattern (UI audit, 7 Nov 2026): the form is the tab panel, the chosen tab alone is in the Tab
+          * order, and the arrow keys, Home and End move between the two. Kept as tabs, not pressed buttons, so the
+          * submit button stays the only button called "Sign in".
+          */}
+        <div className="grid grid-cols-2 gap-1 rounded-lg p-1" role="tablist" aria-label="Sign in or activate" style={{ backgroundColor: 'rgb(var(--app-bg))' }} onKeyDown={onTabKey}>
+          {SIGN_IN_TABS.map(([k, label]) => (
+            <button
+              key={k}
+              id={`portal-tab-${k}`}
+              type="button"
+              role="tab"
+              aria-selected={mode === k}
+              aria-controls="portal-signin-panel"
+              tabIndex={mode === k ? 0 : -1}
+              className={`ui-btn ui-btn-sm ${mode === k ? 'ui-btn-primary' : 'ui-btn-ghost'}`}
+              onClick={() => choose(k)}
+            >
               {label}
             </button>
           ))}
         </div>
-        <form onSubmit={submit} className="ui-card space-y-4 p-5">
+        <form onSubmit={submit} className="ui-card space-y-4 p-5" id="portal-signin-panel" role="tabpanel" aria-labelledby={`portal-tab-${mode}`}>
           <label className="block">
             <span className="ui-label">Company code</span>
             <input className="ui-input ui-num w-full" required inputMode="numeric" autoComplete="organization" value={form.company} onChange={set('company')} placeholder="e.g. 4831920657" />
@@ -1034,6 +1064,8 @@ function MyLeave({ guard }) {
 
 function Account({ me, guard, onSignOut }) {
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
+  /* A letter approved at once (no approver but me) reloads My documents. */
+  const [docsAt, setDocsAt] = useState(0);
   const [note, setNote] = useState(null);
   const save = async (e) => {
     e.preventDefault();
@@ -1057,7 +1089,8 @@ function Account({ me, guard, onSignOut }) {
         </section>
       ) : null}
       <MyTax guard={guard} />
-      <MyDocuments guard={guard} />
+      <MyDocuments key={docsAt} guard={guard} />
+      <AskLetter guard={guard} onIssued={() => setDocsAt(Date.now())} />
       <MyData guard={guard} />
       <Devices guard={guard} />
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">

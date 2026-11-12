@@ -1,10 +1,10 @@
 import React from 'react';
-import { FileClock, KeyRound, ShieldCheck, UserCog } from 'lucide-react';
+import { FileClock, KeyRound, ShieldCheck, UserCog } from '@ui/components/ui/lineIcons';
 
 /**
  * The brand side of the operator console's sign-in.
  *
- * Not clor.in's hero: the people who reach ops.clor.in are Clor staff, and a
+ * Not clor.in's hero: the people who reach ops.clor.in are CLOR staff, and a
  * pitch about running your business says nothing to them. What it says
  * instead is what is true of this door — an authenticator is required, roles
  * decide what you may touch, and everything you do is written down.
@@ -124,10 +124,10 @@ export default function OperatorBrand() {
   return (
     <>
       <div className="ui-auth-copy">
-        <p className="ui-auth-eyebrow">Clor operator console</p>
-        <h2 className="ui-auth-title">For Clor staff only.</h2>
+        <p className="ui-auth-eyebrow">CLOR operator console</p>
+        <h2 className="ui-auth-title">For CLOR staff only.</h2>
         <p className="ui-auth-lede">
-          Sign in with your own Clor account and your authenticator. What you can see and change depends on your operator role, and every
+          Sign in with your own CLOR account and your authenticator. What you can see and change depends on your operator role, and every
           change is recorded in the audit log.
         </p>
         <ul className="ui-auth-points">

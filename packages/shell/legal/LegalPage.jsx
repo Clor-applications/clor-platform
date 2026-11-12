@@ -18,11 +18,11 @@ export default function LegalPage({ doc }) {
   const missing = missingDetails();
 
   useEffect(() => {
-    document.title = `${d.title} · Clor`;
+    document.title = `${d.title} · CLOR`;
     heading.current?.focus();
     window.scrollTo(0, 0);
     return () => {
-      document.title = 'Clor';
+      document.title = 'CLOR';
     };
   }, [d.title]);
 

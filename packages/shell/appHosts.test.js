@@ -21,7 +21,11 @@ describe('app addresses', () => {
 
   it('finds the address of another app from here', () => {
     expect(hostForApp('payroll', 'accounting.clor.in')).toBe('payroll.clor.in');
-    expect(hostForApp('accounting', 'app.clor.in')).toBe('accounting.clor.in');
+    expect(hostForApp('accounting', 'app.clor.in')).toBe('books.clor.in');
+    /* Books is the accounting app's address; the old one still opens it. */
+    expect(appFromHost('books.clor.in')).toBe('accounting');
+    expect(hostForApp('payroll', 'books.clor.in')).toBe('payroll.clor.in');
+    expect(hostForApp('accounting', 'accounting.clor.in')).toBe('books.clor.in');
     expect(hostForApp('attendance', 'accounting.clor.in')).toBe('attendance.clor.in');
     expect(hostForApp('people', 'accounting.clor.in')).toBe('people.clor.in');
   });

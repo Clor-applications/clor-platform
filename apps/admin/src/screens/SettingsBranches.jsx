@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownUp, Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react';
+import { ArrowDownUp, Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from '@ui/components/ui/lineIcons';
 
 import Popover from '@ui/components/ui/Popover';
 import { exportRows } from '@ui/components/ListToolbar';

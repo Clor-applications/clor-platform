@@ -1,277 +1,323 @@
 import React from 'react';
+import { Calculator, ChartLineUp, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
-import { ArrowRight, BarChart3, Check, ChevronRight, PlayCircle, TrendingUp, Users, Zap } from 'lucide-react';
-import { SITE, AVAILABLE, PRODUCTS, productBySlug } from '../site.js';
-import Illustration from '../components/Illustration.jsx';
-import { Head, HowItWorks, TrustBand } from '../components/Sections.jsx';
-import { Closing, Faq, Reveal, RevealGroup, Tabs } from '../components/Blocks.jsx';
-import { Status } from '../components/Brand.jsx';
+import { CONNECTIONS, SITE, productBySlug } from '../site.js';
+import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
+import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
+import { Faq } from '../components/Blocks.jsx';
+import { Mark, Status } from '../components/Brand.jsx';
 
-/* -------------------------------------------------------------- the words
- * Taken from the product illustrations, so the page says what the pictures
- * show, as text people can read, search and translate.
+/*
+ * The home page reads like the suite it is: one line for accounts, payroll and
+ * HR, the three screens standing as one 3D stack, the four products as tiles,
+ * then a section each with its screen standing in 3D (all drawn with sample
+ * data). How they join comes after, and the page closes on a slate band.
+ * Every claim here is in CONTENT_CHECKLIST.md.
  */
-const HERO_POINTS = [
-  { Icon: Users, text: 'Connect your teams' },
-  { Icon: Zap, text: 'Streamline operations' },
-  { Icon: BarChart3, text: 'Get real-time insights' },
-  { Icon: TrendingUp, text: 'Scale as your business grows' },
-];
-
 const APPS = [
-  { slug: 'books', line: 'Invoicing, bills, GST and a double-entry ledger.' },
-  { slug: 'people', line: 'HR, employee records, leave and performance.' },
-  { slug: 'payroll', line: 'Salaries, statutory deductions, payslips and compliance.' },
-  { slug: 'attendance', line: 'Biometric machines, shifts, leave and payable days.' },
-  { slug: 'projects', line: 'Plan work, track tasks and manage project costs.' },
-];
-
-const CONNECTED = [
-  { slug: 'people', items: ['Employee records', 'Leave & attendance', 'Recruitment', 'Performance'] },
-  { slug: 'attendance', items: ['Biometric devices', 'Shifts & leave', 'Real-time tracking', 'Reports'] },
-  { slug: 'payroll', items: ['Salaries', 'Statutory compliance', 'Payslips', 'TDS & reports'] },
-  { slug: 'books', items: ['Invoices', 'Bills', 'GST', 'Reports'] },
+  {
+    slug: 'books',
+    title: 'GST invoices, returns and books in one place.',
+    lines: [
+      'Raise GST invoices, e-invoices and e-way bills, and file GSTR-1 and GSTR-3B from what you raised.',
+      'Import masters and opening balances from Tally, and reconcile the bank statement against your books.',
+      'Invoices above an amount wait for approval before they go out.',
+    ],
+  },
+  {
+    slug: 'payroll',
+    title: 'Salaries with PF, ESI, PT and TDS worked out.',
+    lines: [
+      'Each payslip shows earnings, PF, ESI, professional tax and TDS, and reaches the employee’s phone when the run is locked.',
+      'The PF ECR file and Form 16 come out of the same payslips.',
+      'Locking the run posts its journal to Books; paying salaries posts the payment.',
+    ],
+  },
+  {
+    slug: 'people',
+    title: 'One record for every employee.',
+    lines: [
+      'Personal, job and statutory details with a dated history of every change, and documents that remind you before they expire.',
+      'Leave balances and requests from the employee app, approved by the manager.',
+      'Joining and leaving checklists for HR, IT and the manager, ending in the final settlement for Payroll.',
+    ],
+  },
+  {
+    slug: 'attendance',
+    title: 'Punches from the reader at the gate, or a phone on site.',
+    lines: [
+      'ZKTeco, eSSL, Hikvision and Matrix readers send punches as they happen; field staff punch from a phone inside your site’s geofence.',
+      'Shifts, late marks and overtime are worked out as the punches arrive.',
+      'Closing the month hands paid days, overtime and leave to Payroll.',
+    ],
+  },
 ];
 
 const TEAMS = [
   {
-    key: 'business',
-    label: 'Businesses',
-    points: ['Manage your entire business in one place', 'Improve productivity and control', 'Stay compliant with ease', 'Scale as you grow'],
-    link: '/solutions/businesses',
+    icon: Storefront,
+    title: 'Business owners',
+    text: 'File GSTR-1 and GSTR-3B from the invoices you already raised. Import masters and opening balances from Tally. Reconcile the bank statement against Books.',
+    link: ['/solutions/businesses', 'CLOR for businesses'],
   },
   {
-    key: 'firms',
-    label: 'Accounting firms',
-    points: ['Work in your clients’ books, with their permission', 'Switch between clients without signing out', 'The client decides what you can see and change', 'GST and TDS from the client’s own documents'],
-    link: '/solutions/accounting-firms',
+    icon: Calculator,
+    title: 'Accountants and CA firms',
+    text: 'Your client invites you with your own login and decides what you may see and change. You switch between clients from the company menu without signing out.',
+    link: ['/solutions/accounting-firms', 'CLOR for accounting firms'],
   },
   {
-    key: 'hr',
-    label: 'HR Teams',
-    points: ['Onboarding and exit checklists everyone can see', 'Leave, corrections and approvals from the employee app', 'Documents with expiry reminders', 'One record per person, from joining to final settlement'],
-    link: '/products/people',
+    icon: ChartLineUp,
+    title: 'Finance teams',
+    text: 'Invoices, bills and the salary run post their own journals. Invoices above an amount wait for approval, and a change to bank details needs a second person.',
+    link: ['/products/books', 'CLOR Books'],
   },
   {
-    key: 'finance',
-    label: 'Finance Teams',
-    points: ['Invoices, bills and payroll post their own journals', 'GST, TDS and bank reconciliation from the same records', 'Approvals above an amount', 'A second person for bank changes'],
-    link: '/products/books',
+    icon: UsersThree,
+    title: 'HR teams',
+    text: 'Joining and exit checklists that HR, IT and the manager each tick off. Documents remind you before they expire. One record per person, from offer letter to final settlement.',
+    link: ['/products/people', 'CLOR People'],
   },
 ];
 
 const FAQ = [
-  ['Do I have to buy every product?', 'No. Each Clor product can be used on its own. Choose the ones you need and add others later; they share one workspace and one sign-in.'],
-  ['Is Clor built for Indian businesses?', 'Yes. GST, e-invoices and e-way bills, TDS, PF, ESI, professional tax and Form 16 are part of the products, not add-ons.'],
+  ['Do I have to buy every product?', 'No. Each CLOR product works on its own. Start with the one you need and add others later; they share one login and one list of employees.'],
+  ['Is CLOR made for Indian companies?', 'Yes. GST, e-invoices and e-way bills, TDS, PF, ESI, professional tax and Form 16 are part of the products, not add-ons.'],
   ['Where is my data kept?', `In ${SITE.hosting}. Each company’s records are kept apart inside the database itself, not only by the application.`],
-  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Workspace (Access › Invitations) with their own login, choose what they can see and change, and end it whenever you like. A firm’s own workspace for its staff is planned.'],
+  ['Can my accountant or CA work with me?', 'Yes. Invite them from your Workspace (Access, then Invitations) with their own login, choose what they can see and change, and end it whenever you like. A workspace for the firm’s own staff is planned.'],
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
-/* Only counts that are true today; they come from the product list, not from marketing. */
-const FIGURES = [
-  [String(AVAILABLE.length), 'apps ready today'],
-  [String(PRODUCTS.length - AVAILABLE.length), 'more on the way'],
-  ['1', 'sign-in for every app'],
-  ['Mumbai', 'where your data is kept'],
-];
+/** A product's screen standing in 3D, with two blank sheets stacked behind it. */
+function Stage({ children, flip }) {
+  return (
+    <figure className={`stage${flip ? ' stage--flip' : ''}`}>
+      <div className="stage-obj">
+        <span className="stage-sheet stage-sheet--2" aria-hidden="true" />
+        <span className="stage-sheet stage-sheet--1" aria-hidden="true" />
+        <div className="stage-win">{children}</div>
+      </div>
+    </figure>
+  );
+}
+
+/** One product's section: what it does in a few plain lines, beside a photo and its screen. */
+function AppSection({ slug, title, lines, flip }) {
+  const p = productBySlug(slug);
+  // The hero already shows Books' invoice, so Books' own section shows the GSTR-1 it feeds.
+  const Win = slug === 'books' ? GstrWindow : WINDOWS[slug];
+  return (
+    <section className="section app-sec-wrap" aria-labelledby={`${slug}-title`} style={{ '--app': p.accent }}>
+      <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
+        <div className="app-sec-copy">
+          <p className="app-sec-name">
+            <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
+          </p>
+          <h2 className="h-1" id={`${slug}-title`}>
+            {title}
+          </h2>
+          <ul className="facts-list">
+            {lines.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+          <Link className="text-link" href={`/products/${slug}`}>
+            More about CLOR&nbsp;{p.name}
+          </Link>
+        </div>
+        {/* The product's own screen, drawn with sample data. Each product's photo is on its own page, so no picture repeats. */}
+        <Stage flip={flip}>
+          <Win />
+        </Stage>
+      </div>
+    </section>
+  );
+}
+
+const SUITE = ['books', 'people', 'payroll', 'attendance'];
+const NEXT = ['projects', 'timesheet'];
+
+/** Each card's picture: a person cut out on the page ground, or a scene that fades into the card. */
+const PICS = {
+  books: { kind: 'cut' },
+  people: { kind: 'cut' },
+  payroll: { kind: 'cut' },
+  attendance: { kind: 'scene' },
+};
 
 export default function Home() {
   return (
     <>
-      {/* ------------------------------------------------------------ hero */}
       <section className="hero hero--home" aria-labelledby="hero-title">
-        <div className="wrap hero-grid">
+        <div className="wrap home-hero home-hero--split">
           <div className="hero-copy">
-            <p className="eyebrow hero-in" style={{ '--d': 0 }}>
-              Your business. One workspace.
-            </p>
-            {/* Words arrive once, in turn (CSS only; reduced motion shows them at once). */}
-            <h1 id="hero-title" className="h-hero hero-title">
-              {['Every', 'part', 'of', 'your', 'business,', 'working', 'in'].map((w, n) => (
-                <React.Fragment key={n}>
-                  <span className="wm">
-                    <span className="w" style={{ '--n': n }}>
-                      {w}
-                    </span>
-                  </span>{' '}
-                </React.Fragment>
-              ))}
-              <span className="wm">
-                <span className="w accent-word" style={{ '--n': 7 }}>
-                  harmony.
-                </span>
-              </span>
+            <h1 id="hero-title" className="h-hero">
+              Accounts, payroll and HR for growing Indian companies.
             </h1>
-            <p className="lede hero-in" style={{ '--d': 1 }}>
-              Connect your teams, streamline operations and grow — all in one place. Built for modern businesses.
+            <p className="lede">
+              GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list
+              of employees, one set of books.
             </p>
-            <div className="actions hero-in" style={{ '--d': 2 }}>
-              <a className="btn btn--primary btn--lg" href={SITE.signUpUrl}>
-                Get started <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
-              </a>
-              <a className="btn btn--play" href="#how-it-works">
-                <PlayCircle size={22} strokeWidth={1.75} aria-hidden="true" /> See how it works
+            <div className="actions">
+              <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
+                Request a demo
+              </Link>
+              <a className="btn btn--trial btn--lg" href={SITE.startUrl}>
+                Start free trial
               </a>
             </div>
-            <ul className="hero-points hero-in" style={{ '--d': 3 }}>
-              {HERO_POINTS.map(({ Icon, text }) => (
-                <li key={text}>
-                  <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
-                  <span>{text}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="small hero-note">
+              No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
+            </p>
           </div>
-          <Illustration
-            className="hero-art"
-            src="/illustrations/hero-workspace.webp"
-            width={1400}
-            height={787}
-            priority
-            alt="The Clor workspace on a laptop and a phone, with Books, People, Payroll, Attendance, Projects and Timesheet connected to it."
-          />
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------ apps */}
-      <section className="section" aria-labelledby="apps-title">
-        <div className="wrap">
-          <Head center id="apps-title" eyebrow="One workspace. Many possibilities." title="An app for every part of your business" intro="Use one, or use them together. They share your people, your books and one sign-in." />
-          <RevealGroup as="ul" className="app-cards">
-            {APPS.map(({ slug, line }, i) => {
-              const p = productBySlug(slug);
-              return (
-                <li key={slug} className={`app-card app-card--${slug}`} style={{ '--i': i }}>
-                  <Link href={`/products/${slug}`} className="app-card-link">
-                    <img className="app-card-icon" src={`/illustrations/app-${slug}-icon.webp`} width={344} height={180} alt="" loading="lazy" decoding="async" />
-                    <span className="app-card-name">
-                      {p.name} {p.status === 'soon' ? <Status product={p} /> : null}
-                    </span>
-                    <span className="app-card-line">{line}</span>
-                    <img className="app-card-ui" src={`/illustrations/app-${slug}-ui.webp`} width={310} height={385} alt="" loading="lazy" decoding="async" />
-                    <span className="app-card-go">
-                      More about {p.name} <ChevronRight size={16} strokeWidth={2} aria-hidden="true" />
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </RevealGroup>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------- connected */}
-      <section className="section section--tint" aria-labelledby="connected-title">
-        <div className="wrap">
-          <Head
-            center
-            id="connected-title"
-            eyebrow="Better together"
-            title="Connected applications. Seamless workflows."
-            intro="From attendance to payroll to accounting — information flows securely across your Clor workspace."
-          />
-          <Reveal className="connect-stage">
-            <Illustration
-              className="connect-art"
-              src="/illustrations/connected-apps.webp"
-              width={1400}
-              height={933}
-              alt="People, Attendance, Payroll and Books joined at Clor."
+          <figure className="hero-photo">
+            <img
+              src="/people/hero-books-soft-1400.webp"
+              srcSet="/people/hero-books-soft-700.webp 700w, /people/hero-books-soft-1400.webp 1400w"
+              sizes="(max-width: 900px) 100vw, 640px"
+              width="1400"
+              height="835"
+              fetchPriority="high"
+              alt="An accountant at his desk with the CLOR Books dashboard open on his laptop"
             />
-          </Reveal>
-          <RevealGroup as="ul" className="connect-lists">
-            {CONNECTED.map(({ slug, items }, i) => {
-              const p = productBySlug(slug);
-              return (
-                <li key={slug} className={`connect-list connect-list--${slug}`} style={{ '--i': i }}>
-                  <h3 className="h-3">{p.name}</h3>
-                  <ul>
-                    {items.map((x) => (
-                      <li key={x}>{x}</li>
-                    ))}
-                  </ul>
-                </li>
-              );
-            })}
-          </RevealGroup>
+          </figure>
         </div>
       </section>
 
-      <HowItWorks />
-
-      {/* ------------------------------------------------ built for your team */}
-      <section className="section section--tint" aria-labelledby="team-title">
-        <div className="wrap teams-split">
-          <div className="stack teams-copy">
-            <Head id="team-title" eyebrow="Built for your team" title="A smarter way to manage businesses, teams and compliance." />
-            <Tabs
-              label="Who Clor is for"
-              tabs={TEAMS.map((t) => ({
-                key: t.key,
-                label: t.label,
-                body: (
-                  <div className="stack team-panel">
-                    <ul className="checks">
-                      {t.points.map((x) => (
-                        <li key={x}>
-                          <span className="check" aria-hidden="true">
-                            <Check size={14} strokeWidth={3} />
-                          </span>
-                          {x}
-                        </li>
-                      ))}
-                    </ul>
-                    <Link className="btn btn--primary btn--lg" href={t.link}>
-                      Explore solutions <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+      <section className="section section--tint" aria-labelledby="suite-title">
+        <div className="wrap">
+          <div className="head">
+            <h2 className="h-1" id="suite-title">
+              Connected business applications
+            </h2>
+            <p className="lede">One back office for accounts, people, attendance and payroll, sharing one login and one list of employees.</p>
+          </div>
+          <ul className="apps">
+            {SUITE.map((slug) => {
+              const p = productBySlug(slug);
+              const pic = PICS[slug];
+                            return (
+                <li key={slug} className={`app-card app-card--${pic.kind} app-card--${slug}`} style={{ '--app': p.accent }}>
+                  <div className="app-card-copy">
+                    <div className="app-card-name">
+                      <Mark product={p} size={44} />
+                      <div>
+                        <h3 className="h-3">CLOR {p.name}</h3>
+                        <Status product={p} />
+                      </div>
+                    </div>
+                    <p className="body">{p.line}</p>
+                    <Link className="app-card-btn" href={`/products/${slug}`}>
+                      {`Explore ${p.name}`}
+                      <span aria-hidden="true">→</span>
                     </Link>
                   </div>
-                ),
-              }))}
-            />
+                  <img
+                    className="app-card-pic"
+                    src={`/people/${slug}-360.webp`}
+                    srcSet={`/people/${slug}-360.webp 1x, /people/${slug}-720.webp 2x`}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          <div className="apps-next">
+            <p className="apps-next-title">Coming next</p>
+            <ul>
+              {NEXT.map((slug) => {
+                const p = productBySlug(slug);
+                return (
+                  <li key={slug}>
+                    <Link href={`/products/${slug}`} className="apps-next-item">
+                      <Mark product={p} size={32} />
+                      <span>
+                        <span className="apps-next-name">CLOR {p.name}</span>
+                        <span className="body">{p.line}</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <Reveal className="teams-art-wrap">
-            <Illustration className="teams-art" src="/illustrations/team.webp" width={1000} height={772} alt="" />
-          </Reveal>
+        </div>
+      </section>
+
+      {APPS.map((a, i) => (
+        <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
+      ))}
+
+      <section className="section section--tint" aria-labelledby="connected-title">
+        <div className="wrap split">
+          <Head
+            id="connected-title"
+            title="Attendance feeds payroll. Payroll posts to Books."
+            intro="Bought together, the four products read the same employees and post to the same books, so nobody exports a spreadsheet in between. Projects and Timesheet are next."
+          />
+          <ul className="links">
+            {CONNECTIONS.map((x) => (
+              <li key={x.from + x.to}>
+                <span className="links-pair">
+                  <Mark product={productBySlug(x.from)} size={26} />
+                  <span className="links-wire" aria-hidden="true" />
+                  <Mark product={productBySlug(x.to)} size={26} />
+                </span>
+                <p className="body">{x.text}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <SettingUp />
+
+      <section className="section" aria-labelledby="team-title">
+        <div className="wrap">
+          <Head id="team-title" title="Who uses CLOR" />
+          <ul className="groups">
+            {TEAMS.map((t) => (
+              <li key={t.title}>
+                <span className="tile" aria-hidden="true">
+                  <t.icon size={22} weight="duotone" />
+                </span>
+                <h3 className="h-3">{t.title}</h3>
+                <p className="body">{t.text}</p>
+                <Link className="text-link" href={t.link[0]}>
+                  {t.link[1]}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
       <TrustBand />
 
-      {/* ------------------------------------------------------ every device */}
-      <section className="section section--tint" aria-labelledby="devices-title">
-        <div className="wrap split devices">
-          <Head id="devices-title" eyebrow="Anywhere you work" title="On every device you work on" intro="In the browser on any computer, and in the Clor apps on your phone. Sign in once; your companies and apps follow you." />
-          <Reveal className="devices-art-wrap">
-            <Illustration className="devices-art" src="/illustrations/devices.webp" width={1300} height={815} alt="A laptop, a phone and a tablet, each showing Clor, connected to the same workspace." />
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ----------------------------------------------------------- figures */}
-      <section className="section figures-band">
-        <div className="wrap">
-          <Head center title="Built in India, for Indian businesses." />
-          <dl className="figures">
-            {FIGURES.map(([n, label]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{n}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </section>
-
-      <section className="section section--tint">
+      <section className="section">
         <div className="wrap">
           <Faq items={FAQ} />
         </div>
       </section>
 
-      <Closing title="Start with one app. Add the rest when you need them." text="Create your workspace, choose the apps you need and invite your team.">
-        Each app has its own subscription; prices are being finalised. <Link href="/pricing">How pricing works</Link>
-      </Closing>
+      <section className="closing-band" aria-labelledby="closing-title">
+        <div className="wrap closing-band-inner">
+          <h2 className="h-1" id="closing-title">
+            See CLOR with your own company’s figures.
+          </h2>
+          <p className="lede">Tell us what you use today for accounts, attendance and salaries, and we will show you the same month’s work in CLOR.</p>
+          <div className="actions">
+            <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
+              Request a demo
+            </Link>
+            <a className="btn btn--onphoto" href={SITE.startUrl}>
+              Start free trial
+            </a>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

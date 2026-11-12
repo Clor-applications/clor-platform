@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { isCommonPassword } from './commonPasswords.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 
 /**
  * The security policy an organisation enforces.
@@ -26,11 +27,28 @@ export type Policy = {
   makerChecker: string;
 };
 
+/** JWT_EXPIRES_IN ('15m', '12h', '900') in minutes; 15 when unset or unreadable. */
+export function envAccessMinutes(raw = process.env.JWT_EXPIRES_IN): number {
+  const m = /^\s*(\d+)\s*([smhd]?)\s*$/i.exec(String(raw || ''));
+  if (!m) return 15;
+  const n = Number(m[1]);
+  const unit = (m[2] || 's').toLowerCase();
+  const minutes = unit === 's' ? n / 60 : unit === 'm' ? n : unit === 'h' ? n * 60 : n * 1440;
+  return minutes >= 1 ? Math.round(minutes) : 15;
+}
+
+/**
+ * The longest a sign-in may last: the refresh token's own lifetime. A saved
+ * "Stay signed in for" above it (the form used to allow 365) is read as this.
+ */
+export const SESSION_DAYS_CAP = Number(process.env.REFRESH_TOKEN_DAYS || 30);
+const capDays = (d: number) => Math.min(d, SESSION_DAYS_CAP);
+
 export const DEFAULT_POLICY: Policy = {
   maxFailedLogins: Number(process.env.MAX_FAILED_LOGINS || 8),
   lockoutMinutes: Number(process.env.LOCKOUT_MINUTES || 15),
-  sessionDays: Number(process.env.REFRESH_TOKEN_DAYS || 30),
-  accessTokenMinutes: 15,
+  sessionDays: SESSION_DAYS_CAP,
+  accessTokenMinutes: envAccessMinutes(),
   passwordMinLength: 8,
   passwordRequireMixedCase: false,
   passwordRequireNumber: false,
@@ -48,7 +66,7 @@ export async function getAuthPolicy(accountId: string, orgId: string): Promise<P
   return {
     maxFailedLogins: row.maxFailedLogins,
     lockoutMinutes: row.lockoutMinutes,
-    sessionDays: row.sessionDays,
+    sessionDays: capDays(row.sessionDays),
     accessTokenMinutes: row.accessTokenMinutes,
     passwordMinLength: row.passwordMinLength,
     passwordRequireMixedCase: row.passwordRequireMixedCase,
@@ -77,13 +95,19 @@ export async function policyForUser(accountId: string, userId: string): Promise<
   const rows = await platformPrisma.authPolicy.findMany({
     where: { orgId: { in: memberships.map((m) => m.orgId) } },
   });
-  if (!rows.length) return { ...DEFAULT_POLICY };
+  return strictestOf(rows);
+}
 
+type PolicyRow = Omit<Policy, 'makerChecker'> & { makerChecker: string };
+
+/** The strictest of several companies' rules; the product's defaults where none has a row. */
+export function strictestOf(rows: PolicyRow[]): Policy {
+  if (!rows.length) return { ...DEFAULT_POLICY };
   return rows.reduce<Policy>(
     (strictest, r) => ({
       maxFailedLogins: Math.min(strictest.maxFailedLogins, r.maxFailedLogins),
       lockoutMinutes: Math.max(strictest.lockoutMinutes, r.lockoutMinutes),
-      sessionDays: Math.min(strictest.sessionDays, r.sessionDays),
+      sessionDays: Math.min(strictest.sessionDays, capDays(r.sessionDays)),
       accessTokenMinutes: Math.min(strictest.accessTokenMinutes, r.accessTokenMinutes),
       passwordMinLength: Math.max(strictest.passwordMinLength, r.passwordMinLength),
       passwordRequireMixedCase: strictest.passwordRequireMixedCase || r.passwordRequireMixedCase,
@@ -96,8 +120,65 @@ export async function policyForUser(accountId: string, userId: string): Promise<
       /* Strictest across companies: STRICT over AUTO over ALLOW. */
       makerChecker: [strictest.makerChecker, r.makerChecker].includes('STRICT') ? 'STRICT' : [strictest.makerChecker, r.makerChecker].includes('AUTO') ? 'AUTO' : 'ALLOW',
     }),
-    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: 999, accessTokenMinutes: 999, lockoutMinutes: 0, makerChecker: 'ALLOW' }
+    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: SESSION_DAYS_CAP, accessTokenMinutes: 999, lockoutMinutes: 0, makerChecker: 'ALLOW' }
   );
+}
+
+/** The strictest rules of the given companies (an invitation into several). Reads across companies. */
+export async function policyForOrgs(orgIds: string[]): Promise<Policy> {
+  const ids = [...new Set(orgIds.filter(Boolean))];
+  if (!ids.length) return { ...DEFAULT_POLICY };
+  const rows = await outsideTenant('policy: the strictest rules of the companies an invitation names', () => platformPrisma.authPolicy.findMany({ where: { orgId: { in: ids } } }));
+  return strictestOf(rows);
+}
+
+/**
+ * The rules a sign-in session follows (#4): how long it lasts, how long each
+ * access token lives, whether the address must be confirmed. One session opens
+ * every company the person belongs to, in every account, so the strictest of
+ * all of them applies — not only those of the person's home account, which is
+ * what `policyForUser` reads for lockouts.
+ */
+export async function sessionPolicyFor(userId: string): Promise<Policy> {
+  return outsideTenant('policy: a session opens every company the person belongs to', async () => {
+    const memberships = await platformPrisma.userOrgMembership.findMany({ where: { userId }, select: { orgId: true } });
+    if (!memberships.length) return { ...DEFAULT_POLICY };
+    return strictestOf(await platformPrisma.authPolicy.findMany({ where: { orgId: { in: memberships.map((m) => m.orgId) } } }));
+  });
+}
+
+/** "yourcompany.com, @group.com" → ['yourcompany.com', 'group.com']. */
+export const domainList = (raw: string | null | undefined): string[] =>
+  String(raw || '')
+    .split(/[\s,;]+/)
+    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
+    .filter(Boolean);
+
+/** Whether an address may be added to, or open, a company with this allowed-domain list (empty: any). */
+export function emailDomainAllowed(email: string, allowed: string | null | undefined): boolean {
+  const list = domainList(allowed);
+  if (!list.length) return true;
+  const domain = String(email || '').trim().toLowerCase().split('@').pop() || '';
+  return list.includes(domain);
+}
+
+/** The plain refusal for an address outside a company's allowed domains. */
+export const domainRefusalText = (allowed: string | null | undefined) =>
+  `This company only lets in people with an email address at ${domainList(allowed).join(', ')}.`;
+
+/**
+ * Why `email` may not be added to these companies, or null. Each company's
+ * own list applies, not a merged one: the address must be allowed by every
+ * company it is being added to.
+ */
+export async function domainRefusalFor(orgIds: string[], email: string): Promise<string | null> {
+  const ids = [...new Set(orgIds.filter(Boolean))];
+  if (!ids.length) return null;
+  const rows = await outsideTenant('policy: allowed email domains of the companies a person is added to', () =>
+    platformPrisma.authPolicy.findMany({ where: { orgId: { in: ids } }, select: { allowedEmailDomains: true } })
+  );
+  for (const r of rows) if (!emailDomainAllowed(email, r.allowedEmailDomains)) return domainRefusalText(r.allowedEmailDomains);
+  return null;
 }
 
 /** Returns a human-readable problem, or null when the password is acceptable. */

@@ -272,7 +272,10 @@ export default async function setup() {
   /* A-35: fail closed — last, after every policy above exists. */
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261031100100_pf_nominees_rls');
+  await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261107110100_opening_ytd_rls');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261102100100_provisional_days_rls');
+  /* One live payment per payslip, a partial index `db push` cannot build. */
+  await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20261107100000_run_integrity');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014130100_people_org_structure_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261014140100_attendance_rls');
@@ -341,6 +344,8 @@ export default async function setup() {
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261112100100_expenses_and_advances_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261113090100_attendance_rules_rls');
   await applyPolicies(asOwner(people), 'prisma/people/migrations/20261114090100_leaving_engagement_rls');
+  /* The full-day fix's review table (PR #141): table and policy in one migration, every statement safe to run twice over a pushed schema. */
+  await applyPolicies(asOwner(people), 'prisma/people/migrations/20261121090000_attendance_full_day_review');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20260924120000_row_level_security');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018040100_scim_tokens_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261018060100_notifications_rls');
@@ -354,6 +359,10 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261026090100_operator_audit_append_only');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261028090000_audit_log_actor_append_only');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261031090100_product_events_append_only');
+  /* Pricing: one published price book, a partial index `db push` cannot build. */
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261123090100_price_book_one_published');
+  /* Payments: one active provider, a partial index `db push` cannot build. */
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261124090100_payment_provider_one_active');
 
   await grantToAppRole(database, schemas);
 

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, HelpCircle, UserRoundCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDot, Clock, EyeOff, HelpCircle, UserRoundCheck } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -52,6 +52,8 @@ const COLUMNS = {
 const SEVERITY = { high: 'Urgent', medium: 'To do', low: 'When you can' };
 const STATUS = { OPEN: 'Open', IN_PROGRESS: 'In progress', RESOLVED: 'Settled', IGNORED: 'Ignored' };
 const back = (n) => plusDaysIso(-n);
+/* What one bulk change takes on the server; more picked are sent in batches this size. */
+const BATCH = 500;
 
 
 /* What Export writes: the rows on screen, as shown (AT-01). */
@@ -80,15 +82,22 @@ export default function Exceptions({ openScreen }) {
   /* Keys of the open items ticked for a bulk Settle / Ignore. */
   const [picked, setPicked] = useState(() => new Set());
 
+  /* A bulk change in progress: how many of how many, and the bar is locked until it ends. */
+  const [running, setRunning] = useState(null);
+  /* Only the latest request's answer is shown; one for a kind left a moment ago is dropped. */
+  const latest = useRef(0);
+
   const load = useCallback(() => {
-    listExceptions({ ...range, show: showAll ? 'all' : 'open' })
-      .then((d) => { setData(d); setError(''); })
-      .catch((e) => setError(String(e?.message || 'Could not load the exceptions.')));
-  }, [range, showAll]);
+    const ask = ++latest.current;
+    /* The kind is chosen on the server, before its cap, so a kind reaches all of its items. */
+    listExceptions({ ...range, show: showAll ? 'all' : 'open', ...(kind ? { kind } : {}) })
+      .then((d) => { if (ask === latest.current) { setData(d); setError(''); } })
+      .catch((e) => { if (ask === latest.current) setError(String(e?.message || 'Could not load the exceptions.')); });
+  }, [range, showAll, kind]);
   useEffect(() => { load(); }, [load]);
 
   const all = data?.exceptions;
-  /* The server counts every kind (past the 1,000 shown); All is their sum. */
+  /* The server counts every kind, past the rows it sends; All is their sum. */
   const counts = useMemo(() => {
     const c = { ...(data?.counts || {}) };
     c[''] = Object.values(data?.counts || {}).reduce((a, b) => a + b, 0);
@@ -113,6 +122,8 @@ export default function Exceptions({ openScreen }) {
   const togglePick = (key) => setPicked((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const toggleAll = () => setPicked(allPicked ? new Set() : new Set(pickable.map((x) => x.key)));
   const figures = useMemo(() => {
+    /* The server counts every item shown, past the rows it sends. */
+    if (data?.figures) return data.figures;
     const list = all || [];
     return {
       high: list.filter((x) => x.severity === 'high').length,
@@ -120,7 +131,7 @@ export default function Exceptions({ openScreen }) {
       low: list.filter((x) => x.severity === 'low').length,
       unowned: list.filter((x) => !x.assigneeUserId && (x.status === 'OPEN' || x.status === 'IN_PROGRESS')).length,
     };
-  }, [all]);
+  }, [all, data]);
   const explainLoad = useCallback(() => explainDay(explaining?.employeeId, explaining?.date), [explaining]);
 
   const change = async (x, body, done) => {
@@ -140,18 +151,45 @@ export default function Exceptions({ openScreen }) {
     const { x, keys, status } = settling;
     setSettling(null);
     if (!keys) return change(x, { status, note: note.trim() || null }, status === 'RESOLVED' ? 'Marked settled.' : 'Ignored.');
+    /*
+     * Every picked item, in batches the server takes, one run at a time. The
+     * server changes only items still open, so what a colleague settled in the
+     * meantime is counted, not overwritten; a failed batch says how far it got.
+     */
+    if (running) return;
+    const verb = status === 'RESOLVED' ? 'marked settled' : 'ignored';
+    const n = (v) => v.toLocaleString('en-IN');
+    let changed = 0;
+    let skipped = 0;
+    let unknown = 0;
+    let sent = 0;
+    setRunning({ done: 0, total: keys.length, status });
     try {
-      const r = await setExceptionStates({ keys, status, note: note.trim() || null });
-      notify.success(`${r.updated} ${r.updated === 1 ? 'item' : 'items'} ${status === 'RESOLVED' ? 'marked settled' : 'ignored'}.`);
+      for (let i = 0; i < keys.length; i += BATCH) {
+        const r = await setExceptionStates({ keys: keys.slice(i, i + BATCH), status, note: note.trim() || null });
+        changed += r.changed ?? r.updated ?? 0;
+        skipped += r.skipped || 0;
+        unknown += r.unknown || 0;
+        sent = Math.min(i + BATCH, keys.length);
+        setRunning({ done: sent, total: keys.length, status });
+      }
+      const extra = [
+        skipped ? `${n(skipped)} ${skipped === 1 ? 'was' : 'were'} already settled or ignored by someone else` : null,
+        unknown ? `${n(unknown)} could not be found` : null,
+      ].filter(Boolean);
+      notify.success(`${n(changed)} ${changed === 1 ? 'item' : 'items'} ${verb}${extra.length ? `; ${extra.join('; ')}` : ''}.`);
+    } catch (e) {
+      const why = String(e?.message || 'Not saved.');
+      notify.error(sent ? `${why} ${n(changed)} of ${n(keys.length)} ${verb}; the rest may not have been changed. The list below is up to date.` : why);
+    } finally {
+      setRunning(null);
       setPicked(new Set());
       load();
-    } catch (e) {
-      notify.error(String(e?.message || 'Not saved.'));
     }
   };
   const settleMany = (status) => {
     setNote('');
-    setSettling({ keys: pickedKeys.slice(0, 500), status });
+    setSettling({ keys: pickedKeys, status });
   };
   const open = (x) => {
     if (!openScreen) return;
@@ -200,13 +238,18 @@ export default function Exceptions({ openScreen }) {
         error ? null : <SkeletonCard lines={6} />
       ) : (
         <>
-          {pickedKeys.length ? (
-            <div className="flex flex-wrap items-center gap-2 px-1 py-2" role="region" aria-label="Selected items">
-              <span className="text-sm font-medium">{pickedKeys.length} selected</span>
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle selected</button>
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settleMany('IGNORED')}><EyeOff size={14} aria-hidden="true" /> Ignore selected</button>
-              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button>
-              {pickedKeys.length > 500 ? <span className="ui-caption">The first 500 are changed; run it again for the rest.</span> : null}
+          {pickedKeys.length || running ? (
+            <div className="flex flex-wrap items-center gap-2 px-1 py-2" role="region" aria-label="Selected items" aria-busy={running ? 'true' : undefined}>
+              {running ? (
+                <span className="text-sm font-medium tabular-nums" role="status">
+                  {running.status === 'IGNORED' ? 'Ignoring' : 'Settling'} {running.done.toLocaleString('en-IN')} of {running.total.toLocaleString('en-IN')}…
+                </span>
+              ) : (
+                <span className="text-sm font-medium">{pickedKeys.length.toLocaleString('en-IN')} selected</span>
+              )}
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(running)} onClick={() => settleMany('RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle selected</button>
+              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(running)} onClick={() => settleMany('IGNORED')}><EyeOff size={14} aria-hidden="true" /> Ignore selected</button>
+              <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={Boolean(running)} onClick={() => setPicked(new Set())}>Clear</button>
             </div>
           ) : null}
           {/*
@@ -326,14 +369,18 @@ export default function Exceptions({ openScreen }) {
             </table>
           </div>
           <Pagination total={rows.length} page={safePage} perPage={perPage} pageCount={pageCount} onPage={setPage} onPerPage={(n) => { setPerPage(n); setPage(1); }} noun="items" />
-          {data.truncated ? <p className="ui-caption p-3">Showing the first 1,000. Narrow the dates or pick one kind.</p> : null}
+          {data.truncated ? (
+            <p className="ui-caption p-3" role="status">
+              Showing the first {(data.exceptions?.length || 0).toLocaleString('en-IN')} of {(data.total || 0).toLocaleString('en-IN')}. {kind || Object.values(data.counts || {}).filter(Boolean).length < 2 ? 'Narrow the dates to reach the rest.' : 'Pick one kind or narrow the dates to reach the rest.'}
+            </p>
+          ) : null}
         </>
       )}
       <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
       <Drawer
         open={Boolean(settling)}
         onClose={() => setSettling(null)}
-        title={settling?.keys ? `${settling.status === 'IGNORED' ? 'Ignore' : 'Mark settled'}: ${settling.keys.length} ${settling.keys.length === 1 ? 'item' : 'items'}` : settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
+        title={settling?.keys ? `${settling.status === 'IGNORED' ? 'Ignore' : 'Mark settled'}: ${settling.keys.length.toLocaleString('en-IN')} ${settling.keys.length === 1 ? 'item' : 'items'}` : settling?.status === 'IGNORED' ? 'Ignore this item' : 'Mark this item settled'}
         description={settling?.x ? `${settling.x.title}${settling.x.employeeName ? `, ${settling.x.employeeName}` : ''}${settling.x.date ? `, ${settling.x.date}` : ''}` : settling?.keys ? 'The same note is kept on each.' : ''}
         widthClass="w-[min(30rem,96vw)]"
         actions={

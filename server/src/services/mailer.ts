@@ -1,4 +1,5 @@
 import { isArchived } from './companyArchive.js';
+import { isSampleOrg } from './sampleIdentity.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import nodemailer from 'nodemailer';
 // Nodemailer 10 no longer exposes its types under the default export's
@@ -130,9 +131,10 @@ export function decryptSecretAnyKey(payload: string): { plain: string; stale: bo
 // Transport
 // ---------------------------------------------------------------------------
 
+/** `source`: a company's own mail server, or the platform's (where CLOR's sender addresses apply). */
 export type ResolvedTransport =
-  | { kind: 'smtp'; transporter: Transporter; from: string; replyTo?: string }
-  | { kind: 'capture'; from: string; replyTo?: string };
+  | { kind: 'smtp'; transporter: Transporter; from: string; replyTo?: string; source?: 'org' | 'system' }
+  | { kind: 'capture'; from: string; replyTo?: string; source?: 'org' | 'system' };
 
 const captureFrom = () => `${APP_NAME} <no-reply@localhost>`;
 
@@ -179,6 +181,7 @@ export async function resolveTransport(accountId?: string | null, orgId?: string
         }),
         from,
         replyTo: setting.replyTo || undefined,
+        source: 'org',
       };
     }
   }
@@ -195,10 +198,11 @@ export async function resolveTransport(accountId?: string | null, orgId?: string
         pass: process.env.SMTP_PASS,
       }),
       from: process.env.SMTP_FROM || captureFrom(),
+      source: 'system',
     };
   }
 
-  return { kind: 'capture', from: captureFrom() };
+  return { kind: 'capture', from: captureFrom(), source: 'system' };
 }
 
 // ---------------------------------------------------------------------------
@@ -229,8 +233,10 @@ export type SendOptions = {
  * triggered it. The outcome lands in the outbox either way.
  */
 export async function sendTemplate(opts: SendOptions) {
-  const template = TEMPLATE_BY_KEY.get(opts.templateKey);
-  if (!template) throw new Error(`Unknown email template: ${opts.templateKey}`);
+  const builtIn = TEMPLATE_BY_KEY.get(opts.templateKey);
+  if (!builtIn) throw new Error(`Unknown email template: ${opts.templateKey}`);
+  /* CLOR's own wording, set in the operator console (Email, Templates), where there is some. */
+  const template = { ...builtIn, ...((await templateOverride(builtIn.key)) || {}) };
 
   const data = {
     appName: APP_NAME,
@@ -241,8 +247,10 @@ export async function sendTemplate(opts: SendOptions) {
   const subject = render(template.subject, data);
   const bodyText = render(template.body, data);
 
+  /* Explore's sample company sends nothing: its people and customers are made up (services/sampleIdentity.ts). */
+  const sample = Boolean(opts.orgId) && (await isSampleOrg(opts.orgId));
   /* An archived company sends nothing (services/companyArchive.ts): kept as SUPPRESSED so it can be seen. Closure notices still go. */
-  if (opts.orgId && !String(template.key).startsWith('closure') && (await isArchived(opts.orgId))) {
+  if (opts.orgId && (sample || (!String(template.key).startsWith('closure') && (await isArchived(opts.orgId))))) {
     return platformPrisma.emailOutbox.create({
       data: {
         accountId: opts.accountId ?? null,
@@ -253,7 +261,7 @@ export async function sendTemplate(opts: SendOptions) {
         subject,
         bodyText,
         status: 'SUPPRESSED',
-        lastError: 'Company archived',
+        lastError: sample ? 'Sample company: nothing is sent' : 'Company archived',
         relatedType: opts.relatedType ?? null,
         relatedId: opts.relatedId ?? null,
       },
@@ -314,17 +322,50 @@ export async function sendTemplate(opts: SendOptions) {
  * rendered email, live link and all, in plain text in the database and every
  * backup. Once the message has gone, the stored copy keeps the shape of the
  * link and loses the secret. A message still waiting to be retried keeps it;
- * those tokens expire on their own (30 minutes, 24 hours).
+ * those tokens expire on their own (30 minutes, 24 hours; an Explore link,
+ * `?t=`, in 14 days, and Resend replaces it).
  */
 export const withoutLinkTokens = (text: string) =>
-  String(text || '').replace(/([?&](?:token|share)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
+  String(text || '').replace(/([?&](?:token|share|reset|verify|t)=)[^\s&"'<>]+/gi, '$1[removed-after-sending]');
+
+/** The wording an operator set for a template, if any. A missing table or row means the built-in wording. */
+async function templateOverride(key: string): Promise<{ subject: string; body: string } | null> {
+  try {
+    return await platformPrisma.emailTemplateOverride.findUnique({ where: { key }, select: { subject: true, body: true } });
+  } catch {
+    return null;
+  }
+}
+
+/** Which of CLOR's sender addresses a template goes out from, on the platform's mail server. */
+export const SENDER_PURPOSES = ['sales', 'support', 'billing', 'no-reply'] as const;
+export type SenderPurpose = (typeof SENDER_PURPOSES)[number];
+export function senderPurposeFor(templateKey: string): SenderPurpose {
+  if (/^(sales|explore)\./.test(templateKey)) return 'sales';
+  if (/^(billing|payment|subscription|trial)\./.test(templateKey)) return 'billing';
+  if (/^support\./.test(templateKey)) return 'support';
+  return 'no-reply';
+}
+
+/** The From (and Reply-To) for a message on the platform's server: the sender set in the console, else the server's own. */
+async function platformSender(row: { templateKey: string; relatedType: string | null; relatedId: string | null }, fallback: string) {
+  const purpose = row.relatedType === 'EmailSenderTest' && row.relatedId ? row.relatedId : senderPurposeFor(row.templateKey);
+  try {
+    const s = await platformPrisma.emailSender.findUnique({ where: { purpose } });
+    if (s?.email) return { from: `${s.name || APP_NAME} <${s.email}>`, replyTo: s.replyTo || undefined };
+  } catch {
+    /* No sender table yet: the server's address. */
+  }
+  return { from: fallback, replyTo: undefined };
+}
 
 /** Attempts delivery of one outbox row and records the result. */
 export async function deliver(outboxId: string, accountId?: string | null, orgId?: string | null) {
   const row = await platformPrisma.emailOutbox.findUnique({ where: { id: outboxId } });
   if (!row || row.status === 'SENT' || row.status === 'SUPPRESSED') return row;
 
-  const transport = await resolveTransport(accountId ?? row.accountId, orgId ?? row.orgId);
+  const resolved = await resolveTransport(accountId ?? row.accountId, orgId ?? row.orgId);
+  const transport = resolved.source === 'system' ? { ...resolved, ...(await platformSender(row, resolved.from)) } : resolved;
 
   try {
     if (transport.kind === 'smtp') {

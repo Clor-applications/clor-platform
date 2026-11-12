@@ -99,9 +99,10 @@ export async function createScimToken(
 }
 
 /** An agent's token: made when directory sync is first set up on it, handed over once through the agent's mailbox. */
-export async function issueAgentScimToken(a: { id: string; accountId: string; orgId: string; pendingEnc: string | null; createdByUserId: string; name?: string }, defaultRoleId: string | null, actor: Actor) {
+export async function issueAgentScimToken(a: { id: string; accountId: string; orgId: string; pendingEnc: string | null; createdByUserId: string; name?: string }, defaultRoleId: string | null, actor: Actor, chosenByUserId?: string) {
   const token = newScimToken();
-  const row = await platformPrisma.scimToken.create({ data: { accountId: a.accountId, orgId: a.orgId, tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), defaultRoleId, createdByUserId: a.createdByUserId } });
+  /* Review B1: the token's maker is whoever chose its role now, so each person it provisions is checked against them (routes/scim.ts). */
+  const row = await platformPrisma.scimToken.create({ data: { accountId: a.accountId, orgId: a.orgId, tokenHash: hashToken(token), tokenPrefix: token.slice(0, 12), defaultRoleId, createdByUserId: chosenByUserId || a.createdByUserId } });
   await issueCredential(
     { kind: 'SCIM', accountId: a.accountId, orgId: a.orgId, ownerId: row.id, parentOwnerId: a.id, token, tokenPrefix: row.tokenPrefix, label: a.name ? `Directory sync for ${a.name}` : 'Directory sync', createdByUserId: a.createdByUserId },
     actor

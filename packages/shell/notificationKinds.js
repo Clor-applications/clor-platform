@@ -8,6 +8,7 @@ export const KIND = {
   'reader.alert': 'Reader alerts',
   'connector.alert': 'Connector alerts',
   'payroll.bank_change': 'Bank account changes',
+  'payroll.revision': 'Salaries to confirm',
   'scim.user': 'People added by directory sync',
   'people.data_request': 'Data requests',
   'people.joined': 'Joiners',

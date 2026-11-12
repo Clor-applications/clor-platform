@@ -5,7 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requireAnyPermission, requirePermission } from '../middleware/rbac.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE } from '../services/attendance/guards.js';
-import { inboxFor } from '../services/people/inbox.js';
+import { hasPersonalInbox, inboxFor, waitingFor as waitingCountFor } from '../services/people/inbox.js';
 import { PermissionAction } from '../constants/enums.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -15,7 +15,7 @@ import { todayIst } from '../services/people/lifecycle/board.js';
 import { leavingReasonFilter } from '../services/people/companyChoices.js';
 import { cleanTypes, covers, deciders, findStandIn, listStandIns, nameStandIn, removeStandIn, timeOnly } from '../services/people/approvals/standIns.js';
 import type { Actor, ChangeSource } from '../services/people/changeLog.js';
-import { ApprovalError, REQUEST_TYPES, RULE_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
+import { ApprovalError, REQUEST_TYPES, RULE_TYPES, UNASKED_TYPES, isFormType, activeRule, decide, mine, namesFor, previewRule, reply, retireRule, saveRuleSpec, shape, stepsOfRule, submitRequest, twoPersonProblem, waitingFor, withdraw, type RuleType } from '../services/people/approvals/engine.js';
 import { cleanRule, isRuleProblem, legacySteps, normaliseAutoApprove, normaliseConditions, v1Exact } from '../services/people/approvals/spec.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { inScope, teamScope } from '../services/people/scope.js';
@@ -58,7 +58,7 @@ peopleApprovalsRouter.get(`${base}/approval-rules`, can(PermissionAction.VIEW, A
     ...r, steps: legacySteps(r.steps), spec: stepsOfRule(r), editableHere: v1Exact(r.steps) && !r.variantKey && !normaliseAutoApprove(r.autoApprove).length,
     appliesWhen: normaliseConditions(r.appliesWhen), autoApprove: normaliseAutoApprove(r.autoApprove),
   }));
-  res.json({ rules, requestTypes: RULE_TYPES, forms: forms.map((f) => ({ requestType: `FORM:${f.id}`, name: f.name, active: f.active })) });
+  res.json({ rules, requestTypes: RULE_TYPES.filter((t) => !UNASKED_TYPES.has(t)), forms: forms.map((f) => ({ requestType: `FORM:${f.id}`, name: f.name, active: f.active })) });
 });
 
 /** A fixed type, or one of this company's own request types (FORM:<id>). */
@@ -221,20 +221,28 @@ const inboxRight = requireAnyPermission(
   [ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.devices],
   [ATTENDANCE_MODULE, PermissionAction.EDIT, ATTENDANCE_RESOURCE.records],
 );
-peopleApprovalsRouter.get(
-  `${base}/inbox`,
-  /* Someone a step of the leave approval rule names has an inbox, whatever else they may do. */
-  async (req: any, res: any, next: any) => {
-    const orgId = req.tenant?.orgId || req.params?.orgId;
-    const userId = req.auth?.userId;
-    if (orgId && userId && (await peoplePrisma.leaveRequest.count({ where: { orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { has: userId } } }))) return next();
-    return inboxRight(req, res, next);
-  },
-  async (req, res) => {
-    if (!(await peopleRouteOk(req, res))) return;
-    res.json(await inboxFor(req));
-  },
-);
+/* Someone a leave step names, with a task on their name, or managing someone's overtime has an inbox, whatever else they may do. */
+const inboxOrPersonal = async (req: any, res: any, next: any) => {
+  const orgId = req.tenant?.orgId || req.params?.orgId;
+  const userId = req.auth?.userId;
+  if (orgId && userId && (await hasPersonalInbox(orgId, userId))) return next();
+  return inboxRight(req, res, next);
+};
+peopleApprovalsRouter.get(`${base}/inbox`, inboxOrPersonal, async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json(await inboxFor(req));
+});
+
+/**
+ * The one waiting number (People plan 8 Nov 2026, §3 rule 1): what waits on
+ * this reader to approve, plus their own open tasks. Open to anyone in the
+ * company: it says nothing about anyone else, and a reader with no rights and
+ * no tasks gets nought.
+ */
+peopleApprovalsRouter.get(`${base}/inbox/waiting`, async (req, res) => {
+  if (!(await peopleRouteOk(req, res))) return;
+  res.json(await waitingCountFor(req));
+});
 
 peopleApprovalsRouter.get(`${base}/requests/:id`, can(PermissionAction.VIEW, REQUESTS), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
@@ -426,7 +434,7 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
   /* Leave and attendance are decided by People record: a sign-in with none has nothing there to hand on. */
   if (timeAlone && !me) return res.status(400).json({ error: 'Leave and attendance are handed on from your employee record, and your sign-in is not linked to one.' });
   /* Naming leave or attendance by itself: only someone who decides them has any to hand on. */
-  if ((types.includes('LEAVE') || types.includes('ATTENDANCE')) && !(await deciders(accountId, orgId)).has(userId)) return res.status(400).json({ error: 'You do not approve leave or requests here, so there is nothing to hand on.' });
+  if ((types.includes('LEAVE') || types.includes('ATTENDANCE')) && !(await deciders(accountId, orgId, types)).has(userId)) return res.status(400).json({ error: 'You do not approve leave or requests here, so there is nothing to hand on.' });
   let standInUserId: string | null = b.standInUserId || null;
   let standInEmployeeId: string | null = null;
   if (b.standInEmployeeId) {
@@ -440,7 +448,7 @@ peopleApprovalsRouter.post(`${base}/stand-ins`, can(PermissionAction.VIEW, REQUE
   if (standInUserId) {
     const member = await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId: standInUserId }, select: { id: true } });
     if (!member) return res.status(400).json({ error: 'That person is not in this company.' });
-    if (!timeAlone && !(await deciders(accountId, orgId)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
+    if (!timeAlone && !(await deciders(accountId, orgId, types)).has(standInUserId)) return res.status(400).json({ error: 'They cannot approve requests here, so they cannot decide in your place. Choose someone who can.' });
     if (!standInEmployeeId) standInEmployeeId = (await myRecord(orgId, standInUserId))?.id ?? null;
   }
   /* Leave and attendance are decided by People record: a stand-in with none could decide none of it, and would only hide the real one. */

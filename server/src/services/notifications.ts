@@ -1,6 +1,7 @@
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { exclusive, leaseFor } from './jobLease.js';
 import { registerJob } from './jobRegistry.js';
+import { isSampleOrg } from './sampleIdentity.js';
 
 /**
  * In-app notifications: the bell every app shares.
@@ -55,6 +56,8 @@ export async function usersHoldingRoles(accountId: string, orgId: string, roleId
 export async function sendNotice(accountId: string, orgId: string, userIds: string[], notice: Notice, opts: { except?: string | null; dedupeKey?: string | null; subjectKey?: string | null } = {}) {
   let ids = [...new Set(userIds)].filter((id) => id && !id.startsWith('portal:') && id !== 'system' && id !== opts.except);
   if (!ids.length) return 0;
+  /* Explore's sample company: its visitor starts with, and keeps, a clean bell. */
+  if (await isSampleOrg(orgId)) return 0;
   /* People who muted this kind for this company are skipped. */
   const muted = await platformPrisma.notificationMute.findMany({ where: { orgId, kind: notice.kind, userId: { in: ids } }, select: { userId: true } });
   const off = new Set(muted.map((m) => m.userId));
@@ -66,6 +69,30 @@ export async function sendNotice(accountId: string, orgId: string, userIds: stri
     ...(dedupeKey ? { skipDuplicates: true } : {}),
   });
   return r.count;
+}
+
+/**
+ * A recurring notice (a morning digest, a standing reminder) is one row per
+ * kind and person, refreshed: the same key every run, so a job that runs
+ * daily for two weeks leaves one unread row that says today's words, not
+ * fourteen that say the same thing (production, 9 Nov 2026: the bell said 18
+ * while the Inbox was empty). The row comes back unread and to the top.
+ * `retire` names older keys the same notice used to be sent under; those
+ * rows go. Returns 1 when a row was written or refreshed.
+ */
+export async function upsertNotice(accountId: string, orgId: string, userId: string, notice: Notice, dedupeKey: string, opts: { retire?: { startsWith: string } } = {}) {
+  if (!userId || userId.startsWith('portal:') || userId === 'system') return 0;
+  if (await isSampleOrg(orgId)) return 0;
+  if (await platformPrisma.notificationMute.findFirst({ where: { orgId, kind: notice.kind, userId }, select: { id: true } })) return 0;
+  const key = String(dedupeKey).slice(0, 300);
+  const data = { kind: notice.kind, title: notice.title.slice(0, 200), body: notice.body ? String(notice.body).slice(0, 1000) : null, linkJson: notice.link ? JSON.stringify(notice.link) : null };
+  if (opts.retire) await platformPrisma.notification.deleteMany({ where: { orgId, userId, kind: notice.kind, dedupeKey: { startsWith: opts.retire.startsWith, not: key } } });
+  await platformPrisma.notification.upsert({
+    where: { orgId_userId_dedupeKey: { orgId, userId, dedupeKey: key } },
+    create: { accountId, orgId, userId, ...data, dedupeKey: key },
+    update: { ...data, readAt: null, createdAt: new Date() },
+  });
+  return 1;
 }
 
 /** One row per person. Never throws: a notification must not break the thing it is about. Leave and request notices go through the outbox instead (sendNotice). */
@@ -123,6 +150,11 @@ export async function notifyPermission(accountId: string, orgId: string, permiss
  */
 export async function notifyPermissionOnce(accountId: string, orgId: string, permission: string, notice: Notice & { dedupeKey: string }, opts: { ever?: boolean } = {}) {
   const ids = await usersWithPermission(accountId, orgId, permission).catch(() => [] as string[]);
+  return notifyUsersOnce(accountId, orgId, ids, notice, opts);
+}
+
+/** As notifyPermissionOnce, to these users (an automation's chosen recipients). */
+export async function notifyUsersOnce(accountId: string, orgId: string, ids: string[], notice: Notice & { dedupeKey: string }, opts: { ever?: boolean } = {}) {
   if (!ids.length) return 0;
   const have = await platformPrisma.notification.findMany({ where: { orgId, userId: { in: ids }, kind: notice.kind, ...(opts.ever ? {} : { readAt: null }), linkJson: { contains: `"dedupe":"${notice.dedupeKey}"` } }, select: { userId: true } });
   const seen = new Set(have.map((h) => h.userId));

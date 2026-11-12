@@ -9,7 +9,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { isKnownFeature } from '../constants/featureCatalog.js';
 import { featureDisableBlocker, getFeatureCatalogWithValues, getFeatures, DETAILED_KEY } from '../services/features.js';
-import { appOfFeature, entitlementFor, upgradeHintFor } from '../services/entitlements.js';
+import { appOfFeature, entitlementFor, needsAny, upgradeHintFor } from '../services/entitlements.js';
 import { appOwnershipReason } from '../services/subscriptions.js';
 import { MODULE_PACKS } from '../constants/planCatalog.js';
 
@@ -120,11 +120,13 @@ featuresRouter.put(
     const entitlement = await entitlementFor(accountId);
     for (const [key, enabled] of Object.entries(body.features)) {
       if (enabled && !entitlement.features.has(key)) {
+        const offByClor = entitlement.removed.has(key) || needsAny(key, [...entitlement.removed]);
+        const hint = offByClor ? 'Turned off by CLOR. Ask CLOR support to turn it back on.' : upgradeHintFor(key);
         return res.status(403).json({
-          error: appOfFeature(key) ? `${upgradeHintFor(key)}: ${key} cannot be switched on.` : `${key} is not included in the ${entitlement.planName} plan.`,
+          error: offByClor ? `CLOR has turned this off for your account: ${key} cannot be switched on.` : appOfFeature(key) ? `${upgradeHintFor(key)}: ${key} cannot be switched on.` : `${key} is not included in the ${entitlement.planName} plan.`,
           code: 'NOT_ENTITLED',
           feature: key,
-          upgradeHint: upgradeHintFor(key),
+          upgradeHint: hint,
         });
       }
     }

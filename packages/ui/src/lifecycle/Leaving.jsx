@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserMinus } from '@ui/components/ui/lineIcons';
 
-import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import ErrorState from '@ui/components/ui/ErrorState';
 import useRequest from '@ui/components/ui/useRequest';
-import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
@@ -36,8 +36,7 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
   const query = { view, q: p.q, limit: size, offset: (page - 1) * size };
   const list = useRequest(() => pageLeavers(query), [JSON.stringify(query)]);
   const [open, setOpen] = useState(null);
-  const tabsRef = useRef(null);
-  const tabIndicator = useTabIndicator(tabsRef, view);
+  const [picking, setPicking] = useState(false);
   const counts = list.data?.counts || {};
   /* Opened from a notice (final pay due, a line to sign, an exit interview answered): the plan of that person. */
   useEffect(() => {
@@ -74,15 +73,16 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={crumbs()} title="Leaving" />
-      <div ref={tabsRef} role="tablist" aria-label="Leaving" className={`ui-record-tablist ${tabIndicator ? 'has-indicator' : ''}`}>
-        {VIEWS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={view === k} className={`ui-tab ${view === k ? 'is-active' : ''}`} onClick={() => set({ view: k === 'notice' ? null : k, page: null }, true)}>
-            {l}{counts[k] && k !== 'all' && k !== 'done' ? <span className="ui-tab-count tabular-nums">{counts[k]}</span> : null}
-          </button>
-        ))}
-        {tabIndicator}
-      </div>
+      <ListHeader
+        breadcrumb={crumbs()}
+        title="Leaving"
+        description="Everyone on notice or recently gone: their last day, the steps, the readers, final wages and sign-in."
+        primary={can(perms, 'PEOPLE::Employees::EDIT') ? { label: 'Record a leaving', icon: UserMinus, onClick: () => setPicking(true) } : null}
+        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search leavers" className="w-full sm:w-72" />}
+        tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
+        tab={view}
+        onTab={(k) => set({ view: k === 'notice' ? null : k, page: null }, true)}
+      />
       <DataTable
         label="Leaving"
         columns={columns}
@@ -104,13 +104,16 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
             <span className="block truncate ui-caption">{[r.readers ? `Readers: ${r.readers.word.toLowerCase()}` : null, r.wages ? (r.wages.paid ? 'wages paid' : r.wages.late ? 'wages late' : `wages due ${formatDate(r.wages.dueDate)}`) : null].filter(Boolean).join(' · ')}</span>
           </span>
         )}
-        toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search leavers" className="w-full sm:w-72" />}
         empty={list.error ? <ErrorState error={list.error} onRetry={list.reload} />
           /* The company keeps who is leaving from read-only users and IT administrators (People → Settings → Company choices). */
           : list.data?.hidden ? <EmptyState icon={UserMinus} title="Not shown to your role" description="The company shows who is leaving to HR and managers only." />
           : p.q ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => set({ q: null, page: null })} />
-            : <EmptyState icon={UserMinus} title={view === 'notice' ? 'Nobody is on notice' : view === 'clearing' ? 'No leaver has steps open' : 'Nobody here'} description={view === 'notice' ? 'Record a leaving on the person’s record, or approve a resignation, and it shows here.' : undefined} />}
+            : <EmptyState icon={UserMinus} title={view === 'notice' ? 'Nobody is on notice' : view === 'clearing' ? 'No leaver has steps open' : 'Nobody here'} description={view === 'notice' ? 'A leaving recorded here, or a resignation approved in the Inbox, shows with its last day and steps.' : undefined} />}
       />
+      {picking ? (
+        <PickPersonDrawer title="Record a leaving" description="Who is leaving. Their notice, last day and reason are taken on their record." action="Continue"
+          onClose={() => setPicking(false)} onPick={(person) => { setPicking(false); openScreen?.('employee', { id: person.id, tab: 'employment', action: 'leave' }); }} />
+      ) : null}
       {open ? <PlanDrawer row={open} kind="LEAVING" canEdit={can(perms, 'PEOPLE::Employees::EDIT')} canAssign={can(perms, 'PEOPLE::Employees::EDIT')} openScreen={openScreen} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}
     </div>
   );

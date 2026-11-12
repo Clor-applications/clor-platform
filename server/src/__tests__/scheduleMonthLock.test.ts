@@ -50,7 +50,7 @@ const shiftBody = (s: any, extra: Record<string, unknown> = {}) => ({
   halfDayMinutes: s.halfDayMinutes, fullDayMinutes: s.fullDayMinutes, overtimeAfterMinutes: s.overtimeAfterMinutes, weeklyOffDays: s.weeklyOffDays, offSaturdays: s.offSaturdays,
   code: s.code, color: s.color, isActive: s.isActive, ...extra,
 });
-const close = async (c: Ctx, month: string) => att(c).post(`/months/${month}/close`, { acknowledge: true }).expect(200);
+const close = async (c: Ctx, month: string) => att(c).post(`/months/${month}/close`, { acknowledge: true, ...(await att(c).get(`/months/${month}/readiness`)).body.noRecordConfirm }).expect(200);
 const reopen = async (c: Ctx, month: string) => att(c).post(`/months/${month}/reopen`, { reason: 'Correct the schedule' }).expect(200);
 const closedRefusal = (res: request.Response, month = '2026-09') => {
   expect(res.status).toBe(409);
@@ -133,7 +133,9 @@ describe('a closed month and the schedule', () => {
     expect((await peoplePrisma.shift.findUnique({ where: { id: used.id } }))!.startTime).toBe('09:00');
     // Its name and colour can still change; a shift no closed month uses can change freely.
     await att(c).put(`/shifts/${used.id}`, shiftBody(used, { name: 'Used day', color: '#336699' })).expect(200);
-    await att(c).put(`/shifts/${later.id}`, shiftBody(later, { startTime: '10:00' })).expect(200);
+    /* 10:00–18:00 less the break is 7 hours: a full day of 8 is refused (compute.ts shiftRuleProblem); 7 saves. */
+    expect((await att(c).put(`/shifts/${later.id}`, shiftBody(later, { startTime: '10:00' })).expect(400)).body.code).toBe('SHIFT_RULES');
+    await att(c).put(`/shifts/${later.id}`, shiftBody(later, { startTime: '10:00', fullDayMinutes: 420 })).expect(200);
 
     // The company default decides every date: refused too, as is changing the default.
     const def = await shift(c, 'Default');
@@ -146,8 +148,8 @@ describe('a closed month and the schedule', () => {
     await att(c).put('/rules', { defaultShiftId: def.id, lateAllowancePerMonth: 2, latePenaltyEvery: 0 }).expect(200);
 
     await reopen(c, '2026-09');
-    await att(c).put(`/shifts/${used.id}`, shiftBody(used, { name: 'Used day', startTime: '10:00' })).expect(200);
-    await att(c).put(`/shifts/${def.id}`, shiftBody(def, { endTime: '17:00' })).expect(200);
+    await att(c).put(`/shifts/${used.id}`, shiftBody(used, { name: 'Used day', startTime: '10:00', fullDayMinutes: 420 })).expect(200);
+    await att(c).put(`/shifts/${def.id}`, shiftBody(def, { endTime: '17:00', fullDayMinutes: 420 })).expect(200);
   });
 
   it('a closed month’s day recorded on a shift keeps the shift’s rules', async () => {

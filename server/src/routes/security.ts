@@ -7,7 +7,7 @@ import { createScimToken, revokeScimToken, scimTokensFor } from '../services/sci
 import { CredentialError, actorFrom } from '../services/credentials.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { callbackUrl, samlAcsUrl, samlEntityId } from './sso.js';
@@ -21,7 +21,10 @@ import {
   revokeAllSessions,
   listSessions,
 } from '../services/auth.js';
-import { getAuthPolicy, describePasswordRules, validatePassword } from '../services/policy.js';
+import { SESSION_DAYS_CAP, getAuthPolicy, describePasswordRules, validatePassword } from '../services/policy.js';
+import { whoRulesKeepOut } from '../services/signInRules.js';
+import { stepUpIfHeld } from '../services/stepUp.js';
+import { automaticRoleRefusal } from '../services/roleGuards.js';
 
 /**
  * Security administration: the policy an organisation enforces, the sign-in
@@ -52,7 +55,8 @@ const orgOk = (req: any, res: any) => {
 const policySchema = z.object({
   maxFailedLogins: z.number().int().min(3).max(50),
   lockoutMinutes: z.number().int().min(1).max(1440),
-  sessionDays: z.number().int().min(1).max(365),
+  /* N3: never longer than the refresh token itself lasts. */
+  sessionDays: z.number().int().min(1).max(SESSION_DAYS_CAP),
   accessTokenMinutes: z.number().int().min(5).max(1440),
   passwordMinLength: z.number().int().min(8).max(64),
   passwordRequireMixedCase: z.boolean(),
@@ -89,6 +93,49 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
     }
   }
 
+  /*
+   * #4: "Require a confirmed email address" and "Allowed email domains" now
+   * decide who may open the company. Saving rules that shut out the person
+   * saving them, or anyone who administers the company (review S3), would
+   * leave it with nobody to undo them. Account owners and admins are never
+   * shut out.
+   */
+  const rules = { requireVerifiedEmail: body.requireVerifiedEmail, allowedEmailDomains: body.allowedEmailDomains ?? null };
+  const [wouldKeepOut, current] = await Promise.all([
+    whoRulesKeepOut(accountId, orgId, rules),
+    platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requireVerifiedEmail: true, allowedEmailDomains: true } }),
+  ]);
+  const mine = wouldKeepOut.find((k) => k.userId === req.auth!.userId);
+  if (mine?.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
+    return res.status(400).json({ error: `Your own address (${mine.email}) is not at one of those domains, so you would lose access. Add its domain to the list.`, code: 'OWN_DOMAIN_EXCLUDED' });
+  }
+  if (mine?.code === 'EMAIL_NOT_CONFIRMED') {
+    return res.status(400).json({ error: 'Confirm your own email address first (My profile), then require it of everyone.', code: 'OWN_EMAIL_NOT_CONFIRMED' });
+  }
+  /*
+   * Review N-a: refuse only the administrators this save would newly shut out,
+   * that is, when it narrows the domains or turns on confirmed email. An
+   * admin the saved rules already keep out does not block an unrelated change
+   * such as the lockout count.
+   */
+  const keptOutNow = current ? new Set((await whoRulesKeepOut(accountId, orgId, current)).map((k) => `${k.userId}|${k.code}`)) : new Set<string>();
+  const leaders = wouldKeepOut.filter((k) => k.admin && !keptOutNow.has(`${k.userId}|${k.code}`));
+  if (leaders.length) {
+    const what = leaders.length === 1 ? 'an administrator' : `${leaders.length} administrators`;
+    const fix = 'Add their domain, or have them confirm their email, first.';
+    /* Review N-b: who they are only for someone who may see the company's people. */
+    if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Users')) {
+      return res.status(400).json({ error: `These rules would shut out ${what} of this company. ${fix}`, code: 'ADMINS_SHUT_OUT', count: leaders.length });
+    }
+    const names = leaders.map((k) => (k.fullName ? `${k.fullName} (${k.email})` : k.email)).join(', ');
+    return res.status(400).json({
+      error: `These rules would shut out ${what} of this company: ${names}. ${fix}`,
+      code: 'ADMINS_SHUT_OUT',
+      count: leaders.length,
+      people: leaders.map((k) => ({ email: k.email, fullName: k.fullName, reason: k.code })),
+    });
+  }
+
   const saved = await platformPrisma.authPolicy.upsert({
     where: { orgId },
     update: { ...body, allowedEmailDomains: body.allowedEmailDomains ?? null, updatedByUserId: req.auth!.userId },
@@ -106,10 +153,18 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
     userId: req.auth!.userId,
     eventType: 'POLICY_CHANGED',
     ip: clientIp(req),
-    detail: `Lockout ${saved.maxFailedLogins}/${saved.lockoutMinutes}m, session ${saved.sessionDays}d`,
+    detail: `Lockout ${saved.maxFailedLogins}/${saved.lockoutMinutes}m, session ${saved.sessionDays}d, access ${saved.accessTokenMinutes}m, confirmed email ${saved.requireVerifiedEmail ? 'required' : 'not required'}, domains ${saved.allowedEmailDomains || 'any'}`,
   });
 
-  res.json({ policy: saved, passwordRules: describePasswordRules(saved) });
+  /* Who these rules now keep out, so the screen can say so rather than leave it to be discovered. */
+  const keptOut = {
+    unconfirmed: wouldKeepOut.filter((k) => k.code === 'EMAIL_NOT_CONFIRMED').length,
+    outsideDomains: wouldKeepOut.filter((k) => k.code === 'EMAIL_DOMAIN_NOT_ALLOWED').length,
+  };
+
+  /* The same shape GET returns, so the screen's saved copy matches what it shows and stops saying "Unsaved changes". */
+  const policy = await getAuthPolicy(accountId, orgId);
+  res.json({ policy, passwordRules: describePasswordRules(policy), keptOut });
 });
 
 // ---------------------------------------------------------------------------
@@ -187,9 +242,11 @@ securityRouter.post('/orgs/:orgId/security/scim', EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const defaultRoleId = req.body?.defaultRoleId ? String(req.body.defaultRoleId) : null;
-  const role = defaultRoleId ? await platformPrisma.role.findFirst({ where: { id: defaultRoleId, orgId }, select: { roleType: true } }) : null;
-  if (defaultRoleId && !role) return res.status(400).json({ error: 'That role is not in this organisation.' });
-  if (role?.roleType === 'ADMIN') return res.status(400).json({ error: 'People from the directory cannot be given an administrator role automatically; assign it by hand.' });
+  /* #2: a role of this company, never an administrator's, and nothing the maker does not hold themselves. */
+  const roleRefused = await automaticRoleRefusal(req, defaultRoleId);
+  if (roleRefused) return res.status(roleRefused.status).json(roleRefused.body);
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to make a directory-sync token.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
   const expiresAt = expiryOf(req.body?.expiresAt);
   if (expiresAt === 'bad') return res.status(400).json({ error: 'An expiry must be a date in the future, at most a year away.' });
   /* A-31: revoked tokens are kept for the record, so only live ones count towards the five. */
@@ -250,6 +307,11 @@ securityRouter.post('/orgs/:orgId/security/providers', EDIT, async (req, res) =>
   if (problem) return res.status(400).json({ error: problem });
   /* Switched on only once its domains are proven (verify-domains below). */
   if (body.enabled && !verificationSkipped()) return res.status(400).json({ error: 'Add it switched off, publish the TXT record on each domain, choose Verify, then switch it on.' });
+  /* #3: the role every person it creates gets — bounded like a directory-sync token's (#2). */
+  const roleRefused = await automaticRoleRefusal(req, body.defaultRoleId);
+  if (roleRefused) return res.status(roleRefused.status).json(roleRefused.body);
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to change single sign-on.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
 
   try {
     const created = await platformPrisma.authProvider.create({
@@ -272,6 +334,7 @@ securityRouter.post('/orgs/:orgId/security/providers', EDIT, async (req, res) =>
         verifiedDomains: verificationSkipped() ? domainsOf(body.emailDomains).join(',') || null : null,
         autoProvision: body.autoProvision ?? false,
         defaultRoleId: body.defaultRoleId ?? null,
+        defaultRoleSetByUserId: body.defaultRoleId ? req.auth!.userId : null,
         createdByUserId: req.auth!.userId,
       },
     });
@@ -310,6 +373,11 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
   if (wantsOn && domainsOf(nextDomains).some((d) => !domainsOf(nextVerified).includes(d))) {
     return res.status(400).json({ error: 'Every domain must be verified before this sign-in method is switched on. Publish the TXT record and choose Verify.' });
   }
+  /* #3: checked whenever it is set, even to the role it already had: whoever saves the form now hands it out. */
+  const roleRefused = await automaticRoleRefusal(req, body.defaultRoleId);
+  if (roleRefused) return res.status(roleRefused.status).json(roleRefused.body);
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to change single sign-on.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
 
   const updated = await platformPrisma.authProvider.update({
     where: { id: existing.id },
@@ -332,8 +400,10 @@ securityRouter.patch('/orgs/:orgId/security/providers/:providerId', EDIT, async 
       domainVerifyToken: existing.domainVerifyToken || newDomainToken(),
       autoProvision: body.autoProvision ?? existing.autoProvision,
       defaultRoleId: body.defaultRoleId ?? null,
+      defaultRoleSetByUserId: body.defaultRoleId ? req.auth!.userId : null,
     },
   });
+  await recordAuthEvent({ accountId, userId: req.auth!.userId, eventType: 'PROVIDER_UPDATED', detail: `${updated.kind} ${updated.name}`, ip: clientIp(req) });
 
   res.json({ provider: publicProvider(updated) });
 });
@@ -358,6 +428,8 @@ securityRouter.delete('/orgs/:orgId/security/providers/:providerId', EDIT, async
     where: { id: String(req.params.providerId), accountId, orgId },
   });
   if (!existing) return res.status(404).json({ error: 'Sign-in method not found' });
+  const steppedUp = await stepUpIfHeld(req, 'Enter the code from your authenticator app to change single sign-on.');
+  if (steppedUp) return res.status(steppedUp.status).json(steppedUp.body);
   await platformPrisma.authProvider.delete({ where: { id: existing.id } });
   await recordAuthEvent({
     accountId,
@@ -455,12 +527,23 @@ securityRouter.get('/orgs/:orgId/security/two-factor', async (req, res) => {
   res.json({ enabled: !!u?.totpEnabledAt, enabledAt: u?.totpEnabledAt || null, recoveryCodesLeft: left, payrollStepUp: !!policy?.requirePayrollStepUp, stepUpMinutes: STEP_UP_MINUTES });
 });
 
-/** A new secret, not yet in force: it is switched on only by a code from it. */
-securityRouter.post('/orgs/:orgId/security/two-factor/setup', async (req, res) => {
+/**
+ * A new secret, not yet in force: it is switched on only by a code from it.
+ *
+ * #12: it takes the person's password. Someone holding a stolen access token
+ * could otherwise put an authenticator they control on the account, and the
+ * real owner's next sign-in would need the thief's code. Wrong passwords
+ * share the code limiter, so the password cannot be guessed here either.
+ */
+securityRouter.post('/orgs/:orgId/security/two-factor/setup', ...codeLimiter, async (req, res) => {
   if (!orgOk(req, res)) return;
   const u = await me2fa(req);
   if (!u) return res.status(401).json({ error: 'Unauthorized' });
   if (u.totpEnabledAt) return res.status(409).json({ error: 'An authenticator is already set up. Turn it off first to set up another.', code: 'ALREADY_ENABLED' });
+  if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) {
+    await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_SETUP_REFUSED', ip: clientIp(req), detail: 'Wrong password' });
+    return res.status(400).json({ error: 'Your password is not correct. If you sign in with single sign-on, set a password first with “Forgot password”.', code: 'BAD_PASSWORD' });
+  }
   const secret = newSecret();
   await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: encryptSecret(secret), totpLastStep: null } });
   res.json({ secret, uri: otpauthUri(secret, u.email) });

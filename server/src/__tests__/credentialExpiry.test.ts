@@ -77,9 +77,9 @@ describe('expiry warnings', () => {
 });
 
 describe('the person who made it leaves', () => {
-  /** A colleague who can manage integration keys, signed in. */
+  /** A colleague who can manage integration keys, and read the attendance a key reads, signed in. */
   async function colleague(d: Ctx) {
-    const role = await request(app).post(`/api/orgs/${d.orgId}/roles`).set(at(d)).send({ name: `Keys ${rnd()}`, roleType: 'CUSTOM', permissions: ['ATTENDANCE::Attendance Integrations::VIEW', 'ATTENDANCE::Attendance Integrations::CREATE', 'ATTENDANCE::Attendance Integrations::EDIT'] }).expect(201);
+    const role = await request(app).post(`/api/orgs/${d.orgId}/roles`).set(at(d)).send({ name: `Keys ${rnd()}`, roleType: 'CUSTOM', permissions: ['ATTENDANCE::Attendance Integrations::VIEW', 'ATTENDANCE::Attendance Integrations::CREATE', 'ATTENDANCE::Attendance Integrations::EDIT', 'ATTENDANCE::Attendance Records::VIEW'] }).expect(201);
     const email = `k.${rnd()}@example.com`;
     const u = await request(app).post('/api/users').set(at(d)).send({ email, fullName: 'Key Maker', password: 'KeyMaker!2026pass', orgIds: [d.orgId], branchIdsByOrg: { [d.orgId]: [d.branchId] } }).expect(201);
     const id = u.body.user?.id || u.body.id;

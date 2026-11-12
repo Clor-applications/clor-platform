@@ -17,6 +17,15 @@ import { FEATURE as PROVISIONAL, ordinal, provisionalSetting } from '../services
 import { capSetting } from '../services/payroll/deductionCap.js';
 import { fnfCapPercent } from '../services/payroll/fnfRecoveryCap.js';
 import { resolveAccess } from '../services/access.js';
+import {
+  DEDUCTOR_CODES,
+  compactNumber,
+  registrationProblem,
+  registrationsShape,
+  setPfContributeOnFullWage,
+} from '../services/payroll/statutoryRegistrations.js';
+import { seedStatutoryCatalogue } from '../services/payroll/statutory/resolve.js';
+import { canonicalState, stateLabel } from '../constants/stateLevies.js';
 
 /**
  * Whether payroll is ready to run, and what is left to do.
@@ -56,6 +65,8 @@ export type SetupStep = {
   detail: string;
   /** The screen that completes it. */
   screen: string;
+  /** Payroll can run without it; the checklist still shows it until it is done. */
+  optional?: boolean;
 };
 
 payrollSetupRouter.get(
@@ -81,6 +92,13 @@ payrollSetupRouter.get(
       }),
       accountingFor(accountId).getLedgers(orgId).then((l) => l.length),
     ]);
+    const registrations = await registrationsShape(orgId);
+    const applied = [
+      registrations.pf.applies ? 'PF' : null,
+      registrations.esi.applies ? 'ESI' : null,
+      registrations.pt.applies ? 'professional tax' : null,
+      registrations.tds.applies ? 'income tax' : null,
+    ].filter(Boolean);
 
     const openPeriods = periods.filter((p) => !p.isLocked).length;
     const earnings = components.filter((c) => c.type === 'EARNING').length;
@@ -143,6 +161,21 @@ payrollSetupRouter.get(
         screen: 'payrollCompliancePage',
       },
       {
+        key: 'registrations',
+        title: 'Statutory registrations',
+        blurb: 'The numbers each return is filed under: the PF establishment code, the ESI employer code, professional tax by state and the TAN.',
+        done: registrations.done,
+        detail: !registrations.answeredAt
+          ? 'Not entered yet. Payroll can run without them, but no return can be filed until they are added.'
+          : registrations.missing.length
+            ? `Missing: ${registrations.missing.map((m) => m.short).join(', ')}`
+            : applied.length
+              ? `${applied.join(', ')} registered`
+              : 'None apply to this company',
+        screen: 'payrollSetup',
+        optional: true,
+      },
+      {
         key: 'accounting',
         title: 'Accounting',
         blurb: 'Which account each part of a salary posts to. Payroll cannot reach the books without it.',
@@ -175,6 +208,8 @@ payrollSetupRouter.get(
     ];
 
     const outstanding = steps.filter((s) => !s.done);
+    /* A payslip needs every step but the optional ones; those stay on the list until done. */
+    const blocking = outstanding.filter((s) => !s.optional);
 
     res.json({
       setup: {
@@ -184,11 +219,155 @@ payrollSetupRouter.get(
         done: steps.filter((s) => s.done).length,
         total: steps.length,
         /* Payroll can actually produce a payslip. */
-        ready: outstanding.length === 0,
+        ready: blocking.length === 0,
         /* Where somebody resuming should be sent. */
         nextStep: outstanding[0] || null,
       },
     });
+  }
+);
+
+// ---------------------------------------------------------------- statutory registrations
+
+/**
+ * The numbers each statutory return is filed under (roadmap 15): one reading
+ * for the setup step, the Compliance screen and the pay run screen. The
+ * numbers themselves live where they always did — on the scheme rows and the
+ * payroll settings — so this is a second door to the same room, not a copy.
+ */
+payrollSetupRouter.get(
+  '/orgs/:orgId/payroll/settings/statutory-registrations',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, PAYROLL_RESOURCE.settings),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    res.json(await registrationsShape(req.tenant!.orgId));
+  }
+);
+
+const text = (max: number) => z.string().trim().max(max).optional().nullable();
+const registrationsBody = z.object({
+  pf: z.object({ applies: z.boolean(), code: text(40), contributeOnFullWage: z.boolean().optional() }).optional(),
+  esi: z.object({ applies: z.boolean(), code: text(40) }).optional(),
+  pt: z
+    .object({
+      applies: z.boolean(),
+      registrations: z.array(z.object({ state: z.string().trim().min(1).max(60), registrationNumber: text(30) })).max(40).default([]),
+    })
+    .optional(),
+  tds: z
+    .object({
+      applies: z.boolean(),
+      tan: text(20),
+      deductorType: z.enum(DEDUCTOR_CODES).optional().nullable(),
+      responsibleName: text(120),
+      responsibleDesignation: text(80),
+    })
+    .optional(),
+});
+
+payrollSetupRouter.put(
+  '/orgs/:orgId/payroll/settings/statutory-registrations',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, PAYROLL_RESOURCE.settings),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const userId = req.auth!.userId;
+    const parsed = registrationsBody.safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Say which schemes apply and give their numbers.' });
+    const body = parsed.data;
+    if (!body.pf && !body.esi && !body.pt && !body.tds) return res.status(400).json({ error: 'Nothing to save.' });
+
+    /* Each number in the shape its portal uses, or a plain sentence about what is wrong. */
+    const numbers: Array<[string, unknown]> = [
+      ['PF', body.pf?.code],
+      ['ESI', body.esi?.code],
+      ['TDS', body.tds?.tan],
+      ...(body.pt?.registrations || []).map((r): [string, unknown] => ['PT', r.registrationNumber]),
+    ];
+    for (const [scheme, value] of numbers) {
+      const problem = registrationProblem(scheme, value);
+      if (problem) return res.status(400).json({ error: problem, scheme });
+    }
+    if (body.pt) {
+      for (const r of body.pt.registrations) {
+        if (!canonicalState(r.state)) return res.status(400).json({ error: 'Each professional tax registration needs its state.' });
+      }
+    }
+
+    /* A scheme cannot be switched on without rates behind it, so a company that skipped Compliance gets the standard rates first. */
+    if ((await payrollPrisma.statutoryScheme.count({ where: { orgId } })) === 0) {
+      await seedStatutoryCatalogue(orgId, accountId, userId);
+    }
+    const schemes = await payrollPrisma.statutoryScheme.findMany({ where: { orgId }, select: { id: true, code: true, name: true } });
+    const schemeOf = (code: string) => schemes.find((s) => s.code.toUpperCase() === code);
+
+    const before = await registrationsShape(orgId);
+
+    const setScheme = async (code: 'PF' | 'ESI' | 'PT' | 'TDS', applies: boolean, number?: string | null) => {
+      const scheme = schemeOf(code);
+      if (!scheme) return `${code} is not among this company's statutory schemes. Add the standard rates in Compliance first.`;
+      if (applies) {
+        const rules = await payrollPrisma.statutoryRule.count({ where: { orgId, schemeId: scheme.id, status: 'ACTIVE' } });
+        if (!rules) return `${scheme.name} has no rates set, so switching it on would deduct nothing. Add a rate in Compliance first.`;
+      }
+      const data: { isEnabled: boolean; registrationNumber?: string | null } = { isEnabled: applies };
+      if (number !== undefined) data.registrationNumber = compactNumber(number) || null;
+      await payrollPrisma.statutoryScheme.update({ where: { id: scheme.id }, data });
+      return null;
+    };
+
+    const refused =
+      (body.pf ? await setScheme('PF', body.pf.applies, body.pf.code) : null) ||
+      (body.esi ? await setScheme('ESI', body.esi.applies, body.esi.code) : null) ||
+      (body.pt ? await setScheme('PT', body.pt.applies) : null) ||
+      (body.tds ? await setScheme('TDS', body.tds.applies, body.tds.tan) : null);
+    if (refused) return res.status(409).json({ error: refused, code: 'SCHEME_HAS_NO_RULES' });
+
+    if (body.pf && body.pf.contributeOnFullWage !== undefined) {
+      await setPfContributeOnFullWage(orgId, accountId, userId, body.pf.contributeOnFullWage);
+    }
+
+    const settingData: Record<string, unknown> = { statutoryRegistrationsAt: new Date(), updatedByUserId: userId };
+    if (body.pt) {
+      /* One row per state, the later entry winning, in the canonical spelling so the run finds it. */
+      const rows = new Map<string, string>();
+      for (const r of body.pt.registrations) rows.set(canonicalState(r.state), String(r.registrationNumber || '').trim().toUpperCase());
+      settingData.ptRegistrationsJson = JSON.stringify([...rows.entries()].map(([state, registrationNumber]) => ({ state, registrationNumber })));
+    }
+    if (body.tds) {
+      settingData.tdsDeductorType = body.tds.deductorType || null;
+      settingData.tdsResponsibleName = body.tds.responsibleName?.trim() || null;
+      settingData.tdsResponsibleDesignation = body.tds.responsibleDesignation?.trim() || null;
+    }
+    await payrollPrisma.payrollSetting.upsert({
+      where: { orgId },
+      update: settingData,
+      create: { accountId, orgId, ...settingData } as any,
+    });
+
+    const after = await registrationsShape(orgId);
+    const said = [
+      body.pf ? (after.pf.applies ? `PF applies${after.pf.code ? ` (${after.pf.code})` : ', code to come'}${after.pf.contributeOnFullWage ? ', on the full wage' : ''}` : 'PF does not apply') : null,
+      body.esi ? (after.esi.applies ? `ESI applies${after.esi.code ? ` (${after.esi.code})` : ', code to come'}` : 'ESI does not apply') : null,
+      body.pt
+        ? after.pt.applies
+          ? `professional tax in ${after.pt.registrations.filter((r) => r.registrationNumber).map((r) => stateLabel(r.state)).join(', ') || 'no state yet'}`
+          : 'professional tax does not apply'
+        : null,
+      body.tds ? (after.tds.applies ? `TDS applies${after.tds.tan ? ` (TAN ${after.tds.tan})` : ', TAN to come'}` : 'TDS does not apply') : null,
+    ].filter(Boolean);
+    if (req.res) req.res.locals.audited = true;
+    await recordAudit(req, {
+      entity: 'PAYROLL_SETTINGS',
+      entityId: orgId,
+      action: 'EDIT',
+      message: `Statutory registrations saved: ${said.join('; ')}`,
+      metadata: {
+        before: { pf: before.pf, esi: before.esi, pt: before.pt.registrations, tds: before.tds },
+        after: { pf: after.pf, esi: after.esi, pt: after.pt.registrations, tds: after.tds },
+      },
+    });
+    res.json(after);
   }
 );
 

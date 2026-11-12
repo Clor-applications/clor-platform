@@ -1,4 +1,6 @@
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '@phosphor-icons/react';
+
+import { duo } from '@ui/components/ui/duoIcon';
 
 import { ICON } from './src/screens/wsKit.jsx';
 import SetupGuide from './src/screens/SetupGuide.jsx';
@@ -21,6 +23,7 @@ const Invitations = screen('Invitations');
 const Members = screen('Members');
 const AccountActivity = screen('AccountActivity');
 const Companies = screen('Companies');
+const NotificationSettings = screen('NotificationSettings');
 const AccessHome = screen('AccessHome');
 const SecurityHome = screen('SecurityHome');
 const DataHome = screen('DataHome');
@@ -29,6 +32,7 @@ const AccountOverview = screen('AccountOverview');
 const BillingPreview = screen('BillingPreview');
 const DataBackup = screen('DataBackup');
 const CloseCompany = screen('CloseCompany');
+const Support = screen('Support');
 
 /**
  * Workspace: the company's own administration, not any one app's (ADR-010).
@@ -52,7 +56,7 @@ const CloseCompany = screen('CloseCompany');
 export const adminApp = {
   id: 'admin',
   name: 'Workspace',
-  icon: ShieldCheck,
+  icon: duo(ShieldCheck, 'ShieldCheck'),
   blurb: 'People, roles, sign-in, billing and the audit trail — for every app.',
   available: true,
   platform: true,
@@ -65,12 +69,13 @@ export const adminApp = {
   railOpensHome: true,
   /* The rail's foot: how far setup has got (owners and admins, until it is done), then Help, which leaves the bar. */
   railFoot: { Component: SetupGuide, helpIcon: ICON.help },
-  /* The icon set Clor Attendance draws in: Microsoft Fluent colour icons. */
-  iconSet: 'color',
+  /* People's icon family (owner, 9 Nov 2026): two-tone marks, and Fluent line icons on buttons and actions. */
+  iconSet: 'duo',
+  lineIcons: 'fluent',
 
   modules: [
-    { key: 'home', label: 'Overview', icon: ICON.home, items: ['home'] },
-    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches'] },
+    { key: 'home', label: 'Overview', icon: ICON.home, items: ['home', 'support'] },
+    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications'] },
     { key: 'access', label: 'Access', icon: ICON.people, groups: [
       { label: null, items: ['accessHome'] },
       { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
@@ -87,9 +92,13 @@ export const adminApp = {
   /* `permission`: the shell shows an item only to somebody who holds it, and read-only to somebody who cannot change it. */
   nav: [
     { key: 'home', label: 'Overview', icon: ICON.home },
+    /* Everyone may ask CLOR for help; what each sees is the server's (their own tickets, or the account's). */
+    { key: 'support', label: 'Help and support', icon: ICON.chat },
     { key: 'companies', label: 'Companies', icon: ICON.companies, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'company', label: 'Company profile', icon: ICON.company, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'branches', label: 'Branches', icon: ICON.companies, permission: 'MASTERS::Company/Branch setup::VIEW' },
+    /* B5: every app's switchable emails, for the apps the company has on; the server's own gate (routes/email.ts). */
+    { key: 'notifications', label: 'Email notifications', icon: ICON.mail, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'accessHome', label: 'Overview', short: 'Access', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
     /* W-4: the account's people, every company at once; the server lets only owners and administrators in. */
     { key: 'members', label: 'Members', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
@@ -121,6 +130,7 @@ export const adminApp = {
     dataHome: DataHome,
     company: CompanyProfile,
     branches: SettingsBranches,
+    notifications: NotificationSettings,
     users: SettingsUsers,
     roles: SettingsRoles,
     permissions: RolePermissionManager,
@@ -136,5 +146,6 @@ export const adminApp = {
     billing: BillingPreview,
     export: DataBackup,
     close: CloseCompany,
+    support: Support,
   },
 };

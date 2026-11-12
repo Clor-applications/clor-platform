@@ -21,7 +21,7 @@ test.describe('Rahul manages his team', () => {
     const before = await readBalance(imran.balance('Casual leave'));
 
     await rahul.goto();
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     await (await rahul.approve(webSpan(day), 'Imran Khan')).click();
     /*
      * The app saying it is done, then the row gone. The row alone was not enough: on a busy
@@ -50,7 +50,7 @@ test.describe('Rahul manages his team', () => {
     const before = await readBalance(lakshmi.balance('Casual leave'));
 
     await rahul.goto();
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     const item = rahul.row(webSpan(from, to), 'Lakshmi Patil');
     /*
      * The name opens the request (a button on a desktop row; the whole item on a phone).
@@ -85,7 +85,7 @@ test.describe('Rahul manages his team', () => {
     const before = await readBalance(deepak.balance('Casual leave'));
 
     await rahul.goto();
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     for (const day of [a, b]) {
       await (await rahul.approve(webSpan(day), 'Deepak Verma')).dblclick();
       await expect(rahul.row(webSpan(day), 'Deepak Verma')).toHaveCount(0);
@@ -138,7 +138,7 @@ test.describe('Rahul manages his team', () => {
     await rahul.settle();
     await rahul.open("Who's away");
     await rahul.open('Leave calendar');
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     expect(refused, 'API calls refused while a manager used his own screens').toEqual([]);
   });
 
@@ -193,11 +193,11 @@ test.describe('Rahul manages his team', () => {
     await expect(ask).toBeHidden();
     await expect(rahul.row('School admission for my son').or(rahul.row(webSpan(from, to)))).toContainText(/Waiting/);
 
-    await rahul.open('Approvals');
+    await rahul.open('Inbox');
     await expect(rahul.row(webSpan(from, to)), 'not in my own Approvals').toHaveCount(0);
 
     await suresh.goto();
-    await suresh.open('Approvals');
+    await suresh.open('Inbox');
     await expect(suresh.row(webSpan(from, to))).toContainText('Rahul Menon');
   });
 });

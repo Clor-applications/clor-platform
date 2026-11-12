@@ -10,6 +10,7 @@ import { LEAVING_WITHDRAWN_NOTE } from '../lifecycle/stayOn.js';
 import { countFrom, workingCalendar } from '../lifecycle/workdays.js';
 import { registerRecipe } from './automations.js';
 import { addDays } from '../../../utils/istDate.js';
+import { isCompanyUser } from '../members.js';
 
 /**
  * No-dues sign-off and the final-pay clock (WORKFLOW-GAP-RESEARCH-2026-10-30 A9, A10, 4.3).
@@ -53,8 +54,8 @@ const longDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString
 async function refuseOwnPlan(who: Who, employeeId: string) {
   if (await ownPlanRefusal(who, { employeeId, owner: 'HR' })) throw new ClearanceError('This is your own leaving: someone else signs it.', 403, 'OWN_PLAN');
 }
-async function refuseOutsider(orgId: string, userId: string) {
-  if (!(await platformPrisma.userOrgMembership.findFirst({ where: { orgId, userId }, select: { id: true } }))) throw new ClearanceError('That person is not in this company.');
+async function refuseOutsider(accountId: string, orgId: string, userId: string) {
+  if (!(await isCompanyUser(accountId, orgId, userId))) throw new ClearanceError('That person is not in this company.');
 }
 
 /** Leaving and not one of the kinds with no settlement (a duplicate record, someone who never joined). */
@@ -242,7 +243,7 @@ export async function updateLine(who: Who, id: string, input: LineInput, can: { 
     data.items = next.map((n) => ({ ...n, tag: before.find((b) => b.assetId && b.assetId === n.assetId)?.tag || null }));
   }
   if (input.ownerUserId !== undefined) {
-    if (input.ownerUserId) await refuseOutsider(who.orgId, input.ownerUserId);
+    if (input.ownerUserId) await refuseOutsider(who.accountId, who.orgId, input.ownerUserId);
     data.ownerUserId = input.ownerUserId || null;
   }
   if (input.sign === true) {
@@ -270,7 +271,7 @@ export async function addLine(who: Who, employeeId: string, input: { label?: str
   const e = await leaverOf(who.orgId, employeeId);
   if (!isLeaving(e)) throw new ClearanceError('They are not leaving.', 409);
   await refuseOwnPlan(who, employeeId);
-  if (input.ownerUserId) await refuseOutsider(who.orgId, input.ownerUserId);
+  if (input.ownerUserId) await refuseOutsider(who.accountId, who.orgId, input.ownerUserId);
   await carryLines(who.orgId, e);
   const label = String(input.label || '').trim().slice(0, 80);
   if (label.length < 2) throw new ClearanceError('Name the line.');

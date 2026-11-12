@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, RotateCcw, Save } from 'lucide-react';
+import { Check, RotateCcw, Save } from '@ui/components/ui/lineIcons';
 
 import { listRoles, updateRole } from '@platform/admin/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';
@@ -7,6 +7,7 @@ import { Spinner } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { hasApp, orgId as platformOrgId } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
+import TemplateDrift from './TemplateDrift';
 import { PERMISSION_APPS, catalogKeys, moduleKeys, visibleModules } from './permissionKeys';
 import { Meter, PageHead, Panel } from './wsKit';
 import './workspace.css';
@@ -141,6 +142,8 @@ export const RolePermissionManager = () => {
       setBaseline(new Set(keep));
       setGranted(new Set(keep));
       setSavedAt(Date.now());
+      /* How the role now stands against its template is the server's to say. */
+      listRoles(platformOrgId()).then((r) => Array.isArray(r?.roles) && setRoles(r.roles)).catch(() => {});
       // The editor may have just changed their own role.
       reloadMyPermissions();
     } catch (e) {
@@ -253,6 +256,7 @@ export const RolePermissionManager = () => {
                   </select>
                   {selectedRole?.description ? <p className="ui-caption">{selectedRole.description}</p> : null}
                 </div>
+                {!dirty ? <TemplateDrift template={selectedRole?.template} modules={catalog.modules} onMatch={() => applyPreset(selectedRole.template.key)} /> : null}
                 <Meter label="Granted" used={granted.size} limit={total || null} />
                 <label className="flex items-start gap-2 text-sm" htmlFor="rpm-own-docs">
                   <input id="rpm-own-docs" type="checkbox" className="mt-0.5" checked={ownDocs} onChange={(e) => setOwnDocs(e.target.checked)} />

@@ -64,7 +64,7 @@ export function withSidePanel(Screen, Panel) {
         <div ref={main} className="ui-with-panel-main"><Screen {...props} /></div>
         {wide ? (
           <aside className="ui-side-panel" aria-label="About this list">
-            <p className="ui-side-today">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+            {/* No date line and no quick links (People plan 8 Nov 2026, §3 rule 3): the panel carries data the page lacks, or it is not drawn. */}
             {/* Its own wait: a panel still loading never holds up the list. */}
             <Suspense fallback={null}><Panel {...props} /></Suspense>
           </aside>

@@ -13,14 +13,20 @@ import { paramsForOpen } from './openParams';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
+import { useAppCatalogue, listingFor } from './appCatalogue';
 import { APPS, appById, availableApps, landingApp, subscribedApps } from './registry';
 import { ADMIN_APP_ID, appFromHost, hostForApp, isFrontDoor } from './appHosts';
 import { PHONE_QUERY, TABLET_QUERY, mobileTabsFor } from './mobileTabs';
 import { landingScreen, mergeParams, moduleForScreen, railAction, readScreenSearch, resolveModules, screenSearch, withoutEmptyHubs } from './splitNav';
 import { useSession } from './session';
 import { OPEN_APP_EVENT, OPEN_HELP_EVENT, OPEN_SCREEN_EVENT } from '@platform/context';
+import { AnnouncementBar } from './Announcements';
 import { clearUnsaved, confirmLeave, hasUnsaved } from '@platform/unsaved';
-import { confirmDialog } from '@ui/components/ui/notify';
+import { EXPLORE_READ_ONLY_TEXT, confirmDialog, notify } from '@ui/components/ui/notify';
+import { ExploreEnded, ExploreLanding, ExploreNotice } from './Explore';
+import { isExplorePath } from './exploreLink';
+import Start from './Start';
+import { isStartPath } from './startLink';
 
 /* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
@@ -31,8 +37,6 @@ import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import CommandPalette from '@ui/components/ui/CommandPalette';
-import { AlertColor, PersonColor } from '@fluentui/react-icons';
-import { colorIcon } from '@ui/components/ui/iconSet';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
 import NoCompanyAccess from './NoCompanyAccess';
@@ -49,7 +53,7 @@ import { useLegalRoute } from './legal/useLegalRoute';
 import { renderPublicPage, usePublicPage } from './usePublicPage';
 
 /**
- * The Clor shell.
+ * The CLOR shell.
  *
  * It owns the things that are true regardless of which application you are
  * looking at: who is signed in, which company, which apps that company has,
@@ -79,6 +83,9 @@ function AppLoading() {
 const MARKETING_URL = import.meta.env.VITE_MARKETING_URL || 'https://clor.in';
 /* Before any page rewrites the address: remember the app a visitor came for. */
 captureAppIntent();
+
+/* Explore's way back to a person: the demo form on clor.in. */
+const DEMO_URL = `${MARKETING_URL.replace(/\/$/, '')}/demo`;
 
 const PUBLIC_PATHS = { signin: '/signin', signup: '/signup', forgot: '/forgot-password' };
 
@@ -188,11 +195,22 @@ function ScreenState({ title, text, action }) {
   );
 }
 
-/* The bar's own icons in the colour set, for an app that draws in it (manifest iconSet: 'color'). */
-const BellColor = colorIcon(AlertColor, 'Alert');
-const ProfileColor = colorIcon(PersonColor, 'Person');
-
+/*
+ * The platform's own pages (sign-in, company setup, an app's public page) draw in the icon family every app but
+ * Accounting uses (owner, 9 Nov 2026): Phosphor two-tone marks and Fluent line icons. Inside, the open app's
+ * manifest decides, so Accounting keeps its Lucide line icons exactly as before.
+ */
 export default function Shell() {
+  return (
+    <IconSetContext.Provider value="duo">
+      <LineSetContext.Provider value="fluent">
+        <ShellScreens />
+      </LineSetContext.Provider>
+    </IconSetContext.Provider>
+  );
+}
+
+function ShellScreens() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
   const [navOpen, setNavOpen] = useState(false);
@@ -217,7 +235,7 @@ export default function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tabletPanel]);
-  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired } = useSession();
+  const { user, tenant, tenants, accounts, createCompany, deniedCode, restoring, setTenantId, signOut, addApp, twoFactorSetupRequired, explore, exploreEnded } = useSession();
 
   /* The shared hook, not a second copy: the public page has a toggle too, and
      a private key here would mean the choice did not follow you inside. */
@@ -243,7 +261,7 @@ export default function Shell() {
     let off = false;
     Promise.resolve()
       .then(getMyPermissions)
-      .then((d) => !off && setGrants({ key: tenantKey, set: new Set(Array.isArray(d?.permissions) ? d.permissions : []) }))
+      .then((d) => !off && setGrants({ key: tenantKey, set: new Set(Array.isArray(d?.permissions) ? d.permissions : []), teamOnly: Boolean(d?.ownDocumentsOnly) && !d?.isAdmin }))
       .catch(() => undefined);
     return () => {
       off = true;
@@ -347,6 +365,19 @@ export default function Shell() {
   useEffect(() => {
     try { window.localStorage.setItem('clor.splitPanel', panelClosed ? 'closed' : 'open'); } catch { /* storage blocked */ }
   }, [panelClosed]);
+  /* Counts beside rail entries (manifest `railCounts`: { moduleKey: n }), fetched again on each screen change so an
+     answered request leaves the count. A failed load shows none. */
+  const [railLoad, setRailLoad] = useState({ key: '', counts: {} });
+  const railKey = `${activeAppId || ''}|${tenant?.id || ''}`;
+  useEffect(() => {
+    const load = tenant?.id ? appById(activeAppId)?.railCounts : null;
+    if (!load) return undefined;
+    let live = true;
+    load().then((c) => { if (live) setRailLoad({ key: railKey, counts: c || {} }); }).catch(() => { if (live) setRailLoad({ key: railKey, counts: {} }); });
+    return () => { live = false; };
+  }, [activeAppId, tenant?.id, screenKey, railKey]);
+  /* Counts from another app or company are never shown while the new ones load. */
+  const railCounts = railLoad.key === railKey ? railLoad.counts : {};
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
@@ -446,15 +477,17 @@ export default function Shell() {
   /* Where each screen was opened from (owner, 29 Oct 2026): a Settings page opened from Leave balances or an
      employee's record goes back there, not to the Settings hub. Kept per screen, for the visit in hand. */
   const [cameFrom, setCameFrom] = useState({});
-  const noteOrigin = (next) => {
+  /* `link`: opened by a link on the page being read (a figure on Home, a name in a list), not from the menu. Back
+     then returns to that page, whichever module it is in (owner, 11 Nov 2026); a menu click starts afresh. */
+  const noteOrigin = (next, link = false) => {
     if (!next || next === screenKeyRef.current) return;
     const from = screenKeyRef.current;
-    setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null } : null }));
+    setCameFrom((m) => ({ ...m, [next]: from ? { key: from, params: liveParamsRef.current || null, link } : null }));
   };
-  const goTo = (key, params) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params)); };
+  const goTo = (key, params, link = false) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params, link)); };
   /* `params` open the screen on one thing (a notice about one candidate); a rail click passes none. */
-  const goToNow = (key, params = null) => {
-    noteOrigin(key);
+  const goToNow = (key, params = null, link = false) => {
+    noteOrigin(key, link);
     setScreenKey(key);
     setScreenParams(params && typeof params === 'object' ? params : null);
     setPlatformScreen(null);
@@ -490,10 +523,10 @@ export default function Shell() {
     }
   }, [user]);
 
-  /* W-8.2: the account is suspended by Clor — one plain page instead of a half-loaded app. */
+  /* W-8.2: the account is suspended by CLOR — one plain page instead of a half-loaded app. */
   const [suspended, setSuspended] = useState('');
   useEffect(() => {
-    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by Clor.');
+    const on = (e) => setSuspended(e.detail?.message || 'This account has been suspended by CLOR.');
     window.addEventListener('clor:account-suspended', on);
     return () => window.removeEventListener('clor:account-suspended', on);
   }, []);
@@ -505,10 +538,16 @@ export default function Shell() {
   });
   useEffect(() => {
     const onScreen = (e) => {
-      if (e.detail?.screen) goToRef.current?.(e.detail.screen);
+      if (e.detail?.screen) goToRef.current?.(e.detail.screen, e.detail.params || null, true);
     };
     window.addEventListener(OPEN_SCREEN_EVENT, onScreen);
     return () => window.removeEventListener(OPEN_SCREEN_EVENT, onScreen);
+  }, []);
+  /* Explore: the sample company refused a change. The same sentence as the bar, as a toast, whichever screen tried. */
+  useEffect(() => {
+    const on = () => notify.info(EXPLORE_READ_ONLY_TEXT);
+    window.addEventListener('clor:explore-read-only', on);
+    return () => window.removeEventListener('clor:explore-read-only', on);
   }, []);
   /* The API refused an app this account has not bought (402): say so once, with the way to add it. */
   const [unbought, setUnbought] = useState(null);
@@ -524,6 +563,10 @@ export default function Shell() {
    * the only three there are — everything past sign-in is an app's business.
    */
   const [publicPage, setPublicPageState] = useState(publicPageFromPath);
+  /* Explore's link, latched on the way in: a signed-in session's company code may join the address a moment later. */
+  const [exploreLink] = useState(() => isExplorePath());
+  /* Start a free trial (/start, from clor.in's pricing page), latched the same way. */
+  const [startLink] = useState(() => isStartPath());
   /* W-3: app.clor.in/invite?token=... — read once; the page itself never puts the token anywhere else. */
   const [inviteToken, setInviteToken] = useState(() => {
     try {
@@ -549,7 +592,7 @@ export default function Shell() {
   const appPublicPage = usePublicPage();
 
   /*
-   * Links in Clor's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
+   * Links in CLOR's emails: `/?reset=<token>` and `/?verify=<token>`. Read once
    * on load; leaving either screen strips the token from the address bar so a
    * reload or a shared screenshot does not carry it.
    */
@@ -700,6 +743,17 @@ export default function Shell() {
    * day.
    */
   if (legalDoc) return <LegalPage doc={legalDoc} />;
+  /* Explore: the link from a demo request opens the sample company (Explore.jsx). */
+  if (exploreLink) {
+    return (
+      <ExploreLanding
+        demoUrl={DEMO_URL}
+        restoring={restoring}
+        signedIn={user && !explore ? { company: tenant?.name || '', name: user.fullName || user.email || '' } : null}
+        signOut={signOut}
+      />
+    );
+  }
   if (appPublicPage) {
     return (
       <>
@@ -714,6 +768,18 @@ export default function Shell() {
       <div className="min-h-dvh grid place-items-center" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
         <ClorMark size={40} />
       </div>
+    );
+  }
+
+  /* A free trial from clor.in: the email step, or the setup step the mailed link opens (Start.jsx), signed in or not. */
+  if (startLink) {
+    return (
+      <Start
+        onHome={() => window.location.assign(MARKETING_URL)}
+        onSignIn={() => window.location.assign('/signin')}
+        signedIn={user && !explore ? { name: user.fullName || user.email || '' } : null}
+        signOut={signOut}
+      />
     );
   }
 
@@ -747,6 +813,7 @@ export default function Shell() {
     );
   }
 
+  if (!user && exploreEnded) return <ExploreEnded demoUrl={DEMO_URL} />;
   if (!user) {
     /* The product's front page is clor.in now; the app opens on its doors. */
     const toSite = () => window.location.assign(MARKETING_URL);
@@ -791,7 +858,9 @@ export default function Shell() {
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
   const switchedOn = (item) => !item.feature || !tenant?.features || tenant.features[item.feature] !== false;
   const holds = (p) => holdsPermission(p, granted, extraAccess);
-  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item))));
+  /* `wholeCompany`: a screen of company-wide figures, which a team-only role (a Team Manager) is refused by the server; not offered to it. */
+  const teamOnly = grants.key === tenantKey && Boolean(grants.teamOnly);
+  const allowed = withoutEmptyHubs((app?.nav || []).filter((item) => item.section || (holds(item.permission) && switchedOn(item) && !(item.wholeCompany && teamOnly))));
   const nav = allowed.filter((item, i) => !item.section || (allowed[i + 1] && !allowed[i + 1].section));
   /* A screen the open app does not have is not a screen: the same company
      switch that changes the app leaves last app's screen key behind, and
@@ -814,6 +883,13 @@ export default function Shell() {
   const screenMissing = Boolean(!Root && app && openedWith && screenKey === openedWith && !app.screens?.[openedWith]);
   /* Or ask for the split sidebar: modules on a rail, the open module's screens beside it (splitNav.js). */
   const modules = resolveModules(app, nav);
+  /* What the rail counts as waiting, in all, and the screen the first counted module opens: the bell says the same number. */
+  const waitingOnRail = (() => {
+    const count = modules.reduce((n, m) => n + (Number(railCounts[m.key]) || 0), 0);
+    /* The module that carries the count, or the one that would if anything waited: with nought the bell still says so. */
+    const first = modules.find((m) => railCounts[m.key] > 0) || modules.find((m) => m.key in railCounts);
+    return { count, screen: first?.items?.[0] || first?.key || null };
+  })();
   const split = modules.length > 0;
   const currentModule = moduleForScreen(modules, screen, nav) || modules[0] || null;
   /* The module whose panel is open; follows the screen unless the person is browsing another on the rail. */
@@ -865,6 +941,7 @@ export default function Shell() {
             {Icon ? <Icon size={20} aria-hidden="true" /> : null}
             {/* The rail is narrow: a module may give it a shorter name; the panel and the tooltip keep the full one. */}
             <span>{m.short || m.label}</span>
+            {railCounts[m.key] > 0 ? <span className="ui-split-mod-count tabular-nums" aria-label={`${railCounts[m.key]} waiting`}>{railCounts[m.key] > 99 ? '99+' : railCounts[m.key]}</span> : null}
           </button>
         );
       })}
@@ -913,7 +990,7 @@ export default function Shell() {
       </div>
       {openModule.groups.map((g, gi) => (
         <div key={g.label || gi} className={gi ? 'mt-4' : ''}>
-          {g.label ? <p className="ui-caption px-2 pb-1 uppercase tracking-wide">{g.label}</p> : null}
+          {g.label ? <p className="ui-caption px-2 pb-1">{g.label}</p> : null}
           {g.items.map((item) => (
             <button
               key={item.key}
@@ -945,7 +1022,7 @@ export default function Shell() {
           {nav.map((item) =>
             /* `{ section: 'Settings' }` starts a group: setup apart from daily work. */
             item.section ? (
-              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1 uppercase tracking-wide">
+              <p key={`section:${item.section}`} className="ui-caption px-2 pt-4 pb-1">
                 {item.section}
               </p>
             ) : (
@@ -995,8 +1072,8 @@ export default function Shell() {
   return (
     /* The open app's icon set (`iconSet` in its manifest): shared marks such as
        the page-header icon draw in it. No icon set, the line icons as before. */
-    <IconSetContext.Provider value={app?.iconSet || 'line'}>
-    <LineSetContext.Provider value={app?.lineIcons || 'lucide'}>
+    <IconSetContext.Provider value={app ? app.iconSet || 'line' : 'duo'}>
+    <LineSetContext.Provider value={app ? app.lineIcons || 'lucide' : 'fluent'}>
       <div
         className="ui-min-h-viewport"
         /* Which app is open, for styling: People, Attendance and Payroll wear the
@@ -1127,7 +1204,7 @@ export default function Shell() {
               <button type="button" ref={searchRef} className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
                 <Search size={16} aria-hidden="true" />
                 {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
-                <span>Search screens and apps</span>
+                <span>{app?.searchRecords ? "Search people and screens" : "Search screens and apps"}</span>
                 <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             )
@@ -1191,10 +1268,18 @@ export default function Shell() {
               {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
             </time>
           ) : null}
+          {/* A trial says when it ends, quietly, where the Workspace says the date (roadmap item 7). */}
+          {inWorkspace && !phone && tenant?.billing?.status === 'trialing' && tenant.billing.trialEndsAt ? (
+            <span className="text-sm ui-muted whitespace-nowrap" data-testid="trial-ends">
+              Trial ends {new Date(tenant.billing.trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+            </span>
+          ) : null}
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}
-            icon={app?.iconSet === 'color' ? BellColor : undefined}
+            /* The one waiting number the rail shows (manifest railCounts), so the bell never disagrees with Home or the Inbox. */
+            waiting={waitingOnRail.count}
+            onOpenWaiting={waitingOnRail.screen ? () => goTo(waitingOnRail.screen) : undefined}
             onOpen={(link) => {
               if (!link?.app) return;
               if (link.app === activeAppId && !Root) {
@@ -1224,8 +1309,6 @@ export default function Shell() {
               ) : user?.fullName ? (
                 /* No photo yet: the person's initials, so the button is theirs at a glance (in the colour set too: a stock figure is nobody's). */
                 <span className="ui-topbar-initials" aria-hidden="true">{String(user.fullName).trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
-              ) : app?.iconSet === 'color' ? (
-                <ProfileColor size={20} />
               ) : (
                 <UserRound size={18} aria-hidden="true" />
               )}
@@ -1246,7 +1329,9 @@ export default function Shell() {
           </button>
         </header>
 
+        <ExploreNotice explore={explore} demoUrl={DEMO_URL} />
         <SubscriptionBanner billing={tenant.billing} />
+        <AnnouncementBar app={activeAppId} />
         {tenant.archivedAt ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
             <span className="min-w-0 flex-1">This company is archived. You can read and export its records; nothing new can be saved. An account owner or admin can reactivate it in Workspace → Companies.</span>
@@ -1401,10 +1486,15 @@ export default function Shell() {
                       const parentKey = (app?.nav || []).find((n) => n.key === screen)?.parent;
                       /* Only under a hub (Settings); a page inside a list's module (an employee record) draws its own breadcrumb. */
                       const parent = parentKey && nav.find((n) => n.key === parentKey && n.hub);
-                      if (!parent) return null;
                       /* Opened from elsewhere (a list, a record, a quick link): back goes there, with its tab and filters. */
                       const from = cameFrom[screen];
-                      const origin = from && from.key !== parent.key ? nav.find((n) => n.key === from.key) : null;
+                      /* Any other page reached by a link on another page gets the same way back to where the link was
+                         clicked (owner, 11 Nov 2026). Not when that page is its own list (Employees above a record):
+                         the page's breadcrumb already goes there. */
+                      const linked = !parent && from?.link && from.key !== screen && from.key !== parentKey;
+                      if (!parent && !linked) return null;
+                      const origin = from && from.key !== parent?.key ? nav.find((n) => n.key === from.key) : null;
+                      if (!parent && !origin) return null;
                       const back = () => confirmLeave(askLeave).then((ok) => {
                         if (!ok) return;
                         if (!origin) { goToNow(parent.key); return; }
@@ -1455,7 +1545,7 @@ export default function Shell() {
                           if (!app?.screens?.[key]) return;
                           confirmLeave(askLeave).then((ok) => {
                             if (!ok) return;
-                            noteOrigin(key);
+                            noteOrigin(key, true);
                             setScreenKey(key);
                             setScreenParams(params && typeof params === 'object' ? params : null);
                             setPlatformScreen(null);
@@ -1508,17 +1598,25 @@ export default function Shell() {
         {paletteOpen && !Root ? (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
-            placeholder={`Search ${app?.name || 'CLOR'} screens and apps…`}
+            placeholder={app?.searchRecords ? `Search people, jobs and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            /* People by name, code or email (manifest `searchRecords`), as the person types. */
+            loadRecords={app?.searchRecords ? (q) => app.searchRecords(q, { apps: mine.map((a) => a.id) }) : undefined}
             items={[
               /* A screen can sit in two places in the menu; it is one destination here. */
-              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key })),
+              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: i.keywords })),
+              /* Jobs named the way people ask for them (manifest `searchActions`): "probation", "fix a punch", "month close".
+                 One in another app shows only when this company has that app and this person can open it there. */
+              ...(app?.searchActions || [])
+                .filter((a) => (a.appId ? mine.some((m) => m.id === a.appId) : nav.some((i) => i.key === a.screen)))
+                .map((a) => ({ key: `do:${a.appId || ''}:${a.screen}:${a.label}`, label: a.label, group: a.appId ? appById(a.appId)?.name || 'Apps' : 'Do', icon: a.icon, screen: a.screen, params: a.params, appId: a.appId, keywords: a.keywords })),
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
               { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },
             ]}
             onSelect={(item) => {
               setPaletteOpen(false);
-              if (item.screen) goTo(item.screen);
+              if (item.appId && item.appId !== activeAppId) openApp(item.appId, item.screen || '', item.params || {});
+              else if (item.screen) goTo(item.screen, item.params || null);
               else if (item.appId) openApp(item.appId);
               else if (item.key === 'profile') {
                 setPlatformScreen('profile');
@@ -1539,7 +1637,7 @@ export default function Shell() {
 }
 
 /**
- * Everything Clor is, and what this company has of it.
+ * Everything CLOR is, and what this company has of it.
  *
  * Reachable from inside every app, and owned by the shell rather than by
  * Accounting — which is what lets a Payroll-only company add Accounting
@@ -1547,6 +1645,14 @@ export default function Shell() {
  */
 function MoreApps({ tenant, onAdd, onOpen }) {
   const has = (id) => (tenant.subscriptions || []).includes(id);
+  /* CLOR's app catalogue (operator console): a hidden app is not offered, one coming soon cannot be added yet. An app the company has stays. */
+  const catalogue = useAppCatalogue();
+  const listed = APPS.filter((a) => !a.platform)
+    .map((a) => {
+      const l = listingFor(catalogue, a.id);
+      return { ...a, blurb: l?.blurb || a.blurb, available: a.available && (!l || l.status === 'AVAILABLE' || has(a.id)), hidden: l?.status === 'HIDDEN' && !has(a.id) };
+    })
+    .filter((a) => !a.hidden);
   /* Unrestricted (no subscription assigned) owns everything sellable. */
   const owned = (id) => !tenant.billing?.restricted || (tenant.billing.ownedApps || []).includes(id);
 
@@ -1555,14 +1661,14 @@ function MoreApps({ tenant, onAdd, onOpen }) {
       <div>
         <h1 className="ui-display text-2xl">More apps</h1>
         <p className="ui-caption mt-1">
-          Everything Clor runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
+          Everything CLOR runs. {tenant.name} has {(tenant.subscriptions || []).length} of them.
         </p>
       </div>
 
       <PlanCard billing={tenant.billing} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {APPS.filter((a) => !a.platform).map((a) => (
+        {listed.map((a) => (
           <article key={a.id} className="ui-card p-4">
             <div className="flex items-start justify-between gap-3">
               <span
@@ -1579,13 +1685,13 @@ function MoreApps({ tenant, onAdd, onOpen }) {
 
             <div className="mt-4">
               {!a.available ? (
-                <span className="ui-caption">Not built yet.</span>
+                <span className="ui-caption">Coming soon.</span>
               ) : has(a.id) ? (
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onOpen(a.id)}>
                   Open {a.name}
                 </button>
               ) : !owned(a.id) ? (
-                <span className="ui-caption">Not on your plan. Contact Clor to add it.</span>
+                <span className="ui-caption">Not on your plan. Contact CLOR to add it.</span>
               ) : (
                 <AddAppButton app={a} tenant={tenant} onAdd={onAdd} />
               )}
@@ -1650,7 +1756,7 @@ const STATUS_LABEL = {
 };
 
 /**
- * Where the company stands with Clor. Says nothing when no subscription has
+ * Where the company stands with CLOR. Says nothing when no subscription has
  * been assigned: an account that was never restricted has no plan to describe,
  * and inventing one would be a claim the server did not make.
  */
@@ -1687,8 +1793,13 @@ function SubscriptionBanner({ billing }) {
       className="px-6 py-2 text-sm"
       style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}
     >
-      Your Clor subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
-      and still visible; renew to keep working. Contact suresh@clor.in.
+      {/* The server's own sentence when it has one (a trial that ended, routes/billing.ts `reason`); the old line otherwise. */}
+      {billing.reason || (
+        <>
+          Your CLOR subscription is {(STATUS_LABEL[billing.status] || billing.status).toLowerCase()}. Your data is safe
+          and still visible; renew to keep working. Contact suresh@clor.in.
+        </>
+      )}
     </div>
   );
 }

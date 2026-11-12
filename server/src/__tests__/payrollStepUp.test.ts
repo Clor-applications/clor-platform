@@ -88,7 +88,7 @@ describe('step-up for payroll', () => {
     await policy(c, true);
     expect((await run.approve().expect(403)).body.code).toBe('TWO_FACTOR_SETUP_REQUIRED');
 
-    const { secret, uri } = (await sec(c, '/two-factor/setup').expect(200)).body;
+    const { secret, uri } = (await sec(c, '/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body;
     expect(uri).toContain(`secret=${secret}`);
     await sec(c, '/two-factor/enable', { code: '000000' }).expect(400);
     await clearOfStepEdge();
@@ -112,7 +112,7 @@ describe('step-up for payroll', () => {
   it('takes a recovery code once, and is somebody else’s token for nobody else', async () => {
     const c = await makeOwner();
     await policy(c, true);
-    const { secret } = (await sec(c, '/two-factor/setup').expect(200)).body;
+    const { secret } = (await sec(c, '/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body;
     await clearOfStepEdge();
     const { recoveryCodes } = (await sec(c, '/two-factor/enable', { code: codeAt(secret, stepNow()) }).expect(200)).body;
     const { token } = (await sec(c, '/step-up', { code: recoveryCodes[0] }).expect(200)).body;
@@ -121,7 +121,7 @@ describe('step-up for payroll', () => {
 
     const other = await makeOwner();
     await policy(other, true);
-    const s2 = (await sec(other, '/two-factor/setup').expect(200)).body.secret;
+    const s2 = (await sec(other, '/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body.secret;
     await clearOfStepEdge();
     await sec(other, '/two-factor/enable', { code: codeAt(s2, stepNow()) }).expect(200);
     const run = await runInReview(other);

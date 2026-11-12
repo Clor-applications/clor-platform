@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
 import { MoreButton } from '@ui/components/list/ListPageParts';
@@ -32,6 +32,8 @@ export default function PayrollReadiness({ openScreen }) {
   const [month, setMonth] = useState(lastMonth());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  /* A team-scoped role: payroll readiness is the whole company's, so it is not shown. */
+  const [teamOnly, setTeamOnly] = useState(false);
   const [seen, setSeen] = useState(month);
   if (seen !== month) {
     setSeen(month);
@@ -39,8 +41,11 @@ export default function PayrollReadiness({ openScreen }) {
   }
   const load = useCallback(() => {
     getPayrollReadiness(month)
-      .then((d) => { setData(d); setError(''); })
-      .catch((e) => setError(String(e?.message || 'Could not check the month.')));
+      .then((d) => { setData(d); setError(''); setTeamOnly(false); })
+      .catch((e) => {
+        if (e?.data?.code === 'TEAM_SCOPED') { setTeamOnly(true); setError(''); return; }
+        setError(String(e?.message || 'Could not check the month.'));
+      });
   }, [month]);
   useEffect(() => {
     load();
@@ -58,24 +63,33 @@ export default function PayrollReadiness({ openScreen }) {
     <div className="space-y-3">
       <PageHeader
         entity="report"
-        title="Payroll Readiness"
+        title="Payroll readiness"
         description="What is in the way of this month's payroll, who fixes it, and the pay at stake if nobody does."
         actions={
           <span className="flex items-center gap-2">
             <input type="month" className="ui-input ui-ctl-compact !w-auto" value={month} max={todayIst().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
-            <MoreButton
+            {teamOnly ? null : <MoreButton
               items={[exportMenuItem('Export')]}
               onSelect={(k) => {
                 const format = exportFormatFromKey(k);
                 if (format && data) runListExport({ format, title: `Payroll readiness ${month}`, fileName: `Payroll readiness ${month}`, label: 'person/people', columns: EXPORT_COLUMNS, rows: data.blockers });
               }}
-            />
+            />}
           </span>
         }
       />
       <div className="pb-8 space-y-4">
         <LoadFailed message={error} onRetry={load} />
-        {!data ? (
+        {teamOnly ? (
+          <div>
+            {/* EmptyState shows no sentence under a heading, and here the reason is the point; it gets its own line. */}
+            <EmptyState icon={ShieldCheck} title="Payroll readiness covers the whole company" />
+            <div className="-mt-6 flex flex-col items-center gap-3 px-6 text-center">
+              <p className="ui-caption">Your role sees your own team. Month close shows your team’s open days.</p>
+              {openScreen ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('monthClose', { month })}>Open month close</button> : null}
+            </div>
+          </div>
+        ) : !data ? (
           error ? null : <SkeletonCard lines={8} />
         ) : (
           <>

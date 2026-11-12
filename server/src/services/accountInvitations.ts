@@ -8,6 +8,7 @@ import { userLimitReason } from './entitlements.js';
 import { sendTemplate } from './mailer.js';
 import { ACCOUNT_ADMINS, accountRoleOf, recordAccountEvent, type AccountRole } from './accountMembership.js';
 import { lockQuota } from './quotaLock.js';
+import { domainRefusalFor, policyForOrgs, validatePassword } from './policy.js';
 
 /**
  * Workspace W-3: inviting a person into the account.
@@ -151,13 +152,16 @@ export async function createInvitation(req: Request, input: { email?: unknown; a
   return outsideTenant('account invitation: create', async () => {
     const existing = await platformPrisma.user.findFirst({ where: { email }, select: { id: true, accountId: true } });
     if (existing && existing.accountId !== accountId) {
-      throw new InvitationError(409, 'This person has a Clor login in another account. Let them into a company under Outside access instead.', 'OTHER_ACCOUNT');
+      throw new InvitationError(409, 'This person has a CLOR login in another account. Let them into a company under Outside access instead.', 'OTHER_ACCOUNT');
     }
     if (existing) {
       const m = await platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId: existing.id } }, select: { status: true } });
       if (m?.status === 'ACTIVE') throw new InvitationError(409, 'This person is already in the account. Change their access under Users instead.', 'ALREADY_MEMBER');
     }
     const grants = await checkGrants(accountId, inviterId, (Array.isArray(input.grants) ? input.grants : []) as Grant[]);
+    /* #4: every company named must allow this address's domain. */
+    const domainRefused = await domainRefusalFor(grants.map((g) => g.orgId), email);
+    if (domainRefused) throw new InvitationError(400, domainRefused, 'EMAIL_DOMAIN_NOT_ALLOWED');
     const seatWarning = existing ? null : await userLimitReason(accountId);
 
     const token = randomBytes(32).toString('base64url');
@@ -179,9 +183,14 @@ export async function listInvitations(accountId: string) {
   );
 }
 
-/** Resend: a new token and a new expiry; the old link stops working. */
-export async function resendInvitation(req: Request, id: string) {
-  const accountId = String(req.tenant?.accountId || '');
+/**
+ * Resend: a new token and a new expiry; the old link stops working.
+ * `asOperator`: a CLOR operator resends from the console (routes/opsCustomers.ts),
+ * outside the account; the mail still names the person who invited them, and
+ * the operator's own record is kept by the console.
+ */
+export async function resendInvitation(req: Request, id: string, asOperator?: { accountId: string }) {
+  const accountId = String(asOperator?.accountId || req.tenant?.accountId || '');
   const actor = String(req.auth?.userId || '');
   return outsideTenant('account invitation: resend', async () => {
     const row = await platformPrisma.accountInvitation.findFirst({ where: { id, accountId } });
@@ -193,7 +202,8 @@ export async function resendInvitation(req: Request, id: string) {
       where: { id },
       data: { tokenHash: sha256(token), expiresAt, status: 'PENDING', sendCount: { increment: 1 }, lastSentAt: new Date() },
     });
-    await sendInvitationEmail(accountId, actor, row.email, token, expiresAt, parseGrants(row.grants));
+    await sendInvitationEmail(accountId, asOperator ? row.invitedByUserId : actor, row.email, token, expiresAt, parseGrants(row.grants));
+    if (asOperator) return shapeInvitation(updated);
     await recordAccountEvent({ accountId, actorUserId: actor, action: 'INVITATION_RESENT', targetType: 'AccountInvitation', targetId: id, message: `Sent the invitation to ${row.email} again` });
     return shapeInvitation(updated);
   });
@@ -260,7 +270,7 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
         /* The login may have been made a moment ago by this same invitation (a double click): say so, not "sign in". */
         const now = await platformPrisma.accountInvitation.findUnique({ where: { id: row.id }, select: { status: true } });
         if (now?.status === 'ACCEPTED') throw new InvitationError(409, 'This invitation has already been used.', 'ALREADY_ACCEPTED');
-        throw new InvitationError(401, 'You already have a Clor login. Sign in with it to accept.', 'SIGN_IN_REQUIRED');
+        throw new InvitationError(401, 'You already have a CLOR login. Sign in with it to accept.', 'SIGN_IN_REQUIRED');
       }
       if (input.signedInUserId !== user.id) throw new InvitationError(403, `This invitation is for ${row.email}. Sign in with that address to accept it.`, 'WRONG_PERSON');
       if (user.accountId !== row.accountId) throw new InvitationError(409, 'Your login belongs to another account; ask to be let in under Outside access.', 'OTHER_ACCOUNT');
@@ -271,8 +281,18 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
       const password = String(input.password || '');
       const fullName = String(input.fullName || '').trim();
       if (fullName.length < 2) throw new InvitationError(400, 'Tell us your name.', 'BAD_NAME');
-      if (password.length < 8) throw new InvitationError(400, 'Choose a password of at least eight characters.', 'BAD_PASSWORD');
+      /*
+       * The same rule as signing up, and as an administrator adding someone:
+       * the product's own (length, not a common password) and the strictest
+       * password rules of the companies the invitation opens. Only length was
+       * checked, so "password1" was taken here and refused everywhere else.
+       */
+      const weak = validatePassword(password, await policyForOrgs(grants.map((g) => g.orgId)));
+      if (weak) throw new InvitationError(400, weak, 'WEAK_PASSWORD');
     }
+    /* #4: a company may have narrowed its allowed domains since the invitation went out. */
+    const domainRefused = await domainRefusalFor(grants.map((g) => g.orgId), row.email);
+    if (domainRefused) throw new InvitationError(403, domainRefused, 'EMAIL_DOMAIN_NOT_ALLOWED');
 
     /* W-6.1: a new login is counted against the plan under the account's quota lock. */
     const releaseQuota = user ? null : await lockQuota(row.accountId, 'USERS');

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@ui/components/ui/lineIcons';
 
 import ShownOnce from '@ui/components/ui/ShownOnce';
 import { confirmDialog, notify } from '@ui/components/ui/notify';

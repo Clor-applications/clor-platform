@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, Clock, FileText, MinusCircle, Printer, Wallet } from 'lucide-react';
+import { Banknote, Clock, FileText, MinusCircle, Printer, Wallet } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

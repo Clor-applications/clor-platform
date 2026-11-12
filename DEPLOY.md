@@ -161,6 +161,28 @@ lost and exits 1 when something really would be:
 ssh ubuntu@$HOST 'cd /opt/clor/server && set -a && . /opt/clor/.env && set +a && npx tsx scripts/preflight.ts'
 ```
 
+### Explore's sample company (migration `20261123090000_explore_passes`): optional, after migrate
+
+Explore links (a demo request on clor.in mails one) open a shared, read-only
+sample company, "Sample Traders Pvt Ltd". It is made the first time somebody
+opens a link, which makes that person wait about a minute. To spare them the
+wait, build it once after the release that brings the migration: in the
+operator console, open **Sample company** and press **Build sample company**.
+The screen shows the build as it goes, when it finished or why it stopped,
+and what is in the company. **Rebuild from scratch** runs every step again
+(nothing is deleted; anything missing is put back), for after the sample data
+changes. Both need the support or billing role and an authenticator code, and
+go on the operator log. **Explore links** on the same console lists every
+link sent, to resend or end.
+
+The build is safe to run again: a second run only reads, and adds only what
+is missing. The sample company sends no mail and gives no notices; every
+person and customer in it is on the reserved `.example` domain.
+
+Developer fallback only (the console is the way for Clor staff): the same
+build from a shell is `npm run seed:sample` in `server/`, with the API's
+environment; `-- --force` is the rebuild. It needs no running server.
+
 ### Stand-in merge (workflow engine 2b, migration `20261118090000_stand_in_merge`): rolling back
 
 Until phase 3c, a rollback to an API from before 2b is safe:

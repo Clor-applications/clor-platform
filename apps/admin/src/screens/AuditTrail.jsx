@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, RefreshCw, Search } from 'lucide-react';
+import { Download, RefreshCw, Search } from '@ui/components/ui/lineIcons';
 
 import { exportRows } from '@ui/components/ListToolbar';
 import { listAudit, listAuditFacets } from '@platform/admin/audit';
@@ -14,7 +14,7 @@ import './workspace.css';
  */
 const AUDIT_APPS = [
   { id: 'company', label: 'Company' },
-  { id: 'accounting', label: 'Accounting' },
+  { id: 'accounting', label: 'Books' },
   { id: 'attendance', label: 'People & Attendance' },
   { id: 'payroll', label: 'Payroll' },
 ];

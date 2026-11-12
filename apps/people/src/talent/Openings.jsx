@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Copy, Plus } from '@ui/components/ui/lineIcons';
-import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { SkeletonCard } from '@ui/components/ui/Primitives';
+import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -14,7 +15,7 @@ import { structure } from '../workforce/api';
 import { listBranches } from '../organization/api';
 import { createOpening, deleteOpening, getOpening, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
 import { ReferralBlock } from './ReferralSettings';
-import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, Tabs, day, staffOptions, useParamState, usePerm, useStaff, usedValues } from './shared';
+import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, day, staffOptions, tabItems, useParamState, usePerm, useStaff, usedValues } from './shared';
 
 /**
  * Job openings (TALENT-DECISIONS.md, Hiring): what the company is hiring for, picked from its own
@@ -58,9 +59,9 @@ export default function Openings({ params = {}, openScreen }) {
 
   const columns = [
     { key: 'title', label: 'Job', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.departmentName, r.designationName, r.branchName || r.location].filter(Boolean).join(' · ')}</span></span> },
-    { key: 'places', label: 'Places', render: (r) => <span className="tabular-nums">{r.places}</span> },
     { key: 'active', label: 'Candidates', render: (r) => (r.active ? <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('candidates', { opening: r.id }); }}>{r.active}</button> : <span className="ui-muted tabular-nums">0</span>) },
-    { key: 'hired', label: 'Hired', render: (r) => <span className={`tabular-nums ${r.hired ? '' : 'ui-muted'}`}>{r.hired}</span> },
+    /* Hired of places: a declined offer frees a place, a hire takes one (People plan 8 Nov 2026, step 4). */
+    { key: 'hired', label: 'Filled', render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.hired ? '' : 'ui-muted'}`}>{r.hired} of {r.places}</span> },
     { key: 'manager', label: 'Hiring manager', render: (r) => r.hiringManagerName || <span className="ui-muted">—</span> },
     { key: 'target', label: 'Fill by', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.targetDate) || '—'}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap items-center gap-1.5"><Pill map={OPENING_STATUS} value={r.status} />{r.applyOpen ? <span className="ui-pill ui-pill-info">Apply link on</span> : null}{r.referralOpen ? <span className="ui-pill ui-pill-info">Referrals on</span> : null}</span> },
@@ -76,11 +77,19 @@ export default function Openings({ params = {}, openScreen }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader breadcrumb={[{ label: 'Talent' }, { label: 'Job openings' }]} title="Job openings"
-        actions={canCreate ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing(blank)}><Plus size={16} aria-hidden="true" /> {canEdit ? 'New opening' : 'Ask for an opening'}</button> : null} />
+      <ListHeader
+        module="Talent"
+        title="Job openings"
+        description="What the company is hiring for; candidates and interviews hang off each opening."
+        primary={canCreate ? { label: canEdit ? 'New opening' : 'Ask for an opening', icon: Plus, onClick: () => setEditing(blank) } : null}
+        toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search job, department or place" label="Search openings" className="w-full sm:w-80" />}
+        tabs={tabItems(TABS)}
+        tab={status}
+        onTab={setStatus}
+        tabsLabel="Openings"
+      />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
-          tabs={<Tabs label="Openings" tabs={TABS} value={status} onChange={setStatus} />}
           label="Job openings"
           columns={oneStatus ? columns.map((c) => (c.key === 'status' ? { ...c, label: 'Apply link', render: (r) => (r.applyOpen ? <span className="ui-pill ui-pill-info">On</span> : <span className="ui-muted">Off</span>) } : c)) : columns}
           rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="openings"
@@ -93,8 +102,7 @@ export default function Openings({ params = {}, openScreen }) {
           )}
           empty={q || status !== 'active'
             ? <EmptyState kind="filtered" title="No openings match" description="Nothing here matches the search or the tab." />
-            : <EmptyState title="No openings yet" description="Add the job you are hiring for; candidates and interviews hang off it." routes={canCreate ? [{ label: canEdit ? 'New opening' : 'Ask for an opening', onSelect: () => setEditing(blank) }] : undefined} />}
-          toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search job, department or place" label="Search openings" className="w-full sm:w-80" />} />
+            : <EmptyState title="No openings yet" description="Add the job you are hiring for; candidates and interviews hang off it." routes={canCreate ? [{ label: canEdit ? 'New opening' : 'Ask for an opening', onSelect: () => setEditing(blank) }] : undefined} />} />
       )}
       {open ? <OpeningDrawer id={open} canEdit={canEdit} moves={moves} onMove={move} onEdit={(o) => { setOpen(null); setEditing(o); }} openScreen={openScreen} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {editing ? <OpeningForm value={editing} rows={rows} canEdit={canEdit} onClose={() => setEditing(null)} onSaved={(o) => { setEditing(null); req.reload(); setOpen(o.id); }} /> : null}

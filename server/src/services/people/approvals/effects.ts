@@ -10,6 +10,7 @@ import { ApprovalError, beforeApproving, onApproved, type Payload } from './engi
 import { staleFields } from '../selfService.js';
 import { registerMoneyEffects } from '../money/effects.js';
 import { changeFieldsFor, photoFrom } from './changeFields.js';
+import { documentRequestApproved, letterRequestApproved } from '../letters.js';
 
 /**
  * What an approved request does (contract §5.3). Registered once at start-up
@@ -74,6 +75,11 @@ export function registerPeopleEffects() {
     const v = await publishVersion(actor, p.versionId, { requestId: request.id });
     return { published: v.version, effectiveFrom: v.effectiveFrom };
   });
+
+  /* A letter asked for (People plan 8 Nov 2026, step 6): issued onto their documents, or a task on HR's list when it cannot be made yet. */
+  onApproved('LETTER_REQUEST', async ({ request, actor }) => letterRequestApproved(actor, request));
+  /* A copy of a document asked for: a task on HR's list to share it. */
+  onApproved('DOCUMENT_REQUEST', async ({ request, actor }) => documentRequestApproved(actor, request));
 
   /* Leaving: recorded as HR would record it by hand. */
   onApproved('LEAVING', async ({ request, actor }) => {

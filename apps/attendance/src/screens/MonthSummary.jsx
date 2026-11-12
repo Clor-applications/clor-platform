@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, CalendarX, Clock, Lock, Unlock, Users } from 'lucide-react';
+import { CalendarCheck, CalendarX, Clock, Lock, Unlock, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';

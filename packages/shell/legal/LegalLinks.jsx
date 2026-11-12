@@ -4,8 +4,8 @@ import { legalHref } from './useLegalRoute';
 import { operator } from '@platform/operator';
 
 /**
- * The policy links, for a footer. Only documents that apply to Clor exist —
- * there is no refund policy because Clor takes no payments.
+ * The policy links, for a footer. Only documents that apply to CLOR exist —
+ * there is no refund policy because CLOR takes no payments.
  */
 export default function LegalLinks({ className = '' }) {
   return (
