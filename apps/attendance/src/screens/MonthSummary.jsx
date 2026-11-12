@@ -87,6 +87,9 @@ export default function MonthSummary({ openScreen } = {}) {
     { key: 'lateCount', label: 'Late days' },
     { key: 'latePenaltyDays', label: 'Late penalty' },
     { key: 'approvedOvertimeMinutes', label: 'Approved OT', value: (r) => hm(r.approvedOvertimeMinutes) },
+    /* The same approved hours, each at its day's rate (Overtime policy); Payroll takes the plain hours. */
+    { key: 'weightedOvertimeMinutes', label: 'OT at the rate', value: (r) => hm(r.weightedOvertimeMinutes) },
+    { key: 'overCapOvertimeMinutes', label: 'OT over the cap', value: (r) => hm(r.overCapOvertimeMinutes) },
     { key: 'notYet', label: 'To come' },
     { key: 'totalDays', label: 'Days' },
   ];

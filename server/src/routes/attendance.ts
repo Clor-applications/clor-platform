@@ -33,6 +33,8 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { logDayChange } from '../services/attendance/history.js';
 import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
+import { hasOvertimeCaps, overtimePolicyOf } from '../services/attendance/overtimePolicy.js';
+import { overtimeDaysFor } from '../services/attendance/overtimeFigures.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { MONTH_DAYS, scheduleGuard, shiftRanges, type DateRange } from '../services/attendance/scheduleGuard.js';
 import { nightRefusal, onShiftAhead } from '../services/people/nightConsent.js';
@@ -162,7 +164,17 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
   });
   const named = await withNames(orgId, rows);
   /* Off: the rows are exactly as before, with no trust on them. */
-  const records = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  const trusted = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  /* With an overtime cap set: the hours of a day's overtime over it, said beside the day where it is approved (overtimePolicy.ts). */
+  const withOvertime = rows.filter((r) => r.overtimeMinutes > 0);
+  const capsSet = withOvertime.length ? hasOvertimeCaps(overtimePolicyOf((await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { overtimePolicy: true } }))?.overtimePolicy)) : false;
+  const figures = capsSet ? await overtimeDaysFor(accountId, orgId, withOvertime.map((r) => ({ employeeId: r.employeeId, date: r.date }))) : null;
+  const records = figures
+    ? trusted.map((r: any) => {
+        const day = r.overtimeMinutes > 0 ? figures.days.get(r.employeeId)?.get(r.date) : undefined;
+        return day?.overCapMinutes ? { ...r, overCapMinutes: day.overCapMinutes, overCap: day.overCap } : r;
+      })
+    : trusted;
   res.json({ records, from, to, readerTrust });
 });
 

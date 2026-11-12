@@ -549,6 +549,9 @@ export async function periodRows(accountId: string, orgId: string, days: string[
   /* Late marks and early exits under the company's rules: the part leave does not cover is loss of pay, never silently (markRules.ts). */
   const { penaltiesOver } = await import('./markRules.js');
   const penalties = await penaltiesOver(accountId, orgId, days, { ctx });
+  /* Overtime at each day's rate, and the part over the company's caps (overtimePolicy.ts), beside the plain approved minutes Payroll reads. */
+  const { overtimeDaysOver, overtimeTotals } = await import('./overtimeFigures.js');
+  const overtime = await overtimeDaysOver(ctx, orgId);
   return ctx.people.map((p) => {
     const span = ctx.spanOf(p);
     const spanSet = new Set(span);
@@ -576,6 +579,7 @@ export async function periodRows(accountId: string, orgId: string, days: string[
       department: p.department,
       unpaidLeaveDays,
       ...summary,
+      ...overtimeTotals(overtime.days.get(p.id), counted, overtime.policy),
       totalDays: summary.totalDays + untrackedDays,
       payableDays: summary.payableDays + untrackedDays,
       untrackedDays,

@@ -185,7 +185,7 @@ export default function MonthClose({ openScreen, params }) {
           { key: 'code', label: 'Employee ID' }, { key: 'name', label: 'Name' }, { key: 'department', label: 'Department' },
           { key: 'payableDays', label: 'Payable days' }, { key: 'lossOfPayDays', label: 'Loss of pay' }, { key: 'present', label: 'Present' },
           { key: 'halfDays', label: 'Half days' }, { key: 'absent', label: 'Absent' }, { key: 'incompleteDays', label: 'No check-out' },
-          { key: 'leave', label: 'Leave' }, { key: 'unpaidLeaveDays', label: 'Unpaid leave' }, { key: 'approvedOvertimeMinutes', label: 'Approved OT (min)' },
+          { key: 'leave', label: 'Leave' }, { key: 'unpaidLeaveDays', label: 'Unpaid leave' }, { key: 'approvedOvertimeMinutes', label: 'Approved OT (min)' }, { key: 'weightedOvertimeMinutes', label: 'OT at the rate (min)' }, { key: 'overCapOvertimeMinutes', label: 'OT over the cap (min)' },
         ],
         rows: s.rows,
       });

@@ -183,9 +183,10 @@ export function MyOvertime({ guard }) {
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-medium whitespace-nowrap">{dayWords(d.date)}</span>
                   <span className="ui-caption tabular-nums text-right">
-                    {d.restDay ? 'Day off worked' : `${hm(d.overtimeMinutes)} over`}{d.overtimeApproved ? ' · approved' : ''}
+                    {d.restDay ? 'Day off worked' : `${hm(d.overtimeMinutes)} over`}{d.overtimeMinutes && d.overtimeRate ? ` · paid at ${d.overtimeRate}×` : ''}{d.overtimeApproved ? ' · approved' : ''}
                   </span>
                 </div>
+                {d.overCap ? <p className="ui-caption tabular-nums">{d.overCap}. It counts if it is approved.</p> : null}
                 {d.overtimeRequest ? (
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span>Overtime <Pill status={d.overtimeRequest.status} />{d.overtimeRequest.note ? <span className="ui-caption block">{d.overtimeRequest.note}</span> : null}</span>

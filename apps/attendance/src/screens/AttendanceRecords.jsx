@@ -283,7 +283,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
                       <td className="ui-num hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         {r.overtimeMinutes ? (
                           <span className="inline-flex items-center justify-end gap-2">
-                          <span>{hm(r.overtimeMinutes)}</span>
+                          <span>{hm(r.overtimeMinutes)}{r.overCap ? <span className="ui-caption block" style={{ color: 'rgb(var(--warn))' }}>{r.overCap}</span> : null}</span>
                           <button
                             type="button"
                             className={`ui-btn ui-btn-sm ${r.overtimeApproved ? 'ui-btn-ghost' : 'ui-btn-secondary'}`}

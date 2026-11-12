@@ -9,6 +9,7 @@ import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { activeManagerOf, chainFor } from './approvalChain.js';
 import { managerStepBy } from './standIns.js';
+import { capOvertime, hasOvertimeCaps, overCapWords, overtimeCapFrom, overtimeDayType, overtimePolicyOf } from './overtimePolicy.js';
 import { OVERTIME_SOURCE, attendanceOnEngine, closeOnEngine, decideOnEngine, engineOf, onEngine, openOnEngine, syncFromRow } from './attendanceEngine.js';
 import { addDays as plusDays, eachDay, todayIst } from '../../utils/istDate.js';
 export { todayIst };
@@ -242,10 +243,18 @@ export async function overtimeFor(e: Who, month: string) {
   const mine = holidays.forArea(e.areaId, e.branchId);
   const rest = (d: string) => mine.has(d) || isWeeklyOff(resolveShift(schedule, e.id, d).rule, d);
   const asked = (d: string, kind: string) => requests.find((r) => r.date === d && r.kind === kind && r.status !== 'CANCELLED');
+  /* What each day's overtime is paid at, and the part over the company's caps (overtimePolicy.ts): counted from the week's and quarter's start. */
+  const otPolicy = overtimePolicyOf(settings?.overtimePolicy);
+  const earlier = hasOvertimeCaps(otPolicy)
+    ? await peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: overtimeCapFrom(days[0]), lt: days[0] }, overtimeMinutes: { gt: 0 } }, select: { date: true, overtimeMinutes: true } })
+    : [];
+  const capped = capOvertime([...earlier, ...records].map((r) => ({ date: r.date, minutes: r.overtimeMinutes || 0 })), otPolicy);
   const rows = records
     .filter((r) => (r.overtimeMinutes || 0) > 0 || (rest(r.date) && r.checkIn))
     .map((r) => {
       const rule = resolveShift(schedule, e.id, r.date).rule;
+      const dayType = overtimeDayType(mine.has(r.date), isWeeklyOff(rule, r.date));
+      const cap = capped.get(r.date);
       const restDay = rest(r.date) && Boolean(r.checkIn);
       const compOffDays = restDay ? ((r.workedMinutes || 0) >= rule.fullDayMinutes ? 1 : (r.workedMinutes || 0) >= rule.halfDayMinutes ? 0.5 : 0) : 0;
       const ot = asked(r.date, 'OVERTIME');
@@ -255,6 +264,10 @@ export async function overtimeFor(e: Who, month: string) {
         workedMinutes: r.workedMinutes || 0,
         overtimeMinutes: r.overtimeMinutes || 0,
         overtimeApproved: r.overtimeApproved,
+        overtimeDayType: dayType,
+        overtimeRate: otPolicy.rates[dayType],
+        overCapMinutes: cap?.overCap || 0,
+        overCap: overCapWords(cap, otPolicy),
         restDay,
         compOffDays,
         overtimeRequest: ot ? { id: ot.id, status: ot.status, note: ot.reviewNote } : null,
@@ -268,7 +281,8 @@ export async function overtimeFor(e: Who, month: string) {
     recordedMinutes: rows.reduce((a, r) => a + r.overtimeMinutes, 0),
     approvedMinutes: rows.filter((r) => r.overtimeApproved).reduce((a, r) => a + r.overtimeMinutes, 0),
     pendingMinutes: rows.filter((r) => r.overtimeRequest?.status === 'PENDING').reduce((a, r) => a + r.overtimeMinutes, 0),
-    policy: { overtimeRequests: settings?.overtimeRequests ?? true, compOff: Boolean(settings?.compOffEnabled && settings?.compOffLeaveTypeId) },
+    overCapMinutes: rows.reduce((a, r) => a + r.overCapMinutes, 0),
+    policy: { overtimeRequests: settings?.overtimeRequests ?? true, compOff: Boolean(settings?.compOffEnabled && settings?.compOffLeaveTypeId), rates: otPolicy.rates, caps: otPolicy.caps },
     days: rows,
   };
 }

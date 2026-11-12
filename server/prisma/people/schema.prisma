@@ -1529,6 +1529,10 @@ model AttendanceSettings {
   compOffLeaveTypeId    String?
   /// Who decides overtime and comp-off requests: HR | MANAGER | MANAGER_THEN_HR.
   overtimeApproval      String    @default("HR")
+  /// Overtime pay rates by kind of day and overtime caps (services/attendance/overtimePolicy.ts):
+  /// { rates: { working, weeklyOff, holiday }, caps: { dayMinutes, weekMinutes, quarterMinutes } }.
+  /// Read over its defaults: every rate 2 (Factories Act 1948 s.59), every cap off (null).
+  overtimePolicy        Json      @default("{}")
   /// Reader trust: a punch that reaches CLOR more than this many hours after it
   /// was made needs a look (feature attendanceReaderTrust).
   readerLateUploadHours Int       @default(24)
