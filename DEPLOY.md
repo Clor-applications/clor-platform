@@ -1,53 +1,168 @@
 # Deploying CLOR
 
-One host: Caddy in front, the API under systemd, PostgreSQL beside it, and the
-frontend as static files. No Docker — the box has 954 MB of RAM and a Vite
-build peaks well above it, so the frontend is built on the deploying machine
-and only its output is shipped.
+The API runs on Google Cloud Run, its data is in Cloud SQL, and the web app and
+the website are static files on Cloudflare Pages. This file describes what is
+running, how a release goes out, and how to take one back.
 
-This file describes what is actually running. It previously described a Docker
-stack that production has never used, which is worse than describing nothing:
-somebody following it would have taken backups of a volume that does not exist.
+Until October 2026 CLOR ran on a single virtual machine (Caddy, systemd,
+PostgreSQL beside the API). That machine is retired. `deploy.sh`,
+`deploy/backup.sh`, the Caddyfiles and the docker-compose files in the repo
+belong to it and to local development; **none of them deploys production**.
 
 ## The shape of it
 
-| Piece | Where |
-| --- | --- |
-| Frontend (static) | `/opt/clor/web`, served by Caddy |
-| API | `/opt/clor/server`, `clor-api.service`, listening on 127.0.0.1:4001 |
-| Database | PostgreSQL 16, `clor`, localhost only |
-| Environment | `/opt/clor/.env`, mode 600 |
-| Backups | `/var/backups/clor`, nightly at 02:30 |
-| Deploy log | `/opt/clor/deploy.log` |
+| Piece | Where | Name |
+| --- | --- | --- |
+| API | Cloud Run, Mumbai (`asia-south1`) | service `clor-api` |
+| Database | Cloud SQL for PostgreSQL, Mumbai | instance `clor-pg` |
+| API address | Cloudflare Worker in front of Cloud Run | `api.clor.in` (`deploy/cloudflare/api-proxy`) |
+| Web app | Cloudflare Pages | project `clor-app`: app, people, attendance, payroll, books, ops `.clor.in` |
+| Website | Cloudflare Pages | project `clor`: `clor.in` |
+| API images | Artifact Registry, Mumbai | `asia-south1-docker.pkg.dev/clor-apps-511409/clor/api:<sha7>` |
+| Secrets | Secret Manager | `DB_PASSWORD`, `JWT_SECRET`, `MAIL_SECRET_KEY`, `EDGE_SECRET`, `JOBS_TOKEN`, `SMTP_USER`, `SMTP_PASS` |
+| Background jobs | Cloud Scheduler job `clor-api-jobs` | wakes the API every 10 minutes |
+| Staging | the same, smaller | service `clor-api-staging`, Pages project `clor-app-staging`, `api.staging.clor.in` |
 
-One database, one schema per application — `accounting`, `payroll`, `people`.
-The boundary is the schema, not the server, so one `pg_dump` is consistent
-across every app. Three databases cannot be dumped to the same instant, and a
-salary journal that is in one archive and not the other is a set of books that
-does not balance.
+Everything is in the Google Cloud project `clor-apps-511409`.
 
-## Deploying
+**Four databases on one instance**, one per application: `clor_main`
+(Books), `clor_payroll`, `clor_people` (People and Attendance) and
+`clor_platform` (accounts, sign-in, billing, email, jobs). The API connects to
+all four over the Cloud SQL socket as the role `clor_app`, with one password
+(`server/scripts/cloudrun-start.sh` builds the four addresses from it).
+Staging has four of its own, named with `_staging` (`DB_NAME_SUFFIX`).
+
+**The settings the service is meant to have** — request timeout, instances,
+CPU and memory, concurrency, probes, every environment variable by name — are
+written down in [`deploy/cloudrun.service.yaml`](deploy/cloudrun.service.yaml).
+A release changes only the image; a setting is changed by hand with
+`gcloud run services update` and in that file in the same pull request.
+
+**A request's path:** browser → `api.clor.in` (the Worker) → Cloud Run. The
+Worker adds a secret header and Cloudflare's verified client address. The API
+refuses any request without the header (so nobody can go round Cloudflare to
+the `run.app` address), except `/ready`, which is how a new revision is checked
+before it takes traffic.
+
+## Releasing
+
+One script, from a clean checkout of `origin/main`:
 
 ```bash
-./deploy.sh          # frontend only — the common case, a few seconds
-./deploy.sh --api    # frontend and API: installs, migrates, rebuilds, restarts
-./deploy.sh --status # what is running, and who is deploying
-./deploy.sh --unlock # clear a lock left by a deployer that died mid-run
+scripts/release.sh            # dry run: prints every command and the changelog entry, runs nothing
+scripts/release.sh --stage    # backup, build, start the new revision with NO traffic, check /ready
+scripts/release.sh --go       # all of the above, then move traffic, publish web and website, record it
 ```
 
-One deployment at a time: the lock is taken **on the server**, which is the
-only place two deploying machines can both see it.
+`--skip-web` and `--skip-website` leave the web app or clor.in alone;
+`scripts/release.sh --help` lists the rest. Without `--stage` or `--go`
+nothing is changed anywhere.
 
-`--api` does, in order: take a `pg_dump`, install with `npm ci`, generate the
-three Prisma clients, run the pre-deploy check, apply migrations, grant the
-application role, top up Owner permissions, build, restart.
+What `--go` does, in order:
+
+1. **Checks** the checkout is exactly `origin/main` with nothing uncommitted.
+   What is released must be what is merged.
+2. **Signs the on-site connector** if the signing key is on this machine
+   (see below).
+3. **Backs up the database**: `gcloud sql backups create --instance clor-pg`.
+4. **Builds the API image** with Cloud Build, tagged with the commit's short
+   id. The build runs as the `clor-build` service account; the project's
+   default account cannot push to Artifact Registry, and a build without it
+   fails at the push step with no message.
+5. **Starts it on Cloud Run with no traffic** (`--no-traffic`). Migrations run
+   now, as the container starts.
+6. **Tags the revision** `rel-<sha7>`, which gives it its own address:
+   `https://rel-<sha7>---clor-api-nmprtntkma-el.a.run.app`.
+7. **Checks `/ready`** on that address, for up to three minutes. If it never
+   answers, the script stops here. No traffic has moved; customers are still
+   on the old revision.
+8. **Moves traffic** to the tag.
+9. **Builds and publishes the web app** (`npm run build`, then wrangler to the
+   Pages project `clor-app`), **then the website** (`website/`, project `clor`).
+10. **Records the release**: a git tag `rel-<sha7>`, pushed, and a section in
+    `CHANGELOG.md` listing the pull requests merged since the previous `rel-`
+    tag (`scripts/release-notes.mjs`). The changelog change is left
+    uncommitted for a small pull request, since main takes changes that way.
+
+### Making a clean checkout
+
+The main working folder usually has work in progress, so release from a
+worktree of its own:
+
+```bash
+git fetch origin main
+git worktree add /private/tmp/rel-$(git rev-parse --short=7 origin/main) origin/main
+cd /private/tmp/rel-*
+```
+
+The web build needs `node_modules`. The Mac's disk is nearly full, so do not
+`npm ci` in the new folder: clone an installed worktree's instead, which costs
+no space on APFS (`cp -cR <installed worktree>/node_modules ./node_modules`).
+The `git status` check ignores `node_modules`. Remove the worktree after the
+release (`git worktree remove`).
+
+### Before a release
+
+- **CI on main is green**, and for a release with server changes the full
+  server suite has run (pull requests run only related tests unless they carry
+  the `full-tests` label; `docs/CI-ON-MAC.md`).
+- **Read the migrations going out** (`git diff <previous rel- tag>..origin/main --stat -- 'server/prisma/*/migrations'`).
+  They run at step 5, before any traffic moves, against the live database:
+  - They must be **additive**. The old revision keeps serving on the new
+    schema until step 8, and again after a rollback.
+  - They run as `clor_app`, which is **not a superuser** on Cloud SQL. A
+    migration that needs one (a function with `SET clor.bypass = …` in its
+    header, for example) fails at start and the revision never becomes ready;
+    use `set_config` inside the function body instead. This happened on
+    12 Nov 2026 (`rel-cc4b003`, which never took traffic).
+  - A failed migration leaves a row in `_prisma_migrations` that blocks the
+    next start too. Fix the migration in a new commit and mark the failed one
+    rolled back before releasing again.
+- **Say what is going out** to the owner, and get a yes for clor.in: the
+  website is published only when the owner asks.
+
+### After a release
+
+- Open `https://app.clor.in`, sign in, and look at whatever the release changed.
+- A browser can hold the old bundle: check the new one is served with
+  `curl -s https://app.clor.in/ | grep -o 'index-[^"]*\.js'` against the
+  address wrangler printed. Cloudflare has taken ten minutes to switch before.
+- `https://ops.clor.in` → Alerts and System health, a quarter of an hour
+  later: a job that started failing with the release shows there.
+
+## Rolling back
+
+**The API:** move traffic back to the previous tag. The script prints the
+exact command when it finishes; it is
+
+```bash
+gcloud run services update-traffic clor-api --project clor-apps-511409 --region asia-south1 --to-tags rel-<previous sha7>=100
+```
+
+The previous tag is the section below the newest in `CHANGELOG.md`, and
+`gcloud run services describe clor-api --region asia-south1 --project clor-apps-511409`
+lists every tag still attached. Rolling back takes seconds and does not
+rebuild anything.
+
+**It does not undo a migration.** That is the reason migrations are additive:
+the old code runs on the new schema. Where one release's notes say more is
+needed to go back (some do, under Schema changes below), follow them.
+
+**The web app and the website:** Cloudflare dashboard → Workers & Pages → the
+project → Deployments → the one before → Rollback. Or publish the earlier
+commit again from a checkout of it.
+
+**The data:** see [`docs/BACKUP-AND-RESTORE.md`](docs/BACKUP-AND-RESTORE.md).
+Restoring is a decision for the owner; a rollback of the code almost never
+needs it.
 
 ## The on-site connector (Cloud Run image)
 
 Connectors on customers' networks update themselves only to a build signed
 with CLOR's Ed25519 key, and that key stays on the deploying machine
 (`~/.config/clor/agent-signing.key`, mode 600, never in a repository or an
-image). So before `gcloud builds submit`, build and sign the connector:
+image). `scripts/release.sh` builds and signs the connector before the image
+build when the key is there; by hand it is
 
 ```bash
 cd server && npm run agent:build && AGENT_SIGNING_KEY_FILE=$HOME/.config/clor/agent-signing.key npm run agent:sign
@@ -56,30 +171,26 @@ cd server && npm run agent:build && AGENT_SIGNING_KEY_FILE=$HOME/.config/clor/ag
 That writes `server/dist-agent/clor-agent.cjs` with `.sig` and `.sha256`
 beside it (git ignores the folder; the upload and the Docker build include
 it). The image serves the signed file at `/agent/v1/download` and its
-signature at `/agent/v1/download.sig`. Skip this and the image builds the
+signature at `/agent/v1/download.sig`. Without the key the image builds the
 connector itself, unsigned: nothing breaks, but no connector in the field will
 update to it. Lose the key and a new one means a new public key in
 `server/agent/src/signing.ts`, which connectors already out there do not
 have — they would need reinstalling by hand.
 
-## Roles, and which one does what
+## The database role
 
-| Role | Used by | May |
-| --- | --- | --- |
-| `postgres` | backups, and fixing the two attributes below | everything |
-| `clor_owner` | migrations, operator scripts | own and alter the schemas |
-| `clor_app` | the API, every request | read and write rows, nothing else |
+The API connects as `clor_app`, for every request and for the migrations at
+start. `clor_app` is `NOSUPERUSER NOBYPASSRLS`, and that is load-bearing:
+PostgreSQL skips row-level security entirely for a superuser or a `BYPASSRLS`
+role, whatever the table says, so an application connecting as either would
+carry a full set of policies and be protected by none of them. Every tenant
+table has `FORCE ROW LEVEL SECURITY`; code that must read across companies
+(background jobs, the operator console) says so explicitly
+(`outsideTenant` in `server/src/utils/tenantScope.ts`).
 
-`clor_app` is `NOSUPERUSER NOBYPASSRLS`, and that is load-bearing. PostgreSQL
-skips row-level security entirely for a superuser or a `BYPASSRLS` role —
-whatever the table says — so an application connecting as either would carry a
-full set of policies and be protected by none of them.
-`server/scripts/provisionAppRole.mjs` checks this on every deploy and refuses
-to continue if it is ever untrue.
-
-Backups run as `postgres` for the opposite reason: every tenant table has
-`FORCE ROW LEVEL SECURITY`, which subjects even the owner to its own policies,
-and `pg_dump` as the owner fails outright rather than dumping half a table.
+A new table needs the same row-security policy as its neighbours in the same
+schema, or CI's `verify` job fails. A new public route must be added to
+`tenant-platform-upgrade-2026-10-23/route-allowlist.json`.
 
 ## Background jobs on Cloud Run (Cloud Scheduler wake call)
 
@@ -87,9 +198,9 @@ The API scales to zero and gets CPU only while it serves a request, so the jobs
 started in `server/src/index.ts` do not run on their timers when nobody is
 using the app. That covers leave hand-on to HR, the leave digest, lapse
 notices, dated changes, the People outbox, approval reminders, recurring
-invoices and the rest. Cloud Scheduler wakes them: every 10 minutes it posts
-to `/api/internal/jobs/tick`, which runs each job's tick inside the request
-and waits for it (`server/src/services/jobRegistry.ts`).
+invoices, email retries and the rest. Cloud Scheduler wakes them: every 10
+minutes it posts to `/api/internal/jobs/tick`, which runs each job's tick
+inside the request and waits for it (`server/src/services/jobRegistry.ts`).
 
 - **Once per period:** each job runs at most once per its own interval. The
   lease stops two instances from running it, and the registry stops one
@@ -99,10 +210,15 @@ and waits for it (`server/src/services/jobRegistry.ts`).
 - **Retries:** a job that throws makes the call answer 500, and Cloud Scheduler
   retries it with backoff. A job that runs past 4 minutes is reported as
   timed out and keeps running under its lease.
+- **A job that stops, or fails quietly:** each wake ends with a health check
+  (`server/src/services/ops/jobHealth.ts`). A job with no good run in about
+  three of its periods, or three failed runs in a row, opens an alert on
+  `ops.clor.in` → Alerts, mailed once to support staff and owners, and closed
+  when the job is well again. If the schedule below is ever changed from 10
+  minutes, set `JOBS_WAKE_EVERY_MS` on the service to match.
 - **Off by default:** without `JOBS_TOKEN` the route does not exist (404).
 
-Set it up once per service (production shown; repeat with `clor-api-staging`
-and its own token):
+Set it up once per service (production shown; staging has neither yet):
 
 ```sh
 # 1. The token, as a secret, mounted on the service
@@ -124,42 +240,36 @@ gcloud scheduler jobs run clor-api-jobs --location asia-south1
 gcloud logging read 'resource.type="cloud_run_revision" AND httpRequest.requestUrl:"/internal/jobs/tick"' --limit 5
 ```
 
-The call goes through `api.clor.in`, so the Worker adds the edge header. Cloud
-Run's request timeout must be at least 300s, which is the default.
+The call goes through `api.clor.in`, so the Worker adds the edge header.
+
+**Cloud Run's request timeout must be at least 300 seconds** for this call.
+On 12 Nov 2026 the live service had 60: a wake that takes longer is cut off,
+the scheduler counts an error and retries, and long jobs lose their CPU
+mid-run. `deploy/cloudrun.service.yaml` records 300 as the intended value;
+bring the service in line with
+
+```sh
+gcloud run services update clor-api --region asia-south1 --project clor-apps-511409 --timeout 300
+```
 
 ## Backups
 
-Installed on the server as `/usr/local/bin/clor-backup`, run by cron at 02:30:
-
-```
-30 2 * * * /usr/local/bin/clor-backup --verify >> /var/log/clor-backup.log 2>&1
-```
-
-`--verify` restores the archive it has just written into a scratch database and
-compares its row counts against the live one, table by table. An archive nobody
-has restored is a file of unknown value, and the moment you find out is the
-moment you can least afford to.
-
-Restoring is deliberately beside the live database, never over it:
-
-```bash
-/usr/local/bin/clor-backup --restore /var/backups/clor/clor-<stamp>.sql.gz clor_restored
-# look at it, then swap:
-sudo -u postgres psql -c 'ALTER DATABASE clor RENAME TO clor_old'
-sudo -u postgres psql -c 'ALTER DATABASE clor_restored RENAME TO clor'
-sudo systemctl restart clor-api
-```
+Cloud SQL takes a backup of the whole instance every day and one more is
+taken by hand before each release (step 3 above). How they are kept, what else
+should exist, and how to restore: [`docs/BACKUP-AND-RESTORE.md`](docs/BACKUP-AND-RESTORE.md).
 
 ## Schema changes
 
-Migrations are versioned under `server/prisma/*/migrations` and applied by
-`server/scripts/migrate.ts` as `clor_owner`. Before deploying one, run the
-pre-deploy check against the live database — it names anything that would be
-lost and exits 1 when something really would be:
+Migrations are versioned under `server/prisma/*/migrations`, one folder per
+schema (`migrations` for Books, `payroll`, `people`, `platform`), and applied
+by `npm run prisma:deploy` each time a container starts
+(`server/scripts/cloudrun-start.sh`): the database-address guard first, then
+`prisma migrate deploy` for each of the four. A revision is not ready, and
+takes no traffic, until all four have finished. The rules for writing one are
+under "Before a release" above.
 
-```bash
-ssh ubuntu@$HOST 'cd /opt/clor/server && set -a && . /opt/clor/.env && set +a && npx tsx scripts/preflight.ts'
-```
+The notes below are for particular migrations: what to do after them, and
+what going back needs.
 
 ### Explore's sample company (migration `20261123090000_explore_passes`): optional, after migrate
 
@@ -345,36 +455,24 @@ What a company with the switch on writes, and how an older API reads it:
 Nothing else needs undoing. Phase 3c stops the writes to the old manager
 columns, once nothing is pending on the old path.
 
-## A first-time setup, from nothing
+## Who can do what
 
-```bash
-sudo apt-get install -y postgresql postgresql-client
-sudo -u postgres psql -c "CREATE ROLE clor_owner LOGIN CREATEROLE PASSWORD '<owner password>'"
-sudo -u postgres psql -c "CREATE DATABASE clor OWNER clor_owner"
-sudo -u postgres psql -c "GRANT SET ON PARAMETER session_replication_role TO clor_owner"
-sudo -u postgres psql -d clor <<'SQL'
-CREATE SCHEMA IF NOT EXISTS accounting AUTHORIZATION clor_owner;
-CREATE SCHEMA IF NOT EXISTS payroll    AUTHORIZATION clor_owner;
-CREATE SCHEMA IF NOT EXISTS people     AUTHORIZATION clor_owner;
-REVOKE ALL ON DATABASE clor FROM PUBLIC;
-SQL
-```
+- **Google Cloud:** the project owner is the owner's cloud account. Releases
+  use that sign-in on the deploying Mac (`gcloud auth list`). Builds run as
+  `clor-build`; the API runs as `clor-api-run`, the only account that can read
+  the secrets.
+- **Cloudflare:** wrangler is signed in on the deploying Mac. Custom domains
+  and DNS are changed by the owner in the dashboard.
+- **Nobody deploys from CI.** CI runs on the owner's Mac and holds no cloud
+  credentials (`docs/CI-ON-MAC.md`).
 
-Then write `/opt/clor/.env` (mode 600) with `DATABASE_URL`,
-`PAYROLL_DATABASE_URL`, `PEOPLE_DATABASE_URL` — each with its own `?schema=` —
-plus `PGADMIN_URL`, `CLOR_APP_PASSWORD`, `CLOR_SCHEMAS` and `CLOR_DATABASES`,
-and run `./deploy.sh --api`. The application role is created by the deploy.
+## What is not here yet
 
-`GRANT SET ON PARAMETER session_replication_role` is only needed to import an
-existing database with `server/scripts/migrateSqliteToPostgres.mjs`, which
-suspends foreign-key checks for one transaction so tables can be copied in any
-order. It can be revoked afterwards.
+Said plainly, so nobody assumes otherwise (`docs/LAUNCH-CHECKLIST.md` tracks them):
 
-## Tuning for a small box
-
-`/etc/postgresql/16/main/conf.d/clor.conf` trims the defaults, which assume a
-machine that does nothing else: `shared_buffers = 128MB`,
-`effective_cache_size = 384MB`, `max_connections = 30`,
-`listen_addresses = 'localhost'`, and `lock_timeout`/
-`idle_in_transaction_session_timeout` so a request nobody is still waiting for
-cannot hold a lock forever.
+- Migrations run at container start with the API's own database role. A bad
+  one stops every new instance from starting. Moving them to a step of their
+  own before the deploy is planned.
+- Staging has no background-job wake call.
+- The settings in `deploy/cloudrun.service.yaml` are a record kept by hand;
+  nothing compares the live service against it automatically.

@@ -1,0 +1,155 @@
+# The production API on Cloud Run: the settings it is meant to have.
+#
+# A record, not a deploy step. scripts/release.sh changes only the image; the
+# settings below were set by hand with `gcloud run services update` and live on
+# the service. This file is what to compare the service against, and what to
+# rebuild it from if it is ever lost:
+#
+#   gcloud run services describe clor-api --region asia-south1 --project clor-apps-511409 --format=yaml
+#
+# Change a setting on the service and here in the same pull request. Do not
+# `gcloud run services replace` with this file without reading the diff first:
+# it would also reset traffic and tags.
+#
+# Copied from the live service on 12 Nov 2026 (revision clor-api-00122-fw2),
+# with ONE DIFFERENCE, marked DIFFERS below: the request timeout.
+#
+# Secrets are named, never written: each `secretKeyRef` is a Secret Manager
+# secret in the same project, read by the service account below.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: clor-api
+  labels:
+    cloud.googleapis.com/location: asia-south1
+  annotations:
+    # Reached through api.clor.in (a Cloudflare Worker, deploy/cloudflare/api-proxy).
+    # Ingress stays "all" because the Worker calls the public run.app address; the
+    # API refuses any request without the Worker's edge header (EDGE_SECRET),
+    # except /ready.
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Instances: none kept warm, at most two.
+        #  - min 0: the service scales to zero when idle. The first request after
+        #    a quiet spell waits for a cold start (startup CPU boost shortens it),
+        #    and background jobs run only when Cloud Scheduler wakes them
+        #    (DEPLOY.md, Background jobs). A warm instance (min 1) is a cost
+        #    decision for the owner, not a default.
+        #  - max 2: bounded by the database, not by load. Each instance opens up
+        #    to 9 connections (server/scripts/cloudrun-start.sh) and the Cloud SQL
+        #    tier allows about 18 for the API. Raise the tier before raising this.
+        autoscaling.knative.dev/minScale: '0'
+        autoscaling.knative.dev/maxScale: '2'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        run.googleapis.com/cloudsql-instances: clor-apps-511409:asia-south1:clor-pg
+    spec:
+      serviceAccountName: clor-api-run@clor-apps-511409.iam.gserviceaccount.com
+      # Requests one instance serves at once.
+      containerConcurrency: 80
+      # DIFFERS from the live service, which has 60.
+      # The background-job wake call (POST /api/internal/jobs/tick) runs every
+      # job inside one request and waits up to 240 seconds for them; Cloud
+      # Scheduler allows it 300. At 60 seconds Cloud Run cuts the request off
+      # first: the scheduler sees an error and retries, and long jobs lose their
+      # CPU mid-run. To bring the service in line:
+      #   gcloud run services update clor-api --region asia-south1 --project clor-apps-511409 --timeout 300
+      timeoutSeconds: 300
+      containers:
+        - image: asia-south1-docker.pkg.dev/clor-apps-511409/clor/api:<sha7> # set by scripts/release.sh
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: '1'
+              memory: 1Gi
+          # CPU is given only while a request is being served (the default; no
+          # cpu-throttling annotation). In-process timers therefore do not run
+          # on an idle instance, which is what the wake call is for.
+          startupProbe:
+            # Ready = started and every database reached. Migrations run before
+            # the server starts, so a long migration needs this much patience:
+            # 5 s + 24 tries x 10 s = about four minutes.
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          env:
+            - name: NODE_ENV
+              value: production
+            # The database: one Cloud SQL instance, four databases
+            # (clor_main, clor_payroll, clor_people, clor_platform), one password.
+            - name: DB_USER
+              value: clor_app
+            - name: CLOUDSQL_INSTANCE
+              value: clor-apps-511409:asia-south1:clor-pg
+            - name: DB_POOL_PAYROLL
+              value: '2'
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: DB_PASSWORD, key: latest } }
+            # Sign-in tokens.
+            - name: JWT_ISSUER
+              value: clor
+            - name: JWT_AUDIENCE
+              value: clor
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: JWT_SECRET, key: latest } }
+            # Stored credentials (SMTP passwords, connector secrets) are encrypted with this.
+            - name: MAIL_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: MAIL_SECRET_KEY, key: latest } }
+            # Only requests that came through the api.clor.in Worker are served.
+            # Its presence also tells the API to take the client address from the Worker.
+            - name: EDGE_SECRET
+              valueFrom: { secretKeyRef: { name: EDGE_SECRET, key: latest } }
+            # The wake call for background jobs; without it the route does not exist.
+            - name: JOBS_TOKEN
+              valueFrom: { secretKeyRef: { name: JOBS_TOKEN, key: latest } }
+            # Which browser addresses may call the API.
+            - name: CORS_ORIGIN
+              value: https://app.clor.in,https://books.clor.in,https://accounting.clor.in,https://payroll.clor.in,https://attendance.clor.in,https://localhost,capacitor://localhost,https://people.clor.in,https://ops.clor.in
+            # Addresses written into emails and links.
+            - name: APP_URL
+              value: https://app.clor.in
+            - name: PORTAL_URL
+              value: https://attendance.clor.in/#/portal
+            - name: API_PUBLIC_URL
+              value: https://api.clor.in
+            - name: APP_NAME
+              value: Clor
+            # Outgoing mail.
+            - name: SMTP_HOST
+              value: smtp-relay.brevo.com
+            - name: SMTP_PORT
+              value: '587'
+            - name: SMTP_SECURE
+              value: 'false'
+            - name: SMTP_FROM
+              value: Clor <no-reply@clor.in>
+            - name: SMTP_USER
+              valueFrom: { secretKeyRef: { name: SMTP_USER, key: latest } }
+            - name: SMTP_PASS
+              valueFrom: { secretKeyRef: { name: SMTP_PASS, key: latest } }
+            # CLOR staff who may open ops.clor.in before any operator exists.
+            # A user id, set on the service; not repeated here.
+            - name: CLOR_OPERATOR_USER_IDS
+              value: <set on the service>
+  # Traffic is pinned to a tagged revision, never "latest": a deploy creates a
+  # revision with no traffic, and scripts/release.sh moves traffic to its
+  # rel-<sha7> tag once /ready answers there.
+  traffic:
+    - tag: rel-<sha7>
+      revisionName: <revision>
+      percent: 100
