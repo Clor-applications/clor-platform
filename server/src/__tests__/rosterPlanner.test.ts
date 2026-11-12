@@ -161,6 +161,8 @@ describe('painting the draft in one request', () => {
     const all = await grid(c, 'month=2026-12&pageSize=2');
     expect(all).toMatchObject({ total: 3, page: 1, pageSize: 2 });
     expect(all.rows).toHaveLength(2);
+    /* Everyone the filters match, whatever the page: what copying a week works on. */
+    expect(all.employeeIds).toHaveLength(3);
     expect((await grid(c, 'month=2026-12&pageSize=2&page=2')).rows).toHaveLength(1);
     expect((await grid(c, 'month=2026-12&q=r2')).rows.map((r: any) => r.employeeId)).toEqual([b.id]);
     /* Only A is on Late anywhere in the month. */

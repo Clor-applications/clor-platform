@@ -138,6 +138,8 @@ export async function rosterView(who: { accountId: string; orgId: string }, quer
     page,
     pageSize,
     rows: rows.slice((page - 1) * pageSize, page * pageSize),
+    /* Everyone the filters match, every page: what "copy this week" works on. */
+    employeeIds: rows.map((r) => r.employeeId),
     shifts,
     /* Per day: people working each shift ('' = the standard day, no shift), among those listed and in the whole company; and how far each shift with a minimum falls short. */
     coverage: days.map((d, i) => ({
