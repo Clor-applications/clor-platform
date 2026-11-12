@@ -9,6 +9,7 @@ import { isWeeklyOff, istTime, monthSummary } from './compute.js';
 import { loadHolidays, loadSchedule, resolveShift } from './schedule.js';
 import { activeManagerOf, chainFor } from './approvalChain.js';
 import { managerStepBy } from './standIns.js';
+import { compOffExpiresOn } from './compOff.js';
 import { capOvertime, hasOvertimeCaps, overCapWords, overtimeCapFrom, overtimeDayType, overtimePolicyOf } from './overtimePolicy.js';
 import { OVERTIME_SOURCE, attendanceOnEngine, closeOnEngine, decideOnEngine, engineOf, onEngine, openOnEngine, syncFromRow } from './attendanceEngine.js';
 import { addDays as plusDays, eachDay, todayIst } from '../../utils/istDate.js';
@@ -410,7 +411,9 @@ export async function writeOvertimeDecision(orgId: string, id: string, approve: 
     if (!settings?.compOffLeaveTypeId) throw Object.assign(new Error('Choose the comp-off leave type first (Overtime & comp-off settings).'), { status: 409 });
     const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, reversedAt: null, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, workedOn: r.date } });
     if (twice) throw Object.assign(new Error(`Comp-off for ${r.date} is already granted.`), { status: 409, code: 'COMP_OFF_TWICE' });
-    await peoplePrisma.leaveAdjustment.create({ data: { accountId: r.accountId, orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, year: await leaveYearOf(orgId, r.date), days: r.days, kind: 'ADJUST', reason: `Comp-off for ${r.date} (request approved)${note ? `: ${note}` : ''}`.slice(0, 500), workedOn: r.date, createdByUserId: userId } });
+    /* Under the type's validity, the grant carries the last day it can be used (compOff.ts); none set, it does not expire. */
+    const type = await peoplePrisma.leaveType.findFirst({ where: { id: settings.compOffLeaveTypeId, orgId }, select: { compOffValidDays: true } });
+    await peoplePrisma.leaveAdjustment.create({ data: { accountId: r.accountId, orgId, employeeId: r.employeeId, leaveTypeId: settings.compOffLeaveTypeId, year: await leaveYearOf(orgId, r.date), days: r.days, kind: 'ADJUST', reason: `Comp-off for ${r.date} (request approved)${note ? `: ${note}` : ''}`.slice(0, 500), workedOn: r.date, expiresOn: compOffExpiresOn(type?.compOffValidDays, r.date, todayIst()), createdByUserId: userId } });
   }
   return peoplePrisma.overtimeRequest.findFirstOrThrow({ where: { id: r.id } });
 }

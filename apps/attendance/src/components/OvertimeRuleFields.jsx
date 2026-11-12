@@ -7,6 +7,19 @@ export const CHAINS = {
   MANAGER_THEN_HR: 'The manager, then HR',
 };
 
+/* How long comp-off lasts is the leave type's own rule (LeaveType.compOffValidDays): said here, set there. */
+const validity = (rules, types) => {
+  const type = types.find((t) => t.id === rules.compOffLeaveTypeId);
+  if (!type) return null;
+  return (
+    <span className="ui-caption block tabular-nums">
+      {type.compOffValidDays
+        ? `Comp-off must be used within ${type.compOffValidDays} days of the day worked, then it lapses. Change this on the leave type.`
+        : 'Comp-off does not expire. To set how long it lasts, open the leave type.'}
+    </span>
+  );
+};
+
 /**
  * The company's overtime and comp-off rules: one set of fields, shown in the
  * Overtime & Comp-Off screen's Rules drawer and on Overtime Policy, so both
@@ -36,6 +49,7 @@ export default function OvertimeRuleFields({ rules, types, save }) {
           {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
         <span className="ui-caption">Use a leave type with no yearly days of its own (for example “Comp-off”), so its balance is only what was earned. A full day worked earns 1 day; a half day earns ½.</span>
+        {validity(rules, types)}
       </label>
     </div>
   );

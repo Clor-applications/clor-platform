@@ -30,7 +30,7 @@ import {
  */
 const BLANK = {
   name: '', code: '', description: '', color: '', isPaid: true, isActive: true, isPrivate: false,
-  annualDays: 12, accrual: 'YEARLY', creditOn: 'START', creditDay: '', prorateForJoiners: true, carryForwardMax: '', carryExpiresAfterDays: '',
+  annualDays: 12, accrual: 'YEARLY', creditOn: 'START', creditDay: '', prorateForJoiners: true, carryForwardMax: '', carryExpiresAfterDays: '', compOffValidDays: '',
   gender: '', employeeTypeIds: [], departmentIds: [], branchIds: [], gradeIds: [], availableAfterDays: '', attachmentAfterDays: '',
   allowHalfDay: true, minNoticeDays: '', maxDaysPerRequest: '', backdatedDays: '', sandwich: false,
   negativeDays: 0, encashable: false, maxEncashDays: '', encashBase: 'BASIC_DA', encashDivisor: 26,
@@ -179,7 +179,7 @@ const formOf = (t) => ({
   code: t.code || '', description: t.description || '', color: t.color || '', gender: t.gender || '', employeeTypeIds: t.employeeTypeIds || [],
   departmentIds: t.departmentIds || [], branchIds: t.branchIds || [], gradeIds: t.gradeIds || [], attachmentAfterDays: t.attachmentAfterDays ?? '',
   isPrivate: Boolean(t.isPrivate), creditOn: t.creditOn || 'START', creditDay: t.creditDay ?? '',
-  carryForwardMax: t.carryForwardMax ?? '', carryExpiresAfterDays: t.carryExpiresAfterDays ?? '', minNoticeDays: t.minNoticeDays ?? '', maxDaysPerRequest: t.maxDaysPerRequest ?? '',
+  carryForwardMax: t.carryForwardMax ?? '', carryExpiresAfterDays: t.carryExpiresAfterDays ?? '', compOffValidDays: t.compOffValidDays ?? '', minNoticeDays: t.minNoticeDays ?? '', maxDaysPerRequest: t.maxDaysPerRequest ?? '',
   backdatedDays: t.backdatedDays ?? '', availableAfterDays: t.availableAfterDays ?? '', maxEncashDays: t.maxEncashDays ?? '', encashBase: t.encashBase || 'BASIC_DA', encashDivisor: t.encashDivisor === 30 ? 30 : 26,
   entitlements: (t.entitlements || []).map((e) => ({ employeeTypeId: e.employeeTypeId || '', years: yearsOf(e.minServiceMonths), annualDays: e.annualDays ?? '' })),
   probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
@@ -208,6 +208,7 @@ function bodyOf(form) {
     prorateForJoiners: Boolean(form.prorateForJoiners),
     carryForwardMax: paid ? num(form.carryForwardMax) : null,
     carryExpiresAfterDays: paid && num(form.carryForwardMax) ? num(form.carryExpiresAfterDays) : null,
+    compOffValidDays: paid ? num(form.compOffValidDays) : null,
     gender: form.gender || null,
     employeeTypeIds: form.employeeTypeIds || [],
     departmentIds: form.departmentIds || [],
@@ -665,6 +666,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
             <Section title="What happens to the balance">
               <NumberField label="Carry into next year, up to" value={form.carryForwardMax} onChange={set('carryForwardMax')} placeholder="Nothing: unused days lapse" step={0.5} />
               {num(form.carryForwardMax) ? <NumberField label="Carried days to be used within, days" value={form.carryExpiresAfterDays} onChange={set('carryExpiresAfterDays')} placeholder="No limit: they last the year" hint="Counted from the start of the leave period. Carried days are used first; what is left of them then lapses." /> : null}
+              <NumberField label="Comp-off to be used within, days" value={form.compOffValidDays} onChange={set('compOffValidDays')} placeholder="No limit: it does not expire" hint="For days earned by working on a weekly off or holiday and added to this type. Counted from the day worked: what is left after that lapses, and the person is reminded a week before. Many companies use 90. Applies to comp-off added from now on." />
               <Check label="OSH Code carry-forward" hint="Days asked for and refused in the year carry on top of the limit (30 under the Code), and what is over the limit is paid out by the year end, encashment or not." checked={form.oshCarry} onChange={set('oshCarry')} />
               <NumberField label="Days allowed in advance" value={form.negativeDays} onChange={set('negativeDays')} hint="The balance may go this far below zero." step={0.5} />
               {form.unit !== 'HOUR' ? <div><PopupSelect showValueSubtext={false} label="More than the balance" value={form.overBalance || 'REFUSE'} onChange={(v) => set('overBalance')(v || 'REFUSE')} options={OVER_BALANCE} /></div> : null}

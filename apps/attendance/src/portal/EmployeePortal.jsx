@@ -1,3 +1,4 @@
+import { expiringWords } from '@ui/timeOff/expiring';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from '@ui/components/ui/lineIcons';
@@ -507,6 +508,7 @@ const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[sta
  * waits and Cancel while it can be.
  */
 const fmtDay = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const fmtDayYear = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const hoursText = (minutes) => {
   const m = Math.max(0, Number(minutes) || 0);
   const h = Math.floor(m / 60);
@@ -971,6 +973,8 @@ function MyLeave({ guard }) {
                   <div className="text-2xl font-semibold tabular-nums">{amountFigure(t.available, t)}</div>
                   {/* An hourly type's balance is in hours (gap 23). */}
                   <div className="ui-caption">{isHourly(t) ? 'hours ' : ''}left of {amountFigure(t.allocated, t)}{t.pending ? ` · ${amountFigure(t.pending, t)} waiting` : ''}</div>
+                  {/* Comp-off under a validity: the days that go first, and when. */}
+                  {t.expiring?.length ? <div className="ui-caption tabular-nums">{expiringWords(t.expiring, fmtDayYear)}</div> : null}
                   <button type="button" className="ui-link text-xs mt-1" onClick={() => setExplaining(t.id)}>How is this worked out?</button>
                 </>
               ) : (

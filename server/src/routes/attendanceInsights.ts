@@ -1229,7 +1229,8 @@ attendanceInsightsRouter.get(`${base}/overtime/rules`, can(PermissionAction.VIEW
   const { orgId } = req.tenant!;
   const [s, types] = await Promise.all([
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
-    peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } }),
+    /* compOffValidDays: how long comp-off credited to the type lasts (set on the leave type; compOff.ts). */
+    peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, code: true, compOffValidDays: true }, orderBy: { name: 'asc' } }),
   ]);
   res.json({ rules: overtimeRules(s), leaveTypes: types, suggestedCaps: SUGGESTED_OVERTIME_CAPS });
 });
