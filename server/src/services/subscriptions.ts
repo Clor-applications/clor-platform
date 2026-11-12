@@ -154,12 +154,24 @@ export type SetSubscriptionInput = {
 };
 
 /**
+ * People includes Attendance (owner, 9 Nov 2026), so the two are never sold side
+ * by side: with People on the plan, Attendance (when carried) is free, never priced
+ * again (platform audit, 11 Nov 2026: nothing stopped one company paying for
+ * both). Moving from Attendance to People keeps every record, because both read
+ * the same employees, days and leave.
+ */
+export function peopleIncludesAttendance<T extends { appCode: string; priceModel?: string | null; unitAmount?: number | null; seats?: number | null }>(apps: T[]): T[] {
+  if (!apps.some((a) => a.appCode === 'people')) return apps;
+  return apps.map((a) => (a.appCode === 'attendance' ? ({ ...a, priceModel: 'free', unitAmount: null, seats: null } as T) : a));
+}
+
+/**
  * Create or replace a subscription by hand (the admin/manual path, and what the
  * gateway adapters call after a provider confirms). Pricing fields are optional
  * because no pricing model is chosen yet.
  */
 export async function setSubscription(accountId: string, input: SetSubscriptionInput) {
-  const apps = (input.apps || []).filter((a) => isSellableApp(a.appCode));
+  const apps = peopleIncludesAttendance((input.apps || []).filter((a) => isSellableApp(a.appCode)));
   const trialEndsAt =
     input.trialEndsAt ??
     (input.trialDays && input.trialDays > 0 ? new Date(Date.now() + input.trialDays * 86400000) : null);

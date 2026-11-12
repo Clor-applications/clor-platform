@@ -98,4 +98,20 @@ describe('POST /api/internal/jobs/tick', () => {
     const bad = await request(app).post('/api/internal/jobs/tick').set('x-jobs-token', 'right-token').send({ only: ['test.route.bad'] }).expect(500);
     expect(bad.body.runs[0]).toMatchObject({ name: 'test.route.bad', ok: false });
   });
+
+  it('a job woken by the scheduler reads across companies, as it does from the in-process timer', async () => {
+    // The wake call is an HTTP request, and a request starts in a strict scope with no
+    // company, where row security shows nothing. Jobs such as recurring invoices then
+    // finished "ok" having read zero rows (platform audit, 11 Nov 2026).
+    process.env.JOBS_TOKEN = 'right-token';
+    const { platformPrisma } = await import('../utils/platformPrisma.js');
+    const seen: string[] = [];
+    registerJob('test.route.scope', async () => {
+      const [row] = await platformPrisma.$queryRaw<{ b: string | null }[]>`SELECT current_setting('clor.bypass', true) AS b`;
+      seen.push(String(row?.b));
+    });
+    await request(app).post('/api/internal/jobs/tick').set('x-jobs-token', 'right-token').send({ only: ['test.route.scope'] }).expect(200);
+    await runRegisteredJobs({ only: ['test.route.scope'] });
+    expect(seen).toEqual(['on', 'on']);
+  });
 });

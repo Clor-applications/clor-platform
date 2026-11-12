@@ -58,7 +58,7 @@ describe('apps follow the subscription', () => {
     const accountId = (jwt.decode(c.token) as { accountId: string }).accountId;
     const sub = await platformPrisma.subscription.findFirst({ where: { accountId }, include: { items: true } });
     expect(sub).not.toBeNull();
-    expect(sub!.status).toBe('active');
+    expect(sub!.status).toBe('trialing'); // /signup starts a dated trial (platform audit, 11 Nov 2026)
     expect(sub!.items.map((i) => i.appCode)).toEqual(expect.arrayContaining(['accounting', 'payroll', 'attendance', 'people']));
     expect(sub!.items.find((i) => i.appCode === 'projects')).toBeUndefined();
     const acct = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { legacyUnrestrictedAt: true } });

@@ -35,6 +35,7 @@ import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.j
 import { isDevOrTest } from '../utils/devMode.js';
 import { requireAuth as requireLiveAuth } from '../middleware/auth.js';
 import { ProvisionError, SIGNUP_APPS, createAccountWithOwner, createCompany } from '../services/accountProvisioning.js';
+import { trialOffer } from '../services/trialPlan.js';
 import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js';
 import { QuotaBusyError } from '../services/quotaLock.js';
 import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
@@ -621,7 +622,12 @@ authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) =>
    * rely on the legacy fail-open rule: every available app they receive is an
    * explicit subscription item.
    */
-  const { user } = await createAccountWithOwner({ email, name: body.name, passwordHash, noticeVersion: body.noticeVersion, plan: SIGNUP_APPS });
+  /* A trial, like the one clor.in starts (routes/signup.ts): the same length from the published
+     price book, ending on a date. It used to be every app free and open-ended, which let anyone
+     skip the trial by opening /signup (platform audit, 11 Nov 2026). */
+  const offer = await trialOffer();
+  const plan = { ...SIGNUP_APPS, status: 'trialing' as const, trialEndsAt: new Date(Date.now() + offer.trialDays * 86_400_000) };
+  const { user } = await createAccountWithOwner({ email, name: body.name, passwordHash, noticeVersion: body.noticeVersion, plan });
 
   const { session, refreshToken } = await createSession({
     accountId: user.accountId,

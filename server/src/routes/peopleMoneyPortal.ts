@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 
 import { authenticate } from './portal.js';
+import { portalNeedsPeople } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import { MoneyError, addLine, answerMine, askAdvance, billFile, claimFor, myMoney, removeLine, reopenClaim, submitClaim, withdrawMine, type Me } from '../services/people/money/expenses.js';
 import { askSalaryAdvance, mySalaryAdvance, previewAsk } from '../services/people/money/salaryAdvance.js';
@@ -13,6 +14,7 @@ import { askSalaryAdvance, mySalaryAdvance, previewAsk } from '../services/peopl
  */
 export const peopleMoneyPortalRouter = Router();
 peopleMoneyPortalRouter.use(authenticate);
+peopleMoneyPortalRouter.use(portalNeedsPeople);
 
 const me = (req: Request): Me => ({ accountId: req.portal!.accountId, orgId: req.portal!.orgId, employeeId: req.portal!.employeeId, correlationId: correlationOf(req as any) });
 const run = (fn: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response) => {
