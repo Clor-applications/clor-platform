@@ -8957,14 +8957,9 @@ button.ui-side-alert { cursor: pointer; }
 .ui-auth-fact figcaption {
   margin-top: 8px;
 }
-.ui-auth-fact-foot {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
 .ui-auth-fact-bar {
-  flex: 1;
+  display: block;
+  margin-top: 12px;
   height: 3px;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.2);
@@ -8984,33 +8979,6 @@ button.ui-side-alert { cursor: pointer; }
 @keyframes ui-auth-fact-run {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
-}
-.ui-auth-fact-count {
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  color: rgb(255 255 255 / 0.7);
-}
-.ui-auth-fact-foot button {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgb(255 255 255 / 0.28);
-  border-radius: 8px;
-  background: none;
-  color: #fff;
-  font-size: 1.125rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease;
-}
-.ui-auth-fact-foot button:hover {
-  background: rgb(255 255 255 / 0.14);
-  border-color: #fff;
-}
-.ui-auth-fact-foot button:focus-visible {
-  outline: 2px solid #ffb08a;
-  outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
   .ui-auth-fact-bar > span {
