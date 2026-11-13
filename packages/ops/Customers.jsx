@@ -339,8 +339,8 @@ function Subscription({ d, name, plan, role, reload }) {
 
   const what = {
     trial: `${name}'s trial ends on ${day(s?.trialEndsAt)}. The extra days are added to that date, or to today if it has passed.`,
-    apps: `Apps added are switched on for every company ${name} has; apps taken away are switched off. Their data stays.`,
-    plan: `Gives ${name} a plan by hand: a free trial, or active for a deal paid outside CLOR. Only CLOR can set a plan by hand.`,
+    apps: `Apps added are switched on for every company ${name} has; apps taken away are switched off. Their data stays. An app added comes in free, so it waits in Approvals until a colleague approves it; taking one away is done at once.`,
+    plan: `Gives ${name} a plan by hand: a free trial, or active for a deal paid outside CLOR. Only CLOR can set a plan by hand. A trial of up to 90 days is set at once; apps given free for good wait in Approvals until a colleague approves them.`,
     suspend: `Suspending ${name} stops everyone in it from opening any of its companies, to read or to change anything, until you resume. They are told CLOR suspended it and to contact support. Their data stays.`,
     resume: `Everyone in ${name} can sign in and work again.`,
     cancel: `Cancelling stops every app for every company ${name} has. Nobody can work in them until the subscription is reopened. The account and all its data stay.`,
@@ -349,9 +349,17 @@ function Subscription({ d, name, plan, role, reload }) {
 
   const run = async (reason) => {
     const id = a.id;
+    let r = null;
     if (action === 'trial') await opsExtendTrial(id, Number(days), reason);
-    if (action === 'apps') await opsChangeApps(id, [...withIncluded(apps)], reason);
-    if (action === 'plan') await opsGrantPlan(id, { apps: [...withIncluded(apps)].map((appCode) => ({ appCode, priceModel: 'free' })), status, reason, ...(status === 'trialing' ? { trialDays: Number(trialDays) } : {}) });
+    if (action === 'apps') r = await opsChangeApps(id, [...withIncluded(apps)], reason);
+    if (action === 'plan') r = await opsGrantPlan(id, { apps: [...withIncluded(apps)].map((appCode) => ({ appCode, priceModel: 'free' })), status, reason, ...(status === 'trialing' ? { trialDays: Number(trialDays) } : {}) });
+    /* Over the limit: nothing changed yet; a colleague approves it in Approvals (server: services/ops/grants.ts). */
+    if (r?.needsApproval) {
+      notify.success(`Sent for approval. Nothing changes for ${name} until a colleague approves it in Approvals.`);
+      setAction(null);
+      reload();
+      return;
+    }
     if (action === 'suspend') await opsSuspend(id, reason);
     if (action === 'resume') await opsReinstate(id, reason);
     if (action === 'cancel') await opsCancelSubscription(id, reason);
@@ -372,8 +380,14 @@ function Subscription({ d, name, plan, role, reload }) {
   };
 
   const period = s?.currentPeriodStart || s?.currentPeriodEnd ? `${day(s.currentPeriodStart)} to ${day(s.currentPeriodEnd)}` : '—';
+  const w = d.waitingApproval;
   return (
     <>
+      {w ? (
+        <p className="ws-notice" role="status">
+          Waiting in Approvals: {w.summary}. Asked by {w.mine ? 'you' : w.askedBy}, {when(w.createdAt)}. Nothing changes for {name} until {w.mine ? 'a colleague' : 'someone other than the person who asked'} approves it, by {when(w.expiresAt)}.
+        </p>
+      ) : null}
       <Facts
         rows={[
           ['Status', <StatusPill key="s" status={plan} />],

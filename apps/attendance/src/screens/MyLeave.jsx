@@ -7,6 +7,7 @@ import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitiv
 import DataTable from '@ui/components/ui/DataTable';
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
+import { expiringWords } from '@ui/timeOff/expiring';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { LEAVE_STATUS, applyLeave, cancelMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
@@ -163,6 +164,8 @@ export default function MyLeave() {
                     <span className="ui-metric-value tabular-nums">{amountFigure(t.available, t)}<span className="ui-caption"> of {amountFigure(t.allocated, t)}{isHourly(t) ? ' hours' : ''}</span></span>
                     <span className="ui-metric-label">{t.name}{t.pending ? <span className="tabular-nums">, {amountFigure(t.pending, t)} waiting</span> : null}</span>
                     {t.projectedAvailable != null && t.projectedAvailable !== t.available ? <span className="ui-caption block tabular-nums">{amountFigure(t.available, t)} left · {amountFigure(t.projectedAvailable, t)} by period end</span> : null}
+                    {/* Comp-off under a validity: the days that go first, and when. */}
+                    {t.expiring?.length ? <span className="ui-caption block tabular-nums">{expiringWords(t.expiring, formatDate)}</span> : null}
                     <span className="sr-only">. How is this worked out?</span>
                   </span>
                 </button>

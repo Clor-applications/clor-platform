@@ -3,7 +3,9 @@ import { CheckCircle2, Download, Upload } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '@ui/components/ui/Primitives';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { parseCsv, readFileText } from '@ui/utils/csv';
+import { downloadImportTemplate } from '@ui/utils/importTemplate';
+import { notify } from '@ui/components/ui/notify';
 import { normaliseDateColumns, toIsoDate } from '@ui/utils/importDates';
 import { matchColumns, normaliseTimeColumns, rowsByColumn, toStatus } from '@ui/utils/importColumns';
 import { readXlsx } from '@ui/utils/xlsx';
@@ -17,8 +19,12 @@ import { importAssignments, importHolidays, importLeaveBalances, importLeaveHist
  * says exactly which lines to fix. Punches as a reader sends them are not
  * here — they come in through Readers → add a file import, which keeps them
  * as punches rather than days.
+ *
+ * The column keys of each kind are the server's (services/importTemplates.ts),
+ * which is where the template comes from; DataImport.test.jsx holds the two
+ * lists to each other.
  */
-const KINDS = [
+export const KINDS = [
   {
     id: 'records',
     label: 'Attendance days',
@@ -31,7 +37,6 @@ const KINDS = [
       { key: 'status', label: 'Status (blank, P, A, HD, Leave, or PRESENT, HALF_DAY, ABSENT, ON_LEAVE)', status: true, aliases: ['Attendance'] },
       { key: 'note', label: 'Note', aliases: ['Remarks', 'Remark', 'Comment'] },
     ],
-    sample: { employeeCode: 'E-001', date: '2026-10-01', checkIn: '09:05', checkOut: '18:10', status: '', note: '' },
     run: importRecords,
     unit: 'days',
   },
@@ -39,17 +44,29 @@ const KINDS = [
     id: 'employees',
     label: 'Employees',
     blurb: 'New people, with their department and position created as needed.',
+    /* Every column the employee importer reads (it had eight, and its Phone went to a column the importer does not have). */
     columns: [
       { key: 'name', label: 'Name' },
-      { key: 'code', label: 'Employee code' },
+      { key: 'code', label: 'Employee ID', aliases: ['Employee code'] },
+      { key: 'email', label: 'Personal email' },
+      { key: 'workEmail', label: 'Work email', aliases: ['Work e-mail'] },
+      { key: 'phone', label: 'Phone', aliases: ['Mobile'] },
       { key: 'department', label: 'Department' },
-      { key: 'jobPosition', label: 'Position' },
-      { key: 'dateOfJoining', label: 'Joined (15/10/2026 or 2026-10-15)', date: true },
-      { key: 'gender', label: 'Gender (MALE / FEMALE / OTHER)' },
-      { key: 'workEmail', label: 'Work e-mail' },
-      { key: 'workPhone', label: 'Phone' },
+      { key: 'jobPosition', label: 'Designation', aliases: ['Position'] },
+      { key: 'employeeType', label: 'Employment type' },
+      { key: 'workType', label: 'Work mode' },
+      { key: 'dateOfJoining', label: 'Joining date (15/10/2026 or 2026-10-15)', date: true, aliases: ['Joined', 'Date of joining'] },
+      { key: 'dateOfBirth', label: 'Date of birth (15/10/1994 or 1994-10-15)', date: true },
+      { key: 'gender', label: 'Gender (Male, Female, Non-binary, Other)' },
+      { key: 'businessUnit', label: 'Business unit' },
+      { key: 'grade', label: 'Grade' },
+      { key: 'costCentre', label: 'Cost centre', aliases: ['Cost center'] },
+      { key: 'hours', label: 'Hours (Full-time or Part-time)' },
+      { key: 'probationEndDate', label: 'Probation ends', date: true },
+      { key: 'contractEndDate', label: 'Contract ends', date: true },
+      { key: 'managerCode', label: 'Manager (employee ID)', aliases: ['Manager'] },
+      { key: 'workSite', label: 'Work site' },
     ],
-    sample: { name: 'Asha Rao', code: 'E-001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE', workEmail: '', workPhone: '' },
     run: (rows, dryRun) => importEmployees(rows, dryRun).then((r) => ({ imported: (r.results || []).filter((x) => x.ok).length, failed: (r.results || []).filter((x) => !x.ok).length, results: (r.results || []).filter((x) => !x.ok) })),
     unit: 'people',
   },
@@ -63,7 +80,6 @@ const KINDS = [
       { key: 'optional', label: 'Optional (yes / no)' },
       { key: 'area', label: 'Area (blank = everyone)' },
     ],
-    sample: { date: '2026-10-02', name: 'Gandhi Jayanti', optional: 'no', area: '' },
     run: importHolidays,
     unit: 'holidays',
   },
@@ -77,7 +93,6 @@ const KINDS = [
       { key: 'from', label: 'From (15/10/2026 or 2026-10-15)', date: true },
       { key: 'to', label: 'To (a date, blank = open)', date: true },
     ],
-    sample: { employeeCode: 'E-001', shift: 'General', from: '2026-10-01', to: '' },
     run: importAssignments,
     unit: 'assignments',
   },
@@ -92,7 +107,6 @@ const KINDS = [
       { key: 'days', label: 'Days for the year' },
       { key: 'note', label: 'Note' },
     ],
-    sample: { employeeCode: 'E-001', leaveType: 'Casual', year: '2026', days: '12', note: 'Carried from the old system' },
     run: importLeaveBalances,
     unit: 'balances',
   },
@@ -108,7 +122,6 @@ const KINDS = [
       { key: 'halfDay', label: 'Half day (FIRST, SECOND or blank)' },
       { key: 'reason', label: 'Reason' },
     ],
-    sample: { employeeCode: 'E-001', leaveType: 'Casual', from: '2026-09-15', to: '2026-09-16', halfDay: '', reason: 'Family function' },
     /* Each row is approved as it lands, so it is for who may approve leave (HR User may not; owner, 8 Nov 2026). */
     needs: 'ATTENDANCE::Leave Requests::APPROVE',
     run: importLeaveHistory,
@@ -129,7 +142,6 @@ const KINDS = [
       { key: 'licenceValidTo', label: 'Licence valid to (15/10/2027 or 2027-10-15)', date: true },
       { key: 'address', label: 'Address' },
     ],
-    sample: { name: 'Sri Ganesh Labour Services', code: 'C-01', contactPerson: 'Ramesh', phone: '9800000000', email: '', gstin: '', licenceNo: 'CLRA/123/2026', licenceValidTo: '2027-03-31', address: '' },
     run: importContractors,
     unit: 'contractors',
   },
@@ -137,7 +149,7 @@ const KINDS = [
 
 /* Other names a sheet uses for the person's code, whatever the file holds. */
 const CODE_NAMES = ['Emp code', 'Employee ID', 'Emp ID', 'Emp no', 'Employee no', 'Staff ID', 'Code'];
-const columnsOf = (kind) => kind.columns.map((c) => (c.key === 'employeeCode' ? { ...c, aliases: [...(c.aliases || []), ...CODE_NAMES] } : c));
+export const columnsOf = (kind) => kind.columns.map((c) => (c.key === 'employeeCode' ? { ...c, aliases: [...(c.aliases || []), ...CODE_NAMES] } : c));
 
 /** A file's rows, keyed by the import's columns: CSV, or the first sheet of an Excel workbook. */
 async function readRows(f, kind) {
@@ -145,8 +157,9 @@ async function readRows(f, kind) {
   if (name.endsWith('.xls')) throw new Error('That is an old Excel file (.xls). In Excel, save it as .xlsx or CSV, then choose it again.');
   let headers;
   let rows;
-  if (name.endsWith('.xlsx')) ({ headers, rows } = await readXlsx(f));
-  else ({ headers, rows } = parseCsv(await readFileText(f)));
+  /* The template's note rows (# …) are left out, so its heading row is found under them. */
+  if (name.endsWith('.xlsx')) ({ headers, rows } = await readXlsx(f, { skipComments: true }));
+  else ({ headers, rows } = parseCsv(await readFileText(f), { skipComments: true }));
   const columns = columnsOf(kind);
   const mapping = matchColumns(headers, columns);
   if (!mapping.size) throw new Error(`None of the columns match the template. Expected: ${kind.columns.map((c) => c.label.replace(/\s*\(.*\)$/, '')).join(', ')}.`);
@@ -256,9 +269,10 @@ export default function DataImport({ params } = {}) {
           <ul className="text-sm space-y-0.5">
             {kind.columns.map((c) => <li key={c.key}><code className="ui-mono text-xs">{c.key}</code> <span className="ui-caption">— {c.label}</span></li>)}
           </ul>
-          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => downloadCsvTemplate({ fileName: `${kind.label} import template`, columns: kind.columns.map((c) => ({ key: c.key, label: c.key })), sample: kind.sample })}>
-            <Download size={16} aria-hidden="true" /> Download template
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => downloadImportTemplate(kind.id, `CLOR ${kind.label.toLowerCase()} import template`).catch((e) => notify.error(String(e?.message || 'The template could not be downloaded.')))}>
+            <Download size={16} aria-hidden="true" /> Download the template
           </button>
+          <p className="ui-caption">A CSV file that opens in Excel: the headings, one example row, and a note on each column. Leave the notes in or delete them.</p>
         </li>
         <li className="ui-card p-4 space-y-3">
           <h2 className="ui-t-sec"><span className="ui-caption mr-2">3</span>The file</h2>

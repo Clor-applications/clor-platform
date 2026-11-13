@@ -3,7 +3,8 @@ import { ArrowLeft, ChevronRight, Plus, Send } from '@ui/components/ui/lineIcons
 
 import { getTicket, listTickets, openTicket, replyTicket, ticketSolved } from '@platform/admin/account';
 import { lastErrorRef } from '@platform/http';
-import { requestOpenHelp } from '@platform/context';
+import { hasApp, requestOpenHelp } from '@platform/context';
+import { INCLUDED_IN } from '@platform/includedApps';
 import { ICON, PageHead, WsDrawer, ago } from './wsKit';
 import './workspace.css';
 
@@ -177,7 +178,8 @@ function NewTicket({ open, onClose, onOpened }) {
         <div className="grid">
           <label htmlFor="ws-ticket-app" className="text-sm">Which app</label>
           <select id="ws-ticket-app" className="ui-select" value={form.app} onChange={set('app')}>
-            {APP.map(([k, l]) => <option key={k || 'none'} value={k}>{l}</option>)}
+            {/* An app the company has inside another (Attendance, on People) is not a choice of its own. */}
+            {APP.filter(([k]) => !(INCLUDED_IN[k] && hasApp(INCLUDED_IN[k]))).map(([k, l]) => <option key={k || 'none'} value={k}>{l}</option>)}
           </select>
         </div>
         <label className="grid">

@@ -358,7 +358,11 @@ function ProviderDrawer({ p, mayChange, onClose, onChanged }) {
                 <p className="ws-card-blurb">
                   {p.mode === 'LIVE' ? 'Live: the live keys are in use. Real money moves once checkout is built.' : 'Test: the test keys are in use, against the provider’s sandbox. No real money moves.'}
                 </p>
-                {mayChange ? (
+                {mayChange && p.active ? (
+                  <p className="ws-card-blurb">
+                    Customers pay through {p.name} now, so its mode cannot change. Make another provider active, or turn {p.name} off, then switch it.
+                  </p>
+                ) : mayChange ? (
                   <div>
                     {p.mode === 'LIVE' ? (
                       <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={Boolean(busy)} onClick={toTest}>

@@ -14,6 +14,8 @@ import { isFeatureEnabled } from '../services/features.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { RESUME_TYPES, TalentError } from '../services/people/talent/hiring.js';
 import * as referrals from '../services/people/talent/referrals.js';
+import { z } from 'zod';
+import { check, code, flag, idParams, list, num, q, rawText, text } from '../middleware/validate.js';
 
 /**
  * Employee referrals (services/people/talent/referrals.ts, A20).
@@ -57,20 +59,39 @@ const handle = (fn: (req: Request, res: Response) => Promise<unknown>) => async 
   }
 };
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; whether a field must be there, and the words for
+ * it, stay the service's (talent/referrals.ts).
+ */
+/* A number a form may send as its text ("5000", or "" for none): the service makes the number and has the words for one that is not. */
+const amount = z.union([num(-1e15, 1e15), text(40)]);
+/* An id in a body: "" reads as none. */
+const ref = text(200);
+const SETTINGS = z.object({
+  referralOpen: flag.nullish(), internalApply: flag.nullish(), referralBonus: amount.nullish(), referralBonusDays: amount.nullish(), referAudience: text(40).nullish(),
+  referDepartmentIds: list(ref, 1000).nullish(), referBranchIds: list(ref, 1000).nullish(),
+});
+const REFER = z.object({
+  openingId: ref.nullish(), name: text(2000).nullish(), email: text(2000).nullish(), phone: code(200).nullish(), relation: text(2000).nullish(), note: text(20_000).nullish(),
+  /* The résumé as the browser reads it (a data URL), up to what this route's JSON may carry (app.ts: 3 MB). */
+  resume: z.object({ name: text(2000).nullish(), mime: text(200).nullish(), data: rawText(3 * 1024 * 1024).nullish() }).nullish(),
+});
+
 /* ---------------------------------------------------------------------- HR */
 
-peopleReferralsRouter.get(`${hrBase}/openings/:id/referrals`, hiringOn, can(PermissionAction.VIEW), handle(async (req, res) => {
+peopleReferralsRouter.get(`${hrBase}/openings/:id/referrals`, hiringOn, can(PermissionAction.VIEW), check({ params: idParams }), handle(async (req, res) => {
   const o = await peoplePrisma.jobOpening.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId } });
   if (!o) return res.status(404).json({ error: 'No such opening.' });
   res.json({ settings: referrals.referralSettingsOf(o, (await view(req)).money) });
 }));
-peopleReferralsRouter.put(`${hrBase}/openings/:id/referrals`, hiringOn, can(PermissionAction.EDIT), handle(async (req, res) => {
+peopleReferralsRouter.put(`${hrBase}/openings/:id/referrals`, hiringOn, can(PermissionAction.EDIT), check({ params: idParams, body: SETTINGS }), handle(async (req, res) => {
   const row = await referrals.setReferralSettings(who(req), String(req.params.id), req.body || {});
   await recordAudit(req, { entity: 'JobOpening', entityId: row.id, action: 'REFERRALS', message: `Referrals ${row.referralOpen ? 'on' : 'off'}: ${row.title}`, metadata: { bonus: row.referralBonus == null ? null : Number(row.referralBonus), bonusDays: row.referralBonusDays, audience: row.referAudience, internalApply: row.internalApply } }).catch(() => undefined);
   res.json({ settings: referrals.referralSettingsOf(row, true) });
 }));
 
-peopleReferralsRouter.get(`${hrBase}/referrals`, hiringOn, can(PermissionAction.VIEW), handle(async (req, res) => {
+peopleReferralsRouter.get(`${hrBase}/referrals`, hiringOn, can(PermissionAction.VIEW), check({ query: z.object({ status: q(text(40)), openingId: q(ref), referrerId: q(ref), q: q(text(2000)) }) }), handle(async (req, res) => {
   const v = await view(req);
   const q = { status: String(req.query.status || 'all'), openingId: req.query.openingId ? String(req.query.openingId) : undefined, referrerId: req.query.referrerId ? String(req.query.referrerId) : undefined, q: String(req.query.q || '').slice(0, 100) };
   res.json({ ...(await referrals.listReferrals(req.tenant!.orgId, q, v)), money: v.money });
@@ -79,7 +100,7 @@ peopleReferralsRouter.get(`${hrBase}/referrals`, hiringOn, can(PermissionAction.
 peopleReferralsRouter.get(`${hrBase}/referrals/rule`, hiringOn, can(PermissionAction.VIEW), handle(async (req, res) => {
   res.json(await referrals.referrerRuleOf(req.tenant!.orgId));
 }));
-peopleReferralsRouter.put(`${hrBase}/referrals/rule`, hiringOn, can(PermissionAction.EDIT), handle(async (req, res) => {
+peopleReferralsRouter.put(`${hrBase}/referrals/rule`, hiringOn, can(PermissionAction.EDIT), check({ body: z.object({ forfeitIfReferrerLeaves: flag.nullish() }) }), handle(async (req, res) => {
   const r = await referrals.setReferrerRule(who(req), req.body || {});
   await audit(req, req.tenant!.orgId, 'RULE', r.forfeitIfReferrerLeaves ? 'Referral bonus: not paid when the referrer has left' : 'Referral bonus: paid even when the referrer has left');
   res.json(r);
@@ -89,18 +110,18 @@ peopleReferralsRouter.get(`${hrBase}/referrals/report`, hiringOn, can(Permission
   res.json({ ...(await referrals.referralReport(req.tenant!.orgId, v)), money: v.money });
 }));
 /* Send a due bonus to Payroll again (after HR opened a month or added the earning): Recruitment edit and the right to add payroll adjustments. */
-peopleReferralsRouter.post(`${hrBase}/referrals/:id/bonus/send`, hiringOn, can(PermissionAction.EDIT), handle(async (req, res) => {
+peopleReferralsRouter.post(`${hrBase}/referrals/:id/bonus/send`, hiringOn, can(PermissionAction.EDIT), check({ params: idParams }), handle(async (req, res) => {
   if (!(await has(req, PAYROLL_MODULE, 'CREATE', PAYROLL_RESOURCE.adjustments))) return res.status(403).json({ error: 'Sending a bonus to Payroll needs the right to add payroll adjustments.' });
   const r = await referrals.sendBonusToPayroll(req.tenant!.orgId, String(req.params.id));
   await audit(req, String(req.params.id), 'BONUS_SENT', r.sent ? 'Referral bonus sent to Payroll as a draft earning' : `Referral bonus not sent: ${r.why}`);
   res.json(r);
 }));
-peopleReferralsRouter.post(`${hrBase}/referrals/:id/bonus/paid`, hiringOn, can(PermissionAction.EDIT), handle(async (req, res) => {
+peopleReferralsRouter.post(`${hrBase}/referrals/:id/bonus/paid`, hiringOn, can(PermissionAction.EDIT), check({ params: idParams }), handle(async (req, res) => {
   await referrals.markBonusPaid(who(req), String(req.params.id));
   await audit(req, String(req.params.id), 'BONUS_PAID', 'Referral bonus marked paid by hand');
   res.json({ ok: true });
 }));
-peopleReferralsRouter.post(`${hrBase}/referrals/:id/bonus/forfeit`, hiringOn, can(PermissionAction.EDIT), handle(async (req, res) => {
+peopleReferralsRouter.post(`${hrBase}/referrals/:id/bonus/forfeit`, hiringOn, can(PermissionAction.EDIT), check({ params: idParams, body: z.object({ reason: text(5000).nullish() }) }), handle(async (req, res) => {
   await referrals.forfeitBonus(who(req), String(req.params.id), req.body?.reason);
   await audit(req, String(req.params.id), 'BONUS_FORFEITED', 'Referral bonus set as not payable', { reason: String(req.body?.reason || '').slice(0, 300) });
   res.json({ ok: true });
@@ -126,19 +147,19 @@ peopleReferralsRouter.get(meBase, hiringOn, handle(async (req, res) => {
   if (!e) return res.json({ employee: false, jobs: [], referrals: [], applications: [] });
   res.json({ employee: true, jobs: await referrals.jobsFor(e), ...(await referrals.mine(e)) });
 }));
-peopleReferralsRouter.post(`${meBase}/refer`, hiringOn, ...referLimiter, handle(async (req, res) => {
+peopleReferralsRouter.post(`${meBase}/refer`, hiringOn, ...referLimiter, check({ body: REFER }), handle(async (req, res) => {
   const e = await referrer(req, res);
   if (!e) return;
   const made = await referrals.refer(e, req.body || {}, resumeOf(req.body?.resume));
   await audit(req, made.referralId, 'CREATE', 'Referral made', { candidateId: made.candidateId, openingId: String(req.body?.openingId || '') });
   res.status(201).json({ referral: { id: made.referralId } });
 }));
-peopleReferralsRouter.post(`${meBase}/link`, hiringOn, handle(async (req, res) => {
+peopleReferralsRouter.post(`${meBase}/link`, hiringOn, check({ body: z.object({ openingId: ref.nullish() }) }), handle(async (req, res) => {
   const e = await referrer(req, res);
   if (!e) return;
   res.json(await referrals.linkFor(e, String(req.body?.openingId || '')));
 }));
-peopleReferralsRouter.post(`${meBase}/apply`, hiringOn, handle(async (req, res) => {
+peopleReferralsRouter.post(`${meBase}/apply`, hiringOn, check({ body: z.object({ openingId: ref.nullish(), note: text(20_000).nullish() }) }), handle(async (req, res) => {
   const e = await referrer(req, res);
   if (!e) return;
   const c = await referrals.applyInternal(e, String(req.body?.openingId || ''), req.body || {});

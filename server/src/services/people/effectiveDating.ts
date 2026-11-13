@@ -82,12 +82,25 @@ export async function cancelScheduledChange(orgId: string, id: string, employeeI
   return r.count === 1;
 }
 
+/** A claim older than this was abandoned by a run that stopped: the job runs every ten minutes, one person takes seconds. */
+const STALE_CLAIM_MS = 30 * 60_000;
+
 /**
  * Apply every pending change whose date has come, grouped per person so one
- * date's changes land as one write. Idempotent: a row is claimed with the run
- * id before it is applied, and only the claimer applies it.
+ * date's changes land as one write. Idempotent: a row is claimed (APPLYING,
+ * with the run id) before it is applied, only the claimer applies it, and it
+ * becomes APPLIED in the same transaction as the employee write.
  */
-export async function applyDueChanges(today = todayIst(), runId = `run_${Date.now().toString(36)}`) {
+export async function applyDueChanges(today = todayIst(), runId = `run_${Date.now().toString(36)}`, opts: { now?: Date } = {}) {
+  /*
+   * A run that stopped between claiming a change and applying it (the process died) left it
+   * APPLYING: once it is plainly abandoned it waits again, and this run takes it. A change marked
+   * APPLIED was applied: that mark is written in the employee write's own transaction.
+   */
+  const staleBefore = new Date((opts.now ?? new Date()).getTime() - STALE_CLAIM_MS);
+  await outsideTenant('job: scheduled changes, abandoned claims', () =>
+    peoplePrisma.scheduledChange.updateMany({ where: { status: 'APPLYING', appliedAt: { lt: staleBefore } }, data: { status: 'PENDING', appliedAt: null, appliedRunId: null } }),
+  );
   const due = await outsideTenant('job: scheduled changes', () =>
     peoplePrisma.scheduledChange.findMany({ where: { status: 'PENDING', effectiveOn: { lte: today } }, orderBy: [{ effectiveOn: 'asc' }, { createdAt: 'asc' }] }),
   );
@@ -100,17 +113,21 @@ export async function applyDueChanges(today = todayIst(), runId = `run_${Date.no
     /* One person's failure does not stop the run, and their change is not lost: it goes back to waiting (Workforce final audit W-A8). */
     try {
       await runInTenant(orgId, async () => {
-        const claimed = await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: rows.map((r) => r.id) }, status: 'PENDING' }, data: { status: 'APPLIED', appliedAt: new Date(), appliedRunId: runId } });
+        const claimed = await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: rows.map((r) => r.id) }, status: 'PENDING' }, data: { status: 'APPLYING', appliedAt: new Date(), appliedRunId: runId } });
         if (!claimed.count) {
           skipped += rows.length;
           return;
         }
         const mine = await peoplePrisma.scheduledChange.findMany({ where: { id: { in: rows.map((r) => r.id) }, appliedRunId: runId } });
         const existing = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId } });
-        if (!existing) return;
+        if (!existing) {
+          await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.map((c) => c.id) }, status: 'APPLYING' }, data: { status: 'CANCELLED', cancelledAt: new Date(), appliedAt: null } });
+          skipped += mine.length;
+          return;
+        }
         /* Someone who has left is not moved any more (W1): their waiting changes are cancelled. */
         if (existing.status === 'LEFT') {
-          await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.map((c) => c.id) } }, data: { status: 'CANCELLED', cancelledAt: new Date(), appliedAt: null } });
+          await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.map((c) => c.id) }, status: 'APPLYING' }, data: { status: 'CANCELLED', cancelledAt: new Date(), appliedAt: null } });
           skipped += mine.length;
           return;
         }
@@ -122,17 +139,25 @@ export async function applyDueChanges(today = todayIst(), runId = `run_${Date.no
           const m = await peoplePrisma.employee.findFirst({ where: { id: data[k]!, orgId }, select: { status: true } });
           if (!m || m.status === 'LEFT') {
             delete data[k];
-            await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.filter((c) => c.field === k).map((c) => c.id) } }, data: { status: 'CANCELLED', cancelledAt: new Date(), appliedAt: null } });
+            await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.filter((c) => c.field === k).map((c) => c.id) }, status: 'APPLYING' }, data: { status: 'CANCELLED', cancelledAt: new Date(), appliedAt: null } });
           }
         }
+        const applying = mine.filter((c) => data[c.field] !== undefined).map((c) => c.id);
         if (!Object.keys(data).length) return;
         if (data.departmentId !== undefined) data.department = (await labelFor(orgId, 'departmentId', data.departmentId)) ?? null;
         if (data.jobPositionId !== undefined) data.designation = (await labelFor(orgId, 'jobPositionId', data.jobPositionId)) ?? null;
         const actor: Actor = { accountId, orgId, userId: mine[0].requestedByUserId, source: 'SCHEDULED', correlationId: mine[0].correlationId, reason: mine[0].reason, requestId: mine[0].requestId };
         try {
-          await updateEmployee(actor, existing, data as any, { effectiveDate: mine[0].effectiveOn });
+          await updateEmployee(actor, existing, data as any, {
+            effectiveDate: mine[0].effectiveOn,
+            /* Applied and marked so together: a stop after this commits leaves nothing to apply twice, a stop before it leaves the claim to be taken again. */
+            afterWrite: async (tx) => {
+              const done = await tx.scheduledChange.updateMany({ where: { id: { in: applying }, status: 'APPLYING', appliedRunId: runId }, data: { status: 'APPLIED', appliedAt: new Date() } });
+              if (done.count !== applying.length) throw new Error('These changes were taken by another run.');
+            },
+          });
         } catch (err) {
-          await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.map((c) => c.id) }, status: 'APPLIED' }, data: { status: 'PENDING', appliedAt: null, appliedRunId: null } });
+          await peoplePrisma.scheduledChange.updateMany({ where: { id: { in: mine.map((c) => c.id) }, status: 'APPLYING', appliedRunId: runId }, data: { status: 'PENDING', appliedAt: null, appliedRunId: null } });
           throw err;
         }
         applied += mine.length;

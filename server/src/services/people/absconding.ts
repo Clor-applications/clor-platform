@@ -241,10 +241,13 @@ export async function sendAbsenceNotice(who: Who, caseId: string, input: { repor
       extra: { absentFrom: longDay(c.fromDate), reportBy: longDay(reportBy), signatory, ...(first ? { firstNoticeOn: longDay(istDate(first.sentAt)) } : {}) },
     });
   } catch (e) {
-    /* Nothing went out: the claim is taken back so it can be sent again. */
+    /*
+     * Nothing went out: the claim is taken back so it can be sent again. Only from the status this notice gave it:
+     * a case closed meanwhile (they came back) stays closed rather than opening again.
+     */
     await peopleWrite(who.orgId, async () => {
       await peoplePrisma.absenceNotice.delete({ where: { id: row.id } });
-      await peoplePrisma.absenceCase.update({ where: { id: c.id }, data: { status: seq === 1 ? 'OPEN' : 'NOTICE_1' } });
+      await peoplePrisma.absenceCase.updateMany({ where: { id: c.id, status: seq === 1 ? 'NOTICE_1' : 'NOTICE_2' }, data: { status: seq === 1 ? 'OPEN' : 'NOTICE_1' } });
     });
     if (e instanceof LetterError) throw new AbsenceError(e.message, e.status);
     throw e;
@@ -265,7 +268,10 @@ export async function sendAbsenceNotice(who: Who, caseId: string, input: { repor
     }
   }
   const channels = ['APP', ...(to ? ['EMAIL'] : []), ...(postRef ? ['POST'] : [])];
-  const saved = await peoplePrisma.absenceNotice.update({ where: { id: row.id }, data: { text: letter.text, documentId: letter.document.id, channels, emailTo: to, emailStatus, emailOutboxId } });
+  await peoplePrisma.absenceNotice.update({ where: { id: row.id }, data: { text: letter.text, documentId: letter.document.id, channels, emailTo: to } });
+  /* The first word on the e-mail is the send's own, and only while nothing has been said yet: a delivery noted meanwhile stands. */
+  if (emailStatus) await peoplePrisma.absenceNotice.updateMany({ where: { id: row.id, emailStatus: null }, data: { emailStatus, emailOutboxId } });
+  const saved = await peoplePrisma.absenceNotice.findUniqueOrThrow({ where: { id: row.id } });
   await audit(who, c.id, `NOTICE_${seq}`, `Absence notice ${seq} sent to ${person?.name || 'employee'}: report back by ${longDay(reportBy)} (${channels.join(', ').toLowerCase()})`, { employeeId: c.employeeId, noticeId: row.id, reportBy, channels, emailTo: to, emailStatus, postRef });
   return saved;
 }
@@ -321,7 +327,16 @@ export async function recordAbsconded(who: Who, caseId: string, input: { lastWor
   try {
     await leaveEmployee({ accountId: who.accountId, orgId: who.orgId, userId: who.userId, source: 'FORM', correlationId: who.correlationId, reason }, existing as any, { lastDay, leavingType: 'ABSCONDED', reason });
   } catch (e) {
-    await peoplePrisma.absenceCase.updateMany({ where: { id: c.id, status: 'ABSCONDED' }, data: { status: 'NOTICE_2', lastWorkingDay: null, closedAt: null, closedByUserId: null, closedNote: null } });
+    /*
+     * Not one transaction with the claim: the leaving spans the platform database (sign-ins), the readers and the
+     * letters, and commits its own record first. So the case is taken back only when the leaving did not get
+     * recorded. Recorded and a later step of it failed, the person has left as absconded: the case says so too,
+     * rather than going back to the second notice with nothing able to record it again ("already left").
+     */
+    const now = await peoplePrisma.employee.findFirst({ where: { id: c.employeeId, orgId: who.orgId }, select: { status: true, leavingType: true } });
+    const left = now?.leavingType === 'ABSCONDED' && (now.status === 'LEFT' || now.status === 'ON_NOTICE');
+    if (!left) await peoplePrisma.absenceCase.updateMany({ where: { id: c.id, status: 'ABSCONDED' }, data: { status: 'NOTICE_2', lastWorkingDay: null, closedAt: null, closedByUserId: null, closedNote: null } });
+    else await audit(who, c.id, 'ABSCONDED', `${existing.name} recorded as absconded, last working day ${longDay(lastDay)}; a later step of the leaving failed: ${e instanceof Error ? e.message : String(e)}`, { employeeId: c.employeeId, lastDay, notices });
     throw e;
   }
   await audit(who, c.id, 'ABSCONDED', `${existing.name} recorded as absconded, last working day ${longDay(lastDay)}`, { employeeId: c.employeeId, lastDay, notices });
@@ -363,6 +378,35 @@ export async function releaseHold(who: Who, caseId: string, note: string) {
 // Reading
 // ---------------------------------------------------------------------------
 
+/**
+ * Where a notice's e-mail may go next, from what the mail outbox says. QUEUED settles to SENT, FAILED or
+ * SUPPRESSED; FAILED can still become SENT when the retry gets it through. SENT and SUPPRESSED are final, so a
+ * late or repeated outbox reading (an older attempt's FAILED, a stale QUEUED) never undoes a delivery.
+ */
+const EMAIL_FROM: Record<string, string[]> = { SENT: ['QUEUED', 'FAILED'], FAILED: ['QUEUED'], SUPPRESSED: ['QUEUED', 'FAILED'] };
+
+/** Note the outbox's word on a notice's e-mail, only from a status that may move there. Whether it moved. */
+export async function noteNoticeEmail(noticeId: string, status: string) {
+  const from = EMAIL_FROM[status];
+  if (!from) return false;
+  const moved = await peoplePrisma.absenceNotice.updateMany({ where: { id: noticeId, emailStatus: { in: from } }, data: { emailStatus: status } });
+  return moved.count > 0;
+}
+
+/** Notices still waiting on their e-mail take the outbox's current word, so "queued" does not stay for ever. */
+async function refreshNoticeEmails<T extends { id: string; emailStatus: string | null; emailOutboxId: string | null }>(notices: T[]): Promise<T[]> {
+  const waiting = notices.filter((n) => n.emailOutboxId && (n.emailStatus === 'QUEUED' || n.emailStatus === 'FAILED'));
+  if (!waiting.length) return notices;
+  const outbox = await platformPrisma.emailOutbox.findMany({ where: { id: { in: waiting.map((n) => n.emailOutboxId!) } }, select: { id: true, status: true } });
+  const statusOf = new Map(outbox.map((o) => [o.id, o.status]));
+  const now = new Map<string, string>();
+  for (const n of waiting) {
+    const s = statusOf.get(n.emailOutboxId!);
+    if (s && s !== n.emailStatus && (await noteNoticeEmail(n.id, s))) now.set(n.id, s);
+  }
+  return notices.map((n) => (now.has(n.id) ? { ...n, emailStatus: now.get(n.id)! } : n));
+}
+
 /** The cases for the Absences screen: open first, each with its notices, the next step and its date. */
 export async function listCases(orgId: string, opts: { status?: string; scopeIds?: string[] | null } = {}) {
   const rules = (await timeRulesFor(orgId)).absence;
@@ -373,7 +417,7 @@ export async function listCases(orgId: string, opts: { status?: string; scopeIds
   const cases = await peoplePrisma.absenceCase.findMany({ where, orderBy: [{ updatedAt: 'desc' }], take: 300 });
   const ids = cases.map((c) => c.id);
   const [notices, people] = await Promise.all([
-    ids.length ? peoplePrisma.absenceNotice.findMany({ where: { orgId, caseId: { in: ids } }, orderBy: { seq: 'asc' } }) : [],
+    ids.length ? peoplePrisma.absenceNotice.findMany({ where: { orgId, caseId: { in: ids } }, orderBy: { seq: 'asc' } }).then(refreshNoticeEmails) : [],
     cases.length ? peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(cases.map((c) => c.employeeId))] } }, select: { id: true, name: true, code: true, department: true, phone: true, personalEmail: true, workEmail: true, email: true, status: true } }) : [],
   ]);
   const personOf = new Map(people.map((p) => [p.id, p]));
@@ -407,8 +451,9 @@ export async function listCases(orgId: string, opts: { status?: string; scopeIds
 
 /** One notice's text, as sent (the copy kept). */
 export async function noticeCopy(orgId: string, noticeId: string) {
-  const n = await peoplePrisma.absenceNotice.findFirst({ where: { id: noticeId, orgId } });
-  if (!n) throw new AbsenceError('No such notice.', 404);
+  const found = await peoplePrisma.absenceNotice.findFirst({ where: { id: noticeId, orgId } });
+  if (!found) throw new AbsenceError('No such notice.', 404);
+  const [n] = await refreshNoticeEmails([found]);
   return { id: n.id, seq: n.seq, text: n.text, sentAt: n.sentAt, reportBy: n.reportBy, channels: n.channels, emailTo: n.emailTo, emailStatus: n.emailStatus, postRef: n.postRef };
 }
 

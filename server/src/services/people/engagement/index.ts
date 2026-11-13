@@ -6,6 +6,9 @@ import './clearance.js';
 import './exitInterview.js';
 import './greetings.js';
 import './reminders.js';
+/* Other modules' recipes, each from its module's own file (the registry, automations.ts). */
+import '../../attendance/automations.js';
+import '../../workspace/automations.js';
 import { exclusive, leaseFor } from '../../jobLease.js';
 import { registerJob } from '../../jobRegistry.js';
 import { startPeopleAutomations } from './automations.js';

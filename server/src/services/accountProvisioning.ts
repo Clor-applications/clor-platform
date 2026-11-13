@@ -228,7 +228,9 @@ export async function provisionAccount(input: { ownerName: string; ownerEmail: s
   const appUrl = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
   /* Only an app this company has, by the codes the shell knows. */
   const asked = String(input.profile?.requestedApp || '');
-  const landing = input.plan.apps.includes(asked) && ['accounting', 'payroll', 'people', 'attendance'].includes(asked) ? asked : '';
+  const known = input.plan.apps.includes(asked) && ['accounting', 'payroll', 'people', 'attendance'].includes(asked) ? asked : '';
+  /* People includes Attendance: a company on People is not shown Attendance apart, so its welcome link opens People. */
+  const landing = known === 'attendance' && input.plan.apps.includes('people') ? 'people' : known;
   const apps = APP_CATALOG.filter((a) => input.plan.apps.includes(a.code)).map((a) => a.name);
   await sendTemplate({
     templateKey: 'account.welcome',

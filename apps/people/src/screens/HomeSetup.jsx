@@ -90,7 +90,7 @@ export default function HomeSetup({ openScreen, onState }) {
         <section className="space-y-2" aria-labelledby="setup-h">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h2 id="setup-h" className="ui-t-sec">Get People ready</h2>
+              <h2 id="setup-h" className="ui-t-sec">Get started</h2>
               <p className="ui-caption">{setup.done} of {setup.total} done. Each step ticks itself once it is in place.</p>
             </div>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" disabled={busy === 'hide'} onClick={() => change({ action: 'hide' }, 'hide')}>Hide this list</button>

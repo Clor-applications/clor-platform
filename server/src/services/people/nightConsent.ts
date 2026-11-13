@@ -101,9 +101,9 @@ export const rotationShiftIds = (sequence: string) => String(sequence || '').spl
 export async function onShiftAhead(orgId: string, shiftId: string | null, count = 30) {
   const people = await peoplePrisma.employee.findMany({ where: { orgId, status: { in: ['ACTIVE', 'ON_NOTICE'] } }, select: { id: true } });
   if (!people.length) return [];
-  const schedule = await loadSchedule(orgId, people.map((p) => p.id));
   const t = today();
   const days = eachDay(t, new Date(Date.parse(`${t}T00:00:00Z`) + (count - 1) * 86_400_000).toISOString().slice(0, 10));
+  const schedule = await loadSchedule(orgId, people.map((p) => p.id), { from: t, to: days[days.length - 1] || t });
   return people.filter((p) => days.some((d) => {
     const r = resolveShift(schedule, p.id, d);
     return shiftId ? r.shiftId === shiftId : r.source === 'DEFAULT';
@@ -164,7 +164,7 @@ export async function nightDaysAhead(orgId: string, employeeIds: string[], count
   if (!employeeIds.length) return out;
   const t = today();
   const end = new Date(Date.parse(`${t}T00:00:00Z`) + (count - 1) * 86_400_000).toISOString().slice(0, 10);
-  const schedule = await loadSchedule(orgId, employeeIds);
+  const schedule = await loadSchedule(orgId, employeeIds, { from: t, to: end });
   const shifts = new Map((await peoplePrisma.shift.findMany({ where: { orgId }, select: { id: true, startTime: true, endTime: true } })).map((s) => [s.id, s]));
   for (const id of employeeIds) {
     const days: string[] = [];

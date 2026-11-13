@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { editLogChanges } from '../middleware/auditMutations.js';
 
 /**
  * One line in the audit log (platform AuditLog, append-only: routes/audit.ts
@@ -14,6 +15,8 @@ export async function recordAudit(
   entry: { entity: string; entityId: string; action: string; message: string; metadata?: Record<string, unknown> }
 ) {
   try {
+    /* The record's before and after values, where the edit log reads them (auditMutations.ts EDIT_LOG). */
+    const changes = await editLogChanges(req);
     await platformPrisma.auditLog.create({
       data: {
         accountId: req.tenant!.accountId,
@@ -26,6 +29,7 @@ export async function recordAudit(
         metadata: entry.metadata ? JSON.stringify(entry.metadata).slice(0, 20_000) : null,
         createdByUserId: req.auth!.userId,
         correlationId: typeof (req as any).id === 'string' ? String((req as any).id).slice(0, 80) : null,
+        ...(changes ? { changes } : {}),
       },
     });
     /* Logged here with the detail; the generic change log (middleware/auditMutations.ts) skips this request. Only once

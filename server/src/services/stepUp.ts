@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { getJwtSecret } from './auth.js';
+import { payrollStepUpOn } from './policy.js';
 
 /**
  * Step-up: a fresh authenticator code before an action that moves money.
@@ -85,12 +86,11 @@ export async function stepUpIfHeld(req: Request, message = 'Enter the code from 
   return null;
 }
 
-/** Route guard; passes straight through where the organisation has not switched it on. */
+/** Route guard; on for every company unless it has switched it off in Workspace → Security (services/policy.ts). */
 export async function requirePayrollStepUp(req: Request, res: Response, next: NextFunction) {
   const orgId = req.tenant?.orgId;
   if (!orgId || !req.auth?.userId) return next();
-  const policy = await platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requirePayrollStepUp: true } });
-  if (!policy?.requirePayrollStepUp || validFor(req)) return next();
+  if (validFor(req) || !(await payrollStepUpOn(orgId))) return next();
   const user = await platformPrisma.user.findUnique({ where: { id: req.auth.userId }, select: { totpEnabledAt: true } });
   if (!user?.totpEnabledAt) {
     return res.status(403).json({

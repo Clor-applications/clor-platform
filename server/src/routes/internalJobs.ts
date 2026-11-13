@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { registeredJobs, runRegisteredJobs } from '../services/jobRegistry.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { failedEvents } from '../services/people/outbox.js';
+import { checkJobHealth } from '../services/ops/jobHealth.js';
 
 /**
  * The wake call for background jobs (services/jobRegistry.ts).
@@ -17,6 +18,10 @@ import { failedEvents } from '../services/people/outbox.js';
  * it took, so the scheduler's own log shows a failing job; a job that threw
  * makes the whole call 500, so the scheduler retries it (each job is
  * guarded by its lease, so the retry does not double anything).
+ *
+ * A job that fails quietly, keeps timing out or stops running does not fail
+ * the call; the health check at the end of each wake raises an alert on
+ * ops.clor.in for it instead (`health` in the answer).
  */
 export const internalJobsRouter = Router();
 
@@ -35,7 +40,14 @@ internalJobsRouter.post('/internal/jobs/tick', async (req, res) => {
      in-process timer, so they run outside it; each enters a company itself (runInTenant). */
   const runs = await outsideTenant('jobs: wake call', () => runRegisteredJobs({ only }));
   const failed = runs.filter((r) => !r.ok && !r.timedOut);
-  res.status(failed.length ? 500 : 200).json({ ran: runs.length, failed: failed.length, runs });
+  /* Then: has any job stopped, or failed run after run? That raises an alert for CLOR staff
+     (services/ops/jobHealth.ts). The check failing is logged and reported, never a reason to
+     fail the wake call: the scheduler would retry the jobs for it. */
+  const health = await outsideTenant('jobs: health check', () => checkJobHealth()).catch((e) => {
+    console.error('[jobs] health check failed:', e instanceof Error ? e.message : e); // eslint-disable-line no-console
+    return { error: e instanceof Error ? e.message : String(e) };
+  });
+  res.status(failed.length ? 500 : 200).json({ ran: runs.length, failed: failed.length, runs, health });
 });
 
 internalJobsRouter.get('/internal/jobs', (req, res) => {

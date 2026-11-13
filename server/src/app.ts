@@ -39,6 +39,7 @@ import { payrollSettlementsRouter } from './routes/payrollSettlements.js';
 import { payrollTaxDeclarationsRouter } from './routes/payrollTaxDeclarations.js';
 import { peopleRouter } from './routes/people.js';
 import { peopleLifecycleRouter } from './routes/peopleLifecycle.js';
+import { peopleReportsRouter } from './routes/peopleReports.js';
 import { peopleApprovalsRouter } from './routes/peopleApprovals.js';
 import { peopleRequestsRouter } from './routes/peopleRequests.js';
 import { peopleTaskLinksRouter } from './routes/peopleTaskLinks.js';
@@ -84,6 +85,7 @@ import { payPageRouter, payRequestsRouter } from './routes/payRequests.js';
 import { agentLimiter, apiLimiter, billingWebhookLimiter, hikvisionLimiter, scimLimiter } from './middleware/rateLimit.js';
 import { personnelRouter } from './routes/personnel.js';
 import { schedulingRouter } from './routes/scheduling.js';
+import { rosterRouter } from './routes/roster.js';
 import { portalRouter } from './routes/portal.js';
 import { portalAdminRouter } from './routes/portalAdmin.js';
 import { readerOpsRouter } from './routes/readerOps.js';
@@ -282,7 +284,8 @@ export function buildApp() {
       /* Browsers may reuse a preflight for 2 h (Chrome caps it there) instead of asking before every call. */
       maxAge: 7200,
       allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id', 'x-branch-id', 'x-warehouse-id', 'x-step-up', 'Idempotency-Key'],
-      exposedHeaders: ['X-Request-Id', 'Idempotency-Replayed'],
+      /* Content-Disposition: a file the server names (an export) keeps that name when the web app saves it. */
+      exposedHeaders: ['X-Request-Id', 'Idempotency-Replayed', 'Content-Disposition'],
     })
   );
   /*
@@ -506,6 +509,7 @@ export function buildApp() {
   app.use('/api', payrollSettlementsRouter);
   app.use('/api', payrollTaxDeclarationsRouter);
   app.use('/api', peopleLifecycleRouter);
+  app.use('/api', peopleReportsRouter);
   app.use('/api', peopleTalentRouter);
   app.use('/api', peopleReferralsRouter);
   app.use('/api', peopleRouter);
@@ -529,6 +533,7 @@ export function buildApp() {
   app.use('/api', attendanceInsightsRouter);
   app.use('/api', dataProtectionRouter);
   app.use('/api', schedulingRouter);
+  app.use('/api', rosterRouter);
   app.use('/api', portalAdminRouter);
   app.use('/api', readerOpsRouter);
   app.use('/api', leaveRouter);

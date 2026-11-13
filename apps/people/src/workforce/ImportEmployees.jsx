@@ -8,10 +8,11 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { clearUnsaved } from '@platform/unsaved';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { parseCsv, readFileText } from '@ui/utils/csv';
+import { downloadImportTemplate } from '@ui/utils/importTemplate';
 import { readXlsx } from '@ui/utils/xlsx';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
-import { IMPORT_COLUMNS, IMPORT_FIELDS, guessField } from '@ui/personnel/Employees';
+import { IMPORT_FIELDS, guessField } from '@ui/personnel/Employees';
 
 /* The spreadsheet keys stay as they are (the template uses them); people choose from names. */
 const FIELD_WORDS = {
@@ -68,12 +69,12 @@ export default function ImportEmployees({ openScreen }) {
       let headers;
       let rows;
       if (excel) {
-        const sheet = await readXlsx(f);
+        const sheet = await readXlsx(f, { skipComments: true });
         headers = sheet.headers.map((h) => String(h || '').trim());
         rows = sheet.rows;
       } else {
         /* parseCsv gives the header row and each row keyed by it; the mapping works on columns, so rows go back to arrays. */
-        const parsed = parseCsv(await readFileText(f));
+        const parsed = parseCsv(await readFileText(f), { skipComments: true });
         headers = (parsed.headers || []).map((h) => String(h || '').trim());
         rows = (parsed.rows || []).map((o) => headers.map((h) => o[h] ?? ''));
       }
@@ -168,7 +169,8 @@ export default function ImportEmployees({ openScreen }) {
               <input ref={input} type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => take(e.target.files?.[0])} />
             </label>
             <div className="flex flex-wrap items-center gap-3">
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'EMP-0001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '01/04/2026', gender: 'Female' } })}><FileDown size={16} aria-hidden="true" /> Download the template</button>
+              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadImportTemplate('employees', 'CLOR employees import template').catch((e) => notify.error(String(e?.message || 'The template could not be downloaded.')))}><FileDown size={16} aria-hidden="true" /> Download the template</button>
+              <span className="ui-caption">A CSV file that opens in Excel: every heading, one example row, and a note on each column.</span>
             </div>
             {/* Earlier imports, and undo within the day (gap 14). */}
             <ImportHistory canUndo={can(perms, 'PEOPLE::Employees::DELETE')} />

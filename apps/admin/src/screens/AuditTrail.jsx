@@ -178,6 +178,36 @@ const Changes = ({ metadata }) => {
   );
 };
 
+/** A nested setting's path, "lateMarks.graceMinutes", as "Late marks · Grace minutes". */
+const pathWords = (k) => String(k).split('.').map(fieldWords).join(' · ');
+/** A masked value is said so, never printed as "[hidden]". */
+const changedValue = (v) => (v === '[hidden]' ? 'hidden' : short(valueText(v)));
+
+/**
+ * The record's before and after values (the audit entry's `changes`, written for roles, sign-in, company
+ * settings, People and Attendance). Folded under a line that says how many fields changed; opened, one row
+ * per field: "Field  old → new". Masked fields (secrets, Aadhaar, PAN, bank numbers) read "hidden".
+ */
+export const FieldChanges = ({ changes }) => {
+  const rows = changes && typeof changes === 'object' && !Array.isArray(changes) ? Object.entries(changes).filter(([, v]) => v && typeof v === 'object' && 'from' in v) : [];
+  if (!rows.length) return null;
+  return (
+    <details className="ws-audit-more">
+      <summary>{rows.length === 1 ? `1 field changed: ${pathWords(rows[0][0])}` : `${rows.length} fields changed`}</summary>
+      <ul className="ws-audit-diffs" aria-label="Before and after">
+        {rows.map(([field, v]) => (
+          <li key={field}>
+            <span className="ws-audit-field">{pathWords(field)}</span>
+            <span className="ws-audit-from">{changedValue(v.from)}</span>
+            <span aria-label="changed to">→</span>
+            <span className="ws-audit-to">{changedValue(v.to)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+};
+
 const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const timeOf = (iso) => {
   const d = new Date(iso);
@@ -371,6 +401,7 @@ export default function AuditTrail() {
                             <ActionPill action={e.action} />
                             {e.entity ? <span>{entityLabel(e.entity)}</span> : null}
                           </p>
+                          <FieldChanges changes={e.changes} />
                           <Changes metadata={e.metadata} />
                         </div>
                       </li>

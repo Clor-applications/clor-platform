@@ -23,6 +23,7 @@ import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startOpsAlerts } from './services/ops/alerts.js';
+import { startEmailRetries } from './services/emailRetry.js';
 import { startRenewals } from './billing/renewals.js';
 import { startTrialReminders } from './billing/trialReminders.js';
 import { startBooksDigest } from './services/booksDigest.js';
@@ -38,9 +39,16 @@ import { startIntegrityChecks } from './services/integrity/checks.js';
 import { startOrgDetailBackfill } from './services/people/organization.js';
 import { startStatutoryCatalogueBackfill } from './services/payroll/statutory/resolve.js';
 import { startFullDayFix } from './services/attendance/fullDayFix.js';
+import { hasOwnSecretKey } from './services/mailer.js';
 
 /* Crashes and unhandled rejections are reported, not lost. */
 reportProcessErrors();
+
+/* Stored credentials need their own key in production (services/mailer.ts); say so loudly rather than at the first save. */
+if (process.env.NODE_ENV === 'production' && !hasOwnSecretKey()) {
+  // eslint-disable-next-line no-console
+  console.error('MAIL_SECRET_KEY is not set: saving mail, connector or gateway credentials will be refused until it is.');
+}
 
 const app = buildApp();
 const port = Number(process.env.PORT || 4001);
@@ -117,6 +125,8 @@ startEngagement();
 startNotificationPruning();
 /* Alerts for CLOR staff on ops.clor.in: failing jobs, stuck mail, offline readers, overdue invoices, waiting tickets. */
 startOpsAlerts();
+/* Mail that failed is sent again, later each time, and mail left unsent by a stopped instance is picked up. */
+startEmailRetries();
 /* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
 startRenewals();
 startTrialReminders();

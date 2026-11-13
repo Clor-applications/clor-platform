@@ -7,6 +7,8 @@ import { isFeatureEnabled } from '../services/features.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { RESUME_TYPES, TalentError } from '../services/people/talent/hiring.js';
 import * as referrals from '../services/people/talent/referrals.js';
+import { z } from 'zod';
+import { check, rawText, text } from '../middleware/validate.js';
 
 /**
  * Jobs and referrals in the employee app (services/people/talent/referrals.ts, A20), behind the
@@ -30,6 +32,18 @@ const fail = (res: Response, e: unknown) => {
 };
 const off = (res: Response) => res.status(403).json({ error: 'Jobs are not switched on for your company.', code: 'MODULE_OFF' });
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far
+ * too long is refused with a 400; keys not named here are dropped. Which job, a name, a phone or an e-mail that
+ * does not look right: those stay the service's, in its own words.
+ */
+const OPENING = text(80).nullish();
+const REFER_BODY = z.object({
+  openingId: OPENING, name: text(2000).nullish(), email: text(2000).nullish(), phone: text(200).nullish(), relation: text(2000).nullish(), note: text(20_000).nullish(),
+  /* The résumé as base64 or a data URL: the route's body may be 3 MB (app.ts). */
+  resume: z.object({ name: rawText(2000).nullish(), mime: text(200).nullish(), data: rawText(3_200_000).nullish() }).nullish(),
+});
+
 peopleReferralsPortalRouter.get('/', async (req, res) => {
   try {
     const e = await me(req);
@@ -40,7 +54,7 @@ peopleReferralsPortalRouter.get('/', async (req, res) => {
   }
 });
 
-peopleReferralsPortalRouter.post('/refer', ...referLimiter, async (req, res) => {
+peopleReferralsPortalRouter.post('/refer', ...referLimiter, check({ body: REFER_BODY }), async (req, res) => {
   try {
     const e = await me(req);
     if (!e) return off(res);
@@ -59,7 +73,7 @@ peopleReferralsPortalRouter.post('/refer', ...referLimiter, async (req, res) => 
   }
 });
 
-peopleReferralsPortalRouter.post('/link', async (req, res) => {
+peopleReferralsPortalRouter.post('/link', check({ body: z.object({ openingId: OPENING }) }), async (req, res) => {
   try {
     const e = await me(req);
     if (!e) return off(res);
@@ -69,7 +83,7 @@ peopleReferralsPortalRouter.post('/link', async (req, res) => {
   }
 });
 
-peopleReferralsPortalRouter.post('/apply', async (req, res) => {
+peopleReferralsPortalRouter.post('/apply', check({ body: z.object({ openingId: OPENING, note: text(20_000).nullish() }) }), async (req, res) => {
   try {
     const e = await me(req);
     if (!e) return off(res);

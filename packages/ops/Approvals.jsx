@@ -7,14 +7,15 @@ import { opsApprovalLimit, opsApprovalStep, opsApprovals } from './api';
 
 /**
  * Approvals (operator console, Money; server: routes/opsApprovals.ts). A deal
- * whose discount is over the limit waits here until someone other than the
+ * whose discount is over the limit, or apps given free or cheaper by hand
+ * (a grant, services/ops/grants.ts), waits here until someone other than the
  * person who asked approves it, with their authenticator code. Only then is
  * it applied. The owner sets the limit.
  */
 const PILL = { PENDING: 'ws-pill ws-pill--warn', APPROVED: 'ws-pill ws-pill--ok', REJECTED: 'ws-pill ws-pill--off', CANCELLED: 'ws-pill ws-pill--off', EXPIRED: 'ws-pill ws-pill--off', FAILED: 'ws-pill ws-pill--danger' };
 
 const STEP = {
-  approve: { title: 'Approve', what: (a) => `${a.customer}: ${a.summary}. It is set on the customer as soon as you approve, in your name, with ${a.askedBy}’s request on the record.`, done: 'Approved and set on the customer.', optional: true },
+  approve: { title: 'Approve', what: (a) => `${a.customer}: ${a.summary}. It is set on the customer as soon as you approve, in your name, with ${a.askedBy}’s request on the record. If the customer’s plan was changed since it was asked, nothing is set and you are told why.`, done: 'Approved and set on the customer.', optional: true },
   reject: { title: 'Turn down', what: (a) => `${a.customer}: ${a.summary}. Nothing changes for the customer. ${a.askedBy} sees your reason.`, done: 'Turned down.', optional: false },
 };
 
@@ -70,7 +71,7 @@ export function Approvals({ openCustomer }) {
         <PageHead
           crumbs={['Money', 'Approvals']}
           title="Approvals"
-          description={d ? `Deals over ${d.limit}% off wait here until someone other than the person who asked approves them.` : 'Deals over the limit wait here for a second person.'}
+          description={d ? `Deals over ${d.limit}% off, and apps given free or cheaper by hand, wait here until someone other than the person who asked approves them.` : 'Deals over the limit, and apps given free by hand, wait here for a second person.'}
           meta={d ? `${d.waiting} waiting · requests expire after ${d.expiresHours} hours` : null}
           actions={
             d?.canChangeLimit ? (
@@ -101,7 +102,7 @@ export function Approvals({ openCustomer }) {
         {!d && !error ? (
           <Loading />
         ) : d && !rows.length ? (
-          <Empty>{tab === 'PENDING' ? 'Nothing is waiting. A deal with a discount over the limit comes here when Finance sets it.' : tab === 'DONE' ? 'Nothing has been decided yet.' : 'No request has expired.'}</Empty>
+          <Empty>{tab === 'PENDING' ? 'Nothing is waiting. A deal over the limit, or apps given free by hand, comes here when Finance asks for it.' : tab === 'DONE' ? 'Nothing has been decided yet.' : 'No request has expired.'}</Empty>
         ) : d ? (
           <ul className="ws-list ws-list--ground" aria-label="Requests">
             {rows.map((a) => (
@@ -116,7 +117,8 @@ export function Approvals({ openCustomer }) {
                       ) : (
                         'A customer'
                       )}
-                      {a.discountPercent != null ? <span className="tabular-nums"> · {a.discountPercent}% off</span> : null}
+                      {a.kindWord ? <span> · {a.kindWord}</span> : null}
+                      {a.discountPercent != null ? <span className="tabular-nums"> · {a.kind === 'GRANT' && a.discountPercent === 100 ? 'free' : `${a.discountPercent}% off`}</span> : null}
                     </span>
                     <span className="ws-item-sub" style={{ color: 'rgb(var(--ws-ink))' }}>
                       {a.summary}
@@ -175,7 +177,7 @@ export function Approvals({ openCustomer }) {
           </label>
           <input id="approval-limit" className="ui-input tabular-nums" inputMode="numeric" value={limit} onChange={(e) => setLimit(e.target.value.replace(/\D/g, '').slice(0, 2))} aria-describedby="approval-limit-hint" style={{ maxWidth: '8rem' }} />
           <span id="approval-limit-hint" className="ws-card-blurb">
-            0 to 90. At 0 every discount needs a second person.
+            0 to 90. At 0 every discount needs a second person. Apps given free for good by hand always do.
           </span>
         </div>
       </ReasonDrawer>

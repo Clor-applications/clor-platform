@@ -5,6 +5,7 @@ import { notify } from '@ui/components/ui/notify';
 import { getOvertimeRules, listShifts, saveOvertimeRules, updateShift } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import OvertimeRuleFields from '../components/OvertimeRuleFields';
+import OvertimeRatesCaps from '../components/OvertimeRatesCaps';
 import { shiftBody } from '../components/shiftBody';
 
 const hours = (m) => `${Math.floor(m / 60)}h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}m` : ''}`;
@@ -16,12 +17,14 @@ const hours = (m) => `${Math.floor(m / 60)}h${m % 60 ? ` ${String(m % 60).padSta
  * Not a second set of rules: when overtime starts belongs to each shift
  * (Shift.overtimeAfterMinutes, as on Shifts), and requests, approval and
  * comp-off to the company's rules (the same fields, through the same
- * OvertimeRuleFields, as the Rules drawer on Overtime & Comp-Off). This screen
- * reads and writes those, and nothing of its own.
+ * OvertimeRuleFields, as the Rules drawer on Overtime & Comp-Off), and so do
+ * the rates by kind of day and the caps (AttendanceSettings.overtimePolicy,
+ * OvertimeRatesCaps). This screen reads and writes those, and nothing of its own.
  */
 export default function OvertimePolicy({ openScreen }) {
   const [rules, setRules] = useState(null);
   const [types, setTypes] = useState([]);
+  const [suggestedCaps, setSuggestedCaps] = useState(null);
   const [rulesError, setRulesError] = useState('');
   const [shifts, setShifts] = useState(null);
   const [shiftsError, setShiftsError] = useState('');
@@ -30,7 +33,7 @@ export default function OvertimePolicy({ openScreen }) {
 
   const loadRules = useCallback(() => {
     getOvertimeRules()
-      .then((r) => { setRules(r.rules); setTypes(r.leaveTypes || []); setRulesError(''); })
+      .then((r) => { setRules(r.rules); setTypes(r.leaveTypes || []); setSuggestedCaps(r.suggestedCaps || null); setRulesError(''); })
       .catch((e) => setRulesError(String(e?.message || 'Could not load the overtime rules.')));
   }, []);
   const loadShifts = useCallback(() => {
@@ -84,6 +87,13 @@ export default function OvertimePolicy({ openScreen }) {
             </p>
           ) : null}
         </section>
+
+        {rules?.rates ? (
+          <section className="ui-card p-4 space-y-3" aria-labelledby="ot-rates-h">
+            <h2 id="ot-rates-h" className="ui-t-sec">Rates and caps</h2>
+            <OvertimeRatesCaps rules={rules} suggestedCaps={suggestedCaps} save={saveRules} />
+          </section>
+        ) : null}
 
         <section className="ui-card overflow-hidden" aria-labelledby="ot-shifts-h">
           <div className="px-4 pt-4 pb-3">

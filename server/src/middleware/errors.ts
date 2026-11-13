@@ -65,10 +65,11 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
 
   // Unexpected 500s can carry internals (Prisma/driver text) in err.message —
   // never hand those to the client in production.
-  if (status >= 500 && process.env.NODE_ENV === 'production') {
+  /* `expose`: a plain sentence written for the person (a 503 "not changed", auditMutations.ts), never internals. */
+  if (status >= 500 && process.env.NODE_ENV === 'production' && !err?.expose) {
     message = 'Server error';
   }
 
   /* The id lets whoever saw the error quote it, and support find it in the logs. */
-  res.status(status).json({ error: message, ...(status >= 500 && (req as any).id ? { requestId: (req as any).id } : {}) });
+  res.status(status).json({ error: message, ...(err?.expose && err?.code ? { code: err.code } : {}), ...(status >= 500 && (req as any).id ? { requestId: (req as any).id } : {}) });
 }

@@ -1,6 +1,6 @@
 import { formatDateIn, todayIst } from '@ui/utils/dates';
 import { API_BASE, apiFetch } from '@platform/http';
-import { requireOrgId as orgId } from '@platform/context';
+import { branchId, requireOrgId as orgId } from '@platform/context';
 import { queryString as query } from '@platform/query';
 export { todayIst };
 
@@ -240,8 +240,14 @@ export const getRules = () => get('/rules').then((r) => r?.rules);
 /* Both unwrap { rules }: the screen keeps what it gets back as the form. */
 export const saveRules = (body) => send('/rules', 'PUT', body).then((r) => r?.rules);
 export const getSchedule = (params) => get(`/schedule${query(params)}`);
+/* The roster planner: the grid, its draft, and publishing it. */
+export const getRoster = (params) => get(`/roster${query(params)}`);
+export const setRosterDraft = (body) => send('/roster/draft', 'POST', body);
+export const copyRosterWeek = (body) => send('/roster/draft/copy-week', 'POST', body);
+export const discardRosterDraft = () => send('/roster/draft', 'DELETE');
+export const publishRoster = () => send('/roster/publish', 'POST', {});
 export const recompute = (body) => send('/recompute', 'POST', body);
-export const SCHEDULE_SOURCE = { TEMPORARY: 'Temporary', EMPLOYEE: 'Own schedule', ROTATION: 'Rotation', DEPARTMENT: 'Department', DEFAULT: 'Company default' };
+export const SCHEDULE_SOURCE = { TEMPORARY: 'Temporary', ROSTER: 'Roster', EMPLOYEE: 'Own schedule', ROTATION: 'Rotation', DEPARTMENT: 'Department', DEFAULT: 'Company default' };
 
 /* Employee portal: who may sign in, activation codes, phone punching, work sites. */
 export const getPortalAccess = () => get('/portal-access');
@@ -272,9 +278,51 @@ export const setExceptionState = (body) => send('/exceptions/state', 'POST', bod
 export const setExceptionStates = (body) => send('/exceptions/state/bulk', 'POST', body);
 /** The month-close checklist, and the figures Payroll took when it closed. */
 export const getMonthReadiness = (month) => get(`/months/${encodeURIComponent(month)}/readiness`);
+/* HR answers an employee who says their month is wrong; seenAt is when the note HR read was written. */
+export const resolveMonthDispute = (month, employeeId, reply, seenAt) => send(`/months/${encodeURIComponent(month)}/confirmations/${encodeURIComponent(employeeId)}/resolve`, 'POST', { reply, seenAt });
 /* Payroll readiness across Attendance and People / Payroll data, with money at stake (server: services/payroll/readinessTower.ts). */
 export const getPayrollReadiness = (month) => get(`/months/${encodeURIComponent(month)}/payroll-readiness`);
 export const getMonthSnapshot = (month, version) => get(`/months/${encodeURIComponent(month)}/snapshots/${encodeURIComponent(version)}`);
+/**
+ * A closed month for a payroll outside CLOR (server: services/attendance/payrollExport.ts).
+ * The layouts it can be taken in, each with what it is for and the files it comes as.
+ */
+export const listPayrollExportLayouts = () => get('/payroll-export/layouts').then((r) => r?.layouts || []);
+/**
+ * The file itself, built by the server and saved by the browser under the
+ * server's name for it. apiFetch reads text, and a workbook is bytes, so this
+ * asks with the same headers and keeps them. A sign-in that has just run out
+ * is renewed by one ordinary call, then the file is asked for once more.
+ */
+export async function downloadPayrollExport(month, layout, format, { retried = false } = {}) {
+  let token = '';
+  try { token = String(localStorage.getItem('token') || '').trim(); } catch { /* private window */ }
+  const branch = branchId();
+  const res = await fetch(`${API_BASE}${base()}/months/${encodeURIComponent(month)}/payroll-export${query({ layout, format })}`, {
+    credentials: 'include',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-org-id': orgId(), ...(branch ? { 'x-branch-id': branch } : {}) },
+  });
+  if (res.status === 401 && !retried) {
+    await listPayrollExportLayouts();
+    return downloadPayrollExport(month, layout, format, { retried: true });
+  }
+  if (!res.ok) {
+    let message = 'Could not make the file.';
+    let code = null;
+    try { const data = await res.json(); message = data?.error || message; code = data?.code || null; } catch { /* not JSON */ }
+    throw Object.assign(new Error(message), { status: res.status, code });
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || `CLOR attendance ${month}.${format}`;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
 /** What a schedule change would do, before it is saved. */
 export const checkSchedule = (body) => send('/schedule/check', 'POST', body);
 /** Many days at once: preview first (`preview: true`), then apply. */
@@ -321,3 +369,7 @@ const orgPath = (path) => `/orgs/${encodeURIComponent(orgId())}${path}`;
 export const listRecycleBin = () => apiFetch(orgPath('/recycle-bin'), opts);
 export const restoreFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}/restore`), { method: 'POST', body: {}, ...opts });
 export const deleteFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}`), { method: 'DELETE', ...opts });
+
+/* Today's "Get started" list, worked out on the server from the company's records (services/attendance/setup.ts). */
+export const getAttendanceSetup = () => get('/setup');
+export const changeAttendanceSetup = (body) => send('/setup', 'POST', body);

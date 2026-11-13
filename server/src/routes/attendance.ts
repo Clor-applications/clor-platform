@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { calendarOf, calendarsFor } from '../services/attendance/holidayCalendars.js';
 import { holidayMinimum } from '../services/attendance/holidayMinimum.js';
 import { z } from 'zod';
@@ -33,6 +33,9 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { logDayChange } from '../services/attendance/history.js';
 import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
+import { BREAK_MODES, MAX_BREAKS, breaksOf, breaksProblem, unpaidBreakMinutes } from '../services/attendance/breaks.js';
+import { hasOvertimeCaps, overtimePolicyOf } from '../services/attendance/overtimePolicy.js';
+import { overtimeDaysFor } from '../services/attendance/overtimeFigures.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { MONTH_DAYS, scheduleGuard, shiftRanges, type DateRange } from '../services/attendance/scheduleGuard.js';
 import { nightRefusal, onShiftAhead } from '../services/people/nightConsent.js';
@@ -69,6 +72,8 @@ import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/at
 import { recordAudit } from '../services/auditTrail.js';
 import { TRUST_LEVELS, readerTrustOn } from '../services/attendance/trust.js';
 import { parseAddressList, plainIp, validEntry, webClockRefusal, webClockSettings } from '../services/attendance/webClock.js';
+import { AttendanceSetupError, attendanceSetup, changeAttendanceSetup, type AttendanceStepKey } from '../services/attendance/setup.js';
+import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -86,6 +91,54 @@ const dateParam = (v: unknown, fallback: string) => {
   const s = String(v || '').trim();
   return ISO_DATE.test(s) ? s : fallback;
 };
+
+// ---------------------------------------------------------------------------
+// Get started (Today's setup list)
+// ---------------------------------------------------------------------------
+
+/* What each step's screen asks of whoever changes things there. */
+const SETUP_STEP_NEEDS: Array<[AttendanceStepKey, string, string, string]> = [
+  ['shift', ATTENDANCE_MODULE, PermissionAction.CREATE, R.shifts],
+  ['weeklyOff', ATTENDANCE_MODULE, PermissionAction.EDIT, R.shifts],
+  ['holidays', ATTENDANCE_MODULE, PermissionAction.CREATE, R.holidays],
+  ['people', PEOPLE_MODULE, PermissionAction.CREATE, PEOPLE_RESOURCE.employees],
+  ['punch', ATTENDANCE_MODULE, PermissionAction.CREATE, R.devices],
+  ['firstDay', ATTENDANCE_MODULE, PermissionAction.VIEW, R.records],
+];
+
+/** The steps this person may act on. */
+async function setupStepsFor(req: Request) {
+  const may = new Set<string>();
+  for (const [key, module, action, resource] of SETUP_STEP_NEEDS) {
+    if (!(await authorize(req, module, action as any, resource))) may.add(key);
+  }
+  return may;
+}
+
+/**
+ * Attendance → Today: the "Get started" list (services/attendance/setup.ts).
+ * For whoever sets Attendance up for the whole company: it takes the right to
+ * change shifts, and a team-scoped role is refused, as it is for the rest of
+ * the company's set-up.
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/setup', can(PermissionAction.EDIT, R.shifts), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Setting Attendance up is for someone who sees the whole company.' });
+  const { accountId, orgId } = req.tenant!;
+  res.json(await attendanceSetup(accountId, orgId, req.auth?.userId || null, await setupStepsFor(req)));
+});
+
+attendanceRouter.post('/orgs/:orgId/attendance/setup', can(PermissionAction.EDIT, R.shifts), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Setting Attendance up is for someone who sees the whole company.' });
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.json(await changeAttendanceSetup(accountId, orgId, req.auth?.userId || null, await setupStepsFor(req), req.body || {}));
+  } catch (e) {
+    if (e instanceof AttendanceSetupError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Overview and records
@@ -162,7 +215,17 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
   });
   const named = await withNames(orgId, rows);
   /* Off: the rows are exactly as before, with no trust on them. */
-  const records = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  const trusted = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  /* With an overtime cap set: the hours of a day's overtime over it, said beside the day where it is approved (overtimePolicy.ts). */
+  const withOvertime = rows.filter((r) => r.overtimeMinutes > 0);
+  const capsSet = withOvertime.length ? hasOvertimeCaps(overtimePolicyOf((await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { overtimePolicy: true } }))?.overtimePolicy)) : false;
+  const figures = capsSet ? await overtimeDaysFor(accountId, orgId, withOvertime.map((r) => ({ employeeId: r.employeeId, date: r.date }))) : null;
+  const records = figures
+    ? trusted.map((r: any) => {
+        const day = r.overtimeMinutes > 0 ? figures.days.get(r.employeeId)?.get(r.date) : undefined;
+        return day?.overCapMinutes ? { ...r, overCapMinutes: day.overCapMinutes, overCap: day.overCap } : r;
+      })
+    : trusted;
   res.json({ records, from, to, readerTrust });
 });
 
@@ -380,15 +443,32 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/validate', can(Permission
     where: { accountId, orgId, id: { in: ids }, checkIn: { not: null }, checkOut: null },
   });
   if (open) return res.status(409).json({ error: `${open} of those days are still open (checked in, not out).` });
-  const beforeRows = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids }, validated: false } });
-  const r = await peoplePrisma.attendanceRecord.updateMany({
-    where: { accountId, orgId, id: { in: ids } },
-    data: { validated: true, validatedByUserId: req.auth!.userId, validatedAt: new Date() },
-  });
-  for (const b of beforeRows) {
-    await logDayChange({ accountId, orgId, employeeId: b.employeeId, date: b.date, recordId: b.id, action: 'VALIDATE', before: b, after: { ...b, validated: true }, userId: req.auth!.userId });
+  /*
+   * Under the company's write lock, as closing a month and every write of a day are: a closed month's days are
+   * final, and a day rewritten a moment ago is read as it is now, not validated unseen. Owner's decision (13 Nov
+   * 2026): validating refuses a closed month too, so a month's sign-offs are settled before it closes. One day in a
+   * closed month refuses the whole batch; reopen the month to validate it.
+   */
+  let count = 0;
+  try {
+    count = await peopleWrite(orgId, async () => {
+      const dates = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids } }, select: { date: true } });
+      const shut = await closedMonths(orgId, dates.map((d) => d.date.slice(0, 7)));
+      if (shut.size) throw new MonthClosedError([...shut].sort()[0]);
+      const beforeRows = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids }, validated: false } });
+      const r = await peoplePrisma.attendanceRecord.updateMany({
+        where: { accountId, orgId, id: { in: ids } },
+        data: { validated: true, validatedByUserId: req.auth!.userId, validatedAt: new Date() },
+      });
+      for (const b of beforeRows) {
+        await logDayChange({ accountId, orgId, employeeId: b.employeeId, date: b.date, recordId: b.id, action: 'VALIDATE', before: b, after: { ...b, validated: true }, userId: req.auth!.userId });
+      }
+      return r.count;
+    });
+  } catch (e) {
+    return sendError(res, e);
   }
-  res.json({ validated: r.count });
+  res.json({ validated: count });
 });
 
 attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(PermissionAction.APPROVE, R.records), async (req, res) => {
@@ -398,18 +478,23 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
   /* A team-scoped role approves its own team's overtime only. */
   if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such day.' });
   if (!r.overtimeMinutes) return res.status(400).json({ error: 'There is no overtime on that day.' });
-  /* Overtime is paid with the month: a closed month's overtime is final (closure audit, 27 Oct 2026). */
+  /*
+   * Overtime is paid with the month: a closed month's overtime is final (closure audit, 27 Oct 2026). Checked under
+   * the company's write lock, as closing a month is, so a month closed a moment ago refuses it.
+   */
   try {
-    await assertMonthOpen(orgId, r.date, r.employeeId);
+    const updated = await peopleWrite(orgId, async () => {
+      await assertMonthOpen(orgId, r.date, r.employeeId);
+      const now = await peoplePrisma.attendanceRecord.findFirst({ where: { id: r.id, accountId, orgId } });
+      if (!now) throw Object.assign(new Error('No such day.'), { status: 404 });
+      const after = await peoplePrisma.attendanceRecord.update({ where: { id: r.id }, data: { overtimeApproved: req.body?.approved !== false } });
+      await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'OVERTIME', before: now, after, userId: req.auth!.userId });
+      return after;
+    });
+    res.json({ record: updated });
   } catch (e) {
     return sendError(res, e);
   }
-  const updated = await peoplePrisma.attendanceRecord.update({
-    where: { id: r.id },
-    data: { overtimeApproved: req.body?.approved !== false },
-  });
-  await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'OVERTIME', before: r, after: updated, userId: req.auth!.userId });
-  res.json({ record: updated });
 });
 
 /**
@@ -995,15 +1080,55 @@ const shiftSchema = z.object({
   checkInBeforeMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours before the start.').optional().nullable(),
   checkOutAfterMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours after the end.').optional().nullable(),
   autoPick: z.boolean().optional(),
+  /* Named breaks (services/attendance/breaks.ts). Left out: the shift keeps the breaks it has; [] goes back to the one break of breakMinutes. */
+  breaks: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1, 'Name each break.').max(40),
+        startTime: z.string().refine(isHHMM, 'A break starts at HH:MM.').optional().nullable().or(z.literal('')),
+        endTime: z.string().refine(isHHMM, 'A break ends at HH:MM.').optional().nullable().or(z.literal('')),
+        minutes: z.coerce.number().int().min(0).max(600).optional().nullable(),
+        paid: z.boolean().optional(),
+      }),
+    )
+    .max(MAX_BREAKS, `A shift has at most ${MAX_BREAKS} breaks.`)
+    .optional(),
+  breakMode: z.enum(BREAK_MODES).optional(),
   weeklyOffDays: z.string().regex(/^([0-6](,[0-6])*)?$/, 'Weekly offs are day numbers 0–6.').default('0'),
   offSaturdays: z.string().regex(/^([1-5](,[1-5])*)?$/, 'Saturdays off are 1–5 (first to fifth).').default(''),
   code: z.string().trim().max(6).optional().nullable(),
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Colours are #RRGGBB.').optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
+  /* The fewest people the roster should have on this shift a day; blank = no minimum. Read by the roster's coverage row only. */
+  minStaff: z.coerce.number().int('Minimum staffing is a whole number.').min(1, 'Minimum staffing is 1 or more, or blank.').max(9999).optional().nullable().or(z.literal('')),
 });
 
 /** A shift's full day, or, left out, its own net minutes (start to end less the break). */
 const withFullDay = <T extends z.infer<typeof shiftSchema>>(s: T) => ({ ...s, fullDayMinutes: s.fullDayMinutes ?? scheduledMinutes(s) });
+
+/**
+ * The breaks a shift is saved with. Named breaks decide `breakMinutes` (their
+ * unpaid total), so the day engine and every report read the one figure they
+ * always did; a break with a start and an end takes its length from them. No
+ * named breaks: `breakMinutes` as typed, the one unpaid break. Throws what is
+ * wrong with them, to be said as it is.
+ */
+function withBreaks<T extends z.infer<typeof shiftSchema>>(s: T, existing?: { breaks: unknown } | null): T {
+  if (s.breaks === undefined) {
+    /* A screen that does not know breaks: a shift that names some keeps them, and its break total with them. */
+    const kept = breaksOf(existing?.breaks);
+    return kept.length ? { ...s, breakMinutes: unpaidBreakMinutes(kept) } : s;
+  }
+  for (const b of s.breaks) {
+    const timed = Boolean(b.startTime) || Boolean(b.endTime);
+    if (timed && !(b.startTime && b.endTime)) throw fail(400, `${b.name}: give both a start and an end, or only a length.`, 'SHIFT_BREAKS');
+    if (!timed && !(Number(b.minutes) > 0)) throw fail(400, `${b.name}: a break needs a length, or a start and an end.`, 'SHIFT_BREAKS');
+  }
+  const breaks = breaksOf(s.breaks);
+  const problem = breaksProblem(breaks, s);
+  if (problem) throw fail(400, problem, 'SHIFT_BREAKS');
+  return breaks.length ? { ...s, breaks, breakMinutes: unpaidBreakMinutes(breaks) } : { ...s, breaks };
+}
 
 /**
  * A shift's times and rules can change only while no closed month uses it:
@@ -1043,12 +1168,17 @@ attendanceRouter.post('/orgs/:orgId/attendance/shifts', can(PermissionAction.CRE
   const { accountId, orgId } = req.tenant!;
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
+  try {
+    parsed.data = withBreaks(parsed.data);
+  } catch (e) {
+    return sendError(res, e);
+  }
   const data = withFullDay(parsed.data);
   const problem = shiftRuleProblem(data);
   if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
   parsed.data.fullDayMinutes = data.fullDayMinutes;
   try {
-    const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, createdByUserId: req.auth!.userId } as any });
+    const shift = await peoplePrisma.shift.create({ data: { accountId, orgId, ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, minStaff: parsed.data.minStaff || null, createdByUserId: req.auth!.userId } as any });
     res.status(201).json({ shift });
   } catch (e) {
     return sendError(res, e);
@@ -1062,6 +1192,11 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   if (!existing) return res.status(404).json({ error: 'No such shift.' });
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
+  try {
+    parsed.data = withBreaks(parsed.data, existing);
+  } catch (e) {
+    return sendError(res, e);
+  }
   const data = withFullDay(parsed.data);
   if (data.halfDayMinutes > data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.', code: 'SHIFT_RULES' });
   /*
@@ -1072,7 +1207,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   const hours = (x: any) => [x.startTime, x.endTime, x.breakMinutes, x.halfDayMinutes, x.fullDayMinutes].join('|');
   const problem = hours(data) !== hours(existing) ? shiftRuleProblem(data) : null;
   parsed.data.fullDayMinutes = data.fullDayMinutes;
-  const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
+  const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive, breaks: breaksOf(x.breaks), breakMode: x.breakMode === 'PUNCHED' ? 'PUNCHED' : 'FIXED' });
   try {
     /*
      * A shift has no effective date: new times or rules apply to every date it
@@ -1089,7 +1224,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
       const noConsent = await nightRefusal(orgId, on.map((id) => ({ employeeId: id, shiftIds: [existing.id] })), { shifts: [{ id: existing.id, name: next.name, startTime: next.startTime, endTime: next.endTime }] });
       if (noConsent) return sendError(res, noConsent);
     }
-    const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null } as any });
+    const shift = await peoplePrisma.shift.update({ where: { id: existing.id }, data: { ...parsed.data, code: parsed.data.code || null, color: parsed.data.color || null, ...(parsed.data.minStaff === undefined ? {} : { minStaff: parsed.data.minStaff || null }) } as any });
     if (JSON.stringify(scoring(existing)) !== JSON.stringify(scoring(shift))) {
       await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'SHIFT', ref: shift.id, name: shift.name, before: scoring(existing), after: scoring(shift) });
     }
@@ -1105,8 +1240,9 @@ attendanceRouter.delete('/orgs/:orgId/attendance/shifts/:id', can(PermissionActi
   const existing = await peoplePrisma.shift.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
   if (!existing) return res.status(404).json({ error: 'No such shift.' });
   const used = (await peoplePrisma.shiftAssignment.count({ where: { orgId, shiftId: existing.id } })) +
+    (await peoplePrisma.rosterDay.count({ where: { orgId, shiftId: existing.id } })) +
     (await peoplePrisma.attendanceRecord.count({ where: { orgId, shiftId: existing.id } }));
-  if (used) return res.status(409).json({ error: 'This shift is assigned or has days recorded on it. Mark it inactive instead.' });
+  if (used) return res.status(409).json({ error: 'This shift is assigned, on the roster, or has days recorded on it. Mark it inactive instead.' });
   await deleteToBin(req, 'shift', existing);
   res.json({ ok: true });
 });

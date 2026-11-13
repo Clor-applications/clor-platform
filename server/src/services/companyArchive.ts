@@ -58,11 +58,21 @@ export async function archiveCompany(args: { accountId: string; orgId: string; a
     const org = await platformPrisma.org.findFirst({ where: { id: args.orgId, accountId: args.accountId }, select: { id: true, name: true, archivedAt: true } });
     if (!org) throw new ArchiveError(404, 'Company not found in this account.', 'NOT_FOUND');
     if (org.archivedAt) throw new ArchiveError(409, 'This company is already archived.', 'ALREADY_ARCHIVED');
-    const othersActive = await platformPrisma.org.count({ where: { accountId: args.accountId, archivedAt: null, NOT: { id: org.id } } });
-    if (!othersActive) throw new ArchiveError(409, 'This is your only active company. Add or reactivate another before archiving it.', 'LAST_ACTIVE_COMPANY');
-    await platformPrisma.org.update({
-      where: { id: org.id },
-      data: { archivedAt: new Date(), archivedReason: args.reason, archivedNote: args.note ? String(args.note).slice(0, 1000) : null, archivedByUserId: args.actorUserId },
+    /*
+     * One archive or reactivate per account at a time (the account row is
+     * held), so two archives of the last two companies cannot both see the
+     * other one still active. The write is a claim on "not archived": a second
+     * archive of the same company gets ALREADY_ARCHIVED, not a fresh stamp.
+     */
+    await platformPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "Account" WHERE "id" = ${args.accountId} FOR UPDATE`;
+      const othersActive = await tx.org.count({ where: { accountId: args.accountId, archivedAt: null, NOT: { id: org.id } } });
+      if (!othersActive) throw new ArchiveError(409, 'This is your only active company. Add or reactivate another before archiving it.', 'LAST_ACTIVE_COMPANY');
+      const r = await tx.org.updateMany({
+        where: { id: org.id, accountId: args.accountId, archivedAt: null },
+        data: { archivedAt: new Date(), archivedReason: args.reason, archivedNote: args.note ? String(args.note).slice(0, 1000) : null, archivedByUserId: args.actorUserId },
+      });
+      if (!r.count) throw new ArchiveError(409, 'This company is already archived.', 'ALREADY_ARCHIVED');
     });
     cache.delete(org.id);
     return { name: org.name };
@@ -74,9 +84,17 @@ export async function reactivateCompany(args: { accountId: string; orgId: string
     const org = await platformPrisma.org.findFirst({ where: { id: args.orgId, accountId: args.accountId }, select: { id: true, name: true, archivedAt: true } });
     if (!org) throw new ArchiveError(404, 'Company not found in this account.', 'NOT_FOUND');
     if (!org.archivedAt) throw new ArchiveError(409, 'This company is not archived.', 'NOT_ARCHIVED');
-    const full = await companyLimitReason(args.accountId);
-    if (full) throw new ArchiveError(409, `${full} Archive another company or move to a larger plan first.`, 'COMPANY_LIMIT');
-    await platformPrisma.org.update({ where: { id: org.id }, data: { archivedAt: null, archivedReason: null, archivedNote: null, archivedByUserId: null } });
+    await platformPrisma.$transaction(async (tx) => {
+      /* Held as for archive: two reactivations at once cannot both fit the last place on the plan. */
+      await tx.$executeRaw`SELECT 1 FROM "Account" WHERE "id" = ${args.accountId} FOR UPDATE`;
+      const full = await companyLimitReason(args.accountId);
+      if (full) throw new ArchiveError(409, `${full} Archive another company or move to a larger plan first.`, 'COMPANY_LIMIT');
+      const r = await tx.org.updateMany({
+        where: { id: org.id, accountId: args.accountId, archivedAt: { not: null } },
+        data: { archivedAt: null, archivedReason: null, archivedNote: null, archivedByUserId: null },
+      });
+      if (!r.count) throw new ArchiveError(409, 'This company is not archived.', 'NOT_ARCHIVED');
+    });
     cache.delete(org.id);
     return { name: org.name };
   });

@@ -7,7 +7,7 @@ import { deriveStateCodeFromInput, gstinStateCode, isValidGstinChecksum, isValid
 import { gstOn } from '../services/pricing/engine.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
-import { recordManualPayment } from './events.js';
+import { recordInvoicePayment } from './events.js';
 import { manualProblems, type ManualDetails } from './gateway.js';
 import { PaymentsError } from './providers.js';
 import { INVOICING_KEY, financialYear, formatNumber, invoicing, readInvoicing } from './invoicing.js';
@@ -252,15 +252,11 @@ export async function markInvoicePaid(id: string, input: { reference: string; pa
   if (inv.status === 'PAID') throw new PaymentsError('This invoice is already paid.', 409);
   if (inv.status !== 'ISSUED') throw new PaymentsError('Only an issued invoice can be marked paid.', 409);
   const amount = input.amount ?? inv.total;
-  const r = await recordManualPayment({ accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, periodStart: inv.periodStart, note: `Invoice ${inv.number}`, userId });
-  const done = await outsideTenant('billing: mark an invoice paid', () =>
-    platformPrisma.billingInvoice.updateMany({
-      where: { id, status: 'ISSUED' },
-      data: { status: 'PAID', paidAt: input.paidOn, paidAmount: amount, paymentReference: input.reference.trim().toUpperCase(), paymentEventId: r.id ?? null, paidByUserId: userId },
-    }),
+  /* The claim on the invoice comes first, in one transaction with the payment and the subscription (events.ts). */
+  const r = await outsideTenant('billing: mark an invoice paid', () =>
+    recordInvoicePayment({ invoiceId: id, number: inv.number, accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, periodStart: inv.periodStart, userId }),
   );
-  if (!done.count) throw new PaymentsError('This invoice changed a moment ago. Open it again.', 409);
-  return { invoice: await getInvoice(id), paidUntil: r.paidUntil };
+  return { invoice: await getInvoice(id), paidUntil: r.paidUntil, detail: r.detail };
 }
 
 /** Cancel an issued, unpaid invoice. Its number stays used, marked cancelled, so the series has no gap. */

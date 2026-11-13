@@ -57,6 +57,26 @@ type Input = { lastDay: string; leavingType: string; reason: string | null; resi
 /* Notice owed, served and short (W15): lifecycle/notice.ts, shared with Payroll's final settlement. */
 const noticeOf = (orgId: string, existing: Existing, input: Input) => noticeFor(orgId, { employeeTypeId: existing.employeeTypeId as string | null | undefined, lastDay: input.lastDay, resignedOn: input.resignedOn, noticeWaived: input.noticeWaived });
 
+/** The record moved on since it was read (HR kept them on, someone else recorded the leaving): nothing is written. */
+export class LeavingChangedError extends Error {
+  status = 409;
+  constructor(public current: string) {
+    super(current === 'LEFT' ? 'This person has already left.' : 'This record changed a moment ago. Look at it again before recording the leaving.');
+  }
+}
+
+/**
+ * The leaving is written only over the status it was decided on: "stay" (HR withdrawing the
+ * leaving) between the read and this write is not undone by the job or a late form. The version
+ * moves on, as on the one write path, so an edit made from an older copy is refused (409 STALE).
+ */
+async function claimStatus(tx: Parameters<typeof writeChangeLog>[0], who: Who, existing: Existing, data: Record<string, unknown>) {
+  const claimed = await tx.employee.updateMany({ where: { id: existing.id, orgId: who.orgId, status: existing.status }, data: { ...data, version: { increment: 1 } } });
+  const row = await tx.employee.findFirst({ where: { id: existing.id, orgId: who.orgId } });
+  if (!claimed.count || !row) throw new LeavingChangedError(row?.status || 'GONE');
+  return row;
+}
+
 export async function leaveEmployee(who: Who, existing: Existing, input: Input, opts: { now?: Date } = {}) {
   /* The last working day is worked: someone whose last day is today stays on notice, on the doors and in attendance until it is over (W-A1). An offer withdrawn or a duplicate closes at once. */
   if (input.lastDay >= todayIst(opts.now) && !NO_SETTLEMENT.has(input.leavingType)) return scheduleLeaving(who, existing, input);
@@ -67,7 +87,7 @@ export async function leaveEmployee(who: Who, existing: Existing, input: Input, 
 async function scheduleLeaving(who: Who, existing: Existing, input: Input) {
   const { accountId, orgId } = who;
   const employee = await peoplePrisma.$transaction(async (tx) => {
-    const row = await tx.employee.update({ where: { id: existing.id }, data: { status: 'ON_NOTICE', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason, ...(input.resignedOn !== undefined ? { resignedOn: input.resignedOn } : {}), ...(input.noticeWaived !== undefined ? { noticeWaived: input.noticeWaived } : {}) } });
+    const row = await claimStatus(tx, who, existing, { status: 'ON_NOTICE', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason, ...(input.resignedOn !== undefined ? { resignedOn: input.resignedOn } : {}), ...(input.noticeWaived !== undefined ? { noticeWaived: input.noticeWaived } : {}) });
     await logApproved(tx, who, existing, row);
     await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separation_scheduled.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, employee: { id: row.id, code: row.code, name: row.name } }, row.id);
     return row;
@@ -84,10 +104,7 @@ async function scheduleLeaving(who: Who, existing: Existing, input: Input) {
 async function finishLeaving(who: Who, existing: Existing, input: Input) {
   const { accountId, orgId } = who;
   const employee = await peoplePrisma.$transaction(async (tx) => {
-    const row = await tx.employee.update({
-      where: { id: existing.id },
-      data: { status: 'LEFT', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason, ...(input.resignedOn !== undefined ? { resignedOn: input.resignedOn } : {}), ...(input.noticeWaived !== undefined ? { noticeWaived: input.noticeWaived } : {}) },
-    });
+    const row = await claimStatus(tx, who, existing, { status: 'LEFT', dateOfLeaving: input.lastDay, leavingType: input.leavingType, leavingReason: input.reason, ...(input.resignedOn !== undefined ? { resignedOn: input.resignedOn } : {}), ...(input.noticeWaived !== undefined ? { noticeWaived: input.noticeWaived } : {}) });
     await logApproved(tx, who, existing, row);
     await closeEpisode({ accountId, orgId }, existing, { endDate: input.lastDay, endType: input.leavingType, endReason: input.reason }, tx);
     await writeEvent(tx, { accountId, orgId, correlationId: `leave_${row.id}_${input.lastDay}` }, 'people.employee.separated.v1', { lastWorkingDay: input.lastDay, type: input.leavingType, settlementRequested: !NO_SETTLEMENT.has(input.leavingType), notice: await noticeOf(orgId, { ...existing, ...row } as any, { ...input, resignedOn: input.resignedOn ?? row.resignedOn, noticeWaived: input.noticeWaived ?? row.noticeWaived }), employee: { id: row.id, code: row.code, name: row.name } }, row.id);
@@ -140,6 +157,8 @@ export async function runSeparations(now = new Date()) {
         done += 1;
       });
     } catch (err) {
+      /* Kept on (or recorded by hand) since it was read: nothing to do. */
+      if (err instanceof LeavingChangedError) continue;
       console.error(`[separations] ${e.orgId} ${e.id}:`, err instanceof Error ? err.message : err);
     }
   }

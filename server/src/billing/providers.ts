@@ -41,6 +41,7 @@ export class PaymentsError extends Error {
     message: string,
     readonly status = 400,
     readonly problems: string[] = [],
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -217,11 +218,36 @@ export async function setMode(code: ProviderCode, mode: Mode, userId: string) {
   if (!isKeyed(code)) throw new PaymentsError('Manual payments have no Test or Live mode.');
   const row = await rowOf(code);
   if ((row?.mode ?? 'TEST') === mode) return { from: mode, to: mode };
-  await platformPrisma.paymentProvider.upsert({
-    where: { code },
-    create: { code, mode, updatedByUserId: userId },
-    update: { mode, updatedByUserId: userId, lastTestAt: null, lastTestOk: null, lastTestMessage: null, lastTestMode: null },
-  });
+  /*
+   * Not while customers pay through it: the other mode's keys have not been
+   * tested, and an active provider used to stay active on them. Make another
+   * provider active, or turn this one off, first.
+   */
+  const inUse = () =>
+    new PaymentsError(
+      `Customers pay through ${PROVIDER_NAMES[code]} now, so its mode cannot change. Make another provider active, or turn ${PROVIDER_NAMES[code]} off, then switch it.`,
+      409,
+      [],
+      'PROVIDER_ACTIVE',
+    );
+  if (row?.active) throw inUse();
+  if (!row) {
+    await platformPrisma.paymentProvider.create({ data: { code, mode, updatedByUserId: userId } }).catch((e: any) => {
+      if (e?.code === 'P2002') throw new PaymentsError(`${PROVIDER_NAMES[code]} changed a moment ago. Refresh and try again.`, 409, [], 'PROVIDER_CHANGED');
+      throw e;
+    });
+  } else {
+    /* A claim on the row as read: still not active, still in the old mode. Activate running at the same moment loses one or the other. */
+    const r = await platformPrisma.paymentProvider.updateMany({
+      where: { code, active: false, mode: row.mode },
+      data: { mode, updatedByUserId: userId, lastTestAt: null, lastTestOk: null, lastTestMessage: null, lastTestMode: null },
+    });
+    if (!r.count) {
+      const now = await rowOf(code);
+      if (now?.active) throw inUse();
+      throw new PaymentsError(`${PROVIDER_NAMES[code]} changed a moment ago. Refresh and try again.`, 409, [], 'PROVIDER_CHANGED');
+    }
+  }
   clearProviderCache();
   return { from: (row?.mode as Mode) ?? 'TEST', to: mode };
 }
@@ -247,10 +273,15 @@ export async function activate(code: ProviderCode, userId: string) {
   const missing = readiness(code, row);
   if (missing.length) throw new PaymentsError(`${PROVIDER_NAMES[code]} is not ready yet.`, 409, missing);
   const before = await platformPrisma.paymentProvider.findFirst({ where: { active: true } });
-  await platformPrisma.$transaction([
-    platformPrisma.paymentProvider.updateMany({ where: { active: true, NOT: { code } }, data: { active: false } }),
-    platformPrisma.paymentProvider.update({ where: { code }, data: { active: true, updatedByUserId: userId } }),
-  ]);
+  await platformPrisma.$transaction(async (tx) => {
+    await tx.paymentProvider.updateMany({ where: { active: true, NOT: { code } }, data: { active: false } });
+    /* Only the row found ready: switched mode or turned off since (its test cleared), it is not made active on untested keys. */
+    const r = await tx.paymentProvider.updateMany({
+      where: { code, enabled: true, mode: row!.mode, lastTestOk: row!.lastTestOk, lastTestMode: row!.lastTestMode },
+      data: { active: true, updatedByUserId: userId },
+    });
+    if (!r.count) throw new PaymentsError(`${PROVIDER_NAMES[code]} changed a moment ago. Refresh and try again.`, 409, [], 'PROVIDER_CHANGED');
+  });
   clearProviderCache();
   return { previous: before?.code ?? null };
 }

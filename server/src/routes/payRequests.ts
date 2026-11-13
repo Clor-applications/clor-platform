@@ -37,6 +37,12 @@ import { escapeHtml as esc } from '../utils/html.js';
  * statement next to the payer's UTR.
  */
 export const payRequestsRouter = Router();
+/** What the public pay page may say after a refused claim, by the code in its address. */
+const CLAIM_ERRORS: Record<string, string> = {
+  utr: 'That does not look like a UTR: 12 digits, as your UPI app shows under the payment.',
+  used: 'That UTR was already given for another payment.',
+};
+
 export const payPageRouter = Router();
 
 const RECEIPTS = 'Receipts';
@@ -235,7 +241,9 @@ payPageRouter.get('/:token', ...ingestLimiter, async (req, res) => {
   if (r.status !== 'PENDING' || !r.usable) return res.type('html').send(page('Link closed', `${head}<p class="muted">This link is ${r.status === 'EXPIRED' ? 'past its date' : 'no longer in use'}. Ask the business for a new one.</p>`));
   const intent = upiIntent(r);
   const qr = await QRCode.toDataURL(intent, { margin: 1, width: 440 });
-  const claimed = req.query.err ? `<p style="color:#b91c1c">${esc(String(req.query.err)).slice(0, 200)}</p>` : '';
+  /* Only our own sentences are shown: the address carries a code, never text, so a crafted link cannot put words on this page (audit 11 Nov 2026). */
+  const why = CLAIM_ERRORS[String(req.query.err || '')];
+  const claimed = why ? `<p style="color:#b91c1c">${esc(why)}</p>` : '';
   res.type('html').send(
     page(
       `Pay ${org?.name || r.payeeName}`,
@@ -257,12 +265,12 @@ payPageRouter.post('/:token/claim', ...ingestLimiter, async (req, res) => {
   const token = String(req.params.token);
   const r = await requestOf(token);
   if (r) enterTenant(r.orgId); /* A-30: the rest of this request runs as the link's company. */
-  const back = (err: string) => res.redirect(303, `/pay/${encodeURIComponent(token)}?err=${encodeURIComponent(err)}`);
+  const back = (err: keyof typeof CLAIM_ERRORS) => res.redirect(303, `/pay/${encodeURIComponent(token)}?err=${err}`);
   if (!r) return res.status(404).type('html').send(page('Link not found', '<h1>This payment link is not valid</h1>'));
   if (r.status !== 'PENDING' || !r.usable) return res.redirect(303, `/pay/${encodeURIComponent(token)}`);
   const utr = String(req.body?.utr || '').replace(/\s+/g, '').trim();
-  if (!UTR.test(utr)) return back('That does not look like a UTR: 12 digits, as your UPI app shows under the payment.');
-  if (await prisma.paymentRequest.findFirst({ where: { orgId: r.orgId, payerUtr: utr, NOT: { id: r.id } }, select: { id: true } })) return back('That UTR was already given for another payment.');
+  if (!UTR.test(utr)) return back('utr');
+  if (await prisma.paymentRequest.findFirst({ where: { orgId: r.orgId, payerUtr: utr, NOT: { id: r.id } }, select: { id: true } })) return back('used');
   const payerName = String(req.body?.payerName || '').trim().slice(0, 100) || null;
   const done = await prisma.paymentRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: 'CLAIMED', payerUtr: utr, payerName, claimedAt: new Date() } });
   if (done.count) {

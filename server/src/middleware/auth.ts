@@ -11,6 +11,8 @@ export type AuthUser = {
   sessionId?: string;
   /** An Explore session (the read-only sample company): the pass it came from. Writes are refused (middleware/exploreReadOnly.ts). */
   explorePassId?: string;
+  /** Set on a single sign-on session: the only company it opens. */
+  ssoOrgId?: string;
 };
 
 function getJwtSecret() {
@@ -83,6 +85,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   let accountId = '';
   let sid = '';
   let xp = '';
+  let so = '';
   try {
     const secret = getJwtSecret();
     if (!secret) return res.status(500).json({ error: 'Server misconfigured: JWT_SECRET missing' });
@@ -97,6 +100,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     accountId = String(payload?.accountId || '').trim();
     sid = String(payload?.sid || '').trim();
     xp = String(payload?.xp || '').trim();
+    so = String(payload?.so || '').trim();
     if (!userId || !accountId) return res.status(401).json({ error: 'Invalid token' });
   } catch {
     return res.status(401).json({ error: 'Invalid/expired token' });
@@ -128,5 +132,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   req.auth = sid ? { userId, accountId, sessionId: sid } : { userId, accountId };
   if (xp) req.auth.explorePassId = xp;
+  if (so) req.auth.ssoOrgId = so;
   next();
 }

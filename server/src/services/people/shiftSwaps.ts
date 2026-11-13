@@ -86,7 +86,7 @@ export async function swapContext(orgId: string, people: Person[], from: string,
   const a = addDays(from, -1);
   const b = addDays(to, 1);
   const [data, holidays, leave, open, guard] = await Promise.all([
-    loadSchedule(orgId, ids),
+    loadSchedule(orgId, ids, { from: a, to: b }),
     loadHolidays(orgId, a, b),
     peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: { in: ids }, status: { in: ['PENDING', 'APPROVED'] }, fromDate: { lte: b }, toDate: { gte: a } }, select: { employeeId: true, fromDate: true, toDate: true, status: true } }),
     peoplePrisma.shiftSwap.findMany({ where: { orgId, status: { in: OPEN }, fromDate: { lte: to }, toDate: { gte: from } }, select: { id: true, requesterEmployeeId: true, colleagueEmployeeId: true, fromDate: true, toDate: true, approvalRequestId: true } }),

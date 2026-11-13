@@ -8,6 +8,7 @@ import { TWO_FACTOR_SETUP_PATHS, adminTwoFactorMissing } from '../services/twoFa
 import { userIsAdmin } from '../services/roleGuards.js';
 import { outsideAccessFor } from '../services/outsideAccess.js';
 import { companyEntryRefusal } from '../services/signInRules.js';
+import { auditBefore } from './auditMutations.js';
 
 export type TenantContext = {
   accountId: string;
@@ -67,6 +68,20 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   if (!orgId) return res.status(400).json({ error: 'Missing x-org-id' });
   if (!branchId) return res.status(400).json({ error: 'Missing x-branch-id' });
 
+  /*
+   * A single sign-on session was vouched for by one company's identity
+   * provider, so it opens that company and no other (audit 11 Nov 2026): the
+   * person's other companies never agreed to trust that provider, and their
+   * own two-factor rule would be skipped. A password sign-in opens the rest.
+   */
+  const ssoOrgId = String(req.auth?.ssoOrgId || '').trim();
+  if (ssoOrgId && ssoOrgId !== orgId) {
+    return res.status(403).json({
+      error: 'You signed in through one company\'s single sign-on, which opens that company only. Sign out and sign in with your password to open this one.',
+      code: 'SSO_OTHER_COMPANY',
+    });
+  }
+
   const result = await cachedAccess(
     `tenant|${userId}|${orgId}|${branchId}|${warehouseId}`,
     /* Is this person a member of this company at all: asked before the company is in scope (A-35). */
@@ -96,8 +111,9 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
     return res.status(403).json({ error: 'This company asks owners and admins to sign in with an authenticator app. Set one up under My profile → Security first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
   }
 
-  /* From here on every query this request makes names its company to the database (utils/tenantScope.ts). */
-  runInTenant(req.tenant.orgId, () => next());
+  /* From here on every query this request makes names its company to the database (utils/tenantScope.ts).
+     A change the edit log records is read as it was first, before the handler (middleware/auditMutations.ts). */
+  return runInTenant(req.tenant.orgId, () => auditBefore(req, res, next));
 }
 
 type TenantResult = { tenant: TenantContext } | { status: number; error: string; code?: string };

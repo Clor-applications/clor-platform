@@ -8,7 +8,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { PLAN_CATALOG } from '../constants/planCatalog.js';
-import { getSubscription, appAccess, setSubscription, lapseReason } from '../services/subscriptions.js';
+import { getSubscription, appAccess, lapseReason } from '../services/subscriptions.js';
 import { applyGatewayEvent, recordRejected } from '../billing/events.js';
 import { activeGateway, isCode, manualPayTo, webhookGateway } from '../billing/providers.js';
 import { rawText } from '../billing/webhookKit.js';
@@ -22,6 +22,8 @@ import { publicPricing } from './pricing.js';
 import { invoiceForAccount, invoicesForAccount } from '../billing/invoices.js';
 import { checkPayLink, onlinePayment, payLinkFor } from '../billing/payLinks.js';
 import { PaymentsError } from '../billing/providers.js';
+import { DealError } from '../services/pricing/deals.js';
+import { applyGrant, askForGrant, recordGrant, type PlanGrant } from '../services/ops/grants.js';
 
 export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
@@ -113,27 +115,26 @@ billingOperatorRouter.post('/billing/accounts/:accountId/subscription', requireA
   if (!account) return res.status(404).json({ error: 'No such account' });
   const parsed = setSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid subscription', details: parsed.error.flatten() });
-  const before = await getSubscription(accountId);
-  const sub = await setSubscription(accountId, parsed.data);
+  const grant: PlanGrant = { route: 'plan', body: parsed.data };
   /*
-   * A-17: what CLOR changed on a customer's account, by whom, from what to
-   * what — recorded against the customer's account, where their own security
-   * activity is listed, and against nothing they can edit.
+   * Apps given away for good, or for less than the customer pays now, over
+   * the limit deals use: a second person approves it first (services/ops/grants.ts).
    */
-  const shape = (s: any) => (s ? { status: s.status, apps: (s.items || []).map((i: any) => i.appCode).sort() } : null);
-  await recordAuthEvent({
-    accountId,
-    userId: req.auth!.userId,
-    eventType: 'OPERATOR_SUBSCRIPTION_SET',
-    ip: clientIp(req),
-    userAgent: req.headers['user-agent'] as string | undefined,
-    detail: JSON.stringify({ before: shape(before), after: shape(sub) }).slice(0, 1000),
-  });
-  /* And on CLOR's own operator record, with everything else operators do (Audit log). */
-  await platformPrisma.operatorAuditEvent.create({
-    data: { operatorUserId: req.auth!.userId, action: 'SUBSCRIPTION_SET', targetAccountId: accountId, detail: { before: shape(before), after: shape(sub), reason: typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : undefined } as any, ip: clientIp(req) ?? null },
-  });
-  res.json({ subscription: sub });
+  const asked = await askForGrant(req, accountId, grant, parsed.data.reason);
+  if (asked) return res.status(asked.status).json(asked.body);
+  try {
+    const r = await applyGrant(accountId, grant);
+    /*
+     * A-17: what CLOR changed on a customer's account, by whom, from what to
+     * what — recorded against the customer's account, where their own security
+     * activity is listed, and on CLOR's own operator record (Audit log).
+     */
+    await recordGrant(req, accountId, grant, r);
+    res.json({ subscription: r.after });
+  } catch (e) {
+    if (e instanceof DealError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
 });
 
 // Everything else is tenant-scoped.

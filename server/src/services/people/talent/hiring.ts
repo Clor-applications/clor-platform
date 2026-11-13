@@ -236,7 +236,7 @@ export async function updateCandidate(who: Who, id: string, raw: any) {
  * Move a candidate. Hired only through `hire`; Rejected and Withdrew need a reason; a closed
  * candidate can be brought back to Applied. Each move is a line on the timeline.
  */
-export async function moveCandidate(who: Who, id: string, stage: string, reason?: string | null) {
+export async function moveCandidate(who: Who, id: string, stage: string, reason?: string | null, opts: { overAcceptedOffer?: boolean } = {}) {
   if (!(STAGES as readonly string[]).includes(stage)) throw new TalentError('Unknown stage.');
   if (stage === 'HIRED') throw new TalentError('Use Hire: it makes their employee record.', 409);
   const c = await peoplePrisma.candidate.findFirst({ where: { id, orgId: who.orgId, anonymisedAt: null } });
@@ -248,6 +248,20 @@ export async function moveCandidate(who: Who, id: string, stage: string, reason?
   const moved = await peoplePrisma.$transaction(async (tx) => {
     const r = await tx.candidate.updateMany({ where: { id, orgId: who.orgId, stage: c.stage }, data: { stage, stageAt: new Date(), closedReason: stage === 'REJECTED' || stage === 'WITHDRAWN' ? why : null } });
     if (!r.count) throw new TalentError('Someone else moved this candidate. Reload.', 409);
+    /*
+     * Out of the running: an offer still open to them is withdrawn with the move, so its link cannot
+     * be accepted afterwards. The candidate row is written first, as acceptOffer locks it first, so
+     * the two take turns and only one wins. An offer accepted a moment before is not quietly left
+     * ACCEPTED on a rejected candidate: the move is refused (and nothing changes) unless HR says to go
+     * ahead over the acceptance, and then that offer is withdrawn with it.
+     */
+    if (stage === 'REJECTED' || stage === 'WITHDRAWN') {
+      const accepted = await tx.offer.count({ where: { orgId: who.orgId, candidateId: id, status: 'ACCEPTED' } });
+      if (accepted && !opts.overAcceptedOffer) {
+        throw new TalentError('They have accepted the offer. Reload to see it; to close their application anyway, confirm that the accepted offer is withdrawn.', 409, 'OFFER_ACCEPTED');
+      }
+      await tx.offer.updateMany({ where: { orgId: who.orgId, candidateId: id, status: { in: accepted ? ['SENT', 'ACCEPTED'] : ['SENT'] } }, data: { status: 'WITHDRAWN' } });
+    }
     await event(tx, who, id, { kind: 'STAGE', fromStage: c.stage, toStage: stage, text: why });
     return tx.candidate.findFirstOrThrow({ where: { id } });
   });

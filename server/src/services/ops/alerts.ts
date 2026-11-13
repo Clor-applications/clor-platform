@@ -22,6 +22,12 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 export const ALERT_EVERY_MS = 10 * MIN;
+/**
+ * Alerts whose key starts with this belong to the job-health check, which runs
+ * in the wake call itself (jobHealth.ts) so it does not depend on this job
+ * running. This job neither closes them nor raises a second alert for the same worker.
+ */
+export const JOB_HEALTH_KEY = 'job-health:';
 /** Thresholds, in one place so the console can say them. */
 export const RULES = {
   emailsFailingPerHour: 5,
@@ -78,7 +84,9 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
     platformPrisma.subscription.findMany({ where: { status: 'trialing', trialEndsAt: { gt: new Date(now), lt: at(-RULES.trialEndingDays * DAY) } }, select: { accountId: true, trialEndsAt: true }, take: 500 }),
   ]);
 
-  const lines = workerLines(runs, now);
+  /* A worker the job-health check already has an alert open for is not reported a second time here. */
+  const watched = new Set((await platformPrisma.opsAlert.findMany({ where: { resolvedAt: null, key: { startsWith: JOB_HEALTH_KEY } }, select: { key: true } })).map((a) => a.key.slice(JOB_HEALTH_KEY.length)));
+  const lines = workerLines(runs, now).filter((w) => !watched.has(w.worker));
   for (const w of lines) {
     if (w.state === 'failing') out.push({ key: `worker:${w.worker}`, kind: 'worker', severity: 'critical', audience: 'SUPPORT', title: `Background job failing: ${jobName(w.worker)}`, detail: w.lastError || 'Its last run did not finish.', link: { page: 'health' } });
   }
@@ -129,7 +137,8 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
  * those still true, close the rest. Returns the alerts opened this time.
  */
 export async function syncAlerts(findings: Finding[], now = new Date()) {
-  const open = await platformPrisma.opsAlert.findMany({ where: { resolvedAt: null } });
+  /* Not the job-health alerts: their own check opens and closes them (JOB_HEALTH_KEY). */
+  const open = await platformPrisma.opsAlert.findMany({ where: { resolvedAt: null, NOT: { key: { startsWith: JOB_HEALTH_KEY } } } });
   const byKey = new Map(open.map((a) => [a.key, a]));
   const seen = new Set<string>();
   const opened: typeof open = [];

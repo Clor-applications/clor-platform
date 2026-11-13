@@ -223,10 +223,35 @@ export async function acceptOffer(o: any, ip: string | null) {
   if (o.status !== 'SENT') throw new OfferError(o.status === 'ACCEPTED' ? 'You have already accepted this offer.' : 'This offer is no longer open.', 410);
   if (o.expiresAt < new Date()) throw new OfferError('This offer has run out. Ask the company if it still stands.', 410);
   const now = new Date();
-  const claimed = await peoplePrisma.offer.updateMany({ where: { id: o.id, status: 'SENT' }, data: { status: 'ACCEPTED', acceptedAt: now, acceptedIp: ip ? ip.slice(0, 64) : null } });
-  if (claimed.count !== 1) throw new OfferError('This offer is no longer open.', 410);
+  const claim = (db: typeof peoplePrisma | Parameters<Parameters<typeof peoplePrisma.$transaction>[0]>[0]) =>
+    db.offer.updateMany({ where: { id: o.id, status: 'SENT' }, data: { status: 'ACCEPTED', acceptedAt: now, acceptedIp: ip ? ip.slice(0, 64) : null } });
   const actor: Actor = { accountId: o.accountId, orgId: o.orgId, userId: null, source: 'SELF_SERVICE', correlationId: `offer_${o.id}`, reason: 'Offer accepted by the person' };
   let next = 'NOTHING';
+  if (o.candidateId && !o.employeeId) {
+    /*
+     * A candidate: the candidate row is locked first (moveCandidate writes it first too), so a
+     * rejection or withdrawal and this acceptance take turns. One no longer in the running cannot
+     * accept, and the stage is written only over the one read under the lock.
+     */
+    const out = await peoplePrisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Candidate" WHERE id = ${o.candidateId} AND "orgId" = ${o.orgId} FOR UPDATE`;
+      const c = await tx.candidate.findFirst({ where: { id: o.candidateId, orgId: o.orgId } });
+      if (c && (c.stage === 'REJECTED' || c.stage === 'WITHDRAWN')) return 'CLOSED' as const;
+      if ((await claim(tx)).count !== 1) return 'GONE' as const;
+      if (!c) return 'NOTHING' as const;
+      const moved = await tx.candidate.updateMany({ where: { id: c.id, orgId: o.orgId, stage: c.stage }, data: { stage: c.stage === 'HIRED' ? c.stage : 'OFFER', offerAcceptedOn: todayIst() } });
+      if (!moved.count) throw new OfferError('This offer is no longer open.', 410);
+      await tx.candidateEvent.create({ data: { accountId: o.accountId, orgId: o.orgId, candidateId: c.id, kind: 'OFFER', text: `Offer accepted${ip ? ` from ${ip.slice(0, 64)}` : ''}` } });
+      return 'READY_TO_HIRE' as const;
+    });
+    if (out === 'CLOSED') {
+      /* An offer left open from before candidates' offers closed with them: closed now. */
+      await peoplePrisma.offer.updateMany({ where: { id: o.id, status: 'SENT' }, data: { status: 'WITHDRAWN' } });
+      throw new OfferError('This offer is no longer open: the company has closed your application. Ask them if you have questions.', 410);
+    }
+    if (out === 'GONE') throw new OfferError('This offer is no longer open.', 410);
+    next = out;
+  } else if ((await claim(peoplePrisma)).count !== 1) throw new OfferError('This offer is no longer open.', 410);
   if (o.employeeId) {
     await peoplePrisma.$transaction((tx) => writeChangeLog(tx, actor, { kind: 'Employee', id: o.employeeId, employeeId: o.employeeId }, [{ field: 'offer', before: 'sent', after: `accepted ${todayIst()}${ip ? ` from ${ip.slice(0, 64)}` : ''}`, redacted: false }]));
     /* A draft hire who accepts is sent the joining form, unless one is already out. */
@@ -238,15 +263,6 @@ export async function acceptOffer(o: any, ip: string | null) {
       } catch (e) {
         console.error('[offers] joining form:', e instanceof Error ? e.message : e);
       }
-    }
-  } else if (o.candidateId) {
-    const c = await peoplePrisma.candidate.findFirst({ where: { id: o.candidateId, orgId: o.orgId } });
-    if (c) {
-      await peoplePrisma.$transaction([
-        peoplePrisma.candidate.update({ where: { id: c.id }, data: { stage: c.stage === 'HIRED' ? c.stage : 'OFFER', offerAcceptedOn: todayIst() } }),
-        peoplePrisma.candidateEvent.create({ data: { accountId: o.accountId, orgId: o.orgId, candidateId: c.id, kind: 'OFFER', text: `Offer accepted${ip ? ` from ${ip.slice(0, 64)}` : ''}` } }),
-      ]);
-      next = 'READY_TO_HIRE';
     }
   }
   await tellHr(o, `${o.name} accepted the offer`, next === 'READY_TO_HIRE' ? `For ${o.designation}. Open Hiring and choose Hire to make their employee record.` : next === 'JOINING_FORM_SENT' ? `For ${o.designation}. The joining form went to ${o.email}.` : `For ${o.designation}.`);

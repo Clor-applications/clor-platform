@@ -3,6 +3,8 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { ownPlanRefusal, readTaskDoneToken, tickRefusal } from '../services/people/checklists.js';
 import { escapeHtml as esc } from '../utils/html.js';
+import { z } from 'zod';
+import { check, noBody, text } from '../middleware/validate.js';
 
 /**
  * The link in a task e-mail (docs/people/02-PRD.md LIFE-07): signed, for one
@@ -21,6 +23,9 @@ const page = (title: string, body: string, opts: { ok?: boolean; form?: string }
   `<body style="font-family:Inter,system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;color:#18181b">` +
   `<h1 style="font-size:1.25rem">${opts.ok ? '✓ ' : ''}${esc(title)}</h1><p style="color:#52525b">${body}</p>${opts.form || ''}</body>`;
 
+/* The signed token from the e-mail, as the link carried it: one that does not verify is the page's own "this link does not work". The button sends nothing. */
+const TOKEN_PARAMS = z.object({ token: text(4000) });
+
 type Found = { kind: 'page'; status: number; html: string } | { kind: 'task'; task: NonNullable<Awaited<ReturnType<typeof peoplePrisma.checklistTask.findFirst>>>; userId: string | null };
 
 async function find(token: string): Promise<Found> {
@@ -36,7 +41,7 @@ async function find(token: string): Promise<Found> {
   return { kind: 'task', task, userId: claims.userId };
 }
 
-peopleTaskLinksRouter.get('/people/task-links/:token', async (req, res) => {
+peopleTaskLinksRouter.get('/people/task-links/:token', check({ params: TOKEN_PARAMS }), async (req, res) => {
   const found = await find(String(req.params.token || ''));
   if (found.kind === 'page') return res.status(found.status).type('html').send(found.html);
   const { task } = found;
@@ -48,7 +53,7 @@ peopleTaskLinksRouter.get('/people/task-links/:token', async (req, res) => {
   res.type('html').send(page(task.title, `For ${esc(person?.name || 'a colleague')}.${due}`, { form }));
 });
 
-peopleTaskLinksRouter.post('/people/task-links/:token', urlencoded({ extended: false, limit: '1kb' }), async (req, res) => {
+peopleTaskLinksRouter.post('/people/task-links/:token', urlencoded({ extended: false, limit: '1kb' }), check({ params: TOKEN_PARAMS, body: noBody }), async (req, res) => {
   const found = await find(String(req.params.token || ''));
   if (found.kind === 'page') return res.status(found.status).type('html').send(found.html);
   const { task, userId } = found;

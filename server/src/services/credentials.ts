@@ -307,12 +307,27 @@ async function load(id: string, orgId: string) {
   return c;
 }
 
+/**
+ * Write a change only if the credential is still as it was read: the same
+ * status (and, where given, the same expiry). Two people acting at once (one
+ * revokes while the other resumes) used to let the later write undo the
+ * earlier one, a revoked credential coming back to life. Now the second gets
+ * a 409 and reads it again.
+ */
+async function claim(c: { id: string; orgId: string; status: string; expiresAt: Date | null }, data: Record<string, unknown>, opts: { expiry?: boolean } = {}) {
+  const r = await runInTenant(c.orgId, () =>
+    platformPrisma.credential.updateMany({ where: { id: c.id, orgId: c.orgId, status: c.status, ...(opts.expiry ? { expiresAt: c.expiresAt } : {}) }, data })
+  );
+  if (!r.count) throw new CredentialError(409, 'Someone changed this credential a moment ago. Refresh to see it as it is now.', 'CREDENTIAL_CHANGED');
+  return runInTenant(c.orgId, () => platformPrisma.credential.findUniqueOrThrow({ where: { id: c.id } }));
+}
+
 /** Suspend: reversible. Lives only in the registry (KTD4). */
 export async function suspendCredential(id: string, orgId: string, actor: Actor, reason?: string | null) {
   const c = await load(id, orgId);
   if (c.status === 'REVOKED') throw new CredentialError(409, 'This credential is revoked; it cannot be paused.', 'CREDENTIAL_REVOKED');
   if (c.status === 'SUSPENDED') return c;
-  const row = await runInTenant(orgId, () => platformPrisma.credential.update({ where: { id }, data: { status: 'SUSPENDED', suspendedAt: new Date() } }));
+  const row = await claim(c, { status: 'SUSPENDED', suspendedAt: new Date() });
   await recordCredentialEvent(row, 'suspended', actor, { reason });
   return row;
 }
@@ -322,7 +337,7 @@ export async function resumeCredential(id: string, orgId: string, actor: Actor, 
   if (c.status === 'REVOKED') throw new CredentialError(409, 'This credential is revoked; make a new one.', 'CREDENTIAL_REVOKED');
   if (c.expiresAt && c.expiresAt <= now) throw new CredentialError(409, `This credential expired on ${c.expiresAt.toISOString().slice(0, 10)}; rotate it or extend its expiry.`, 'CREDENTIAL_EXPIRED');
   if (c.status === 'ACTIVE') return c;
-  const row = await runInTenant(orgId, () => platformPrisma.credential.update({ where: { id }, data: { status: 'ACTIVE', suspendedAt: null } }));
+  const row = await claim(c, { status: 'ACTIVE', suspendedAt: null });
   await recordCredentialEvent(row, 'resumed', actor, { reason });
   return row;
 }
@@ -331,9 +346,12 @@ export async function resumeCredential(id: string, orgId: string, actor: Actor, 
 export async function revokeCredential(id: string, orgId: string, actor: Actor, reason?: string | null) {
   const c = await load(id, orgId);
   if (c.status === 'REVOKED') return c;
-  const row = await runInTenant(orgId, () =>
-    platformPrisma.credential.update({ where: { id }, data: { status: 'REVOKED', revokedAt: new Date(), revokedReason: reason ?? null } })
+  /* Revoke wins over a pause or resume made at the same moment; only a revoke already done is left alone. */
+  const r = await runInTenant(orgId, () =>
+    platformPrisma.credential.updateMany({ where: { id, orgId, status: { not: 'REVOKED' } }, data: { status: 'REVOKED', revokedAt: new Date(), revokedReason: reason ?? null } })
   );
+  const row = await runInTenant(orgId, () => platformPrisma.credential.findUniqueOrThrow({ where: { id } }));
+  if (!r.count) return row;
   await recordCredentialEvent(row, 'revoked', actor, { reason });
   return row;
 }
@@ -344,7 +362,7 @@ export async function extendCredential(id: string, orgId: string, until: Date, a
   if (c.status === 'REVOKED') throw new CredentialError(409, 'This credential is revoked; make a new one.', 'CREDENTIAL_REVOKED');
   if (!(until instanceof Date) || Number.isNaN(until.getTime()) || until <= now) throw new CredentialError(400, 'Choose a date in the future.', 'BAD_EXPIRY');
   if (until.getTime() > now.getTime() + YEAR_MS) throw new CredentialError(400, 'An expiry can be at most one year from today.', 'EXPIRY_TOO_FAR');
-  const row = await runInTenant(orgId, () => platformPrisma.credential.update({ where: { id }, data: { expiresAt: until } }));
+  const row = await claim(c, { expiresAt: until }, { expiry: true });
   await recordCredentialEvent(row, 'extended', actor, { metadata: { from: c.expiresAt?.toISOString() ?? null, to: until.toISOString() } });
   return row;
 }
@@ -366,7 +384,8 @@ export async function rotateCredential(
   if (c.status === 'REVOKED') throw new CredentialError(409, 'This credential is revoked; make a new one.', 'CREDENTIAL_REVOKED');
   const [, successor] = await runInTenant(orgId, () =>
     platformPrisma.$transaction([
-      platformPrisma.credential.update({ where: { id }, data: { status: 'REVOKED', revokedAt: new Date(), revokedReason: 'rotated' } }),
+      /* Only from the status read: a revoke landing first must not get a live successor. */
+      platformPrisma.credential.update({ where: { id, status: c.status }, data: { status: 'REVOKED', revokedAt: new Date(), revokedReason: 'rotated' } }),
       platformPrisma.credential.create({
         data: {
           accountId: c.accountId,
@@ -385,6 +404,7 @@ export async function rotateCredential(
     ])
   ).catch((e: any) => {
     if (e?.code === 'P2002') throw new CredentialError(409, 'This credential was just rotated; refresh to see the new one.', 'ALREADY_ROTATED');
+    if (e?.code === 'P2025') throw new CredentialError(409, 'Someone changed this credential a moment ago. Refresh to see it as it is now.', 'CREDENTIAL_CHANGED');
     throw e;
   });
   await recordCredentialEvent(c, 'rotated', actor, { reason, metadata: { successorId: successor.id } });

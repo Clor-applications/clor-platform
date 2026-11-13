@@ -9,6 +9,8 @@ import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/peopl
 import { inScope, teamScope } from '../services/people/scope.js';
 import { changes, joiners, leavers, overview, taskQueue } from '../services/people/lifecycle/board.js';
 import { leavingReasonAccess, seesLeavings } from '../services/people/companyChoices.js';
+import { z } from 'zod';
+import { check, id, idParams, q, qInt, text } from '../middleware/validate.js';
 
 /**
  * Joining & Leaving (docs/people/design-v1/JOINING-LEAVING-DECISIONS.md):
@@ -40,6 +42,14 @@ async function ctxOf(req: Request) {
     hr: !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, EMPLOYEES)),
   };
 }
+/*
+ * What a list takes in its query string, checked before the handler (middleware/validate.ts). A view or a kind
+ * that is not one reads as the usual one, and a page size or a start out of range is brought into range (the
+ * service's own fallbacks), so only something that is not a word or a whole number is refused.
+ */
+const PAGE = { view: q(text(40)), q: q(text(2000)), limit: qInt(-1_000_000_000, 1_000_000_000), offset: qInt(-1_000_000_000, 1_000_000_000) };
+const PAGE_QUERY = z.object(PAGE);
+const TASKS_QUERY = z.object({ ...PAGE, kind: q(text(40)), employeeId: q(id) });
 const paging = (req: Request) => ({ view: String(req.query.view || ''), q: String(req.query.q || '').slice(0, 100), limit: Number(req.query.limit) || 25, offset: Number(req.query.offset) || 0 });
 
 peopleLifecycleRouter.get(`${base}/overview`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
@@ -47,23 +57,23 @@ peopleLifecycleRouter.get(`${base}/overview`, can(PermissionAction.VIEW, EMPLOYE
   res.json(await overview(await ctxOf(req)));
 });
 
-peopleLifecycleRouter.get(`${base}/joiners`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleLifecycleRouter.get(`${base}/joiners`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: PAGE_QUERY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   res.json(await joiners(await ctxOf(req), paging(req)));
 });
 
-peopleLifecycleRouter.get(`${base}/leavers`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleLifecycleRouter.get(`${base}/leavers`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: PAGE_QUERY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   res.json(await leavers(await ctxOf(req), paging(req)));
 });
 
-peopleLifecycleRouter.get(`${base}/changes`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleLifecycleRouter.get(`${base}/changes`, can(PermissionAction.VIEW, EMPLOYEES), check({ query: PAGE_QUERY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   res.json(await changes(await ctxOf(req), paging(req)));
 });
 
 /** The task queue: anyone signed in to the company sees their own; the Employees right widens it to their scope. */
-peopleLifecycleRouter.get(`${base}/tasks`, async (req, res) => {
+peopleLifecycleRouter.get(`${base}/tasks`, check({ query: TASKS_QUERY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const ctx = await ctxOf(req);
   const employeeId = req.query.employeeId ? String(req.query.employeeId) : undefined;
@@ -76,7 +86,7 @@ peopleLifecycleRouter.get(`${base}/tasks`, async (req, res) => {
  * will report to after the last day (the next manager up), what they hold
  * from the asset register.
  */
-peopleLifecycleRouter.get(`${base}/leaving-preview/:id`, can(PermissionAction.VIEW, EMPLOYEES), async (req, res) => {
+peopleLifecycleRouter.get(`${base}/leaving-preview/:id`, can(PermissionAction.VIEW, EMPLOYEES), check({ params: idParams }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { orgId } = req.tenant!;
   const scope = await teamScope(req);

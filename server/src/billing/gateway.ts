@@ -31,6 +31,8 @@ export type NormalizedEvent = {
   reference?: string | null;
   /** A payment link for one of CLOR's invoices was paid (billing/payLinks.ts). */
   invoice?: { invoiceId: string | null; linkId: string; amountPaid: number | null };
+  /** When the provider says the event happened, if it says. Puts a late event behind a newer one (billing/events.ts). */
+  occurredAt?: Date;
   raw: unknown;
 };
 

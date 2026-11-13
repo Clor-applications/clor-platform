@@ -65,7 +65,8 @@ describe('UPI Direct', () => {
 
     /* A wrong UTR is refused with a reason; a right one is taken once. */
     const bad = await request(app).post(`/pay/${token}/claim`).type('form').send({ utr: '12ab' }).expect(303);
-    expect(decodeURIComponent(bad.headers.location)).toMatch(/does not look like a UTR/);
+    expect(bad.headers.location).toMatch(/\?err=utr$/);
+    expect((await request(app).get(bad.headers.location).expect(200)).text).toMatch(/does not look like a UTR/);
     await request(app).post(`/pay/${token}/claim`).type('form').send({ utr: '428917365012', payerName: 'Ravi <script>' }).expect(303);
     const after = await request(app).get(`/pay/${token}`).expect(200);
     expect(after.text).toContain('428917365012');
@@ -108,7 +109,8 @@ describe('UPI Direct', () => {
     const third = (await request(app).post(`/api/orgs/${owner.orgId}/pay-requests`).set(auth(owner)).send({ docId: other.id, payeeVpa: 'a@okicici', payeeName: 'A' }).expect(201)).body;
     await request(app).post(`/pay/${tokenOf(second.url)}/claim`).type('form').send({ utr: '999900001111' }).expect(303);
     const reused = await request(app).post(`/pay/${tokenOf(third.url)}/claim`).type('form').send({ utr: '999900001111' }).expect(303);
-    expect(decodeURIComponent(reused.headers.location)).toMatch(/already given/);
+    expect(reused.headers.location).toMatch(/\?err=used$/);
+    expect((await request(app).get(reused.headers.location).expect(200)).text).toMatch(/already given/);
     /* Another company sees none of it and cannot confirm or cancel it. */
     const rival = await makeOwner();
     expect((await request(app).get(`/api/orgs/${rival.orgId}/pay-requests`).set(auth(rival)).expect(200)).body.requests).toEqual([]);

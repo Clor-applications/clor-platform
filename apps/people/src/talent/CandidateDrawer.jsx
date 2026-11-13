@@ -192,7 +192,19 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
           help={sub.kind === 'reject' ? 'Say why. It stays on their card.' : 'Say why they withdrew.'}
           suggestions={sub.kind === 'reject' ? ['Not enough experience', 'Salary expectation too high', 'Did not attend the interview', 'Another candidate chosen'] : ['Took another offer', 'Salary not enough', 'Moved away']}
           onClose={() => setSub(null)}
-          onDone={async (reason) => { await moveCandidate(id, sub.kind === 'reject' ? 'REJECTED' : 'WITHDRAWN', reason); notify.success('Saved.'); setSub(null); reload(); }} />
+          onDone={async (reason) => {
+            const to = sub.kind === 'reject' ? 'REJECTED' : 'WITHDRAWN';
+            try {
+              await moveCandidate(id, to, reason);
+            } catch (e) {
+              /* They accepted the offer meanwhile: closing their application now withdraws it, so ask first. */
+              if (e?.status !== 409 || e?.data?.code !== 'OFFER_ACCEPTED') throw e;
+              const go = await confirmDialog({ title: `${c.name} accepted the offer`, message: 'Close their application anyway? The accepted offer is withdrawn with it.', confirmLabel: 'Withdraw offer and close' });
+              if (!go) { setSub(null); reload(); return; }
+              await moveCandidate(id, to, reason, { overAcceptedOffer: true });
+            }
+            notify.success('Saved.'); setSub(null); reload();
+          }} />
       ) : null}
     </Drawer>
   );

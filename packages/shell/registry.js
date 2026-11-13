@@ -5,6 +5,7 @@ import { payrollApp } from '../../apps/payroll/manifest.jsx';
 import { attendanceApp } from '../../apps/attendance/manifest.jsx';
 import { peopleApp } from '../../apps/people/manifest.jsx';
 import { adminApp } from '../../apps/admin/manifest.jsx';
+import { INCLUDED_IN, includedIn, resolveIncludedLink, shownApps } from '@platform/includedApps';
 
 /**
  * The applications CLOR is made of.
@@ -47,13 +48,31 @@ export const appById = (id) => APPS.find((a) => a.id === id) || null;
  * The apps this tenant has bought — and the platform's own workspace
  * (Workspace, ADR-010), which nobody buys and every company has. What a
  * person sees inside it is still decided item by item, by permission.
+ *
+ * An app the company has inside another is not listed apart: with People,
+ * Attendance is People's Time menu (@platform/includedApps). `all` lists every
+ * app as it is, for the sample company somebody is exploring.
  */
-export const subscribedApps = (subscriptions) =>
-  APPS.filter((a) => a.available && (a.platform || subscriptions.includes(a.id)));
+const listed = (subscriptions, all) => (all ? subscriptions || [] : shownApps(subscriptions || []));
 
-/** The products it has not (the platform workspace is never for sale). */
-export const availableApps = (subscriptions) =>
-  APPS.filter((a) => !a.platform && !subscriptions.includes(a.id));
+export const subscribedApps = (subscriptions, { all = false } = {}) => {
+  const mine = listed(subscriptions, all);
+  return APPS.filter((a) => a.available && (a.platform || mine.includes(a.id)));
+};
+
+/** The products it has not (the platform workspace is never for sale), nor has inside another. */
+export const availableApps = (subscriptions, { all = false } = {}) =>
+  APPS.filter((a) => !a.platform && !(subscriptions || []).includes(a.id) && (all || !includedIn(a.id, subscriptions || [])));
+
+/** The catalogue as this company is shown it: every app, less one it has inside another. */
+export const catalogueFor = (subscriptions, { all = false } = {}) => (all ? APPS : APPS.filter((a) => !includedIn(a.id, subscriptions || [])));
+
+/**
+ * Where a link into an app lands for this company: Attendance's screens are
+ * People's for a company on People. `{ app, screen, moved }`.
+ */
+export const landingFor = (link, subscriptions, { all = false } = {}) =>
+  all ? { app: link.app, screen: link.screen || '', moved: false } : resolveIncludedLink(link, subscriptions || [], appById(INCLUDED_IN[link.app])?.screens || {});
 
 /**
  * Where somebody lands.
@@ -62,9 +81,9 @@ export const availableApps = (subscriptions) =>
  * arrive in a ledger it does not keep. Several means Accounting, because that
  * is where the day starts for the companies that have both.
  */
-export const landingApp = (subscriptions) => {
+export const landingApp = (subscriptions, opts) => {
   /* A product, never the admin workspace: on an app's own address that app opens, and only the front door opens the workspace. */
-  const mine = subscribedApps(subscriptions).filter((a) => !a.platform);
+  const mine = subscribedApps(subscriptions, opts).filter((a) => !a.platform);
   if (mine.length === 1) return mine[0];
   return mine.find((a) => a.id === 'accounting') || mine[0] || null;
 };
