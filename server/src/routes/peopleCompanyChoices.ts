@@ -10,6 +10,8 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { CHOICE_KEYS, ChoiceError, choicesScreen, mayChange, readsRevisionsAsHr, saveChoice, type ChoiceKey } from '../services/people/companyChoices.js';
 import { todayIst } from '../utils/istDate.js';
+import { z } from 'zod';
+import { check, flag, rawText, text } from '../middleware/validate.js';
 
 /**
  * People → Settings → Company choices (docs/people/workflow-engine/SPEC.md 3, 8.1): the decisions HR and the owner
@@ -38,7 +40,8 @@ peopleCompanyChoicesRouter.get(`${base}/company-choices`, view, handle(async (re
   res.set('Cache-Control', 'private, no-store').json(await choicesScreen(req));
 }));
 
-peopleCompanyChoicesRouter.put(`${base}/company-choices/:key`, view, handle(async (req, res) => {
+/* A choice is a switch or one of the options shown; which, and the words for anything else, are the service's (companyChoices.ts). */
+peopleCompanyChoicesRouter.put(`${base}/company-choices/:key`, view, check({ params: z.object({ key: text(80) }), body: z.object({ value: z.union([flag, rawText(80)]).nullish() }) }), handle(async (req, res) => {
   const key = String(req.params.key) as ChoiceKey;
   if (!CHOICE_KEYS.includes(key)) return res.status(404).json({ error: 'No such choice.' });
   const may = await mayChange(req, key);

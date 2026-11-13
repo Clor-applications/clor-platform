@@ -11,6 +11,8 @@ import { correlationOf } from '../services/people/employees.js';
 import { teamScope } from '../services/people/scope.js';
 import { FormError, TEMPLATES, createForm, fileFor, formsFor, listForms, myFormRequests, raise, replyOwn, report, updateForm, useTemplate, withdrawOwn } from '../services/people/requestForms.js';
 import { MAX_SWAP_DAYS, MIN_REST_HOURS, SwapError, cancelSwap, listSwaps } from '../services/people/shiftSwaps.js';
+import { z } from 'zod';
+import { check, flag, idParams, jsonObject, list, noBody, q, rawText, text } from '../middleware/validate.js';
 
 /**
  * Request types HR makes (gap 25) and shift swaps (gap 24), People's side.
@@ -42,6 +44,36 @@ const fail = (res: Response, e: unknown) => {
 };
 const dateOf = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far
+ * too long is refused with a 400; keys not named here are dropped. A missing name, too many fields, a choice
+ * with one option, days out of range: those stay the service's (requestForms.ts cleanBody, cleanFields), in its
+ * own words and with its codes.
+ */
+const FORM_FIELD = z.object({
+  /* An existing field's key is kept only when it is exactly one, so it is left as typed. */
+  key: rawText(200).nullish(), label: text(2000).nullish(), type: text(40).nullish(), required: flag.nullish(),
+  /* A list, or one string with an option to a line. */
+  options: z.union([list(z.union([z.string().max(2000), z.number()]), 1000), rawText(50_000)]).nullish(),
+});
+const FORM_TYPE_BODY = z.object({
+  name: text(2000).nullish(), description: text(5000).nullish(), fields: list(FORM_FIELD, 500).nullish(),
+  audience: text(40).nullish(), departmentIds: list(text(200), 5000).nullish(),
+  /* A number, or the box's text; empty and null both mean the usual two days. */
+  slaDays: z.union([z.number(), text(40)]).nullish(),
+  approver: text(40).nullish(), active: flag.nullish(), template: text(80).nullish(),
+});
+const ASK_BODY = z.object({
+  /* Keyed by the fields HR wrote for this form, so free-form here: the service checks each answer against its field. */
+  answers: jsonObject(500).nullish(),
+  /* Files as data URLs: the route's body may be 7 MB (app.ts). */
+  files: z.record(z.string().max(200), z.object({ name: text(2000).nullish(), dataUrl: rawText(7_400_000).nullish() }).nullish()).nullish(),
+  idempotencyKey: text(2000).nullish(),
+});
+const NOTE_BODY = z.object({ note: text(20_000).nullish() });
+/* A status that is not one lists every status, and a day that is not one is left out (the handler's and the service's fallbacks): short text is all that is asked. */
+const REPORT_QUERY = z.object({ formId: q(text(80)), status: q(text(40)), from: q(text(40)), to: q(text(40)), format: q(text(20)) });
+
 // ---- Request types (HR) ------------------------------------------------------
 
 peopleRequestsRouter.get(`${base}/request-forms`, can(PermissionAction.VIEW, A), async (req, res) => {
@@ -51,7 +83,7 @@ peopleRequestsRouter.get(`${base}/request-forms`, can(PermissionAction.VIEW, A),
   res.json({ forms, templates: Object.entries(TEMPLATES).map(([key, t]) => ({ key, name: t.name, description: t.description, fields: t.fields, approver: t.approver, on: used.has(key) && forms.some((f) => f.template === key && f.active) })) });
 });
 
-peopleRequestsRouter.post(`${base}/request-forms`, can(PermissionAction.EDIT, A), async (req, res) => {
+peopleRequestsRouter.post(`${base}/request-forms`, can(PermissionAction.EDIT, A), check({ body: FORM_TYPE_BODY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     res.status(201).json({ form: await createForm(who(req), req.body || {}) });
@@ -60,7 +92,7 @@ peopleRequestsRouter.post(`${base}/request-forms`, can(PermissionAction.EDIT, A)
   }
 });
 
-peopleRequestsRouter.put(`${base}/request-forms/:id`, can(PermissionAction.EDIT, A), async (req, res) => {
+peopleRequestsRouter.put(`${base}/request-forms/:id`, can(PermissionAction.EDIT, A), check({ params: idParams, body: FORM_TYPE_BODY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     res.json({ form: await updateForm(who(req), String(req.params.id), req.body || {}) });
@@ -70,7 +102,7 @@ peopleRequestsRouter.put(`${base}/request-forms/:id`, can(PermissionAction.EDIT,
 });
 
 /** Switch on a ready-made request type: ID card, salary certificate, asset request. */
-peopleRequestsRouter.post(`${base}/request-forms/templates/:key`, can(PermissionAction.EDIT, A), async (req, res) => {
+peopleRequestsRouter.post(`${base}/request-forms/templates/:key`, can(PermissionAction.EDIT, A), check({ params: z.object({ key: text(80) }), body: noBody }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     res.status(201).json({ form: await useTemplate(who(req), String(req.params.key)) });
@@ -80,7 +112,7 @@ peopleRequestsRouter.post(`${base}/request-forms/templates/:key`, can(Permission
 });
 
 /** Every request of HR's own types in a period, with a line per type. `?format=csv` for a spreadsheet. */
-peopleRequestsRouter.get(`${base}/request-forms/report`, can(PermissionAction.VIEW, A), async (req, res) => {
+peopleRequestsRouter.get(`${base}/request-forms/report`, can(PermissionAction.VIEW, A), check({ query: REPORT_QUERY }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const out = await report(req.tenant!.orgId, { formId: typeof req.query.formId === 'string' ? req.query.formId : null, status: typeof req.query.status === 'string' ? req.query.status : null, from: dateOf(req.query.from), to: dateOf(req.query.to) });
   if (req.query.format !== 'csv') return res.json(out);
@@ -98,7 +130,7 @@ peopleRequestsRouter.get(`${base}/request-forms/report`, can(PermissionAction.VI
 });
 
 /** A file on a request, for someone who decides it, or HR. */
-peopleRequestsRouter.get(`${base}/request-forms/files/:id`, can(PermissionAction.VIEW, PEOPLE_RESOURCE.requests), async (req, res) => {
+peopleRequestsRouter.get(`${base}/request-forms/files/:id`, can(PermissionAction.VIEW, PEOPLE_RESOURCE.requests), check({ params: idParams }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     const hr = !(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, A));
@@ -129,7 +161,7 @@ peopleRequestsRouter.get(`${base}/my/request-forms`, self(PermissionAction.VIEW)
   res.json({ forms, requests });
 });
 
-peopleRequestsRouter.post(`${base}/my/request-forms/:id`, self(PermissionAction.CREATE), async (req, res) => {
+peopleRequestsRouter.post(`${base}/my/request-forms/:id`, self(PermissionAction.CREATE), check({ params: idParams, body: ASK_BODY }), async (req, res) => {
   const me = await meOr404(req, res);
   if (!me) return;
   try {
@@ -140,7 +172,7 @@ peopleRequestsRouter.post(`${base}/my/request-forms/:id`, self(PermissionAction.
   }
 });
 
-peopleRequestsRouter.post(`${base}/my/form-requests/:id/reply`, self(PermissionAction.CREATE), async (req, res) => {
+peopleRequestsRouter.post(`${base}/my/form-requests/:id/reply`, self(PermissionAction.CREATE), check({ params: idParams, body: NOTE_BODY }), async (req, res) => {
   const me = await meOr404(req, res);
   if (!me) return;
   try {
@@ -150,7 +182,7 @@ peopleRequestsRouter.post(`${base}/my/form-requests/:id/reply`, self(PermissionA
   }
 });
 
-peopleRequestsRouter.post(`${base}/my/form-requests/:id/withdraw`, self(PermissionAction.CREATE), async (req, res) => {
+peopleRequestsRouter.post(`${base}/my/form-requests/:id/withdraw`, self(PermissionAction.CREATE), check({ params: idParams, body: noBody }), async (req, res) => {
   const me = await meOr404(req, res);
   if (!me) return;
   try {
@@ -160,7 +192,7 @@ peopleRequestsRouter.post(`${base}/my/form-requests/:id/withdraw`, self(Permissi
   }
 });
 
-peopleRequestsRouter.get(`${base}/my/form-files/:id`, self(PermissionAction.VIEW), async (req, res) => {
+peopleRequestsRouter.get(`${base}/my/form-files/:id`, self(PermissionAction.VIEW), check({ params: idParams }), async (req, res) => {
   const me = await meOr404(req, res);
   if (!me) return;
   try {
@@ -173,7 +205,7 @@ peopleRequestsRouter.get(`${base}/my/form-files/:id`, self(PermissionAction.VIEW
 
 // ---- Shift swaps (HR: everyone; a manager: their team) ----------------------
 
-peopleRequestsRouter.get(`${base}/shift-swaps`, can(PermissionAction.VIEW, PEOPLE_RESOURCE.requests), async (req, res) => {
+peopleRequestsRouter.get(`${base}/shift-swaps`, can(PermissionAction.VIEW, PEOPLE_RESOURCE.requests), check({ query: z.object({ status: q(text(40)) }) }), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const scope = await teamScope(req);
   const swaps = await listSwaps(req.tenant!.orgId, scope.all ? { all: true, ids: [] } : { all: false, ids: scope.ids }, { status: typeof req.query.status === 'string' ? req.query.status : null });
@@ -182,7 +214,7 @@ peopleRequestsRouter.get(`${base}/shift-swaps`, can(PermissionAction.VIEW, PEOPL
 });
 
 /** HR takes back an approved swap that has not started: the schedules go, and both are told. */
-peopleRequestsRouter.post(`${base}/shift-swaps/:id/cancel`, can(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), async (req, res) => {
+peopleRequestsRouter.post(`${base}/shift-swaps/:id/cancel`, can(PermissionAction.EDIT, PEOPLE_RESOURCE.employees), check({ params: idParams, body: NOTE_BODY }), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const scope = await teamScope(req);
   if (!scope.all) return res.status(403).json({ error: 'Only HR can cancel a swap.' });

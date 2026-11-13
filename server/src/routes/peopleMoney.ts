@@ -12,6 +12,8 @@ import {
 } from '../services/people/money/expenses.js';
 import { listAsks, sendAgain } from '../services/people/money/salaryAdvance.js';
 import { reimbursementComponent } from '../services/people/money/payrollBridge.js';
+import { z } from 'zod';
+import { check, flag, idParams, id, list, noBody, q, rawText, text } from '../middleware/validate.js';
 
 /**
  * Expenses, advances and salary advances for HR, owners and approvers
@@ -45,23 +47,37 @@ const run = (fn: (req: Request, res: Response) => Promise<unknown>) => async (re
   }
 };
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; whether a field must be there, and the words for it,
+ * stay the service's (money/expenses.ts). An amount comes as a number or as it was typed ("" is none), and a day
+ * may come with a time after it: the service reads both, so both pass here.
+ */
+const AMOUNT = z.union([z.number(), text(40)]).nullish();
+const DAY = text(40).nullish();
+const CATEGORY = z.object({ name: text(200).nullish(), limitPerBill: AMOUNT, creditBlocked: flag.nullish(), active: flag.nullish() });
+/* A bill's photo is a data URL, within what one request may carry. */
+const LINE = z.object({ spentOn: DAY, categoryId: text(80).nullish(), amount: AMOUNT, merchant: text(1000).nullish(), note: text(5000).nullish(), companyGstin: flag.nullish(), supplierGstin: text(40).nullish(), taxAmount: AMOUNT, bill: rawText(10_000_000).nullish(), billName: text(1000).nullish(), notDuplicate: flag.nullish() });
+const PAID = z.object({ mode: text(40).nullish(), paidOn: DAY, method: text(40).nullish(), reference: text(1000).nullish() });
+const RANGE = { from: q(text(40)), to: q(text(40)) };
+
 // ---- Categories -------------------------------------------------------------
 
 peopleMoneyRouter.get(`${base}/categories`, can(PermissionAction.VIEW, EXPENSES), run(async (req, res) => {
   res.json({ categories: await categories(req.tenant!.accountId, req.tenant!.orgId, { all: true }) });
 }));
 
-peopleMoneyRouter.post(`${base}/categories`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/categories`, can(PermissionAction.EDIT, EXPENSES), check({ body: CATEGORY }), run(async (req, res) => {
   res.status(201).json({ category: await saveCategory(req.tenant!, req.body || {}) });
 }));
 
-peopleMoneyRouter.put(`${base}/categories/:id`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.put(`${base}/categories/:id`, can(PermissionAction.EDIT, EXPENSES), check({ params: idParams, body: CATEGORY }), run(async (req, res) => {
   res.json({ category: await saveCategory(req.tenant!, { ...(req.body || {}), id: String(req.params.id) }) });
 }));
 
 // ---- Claims -----------------------------------------------------------------
 
-peopleMoneyRouter.get(`${base}/claims`, can(PermissionAction.VIEW, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.get(`${base}/claims`, can(PermissionAction.VIEW, EXPENSES), check({ query: z.object({ status: q(text(40)), employeeId: q(text(80)) }) }), run(async (req, res) => {
   const [claims, component] = await Promise.all([
     listClaims(req.tenant!.orgId, { status: String(req.query.status || '') || undefined, employeeId: String(req.query.employeeId || '') || undefined }),
     reimbursementComponent(req.tenant!.orgId).catch(() => null),
@@ -71,21 +87,21 @@ peopleMoneyRouter.get(`${base}/claims`, can(PermissionAction.VIEW, EXPENSES), ru
 }));
 
 /** HR records a claim on someone's behalf (a paper bill handed over): the same shape as the app's, sent for approval under the person's name. The grant that pays and settles claims (Expenses: Edit) records one too. */
-peopleMoneyRouter.post(`${base}/claims`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/claims`, can(PermissionAction.EDIT, EXPENSES), check({ body: z.object({ employeeId: text(80).nullish(), title: text(1000).nullish(), advanceId: text(80).nullish(), lines: list(LINE, 500).nullish() }) }), run(async (req, res) => {
   res.status(201).json({ claim: await recordClaim(staffOf(req), req.body || {}) });
 }));
 
-peopleMoneyRouter.get(`${base}/claims/:id`, can(PermissionAction.VIEW, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.get(`${base}/claims/:id`, can(PermissionAction.VIEW, EXPENSES), check({ params: idParams }), run(async (req, res) => {
   res.json({ claim: await claimForStaff(req.tenant!.orgId, String(req.params.id)) });
 }));
 
 /** Allow less on some bills, with the reason the person reads: for whoever the claim waits on now. */
-peopleMoneyRouter.post(`${base}/claims/:id/sanction`, can(PermissionAction.APPROVE, REQUESTS), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/claims/:id/sanction`, can(PermissionAction.APPROVE, REQUESTS), check({ params: idParams, body: z.object({ lines: list(z.object({ id: text(80).nullish(), approvedAmount: AMOUNT, reason: text(5000).nullish() }), 500).nullish() }) }), run(async (req, res) => {
   res.json({ claim: await sanction(staffOf(req), String(req.params.id), req.body || {}) });
 }));
 
 /** Pay with salary (a draft earning in Payroll: needs the right to add payroll adjustments) or paid now. */
-peopleMoneyRouter.post(`${base}/claims/:id/pay`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/claims/:id/pay`, can(PermissionAction.EDIT, EXPENSES), check({ params: idParams, body: PAID }), run(async (req, res) => {
   if (String(req.body?.mode || '').toUpperCase() === 'SALARY' && !(await holds(req, PAYROLL_MODULE, PermissionAction.CREATE, PAYROLL_RESOURCE.adjustments))) {
     return res.status(403).json({ error: 'Paying with salary adds a line to Payroll, and you may not add payroll adjustments. Mark it paid now, or ask whoever runs payroll.', code: 'NO_PAYROLL_RIGHT' });
   }
@@ -93,7 +109,7 @@ peopleMoneyRouter.post(`${base}/claims/:id/pay`, can(PermissionAction.EDIT, EXPE
 }));
 
 /** Paid-now claims and advances entered in Books by hand. */
-peopleMoneyRouter.post(`${base}/books-recorded`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/books-recorded`, can(PermissionAction.EDIT, EXPENSES), check({ body: z.object({ claimIds: list(text(80), 5000).nullish(), advanceIds: list(text(80), 5000).nullish() }) }), run(async (req, res) => {
   res.json(await markRecorded(req.tenant!.orgId, req.body || {}));
 }));
 
@@ -103,15 +119,15 @@ peopleMoneyRouter.get(`${base}/advances`, can(PermissionAction.VIEW, EXPENSES), 
   res.json({ advances: await listAdvances(req.tenant!.orgId) });
 }));
 
-peopleMoneyRouter.post(`${base}/advances/:id/pay`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/advances/:id/pay`, can(PermissionAction.EDIT, EXPENSES), check({ params: idParams, body: PAID }), run(async (req, res) => {
   res.json({ advance: await payAdvance(staffOf(req), String(req.params.id), req.body || {}) });
 }));
 
-peopleMoneyRouter.post(`${base}/advances/:id/returned`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/advances/:id/returned`, can(PermissionAction.EDIT, EXPENSES), check({ params: idParams, body: z.object({ amount: AMOUNT }) }), run(async (req, res) => {
   res.json(await closeAdvance(staffOf(req), String(req.params.id), 'RETURNED', req.body || {}));
 }));
 
-peopleMoneyRouter.post(`${base}/advances/:id/recover`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/advances/:id/recover`, can(PermissionAction.EDIT, EXPENSES), check({ params: idParams, body: noBody }), run(async (req, res) => {
   if (!(await holds(req, PAYROLL_MODULE, PermissionAction.CREATE, PAYROLL_RESOURCE.adjustments))) {
     return res.status(403).json({ error: 'Taking it from salary adds a line to Payroll, and you may not add payroll adjustments. Ask whoever runs payroll.', code: 'NO_PAYROLL_RIGHT' });
   }
@@ -125,7 +141,7 @@ peopleMoneyRouter.get(`${base}/salary-advances`, can(PermissionAction.VIEW, EXPE
 }));
 
 /** An approved salary advance Payroll could not take yet, sent again. Writing a loan needs Payroll's own right. */
-peopleMoneyRouter.post(`${base}/salary-advances/:id/send-to-payroll`, can(PermissionAction.EDIT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.post(`${base}/salary-advances/:id/send-to-payroll`, can(PermissionAction.EDIT, EXPENSES), check({ params: idParams, body: noBody }), run(async (req, res) => {
   if (!(await holds(req, PAYROLL_MODULE, PermissionAction.CREATE, PAYROLL_RESOURCE.loans))) {
     return res.status(403).json({ error: 'Only someone who may add payroll loans can send it to Payroll.', code: 'NO_PAYROLL_RIGHT' });
   }
@@ -135,13 +151,13 @@ peopleMoneyRouter.post(`${base}/salary-advances/:id/send-to-payroll`, can(Permis
 // ---- Approvers, reports, files -------------------------------------------------
 
 /** The record behind a money request in the Approvals inbox: for the people it waits on or who decided it, and HR. */
-peopleMoneyRouter.get(`${base}/requests/:requestId`, can(PermissionAction.VIEW, REQUESTS), run(async (req, res) => {
+peopleMoneyRouter.get(`${base}/requests/:requestId`, can(PermissionAction.VIEW, REQUESTS), check({ params: z.object({ requestId: id }) }), run(async (req, res) => {
   const all = await holds(req, PEOPLE_MODULE, PermissionAction.VIEW, EXPENSES);
   res.json(await detailForRequest(req.tenant!.orgId, String(req.params.requestId), req.auth!.userId, all));
 }));
 
 /** A bill's photo or PDF, sent as itself with the type its bytes proved at upload; never run in the page. */
-peopleMoneyRouter.get(`${base}/bills/:id`, can(PermissionAction.VIEW, REQUESTS), run(async (req, res) => {
+peopleMoneyRouter.get(`${base}/bills/:id`, can(PermissionAction.VIEW, REQUESTS), check({ params: idParams }), run(async (req, res) => {
   const all = await holds(req, PEOPLE_MODULE, PermissionAction.VIEW, EXPENSES);
   const f = await billFile(req.tenant!.orgId, String(req.params.id), { userId: req.auth!.userId, mayViewAll: all });
   res.setHeader('Content-Type', f.mime);
@@ -152,11 +168,11 @@ peopleMoneyRouter.get(`${base}/bills/:id`, can(PermissionAction.VIEW, REQUESTS),
   res.send(f.data);
 }));
 
-peopleMoneyRouter.get(`${base}/report`, can(PermissionAction.VIEW, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.get(`${base}/report`, can(PermissionAction.VIEW, EXPENSES), check({ query: z.object(RANGE) }), run(async (req, res) => {
   res.json(await report(req.tenant!.orgId, { from: String(req.query.from || ''), to: String(req.query.to || '') }));
 }));
 
-peopleMoneyRouter.get(`${base}/export.csv`, can(PermissionAction.EXPORT, EXPENSES), run(async (req, res) => {
+peopleMoneyRouter.get(`${base}/export.csv`, can(PermissionAction.EXPORT, EXPENSES), check({ query: z.object({ kind: q(text(40)), ...RANGE }) }), run(async (req, res) => {
   const kind = req.query.kind === 'books' ? 'books' : 'claims';
   const body = await exportCsv(req.tenant!.orgId, kind, { from: String(req.query.from || ''), to: String(req.query.to || '') });
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');

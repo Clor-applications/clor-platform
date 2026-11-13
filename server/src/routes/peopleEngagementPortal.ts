@@ -7,6 +7,8 @@ import { istDate } from '../services/attendance/compute.js';
 import '../services/people/engagement/index.js';
 import { ExitError, myInterview, submitInterview } from '../services/people/engagement/exitInterview.js';
 import { feedFor, setOptOut } from '../services/people/engagement/greetings.js';
+import { z } from 'zod';
+import { anyBody, check, flag } from '../middleware/validate.js';
 
 /**
  * The employee app's side of leaving and engagement (WORKFLOW-GAP-RESEARCH-2026-10-30 4.8, 4.9), behind
@@ -46,7 +48,8 @@ peopleEngagementPortalRouter.get('/exit-interview', async (req, res) => {
   }
 });
 
-peopleEngagementPortalRouter.post('/exit-interview', async (req, res) => {
+/* The answers go whole into the service, which reads them with its own schema (exitInterview.ts answerSchema): checked here only for being an object. */
+peopleEngagementPortalRouter.post('/exit-interview', check({ body: anyBody }), async (req, res) => {
   try {
     const e = me(req);
     await submitInterview(e.orgId, e.id, { kind: 'EMPLOYEE', userId: e.userId || `portal:${e.id}`, accountId: e.accountId }, req.body);
@@ -66,7 +69,7 @@ peopleEngagementPortalRouter.get('/celebrations', async (req, res) => {
   }
 });
 
-peopleEngagementPortalRouter.put('/celebrations', async (req, res) => {
+peopleEngagementPortalRouter.put('/celebrations', check({ body: z.object({ optedOut: flag.nullish() }) }), async (req, res) => {
   try {
     const e = me(req);
     res.json(await setOptOut(e.orgId, e.accountId, e.id, Boolean(req.body?.optedOut), `portal:${e.id}`));

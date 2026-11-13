@@ -12,6 +12,7 @@ import { featureDisableBlocker, getFeatureCatalogWithValues, getFeatures, DETAIL
 import { appOfFeature, entitlementFor, needsAny, upgradeHintFor } from '../services/entitlements.js';
 import { appOwnershipReason } from '../services/subscriptions.js';
 import { MODULE_PACKS } from '../constants/planCatalog.js';
+import { editLogChanges } from '../middleware/auditMutations.js';
 
 export const featuresRouter = Router();
 featuresRouter.use(requireAuth, requireTenantContext);
@@ -167,6 +168,8 @@ featuresRouter.put(
         action: 'EDIT',
         message: `Features updated: ${Object.keys(body.features).join(', ')}`,
         createdByUserId: req.auth!.userId,
+        /* Which switches moved, from what to what (auditMutations.ts EDIT_LOG). */
+        changes: (await editLogChanges(req)) ?? undefined,
       },
     });
 

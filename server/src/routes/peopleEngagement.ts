@@ -19,6 +19,8 @@ import { ClearanceError, addLine, clearanceFor, ensureClearance, finalPayBoard, 
 import { ExitError, decideInterview, exitSettings, interviewFor, leavingReasons, resetExitSettings, saveExitSettings, submitInterview } from '../services/people/engagement/exitInterview.js';
 import { optedOut, setOptOut } from '../services/people/engagement/greetings.js';
 import { istDate } from '../services/attendance/compute.js';
+import { z } from 'zod';
+import { anyBody, check, flag, id, idParams, list, num, q, text } from '../middleware/validate.js';
 
 /**
  * Leaving and engagement, HR's and the manager's side (WORKFLOW-GAP-RESEARCH-2026-10-30 4.3, 4.7, 4.8, 4.9).
@@ -70,13 +72,31 @@ async function personIn(req: Request, res: Response) {
   return p;
 }
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; whether a field must be there, and the words for
+ * it, stay the services'. The exit interview, its outcome, the exit questions and the automations go whole into
+ * services that have their own schemas (exitInterview.ts answerSchema, decideSchema, settingsSchema;
+ * automations.ts saveSchema), so here they are only checked for being an object.
+ */
+/* A number a form may send as its text: the service makes the number and has the words for one that is not. */
+const amount = z.union([num(-1e15, 1e15), text(40)]);
+/* An id in a body: "" reads as none (a line handed back to nobody). */
+const ref = text(200);
+const LEAVER = z.object({ employeeId: id });
+const LINE_CHANGE = z.object({
+  direction: text(40).nullish(), amount: amount.nullish(), note: text(5000).nullish(), ownerUserId: ref.nullish(), sign: flag.nullish(), seenAt: text(80).nullish(),
+  /* The service keeps the first 40. */
+  items: list(z.object({ title: text(2000).nullish(), assetId: ref.nullish(), returned: flag.nullish() }), 500).nullish(),
+});
+
 /* ---------------------------------------------------------- the leaving plan */
 
 /**
  * The plan's Clearance, Final pay and Exit interview sections in one read. Someone on their own leaving reads
  * it as themself, not as HR (JCL-007), unless they are the only one who can do HR's part.
  */
-peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
+peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.VIEW, R.employees), check({ params: LEAVER }), handle(async (req, res) => {
   const orgId = req.tenant!.orgId;
   const userId = req.auth!.userId;
   const id = String(req.params.employeeId);
@@ -118,7 +138,7 @@ peopleEngagementRouter.get(`${base}/leaving/:employeeId`, ppl(PermissionAction.V
   res.json({ person, clearance, finalPay, interview: interview ? { ...interview, appAccess } : null, canEdit: hr });
 }));
 
-peopleEngagementRouter.post(`${base}/leaving/:employeeId/clearance-lines`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
+peopleEngagementRouter.post(`${base}/leaving/:employeeId/clearance-lines`, ppl(PermissionAction.EDIT, R.employees), check({ params: LEAVER, body: z.object({ label: text(2000).nullish(), ownerUserId: ref.nullish() }) }), hrOnly(async (req, res) => {
   const p = await personIn(req, res);
   if (!p) return;
   const line = await addLine(who(req), p.id, { label: req.body?.label, ownerUserId: req.body?.ownerUserId || null });
@@ -127,7 +147,7 @@ peopleEngagementRouter.post(`${base}/leaving/:employeeId/clearance-lines`, ppl(P
 }));
 
 /** Sign off, or change, one line: its owner or HR (the service decides which change each may make). */
-peopleEngagementRouter.patch(`${base}/clearance-lines/:id`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
+peopleEngagementRouter.patch(`${base}/clearance-lines/:id`, ppl(PermissionAction.VIEW, R.employees), check({ params: idParams, body: LINE_CHANGE }), handle(async (req, res) => {
   const line = await peoplePrisma.clearanceLine.findFirst({ where: { id: String(req.params.id), orgId: req.tenant!.orgId }, select: { employeeId: true } });
   if (!line || !inScope(await teamScope(req), line.employeeId)) {
     /* An owner outside the scope (IT signing for anyone) still signs their own line. */
@@ -140,7 +160,7 @@ peopleEngagementRouter.patch(`${base}/clearance-lines/:id`, ppl(PermissionAction
   res.json({ line: out });
 }));
 
-peopleEngagementRouter.delete(`${base}/clearance-lines/:id`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
+peopleEngagementRouter.delete(`${base}/clearance-lines/:id`, ppl(PermissionAction.EDIT, R.employees), check({ params: idParams }), hrOnly(async (req, res) => {
   const line = await removeLine(who(req), String(req.params.id));
   await recordAudit(req, { entity: 'ClearanceLine', entityId: line.id, action: 'DELETE', message: `No-dues line removed: ${line.label}`, metadata: { employeeId: line.employeeId } });
   res.json({ ok: true });
@@ -156,7 +176,7 @@ peopleEngagementRouter.get(`${base}/final-pay`, ppl(PermissionAction.VIEW, R.emp
 
 /* ------------------------------------------------------------ exit interview */
 
-peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
+peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview`, ppl(PermissionAction.EDIT, R.employees), check({ params: LEAVER, body: anyBody }), hrOnly(async (req, res) => {
   const p = await personIn(req, res);
   if (!p) return;
   const row = await submitInterview(req.tenant!.orgId, p.id, { kind: 'HR', userId: req.auth!.userId, accountId: req.tenant!.accountId }, req.body);
@@ -164,7 +184,7 @@ peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview`, ppl(Pe
   res.json({ interview: await interviewFor(req.tenant!.orgId, p.id, { hr: true }) });
 }));
 
-peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview/outcome`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
+peopleEngagementRouter.post(`${base}/leaving/:employeeId/exit-interview/outcome`, ppl(PermissionAction.EDIT, R.employees), check({ params: LEAVER, body: anyBody }), hrOnly(async (req, res) => {
   const p = await personIn(req, res);
   if (!p) return;
   const row = await decideInterview(who(req), p.id, req.body);
@@ -177,7 +197,7 @@ peopleEngagementRouter.get(`${base}/exit-questions`, ppl(PermissionAction.VIEW, 
   res.json({ ...(await exitSettings(req.tenant!.orgId)), canEdit: await isHr(req) });
 }));
 
-peopleEngagementRouter.put(`${base}/exit-questions`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
+peopleEngagementRouter.put(`${base}/exit-questions`, ppl(PermissionAction.EDIT, R.employees), check({ body: anyBody }), hrOnly(async (req, res) => {
   const before = await exitSettings(req.tenant!.orgId);
   const out = await saveExitSettings(who(req), req.body);
   await recordAudit(req, { entity: 'EngagementSettings', entityId: req.tenant!.orgId, action: 'UPDATE', message: 'Exit interview questions changed', metadata: { before, after: out } });
@@ -191,7 +211,7 @@ peopleEngagementRouter.delete(`${base}/exit-questions`, ppl(PermissionAction.EDI
 }));
 
 /** Leavers by month and reason, for the People report: HR only, as a team's counts would name the person. */
-peopleEngagementRouter.get(`${base}/reports/leaving-reasons`, ppl(PermissionAction.VIEW, R.lifecycle), hrOnly(async (req, res) => {
+peopleEngagementRouter.get(`${base}/reports/leaving-reasons`, ppl(PermissionAction.VIEW, R.lifecycle), check({ query: z.object({ months: q(z.coerce.number().min(-1e9).max(1e9)) }) }), hrOnly(async (req, res) => {
   const months = Math.max(3, Math.min(24, Number(req.query.months) || 12));
   res.json(await leavingReasons(req.tenant!.orgId, months));
 }));
@@ -213,7 +233,7 @@ peopleEngagementRouter.get(`${base}/assignees`, ppl(PermissionAction.EDIT, R.emp
 
 /* The old path of Settings → Automations: the same handlers as /orgs/:orgId/automations?module=people (routes/automations.ts). */
 peopleEngagementRouter.get(`${base}/automations`, ppl(PermissionAction.VIEW, R.employees), (req, res) => getAutomations(req, res, 'people'));
-peopleEngagementRouter.put(`${base}/automations`, ppl(PermissionAction.EDIT, R.employees), (req, res) => putAutomations(req, res, 'people'));
+peopleEngagementRouter.put(`${base}/automations`, ppl(PermissionAction.EDIT, R.employees), check({ body: anyBody }), (req, res) => putAutomations(req, res, 'people'));
 
 /* ------------------------------------------------------------- celebrations */
 
@@ -228,14 +248,14 @@ peopleEngagementRouter.get(`${base}/celebrations`, ppl(PermissionAction.VIEW, R.
 }));
 
 /** Whether this person is announced on birthdays and work anniversaries: their record, for whoever sees them; HR changes it. */
-peopleEngagementRouter.get(`${base}/employees/:id/celebrations`, ppl(PermissionAction.VIEW, R.employees), handle(async (req, res) => {
+peopleEngagementRouter.get(`${base}/employees/:id/celebrations`, ppl(PermissionAction.VIEW, R.employees), check({ params: idParams }), handle(async (req, res) => {
   const p = await personIn(req, res);
   if (!p) return;
   res.json({ optedOut: (await optedOut(req.tenant!.orgId)).has(p.id), canEdit: await isHr(req) });
 }));
 
 /** HR records someone's wish not to be announced (or the wish taken back), as the person can in the app. */
-peopleEngagementRouter.put(`${base}/employees/:id/celebrations`, ppl(PermissionAction.EDIT, R.employees), hrOnly(async (req, res) => {
+peopleEngagementRouter.put(`${base}/employees/:id/celebrations`, ppl(PermissionAction.EDIT, R.employees), check({ params: idParams, body: z.object({ optedOut: flag.nullish() }) }), hrOnly(async (req, res) => {
   const p = await personIn(req, res);
   if (!p) return;
   const out = Boolean(req.body?.optedOut);
