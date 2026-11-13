@@ -49,20 +49,40 @@ const startOf = (prev) => {
 };
 const daysTo = (iso) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10)}T00:00:00Z`)) / 86_400_000);
 
-/** A proof shown in its own window, as a data: frame with an opaque origin, never written into HTML. */
+/** The only kinds a proof is ever shown as; anything else is downloaded instead (the upload asks for these three). */
+const PROOF_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
+
+/**
+ * A proof opened in a tab of its own, as a blob of its own declared kind, so
+ * the browser's own viewer shows it and nothing is ever written into HTML.
+ *
+ * It was a `data:` frame until 13 Nov 2026. The app's content security policy
+ * is enforced from that day (PR #222) and allows frames from 'self' and blob:
+ * only, so the frame stayed blank: `frame-src` refused the data: address.
+ */
 function showFile(file, title) {
   const src = String(file?.dataUrl || '');
-  if (!/^data:[\w.+-]+\/[\w.+-]+[;,]/i.test(src)) return notify.error('That file cannot be shown.');
-  const w = window.open();
-  if (!w) return undefined;
+  const parsed = /^data:([\w.+-]+\/[\w.+-]+);base64,([A-Za-z0-9+/=\s]*)$/i.exec(src);
+  const type = (parsed?.[1] || '').toLowerCase();
+  if (!parsed || !PROOF_TYPES.includes(type)) return notify.error('That file cannot be shown here. Download it to open.');
+  let blob;
+  try {
+    const raw = atob(parsed[2].replace(/\s+/g, ''));
+    const bytes = Uint8Array.from(raw, (c) => c.charCodeAt(0));
+    blob = new Blob([bytes], { type });
+  } catch {
+    return notify.error('That file cannot be shown.');
+  }
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (!w) {
+    URL.revokeObjectURL(url);
+    return notify.error('Your browser stopped the new tab. Allow pop-ups for CLOR, then open the proof again.');
+  }
   w.opener = null;
-  w.document.title = title || 'Proof';
-  w.document.body.style.margin = '0';
-  const frame = w.document.createElement('iframe');
-  frame.src = src;
-  frame.title = title || 'Proof';
-  frame.style.cssText = 'border:0;width:100%;height:100vh;display:block';
-  w.document.body.appendChild(frame);
+  try { w.document.title = title || 'Proof'; } catch { /* the viewer names it itself */ }
+  /* The tab has its own copy once it has loaded; let the address go after that. */
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
   return undefined;
 }
 
