@@ -17,7 +17,8 @@ import { computeDay, istInstant, istTime, shiftRuleProblem, type ShiftRule } fro
 import { loadSchedule, resolveShift, toRule } from '../services/attendance/schedule.js';
 import { explainDay } from '../services/attendance/explain.js';
 import { dayDiff, daySnapshot, dayHistory } from '../services/attendance/history.js';
-import { monthReadiness, scanDays, scanQueues } from '../services/attendance/readiness.js';
+import { getMonthSnapshot, monthReadiness, scanDays, scanQueues } from '../services/attendance/readiness.js';
+import { payrollExportChoices, payrollExportFile, payrollExportLayout, type PayrollExportFormat } from '../services/attendance/payrollExport.js';
 import { overrideFindings, rangedFindings, temporaryFindings } from '../services/attendance/conflicts.js';
 import { CHAINS, hrMayDecide } from '../services/attendance/approvalChain.js';
 import { confirmationsFor, decideOvertime, overtimeChain } from '../services/attendance/selfService.js';
@@ -472,6 +473,44 @@ attendanceInsightsRouter.get(`${base}/months/:month/snapshots/:version`, can(Per
     rows: rows.filter((r) => inScope(scope, r.employeeId)),
     readiness: readiness ? { people: (readiness.people || []).filter((p: { employeeId: string }) => inScope(scope, p.employeeId)) } : null,
   });
+});
+
+/**
+ * A closed month for a payroll run outside CLOR: one row per employee with
+ * payable, loss-of-pay and overtime figures, in CLOR's own layout or the
+ * import layout of another payroll (services/attendance/payrollExport.ts).
+ * The same permission as the attendance reports (the muster roll among them),
+ * and like them the whole company's: a team-scoped role is refused.
+ */
+attendanceInsightsRouter.get(`${base}/payroll-export/layouts`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  res.json({ layouts: payrollExportChoices() });
+});
+
+attendanceInsightsRouter.get(`${base}/months/:month/payroll-export`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const month = String(req.params.month);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'The payroll export covers the whole company. Month close shows your team’s days.', code: 'TEAM_SCOPED' });
+  const layoutId = String(req.query.layout || 'generic');
+  const layout = payrollExportLayout(layoutId);
+  if (!layout) return res.status(400).json({ error: 'Choose a layout: Generic, greytHR, Keka or Tally.', code: 'NO_SUCH_LAYOUT' });
+  const format = String(req.query.format || layout.formats[0]) as PayrollExportFormat;
+  if (!layout.formats.includes(format)) return res.status(400).json({ error: `${layout.name} comes as ${layout.formats.join(', ')}.`, code: 'NO_SUCH_FORMAT' });
+  /* Only a closed month: its days are final, and the file is the snapshot Payroll would take. A reopened month is not. */
+  const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
+  if (!lock) return res.status(409).json({ error: 'Close the month first. The export is taken from a closed month, so its days cannot change afterwards.', code: 'MONTH_NOT_CLOSED' });
+  const snap = await getMonthSnapshot(orgId, month);
+  if (!snap) return res.status(409).json({ error: 'This month has no snapshot. Reopen it and close it again.', code: 'NO_SNAPSHOT' });
+  const file = payrollExportFile({ month, layoutId, format, snapshotRows: snap.rows });
+  /* Who took everyone's payable days out of CLOR, and in what shape. */
+  await recordAudit(req, { entity: 'AttendanceMonth', entityId: month, action: 'ATTENDANCE_PAYROLL_EXPORT', message: `Payroll export for ${month} (${layout.name}, ${format})`, metadata: { month, layout: layout.id, format, snapshot: snap.version, people: file.people } });
+  res.setHeader('Content-Type', file.contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Clor-Snapshot', String(snap.version));
+  res.send(file.body);
 });
 
 // ---------------------------------------------------------------------------

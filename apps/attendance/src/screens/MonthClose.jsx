@@ -10,6 +10,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import HeldPunches from '../components/HeldPunches';
 import { closeMonth, dayLabel, getMonthReadiness, getMonthSnapshot, setAttendanceStartDate, todayIst } from '../api/attendance';
 import ReopenMonth from '../components/ReopenMonth';
+import PayrollExport from '../components/PayrollExport';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
@@ -286,6 +287,9 @@ export default function MonthClose({ openScreen, params }) {
               </button>
             </section>
           ) : null}
+
+          {/* Closed: its days are final, so they can go to a payroll outside CLOR. The whole company's, like the reports. */}
+          {data.closed && !teamOnly ? <PayrollExport month={month} monthLabel={monthName(month)} /> : null}
 
           <section className="ui-card overflow-hidden" aria-labelledby="people-h">
             <div className="px-4 pt-4 pb-2 space-y-2">
