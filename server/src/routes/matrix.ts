@@ -9,6 +9,7 @@ import { fromZone, istLocal } from '../services/attendance/punchMapping.js';
 import { markOnReader } from '../services/attendance/readerSync.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { commandEffect } from '../services/attendance/adms.js';
+import { claimNextCommand } from '../services/attendance/commandQueue.js';
 import { enterTenant } from '../utils/tenantScope.js';
 
 /**
@@ -199,9 +200,9 @@ handle('/poll', async (req, res, device) => {
 /* 3. Get command: the oldest waiting one, marked sent. */
 handle('/getcmd', async (req, res, device) => {
   await seen(req, device);
-  const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING', command: { startsWith: 'cmd-id=' } }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
+  /* Claimed while still waiting: a command HR cancelled a moment ago is not sent (commandQueue.ts). */
+  const next = await claimNextCommand({ deviceId: device.id, command: { startsWith: 'cmd-id=' } });
   if (!next) return reply(res, { status: 0 });
-  await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date(), attempts: { increment: 1 } } });
   res.type('text/plain').send(next.command);
 });
 
@@ -241,9 +242,8 @@ handle('/getconfig', async (req, res, device) => {
     return reply(res, { 'config-id': 1, ...clockParts(now, device.sourceTimezone || 'Asia/Kolkata') });
   }
   /* Then whatever configuration is queued: user records, oldest first. */
-  const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING', command: { startsWith: 'config-id=' } }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
+  const next = await claimNextCommand({ deviceId: device.id, command: { startsWith: 'config-id=' } }, now);
   if (!next) return reply(res, { status: 0 });
-  await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: now, attempts: { increment: 1 } } });
   res.type('text/plain').send(next.command);
 });
 
