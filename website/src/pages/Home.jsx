@@ -6,6 +6,7 @@ import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
 import { Mark, Status } from '../components/Brand.jsx';
+import { ConnectedFlow, ProductRibbon } from '../components/Premium.jsx';
 
 /*
  * The home page reads like the suite it is: one line for accounts, payroll and
@@ -151,6 +152,7 @@ export default function Home() {
       <section className="hero hero--home" aria-labelledby="hero-title">
         <div className="wrap home-hero home-hero--split">
           <div className="hero-copy">
+            <span className="premium-eyebrow">The connected business suite</span>
             <h1 id="hero-title" className="h-hero">
               Accounts, payroll and HR for growing Indian companies.
             </h1>
@@ -180,9 +182,13 @@ export default function Home() {
               fetchPriority="high"
               alt="An accountant at his desk with the CLOR Books dashboard open on his laptop"
             />
+            <div className="premium-float premium-float--a" aria-hidden="true"><span>●</span> One workspace, several apps</div>
+            <div className="premium-float premium-float--b" aria-hidden="true"><span>↗</span> Connected business records</div>
           </figure>
         </div>
       </section>
+
+      <ProductRibbon />
 
       <section className="section section--tint" aria-labelledby="suite-title">
         <div className="wrap">
@@ -271,6 +277,8 @@ export default function Home() {
           </ul>
         </div>
       </section>
+
+      <ConnectedFlow />
 
       <SettingUp />
 
