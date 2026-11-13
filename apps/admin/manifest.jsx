@@ -35,6 +35,7 @@ const DataBackup = screen('DataBackup');
 const CloseCompany = screen('CloseCompany');
 const Support = screen('Support');
 const Inbox = screen('Inbox');
+const Integrations = screen('Integrations');
 
 /**
  * Workspace: the company's own administration, not any one app's (ADR-010).
@@ -77,7 +78,7 @@ export const adminApp = {
 
   modules: [
     { key: 'home', label: 'Overview', icon: ICON.home, items: ['home', 'inbox', 'support'] },
-    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications', 'automations'] },
+    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications', 'automations', 'integrations'] },
     { key: 'access', label: 'Access', icon: ICON.people, groups: [
       { label: null, items: ['accessHome'] },
       { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
@@ -105,6 +106,8 @@ export const adminApp = {
     { key: 'notifications', label: 'Email notifications', icon: ICON.mail, permission: 'SETTINGS::Company Profile::VIEW' },
     /* What Workspace sends on its own for this company; the server's gate is the company profile's (routes/automations.ts). */
     { key: 'automations', label: 'Automations', icon: ICON.automation, permission: 'SETTINGS::Company Profile::VIEW' },
+    /* Workspace plan P2: readers, connectors, webhooks, sign-on, keys and mail, and whether they work; the server's gate is the company profile's (routes/workspaceWaiting.ts). */
+    { key: 'integrations', label: 'Integrations', icon: ICON.data, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'accessHome', label: 'Overview', short: 'Access', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
     /* W-4: the account's people, every company at once; the server lets only owners and administrators in. */
     { key: 'members', label: 'Members', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
@@ -155,5 +158,6 @@ export const adminApp = {
     close: CloseCompany,
     support: Support,
     inbox: Inbox,
+    integrations: Integrations,
   },
 };
