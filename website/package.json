@@ -1,6 +1,7 @@
 {
   "name": "clor-website",
   "private": true,
+  "license": "UNLICENSED",
   "version": "0.1.0",
   "type": "module",
   "description": "clor.in — the public marketing site (static, prerendered, Cloudflare Pages).",
