@@ -183,6 +183,15 @@ export default function Nav() {
       <div className="wrap topbar-in">
         <a href={`mailto:${SITE.salesEmail}`}>Talk to sales: {SITE.salesEmail}</a>
         <ul>
+          <li className="topbar-in-country" aria-label="CLOR serves companies in India">
+            <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+              <rect width="18" height="4" fill="#FF9933" />
+              <rect y="4" width="18" height="4" fill="#fff" />
+              <rect y="8" width="18" height="4" fill="#138808" />
+              <circle cx="9" cy="6" r="1.5" fill="none" stroke="#000080" strokeWidth="0.6" />
+            </svg>
+            IN
+          </li>
           <li>
             <a href={SITE.portalUrl}>Employee portal</a>
           </li>

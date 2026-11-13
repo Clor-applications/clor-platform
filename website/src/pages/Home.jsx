@@ -1,11 +1,118 @@
-import React from 'react';
-import { Calculator, ChartLineUp, Storefront, UsersThree } from '@phosphor-icons/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Bank, Calculator, CaretDown, CaretRight, Check, ChartLineUp, Fingerprint, MapPin, Receipt, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
-import { Mark, Status } from '../components/Brand.jsx';
+import { Mark } from '../components/Brand.jsx';
+
+/*
+ * The hero window (owner, 13 Nov 2026: the angled video card was "not good").
+ * A flat, straight CLOR window with the month-end chain on sample data:
+ * Attendance closes the month, Payroll pays from those days, Books gets the
+ * journal. Each pane lights in turn (CSS only; still under reduced motion).
+ * Every step is a CONNECTIONS line in site.js, so nothing here is invented.
+ */
+/*
+ * The hero card (owner, 13 Nov 2026, after tensordata.com's terminal card):
+ * one company's month end as an activity log, each line a real hand-off
+ * between CLOR products (CONNECTIONS in site.js). Sample data; lines appear
+ * one by one, all at once under reduced motion.
+ */
+const ROLES = {
+  owner: {
+    label: 'Business owner',
+    title: 'Anand Traders · today',
+    lines: [
+      ['10:14', 'books', 'Invoice raised for Kaveri Components, GST worked out'],
+      ['10:14', 'books', 'E-invoice IRN and e-way bill generated'],
+      ['17:30', 'books', 'Bank statement matched against Books'],
+      ['18:00', 'books', 'GSTR-1 for November ready to file'],
+    ],
+    done: 'Filed from what you raised',
+  },
+  accountant: {
+    label: 'Accountant or CA',
+    title: 'Your clients · this week',
+    lines: [
+      ['10:00', 'books', 'Kaveri Components invited you with your own login'],
+      ['10:02', 'books', 'Switched to Anand Traders without signing out'],
+      ['12:40', 'books', 'GSTR-3B prepared from the month’s invoices and bills'],
+      ['12:41', 'books', 'Every change written to the client’s audit trail'],
+    ],
+    done: 'The client decides what you see',
+  },
+  hr: {
+    label: 'HR',
+    title: 'Kaveri Components · people',
+    lines: [
+      ['09:30', 'people', 'New joiner added: Arjun Menon, Coimbatore plant'],
+      ['09:31', 'people', 'Joining checklist sent to HR, IT and the manager'],
+      ['11:05', 'people', 'Leave request approved by the manager'],
+      ['16:00', 'people', 'Kavya Iyer’s passport expires in 30 days: reminder sent'],
+    ],
+    done: 'One record per person',
+  },
+  finance: {
+    label: 'Finance and payroll',
+    title: 'Kaveri Components · month end',
+    lines: [
+      ['18:00', 'attendance', 'November closed: paid days, overtime and leave sent to Payroll'],
+      ['18:03', 'payroll', 'Pay run for 48 employees calculated with PF, ESI, PT and TDS'],
+      ['18:10', 'payroll', 'Run locked. Payslips on every employee’s phone'],
+      ['18:10', 'books', 'Salary journal posted to Books'],
+    ],
+    done: 'No spreadsheet in between',
+  },
+};
+
+function HeroLog({ role }) {
+  const r = ROLES[role];
+  return (
+    <div className="hl" aria-live="polite">
+      <div className="hl-bar">
+        <span className="hl-dots" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+        <span>{r.title}</span>
+      </div>
+      <ol className="hl-lines" key={role} aria-label={`Sample activity for ${r.label}`}>
+        {r.lines.map(([t, slug, text], i) => (
+          <li key={i} style={{ '--i': i }}>
+            <time>{t}</time>
+            <b data-app={slug}>{productBySlug(slug).name}</b>
+            <span>{text}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="hl-chip" key={`${role}-chip`} style={{ '--i': r.lines.length }}>
+        <Check size={14} weight="bold" aria-hidden="true" /> {r.done}
+      </p>
+    </div>
+  );
+}
+
+function HeroRoles({ role, setRole }) {
+  return (
+    <div className="roles" role="tablist" aria-label="See a day in CLOR for">
+      {Object.entries(ROLES).map(([k, r]) => (
+        <button key={k} type="button" role="tab" aria-selected={role === k} className={role === k ? 'is-on' : ''} onClick={() => setRole(k)}>
+          {r.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const FACTS = [
+  [Receipt, 'GST e-invoice', 'E-way bills, GSTR-1 and 3B'],
+  [Bank, 'PF, ESI, PT, TDS', 'On every payslip'],
+  [Fingerprint, 'Gate readers', 'ZKTeco, eSSL, Hikvision, Matrix'],
+  [MapPin, 'Mumbai region', 'Data kept in India'],
+];
 
 /*
  * The home page reads like the suite it is: one line for accounts, payroll and
@@ -88,76 +195,296 @@ const FAQ = [
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
-/** A product's screen standing in 3D, with two blank sheets stacked behind it. */
-function Stage({ children, flip }) {
+/*
+ * The four products as stacked cards beside a list that stays in view
+ * (owner, 13 Nov 2026: Keka's cards). The list marks the card on screen and
+ * jumps to a card when clicked; each card holds its product's own screen.
+ */
+function ProductCards() {
+  const [on, setOn] = useState(APPS[0].slug);
+  const refs = useRef({});
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (es) => {
+        for (const e of es) if (e.isIntersecting) setOn(e.target.dataset.slug);
+      },
+      { rootMargin: '-45% 0px -45% 0px' },
+    );
+    Object.values(refs.current).forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, []);
   return (
-    <figure className={`stage${flip ? ' stage--flip' : ''}`}>
-      <div className="stage-obj">
-        <span className="stage-sheet stage-sheet--2" aria-hidden="true" />
-        <span className="stage-sheet stage-sheet--1" aria-hidden="true" />
-        <div className="stage-win">{children}</div>
-      </div>
-    </figure>
-  );
-}
-
-/** One product's section: what it does in a few plain lines, beside a photo and its screen. */
-function AppSection({ slug, title, lines, flip }) {
-  const p = productBySlug(slug);
-  // The hero already shows Books' invoice, so Books' own section shows the GSTR-1 it feeds.
-  const Win = slug === 'books' ? GstrWindow : WINDOWS[slug];
-  return (
-    <section className="section app-sec-wrap" aria-labelledby={`${slug}-title`} style={{ '--app': p.accent }}>
-      <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
-        <div className="app-sec-copy">
-          <p className="app-sec-name">
-            <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
-          </p>
-          <h2 className="h-1" id={`${slug}-title`}>
-            {title}
-          </h2>
-          <ul className="facts-list">
-            {lines.map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ul>
-          <Link className="text-link" href={`/products/${slug}`}>
-            More about CLOR&nbsp;{p.name}
-          </Link>
+    <section className="section pc" aria-labelledby="pc-title">
+      <div className="wrap">
+        <h2 className="h-1 pc-title" id="pc-title">
+          One back office, four products
+        </h2>
+        <div className="pc-grid">
+          <nav className="pc-nav" aria-label="Products">
+            {APPS.map((a) => {
+              const p = productBySlug(a.slug);
+              return (
+                <a
+                  key={a.slug}
+                  href={`#pc-${a.slug}`}
+                  className={on === a.slug ? 'is-on' : ''}
+                  aria-current={on === a.slug ? 'true' : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    refs.current[a.slug]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                >
+                  <Mark product={p} size={28} />
+                  CLOR {p.name}
+                </a>
+              );
+            })}
+          </nav>
+          <div className="pc-stack">
+            {APPS.map((a, i) => {
+              const p = productBySlug(a.slug);
+              const Win = a.slug === 'books' ? GstrWindow : WINDOWS[a.slug];
+              return (
+                <article
+                  key={a.slug}
+                  id={`pc-${a.slug}`}
+                  data-slug={a.slug}
+                  ref={(el) => (refs.current[a.slug] = el)}
+                  className="pc-card"
+                  style={{ '--app': p.accent, '--n': i }}
+                  aria-labelledby={`${a.slug}-title`}
+                >
+                  <p className="pc-kicker">CLOR {p.name}</p>
+                  <h3 className="pc-h" id={`${a.slug}-title`}>
+                    {a.title}
+                  </h3>
+                  <p className="pc-text">{a.lines[0]}</p>
+                  <div className="pc-win">
+                    <Win />
+                  </div>
+                  <Link className="btn btn--trial pc-btn" href={`/products/${a.slug}`}>
+                    Learn more
+                  </Link>
+                </article>
+              );
+            })}
+          </div>
         </div>
-        {/* The product's own screen, drawn with sample data. Each product's photo is on its own page, so no picture repeats. */}
-        <Stage flip={flip}>
-          <Win />
-        </Stage>
       </div>
     </section>
   );
 }
 
-const SUITE = ['books', 'people', 'payroll', 'attendance'];
-const NEXT = ['projects', 'timesheet'];
+/*
+ * Products, after Azure's "Explore tools": filter pills, a photo tile, then a
+ * card per product with its mark, one line and a link.
+ */
+const FILTERS = [
+  ['all', 'All products', null],
+  ['money', 'Accounts and payroll', ['books', 'payroll']],
+  ['people', 'People and time', ['people', 'attendance']],
+  ['soon', 'Coming next', ['projects', 'timesheet']],
+];
 
-/** Each card's picture: a person cut out on the page ground, or a scene that fades into the card. */
-const PICS = {
-  books: { kind: 'cut' },
-  people: { kind: 'cut' },
-  payroll: { kind: 'cut' },
-  attendance: { kind: 'scene' },
+function ProductGrid() {
+  const [f, setF] = useState('all');
+  const only = FILTERS.find((x) => x[0] === f)[2];
+  const list = ['books', 'payroll', 'people', 'attendance', 'projects', 'timesheet'].filter((s) => !only || only.includes(s));
+  return (
+    <section className="section section--tint" aria-labelledby="suite-title">
+      <div className="wrap">
+        <p className="eyebrow">Products</p>
+        <h2 className="h-1 az-h" id="suite-title">
+          Connected business applications
+        </h2>
+        <div className="chips" role="tablist" aria-label="Show products">
+          {FILTERS.map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={f === k} className={f === k ? 'is-on' : ''} onClick={() => setF(k)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="pg">
+          <figure className="pg-photo">
+            <img src="/people/attendance-reader-700.webp" srcSet="/people/attendance-reader-700.webp 1x, /people/attendance-reader-1400.webp 2x" alt="An employee punching in at a reader by the office door" loading="lazy" decoding="async" />
+            <figcaption>One login and one list of employees across every product.</figcaption>
+          </figure>
+          <ul className="pg-cards">
+            {list.map((slug) => {
+              const p = productBySlug(slug);
+              return (
+                <li key={slug} className="az-card pg-card" data-app={slug} style={{ '--app': p.accent }}>
+                  <Mark product={p} size={40} />
+                  <h3 className="az-card-h">CLOR {p.name}</h3>
+                  <p className="body">{p.line}</p>
+                  {p.status === 'soon' ? <p className="pg-soon">Coming next</p> : null}
+                  <Link className="az-link" href={`/products/${slug}`}>
+                    Explore the product
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/*
+ * How the products connect, after Azure's "Find solutions": an accordion on
+ * the left, the matching CLOR screen in a frame on the right.
+ */
+function Connections() {
+  const [open, setOpen] = useState(0);
+  const x = CONNECTIONS[open];
+  const Win = x.to === 'books' ? WINDOWS.books : WINDOWS[x.to];
+  return (
+    <section className="section" aria-labelledby="connected-title">
+      <div className="wrap">
+        <p className="eyebrow">How they connect</p>
+        <h2 className="h-1 az-h" id="connected-title">
+          Attendance feeds payroll. Payroll posts to Books.
+        </h2>
+        <div className="acc-grid">
+          <ul className="acc">
+            {CONNECTIONS.map((c, i) => {
+              const a = productBySlug(c.from);
+              const b = productBySlug(c.to);
+              const on = i === open;
+              return (
+                <li key={c.from + c.to} className={on ? 'is-on' : ''}>
+                  <button type="button" aria-expanded={on} onClick={() => setOpen(i)}>
+                    <span className="acc-pair">
+                      <Mark product={a} size={26} />
+                      <span aria-hidden="true">→</span>
+                      <Mark product={b} size={26} />
+                    </span>
+                    {a.name} to {b.name}
+                    <CaretDown size={16} weight="bold" aria-hidden="true" className="acc-caret" />
+                  </button>
+                  {on ? (
+                    <div className="acc-body">
+                      <p className="body">{c.text}</p>
+                      <Link className="text-link" href={`/products/${c.to}`}>
+                        More about CLOR {b.name}
+                      </Link>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          <figure className="acc-media" key={open}>
+            <div className="acc-frame">
+              <Win />
+            </div>
+          </figure>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* Who uses CLOR, after Azure's news cards: a photo on top, words, an arrow link. */
+const TEAM_PICS = {
+  'Business owners': ['/people/business-workspace-700.webp', 'A woman at an office desk with CLOR open on her laptop'],
+  'Accountants and CA firms': ['/people/books-invoice-560.webp', 'A GST invoice open in CLOR Books on a laptop'],
+  'Finance teams': ['/people/payroll-payslip-560.webp', 'An employee reading her payslip in the CLOR app'],
+  'HR teams': ['/people/people-hr-700.webp', 'An HR manager looking at an employee record in CLOR People'],
 };
 
+function TeamCards() {
+  return (
+    <section className="section section--tint" aria-labelledby="team-title">
+      <div className="wrap">
+        <p className="eyebrow">Who uses CLOR</p>
+        <h2 className="h-1 az-h" id="team-title">
+          Made for the people who run the back office
+        </h2>
+        <ul className="tc">
+          {TEAMS.map((t) => {
+            const [src, alt] = TEAM_PICS[t.title];
+            return (
+              <li key={t.title} className="az-card tc-card">
+                <img className="tc-img" src={src} alt={alt} loading="lazy" decoding="async" />
+                <h3 className="az-card-h">{t.title}</h3>
+                <p className="body">{t.text}</p>
+                <Link className="az-arrow" href={t.link[0]}>
+                  <span className="az-arrow-box" aria-hidden="true">
+                    <CaretRight size={14} weight="bold" />
+                  </span>
+                  {t.link[1]}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+/* In-page menu that sticks under the header (after azure.microsoft.com). */
+const JUMPS = [
+  ['suite-title', 'Products'],
+  ['pc-title', 'What each does'],
+  ['connected-title', 'How they connect'],
+  ['setup-title', 'Setting up'],
+  ['team-title', 'Who uses CLOR'],
+  ['trust-title', 'Your data'],
+];
+
+function JumpBar() {
+  const [on, setOn] = useState(JUMPS[0][0]);
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (es) => {
+        for (const e of es) if (e.isIntersecting) setOn(e.target.getAttribute('aria-labelledby'));
+      },
+      { rootMargin: '-30% 0px -60% 0px' },
+    );
+    JUMPS.forEach(([id]) => {
+      const sec = document.querySelector(`section[aria-labelledby="${id}"]`);
+      if (sec) io.observe(sec);
+    });
+    return () => io.disconnect();
+  }, []);
+  return (
+    <nav className="jump" aria-label="On this page">
+      <ul className="wrap">
+        {JUMPS.map(([id, label]) => (
+          <li key={id}>
+            <a
+              href={`#${id}`}
+              className={on === id ? 'is-on' : ''}
+              aria-current={on === id ? 'location' : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 export default function Home() {
+  const [role, setRole] = useState('finance');
   return (
     <>
-      <section className="hero hero--home" aria-labelledby="hero-title">
-        <div className="wrap home-hero home-hero--split">
-          <div className="hero-copy">
+      <section className="hero hero--home hero--split2" aria-labelledby="hero-title">
+        <div className="wrap hero2">
+          <div className="hero2-copy">
             <h1 id="hero-title" className="h-hero">
               Accounts, payroll and HR for growing Indian companies.
             </h1>
-            <p className="lede">
-              GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list
-              of employees, one set of books.
-            </p>
+            <p className="lede">GST books, payroll with PF, ESI, PT and TDS, employee records and gate attendance. One login, one list of employees.</p>
+            <HeroRoles role={role} setRole={setRole} />
             <div className="actions">
               <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
                 Request a demo
@@ -166,133 +493,38 @@ export default function Home() {
                 Start free trial
               </a>
             </div>
-            <p className="small hero-note">
-              No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
-            </p>
           </div>
-          <figure className="hero-photo">
-            <img
-              src="/people/hero-books-soft-1400.webp"
-              srcSet="/people/hero-books-soft-700.webp 700w, /people/hero-books-soft-1400.webp 1400w"
-              sizes="(max-width: 900px) 100vw, 640px"
-              width="1400"
-              height="835"
-              fetchPriority="high"
-              alt="An accountant at his desk with the CLOR Books dashboard open on his laptop"
-            />
-          </figure>
+          <HeroLog role={role} />
         </div>
       </section>
 
-      <section className="section section--tint" aria-labelledby="suite-title">
-        <div className="wrap">
-          <div className="head">
-            <h2 className="h-1" id="suite-title">
-              Connected business applications
-            </h2>
-            <p className="lede">One back office for accounts, people, attendance and payroll, sharing one login and one list of employees.</p>
-          </div>
-          <ul className="apps">
-            {SUITE.map((slug) => {
-              const p = productBySlug(slug);
-              const pic = PICS[slug];
-                            return (
-                <li key={slug} className={`app-card app-card--${pic.kind} app-card--${slug}`} style={{ '--app': p.accent }}>
-                  <div className="app-card-copy">
-                    <div className="app-card-name">
-                      <Mark product={p} size={44} />
-                      <div>
-                        <h3 className="h-3">CLOR {p.name}</h3>
-                        <Status product={p} />
-                      </div>
-                    </div>
-                    <p className="body">{p.line}</p>
-                    <Link className="app-card-btn" href={`/products/${slug}`}>
-                      {`Explore ${p.name}`}
-                      <span aria-hidden="true">→</span>
-                    </Link>
-                  </div>
-                  <img
-                    className="app-card-pic"
-                    src={`/people/${slug}-360.webp`}
-                    srcSet={`/people/${slug}-360.webp 1x, /people/${slug}-720.webp 2x`}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </li>
-              );
-            })}
-          </ul>
-          <div className="apps-next">
-            <p className="apps-next-title">Coming next</p>
-            <ul>
-              {NEXT.map((slug) => {
-                const p = productBySlug(slug);
-                return (
-                  <li key={slug}>
-                    <Link href={`/products/${slug}`} className="apps-next-item">
-                      <Mark product={p} size={32} />
-                      <span>
-                        <span className="apps-next-name">CLOR {p.name}</span>
-                        <span className="body">{p.line}</span>
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
+      <section className="trust" aria-label="What CLOR handles">
+        <ul className="wrap trust-row">
+          {FACTS.map(([Icon, t, d]) => (
+            <li key={t}>
+              <span className="trust-ico" aria-hidden="true">
+                <Icon size={20} weight="duotone" />
+              </span>
+              <span>
+                <b>{t}</b>
+                <small>{d}</small>
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      {APPS.map((a, i) => (
-        <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
-      ))}
+      <JumpBar />
 
-      <section className="section section--tint" aria-labelledby="connected-title">
-        <div className="wrap split">
-          <Head
-            id="connected-title"
-            title="Attendance feeds payroll. Payroll posts to Books."
-            intro="Bought together, the four products read the same employees and post to the same books, so nobody exports a spreadsheet in between. Projects and Timesheet are next."
-          />
-          <ul className="links">
-            {CONNECTIONS.map((x) => (
-              <li key={x.from + x.to}>
-                <span className="links-pair">
-                  <Mark product={productBySlug(x.from)} size={26} />
-                  <span className="links-wire" aria-hidden="true" />
-                  <Mark product={productBySlug(x.to)} size={26} />
-                </span>
-                <p className="body">{x.text}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <ProductGrid />
+
+      <ProductCards />
+
+      <Connections />
 
       <SettingUp />
 
-      <section className="section" aria-labelledby="team-title">
-        <div className="wrap">
-          <Head id="team-title" title="Who uses CLOR" />
-          <ul className="groups">
-            {TEAMS.map((t) => (
-              <li key={t.title}>
-                <span className="tile" aria-hidden="true">
-                  <t.icon size={22} weight="duotone" />
-                </span>
-                <h3 className="h-3">{t.title}</h3>
-                <p className="body">{t.text}</p>
-                <Link className="text-link" href={t.link[0]}>
-                  {t.link[1]}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <TeamCards />
 
       <TrustBand />
 

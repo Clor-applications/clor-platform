@@ -1,4 +1,5 @@
 import React from 'react';
+import { Art3D } from './Art3D.jsx';
 import { Link } from '../router.jsx';
 import { Buildings, Check, LockKey, PaperPlaneTilt, ShieldCheck, ToggleRight, UserFocus } from '@phosphor-icons/react';
 import { PRODUCTS } from '../site.js';
@@ -10,13 +11,21 @@ import { Mark } from './Brand.jsx';
  */
 
 /** A section's title and its line under the title. */
-export function Head({ title, intro, id }) {
-  return (
-    <div className="head">
+export function Head({ title, intro, id, art }) {
+  const text = (
+    <>
       <h2 className="h-1" id={id}>
         {title}
       </h2>
       {intro ? <p className="lede">{intro}</p> : null}
+    </>
+  );
+  if (!art) return <div className="head">{text}</div>;
+  /* A 3D scene fills the space beside the heading on wide screens. */
+  return (
+    <div className="head head--art">
+      <div className="head-text">{text}</div>
+      {art}
     </div>
   );
 }
@@ -118,7 +127,7 @@ export function TrustBand() {
   return (
     <section className="section" aria-labelledby="trust-title">
       <div className="wrap split">
-        <Head id="trust-title" title="Where your data lives" />
+        <Head id="trust-title" title="Where your data lives" art={<Art3D kind="vault" />} />
         <div className="stack">
           <p className="lede">
             Your records are kept in Google Cloud’s Mumbai region. One company can never see another’s, and you can export everything at any time.

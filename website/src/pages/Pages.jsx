@@ -576,7 +576,7 @@ const REFUND = {
       <p>
         Monthly fees already charged are generally non-refundable. For annual plans cancelled within 7 days of the first payment, we refund the
         amount in full. After 7 days, annual plans are non-refundable but remain active until the term ends. If we materially fail to provide the
-        service and cannot fix it, contact us — we will refund the affected period.
+        service and cannot fix it, contact us and we will refund the affected period.
       </p>
       <h2>On-premise licenses</h2>
       <p>
@@ -585,7 +585,7 @@ const REFUND = {
       </p>
       <h2>How refunds are paid</h2>
       <p>
-        Approved refunds are made to the original payment method, normally within 5–10 business days of approval. Taxes already remitted (GST)
+        Approved refunds are made to the original payment method, normally within 5 to 10 business days of approval. Taxes already remitted (GST)
         are adjusted as the law requires.
       </p>
       <h2>Free tier and trials</h2>

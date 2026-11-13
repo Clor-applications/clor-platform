@@ -1,4 +1,5 @@
 import React from 'react';
+import { Art3D } from '../components/Art3D.jsx';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, demoFor, productBySlug } from '../site.js';
 import { useProducts } from '../catalogue.js';
@@ -113,7 +114,7 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="fixes-title">
         <div className="wrap">
-          <Head id="fixes-title" title="What it fixes" />
+          <Head id="fixes-title" title="What it fixes" art={<Art3D kind="product" product={slug} />} />
           <ul className="groups">
             {c.problems.map(([prob, fix]) => (
               <li key={prob}>
@@ -125,7 +126,7 @@ export default function Product({ slug }) {
         </div>
       </section>
 
-      <section className="section" aria-labelledby="inside-title">
+      <section className="section" aria-labelledby="inside-title" style={{ '--app': p.accent }}>
         <div className="wrap">
           <Head id="inside-title" title={`What’s in ${p.name}`} />
           <dl className="p-features">
@@ -141,7 +142,7 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="flow-title">
         <div className="wrap split">
-          <Head id="flow-title" title={c.workflow.title} />
+          <Head id="flow-title" title={c.workflow.title} art={<Art3D kind="stairs" />} />
           <Steps steps={c.workflow.steps} />
         </div>
       </section>
@@ -149,7 +150,7 @@ export default function Product({ slug }) {
       {links.length ? (
         <section className="section" aria-labelledby="links-title">
           <div className="wrap split">
-            <Head id="links-title" title={`${p.name} and the other CLOR products`} intro={`${p.name} works on its own. When you use the others too, these links work for you.`} />
+            <Head id="links-title" title={`${p.name} and the other CLOR products`} intro={`${p.name} works on its own. When you use the others too, these links work for you.`} art={<Art3D kind="flow" />} />
             <ul className="links">
               {links.map((x) => {
                 const other = productBySlug(x.from === slug ? x.to : x.from);
@@ -174,7 +175,7 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="roles-title">
         <div className="wrap split">
-          <Head id="roles-title" title="Who sees what" />
+          <Head id="roles-title" title="Who sees what" art={<Art3D kind="vault" />} />
           <div className="stack">
             <p className="lede">{c.roles}</p>
             <Link className="text-link" href="/security">
