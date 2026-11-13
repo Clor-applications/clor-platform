@@ -177,6 +177,29 @@ describe('a month closed while a change waits for the lock', () => {
     expect((r as any).value.body.code).toBe('ATTENDANCE_MONTH_CLOSED');
     expect((await peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { id: day.id } })).overtimeApproved).toBe(false);
   });
+
+  it('refuses validating its days', async () => {
+    const c = await makeOwner();
+    const p = await person(c, '505');
+    const day = (await att(c).put('/records', { employeeId: p.id, date: '2026-10-06', checkIn: '09:00', checkOut: '18:00' }).expect(200)).body.record;
+    const r = await closeDuring(c, '2026-10', () => att(c).post('/records/validate', { ids: [day.id] }).then((x) => x));
+    expect((r as any).value.status).toBe(409);
+    expect((r as any).value.body.code).toBe('ATTENDANCE_MONTH_CLOSED');
+    expect((await peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { id: day.id } })).validated).toBe(false);
+  });
+
+  it('refuses a batch with one day in an already closed month, and validates none of it', async () => {
+    const c = await makeOwner();
+    const p = await person(c, '515');
+    const open = (await att(c).put('/records', { employeeId: p.id, date: '2026-10-06', checkIn: '09:00', checkOut: '18:00' }).expect(200)).body.record;
+    const shut = (await att(c).put('/records', { employeeId: p.id, date: '2026-09-08', checkIn: '09:00', checkOut: '18:00' }).expect(200)).body.record;
+    await peoplePrisma.attendanceMonthLock.create({ data: { accountId: c.accountId, orgId: c.orgId, month: '2026-09', lockedByUserId: 'test' } });
+    const r = await att(c).post('/records/validate', { ids: [open.id, shut.id] });
+    expect(r.status).toBe(409);
+    expect(r.body.code).toBe('ATTENDANCE_MONTH_CLOSED');
+    const rows = await peoplePrisma.attendanceRecord.findMany({ where: { id: { in: [open.id, shut.id] } } });
+    expect(rows.map((x) => x.validated)).toEqual([false, false]);
+  });
 });
 
 describe('punches that reach a closed month', () => {
