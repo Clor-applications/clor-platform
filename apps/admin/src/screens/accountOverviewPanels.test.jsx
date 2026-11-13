@@ -68,7 +68,7 @@ describe('Workspace Overview panels', () => {
     });
     expect(await screen.findByText('Data health')).toBeInTheDocument();
     expect(screen.getByText('2 to fix')).toBeInTheDocument();
-    expect(screen.getByText('2 of 3')).toBeInTheDocument();
+    expect(screen.getByText('3, 2 to fix')).toBeInTheDocument();
     expect(screen.getByText('Gate reader has stopped reporting')).toBeInTheDocument();
   });
 
@@ -76,6 +76,11 @@ describe('Workspace Overview panels', () => {
     show({ dataHealth: { status: 'none', issues: 0, sources: [], alerts: [] } });
     expect(await screen.findByText(/Nothing to sync/)).toBeInTheDocument();
     expect(screen.queryByText('All sources working')).not.toBeInTheDocument();
+  });
+
+  it('counts one person as a person, not "All 1 active people"', async () => {
+    show({ security: { withAuthenticator: 1, activeUsers: 1 } });
+    expect(await screen.findByText('The one active person on the account.')).toBeInTheDocument();
   });
 
   it('names how many people still sign in with a password alone', async () => {
