@@ -1,50 +1,55 @@
 import React from 'react';
 import ClorMark from './ClorMark.jsx';
+import { WORD_D, BADGE_D, DOT, BOX_FULL, BOX_PLAIN } from './logoPaths.js';
 
 /**
- * The CLOR logo: ribbon-arc C-mark + "LOR" text — the icon IS the "C".
- * Together they read "CLOR". O is orange, L/R are slate.
- * variant: 'horizontal' (default) | 'mark' (icon only) | 'wordmark' (LOR text only) | 'stacked'
+ * The CLOR logo (13 Nov 2026): CLOR in outlined Baloo 2 ExtraBold, slate, with
+ * the orange dot in the mouth of the C. Past about 150px wide the A for
+ * Applications appears in a ring at the foot of the R; below that it would be
+ * an unreadable speck, so it is left off.
+ * variant: 'horizontal' (default) | 'mark' (the C and its dot) | 'wordmark' (never the badge) | 'stacked'
  */
 
 const ORANGE = 'rgb(var(--logo-mark-orange, 255 84 0))';
 const SLATE  = 'rgb(var(--logo-mark-slate,  15 23 42))';
-const FONT   = "'Inter Variable', 'Inter', ui-sans-serif, sans-serif";
 const HEIGHTS = { sm: 20, md: 28, lg: 40, xl: 56 };
+/* `size` means the cap height, as it did when the word was live text; the drawn
+   box carries a little air above and below, so it stands about 8% taller. */
+const AIR = 1.08;
+const BADGE_FROM = 150;
 
-function Lor({ h, color, className, title, style: extraStyle }) {
+function Word({ h, color, className, title, badge }) {
+  const box = badge ? BOX_FULL : BOX_PLAIN;
+  const height = Math.round(h * AIR);
+  const width = Math.round((height * box.w) / box.h);
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
-  const co = color || ORANGE;
-  const sl = color || SLATE;
+  const letter = color || SLATE;
+  const accent = color || ORANGE;
   return (
-    <span
+    <svg
+      width={width}
+      height={height}
+      viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
+      fill="none"
       className={className}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        fontFamily: FONT,
-        fontWeight: 900,
-        fontSize: h,
-        lineHeight: 1,
-        letterSpacing: '0.02em',
-        userSelect: 'none',
-        flexShrink: 0,
-        ...extraStyle,
-      }}
+      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
       {...a11y}
     >
-      <span style={{ color: sl }}>L</span>
-      <span style={{ color: co }}>O</span>
-      <span style={{ color: sl }}>R</span>
-    </span>
+      <path d={WORD_D} fill={letter} />
+      <circle cx={DOT.cx} cy={DOT.cy} r={DOT.r} fill={accent} />
+      {badge ? <path d={BADGE_D} fill={accent} /> : null}
+    </svg>
   );
 }
 
-export default function ClorLogo({ variant = 'horizontal', size = 'md', color, className = '', title = 'CLOR' }) {
+export default function ClorLogo({ variant = 'horizontal', size = 'md', color, className = '', title = 'CLOR', badge }) {
   const h = typeof size === 'number' ? size : HEIGHTS[size] || HEIGHTS.md;
+  /* Width the plain word would take, to decide whether the badge can be read. */
+  const plainWidth = (h * AIR * BOX_PLAIN.w) / BOX_PLAIN.h;
+  const showBadge = badge === undefined ? plainWidth >= BADGE_FROM : badge;
 
-  if (variant === 'mark')     return <ClorMark size={h} color={color} className={className} title={title} />;
-  if (variant === 'wordmark') return <Lor h={h} color={color} className={className} title={title} />;
+  if (variant === 'mark') return <ClorMark size={h} color={color} className={className} title={title} />;
+  if (variant === 'wordmark') return <Word h={h} color={color} className={className} title={title} badge={false} />;
 
   if (variant === 'stacked') {
     return (
@@ -56,22 +61,10 @@ export default function ClorLogo({ variant = 'horizontal', size = 'md', color, c
         style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(h / 4), verticalAlign: 'middle', flexShrink: 0 }}
       >
         <ClorMark size={Math.round(h * 1.4)} color={color} title="" />
-        <Lor h={h} color={color} title="" />
+        <Word h={h} color={color} title="" badge={false} />
       </span>
     );
   }
 
-  /* horizontal (default): [C-mark] LOR — icon acts as the "C", zero gap = one word */
-  return (
-    <span
-      role="img"
-      aria-label={title}
-      aria-hidden={title ? undefined : 'true'}
-      className={className}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 0, verticalAlign: 'middle', flexShrink: 0 }}
-    >
-      <ClorMark size={Math.round(h * 1.08)} color={color} title="" />
-      <Lor h={h} color={color} title="" style={{ marginLeft: -Math.round(h * 0.09) }} />
-    </span>
-  );
+  return <Word h={h} color={color} className={className} title={title} badge={showBadge} />;
 }
