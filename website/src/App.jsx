@@ -4,6 +4,7 @@ import { routeFor, titleFor } from './routes.jsx';
 import Nav from './components/Nav.jsx';
 import Footer from './components/Footer.jsx';
 import './styles/site.css';
+import './styles/premium.css';
 
 /* Blocks that fade up as they reach the screen. Only ones below the first screen are hidden, so nothing visible on load ever blinks. */
 const REVEAL =
