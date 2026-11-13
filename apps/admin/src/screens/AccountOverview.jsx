@@ -145,7 +145,8 @@ function DataHealth({ health }) {
         {(health.sources || []).map((src) => (
           <React.Fragment key={src.key}>
             <dt>{src.label}</dt>
-            <dd className="num">{src.issues ? `${src.issues} of ${src.total}` : src.total}</dd>
+            {/* Not "2 of 1": one reader can raise two alerts, and that read as nonsense live. */}
+            <dd className="num">{src.issues ? `${src.total}, ${src.issues} to fix` : src.total}</dd>
           </React.Fragment>
         ))}
       </dl>
@@ -174,7 +175,9 @@ function Security({ security }) {
       </div>
       <p className="ws-card-blurb">
         {everyone
-          ? `All ${all} active people.`
+          ? all === 1
+            ? 'The one active person on the account.'
+            : `All ${all} active people.`
           : `${on} of ${all} active people. The rest sign in with a password alone.`}
       </p>
     </Panel>
