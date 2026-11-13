@@ -574,15 +574,28 @@ export async function useSecondFactor(u: { id: string; totpSecretEnc: string | n
     const won = await platformPrisma.user.updateMany({ where: { id: u.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
     return won.count ? 'CODE' : null;
   }
-  if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
-    const hashes = JSON.parse(u.totpRecoveryJson || '[]') as string[];
-    const h = hashRecovery(code);
-    if (hashes.includes(h)) {
-      await platformPrisma.user.update({ where: { id: u.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
-      return 'RECOVERY';
-    }
-  }
+  if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code) && (await spendRecoveryCode(u.id, u.totpRecoveryJson, code))) return 'RECOVERY';
   return null;
+}
+
+/**
+ * Spend one recovery code, once. A compare-and-swap on the stored list: the
+ * write only lands if the list is still the one the code was found in, so two
+ * sign-ins racing with the same code cannot both succeed (they used to read,
+ * filter and write back, and both won). Losing to a different code spent at
+ * the same moment reads the list again and tries again.
+ */
+export async function spendRecoveryCode(userId: string, stored: string | null, code: string): Promise<boolean> {
+  const h = hashRecovery(code);
+  let current = stored;
+  for (let i = 0; i < 5; i++) {
+    const hashes = JSON.parse(current || '[]') as string[];
+    if (!hashes.includes(h)) return false;
+    const won = await platformPrisma.user.updateMany({ where: { id: userId, totpRecoveryJson: current }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
+    if (won.count) return true;
+    current = (await platformPrisma.user.findUnique({ where: { id: userId }, select: { totpRecoveryJson: true } }))?.totpRecoveryJson ?? null;
+  }
+  return false;
 }
 
 securityRouter.post('/orgs/:orgId/security/two-factor/disable', ...codeLimiter, async (req, res) => {
