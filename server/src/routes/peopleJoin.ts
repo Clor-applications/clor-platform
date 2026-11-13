@@ -1,8 +1,10 @@
 import { Router, type Request, type Response } from 'express';
 import { enterTenant } from '../utils/tenantScope.js';
-import { InviteError, expireIfDue, findInviteByToken, joinerView, submitInvite } from '../services/people/lifecycle/invites.js';
+import { InviteError, JOINER_FIELDS, expireIfDue, findInviteByToken, joinerView, submitInvite } from '../services/people/lifecycle/invites.js';
 import { OfferError, acceptOffer, declineOffer, findOfferByToken, offerPdf, offerView } from '../services/people/offers.js';
 import { escapeHtml as esc } from '../utils/html.js';
+import { z } from 'zod';
+import { anyBody, check, code, flag, list, noBody, q, rawText, text } from '../middleware/validate.js';
 
 /**
  * The joiner's link (docs/people/02-PRD.md LIFE-01). No sign-in: the token
@@ -12,6 +14,24 @@ import { escapeHtml as esc } from '../utils/html.js';
  * nothing else about the company's people.
  */
 export const peopleJoinRouter = Router();
+
+/*
+ * What each link takes, checked before its handler (middleware/validate.ts). The token is whatever the link
+ * carried: a wrong one is the handler's own "this link does not work". A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; a bad e-mail, date or PIN code, an unticked
+ * declaration and an unknown document kind stay the service's, in its own words.
+ */
+const TOKEN_PARAMS = z.object({ token: text(500) });
+const FORMAT_QUERY = z.object({ format: q(text(20)) });
+const JOIN_BODY = z.object({
+  /* The joiner's own details: the fields the service reads; a number (a PIN code) is taken as its digits. */
+  fields: z.object(Object.fromEntries(JOINER_FIELDS.map((k) => [k, code(2000).nullish()]))).nullish(),
+  declarations: z.object({ accurate: flag.nullish(), policiesRead: flag.nullish() }).nullish(),
+  /* Files as base64 or data URLs, inside the body's 1 MB; the service keeps the first ten. */
+  documents: list(z.object({ kind: text(40).nullish(), title: text(2000).nullish(), mime: text(200).nullish(), data: rawText(1_100_000).nullish() }), 100).nullish(),
+  /* PAN, UAN, ESIC, bank and nominees go whole into the service's own reader (joiningStatutory.ts parseStatutory), which has the words for each: an object, whatever is in it. */
+  statutory: anyBody.nullish(),
+});
 
 const shell = (title: string, body: string) =>
   `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>` +
@@ -35,7 +55,7 @@ peopleJoinRouter.get('/people/join-page.js', (_req, res) => {
   res.type('application/javascript').set('Cache-Control', 'public, max-age=3600').send(JOIN_PAGE_JS);
 });
 
-peopleJoinRouter.get('/people/join/:token', async (req, res) => {
+peopleJoinRouter.get('/people/join/:token', check({ params: TOKEN_PARAMS, query: FORMAT_QUERY }), async (req, res) => {
   const found = await findInviteByToken(String(req.params.token || ''));
   const wantsJson = req.accepts(['html', 'json']) === 'json' || req.query.format === 'json';
   if (!found) return wantsJson ? res.status(404).json({ error: 'This link does not work.' }) : res.status(404).type('html').send(said('This link does not work', 'It may be wrong or too old. Ask HR for a new one.', false));
@@ -87,7 +107,7 @@ ${[0, 1, 2, 3].map(docRow).join('')}
   res.type('html').send(shell(`Welcome to ${view.orgName}`, body));
 });
 
-peopleJoinRouter.post('/people/join/:token', async (req, res) => {
+peopleJoinRouter.post('/people/join/:token', check({ params: TOKEN_PARAMS, body: JOIN_BODY }), async (req, res) => {
   const found = await findInviteByToken(String(req.params.token || ''));
   if (!found) return res.status(404).json({ error: 'This link does not work.' });
   enterTenant(found.orgId);
@@ -116,7 +136,7 @@ peopleJoinRouter.get('/people/offer-page.js', (_req, res) => {
 });
 
 /* Each handler enters the offer's company itself: enterTenant binds the caller's own async context. */
-peopleJoinRouter.get('/people/offer/:token', async (req, res) => {
+peopleJoinRouter.get('/people/offer/:token', check({ params: TOKEN_PARAMS, query: FORMAT_QUERY }), async (req, res) => {
   const offer = await findOfferByToken(String(req.params.token || ''));
   if (offer) enterTenant(offer.orgId);
   const wantsJson = req.accepts(['html', 'json']) === 'json' || req.query.format === 'json';
@@ -134,7 +154,7 @@ peopleJoinRouter.get('/people/offer/:token', async (req, res) => {
   res.type('html').send(shell(`Your offer from ${view.orgName}`, body));
 });
 
-peopleJoinRouter.get('/people/offer/:token/pdf', async (req, res) => {
+peopleJoinRouter.get('/people/offer/:token/pdf', check({ params: TOKEN_PARAMS }), async (req, res) => {
   const offer = await findOfferByToken(String(req.params.token || ''));
   if (offer) enterTenant(offer.orgId);
   if (!offer) return res.status(404).json({ error: 'This link does not work.' });
@@ -153,5 +173,5 @@ const answerOffer = (action: 'accept' | 'decline') => async (req: Request, res: 
     res.status(500).json({ error: 'Something went wrong.' });
   }
 };
-peopleJoinRouter.post('/people/offer/:token/accept', answerOffer('accept'));
-peopleJoinRouter.post('/people/offer/:token/decline', answerOffer('decline'));
+peopleJoinRouter.post('/people/offer/:token/accept', check({ params: TOKEN_PARAMS, body: noBody }), answerOffer('accept'));
+peopleJoinRouter.post('/people/offer/:token/decline', check({ params: TOKEN_PARAMS, body: noBody }), answerOffer('decline'));

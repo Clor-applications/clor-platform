@@ -205,7 +205,8 @@ async function classifier(orgId: string) {
 
 async function rulesFor(orgId: string, rows: Rec[]) {
   const people = [...new Set(rows.map((r) => r.employeeId))];
-  const schedule = await loadSchedule(orgId, people);
+  const dates = rows.map((r) => r.date).sort();
+  const schedule = await loadSchedule(orgId, people, dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null);
   const places = new Map(
     people.length ? (await peoplePrisma.employee.findMany({ where: { orgId, id: { in: people } }, select: { id: true, branchId: true, areaId: true } })).map((e) => [e.id, e]) : [],
   );
@@ -345,7 +346,8 @@ export async function fixFullDays(company: Company, opts: { apply?: boolean; rel
     const newlyHeld: FullDayRow[] = [];
     if (!apply) return { corrected, held: candidates.filter((c) => c.held), open: candidates.filter((c) => !c.held), newlyHeld, settled: settled.length };
 
-    if (settled.length) await peoplePrisma.attendanceFullDayReview.updateMany({ where: { orgId, id: { in: settled.map((s) => s.id) } }, data: { settledAs: 'RECORD_CHANGED', settledAt: new Date() } });
+    /* Still unsettled: HR marking one paid since it was read keeps the paid mark. */
+    if (settled.length) await peoplePrisma.attendanceFullDayReview.updateMany({ where: { orgId, id: { in: settled.map((s) => s.id) }, settledAt: null }, data: { settledAs: 'RECORD_CHANGED', settledAt: new Date() } });
     for (const c of candidates) {
       if (currentLease()?.signal.aborted) break;
       let outcome: 'CORRECTED' | 'CHANGED' | HeldReason | null = c.held;

@@ -278,7 +278,7 @@ async function finishSignIn(p: { id: string; name: string; accountId: string; or
     return fail(entry.refusal.error);
   }
   const policy = await sessionPolicyFor(user.id);
-  const { session, refreshToken } = await createSession({ accountId: user.accountId, userId: user.id, ip, userAgent, days: policy.sessionDays });
+  const { session, refreshToken } = await createSession({ accountId: user.accountId, userId: user.id, ip, userAgent, days: policy.sessionDays, ssoOrgId: p.orgId });
   await platformPrisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } });
   await platformPrisma.authProvider.update({ where: { id: p.id }, data: { lastUsedAt: new Date(), lastError: null } });
   await recordAuthEvent({ accountId: user.accountId, userId: user.id, email, eventType: 'LOGIN_SUCCESS', ip, userAgent, detail: `SSO ${p.name}` });

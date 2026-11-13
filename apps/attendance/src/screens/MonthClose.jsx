@@ -10,6 +10,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import HeldPunches from '../components/HeldPunches';
 import { closeMonth, dayLabel, getMonthReadiness, getMonthSnapshot, setAttendanceStartDate, todayIst } from '../api/attendance';
 import ReopenMonth from '../components/ReopenMonth';
+import PayrollExport from '../components/PayrollExport';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 
 /**
@@ -185,7 +186,7 @@ export default function MonthClose({ openScreen, params }) {
           { key: 'code', label: 'Employee ID' }, { key: 'name', label: 'Name' }, { key: 'department', label: 'Department' },
           { key: 'payableDays', label: 'Payable days' }, { key: 'lossOfPayDays', label: 'Loss of pay' }, { key: 'present', label: 'Present' },
           { key: 'halfDays', label: 'Half days' }, { key: 'absent', label: 'Absent' }, { key: 'incompleteDays', label: 'No check-out' },
-          { key: 'leave', label: 'Leave' }, { key: 'unpaidLeaveDays', label: 'Unpaid leave' }, { key: 'approvedOvertimeMinutes', label: 'Approved OT (min)' },
+          { key: 'leave', label: 'Leave' }, { key: 'unpaidLeaveDays', label: 'Unpaid leave' }, { key: 'approvedOvertimeMinutes', label: 'Approved OT (min)' }, { key: 'weightedOvertimeMinutes', label: 'OT at the rate (min)' }, { key: 'overCapOvertimeMinutes', label: 'OT over the cap (min)' },
         ],
         rows: s.rows,
       });
@@ -286,6 +287,9 @@ export default function MonthClose({ openScreen, params }) {
               </button>
             </section>
           ) : null}
+
+          {/* Closed: its days are final, so they can go to a payroll outside CLOR. The whole company's, like the reports. */}
+          {data.closed && !teamOnly ? <PayrollExport month={month} monthLabel={monthName(month)} /> : null}
 
           <section className="ui-card overflow-hidden" aria-labelledby="people-h">
             <div className="px-4 pt-4 pb-2 space-y-2">

@@ -63,7 +63,7 @@ describe('Trials in the operator console', () => {
 
   it('lets Billing extend a trial with a reason, and convert it to an active plan set by hand', async () => {
     api.extend.mockResolvedValue({ trialEndsAt: new Date(Date.now() + 17 * DAY).toISOString() });
-    api.grant.mockResolvedValue({});
+    api.grant.mockResolvedValue({ needsApproval: true, approval: { id: 'r1', status: 'PENDING' } });
     render(<Trials role="BILLING" openAccount={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Extend trial' }));
     expect(await screen.findByRole('heading', { name: 'Extend the trial' })).toBeInTheDocument();
@@ -75,14 +75,18 @@ describe('Trials in the operator console', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Convert' }));
     expect(await screen.findByRole('heading', { name: 'Convert to a paid plan' })).toBeInTheDocument();
-    expect(screen.getByText(/Only CLOR can do this/)).toBeInTheDocument();
+    expect(screen.getByText(/a colleague approves it in Approvals first/)).toBeInTheDocument();
     /* The trial's apps are ticked already; Payroll is added. */
     fireEvent.click(screen.getByLabelText(/Payroll/));
+    /* A colleague reads why before approving it. */
+    expect(screen.getAllByRole('button', { name: 'Convert' }).pop()).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Why'), { target: { value: 'Paid by bank transfer' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Convert' }).pop());
     await waitFor(() =>
       expect(api.grant).toHaveBeenCalledWith('a1', {
         apps: [{ appCode: 'accounting', priceModel: 'free' }, { appCode: 'people', priceModel: 'free' }, { appCode: 'attendance', priceModel: 'free' }, { appCode: 'payroll', priceModel: 'free' }],
         status: 'active',
+        reason: 'Paid by bank transfer',
       }),
     );
   });

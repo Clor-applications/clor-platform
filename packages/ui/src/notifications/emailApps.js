@@ -1,3 +1,5 @@
+import { includedIn, shownApps } from '@platform/includedApps';
+
 /**
  * Which app sends each email a company can switch off, by the template key's
  * first word (server/src/constants/emailTemplates.ts). Workspace lists them
@@ -46,14 +48,18 @@ export const appOfEmail = (key = '') => appsOfEmail(key)[0];
  * off, so a Payroll-only company is told so rather than shown an empty page.
  * An email two apps send is listed once, under the first of them that is on.
  * Without `subscriptions`, every app that sends a switchable email appears.
+ * A company on People has Attendance inside it, so Attendance's emails are
+ * listed under People and there is no Attendance group.
  */
 export function emailGroups(events = [], subscriptions = null) {
-  const on = Array.isArray(subscriptions) ? new Set(subscriptions) : null;
+  /* An app the company has inside another (Attendance, on People) has no group of its own: its emails are listed under that app. */
+  const on = Array.isArray(subscriptions) ? new Set(shownApps(subscriptions)) : null;
   const sent = events.filter((e) => !NOT_SENT_YET.has(e.key));
   const home = (e) => {
     const apps = appsOfEmail(e.key);
     if (apps[0] === OTHER.id) return OTHER.id;
-    return on ? apps.find((a) => on.has(a)) || null : apps[0];
+    if (!on) return apps[0];
+    return apps.find((a) => on.has(a)) || apps.map((a) => includedIn(a, subscriptions)).find((a) => a && on.has(a)) || null;
   };
   const groups = EMAIL_APPS.filter((a) => (on ? on.has(a.id) : true)).map((a) => ({
     id: a.id,

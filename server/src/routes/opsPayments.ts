@@ -27,7 +27,7 @@ opsPaymentsRouter.use('/ops/payments', requireAuth, requireOperator);
 
 const refused = (res: Response, e: unknown) => {
   if (!(e instanceof PaymentsError)) throw e;
-  return res.status(e.status).json({ error: e.message, problems: e.problems });
+  return res.status(e.status).json({ error: e.message, problems: e.problems, ...(e.code ? { code: e.code } : {}) });
 };
 const codeOf = (req: Request, res: Response): ProviderCode | null => {
   const c = String(req.params.code || '');

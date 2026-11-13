@@ -2,6 +2,7 @@ import { hostname } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { noteWorker } from './jobRegistry.js';
 
 /**
  * One instance per tick. Clor runs on more than one API instance, and each
@@ -133,6 +134,8 @@ export type ExclusiveOptions = {
  * otherwise skip and return null. `fn` can reach its lease with currentLease().
  */
 export async function exclusive<T>(name: string, ttlMs: number, fn: () => Promise<T>, opts: ExclusiveOptions = {}): Promise<T | null> {
+  /* A registered job asked for this lease: the health check watches its runs (jobRegistry.ts). */
+  noteWorker(name, ttlMs);
   if (stopping) return null;
   /* In-process guard: a run still going in this instance is never started again. */
   if (running.has(name)) return null;

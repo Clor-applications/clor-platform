@@ -27,7 +27,8 @@ import {
   consumeEmailVerificationToken,
 } from '../services/auth.js';
 import { decryptSecret, sendTemplate } from '../services/mailer.js';
-import { hashRecovery, verifyCode } from '../services/totp.js';
+import { verifyCode } from '../services/totp.js';
+import { spendRecoveryCode } from './security.js';
 import { adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
 import { DEFAULT_POLICY, policyForUser, sessionPolicyFor, validatePassword, getAuthPolicy } from '../services/policy.js';
 import { type EntryRefusal, resendChallengeFor, resendChallengeUser, signInEntry } from '../services/signInRules.js';
@@ -292,12 +293,8 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
     const won = await platformPrisma.user.updateMany({ where: { id: user.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
     if (won.count) used = 'CODE';
   } else if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
-    const hashes = JSON.parse(user.totpRecoveryJson || '[]') as string[];
-    const h = hashRecovery(code);
-    if (hashes.includes(h)) {
-      await platformPrisma.user.update({ where: { id: user.id }, data: { totpRecoveryJson: JSON.stringify(hashes.filter((x) => x !== h)) } });
-      used = 'RECOVERY';
-    }
+    /* Each recovery code works once, however many sign-ins race with it (compare-and-swap). */
+    if (await spendRecoveryCode(user.id, user.totpRecoveryJson, code)) used = 'RECOVERY';
   }
 
   if (!used) {

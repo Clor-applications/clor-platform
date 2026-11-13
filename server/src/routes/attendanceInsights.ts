@@ -17,14 +17,18 @@ import { computeDay, istInstant, istTime, shiftRuleProblem, type ShiftRule } fro
 import { loadSchedule, resolveShift, toRule } from '../services/attendance/schedule.js';
 import { explainDay } from '../services/attendance/explain.js';
 import { dayDiff, daySnapshot, dayHistory } from '../services/attendance/history.js';
-import { monthReadiness, scanDays, scanQueues } from '../services/attendance/readiness.js';
+import { getMonthSnapshot, monthReadiness, scanDays, scanQueues } from '../services/attendance/readiness.js';
+import { payrollExportChoices, payrollExportFile, payrollExportLayout, type PayrollExportFormat } from '../services/attendance/payrollExport.js';
 import { overrideFindings, rangedFindings, temporaryFindings } from '../services/attendance/conflicts.js';
 import { CHAINS, hrMayDecide } from '../services/attendance/approvalChain.js';
-import { confirmationsFor, decideOvertime, overtimeChain } from '../services/attendance/selfService.js';
+import { DisputeError, confirmationsFor, decideOvertime, overtimeChain, resolveDispute } from '../services/attendance/selfService.js';
 import { balancesFor } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodLabel, periodStart } from '../services/attendance/leaveAccrual.js';
 import { leavePeriodOf } from '../services/attendance/leaveBalances.js';
 import { decideRequest } from '../services/attendance/requests.js';
+import { OVERTIME_CAP_MAX, OVERTIME_RATE_MAX, SUGGESTED_OVERTIME_CAPS, overtimePolicyOf } from '../services/attendance/overtimePolicy.js';
+import { overtimeDaysFor } from '../services/attendance/overtimeFigures.js';
+import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
 import { managerStepBy } from '../services/attendance/standIns.js';
 import { FIELD_PUNCH_SOURCE, OVERTIME_SOURCE, closeOnEngine, decideOnEngine, engineChains, engineOf, onEngine, syncFromRow } from '../services/attendance/attendanceEngine.js';
 import { writePunchDecision } from '../services/attendance/phonePunch.js';
@@ -64,7 +68,7 @@ const dateQ = (v: unknown) => {
 /** `reads`: whether the reader may see a private leave type's name (HR who decide leave, or the person). */
 export async function explainFor(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null; name?: string }, date: string, reads = true) {
   const [schedule, record, punches, clocks, holiday, corrections] = await Promise.all([
-    loadSchedule(orgId, [employee.id]),
+    loadSchedule(orgId, [employee.id], { from: date, to: date }),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } }),
     peoplePrisma.devicePunch.findMany({ where: { orgId, employeeId: employee.id, shiftDate: date }, select: { at: true, kind: true, deviceId: true }, orderBy: { at: 'asc' } }),
     peoplePrisma.attendanceActivity.findMany({
@@ -283,7 +287,7 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   for (const p of people) {
     for (const m of p.missingOut) add({ key: `MISSING_OUT:${m.id}`, kind: 'MISSING_OUT', severity: 'high', title: 'No check-out', detail: 'Checked in, never out. The day is not paid until corrected.', employeeId: p.employeeId, employeeName: p.name, date: m.date, screen: 'records', ref: m.id });
     for (const d of p.noRecord) add({ key: `NO_RECORD:${p.employeeId}:${d}`, kind: 'NO_RECORD', severity: 'medium', title: 'No attendance on a working day', detail: 'No punch, mark or leave. It counts as absent.', employeeId: p.employeeId, employeeName: p.name, date: d, screen: 'records' });
-    for (const o of p.unapprovedOvertime) add({ key: `OVERTIME:${o.id}`, kind: 'OVERTIME', severity: 'low', title: 'Overtime to approve', detail: `${Math.floor(o.minutes / 60)}h ${String(o.minutes % 60).padStart(2, '0')}m, not paid until approved.`, employeeId: p.employeeId, employeeName: p.name, date: o.date, screen: 'records', ref: o.id });
+    for (const o of p.unapprovedOvertime) add({ key: `OVERTIME:${o.id}`, kind: 'OVERTIME', severity: 'low', title: 'Overtime to approve', detail: `${Math.floor(o.minutes / 60)}h ${String(o.minutes % 60).padStart(2, '0')}m, not paid until approved.${o.overCap ? ` ${o.overCap}.` : ''}`, employeeId: p.employeeId, employeeName: p.name, date: o.date, screen: 'records', ref: o.id });
   }
   const named = async (rows: any[]) => withNames(orgId, rows);
   for (const c of await named(queues.corrections)) add({ key: `CORRECTION:${c.id}`, kind: 'CORRECTION', severity: 'medium', title: 'Correction waiting', detail: c.reason, employeeId: c.employeeId, employeeName: c.employeeName, date: c.date, screen: 'requests', ref: c.id });
@@ -432,7 +436,44 @@ attendanceInsightsRouter.get(`${base}/months/:month/readiness`, can(PermissionAc
   const r = await monthReadiness(accountId, orgId, month, scope);
   const by = await namesOf(r.snapshots.map((s) => s.createdByUserId));
   /* `scope: 'team'` tells the screen this role sees its team, and does not close or reopen the month. */
-  res.json({ ...r, scope: scope.all ? 'company' : 'team', snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })), confirmations: await confirmationsFor(orgId, month) });
+  /* Confirmations and disputes follow the same scope: a team-scoped role sees and answers its own team's. */
+  const confirmations = await confirmationsFor(orgId, month, scope.all ? undefined : scope.ids);
+  const answeredBy = await namesOf(confirmations.disputed.map((d) => d.resolved?.byUserId || ''));
+  res.json({
+    ...r,
+    scope: scope.all ? 'company' : 'team',
+    snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })),
+    confirmations: { ...confirmations, disputed: confirmations.disputed.map((d) => (d.resolved ? { ...d, resolved: { ...d.resolved, by: actorName(d.resolved.byUserId || '', answeredBy) } } : d)) },
+  });
+});
+
+/**
+ * HR answers an employee who says their month is wrong. Attendance Records EDIT, inside the caller's team; under the
+ * company's write lock and only while the dispute is open (selfService.ts resolveDispute). `seenAt` is when the note
+ * HR read was written, so an answer never lands on a note the employee has sent again since.
+ */
+attendanceInsightsRouter.post(`${base}/months/:month/confirmations/:employeeId/resolve`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const month = String(req.params.month);
+  const employeeId = String(req.params.employeeId);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  const parsed = z
+    .object({
+      reply: z.string().trim().min(3, 'Write a reply the employee will read.').max(1000, 'Keep the reply under 1000 characters.'),
+      seenAt: z.string().datetime().optional().nullable(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid reply.' });
+  if (!inScope(await teamScope(req), employeeId)) return res.status(404).json({ error: 'There is no dispute for this month.', code: 'NO_DISPUTE' });
+  try {
+    const done = await resolveDispute({ accountId, orgId, userId: req.auth!.userId }, employeeId, month, parsed.data.reply, parsed.data.seenAt ? new Date(parsed.data.seenAt) : null);
+    await recordAudit(req, { entity: 'ATTENDANCE_MONTH_CONFIRMATION', entityId: `${employeeId}:${month}`, action: 'RESOLVE', message: `Answered a disputed month (${month})`, metadata: { employeeId, month } });
+    res.json(done);
+  } catch (e) {
+    if (e instanceof DisputeError) return res.status(e.status).json({ error: e.message, code: e.code });
+    return sendError(res, e);
+  }
 });
 
 /**
@@ -472,6 +513,44 @@ attendanceInsightsRouter.get(`${base}/months/:month/snapshots/:version`, can(Per
     rows: rows.filter((r) => inScope(scope, r.employeeId)),
     readiness: readiness ? { people: (readiness.people || []).filter((p: { employeeId: string }) => inScope(scope, p.employeeId)) } : null,
   });
+});
+
+/**
+ * A closed month for a payroll run outside CLOR: one row per employee with
+ * payable, loss-of-pay and overtime figures, in CLOR's own layout or the
+ * import layout of another payroll (services/attendance/payrollExport.ts).
+ * The same permission as the attendance reports (the muster roll among them),
+ * and like them the whole company's: a team-scoped role is refused.
+ */
+attendanceInsightsRouter.get(`${base}/payroll-export/layouts`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  res.json({ layouts: payrollExportChoices() });
+});
+
+attendanceInsightsRouter.get(`${base}/months/:month/payroll-export`, can(PermissionAction.VIEW, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const month = String(req.params.month);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'The payroll export covers the whole company. Month close shows your team’s days.', code: 'TEAM_SCOPED' });
+  const layoutId = String(req.query.layout || 'generic');
+  const layout = payrollExportLayout(layoutId);
+  if (!layout) return res.status(400).json({ error: 'Choose a layout: Generic, greytHR, Keka or Tally.', code: 'NO_SUCH_LAYOUT' });
+  const format = String(req.query.format || layout.formats[0]) as PayrollExportFormat;
+  if (!layout.formats.includes(format)) return res.status(400).json({ error: `${layout.name} comes as ${layout.formats.join(', ')}.`, code: 'NO_SUCH_FORMAT' });
+  /* Only a closed month: its days are final, and the file is the snapshot Payroll would take. A reopened month is not. */
+  const lock = await peoplePrisma.attendanceMonthLock.findUnique({ where: { orgId_month: { orgId, month } } });
+  if (!lock) return res.status(409).json({ error: 'Close the month first. The export is taken from a closed month, so its days cannot change afterwards.', code: 'MONTH_NOT_CLOSED' });
+  const snap = await getMonthSnapshot(orgId, month);
+  if (!snap) return res.status(409).json({ error: 'This month has no snapshot. Reopen it and close it again.', code: 'NO_SNAPSHOT' });
+  const file = payrollExportFile({ month, layoutId, format, snapshotRows: snap.rows });
+  /* Who took everyone's payable days out of CLOR, and in what shape. */
+  await recordAudit(req, { entity: 'AttendanceMonth', entityId: month, action: 'ATTENDANCE_PAYROLL_EXPORT', message: `Payroll export for ${month} (${layout.name}, ${format})`, metadata: { month, layout: layout.id, format, snapshot: snap.version, people: file.people } });
+  res.setHeader('Content-Type', file.contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Clor-Snapshot', String(snap.version));
+  res.send(file.body);
 });
 
 // ---------------------------------------------------------------------------
@@ -558,7 +637,8 @@ attendanceInsightsRouter.post(`${base}/records/bulk`, can(PermissionAction.EDIT,
   const scope = await teamScope(req);
   const records = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: b.ids }, ...(scope.all ? {} : { employeeId: { in: scope.ids } }) } });
   const people = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(records.map((r) => r.employeeId))] } }, select: { id: true, name: true, branchId: true, areaId: true } })).map((p) => [p.id, p]));
-  const schedule = await loadSchedule(orgId, [...people.keys()]);
+  const recordDates = records.map((r) => r.date).sort();
+  const schedule = await loadSchedule(orgId, [...people.keys()], recordDates.length ? { from: recordDates[0], to: recordDates[recordDates.length - 1] } : null);
   const locks = new Set((await peoplePrisma.attendanceMonthLock.findMany({ where: { orgId }, select: { month: true } })).map((l) => l.month));
 
   const plan = [] as Array<{ id: string; employeeId: string; name: string; date: string; ok: boolean; error?: string; changes: ReturnType<typeof dayDiff>; checkOut?: Date | null }>;
@@ -1208,12 +1288,17 @@ attendanceInsightsRouter.get(`${base}/phone-punches`, can(PermissionAction.VIEW,
 // Overtime and comp-off: the company's rules, and the requests waiting on HR
 // ---------------------------------------------------------------------------
 
+const otRate = z.coerce.number().min(1, 'An overtime rate is 1 or more times the ordinary rate.').max(OVERTIME_RATE_MAX, `An overtime rate is at most ${OVERTIME_RATE_MAX} times the ordinary rate.`);
+const otCap = (max: number) => z.coerce.number().int('A cap is in whole minutes.').min(0).max(max, 'That cap is longer than the period it is for.').nullable();
+
 const overtimeRules = (s: any) => ({
   overtimeRequests: s?.overtimeRequests ?? true,
   overtimeApproval: s?.overtimeApproval ?? 'HR',
   compOffEnabled: s?.compOffEnabled ?? false,
   compOffLeaveTypeId: s?.compOffLeaveTypeId ?? null,
   confirmCutoffDay: s?.confirmCutoffDay ?? 3,
+  /* Rates by kind of day and the caps (services/attendance/overtimePolicy.ts); '{}' reads as 2× everywhere and no caps. */
+  ...overtimePolicyOf(s?.overtimePolicy),
 });
 
 attendanceInsightsRouter.get(`${base}/overtime/rules`, can(PermissionAction.VIEW, R.records), async (req, res) => {
@@ -1221,9 +1306,10 @@ attendanceInsightsRouter.get(`${base}/overtime/rules`, can(PermissionAction.VIEW
   const { orgId } = req.tenant!;
   const [s, types] = await Promise.all([
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
-    peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } }),
+    /* compOffValidDays: how long comp-off credited to the type lasts (set on the leave type; compOff.ts). */
+    peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, code: true, compOffValidDays: true }, orderBy: { name: 'asc' } }),
   ]);
-  res.json({ rules: overtimeRules(s), leaveTypes: types });
+  res.json({ rules: overtimeRules(s), leaveTypes: types, suggestedCaps: SUGGESTED_OVERTIME_CAPS });
 });
 
 attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT, R.records), async (req, res) => {
@@ -1236,28 +1322,39 @@ attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT
       compOffEnabled: z.boolean(),
       compOffLeaveTypeId: z.string().nullable(),
       confirmCutoffDay: z.number().int().min(1).max(28),
+      /* Left out by an older screen: the rates and caps stay as they are. */
+      rates: z.object({ working: otRate, weeklyOff: otRate, holiday: otRate }).optional(),
+      caps: z.object({ dayMinutes: otCap(OVERTIME_CAP_MAX.dayMinutes), weekMinutes: otCap(OVERTIME_CAP_MAX.weekMinutes), quarterMinutes: otCap(OVERTIME_CAP_MAX.quarterMinutes) }).optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
   /* The rules are the company's: a team role does not set them. */
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Overtime rules are set by someone who decides for the whole company.', code: 'TEAM_SCOPED' });
-  const v = parsed.data;
+  const { rates, caps, ...v } = parsed.data;
+  if (caps && caps.dayMinutes !== null && caps.weekMinutes !== null && caps.dayMinutes > caps.weekMinutes) return res.status(400).json({ error: 'The cap for a day cannot be more than the cap for a week.' });
+  if (caps && caps.weekMinutes !== null && caps.quarterMinutes !== null && caps.weekMinutes > caps.quarterMinutes) return res.status(400).json({ error: 'The cap for a week cannot be more than the cap for a quarter.' });
   if (v.compOffEnabled && !v.compOffLeaveTypeId) return res.status(400).json({ error: 'Choose the leave type comp-off days are added to.' });
   if (v.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: v.compOffLeaveTypeId, orgId } }))) return res.status(400).json({ error: 'No such leave type.' });
   const { before, s } = await peopleWrite(orgId, async () => {
-    const before = overtimeRules(await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }));
-    const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, updatedByUserId: req.auth!.userId }, update: { ...v, updatedByUserId: req.auth!.userId } });
+    const row = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
+    const before = overtimeRules(row);
+    const policy = rates || caps ? { overtimePolicy: { rates: rates ?? before.rates, caps: caps ?? before.caps } } : {};
+    const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, ...policy, updatedByUserId: req.auth!.userId }, update: { ...v, ...policy, updatedByUserId: req.auth!.userId } });
     return { before, s };
   });
   const after = overtimeRules(s);
-  const changed = (Object.keys(after) as Array<keyof typeof after>).filter((k) => before[k] !== after[k]);
+  const changed = (Object.keys(after) as Array<keyof typeof after>).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+  /* Rates and caps decide what a day's overtime is worth: kept with the other scoring rules (ruleVersions.ts). */
+  if (changed.includes('rates') || changed.includes('caps')) {
+    await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', name: 'Overtime rates and caps', before: { rates: before.rates, caps: before.caps }, after: { rates: after.rates, caps: after.caps } });
+  }
   await recordAudit(req, { entity: 'ATTENDANCE_OVERTIME_RULES', entityId: orgId, action: 'UPDATE', message: changed.length ? `Overtime rules changed: ${changed.join(', ')}` : 'Overtime rules saved, nothing changed', metadata: { before, after } });
   res.json({ rules: after });
 });
 
 attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.VIEW, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const { orgId } = req.tenant!;
+  const { accountId, orgId } = req.tenant!;
   const status = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(String(req.query.status)) ? String(req.query.status) : 'PENDING';
   /* A team-scoped role sees its own team's requests. */
   const scope = await teamScope(req);
@@ -1267,13 +1364,16 @@ attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.V
   const chain = await overtimeChain(orgId);
   /* On the approval engine (workflow engine 2d): the chain each was asked under, and whether the manager's step is closed. */
   const engines = await engineChains(orgId, OVERTIME_SOURCE, rows.filter((r) => r.status === 'PENDING').map((r) => r.id));
+  /* What each waiting day's overtime is paid at, and the hours over the company's caps: said to whoever decides, never dropped. */
+  const figures = await overtimeDaysFor(accountId, orgId, rows.filter((r) => r.kind === 'OVERTIME' && r.status === 'PENDING').map((r) => ({ employeeId: r.employeeId, date: r.date })));
   res.json({
     chain,
     requests: rows.map((r) => {
       const p = by.get(r.employeeId);
       const eng = engines.get(r.id);
       const waitingOnManager = (eng?.chain || chain) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && !(eng && eng.step > 1) && Boolean(p?.reportingManagerId) && r.status === 'PENDING';
-      return { ...r, employeeName: p?.name || '—', employeeCode: p?.code || null, waitingOnManager };
+      const day = r.kind === 'OVERTIME' ? figures.days.get(r.employeeId)?.get(r.date) : undefined;
+      return { ...r, employeeName: p?.name || '—', employeeCode: p?.code || null, waitingOnManager, ...(day ? { dayType: day.dayType, rate: day.rate, weightedMinutes: day.weightedMinutes, overCapMinutes: day.overCapMinutes, overCap: day.overCap } : {}) };
     }),
   });
 });

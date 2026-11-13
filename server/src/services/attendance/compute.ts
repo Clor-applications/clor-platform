@@ -14,6 +14,9 @@
  * - Late: arriving after start + grace; once late, it counts from the start.
  * - Early out: leaving before end − early-out grace; counts to the end.
  * - Worked: out − in, less the break when the span is longer than a half day.
+ *   A shift may name several breaks (their unpaid total is the break), and may
+ *   take the break from punches instead: the time punched out and in, less the
+ *   paid breaks, on a day that has such punches (breaks.ts).
  * - Status: a full day (`isFullDay`, below) → PRESENT, half-day minutes →
  *   HALF_DAY, less → ABSENT. Checked in but not out yet → PRESENT,
  *   provisionally, 0 minutes.
@@ -58,7 +61,17 @@ export type ShiftRule = {
   /** The punch window: a reader punch this long before the start, or after the end, does not count. Null or absent = no limit. */
   checkInBeforeMinutes?: number | null;
   checkOutAfterMinutes?: number | null;
+  /**
+   * The shift's breaks, when it names them (breaks.ts). `breakMinutes` above is then their unpaid total, so
+   * everything that reads the one figure still works. Absent or empty: the one fixed break, as always.
+   */
+  breaks?: ShiftBreak[];
+  /** FIXED: the breaks above come off the day. PUNCHED: the break time punched out and in does, on a day that has such punches. */
+  breakMode?: 'FIXED' | 'PUNCHED';
 };
+
+/** One break of a shift: named, at a time of day or only a length, paid or not. */
+export type ShiftBreak = { name: string; startTime: string | null; endTime: string | null; minutes: number; paid: boolean };
 
 export type DayStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT' | 'ON_LEAVE' | 'HOLIDAY' | 'WEEKLY_OFF';
 
@@ -217,6 +230,12 @@ export function computeDay(input: {
   checkOut: Date | null;
   isHoliday?: boolean;
   onLeave?: boolean;
+  /**
+   * The unpaid break time punched out and in on the day (breaks.ts punchedBreak), for a shift whose breaks are
+   * taken from punches. Given, it comes off the time on site in place of the fixed break; null or absent (no
+   * break punches that day, or a shift on fixed breaks), the fixed break does, as always.
+   */
+  breakTakenMinutes?: number | null;
 }): DayResult {
   const { date, shift, checkIn, checkOut } = input;
   const off = isWeeklyOff(shift, date);
@@ -239,7 +258,8 @@ export function computeDay(input: {
   if (checkOut.getTime() < checkIn.getTime()) throw new Error('Check-out is before check-in.');
 
   const span = mins(checkOut.getTime() - checkIn.getTime());
-  const workedMinutes = netOf(shift, span);
+  const punched = shift.breakMode === 'PUNCHED' && input.breakTakenMinutes !== null && input.breakTakenMinutes !== undefined;
+  const workedMinutes = punched ? Math.max(0, span - Math.max(0, input.breakTakenMinutes!)) : netOf(shift, span);
   const earlyBy = mins(end.getTime() - checkOut.getTime());
   const earlyOutMinutes = restDay ? 0 : earlyBy > shift.earlyOutGraceMinutes ? earlyBy : 0;
   const otThreshold = shift.overtimeAfterMinutes ?? shift.fullDayMinutes;

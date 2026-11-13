@@ -14,6 +14,8 @@ import { ownRecordRefusal } from '../services/makerChecker.js';
 import { AppAccessError, appAccessSends, sendAppAccess } from '../services/people/lifecycle/appAccess.js';
 import { stepUpRefusal } from '../services/stepUp.js';
 import { inScope, teamScope } from '../services/people/scope.js';
+import { z } from 'zod';
+import { check, idParams, jsonObject, list, q, text } from '../middleware/validate.js';
 
 /**
  * Invites before day one (docs/people/02-PRD.md LIFE-01), HR's side: send,
@@ -34,7 +36,18 @@ const sendError = (res: any, e: unknown) => {
   return res.status(500).json({ error: 'Something went wrong.' });
 };
 
-peopleInvitesRouter.post(`${base}/employees/:id/invites`, can(PermissionAction.CREATE, LIFECYCLE), async (req, res) => {
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; whether a field must be there, and the words for
+ * it, stay the services' (lifecycle/invites.ts, joiningStatutory.ts, appAccess.ts).
+ */
+const NOTE = z.object({ note: text(5000).nullish() });
+/* HR's corrections, keyed by the joiner's own field names: the service takes only the names it knows (JOINER_FIELDS). */
+const CHECK = NOTE.extend({ fields: jsonObject().nullish() });
+/* Corrections to PAN, UAN, ESIC, bank and nominees: read by the service's own parser (parseStatutory), which has the words for each. */
+const APPROVE = NOTE.extend({ values: jsonObject().nullish() });
+
+peopleInvitesRouter.post(`${base}/employees/:id/invites`, can(PermissionAction.CREATE, LIFECYCLE), check({ params: idParams, body: z.object({ channel: text(40).nullish(), sentTo: text(2000).nullish(), message: text(20_000).nullish() }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     const r = await createInvite(actorOf(req), String(req.params.id), { channel: req.body?.channel, sentTo: req.body?.sentTo, message: req.body?.message });
@@ -44,7 +57,7 @@ peopleInvitesRouter.post(`${base}/employees/:id/invites`, can(PermissionAction.C
   }
 });
 
-peopleInvitesRouter.get(`${base}/employees/:id/invites`, can(PermissionAction.VIEW, LIFECYCLE), async (req, res) => {
+peopleInvitesRouter.get(`${base}/employees/:id/invites`, can(PermissionAction.VIEW, LIFECYCLE), check({ params: idParams }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true } });
@@ -52,7 +65,7 @@ peopleInvitesRouter.get(`${base}/employees/:id/invites`, can(PermissionAction.VI
   res.json({ invites: await invitesOf(orgId, { employeeId: employee.id }) });
 });
 
-peopleInvitesRouter.get(`${base}/invites`, can(PermissionAction.VIEW, LIFECYCLE), async (req, res) => {
+peopleInvitesRouter.get(`${base}/invites`, can(PermissionAction.VIEW, LIFECYCLE), check({ query: z.object({ status: q(text(40)) }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const status = String(req.query.status || '').toUpperCase();
   if (status && !INVITE_STATUSES.includes(status as any)) return res.status(400).json({ error: 'Unknown status.' });
@@ -62,7 +75,7 @@ peopleInvitesRouter.get(`${base}/invites`, can(PermissionAction.VIEW, LIFECYCLE)
 });
 
 /** HR checks what the joiner sent, with any corrections in `fields`; it goes on the record. */
-peopleInvitesRouter.post(`${base}/invites/:id/check`, can(PermissionAction.EDIT, LIFECYCLE), async (req, res) => {
+peopleInvitesRouter.post(`${base}/invites/:id/check`, can(PermissionAction.EDIT, LIFECYCLE), check({ params: idParams, body: CHECK }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     const overrides = req.body?.fields && typeof req.body.fields === 'object' ? req.body.fields : {};
@@ -81,7 +94,7 @@ const statutoryActor = (req: Request) => ({ ...actorOf(req, 'FORM', typeof req.b
  * shown in full, and only while they wait for a decision. Needs Statutory
  * Details and Full identifiers; every opening is written to the access log.
  */
-peopleInvitesRouter.get(`${base}/invites/:id/statutory`, can(PermissionAction.VIEW, STATUTORY), can(PermissionAction.VIEW, FULL_IDS), async (req, res) => {
+peopleInvitesRouter.get(`${base}/invites/:id/statutory`, can(PermissionAction.VIEW, STATUTORY), can(PermissionAction.VIEW, FULL_IDS), check({ params: idParams }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
@@ -97,7 +110,7 @@ peopleInvitesRouter.get(`${base}/invites/:id/statutory`, can(PermissionAction.VI
 });
 
 /** Approve (with any corrections in `values`): to Payroll's record, or held in People until Payroll is on. */
-peopleInvitesRouter.post(`${base}/invites/:id/statutory/approve`, can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
+peopleInvitesRouter.post(`${base}/invites/:id/statutory/approve`, can(PermissionAction.EDIT, STATUTORY), check({ params: idParams, body: APPROVE }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     const own = await peoplePrisma.joinStatutory.findFirst({ where: { orgId: req.tenant!.orgId, inviteId: String(req.params.id) }, select: { employeeId: true } });
@@ -111,7 +124,7 @@ peopleInvitesRouter.post(`${base}/invites/:id/statutory/approve`, can(Permission
   }
 });
 
-peopleInvitesRouter.post(`${base}/invites/:id/statutory/reject`, can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
+peopleInvitesRouter.post(`${base}/invites/:id/statutory/reject`, can(PermissionAction.EDIT, STATUTORY), check({ params: idParams, body: NOTE }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     res.json({ statutory: await rejectStatutory(statutoryActor(req), String(req.params.id), req.body?.note) });
@@ -121,7 +134,7 @@ peopleInvitesRouter.post(`${base}/invites/:id/statutory/reject`, can(PermissionA
 });
 
 /** Payroll has been switched on: approved details held in People go to it. */
-peopleInvitesRouter.post(`${base}/joining-statutory/send-held`, can(PermissionAction.EDIT, STATUTORY), async (req, res) => {
+peopleInvitesRouter.post(`${base}/joining-statutory/send-held`, can(PermissionAction.EDIT, STATUTORY), check({ body: NOTE }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     res.json(await pushHeld(statutoryActor(req)));
@@ -137,7 +150,7 @@ peopleInvitesRouter.post(`${base}/joining-statutory/send-held`, can(PermissionAc
  * one (the code is never shown to HR), else once in this response for a
  * printed sheet and a WhatsApp link. Every send is recorded.
  */
-peopleInvitesRouter.post(`${base}/app-access/send`, can(PermissionAction.CREATE, LIFECYCLE), async (req, res) => {
+peopleInvitesRouter.post(`${base}/app-access/send`, can(PermissionAction.CREATE, LIFECYCLE), check({ body: z.object({ employeeIds: list(text(200), 5000).nullish() }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   try {
     const ids = Array.isArray(req.body?.employeeIds) ? req.body.employeeIds.map(String) : [];
@@ -149,7 +162,7 @@ peopleInvitesRouter.post(`${base}/app-access/send`, can(PermissionAction.CREATE,
 });
 
 /** Who was sent employee app access, how and when (never the code). */
-peopleInvitesRouter.get(`${base}/app-access/sends`, can(PermissionAction.VIEW, LIFECYCLE), async (req, res) => {
+peopleInvitesRouter.get(`${base}/app-access/sends`, can(PermissionAction.VIEW, LIFECYCLE), check({ query: z.object({ employeeId: q(text(200)) }) }), async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
   const scope = await teamScope(req);
   const employeeId = req.query.employeeId ? String(req.query.employeeId) : undefined;

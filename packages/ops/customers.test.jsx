@@ -105,6 +105,25 @@ describe('a customer’s page', () => {
     expect(await screen.findByText('Your role can look at this subscription but not change it.')).toBeInTheDocument();
   });
 
+  it('sends apps given free for approval, and says on the page that a change is waiting', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsChangeApps.mockResolvedValue({ needsApproval: true, approval: { id: 'r1', status: 'PENDING' }, limit: 20 });
+    const { unmount } = render(<CustomerPage id="a1" tab="subscription" role="BILLING" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Change apps' }));
+    expect(screen.getByText(/waits in Approvals until a colleague approves it/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Payroll'));
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Trying Payroll' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Change apps' }).at(-1));
+    await waitFor(() => expect(notify.success).toHaveBeenCalledWith('Sent for approval. Nothing changes for Rao Textiles until a colleague approves it in Approvals.'));
+    unmount();
+
+    api.opsAccount.mockResolvedValue(detail({ waitingApproval: { id: 'r1', kind: 'GRANT', summary: 'Apps changed to Books, Payroll; Payroll free', askedBy: 'Priya Raman', mine: false, createdAt: '2026-11-12T05:00:00Z', expiresAt: '2026-11-15T05:00:00Z' } }));
+    render(<CustomerPage id="a1" tab="subscription" role="BILLING" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    const note = await screen.findByText(/Waiting in Approvals: Apps changed to Books, Payroll; Payroll free/);
+    expect(note.textContent).toMatch(/Asked by Priya Raman/);
+    expect(note.textContent).toMatch(/Nothing changes for Rao Textiles until someone other than the person who asked approves it/);
+  });
+
   it('suspends with a reason, and a suspended customer shows why and offers Resume', async () => {
     api.opsAccount.mockResolvedValueOnce(detail()).mockResolvedValue(detail({ account: { ...detail().account, suspendedAt: '2026-11-10T00:00:00Z', suspendedReason: 'Unpaid' } }));
     api.opsSuspend.mockResolvedValue({ suspended: true });

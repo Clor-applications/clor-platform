@@ -168,7 +168,35 @@ const RAW = new Set(['$queryRaw', '$executeRaw', '$queryRawUnsafe', '$executeRaw
  * Wrap a Prisma client so the request's company reaches the database. The
  * returned object has the client's own type; callers do not change.
  */
-export function tenantScoped<C extends object>(base: C): C {
+const WRITES = new Set(['create', 'createMany', 'createManyAndReturn', 'update', 'updateMany', 'upsert', 'delete', 'deleteMany']);
+const delegateName = (model: string) => model.charAt(0).toLowerCase() + model.slice(1);
+
+/* An interactive transaction's client that notes which models it writes (for `txHook`). Methods stay bound to Prisma's own objects. */
+function watched(tx: any, wrote: Set<string>): any {
+  return new Proxy(tx, {
+    get(target, prop) {
+      const v = Reflect.get(target, prop);
+      if (typeof prop !== 'string' || prop.startsWith('$') || !v || typeof v !== 'object' || typeof (v as any).findFirst !== 'function') {
+        return typeof v === 'function' ? v.bind(target) : v;
+      }
+      return new Proxy(v, {
+        get(d, op) {
+          const f = Reflect.get(d, op);
+          if (typeof f !== 'function') return f;
+          if (typeof op === 'string' && WRITES.has(op)) return (...a: unknown[]) => { wrote.add(prop); return f.apply(d, a); };
+          return f.bind(d);
+        },
+      });
+    },
+  });
+}
+
+/**
+ * `txHook` (the platform client only): something to run inside the same transaction as a write, before it
+ * commits — the audit entry of a change that must not be made without one (utils/auditScope.ts). While it
+ * answers a hook, a write made outside any transaction is run in one of its own so the hook can join it.
+ */
+export function tenantScoped<C extends object>(base: C, opts: { txHook?: () => { inTransaction(tx: any, wrote: ReadonlySet<string>): Promise<void> } | undefined } = {}): C {
   const client = base as any;
   /* Transaction-local (the `true`): the next borrower of this pooled connection inherits nothing. */
   const setting = (on: any, st: Setting) =>
@@ -179,8 +207,18 @@ export function tenantScoped<C extends object>(base: C): C {
   const extended = client.$extends({
     query: {
       $allModels: {
-        async $allOperations({ args, query }: { args: unknown; query: (a: unknown) => Promise<unknown> }) {
+        async $allOperations({ model, operation, args, query }: { model?: string; operation: string; args: unknown; query: (a: unknown) => Promise<unknown> }) {
           const st = settingFor(client);
+          const hook = st && model && model !== 'AuditLog' && WRITES.has(operation) ? opts.txHook?.() : undefined;
+          if (hook && model) {
+            /* A write the hook must join: in a transaction of its own, the hook's work before it commits. */
+            return client.$transaction(async (tx: any) => {
+              await setting(tx, st!);
+              const result = await tx[delegateName(model)][operation](args);
+              await hook.inTransaction(tx, new Set([delegateName(model)]));
+              return result;
+            });
+          }
           if (!st) return query(args);
           const [, result] = await client.$transaction([setting(client, st), query(args)]);
           return result;
@@ -203,9 +241,15 @@ export function tenantScoped<C extends object>(base: C): C {
              * connection and is scoped as usual (A-37: it used to be marked
              * "in a transaction" and sent with no company at all).
              */
+            const hook = opts.txHook?.();
             return client.$transaction(async (tx: any) => {
               if (st) await setting(tx, st);
-              return arg(tx);
+              if (!hook) return arg(tx);
+              /* The hook's work goes in last, so the transaction's change and it commit or roll back together. */
+              const wrote = new Set<string>();
+              const result = await arg(watched(tx, wrote));
+              if (wrote.size) await hook.inTransaction(tx, wrote);
+              return result;
             }, options);
           }
           if (!st) return client.$transaction(arg, options);

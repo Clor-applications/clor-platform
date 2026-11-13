@@ -14,7 +14,7 @@ import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
 import { issueOperatorStepUp, requireOperatorStepUp } from '../services/stepUp.js';
-import { getSubscription, inGoodStanding } from '../services/subscriptions.js';
+import { getSubscription, inGoodStanding, syncAccountEntitlement } from '../services/subscriptions.js';
 import { useSecondFactor } from './security.js';
 import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLineIndex.js';
 import { sendTemplate } from '../services/mailer.js';
@@ -321,7 +321,7 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
       select: { id: true, name: true, code: true, createdAt: true, suspendedAt: true, suspendedReason: true, legacyUnrestrictedAt: true },
     });
     if (!account) return res.status(404).json({ error: 'No such account' });
-    const [members, orgs, sub, events, opEvents] = await Promise.all([
+    const [members, orgs, sub, events, opEvents, waiting] = await Promise.all([
       platformPrisma.accountMembership.findMany({ where: { accountId: id }, select: { userId: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
       platformPrisma.org.findMany({
         where: { accountId: id },
@@ -331,6 +331,8 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
       getSubscription(id),
       platformPrisma.authEvent.findMany({ where: { accountId: id }, orderBy: { createdAt: 'desc' }, take: 20, select: { eventType: true, createdAt: true, email: true } }),
       platformPrisma.operatorAuditEvent.findMany({ where: { targetAccountId: id }, orderBy: { at: 'desc' }, take: 20 }),
+      /* A change to the plan waiting for a second person (Approvals), so the page can say so. */
+      platformPrisma.opsApproval.findFirst({ where: { accountId: id, status: 'PENDING', expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, kind: true, summary: true, requestedBy: true, createdAt: true, expiresAt: true } }),
     ]);
     const users = await platformPrisma.user.findMany({
       where: { id: { in: members.map((m) => m.userId) } },
@@ -344,8 +346,12 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
     const opName = new Map(opUsers.map((u) => [u.id, u.fullName]));
     const firstOwner = members.find((m) => m.role === 'OWNER');
     const ownerUser = firstOwner ? userBy.get(firstOwner.userId) : undefined;
+    const asker = waiting ? await platformPrisma.user.findUnique({ where: { id: waiting.requestedBy }, select: { fullName: true, email: true } }) : null;
     res.json({
       account: { ...account, title: customerTitle(account.name, ownerUser?.fullName, orgs[0]?.name), ownerName: ownerUser?.fullName || null },
+      waitingApproval: waiting
+        ? { id: waiting.id, kind: waiting.kind, summary: waiting.summary, askedBy: asker?.fullName || asker?.email || 'A colleague', mine: waiting.requestedBy === req.auth!.userId, createdAt: waiting.createdAt, expiresAt: waiting.expiresAt }
+        : null,
       members: members.map((m) => {
         const u = userBy.get(m.userId);
         return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt) };
@@ -427,12 +433,24 @@ opsRouter.post('/ops/accounts/:id/extend-trial', requireOperatorRole('BILLING', 
     const id = String(req.params.id);
     const parsed = trialBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Between 1 and 90 days, and say why.' });
-    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true } });
+    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true, updatedAt: true } });
     if (!sub) return res.status(409).json({ error: 'This account has no subscription to extend. Grant a plan first.' });
     if (sub.status !== 'trialing') return res.status(409).json({ error: 'Only a trial can be extended.' });
     const from = Math.max(Date.now(), sub.trialEndsAt ? sub.trialEndsAt.getTime() : 0);
     const until = new Date(from + parsed.data.days * DAY);
-    await platformPrisma.subscription.update({ where: { accountId: id }, data: { trialEndsAt: until } });
+    /*
+     * A claim on the trial as it was read (two extends at once give the days
+     * once, and a plan set or cancelled in between is not overwritten), and
+     * the account's entitlement moved to the new end in the same transaction:
+     * it used to keep the old end, so the trial's extras went off early.
+     */
+    const extended = await platformPrisma.$transaction(async (tx) => {
+      const r = await tx.subscription.updateMany({ where: { accountId: id, status: 'trialing', updatedAt: sub.updatedAt }, data: { trialEndsAt: until } });
+      if (!r.count) return false;
+      await syncAccountEntitlement(id, tx);
+      return true;
+    });
+    if (!extended) return res.status(409).json({ error: 'This plan changed a moment ago. Refresh to see it as it is now.', code: 'PLAN_CHANGED' });
     clearAccessCache();
     await audit(req, 'TRIAL_EXTENDED', { accountId: id }, { from: sub.trialEndsAt, to: until, days: parsed.data.days, reason: parsed.data.reason });
     res.json({ trialEndsAt: until });

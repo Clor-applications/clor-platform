@@ -868,7 +868,17 @@ async function approveFinal(actor: Actor, requestId: string) {
       await closeUnapplied(actor, request, decision.id, e);
       throw new ApprovalError(`Approved, but it could not be applied: ${reasonOf(e)} The request is closed; ask again once that is fixed.`, 409, 'NOT_APPLIED');
     }
-    const r = await lock.approvalRequest.update({ where: { id: requestId }, data: { status: 'APPROVED', decisionId: decision.id, outcome: (outcome || null) as Prisma.InputJsonValue }, include });
+    /*
+     * Claimed, not overwritten: every other way a request closes (withdraw, a leaver's close-out) waits
+     * for this lock and looks again, so this is the only outcome. Were it closed anyway, the effect has
+     * run and cannot be taken back: the closed state stays and the mismatch is logged loudly.
+     */
+    const claimed = await lock.approvalRequest.updateMany({ where: { id: requestId, status: 'WAITING' }, data: { status: 'APPROVED', decisionId: decision.id, outcome: (outcome || null) as Prisma.InputJsonValue } });
+    const r = await lock.approvalRequest.findUniqueOrThrow({ where: { id: requestId }, include });
+    if (!claimed.count) {
+      console.error(`[people-approvals] ${r.orgId}: request ${r.id} was applied but closed as ${r.status} meanwhile; left ${r.status}.`);
+      return { request: r, outcome, applied: false };
+    }
     await writeChangeLog(lock, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: 'WAITING', after: 'APPROVED', redacted: false }]);
     return { request: r, outcome, applied: true };
   }, { timeout: 60_000 });
@@ -1013,6 +1023,9 @@ export async function decide(actor: Actor, requestId: string, decision: Decision
   const result = await peoplePrisma.$transaction(async (tx) => {
     /* One decision on a request at a time: two slots of an ALL step approved at once still open the next step exactly once. */
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${request.id}`}))`;
+    /* Looked at again under the lock: a request asked for more, rejected or withdrawn a moment ago is not decided on what was read before it. */
+    const now = await tx.approvalRequest.findUnique({ where: { id: request.id }, select: { status: true, currentStep: true } });
+    if (!now || now.status !== 'WAITING' || now.currentStep !== order) throw new ApprovalError('Someone else just decided this.', 409, 'ALREADY_DECIDED');
     if (all && (await tx.approvalStep.count({ where: { requestId: request.id, order, status: 'APPROVED', decidedByUserId: userId } }))) throw new ApprovalError('You approved part of this step already; someone else decides the rest.', 403, 'ALREADY_DECIDED_PART');
     for (const step of targets) {
       const standInFor = steppingIn ? step.approverUserId : step.standInForUserId && userId !== step.standInForUserId ? step.standInForUserId : null;
@@ -1086,16 +1099,38 @@ export async function withdraw(actor: Actor, requestId: string) {
   if (request.sourceKind) throw new ApprovalError('Withdraw it from your leave, where you asked for it.', 409, 'DECIDE_AT_SOURCE');
   if (request.requesterUserId !== actor.userId) throw new ApprovalError('Only the person who asked can withdraw it.', 403);
   if (!['WAITING', 'MORE_INFO'].includes(request.status)) throw new ApprovalError(`This request is ${request.status.toLowerCase()}.`, 409, 'NOT_WAITING');
+  const done = await closeWithdrawn(actor, request.id, { refuseApproved: true });
+  if (!done) throw new ApprovalError('This was decided a moment ago.', 409, 'NOT_WAITING');
+  return done;
+}
+
+/**
+ * Withdraw a request still open, once: by its requester (withdraw) or because the person it is
+ * about left (lifecycle/closeOut.ts). It waits for any decision and any final approval being
+ * applied (the same two locks they hold) and looks again, so a withdrawal never lands on top of
+ * an approval whose effect already ran. A request whose every step is approved but which is not
+ * closed yet is being approved: the requester is refused (`refuseApproved`); a close-out takes it,
+ * since nothing is applying it at that moment and the person has gone. Null when it was closed
+ * meanwhile. The module's own record closes with it (onClosed: a shift swap), and the approvers'
+ * notices are retired, on every path.
+ */
+export async function closeWithdrawn(actor: Actor, requestId: string, opts: { refuseApproved?: boolean; comment?: string | null } = {}) {
   const done = await peoplePrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-decide:${requestId}`}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`approval-final:${requestId}`}))`;
+    const now = await tx.approvalRequest.findFirst({ where: { id: requestId, orgId: actor.orgId }, include });
+    if (!now || !['WAITING', 'MORE_INFO'].includes(now.status)) return null;
+    if (opts.refuseApproved && stalled(now)) throw new ApprovalError('This was approved a moment ago and is being applied.', 409, 'NOT_WAITING');
     /* Claimed while still open: a withdraw racing a decision leaves one outcome. */
-    const claimed = await tx.approvalRequest.updateMany({ where: { id: request.id, orgId: actor.orgId, status: { in: ['WAITING', 'MORE_INFO'] } }, data: { status: 'WITHDRAWN' } });
-    if (!claimed.count) throw new ApprovalError('This was decided a moment ago.', 409, 'NOT_WAITING');
-    await tx.approvalStep.updateMany({ where: { requestId: request.id, status: 'WAITING' }, data: { status: 'WITHDRAWN' } });
-    const r = await tx.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include });
-    await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: request.status, after: 'WITHDRAWN', redacted: false }]);
+    const claimed = await tx.approvalRequest.updateMany({ where: { id: requestId, orgId: actor.orgId, status: now.status }, data: { status: 'WITHDRAWN' } });
+    if (!claimed.count) return null;
+    await tx.approvalStep.updateMany({ where: { requestId, status: 'WAITING' }, data: { status: 'WITHDRAWN', ...(opts.comment ? { comment: opts.comment.slice(0, 1000) } : {}) } });
+    const r = await tx.approvalRequest.findUniqueOrThrow({ where: { id: requestId }, include });
+    await writeChangeLog(tx, actor, { kind: 'ApprovalRequest', id: r.id, employeeId: r.subjectEmployeeId }, [{ field: 'status', before: now.status, after: 'WITHDRAWN', redacted: false }]);
     return r;
-  });
-  await tellClosed(done, 'WITHDRAWN', null);
+  }, { timeout: 60_000 });
+  if (!done) return null;
+  await tellClosed(done, 'WITHDRAWN', opts.comment ?? null);
   /* The approvers' "waiting for you" notices say it was withdrawn, or go, as the company chose (SPEC 3.6). */
   const { withdrawnNotices } = await choicesFor(actor.orgId);
   await retireNotices(actor.orgId, `approval:${done.id}`, withdrawnNotices, { app: 'people', screen: 'approvals', params: { open: 'APPROVAL', id: done.id } });

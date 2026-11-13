@@ -15,6 +15,8 @@ import { automationsApi } from './api';
  * changed in a small editor under the row. A list on the page ground under one hairline per group.
  *
  *   <AutomationsList module="payroll" openScreen={openScreen} readOnlyNote="Payroll admins change these." />
+ *
+ * `bare`: the list alone, for an app whose pages carry their own head (Workspace).
  */
 
 const RECIPIENT_WORDS = { HR: 'HR', OWNER: 'Owner', MANAGER: 'Their manager' };
@@ -187,11 +189,11 @@ function Row({ a, canEdit, busy, users, api, onSave, openScreen }) {
   );
 }
 
-export default function AutomationsList({ module = 'people', title = 'Automations', openScreen, readOnlyNote = 'Only an admin changes these.', api: given }) {
+export default function AutomationsList({ module = 'people', title = 'Automations', openScreen, readOnlyNote = 'Only an admin changes these.', api: given, bare = false }) {
   const api = useMemo(() => given || automationsApi(module), [given, module]);
   const req = useRequest(() => api.load(), [api]);
   const [busy, setBusy] = useState('');
-  const shell = (body) => <div className="space-y-6 max-w-2xl"><PageHeader title={title} />{body}</div>;
+  const shell = (body) => <div className="space-y-6 max-w-2xl">{bare ? null : <PageHeader title={title} />}{body}</div>;
   if (req.error && !req.data) return shell(<ErrorState error={req.error} onRetry={req.reload} />);
   if (!req.data) return shell(<SkeletonCard lines={10} />);
   const { automations, canEdit } = req.data;

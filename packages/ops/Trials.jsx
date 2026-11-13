@@ -229,8 +229,10 @@ function TrialDrawer({ action, onClose, onDone }) {
         const r = await opsExtendTrial(account.id, Number(days), reason.trim());
         notify.success(`Trial now ends ${day(r.trialEndsAt)}.`);
       } else {
-        await opsGrantPlan(account.id, { apps: [...apps].map((appCode) => ({ appCode, priceModel: 'free' })), status: 'active' });
-        notify.success(`${account.name} is on a paid plan now. It is on the record.`);
+        const r = await opsGrantPlan(account.id, { apps: [...apps].map((appCode) => ({ appCode, priceModel: 'free' })), status: 'active', reason: reason.trim() });
+        /* Free for good is over the limit: it waits for a colleague in Approvals (server: services/ops/grants.ts). */
+        if (r?.needsApproval) notify.success(`Sent for approval. ${account.name} stays on the trial until a colleague approves it in Approvals.`);
+        else notify.success(`${account.name} is on a paid plan now. It is on the record.`);
       }
       onDone();
     } catch (err) {
@@ -249,7 +251,7 @@ function TrialDrawer({ action, onClose, onDone }) {
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ops-trial" className="ws-btn ws-btn--primary" disabled={busy || (extend ? reason.trim().length < 3 : !apps.size)}>
+          <button type="submit" form="ops-trial" className="ws-btn ws-btn--primary" disabled={busy || reason.trim().length < 3 || (!extend && !apps.size)}>
             {busy ? 'Working…' : extend ? 'Extend trial' : 'Convert'}
           </button>
         </>
@@ -280,7 +282,11 @@ function TrialDrawer({ action, onClose, onDone }) {
                 </label>
               ))}
             </fieldset>
-            <p className="ws-card-blurb">The trial ends and the plan is active from now, set by hand: no payment is taken and nothing is invoiced from here. Only CLOR can do this.</p>
+            <label className="grid gap-1">
+              <span className="text-sm font-medium">Why</span>
+              <textarea className="ui-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the colleague who approves it" />
+            </label>
+            <p className="ws-card-blurb">The trial ends and the plan is active from when it is set, by hand: no payment is taken and nothing is invoiced from here. The apps are free from then on, so a colleague approves it in Approvals first; until then {account?.name || 'the customer'} stays on the trial.</p>
           </>
         )}
       </form>

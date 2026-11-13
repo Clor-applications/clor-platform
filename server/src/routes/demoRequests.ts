@@ -347,7 +347,7 @@ opsDemoRequestsRouter.patch('/ops/demo-requests/:id', requireOperatorRole('SALES
     const parsed = statusBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message === 'Nothing to change.' ? 'Nothing to change.' : 'Check the status, owner and follow-up date.' });
     const b = parsed.data;
-    const r = await platformPrisma.demoRequest.findUnique({ where: { id }, select: { status: true, note: true, assignedToUserId: true, followUpAt: true } });
+    const r = await platformPrisma.demoRequest.findUnique({ where: { id }, select: { status: true, note: true, assignedToUserId: true, followUpAt: true, updatedAt: true } });
     if (!r) return res.status(404).json({ error: 'No such request' });
     if (r.status === 'ACCOUNT_CREATED' && b.status !== undefined) return res.status(409).json({ error: 'The account is made; this request is closed.', code: 'ACCOUNT_CREATED' });
     if (b.assignedToUserId) {
@@ -356,8 +356,13 @@ opsDemoRequestsRouter.patch('/ops/demo-requests/:id', requireOperatorRole('SALES
     }
     const note = b.note === undefined ? r.note : b.note || null;
     const statusMoved = b.status !== undefined && b.status !== r.status;
-    const row = await platformPrisma.demoRequest.update({
-      where: { id },
+    /*
+     * Only over the request as it was read. A change made in between (the
+     * account created from it, or a colleague's update) used to be overwritten:
+     * an ACCOUNT_CREATED request went back to CONTACTED. Now this one is refused.
+     */
+    const claimed = await platformPrisma.demoRequest.updateMany({
+      where: { id, status: r.status, updatedAt: r.updatedAt },
       data: {
         note,
         ...(b.status !== undefined ? { status: b.status } : {}),
@@ -368,6 +373,8 @@ opsDemoRequestsRouter.patch('/ops/demo-requests/:id', requireOperatorRole('SALES
         ...(b.status === 'NOT_A_FIT' ? { followUpAt: null } : {}),
       },
     });
+    if (!claimed.count) return res.status(409).json({ error: 'Someone changed this request a moment ago. Refresh to see it as it is now.', code: 'REQUEST_CHANGED' });
+    const row = await platformPrisma.demoRequest.findUniqueOrThrow({ where: { id } });
     if (b.status !== undefined || b.note !== undefined) await audit(req, 'DEMO_REQUEST_STATUS', {}, { demoRequestId: id, from: r.status, to: row.status, note: b.note || undefined });
     if (b.assignedToUserId !== undefined && b.assignedToUserId !== r.assignedToUserId) await audit(req, 'DEMO_REQUEST_ASSIGNED', {}, { demoRequestId: id, from: r.assignedToUserId, to: row.assignedToUserId });
     if (b.followUpAt !== undefined && (b.followUpAt?.getTime() ?? null) !== (r.followUpAt?.getTime() ?? null)) await audit(req, 'DEMO_REQUEST_FOLLOW_UP', {}, { demoRequestId: id, at: row.followUpAt });

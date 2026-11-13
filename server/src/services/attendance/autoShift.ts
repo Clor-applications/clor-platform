@@ -71,15 +71,15 @@ export async function autoPickShift(accountId: string, orgId: string, employeeId
   /* A temporary schedule a person wrote (a shift change request, HR's own) wins; the pick never replaces it. */
   if (temps.some((t) => !t.pickedByPunch)) return null;
   const mine = temps.find((t) => t.pickedByPunch && t.fromDate === date && t.toDate === date) || null;
-  /* What the day would be without a pick: a personal or rotation schedule decides, so nothing is picked. */
-  const data = await loadSchedule(orgId, [employeeId]);
+  /* What the day would be without a pick: the roster, a personal or a rotation schedule decides, so nothing is picked. */
+  const data = await loadSchedule(orgId, [employeeId], { from: date, to: date });
   data.temporary.delete(employeeId);
   const without = resolveShift(data, employeeId, date);
   const letGo = async () => {
     if (mine) await peoplePrisma.temporarySchedule.delete({ where: { id: mine.id } });
     return null;
   };
-  if (without.source === 'EMPLOYEE' || without.source === 'ROTATION' || !firstPunch) return letGo();
+  if (without.source === 'ROSTER' || without.source === 'EMPLOYEE' || without.source === 'ROTATION' || !firstPunch) return letGo();
   const shifts = await peoplePrisma.shift.findMany({ where: { orgId, autoPick: true, isActive: true } });
   const candidates = shifts.map((s) => ({ id: s.id, rule: toRule(s) })).filter((c) => !isOvernight(c.rule));
   const picked = pickShift(candidates, date, firstPunch);

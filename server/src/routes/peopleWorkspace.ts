@@ -12,6 +12,8 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { inScope, teamScope, type TeamScope } from '../services/people/scope.js';
 import { today } from '../services/attendance/days.js';
+import { z } from 'zod';
+import { anyBody, check, id, q, text } from '../middleware/validate.js';
 
 /**
  * A record about one person follows the team scope like every other People
@@ -51,13 +53,21 @@ peopleWorkspaceRouter.use(path, async (req, res, next) => {
   }
   return requirePermission('PEOPLE', action, WORKSPACE[kind].resource)(req, res, next);
 });
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A record's body goes whole into
+ * parseRecord (services/people/workspace.ts), whose own schema names every field and refuses any other, so here it
+ * is only checked for being an object and nothing is dropped from it.
+ */
+const KIND_PARAMS = z.object({ kind: text(40) });
+const RECORD_PARAMS = z.object({ kind: text(40), id });
+
 /* A reader's copy: only the fields the employee app sends (plus the symbol Home draws), never the audience, whose ids name other employees. */
 const ANNOUNCEMENT_READ = ['body', 'symbol'];
 const only = <T extends { details: unknown }>(r: T, keys: string[]) => {
   const d = (r.details || {}) as Record<string, unknown>;
   return { ...r, details: Object.fromEntries(keys.filter((k) => d[k] !== undefined).map((k) => [k, d[k]])) };
 };
-peopleWorkspaceRouter.get(path, async (req, res) => {
+peopleWorkspaceRouter.get(path, check({ params: KIND_PARAMS, query: z.object({ employeeId: q(text(100)) }) }), async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   /* `employeeId`: one person's records (their assets on the employee record), still inside the caller's team. */
   const one = typeof req.query.employeeId === 'string' && req.query.employeeId ? { employeeId: req.query.employeeId } : {};
@@ -94,7 +104,7 @@ async function related(accountId: string, orgId: string, kind: WorkspaceKind, bo
     if (found !== ids.length) throw Object.assign(new Error('Someone or something in the audience is not in this company.'), { status: 400 });
   }
 }
-peopleWorkspaceRouter.post(path, async (req, res) => {
+peopleWorkspaceRouter.post(path, check({ params: KIND_PARAMS, body: anyBody }), async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const kind = req.params.kind as WorkspaceKind;
   const { version: _version, ...body } = parseRecord(kind, req.body);
@@ -103,7 +113,7 @@ peopleWorkspaceRouter.post(path, async (req, res) => {
   await recordAudit(req, { entity: 'PeopleRecord', entityId: record.id, action: 'CREATE', message: `Created ${kind}: ${record.title}`, metadata: { kind } });
   res.status(201).json({ record });
 });
-peopleWorkspaceRouter.put(`${path}/:id`, async (req, res) => {
+peopleWorkspaceRouter.put(`${path}/:id`, check({ params: RECORD_PARAMS, body: anyBody }), async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const kind = req.params.kind as WorkspaceKind;
   const body = parseRecord(kind, req.body);
@@ -122,7 +132,7 @@ peopleWorkspaceRouter.put(`${path}/:id`, async (req, res) => {
   await recordAudit(req, { entity: 'PeopleRecord', entityId: current.id, action: 'UPDATE', message: `Updated ${kind}: ${body.title}`, metadata: { kind, fromStatus: current.status, toStatus: body.status } });
   res.json({ record });
 });
-peopleWorkspaceRouter.delete(`${path}/:id`, async (req, res) => {
+peopleWorkspaceRouter.delete(`${path}/:id`, check({ params: RECORD_PARAMS }), async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const where = { id: req.params.id, accountId, orgId, kind: req.params.kind };
   /* The same team limit as reading and changing: a record outside it is not there to delete. */

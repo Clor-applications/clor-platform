@@ -36,7 +36,7 @@ export function getJwtSecret() {
  * sessionPolicyFor). Absent, the deployment's JWT_EXPIRES_IN.
  */
 /** `xp`: the Explore pass an Explore session came from (services/explore.ts); its holder may only read (middleware/exploreReadOnly.ts). */
-export function signAccessToken(payload: { userId: string; accountId: string; sid?: string; xp?: string }, minutes?: number) {
+export function signAccessToken(payload: { userId: string; accountId: string; sid?: string; xp?: string; so?: string }, minutes?: number) {
   const secret = getJwtSecret();
   if (!secret) throw new Error('Server misconfigured: JWT_SECRET missing');
   return jwt.sign(payload, secret, {
@@ -66,6 +66,8 @@ export async function createSession(opts: {
   notAfter?: Date;
   /** An Explore session: the pass it came from, carried through every rotation. */
   explorePassId?: string | null;
+  /** A single sign-on session: the one company it opens, carried through every rotation. */
+  ssoOrgId?: string | null;
 }) {
   const refreshToken = randomBytes(48).toString('base64url');
   const days = opts.days && opts.days > 0 ? opts.days : REFRESH_TOKEN_DAYS;
@@ -81,6 +83,7 @@ export async function createSession(opts: {
       userAgent: opts.userAgent ? String(opts.userAgent).slice(0, 300) : null,
       expiresAt,
       ...(opts.explorePassId ? { explorePassId: opts.explorePassId } : {}),
+      ...(opts.ssoOrgId ? { ssoOrgId: opts.ssoOrgId } : {}),
     },
   });
 
@@ -190,11 +193,12 @@ export async function rotateSession(refreshToken: string, ctx: { ip?: string; us
     days: policy.sessionDays,
     notAfter: session.expiresAt,
     explorePassId: session.explorePassId,
+    ssoOrgId: session.ssoOrgId,
   });
   await platformPrisma.session.update({ where: { id: session.id }, data: { replacedBySessionId: next.session.id } });
 
   return {
-    accessToken: signAccessToken({ userId: user.id, accountId: user.accountId, sid: next.session.id, ...(session.explorePassId ? { xp: session.explorePassId } : {}) }, policy.accessTokenMinutes),
+    accessToken: signAccessToken({ userId: user.id, accountId: user.accountId, sid: next.session.id, ...(session.explorePassId ? { xp: session.explorePassId } : {}), ...(session.ssoOrgId ? { so: session.ssoOrgId } : {}) }, policy.accessTokenMinutes),
     refreshToken: next.refreshToken,
     session: next.session,
   };

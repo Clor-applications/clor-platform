@@ -9,7 +9,9 @@ import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { clientIp, issuePasswordResetToken, revokeAllSessions } from '../services/auth.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
-import { getSubscription, setSubscription, syncAccountEntitlement } from '../services/subscriptions.js';
+import { getSubscription, syncAccountEntitlement } from '../services/subscriptions.js';
+import { applyGrant, askForGrant, recordGrant, type AppsGrant } from '../services/ops/grants.js';
+import { DealError } from '../services/pricing/deals.js';
 import { InvitationError, resendInvitation } from '../services/accountInvitations.js';
 import { deliver, sendTemplate } from '../services/mailer.js';
 import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
@@ -41,7 +43,11 @@ const accountOr404 = async (id: string) => platformPrisma.account.findUnique({ w
 
 const appsBody = reasonBody.extend({ apps: z.array(z.string()).min(1).max(20) });
 
-/** Change which apps the plan carries. Apps kept keep their tier and seats; an app added comes in free until priced. */
+/**
+ * Change which apps the plan carries. Apps kept keep their tier and seats; an
+ * app added comes in free until priced, which gives it away: over the limit
+ * deals use, a second person approves it first (services/ops/grants.ts).
+ */
 opsCustomersRouter.post('/ops/accounts/:id/apps', requireOperatorRole('BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: change apps', async () => {
     const id = String(req.params.id);
@@ -50,18 +56,18 @@ opsCustomersRouter.post('/ops/accounts/:id/apps', requireOperatorRole('BILLING')
     if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
     const unknown = parsed.data.apps.filter((a) => !SELLABLE_APP_CODES.includes(a));
     if (unknown.length) return res.status(400).json({ error: `These apps cannot be sold yet: ${unknown.join(', ')}.` });
-    const sub = await getSubscription(id);
-    if (!sub) return res.status(409).json({ error: 'This customer has no plan yet. Use Set a plan first.' });
-    const keep = new Map(sub.items.map((i) => [i.appCode, i]));
-    const before = sub.items.map((i) => i.appCode).sort();
-    const apps = [...new Set(parsed.data.apps)].map((appCode) => {
-      const k = keep.get(appCode);
-      return k ? { appCode, tier: k.tier, seats: k.seats, priceModel: k.priceModel, unitAmount: k.unitAmount } : { appCode, priceModel: 'free' };
-    });
-    const after = await setSubscription(id, { apps, status: sub.status });
-    clearAccessCache();
-    await audit(req, 'SUBSCRIPTION_APPS_CHANGED', { accountId: id }, { from: before, to: (after?.items || []).map((i) => i.appCode).sort(), reason: parsed.data.reason });
-    res.json({ apps: (after?.items || []).map((i) => i.appCode).sort() });
+    if (!(await getSubscription(id))) return res.status(409).json({ error: 'This customer has no plan yet. Use Set a plan first.' });
+    const grant: AppsGrant = { route: 'apps', body: { apps: [...new Set(parsed.data.apps)], reason: parsed.data.reason } };
+    const asked = await askForGrant(req, id, grant, parsed.data.reason);
+    if (asked) return res.status(asked.status).json(asked.body);
+    try {
+      const r = await applyGrant(id, grant);
+      await recordGrant(req, id, grant, r);
+      res.json({ apps: (r.after?.items || []).map((i) => i.appCode).sort() });
+    } catch (e) {
+      if (e instanceof DealError) return res.status(e.status).json({ error: e.message });
+      throw e;
+    }
   }),
 );
 
@@ -74,7 +80,8 @@ opsCustomersRouter.post('/ops/accounts/:id/cancel', requireOperatorRole('BILLING
     const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true } });
     if (!sub) return res.status(409).json({ error: 'This customer has no subscription to cancel.' });
     if (sub.status === 'cancelled') return res.status(409).json({ error: 'Already cancelled.' });
-    await platformPrisma.subscription.update({ where: { accountId: id }, data: { status: 'cancelled', cancelAtPeriodEnd: false } });
+    const done = await platformPrisma.subscription.updateMany({ where: { accountId: id, status: { not: 'cancelled' } }, data: { status: 'cancelled', cancelAtPeriodEnd: false } });
+    if (!done.count) return res.status(409).json({ error: 'Already cancelled.' });
     await syncAccountEntitlement(id);
     clearAccessCache();
     await audit(req, 'SUBSCRIPTION_CANCELLED', { accountId: id }, { from: sub.status, reason: parsed.data.reason });
@@ -88,11 +95,18 @@ opsCustomersRouter.post('/ops/accounts/:id/reopen', requireOperatorRole('BILLING
     const id = String(req.params.id);
     const parsed = reasonBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
-    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true } });
+    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true, currentPeriodEnd: true } });
     if (!sub) return res.status(409).json({ error: 'This customer has no subscription.' });
     if (sub.status !== 'cancelled') return res.status(409).json({ error: 'Only a cancelled subscription can be reopened.' });
     const status = sub.trialEndsAt && sub.trialEndsAt.getTime() > Date.now() ? 'trialing' : 'active';
-    await platformPrisma.subscription.update({ where: { accountId: id }, data: { status } });
+    /*
+     * Back to active with a paid period that has already ended (closing the
+     * last company ends it that day): the old end is dropped, as for a grant
+     * by hand (setSubscription), or the account would reopen lapsed.
+     */
+    const lapsed = status === 'active' && Boolean(sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() <= Date.now());
+    const done = await platformPrisma.subscription.updateMany({ where: { accountId: id, status: 'cancelled' }, data: { status, ...(lapsed ? { currentPeriodEnd: null } : {}) } });
+    if (!done.count) return res.status(409).json({ error: 'Only a cancelled subscription can be reopened.' });
     await syncAccountEntitlement(id);
     clearAccessCache();
     await audit(req, 'SUBSCRIPTION_REOPENED', { accountId: id }, { to: status, reason: parsed.data.reason });

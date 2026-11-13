@@ -28,6 +28,7 @@ const UserX = duo(PUserMinus, 'UserX');
 const Users = duo(PUsersThree, 'Users');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import GetStarted from '../components/GetStarted';
 import MoveToPeople from '../components/MoveToPeople';
 
 /* The reader states the server already decides (Reader health uses the same words). */
@@ -204,6 +205,9 @@ export default function AttendanceToday({ openScreen }) {
           </section>
 
           <DpdpNotice openScreen={openScreen} />
+
+          {/* A company still setting up: six steps read from its records (components/GetStarted.jsx). */}
+          <GetStarted openScreen={openScreen} />
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <StatTile label="Headcount" value={data.headcount} icon={Users} />

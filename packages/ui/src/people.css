@@ -432,6 +432,17 @@
 
 /* Meet the team. */
 .people-dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: rgb(var(--dept)); flex: none; }
+/* A report's chart (apps/people/src/components/ReportChart.jsx): bars per category on the page ground, in the chart series. */
+.people-chart { margin: 0; display: grid; gap: 0.625rem; min-width: 0; }
+.people-chart-plot { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(2.25rem, 1fr); gap: 0.5rem; align-items: end; overflow-x: auto; }
+.people-chart-col { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 0; }
+.people-chart-value { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
+.people-chart-bars { width: 100%; height: 9rem; display: flex; align-items: flex-end; justify-content: center; gap: 2px; border-bottom: 1px solid rgb(var(--border)); }
+.people-chart-stack { width: 100%; max-width: 2.5rem; height: 100%; display: flex; flex-direction: column-reverse; gap: 1px; }
+.people-chart-stack > span { flex: none; background: rgb(var(--dept)); }
+.people-chart-stack > span:last-child { border-radius: 3px 3px 0 0; }
+.people-chart-bar { flex: 1 1 0; max-width: 1.25rem; min-height: 1px; border-radius: 3px 3px 0 0; background: rgb(var(--dept)); }
+.people-chart-label { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); white-space: nowrap; }
 
 /* Celebrate. */
 .people-celebrate-face { position: relative; flex: none; }

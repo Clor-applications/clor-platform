@@ -75,17 +75,18 @@ export async function assertScheduleOpen(orgId: string, ranges: DateRange[], mes
 
 /**
  * Every date a shift applies on: its own schedules (assignments, temporary,
- * department), the rotations it is a step of, and every date when it is the
+ * department, published roster days), the rotations it is a step of, and every date when it is the
  * company default. A switched-off shift counts too: switching it back on would
  * move those dates onto it again.
  */
 export async function shiftRanges(orgId: string, shiftId: string): Promise<DateRange[]> {
-  const [settings, assignments, temporary, departments, rotations] = await Promise.all([
+  const [settings, assignments, temporary, departments, rotations, rosterDays] = await Promise.all([
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { defaultShiftId: true } }),
     peoplePrisma.shiftAssignment.findMany({ where: { orgId, shiftId }, select: { effectiveFrom: true, effectiveTo: true } }),
     peoplePrisma.temporarySchedule.findMany({ where: { orgId, shiftId }, select: { fromDate: true, toDate: true } }),
     peoplePrisma.departmentSchedule.findMany({ where: { orgId, shiftId }, select: { effectiveFrom: true, effectiveTo: true } }),
     peoplePrisma.shiftRotation.findMany({ where: { orgId }, select: { id: true, sequence: true } }),
+    peoplePrisma.rosterDay.findMany({ where: { orgId, shiftId, state: 'PUBLISHED' }, select: { date: true }, distinct: ['date'] }),
   ]);
   if (settings?.defaultShiftId === shiftId) return [{ from: null, to: null }];
   const onRotations = rotations.filter((r) => r.sequence.split(',').map((x) => x.trim()).includes(shiftId)).map((r) => r.id);
@@ -97,6 +98,7 @@ export async function shiftRanges(orgId: string, shiftId: string): Promise<DateR
     ...temporary.map((t) => ({ from: t.fromDate, to: t.toDate })),
     ...departments.map((d) => ({ from: d.effectiveFrom, to: d.effectiveTo })),
     ...rotationPeople.map((r) => ({ from: r.startsOn, to: r.endsOn })),
+    ...rosterDays.map((r) => ({ from: r.date, to: r.date })),
   ];
 }
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import OpenInCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
+import AutomationsList from '@ui/automations/AutomationsList';
 /**
  * Every screen Attendance shows, in one place, so the manifest can load
  * them as one file the first time the app opens (WX-03). The manifest names
@@ -75,6 +76,8 @@ export { default as ReportInsights } from './screens/ReportInsights';
 export { default as CloseCompany } from '@ui/company/CloseCompany';
 /* This app's roles and permissions, in Workspace's one role editor, opened on Attendance's share (ADR-010). */
 export const RolesAccess = () => React.createElement(OpenInCompanyAdmin, { title: 'Roles & Access', screen: 'permissions', forApp: 'attendance' });
+/* Settings → Automations: Attendance's own recipes on the shared list (server: services/attendance/automations.ts). */
+export const Automations = ({ openScreen }) => React.createElement(AutomationsList, { module: 'attendance', openScreen, readOnlyNote: 'Whoever sets attendance rules changes these.' });
 /* Which of the company's emails go out is set once for every app, in Workspace (automations B5). */
 export const EmailNotifications = () => React.createElement(OpenInCompanyAdmin, { title: 'Email Notifications', screen: 'notifications' });
 

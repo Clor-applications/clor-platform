@@ -1,3 +1,4 @@
+import { punchedBreakFor } from './breaks.js';
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { computeDay, isOvernight, isWeeklyOff, istDate, istInstant, istTime, monthSummary, nightShiftLabel } from './compute.js';
@@ -37,7 +38,7 @@ export const sendError = (res: any, e: any) => {
  * creating a night shift must not quietly move everyone unassigned onto nights.
  */
 export async function shiftFor(orgId: string, employeeId: string, date: string) {
-  return resolveShift(await loadSchedule(orgId, [employeeId]), employeeId, date);
+  return resolveShift(await loadSchedule(orgId, [employeeId], { from: date, to: date }), employeeId, date);
 }
 
 type Place = { areaId: string | null; branchId: string | null };
@@ -264,6 +265,8 @@ export async function writeDay(opts: {
     if (opts.statusOverride === 'ON_LEAVE' && !opts.leaveRequestId) {
       throw fail(409, 'Apply and approve a leave type in People → Leave Requests so the balance is deducted.', 'LEAVE_REQUEST_REQUIRED');
     }
+    /* A shift on punched breaks: the unpaid break time punched that day, or null when nobody punched a break (breaks.ts). */
+    const breakTaken = await punchedBreakFor(opts.orgId, opts.employee.id, opts.date, rule, opts.checkIn, opts.checkOut);
     const computed = computeDay({
       date: opts.date,
       shift: rule,
@@ -271,6 +274,7 @@ export async function writeDay(opts: {
       checkOut: opts.checkOut,
       isHoliday: holiday,
       onLeave: opts.statusOverride === 'ON_LEAVE',
+      breakTakenMinutes: breakTaken,
     });
     const half = opts.halfDayLeave || null;
     const hours = !half ? opts.leaveHours || null : null;
@@ -304,6 +308,7 @@ export async function writeDay(opts: {
       lateMinutes: computed.lateMinutes,
       earlyOutMinutes: computed.earlyOutMinutes,
       overtimeMinutes: computed.overtimeMinutes,
+      breakMinutes: breakTaken,
       status,
       source: opts.source,
       leaveRequestId: opts.leaveRequestId ?? null,
@@ -322,10 +327,24 @@ export async function writeDay(opts: {
       const reasons = t.trust === 'MANUAL' ? [...t.reasons, ...decidedMarker(before?.trustReasons)] : t.reasons;
       trustData = { trust: t.trust, trustReasons: asJson(reasons) };
     }
+    /*
+     * Approved overtime survives a rewrite of the day (a reader punch, a correction, a recalculation) as long as
+     * the day has no more overtime than was approved. The day keeps only a yes/no, so what was approved is the
+     * larger of the minutes the day had when it was approved and the minutes on an approved overtime request
+     * for it. Less overtime than that: still approved, and paid at the new, smaller figure. More: the extra was
+     * never approved, so the day is not approved and the employee can ask again (overtimeFor). Before, every
+     * rewrite cleared it while the request stayed APPROVED, and the overtime went unpaid with no way to ask again.
+     */
+    let overtimeApproved = false;
+    const otNow = computed.overtimeMinutes || 0;
+    if (before?.overtimeApproved && otNow > 0) {
+      const asked = await peoplePrisma.overtimeRequest.findFirst({ where: { orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, kind: 'OVERTIME', status: 'APPROVED' }, orderBy: { minutes: 'desc' }, select: { minutes: true } });
+      overtimeApproved = otNow <= Math.max(before.overtimeMinutes || 0, asked?.minutes || 0);
+    }
     const record = await peoplePrisma.attendanceRecord.upsert({
       where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
       create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data, ...trustData },
-      update: { ...data, ...trustData, overtimeApproved: false },
+      update: { ...data, ...trustData, overtimeApproved },
     });
     await logDayChange({
       accountId: opts.accountId, orgId: opts.orgId, employeeId: record.employeeId, date: record.date, recordId: record.id,
@@ -481,7 +500,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
     }),
     peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to }, ...(opts.employeeIds ? { employeeId: { in: opts.employeeIds } } : {}) } }),
     loadHolidays(orgId, from, to),
-    loadSchedule(orgId),
+    loadSchedule(orgId, undefined, { from, to }),
   ]);
   const holidays = holidayData.rows;
   /* Company-wide holidays; holidaysFor(person) adds their area's and branch's, and the restricted holidays they picked. */
@@ -549,6 +568,9 @@ export async function periodRows(accountId: string, orgId: string, days: string[
   /* Late marks and early exits under the company's rules: the part leave does not cover is loss of pay, never silently (markRules.ts). */
   const { penaltiesOver } = await import('./markRules.js');
   const penalties = await penaltiesOver(accountId, orgId, days, { ctx });
+  /* Overtime at each day's rate, and the part over the company's caps (overtimePolicy.ts), beside the plain approved minutes Payroll reads. */
+  const { overtimeDaysOver, overtimeTotals } = await import('./overtimeFigures.js');
+  const overtime = await overtimeDaysOver(ctx, orgId);
   return ctx.people.map((p) => {
     const span = ctx.spanOf(p);
     const spanSet = new Set(span);
@@ -576,6 +598,7 @@ export async function periodRows(accountId: string, orgId: string, days: string[
       department: p.department,
       unpaidLeaveDays,
       ...summary,
+      ...overtimeTotals(overtime.days.get(p.id), counted, overtime.policy),
       totalDays: summary.totalDays + untrackedDays,
       payableDays: summary.payableDays + untrackedDays,
       untrackedDays,

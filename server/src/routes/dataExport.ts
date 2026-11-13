@@ -1,6 +1,7 @@
 // bounded-file: a company export is every row of its own data, by design (see the note on the router below).
 import { Router } from 'express';
 import { hasValidStepUp } from '../services/stepUp.js';
+import { payrollStepUpOn } from '../services/policy.js';
 
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -124,7 +125,7 @@ const TABLE_GRANT: Record<string, string> = {
   ...Object.fromEntries(['GreetingPost', 'EngagementSettings'].map((m) => [m, P('Announcements')])),
   ...Object.fromEntries(['AttendanceRecord', 'AttendanceActivity', 'AttendanceRecordHistory', 'AttendanceMonthSnapshot', 'AttendanceExceptionState', 'AttendanceMonthLock', 'AttendanceMonthConfirmation', 'AttendancePenalty', 'AttendanceNudge', 'PhonePunchAttempt', 'ReaderEvent', 'IngestRun', 'Area', 'Contractor', 'AttendanceSettings', 'AttendanceRuleVersion'].map((m) => [m, T('Attendance Records')])),
   ...Object.fromEntries(['AttendanceRequest', 'OvertimeRequest'].map((m) => [m, T('Attendance Requests')])),
-  ...Object.fromEntries(['Shift', 'ShiftAssignment', 'TemporarySchedule', 'DepartmentSchedule', 'ShiftRotation', 'RotationAssignment', 'ShiftSwap', 'Geofence'].map((m) => [m, T('Shifts')])),
+  ...Object.fromEntries(['Shift', 'ShiftAssignment', 'TemporarySchedule', 'DepartmentSchedule', 'ShiftRotation', 'RotationAssignment', 'RosterDay', 'ShiftSwap', 'Geofence'].map((m) => [m, T('Shifts')])),
   ...Object.fromEntries(['Holiday', 'HolidayPick'].map((m) => [m, T('Holidays')])),
   ...Object.fromEntries(['LeaveType', 'LeaveBlock', 'LeaveYearEnd'].map((m) => [m, T('Leave Types')])),
   ...Object.fromEntries(['LeaveAllocation', 'LeaveAdjustment', 'LeaveRequest'].map((m) => [m, T('Leave Requests')])),
@@ -374,10 +375,10 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
     } else {
       withheld.push({ domain: 'people', reason: 'You cannot view employees in People.' });
     }
-    const policy = await platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requirePayrollStepUp: true } });
+    const stepUpOn = await payrollStepUpOn(orgId);
     if (!holds('PAYROLL::Employee Payroll Profile::VIEW') || !holds('PAYROLL::Payroll Runs::VIEW')) {
       withheld.push({ domain: 'payroll', reason: 'You cannot view payroll profiles and pay runs.' });
-    } else if (policy?.requirePayrollStepUp && !hasValidStepUp(req)) {
+    } else if (stepUpOn && !hasValidStepUp(req)) {
       withheld.push({ domain: 'payroll', reason: 'Your company asks for an authenticator code before payroll data leaves CLOR.' });
     } else {
       /* As Payroll's own screens show them (payrollEmployees.ts): PAN and bank by the profile's field level; UAN, PF and ESI also with Full identifiers. */

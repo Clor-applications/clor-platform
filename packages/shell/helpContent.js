@@ -6,16 +6,20 @@
  * under /docs (`doc`).
  *
  * Keep this true to the product: when a menu is renamed or a screen moves,
- * change the article in the same change.
+ * change the article in the same change. The step-by-step guides for
+ * Workspace, People and Attendance are in helpGuides.js.
  */
+import { GUIDES, GUIDE_GROUPS } from './helpGuides';
+
 export const HELP_GROUPS = [
   { key: 'start', label: 'Getting started' },
   { key: 'workspace', label: 'Workspace' },
+  ...GUIDE_GROUPS,
   { key: 'apps', label: 'Apps' },
   { key: 'integrations', label: 'Integrations' },
 ];
 
-export const HELP_TOPICS = [
+const OVERVIEWS = [
   {
     key: 'welcome',
     group: 'start',
@@ -321,12 +325,20 @@ export const HELP_TOPICS = [
   },
 ];
 
-/** Topics whose title, summary or text mention every word typed. */
+/* The overviews, then the guides; "Your first week" opens the Getting started group. */
+export const HELP_TOPICS = [
+  OVERVIEWS[0],
+  ...GUIDES.filter((g) => g.group === 'start'),
+  ...OVERVIEWS.slice(1),
+  ...GUIDES.filter((g) => g.group !== 'start'),
+];
+
+/** Topics whose title, summary, keywords or text mention every word typed. */
 export function searchHelp(query, topics = HELP_TOPICS) {
   const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return topics;
   return topics.filter((t) => {
-    const text = [t.title, t.summary, ...(t.sections || []).flatMap((s) => [s.heading, ...(s.points || []), ...(s.steps || [])])].join(' ').toLowerCase();
+    const text = [t.title, t.summary, ...(t.keywords || []), ...(t.sections || []).flatMap((s) => [s.heading, ...(s.points || []), ...(s.steps || [])])].join(' ').toLowerCase();
     return words.every((w) => text.includes(w));
   });
 }

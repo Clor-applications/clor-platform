@@ -4,6 +4,7 @@ import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { isWeeklyOff, istInstant } from './compute.js';
 import { clashingTemporaries } from './conflicts.js';
 import { daysOfMonth, monthRows, periodContext } from './days.js';
+import { overtimeDaysOver } from './overtimeFigures.js';
 import { readerTrustOn } from './trust.js';
 import { eachDay, todayIst } from '../../utils/istDate.js';
 import type { TeamScope } from '../people/scope.js';
@@ -26,12 +27,14 @@ export type PersonIssues = {
   missingOut: Array<{ id: string; date: string }>;
   noRecord: string[];
   unvalidated: Array<{ id: string; date: string }>;
-  unapprovedOvertime: Array<{ id: string; date: string; minutes: number }>;
+  /** `overCap`: the part of the day's overtime over the company's caps, in words ("1 h over the cap of 2 h a day"), or null. */
+  unapprovedOvertime: Array<{ id: string; date: string; minutes: number; overCapMinutes: number; overCap: string | null }>;
 };
 
 export async function scanDays(accountId: string, orgId: string, from: string, to: string, scope?: TeamScope) {
   const ctx = await periodContext(accountId, orgId, from, to, { employeeIds: idsOf(scope) });
   const people: PersonIssues[] = [];
+  const overtime = await overtimeDaysOver(ctx, orgId);
   for (const p of ctx.people) {
     if (p.status === 'LEFT' && !p.dateOfLeaving) continue;
     const span = ctx.spanOf(p);
@@ -50,7 +53,10 @@ export async function scanDays(accountId: string, orgId: string, from: string, t
       }
       if (r.checkIn && !r.checkOut) issue.missingOut.push({ id: r.id, date: d });
       if (!r.validated) issue.unvalidated.push({ id: r.id, date: d });
-      if (r.overtimeMinutes > 0 && !r.overtimeApproved) issue.unapprovedOvertime.push({ id: r.id, date: d, minutes: r.overtimeMinutes });
+      if (r.overtimeMinutes > 0 && !r.overtimeApproved) {
+        const day = overtime.days.get(p.id)?.get(d);
+        issue.unapprovedOvertime.push({ id: r.id, date: d, minutes: r.overtimeMinutes, overCapMinutes: day?.overCapMinutes || 0, overCap: day?.overCap || null });
+      }
     }
     people.push(issue);
   }
@@ -110,7 +116,14 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
   const { penaltiesOver } = await import('./markRules.js');
   const due = [...(await penaltiesOver(accountId, orgId, days, { employeeIds: idsOf(scope) })).values()].filter((p) => p.status === 'DUE');
   const dueFromLeave = due.some((p) => p.fromLeave.length > 0);
+  /*
+   * Employees who say their month is wrong, with no answer from HR yet (selfService.ts resolveDispute). A warning,
+   * not a blocker: it is a claim to read, not a figure that is missing, and one person's note must not hold the
+   * company's month. Closing over it is a choice the closer sees.
+   */
+  const openDisputes = await peoplePrisma.attendanceMonthConfirmation.count({ where: { orgId, month, status: 'DISPUTED', resolvedAt: null, ...(idsOf(scope) ? { employeeId: { in: idsOf(scope) } } : {}) } });
   const sum = (f: (p: PersonIssues) => number) => people.reduce((s, p) => s + f(p), 0);
+  const overCapDays = sum((p) => p.unapprovedOvertime.filter((o) => o.overCapMinutes > 0).length);
   const checks = [
     { key: 'missingOut', label: 'Days with a check-in and no check-out', severity: 'block', count: sum((p) => p.missingOut.length), screen: 'records', hint: 'Not paid until corrected.' },
     { key: 'corrections', label: 'Correction requests waiting', severity: 'block', count: queues.corrections.length, screen: 'requests', hint: 'Approve or reject so the days are final.' },
@@ -123,8 +136,9 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
      * absence once the month closes. The month closes over them only when someone confirms them, by count.
      */
     { key: 'noRecord', label: 'Working days with no record', severity: 'confirm', count: sum((p) => p.noRecord.length), screen: 'register', hint: 'Each is docked as an unpaid absence (loss of pay) when the month closes.' },
-    { key: 'overtime', label: 'Overtime not yet approved', severity: 'check', count: sum((p) => p.unapprovedOvertime.length), screen: 'records', hint: 'Unapproved overtime is not paid.' },
+    { key: 'overtime', label: 'Overtime not yet approved', severity: 'check', count: sum((p) => p.unapprovedOvertime.length), screen: 'records', hint: overCapDays ? `Unapproved overtime is not paid. ${overCapDays} of these ${overCapDays === 1 ? 'days has' : 'days have'} hours over the overtime cap.` : 'Unapproved overtime is not paid.' },
     { key: 'unvalidated', label: 'Days not validated', severity: 'check', count: sum((p) => p.unvalidated.length), screen: 'records', hint: 'Payable days are worked out from validated and unvalidated days alike.' },
+    { key: 'disputes', label: 'Employees who say their month is wrong', severity: 'check', count: openDisputes, screen: 'confirmations', hint: 'Read what they wrote and answer each before the month closes.' },
     { key: 'readers', label: 'Reader problems open now', severity: 'check', count: queues.alerts.length, screen: 'readerHealth', hint: 'Punches may be missing from these readers.' },
     ...(due.length ? [{ key: 'penalties', label: 'Late-mark penalties not applied or waived', severity: 'block', count: due.length, screen: 'lateMarks', hint: dueFromLeave ? 'Part comes from leave: apply them so the leave is taken before payroll.' : 'Payroll waits for them: apply or waive them in People, Late marks.' }] : []),
     ...(trustOn ? [{ key: 'trustCheck', label: 'Days whose punches need a look', severity: 'check', count: trustCheck, screen: 'records', hint: 'A punch arrived late, a reader was offline or its clock was out, a phone punch was outside the work sites, or a reader is not registered.' }] : []),

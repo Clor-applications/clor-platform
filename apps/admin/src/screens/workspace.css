@@ -1298,6 +1298,10 @@ button.ws-item:hover {
   background: rgb(var(--ws-bg));
   font-size: 0.8125rem;
 }
+/* Before and after values, opened from "N fields changed" (AuditTrail.jsx FieldChanges). */
+.ws-audit-more .ws-audit-diffs {
+  margin-top: 8px;
+}
 .ws-audit-more dl > div {
   display: contents;
 }

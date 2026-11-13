@@ -3,11 +3,12 @@ import express, { Router, type Request, type RequestHandler, type Response } fro
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { COMMANDS, FACE, FETCH_TEMPLATE_COMMANDS, HANDSHAKE_OPTIONS, commandEffect, instantOf, parseAttlogLine, parseBiodataLine, parseCommandResults, parseInfo, parseOpLine, parseReaderInfo, refusalReason } from '../services/attendance/adms.js';
 import { READER_KNOWN, readerAddressLimiter, readerBlockLimiter, readerSerialLimiter } from '../middleware/rateLimit.js';
-import { MAX_NETWORKS, blockOf, networkOf, sameBlock } from '../services/attendance/network.js';
+import { MAX_NETWORKS, blockOf, inRange, networkOf, sameBlock } from '../services/attendance/network.js';
 import { biometricPolicy } from '../services/attendance/biometrics.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { DECIDED, ingestPunches, pinMatcher } from '../services/attendance/punches.js';
 import { markOnReader, storeTemplate, storeUser } from '../services/attendance/readerSync.js';
+import { claimNextCommand, settleCommand } from '../services/attendance/commandQueue.js';
 
 /**
  * /iclock — where biometric readers push punches (ZKTeco / eSSL "ADMS").
@@ -149,12 +150,54 @@ export const iclockBody: RequestHandler = (req, res, next) => {
 
 type Lockable = {
   id: string;
+  accountId: string;
+  orgId: string;
+  serialNumber: string;
+  ipAllowList: string[];
   allowedNetworks: string[];
   networkVerifiedAt: Date | null;
   claimNetwork: string | null;
   pendingNetwork: string | null;
   pendingNetworkAt: Date | null;
 };
+
+/**
+ * A push refused by a reader's allow-list is written where the company looks (Reader logs, Errors)
+ * and to the server log. A reader retries every few seconds and a forger can send as fast as the
+ * rate limits allow, so one line is kept per reader and address every ten minutes, not one per request.
+ */
+export const REFUSAL_LOG_EVERY_MS = 10 * 60_000;
+const refusalLogged = new Map<string, number>();
+async function logRefusal(device: Lockable, net: string | null) {
+  const key = `${device.id}|${net || 'unknown'}`;
+  const last = refusalLogged.get(key);
+  if (last && Date.now() - last < REFUSAL_LOG_EVERY_MS) return;
+  refusalLogged.delete(key);
+  refusalLogged.set(key, Date.now());
+  while (refusalLogged.size > 2_000) refusalLogged.delete(refusalLogged.keys().next().value!);
+  // eslint-disable-next-line no-console
+  console.warn(`[iclock] refused ${device.serialNumber} from ${net || 'an unknown address'}: not in the reader's allow-list`);
+  try {
+    await peoplePrisma.deviceLog.create({
+      data: {
+        accountId: device.accountId,
+        orgId: device.orgId,
+        deviceId: device.id,
+        kind: 'ERROR',
+        code: 'ADDRESS_REFUSED',
+        /* Reader logs are in the reader's wall clock; this one is ours, in IST like the INFO record below. */
+        localTime: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 19).replace('T', ' '),
+        details: `Refused data sent in this reader's name from ${net || 'an unknown address'}, which is not one of the network addresses it accepts punches from. If the office's internet address changed, add the new one on the reader's page.`,
+      },
+    });
+  } catch (e) {
+    /* The refusal stands whether or not it could be written down. */
+    // eslint-disable-next-line no-console
+    console.error(`[iclock] refusal not logged for ${device.serialNumber}:`, e instanceof Error ? e.message : e);
+  }
+}
+/** For tests: forget which refusals were logged. */
+export const _forgetRefusals = () => refusalLogged.clear();
 
 /**
  * The network lock (AttendanceDevice.allowedNetworks): may this request speak
@@ -167,6 +210,19 @@ type Lockable = {
  */
 async function admitted(device: Lockable, req: Request) {
   const net = networkOf(req);
+  /*
+   * The company's own allow-list (ipAllowList, set on the reader's page) is the whole rule when
+   * there is one: an address inside it speaks for the reader, any other is refused and logged, and
+   * nothing is learnt or left waiting for approval. The address is the one `trust proxy` vouches
+   * for (app.ts): behind the api.clor.in Worker that is Cloudflare's verified client address, never
+   * an X-Forwarded-For the caller wrote itself.
+   */
+  const list = device.ipAllowList || [];
+  if (list.length) {
+    if (net && list.some((range) => inRange(net, range))) return true;
+    await logRefusal(device, net);
+    return false;
+  }
   if (!net) return false;
   const allowed = device.allowedNetworks || [];
   if (allowed.includes(net)) return true;
@@ -419,9 +475,9 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
     /* Who is on it (sync from the reader): when new to CLOR, hourly, and soon after a change there. */
     await readUsersIfDue(device, changedAtReader);
 
-    const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
+    /* Claimed while still waiting: a command HR cancelled a moment ago is not sent (commandQueue.ts). */
+    const next = await claimNextCommand({ deviceId: device.id });
     if (!next) return text(res, 'OK');
-    await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date(), attempts: { increment: 1 } } });
     return text(res, `C:${next.id}:${next.command}`);
   } catch (e) {
     /* The reader only ever sees OK or ERROR; the reason goes to the logs. */
@@ -445,11 +501,9 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
       const ok = r.returnCode >= 0;
       const cmd = await peoplePrisma.deviceCommand.findFirst({ where: { id: r.id, serialNumber: serial } });
       if (!cmd) continue;
-      await peoplePrisma.deviceCommand.update({
-        where: { id: cmd.id },
-        data: { status: ok ? 'DONE' : 'FAILED', returnCode: r.returnCode, doneAt: new Date(), lastError: ok ? null : refusalReason(r.returnCode) },
-      });
-      if (!ok || !device || cmd.deviceId !== device.id) continue;
+      /* Only the answer to the attempt still out settles it: a late or repeated reply changes nothing. */
+      const settled = await settleCommand(cmd, { status: ok ? 'DONE' : 'FAILED', returnCode: r.returnCode, lastError: ok ? null : refusalReason(r.returnCode) });
+      if (!settled || !ok || !device || cmd.deviceId !== device.id) continue;
       if (cmd.command === COMMANDS.INFO) {
         const info = parseReaderInfo(r.info);
         /* Kept under Reader logs as the reader said it: firmware differs in what it names its counts. */

@@ -256,3 +256,22 @@ Open after this module: identity-provider connectors and e-signature (only if cu
 No-dues sign-off per department on a leaving, final-pay clock (two working days from the last day, or Payroll's due date once drafted), exit interview (five editable questions, employee app or HR, hidden from the manager on request, retained withdraws the leaving, reasons in the People report), birthdays and anniversaries with opt-out and no birth year, holiday heads-up, and 17 plain-sentence automations with last run, count and recipients. `services/people/engagement/`, `routes/peopleEngagement*.ts`, screens `Automations`, `ExitQuestions`, `LeavingExtras`, employee app `Engagement`. Tests `leavingEngagement.test.ts`, `Engagement.test.jsx` (2), `LeavingExtras.test.jsx`. Screens: `evidence/leaving-engagement/`.
 
 Review fixes (30 Oct, PR #81): the exit interview reads HR, the reporting line and the person only, a hidden one carrying no reason or outcome; could-keep and HR's note HR only; why people leave HR only (a small team's counts name the person); money on a no-dues line HR and its owner only; nobody signs or decides on their own leaving; lines and interviews follow a moved last day and close when the leaving is withdrawn; a ticked "Final wages paid" clears the clock; reminders once each, and a failed run retried without sending twice. Decision: `withdrawnAt` and `retry` columns, migration `20261114090200_engagement_retry_withdrawn`.
+
+## People reports (platform audit 11 Nov 2026; built 12 Nov 2026)
+
+Finding: "People reports with filters and charts; Attendance reports shown in People", and "reports and builder" thin in the People functions table. Branch `claude/people-reports`, not pushed.
+
+What was already there, and stays: Headcount & attrition (`PeopleReports.jsx`, `GET /people/headcount`, whole company only, with Why people leave), Requests report, Statutory registers and Leave summary, Leave register, and Attendance's 19 reports inside People (`attendanceReports`, `summary`, `register`; `routes/attendanceReports.ts`).
+
+| Piece | Where | Test |
+|---|---|---|
+| Eight reports worked out on the server: headcount over time, length of service, age mix, gender mix, joiners, leavers and attrition (the month's rate and the last 12 months'), probation and confirmations, contracts ending, documents expiring | `services/people/reports.ts`, `routes/peopleReports.ts` (`GET /people/hr-reports`, `/:id`, `/:id/export.csv`); Employees view; cut to `teamScope`; documents by `docAccess`; joiners and leavers kept from whoever the company keeps the Leaving list from | `peopleHrReports.test.ts` (17) |
+| Filters: period (months, one day, or days), group by department, branch, employment type or grade, and the same four as filters; only lists the reader's people are in | same | same |
+| Small numbers: gender and age under five read "Fewer than 5" (the rest of the row "5 or more", no average) for anyone who is not whole-company HR; on screen and in the file | `maskRow` | same |
+| Export: CSV of the rows on screen, built by the server, logged in the audit trail. No Excel: the server has no Excel writer on `main` yet | `reportCsv` | same |
+| Reports home: every People and Time report in plain groups (Workforce, Joining and leaving, Time and attendance, Leave, Documents and compliance, Requests), Attendance's reports among them, each row opening its report; only what the reader may open | `ReportsHome.jsx`; menu: Reports › All reports (`reportsHome`), one report at `hrReport` | `ReportsHome.test.jsx` (5), `people-navigation.test.js` |
+| One report, full page: filters on one line, one chart, the table, Export as the one action | `HrReport.jsx`, `components/ReportChart.jsx` (CSS bars in `--dept-1..3` and grey; no chart library) | `HrReport.test.jsx` (5), `ui-rules.test.js` |
+
+Decisions: a person is counted under the department, branch, type or grade they are in today (the report says so); no Performance group, as there is no performance report yet; birthdays and anniversaries stay Attendance's "Birthdays & milestones", listed on the home; no migration.
+
+Open: not seen in a browser (the signed-in app does not run locally): the chart's look, the toolbar at 375px, the address following the filters. Excel export waits for the shared Excel writer. A report builder (pick your own columns) is not built.

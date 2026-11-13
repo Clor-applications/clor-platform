@@ -9,6 +9,8 @@ import { AnonymiseError } from '../services/anonymiseEmployee.js';
 import { onAnyCaseOrCommittee } from '../services/people/privateCases.js';
 import { readsRevisionsAsHr } from '../services/people/companyChoices.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { z } from 'zod';
+import { check, flag, idParams, id, list, noBody, q, text } from '../middleware/validate.js';
 import {
   ACCESS_KINDS, PrivacyError, accessReport, auditorEvidence, createAuditorGrant, decideDeletion, deletionReview,
   hasLiveAuditorGrant, openAuditorDocument, retentionSchedule, revokeAuditorGrant, saveRetention,
@@ -44,8 +46,18 @@ const csvCell = (v: unknown) => {
   return /[",\n]/.test(s) || /^[=+\-@]/.test(s) ? `"${(/^[=+\-@]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"` : s;
 };
 
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value or one far too
+ * long is refused with a 400; keys not named here are dropped; whether a field must be there, and the words for it,
+ * stay the service's (privacy.ts). The access report falls back to this month from a date that is not one, so its
+ * dates stay text. "?status=" on the deletion review means every status, so that one is not read as "not asked".
+ */
+const ACCESS_QUERY = z.object({ from: q(text(40)), to: q(text(40)), employeeId: q(text(80)), what: q(text(80)), format: q(text(20)) });
+const RETENTION = z.object({ keepYears: z.union([z.number(), text(20)]).nullish(), legalHold: flag.nullish(), holdReason: text(5000).nullish() });
+const GRANT = z.object({ userId: text(80).nullish(), purpose: text(5000).nullish(), documentIds: list(text(80), 1000).nullish(), fromAt: text(80).nullish(), untilAt: text(80).nullish() });
+
 /** Who viewed what, for a period (this month by default), optionally for one person. */
-peoplePrivacyRouter.get(`${base}/access`, can(PermissionAction.VIEW), run(async (req, res) => {
+peoplePrivacyRouter.get(`${base}/access`, can(PermissionAction.VIEW), check({ query: ACCESS_QUERY }), run(async (req, res) => {
   const q = req.query as Record<string, string | undefined>;
   const report = await accessReport({ orgId: req.tenant!.orgId, from: q.from, to: q.to, employeeId: q.employeeId || undefined, what: q.what || undefined });
   if (q.format === 'csv') {
@@ -60,19 +72,19 @@ peoplePrivacyRouter.get(`${base}/retention`, can(PermissionAction.VIEW), run(asy
   res.json({ schedule: await retentionSchedule(req.tenant!.orgId) });
 }));
 
-peoplePrivacyRouter.put(`${base}/retention/:dataType`, can(PermissionAction.EDIT), run(async (req, res) => {
+peoplePrivacyRouter.put(`${base}/retention/:dataType`, can(PermissionAction.EDIT), check({ params: z.object({ dataType: text(80) }), body: RETENTION }), run(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   res.json({ rule: await saveRetention({ keepYears: req.body?.keepYears, legalHold: req.body?.legalHold, holdReason: req.body?.holdReason, accountId, orgId, userId: req.auth!.userId, dataType: String(req.params.dataType) }) });
 }));
 
-peoplePrivacyRouter.get(`${base}/deletion-review`, can(PermissionAction.VIEW), run(async (req, res) => {
+peoplePrivacyRouter.get(`${base}/deletion-review`, can(PermissionAction.VIEW), check({ query: z.object({ status: text(40).optional() }) }), run(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const status = String(req.query.status ?? 'PENDING').toUpperCase();
   res.json(await deletionReview(accountId, orgId, ['PENDING', 'APPROVED', 'KEPT'].includes(status) ? status : ''));
 }));
 
 /** Erasing is DELETE; keeping is a decision too, so it needs EDIT. */
-peoplePrivacyRouter.post(`${base}/deletion-review/:id`, can(PermissionAction.EDIT), run(async (req, res) => {
+peoplePrivacyRouter.post(`${base}/deletion-review/:id`, can(PermissionAction.EDIT), check({ params: idParams, body: z.object({ decision: text(40).nullish(), note: text(5000).nullish() }) }), run(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   const decision = String(req.body?.decision || '').toUpperCase();
   if (decision === 'APPROVE') {
@@ -87,12 +99,12 @@ peoplePrivacyRouter.get(`${base}/auditor-grants`, can(PermissionAction.VIEW), ru
   res.json({ grants: rows.map((g) => ({ ...g, live: !g.revokedAt && g.fromAt <= now && g.untilAt > now })) });
 }));
 
-peoplePrivacyRouter.post(`${base}/auditor-grants`, can(PermissionAction.EDIT), run(async (req, res) => {
+peoplePrivacyRouter.post(`${base}/auditor-grants`, can(PermissionAction.EDIT), check({ body: GRANT }), run(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   res.status(201).json({ grant: await createAuditorGrant({ userId: req.body?.userId, purpose: req.body?.purpose, documentIds: req.body?.documentIds, fromAt: req.body?.fromAt, untilAt: req.body?.untilAt, accountId, orgId, grantedByUserId: req.auth!.userId }) });
 }));
 
-peoplePrivacyRouter.post(`${base}/auditor-grants/:id/revoke`, can(PermissionAction.EDIT), run(async (req, res) => {
+peoplePrivacyRouter.post(`${base}/auditor-grants/:id/revoke`, can(PermissionAction.EDIT), check({ params: idParams, body: noBody }), run(async (req, res) => {
   res.json({ grant: await revokeAuditorGrant(req.tenant!.orgId, String(req.params.id)) });
 }));
 
@@ -116,7 +128,7 @@ peoplePrivacyRouter.get('/orgs/:orgId/people/audit-evidence', run(async (req, re
   res.set('Cache-Control', 'private, no-store').json(await auditorEvidence(req.tenant!.orgId, req.auth!.userId));
 }));
 
-peoplePrivacyRouter.get('/orgs/:orgId/people/audit-evidence/:docId', run(async (req, res) => {
+peoplePrivacyRouter.get('/orgs/:orgId/people/audit-evidence/:docId', check({ params: z.object({ docId: id }) }), run(async (req, res) => {
   const { accountId, orgId } = req.tenant!;
   res.set('Cache-Control', 'private, no-store').json({ document: await openAuditorDocument({ accountId, orgId, userId: req.auth!.userId, documentId: String(req.params.docId) }) });
 }));

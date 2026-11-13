@@ -46,12 +46,17 @@ describe('a customer’s page in the operator console', () => {
     expect(ro.body.error).toMatch(/read-only/);
 
     await request(app).post(`/api/ops/accounts/${c.accountId}/apps`).set(fin.h).send({ apps: ['accounting', 'people'] }).expect(400);
-    const changed = (await request(app).post(`/api/ops/accounts/${c.accountId}/apps`).set(fin.h).send({ apps: ['accounting', 'people'], reason: 'Bought People on the phone' }).expect(200)).body;
+    /* An app added comes in free, so a second person approves it first (opsGrantApproval.test.ts). */
+    const asked = (await request(app).post(`/api/ops/accounts/${c.accountId}/apps`).set(fin.h).send({ apps: ['accounting', 'people'], reason: 'Bought People on the phone' }).expect(202)).body;
+    const fin2 = await staff('BILLING');
+    const changed = (await request(app).post(`/api/ops/approvals/${asked.approval.id}/approve`).set(fin2.h).send({}).expect(200)).body;
     expect(changed.apps).toEqual(['accounting', 'people']);
     /* The kept app keeps its tier. */
     const items = await platformPrisma.subscriptionItem.findMany({ where: { subscription: { accountId: c.accountId } } });
     expect(items.find((i) => i.appCode === 'accounting')?.tier).toBe('FULL');
-    expect((await lastAudit(fin.userId, 'SUBSCRIPTION_APPS_CHANGED'))?.detail).toMatchObject({ from: ['accounting'], to: ['accounting', 'people'], reason: 'Bought People on the phone' });
+    expect((await lastAudit(fin2.userId, 'SUBSCRIPTION_APPS_CHANGED'))?.detail).toMatchObject({ from: ['accounting'], to: ['accounting', 'people'], reason: 'Bought People on the phone', approvedAfterRequest: asked.approval.id });
+    /* Taking an app away gives nothing away: set at once. */
+    expect((await request(app).post(`/api/ops/accounts/${c.accountId}/apps`).set(fin.h).send({ apps: ['accounting'], reason: 'Stopped People' }).expect(200)).body.apps).toEqual(['accounting']);
 
     await request(app).post(`/api/ops/accounts/${c.accountId}/cancel`).set(fin.h).send({ reason: 'Closing the business' }).expect(200);
     expect((await platformPrisma.subscription.findUnique({ where: { accountId: c.accountId } }))?.status).toBe('cancelled');

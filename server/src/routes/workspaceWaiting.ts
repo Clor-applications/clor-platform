@@ -3,6 +3,8 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { workspaceWaiting } from '../services/workspace/waiting.js';
+import { z } from 'zod';
+import { check, id } from '../middleware/validate.js';
 
 /**
  * Workspace, Overview: what waits on the signed-in person in each app of this
@@ -12,7 +14,7 @@ import { workspaceWaiting } from '../services/workspace/waiting.js';
  */
 export const workspaceWaitingRouter = Router();
 
-workspaceWaitingRouter.get('/orgs/:orgId/workspace/waiting', requireAuth, requireTenantContext, async (req, res) => {
+workspaceWaitingRouter.get('/orgs/:orgId/workspace/waiting', requireAuth, requireTenantContext, check({ params: z.object({ orgId: id }) }), async (req, res) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
   res.json(await workspaceWaiting(req));
 });

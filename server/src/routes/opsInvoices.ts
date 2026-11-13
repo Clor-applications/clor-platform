@@ -163,7 +163,7 @@ opsInvoicesRouter.post('/ops/invoices/:id/mark-paid', ...BILLING, (req: Request,
     try {
       const r = await markInvoicePaid(String(req.params.id), { reference: parsed.data.reference, paidOn, amount: parsed.data.amount ?? null }, req.auth!.userId);
       await audit(req, 'INVOICE_MARKED_PAID', { accountId: r.invoice.accountId }, { invoiceId: r.invoice.id, number: r.invoice.number, amount: r.invoice.paidAmount, reference: r.invoice.paymentReference, paidUntil: r.paidUntil });
-      res.json({ ...(await full(r.invoice.id)), paidUntil: r.paidUntil });
+      res.json({ ...(await full(r.invoice.id)), paidUntil: r.paidUntil, paymentDetail: r.detail });
     } catch (e) {
       return refused(res, e);
     }

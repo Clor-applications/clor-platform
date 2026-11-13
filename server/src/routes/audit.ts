@@ -152,6 +152,8 @@ auditRouter.get('/orgs/:orgId/audit', AUDIT_VIEW, async (req, res) => {
         action: r.action,
         message: r.message || '',
         metadata,
+        /* Before and after values, { field: { from, to } }, masked when written (auditMutations.ts EDIT_LOG). */
+        changes: r.changes ?? null,
         at: r.createdAt,
         by: actor(r.createdByUserId),
       };

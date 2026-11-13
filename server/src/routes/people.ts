@@ -1909,7 +1909,7 @@ const GENDER_WORDS: Record<string, string> = { m: 'MALE', male: 'MALE', f: 'FEMA
 const importDate = z.preprocess(importDateToIso, date);
 const importGender = z.preprocess((v) => (typeof v === 'string' && v.trim() ? GENDER_WORDS[v.trim().toLowerCase().replace(/[^a-z]/g, '')] || v.trim().toUpperCase() : v), z.enum(GENDER_OPTIONS, { message: 'Gender should be Male, Female, Other, Non-binary or Prefer not to say.' }).optional().nullable().or(z.literal('')));
 
-const importRow = z.object({
+export const importRow = z.object({
   name: z.string().trim().min(1).max(120),
   code: text(40),
   email: z.string().trim().email().max(160).optional().nullable().or(z.literal('')),

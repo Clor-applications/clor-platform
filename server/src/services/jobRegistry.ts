@@ -17,6 +17,8 @@
  * was already sent), so a run after downtime catches up instead of losing
  * the days it missed.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 type Tick = () => unknown;
 
 const jobs = new Map<string, { tick: Tick; everyMs: number }>();
@@ -32,6 +34,29 @@ export function registerJob(name: string, tick: Tick, everyMs = 0) {
 }
 
 export const registeredJobs = () => [...jobs.keys()];
+
+/*
+ * Which leases a registered job takes, learnt as it is woken. A job's run
+ * history (JobRun) is kept under its lease name ("people.outbox"), not the
+ * name it registered with ("startPeopleOutbox"), and one job may take several
+ * leases with periods of their own (a tick every 15 minutes that does a daily
+ * piece of work under a day-long lease). The health check (services/ops/
+ * jobHealth.ts) needs both: which workers belong to a registered job, and how
+ * often each is meant to run. `exclusive` reports them here while a wake is
+ * running the job; a lease taken outside a wake (a once-per-deploy backfill)
+ * is nobody's to watch.
+ */
+const waking = new AsyncLocalStorage<string>();
+const workers = new Map<string, { job: string; periodMs: number }>();
+
+/** Called by jobLease.exclusive: this lease, held for this long, was asked for. Counts only inside a wake. */
+export function noteWorker(worker: string, leaseMs: number) {
+  const job = waking.getStore();
+  if (job) workers.set(worker, { job, periodMs: leaseMs });
+}
+
+/** Every worker a wake on this instance has seen a registered job ask for, with its period (its lease). */
+export const knownWorkers = () => [...workers].map(([worker, w]) => ({ worker, ...w }));
 
 export type JobRun = { name: string; ok: boolean; ms: number; error?: string; timedOut?: boolean; skipped?: boolean };
 
@@ -54,7 +79,7 @@ export async function runRegisteredJobs({ budgetMs = 240_000, only, now = Date.n
         timer = setTimeout(() => resolve('timeout'), budgetMs);
       });
       try {
-        const out = await Promise.race([Promise.resolve().then(tick), timeout]);
+        const out = await Promise.race([Promise.resolve().then(() => waking.run(name, tick)), timeout]);
         return out === 'timeout' ? { name, ok: false, timedOut: true, ms: Date.now() - start } : { name, ok: true, ms: Date.now() - start };
       } catch (e) {
         /* A failed run may be retried at the next wake, not a period later. */
@@ -71,4 +96,5 @@ export async function runRegisteredJobs({ budgetMs = 240_000, only, now = Date.n
 export const clearRegisteredJobs = () => {
   jobs.clear();
   lastWoken.clear();
+  workers.clear();
 };

@@ -18,7 +18,7 @@ import { pinMatcher, recomputeDeviceDay, shiftDayFor } from '../services/attenda
 import { decryptSecret, encryptSecret } from '../services/mailer.js';
 import { checkUrl } from '../services/outbound.js';
 import { etoFetchPunches } from '../services/attendance/etimeoffice.js';
-import { MAX_NETWORKS, networkOf } from '../services/attendance/network.js';
+import { MAX_ALLOW_LIST, MAX_NETWORKS, inRange, networkOf, parseAllowList, showRange } from '../services/attendance/network.js';
 import { randomBytes } from 'node:crypto';
 import { can as can_, driverOf, publicDrivers, vendorsWith } from '../services/attendance/drivers.js';
 import { mappingSchema, recordsOf, toAttlog, validZone } from '../services/attendance/punchMapping.js';
@@ -75,6 +75,8 @@ const shape = ({ apiSecret, claimNetwork, pendingNetwork, pendingNetworkAt, push
   support: supportOf(d.vendor, d.model, d.firmware),
   online: Boolean(d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS),
   networkVerified: Boolean(d.networkVerifiedAt),
+  /* As a person would write them: a single address without its "/32". */
+  ipAllowList: (d.ipAllowList || []).map(showRange),
   awaitingNetwork: awaiting({ ...d, pendingNetwork, pendingNetworkAt }),
   ...extra,
 });
@@ -389,10 +391,20 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
       config: pullConfigSchema.optional().nullable(),
       /* Pull readers on the office LAN: which on-site connector reaches them. */
       agentId: z.string().min(1).nullable().optional(),
+      /* Push readers: only accept punches from these network addresses or ranges; empty = no rule of its own. */
+      ipAllowList: z.array(z.string().trim().max(60)).max(MAX_ALLOW_LIST, `List at most ${MAX_ALLOW_LIST} network addresses.`).optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Name the reader and choose its direction.' });
-  const { apiUrl, corporateId, username, password, areaId, sourceTimezone, mapping, baseUrl, config, agentId, ...common } = parsed.data;
+  const { apiUrl, corporateId, username, password, areaId, sourceTimezone, mapping, baseUrl, config, agentId, ipAllowList, ...common } = parsed.data;
+  let allowList: { ipAllowList: string[] } | Record<string, never> = {};
+  if (ipAllowList !== undefined && can_(existing.vendor, 'networkLock')) {
+    const r = parseAllowList(ipAllowList);
+    if ('bad' in r) {
+      return res.status(400).json({ error: `“${r.bad.slice(0, 60)}” is not a network address. Write one like 203.0.113.7, or a range like 203.0.113.0/24.`, code: 'BAD_NETWORK_ADDRESS' });
+    }
+    allowList = { ipAllowList: r.list };
+  }
   if (agentId && !(await peoplePrisma.siteAgent.findFirst({ where: { id: agentId, orgId }, select: { id: true } }))) return res.status(400).json({ error: 'That connector is not in this organisation.' });
   const viaAgent = agentId !== undefined && (PULL_VENDORS as readonly string[]).includes(existing.vendor) ? { agentId } : {};
   const pullFields = (PULL_VENDORS as readonly string[]).includes(existing.vendor)
@@ -432,10 +444,16 @@ devicesRouter.put(`${base}/:id`, can(PermissionAction.EDIT), async (req, res) =>
         };
   const device = await peoplePrisma.attendanceDevice.update({
     where: { id: existing.id },
-    data: { ...common, ...vendorFields, ...mapped, ...pullFields, ...viaAgent, ...(existing.vendor !== 'ETIMEOFFICE' && areaId !== undefined ? { areaId } : {}) },
+    data: { ...common, ...vendorFields, ...mapped, ...pullFields, ...viaAgent, ...allowList, ...(existing.vendor !== 'ETIMEOFFICE' && areaId !== undefined ? { areaId } : {}) },
   });
+  /*
+   * A list that leaves out the address the reader itself last called from would refuse the real
+   * reader. It is saved as asked (the office may be moving line), and the screen says so.
+   */
+  const readerAt = device.allowedNetworks[device.allowedNetworks.length - 1] || null;
+  const readerOutside = 'ipAllowList' in allowList && device.ipAllowList.length && readerAt && !device.ipAllowList.some((r) => inRange(readerAt, r)) ? readerAt : null;
   /* A new area changes who belongs on it; Sync status shows the gaps and the extras. */
-  res.json({ device: shape(device), areaChanged: areaId !== undefined && (areaId ?? null) !== (existing.areaId ?? null) });
+  res.json({ device: shape(device), areaChanged: areaId !== undefined && (areaId ?? null) !== (existing.areaId ?? null), readerOutsideAllowList: readerOutside });
 });
 
 devicesRouter.delete(`${base}/:id`, can(PermissionAction.DELETE), async (req, res) => {

@@ -22,7 +22,7 @@ describe('operator console: approvals', () => {
     );
     api.opsApprovalStep.mockResolvedValue({ status: 'APPROVED' });
     render(<Approvals openCustomer={() => {}} />);
-    expect(await screen.findByText(/Deals over 20% off wait here/)).toBeTruthy();
+    expect(await screen.findByText(/Deals over 20% off, and apps given free or cheaper by hand, wait here/)).toBeTruthy();
     expect(screen.getByText(/You cannot approve your own request/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Approve the request for Kaveri Traders' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Approve the request for Meridian Facilities' }));
@@ -32,6 +32,26 @@ describe('operator console: approvals', () => {
     await waitFor(() => expect(api.opsApprovalStep).toHaveBeenCalledWith('a1', 'approve', 'Fine for a year'));
     fireEvent.click(screen.getByRole('button', { name: 'Withdraw the request for Kaveri Traders' }));
     await waitFor(() => expect(api.opsApprovalStep).toHaveBeenCalledWith('a2', 'withdraw'));
+  });
+
+  it('shows apps given free by hand as their own kind, in plain words', async () => {
+    api.opsApprovals.mockResolvedValue(
+      page([{ ...base, id: 'g1', kind: 'GRANT', kindWord: 'Apps by hand', summary: 'Plan set by hand: People, Payroll, active, no end date; People, Payroll free', discountPercent: 100, askedBy: 'Priya Raman', mine: false, canDecide: true, canWithdraw: false }]),
+    );
+    render(<Approvals openCustomer={() => {}} />);
+    expect(await screen.findByText(/People, Payroll free/)).toBeTruthy();
+    expect(screen.getByText(/Apps by hand/)).toBeTruthy();
+    expect(screen.getByText('· free')).toBeTruthy();
+    expect(screen.queryByText(/100% off/)).toBeNull();
+  });
+
+  it('says why an approved request could not be set', async () => {
+    api.opsApprovals.mockResolvedValue(
+      page([{ ...base, id: 'f1', status: 'FAILED', statusWord: 'Approved, could not be applied', decidedBy: 'Arjun', decidedAt: '2026-11-12T05:00:00Z', result: { error: 'The customer’s plan was changed after this was asked, so nothing was set. Ask again with the plan as it is now.' }, askedBy: 'Priya Raman', mine: false, canDecide: false, canWithdraw: false }]),
+    );
+    render(<Approvals openCustomer={() => {}} />);
+    expect(await screen.findByText(/plan was changed after this was asked/)).toBeTruthy();
+    expect(screen.getByText('Approved, could not be applied')).toBeTruthy();
   });
 
   it('lets the owner change the limit, with a reason', async () => {

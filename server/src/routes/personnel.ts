@@ -20,6 +20,7 @@ import { diffEmployee, writeChangeLog } from '../services/people/changeLog.js';
 import { writeEvent } from '../services/people/outbox.js';
 import { recordChanges } from '../services/people/employmentHistory.js';
 import { ownPlanRefusal, startChecklist } from '../services/people/checklists.js';
+import { importTemplate, templateCsv, templateFileName } from '../services/importTemplates.js';
 
 /**
  * Personnel operations from ClorTime (routes/personnel_expansion.js,
@@ -41,6 +42,24 @@ const sendError = (res: any, e: any) => {
   if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That name is already used in this organisation.' });
   throw e;
 };
+
+// ---------------------------------------------------------------------------
+// Import templates
+// ---------------------------------------------------------------------------
+
+/**
+ * "Download the template" on the import screens of People and Attendance: the
+ * headings the importer reads, one example row, and a note on each column
+ * (services/importTemplates.ts). It holds none of the company's data, so
+ * anyone signed in to the company may take it.
+ */
+personnelRouter.get('/orgs/:orgId/import-templates/:kind', (req, res) => {
+  const template = importTemplate(String(req.params.kind || ''));
+  if (!template) return res.status(404).json({ error: 'There is no import template of that kind.' });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${templateFileName(template)}"`);
+  res.send(templateCsv(template));
+});
 
 // ---------------------------------------------------------------------------
 // Contractors

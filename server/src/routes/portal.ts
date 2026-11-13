@@ -43,13 +43,16 @@ import { daysOfMonth, instants, sendError, today, withNames } from '../services/
 import { actorNames, cancelOwnLeave, createLeave, dayWords, decideRuleLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
-import { lapseFor } from '../services/attendance/leaveJobs.js';
+import { compOffExpiringFor, lapseFor } from '../services/attendance/leaveJobs.js';
+import { compOffGrants, expiringOf } from '../services/attendance/compOff.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { readableLines } from '../services/payroll/slipLines.js';
 import { addDays as plusDaysIso, addDays as plusDays } from '../utils/istDate.js';
 import { reportError } from '../utils/log.js';
 import { safeUrl } from '../utils/safeUrl.js';
+import { z } from 'zod';
+import { anyBody, check, choice, code, flag, id, idParams, noBody, num, q, qInt, rawText, text, ym, ymd } from '../middleware/validate.js';
 
 /**
  * The employee portal (ClorTime's /portal): staff without a CLOR user sign in
@@ -79,6 +82,28 @@ function sendFailure(req: Request, res: Response, err: any, refusedWords = 'Not 
   reportError(err, req, safeUrl);
   return res.status(500).json({ error: 'Something went wrong. Try again in a moment.', requestId: (req as any).id || null });
 }
+
+/*
+ * What each route takes, checked before its handler (middleware/validate.ts). A wrong kind of value, one far too
+ * long, or a date that is not one is refused with a 400; keys not named here are dropped; whether a field must be
+ * there, and the words for it, stay the handler's. Leave, attendance requests and the tax declaration go whole
+ * into services that have their own schemas (leave.ts requestSchema, requests.ts parseAsk, taxDeclaration.ts
+ * declarationSchema), so here they are only checked for being an object.
+ */
+const SIGN_IN = z.object({ company: code().nullish(), employeeCode: code().nullish(), password: rawText(1024).nullish(), activationCode: code(40).nullish() });
+const MONTH_QUERY = z.object({ month: q(ym()) });
+/* A year the handler cannot read falls back to this one (the app relies on it), so only its kind and length are checked here. */
+const YEAR_QUERY = z.object({ year: q(text(12)) });
+const NOTE_BODY = z.object({ note: text(5000).nullish() });
+const MONTH_PARAMS = z.object({ month: text(20) });
+const PUNCH_BODY = z.object({
+  /* Out of range or missing is the service's to refuse (NO_LOCATION, and the refusal is kept for HR to see). */
+  latitude: num(-1000, 1000).nullish(),
+  longitude: num(-1000, 1000).nullish(),
+  accuracy: num(0, 100_000_000).nullish(),
+  /* A JPEG as a data URL: the route's body limit is 3 MB. */
+  photo: rawText(4_200_000).nullish(),
+});
 
 const AUDIENCE = 'clor-portal';
 const ISSUER = () => process.env.JWT_ISSUER || 'accounting';
@@ -170,7 +195,7 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-password-0', ROUNDS);
  * so HR is told and gives a new activation code ("First time" in the app).
  * The answer is the same whether or not the person exists.
  */
-portalRouter.post('/forgot', ...portalLimiter, async (req, res) => {
+portalRouter.post('/forgot', ...portalLimiter, check({ body: SIGN_IN }), async (req, res) => {
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
   /* The rest of this request runs as the employee's company (A-35). */
   if (found) enterTenant(found.org.id);
@@ -186,7 +211,7 @@ portalRouter.post('/forgot', ...portalLimiter, async (req, res) => {
   res.json({ ok: true, message: 'If those codes are right, HR has been asked for a new activation code. With it, choose First time and set a new password.' });
 });
 
-portalRouter.post('/login', ...portalLimiter, async (req, res) => {
+portalRouter.post('/login', ...portalLimiter, check({ body: SIGN_IN }), async (req, res) => {
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
   /* The rest of this request runs as the employee's company (A-35). */
   if (found) enterTenant(found.org.id);
@@ -200,7 +225,7 @@ portalRouter.post('/login', ...portalLimiter, async (req, res) => {
 });
 
 /** First sign-in: the activation code from HR, and the person's own password. */
-portalRouter.post('/activate', ...portalLimiter, async (req, res) => {
+portalRouter.post('/activate', ...portalLimiter, check({ body: SIGN_IN }), async (req, res) => {
   const problem = passwordProblem(req.body?.password);
   if (problem) return res.status(400).json({ error: problem });
   const found = await findEmployee(req.body?.company, req.body?.employeeCode);
@@ -285,7 +310,7 @@ portalRouter.get('/me', async (req, res) => {
   const t = today();
   const [org, schedule, holidays, record] = await Promise.all([
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true, code: true } }),
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from: t, to: t }),
     loadHolidays(e.orgId, t, t),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: e.id, date: t } } }),
   ]);
@@ -334,7 +359,7 @@ portalRouter.get('/home', async (req, res) => {
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true, code: true } }),
     e.areaId ? peoplePrisma.area.findFirst({ where: { id: e.areaId, orgId: e.orgId }, select: { name: true } }) : null,
     e.branchId ? platformPrisma.branch.findFirst({ where: { id: e.branchId, orgId: e.orgId }, select: { branchName: true } }) : null,
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from, to: t }),
     loadHolidays(e.orgId, from, plusDays(t, 60)),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: from, lte: t } }, orderBy: { date: 'asc' } }),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: e.id, date: t } } }),
@@ -444,7 +469,7 @@ portalRouter.get('/company-updates', async (req, res) => {
  * myself is not news and is left out. `key` is stable per event, so a phone
  * or a browser marks an item seen once.
  */
-type Update = { key: string; kind: 'leave' | 'request' | 'punch' | 'people' | 'lapse' | 'referral'; status: string; text: string; note: string | null; at: string };
+type Update = { key: string; kind: 'leave' | 'request' | 'punch' | 'people' | 'lapse' | 'referral' | 'month'; status: string; text: string; note: string | null; at: string };
 const quoted = (n?: string | null) => (n && n.trim() ? ` “${n.trim()}”` : '');
 portalRouter.get('/updates', async (req, res) => {
   const e = req.portal!.employee;
@@ -465,6 +490,11 @@ portalRouter.get('/updates', async (req, res) => {
       return null;
     }),
   ]);
+  /* Comp-off about to expire (compOff.ts): said here too, as staff with no CLOR sign-in get no notification. */
+  const compOffSoon = await compOffExpiringFor(e.accountId, e.orgId, e.id).catch((err) => {
+    console.error('[portal updates] comp-off', err instanceof Error ? err.message : err);
+    return [];
+  });
   const types = new Map((await peoplePrisma.leaveType.findMany({ where: { orgId: e.orgId, id: { in: [...new Set(leave.map((l) => l.leaveTypeId))] } }, select: { id: true, name: true } })).map((t) => [t.id, t.name]));
   const ASK_WORDS: Record<string, string> = { PROFILE_CHANGE: 'Your change to your details', LEAVING: 'Your resignation' };
   const ASK_DONE: Record<string, string> = { APPROVED: 'was approved.', REJECTED: 'was not approved. See My details.', MORE_INFO: 'needs more information from you. Answer it under My details.' };
@@ -493,7 +523,14 @@ portalRouter.get('/updates', async (req, res) => {
     items.push({ key: `corr:${c.id}:${c.status}`, kind: 'request', status: c.status, text: `${what} for ${dayWords(c.date)} was ${c.status === 'APPROVED' ? 'approved' : 'rejected'}.${quoted(note)}`, note, at: c.updatedAt.toISOString() });
   }
   for (const p of punches) items.push({ key: `punch:${p.id}:${p.reviewStatus}`, kind: 'punch', status: String(p.reviewStatus), text: `Your field punch at ${p.localTime.slice(11, 16)} on ${dayWords(p.localTime.slice(0, 10))} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.`, note: null, at: p.at.toISOString() });
+  /* HR answered a month I said was wrong (selfService.ts resolveDispute): the app's notice, as there may be no CLOR user to notify. */
+  const answered = await peoplePrisma.attendanceMonthConfirmation.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: 'DISPUTED', resolvedAt: { gte: since } }, select: { id: true, month: true, resolution: true, resolvedAt: true } });
+  for (const a of answered) {
+    const when = new Date(`${a.month}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    items.push({ key: `month:${a.id}:${a.resolvedAt!.getTime()}`, kind: 'month', status: 'ANSWERED', text: `HR answered what you said about ${when}.${quoted(a.resolution)}`, note: a.resolution, at: a.resolvedAt!.toISOString() });
+  }
   if (lapse) items.push({ key: `lapse:${lapse.year}`, kind: 'lapse', status: 'LAPSE', text: `${lapse.total} ${lapse.total === 1 ? 'day' : 'days'} of leave will lapse on ${dayWords(lapse.end)} unless you take them: ${lapse.lines.map((x) => `${x.leaveType} ${x.days}`).join(', ')}.`, note: null, at: new Date().toISOString() });
+  for (const c of compOffSoon) items.push({ key: `comp-off:${c.id}`, kind: 'lapse', status: 'LAPSE', text: `${c.days} ${c.days === 1 ? 'day' : 'days'} of ${c.leaveType} for work on ${dayWords(c.workedOn)} ${c.days === 1 ? 'expires' : 'expire'} on ${dayWords(c.expiresOn)}. Take ${c.days === 1 ? 'it' : 'them'} by then.`, note: null, at: new Date().toISOString() });
   /* Jobs open to me for referrals, and my referrals that joined or were not taken forward. */
   items.push(...(await referralUpdates(e.accountId, e.orgId, e.id, since).catch(() => [])));
   items.sort((a, b) => b.at.localeCompare(a.at));
@@ -501,7 +538,7 @@ portalRouter.get('/updates', async (req, res) => {
 });
 
 /** A field punch's selfie, for the manager deciding it. */
-portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
+portalRouter.get('/approvals/punch/:id/photo', check({ params: idParams }), async (req, res) => {
   const e = req.portal!.employee;
   const p = await peoplePrisma.devicePunch.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, outsideSite: true } });
   if (!p?.photoId) return res.status(404).json({ error: 'No selfie with this punch.' });
@@ -516,7 +553,7 @@ portalRouter.get('/approvals/punch/:id/photo', async (req, res) => {
 // ---------------------------------------------------------------------------
 
 /** Corrections, on-duty and missed punches, leave and data requests, newest first, in one list. */
-portalRouter.get('/requests', async (req, res) => {
+portalRouter.get('/requests', check({ query: MONTH_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   /* ?month=YYYY-MM: attendance requests touching that month, with the month's usage per kind (the app's Requests screen). */
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : '';
@@ -574,7 +611,7 @@ portalRouter.get('/requests', async (req, res) => {
 });
 
 /** Ask for a day off-site or hours off: work from home, on duty (with a place), permission (from–to), or a missed punch. */
-portalRouter.post('/requests', async (req, res) => {
+portalRouter.post('/requests', check({ body: anyBody }), async (req, res) => {
   try {
     const e = req.portal!.employee;
     const row = await askRequest({ ...who(req), onBehalf: false }, e, req.body);
@@ -585,7 +622,7 @@ portalRouter.post('/requests', async (req, res) => {
 });
 
 /** What is switched on for requests, the quotas and how far back one may ask; with this month's usage. */
-portalRouter.get('/request-rules', async (req, res) => {
+portalRouter.get('/request-rules', check({ query: MONTH_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   const month = monthParam(req.query.month);
   const rules = await rulesFor(e.orgId);
@@ -594,7 +631,7 @@ portalRouter.get('/request-rules', async (req, res) => {
 });
 
 /** Used, waiting and left this month, per kind. */
-portalRouter.get('/requests/usage', async (req, res) => {
+portalRouter.get('/requests/usage', check({ query: MONTH_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   const month = monthParam(req.query.month);
   const rules = await rulesFor(e.orgId);
@@ -603,7 +640,7 @@ portalRouter.get('/requests/usage', async (req, res) => {
 });
 
 /** Change a request that is still waiting (any kind); the manager's step, if taken, is reset. */
-portalRouter.put('/requests/:id', async (req, res) => {
+portalRouter.put('/requests/:id', check({ params: idParams, body: anyBody }), async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
@@ -615,7 +652,7 @@ portalRouter.put('/requests/:id', async (req, res) => {
 });
 
 /** Withdraw a waiting request, or an approved WFH / on duty before its date. */
-portalRouter.post('/requests/:id/cancel', async (req, res) => {
+portalRouter.post('/requests/:id/cancel', check({ params: idParams, body: noBody }), async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
@@ -632,7 +669,7 @@ portalRouter.post('/requests/:id/cancel', async (req, res) => {
  * the back-date window, the history and the audit line apply (closure audit,
  * 27 Oct 2026: they wrote the row directly and could change any kind).
  */
-portalRouter.put('/corrections/:id', async (req, res) => {
+portalRouter.put('/corrections/:id', check({ params: idParams, body: anyBody }), async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
@@ -646,7 +683,7 @@ portalRouter.put('/corrections/:id', async (req, res) => {
 });
 
 /** Withdraw a correction that nobody has looked at yet. */
-portalRouter.post('/corrections/:id/cancel', async (req, res) => {
+portalRouter.post('/corrections/:id/cancel', check({ params: idParams, body: noBody }), async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
@@ -660,7 +697,7 @@ portalRouter.post('/corrections/:id/cancel', async (req, res) => {
 });
 
 /** Ask HR to allow punching from the phone. HR sees it in its notifications, with a link to Portal access. */
-portalRouter.post('/phone-punch/ask', async (req, res) => {
+portalRouter.post('/phone-punch/ask', check({ body: NOTE_BODY }), async (req, res) => {
   const e = req.portal!.employee;
   if (e.mobilePunch) return res.json({ ok: true, message: 'Phone punching is already on for you.' });
   const note = String(req.body?.note || '').trim().slice(0, 300);
@@ -678,13 +715,13 @@ portalRouter.post('/phone-punch/ask', async (req, res) => {
  * must be inside one of the person's sites; a selfie is kept if sent but never
  * required (a camera that will not open must not stop someone punching).
  */
-portalRouter.post('/punch', async (req, res) => {
+portalRouter.post('/punch', check({ body: PUNCH_BODY }), async (req, res) => {
   const out = await recordPhonePunch(req.portal!.employee, req.body);
   res.status(out.status).json(out.body);
 });
 
 /** A month of one's own days, with the month's figures. */
-portalRouter.get('/attendance', async (req, res) => {
+portalRouter.get('/attendance', check({ query: MONTH_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   const month = monthParam(req.query.month);
   const days = daysOfMonth(month);
@@ -703,7 +740,7 @@ portalRouter.get('/attendance', async (req, res) => {
 });
 
 /** Why one of my days says what it says (the same explanation HR sees). */
-portalRouter.get('/attendance/explain', async (req, res) => {
+portalRouter.get('/attendance/explain', check({ query: z.object({ date: q(ymd('Which day? Dates are YYYY-MM-DD.')) }) }), async (req, res) => {
   const e = req.portal!.employee;
   const date = String(req.query.date || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Which day? Dates are YYYY-MM-DD.' });
@@ -711,7 +748,7 @@ portalRouter.get('/attendance/explain', async (req, res) => {
 });
 
 /** How my balance of one leave type is made up. */
-portalRouter.get('/leave/explain', async (req, res) => {
+portalRouter.get('/leave/explain', check({ query: z.object({ year: q(text(12)), leaveTypeId: q(id) }) }), async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   try {
     const year = Number(req.query.year) || (await leaveYearOf(orgId));
@@ -722,7 +759,7 @@ portalRouter.get('/leave/explain', async (req, res) => {
 });
 
 /** Ask for a day to be corrected (a missed punch, a reader that was down). */
-portalRouter.post('/corrections', async (req, res) => {
+portalRouter.post('/corrections', check({ body: anyBody }), async (req, res) => {
   try {
     return await createRequest(req, res, req.portal!.employeeId, who(req));
   } catch (err) {
@@ -731,7 +768,7 @@ portalRouter.post('/corrections', async (req, res) => {
 });
 
 /** What shift each day of the month is, weekly offs, holidays and leave. */
-portalRouter.get('/schedule', async (req, res) => {
+portalRouter.get('/schedule', check({ query: z.object({ month: q(ym()), from: q(ymd()), days: qInt(1, 1000) }) }), async (req, res) => {
   const e = req.portal!.employee;
   /* ?from=YYYY-MM-DD&days=N: the days coming up, across months, with what changed. */
   if (/^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from || ''))) {
@@ -741,7 +778,7 @@ portalRouter.get('/schedule', async (req, res) => {
   const month = monthParam(req.query.month);
   const days = daysOfMonth(month);
   const [schedule, holidays, leave] = await Promise.all([
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from: days[0], to: days[days.length - 1] }),
     loadHolidays(e.orgId, days[0], days[days.length - 1]),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: days[0], lte: days[days.length - 1] }, status: 'ON_LEAVE' }, select: { date: true } }),
   ]);
@@ -757,13 +794,15 @@ portalRouter.get('/schedule', async (req, res) => {
   });
 });
 
-portalRouter.get('/leave', async (req, res) => {
+portalRouter.get('/leave', check({ query: YEAR_QUERY }), async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const y = Number(req.query.year);
   const thisYear = await leaveYearOf(orgId);
   const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : thisYear;
   const { types, balances, period } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId)!;
+  /* Comp-off days that expire, soonest first, for the balance's "expires on" (compOff.ts). */
+  const grants = (await compOffGrants(orgId, [employeeId])).get(employeeId);
   /* This leave year also lists what is asked for beyond it (a January trip asked for in November), so it can still be changed or withdrawn. */
   const requests = await peoplePrisma.leaveRequest.findMany({
     where: { accountId, orgId, employeeId, fromDate: year === thisYear ? { gte: periodStart(period, year) } : { gte: periodStart(period, year), lte: periodEnd(period, year) } },
@@ -772,14 +811,14 @@ portalRouter.get('/leave', async (req, res) => {
   res.json({
     year,
     today: today(),
-    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...mine.get(t.id) })),
+    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...mine.get(t.id), expiring: expiringOf(grants?.get(t.id), mine.get(t.id)?.available, today()) })),
     /* Waiting on the approval engine: who it is with now, "With Ravi (your manager)" (SPEC 5.7). */
     requests: await Promise.all((await withTypes(orgId, requests)).map(async (r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null, withWhom: r.status === 'PENDING' ? await withWhom(orgId, r) : null }))),
   });
 });
 
 /** What a request would charge, before it is sent: the dates counted and skipped, the balance after (AUT-05). */
-portalRouter.post('/leave/preview', async (req, res) => {
+portalRouter.post('/leave/preview', check({ body: anyBody }), async (req, res) => {
   try {
     const { accountId, orgId } = req.portal!;
     const out = await previewOut(null, accountId, orgId, req.portal!.employee, req.body, false);
@@ -789,7 +828,7 @@ portalRouter.post('/leave/preview', async (req, res) => {
   }
 });
 
-portalRouter.post('/leave', async (req, res) => {
+portalRouter.post('/leave', check({ body: anyBody }), async (req, res) => {
   try {
     await createLeave(req, res, req.portal!.employee, who(req));
     const e = req.portal!.employee;
@@ -801,7 +840,7 @@ portalRouter.post('/leave', async (req, res) => {
 });
 
 /** Change a waiting request of one's own: the same preview, the manager's step starts again. */
-portalRouter.put('/leave/:id', async (req, res) => {
+portalRouter.put('/leave/:id', check({ params: idParams, body: anyBody }), async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   try {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId, employeeId } });
@@ -816,7 +855,7 @@ portalRouter.put('/leave/:id', async (req, res) => {
 });
 
 /** Came back early: approved leave that has started now ends on an earlier day. */
-portalRouter.post('/leave/:id/shorten', async (req, res) => {
+portalRouter.post('/leave/:id/shorten', check({ params: idParams, body: z.object({ toDate: ymd('Dates are YYYY-MM-DD.').nullish() }) }), async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   try {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId, employeeId } });
@@ -832,7 +871,7 @@ portalRouter.post('/leave/:id/shorten', async (req, res) => {
 });
 
 /** Restricted holidays: the optional list, what I picked, how many I may still pick. */
-portalRouter.get('/holidays/restricted', async (req, res) => {
+portalRouter.get('/holidays/restricted', check({ query: YEAR_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   res.json(await restrictedHolidaysFor(e.orgId, e, Number(req.query.year) || Number(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4))));
 });
@@ -842,7 +881,7 @@ portalRouter.get('/holidays/restricted', async (req, res) => {
  * the restricted (optional) ones marked, with what I picked and the quota, so
  * one list shows the year and a restricted day is picked where it is read.
  */
-portalRouter.get('/holidays', async (req, res) => {
+portalRouter.get('/holidays', check({ query: YEAR_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   const asked = Number(req.query.year);
   const year = Number.isInteger(asked) && asked >= 2000 && asked <= 2100 ? asked : Number(today().slice(0, 4));
@@ -860,7 +899,7 @@ portalRouter.get('/holidays', async (req, res) => {
   res.json({ year, quota: restricted.quota, picked: restricted.picked, left: restricted.left, holidays });
 });
 
-portalRouter.post('/holidays/restricted/:holidayId', async (req, res) => {
+portalRouter.post('/holidays/restricted/:holidayId', check({ params: z.object({ holidayId: id }), body: z.object({ picked: flag.nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   try {
     const out = await pickRestrictedHoliday(e.accountId, e.orgId, e, String(req.params.holidayId), req.body?.picked !== false);
@@ -871,7 +910,7 @@ portalRouter.post('/holidays/restricted/:holidayId', async (req, res) => {
   }
 });
 
-portalRouter.post('/leave/:id/cancel', async (req, res) => {
+portalRouter.post('/leave/:id/cancel', check({ params: idParams, body: noBody }), async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const out = await cancelOwnLeave(accountId, orgId, employeeId, String(req.params.id));
   const e = req.portal!.employee;
@@ -961,7 +1000,7 @@ portalRouter.get('/approvals', async (req, res) => {
  * already decided is a conflict, not a silent overwrite: two approvers opening
  * the same queue is normal, and the second should be told.
  */
-portalRouter.post('/approvals/:type/:id', async (req, res) => {
+portalRouter.post('/approvals/:type/:id', check({ params: z.object({ type: text(20), id }), body: z.object({ decision: text(20).nullish(), note: text(5000).nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   const type = String(req.params.type);
   const decision = String(req.body?.decision || '');
@@ -1081,7 +1120,7 @@ portalRouter.get('/attention', async (req, res) => {
   res.json({ items, count: items.filter((i) => i.action === 'FIX').length, waiting: items.filter((i) => i.action === 'NONE').length });
 });
 
-portalRouter.get('/month-review', async (req, res) => {
+portalRouter.get('/month-review', check({ query: MONTH_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : (() => {
     const [y, m] = today().slice(0, 7).split('-').map(Number);
@@ -1094,7 +1133,7 @@ portalRouter.get('/month-review', async (req, res) => {
   }
 });
 
-portalRouter.post('/month-review/:month/confirm', async (req, res) => {
+portalRouter.post('/month-review/:month/confirm', check({ params: MONTH_PARAMS, body: noBody }), async (req, res) => {
   const e = req.portal!.employee;
   const month = String(req.params.month);
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'month must be YYYY-MM.' });
@@ -1105,7 +1144,7 @@ portalRouter.post('/month-review/:month/confirm', async (req, res) => {
   }
 });
 
-portalRouter.post('/month-review/:month/dispute', async (req, res) => {
+portalRouter.post('/month-review/:month/dispute', check({ params: MONTH_PARAMS, body: NOTE_BODY }), async (req, res) => {
   const e = req.portal!.employee;
   const month = String(req.params.month);
   const note = String(req.body?.note || '').trim().slice(0, 1000);
@@ -1118,12 +1157,12 @@ portalRouter.post('/month-review/:month/dispute', async (req, res) => {
   }
 });
 
-portalRouter.get('/overtime', async (req, res) => {
+portalRouter.get('/overtime', check({ query: MONTH_QUERY }), async (req, res) => {
   const e = req.portal!.employee;
   res.json(await overtimeFor(e, monthParam(req.query.month)));
 });
 
-portalRouter.post('/overtime', async (req, res) => {
+portalRouter.post('/overtime', check({ body: z.object({ date: ymd('date must be YYYY-MM-DD.').nullish(), kind: choice(['OVERTIME', 'COMP_OFF'], 'kind must be OVERTIME or COMP_OFF.'), reason: text(5000).nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   const date = String(req.body?.date || '');
   const kind = String(req.body?.kind || 'OVERTIME');
@@ -1148,7 +1187,7 @@ portalRouter.post('/overtime', async (req, res) => {
   }
 });
 
-portalRouter.post('/overtime/:id/cancel', async (req, res) => {
+portalRouter.post('/overtime/:id/cancel', check({ params: idParams, body: noBody }), async (req, res) => {
   const e = req.portal!.employee;
   const r = await peoplePrisma.overtimeRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id } });
   if (!r) return res.status(404).json({ error: 'No such request.' });
@@ -1187,7 +1226,7 @@ portalRouter.get('/documents', async (req, res) => {
   res.json({ documents: rows });
 });
 
-portalRouter.get('/documents/:id', async (req, res) => {
+portalRouter.get('/documents/:id', check({ params: idParams }), async (req, res) => {
   const e = req.portal!.employee;
   const d = await peoplePrisma.employeeDocument.findFirst({ where: { id: String(req.params.id), orgId: e.orgId, employeeId: e.id, visibleToEmployee: true } });
   if (!d) return res.status(404).json({ error: 'No such document.' });
@@ -1210,7 +1249,7 @@ portalRouter.get('/privacy-notice', async (req, res) => {
 });
 
 /** "I have read this" — for the version they were shown. */
-portalRouter.post('/privacy-notice/read', async (req, res) => {
+portalRouter.post('/privacy-notice/read', check({ body: z.object({ version: code(80).nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   const notice = await privacyNoticeFor(e.orgId);
   if (String(req.body?.version || '') !== notice.version) return res.status(409).json({ error: 'The notice has changed since you opened it. Read the new one.', version: notice.version });
@@ -1271,7 +1310,7 @@ portalRouter.get('/my-data', async (req, res) => {
  * and face (they are deleted now), or to phone punches reading my location
  * (phone punching stops for me). Recorded as a request HR can see, answered.
  */
-portalRouter.post('/consent/withdraw', async (req, res) => {
+portalRouter.post('/consent/withdraw', check({ body: z.object({ what: text(40).nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   const what = String(req.body?.what || '').toUpperCase();
   if (what !== 'BIOMETRIC' && what !== 'PHONE') return res.status(400).json({ error: 'Say what you are withdrawing.' });
@@ -1299,7 +1338,7 @@ portalRouter.get('/data-requests', async (req, res) => {
 });
 
 /** See my data, correct it, or erase it — a right under the DPDP Act; HR answers under Personnel → Data requests. */
-portalRouter.post('/data-requests', async (req, res) => {
+portalRouter.post('/data-requests', check({ body: z.object({ type: text(40).nullish(), details: text(20_000).nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   const type = String(req.body?.type || '').toUpperCase();
   if (!DATA_REQUEST_TYPES.has(type)) return res.status(400).json({ error: 'Ask to see, correct or erase your data, name a nominee, or raise a grievance.' });
@@ -1313,7 +1352,7 @@ portalRouter.post('/data-requests', async (req, res) => {
 });
 
 /** A new password ends every other session; this one gets a fresh token. */
-portalRouter.post('/password', async (req, res) => {
+portalRouter.post('/password', check({ body: z.object({ current: rawText(1024).nullish(), next: rawText(1024).nullish() }) }), async (req, res) => {
   const e = req.portal!.employee;
   if (!(await bcrypt.compare(String(req.body?.current || ''), e.portalPasswordHash))) return res.status(400).json({ error: 'Your current password is not right.' });
   const problem = passwordProblem(req.body?.next);
@@ -1333,7 +1372,7 @@ portalRouter.post('/password', async (req, res) => {
 /* ------------------------------------------------- signed-in devices (A-33) */
 
 /** Sign this device out. The apps also forget the token; this makes it stop working too. */
-portalRouter.post('/signout', async (req, res) => {
+portalRouter.post('/signout', check({ body: noBody }), async (req, res) => {
   const p = req.portal!;
   if (p.sid) await endPortalSession({ id: p.employeeId, orgId: p.orgId }, p.sid, 'signed out', { type: 'EMPLOYEE', id: p.employeeId });
   res.json({ ok: true });
@@ -1350,7 +1389,7 @@ portalRouter.get('/sessions', async (req, res) => {
   });
 });
 
-portalRouter.delete('/sessions/:id', async (req, res) => {
+portalRouter.delete('/sessions/:id', check({ params: idParams }), async (req, res) => {
   const p = req.portal!;
   if (String(req.params.id) === p.sid) return res.status(400).json({ error: 'Use Sign out for this device.' });
   const done = await endPortalSession({ id: p.employeeId, orgId: p.orgId }, String(req.params.id), 'signed out from another device', { type: 'EMPLOYEE', id: p.employeeId });
@@ -1359,7 +1398,7 @@ portalRouter.delete('/sessions/:id', async (req, res) => {
 });
 
 /** Everywhere but here — older sign-ins included. */
-portalRouter.post('/sessions/end-others', async (req, res) => {
+portalRouter.post('/sessions/end-others', check({ body: noBody }), async (req, res) => {
   const p = req.portal!;
   const current = p.sid || (await startPortalSession(p.employee, deviceOf(req))).id;
   const ended = await endPortalSessions(p.employee, 'signed out from another device', { type: 'EMPLOYEE', id: p.employeeId }, { except: current });
@@ -1385,7 +1424,7 @@ portalRouter.get('/tax', async (req, res) => {
   res.json({ available: true, declaration: shapeDeclaration(row, e.id, financialYear) });
 });
 
-portalRouter.put('/tax', async (req, res) => {
+portalRouter.put('/tax', check({ body: anyBody }), async (req, res) => {
   const e = req.portal!.employee;
   if (!(await paidHere(e))) return res.status(404).json({ error: 'Your company does not run payroll here.' });
   const financialYear = financialYearOf(today());
@@ -1458,7 +1497,7 @@ portalRouter.get('/payslips', async (req, res) => {
   });
 });
 
-portalRouter.get('/payslips/:id', async (req, res) => {
+portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) => {
   const e = req.portal!.employee;
   if (!(await isFeatureEnabled(e.accountId, e.orgId, 'payroll'))) return res.status(404).json({ error: 'No such payslip.' });
   const [slip] = (await finalSlips(e, String(req.params.id))) as any[];

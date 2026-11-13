@@ -171,6 +171,9 @@ const TalentTrainings = screen('TalentTrainings');
 const TalentReferrals = screen('TalentReferrals');
 const TalentReferSomeone = screen('TalentReferSomeone');
 const PeopleReports = screen('PeopleReports');
+/* Reports home and People's own reports, each full page (platform audit, 11 Nov 2026). */
+const ReportsHome = screen('ReportsHome');
+const HrReport = screen('HrReport');
 const Registers = screen('Registers');
 const LeaveSummaryReport = screen('LeaveSummaryReport');
 const PeopleDocuments = screen('PeopleDocuments');
@@ -250,6 +253,9 @@ const Transactions = screen('Transactions');
 /* The punch log under the name People's menu gives it. */
 const PunchLog = (props) => <Transactions {...props} title="Punches" />;
 PunchLog.displayName = 'PunchLog';
+/* Opened from the reports home on one report (`report` in the address); from the menu, on the catalogue. */
+const AttendanceReportsAt = (props) => <AttendanceReports {...props} initialReport={props.params?.report || ''} />;
+AttendanceReportsAt.displayName = 'AttendanceReportsAt';
 /* A named attendance report as its own entry: the Reports screen opened on that report. */
 const attendanceReport = (id) => {
   const NamedReport = (props) => <AttendanceReports {...props} initialReport={id} />;
@@ -517,6 +523,8 @@ export const peopleApp = {
     /* Reports holds reports only, in the plan's groups (Pay comes with the payroll reports). Leave summary is a tab
        inside Statutory registers, so it is not listed twice; the compliance calendar and the auditor's evidence are Settings. */
     { key: 'reports', label: 'Reports', icon: M.insights, groups: [
+      /* The home lists every report in plain groups; the entries under it are the ones opened most (platform audit, 11 Nov 2026). */
+      { label: '', items: ['reportsHome'] },
       { label: 'People', items: ['reports'] },
       { label: 'Time', items: ['summary', 'register', 'attendanceReports', 'leaveRegister', 'requestsReport'] },
       { label: 'Statutory registers', items: ['registers'] },
@@ -647,6 +655,10 @@ export const peopleApp = {
     { key: 'compensation', label: 'Salary revisions', keywords: ['salary', 'hike', 'increment', 'raise', 'revision'], icon: I.salary, permission: ['PAYROLL::Salary Revisions::VIEW', 'PEOPLE::Salary revisions read::VIEW'], feature: 'peopleBenefits' },
     /* Claims approved in Approvals, paid here; advances and salary advances (WORKFLOW-GAP-RESEARCH 4.1, 4.2). */
     { key: 'expenses', label: 'Expenses', keywords: ['claim', 'reimbursement', 'advance', 'bill'], icon: I.expense, permission: 'PEOPLE::Expenses::VIEW' },
+    /* The home opens to anyone who may read one kind of report; each row on it is still checked on its own. */
+    { key: 'reportsHome', label: 'All reports', keywords: ['reports', 'report list', 'headcount', 'tenure', 'age', 'gender', 'probation', 'contract end', 'document expiry'], icon: I.report, permission: ['PEOPLE::Employees::VIEW', 'ATTENDANCE::Attendance Records::VIEW', 'ATTENDANCE::Leave Requests::VIEW', 'PEOPLE::Approvals::VIEW'] },
+    /* One People report, full page: reached from the home, never its own menu entry. */
+    { key: 'hrReport', label: 'Report', icon: I.report, permission: 'PEOPLE::Employees::VIEW', parent: 'reportsHome' },
     { key: 'reports', label: 'Headcount & attrition', keywords: ['people report', 'headcount', 'attrition', 'joiners', 'leavers'], icon: I.report, permission: 'PEOPLE::Employees::VIEW' },
     /* What an inspector asks for (HR view audit, gap 4), and leave taken by department and type (gap 9). */
     { key: 'registers', label: 'Statutory registers', keywords: ['muster roll', 'statutory form', 'form', 'leave summary', 'leave taken'], icon: I.statutory, permission: 'PEOPLE::Employees::VIEW' },
@@ -757,7 +769,7 @@ export const peopleApp = {
     monthClose: MonthClose,
     summary: MonthSummary,
     register: AttendanceRegister,
-    attendanceReports: AttendanceReports,
+    attendanceReports: AttendanceReportsAt,
     reportLateEarly: attendanceReport('late-early'),
     reportAbsent: attendanceReport('absent'),
     reportOvertime: attendanceReport('overtime'),
@@ -801,6 +813,8 @@ export const peopleApp = {
     benefits: register('benefits'),
     compensation: SalaryRevisions,
     expenses: Expenses,
+    reportsHome: ReportsHome,
+    hrReport: HrReport,
     reports: PeopleReports,
     registers: Registers,
     leaveSummary: LeaveSummaryReport,

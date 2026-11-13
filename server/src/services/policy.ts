@@ -55,10 +55,26 @@ export const DEFAULT_POLICY: Policy = {
   passwordRequireSymbol: false,
   requireVerifiedEmail: false,
   allowedEmailDomains: null,
-  requirePayrollStepUp: false,
+  /*
+   * On unless the company switches it off (audit 11 Nov 2026: it was off, so
+   * a password alone approved a pay run). Read each time, so a deployment can
+   * set PAYROLL_STEP_UP_DEFAULT=off; the test suite runs with it off unless a
+   * test asks otherwise, because its companies have no authenticators.
+   */
+  get requirePayrollStepUp() {
+    const set = String(process.env.PAYROLL_STEP_UP_DEFAULT || '').trim().toLowerCase();
+    if (set) return set !== 'off';
+    return !process.env.VITEST;
+  },
   requireAdminTwoFactor: false,
   makerChecker: 'AUTO',
 };
+
+/** Whether this company asks for a fresh authenticator code before payroll's money-moving actions. */
+export async function payrollStepUpOn(orgId: string): Promise<boolean> {
+  const row = await platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requirePayrollStepUp: true } });
+  return row ? row.requirePayrollStepUp : DEFAULT_POLICY.requirePayrollStepUp;
+}
 
 export async function getAuthPolicy(accountId: string, orgId: string): Promise<Policy> {
   const row = await platformPrisma.authPolicy.findUnique({ where: { orgId } });
@@ -120,7 +136,7 @@ export function strictestOf(rows: PolicyRow[]): Policy {
       /* Strictest across companies: STRICT over AUTO over ALLOW. */
       makerChecker: [strictest.makerChecker, r.makerChecker].includes('STRICT') ? 'STRICT' : [strictest.makerChecker, r.makerChecker].includes('AUTO') ? 'AUTO' : 'ALLOW',
     }),
-    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: SESSION_DAYS_CAP, accessTokenMinutes: 999, lockoutMinutes: 0, makerChecker: 'ALLOW' }
+    { ...DEFAULT_POLICY, maxFailedLogins: 999, sessionDays: SESSION_DAYS_CAP, accessTokenMinutes: 999, lockoutMinutes: 0, requirePayrollStepUp: false, makerChecker: 'ALLOW' }
   );
 }
 

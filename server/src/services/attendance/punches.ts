@@ -3,7 +3,7 @@ import { enqueuePunches } from '../../services/hr/sync.js';
 import { afterPeopleCommit, peoplePrisma } from '../../utils/peoplePrisma.js';
 import { instantOf, pairDay, parseAttlogLine, punchKind, shiftDayOf } from './adms.js';
 import { emit as emitWebhook } from './webhooks.js';
-import { closedMonths, shiftFor, writeDay } from './days.js';
+import { closedMonths, MonthClosedError, shiftFor, writeDay } from './days.js';
 import { readerIdMatcher } from './readerIds.js';
 import { driverOf, parserOf } from './drivers.js';
 import { istDate } from './compute.js';
@@ -80,8 +80,17 @@ export async function clockDateFor(orgId: string, accountId: string, employeeId:
  * same shift day), then write it through the same path as every other day.
  */
 export async function recomputeDeviceDay(accountId: string, orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, date: string) {
-  /* A closed month keeps its days: the punch is stored, the day does not move (and the reader is not told to resend). */
-  if ((await closedMonths(orgId, [date.slice(0, 7)])).size) return null;
+  /*
+   * A closed month keeps its days: the punch is stored, the day does not move (and the reader is not told to
+   * resend). Its punches are marked dayPending, as a held punch counted into a closed month is, so the reopen
+   * works the day out (workOutPendingDays). Before, only held punches were marked, and a reader's late upload or a
+   * field punch approved while the month was closed never reached its day.
+   */
+  const leftPending = async () => {
+    await peoplePrisma.devicePunch.updateMany({ where: { orgId, employeeId: employee.id, shiftDate: date, dayPending: false, OR: [{ reviewStatus: null }, { reviewStatus: 'APPROVED' }] }, data: { dayPending: true } });
+    return null;
+  };
+  if ((await closedMonths(orgId, [date.slice(0, 7)])).size) return leftPending();
   const existing = await peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } });
   if (existing && DECIDED.has(existing.source)) {
     /* The day stays as decided. With reader trust on, the punch is raised for HR instead of vanishing (O-11). */
@@ -118,7 +127,13 @@ export async function recomputeDeviceDay(accountId: string, orgId: string, emplo
   if (!day) return null;
   /* An approved half-day leave on this day: the punches are the other half. */
   const half = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: employee.id, status: 'APPROVED', fromDate: date, toDate: date, halfDay: { not: null } }, select: { id: true, halfDay: true } });
-  return writeDay({ accountId, orgId, userId: 'reader', employee, date, checkIn: day.checkIn, checkOut: day.checkOut, source: 'DEVICE', ...(half ? { leaveRequestId: half.id, halfDayLeave: half.halfDay as 'FIRST' | 'SECOND' } : {}) });
+  try {
+    return await writeDay({ accountId, orgId, userId: 'reader', employee, date, checkIn: day.checkIn, checkOut: day.checkOut, source: 'DEVICE', ...(half ? { leaveRequestId: half.id, halfDayLeave: half.halfDay as 'FIRST' | 'SECOND' } : {}) });
+  } catch (e) {
+    /* The month closed after the check above: writeDay refused under the lock. The same as closed before it. */
+    if (e instanceof MonthClosedError) return leftPending();
+    throw e;
+  }
 }
 
 /**

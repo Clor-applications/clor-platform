@@ -392,6 +392,8 @@ model AuditLog {
   createdAt       DateTime @default(now())
   /// The request id (X-Request-Id) that wrote it; People's change log shares it (D-V8).
   correlationId   String?
+  /// Before and after values of the change, `{ field: { from, to } }`, masked (middleware/auditMutations.ts).
+  changes         Json?
 
   org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -511,8 +513,9 @@ model AccountEntitlement {
 
   planKey String
 
-  /// ACTIVE | TRIAL | PAST_DUE | CANCELLED. Anything but the first two closes
-  /// the ceiling to the plan's own features and nothing extra.
+  /// ACTIVE | TRIAL | PAST_DUE | CANCELLED | CLOSED. Anything but the first
+  /// two closes the ceiling to the plan's own features and nothing extra.
+  /// CLOSED: the customer closed their last company (services/companyClosure.ts).
   status String @default("ACTIVE")
 
   /// Feature keys sold on top of the plan, comma-separated.
@@ -579,6 +582,11 @@ model Session {
 
   /// An Explore session (the read-only sample company, routes/explore.ts): the pass it came from. Carried through every rotation.
   explorePassId String?
+
+  /// A single sign-on session: the company whose identity provider vouched for
+  /// the person. It opens that company only (middleware/tenantContext.ts);
+  /// carried through every rotation. Null for a password sign-in.
+  ssoOrgId String?
 
   @@index([accountId, userId, revokedAt])
   @@index([explorePassId])
@@ -672,6 +680,12 @@ model EmailOutbox {
   attempts  Int       @default(0)
   lastError String?
   sentAt    DateTime?
+  /// When the retry job sends a FAILED message again. Null on a FAILED row: no
+  /// more automatic tries (it used them all, or failed before retries existed).
+  nextAttemptAt DateTime?
+  /// Set while one sender has the message in hand, so no second sender takes it;
+  /// cleared when the try ends. One left by a crash stops counting after ten minutes.
+  claimedAt     DateTime?
 
   relatedType String?
   relatedId   String?
@@ -682,6 +696,7 @@ model EmailOutbox {
   @@index([accountId, orgId, status])
   @@index([templateKey, createdAt])
   @@index([status, createdAt])
+  @@index([status, nextAttemptAt])
   @@index([createdAt])
 }
 
@@ -742,7 +757,7 @@ model AuthPolicy {
   allowedEmailDomains   String?
   /// Ask for an authenticator code before money-moving payroll actions:
   /// approving a pay run, a bank account change, a settlement, a payment.
-  requirePayrollStepUp  Boolean @default(false)
+  requirePayrollStepUp  Boolean @default(true)
   /// Owners and admins must have an authenticator: until they set one up they
   /// can only reach their own two-factor set-up (SX-09).
   requireAdminTwoFactor Boolean @default(false)
@@ -1874,7 +1889,8 @@ model CustomPlan {
 /// with both people on the record. Never approved by the person who asked.
 model OpsApproval {
   id              String    @id @default(cuid())
-  /// DEAL
+  /// DEAL (a priced subscription deal, routes/opsDeals.ts) | GRANT (apps set
+  /// free or cheaper by hand, services/ops/grants.ts)
   kind            String
   accountId       String?
   /// What was asked, as the route takes it.
@@ -1885,7 +1901,9 @@ model OpsApproval {
   discountPercent Int?
   reason          String
   requestedBy     String
-  /// PENDING | APPROVED | REJECTED | CANCELLED | EXPIRED
+  /// PENDING | APPROVED | REJECTED | CANCELLED | EXPIRED | FAILED
+  /// FAILED: approved, or about to be, but it could not be applied (the price
+  /// or the customer's plan changed since it was asked); nothing was changed.
   status          String    @default("PENDING")
   decidedBy       String?
   decidedAt       DateTime?

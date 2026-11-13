@@ -544,7 +544,20 @@ describe('days written under the old rule', () => {
     const reasons: Record<string, string> = { [validated.id]: 'OLD', [overtime.id]: 'OLD', [bulk.id]: 'OLD', [closed.id]: 'MONTH_CLOSED' };
     expect(Object.fromEntries(first.held.map((x) => [x.recordId, x.held]))).toEqual(reasons);
 
-    await att(c, 'post', '/records/validate', { ids: [validated.id, closed.id] }).expect(200);
+    /* A closed month's day refuses the whole batch (owner's decision, 13 Nov 2026): neither day is validated. */
+    const refused = await att(c, 'post', '/records/validate', { ids: [validated.id, closed.id] }).expect(409);
+    expect(refused.body.code).toBe('ATTENDANCE_MONTH_CLOSED');
+    expect((await recordOf(c, validated.id)).validated).toBe(false);
+    expect((await recordOf(c, closed.id)).validated).toBe(false);
+    await att(c, 'post', '/records/validate', { ids: [validated.id] }).expect(200);
+    /*
+     * The closed month's day validated with its lock lifted for a moment, straight from the table: the reopen route
+     * would run the full-day fix itself, and this test is about what the fix does after the sign-off.
+     */
+    const lock = await inTenant(c, () => peoplePrisma.attendanceMonthLock.findFirstOrThrow({ where: { orgId: c.orgId, month } }));
+    await inTenant(c, () => peoplePrisma.attendanceMonthLock.delete({ where: { id: lock.id } }));
+    await att(c, 'post', '/records/validate', { ids: [closed.id] }).expect(200);
+    await inTenant(c, () => peoplePrisma.attendanceMonthLock.create({ data: { accountId: c.accountId, orgId: c.orgId, month, lockedByUserId: c.userId } }));
     await att(c, 'post', `/records/${overtime.id}/overtime`, { approved: true }).expect(200);
     const applied = await att(c, 'post', '/records/bulk', { ids: [bulk.id], operation: 'APPROVE_OVERTIME', reason: 'Approved in bulk', preview: false }).expect(200);
     expect(applied.body.applied).toBe(1);

@@ -12,13 +12,20 @@ import { HELP_GROUPS, HELP_TOPICS, searchHelp } from './helpContent';
  */
 const digits = (s) => String(s || '').replace(/\D/g, '');
 
-export default function HelpCenter({ initialTopic = 'welcome', onOpen }) {
+/*
+ * `apps`: the apps this company has (ids). A link to a screen in an app it
+ * does not have is left out, so "Open" never leads to a refusal. Without it,
+ * every link shows.
+ */
+export default function HelpCenter({ initialTopic = 'welcome', onOpen, apps = null }) {
   const [query, setQuery] = useState('');
   const [current, setCurrent] = useState(HELP_TOPICS.some((t) => t.key === initialTopic) ? initialTopic : 'welcome');
   const found = useMemo(() => searchHelp(query), [query]);
   const topic = HELP_TOPICS.find((t) => t.key === current) || HELP_TOPICS[0];
   const whatsapp = digits(operator.supportWhatsapp);
   const email = operator.contactEmail;
+  const reachable = (link) => Boolean(link && onOpen && (!apps || apps.includes(link.app)));
+  const links = [topic.open, topic.alt].filter(reachable);
 
   return (
     <div className="ui-help">
@@ -76,11 +83,11 @@ export default function HelpCenter({ initialTopic = 'welcome', onOpen }) {
                 <BookOpen size={16} aria-hidden="true" /> Read the full guide <ExternalLink size={14} aria-hidden="true" />
               </a>
             ) : null}
-            {topic.open && onOpen ? (
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => onOpen(topic.open.app, topic.open.screen)}>
-                {topic.open.label} <ArrowRight size={16} aria-hidden="true" />
+            {links.map((link, i) => (
+              <button key={`${link.app}:${link.screen}`} type="button" className={`ui-btn ${i ? 'ui-btn-ghost' : 'ui-btn-secondary'}`} onClick={() => onOpen(link.app, link.screen)}>
+                {link.label} <ArrowRight size={16} aria-hidden="true" />
               </button>
-            ) : null}
+            ))}
           </div>
 
           <aside className="ui-help-contact" aria-label="Contact support">
