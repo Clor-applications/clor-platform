@@ -583,6 +583,8 @@ opsDealsRouter.post('/ops/accounts/:id/deal', ...BILLING, (req, res) =>
         if (waiting) return res.status(409).json({ error: 'A deal for this customer is already waiting in Approvals. Withdraw it there first, or wait for the decision.' });
         const customerName = (await accountNames([id])).get(id) || 'A customer';
         const approval = await askApproval(req, { kind: 'DEAL', accountId: id, customerName, payload: req.body, summary: dealSummary(q), discountPercent: Math.round(discountShare(q.deal)), reason: v.reason });
+        /* The check above is a quick answer; askApproval makes it again under a lock, for two asking at once. */
+        if (!approval) return res.status(409).json({ error: 'A deal for this customer is already waiting in Approvals. Withdraw it there first, or wait for the decision.' });
         return res.status(202).json({ needsApproval: true, approval, limit });
       }
       const r = await applyDeal(id, v, req.auth!.userId);

@@ -70,20 +70,34 @@ async function tellApprovers(askedBy: string, a: { id: string; summary: string; 
   return sent;
 }
 
-/** Keep the request, write it in the audit log, and tell the people who can approve it. */
+/**
+ * Keep the request, write it in the audit log, and tell the people who can approve it.
+ *
+ * One waiting request of a kind per customer: the check and the new row are
+ * made under a lock on the customer's account row, so two operators asking at
+ * the same moment cannot both open one (a find, then a create, let both
+ * through). Null when one is already waiting.
+ */
 export async function askApproval(req: Request, input: { kind: 'DEAL'; accountId: string | null; customerName: string; payload: unknown; summary: string; discountPercent: number | null; reason: string }) {
-  const a = await platformPrisma.opsApproval.create({
-    data: {
-      kind: input.kind,
-      accountId: input.accountId,
-      payload: input.payload as any,
-      summary: input.summary,
-      discountPercent: input.discountPercent,
-      reason: input.reason,
-      requestedBy: req.auth!.userId,
-      expiresAt: new Date(Date.now() + EXPIRES_HOURS * 3600_000),
-    },
+  const data = {
+    kind: input.kind,
+    accountId: input.accountId,
+    payload: input.payload as any,
+    summary: input.summary,
+    discountPercent: input.discountPercent,
+    reason: input.reason,
+    requestedBy: req.auth!.userId,
+    expiresAt: new Date(Date.now() + EXPIRES_HOURS * 3600_000),
+  };
+  const a = await platformPrisma.$transaction(async (tx) => {
+    if (input.accountId) {
+      await tx.$queryRaw`SELECT id FROM "Account" WHERE id = ${input.accountId} FOR UPDATE`;
+      const waiting = await tx.opsApproval.findFirst({ where: { accountId: input.accountId, kind: input.kind, status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
+      if (waiting) return null;
+    }
+    return tx.opsApproval.create({ data });
   });
+  if (!a) return null;
   await audit(req, 'APPROVAL_ASKED', { accountId: input.accountId }, { approvalId: a.id, customer: input.customerName, what: input.summary, discount: input.discountPercent != null ? `${input.discountPercent}%` : undefined, reason: input.reason }, { customerLog: false });
   await tellApprovers(req.auth!.userId, a, input.customerName);
   return { id: a.id, summary: a.summary, status: a.status, expiresAt: a.expiresAt };
