@@ -449,15 +449,17 @@
   --z-platform-bar: 200;
   --z-platform-menu: 210;
 
-  --radius-btn: 0.25rem;
-  --radius-input: 0.25rem;
-  --radius-sm: 0.25rem;
-  --radius: 0.25rem;
-  --radius-lg: 0.25rem;
-  --radius-xl: 0.375rem;
-  /* The figures across an overview. Square on purpose: at 12px five small
-     cards in a row read as five pills rather than five panels of figures. */
-  --radius-kpi: 0.25rem;
+  /* Two radii (DESIGN.md Layout): 8px on anything clickable, 12px on anything
+     holding content. These were 4px from the first import, which left every app
+     outside People square-cornered (UI audit M1, 14 Nov 2026). */
+  --radius-btn: 0.5rem;
+  --radius-input: 0.5rem;
+  --radius-sm: 0.5rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 0.75rem;
+  /* Figure tiles hold content, so they take the content radius. */
+  --radius-kpi: 0.75rem;
 
   /* Layout */
   --sidebar-w: 260px;
@@ -3730,10 +3732,9 @@
      about the same period, and a divided band asked the reader to accept them
      as one thing. Apart, each is its own object and can carry its own colour.
 
-     The corners are the deliberate exception to the two-radius rule: at 12px
-     five small cards in a row read as five pills, and the point of the row is
-     that they are panels of figures. `--radius-kpi` exists so the exception
-     is named and findable rather than a bare 0 somebody later "fixes".
+     The corners follow the two-radius rule like every other content
+     container: 12px (UI audit M1, 14 Nov 2026). `--radius-kpi` stays as its
+     own name so the figure tiles can be tuned without touching cards.
   --------------------------------------------------------------------------- */
   .ui-kpi-band {
     display: grid;

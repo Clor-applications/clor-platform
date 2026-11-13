@@ -21,6 +21,11 @@
   --accent-hover: #e64b00;
   --accent-press: #ba3900;
   --accent-ink: #ffffff;
+  /* White text on #FF5400 is 3.22:1 and fails WCAG AA for button labels.
+     Filled buttons use this one step deeper (4.5:1), like the app does;
+     #FF5400 stays for the logo, marks and decorative accents (audit M3). */
+  --accent-fill: #d44500;
+  --accent-fill-hover: #ba3900;
   --accent-text: #ba3900;
   --accent-soft: #fff1ea;
   --ok: #15803d;
@@ -243,11 +248,11 @@ main:focus {
 }
 /* No glow: the orange fill is the whole signal. Pressing darkens it and sets it down a pixel. */
 .btn--primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-ink);
 }
 .btn--primary:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
 }
 .btn--primary:active {
   background: var(--accent-press);
@@ -3678,5 +3683,14 @@ html.is-scrolled .nav {
   }
   .team-who {
     position: static;
+  }
+}
+
+/* Phones up to 419px: the header is the logo and the menu button only. "Request a
+   demo" is already in the hero and in the menu; with it here the menu button was
+   pushed 20px off a 375px screen and the page scrolled sideways (audit B1). */
+@media (max-width: 419px) {
+  .nav-demo {
+    display: none;
   }
 }

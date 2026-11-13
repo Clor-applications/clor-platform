@@ -1523,7 +1523,7 @@ button.ws-item:hover {
   color: rgb(var(--ws-ink));
   text-align: left;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-btn);
 }
 .ws-name-link:hover {
   color: rgb(var(--ws-accent-hover));

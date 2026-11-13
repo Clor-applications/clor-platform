@@ -899,11 +899,7 @@
  * pills only. Scoped to the Sky palette, so Accounting, Payroll and Attendance
  * keep their own look.
  */
-:root[data-palette='sky'],
-[data-palette='sky'] {
-  --radius-btn: 0.5rem;
-  --radius-input: 0.5rem;
-}
+/* Radii come from the shared tokens (8px / 12px) since the UI audit (M1); no override here. */
 :root[data-palette='sky'] #main-content {
   --soft-card-r: 0.75rem;
 }
