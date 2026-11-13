@@ -54,15 +54,19 @@ describe('People Home setup list', () => {
   it('starts with every step to do, linked to its screen', async () => {
     const r = (await people(c).get('/setup').expect(200)).body;
     expect(r.setup.show).toBe(true);
-    expect(r.setup).toMatchObject({ done: 0, total: 4 });
+    /* A company starting now is asked for every step but documents and Payroll. */
+    expect(r.setup).toMatchObject({ done: 0, total: 6 });
     expect(r.setup.steps.map((s: any) => [s.key, s.screen, s.done, s.optional])).toEqual([
+      ['structure', 'departments', false, false],
       ['people', 'employeeNew', false, false],
       ['week', 'workingWeek', false, false],
       ['leave', 'leaveTypes', false, false],
+      ['approvers', 'companyChoices', false, false],
       ['app', 'selfService', false, false],
+      ['documents', 'documents', false, true],
       ['payroll', 'modules', false, true],
     ]);
-    expect(r.setup.steps[0].alt).toEqual({ label: 'Import', screen: 'employeeImport' });
+    expect(r.setup.steps.find((s: any) => s.key === 'people').alt).toEqual({ label: 'Import', screen: 'employeeImport' });
   });
 
   it('ticks each step as its records appear, and records the step once', async () => {
@@ -76,7 +80,7 @@ describe('People Home setup list', () => {
     await att(c, 'post', '/holidays', { date: `${new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4)}-12-25`, name: 'Christmas' }).expect(201);
     await att(c, 'post', '/leave/types', { name: 'Casual', annualDays: 12 }).expect(201);
     r = (await people(c).get('/setup').expect(200)).body;
-    expect(r.setup).toMatchObject({ done: 3, total: 4, show: true });
+    expect(r.setup).toMatchObject({ done: 3, total: 6, show: true });
     await people(c).get('/setup').expect(200);
     await settle();
     const steps = (await events(c, 'setup_step_done')).map((e) => props(e).step).sort();
@@ -84,7 +88,10 @@ describe('People Home setup list', () => {
   });
 
   it('goes away when the last step is skipped, and comes back when unskipped', async () => {
-    let r = (await people(c).post('/setup', { action: 'skip', step: 'app' }).expect(200)).body;
+    for (const step of ['structure', 'approvers']) await people(c).post('/setup', { action: 'skip', step }).expect(200);
+    let r = (await people(c).get('/setup').expect(200)).body;
+    expect(r.setup.show).toBe(true);
+    r = (await people(c).post('/setup', { action: 'skip', step: 'app' }).expect(200)).body;
     expect(r.setup.steps.find((s: any) => s.key === 'app').skipped).toBe(true);
     expect(r.setup.show).toBe(false);
     r = (await people(c).post('/setup', { action: 'unskip', step: 'app' }).expect(200)).body;
