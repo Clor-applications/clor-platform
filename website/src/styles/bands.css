@@ -3223,3 +3223,10 @@ body:has(.fx-secnav) .nav {
     animation: none;
   }
 }
+
+/* The narrowest phones (320px): the header keeps the logo and the menu; the demo button is in the menu. */
+@media (max-width: 359px) {
+  .nav .nav-demo {
+    display: none;
+  }
+}
