@@ -29,6 +29,7 @@ export { default as AuditTrail } from './screens/AuditTrail';
 export { default as Invitations } from './screens/Invitations';
 export { default as Support } from './screens/Support';
 export { default as Inbox } from './screens/Inbox';
+export { default as Integrations } from './screens/Integrations';
 export { default as Members } from './screens/Members';
 export { default as AccountActivity } from './screens/AccountActivity';
 export { default as Companies } from './screens/Companies';
