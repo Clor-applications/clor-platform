@@ -1,18 +1,18 @@
 import React from 'react';
-import { C_D, DOT } from './logoPaths.js';
+import { SYMBOL_ARC_D, SYMBOL_BRACKET_D, SYMBOL_BOX } from './logoPaths.js';
 
-/* CLOR icon: the C of the wordmark in dark blue with the blaze orange dot in
-   its mouth (13 Nov 2026). Letters are outlined Baloo 2 ExtraBold, so no font
-   is needed to draw them. The C spans 0..508 across and 0..643 down; this box
-   centres it in a square. */
-const BOX = '-81.5 -13.5 671 671';
+/* The CLOR icon: the open CL frame from the brand pack — a round-cornered arc
+   in the ink and a square bracket in blaze orange. Drawn on its own 100 grid,
+   with a little air so it does not touch the edge of its box. */
+const PAD = 6;
+const BOX = `${-PAD} ${-PAD} ${SYMBOL_BOX.w + 2 * PAD} ${SYMBOL_BOX.h + 2 * PAD}`;
 const ORANGE = 'rgb(var(--logo-mark-orange, 255 84 0))';
-const SLATE = 'rgb(var(--logo-mark-slate, 15 23 42))';
+const INK = 'rgb(var(--logo-mark-slate, 32 35 41))';
 
 export default function ClorMark({ size = 28, color, className = '', title = 'CLOR' }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
-  const letter = color || SLATE;
-  const dot = color || ORANGE;
+  const ink = color || INK;
+  const accent = color || ORANGE;
   return (
     <svg
       width={size}
@@ -23,8 +23,8 @@ export default function ClorMark({ size = 28, color, className = '', title = 'CL
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
       {...a11y}
     >
-      <path d={C_D} fill={letter} />
-      <circle cx={DOT.cx} cy={DOT.cy} r={DOT.r} fill={dot} />
+      <path d={SYMBOL_ARC_D} fill={ink} />
+      <path d={SYMBOL_BRACKET_D} fill={accent} />
     </svg>
   );
 }

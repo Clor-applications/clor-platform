@@ -196,56 +196,64 @@ describe('a chosen view is marigold ("use different color like green or orange")
   });
 });
 
-describe('the logo is the drawn CLOR wordmark with the dot in the C (13 Nov 2026)', () => {
+describe('the logo is the CL frame and the pack\'s letters (14 Nov 2026)', () => {
   const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
   const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
   const paths = read('packages/ui/src/components/brand/logoPaths.js');
 
-  it('the letters are outlined shapes, so the logo needs no font and no live text', () => {
+  it('every shape is an outlined path from the brand pack, so no font is needed', () => {
     expect(() => read('packages/ui/src/components/brand/clorPaths.js')).toThrow();
-    /* the whole word is one generated path; nothing renders "LOR" as type any more */
-    expect(paths).toContain('export const WORD_D');
-    expect(paths).toContain('export const C_D');
-    expect(logo).toContain('WORD_D');
+    expect(paths).toContain('export const SYMBOL_ARC_D');
+    expect(paths).toContain('export const SYMBOL_BRACKET_D');
+    expect(paths).toContain('export const LETTERS');
+    expect(logo).toContain('LETTERS');
     expect(logo).not.toMatch(/fontWeight: 900/);
-    /* the ribbon arc is gone from the icon */
-    expect(mark).not.toContain('viewBox="10 0 60 60"');
-    expect(mark).not.toContain('translate(-4, -6)');
-    /* the icon is the C of the wordmark plus its dot */
-    expect(mark).toContain('C_D');
-    expect(mark).toContain('DOT');
+    /* the dot in the C, and the A badge that followed it, are both gone */
+    expect(paths).not.toContain('BADGE_D');
+    expect(paths).not.toContain('export const DOT');
+    expect(paths).not.toContain('DESC_D');
+    /* the icon is the frame alone, not a letter */
+    expect(mark).toContain('SYMBOL_ARC_D');
+    expect(mark).toContain('SYMBOL_BRACKET_D');
+    expect(mark).not.toMatch(/\bC_D\b/);
   });
 
-  it('the word is dark blue and the dot answers it in blaze orange', () => {
+  it('the ink is graphite and the bracket answers it in blaze orange', () => {
     expect(mark).toContain('var(--logo-mark-orange, 255 84 0)');
-    expect(mark).toContain('var(--logo-mark-slate, 15 23 42)');
-    expect(mark).toMatch(/letter = color \|\| SLATE/);
-    expect(mark).toMatch(/dot = color \|\| ORANGE/);
-    expect(logo).toMatch(/paint = color \|\| SLATE/);
-    expect(logo).toMatch(/badgeInk = color \|\| ORANGE/);
-    expect(logo).toMatch(/r=\{DOT\.r\} fill=\{badgeInk\}/);
+    expect(mark).toContain('var(--logo-mark-slate, 32 35 41)');
+    expect(mark).toMatch(/ink = color \|\| INK/);
+    expect(mark).toMatch(/accent = color \|\| ORANGE/);
+    expect(logo).toMatch(/ink = color \|\| INK/);
+    expect(logo).toMatch(/accent = color \|\| ORANGE/);
     expect(mark).not.toContain('92 10 22');   /* oxblood gone */
     expect(mark).not.toContain('245 166 35'); /* marigold gone */
+    const index = read('packages/ui/src/index.css');
+    expect(index).not.toContain('--logo-mark-slate: 15 23 42');
+    expect(index).toContain('--logo-mark-slate: 32 35 41');
   });
 
-  it('the A for Applications is always drawn, on a dark blue disc', () => {
-    expect(paths).toContain('export const BADGE_D');
-    /* no size gate any more: the badge is part of the logo */
-    expect(logo).not.toContain('BADGE_FROM');
-    expect(logo).toMatch(/badge = true/);
-    /* the A is cut out of the disc, which is painted in the slate token */
-    expect(logo).toContain('badgeInk');
-    expect(logo).toContain('var(--logo-mark-slate, 15 23 42)');
+  it('the orange appears once in the word: the O\'s lower-left quarter', () => {
+    const accents = (paths.match(/accent:/g) || []).length;
+    expect(accents).toBe(1);
+    expect(paths).toContain("accent: 'M0 60V100H48A48 48 0 0 1 0.67 60Z'");
+    /* the lockup is the frame then the word, and the stacked one sits the frame over it */
+    expect(paths).toContain('export const HORIZONTAL');
+    expect(paths).toContain('export const STACKED');
+    expect(logo).toMatch(/variant === 'stacked' \? STACKED/);
   });
 
-  it('nothing draws the retired C-tick any more', () => {
+  it('nothing draws the retired C-tick any more, and the tab icon is the frame on graphite', () => {
     expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
-    /* icon.svg is the orange tile holding the C and its dot, so the browser tab is orange */
     const icon = read('public/icon.svg');
     expect(icon).toContain('#FF5400');
-    expect(icon).toContain('#FFFFFF');
+    expect(icon).toContain('#202329');
     expect(icon).not.toContain('#C8102E');
     expect(icon).not.toContain('M74.04 25.96');
+    /* a full-bleed square cannot also be the "any" icon: the pack ships both */
+    const manifest = JSON.parse(read('public/manifest.webmanifest'));
+    expect(manifest.icons.some((i) => i.purpose === 'any')).toBe(true);
+    expect(manifest.icons.some((i) => i.purpose === 'maskable')).toBe(true);
+    expect(manifest.icons.every((i) => i.purpose !== 'any maskable')).toBe(true);
   });
 });
 
