@@ -9,7 +9,6 @@ import { ICON } from '../../apps/admin/src/screens/wsKit';
 import '../../apps/admin/src/screens/workspace.css';
 import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
-import OperatorBrand from './OperatorBrand';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 import { Payments } from './Payments';
 import { InvoicePage, Invoices } from './Invoices';
@@ -384,7 +383,7 @@ function OpsScreens() {
   if (!user) {
     return (
       <SignIn
-        brand={<OperatorBrand />}
+        door="ops"
         subtitle="CLOR staff sign in here with an authenticator."
         onHome={() => (window.location.href = 'https://clor.in')}
         onForgot={() => (window.location.href = 'https://app.clor.in/forgot-password')}

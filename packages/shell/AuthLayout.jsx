@@ -3,7 +3,7 @@ import { Check } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 import { appFromHost } from './appHosts';
-import { QUOTES, sceneFile, sceneRatio, sceneSrc } from './authScenes';
+import { QUOTES, sceneFile, sceneRatio, sceneSrc, sceneTitle } from './authScenes';
 
 /**
  * The frame both sign-in and sign-up sit in.
@@ -52,8 +52,8 @@ function CustomerBrand() {
 /**
  * Lines worth reading, turning over one after another on the picture: the subject,
  * the line, who said it. A thin bar fills as the line's time runs; it waits while
- * the pointer or the keyboard is on the card. Held still for anyone who asks for
- * less motion; the arrows let a reader go back or on.
+ * the pointer is on the card, and holds still for anyone who asks for less motion.
+ * No counter and no arrows (owner, 13 Nov 2026): the lines turn on their own.
  */
 const QUOTE_MS = 8000;
 function Quotes() {
@@ -65,7 +65,6 @@ function Quotes() {
     return () => clearTimeout(t);
   }, [i, held]);
   const q = QUOTES[i];
-  const go = (step) => setI((n) => (n + step + QUOTES.length) % QUOTES.length);
   return (
     <figure
       className={`ui-auth-facts${held ? ' is-held' : ''}`}
@@ -79,20 +78,9 @@ function Quotes() {
         <blockquote>“{q.text}”</blockquote>
         <figcaption>{q.by}</figcaption>
       </div>
-      <div className="ui-auth-fact-foot">
-        <span className="ui-auth-fact-bar" aria-hidden="true">
-          <span key={i} style={{ animationDuration: `${QUOTE_MS}ms` }} />
-        </span>
-        <span className="ui-auth-fact-count" aria-hidden="true">
-          {i + 1} / {QUOTES.length}
-        </span>
-        <button type="button" aria-label="Previous quote" onClick={() => go(-1)}>
-          ‹
-        </button>
-        <button type="button" aria-label="Next quote" onClick={() => go(1)}>
-          ›
-        </button>
-      </div>
+      <span className="ui-auth-fact-bar" aria-hidden="true">
+        <span key={i} style={{ animationDuration: `${QUOTE_MS}ms` }} />
+      </span>
     </figure>
   );
 }
@@ -105,10 +93,17 @@ function Quotes() {
  */
 function Scene({ file, band = false }) {
   const { src, srcSet } = sceneSrc(file);
+  const words = sceneTitle(file);
   return (
     <div className={band ? 'ui-auth-scene-band lg:hidden' : 'ui-auth-scene'}>
       <img className="ui-auth-scene-fill" src={src} alt="" aria-hidden="true" decoding="async" />
       <img className="ui-auth-scene-pic" src={src} srcSet={srcSet} sizes={band ? '100vw' : '70vw'} alt="" decoding="async" fetchpriority="high" />
+      {words ? (
+        <p className="ui-auth-scene-title">
+          <span>{words[0]}</span>
+          <strong>{words[1]}</strong>
+        </p>
+      ) : null}
       {band ? null : (
         <div className="ui-auth-scene-top">
           <Quotes />

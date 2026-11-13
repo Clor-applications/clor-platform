@@ -25,7 +25,23 @@ export const READY = new Set([
   'signup',
   'set-password',
   'accept-invite',
+  'signin-hq',
+  'signin-ops',
 ]);
+
+/**
+ * Pictures that carry no title painted into them (owner's renders, 13 Nov 2026): the page
+ * sets the title in type instead, so the company's registered name is always the right one.
+ * Small line first, then the large one.
+ */
+const TITLES = {
+  'signin-hq': ['CLOR Applications Private Limited', 'Welcome to CLOR'],
+  'signin-ops': ['CLOR Applications Private Limited', 'Operator console'],
+};
+export const sceneTitle = (file) => TITLES[file] || null;
+
+/** The wider of a picture's two files, where it is not the usual 1536. */
+const LARGE = { 'signin-hq': 1254, 'signin-ops': 1254 };
 
 /** The sign-in picture for each app's own address. */
 const SIGNIN_BY_APP = {
@@ -37,6 +53,8 @@ const SIGNIN_BY_APP = {
 
 /** Every other page's picture. */
 const SCENES = {
+  /* ops.clor.in: the tech park, for every step of a staff sign-in. */
+  ops: 'signin-ops',
   signup: 'signup',
   /* A free trial is the same first step as an account: the building-blocks picture, not the sign-in door. */
   start: 'signup',
@@ -50,17 +68,18 @@ const SCENES = {
 
 /** The file to show for a page (`scene`) on an app's address (`app`, or null on app.clor.in). */
 export function sceneFile(scene, app) {
-  const wanted = scene === 'signin' ? SIGNIN_BY_APP[app] || 'signin-workspace' : SCENES[scene];
+  /* The front door (app.clor.in) shows the company's offices and workspace; each app's address shows that app's picture. */
+  const wanted = scene === 'signin' ? SIGNIN_BY_APP[app] || 'signin-hq' : SCENES[scene];
   for (const f of [wanted, 'signin-workspace', 'team']) {
     if (f && READY.has(f)) return f;
   }
   return null;
 }
 
-export const sceneSrc = (file) => ({
-  src: `/auth/${file}-1536.webp`,
-  srcSet: `/auth/${file}-960.webp 960w, /auth/${file}-1536.webp 1536w`,
-});
+export const sceneSrc = (file) => {
+  const w = LARGE[file] || 1536;
+  return { src: `/auth/${file}-${w}.webp`, srcSet: `/auth/${file}-960.webp 960w, /auth/${file}-${w}.webp ${w}w` };
+};
 
 /**
  * Width over height of each picture, so the picture side is cut to the picture's own

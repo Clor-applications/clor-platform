@@ -8957,14 +8957,9 @@ button.ui-side-alert { cursor: pointer; }
 .ui-auth-fact figcaption {
   margin-top: 8px;
 }
-.ui-auth-fact-foot {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
 .ui-auth-fact-bar {
-  flex: 1;
+  display: block;
+  margin-top: 12px;
   height: 3px;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.2);
@@ -8985,36 +8980,59 @@ button.ui-side-alert { cursor: pointer; }
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
-.ui-auth-fact-count {
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  color: rgb(255 255 255 / 0.7);
-}
-.ui-auth-fact-foot button {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgb(255 255 255 / 0.28);
-  border-radius: 8px;
-  background: none;
-  color: #fff;
-  font-size: 1.125rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease;
-}
-.ui-auth-fact-foot button:hover {
-  background: rgb(255 255 255 / 0.14);
-  border-color: #fff;
-}
-.ui-auth-fact-foot button:focus-visible {
-  outline: 2px solid #ffb08a;
-  outline-offset: 2px;
-}
 @media (prefers-reduced-motion: reduce) {
   .ui-auth-fact-bar > span {
     animation: none;
     transform: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Drawn sign-in pictures (the company building on app.clor.in, the operations
+ * building on ops.clor.in). A drawing has no words in it, so its title is type,
+ * top left, where the 3D pictures carry theirs.
+ */
+/* A soft light behind the words, so the title reads wherever the picture is dark. */
+.ui-auth-scene-title::before {
+  content: '';
+  position: absolute;
+  inset: -40px -80px -46px -60px;
+  z-index: -1;
+  background: radial-gradient(60% 70% at 26% 46%, rgb(255 248 240 / 0.92), rgb(255 248 240 / 0.6) 55%, rgb(255 248 240 / 0) 78%);
+}
+.ui-auth-scene-title {
+  position: absolute;
+  top: clamp(24px, 4.5vh, 48px);
+  left: clamp(24px, 3vw, 44px);
+  right: 24px;
+  z-index: 1;
+  display: grid;
+  gap: 6px;
+  color: #0f172a;
+}
+.ui-auth-scene-title span {
+  font-size: clamp(0.9rem, 0.7rem + 0.5vw, 1.2rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  opacity: 0.82;
+}
+.ui-auth-scene-title strong {
+  font-size: clamp(1.6rem, 1rem + 1.7vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+.ui-auth-scene-band .ui-auth-scene-title {
+  top: 14px;
+  left: 16px;
+}
+.ui-auth-scene-band .ui-auth-scene-title strong {
+  font-size: 1.25rem;
+}
+.ui-auth-scene-band .ui-auth-scene-title span {
+  font-size: 0.75rem;
+}
+/* On a phone the picture is a short band and the logo is right above it: the title would sit on the roof. */
+.ui-auth-scene-band .ui-auth-scene-title {
+  display: none;
 }

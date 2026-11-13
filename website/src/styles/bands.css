@@ -3162,14 +3162,9 @@ body:has(.fx-secnav) .nav {
   content: '— ';
   color: #ffb08a;
 }
-.fx-quotes-foot {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  width: min(100%, 420px);
-}
 .fx-quotes-bar {
-  flex: 1;
+  display: block;
+  width: min(100%, 320px);
   height: 3px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.2);
@@ -3190,27 +3185,6 @@ body:has(.fx-secnav) .nav {
   from {
     transform: scaleX(0);
   }
-}
-.fx-quotes-count {
-  font-size: var(--t-xs);
-  font-variant-numeric: tabular-nums;
-  color: #aab6d0;
-}
-.fx-quotes-foot button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: var(--r-control);
-  background: none;
-  color: #fff;
-  cursor: pointer;
-  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease);
-}
-.fx-quotes-foot button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: #fff;
 }
 .fx-quotes :focus-visible {
   outline-color: #ffb08a;
