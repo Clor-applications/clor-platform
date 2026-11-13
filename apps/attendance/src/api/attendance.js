@@ -367,3 +367,7 @@ const orgPath = (path) => `/orgs/${encodeURIComponent(orgId())}${path}`;
 export const listRecycleBin = () => apiFetch(orgPath('/recycle-bin'), opts);
 export const restoreFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}/restore`), { method: 'POST', body: {}, ...opts });
 export const deleteFromBin = (id) => apiFetch(orgPath(`/recycle-bin/${encodeURIComponent(id)}`), { method: 'DELETE', ...opts });
+
+/* Today's "Get started" list, worked out on the server from the company's records (services/attendance/setup.ts). */
+export const getAttendanceSetup = () => get('/setup');
+export const changeAttendanceSetup = (body) => send('/setup', 'POST', body);

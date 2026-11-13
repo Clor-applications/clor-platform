@@ -11,7 +11,8 @@ import DatePicker from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { DOC_WHO_CAN_SEE, docWhoLabel } from './documentClassification';
 import JoiningStatutory from './JoiningStatutory';
-import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
+import { parseCsv, readFileText } from '@ui/utils/csv';
+import { downloadImportTemplate } from '@ui/utils/importTemplate';
 import { istDay as istDayOf, plusDaysIso } from '@ui/utils/dates';
 import { hasApp } from '@platform/context';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -251,7 +252,7 @@ export default function Employees({ description = '' } = {}) {
     if (!file) return;
     try {
       /* parseCsv returns { headers, rows } with rows keyed by header; the drawer maps columns, so rows go back to arrays. */
-      const parsed = parseCsv(await readFileText(file));
+      const parsed = parseCsv(await readFileText(file), { skipComments: true });
       const keys = (parsed.headers || []).map((h) => String(h || '').trim());
       const rows = (parsed.rows || []).map((o) => keys.map((h) => o[h] ?? '')).filter((r) => r.some((c) => String(c || '').trim()));
       if (!rows.length) return notify.error('That file has no rows under its header.');
@@ -316,7 +317,7 @@ export default function Employees({ description = '' } = {}) {
     };
   }, [all, counts]);
   const importTemplate = () =>
-    downloadCsvTemplate({ fileName: 'Employees import template', columns: IMPORT_COLUMNS, sample: { name: 'Asha Rao', code: 'E-001', department: 'Finance', jobPosition: 'Accountant', dateOfJoining: '2026-04-01', gender: 'FEMALE' } });
+    downloadImportTemplate('employees', 'CLOR employees import template').catch((e) => notify.error(String(e?.message || 'The template could not be downloaded.')));
 
   if (loading) return <SkeletonCard lines={6} />;
 

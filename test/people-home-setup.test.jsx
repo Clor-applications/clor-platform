@@ -59,7 +59,7 @@ describe('People Home setup list', () => {
   it('replaces "All caught up" with the steps while setting up', async () => {
     api.getPeopleSetup.mockResolvedValue(setup());
     render(<PeopleOverview openScreen={vi.fn()} />);
-    expect(await screen.findByRole('heading', { name: 'Get People ready' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Get started' })).toBeInTheDocument();
     expect(screen.getByText('1 of 4 done. Each step ticks itself once it is in place.')).toBeInTheDocument();
     expect(screen.queryByText('All caught up')).toBeNull();
     expect(screen.getByText('Nothing waits for you yet. Start with the steps below.')).toBeInTheDocument();
@@ -89,14 +89,14 @@ describe('People Home setup list', () => {
     await waitFor(() => expect(api.changePeopleSetup).toHaveBeenCalledWith({ action: 'skip', step: 'app' }));
     /* Settled: the list goes and "All caught up" is back. */
     expect(await screen.findByText('All caught up')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Get People ready' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Get started' })).toBeNull();
   });
 
   it('shows "All caught up" once set up, and to someone who cannot set the company up', async () => {
     api.getPeopleSetup.mockRejectedValue(Object.assign(new Error('Forbidden'), { status: 403 }));
     render(<PeopleOverview openScreen={vi.fn()} />);
     expect(await screen.findByText('All caught up')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Get People ready' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Get started' })).toBeNull();
   });
 
   it('suggests switching simple mode off once, and switches only when asked', async () => {

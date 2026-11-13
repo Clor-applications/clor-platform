@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { calendarOf, calendarsFor } from '../services/attendance/holidayCalendars.js';
 import { holidayMinimum } from '../services/attendance/holidayMinimum.js';
 import { z } from 'zod';
@@ -72,6 +72,8 @@ import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/at
 import { recordAudit } from '../services/auditTrail.js';
 import { TRUST_LEVELS, readerTrustOn } from '../services/attendance/trust.js';
 import { parseAddressList, plainIp, validEntry, webClockRefusal, webClockSettings } from '../services/attendance/webClock.js';
+import { AttendanceSetupError, attendanceSetup, changeAttendanceSetup, type AttendanceStepKey } from '../services/attendance/setup.js';
+import { PEOPLE_MODULE, PEOPLE_RESOURCE } from '../services/people/guards.js';
 
 /**
  * Attendance, native (after Horilla HRMS's attendance; reference only).
@@ -89,6 +91,54 @@ const dateParam = (v: unknown, fallback: string) => {
   const s = String(v || '').trim();
   return ISO_DATE.test(s) ? s : fallback;
 };
+
+// ---------------------------------------------------------------------------
+// Get started (Today's setup list)
+// ---------------------------------------------------------------------------
+
+/* What each step's screen asks of whoever changes things there. */
+const SETUP_STEP_NEEDS: Array<[AttendanceStepKey, string, string, string]> = [
+  ['shift', ATTENDANCE_MODULE, PermissionAction.CREATE, R.shifts],
+  ['weeklyOff', ATTENDANCE_MODULE, PermissionAction.EDIT, R.shifts],
+  ['holidays', ATTENDANCE_MODULE, PermissionAction.CREATE, R.holidays],
+  ['people', PEOPLE_MODULE, PermissionAction.CREATE, PEOPLE_RESOURCE.employees],
+  ['punch', ATTENDANCE_MODULE, PermissionAction.CREATE, R.devices],
+  ['firstDay', ATTENDANCE_MODULE, PermissionAction.VIEW, R.records],
+];
+
+/** The steps this person may act on. */
+async function setupStepsFor(req: Request) {
+  const may = new Set<string>();
+  for (const [key, module, action, resource] of SETUP_STEP_NEEDS) {
+    if (!(await authorize(req, module, action as any, resource))) may.add(key);
+  }
+  return may;
+}
+
+/**
+ * Attendance → Today: the "Get started" list (services/attendance/setup.ts).
+ * For whoever sets Attendance up for the whole company: it takes the right to
+ * change shifts, and a team-scoped role is refused, as it is for the rest of
+ * the company's set-up.
+ */
+attendanceRouter.get('/orgs/:orgId/attendance/setup', can(PermissionAction.EDIT, R.shifts), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Setting Attendance up is for someone who sees the whole company.' });
+  const { accountId, orgId } = req.tenant!;
+  res.json(await attendanceSetup(accountId, orgId, req.auth?.userId || null, await setupStepsFor(req)));
+});
+
+attendanceRouter.post('/orgs/:orgId/attendance/setup', can(PermissionAction.EDIT, R.shifts), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Setting Attendance up is for someone who sees the whole company.' });
+  const { accountId, orgId } = req.tenant!;
+  try {
+    res.json(await changeAttendanceSetup(accountId, orgId, req.auth?.userId || null, await setupStepsFor(req), req.body || {}));
+  } catch (e) {
+    if (e instanceof AttendanceSetupError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Overview and records
