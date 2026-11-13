@@ -40,6 +40,8 @@ jobs:
     # policies applied and granted). Each job starts its own (step "Postgres
     # 16 for this job").
     env:
+      # India time, as the Mac ran and as customers read dates: in UTC a few date tests land on the day before.
+      TZ: Asia/Kolkata
       PGHOST: localhost
       PGPORT: 5434
 
@@ -140,6 +142,8 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     env:
+      # India time, as the Mac ran and as customers read dates: in UTC a few date tests land on the day before.
+      TZ: Asia/Kolkata
       PGHOST: localhost
       PGPORT: 5434
     steps:
@@ -206,6 +210,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
+      # India time, as the Mac ran and as customers read dates: in UTC a few date tests land on the day before.
+      TZ: Asia/Kolkata
       PGHOST: localhost
       PGPORT: 5434
     steps:
@@ -280,6 +286,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
+      # India time, as the Mac ran and as customers read dates: in UTC a few date tests land on the day before.
+      TZ: Asia/Kolkata
       PGHOST: localhost
       PGPORT: 5434
       PGPASSWORD: clor_ci
