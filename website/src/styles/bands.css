@@ -3230,3 +3230,21 @@ body:has(.fx-secnav) .nav {
     display: none;
   }
 }
+
+/* The forms on a narrow phone: the long choice in a select no longer widens the whole card. */
+.pg .form,
+.pg .contact-aside {
+  min-width: 0;
+}
+.pg .form select,
+.pg .form input:not([type='checkbox']),
+.pg .form textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 760px) {
+  .pg .contact,
+  .pg .field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
