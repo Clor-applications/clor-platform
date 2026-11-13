@@ -4012,3 +4012,17 @@ main > .section:nth-child(odd of .section) .problems li {
 .art3d[data-kind='team'] {
   transform: scale(1.15);
 }
+
+/* Cut-out photos carry a white fade from the original picture. On the hero's
+ * glow and grid that fade showed as a white haze under the desk; multiply
+ * drops the white, so the photo sits straight on the page background. */
+.hero-photo img,
+.p-photo--cut img {
+  mix-blend-mode: multiply;
+}
+.p-photo--cut img {
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 98%), linear-gradient(90deg, transparent 0, #000 14%, #000 92%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(180deg, #000 70%, transparent 98%), linear-gradient(90deg, transparent 0, #000 14%, #000 92%, transparent);
+  mask-composite: intersect;
+}
