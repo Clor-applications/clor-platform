@@ -7,7 +7,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../services/attendance/guards.js';
-import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
+import { PAYROLL_MODULE, PAYROLL_RESOURCE, orgMatches, payrollRouteOk } from '../services/payroll/guards.js';
 import { teamScope } from '../services/people/scope.js';
 import '../services/people/engagement/index.js';
 import { AutomationError, automationHistory, companyUsers, listAutomations, recipesOf, saveAutomations, RECIPE, type AutomationModule } from '../services/people/engagement/automations.js';
@@ -21,7 +21,7 @@ import { AutomationError, automationHistory, companyUsers, listAutomations, reci
  *
  * Read by whoever may read the module's settings, changed by whoever may change them: People by HR (Employees
  * edit, whole company), Attendance by whoever may edit shifts and rules, Payroll by whoever may edit payroll
- * settings. Who a recipe told, and the users to choose from, are the editor's alone. Every change is audited.
+ * settings, Workspace by whoever may edit the company profile. Who a recipe told, and the users to choose from, are the editor's alone. Every change is audited.
  * The old People path (/people/automations) answers with the same handlers.
  */
 export const automationsRouter = Router();
@@ -33,6 +33,8 @@ const ACCESS: Partial<Record<AutomationModule, Access>> = {
   people: { ok: peopleRouteOk, module: PEOPLE_MODULE, resource: PEOPLE_RESOURCE.employees, wholeCompany: true, refusal: 'Only HR, for the whole company, can do this.' },
   attendance: { ok: attendanceRouteOk, module: ATTENDANCE_MODULE, resource: ATTENDANCE_RESOURCE.shifts, refusal: 'Only whoever sets attendance rules can change these.' },
   payroll: { ok: payrollRouteOk, module: PAYROLL_MODULE, resource: PAYROLL_RESOURCE.settings, refusal: 'Only whoever sets up payroll can change these.' },
+  /* Workspace is every company's, not an app it buys or switches on: the company profile's own right, as Email notifications. */
+  workspace: { ok: async (req, res) => orgMatches(req, res), module: 'SETTINGS', resource: 'Company Profile', refusal: 'Only whoever may change the company profile can change these.' },
 };
 
 const allowed = async (req: Request, a: Access, action: 'VIEW' | 'EDIT') => {

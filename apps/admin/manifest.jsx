@@ -24,6 +24,7 @@ const Members = screen('Members');
 const AccountActivity = screen('AccountActivity');
 const Companies = screen('Companies');
 const NotificationSettings = screen('NotificationSettings');
+const Automations = screen('Automations');
 const AccessHome = screen('AccessHome');
 const SecurityHome = screen('SecurityHome');
 const DataHome = screen('DataHome');
@@ -75,7 +76,7 @@ export const adminApp = {
 
   modules: [
     { key: 'home', label: 'Overview', icon: ICON.home, items: ['home', 'support'] },
-    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications'] },
+    { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications', 'automations'] },
     { key: 'access', label: 'Access', icon: ICON.people, groups: [
       { label: null, items: ['accessHome'] },
       { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
@@ -99,6 +100,8 @@ export const adminApp = {
     { key: 'branches', label: 'Branches', icon: ICON.companies, permission: 'MASTERS::Company/Branch setup::VIEW' },
     /* B5: every app's switchable emails, for the apps the company has on; the server's own gate (routes/email.ts). */
     { key: 'notifications', label: 'Email notifications', icon: ICON.mail, permission: 'SETTINGS::Company Profile::VIEW' },
+    /* What Workspace sends on its own for this company; the server's gate is the company profile's (routes/automations.ts). */
+    { key: 'automations', label: 'Automations', icon: ICON.automation, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'accessHome', label: 'Overview', short: 'Access', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
     /* W-4: the account's people, every company at once; the server lets only owners and administrators in. */
     { key: 'members', label: 'Members', icon: ICON.people, permission: 'SETTINGS::Users::VIEW' },
@@ -131,6 +134,7 @@ export const adminApp = {
     company: CompanyProfile,
     branches: SettingsBranches,
     notifications: NotificationSettings,
+    automations: Automations,
     users: SettingsUsers,
     roles: SettingsRoles,
     permissions: RolePermissionManager,
