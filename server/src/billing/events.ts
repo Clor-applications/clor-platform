@@ -30,11 +30,13 @@ const normalizedOf = (ev: NormalizedEvent) => ({
   reference: ev.reference ?? null,
   subscription: ev.subscription ? { ...ev.subscription, currentPeriodEnd: ev.subscription.currentPeriodEnd ? new Date(ev.subscription.currentPeriodEnd).toISOString() : null } : null,
   invoice: ev.invoice ?? null,
+  occurredAt: ev.occurredAt ? new Date(ev.occurredAt).toISOString() : null,
 });
 const eventFrom = (n: any): NormalizedEvent => ({
   ...n,
   subscription: n.subscription ? { ...n.subscription, currentPeriodEnd: n.subscription.currentPeriodEnd ? new Date(n.subscription.currentPeriodEnd) : undefined } : undefined,
   invoice: n.invoice ?? undefined,
+  occurredAt: n.occurredAt ? new Date(n.occurredAt) : undefined,
   raw: null,
 });
 
@@ -105,14 +107,54 @@ export function paidUntil(currentPeriodEnd: Date | null, months: number, periodS
   return by(paidTo ?? now);
 }
 
-/** What an event does to the account's subscription, and the sentence the log shows for it. */
+/**
+ * Whether a subscription event from this gateway that happened after `ev` has
+ * already been applied to the account. Providers retry for days and promise
+ * no order, so an event can arrive after the one that replaced it.
+ */
+async function newerApplied(ev: NormalizedEvent, rowId: string) {
+  if (!ev.occurredAt || !ev.accountId) return false;
+  const at = new Date(ev.occurredAt).getTime();
+  const rows = await platformPrisma.paymentEvent.findMany({
+    where: { accountId: ev.accountId, gateway: ev.gateway, status: 'APPLIED', id: { not: rowId } },
+    orderBy: { receivedAt: 'desc' },
+    take: 50,
+    select: { normalized: true },
+  });
+  return rows.some((r) => {
+    const n = r.normalized as { subscription?: unknown; occurredAt?: string | null } | null;
+    return Boolean(n?.subscription && n.occurredAt && new Date(n.occurredAt).getTime() > at);
+  });
+}
+
+/**
+ * What an event does to the account's subscription, and the sentence the log shows for it.
+ *
+ * The rule for a subscription event (a webhook, a retry, or a payment
+ * recorded by hand):
+ *  - A cancelled subscription is never moved by an event. CLOR staff cancel
+ *    it (Customers, Cancel), closing the last company cancels it
+ *    (companyClosure.ts), and so does the gateway's own cancel event. Only a
+ *    person brings it back: Reopen, a deal or a plan grant. Otherwise a late
+ *    "active", or a provider's retry, would undo the cancellation. The write
+ *    is conditional too, so a cancel that lands while the event is applied
+ *    still wins.
+ *  - An event older, by the provider's own event time, than one already
+ *    applied from the same gateway changes nothing: the newer one stands.
+ * Either is kept as RECORDED, with the reason, for staff to see.
+ */
 async function applyTo(ev: NormalizedEvent, rowId: string): Promise<{ status: EventStatus; detail: string | null }> {
   if (ev.invoice) return payInvoice(ev, rowId);
   if (!ev.subscription) return { status: 'RECORDED', detail: null };
   if (!ev.accountId) return { status: 'RECORDED', detail: 'The event did not name a CLOR account, so no subscription changed.' };
   const s = ev.subscription;
+  const cancelled = { status: 'RECORDED' as EventStatus, detail: 'The subscription is cancelled, so this event changed nothing. Reopen it under Customers if it should run, or refund the customer if they paid.' };
+  const cur = await platformPrisma.subscription.findUnique({ where: { accountId: ev.accountId }, select: { status: true } });
+  if (!cur) return { status: 'RECORDED', detail: 'This account has no subscription yet, so nothing changed. Retry once it has one.' };
+  if (cur.status === 'cancelled') return cancelled;
+  if (await newerApplied(ev, rowId)) return { status: 'RECORDED', detail: 'A newer event from this provider was already applied, so this older one changed nothing.' };
   const n = await platformPrisma.subscription.updateMany({
-    where: { accountId: ev.accountId },
+    where: { accountId: ev.accountId, status: { not: 'cancelled' } },
     data: {
       status: s.status ?? undefined,
       currentPeriodEnd: s.currentPeriodEnd ?? undefined,
@@ -120,7 +162,7 @@ async function applyTo(ev: NormalizedEvent, rowId: string): Promise<{ status: Ev
       gatewaySubscriptionId: s.gatewaySubscriptionId ?? undefined,
     },
   });
-  if (!n.count) return { status: 'RECORDED', detail: 'This account has no subscription yet, so nothing changed. Retry once it has one.' };
+  if (!n.count) return cancelled;
   await syncAccountEntitlement(ev.accountId);
   const parts = [s.status ? `The subscription is now ${STATUS_WORD[s.status] || s.status}` : 'The subscription was updated', s.currentPeriodEnd ? `, paid until ${day(new Date(s.currentPeriodEnd))}` : ''];
   return { status: 'APPLIED', detail: `${parts.join('')}.` };
@@ -230,6 +272,65 @@ export async function recordManualPayment(input: { accountId: string; amount: nu
     return { ...r, detail, account, paidUntil: null };
   }
   return { ...r, account, paidUntil: until };
+}
+
+/**
+ * Mark paid on one of CLOR's invoices (billing/invoices.ts): the payment kept,
+ * the invoice claimed and the subscription moved on, in one transaction.
+ *
+ * The invoice is claimed (ISSUED to PAID, conditionally) before anything
+ * else, so two clicks, or Mark paid racing the customer paying the same
+ * invoice online (payInvoice above), move the subscription once: the loser
+ * gets a 409 and its payment record is rolled back with it. The subscription
+ * row is locked while its paid period is read and moved on. As online, a
+ * cancelled or paused subscription is not started again: the invoice is paid
+ * and a person decides.
+ */
+export async function recordInvoicePayment(input: { invoiceId: string; number: string | null; accountId: string; amount: number; reference: string; paidOn: Date; months: number; periodStart?: string | null; userId: string }) {
+  const reference = input.reference.trim().toUpperCase();
+  const label = input.number ? `Invoice ${input.number}` : 'The invoice';
+  let out: { eventId: string; moved: boolean; paidUntil: Date | null; detail: string };
+  try {
+    out = await platformPrisma.$transaction(async (tx) => {
+      const row = await tx.paymentEvent.create({
+        data: {
+          gateway: 'manual',
+          eventId: `manual:${reference}`,
+          type: 'payment.manual',
+          accountId: input.accountId,
+          payload: JSON.stringify({ amount: input.amount, reference, paidOn: input.paidOn.toISOString().slice(0, 10), months: input.months, note: label }),
+          amount: input.amount,
+          reference,
+          /* Kept as an invoice payment, so Retry never applies it a second time (retryable). */
+          normalized: { gateway: 'manual', eventId: `manual:${reference}`, type: 'payment.manual', accountId: input.accountId, amount: input.amount, reference, subscription: null, invoice: { invoiceId: input.invoiceId, linkId: '', amountPaid: input.amount } },
+          status: 'RECORDED',
+          recordedByUserId: input.userId,
+        },
+      });
+      const claimed = await tx.billingInvoice.updateMany({
+        where: { id: input.invoiceId, status: 'ISSUED' },
+        data: { status: 'PAID', paidAt: input.paidOn, paidAmount: input.amount, paymentReference: reference, paymentEventId: row.id, paidByUserId: input.userId },
+      });
+      if (!claimed.count) throw new PaymentsError('This invoice changed a moment ago. Open it again.', 409);
+      await tx.$queryRaw`SELECT id FROM "Subscription" WHERE "accountId" = ${input.accountId} FOR UPDATE`;
+      const sub = await tx.subscription.findUnique({ where: { accountId: input.accountId }, select: { status: true, currentPeriodEnd: true } });
+      const moved = Boolean(sub && LIVE.includes(sub.status));
+      const until = moved ? paidUntil(sub!.currentPeriodEnd, input.months, input.periodStart) : null;
+      if (moved) await tx.subscription.update({ where: { accountId: input.accountId }, data: { status: 'active', currentPeriodEnd: until } });
+      const detail = !sub
+        ? `${label} is paid. The account has no subscription, so nothing else changed.`
+        : moved
+          ? `${label} paid by hand. The subscription is active, paid until ${day(until!)}.`
+          : `${label} is paid, but the subscription is ${STATUS_WORD[sub.status] || sub.status}, so it was not started again. Restart it or refund the customer.`;
+      await tx.paymentEvent.update({ where: { id: row.id }, data: { status: moved || !sub ? 'APPLIED' : 'RECORDED', detail, processed: true, processedAt: new Date(), attempts: 1 } });
+      return { eventId: row.id, moved, paidUntil: until, detail };
+    });
+  } catch (e) {
+    if (isUnique(e)) throw new PaymentsError(`A payment with reference ${reference} is already recorded.`, 409);
+    throw e;
+  }
+  if (out.moved) await syncAccountEntitlement(input.accountId);
+  return out;
 }
 
 /** In plain words, what an event was. */

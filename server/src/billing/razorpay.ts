@@ -138,6 +138,7 @@ export function normalizeRazorpay(body: any, eventIdHeader?: string): Normalized
     accountId,
     amount: Number.isInteger(payment.amount) ? payment.amount : null,
     reference,
+    occurredAt: Number.isFinite(Number(body.created_at)) && Number(body.created_at) > 0 ? new Date(Number(body.created_at) * 1000) : undefined,
     raw: body,
   };
   if (body.event === 'payment_link.paid') {
