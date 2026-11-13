@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Art3D } from '../components/Art3D.jsx';
-import { Calculator, ChartLineUp, CheckCircle, Storefront, UsersThree } from '@phosphor-icons/react';
+import { Bank, Calculator, ChartLineUp, Fingerprint, MapPin, Receipt, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
@@ -15,129 +15,58 @@ import { Mark, Status } from '../components/Brand.jsx';
  * journal. Each pane lights in turn (CSS only; still under reduced motion).
  * Every step is a CONNECTIONS line in site.js, so nothing here is invented.
  */
-const rupee = (n) => '\u20b9' + n.toLocaleString('en-IN');
+/*
+ * The hero card (owner, 13 Nov 2026, after tensordata.com's terminal card):
+ * one company's month end as an activity log, each line a real hand-off
+ * between CLOR products (CONNECTIONS in site.js). Sample data; lines appear
+ * one by one, all at once under reduced motion.
+ */
+const LOG = [
+  ['09:02', 'attendance', 'Meera Iyer punched in at Gate 2 (ZKTeco reader)'],
+  ['18:00', 'attendance', 'November closed: paid days, overtime and leave sent to Payroll'],
+  ['18:03', 'payroll', 'Pay run for 48 employees calculated with PF, ESI, PT and TDS'],
+  ['18:10', 'payroll', 'Run locked. Payslips on every employee’s phone'],
+  ['18:10', 'books', 'Salary journal posted to Books'],
+];
 
-function HeroFlow() {
-  const att = productBySlug('attendance');
-  const pay = productBySlug('payroll');
-  const books = productBySlug('books');
+function HeroLog() {
   return (
-    <div className="hf" role="img" aria-label="Sample data: Attendance closes November with 23 paid days, Payroll pays Meera Iyer 58,360 rupees from those days, and Books receives the salary journal.">
-      <div className="hf-bar">
-        <span className="hf-dots" aria-hidden="true">
+    <div className="hl" role="img" aria-label="Sample activity: Attendance closes November, Payroll runs and locks salaries, Books receives the salary journal.">
+      <div className="hl-bar">
+        <span className="hl-dots" aria-hidden="true">
           <i />
           <i />
           <i />
         </span>
-        <span className="hf-org">Kaveri Components Pvt Ltd</span>
-        <span className="hf-month">November 2026 close</span>
+        <span>Kaveri Components · month end</span>
       </div>
-      <div className="hf-panes">
-        <section className="hf-pane" style={{ '--i': 0 }}>
-          <header className="hf-head">
-            <Mark product={att} size={28} />
-            <span>
-              <small>Step 1</small>
-              Attendance
-            </span>
-          </header>
-          <div className="hf-person">
-            <b>Meera Iyer</b>
-            <span>EMP-0142 · Coimbatore plant</span>
-          </div>
-          <dl className="hf-rows">
-            <div>
-              <dt>Days worked</dt>
-              <dd>22</dd>
-            </div>
-            <div>
-              <dt>Casual leave, paid</dt>
-              <dd>1</dd>
-            </div>
-            <div>
-              <dt>Loss of pay</dt>
-              <dd>0</dd>
-            </div>
-            <div className="hf-total">
-              <dt>Paid days</dt>
-              <dd>23</dd>
-            </div>
-          </dl>
-          <p className="hf-foot">Month closed. Sent to Payroll</p>
-        </section>
-        <span className="hf-link" aria-hidden="true" />
-        <section className="hf-pane" style={{ '--i': 1 }}>
-          <header className="hf-head">
-            <Mark product={pay} size={28} />
-            <span>
-              <small>Step 2</small>
-              Payroll
-            </span>
-          </header>
-          <dl className="hf-rows">
-            <div>
-              <dt>Gross pay</dt>
-              <dd>{rupee(62500)}</dd>
-            </div>
-            <div>
-              <dt>PF</dt>
-              <dd>−{rupee(1800)}</dd>
-            </div>
-            <div>
-              <dt>Professional tax</dt>
-              <dd>−{rupee(200)}</dd>
-            </div>
-            <div>
-              <dt>TDS</dt>
-              <dd>−{rupee(2140)}</dd>
-            </div>
-            <div className="hf-total">
-              <dt>Net pay</dt>
-              <dd>{rupee(58360)}</dd>
-            </div>
-          </dl>
-          <p className="hf-foot">Pay run locked. Journal sent to Books</p>
-        </section>
-        <span className="hf-link" aria-hidden="true" />
-        <section className="hf-pane" style={{ '--i': 2 }}>
-          <header className="hf-head">
-            <Mark product={books} size={28} />
-            <span>
-              <small>Step 3</small>
-              Books
-            </span>
-          </header>
-          <p className="hf-entry">Salary, November 2026</p>
-          <dl className="hf-rows hf-rows--ledger">
-            <div>
-              <dt>Salaries and wages</dt>
-              <dd>{rupee(62500)} Dr</dd>
-            </div>
-            <div>
-              <dt>PF payable</dt>
-              <dd>{rupee(1800)} Cr</dd>
-            </div>
-            <div>
-              <dt>PT payable</dt>
-              <dd>{rupee(200)} Cr</dd>
-            </div>
-            <div>
-              <dt>TDS payable</dt>
-              <dd>{rupee(2140)} Cr</dd>
-            </div>
-            <div className="hf-total">
-              <dt>Salary payable</dt>
-              <dd>{rupee(58360)} Cr</dd>
-            </div>
-          </dl>
-          <p className="hf-foot">Journal posted</p>
-        </section>
-      </div>
+      <ol className="hl-lines">
+        {LOG.map(([t, slug, text], i) => {
+          const p = productBySlug(slug);
+          return (
+            <li key={i} style={{ '--i': i }}>
+              <time>{t}</time>
+              <b data-app={slug}>{p.name}</b>
+              <span>{text}</span>
+            </li>
+          );
+        })}
+        <li className="hl-done" style={{ '--i': LOG.length }}>
+          <time>18:10</time>
+          <b>Done</b>
+          <span>No spreadsheet in between</span>
+        </li>
+      </ol>
     </div>
   );
 }
 
-const PROOF = ['GST e-invoice and e-way bill', 'GSTR-1 and GSTR-3B', 'PF, ESI, PT and TDS', 'Punches from gate readers', 'One login for all four'];
+const FACTS = [
+  [Receipt, 'GST e-invoice', 'E-way bills, GSTR-1 and 3B'],
+  [Bank, 'PF, ESI, PT, TDS', 'On every payslip'],
+  [Fingerprint, 'Gate readers', 'ZKTeco, eSSL, Hikvision, Matrix'],
+  [MapPin, 'Mumbai region', 'Data kept in India'],
+];
 
 /*
  * The home page reads like the suite it is: one line for accounts, payroll and
@@ -220,72 +149,81 @@ const FAQ = [
   ['Can I leave with my data?', 'Yes. You can export your company’s data at any time, and closing a company comes with a notice period.'],
 ];
 
-/** A product's screen standing in 3D, with two blank sheets stacked behind it. */
-function Stage({ children, flip }) {
+/*
+ * The four products as stacked cards beside a list that stays in view
+ * (owner, 13 Nov 2026: Keka's cards). The list marks the card on screen and
+ * jumps to a card when clicked; each card holds its product's own screen.
+ */
+function ProductCards() {
+  const [on, setOn] = useState(APPS[0].slug);
+  const refs = useRef({});
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (es) => {
+        for (const e of es) if (e.isIntersecting) setOn(e.target.dataset.slug);
+      },
+      { rootMargin: '-45% 0px -45% 0px' },
+    );
+    Object.values(refs.current).forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, []);
   return (
-    <figure className={`stage${flip ? ' stage--flip' : ''}`}>
-      <div className="stage-obj">
-        <span className="stage-sheet stage-sheet--2" aria-hidden="true" />
-        <span className="stage-sheet stage-sheet--1" aria-hidden="true" />
-        <div className="stage-win">{children}</div>
-      </div>
-    </figure>
-  );
-}
-
-/** One product's section: what it does in a few plain lines, beside a photo and its screen. */
-function AppSection({ slug, title, lines, flip }) {
-  const p = productBySlug(slug);
-  // The hero already shows Books' invoice, so Books' own section shows the GSTR-1 it feeds.
-  const Win = slug === 'books' ? GstrWindow : WINDOWS[slug];
-  return (
-    <section className="section app-sec-wrap" aria-labelledby={`${slug}-title`} style={{ '--app': p.accent }}>
-      <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
-        <div className="app-sec-copy">
-          <h2 className="h-1" id={`${slug}-title`}>
-            {title}
-          </h2>
-          <ul className="facts-list">
-            {lines.map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ul>
-          <Link className="text-link" href={`/products/${slug}`}>
-            More about CLOR&nbsp;{p.name}
-          </Link>
+    <section className="section pc" aria-labelledby="pc-title">
+      <div className="wrap">
+        <h2 className="h-1 pc-title" id="pc-title">
+          One back office, four products
+        </h2>
+        <div className="pc-grid">
+          <nav className="pc-nav" aria-label="Products">
+            {APPS.map((a) => {
+              const p = productBySlug(a.slug);
+              return (
+                <a
+                  key={a.slug}
+                  href={`#pc-${a.slug}`}
+                  className={on === a.slug ? 'is-on' : ''}
+                  aria-current={on === a.slug ? 'true' : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    refs.current[a.slug]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                >
+                  <Mark product={p} size={28} />
+                  CLOR {p.name}
+                </a>
+              );
+            })}
+          </nav>
+          <div className="pc-stack">
+            {APPS.map((a, i) => {
+              const p = productBySlug(a.slug);
+              const Win = a.slug === 'books' ? GstrWindow : WINDOWS[a.slug];
+              return (
+                <article
+                  key={a.slug}
+                  id={`pc-${a.slug}`}
+                  data-slug={a.slug}
+                  ref={(el) => (refs.current[a.slug] = el)}
+                  className="pc-card"
+                  style={{ '--app': p.accent, '--n': i }}
+                  aria-labelledby={`${a.slug}-title`}
+                >
+                  <p className="pc-kicker">CLOR {p.name}</p>
+                  <h3 className="pc-h" id={`${a.slug}-title`}>
+                    {a.title}
+                  </h3>
+                  <p className="pc-text">{a.lines[0]}</p>
+                  <div className="pc-win">
+                    <Win />
+                  </div>
+                  <Link className="btn btn--trial pc-btn" href={`/products/${a.slug}`}>
+                    Learn more
+                  </Link>
+                </article>
+              );
+            })}
+          </div>
         </div>
-        {/* The product's own screen, drawn with sample data. Each product's photo is on its own page, so no picture repeats. */}
-        <Stage flip={flip}>
-          <Win />
-        </Stage>
-      </div>
-    </section>
-  );
-}
-
-/** People and Attendance side by side, so the page does not zigzag four times. */
-function AppPair({ items }) {
-  return (
-    <section className="section" aria-label="CLOR People and CLOR Attendance">
-      <div className="wrap pair">
-        {items.map(({ slug, title, lines }) => {
-          const p = productBySlug(slug);
-          const Win = WINDOWS[slug];
-          return (
-            <article key={slug} className="pair-cell" style={{ '--app': p.accent }} aria-labelledby={`${slug}-title`}>
-              <div className="pair-win">
-                <Win />
-              </div>
-              <h2 className="h-2" id={`${slug}-title`}>
-                {title}
-              </h2>
-              <p className="body">{lines[0]}</p>
-              <Link className="text-link" href={`/products/${slug}`}>
-                More about CLOR&nbsp;{p.name}
-              </Link>
-            </article>
-          );
-        })}
       </div>
     </section>
   );
@@ -305,34 +243,40 @@ const PICS = {
 export default function Home() {
   return (
     <>
-      <section className="hero hero--home hero--stack" aria-labelledby="hero-title">
-        <div className="wrap">
-          <div className="hero-top">
+      <section className="hero hero--home hero--split2" aria-labelledby="hero-title">
+        <div className="wrap hero2">
+          <div className="hero2-copy">
             <h1 id="hero-title" className="h-hero">
               Accounts, payroll and HR for growing Indian companies.
             </h1>
-            <div className="hero-side">
-              <p className="lede">GST books, payroll with PF, ESI, PT and TDS, employee records and gate attendance. One login, one list of employees.</p>
-              <div className="actions">
-                <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
-                  Request a demo
-                </Link>
-                <a className="btn btn--trial btn--lg" href={SITE.startUrl}>
-                  Start free trial
-                </a>
-              </div>
+            <p className="lede">GST books, payroll with PF, ESI, PT and TDS, employee records and gate attendance. One login, one list of employees.</p>
+            <div className="actions">
+              <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
+                Request a demo
+              </Link>
+              <a className="btn btn--trial btn--lg" href={SITE.startUrl}>
+                Start free trial
+              </a>
             </div>
           </div>
-          <HeroFlow />
-          <ul className="proof" aria-label="What CLOR handles">
-            {PROOF.map((t) => (
-              <li key={t}>
-                <CheckCircle size={16} weight="fill" aria-hidden="true" />
-                {t}
-              </li>
-            ))}
-          </ul>
+          <HeroLog />
         </div>
+      </section>
+
+      <section className="trust" aria-label="What CLOR handles">
+        <ul className="wrap trust-row">
+          {FACTS.map(([Icon, t, d]) => (
+            <li key={t}>
+              <span className="trust-ico" aria-hidden="true">
+                <Icon size={20} weight="duotone" />
+              </span>
+              <span>
+                <b>{t}</b>
+                <small>{d}</small>
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="section section--tint" aria-labelledby="suite-title">
@@ -397,10 +341,7 @@ export default function Home() {
         </div>
       </section>
 
-      {APPS.slice(0, 2).map((a, i) => (
-        <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
-      ))}
-      <AppPair items={APPS.slice(2)} />
+      <ProductCards />
 
       <section className="section section--tint" aria-labelledby="connected-title">
         <div className="wrap split">
