@@ -125,13 +125,19 @@ else
   say "and connectors already at customers stay on the version they have."
 fi
 
-step "2. Back up the database (migrations run when the new revision starts)"
+step "2. Back up the database (the migrations run at step 4, before any new revision exists)"
 run stage gcloud sql backups create --instance "$SQL_INSTANCE" --project "$PROJECT"
 
 step "3. Build the API image"
 run stage gcloud builds submit --project "$PROJECT" --config cloudbuild.cloudrun.yaml "--substitutions=_TAG=$SHA7" "--service-account=$BUILD_ACCOUNT" .
 
-step "4. Start it on Cloud Run with no traffic"
+step "4. Apply the migrations, in their own job"
+# Until 13 Nov 2026 every serving container migrated at start, so one bad
+# migration broke all of them at once. Now it happens once, here: if it fails,
+# nothing has taken traffic and the old revision keeps serving.
+run stage ./scripts/migrate.sh "$SHA7" --go
+
+step "5. Start it on Cloud Run with no traffic"
 run stage gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --image "$IMAGE_REPO:$SHA7" --no-traffic --quiet
 
 REVISION='<new revision>'
@@ -144,10 +150,10 @@ if on stage; then
   say "New revision: $REVISION"
 fi
 
-step "5. Tag the revision $TAG"
+step "6. Tag the revision $TAG"
 run stage gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --set-tags "$TAG=$REVISION"
 
-step "6. Is it ready? $TAG_URL/ready"
+step "7. Is it ready? $TAG_URL/ready"
 # /ready answers 200 once the API has started and reached its databases. It is
 # the one path the edge guard lets through on a run.app address.
 ready_check() {
@@ -176,7 +182,7 @@ if [ "$MODE" = stage ]; then
 fi
 
 # ---------------------------------------------------------------------------
-step "7. Move traffic to $TAG   (--go only)"
+step "8. Move traffic to $TAG   (--go only)"
 run go gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --to-tags "$TAG=100"
 
 if [ "$SKIP_WEB" = 1 ]; then
@@ -195,7 +201,7 @@ else
   run_in go website wrangler pages deploy dist --project-name clor --branch main
 fi
 
-step "10. Record the release   (--go only)"
+step "9. Record the release   (--go only)"
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   say "Tag $TAG already exists; left as it is."
 else
