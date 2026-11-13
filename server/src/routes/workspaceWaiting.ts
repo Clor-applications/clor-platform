@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { workspaceWaiting } from '../services/workspace/waiting.js';
+import { workspaceInbox } from '../services/workspace/inbox.js';
 import { z } from 'zod';
 import { check, id } from '../middleware/validate.js';
 
@@ -17,4 +18,10 @@ export const workspaceWaitingRouter = Router();
 workspaceWaitingRouter.get('/orgs/:orgId/workspace/waiting', requireAuth, requireTenantContext, check({ params: z.object({ orgId: id }) }), async (req, res) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
   res.json(await workspaceWaiting(req));
+});
+
+/** The list behind that number, and the reader's latest updates (services/workspace/inbox.ts). Same gate: it shows only what the reader may decide. */
+workspaceWaitingRouter.get('/orgs/:orgId/workspace/inbox', requireAuth, requireTenantContext, check({ params: z.object({ orgId: id }) }), async (req, res) => {
+  if (String(req.params.orgId) !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
+  res.json(await workspaceInbox(req));
 });

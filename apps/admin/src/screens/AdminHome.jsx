@@ -269,7 +269,16 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         <div className="ws-layout">
           <div className="ws-main">
             <div ref={attentionRef} style={{ scrollMarginTop: 16 }}>
-              <Panel title="Needs your attention">
+              <Panel
+                title="Needs your attention"
+                action={
+                  waitingLines.length && go('inbox') ? (
+                    <button type="button" className="ws-link" onClick={go('inbox')}>
+                      Open inbox <ChevronRight size={16} aria-hidden="true" />
+                    </button>
+                  ) : null
+                }
+              >
                 {loading ? (
                   <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
                     <span className="ui-skel ui-skel-text" />
