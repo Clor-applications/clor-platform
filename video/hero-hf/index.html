@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200, height=720" />
+    <title>CLOR hero</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Jakarta";
+        src: url("assets/jakarta.woff2") format("woff2");
+        font-weight: 200 800;
+        font-display: block;
+      }
+      html, body { margin: 0; width: 1200px; height: 720px; background: #fff; }
+      #root { position: relative; width: 1200px; height: 720px; overflow: hidden; background: #fff; font-family: "Jakarta", system-ui, sans-serif; color: #0f172a; }
+      .clip { position: absolute; inset: 0; }
+      .stage { position: absolute; inset: 0; perspective: 1800px; perspective-origin: 50% 40%; }
+      .deck { position: absolute; left: 250px; top: 64px; transform-style: preserve-3d; rotate: x 8deg; }
+      .slot { position: absolute; left: 0; top: 0; }
+      .screen { width: 620px; border-radius: 22px; background: #fff; border: 1px solid #e5e7eb; overflow: hidden;
+        box-shadow: 0 2px 4px rgba(15,23,42,0.05), 0 50px 90px -40px rgba(15,23,42,0.45); }
+      .bar { display: flex; align-items: center; gap: 14px; padding: 18px 26px; border-bottom: 1px solid #e5e7eb; background: #f8fafc; }
+      .bar .name { font-size: 24px; font-weight: 800; }
+      .bar .title { margin-left: auto; font-size: 20px; color: #475569; font-weight: 500; }
+      .body { padding: 22px 26px 26px; }
+      .mark { display: grid; place-items: center; flex: none; }
+      .mark svg { display: block; }
+      .row { display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid #e5e7eb; font-size: 22px; font-weight: 500; color: #475569; }
+      .row .v { font-variant-numeric: tabular-nums; color: #0f172a; font-weight: 600; }
+      .row.strong { font-size: 24px; font-weight: 800; color: #0f172a; }
+      .row.strong .v { font-weight: 800; }
+      .head { display: flex; justify-content: space-between; align-items: center; }
+      .big { font-size: 28px; font-weight: 800; }
+      .pill { font-size: 19px; font-weight: 700; padding: 6px 14px; border-radius: 999px; background: #dcfce7; color: #15803d; }
+      .pill.warm { background: #fff1ea; color: #ba3900; }
+      .who { display: flex; align-items: center; gap: 18px; }
+      .avatar { width: 64px; height: 64px; border-radius: 18px; background: #e6f4f1; color: #0f766e; display: grid; place-items: center; font-weight: 800; font-size: 24px; }
+      .role { font-size: 20px; color: #475569; }
+      .checks { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+      .check { display: inline-flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 600; padding: 8px 14px; border-radius: 10px; border: 1.5px solid #e5e7eb; background: #fff; color: #475569; }
+      .check .box { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; background: #f1f5f9; color: #fff; }
+      .check.done { border-color: #86efac; background: #f0fdf4; color: #15803d; }
+      .check.done .box { background: #16a34a; }
+      .month { display: grid; grid-template-columns: repeat(16, 1fr); gap: 6px; margin-top: 20px; }
+      .day { height: 34px; border-radius: 7px; }
+      .chain-wrap { position: absolute; left: 0; right: 0; bottom: 44px; display: flex; justify-content: center; }
+      .chain { position: relative; display: flex; gap: 86px; }
+      .chain .line { position: absolute; left: 32px; right: 32px; top: 31px; height: 3px; border-radius: 2px; background: #ffd2bc; }
+      .link { position: relative; display: grid; justify-items: center; gap: 8px; width: 64px; }
+      .link .tile { background: #fff; border-radius: 18px; }
+      .link .label { font-size: 22px; font-weight: 700; white-space: nowrap; }
+      .dot { position: absolute; top: 26px; left: 64px; width: 13px; height: 13px; border-radius: 7px; background: #ff5400; box-shadow: 0 0 0 6px #ff54002e; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="clor-hero" data-start="0" data-width="1200" data-height="720" data-duration="15" data-fps="30">
+      <section id="hero-clip" class="clip" data-start="0" data-duration="15" data-track-index="0">
+        <div class="stage"><div class="deck" id="deck"></div></div>
+        <div class="chain-wrap"><div class="chain" id="chain"><div class="line"></div></div></div>
+      </section>
+    </div>
+    <script>
+      /*
+       * clor.in hero, ported from video/hero (Remotion) to HyperFrames, so the
+       * site's video needs no Remotion licence. The Remotion frame math is
+       * ported one to one; a single paused tween drives a frame counter and
+       * render(frame) sets every style from it, so any seek is exact.
+       */
+      const ICONS = {"people": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M168,144a40,40,0,1,1-40-40A40,40,0,0,1,168,144ZM64,56A32,32,0,1,0,96,88,32,32,0,0,0,64,56Zm128,0a32,32,0,1,0,32,32A32,32,0,0,0,192,56Z\" opacity=\"0.2\"></path><path d=\"M244.8,150.4a8,8,0,0,1-11.2-1.6A51.6,51.6,0,0,0,192,128a8,8,0,0,1,0-16,24,24,0,1,0-23.24-30,8,8,0,1,1-15.5-4A40,40,0,1,1,219,117.51a67.94,67.94,0,0,1,27.43,21.68A8,8,0,0,1,244.8,150.4ZM190.92,212a8,8,0,1,1-13.85,8,57,57,0,0,0-98.15,0,8,8,0,1,1-13.84-8,72.06,72.06,0,0,1,33.74-29.92,48,48,0,1,1,58.36,0A72.06,72.06,0,0,1,190.92,212ZM128,176a32,32,0,1,0-32-32A32,32,0,0,0,128,176ZM72,120a8,8,0,0,0-8-8A24,24,0,1,1,87.24,82a8,8,0,1,0,15.5-4A40,40,0,1,0,37,117.51,67.94,67.94,0,0,0,9.6,139.19a8,8,0,1,0,12.8,9.61A51.6,51.6,0,0,1,64,128,8,8,0,0,0,72,120Z\"></path></svg>", "attendance": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M224,128a96,96,0,1,1-96-96A96,96,0,0,1,224,128Z\" opacity=\"0.2\"></path><path d=\"M72,128a134.63,134.63,0,0,1-14.16,60.47,8,8,0,1,1-14.32-7.12A118.8,118.8,0,0,0,56,128,71.73,71.73,0,0,1,83,71.8,8,8,0,1,1,93,84.29,55.76,55.76,0,0,0,72,128Zm56-8a8,8,0,0,0-8,8,184.12,184.12,0,0,1-23,89.1,8,8,0,0,0,14,7.76A200.19,200.19,0,0,0,136,128,8,8,0,0,0,128,120Zm0-32a40,40,0,0,0-40,40,8,8,0,0,0,16,0,24,24,0,0,1,48,0,214.09,214.09,0,0,1-20.51,92A8,8,0,1,0,146,226.83,230,230,0,0,0,168,128,40,40,0,0,0,128,88Zm0-64A104.11,104.11,0,0,0,24,128a87.76,87.76,0,0,1-5,29.33,8,8,0,0,0,15.09,5.33A103.9,103.9,0,0,0,40,128a88,88,0,0,1,176,0,282.24,282.24,0,0,1-5.29,54.45,8,8,0,0,0,6.3,9.4,8.22,8.22,0,0,0,1.55.15,8,8,0,0,0,7.84-6.45A298.37,298.37,0,0,0,232,128,104.12,104.12,0,0,0,128,24ZM94.4,152.17A8,8,0,0,0,85,158.42a151,151,0,0,1-17.21,45.44,8,8,0,0,0,13.86,8,166.67,166.67,0,0,0,19-50.25A8,8,0,0,0,94.4,152.17ZM128,56a72.85,72.85,0,0,0-9,.56,8,8,0,0,0,2,15.87A56.08,56.08,0,0,1,184,128a252.12,252.12,0,0,1-1.92,31A8,8,0,0,0,189,168a8.39,8.39,0,0,0,1,.06,8,8,0,0,0,7.92-7,266.48,266.48,0,0,0,2-33A72.08,72.08,0,0,0,128,56Zm57.93,128.25a8,8,0,0,0-9.75,5.75c-1.46,5.69-3.15,11.4-5,17a8,8,0,0,0,5,10.13,7.88,7.88,0,0,0,2.55.42,8,8,0,0,0,7.58-5.46c2-5.92,3.79-12,5.35-18.05A8,8,0,0,0,185.94,184.26Z\"></path></svg>", "payroll": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M224,80V192a8,8,0,0,1-8,8H56a16,16,0,0,1-16-16V56A16,16,0,0,0,56,72H216A8,8,0,0,1,224,80Z\" opacity=\"0.2\"></path><path d=\"M216,64H56a8,8,0,0,1,0-16H192a8,8,0,0,0,0-16H56A24,24,0,0,0,32,56V184a24,24,0,0,0,24,24H216a16,16,0,0,0,16-16V80A16,16,0,0,0,216,64Zm0,128H56a8,8,0,0,1-8-8V78.63A23.84,23.84,0,0,0,56,80H216Zm-48-60a12,12,0,1,1,12,12A12,12,0,0,1,168,132Z\"></path></svg>", "books": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-book-open\" aria-hidden=\"true\"><path d=\"M12 5v16\"></path><path d=\"M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z\"></path></svg>", "check": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" fill=\"currentColor\" viewBox=\"0 0 256 256\"><path d=\"M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z\"></path></svg>"};
+      const FPS = 30, SEG = 112.5, TOTAL = 450, MOVE = 36;
+      const INK = "#0f172a", INK2 = "#475569", LINE = "#e5e7eb";
+      const APPS = [
+        { slug: "people", name: "People", accent: "#C93F28", title: "New joiner" },
+        { slug: "attendance", name: "Attendance", accent: "#854D0E", title: "October 2026" },
+        { slug: "payroll", name: "Payroll", accent: "#0079BF", title: "Pay run, October 2026" },
+        { slug: "books", name: "Books", accent: "#232A66", title: "GSTR-1, October 2026" },
+      ];
+
+      /* Remotion's Easing.bezier, by bisection on x. */
+      function bezier(x1, y1, x2, y2) {
+        const c = (a, b, t) => 3 * a * t * (1 - t) * (1 - t) + 3 * b * t * t * (1 - t) + t * t * t;
+        return (x) => {
+          if (x <= 0) return 0;
+          if (x >= 1) return 1;
+          let lo = 0, hi = 1, t = x;
+          for (let i = 0; i < 40; i++) { t = (lo + hi) / 2; if (c(x1, x2, t) < x) lo = t; else hi = t; }
+          return c(y1, y2, t);
+        };
+      }
+      const easeIO = bezier(0.65, 0, 0.35, 1);
+      const outCubic = (t) => 1 - Math.pow(1 - t, 3);
+      const lin = (t) => t;
+      /* Remotion's interpolate with clamping on both sides. */
+      function interp(x, inp, out, easing = lin) {
+        if (x <= inp[0]) return out[0];
+        if (x >= inp[inp.length - 1]) return out[out.length - 1];
+        let i = 1;
+        while (x > inp[i]) i++;
+        const t = easing((x - inp[i - 1]) / (inp[i] - inp[i - 1]));
+        return out[i - 1] + (out[i] - out[i - 1]) * t;
+      }
+      const mod = (a, n) => ((a % n) + n) % n;
+      const rupees = (n) => "₹" + Math.round(n).toLocaleString("en-IN");
+      const step = (p, a, b) => interp(p, [a, b], [0, 1], outCubic);
+
+      function deckTime(frame) {
+        const k = Math.floor(frame / SEG);
+        const into = frame - k * SEG;
+        return k + interp(into, [SEG - MOVE, SEG], [0, 1], easeIO);
+      }
+      function place(r) {
+        const pts = [-1.5, -1, 0, 1, 2, 2.5];
+        const at = (v) => interp(r, pts, v);
+        return {
+          x: at([-520, -420, 0, 250, 430, 490]),
+          y: at([30, 20, 0, -36, -66, -80]),
+          z: at([-260, -160, 0, -240, -460, -540]),
+          ry: at([16, 14, -10, -18, -22, -24]),
+          opacity: at([0, 0, 1, 0.7, 0.25, 0]),
+          blur: at([4, 3, 0, 2.5, 4, 5]),
+        };
+      }
+
+      /* ---------- building the page once ---------- */
+      const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+      function mark(app, size) {
+        const m = el("div", "mark");
+        Object.assign(m.style, { width: size + "px", height: size + "px", borderRadius: size * 0.28 + "px", background: app.accent + "14", border: "1.5px solid " + app.accent + "33", color: app.accent });
+        const s = Math.round(size * 0.52);
+        m.innerHTML = ICONS[app.slug].replace(/width="100"/, 'width="' + s + '"').replace(/height="100"/, 'height="' + s + '"');
+        return m;
+      }
+      function row(parent, k, v, strong) {
+        const r = el("div", "row" + (strong ? " strong" : ""));
+        const ks = el("span", null); ks.textContent = k;
+        const vs = el("span", "v"); vs.textContent = v;
+        r.append(ks, vs); parent.append(r);
+        return { r, vs };
+      }
+      const showRow = (o, s) => { o.r.style.opacity = s; o.r.style.translate = "0 " + interp(s, [0, 1], [10, 0]) + "px"; };
+      function pill(text, warm) { const p = el("span", "pill" + (warm ? " warm" : "")); p.textContent = text; return p; }
+      const showPill = (p, s) => { p.style.opacity = s; p.style.scale = String(interp(s, [0, 1], [0.8, 1])); };
+
+      const BUILD = {
+        people(body) {
+          const who = el("div", "who", '<div class="avatar">KI</div><div><div class="big">Kavya Iyer</div><div class="role">Accounts executive, Pune office</div></div>');
+          body.append(who);
+          const rows = el("div"); rows.style.marginTop = "18px"; body.append(rows);
+          const r = [row(rows, "Employee ID", "E042"), row(rows, "Joined", "3 June 2024"), row(rows, "Manager", "Rohit Anand")];
+          const checks = el("div", "checks"); body.append(checks);
+          const c = ["Offer letter", "PAN and Aadhaar", "Laptop issued"].map((t) => {
+            const ch = el("span", "check", '<span class="box">' + ICONS.check + "</span>");
+            ch.append(document.createTextNode(t)); checks.append(ch); return ch;
+          });
+          return (p) => {
+            who.style.opacity = step(p, 0, 0.15);
+            showRow(r[0], step(p, 0.1, 0.25)); showRow(r[1], step(p, 0.18, 0.33)); showRow(r[2], step(p, 0.26, 0.41));
+            c.forEach((ch, i) => {
+              const done = step(p, 0.45 + i * 0.15, 0.55 + i * 0.15);
+              ch.classList.toggle("done", done > 0.5);
+              ch.firstChild.style.scale = String(0.6 + done * 0.4);
+            });
+          };
+        },
+        attendance(body) {
+          const head = el("div", "head", '<div class="big">Kavya Iyer</div>');
+          const pl = pill("Ready to close", true); head.append(pl); body.append(head);
+          const days = "PPPPPOOPPPLPPOOPPHPPPOOPPPPPOOP".split("");
+          const colour = { P: "#9fd4b5", O: "#eceff3", L: "#f5c48a", H: "#cfe9d9" };
+          const grid = el("div", "month"); body.append(grid);
+          const cells = days.map(() => { const d = el("div", "day"); grid.append(d); return d; });
+          const rows = el("div"); rows.style.marginTop = "20px"; body.append(rows);
+          const paid = row(rows, "Paid days", "0.0"), leave = row(rows, "Leave", "1"), ot = row(rows, "Overtime", "3 h");
+          return (p) => {
+            showPill(pl, step(p, 0.72, 0.82));
+            const filled = interp(p, [0.05, 0.7], [0, days.length]);
+            cells.forEach((d, i) => {
+              const s = interp(filled - i, [0, 1], [0, 1]);
+              d.style.background = s > 0 ? colour[days[i]] : "#f3f5f8";
+              d.style.opacity = 0.35 + s * 0.65;
+              d.style.scale = String(0.7 + s * 0.3);
+            });
+            paid.vs.textContent = (Math.round(interp(p, [0.1, 0.75], [0, 26.5]) * 2) / 2).toFixed(1);
+            showRow(paid, step(p, 0.05, 0.2)); showRow(leave, step(p, 0.3, 0.45)); showRow(ot, step(p, 0.45, 0.6));
+          };
+        },
+        payroll(body) {
+          const head = el("div", "head", '<div class="big">48 employees</div>');
+          const pl = pill("Locked"); head.append(pl); body.append(head);
+          const rows = el("div"); rows.style.marginTop = "16px"; body.append(rows);
+          const data = [["Basic", 21000], ["HRA", 8400], ["PF (employee)", -2520], ["Professional tax", -200]];
+          const r = data.map(([k, v]) => row(rows, k, v < 0 ? "− " + rupees(-v) : rupees(v)));
+          const net = row(rows, "Net pay, Kavya", rupees(0), true);
+          return (p) => {
+            showPill(pl, step(p, 0.8, 0.9));
+            r.forEach((o, i) => showRow(o, step(p, 0.05 + i * 0.1, 0.18 + i * 0.1)));
+            net.vs.textContent = rupees(interp(p, [0.45, 0.8], [0, 26680], outCubic));
+            showRow(net, step(p, 0.42, 0.52));
+          };
+        },
+        books(body) {
+          const head = el("div", "head", '<div class="big" style="font-size:24px">Anand Traders</div>');
+          const pl = pill("Ready to file"); head.append(pl); body.append(head);
+          const rows = el("div"); rows.style.marginTop = "16px"; body.append(rows);
+          const data = [["B2B invoices", 142, 1840500], ["B2C invoices", 316, 412300], ["Credit notes", 6, -38200]];
+          const r = data.map(([k, n, v]) => row(rows, k + " · " + n, v < 0 ? "− " + rupees(-v) : rupees(v)));
+          const tax = row(rows, "Taxable value", rupees(0), true);
+          return (p) => {
+            showPill(pl, step(p, 0.8, 0.9));
+            r.forEach((o, i) => showRow(o, step(p, 0.05 + i * 0.1, 0.18 + i * 0.1)));
+            tax.vs.textContent = rupees(interp(p, [0.4, 0.78], [0, 2214600], outCubic));
+            showRow(tax, step(p, 0.38, 0.48));
+          };
+        },
+      };
+
+      const deck = document.getElementById("deck");
+      const screens = APPS.map((app, i) => {
+        const slot = el("div", "slot");
+        const scr = el("div", "screen");
+        const bar = el("div", "bar");
+        bar.append(mark(app, 40));
+        const nm = el("span", "name"); nm.textContent = app.name;
+        const tt = el("span", "title"); tt.textContent = app.title;
+        bar.append(nm, tt);
+        const body = el("div", "body");
+        scr.append(bar, body); slot.append(scr); deck.append(slot);
+        return { app, i, slot, update: BUILD[app.slug](body) };
+      });
+
+      const chain = document.getElementById("chain");
+      const links = APPS.map((app) => {
+        const l = el("div", "link");
+        const tile = el("div", "tile"); tile.append(mark(app, 64));
+        const lab = el("span", "label"); lab.textContent = app.name;
+        l.append(tile, lab); chain.append(l);
+        return { app, tile, lab };
+      });
+      const dot = el("div", "dot"); chain.append(dot);
+
+      /* ---------- one frame ---------- */
+      function render(frame) {
+        const t = deckTime(frame);
+        const order = screens.map((s) => {
+          let r = mod(s.i - t, 4);
+          if (r > 2.5) r -= 4;
+          const local = mod(frame - (s.i * SEG - MOVE), TOTAL);
+          let p = interp(local, [MOVE * 0.6, SEG - 6], [0, 1]);
+          if (local > SEG * 1.6) p = 0;
+          const pl = place(r);
+          s.slot.style.transform = "translate3d(" + pl.x + "px," + pl.y + "px," + pl.z + "px) rotateY(" + pl.ry + "deg)";
+          s.slot.style.opacity = pl.opacity;
+          s.slot.style.filter = pl.blur > 0.2 ? "blur(" + pl.blur + "px)" : "none";
+          s.update(p);
+          return { s, z: pl.z };
+        });
+        order.sort((a, b) => a.z - b.z).forEach((o, k) => { o.s.slot.style.zIndex = k; deck.append(o.s.slot); });
+
+        const W = 150, pos = mod(t, 4);
+        const dotX = pos <= 3 ? pos * W : interp(pos, [3, 4], [3 * W, 0]);
+        dot.style.opacity = pos <= 3 ? 1 : interp(pos, [3, 3.2, 3.8, 4], [1, 0, 0, 1]);
+        dot.style.translate = (dotX + 22 - 64) + "px 0";
+        links.forEach((l, i) => {
+          const near = 1 - Math.min(1, Math.abs(mod(pos - i + 2, 4) - 2));
+          l.tile.style.scale = String(1 + near * 0.18);
+          l.tile.style.boxShadow = near > 0.5 ? "0 10px 24px -10px " + l.app.accent + "88" : "none";
+          l.lab.style.color = near > 0.5 ? INK : INK2;
+          l.lab.style.opacity = 0.55 + near * 0.45;
+        });
+      }
+
+      const state = { f: 0 };
+      render(0);
+      const tl = gsap.timeline({ paused: true });
+      tl.to(state, { f: TOTAL, duration: TOTAL / FPS, ease: "none", onUpdate: () => render(Math.min(TOTAL - 1e-6, state.f)) }, 0);
+      window.__timelines["clor-hero"] = tl;
+    </script>
+  </body>
+</html>

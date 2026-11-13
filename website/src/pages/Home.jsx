@@ -9,7 +9,7 @@ import { Faq } from '../components/Blocks.jsx';
 import { Mark, Status } from '../components/Brand.jsx';
 
 /*
- * The hero's 15-second loop (video/hero, made with Remotion): the four CLOR
+ * The hero's 15-second loop (video/hero-hf, made with HyperFrames): the four CLOR
  * screens fill in one after another along People, Attendance, Payroll, Books.
  * Muted and looping; the still shows first, and stays for anyone who asks for
  * reduced motion.
