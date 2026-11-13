@@ -1,5 +1,11 @@
 # CI on a Mac (self-hosted GitHub Actions runner)
 
+> **Retired 14 Nov 2026.** The repository is public, so CI and Security run on
+> GitHub's own machines (`ubuntu-latest`), each job with its own PostgreSQL 16
+> on port 5434. A self-hosted runner must not serve a public repository: any
+> outside pull request could run its code on this Mac. Kept for history.
+
+
 The `CI` (verify) and `Security` (audit, secrets) workflows run on a Mac, not
 on GitHub's machines. The Clor-applications organization is on GitHub's free
 plan; its Actions minutes for a private repository ran out in October 2026

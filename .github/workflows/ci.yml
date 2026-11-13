@@ -28,20 +28,17 @@ concurrency:
 jobs:
   verify:
     if: github.event.action != 'labeled' || github.event.label.name == 'full-tests'
-    # A Mac self-hosted runner (label clor-mac), not GitHub's
-    # machines: the organization is on GitHub's free plan, whose Actions
-    # minutes for a private repository ran out at ~75 minutes a run (Oct
-    # 2026). Setup: docs/CI-ON-MAC.md.
-    runs-on: [self-hosted, clor-mac]
+    # GitHub's own machines (14 Nov 2026). The repository is public, so
+    # Actions minutes are free; and a public repository must not run on a
+    # self-hosted machine, where any outside pull request's code would run on
+    # the owner's Mac. Before this it ran on the Mac (docs/CI-ON-MAC.md).
+    runs-on: ubuntu-latest
     timeout-minutes: 120
 
     # The suite needs a PostgreSQL server: the server tests create a
     # database per run (`clor_test_<pid>`, the schemas, row-level security
-    # policies applied and granted). On the Mac it is a PostgreSQL 16 of its
-    # own on port 5434 (Homebrew postgresql@16, max_connections 300), the
-    # same major version as production and apart from the developer's own
-    # server on 5432, so a test run never takes the connections a dev server
-    # needs. Its superuser is clor_ci / clor_ci, as the container was.
+    # policies applied and granted). Each job starts its own (step "Postgres
+    # 16 for this job").
     env:
       PGHOST: localhost
       PGPORT: 5434
@@ -49,11 +46,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # No npm cache: the runner keeps its files between runs, and saving the
-      # cache to GitHub after every run took ~8 minutes on the Mac.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      # PostgreSQL 16, as production, in a container of this job's own on 5434
+      # with 300 connections and the superuser clor_ci / clor_ci the suite expects.
+      # Started with `docker run`, not `services:`, because a service container
+      # cannot be given `-c max_connections`.
+      - name: Postgres 16 for this job
+        run: |
+          docker run -d --name clor-pg -p 5434:5432 -e POSTGRES_USER=clor_ci -e POSTGRES_PASSWORD=clor_ci postgres:16 -c max_connections=300
+          for i in $(seq 1 30); do docker exec clor-pg pg_isready -U clor_ci -q && exit 0; sleep 2; done
+          docker logs clor-pg; exit 1
 
       - name: Install frontend deps
         run: npm ci
@@ -79,9 +88,7 @@ jobs:
         working-directory: server
         env:
           PGPASSWORD: clor_ci
-          # One shadow database per run: several runners share this Postgres.
           SHADOW_DB: clor_shadow_${{ github.run_id }}_${{ github.run_attempt }}
-        # A run cancelled halfway leaves the shadow database behind on a runner that persists.
         run: |
           dropdb --if-exists -U clor_ci "$SHADOW_DB"
           createdb -U clor_ci "$SHADOW_DB"
@@ -105,10 +112,9 @@ jobs:
       # Payroll and the shared packages, ~1,800 tests in jsdom). About four minutes
       # on two threads and no database, so it runs on every pull request. It
       # ran nowhere before 30 Oct 2026 and 53 tests had rotted unseen.
-      # Two threads, not the config's four: the runners share the Mac with
-      # the server shards. No retries — a flaky test is fixed, not re-run.
+      # No retries — a flaky test is fixed, not re-run.
       - name: Web tests
-        run: npm run test:web -- --poolOptions.threads.maxThreads=2
+        run: npm run test:web
 
       - name: Build frontend
         run: npm run build
@@ -117,8 +123,7 @@ jobs:
         run: npm run build
         working-directory: server
 
-  # The server suite, split three ways across the Mac's runners (docs/CI-ON-MAC.md):
-  # ~32 minutes as one job, ~25 each as three side by side on the one Mac.
+  # The server suite, split three ways, each shard on a machine of its own.
   #
   # Runs nightly, by hand (workflow_dispatch: before every deploy), and on a
   # pull request labelled `full-tests`. Not after a merge to main (11 Nov
@@ -128,7 +133,7 @@ jobs:
   # tests for what it changed (server-tests-related).
   server-tests:
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-tests') && (github.event.action != 'labeled' || github.event.label.name == 'full-tests'))
-    runs-on: [self-hosted, clor-mac]
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -143,6 +148,20 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      # PostgreSQL 16, as production, in a container of this job's own on 5434
+      # with 300 connections and the superuser clor_ci / clor_ci the suite expects.
+      # Started with `docker run`, not `services:`, because a service container
+      # cannot be given `-c max_connections`.
+      - name: Postgres 16 for this job
+        run: |
+          docker run -d --name clor-pg -p 5434:5432 -e POSTGRES_USER=clor_ci -e POSTGRES_PASSWORD=clor_ci postgres:16 -c max_connections=300
+          for i in $(seq 1 30); do docker exec clor-pg pg_isready -U clor_ci -q && exit 0; sleep 2; done
+          docker logs clor-pg; exit 1
 
       - name: Install server deps
         run: npm ci
@@ -184,7 +203,7 @@ jobs:
   # full run, and the full suite runs by hand before every deploy.
   server-tests-related:
     if: github.event_name == 'pull_request' && github.event.action != 'labeled' && !contains(github.event.pull_request.labels.*.name, 'full-tests')
-    runs-on: [self-hosted, clor-mac]
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
       PGHOST: localhost
@@ -197,6 +216,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: What changed on the server
         id: changed
@@ -212,6 +235,13 @@ jobs:
           echo "all=$([ -n "$schema" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
           echo "Tests for this change: ${tests:-none}"
           echo "Schema or test setup changed: ${schema:-no}"
+
+      - name: Postgres 16 for this job
+        if: steps.changed.outputs.tests != '' || steps.changed.outputs.all == 'yes'
+        run: |
+          docker run -d --name clor-pg -p 5434:5432 -e POSTGRES_USER=clor_ci -e POSTGRES_PASSWORD=clor_ci postgres:16 -c max_connections=300
+          for i in $(seq 1 30); do docker exec clor-pg pg_isready -U clor_ci -q && exit 0; sleep 2; done
+          docker logs clor-pg; exit 1
 
       - name: Install server deps
         if: steps.changed.outputs.tests != '' || steps.changed.outputs.all == 'yes'
@@ -237,24 +267,17 @@ jobs:
 
   # End-to-end (e2e/README.md): Playwright drives the real web app and the
   # employee app, desktop 1440×900 and phone 390×844, through the scenarios of
-  # docs/people/qa/PERSONA-SCENARIOS.md. It boots its own API and web app on
-  # ports of its own and builds a database of its own on the CI Postgres (5434),
-  # dropped at the end. A pull request runs the @smoke set (e2e-smoke); the
-  # nightly run and a run by hand run every scenario (e2e-full). One retry in
-  # CI; a test that needed it shows as flaky in the report.
-  #
-  # One end-to-end run on the Mac at a time (31 Oct 2026). Every red e2e-smoke
-  # in the two days before shared the Mac with another e2e run, a verify or the
-  # server shards; the runs that had it to themselves passed in 3-4 minutes.
-  # So: in a run, e2e waits for the server shards (when they run at all); across
-  # runs, the test step takes a machine-wide lock (lockf on a file in the
-  # runners' home, released by the kernel if the job dies or is cancelled). A
-  # run waiting for the lock says so in its log.
+  # docs/people/qa/PERSONA-SCENARIOS.md. It boots its own API and web app and
+  # builds a database of its own on the job's Postgres (5434). A pull request
+  # runs the @smoke set (e2e-smoke); the nightly run and a run by hand run every
+  # scenario (e2e-full). One retry in CI; a test that needed it shows as flaky
+  # in the report. A machine of its own, so it starts once verify passes and
+  # no longer waits for the server shards.
   e2e:
-    needs: [verify, server-tests, server-tests-related]
+    needs: [verify]
     if: ${{ !cancelled() && needs.verify.result == 'success' && github.event_name != 'push' }}
     name: ${{ github.event_name == 'pull_request' && 'e2e-smoke' || 'e2e-full' }}
-    runs-on: [self-hosted, clor-mac]
+    runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
       PGHOST: localhost
@@ -271,6 +294,20 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      # PostgreSQL 16, as production, in a container of this job's own on 5434
+      # with 300 connections and the superuser clor_ci / clor_ci the suite expects.
+      # Started with `docker run`, not `services:`, because a service container
+      # cannot be given `-c max_connections`.
+      - name: Postgres 16 for this job
+        run: |
+          docker run -d --name clor-pg -p 5434:5432 -e POSTGRES_USER=clor_ci -e POSTGRES_PASSWORD=clor_ci postgres:16 -c max_connections=300
+          for i in $(seq 1 30); do docker exec clor-pg pg_isready -U clor_ci -q && exit 0; sleep 2; done
+          docker logs clor-pg; exit 1
 
       - name: Install frontend deps
         run: npm ci
@@ -283,18 +320,13 @@ jobs:
         run: npm run prisma:generate
         working-directory: server
 
-      # Kept by the runner between runs; a download only when Playwright moves on.
-      # The three runners share ~/Library/Caches/ms-playwright: one install at a
-      # time (two at once failed run 41099681328 on Playwright's own directory lock).
       - name: Chromium for Playwright
-        run: /usr/bin/lockf -k "$HOME/Library/Caches/.clor-playwright-install.lock" npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Typecheck the end-to-end tests
         run: npx tsc -p e2e
 
-      # Three runners share the Mac: each run takes ports of its own, from a
-      # range nothing else on the Mac uses (5400-5899 once picked 5432, the
-      # PostgreSQL port, and the web server could not start).
+      # Ports apart from PostgreSQL's (5432 and the job's 5434).
       - name: Ports for this run
         run: |
           echo "E2E_API_PORT=$((4400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
@@ -302,13 +334,13 @@ jobs:
 
       - name: End-to-end, smoke set
         if: github.event_name == 'pull_request'
-        run: scripts/ci/one-at-a-time.sh "$HOME/.clor-e2e.lock" npm run e2e:smoke
+        run: npm run e2e:smoke
         env:
           E2E_SKIP_GENERATE: '1'
 
       - name: End-to-end, every scenario
         if: github.event_name != 'pull_request'
-        run: scripts/ci/one-at-a-time.sh "$HOME/.clor-e2e.lock" npm run e2e
+        run: npm run e2e
         env:
           E2E_SKIP_GENERATE: '1'
 
@@ -331,17 +363,13 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
-      - name: Drop this run's database
-        if: always()
-        run: dropdb --if-exists -U clor_ci --force "$E2E_DB_NAME"
-
   # The same scenarios against staging, nightly. Off until the owner adds the
   # secrets and sets the repository variable E2E_STAGING_ENABLED to 'true'
   # (docs/CI-ON-MAC.md, "End-to-end tests"). Smoke set, desktop, one worker:
   # staging keeps its sign-up and sign-in rate limits.
   e2e-staging:
     if: github.event_name == 'schedule' && vars.E2E_STAGING_ENABLED == 'true'
-    runs-on: [self-hosted, clor-mac]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       E2E_TARGET: staging
@@ -355,12 +383,16 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: Install frontend deps
         run: npm ci
 
       - name: Chromium for Playwright
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: End-to-end against staging
         run: npm run e2e:smoke -- --project=desktop
@@ -407,6 +439,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
           cache: npm
           cache-dependency-path: package-lock.json
 
