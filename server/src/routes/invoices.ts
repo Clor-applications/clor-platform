@@ -13,7 +13,7 @@ import { ensureLedgerSetup, invoicePostingLines, postEntry, reverseEntry } from 
 import { PosCheckoutError, assertPosSaleCancellable } from '../services/posCheckout.js';
 import { recalcDocumentSettlement } from '../services/settlement.js';
 import { MutationBlocked, assertInvoiceMutationAllowed } from '../services/invoiceMutation.js';
-import { allowsEntity, filterFieldsByLevel, levelFor, ownDocsWhere, resolveAccess, resolveUserPermissions } from '../services/access.js';
+import { allowsEntity, filterFieldsByLevel, levelFor, ownDocsWhere, resolveUserPermissions, accessForRequest } from '../services/access.js';
 import { evaluateApproval, isPending } from '../services/approvals.js';
 import { fieldsFor } from '../constants/permissionCatalog.js';
 import { dueDateFor } from './parties.js';
@@ -371,7 +371,7 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
 
   // Field-level permissions: silently drop fields above the caller's level
   // rather than failing the whole request, as ERPNext does.
-  const access = await resolveAccess(accountId, orgId, userId, branchId);
+  const access = await accessForRequest(req, branchId);
   const grantedLevel = levelFor(access, INVOICE_MODULE, INVOICE_SUBMODULE, PermissionAction.CREATE);
   const { value: body, stripped } = filterFieldsByLevel(
     parsed,
@@ -604,7 +604,7 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
     const warehouseRefused = await warehouseRefusal(req, parsedPatch.warehouseId);
     if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
   }
-  const editAccess = await resolveAccess(accountId, orgId, req.auth!.userId, req.tenant!.branchId);
+  const editAccess = await accessForRequest(req, req.tenant!.branchId);
   const { value: body, stripped } = filterFieldsByLevel(
     parsedPatch,
     fieldsFor(INVOICE_MODULE, INVOICE_SUBMODULE),
