@@ -20,6 +20,16 @@
 # databases on the same instance: clor_main_staging, clor_payroll_staging, ...
 #
 # If DATABASE_URL is already set (local/dev), nothing is composed.
+#
+# Two modes, one script, because the migrate job runs this same image:
+#   MIGRATE_ONLY=1  apply the migrations and exit. What the pre-deploy Cloud Run
+#                   job runs, before the new revision takes any traffic.
+#   (unset)         serve. Migrations are NOT applied here (13 Nov 2026): when
+#                   every instance migrated at start, one bad migration took
+#                   down all of them at once and could leave a failed row that
+#                   blocked every later deploy (seen 12 Nov 2026). A migration
+#                   that fails in the job leaves the old revision serving.
+#   MIGRATE_ON_START=1 restores the old behaviour, for a one-off recovery.
 set -e
 
 if [ -z "$DATABASE_URL" ]; then
@@ -35,5 +45,15 @@ if [ -z "$DATABASE_URL" ]; then
   export PLATFORM_DATABASE_URL="${base}/clor_platform${s}?${q}=${DB_POOL_PLATFORM:-2}"
 fi
 
-npm run prisma:deploy
+if [ -n "$MIGRATE_ONLY" ]; then
+  npm run prisma:deploy
+  echo "migrations applied"
+  exit 0
+fi
+
+if [ -n "$MIGRATE_ON_START" ]; then
+  echo "MIGRATE_ON_START is set: applying migrations in the serving container"
+  npm run prisma:deploy
+fi
+
 exec node dist/index.js

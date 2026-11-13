@@ -69,17 +69,20 @@ What `--go` does, in order:
    id. The build runs as the `clor-build` service account; the project's
    default account cannot push to Artifact Registry, and a build without it
    fails at the push step with no message.
-5. **Starts it on Cloud Run with no traffic** (`--no-traffic`). Migrations run
-   now, as the container starts.
-6. **Tags the revision** `rel-<sha7>`, which gives it its own address:
+5. **Applies the migrations** in their own job, before the new revision
+   exists: `scripts/migrate.sh <sha> --go`. If the job fails, stop here —
+   nothing has changed for anyone, and the old revision is still serving.
+6. **Starts the image on Cloud Run with no traffic** (`--no-traffic`). The
+   serving container does not migrate.
+7. **Tags the revision** `rel-<sha7>`, which gives it its own address:
    `https://rel-<sha7>---clor-api-nmprtntkma-el.a.run.app`.
-7. **Checks `/ready`** on that address, for up to three minutes. If it never
+8. **Checks `/ready`** on that address, for up to three minutes. If it never
    answers, the script stops here. No traffic has moved; customers are still
    on the old revision.
-8. **Moves traffic** to the tag.
-9. **Builds and publishes the web app** (`npm run build`, then wrangler to the
+9. **Moves traffic** to the tag.
+10. **Builds and publishes the web app** (`npm run build`, then wrangler to the
    Pages project `clor-app`), **then the website** (`website/`, project `clor`).
-10. **Records the release**: a git tag `rel-<sha7>`, pushed, and a section in
+11. **Records the release**: a git tag `rel-<sha7>`, pushed, and a section in
     `CHANGELOG.md` listing the pull requests merged since the previous `rel-`
     tag (`scripts/release-notes.mjs`). The changelog change is left
     uncommitted for a small pull request, since main takes changes that way.
@@ -107,17 +110,22 @@ release (`git worktree remove`).
   server suite has run (pull requests run only related tests unless they carry
   the `full-tests` label; `docs/CI-ON-MAC.md`).
 - **Read the migrations going out** (`git diff <previous rel- tag>..origin/main --stat -- 'server/prisma/*/migrations'`).
-  They run at step 5, before any traffic moves, against the live database:
+  They run in their own job, **before** the new revision exists, against the
+  live database (`scripts/migrate.sh <tag> --go`):
   - They must be **additive**. The old revision keeps serving on the new
-    schema until step 8, and again after a rollback.
+    schema until traffic moves, and again after a rollback.
   - They run as `clor_app`, which is **not a superuser** on Cloud SQL. A
     migration that needs one (a function with `SET clor.bypass = …` in its
-    header, for example) fails at start and the revision never becomes ready;
-    use `set_config` inside the function body instead. This happened on
-    12 Nov 2026 (`rel-cc4b003`, which never took traffic).
+    header, for example) fails; use `set_config` inside the function body
+    instead. This happened on 12 Nov 2026 (`rel-cc4b003`, which never took
+    traffic).
   - A failed migration leaves a row in `_prisma_migrations` that blocks the
-    next start too. Fix the migration in a new commit and mark the failed one
+    next run too. Fix the migration in a new commit and mark the failed one
     rolled back before releasing again.
+  - If the job fails, **stop**: nothing has changed for anyone, because the
+    old revision is still the only one serving. Before 13 Nov 2026 the
+    migrations ran inside every serving container instead, so a bad one took
+    down all of them at once (seen 12 Nov 2026).
 - **Say what is going out** to the owner, and get a yes for clor.in: the
   website is published only when the owner asks.
 
@@ -262,11 +270,21 @@ should exist, and how to restore: [`docs/BACKUP-AND-RESTORE.md`](docs/BACKUP-AND
 
 Migrations are versioned under `server/prisma/*/migrations`, one folder per
 schema (`migrations` for Books, `payroll`, `people`, `platform`), and applied
-by `npm run prisma:deploy` each time a container starts
-(`server/scripts/cloudrun-start.sh`): the database-address guard first, then
-`prisma migrate deploy` for each of the four. A revision is not ready, and
-takes no traffic, until all four have finished. The rules for writing one are
-under "Before a release" above.
+by `npm run prisma:deploy`: the database-address guard first, then
+`prisma migrate deploy` for each of the four.
+
+Since 13 Nov 2026 that happens **once, in a Cloud Run job**, not in the serving
+containers. `scripts/migrate.sh <image-tag> --go` creates or updates the job
+`clor-api-migrate` from the image you just built, with the same service account,
+the same Cloud SQL instance and the same `DB_PASSWORD` secret as the service,
+runs it with `MIGRATE_ONLY=1` and waits. Without `--go` it only prints what it
+would do. Running it twice is safe: Prisma applies each migration once.
+
+A serving container no longer migrates (`server/scripts/cloudrun-start.sh`),
+so a bad migration can no longer break every instance at once. For a one-off
+recovery, `MIGRATE_ON_START=1` on the service restores the old behaviour.
+
+The rules for writing a migration are under "Before a release" above.
 
 The notes below are for particular migrations: what to do after them, and
 what going back needs.
