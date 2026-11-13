@@ -3,10 +3,11 @@ import ClorMark from './ClorMark.jsx';
 import { WORD_D, BADGE_D, DOT, BOX_FULL, BOX_PLAIN } from './logoPaths.js';
 
 /**
- * The CLOR logo (13 Nov 2026): CLOR in outlined Baloo 2 ExtraBold, in blaze
- * orange, with the dot in the mouth of the C, and the A for Applications on a
- * dark blue disc at the foot of the R. The A is cut out of the disc, so the
- * ground shows through it and it stays readable when the logo is small.
+ * The CLOR logo (13 Nov 2026): CLOR in outlined Baloo 2 ExtraBold in blaze
+ * orange, with a dark blue dot in the mouth of the C and the A for
+ * Applications on a dark blue disc at the foot of the R. The A is cut out of
+ * the disc, so the ground shows through it and it stays readable when the
+ * logo is small.
  * variant: 'horizontal' (default) | 'mark' (the C and its dot) | 'wordmark' (no badge) | 'stacked'
  */
 
@@ -35,7 +36,7 @@ function Word({ h, color, className, title, badge = true }) {
       {...a11y}
     >
       <path d={WORD_D} fill={paint} />
-      <circle cx={DOT.cx} cy={DOT.cy} r={DOT.r} fill={paint} />
+      <circle cx={DOT.cx} cy={DOT.cy} r={DOT.r} fill={badgeInk} />
       {badge ? <path d={BADGE_D} fill={badgeInk} /> : null}
     </svg>
   );

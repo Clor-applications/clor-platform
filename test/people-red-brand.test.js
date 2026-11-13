@@ -216,10 +216,13 @@ describe('the logo is the drawn CLOR wordmark with the dot in the C (13 Nov 2026
     expect(mark).toContain('DOT');
   });
 
-  it('blaze orange leads: the word and the mark paint from --logo-mark-orange', () => {
+  it('blaze orange leads, and the dot answers it in dark blue', () => {
     expect(mark).toContain('var(--logo-mark-orange, 255 84 0)');
-    expect(mark).not.toContain('--logo-mark-slate'); /* the mark is one colour */
+    expect(mark).toContain('var(--logo-mark-slate, 15 23 42)');
+    expect(mark).toMatch(/letter = color \|\| ORANGE/);
+    expect(mark).toMatch(/dot = color \|\| SLATE/);
     expect(logo).toContain('var(--logo-mark-orange, 255 84 0)');
+    expect(logo).toMatch(/r=\{DOT\.r\} fill=\{badgeInk\}/);
     expect(mark).not.toContain('92 10 22');   /* oxblood gone */
     expect(mark).not.toContain('245 166 35'); /* marigold gone */
   });
