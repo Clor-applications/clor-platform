@@ -41,6 +41,15 @@ describe('web app response headers', () => {
     expect(headers).toMatch(/img-src [^;]*https:\/\/tile\.openstreetmap\.org/);
   });
 
+  it('enforce the policy, and still let document previews and the staging API through', () => {
+    expect(headers).toMatch(/^\s+Content-Security-Policy: /m);
+    expect(headers).not.toMatch(/^\s+Content-Security-Policy-Report-Only:/m);
+    expect(headers).toMatch(/frame-src [^;]*blob:/);
+    expect(headers).toMatch(/connect-src [^;]*https:\/\/api\.staging\.clor\.in/);
+    expect(headers).toMatch(/object-src 'none'/);
+    expect(headers).not.toMatch(/script-src [^;]*'unsafe-(inline|eval)'/);
+  });
+
   it('cache hashed build files for a year', () => {
     expect(headers).toMatch(/\/assets\/\*\s+Cache-Control: public, max-age=31536000, immutable/);
   });

@@ -67,6 +67,20 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
   if (!orgId) return res.status(400).json({ error: 'Missing x-org-id' });
   if (!branchId) return res.status(400).json({ error: 'Missing x-branch-id' });
 
+  /*
+   * A single sign-on session was vouched for by one company's identity
+   * provider, so it opens that company and no other (audit 11 Nov 2026): the
+   * person's other companies never agreed to trust that provider, and their
+   * own two-factor rule would be skipped. A password sign-in opens the rest.
+   */
+  const ssoOrgId = String(req.auth?.ssoOrgId || '').trim();
+  if (ssoOrgId && ssoOrgId !== orgId) {
+    return res.status(403).json({
+      error: 'You signed in through one company\'s single sign-on, which opens that company only. Sign out and sign in with your password to open this one.',
+      code: 'SSO_OTHER_COMPANY',
+    });
+  }
+
   const result = await cachedAccess(
     `tenant|${userId}|${orgId}|${branchId}|${warehouseId}`,
     /* Is this person a member of this company at all: asked before the company is in scope (A-35). */

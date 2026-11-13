@@ -21,7 +21,7 @@ import {
   revokeAllSessions,
   listSessions,
 } from '../services/auth.js';
-import { SESSION_DAYS_CAP, getAuthPolicy, describePasswordRules, validatePassword } from '../services/policy.js';
+import { SESSION_DAYS_CAP, getAuthPolicy, describePasswordRules, payrollStepUpOn, validatePassword } from '../services/policy.js';
 import { whoRulesKeepOut } from '../services/signInRules.js';
 import { stepUpIfHeld } from '../services/stepUp.js';
 import { automaticRoleRefusal } from '../services/roleGuards.js';
@@ -522,9 +522,9 @@ const me2fa = (req: any) =>
 
 securityRouter.get('/orgs/:orgId/security/two-factor', async (req, res) => {
   if (!orgOk(req, res)) return;
-  const [u, policy] = await Promise.all([me2fa(req), platformPrisma.authPolicy.findUnique({ where: { orgId: req.tenant!.orgId }, select: { requirePayrollStepUp: true } })]);
+  const [u, stepUpOn] = await Promise.all([me2fa(req), payrollStepUpOn(req.tenant!.orgId)]);
   const left = u?.totpRecoveryJson ? (JSON.parse(u.totpRecoveryJson) as string[]).length : 0;
-  res.json({ enabled: !!u?.totpEnabledAt, enabledAt: u?.totpEnabledAt || null, recoveryCodesLeft: left, payrollStepUp: !!policy?.requirePayrollStepUp, stepUpMinutes: STEP_UP_MINUTES });
+  res.json({ enabled: !!u?.totpEnabledAt, enabledAt: u?.totpEnabledAt || null, recoveryCodesLeft: left, payrollStepUp: stepUpOn, stepUpMinutes: STEP_UP_MINUTES });
 });
 
 /**
