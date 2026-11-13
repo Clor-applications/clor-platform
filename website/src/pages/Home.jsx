@@ -276,6 +276,54 @@ function ProductCards() {
   );
 }
 
+/* In-page menu that sticks under the header (after azure.microsoft.com). */
+const JUMPS = [
+  ['suite-title', 'Products'],
+  ['pc-title', 'What each does'],
+  ['connected-title', 'How they connect'],
+  ['setup-title', 'Setting up'],
+  ['team-title', 'Who uses CLOR'],
+  ['trust-title', 'Your data'],
+];
+
+function JumpBar() {
+  const [on, setOn] = useState(JUMPS[0][0]);
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (es) => {
+        for (const e of es) if (e.isIntersecting) setOn(e.target.getAttribute('aria-labelledby'));
+      },
+      { rootMargin: '-30% 0px -60% 0px' },
+    );
+    JUMPS.forEach(([id]) => {
+      const sec = document.querySelector(`section[aria-labelledby="${id}"]`);
+      if (sec) io.observe(sec);
+    });
+    return () => io.disconnect();
+  }, []);
+  return (
+    <nav className="jump" aria-label="On this page">
+      <ul className="wrap">
+        {JUMPS.map(([id, label]) => (
+          <li key={id}>
+            <a
+              href={`#${id}`}
+              className={on === id ? 'is-on' : ''}
+              aria-current={on === id ? 'location' : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 const SUITE = ['books', 'people', 'payroll', 'attendance'];
 const NEXT = ['projects', 'timesheet'];
 
@@ -327,6 +375,8 @@ export default function Home() {
           ))}
         </ul>
       </section>
+
+      <JumpBar />
 
       <section className="section section--tint" aria-labelledby="suite-title">
         <div className="wrap">

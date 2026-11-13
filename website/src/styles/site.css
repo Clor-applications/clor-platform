@@ -5064,3 +5064,52 @@ textarea {
     margin: 0 20px 18px;
   }
 }
+
+/* In-page menu under the header, after Azure. */
+.jump {
+  position: sticky;
+  top: 64px;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.jump ul {
+  list-style: none;
+  margin-block: 0;
+  display: flex;
+  gap: var(--s-5);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.jump a {
+  display: block;
+  padding: 14px 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.jump a:hover {
+  color: var(--ink);
+}
+.jump a.is-on {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+main h2[id] {
+  scroll-margin-top: 140px;
+}
+.pc-nav {
+  top: 190px;
+}
+.pc-card {
+  top: calc(170px + var(--n) * 14px);
+  scroll-margin-top: 170px;
+}
+.hl-lines {
+  padding-bottom: 72px;
+}
