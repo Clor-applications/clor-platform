@@ -3,7 +3,7 @@ import { Check } from '@ui/components/ui/lineIcons';
 import { ClorLogo } from '@ui/components/brand';
 import LegalLinks from './legal/LegalLinks';
 import { appFromHost } from './appHosts';
-import { QUOTES, sceneFile, sceneRatio, sceneSrc } from './authScenes';
+import { QUOTES, sceneFile, sceneRatio, sceneSrc, sceneTitle } from './authScenes';
 
 /**
  * The frame both sign-in and sign-up sit in.
@@ -105,10 +105,17 @@ function Quotes() {
  */
 function Scene({ file, band = false }) {
   const { src, srcSet } = sceneSrc(file);
+  const words = sceneTitle(file);
   return (
     <div className={band ? 'ui-auth-scene-band lg:hidden' : 'ui-auth-scene'}>
       <img className="ui-auth-scene-fill" src={src} alt="" aria-hidden="true" decoding="async" />
       <img className="ui-auth-scene-pic" src={src} srcSet={srcSet} sizes={band ? '100vw' : '70vw'} alt="" decoding="async" fetchpriority="high" />
+      {words ? (
+        <p className="ui-auth-scene-title" data-tone={file === 'signin-ops' ? 'night' : undefined}>
+          <span>{words[0]}</span>
+          <strong>{words[1]}</strong>
+        </p>
+      ) : null}
       {band ? null : (
         <div className="ui-auth-scene-top">
           <Quotes />

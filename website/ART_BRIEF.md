@@ -64,17 +64,20 @@ Where things stand on 13 Nov 2026:
 
 | Door | Address | Picture today |
 |---|---|---|
-| Workspace | app.clor.in | The door with four coloured panels (`signin-workspace`). Has one. |
-| Books, People, Payroll, Attendance | each app's own address | One 3D picture each. Have one. |
-| Sign up, trial | /signup, /start | Building-blocks picture. Has one. |
-| Operator console | ops.clor.in | No picture file. A scene drawn in code on navy: the console behind a lock, an authenticator code, an audit trail. |
+| Workspace | app.clor.in | The company building, four wings in the four apps' colours. Drawn (`signin-hq.svg`). |
+| Operator console | ops.clor.in | The operations building at night, with a shield, a gate lock and a beacon. Drawn (`signin-ops.svg`). |
+| Books, People, Payroll, Attendance | each app's own address | One 3D picture each. |
+| Sign up, trial | /signup, /start | 3D building-blocks picture. |
 
-Wanted, in the same 3D clay style as the pictures above, 1536 x 1536 (and a 960 copy), WebP:
+The two drawings are written by `scripts/auth-buildings.py` and carry no words: the page sets the
+title in type, so the company name is always the registered one.
+
+Still wanted, 1536 x 1536 (and a 960 copy), WebP, same 3D clay style as the app pictures:
 
 | # | File name | Scene |
 |---|---|---|
-| D1 | `signin-ops-1536.webp`, `signin-ops-960.webp` | A CLOR staff member at a control desk with three screens showing plain shapes (no words, no customer names), a large padlock and a shield beside the desk, a phone showing six dots for an authenticator code. Navy room, orange and cyan light. |
-| D2 | `signin-workspace-1536.webp` (optional replacement) | The same door, but with **no title painted into the picture**: today's pictures carry "Clor Applications Pvt Ltd", and the registered name is CLOR Applications Private Limited. The page can set the title in type instead, so it is always right. |
-| D3 | All other sign-in pictures, re-exported without the painted title | Same reason as D2. |
+| D1 | The six 3D pictures, re-exported with **no title painted in** | Today they carry "Clor Applications Pvt Ltd"; the registered name is CLOR Applications Private Limited. With the title gone the page sets it in type, as it does on the two drawings. |
+| D2 | `signin-hq-1536.webp`, `signin-ops-1536.webp` (optional) | 3D clay renders of the same two buildings, if you would rather all eight pictures be renders. The drawings are the brief: same buildings, same colours. |
 
-Rules: no words or logos inside the picture, no real people, nobody repeated from another picture, leave the bottom-left corner calm (the quote card sits there).
+Rules: no words or logos inside the picture, no real people, nobody repeated from another picture,
+leave the top-left and bottom-left corners calm (title and quote card sit there).

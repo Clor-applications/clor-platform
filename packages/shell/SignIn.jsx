@@ -19,7 +19,8 @@ import PasswordInput from '@ui/components/ui/PasswordInput';
  * person belongs to. Which company they land in, and therefore which app, is
  * decided from that — not from anything an application told us.
  */
-export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = 'One door into every app this company has.' }) {
+/* `door` names a door with its own picture and line under the title: 'ops' is the operator console. */
+export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtitle = 'One door into every app this company has.' }) {
   const { signIn, signInWithCode } = useSession();
   /* After the password, for someone with an authenticator: the challenge to answer with a code. */
   const [challenge, setChallenge] = useState('');
@@ -121,7 +122,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
 
   if (challenge) {
     return (
-      <AuthLayout scene="twoStep" title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
+      <AuthLayout scene={door || 'twoStep'} title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
         <form onSubmit={submitCode} className="space-y-5">
           <div>
             <label className="ui-label" htmlFor="signin-code">Code</label>
@@ -156,8 +157,9 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, subtitle = '
 
   return (
     <AuthLayout
+      scene={door || 'signin'}
       title="Sign in"
-      subtitle={brand ? subtitle : null}
+      subtitle={brand || door ? subtitle : null}
       onHome={onHome}
       brand={brand}
       footer={
