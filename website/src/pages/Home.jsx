@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Art3D } from '../components/Art3D.jsx';
-import { Calculator, ChartLineUp, Storefront, UsersThree } from '@phosphor-icons/react';
+import { Calculator, ChartLineUp, CheckCircle, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
@@ -9,41 +9,135 @@ import { Faq } from '../components/Blocks.jsx';
 import { Mark, Status } from '../components/Brand.jsx';
 
 /*
- * The hero's 15-second loop (video/hero-hf, made with HyperFrames): the four CLOR
- * screens fill in one after another along People, Attendance, Payroll, Books.
- * Muted and looping; the still shows first, and stays for anyone who asks for
- * reduced motion.
+ * The hero window (owner, 13 Nov 2026: the angled video card was "not good").
+ * A flat, straight CLOR window with the month-end chain on sample data:
+ * Attendance closes the month, Payroll pays from those days, Books gets the
+ * journal. Each pane lights in turn (CSS only; still under reduced motion).
+ * Every step is a CONNECTIONS line in site.js, so nothing here is invented.
  */
-function HeroVideo() {
-  const ref = useRef(null);
-  useEffect(() => {
-    const v = ref.current;
-    if (!v) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      v.pause();
-      v.removeAttribute('autoplay');
-      return;
-    }
-    v.play().catch(() => {});
-  }, []);
+const rupee = (n) => '\u20b9' + n.toLocaleString('en-IN');
+
+function HeroFlow() {
+  const att = productBySlug('attendance');
+  const pay = productBySlug('payroll');
+  const books = productBySlug('books');
   return (
-    <video
-      ref={ref}
-      width="1200"
-      height="720"
-      poster="/hero/clor-hero-poster.webp"
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="auto"
-      aria-label="CLOR People, Attendance, Payroll and Books screens filling in one after another, with sample data"
-    >
-      <source src="/hero/clor-hero.webm" type="video/webm" />
-      <source src="/hero/clor-hero.mp4" type="video/mp4" />
-    </video>
+    <div className="hf" role="img" aria-label="Sample data: Attendance closes November with 23 paid days, Payroll pays Meera Iyer 58,360 rupees from those days, and Books receives the salary journal.">
+      <div className="hf-bar">
+        <span className="hf-dots" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="hf-org">Kaveri Components Pvt Ltd</span>
+        <span className="hf-month">November 2026 close</span>
+      </div>
+      <div className="hf-panes">
+        <section className="hf-pane" style={{ '--i': 0 }}>
+          <header className="hf-head">
+            <Mark product={att} size={28} />
+            <span>
+              <small>Step 1</small>
+              Attendance
+            </span>
+          </header>
+          <div className="hf-person">
+            <b>Meera Iyer</b>
+            <span>EMP-0142 · Coimbatore plant</span>
+          </div>
+          <dl className="hf-rows">
+            <div>
+              <dt>Days worked</dt>
+              <dd>22</dd>
+            </div>
+            <div>
+              <dt>Casual leave, paid</dt>
+              <dd>1</dd>
+            </div>
+            <div>
+              <dt>Loss of pay</dt>
+              <dd>0</dd>
+            </div>
+            <div className="hf-total">
+              <dt>Paid days</dt>
+              <dd>23</dd>
+            </div>
+          </dl>
+          <p className="hf-foot">Month closed. Sent to Payroll</p>
+        </section>
+        <span className="hf-link" aria-hidden="true" />
+        <section className="hf-pane" style={{ '--i': 1 }}>
+          <header className="hf-head">
+            <Mark product={pay} size={28} />
+            <span>
+              <small>Step 2</small>
+              Payroll
+            </span>
+          </header>
+          <dl className="hf-rows">
+            <div>
+              <dt>Gross pay</dt>
+              <dd>{rupee(62500)}</dd>
+            </div>
+            <div>
+              <dt>PF</dt>
+              <dd>−{rupee(1800)}</dd>
+            </div>
+            <div>
+              <dt>Professional tax</dt>
+              <dd>−{rupee(200)}</dd>
+            </div>
+            <div>
+              <dt>TDS</dt>
+              <dd>−{rupee(2140)}</dd>
+            </div>
+            <div className="hf-total">
+              <dt>Net pay</dt>
+              <dd>{rupee(58360)}</dd>
+            </div>
+          </dl>
+          <p className="hf-foot">Pay run locked. Journal sent to Books</p>
+        </section>
+        <span className="hf-link" aria-hidden="true" />
+        <section className="hf-pane" style={{ '--i': 2 }}>
+          <header className="hf-head">
+            <Mark product={books} size={28} />
+            <span>
+              <small>Step 3</small>
+              Books
+            </span>
+          </header>
+          <p className="hf-entry">Salary, November 2026</p>
+          <dl className="hf-rows hf-rows--ledger">
+            <div>
+              <dt>Salaries and wages</dt>
+              <dd>{rupee(62500)} Dr</dd>
+            </div>
+            <div>
+              <dt>PF payable</dt>
+              <dd>{rupee(1800)} Cr</dd>
+            </div>
+            <div>
+              <dt>PT payable</dt>
+              <dd>{rupee(200)} Cr</dd>
+            </div>
+            <div>
+              <dt>TDS payable</dt>
+              <dd>{rupee(2140)} Cr</dd>
+            </div>
+            <div className="hf-total">
+              <dt>Salary payable</dt>
+              <dd>{rupee(58360)} Cr</dd>
+            </div>
+          </dl>
+          <p className="hf-foot">Journal posted</p>
+        </section>
+      </div>
+    </div>
   );
 }
+
+const PROOF = ['GST e-invoice and e-way bill', 'GSTR-1 and GSTR-3B', 'PF, ESI, PT and TDS', 'Punches from gate readers', 'One login for all four'];
 
 /*
  * The home page reads like the suite it is: one line for accounts, payroll and
@@ -186,31 +280,38 @@ const PICS = {
 export default function Home() {
   return (
     <>
-      <section className="hero hero--home" aria-labelledby="hero-title">
-        <div className="wrap home-hero home-hero--split">
-          <div className="hero-copy">
+      <section className="hero hero--home hero--stack" aria-labelledby="hero-title">
+        <div className="wrap">
+          <div className="hero-top">
             <h1 id="hero-title" className="h-hero">
               Accounts, payroll and HR for growing Indian companies.
             </h1>
-            <p className="lede">
-              GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list
-              of employees, one set of books.
-            </p>
-            <div className="actions">
-              <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
-                Request a demo
-              </Link>
-              <a className="btn btn--trial btn--lg" href={SITE.startUrl}>
-                Start free trial
-              </a>
+            <div className="hero-side">
+              <p className="lede">
+                GST accounting in Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list of employees, one set of books.
+              </p>
+              <div className="actions">
+                <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
+                  Request a demo
+                </Link>
+                <a className="btn btn--trial btn--lg" href={SITE.startUrl}>
+                  Start free trial
+                </a>
+              </div>
+              <p className="small hero-note">
+                No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
+              </p>
             </div>
-            <p className="small hero-note">
-              No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
-            </p>
           </div>
-          <figure className="hero-photo hero-video">
-            <HeroVideo />
-          </figure>
+          <ul className="proof" aria-label="What CLOR handles">
+            {PROOF.map((t) => (
+              <li key={t}>
+                <CheckCircle size={16} weight="fill" aria-hidden="true" />
+                {t}
+              </li>
+            ))}
+          </ul>
+          <HeroFlow />
         </div>
       </section>
 

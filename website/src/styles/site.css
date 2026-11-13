@@ -4043,3 +4043,436 @@ main > .section:nth-child(odd of .section) .problems li {
   aspect-ratio: 5 / 3;
   scale: 1.08;
 }
+
+/* ======================================================= compact, 13 Nov (2)
+ * Owner, 13 Nov 2026: "layout size is big", "each layout size is wider so may
+ * be it's looking empty", "fonts looking inconsistent", "3D design in website
+ * background for each layout, each pages", the angled hero video "not good".
+ * So: a 1120px page on every screen, one smaller type scale with three weights
+ * (400 text, 600 labels, 700 headings), 3D blocks and a receding floor grid
+ * behind every section of every page, and a flat CLOR window in the hero.
+ */
+:root,
+:root:root {
+  --wrap: 1120px;
+  --t-xs: 0.8125rem;
+  --t-sm: 0.875rem;
+  --t-md: 1rem;
+  --t-lg: 1.0625rem;
+  --t-xl: 1.25rem;
+  --t-2xl: clamp(1.5rem, 1.2rem + 0.9vw, 1.875rem);
+  --t-3xl: clamp(1.75rem, 1.3rem + 1.3vw, 2.25rem);
+  --t-h1: clamp(1.625rem, 1.25rem + 1.1vw, 2.125rem);
+  --t-hero: clamp(2rem, 1.35rem + 1.9vw, 2.875rem);
+  --section: clamp(48px, 5vw, 72px);
+}
+@media (min-width: 1600px) {
+  :root:root {
+    --wrap: 1120px;
+  }
+}
+body {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.lede {
+  font-size: var(--t-lg);
+  font-weight: 400;
+  line-height: 1.6;
+}
+.body,
+.small {
+  font-weight: 400;
+}
+.h-hero,
+.h-1,
+.h-2,
+.h-3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.h-hero {
+  line-height: 1.1;
+}
+.h-1,
+.h-2 {
+  line-height: 1.18;
+}
+.h-1 {
+  font-size: var(--t-h1);
+}
+.h-3 {
+  font-size: var(--t-lg);
+  letter-spacing: -0.01em;
+}
+.btn--lg {
+  font-size: 0.9375rem;
+  padding-block: 11px;
+}
+
+/* ---------------------------------------------- 3D behind every section */
+main > .section,
+main > section.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+}
+main > .section > *,
+main > section.hero > * {
+  position: relative;
+  z-index: 1;
+}
+/* A floor grid tipped back in perspective, fading into the page. */
+main > .section::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: -10%;
+  right: -10%;
+  bottom: -30%;
+  height: 90%;
+  background-image: linear-gradient(to right, rgba(15, 23, 42, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  transform: perspective(700px) rotateX(62deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 100%, #000 10%, transparent 70%);
+  mask-image: radial-gradient(ellipse 60% 70% at 50% 100%, #000 10%, transparent 70%);
+  pointer-events: none;
+}
+/* Stacked blocks in a corner, alternating sides and shapes down the page. */
+main > .section::after,
+main > section.hero::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  width: 360px;
+  height: 300px;
+  background: url('/bg/blocks-a.svg') no-repeat center / contain;
+  opacity: 0.75;
+  pointer-events: none;
+  animation: bg-float 9s ease-in-out infinite;
+}
+main > .section:nth-child(odd of .section)::after {
+  right: max(-90px, calc(50% - 560px - 300px));
+  top: 18px;
+}
+main > .section:nth-child(even of .section)::after {
+  left: max(-90px, calc(50% - 560px - 300px));
+  bottom: 12px;
+  background-image: url('/bg/blocks-b.svg');
+  animation-delay: -4s;
+}
+main > section.hero::after {
+  right: max(-120px, calc(50% - 560px - 320px));
+  top: 40px;
+  width: 300px;
+  opacity: 0.6;
+}
+@keyframes bg-float {
+  50% {
+    translate: 0 -10px;
+  }
+}
+@media (max-width: 1280px) {
+  main > .section::after,
+  main > section.hero::after {
+    width: 240px;
+    height: 200px;
+    opacity: 0.45;
+  }
+}
+@media (max-width: 760px) {
+  main > .section::after,
+  main > section.hero::after {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  main > .section::after,
+  main > section.hero::after {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------- hero */
+.hero--stack {
+  padding-top: clamp(40px, 5vw, 64px);
+  padding-bottom: clamp(48px, 5vw, 72px);
+}
+.hero-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: end;
+}
+.hero--stack .h-hero {
+  max-width: 17ch;
+  margin: 0;
+}
+.hero-side .lede {
+  margin: 0 0 var(--s-5);
+  max-width: 52ch;
+}
+.hero-side .actions {
+  margin: 0;
+}
+.hero-side .hero-note {
+  margin: var(--s-3) 0 0;
+}
+.proof {
+  list-style: none;
+  margin: clamp(28px, 3vw, 40px) 0 var(--s-5);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.proof li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: #fff;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.proof svg {
+  color: var(--ok);
+}
+@media (max-width: 900px) {
+  .hero-top {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
+/* The CLOR window: flat and straight, dark bar, three panes in a row. */
+.hf {
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 24px 48px -28px rgba(15, 23, 42, 0.3);
+  font-variant-numeric: tabular-nums;
+}
+.hf-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 10px 16px;
+  background: #0f1b2d;
+  color: #cbd5e1;
+  font-size: var(--t-xs);
+}
+.hf-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.hf-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #334155;
+}
+.hf-org {
+  color: #fff;
+  font-weight: 600;
+}
+.hf-month {
+  margin-left: auto;
+}
+.hf-panes {
+  display: grid;
+  grid-template-columns: 1fr 28px 1fr 28px 1fr;
+  align-items: stretch;
+  padding: clamp(14px, 2vw, 22px);
+  background: var(--tint);
+}
+.hf-pane {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: #fff;
+  font-size: var(--t-sm);
+  animation: hf-turn 9s infinite;
+  animation-delay: calc(var(--i) * 3s);
+}
+@keyframes hf-turn {
+  0%,
+  30% {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  36%,
+  100% {
+    border-color: var(--line);
+    box-shadow: none;
+  }
+}
+.hf-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.hf-head > span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.hf-head small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.hf-person {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  line-height: 1.35;
+}
+.hf-person b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.hf-person span,
+.hf-entry {
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+.hf-entry {
+  margin: 0 0 10px;
+}
+.hf-rows {
+  margin: 0;
+  display: grid;
+}
+.hf-rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.hf-rows dt {
+  color: var(--ink-2);
+}
+.hf-rows dd {
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.hf-rows .hf-total dt,
+.hf-rows .hf-total dd {
+  font-weight: 700;
+  color: var(--ink);
+}
+.hf-foot {
+  margin: auto 0 0;
+  padding-top: 12px;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ok);
+}
+.hf-link {
+  position: relative;
+  align-self: center;
+  height: 2px;
+  background: var(--line);
+}
+.hf-link::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: hf-dot 3s linear infinite;
+}
+@keyframes hf-dot {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - 8px);
+  }
+}
+@media (max-width: 900px) {
+  .hf-panes {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .hf-link {
+    width: 2px;
+    height: 20px;
+    justify-self: center;
+  }
+  .hf-link::after {
+    display: none;
+  }
+  .hf-month {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hf-pane,
+  .hf-link::after {
+    animation: none;
+  }
+}
+.hero-top .hero-side {
+  display: block;
+}
+.hero-top {
+  align-items: center;
+}
+.btn--lg {
+  min-height: 44px;
+  padding-inline: 22px;
+}
+/* The header at the same smaller scale. */
+.nav-bar {
+  height: 64px;
+  min-height: 64px;
+}
+.nav-trigger,
+.nav-bar > nav a,
+.nav-link {
+  font-size: 0.9375rem;
+}
+/* Blocks stay in the side margin; the floor grid reads as a floor. */
+main > .section::after {
+  width: 240px;
+  height: 210px;
+}
+main > .section:nth-child(odd of .section)::after {
+  right: max(-70px, calc(50% - 560px - 220px));
+}
+main > .section:nth-child(even of .section)::after {
+  left: max(-70px, calc(50% - 560px - 220px));
+}
+main > .section::before {
+  background-image: linear-gradient(to right, rgba(15, 23, 42, 0.11) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.11) 1px, transparent 1px);
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 100%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 80% at 50% 100%, #000 25%, transparent 75%);
+}
+.head--art .art3d {
+  height: 170px;
+}
+.head--art {
+  align-items: center;
+}
