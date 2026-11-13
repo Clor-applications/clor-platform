@@ -7,6 +7,7 @@ import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
 import { Mark, Status } from '../components/Brand.jsx';
 import { ConnectedFlow, ProductRibbon } from '../components/Premium.jsx';
+import HeroShowcase from '../components/HeroShowcase.jsx';
 
 /*
  * The home page reads like the suite it is: one line for accounts, payroll and
@@ -154,7 +155,7 @@ export default function Home() {
           <div className="hero-copy">
             <span className="premium-eyebrow">The connected business suite</span>
             <h1 id="hero-title" className="h-hero">
-              Accounts, payroll and HR for growing Indian companies.
+              Accounts, payroll and HR for growing <span className="hero-title-key">Indian companies.</span>
             </h1>
             <p className="lede">
               GST accounting in CLOR Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list
@@ -172,19 +173,7 @@ export default function Home() {
               No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
             </p>
           </div>
-          <figure className="hero-photo">
-            <img
-              src="/people/hero-books-soft-1400.webp"
-              srcSet="/people/hero-books-soft-700.webp 700w, /people/hero-books-soft-1400.webp 1400w"
-              sizes="(max-width: 900px) 100vw, 640px"
-              width="1400"
-              height="835"
-              fetchPriority="high"
-              alt="An accountant at his desk with the CLOR Books dashboard open on his laptop"
-            />
-            <div className="premium-float premium-float--a" aria-hidden="true"><span>●</span> One workspace, several apps</div>
-            <div className="premium-float premium-float--b" aria-hidden="true"><span>↗</span> Connected business records</div>
-          </figure>
+          <HeroShowcase />
         </div>
       </section>
 
@@ -202,7 +191,7 @@ export default function Home() {
             {SUITE.map((slug) => {
               const p = productBySlug(slug);
               const pic = PICS[slug];
-                            return (
+              return (
                 <li key={slug} className={`app-card app-card--${pic.kind} app-card--${slug}`} style={{ '--app': p.accent }}>
                   <div className="app-card-copy">
                     <div className="app-card-name">
