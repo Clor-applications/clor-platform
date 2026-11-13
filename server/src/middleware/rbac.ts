@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { PermissionAction, type PermissionAction as PermissionActionType } from '../constants/enums.js';
-import { resolveAccess } from '../services/access.js';
+import { resolveAccess, resolveGrantAccess } from '../services/access.js';
 import { appStanding } from '../services/subscriptions.js';
 
 // DB-stored RBAC:
@@ -131,7 +131,8 @@ export async function authorize(
   }
 
   // Effective access resolves direct role assignments AND role profiles.
-  const access = await resolveAccess(accountId, orgId, userId, branchId);
+  /* CLOR staff on a support grant act with the company's administrator roles, narrowed by supportGrantLimits. */
+  const access = req.tenant?.supportGrant ? await resolveGrantAccess(accountId, orgId) : await resolveAccess(accountId, orgId, userId, branchId);
 
   /*
    * No roles is no access — for the company's creator too.

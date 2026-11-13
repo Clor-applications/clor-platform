@@ -7,6 +7,9 @@ import { outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { TWO_FACTOR_SETUP_PATHS, adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
 import { userIsAdmin } from '../services/roleGuards.js';
 import { outsideAccessFor } from '../services/outsideAccess.js';
+import { operatorRole } from './operator.js';
+import { liveGrantFor, recordGrantUse } from '../services/supportGrants.js';
+import { fullPath, supportGrantLimits } from './supportGrantLimits.js';
 import { companyEntryRefusal } from '../services/signInRules.js';
 import { auditBefore } from './auditMutations.js';
 
@@ -22,6 +25,8 @@ export type TenantContext = {
   allowedWarehouseIds?: string[];
   /** GAP-006: for a person from another account, the apps the company let them use here (null = all it has). */
   outsideApps?: string[] | null;
+  /** The support grant this request came in on, when it is CLOR staff looking (docs/workspace/SUPPORT_GRANTS.md). */
+  supportGrant?: { id: string; scope: 'READ_ONLY' | 'READ_WRITE' };
 };
 
 declare module 'express-serve-static-core' {
@@ -111,6 +116,21 @@ export async function requireTenantContext(req: Request, res: Response, next: Ne
     return res.status(403).json({ error: 'This company asks owners and admins to sign in with an authenticator app. Set one up under My profile → Security first.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
   }
 
+  /*
+   * What CLOR staff may do on a grant, decided here rather than in each router:
+   * every route that resolves a tenant comes through this line, so a read-only
+   * session cannot write and salary, documents and bank details stay shut.
+   * A request that is not on a grant passes straight through.
+   */
+  let allowed = false;
+  supportGrantLimits(req, res, () => {
+    allowed = true;
+  });
+  if (!allowed) return undefined; /* it has already answered 403 */
+  if (req.tenant.supportGrant) {
+    recordGrantUse({ accountId: req.tenant.accountId, orgId: req.tenant.orgId, grantId: req.tenant.supportGrant.id, userId: req.auth!.userId, method: req.method, path: fullPath(req) });
+  }
+
   /* From here on every query this request makes names its company to the database (utils/tenantScope.ts).
      A change the edit log records is read as it was first, before the handler (middleware/auditMutations.ts). */
   return runInTenant(req.tenant.orgId, () => auditBefore(req, res, next));
@@ -127,10 +147,30 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
     where: { orgId, userId },
     select: { accountId: true },
   });
-  if (!orgMember) return { status: 403, error: 'No access to org' };
 
-  // The owning account, established by the membership that just authorised it.
-  const accountId = orgMember.accountId;
+  /*
+   * CLOR staff hold no membership in a customer's company, so the line above
+   * is where they are refused — and a live support grant is the one thing that
+   * changes that (docs/workspace/SUPPORT_GRANTS.md).
+   *
+   * Two conditions, not one. The grant row says the customer agreed; being an
+   * operator *now* says CLOR still employs them, so taking somebody off the
+   * staff closes their open grants without anyone hunting for the rows.
+   *
+   * Like every other answer here this is cached for a few seconds, so ending a
+   * grant takes effect within that window, as a suspension does.
+   */
+  let grant: { id: string; scope: 'READ_ONLY' | 'READ_WRITE' } | undefined;
+  if (!orgMember) {
+    const live = await liveGrantFor(userId, orgId);
+    if (!live) return { status: 403, error: 'No access to org' };
+    if (!(await operatorRole(userId))) return { status: 403, error: 'No access to org' };
+    grant = { id: live.id, scope: live.scope as 'READ_ONLY' | 'READ_WRITE' };
+  }
+
+  // The owning account, established by the membership — or by the grant, which names it.
+  const accountId = orgMember?.accountId ?? (await platformPrisma.org.findUnique({ where: { id: orgId }, select: { accountId: true } }))?.accountId;
+  if (!accountId) return { status: 403, error: 'No access to org' };
 
   /*
    * A-09: and checked against the company itself. A membership row naming the
@@ -144,16 +184,26 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
   const acct = await platformPrisma.account.findUnique({ where: { id: accountId }, select: { suspendedAt: true } });
   if (acct?.suspendedAt) return { status: 403, error: 'This account has been suspended by CLOR. Contact support@clor.in.', code: 'ACCOUNT_SUSPENDED' };
 
-  /* #4: the company's own rules on who may open it — a confirmed address, an allowed domain (services/signInRules.ts). */
-  const entry = await companyEntryRefusal(userId, orgId, accountId);
-  if (entry) return entry;
+  /*
+   * #4: the company's own rules on who may open it — a confirmed address, an
+   * allowed domain (services/signInRules.ts). These are about the people the
+   * company employs. CLOR staff on a grant are not one of them, and the
+   * customer already said yes to the person by name, so an allowed-domain rule
+   * does not get to overrule that.
+   */
+  if (!grant) {
+    const entry = await companyEntryRefusal(userId, orgId, accountId);
+    if (entry) return entry;
+  }
 
   /*
    * GAP-006: somebody from another account (an accountant, an auditor) is let
    * in by the company's own engagement — live, not paused, not past its end —
    * or not at all. Their membership alone opens nothing.
    */
-  const outside = await outsideAccessFor(userId, orgId, accountId);
+  /* A grant is CLOR's own door, not an engagement: the customer never invited
+     staff as an outside accountant, so there is no engagement to find. */
+  const outside = grant ? ({ own: true } as const) : await outsideAccessFor(userId, orgId, accountId);
   if (!outside.own && 'refused' in outside && outside.refused) return { status: 403, error: outside.refused.error, code: outside.refused.code };
   const outsideApps = !outside.own && 'apps' in outside ? outside.apps ?? null : undefined;
 
@@ -163,7 +213,7 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
    * governed by their engagement above.) Takes effect within the access
    * cache's few seconds, and at once where the suspension clears the cache.
    */
-  if (outside.own) {
+  if (outside.own && !grant) {
     const m = await platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId } }, select: { status: true } });
     if (m?.status === 'SUSPENDED') return { status: 403, error: 'Your access to this account has been suspended. Ask an owner or administrator of the account.', code: 'ACCOUNT_MEMBER_SUSPENDED' };
   }
@@ -201,12 +251,25 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
       }
     }
   }
-  if (!branchMember) return { status: 403, error: 'No access to branch' };
+  /*
+   * CLOR staff on a grant reach the company's branches without a membership
+   * row, and no row is written for them: a grant ends, and nothing about the
+   * customer's own membership list should change because support looked once.
+   * The branch must really belong to this company, as it must for anybody.
+   */
+  let grantBranchIds: string[] | null = null;
+  if (!branchMember && grant) {
+    const branches = await platformPrisma.branch.findMany({ where: { accountId, orgId }, select: { id: true } });
+    if (branches.some((b) => b.id === branchId)) grantBranchIds = branches.map((b) => b.id);
+  }
+  if (!branchMember && !grantBranchIds) return { status: 403, error: 'No access to branch' };
 
-  const allowed = await platformPrisma.userBranchMembership.findMany({
-    where: { accountId, orgId, userId },
-    select: { branchId: true },
-  });
+  const allowed = grantBranchIds
+    ? grantBranchIds.map((branchId) => ({ branchId }))
+    : await platformPrisma.userBranchMembership.findMany({
+        where: { accountId, orgId, userId },
+        select: { branchId: true },
+      });
 
   // Warehouse is resolved but NOT enforced here.
   //
@@ -255,6 +318,8 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
     requestedWarehouseId: warehouseId || undefined,
     allowedWarehouseIds: allowedWarehouseIds.length ? allowedWarehouseIds : undefined,
     ...(outsideApps !== undefined ? { outsideApps } : {}),
+    /* Carried so the read-only rule and the audit trail know this was CLOR staff looking. */
+    ...(grant ? { supportGrant: grant } : {}),
   };
   return { tenant };
 

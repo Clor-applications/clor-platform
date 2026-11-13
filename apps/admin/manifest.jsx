@@ -19,6 +19,7 @@ const SecuritySettings = screen('SecuritySettings');
 const SsoSettings = screen('SsoSettings');
 const Credentials = screen('Credentials');
 const OutsideAccess = screen('OutsideAccess');
+const SupportAccess = screen('SupportAccess');
 const Invitations = screen('Invitations');
 const Members = screen('Members');
 const AccountActivity = screen('AccountActivity');
@@ -81,7 +82,7 @@ export const adminApp = {
     { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications', 'automations', 'integrations'] },
     { key: 'access', label: 'Access', icon: ICON.people, groups: [
       { label: null, items: ['accessHome'] },
-      { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess'] },
+      { label: 'Who', items: ['members', 'users', 'invitations', 'outsideAccess', 'supportAccess'] },
       { label: 'What they may do', items: ['roles', 'permissions'] },
     ] },
     { key: 'security', label: 'Security', icon: ICON.security, items: ['securityHome', 'security', 'sso', 'credentials', 'audit', 'accountActivity'] },
@@ -115,6 +116,8 @@ export const adminApp = {
     /* W-3: shown with Users; the server lets only the account's owners and administrators invite. */
     { key: 'invitations', label: 'Invitations', icon: ICON.mail, permission: 'SETTINGS::Users::VIEW' },
     { key: 'outsideAccess', label: 'Outside access', icon: ICON.team, permission: 'SETTINGS::Users::VIEW' },
+    /* CLOR staff asking to look, and the ones let in: approved here, never on the console (docs/workspace/SUPPORT_GRANTS.md). */
+    { key: 'supportAccess', label: 'CLOR support access', icon: ICON.chat, permission: 'SETTINGS::Users::VIEW' },
     { key: 'roles', label: 'Roles', icon: ICON.secure, permission: 'SETTINGS::Roles::VIEW' },
     { key: 'permissions', label: 'Permissions', icon: ICON.settings, permission: 'SETTINGS::Roles::VIEW' },
     { key: 'securityHome', label: 'Overview', short: 'Security', icon: ICON.security, permission: 'SETTINGS::Users::VIEW' },
@@ -148,6 +151,7 @@ export const adminApp = {
     sso: SsoSettings,
     credentials: Credentials,
     outsideAccess: OutsideAccess,
+    supportAccess: SupportAccess,
     invitations: Invitations,
     members: Members,
     accountActivity: AccountActivity,

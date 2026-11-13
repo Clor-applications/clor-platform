@@ -1376,6 +1376,14 @@ function ShellScreens() {
         <ExploreNotice explore={explore} demoUrl={DEMO_URL} />
         <SubscriptionBanner billing={tenant.billing} />
         <AnnouncementBar app={activeAppId} />
+        {tenant.supportGrant ? (
+          <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
+            <span className="min-w-0 flex-1">
+              You are in {tenant.name} as CLOR support, {tenant.supportGrant.scope === 'READ_WRITE' ? 'able to make changes' : 'to read only'}, until{' '}
+              {new Date(tenant.supportGrant.expiresAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}. Salary, employee documents and bank details stay closed. The customer sees everything you open.
+            </span>
+          </div>
+        ) : null}
         {tenant.archivedAt ? (
           <div role="status" className="flex flex-wrap items-center gap-3 px-6 py-2 text-sm" style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}>
             <span className="min-w-0 flex-1">This company is archived. You can read and export its records; nothing new can be saved. An account owner or admin can reactivate it in Workspace → Companies.</span>

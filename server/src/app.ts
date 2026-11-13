@@ -24,6 +24,7 @@ import { emailRouter } from './routes/email.js';
 import { securityRouter } from './routes/security.js';
 import { credentialsRouter } from './routes/credentials.js';
 import { outsideAccessRouter } from './routes/outsideAccess.js';
+import { opsSupportGrantsRouter, supportGrantsRouter } from './routes/supportGrants.js';
 import { itemsRouter } from './routes/items.js';
 import { purchaseDocsRouter } from './routes/purchaseDocs.js';
 import { quoteDocsRouter } from './routes/quoteDocs.js';
@@ -465,6 +466,7 @@ export function buildApp() {
   app.use('/api', opsInvoicesRouter);
   app.use('/api', opsHealthRouter);
   app.use('/api', opsTicketsRouter);
+  app.use('/api', opsSupportGrantsRouter);
   app.use('/api', supportRouter);
   app.use('/api', opsAnnouncementsRouter);
   app.use('/api', announcementsRouter);
@@ -576,6 +578,7 @@ export function buildApp() {
   /* Batch 5: Workspace → Credentials. */
   app.use('/api', credentialsRouter);
   app.use('/api', outsideAccessRouter);
+  app.use('/api', supportGrantsRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', payRequestsRouter);
   app.use('/api', itemsRouter);

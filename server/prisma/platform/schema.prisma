@@ -1936,3 +1936,46 @@ model ApiError {
   @@index([createdAt])
   @@index([requestId])
 }
+
+/// How a member of CLOR staff reaches a customer's company, and only how
+/// (docs/workspace/SUPPORT_GRANTS.md). Staff hold no membership in a customer
+/// company, so without a live row here they open nothing: the check sits in
+/// middleware/tenantContext.ts beside the company's own entry rules.
+///
+/// The customer approves every grant (owner, 14 Nov 2026). There is no
+/// self-serve path and no break-glass: if nobody answers, nobody looks.
+/// Expired is worked out from expiresAt, never stored, as OutsideAccess does.
+model SupportGrant {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// The one member of staff it is for. Never a role, never "anyone on support".
+  operatorUserId  String
+  /// Why, in the operator's words. The customer reads this before approving.
+  reason          String
+  /// The support ticket it belongs to, where there is one.
+  ticketRef       String?
+  /// READ_ONLY | READ_WRITE — what the customer agreed to, not what was asked for.
+  scope           String    @default("READ_ONLY")
+  /// PENDING | ACTIVE | ENDED | REVOKED. Expired is worked out, not stored.
+  status          String    @default("PENDING")
+  requestedByUserId String
+  requestedAt       DateTime @default(now())
+  /// The customer's owner or admin who said yes.
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  /// Set when approved; the clock starts then, not when it was asked for.
+  startedAt         DateTime?
+  expiresAt         DateTime?
+  /// Who ended it: the customer, the operator, or CLOR.
+  endedByUserId     String?
+  endedAt           DateTime?
+  endReason         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  /// One live request per operator per company; history is kept, so this is not unique.
+  @@index([accountId, status])
+  @@index([orgId, operatorUserId])
+  @@index([operatorUserId, status])
+}
