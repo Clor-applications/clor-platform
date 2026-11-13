@@ -4,18 +4,20 @@ import { Briefcase, CalendarDots, Fingerprint, UsersThree, Wallet } from '@phosp
 import { Link } from '../router.jsx';
 
 /** The CLOR logo, as the apps draw it (packages/ui ClorLogo): CLOR in outlined
- *  Baloo 2 ExtraBold in dark blue, the blaze orange dot in the mouth of the C,
- *  and the A for Applications cut out of an orange disc at the foot of the R
- *  (public/brand/clor-logo-a1.png, 1086 x 294). On the navy header the word
- *  turns white and the dot and A stay orange (-light).
+ *  Baloo 2 ExtraBold in dark blue with the blaze orange dot in the mouth of the
+ *  C (public/brand/clor-logo-a2.png, 1012 x 294). On the navy header the word
+ *  turns white and the dot stays orange (-light).
+ *  The name alone is the logo at this size. The full lockup, with APPLICATIONS
+ *  tracked out under the name, needs about 40px of cap height to read and lives
+ *  in docs/brand/clor-logo.svg and public/brand/clor-lockup-a2.png.
  *  The file name carries a version suffix, not a date: the logo was redrawn
  *  several times under the same dated name and browsers kept serving the old
- *  picture, so bump a1 -> a2 whenever the artwork changes. */
+ *  picture, so bump a2 -> a3 whenever the artwork changes. */
 /** The header's copy loads first; the footer's (lazy) waits until it is near. */
 export function Logo({ height = 22, lazy = false, light = false }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src={light ? '/brand/clor-logo-a1-light.png' : '/brand/clor-logo-a1.png'} alt="CLOR" height={height} width={Math.round((height * 1086) / 294)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
+      <img src={light ? '/brand/clor-logo-a2-light.png' : '/brand/clor-logo-a2.png'} alt="CLOR" height={height} width={Math.round((height * 1012) / 294)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
     </Link>
   );
 }

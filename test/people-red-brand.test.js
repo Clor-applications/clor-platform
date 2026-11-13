@@ -196,7 +196,7 @@ describe('a chosen view is marigold ("use different color like green or orange")
   });
 });
 
-describe('the logo is the drawn CLOR wordmark with the dot in the C (13 Nov 2026)', () => {
+describe('the logo is the drawn CLOR wordmark with the dot in the C (14 Nov 2026)', () => {
   const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
   const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
   const paths = read('packages/ui/src/components/brand/logoPaths.js');
@@ -222,28 +222,44 @@ describe('the logo is the drawn CLOR wordmark with the dot in the C (13 Nov 2026
     expect(mark).toMatch(/letter = color \|\| SLATE/);
     expect(mark).toMatch(/dot = color \|\| ORANGE/);
     expect(logo).toMatch(/paint = color \|\| SLATE/);
-    expect(logo).toMatch(/badgeInk = color \|\| ORANGE/);
-    expect(logo).toMatch(/r=\{DOT\.r\} fill=\{badgeInk\}/);
+    expect(logo).toMatch(/accent = color \|\| ORANGE/);
+    expect(logo).toMatch(/r=\{DOT\.r\} fill=\{accent\}/);
     expect(mark).not.toContain('92 10 22');   /* oxblood gone */
     expect(mark).not.toContain('245 166 35'); /* marigold gone */
   });
 
-  it('the A for Applications is always drawn, on a dark blue disc', () => {
-    expect(paths).toContain('export const BADGE_D');
-    /* no size gate any more: the badge is part of the logo */
+  it('Applications is a descriptor under the name, not a lone A after it', () => {
+    /* a lone A set after the word sits where a registration mark goes and reads
+       as one, so the descriptor is spelled out instead, tracked to the width of
+       the wordmark. */
+    expect(paths).toContain('export const DESC_D');
+    expect(paths).not.toContain('BADGE_D');
     expect(logo).not.toContain('BADGE_FROM');
-    expect(logo).toMatch(/badge = true/);
-    /* the A is cut out of the disc, which is painted in the slate token */
-    expect(logo).toContain('badgeInk');
-    expect(logo).toContain('var(--logo-mark-slate, 15 23 42)');
+    expect(logo).not.toContain('BOX_FULL');
+    expect(logo).toContain('BOX_STACK');
+    /* the descriptor is too small to read in app chrome, so only the stacked
+       lockup draws it */
+    expect(logo).toMatch(/variant === 'stacked'/);
+    expect(logo).toMatch(/descriptor \? BOX_STACK : BOX_PLAIN/);
+  });
+
+  it('the dot in the C is big enough to see', () => {
+    const dot = /export const DOT = \{ cx: \d+, cy: \d+, r: (\d+) \}/.exec(paths);
+    expect(dot).not.toBeNull();
+    expect(Number(dot[1])).toBeGreaterThanOrEqual(90);
   });
 
   it('nothing draws the retired C-tick any more', () => {
     expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
-    /* icon.svg is the orange tile holding the C and its dot, so the browser tab is orange */
+    /* icon.svg is a blue disc holding the orange C and its white dot: a square
+       tile in near-black read as black at small sizes (owner, 14 Nov 2026) */
     const icon = read('public/icon.svg');
+    expect(icon).toContain('#1D4ED8');
     expect(icon).toContain('#FF5400');
     expect(icon).toContain('#FFFFFF');
+    expect(icon).toContain('<circle cx="128" cy="128" r="128"');
+    expect(icon).not.toContain('#0B1530');
+    expect(icon).not.toContain('<rect');
     expect(icon).not.toContain('#C8102E');
     expect(icon).not.toContain('M74.04 25.96');
   });

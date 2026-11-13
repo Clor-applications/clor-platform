@@ -2,9 +2,10 @@ import React from 'react';
 import { C_D, DOT } from './logoPaths.js';
 
 /* CLOR icon: the C of the wordmark in dark blue with the blaze orange dot in
-   its mouth (13 Nov 2026). Letters are outlined Baloo 2 ExtraBold, so no font
+   its mouth (14 Nov 2026). Letters are outlined Baloo 2 ExtraBold, so no font
    is needed to draw them. The C spans 0..508 across and 0..643 down; this box
-   centres it in a square. */
+   centres it in a square. The browser tab and app icon put the same C, in
+   orange with a white dot, on a blue disc (public/icon.svg). */
 const BOX = '-81.5 -13.5 671 671';
 const ORANGE = 'rgb(var(--logo-mark-orange, 255 84 0))';
 const SLATE = 'rgb(var(--logo-mark-slate, 15 23 42))';
