@@ -1,7 +1,7 @@
 import React from 'react';
 import { Calculator, ChartLineUp, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
-import { CONNECTIONS, SITE, productBySlug } from '../site.js';
+import { SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
@@ -244,28 +244,6 @@ export default function Home() {
       {APPS.map((a, i) => (
         <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
       ))}
-
-      <section className="section section--tint" aria-labelledby="connected-title">
-        <div className="wrap split">
-          <Head
-            id="connected-title"
-            title="Attendance feeds payroll. Payroll posts to Books."
-            intro="Bought together, the four products read the same employees and post to the same books, so nobody exports a spreadsheet in between. Projects and Timesheet are next."
-          />
-          <ul className="links">
-            {CONNECTIONS.map((x) => (
-              <li key={x.from + x.to}>
-                <span className="links-pair">
-                  <Mark product={productBySlug(x.from)} size={26} />
-                  <span className="links-wire" aria-hidden="true" />
-                  <Mark product={productBySlug(x.to)} size={26} />
-                </span>
-                <p className="body">{x.text}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
 
       <ConnectedFlow />
 
