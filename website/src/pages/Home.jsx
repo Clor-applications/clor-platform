@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bank, Calculator, CaretDown, CaretRight, Check, ChartLineUp, Fingerprint, MapPin, Receipt, Storefront, UsersThree } from '@phosphor-icons/react';
+import { Bank, Calculator, CaretDown, CaretRight, Check, ChartLineUp, Fingerprint, MapPin, Pause, Play, Receipt, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
@@ -15,94 +15,46 @@ import { Mark } from '../components/Brand.jsx';
  * Every step is a CONNECTIONS line in site.js, so nothing here is invented.
  */
 /*
- * The hero card (owner, 13 Nov 2026, after tensordata.com's terminal card):
- * one company's month end as an activity log, each line a real hand-off
- * between CLOR products (CONNECTIONS in site.js). Sample data; lines appear
- * one by one, all at once under reduced motion.
+ * The hero clip (owner, 13 Nov 2026: "i want hero video clip", made with
+ * HyperFrames and Three.js in video/hero-3d): the People, Attendance, Payroll
+ * and Books screens floating in depth, an orange line lighting each in turn.
+ * It sits behind the headline; the left of the frame is kept empty for it.
+ * Under reduced motion only the still frame shows. A pause button is always
+ * there because the clip loops.
  */
-const ROLES = {
-  owner: {
-    label: 'Business owner',
-    title: 'Anand Traders · today',
-    lines: [
-      ['10:14', 'books', 'Invoice raised for Kaveri Components, GST worked out'],
-      ['10:14', 'books', 'E-invoice IRN and e-way bill generated'],
-      ['17:30', 'books', 'Bank statement matched against Books'],
-      ['18:00', 'books', 'GSTR-1 for November ready to file'],
-    ],
-    done: 'Filed from what you raised',
-  },
-  accountant: {
-    label: 'Accountant or CA',
-    title: 'Your clients · this week',
-    lines: [
-      ['10:00', 'books', 'Kaveri Components invited you with your own login'],
-      ['10:02', 'books', 'Switched to Anand Traders without signing out'],
-      ['12:40', 'books', 'GSTR-3B prepared from the month’s invoices and bills'],
-      ['12:41', 'books', 'Every change written to the client’s audit trail'],
-    ],
-    done: 'The client decides what you see',
-  },
-  hr: {
-    label: 'HR',
-    title: 'Kaveri Components · people',
-    lines: [
-      ['09:30', 'people', 'New joiner added: Arjun Menon, Coimbatore plant'],
-      ['09:31', 'people', 'Joining checklist sent to HR, IT and the manager'],
-      ['11:05', 'people', 'Leave request approved by the manager'],
-      ['16:00', 'people', 'Kavya Iyer’s passport expires in 30 days: reminder sent'],
-    ],
-    done: 'One record per person',
-  },
-  finance: {
-    label: 'Finance and payroll',
-    title: 'Kaveri Components · month end',
-    lines: [
-      ['18:00', 'attendance', 'November closed: paid days, overtime and leave sent to Payroll'],
-      ['18:03', 'payroll', 'Pay run for 48 employees calculated with PF, ESI, PT and TDS'],
-      ['18:10', 'payroll', 'Run locked. Payslips on every employee’s phone'],
-      ['18:10', 'books', 'Salary journal posted to Books'],
-    ],
-    done: 'No spreadsheet in between',
-  },
-};
-
-function HeroLog({ role }) {
-  const r = ROLES[role];
+function HeroVideo() {
+  const ref = useRef(null);
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      v.pause();
+      setPaused(true);
+      return;
+    }
+    v.play?.().catch(() => setPaused(true));
+  }, []);
+  const toggle = () => {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setPaused(false);
+    } else {
+      v.pause();
+      setPaused(true);
+    }
+  };
   return (
-    <div className="hl" aria-live="polite">
-      <div className="hl-bar">
-        <span className="hl-dots" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-        <span>{r.title}</span>
-      </div>
-      <ol className="hl-lines" key={role} aria-label={`Sample activity for ${r.label}`}>
-        {r.lines.map(([t, slug, text], i) => (
-          <li key={i} style={{ '--i': i }}>
-            <time>{t}</time>
-            <b data-app={slug}>{productBySlug(slug).name}</b>
-            <span>{text}</span>
-          </li>
-        ))}
-      </ol>
-      <p className="hl-chip" key={`${role}-chip`} style={{ '--i': r.lines.length }}>
-        <Check size={14} weight="bold" aria-hidden="true" /> {r.done}
-      </p>
-    </div>
-  );
-}
-
-function HeroRoles({ role, setRole }) {
-  return (
-    <div className="roles" role="tablist" aria-label="See a day in CLOR for">
-      {Object.entries(ROLES).map(([k, r]) => (
-        <button key={k} type="button" role="tab" aria-selected={role === k} className={role === k ? 'is-on' : ''} onClick={() => setRole(k)}>
-          {r.label}
-        </button>
-      ))}
+    <div className="hv">
+      <video ref={ref} className="hv-video" muted loop playsInline preload="auto" poster="/hero/clor-hero-3d-poster.webp" aria-hidden="true">
+        <source src="/hero/clor-hero-3d.webm" type="video/webm" />
+        <source src="/hero/clor-hero-3d.mp4" type="video/mp4" />
+      </video>
+      <button type="button" className="hv-toggle" onClick={toggle} aria-label={paused ? 'Play the background video' : 'Pause the background video'}>
+        {paused ? <Play size={14} weight="fill" /> : <Pause size={14} weight="fill" />}
+      </button>
     </div>
   );
 }
@@ -474,17 +426,16 @@ function JumpBar() {
 }
 
 export default function Home() {
-  const [role, setRole] = useState('finance');
   return (
     <>
-      <section className="hero hero--home hero--split2" aria-labelledby="hero-title">
+      <section className="hero hero--home hero--split2 hero--video" aria-labelledby="hero-title">
+        <HeroVideo />
         <div className="wrap hero2">
           <div className="hero2-copy">
             <h1 id="hero-title" className="h-hero">
               Accounts, payroll and HR for growing Indian companies.
             </h1>
             <p className="lede">GST books, payroll with PF, ESI, PT and TDS, employee records and gate attendance. One login, one list of employees.</p>
-            <HeroRoles role={role} setRole={setRole} />
             <div className="actions">
               <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
                 Request a demo
@@ -494,7 +445,6 @@ export default function Home() {
               </a>
             </div>
           </div>
-          <HeroLog role={role} />
         </div>
       </section>
 
