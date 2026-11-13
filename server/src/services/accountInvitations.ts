@@ -198,10 +198,13 @@ export async function resendInvitation(req: Request, id: string, asOperator?: { 
     if (row.status !== 'PENDING' && row.status !== 'EXPIRED') throw new InvitationError(409, `This invitation was ${row.status.toLowerCase()}; send a new one instead.`, 'NOT_PENDING');
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
-    const updated = await platformPrisma.accountInvitation.update({
-      where: { id },
+    /* Only while it is still open: a revoke or an accept that landed since the read above must not be undone. */
+    const done = await platformPrisma.accountInvitation.updateMany({
+      where: { id, accountId, status: { in: ['PENDING', 'EXPIRED'] } },
       data: { tokenHash: sha256(token), expiresAt, status: 'PENDING', sendCount: { increment: 1 }, lastSentAt: new Date() },
     });
+    if (!done.count) throw new InvitationError(409, 'This invitation was accepted or withdrawn a moment ago; send a new one instead.', 'NOT_PENDING');
+    const updated = await platformPrisma.accountInvitation.findUniqueOrThrow({ where: { id } });
     await sendInvitationEmail(accountId, asOperator ? row.invitedByUserId : actor, row.email, token, expiresAt, parseGrants(row.grants));
     if (asOperator) return shapeInvitation(updated);
     await recordAccountEvent({ accountId, actorUserId: actor, action: 'INVITATION_RESENT', targetType: 'AccountInvitation', targetId: id, message: `Sent the invitation to ${row.email} again` });
@@ -296,60 +299,68 @@ export async function acceptInvitation(input: { token?: unknown; signedInUserId?
 
     /* W-6.1: a new login is counted against the plan under the account's quota lock. */
     const releaseQuota = user ? null : await lockQuota(row.accountId, 'USERS');
+    let userId: string;
     try {
-    if (!user) {
-      const full = await userLimitReason(row.accountId);
-      if (full) throw new InvitationError(403, full, 'USER_LIMIT');
-    }
+      if (!user) {
+        const full = await userLimitReason(row.accountId);
+        if (full) throw new InvitationError(403, full, 'USER_LIMIT');
+      }
+      const passwordHash = user ? null : await bcrypt.hash(String(input.password), Number(process.env.BCRYPT_ROUNDS || 12));
+      const known = user;
 
-    /* The guard: exactly one request moves it to ACCEPTED. */
-    const claimed = await platformPrisma.accountInvitation.updateMany({ where: { id: row.id, status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
-    if (!claimed.count) throw new InvitationError(409, 'This invitation has already been used.', 'ALREADY_ACCEPTED');
-
-    if (!user) {
-      user = await platformPrisma.user.create({
-        data: {
-          accountId: row.accountId,
-          email: row.email,
-          fullName: String(input.fullName).trim(),
-          passwordHash: await bcrypt.hash(String(input.password), Number(process.env.BCRYPT_ROUNDS || 12)),
-          /* They opened the link sent to this address. */
-          emailVerifiedAt: new Date(),
-          isActive: true,
-        },
-        select: { id: true, accountId: true, isActive: true },
+      /*
+       * The claim and everything it grants, in one transaction: a failure part
+       * way used to leave the invitation ACCEPTED with no access, and a retry
+       * was told it had already been used. Now it all happens or none of it.
+       * Inside outsideTenant, so the transaction may write each company's rows.
+       */
+      userId = await platformPrisma.$transaction(async (tx) => {
+        /* The guard: exactly one request moves it to ACCEPTED. */
+        const claimed = await tx.accountInvitation.updateMany({ where: { id: row.id, status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+        if (!claimed.count) throw new InvitationError(409, 'This invitation has already been used.', 'ALREADY_ACCEPTED');
+        const uid = known
+          ? known.id
+          : (
+              await tx.user.create({
+                data: {
+                  accountId: row.accountId,
+                  email: row.email,
+                  fullName: String(input.fullName).trim(),
+                  passwordHash: passwordHash!,
+                  /* They opened the link sent to this address. */
+                  emailVerifiedAt: new Date(),
+                  isActive: true,
+                },
+                select: { id: true },
+              })
+            ).id;
+        await tx.accountMembership.upsert({
+          where: { accountId_userId: { accountId: row.accountId, userId: uid } },
+          update: { status: 'ACTIVE', ...(row.accountRole !== 'MEMBER' ? { role: row.accountRole } : {}) },
+          create: { accountId: row.accountId, userId: uid, role: row.accountRole, addedByUserId: row.invitedByUserId },
+        });
+        for (const g of grants) {
+          await tx.userOrgMembership.upsert({ where: { accountId_orgId_userId: { accountId: row.accountId, orgId: g.orgId, userId: uid } }, update: {}, create: { accountId: row.accountId, orgId: g.orgId, userId: uid } });
+          for (const branchId of g.branchIds) {
+            await tx.userBranchMembership.upsert({
+              where: { accountId_orgId_branchId_userId: { accountId: row.accountId, orgId: g.orgId, branchId, userId: uid } },
+              update: {},
+              create: { accountId: row.accountId, orgId: g.orgId, branchId, userId: uid },
+            });
+          }
+          /* A role they already hold is skipped (ON CONFLICT DO NOTHING): a failed insert would end the transaction. */
+          if (g.roleIds.length)
+            await tx.userRoleAssignment.createMany({
+              data: g.roleIds.map((roleId) => ({ accountId: row.accountId, orgId: g.orgId, branchId: null, userId: uid, roleId, createdByUserId: row.invitedByUserId })),
+              skipDuplicates: true,
+            });
+        }
+        await tx.accountInvitation.update({ where: { id: row.id }, data: { acceptedByUserId: uid } });
+        return uid;
       });
-    }
     } finally {
       if (releaseQuota) await releaseQuota();
     }
-    const userId = user!.id;
-
-    await platformPrisma.accountMembership.upsert({
-      where: { accountId_userId: { accountId: row.accountId, userId } },
-      update: { status: 'ACTIVE', ...(row.accountRole !== 'MEMBER' ? { role: row.accountRole } : {}) },
-      create: { accountId: row.accountId, userId, role: row.accountRole, addedByUserId: row.invitedByUserId },
-    });
-    for (const g of grants) {
-      await runInTenant(g.orgId, async () => {
-        await platformPrisma.userOrgMembership.upsert({ where: { accountId_orgId_userId: { accountId: row.accountId, orgId: g.orgId, userId } }, update: {}, create: { accountId: row.accountId, orgId: g.orgId, userId } });
-        for (const branchId of g.branchIds) {
-          await platformPrisma.userBranchMembership.upsert({
-            where: { accountId_orgId_branchId_userId: { accountId: row.accountId, orgId: g.orgId, branchId, userId } },
-            update: {},
-            create: { accountId: row.accountId, orgId: g.orgId, branchId, userId },
-          });
-        }
-        for (const roleId of g.roleIds) {
-          await platformPrisma.userRoleAssignment
-            .create({ data: { accountId: row.accountId, orgId: g.orgId, branchId: null, userId, roleId, createdByUserId: row.invitedByUserId }, select: { id: true } })
-            .catch((e: any) => {
-              if (String(e?.code || '') !== 'P2002') throw e;
-            });
-        }
-      });
-    }
-    await platformPrisma.accountInvitation.update({ where: { id: row.id }, data: { acceptedByUserId: userId } });
     await recordAccountEvent({ accountId: row.accountId, actorUserId: userId, action: 'INVITATION_ACCEPTED', targetType: 'AccountInvitation', targetId: row.id, message: `${row.email} joined as ${row.accountRole}`, metadata: { companies: grants.map((g) => g.orgId) } });
     return { accepted: true, email: row.email, created: !input.signedInUserId };
   });
