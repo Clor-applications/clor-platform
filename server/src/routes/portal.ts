@@ -444,7 +444,7 @@ portalRouter.get('/company-updates', async (req, res) => {
  * myself is not news and is left out. `key` is stable per event, so a phone
  * or a browser marks an item seen once.
  */
-type Update = { key: string; kind: 'leave' | 'request' | 'punch' | 'people' | 'lapse' | 'referral'; status: string; text: string; note: string | null; at: string };
+type Update = { key: string; kind: 'leave' | 'request' | 'punch' | 'people' | 'lapse' | 'referral' | 'month'; status: string; text: string; note: string | null; at: string };
 const quoted = (n?: string | null) => (n && n.trim() ? ` “${n.trim()}”` : '');
 portalRouter.get('/updates', async (req, res) => {
   const e = req.portal!.employee;
@@ -493,6 +493,12 @@ portalRouter.get('/updates', async (req, res) => {
     items.push({ key: `corr:${c.id}:${c.status}`, kind: 'request', status: c.status, text: `${what} for ${dayWords(c.date)} was ${c.status === 'APPROVED' ? 'approved' : 'rejected'}.${quoted(note)}`, note, at: c.updatedAt.toISOString() });
   }
   for (const p of punches) items.push({ key: `punch:${p.id}:${p.reviewStatus}`, kind: 'punch', status: String(p.reviewStatus), text: `Your field punch at ${p.localTime.slice(11, 16)} on ${dayWords(p.localTime.slice(0, 10))} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.`, note: null, at: p.at.toISOString() });
+  /* HR answered a month I said was wrong (selfService.ts resolveDispute): the app's notice, as there may be no CLOR user to notify. */
+  const answered = await peoplePrisma.attendanceMonthConfirmation.findMany({ where: { orgId: e.orgId, employeeId: e.id, status: 'DISPUTED', resolvedAt: { gte: since } }, select: { id: true, month: true, resolution: true, resolvedAt: true } });
+  for (const a of answered) {
+    const when = new Date(`${a.month}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    items.push({ key: `month:${a.id}:${a.resolvedAt!.getTime()}`, kind: 'month', status: 'ANSWERED', text: `HR answered what you said about ${when}.${quoted(a.resolution)}`, note: a.resolution, at: a.resolvedAt!.toISOString() });
+  }
   if (lapse) items.push({ key: `lapse:${lapse.year}`, kind: 'lapse', status: 'LAPSE', text: `${lapse.total} ${lapse.total === 1 ? 'day' : 'days'} of leave will lapse on ${dayWords(lapse.end)} unless you take them: ${lapse.lines.map((x) => `${x.leaveType} ${x.days}`).join(', ')}.`, note: null, at: new Date().toISOString() });
   /* Jobs open to me for referrals, and my referrals that joined or were not taken forward. */
   items.push(...(await referralUpdates(e.accountId, e.orgId, e.id, since).catch(() => [])));

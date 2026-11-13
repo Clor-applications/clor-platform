@@ -517,22 +517,22 @@ model AttendanceRecord {
 /// both what was corrected and what was left, and the scan never weighs the same day twice
 /// (services/attendance/fullDayFix.ts).
 model AttendanceFullDayReview {
-  id            String    @id @default(cuid())
-  accountId     String
-  orgId         String
-  employeeId    String
-  date          String /// YYYY-MM-DD
-  recordId      String    @unique
-  fromStatus    String
-  toStatus      String
-  workedMinutes Int
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  employeeId      String
+  date            String /// YYYY-MM-DD
+  recordId        String    @unique
+  fromStatus      String
+  toStatus        String
+  workedMinutes   Int
   /// The punches as they stood when the day was looked at: a held day is settled as changed only when these, the status or the minutes change.
-  checkIn       DateTime?
-  checkOut      DateTime?
+  checkIn         DateTime?
+  checkOut        DateTime?
   /// CORRECTED (set to present) | HELD (left as it was)
-  outcome       String
+  outcome         String
   /// Why a day was held: MONTH_CLOSED | PAYROLL_TAKEN | PAYROLL_PENDING | BEFORE_PAYROLL | OLD
-  reason        String?
+  reason          String?
   /// A held day settled: PAID (someone paid the difference) | RECORD_CHANGED (the day itself was corrected since)
   settledAs       String?
   settledByUserId String?
@@ -690,12 +690,12 @@ model LeaveType {
 
   /// YEARLY: the year's days are there from 1 January. MONTHLY: a twelfth is
   /// credited at the start of each month.
-  accrual           String  @default("YEARLY")
+  accrual               String  @default("YEARLY")
   /// Someone joining during the year gets the months left (joining after the
   /// 15th counts from the next month).
-  prorateForJoiners Boolean @default(false)
+  prorateForJoiners     Boolean @default(false)
   /// Days of an unused balance taken into the next year; null lets it lapse.
-  carryForwardMax   Float?
+  carryForwardMax       Float?
   /// Carried-in days must be used within this many days of the period start; what is left of them then lapses (ERPNext's "expire carry-forwarded leaves"). Null: they last the period.
   carryExpiresAfterDays Int?
 
@@ -780,23 +780,23 @@ model LeaveType {
   /// keeps a type as it was.
   /// DAY: asked in days and half days. HOUR: asked in hours on one day, 15-minute steps, counted against the
   /// day's shift (2 hours of an 8-hour shift is 0.25 day); balances stay in days.
-  unit               String   @default("DAY")
+  unit                String   @default("DAY")
   /// An hourly type's day, in hours (FEATURE-UI-AUDIT gap 23): its allowance and balance are said in hours, and an hour is this share of a day. Null = 8.
-  hoursPerDay        Float?
+  hoursPerDay         Float?
   /// More than the balance (and negativeDays): REFUSE, or LOSS_OF_PAY — the extra days are a linked unpaid
   /// request of the company's loss-of-pay type, in the same group, decided with the paid part.
-  overBalance        String   @default("REFUSE")
+  overBalance         String   @default("REFUSE")
   /// Types that may not sit next to this one (weekly offs and holidays between still count as next to). The
   /// rule works both ways.
-  notWithTypeIds     String[] @default([])
+  notWithTypeIds      String[] @default([])
   /// Sandwich options, read only when sandwich is on: the rule applies to requests of at least this many
   /// working days (null = any), to weekly offs, to holidays, and a half day at either end can be left out of it.
-  sandwichMinDays    Int?
-  sandwichWeekOffs   Boolean  @default(true)
-  sandwichHolidays   Boolean  @default(true)
-  sandwichIgnoreHalf Boolean  @default(false)
+  sandwichMinDays     Int?
+  sandwichWeekOffs    Boolean  @default(true)
+  sandwichHolidays    Boolean  @default(true)
+  sandwichIgnoreHalf  Boolean  @default(false)
   /// While the person is serving notice: ALLOW, WARN (asked, and the approver is told), or BLOCK.
-  onNotice           String   @default("ALLOW")
+  onNotice            String   @default("ALLOW")
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -1035,43 +1035,43 @@ model AttendanceMonthLock {
 
 /// A punch exactly as a reader sent it. The day is worked out from these.
 model DevicePunch {
-  id           String   @id @default(cuid())
-  accountId    String
-  orgId        String
-  deviceId     String
-  serialNumber String
+  id                String    @id @default(cuid())
+  accountId         String
+  orgId             String
+  deviceId          String
+  serialNumber      String
   /// The user ID on the reader.
-  pin          String
-  at           DateTime
+  pin               String
+  at                DateTime
   /// The reader's own wall-clock time, IST, "YYYY-MM-DD HH:mm:ss".
-  localTime    String
+  localTime         String
   /// The reader's punch state (0 in, 1 out, 2-5 break/overtime, 255 unset).
-  state        String
+  state             String
   /// IN | OUT, or null when neither the punch nor the reader says.
-  kind         String?
+  kind              String?
   /// 1 finger, 15 face, 2 card…, as the reader reports it.
-  verifyMode   Int      @default(0)
+  verifyMode        Int       @default(0)
   /// The work code chosen at the reader (a job, a site); null when none.
-  workCode     String?
+  workCode          String?
   /// Null until the pin is matched to an employee.
-  employeeId   String?
+  employeeId        String?
   /// The shift day the punch belongs to (a night shift's morning exit is the previous day).
-  shiftDate    String?
-  raw          String?
+  shiftDate         String?
+  raw               String?
   /// Phone punches: where it was made, which site it matched, and the selfie.
-  latitude     Float?
-  longitude    Float?
-  accuracyM    Float?
-  geofenceId   String?
-  photoId      String?
+  latitude          Float?
+  longitude         Float?
+  accuracyM         Float?
+  geofenceId        String?
+  photoId           String?
   /// A field punch made outside every work site, with the address of where it was made.
-  outsideSite  Boolean  @default(false)
-  address      String?
+  outsideSite       Boolean   @default(false)
+  address           String?
   /// Field punches waiting for a decision: PENDING (not counted yet), APPROVED, REJECTED. Null = counts.
-  reviewStatus String?
+  reviewStatus      String?
   /// Why a reader punch is held instead of counted (reviewStatus HELD): FUTURE, the reader's clock was ahead of
   /// the server's when it arrived. A held punch has no shift day and changes no day until someone releases it.
-  heldReason   String?
+  heldReason        String?
   /// A held punch counted "moved back" (the reader's clock was ahead): the minutes taken off its time. Null = as recorded.
   clockShiftMinutes Int?
   /// The reader's own time, kept when the punch was moved back.
@@ -1079,10 +1079,10 @@ model DevicePunch {
   /// The instant the reader sent, kept when the punch was moved back: a resend of the reader's log still
   /// matches it (ingest de-dup), so it is never counted twice. Indexed partially (WHERE "recordedAt" IS NOT NULL)
   /// in migration 20261123090000_punch_recorded_at, which Prisma's schema cannot express.
-  recordedAt   DateTime?
+  recordedAt        DateTime?
   /// Counted while its month was closed: the day was left alone, and is worked out when the month reopens.
-  dayPending   Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  dayPending        Boolean   @default(false)
+  createdAt         DateTime  @default(now())
 
   /// Per reader: two sites may give the same reader ID to different people
   /// (ReaderIdAtSite). The same person punching on two readers at once is
@@ -1376,14 +1376,14 @@ model Contractor {
 /// A different shift for a few days — cover, a training week, a night swap.
 /// Wins over every other schedule for those days (ClorTime's temporary schedule).
 model TemporarySchedule {
-  id         String  @id @default(cuid())
-  accountId  String
-  orgId      String
-  employeeId String
-  shiftId    String
-  fromDate   String /// YYYY-MM-DD
-  toDate     String /// YYYY-MM-DD, inclusive
-  reason     String?
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  employeeId    String
+  shiftId       String
+  fromDate      String /// YYYY-MM-DD
+  toDate        String /// YYYY-MM-DD, inclusive
+  reason        String?
   /// Written by "pick the shift from the first punch", not by a person: a later
   /// punch may change it, and nothing a person wrote is ever replaced by it.
   pickedByPunch Boolean @default(false)
@@ -1666,10 +1666,10 @@ model EmployeeDocument {
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
+  @@unique([orgId, employeeId, issuedFor])
   @@index([orgId, employeeId])
   @@index([orgId, expiresOn])
   @@index([orgId, supersededById])
-  @@unique([orgId, employeeId, issuedFor])
 }
 
 /// Policies (docs/people/02-PRD.md POL-01..06; services/people/policies.ts): a
@@ -1922,44 +1922,44 @@ model ImportBatch {
 
 /// Company-wide People settings (docs/people/02-PRD.md CORE-03; decision D-02): one row per company.
 model PeopleSetting {
-  id                 String   @id @default(cuid())
-  accountId          String
-  orgId              String   @unique
+  id                              String   @id @default(cuid())
+  accountId                       String
+  orgId                           String   @unique
   /// CONTACT_DIRECT (contact details save at once, the rest needs HR approval) | ALL (everything needs approval) | NONE (saves at once, HR told)
-  selfServiceChanges String   @default("CONTACT_DIRECT")
+  selfServiceChanges              String   @default("CONTACT_DIRECT")
   /// Languages privacy notices are offered in besides English (PRV-01), e.g. ["hi","ta"].
-  noticeLanguages    Json?
+  noticeLanguages                 Json?
   /// People Home's setup list (services/people/setup.ts): { skipped: [step], hidden: ISO, recorded: [step], simpleAdvice: ISO }.
-  setupState         Json?
+  setupState                      Json?
   /// Referrals (A20): a bonus is not paid when the referrer has left before the bonus date
   /// (serving notice counts as still here). Off: it is paid anyway, in their final settlement or by hand.
-  referralForfeitIfReferrerLeaves Boolean @default(true)
+  referralForfeitIfReferrerLeaves Boolean  @default(true)
   /// Who signs the letters CLOR issues on its own (People plan 8 Nov 2026, step 6), e.g. "Meera Shah, HR Manager".
-  letterSignatory String?
+  letterSignatory                 String?
   /// Company choices (docs/people/workflow-engine/SPEC.md 3.2, services/people/companyChoices.ts). Who decides missed punch,
   /// work from home, on duty, permission and shift change requests: HR_OR_MANAGER | MANAGER | HR | MANAGER_THEN_HR.
   /// Null: not chosen here yet, so AttendanceSettings.correctionApproval is read (its HR means HR_OR_MANAGER).
-  correctionApproval String?
+  correctionApproval              String?
   /// 3.3: HR without Payroll access may read salary revisions (list, old and new pay). Owner or admin only.
-  hrSeesSalaryRevisions Boolean @default(false)
+  hrSeesSalaryRevisions           Boolean  @default(false)
   /// 3.5: read-only users and IT administrators see the Leaving list (who is leaving, the last day).
-  leavingsForReadOnly Boolean @default(true)
+  leavingsForReadOnly             Boolean  @default(true)
   /// 3.5: ...and the reason typed for leaving. HR, the owner and admins always see it.
-  leavingReasonForReadOnly Boolean @default(false)
+  leavingReasonForReadOnly        Boolean  @default(false)
   /// 3.6: a withdrawn request's "waiting for you" notice: SHOW_WITHDRAWN (marked read, says so, links to it) | REMOVE.
-  withdrawnNotices String @default("SHOW_WITHDRAWN")
+  withdrawnNotices                String   @default("SHOW_WITHDRAWN")
   /// Workflow engine phase 2c-i: new leave on a simple chain (HR, manager, manager then HR) is decided by the
   /// approval engine under a preset rule made from that chain (services/attendance/leaveEngine.ts). Off by
   /// default until 2c-ii; requests already waiting finish on the old path either way.
-  leaveOnEngine    Boolean @default(false)
+  leaveOnEngine                   Boolean  @default(false)
   /// Workflow engine phase 2d: new attendance requests (missed punch, work from home, on duty, permission, shift
   /// change), overtime and comp-off, and field punches are decided by the approval engine under a preset rule made
   /// from the company's stored chain (services/attendance/attendanceEngine.ts). Off by default; requests already
   /// waiting finish on the old path either way.
-  attendanceOnEngine Boolean @default(false)
-  updatedByUserId    String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  attendanceOnEngine              Boolean  @default(false)
+  updatedByUserId                 String?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
 }
 
 /// A team under a department, with a lead (docs/people/02-PRD.md ORG-01).
@@ -2086,18 +2086,18 @@ model Obligation {
 /// A file that proves an obligation was met: the challan, the filing receipt, the certificate.
 /// Several per obligation; the bytes move to object storage like every other People file.
 model ObligationProof {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   accountId        String
   orgId            String
   obligationId     String
   name             String
   mime             String
-  size             Int      @default(0)
+  size             Int       @default(0)
   data             Bytes
   /// R2 plan: where the bytes are when they are not in `data` (then empty). Set by utils/peoplePrisma.ts.
   storageKey       String?
   uploadedByUserId String?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
   /// Taken off the obligation (never erased): when and by whom.
   removedAt        DateTime?
   removedByUserId  String?
@@ -2745,16 +2745,20 @@ model PhonePunchAttempt {
 /// CONFIRMED, or DISPUTED with what is wrong. Kept with how many items were
 /// still open when they did it; HR sees it at month close.
 model AttendanceMonthConfirmation {
-  id         String   @id @default(cuid())
-  accountId  String
-  orgId      String
-  employeeId String
-  month      String /// YYYY-MM
-  status     String /// CONFIRMED | DISPUTED
-  note       String?
-  unresolved Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id               String    @id @default(cuid())
+  accountId        String
+  orgId            String
+  employeeId       String
+  month            String /// YYYY-MM
+  status           String /// CONFIRMED | DISPUTED
+  note             String?
+  unresolved       Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  /// HR's answer to a dispute, and who gave it. Cleared when the employee disputes again.
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolution       String?
 
   @@unique([orgId, employeeId, month])
   @@index([orgId, month])
@@ -3489,28 +3493,28 @@ model Offer {
 /// Talent → Hiring (docs/people/design-v1/TALENT-DECISIONS.md): a place the company is hiring for.
 /// Department, designation, branch and type come from the company's lists, so a hire lands in them.
 model JobOpening {
-  id                String   @id @default(cuid())
-  accountId         String
-  orgId             String
-  title             String
-  departmentId      String?
-  jobPositionId     String?
-  branchId          String?
-  employeeTypeId    String?
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  title              String
+  departmentId       String?
+  jobPositionId      String?
+  branchId           String?
+  employeeTypeId     String?
   /// Where the work is, in words, when no branch fits (copied from the old register's "location").
-  location          String?
-  places            Int      @default(1)
+  location           String?
+  places             Int       @default(1)
   /// The employee who leads hiring for it and becomes the hire's manager.
-  hiringManagerId   String?
-  description       String?
-  targetDate        String?
+  hiringManagerId    String?
+  description        String?
+  targetDate         String?
   /// REQUESTED (a manager asked) | DRAFT | OPEN | ON_HOLD | FILLED | CLOSED
-  status            String   @default("DRAFT")
-  requestedByUserId String?
-  openedByUserId    String?
+  status             String    @default("DRAFT")
+  requestedByUserId  String?
+  openedByUserId     String?
   /// The public apply link: on or off, and the sha256 of its token.
-  applyOpen         Boolean  @default(false)
-  applyTokenHash    String?  @unique
+  applyOpen          Boolean   @default(false)
+  applyTokenHash     String?   @unique
   /// Employee referrals (A20): open to referrals, the bonus promised (whole rupees, paid after
   /// the hire completes `referralBonusDays`, or their probation when blank), who may refer
   /// (ALL | DEPARTMENTS | BRANCHES with the ids), and whether staff may apply themselves.
@@ -3522,10 +3526,10 @@ model JobOpening {
   referDepartmentIds String[]  @default([])
   referBranchIds     String[]  @default([])
   internalApply      Boolean   @default(false)
-  closedReason      String?
-  createdByUserId   String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  closedReason       String?
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([orgId, status])
 }
@@ -3533,37 +3537,37 @@ model JobOpening {
 /// Someone applying for an opening, on one pipeline. The id of a candidate moved from the old
 /// register is kept, so offers and links made before keep working.
 model Candidate {
-  id              String    @id @default(cuid())
-  accountId       String
-  orgId           String
-  openingId       String
-  name            String
-  email           String?
-  phone           String?
+  id                 String    @id @default(cuid())
+  accountId          String
+  orgId              String
+  openingId          String
+  name               String
+  email              String?
+  phone              String?
   /// REFERRAL | JOB_PORTAL | WALK_IN | AGENCY | WEBSITE | APPLY_LINK | OTHER
-  source          String    @default("OTHER")
+  source             String    @default("OTHER")
   /// Who referred them, the portal's name, the agency…
-  sourceDetail    String?
-  currentEmployer String?
+  sourceDetail       String?
+  currentEmployer    String?
   /// APPLIED | SCREENING | INTERVIEW | OFFER | HIRED | REJECTED | WITHDRAWN
-  stage           String    @default("APPLIED")
-  stageAt         DateTime  @default(now())
-  closedReason    String?
-  resumeName      String?
-  resumeMime      String?
-  resumeSize      Int?
-  resumeData      Bytes?
+  stage              String    @default("APPLIED")
+  stageAt            DateTime  @default(now())
+  closedReason       String?
+  resumeName         String?
+  resumeMime         String?
+  resumeSize         Int?
+  resumeData         Bytes?
   /// A link to a résumé, from the apply page.
-  resumeUrl       String?
-  offerAcceptedOn String?
-  employeeId      String?
+  resumeUrl          String?
+  offerAcceptedOn    String?
+  employeeId         String?
   /// Someone who works here applying themselves (an internal application): hiring them moves
   /// them, it does not make a second employee record.
   internalEmployeeId String?
-  anonymisedAt    DateTime?
-  createdByUserId String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  anonymisedAt       DateTime?
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([orgId, openingId, stage])
   @@index([orgId, stage, stageAt])
