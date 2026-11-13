@@ -52,6 +52,7 @@ export const KIND = {
   'attendance.leave_digest': 'Leave summary',
   'attendance.leave_lapse': 'Leave about to lapse',
   'attendance.month_disputed': 'Disputed attendance months',
+  'attendance.month_dispute_answered': 'HR answers on disputed months',
   'attendance.overtime_asked': 'Overtime requests',
   'attendance.phone_punch_request': 'Phone check-in requests',
   'attendance.portal_forgot': 'Employee app sign-in help',
