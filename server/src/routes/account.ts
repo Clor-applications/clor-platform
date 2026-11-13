@@ -57,7 +57,7 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
   outsideTenant('account overview: every company on the account, each with its own figures', async () => {
   const { accountId } = req.tenant!;
 
-  const [account, orgs, users, entitlement] = await Promise.all([
+  const [account, orgs, users, entitlement, withAuthenticator] = await Promise.all([
     platformPrisma.account.findFirst({ where: { id: accountId }, select: { id: true, code: true, name: true, createdAt: true } }),
     platformPrisma.org.findMany({
       where: { accountId },
@@ -70,6 +70,9 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
       orderBy: { fullName: 'asc' },
     }),
     entitlementFor(accountId),
+    /* How many of them sign in with an authenticator. Counted, never selected:
+       the encrypted secret has no business leaving the database. */
+    platformPrisma.user.count({ where: { accountId, isActive: true, totpSecretEnc: { not: null } } }),
   ]);
 
   const orgIds = orgs.map((o) => o.id);
@@ -154,6 +157,9 @@ accountRouter.get('/account/overview', ACCOUNT_VIEW, (req, res) =>
       users: users.filter((u) => u.isActive).length,
     },
     entities,
+    /* W-R8: how much of the account signs in with an authenticator. The share is
+       the reader's to work out; a count and a total cannot be rounded wrongly. */
+    security: { withAuthenticator, activeUsers: users.filter((u) => u.isActive).length },
     /* Seats bought per app; null where an app is not seat-metered. Seats in use are the Workspace's to count from the directory. */
     seats: subscription ? subscription.items.map((i) => ({ app: i.appCode, bought: i.seats ?? null })) : null,
     runRate: monthlyRunRate(subscription),

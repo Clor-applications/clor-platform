@@ -12,20 +12,20 @@ Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 Checked against `origin/main` and the live app. The rest of this file is the
 24 October audit and has not been kept up; these are the open items.
 
-### 1. The Overview asks the server for figures it never shows
+### 1. The Overview asks the server for figures it never shows — done 14 Nov 2026
 
 `GET /account/overview` already returns **`entities`**, **`dataHealth`** and
 **`runRate`** (`server/src/routes/account.ts`, `services/accountHealth.ts`), but
 `apps/admin/src/screens/AccountOverview.jsx` reads none of them: it shows
 Account name, Companies, Company addresses, People and Plan. The server work
 landed with PR #200; the panels did not. PR #132 held the panels and was closed
-on 14 Nov 2026 as stale (conflicting, untouched since 10 Nov). What it meant to
-show, so nobody has to dig it out of a closed branch:
+on 14 Nov 2026 as stale (conflicting, untouched since 10 Nov). The panels were
+then built from this table; only seats-in-use is still open.
 
 | Figure | Where it comes from |
 |---|---|
 | **Entities** — companies, branches, GST registrations, cost centres | `Org`, active `Branch` (distinct GSTINs, so two branches under one GSTIN count once), active `CostCenter` |
-| **Active seats**, and a seats-by-app panel | Active members who can open the app in at least one company, against `SubscriptionItem.seats`; "no limit" where seats are not metered |
+| **Active seats**, and a seats-by-app panel | **Still open.** Seats bought come from `SubscriptionItem.seats`, but seats *in use* are counted per app from the directory and nothing computes that yet, server or screen. Left out rather than shown as a half-answer |
 | **Data health**, and a panel naming each source | Open `ReaderAlert` rows as the reader-check job left them, Tally postings (`AgentJob`) failed this week or waiting over a day, `EmailOutbox` failures this week. "Nothing to sync" when the account has no such source |
 | **Security** — share of active members signing in with an authenticator | Member directory `authenticator` (TOTP). Administrators without one belong under "Needs your attention" |
 | **Monthly run rate** | Subscription items: `per_seat` x seats, `flat`/`per_app` as set, `free` adds nothing, yearly divided by 12, cancelled or paused 0. **If any item has no price it must read "Not priced yet" and name the app** — never a zero that looks like an answer |

@@ -95,6 +95,92 @@ function AccountName({ name, onRenamed }) {
   );
 }
 
+/**
+ * What the account pays a month. Never a figure that looks like an answer when
+ * it is not one: if any line has no price, this says so and names the app.
+ */
+function RunRate({ rate, money }) {
+  if (!rate) return null;
+  if (rate.monthly == null) {
+    const apps = (rate.unpriced || []).join(', ');
+    return (
+      <p className="ws-card-blurb">
+        Monthly run rate: not priced yet{apps ? ` (${apps})` : ''}.
+      </p>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="ws-stat-note">Monthly run rate</span>
+      <span className="ws-stat-value num">{money(rate.monthly)}</span>
+    </div>
+  );
+}
+
+/**
+ * Whether what feeds the suite from outside is flowing. The reader-check job
+ * has already judged each alert, so this repeats its answer rather than
+ * forming a second opinion. An account with no such source is told plainly
+ * that there is nothing to sync, not shown a reassuring tick. Company then
+ * Integrations has the detail; this is the one line that says whether to go.
+ */
+function DataHealth({ health }) {
+  if (!health) return null;
+  if (health.status === 'none') {
+    return (
+      <Panel title="Data health">
+        <p className="ws-card-blurb">Nothing to sync: no readers, connectors or mail on this account yet.</p>
+      </Panel>
+    );
+  }
+  return (
+    <Panel title="Data health">
+      <div className="flex items-center justify-between gap-2">
+        <span className="ws-stat-note">{health.issues ? 'Needs a look' : 'Flowing'}</span>
+        <span className={`ws-pill${health.issues ? '' : ' ws-pill--ok'}`}>
+          {health.issues ? `${health.issues} to fix` : 'All sources working'}
+        </span>
+      </div>
+      <dl className="ws-facts">
+        {(health.sources || []).map((src) => (
+          <React.Fragment key={src.key}>
+            <dt>{src.label}</dt>
+            <dd className="num">{src.issues ? `${src.issues} of ${src.total}` : src.total}</dd>
+          </React.Fragment>
+        ))}
+      </dl>
+      {(health.alerts || []).length ? (
+        <ul className="ws-card-blurb" style={{ display: 'grid', gap: 4 }}>
+          {health.alerts.map((a) => (
+            <li key={`${a.title}-${a.since}`}>{a.title}</li>
+          ))}
+        </ul>
+      ) : null}
+    </Panel>
+  );
+}
+
+/** How much of the account signs in with an authenticator. */
+function Security({ security }) {
+  if (!security || !security.activeUsers) return null;
+  const { withAuthenticator: on, activeUsers: all } = security;
+  const share = Math.round((on / all) * 100);
+  const everyone = on === all;
+  return (
+    <Panel title="Security">
+      <div className="flex items-center justify-between gap-2">
+        <span className="ws-stat-note">Sign in with an authenticator</span>
+        <span className={`ws-pill${everyone ? ' ws-pill--ok' : ''}`}>{share}%</span>
+      </div>
+      <p className="ws-card-blurb">
+        {everyone
+          ? `All ${all} active people.`
+          : `${on} of ${all} active people. The rest sign in with a password alone.`}
+      </p>
+    </Panel>
+  );
+}
+
 export default function AccountOverview({ currentCompany, onOpenCompany = null }) {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState('');
@@ -132,6 +218,10 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
   const active = users.filter((u) => u.active).length;
   const limits = data?.plan?.limits || {};
   const plan = data?.plan;
+  const entities = data?.entities || null;
+  const health = data?.dataHealth || null;
+  const runRate = data?.runRate || null;
+  const security = data?.security || null;
 
   return (
     <div className="ws">
@@ -275,7 +365,33 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                   </div>
                   <LimitMeter label="Companies" used={companies.length} limit={limits.maxCompanies ?? null} />
                   <LimitMeter label="Users" used={active} limit={limits.maxUsers ?? null} />
+                  <RunRate rate={runRate} money={money} />
                 </Panel>
+
+                {entities ? (
+                  <Panel title="What the account is made of">
+                    <dl className="ws-facts">
+                      <dt>Companies</dt>
+                      <dd className="num">{entities.companies}</dd>
+                      <dt>Branches</dt>
+                      <dd className="num">{entities.branches}</dd>
+                      <dt>GST registrations</dt>
+                      <dd className="num">{entities.taxProfiles}</dd>
+                      <dt>Cost centres</dt>
+                      <dd className="num">{entities.costCentres}</dd>
+                    </dl>
+                    {entities.companiesWithoutGstin > 0 ? (
+                      <p className="ws-card-blurb">
+                        {entities.companiesWithoutGstin === 1
+                          ? 'One company has no GSTIN on record.'
+                          : `${entities.companiesWithoutGstin} companies have no GSTIN on record.`}
+                      </p>
+                    ) : null}
+                  </Panel>
+                ) : null}
+
+                <DataHealth health={health} />
+                <Security security={security} />
               </aside>
             </div>
           </>
