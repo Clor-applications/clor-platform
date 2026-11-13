@@ -395,6 +395,9 @@ model Shift {
   code                 String?
   color                String?
   isActive             Boolean @default(true)
+  /// The fewest people the roster should have on this shift on a day; null = no minimum.
+  /// Only the roster's coverage row reads it: nothing is refused for falling short.
+  minStaff             Int?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -402,6 +405,36 @@ model Shift {
 
   @@unique([orgId, name])
   @@index([accountId, orgId])
+}
+
+/// One person's day on the roster, set by hand in the roster planner: a shift
+/// to work, or a weekly off, whatever the day of the week. A DRAFT row is a
+/// change being planned and nothing reads it but the planner; publishing turns
+/// it into the PUBLISHED row for that day (or, for CLEAR, takes that row away,
+/// so the day follows the person's schedule again). Only PUBLISHED rows reach
+/// the one resolver (services/attendance/schedule.ts), below a temporary
+/// schedule and above the person's own.
+model RosterDay {
+  id         String  @id @default(cuid())
+  accountId  String
+  orgId      String
+  employeeId String
+  date       String /// YYYY-MM-DD
+  /// DRAFT | PUBLISHED
+  state      String  @default("DRAFT")
+  /// SHIFT (work shiftId) | OFF (a weekly off) | CLEAR (draft only: remove the published day)
+  kind       String
+  shiftId    String?
+
+  createdByUserId   String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  publishedByUserId String?
+  publishedAt       DateTime?
+
+  @@unique([employeeId, date, state])
+  @@index([orgId, state, date])
+  @@index([orgId, shiftId])
 }
 
 /// Which shift a person works, from a date. The latest one on or before a day

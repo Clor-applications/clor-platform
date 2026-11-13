@@ -59,6 +59,7 @@ export const KIND = {
   'attendance.punch_team': 'Team missed punches',
   'attendance.request_asked': 'Attendance requests',
   'attendance.request_decided': 'Attendance request decisions',
+  'attendance.roster_published': 'Roster changes',
   /* Attendance and Workspace automations (services/attendance/automations.ts, services/workspace/automations.ts). */
   'attendance.month_open': 'Month not locked yet',
   'attendance.requests_waiting': 'Attendance fixes waiting for a decision',

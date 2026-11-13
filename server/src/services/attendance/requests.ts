@@ -231,7 +231,7 @@ async function validate(who: Asker, employee: Employee, b: Ask, rules: Record<Ki
     const shift = await peoplePrisma.shift.findFirst({ where: { id: b.shiftId, orgId: who.orgId, isActive: true }, select: { id: true, name: true } });
     if (!shift) throw fail(400, 'That shift is not in use in this company.');
     /* Asking for the shift already worked on every one of those days changes nothing. */
-    const schedule = await loadSchedule(who.orgId, [employee.id]);
+    const schedule = await loadSchedule(who.orgId, [employee.id], { from: b.date, to: toDate });
     const differs = eachDay(b.date, toDate).some((d) => resolveShift(schedule, employee.id, d).shiftId !== shift.id);
     if (!differs) throw fail(400, `${shift.name} is already the shift on those days.`, 'SAME_SHIFT');
     /* A woman asking for a shift into the night needs her consent on file (OSH Code s.43). */

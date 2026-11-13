@@ -286,7 +286,7 @@ portalRouter.get('/me', async (req, res) => {
   const t = today();
   const [org, schedule, holidays, record] = await Promise.all([
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true, code: true } }),
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from: t, to: t }),
     loadHolidays(e.orgId, t, t),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: e.id, date: t } } }),
   ]);
@@ -335,7 +335,7 @@ portalRouter.get('/home', async (req, res) => {
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true, code: true } }),
     e.areaId ? peoplePrisma.area.findFirst({ where: { id: e.areaId, orgId: e.orgId }, select: { name: true } }) : null,
     e.branchId ? platformPrisma.branch.findFirst({ where: { id: e.branchId, orgId: e.orgId }, select: { branchName: true } }) : null,
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from, to: t }),
     loadHolidays(e.orgId, from, plusDays(t, 60)),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: from, lte: t } }, orderBy: { date: 'asc' } }),
     peoplePrisma.attendanceRecord.findUnique({ where: { employeeId_date: { employeeId: e.id, date: t } } }),
@@ -748,7 +748,7 @@ portalRouter.get('/schedule', async (req, res) => {
   const month = monthParam(req.query.month);
   const days = daysOfMonth(month);
   const [schedule, holidays, leave] = await Promise.all([
-    loadSchedule(e.orgId, [e.id]),
+    loadSchedule(e.orgId, [e.id], { from: days[0], to: days[days.length - 1] }),
     loadHolidays(e.orgId, days[0], days[days.length - 1]),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId: e.orgId, employeeId: e.id, date: { gte: days[0], lte: days[days.length - 1] }, status: 'ON_LEAVE' }, select: { date: true } }),
   ]);

@@ -205,7 +205,8 @@ async function classifier(orgId: string) {
 
 async function rulesFor(orgId: string, rows: Rec[]) {
   const people = [...new Set(rows.map((r) => r.employeeId))];
-  const schedule = await loadSchedule(orgId, people);
+  const dates = rows.map((r) => r.date).sort();
+  const schedule = await loadSchedule(orgId, people, dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null);
   const places = new Map(
     people.length ? (await peoplePrisma.employee.findMany({ where: { orgId, id: { in: people } }, select: { id: true, branchId: true, areaId: true } })).map((e) => [e.id, e]) : [],
   );

@@ -432,7 +432,7 @@ schedulingRouter.get(`${base}/schedule`, can(PermissionAction.VIEW), async (req,
     orderBy: { name: 'asc' },
   });
   const [schedule, holidays, leaveDays] = await Promise.all([
-    loadSchedule(orgId),
+    loadSchedule(orgId, undefined, { from: first, to: last }),
     loadHolidays(orgId, first, last),
     peoplePrisma.attendanceRecord.findMany({ where: { orgId, date: { gte: first, lte: last }, status: 'ON_LEAVE' }, select: { employeeId: true, date: true } }),
   ]);

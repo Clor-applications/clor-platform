@@ -38,7 +38,7 @@ export const sendError = (res: any, e: any) => {
  * creating a night shift must not quietly move everyone unassigned onto nights.
  */
 export async function shiftFor(orgId: string, employeeId: string, date: string) {
-  return resolveShift(await loadSchedule(orgId, [employeeId]), employeeId, date);
+  return resolveShift(await loadSchedule(orgId, [employeeId], { from: date, to: date }), employeeId, date);
 }
 
 type Place = { areaId: string | null; branchId: string | null };
@@ -486,7 +486,7 @@ export async function periodContext(accountId: string, orgId: string, from: stri
     }),
     peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, date: { gte: from, lte: to }, ...(opts.employeeIds ? { employeeId: { in: opts.employeeIds } } : {}) } }),
     loadHolidays(orgId, from, to),
-    loadSchedule(orgId),
+    loadSchedule(orgId, undefined, { from, to }),
   ]);
   const holidays = holidayData.rows;
   /* Company-wide holidays; holidaysFor(person) adds their area's and branch's, and the restricted holidays they picked. */

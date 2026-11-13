@@ -13,7 +13,7 @@ import { addDays as shift } from '../../../utils/istDate.js';
 export type Person = { id: string; areaId?: string | null; branchId?: string | null };
 
 export async function workingCalendar(orgId: string, person: Person, around: string) {
-  const [schedule, holidays] = await Promise.all([loadSchedule(orgId, [person.id]), loadHolidays(orgId, shift(around, -400), shift(around, 400))]);
+  const [schedule, holidays] = await Promise.all([loadSchedule(orgId, [person.id], { from: shift(around, -400), to: shift(around, 400) }), loadHolidays(orgId, shift(around, -400), shift(around, 400))]);
   const off = holidays.forArea(person.areaId ?? null, person.branchId ?? null);
   return (date: string) => !off.has(date) && !isWeeklyOff(resolveShift(schedule, person.id, date).rule, date);
 }

@@ -390,7 +390,7 @@ publicApiRouter.get('/attendance/shifts', scope('attendance:read'), async (req, 
     orderBy: { name: 'asc' },
   });
   if (code && !people.length) return fail(res, 404, `No employee with code ${code}.`);
-  const [schedule, holidays] = await Promise.all([loadSchedule(orgId, people.map((p) => p.id)), loadHolidays(orgId, r.from, r.to)]);
+  const [schedule, holidays] = await Promise.all([loadSchedule(orgId, people.map((p) => p.id), { from: r.from, to: r.to }), loadHolidays(orgId, r.from, r.to)]);
   const shifts: any[] = [];
   for (let d = r.from; d <= r.to; d = new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)) {
     for (const p of people) {

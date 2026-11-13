@@ -32,6 +32,7 @@ const BLANK = {
   offSaturdays: '',
   code: '',
   color: '',
+  minStaff: '',
   isActive: true,
 };
 const NTH = ['1st', '2nd', '3rd', '4th', '5th'];
@@ -174,7 +175,7 @@ export default function Shifts({ openScreen }) {
                 </tr>
               ) : (
                 rows.map((s) => (
-                  <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', offSaturdays: s.offSaturdays || '' })}>
+                  <tr key={s.id} className="ui-row-click" onClick={() => setEditing({ ...s, overtimeAfterMinutes: s.overtimeAfterMinutes ?? '', code: s.code || '', color: s.color || '', minStaff: s.minStaff ?? '', offSaturdays: s.offSaturdays || '' })}>
                     <td className="ui-col-entity">
                       {s.code ? <span className="mr-1.5 inline-block rounded-full px-1.5 text-xs font-semibold text-white" style={{ backgroundColor: s.color || 'rgb(var(--fg-subtle))' }}>{s.code}</span> : null}
                       {s.name}
@@ -278,6 +279,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
       offSaturdays: form.offSaturdays || '',
       code: form.code || null,
       color: form.color || null,
+      minStaff: form.minStaff === '' || form.minStaff == null ? null : Number(form.minStaff),
       isActive: Boolean(form.isActive),
     };
     try {
@@ -411,6 +413,12 @@ function ShiftForm({ initial, onClose, onSaved }) {
         </fieldset>
         <label className="block"><span className="ui-label">Code</span><input className="ui-input w-full" maxLength={6} value={form.code || ''} onChange={set('code')} placeholder="e.g. G, N1 — for the schedule calendar" /></label>
         <label className="block"><span className="ui-label">Colour</span><input type="color" className="ui-input h-10 w-full p-1" value={form.color || '#64748b'} onChange={set('color')} /></label>
+        {/* Read by the schedule calendar's coverage row: a day with fewer people on this shift is marked short. Nothing is refused for it. */}
+        <label className="block sm:col-span-2">
+          <span className="ui-label">Minimum staffing</span>
+          <input type="number" min={1} max={9999} step={1} inputMode="numeric" className="ui-input w-full tabular-nums" value={form.minStaff ?? ''} onChange={set('minStaff')} placeholder="No minimum" aria-describedby="min-staff-h" />
+          <span id="min-staff-h" className="ui-caption">The fewest people this shift needs in a day. The schedule calendar marks the days that fall short.</span>
+        </label>
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" className="ui-checkbox" checked={Boolean(form.isActive)} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} /> Active
         </label>
