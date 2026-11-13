@@ -14,7 +14,7 @@ import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { clientIp, recordAuthEvent } from '../services/auth.js';
 import { issueOperatorStepUp, requireOperatorStepUp } from '../services/stepUp.js';
-import { getSubscription, inGoodStanding } from '../services/subscriptions.js';
+import { getSubscription, inGoodStanding, syncAccountEntitlement } from '../services/subscriptions.js';
 import { useSecondFactor } from './security.js';
 import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLineIndex.js';
 import { sendTemplate } from '../services/mailer.js';
@@ -433,12 +433,24 @@ opsRouter.post('/ops/accounts/:id/extend-trial', requireOperatorRole('BILLING', 
     const id = String(req.params.id);
     const parsed = trialBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Between 1 and 90 days, and say why.' });
-    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true } });
+    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true, updatedAt: true } });
     if (!sub) return res.status(409).json({ error: 'This account has no subscription to extend. Grant a plan first.' });
     if (sub.status !== 'trialing') return res.status(409).json({ error: 'Only a trial can be extended.' });
     const from = Math.max(Date.now(), sub.trialEndsAt ? sub.trialEndsAt.getTime() : 0);
     const until = new Date(from + parsed.data.days * DAY);
-    await platformPrisma.subscription.update({ where: { accountId: id }, data: { trialEndsAt: until } });
+    /*
+     * A claim on the trial as it was read (two extends at once give the days
+     * once, and a plan set or cancelled in between is not overwritten), and
+     * the account's entitlement moved to the new end in the same transaction:
+     * it used to keep the old end, so the trial's extras went off early.
+     */
+    const extended = await platformPrisma.$transaction(async (tx) => {
+      const r = await tx.subscription.updateMany({ where: { accountId: id, status: 'trialing', updatedAt: sub.updatedAt }, data: { trialEndsAt: until } });
+      if (!r.count) return false;
+      await syncAccountEntitlement(id, tx);
+      return true;
+    });
+    if (!extended) return res.status(409).json({ error: 'This plan changed a moment ago. Refresh to see it as it is now.', code: 'PLAN_CHANGED' });
     clearAccessCache();
     await audit(req, 'TRIAL_EXTENDED', { accountId: id }, { from: sub.trialEndsAt, to: until, days: parsed.data.days, reason: parsed.data.reason });
     res.json({ trialEndsAt: until });

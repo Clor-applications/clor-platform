@@ -109,7 +109,19 @@ export async function changeOutsideAccess(orgId: string, id: string, byUserId: s
   const data: Record<string, unknown> = {};
   if ('apps' in patch) data.apps = cleanApps(patch.apps);
   if ('expiresAt' in patch) data.expiresAt = cleanExpiry(patch.expiresAt);
-  return platformPrisma.outsideAccess.update({ where: { id: row.id }, data });
+  return claimOutsideAccess(row, data);
+}
+
+/**
+ * Write only if the access is still as it was read (same status, same last
+ * change). Two administrators acting at once (one ends it, the other resumes
+ * or widens it) used to let the later write undo the earlier: ended access
+ * came back. Now the second gets a 409 and looks again.
+ */
+async function claimOutsideAccess(row: { id: string; orgId: string; status: string; updatedAt: Date }, data: Record<string, unknown>) {
+  const r = await platformPrisma.outsideAccess.updateMany({ where: { id: row.id, orgId: row.orgId, status: row.status, updatedAt: row.updatedAt }, data });
+  if (!r.count) throw new OutsideAccessError(409, 'Someone changed this access a moment ago. Refresh to see it as it is now.', 'ACCESS_CHANGED');
+  return platformPrisma.outsideAccess.findUniqueOrThrow({ where: { id: row.id } });
 }
 
 export async function setOutsideAccessStatus(orgId: string, id: string, byUserId: string, to: 'ACTIVE' | 'SUSPENDED' | 'REVOKED', reason?: unknown) {
@@ -117,10 +129,7 @@ export async function setOutsideAccessStatus(orgId: string, id: string, byUserId
   if (row.status === 'REVOKED') throw new OutsideAccessError(409, 'This access has ended. Add the person again to grant it afresh.');
   if (row.status === to) return row;
   const why = reason == null ? null : String(reason).trim().slice(0, 300) || null;
-  return platformPrisma.outsideAccess.update({
-    where: { id: row.id },
-    data: to === 'ACTIVE' ? { status: 'ACTIVE', endedByUserId: null, endedAt: null, reason: null } : { status: to, endedByUserId: byUserId, endedAt: new Date(), reason: why },
-  });
+  return claimOutsideAccess(row, to === 'ACTIVE' ? { status: 'ACTIVE', endedByUserId: null, endedAt: null, reason: null } : { status: to, endedByUserId: byUserId, endedAt: new Date(), reason: why });
 }
 
 /** The company's list: who, from where, what they may use, until when, who granted and who stopped it. */
