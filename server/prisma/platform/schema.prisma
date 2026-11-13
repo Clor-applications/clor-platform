@@ -511,8 +511,9 @@ model AccountEntitlement {
 
   planKey String
 
-  /// ACTIVE | TRIAL | PAST_DUE | CANCELLED. Anything but the first two closes
-  /// the ceiling to the plan's own features and nothing extra.
+  /// ACTIVE | TRIAL | PAST_DUE | CANCELLED | CLOSED. Anything but the first
+  /// two closes the ceiling to the plan's own features and nothing extra.
+  /// CLOSED: the customer closed their last company (services/companyClosure.ts).
   status String @default("ACTIVE")
 
   /// Feature keys sold on top of the plan, comma-separated.
@@ -1874,7 +1875,8 @@ model CustomPlan {
 /// with both people on the record. Never approved by the person who asked.
 model OpsApproval {
   id              String    @id @default(cuid())
-  /// DEAL
+  /// DEAL (a priced subscription deal, routes/opsDeals.ts) | GRANT (apps set
+  /// free or cheaper by hand, services/ops/grants.ts)
   kind            String
   accountId       String?
   /// What was asked, as the route takes it.
@@ -1885,7 +1887,9 @@ model OpsApproval {
   discountPercent Int?
   reason          String
   requestedBy     String
-  /// PENDING | APPROVED | REJECTED | CANCELLED | EXPIRED
+  /// PENDING | APPROVED | REJECTED | CANCELLED | EXPIRED | FAILED
+  /// FAILED: approved, or about to be, but it could not be applied (the price
+  /// or the customer's plan changed since it was asked); nothing was changed.
   status          String    @default("PENDING")
   decidedBy       String?
   decidedAt       DateTime?
