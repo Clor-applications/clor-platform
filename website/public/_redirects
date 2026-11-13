@@ -1,3 +1,8 @@
+# Cloudflare Pages matches these on the path only: a rule cannot say which host
+# it is for. So www.clor.in -> clor.in is not done here but as a Redirect Rule on
+# the zone, in the Cloudflare dashboard. Every page already names the apex in its
+# canonical link, so search engines index one address either way.
+
 # Addresses the earlier clor.in site published; keep them working.
 /privacy        /legal/privacy  301
 /privacy.html   /legal/privacy  301
