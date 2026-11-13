@@ -57,3 +57,24 @@ Paste this in front of every 3D prompt so the set matches:
 ## Not needed
 
 - Fonts (Plus Jakarta Sans is already in), the CLOR logo, stock icons for buttons and menus.
+
+## D. Sign-in pictures (app, not the site)
+
+Where things stand on 13 Nov 2026:
+
+| Door | Address | Picture today |
+|---|---|---|
+| Workspace | app.clor.in | The door with four coloured panels (`signin-workspace`). Has one. |
+| Books, People, Payroll, Attendance | each app's own address | One 3D picture each. Have one. |
+| Sign up, trial | /signup, /start | Building-blocks picture. Has one. |
+| Operator console | ops.clor.in | No picture file. A scene drawn in code on navy: the console behind a lock, an authenticator code, an audit trail. |
+
+Wanted, in the same 3D clay style as the pictures above, 1536 x 1536 (and a 960 copy), WebP:
+
+| # | File name | Scene |
+|---|---|---|
+| D1 | `signin-ops-1536.webp`, `signin-ops-960.webp` | A CLOR staff member at a control desk with three screens showing plain shapes (no words, no customer names), a large padlock and a shield beside the desk, a phone showing six dots for an authenticator code. Navy room, orange and cyan light. |
+| D2 | `signin-workspace-1536.webp` (optional replacement) | The same door, but with **no title painted into the picture**: today's pictures carry "Clor Applications Pvt Ltd", and the registered name is CLOR Applications Private Limited. The page can set the title in type instead, so it is always right. |
+| D3 | All other sign-in pictures, re-exported without the painted title | Same reason as D2. |
+
+Rules: no words or logos inside the picture, no real people, nobody repeated from another picture, leave the bottom-left corner calm (the quote card sits there).

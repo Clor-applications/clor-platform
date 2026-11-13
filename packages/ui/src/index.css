@@ -9018,3 +9018,352 @@ button.ui-side-alert { cursor: pointer; }
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Operator console sign-in: the brand side as a scene on navy (owner, 13 Nov
+ * 2026: an illustration like the other sign-in pages). The customer doors show
+ * a 3D picture; staff get the site's own drawing: three lit outlines, the
+ * console behind a lock, the authenticator and the audit trail over its edges.
+ * Sizes inside the scene are in em, so it scales with the side's width.
+ */
+.ui-auth-brand:has(.oa-brand) {
+  border-right: 0;
+  color: #fff;
+  background:
+    radial-gradient(700px 420px at 100% 0%, rgb(0 121 191 / 0.38), transparent 62%),
+    radial-gradient(620px 420px at 0% 100%, rgb(255 84 0 / 0.24), transparent 62%),
+    linear-gradient(140deg, #0b1530, #101d45);
+}
+.ui-auth-brand:has(.oa-brand) .ui-caption {
+  color: rgb(203 213 225 / 0.7);
+}
+.oa-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  flex: 1;
+  min-height: 0;
+}
+.ui-auth .oa-brand .ui-auth-eyebrow {
+  color: #ffb08a;
+}
+.ui-auth .oa-brand .ui-auth-title {
+  color: #fff;
+  font-weight: 600 !important;
+  letter-spacing: -0.03em;
+}
+.oa-brand .ui-auth-lede {
+  color: #d5dcec;
+}
+.oa-brand .ui-auth-points {
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  color: #fff;
+}
+.oa-brand .ui-auth-points li {
+  padding: 8px 14px 8px 10px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.oa-brand .ui-auth-points svg {
+  color: #ffb08a;
+}
+
+.oa-scene {
+  position: relative;
+  align-self: center;
+  width: min(100%, 520px);
+  margin-top: auto;
+  padding: 3.4em 3em 3.8em;
+  font-size: clamp(11px, 0.95vw, 14px);
+  color: #0f172a;
+}
+.oa-ring {
+  position: absolute;
+  border: 3px solid;
+}
+.oa-ring--1 {
+  inset: 0;
+  border-radius: 2.4em;
+  border-color: #ff7a33;
+  box-shadow: 0 0 28px rgb(255 122 51 / 0.55), inset 0 0 28px rgb(255 122 51 / 0.22);
+}
+.oa-ring--2 {
+  inset: 1.1em;
+  border-radius: 1.8em;
+  border-color: #ffc24a;
+  box-shadow: 0 0 24px rgb(255 194 74 / 0.45), inset 0 0 24px rgb(255 194 74 / 0.18);
+}
+.oa-ring--3 {
+  inset: 2.2em;
+  border-radius: 1.2em;
+  border-color: #38c6e6;
+  box-shadow: 0 0 24px rgb(56 198 230 / 0.5), inset 0 0 24px rgb(56 198 230 / 0.18);
+}
+.oa-win {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr);
+  border-radius: 1em;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2.2em 3.6em -1.4em rgb(0 0 0 / 0.65);
+}
+.oa-rail {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 0.7em;
+  padding: 0.9em 0;
+  background: linear-gradient(180deg, #16245a, #0b1530);
+}
+.oa-rail-mark {
+  display: grid;
+  place-items: center;
+  width: 2em;
+  height: 2em;
+  margin-bottom: 0.4em;
+  border-radius: 0.6em;
+  color: #fff;
+  background: linear-gradient(140deg, #ff7a33, #d94400);
+}
+.oa-rail > span:not(.oa-rail-mark) {
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 0.45em;
+  background: rgb(255 255 255 / 0.14);
+}
+.oa-rail > span.is-on {
+  background: rgb(255 255 255 / 0.5);
+}
+.oa-main {
+  display: grid;
+  gap: 0.9em;
+  padding: 0 1em 1.2em;
+  background: linear-gradient(180deg, #f3f6fc, #fff 55%);
+}
+.oa-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-inline: -1em;
+  padding: 0.75em 1em;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.95em;
+}
+.oa-pill {
+  padding: 0.25em 0.8em;
+  border-radius: 999px;
+  background: #fff1ea;
+  color: #ba3900;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+.oa-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6em;
+}
+.oa-tile {
+  position: relative;
+  display: grid;
+  gap: 0.5em;
+  padding: 0.7em 0.8em;
+  border-radius: 0.7em;
+  background: #fff;
+  border: 1px solid #e3e9f3;
+  box-shadow: 0 0.4em 0.9em -0.6em rgb(11 21 48 / 0.35);
+}
+.oa-tile span {
+  font-size: 0.78em;
+  color: #64748b;
+}
+.oa-tile b {
+  display: block;
+  width: 62%;
+  height: 0.7em;
+  border-radius: 0.3em;
+  background: #0f172a;
+  opacity: 0.85;
+}
+.oa-tile .oa-dot {
+  position: absolute;
+  top: 0.8em;
+  right: 0.8em;
+}
+.oa-dot {
+  display: block;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: #1fae5b;
+  flex: none;
+}
+.oa-dot--warn {
+  background: #ffb627;
+}
+.oa-rows {
+  display: grid;
+}
+.oa-rows li {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.65em 0;
+  border-top: 1px solid #e5e7eb;
+}
+.oa-rows b,
+.oa-rows em {
+  display: block;
+  height: 0.4em;
+  border-radius: 0.2em;
+  background: #0f172a;
+  opacity: 0.55;
+  flex: none;
+  max-width: 46%;
+}
+.oa-rows em {
+  margin-left: auto;
+  background: #cbd5e1;
+  opacity: 1;
+  max-width: 22%;
+}
+.oa-lock {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  display: grid;
+  place-items: center;
+  width: 5.4em;
+  height: 5.4em;
+  margin: -2.7em 0 0 -1.2em;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(140deg, #ff7a33, #d94400);
+  border: 0.45em solid #fff;
+  box-shadow: 0 1.2em 2em -0.8em rgb(186 57 0 / 0.8), 0 0 0 0.7em rgb(255 84 0 / 0.12);
+}
+.oa-note {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  gap: 0.75em;
+  padding: 0.8em 1em 0.8em 0.8em;
+  border-radius: 0.9em;
+  background: #fff;
+  box-shadow: 0 1.4em 2.4em -1em rgb(0 0 0 / 0.6);
+  animation: ops-float 7s ease-in-out infinite;
+}
+.oa-note strong {
+  display: block;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+.oa-note-icon {
+  display: grid;
+  place-items: center;
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 0.7em;
+  color: #fff;
+  background: linear-gradient(140deg, #12b5e5, #0079bf);
+  flex: none;
+}
+.oa-note-icon--warm {
+  background: linear-gradient(140deg, #ffb627, #e07b00);
+}
+.oa-note--code {
+  top: 0.6em;
+  right: -0.6em;
+}
+.oa-note--trail {
+  bottom: 0.4em;
+  left: -0.6em;
+  animation-delay: -3.5s;
+}
+.oa-code {
+  display: flex;
+  gap: 0.3em;
+  margin-top: 0.5em;
+}
+.oa-code i {
+  display: grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.7em;
+  border-radius: 0.35em;
+  background: #f1f5fb;
+  border: 1px solid #dbe3ef;
+}
+.oa-code i::after {
+  content: '';
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: #0f172a;
+}
+.oa-code i:nth-child(4) {
+  margin-left: 0.4em;
+}
+.oa-code-bar {
+  display: block;
+  height: 0.25em;
+  margin-top: 0.55em;
+  border-radius: 999px;
+  background: #e3e9f3;
+  overflow: hidden;
+}
+.oa-code-bar i {
+  display: block;
+  width: 64%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #12b5e5, #0079bf);
+}
+.oa-note--trail ul {
+  display: grid;
+  gap: 0.45em;
+  margin-top: 0.55em;
+  width: 11em;
+}
+.oa-note--trail li {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+.oa-note--trail li i {
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  border: 0.12em solid #94a3b8;
+  flex: none;
+}
+.oa-note--trail li:first-child i {
+  border-color: #e07b00;
+  background: #ffb627;
+}
+.oa-note--trail li b {
+  display: block;
+  height: 0.35em;
+  border-radius: 0.2em;
+  background: #0f172a;
+  opacity: 0.5;
+}
+@keyframes ops-float {
+  50% { translate: 0 -0.45em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oa-note { animation: none; }
+}
+@media (max-height: 760px) {
+  .oa-brand .ui-auth-lede { display: none; }
+}
+/* On the navy side the wordmark's slate letters turn white; its orange stays. */
+.ui-auth-brand:has(.oa-brand) button [role='img'] span > span:first-child,
+.ui-auth-brand:has(.oa-brand) button [role='img'] span > span:last-child {
+  color: #fff !important;
+}
