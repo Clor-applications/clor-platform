@@ -5469,3 +5469,211 @@ main h2[id] {
 .acc-body > a {
   justify-self: start;
 }
+
+/* ============================================== depth and colour, 13 Nov
+ * (owner: "cards are complete flat, colours not good"). Cards lift off the
+ * ground with a layered shadow; each product card carries its own colour in a
+ * soft wash at the top; tinted sections get Azure-like colour washes; the
+ * setup pictures sit on coloured panels. Footer after Azure: light grey.
+ */
+.pg-card[data-app='books'] { --tone: #6366f1; }
+.pg-card[data-app='payroll'] { --tone: #0ea5e9; }
+.pg-card[data-app='people'] { --tone: #ff6b57; }
+.pg-card[data-app='attendance'] { --tone: #f59e0b; }
+.pg-card[data-app='projects'] { --tone: #14b8a6; }
+.pg-card[data-app='timesheet'] { --tone: #64748b; }
+.az-card {
+  border-color: rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 8px 16px -8px rgba(15, 23, 42, 0.1),
+    0 24px 48px -24px rgba(30, 41, 80, 0.22);
+}
+.az-card:hover {
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 12px 24px -10px rgba(15, 23, 42, 0.14),
+    0 36px 64px -28px rgba(30, 41, 80, 0.32);
+}
+.pg-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--tone, #94a3b8) 16%, transparent), transparent 60%),
+    #fff;
+}
+.pg-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--tone, #94a3b8), color-mix(in srgb, var(--tone, #94a3b8) 30%, #fff));
+}
+.pg-card .mark {
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--tone, #94a3b8) 60%, transparent);
+}
+.pg-card:hover .az-link {
+  color: var(--ink);
+}
+.section--tint {
+  background:
+    radial-gradient(50% 60% at 100% 0%, rgba(255, 84, 0, 0.07), transparent 70%),
+    radial-gradient(45% 55% at 0% 100%, rgba(59, 130, 246, 0.08), transparent 70%),
+    #f3f6fb;
+}
+.setup-step:nth-child(1) { --tone: #ff5400; }
+.setup-step:nth-child(2) { --tone: #6366f1; }
+.setup-step:nth-child(3) { --tone: #0ea5e9; }
+.setup-art {
+  border: 0;
+  border-radius: 24px;
+  background:
+    radial-gradient(70% 80% at 100% 0%, color-mix(in srgb, var(--tone) 22%, transparent), transparent 65%),
+    radial-gradient(60% 70% at 0% 100%, color-mix(in srgb, var(--tone) 12%, transparent), transparent 70%),
+    #f4f6fa;
+}
+.setup-art > * {
+  box-shadow: 0 18px 36px -18px rgba(30, 41, 80, 0.35);
+}
+.tc-card .tc-img {
+  transition: transform 0.4s var(--ease);
+}
+.tc-card {
+  overflow: hidden;
+}
+.tc-card:hover .tc-img {
+  transform: scale(1.03);
+}
+
+/* Footer */
+.footer--az {
+  background: #f2f2f2;
+  color: var(--ink-2);
+  padding-block: 56px 28px;
+  border-top: 0;
+}
+.footer--az .footer-top {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 36px;
+}
+.footer--az .footer-top .small {
+  margin: 0;
+  color: var(--ink-2);
+  max-width: 60ch;
+}
+.footer--az .footer-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 32px;
+  padding-bottom: 48px;
+}
+.footer--az .footer-title {
+  margin: 0 0 18px;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+.footer--az .footer-col ul {
+  display: grid;
+  gap: 14px;
+}
+.footer--az a {
+  color: var(--ink-2);
+  font-size: 14.5px;
+  text-decoration: none;
+}
+.footer--az a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer--az .footer-base {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+.footer-locale {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.footer-legal-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  font-size: 13.5px;
+}
+.footer--az .footer-legal-links a {
+  font-size: 13.5px;
+}
+.footer-copy {
+  color: var(--ink-2);
+}
+.footer-address {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-3);
+}
+.footer--az :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 1000px) {
+  .footer--az .footer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .footer--az .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .footer--az .footer-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .footer--az .footer-col:last-child {
+    grid-column: 1 / -1;
+  }
+}
+.footer--az .footer-col ul {
+  gap: 4px;
+}
+.footer--az .footer-base {
+  flex-direction: row;
+  margin-top: 0;
+  border-top: 0;
+  background: linear-gradient(rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.1)) var(--gutter) 0 / calc(100% - 2 * var(--gutter)) 1px no-repeat;
+}
+.footer--az .footer-legal-links {
+  align-items: center;
+}
+.footer--az .footer-address {
+  color: var(--ink-2);
+}
+.footer--az .footer-legal-links a {
+  padding-block: 4px;
+}
+@media (max-width: 600px) {
+  .footer--az .footer-base {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .footer--az .footer-legal-links {
+    gap: 4px 22px;
+  }
+}

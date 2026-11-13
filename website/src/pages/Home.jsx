@@ -313,7 +313,7 @@ function ProductGrid() {
             {list.map((slug) => {
               const p = productBySlug(slug);
               return (
-                <li key={slug} className="az-card pg-card" style={{ '--app': p.accent }}>
+                <li key={slug} className="az-card pg-card" data-app={slug} style={{ '--app': p.accent }}>
                   <Mark product={p} size={40} />
                   <h3 className="az-card-h">CLOR {p.name}</h3>
                   <p className="body">{p.line}</p>
