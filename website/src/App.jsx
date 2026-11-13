@@ -5,6 +5,7 @@ import Nav from './components/Nav.jsx';
 import Footer from './components/Footer.jsx';
 import './styles/site.css';
 import './styles/premium.css';
+import './styles/visual-v2.css';
 
 /* Blocks that fade up as they reach the screen. Only ones below the first screen are hidden, so nothing visible on load ever blinks. */
 const REVEAL =
