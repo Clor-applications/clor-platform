@@ -259,7 +259,8 @@ export async function overtimeFor(e: Who, month: string) {
         compOffDays,
         overtimeRequest: ot ? { id: ot.id, status: ot.status, note: ot.reviewNote } : null,
         compOffRequest: co ? { id: co.id, status: co.status, days: co.days, note: co.reviewNote } : null,
-        canAskOvertime: Boolean(settings?.overtimeRequests ?? true) && (r.overtimeMinutes || 0) > 0 && !r.overtimeApproved && !ot,
+        /* An approved request no longer on the day (it has more overtime now than was approved, writeDay): asked again. */
+        canAskOvertime: Boolean(settings?.overtimeRequests ?? true) && (r.overtimeMinutes || 0) > 0 && !r.overtimeApproved && (!ot || ot.status === 'APPROVED'),
         canAskCompOff: Boolean(settings?.compOffEnabled && settings.compOffLeaveTypeId) && compOffDays > 0 && !co,
       };
     });

@@ -322,10 +322,24 @@ export async function writeDay(opts: {
       const reasons = t.trust === 'MANUAL' ? [...t.reasons, ...decidedMarker(before?.trustReasons)] : t.reasons;
       trustData = { trust: t.trust, trustReasons: asJson(reasons) };
     }
+    /*
+     * Approved overtime survives a rewrite of the day (a reader punch, a correction, a recalculation) as long as
+     * the day has no more overtime than was approved. The day keeps only a yes/no, so what was approved is the
+     * larger of the minutes the day had when it was approved and the minutes on an approved overtime request
+     * for it. Less overtime than that: still approved, and paid at the new, smaller figure. More: the extra was
+     * never approved, so the day is not approved and the employee can ask again (overtimeFor). Before, every
+     * rewrite cleared it while the request stayed APPROVED, and the overtime went unpaid with no way to ask again.
+     */
+    let overtimeApproved = false;
+    const otNow = computed.overtimeMinutes || 0;
+    if (before?.overtimeApproved && otNow > 0) {
+      const asked = await peoplePrisma.overtimeRequest.findFirst({ where: { orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, kind: 'OVERTIME', status: 'APPROVED' }, orderBy: { minutes: 'desc' }, select: { minutes: true } });
+      overtimeApproved = otNow <= Math.max(before.overtimeMinutes || 0, asked?.minutes || 0);
+    }
     const record = await peoplePrisma.attendanceRecord.upsert({
       where: { employeeId_date: { employeeId: opts.employee.id, date: opts.date } },
       create: { accountId: opts.accountId, orgId: opts.orgId, employeeId: opts.employee.id, date: opts.date, createdByUserId: opts.userId, ...data, ...trustData },
-      update: { ...data, ...trustData, overtimeApproved: false },
+      update: { ...data, ...trustData, overtimeApproved },
     });
     await logDayChange({
       accountId: opts.accountId, orgId: opts.orgId, employeeId: record.employeeId, date: record.date, recordId: record.id,
