@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
-import { writeChangeLog, type Actor } from '../changeLog.js';
+import type { Actor } from '../changeLog.js';
 import { updateEmployee } from '../employees.js';
+import { withdrawForLeaver } from '../approvals/engine.js';
 
 /**
  * What a person's leaving (or removal) closes, so nothing acts on them
@@ -16,15 +17,11 @@ export async function closeOutFor(actor: Actor, employeeId: string) {
   const person = (await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { id: true, name: true, reportingManagerId: true, seatId: true } })) || { id: employeeId, name: 'The person', reportingManagerId: null, seatId: null, gone: true as const };
   const now = new Date();
   const cancelled = await peoplePrisma.scheduledChange.updateMany({ where: { orgId, employeeId, status: 'PENDING' }, data: { status: 'CANCELLED', cancelledAt: now } });
-  const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId, status: { in: ['WAITING', 'MORE_INFO'] }, requestType: { not: 'LEAVING' }, sourceKind: null }, select: { id: true, status: true } });
-  for (const r of open) {
-    await peoplePrisma.$transaction(async (tx) => {
-      await tx.approvalStep.updateMany({ where: { requestId: r.id, status: 'WAITING' }, data: { status: 'WITHDRAWN', comment: `${person.name} left` } });
-      await tx.approvalRequest.update({ where: { id: r.id }, data: { status: 'WITHDRAWN' } });
-      await writeChangeLog(tx, { ...actor, reason: `${person.name} left` }, { kind: 'ApprovalRequest', id: r.id, employeeId }, [{ field: 'status', before: r.status, after: 'WITHDRAWN', redacted: false }]);
-    });
-  }
-  if ('gone' in person) return { cancelled: cancelled.count, withdrawn: open.length, moved: 0 };
+  const open = await peoplePrisma.approvalRequest.findMany({ where: { orgId, subjectEmployeeId: employeeId, status: { in: ['WAITING', 'MORE_INFO'] }, requestType: { not: 'LEAVING' }, sourceKind: null }, select: { id: true } });
+  /* Each through the engine's locked withdraw: one approved or being applied a moment ago stays as it is, and a shift swap closes with its request. */
+  let withdrawn = 0;
+  for (const r of open) if (await withdrawForLeaver(actor, r.id, `${person.name} left`)) withdrawn += 1;
+  if ('gone' in person) return { cancelled: cancelled.count, withdrawn, moved: 0 };
   /* Their team moves up one line, through the one write path, so each person's history says why. */
   const reports = await peoplePrisma.employee.findMany({ where: { orgId, reportingManagerId: employeeId, status: { not: 'LEFT' } } });
   const up = { ...actor, reason: `${person.name} left; reports to the next manager up` };
@@ -32,5 +29,5 @@ export async function closeOutFor(actor: Actor, employeeId: string) {
   const dotted = await peoplePrisma.employee.findMany({ where: { orgId, dottedManagerId: employeeId, status: { not: 'LEFT' } } });
   for (const r of dotted) await updateEmployee({ ...actor, reason: `${person.name} left` }, r, { dottedManagerId: null });
   if (person.seatId) await peoplePrisma.employee.updateMany({ where: { id: employeeId, orgId }, data: { seatId: null } });
-  return { cancelled: cancelled.count, withdrawn: open.length, moved: reports.length };
+  return { cancelled: cancelled.count, withdrawn, moved: reports.length };
 }
