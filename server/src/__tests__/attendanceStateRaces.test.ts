@@ -177,16 +177,6 @@ describe('a month closed while a change waits for the lock', () => {
     expect((r as any).value.body.code).toBe('ATTENDANCE_MONTH_CLOSED');
     expect((await peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { id: day.id } })).overtimeApproved).toBe(false);
   });
-
-  it('refuses validating its days', async () => {
-    const c = await makeOwner();
-    const p = await person(c, '505');
-    const day = (await att(c).put('/records', { employeeId: p.id, date: '2026-10-06', checkIn: '09:00', checkOut: '18:00' }).expect(200)).body.record;
-    const r = await closeDuring(c, '2026-10', () => att(c).post('/records/validate', { ids: [day.id] }).then((x) => x));
-    expect((r as any).value.status).toBe(409);
-    expect((r as any).value.body.code).toBe('ATTENDANCE_MONTH_CLOSED');
-    expect((await peoplePrisma.attendanceRecord.findUniqueOrThrow({ where: { id: day.id } })).validated).toBe(false);
-  });
 });
 
 describe('punches that reach a closed month', () => {

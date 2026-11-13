@@ -381,15 +381,13 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/validate', can(Permission
   });
   if (open) return res.status(409).json({ error: `${open} of those days are still open (checked in, not out).` });
   /*
-   * Under the company's write lock, as closing a month and every write of a day are: a closed month's days are
-   * final, and a day rewritten a moment ago is read as it is now, not validated unseen.
+   * Under the company's write lock, as every write of a day is: a day rewritten a moment ago is read (and logged) as
+   * it is now, not validated unseen. A closed month's days can still be validated: it is a manager's sign-off, not
+   * a figure pay is taken from, and closing does not wait for it (attendanceFullDay.test.ts keeps that).
    */
   let count = 0;
   try {
     count = await peopleWrite(orgId, async () => {
-      const dates = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids } }, select: { date: true } });
-      const shut = await closedMonths(orgId, dates.map((d) => d.date.slice(0, 7)));
-      if (shut.size) throw new MonthClosedError([...shut].sort()[0]);
       const beforeRows = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids }, validated: false } });
       const r = await peoplePrisma.attendanceRecord.updateMany({
         where: { accountId, orgId, id: { in: ids } },
