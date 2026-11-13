@@ -8859,3 +8859,162 @@ button.ui-side-alert { cursor: pointer; }
   box-shadow: none;
   background: transparent;
 }
+
+/* ---------------------------------------------------------------------------
+ * Sign-in pages, tidied (owner, 13 Nov 2026: "check sign in pages, fix layout").
+ * The form side gets the three-colour line of clor.in across its top, a way back
+ * to the site, and the policy links with the company line at its foot instead of
+ * hanging under the button. The quote card names its subject, shows how long the
+ * line has left, and has arrows; twenty lines no longer mean twenty dots.
+ */
+.ui-auth-side {
+  background:
+    radial-gradient(520px 360px at 100% 0%, rgb(255 84 0 / 0.07), transparent 70%),
+    radial-gradient(420px 320px at 0% 100%, rgb(18 181 229 / 0.06), transparent 70%),
+    rgb(var(--auth-bg));
+}
+.ui-auth.has-scene .ui-auth-side::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #ff7a33, #ffc24a 50%, #38c6e6);
+}
+.ui-auth-back {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgb(var(--auth-line));
+  border-radius: 8px;
+  background: rgb(255 255 255);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--auth-ink));
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.ui-auth-back:hover {
+  border-color: rgb(var(--auth-accent));
+  background: rgb(255 248 243);
+}
+.ui-auth-foot {
+  width: 100%;
+  margin-top: 40px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+.ui-auth-foot .legal-links ul {
+  justify-content: center;
+  gap: 4px 18px;
+}
+.ui-auth-foot-line {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle, var(--fg-muted)));
+}
+@media (min-width: 1024px) {
+  .ui-auth.has-scene .ui-auth-foot {
+    position: absolute;
+    left: 0;
+    bottom: 22px;
+    margin-top: 0;
+    padding: 0 24px;
+  }
+  .ui-auth.has-scene .ui-auth-side {
+    padding-bottom: 96px;
+    padding-top: 72px;
+  }
+}
+
+.ui-auth-facts {
+  width: min(460px, 100%);
+  max-width: none;
+  padding: 20px 22px 14px;
+  border-radius: 12px;
+  background: rgb(11 21 48 / 0.72);
+  box-shadow: 0 24px 48px -24px rgb(11 21 48 / 0.7);
+}
+.ui-auth-fact {
+  min-height: 7.25rem;
+}
+.ui-auth-fact-about {
+  margin-bottom: 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffb08a;
+}
+.ui-auth-fact blockquote {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.ui-auth-fact figcaption {
+  margin-top: 8px;
+}
+.ui-auth-fact-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.ui-auth-fact-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.2);
+  overflow: hidden;
+}
+.ui-auth-fact-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff7a33, #ffc24a);
+  transform-origin: left;
+  animation: ui-auth-fact-run linear both;
+}
+.ui-auth-facts.is-held .ui-auth-fact-bar > span {
+  animation-play-state: paused;
+}
+@keyframes ui-auth-fact-run {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.ui-auth-fact-count {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.7);
+}
+.ui-auth-fact-foot button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: 8px;
+  background: none;
+  color: #fff;
+  font-size: 1.125rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.ui-auth-fact-foot button:hover {
+  background: rgb(255 255 255 / 0.14);
+  border-color: #fff;
+}
+.ui-auth-fact-foot button:focus-visible {
+  outline: 2px solid #ffb08a;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-auth-fact-bar > span {
+    animation: none;
+    transform: none;
+  }
+}

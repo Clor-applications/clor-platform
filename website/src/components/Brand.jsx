@@ -25,7 +25,7 @@ export function Mark({ product, size = 36 }) {
   const Duo = DUO[product.slug];
   const iconSize = Math.round(size * 0.5);
   return (
-    <span className="mark" aria-hidden="true" style={{ '--mark': `${size}px`, '--mark-bg': `${product.accent}14`, '--mark-fg': product.accent, '--mark-line': `${product.accent}33` }}>
+    <span className="mark" data-p={product.slug} aria-hidden="true" style={{ '--mark': `${size}px`, '--mark-bg': `${product.accent}14`, '--mark-fg': product.accent, '--mark-line': `${product.accent}33` }}>
       {Duo ? <Duo size={iconSize} weight="duotone" /> : <BookOpen size={iconSize} strokeWidth={1.75} absoluteStrokeWidth />}
     </span>
   );

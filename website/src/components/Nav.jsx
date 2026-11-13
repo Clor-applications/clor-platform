@@ -179,22 +179,6 @@ export default function Nav() {
 
   return (
     <>
-    <div className="topbar">
-      <div className="wrap topbar-in">
-        <a href={`mailto:${SITE.salesEmail}`}>Talk to sales: {SITE.salesEmail}</a>
-        <ul>
-          <li>
-            <a href={SITE.portalUrl}>Employee portal</a>
-          </li>
-          <li>
-            <Link href="/resources">Help and guides</Link>
-          </li>
-          <li>
-            <Link href="/contact">Contact</Link>
-          </li>
-        </ul>
-      </div>
-    </div>
     <header className="nav" ref={ref}>
       <div className="wrap nav-bar">
         <Logo light />
@@ -220,6 +204,12 @@ export default function Nav() {
           </ul>
         </nav>
         <div className="nav-end">
+          <a href={SITE.portalUrl} className="nav-quiet">
+            Employee portal
+          </a>
+          <Link href="/contact" className="nav-quiet">
+            Contact sales
+          </Link>
           <a href={SITE.signInUrl} className="nav-trigger nav-signin">
             Sign in
           </a>

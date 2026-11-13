@@ -4,13 +4,16 @@ import { SITE, productBySlug } from '../site.js';
 import { Mark, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head } from '../components/Sections.jsx';
+import { ArrowsLeftRight, CaretRight, Fingerprint, Key, Plugs, TreeStructure, UsersThree } from '@phosphor-icons/react';
 import { TEAM } from '../team.js';
+import QuoteBand from '../components/Quotes.jsx';
 import { DOCUMENTS } from '../../../packages/shell/legal/documents.jsx';
 
-export function PageHead({ title, intro, children }) {
+export function PageHead({ title, intro, eyebrow, children }) {
   return (
     <section className="hero hero--product">
       <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
+        {eyebrow ? <p className="fx-eyebrow">{eyebrow}</p> : null}
         <h1 className="h-1">{title}</h1>
         {intro ? <p className="lede">{intro}</p> : null}
         {children}
@@ -27,6 +30,7 @@ export function PageHead({ title, intro, children }) {
 function SolutionHero({ title, intro, pic, children }) {
   const copy = (
     <div className="hero-copy">
+      <p className="fx-eyebrow">Solutions</p>
       <h1 id="sol-title" className="h-hero">
         {title}
       </h1>
@@ -201,7 +205,7 @@ const INTEGRATIONS = [
 export function Integrations() {
   return (
     <>
-      <PageHead title="What connects to CLOR" intro="Only what works today is listed here. If you need something that isn’t, tell us." />
+      <PageHead eyebrow="Integrations" title="What connects to CLOR" intro="Only what works today is listed here. If you need something that isn’t, tell us." />
       <section className="section">
         <div className="wrap">
           <ul className="integrations">
@@ -227,34 +231,88 @@ export function Integrations() {
 }
 
 /* --------------------------------------------------------------- resources */
-const GUIDES = [
-  ['readers', 'Connecting readers', 'Set up biometric and face readers, and enrol employees on them.'],
-  ['connector', 'The on-site connector', 'Install the connector for readers on your network and for Tally.'],
-  ['tally', 'Tally', 'Move from Tally, or keep it in step while you do.'],
-  ['hr-tools', 'HR tools', 'Connect greytHR, Keka or Zoho People.'],
-  ['sso', 'Single sign-on', 'Sign in through Google Workspace, Microsoft Entra ID or another identity provider.'],
-  ['scim', 'Directory sync (SCIM)', 'Keep users in step with your identity provider.'],
+/* Guides in the three jobs they belong to. `for` names the products a guide is about; none means every product. */
+const GUIDE_GROUPS = [
+  {
+    title: 'Attendance devices',
+    text: 'Get punches from the reader at the gate into CLOR.',
+    guides: [
+      { slug: 'readers', icon: Fingerprint, title: 'Connecting readers', text: 'Set up biometric and face readers, and enrol employees on them.', for: ['attendance'] },
+      { slug: 'connector', icon: Plugs, title: 'The on-site connector', text: 'Install the connector for readers on your network and for Tally.', for: ['attendance', 'books'] },
+    ],
+  },
+  {
+    title: 'Bringing your data',
+    text: 'Move from what you use today, or keep it in step while you do.',
+    guides: [
+      { slug: 'tally', icon: ArrowsLeftRight, title: 'Tally', text: 'Move from Tally, or keep it in step while you do.', for: ['books'] },
+      { slug: 'hr-tools', icon: UsersThree, title: 'HR tools', text: 'Connect greytHR, Keka or Zoho People.', for: ['attendance'] },
+    ],
+  },
+  {
+    title: 'Sign-in and users',
+    text: 'Let your identity provider decide who gets in.',
+    guides: [
+      { slug: 'sso', icon: Key, title: 'Single sign-on', text: 'Sign in through Google Workspace, Microsoft Entra ID or another identity provider.', for: [] },
+      { slug: 'scim', icon: TreeStructure, title: 'Directory sync (SCIM)', text: 'Keep users in step with your identity provider.', for: [] },
+    ],
+  },
 ];
 
 export function Resources() {
   return (
     <>
-      <PageHead title="Guides" intro="Help with setting up CLOR. More guides follow as the products grow." />
+      <PageHead eyebrow="Resources" title="Guides" intro="Help with setting up CLOR. More guides follow as the products grow." />
       <section className="section">
-        <div className="wrap">
-          <ul className="guides">
-            {GUIDES.map(([slug, t, d]) => (
-              <li key={slug}>
-                <a href={`${SITE.appUrl}/docs/${slug}.html`} className="guide">
-                  <h2 className="h-3">{t}</h2>
-                  <p className="body">{d}</p>
-                  <span className="small">Read the guide</span>
-                </a>
-              </li>
-            ))}
-          </ul>
+        <div className="wrap gd">
+          {GUIDE_GROUPS.map((g, i) => (
+            <div key={g.title} className="gd-group">
+              <div className="gd-head">
+                <p className="gd-no">{String(i + 1).padStart(2, '0')}</p>
+                <h2 className="h-2">{g.title}</h2>
+                <p className="body">{g.text}</p>
+              </div>
+              <ul className="gd-list">
+                {g.guides.map((x) => (
+                  <li key={x.slug}>
+                    <a href={`${SITE.appUrl}/docs/${x.slug}.html`} className="gd-card" data-p={x.for[0] || 'workspace'}>
+                      <span className="gd-icon" aria-hidden="true">
+                        <x.icon size={26} weight="duotone" />
+                      </span>
+                      <h3 className="h-3">{x.title}</h3>
+                      <p className="body">{x.text}</p>
+                      <span className="gd-foot">
+                        <span className="gd-for">
+                          {x.for.length ? (
+                            x.for.map((sl) => (
+                              <span key={sl} data-p={sl}>
+                                <Mark product={productBySlug(sl)} size={20} /> {productBySlug(sl).name}
+                              </span>
+                            ))
+                          ) : (
+                            <span>Every CLOR product</span>
+                          )}
+                        </span>
+                        <span className="gd-go">
+                          Read the guide
+                          <span className="fx-go-chip" aria-hidden="true">
+                            <CaretRight size={14} weight="bold" />
+                          </span>
+                        </span>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p className="gd-help">
+            <strong>Can’t find what you need?</strong> Write to <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a> and a person replies, or see{' '}
+            <Link href="/integrations">what connects to CLOR</Link>.
+          </p>
         </div>
       </section>
+      <Closing />
     </>
   );
 }
@@ -262,39 +320,50 @@ export function Resources() {
 /* -------------------------------------------------------------------- team
  * One row per person under a hairline: name and role on the left, their own
  * words on the right. No cards; initials stand in until we have photos.
+ * 13 Nov 2026: each person is a card in their own colour, with the first paragraph,
+ * the quote, and the rest of the profile behind "Full profile".
  */
 export function Team() {
   return (
     <>
-      <PageHead title="The people behind CLOR" intro={`CLOR is made in ${SITE.city} by a team with backgrounds in accounting, taxation, finance and IT.`} />
+      <PageHead eyebrow="Company" title="The people behind CLOR" intro={`CLOR is made in ${SITE.city} by a team with backgrounds in accounting, taxation, finance and IT.`} />
       <section className="section">
         <div className="wrap">
           <ul className="team">
             {TEAM.map((p) => (
-              <li key={p.name} className="team-row">
-                <div className="team-who">
-                  {p.photo ? (
-                    <img className="team-face" src={p.photo} width="96" height="96" loading="lazy" alt="" />
-                  ) : (
-                    <span className="team-face" aria-hidden="true">
-                      {p.initials}
-                    </span>
-                  )}
-                  <div>
-                    <h2 className="h-3">{p.name}</h2>
-                    <p className="small">{p.role}</p>
-                  </div>
-                </div>
-                <div className="team-words stack">
-                  {p.bio.map((para) => (
-                    <p key={para.slice(0, 24)} className="body">
-                      {para}
-                    </p>
-                  ))}
+              <li key={p.name} className="tcard" data-p={p.tone}>
+                <div className="tcard-top" aria-hidden="true" />
+                {p.photo ? (
+                  <img className="tcard-face" src={p.photo} width="112" height="112" loading="lazy" alt="" />
+                ) : (
+                  <span className="tcard-face" aria-hidden="true">
+                    {p.initials}
+                  </span>
+                )}
+                <div className="tcard-body">
+                  <p className="tcard-role">{p.role}</p>
+                  <h2 className="tcard-name">{p.name}</h2>
+                  <ul className="tcard-tags">
+                    {p.years ? <li className="is-lead">{p.years}</li> : null}
+                    {p.fields.map((f) => (
+                      <li key={f}>{f}</li>
+                    ))}
+                  </ul>
+                  <p className="body">{p.bio[0]}</p>
                   {p.quote ? (
-                    <blockquote className="team-quote">
+                    <blockquote className="tcard-quote">
                       <p>“{p.quote}”</p>
                     </blockquote>
+                  ) : null}
+                  {p.bio.length > 1 ? (
+                    <details className="tcard-more">
+                      <summary>Full profile</summary>
+                      {p.bio.slice(1).map((para) => (
+                        <p key={para.slice(0, 24)} className="body">
+                          {para}
+                        </p>
+                      ))}
+                    </details>
                   ) : null}
                 </div>
               </li>
@@ -302,6 +371,7 @@ export function Team() {
           </ul>
         </div>
       </section>
+      <QuoteBand />
       <Closing title="Want to talk to us?" text="Tell us about your business and what you’d like CLOR to do for it." />
     </>
   );
@@ -312,6 +382,7 @@ export function About() {
   return (
     <>
       <PageHead
+        eyebrow="Company"
         title="About CLOR"
         intro={`${SITE.company} makes CLOR: accounting, HR, payroll and attendance that read the same records, so an employee added in People is the same person on the attendance reader, in the salary run and in the books.`}
       >
@@ -345,6 +416,7 @@ export function About() {
           </ul>
         </div>
       </section>
+      <QuoteBand />
       <Closing title="Want to know more?" text="Tell us about your business and what you’d like CLOR to do for it." />
     </>
   );
@@ -377,7 +449,7 @@ export function Contact() {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   return (
     <>
-      <PageHead title="Talk to us" intro="Tell us about your business and what you need." />
+      <PageHead eyebrow="Contact" title="Talk to us" intro="Tell us about your business and what you need." />
       <section className="section">
         <div className="wrap contact">
           <form
@@ -470,7 +542,7 @@ const SECURITY = [
 export function Security() {
   return (
     <>
-      <PageHead title="How CLOR keeps your data safe" intro="What we do today, described plainly. Nothing on this page is a plan." />
+      <PageHead eyebrow="Security" title="How CLOR keeps your data safe" intro="What we do today, described plainly. Nothing on this page is a plan." />
       <section className="section">
         <div className="wrap">
           <dl className="features">
@@ -533,7 +605,7 @@ export function ServiceStatus() {
         : 'The parts marked below did not answer just now. The others are working.';
   return (
     <>
-      <PageHead title={headline} intro={intro} />
+      <PageHead eyebrow="Status" title={headline} intro={intro} />
       <section className="section section--flush">
         <div className="wrap">
           <ul className="status-list" aria-live="polite">
@@ -736,7 +808,7 @@ export function Legal({ doc }) {
   const Body = d.Body;
   return (
     <>
-      <PageHead title={d.title} intro={d.summary} />
+      <PageHead eyebrow="Legal" title={d.title} intro={d.summary} />
       <section className="section section--flush">
         <div className="wrap">
           <nav className="legal-nav" aria-label="Legal documents">

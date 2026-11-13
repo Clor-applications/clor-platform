@@ -4,10 +4,11 @@ import { routeFor, titleFor } from './routes.jsx';
 import Nav from './components/Nav.jsx';
 import Footer from './components/Footer.jsx';
 import './styles/site.css';
+import './styles/bands.css';
 
 /* Blocks that fade up as they reach the screen. Only ones below the first screen are hidden, so nothing visible on load ever blinks. */
 const REVEAL =
-  'main .head, main .app-sec-copy, main .app-sec-photo, main .apps > li, main .groups > li, main .links > li, main .faq-item, main .split > .stack, main .p-feature, main .closing-band-inner, main .demo-pic';
+  'main .head, main .app-sec-copy, main .app-sec-photo, main .apps > li, main .groups > li, main .links > li, main .faq-item, main .split > .stack, main .p-feature, main .closing-band-inner, main .demo-pic, main .fx-card, main .fx-pcard, main .fx-next-grid > *, main .p-feature, main .cat-item, main .steps > div';
 
 function useReveal(route) {
   useEffect(() => {
@@ -77,7 +78,7 @@ function Page() {
         Skip to content
       </a>
       <Nav />
-      <main id="main" tabIndex={-1}>
+      <main id="main" tabIndex={-1} className={route.path === '/' ? undefined : 'pg'} data-p={route.product}>
         {route.page()}
       </main>
       <Footer />

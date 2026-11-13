@@ -10,9 +10,10 @@ import { Mark } from './Brand.jsx';
  */
 
 /** A section's title and its line under the title. */
-export function Head({ title, intro, id }) {
+export function Head({ title, intro, id, eyebrow }) {
   return (
     <div className="head">
+      {eyebrow ? <p className="fx-eyebrow">{eyebrow}</p> : null}
       <h2 className="h-1" id={id}>
         {title}
       </h2>
