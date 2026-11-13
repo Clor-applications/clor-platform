@@ -58,7 +58,8 @@ opsCustomersRouter.post('/ops/accounts/:id/apps', requireOperatorRole('BILLING')
       const k = keep.get(appCode);
       return k ? { appCode, tier: k.tier, seats: k.seats, priceModel: k.priceModel, unitAmount: k.unitAmount } : { appCode, priceModel: 'free' };
     });
-    const after = await setSubscription(id, { apps, status: sub.status });
+    /* The paid period stays exactly as it is: only the apps change. */
+    const after = await setSubscription(id, { apps, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd });
     clearAccessCache();
     await audit(req, 'SUBSCRIPTION_APPS_CHANGED', { accountId: id }, { from: before, to: (after?.items || []).map((i) => i.appCode).sort(), reason: parsed.data.reason });
     res.json({ apps: (after?.items || []).map((i) => i.appCode).sort() });
@@ -74,7 +75,8 @@ opsCustomersRouter.post('/ops/accounts/:id/cancel', requireOperatorRole('BILLING
     const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true } });
     if (!sub) return res.status(409).json({ error: 'This customer has no subscription to cancel.' });
     if (sub.status === 'cancelled') return res.status(409).json({ error: 'Already cancelled.' });
-    await platformPrisma.subscription.update({ where: { accountId: id }, data: { status: 'cancelled', cancelAtPeriodEnd: false } });
+    const done = await platformPrisma.subscription.updateMany({ where: { accountId: id, status: { not: 'cancelled' } }, data: { status: 'cancelled', cancelAtPeriodEnd: false } });
+    if (!done.count) return res.status(409).json({ error: 'Already cancelled.' });
     await syncAccountEntitlement(id);
     clearAccessCache();
     await audit(req, 'SUBSCRIPTION_CANCELLED', { accountId: id }, { from: sub.status, reason: parsed.data.reason });
@@ -88,11 +90,18 @@ opsCustomersRouter.post('/ops/accounts/:id/reopen', requireOperatorRole('BILLING
     const id = String(req.params.id);
     const parsed = reasonBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: SAY_WHY });
-    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true } });
+    const sub = await platformPrisma.subscription.findUnique({ where: { accountId: id }, select: { status: true, trialEndsAt: true, currentPeriodEnd: true } });
     if (!sub) return res.status(409).json({ error: 'This customer has no subscription.' });
     if (sub.status !== 'cancelled') return res.status(409).json({ error: 'Only a cancelled subscription can be reopened.' });
     const status = sub.trialEndsAt && sub.trialEndsAt.getTime() > Date.now() ? 'trialing' : 'active';
-    await platformPrisma.subscription.update({ where: { accountId: id }, data: { status } });
+    /*
+     * Back to active with a paid period that has already ended (closing the
+     * last company ends it that day): the old end is dropped, as for a grant
+     * by hand (setSubscription), or the account would reopen lapsed.
+     */
+    const lapsed = status === 'active' && Boolean(sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() <= Date.now());
+    const done = await platformPrisma.subscription.updateMany({ where: { accountId: id, status: 'cancelled' }, data: { status, ...(lapsed ? { currentPeriodEnd: null } : {}) } });
+    if (!done.count) return res.status(409).json({ error: 'Only a cancelled subscription can be reopened.' });
     await syncAccountEntitlement(id);
     clearAccessCache();
     await audit(req, 'SUBSCRIPTION_REOPENED', { accountId: id }, { to: status, reason: parsed.data.reason });

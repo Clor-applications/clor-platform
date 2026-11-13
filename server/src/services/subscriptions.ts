@@ -176,7 +176,18 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
     input.trialEndsAt ??
     (input.trialDays && input.trialDays > 0 ? new Date(Date.now() + input.trialDays * 86400000) : null);
   const status = input.status || (trialEndsAt ? 'trialing' : 'active');
-  const before = new Set((await getSubscription(accountId))?.items.map((i) => i.appCode) || []);
+  const current = await getSubscription(accountId);
+  const before = new Set(current?.items.map((i) => i.appCode) || []);
+  /*
+   * The paid period. Given: it is set (null clears it). Not given: the stored
+   * one is kept, unless it has already ended and the subscription is being
+   * made active. Then it is dropped (open-ended, as a grant by hand is): an
+   * ops grant or reopen on a lapsed account used to keep the old end and
+   * leave the account "active" but lapsed. A caller that must keep the dates
+   * exactly (changing apps) passes them.
+   */
+  const lapsed = Boolean(current?.currentPeriodEnd && current.currentPeriodEnd.getTime() <= Date.now());
+  const currentPeriodEnd = input.currentPeriodEnd !== undefined ? input.currentPeriodEnd : status === 'active' && lapsed ? null : undefined;
 
   /* A-17: the subscription and its items change together or not at all — a failure between deleting the old items and writing the new ones used to leave the account owning nothing. */
   const sub = await platformPrisma.$transaction(async (tx) => {
@@ -187,13 +198,13 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
         status,
         billingInterval: input.billingInterval ?? null,
         trialEndsAt,
-        currentPeriodEnd: input.currentPeriodEnd ?? null,
+        currentPeriodEnd: currentPeriodEnd ?? null,
       },
       update: {
         status,
         billingInterval: input.billingInterval ?? undefined,
         trialEndsAt: trialEndsAt ?? undefined,
-        currentPeriodEnd: input.currentPeriodEnd ?? undefined,
+        currentPeriodEnd,
       },
     });
 
