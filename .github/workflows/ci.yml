@@ -25,6 +25,11 @@ concurrency:
   group: ci-${{ github.ref }}-${{ (github.event.action == 'labeled' && github.event.label.name != 'full-tests') && format('label-{0}', github.run_id) || github.event_name == 'schedule' && 'nightly' || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || 'push' }}
   cancel-in-progress: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
 
+# GitHub's machines run on UTC; the Mac ran on India time, and some tests
+# (dates shown to the user) were written against it. Customers are in India.
+env:
+  TZ: Asia/Kolkata
+
 jobs:
   verify:
     if: github.event.action != 'labeled' || github.event.label.name == 'full-tests'
