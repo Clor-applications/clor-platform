@@ -11,6 +11,10 @@ import { ATTENDANCE_MODULE, ATTENDANCE_RESOURCE, attendanceRouteOk } from '../se
 import { isWeeklyOff, istDate, istTime } from '../services/attendance/compute.js';
 import { FACE, ONLINE_WINDOW_MS } from '../services/attendance/adms.js';
 import { ISO_DATE, daysOfMonth, monthRows, periodContext, today } from '../services/attendance/days.js';
+import { overtimeDaysOver } from '../services/attendance/overtimeFigures.js';
+import { hasOvertimeCaps } from '../services/attendance/overtimePolicy.js';
+
+const OT_DAY_WORDS = { working: 'Working day', weeklyOff: 'Weekly off', holiday: 'Holiday' } as const;
 import { sentOnly } from '../utils/sentOnly.js';
 import { teamScope } from '../services/people/scope.js';
 import { docAccess, docAccessOfBoth, docAccessOfUser, docWhere, type DocAccess } from '../services/people/documentAccess.js';
@@ -417,13 +421,20 @@ export async function build(id: string, accountId: string, orgId: string, q: any
         notes: quietNote(quietDays(ctx)),
       };
     }
-    // overtime register
+    // overtime register: each day at its day's rate, and the hours over the company's caps (overtimePolicy.ts)
+    const overtime = await overtimeDaysOver(ctx, orgId);
+    const capsSet = hasOvertimeCaps(overtime.policy);
     const rows = ctx.records
       .filter((r) => people.has(r.employeeId) && r.overtimeMinutes > 0)
       .sort((a, b) => people.get(a.employeeId)!.name.localeCompare(people.get(b.employeeId)!.name) || a.date.localeCompare(b.date))
       .map((r) => {
         const p = people.get(r.employeeId)!;
-        return { name: p.name, code: p.code, department: p.department, date: r.date, worked: hm(r.workedMinutes), overtime: hm(r.overtimeMinutes), minutes: r.overtimeMinutes, approved: r.overtimeApproved ? 'Yes' : 'No' };
+        const day = overtime.days.get(r.employeeId)?.get(r.date);
+        return {
+          name: p.name, code: p.code, department: p.department, date: r.date, worked: hm(r.workedMinutes), overtime: hm(r.overtimeMinutes), minutes: r.overtimeMinutes, approved: r.overtimeApproved ? 'Yes' : 'No',
+          dayType: day ? OT_DAY_WORDS[day.dayType] : '', rate: day ? `${day.rate}×` : '', atRate: day ? hm(day.weightedMinutes) : '', weightedMinutes: day?.weightedMinutes || 0,
+          overCap: day?.overCapMinutes ? hm(day.overCapMinutes) : '', overCapMinutes: day?.overCapMinutes || 0,
+        };
       });
     const approved = rows.filter((r) => r.approved === 'Yes').reduce((s, r) => s + r.minutes, 0);
     const all = rows.reduce((s, r) => s + r.minutes, 0);
@@ -437,11 +448,23 @@ export async function build(id: string, accountId: string, orgId: string, q: any
         { key: 'date', label: 'Date' },
         { key: 'worked', label: 'Hours worked', align: 'end' },
         { key: 'overtime', label: 'Overtime', align: 'end' },
+        { key: 'dayType', label: 'Kind of day' },
+        { key: 'rate', label: 'Rate', align: 'end' },
+        { key: 'atRate', label: 'At the rate', align: 'end' },
+        ...(capsSet ? [{ key: 'overCap', label: 'Over the cap', align: 'end' as const }] : []),
         { key: 'approved', label: 'Approved', align: 'center' },
       ],
-      rows: rows.map(({ minutes: _m, ...r }) => r),
-      totals: { name: `${new Set(rows.map((r) => r.code ?? r.name)).size} people`, overtime: `${hm(all)} (approved ${hm(approved)})` },
-      notes: ['Wages are not shown: the overtime rate is set in Payroll.'],
+      rows: rows.map(({ minutes: _m, weightedMinutes: _w, overCapMinutes: _o, ...r }) => r),
+      totals: {
+        name: `${new Set(rows.map((r) => r.code ?? r.name)).size} people`,
+        overtime: `${hm(all)} (approved ${hm(approved)})`,
+        atRate: `${hm(rows.reduce((s, r) => s + r.weightedMinutes, 0))} (approved ${hm(rows.filter((r) => r.approved === 'Yes').reduce((s, r) => s + r.weightedMinutes, 0))})`,
+        ...(capsSet ? { overCap: hm(rows.reduce((s, r) => s + r.overCapMinutes, 0)) } : {}),
+      },
+      notes: [
+        'At the rate: the overtime hours times the rate for that kind of day (Overtime policy). Wages are not shown: Payroll prices the hours.',
+        ...(capsSet ? ['Over the cap: hours beyond the company’s overtime caps for a day, a week or a quarter. They are kept and count once approved.'] : []),
+      ],
     };
   }
 
@@ -490,9 +513,9 @@ export async function build(id: string, accountId: string, orgId: string, q: any
     const groups = new Map<string, any>();
     for (const r of rows) {
       const k = deptOf.get(r.employeeId) || 'No department';
-      const g = groups.get(k) || { department: k, headcount: 0, present: 0, halfDays: 0, absent: 0, leave: 0, lateCount: 0, approvedOvertimeMinutes: 0, payableDays: 0 };
+      const g = groups.get(k) || { department: k, headcount: 0, present: 0, halfDays: 0, absent: 0, leave: 0, lateCount: 0, approvedOvertimeMinutes: 0, weightedOvertimeMinutes: 0, payableDays: 0 };
       g.headcount += 1;
-      for (const f of ['present', 'halfDays', 'absent', 'leave', 'lateCount', 'approvedOvertimeMinutes', 'payableDays']) g[f] += Number((r as any)[f]) || 0;
+      for (const f of ['present', 'halfDays', 'absent', 'leave', 'lateCount', 'approvedOvertimeMinutes', 'weightedOvertimeMinutes', 'payableDays']) g[f] += Number((r as any)[f]) || 0;
       groups.set(k, g);
     }
     return {
@@ -507,9 +530,10 @@ export async function build(id: string, accountId: string, orgId: string, q: any
         { key: 'leave', label: 'Leave days', align: 'end' },
         { key: 'lateCount', label: 'Late days', align: 'end' },
         { key: 'overtime', label: 'Approved OT', align: 'end' },
+        { key: 'overtimeAtRate', label: 'OT at the rate', align: 'end' },
         { key: 'payableDays', label: 'Payable days', align: 'end' },
       ],
-      rows: [...groups.values()].sort((a, b) => a.department.localeCompare(b.department)).map((g) => ({ ...g, overtime: hm(g.approvedOvertimeMinutes) })),
+      rows: [...groups.values()].sort((a, b) => a.department.localeCompare(b.department)).map((g) => ({ ...g, overtime: hm(g.approvedOvertimeMinutes), overtimeAtRate: hm(g.weightedOvertimeMinutes) })),
     };
   }
 

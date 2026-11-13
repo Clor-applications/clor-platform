@@ -33,6 +33,9 @@ import { loadHolidays, loadSchedule, resolveShift } from '../services/attendance
 import { emit as emitWebhook } from '../services/attendance/webhooks.js';
 import { logDayChange } from '../services/attendance/history.js';
 import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
+import { BREAK_MODES, MAX_BREAKS, breaksOf, breaksProblem, unpaidBreakMinutes } from '../services/attendance/breaks.js';
+import { hasOvertimeCaps, overtimePolicyOf } from '../services/attendance/overtimePolicy.js';
+import { overtimeDaysFor } from '../services/attendance/overtimeFigures.js';
 import { deleteToBin } from '../services/recycleBin.js';
 import { MONTH_DAYS, scheduleGuard, shiftRanges, type DateRange } from '../services/attendance/scheduleGuard.js';
 import { nightRefusal, onShiftAhead } from '../services/people/nightConsent.js';
@@ -162,7 +165,17 @@ attendanceRouter.get('/orgs/:orgId/attendance/records', can(PermissionAction.VIE
   });
   const named = await withNames(orgId, rows);
   /* Off: the rows are exactly as before, with no trust on them. */
-  const records = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  const trusted = readerTrust ? named : named.map(({ trust: _t, trustReasons: _r, ...r }) => r);
+  /* With an overtime cap set: the hours of a day's overtime over it, said beside the day where it is approved (overtimePolicy.ts). */
+  const withOvertime = rows.filter((r) => r.overtimeMinutes > 0);
+  const capsSet = withOvertime.length ? hasOvertimeCaps(overtimePolicyOf((await peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { overtimePolicy: true } }))?.overtimePolicy)) : false;
+  const figures = capsSet ? await overtimeDaysFor(accountId, orgId, withOvertime.map((r) => ({ employeeId: r.employeeId, date: r.date }))) : null;
+  const records = figures
+    ? trusted.map((r: any) => {
+        const day = r.overtimeMinutes > 0 ? figures.days.get(r.employeeId)?.get(r.date) : undefined;
+        return day?.overCapMinutes ? { ...r, overCapMinutes: day.overCapMinutes, overCap: day.overCap } : r;
+      })
+    : trusted;
   res.json({ records, from, to, readerTrust });
 });
 
@@ -995,6 +1008,20 @@ const shiftSchema = z.object({
   checkInBeforeMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours before the start.').optional().nullable(),
   checkOutAfterMinutes: z.coerce.number().int().min(0, 'The punch window is minutes, 0 or more.').max(720, 'At most 12 hours after the end.').optional().nullable(),
   autoPick: z.boolean().optional(),
+  /* Named breaks (services/attendance/breaks.ts). Left out: the shift keeps the breaks it has; [] goes back to the one break of breakMinutes. */
+  breaks: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1, 'Name each break.').max(40),
+        startTime: z.string().refine(isHHMM, 'A break starts at HH:MM.').optional().nullable().or(z.literal('')),
+        endTime: z.string().refine(isHHMM, 'A break ends at HH:MM.').optional().nullable().or(z.literal('')),
+        minutes: z.coerce.number().int().min(0).max(600).optional().nullable(),
+        paid: z.boolean().optional(),
+      }),
+    )
+    .max(MAX_BREAKS, `A shift has at most ${MAX_BREAKS} breaks.`)
+    .optional(),
+  breakMode: z.enum(BREAK_MODES).optional(),
   weeklyOffDays: z.string().regex(/^([0-6](,[0-6])*)?$/, 'Weekly offs are day numbers 0–6.').default('0'),
   offSaturdays: z.string().regex(/^([1-5](,[1-5])*)?$/, 'Saturdays off are 1–5 (first to fifth).').default(''),
   code: z.string().trim().max(6).optional().nullable(),
@@ -1004,6 +1031,30 @@ const shiftSchema = z.object({
 
 /** A shift's full day, or, left out, its own net minutes (start to end less the break). */
 const withFullDay = <T extends z.infer<typeof shiftSchema>>(s: T) => ({ ...s, fullDayMinutes: s.fullDayMinutes ?? scheduledMinutes(s) });
+
+/**
+ * The breaks a shift is saved with. Named breaks decide `breakMinutes` (their
+ * unpaid total), so the day engine and every report read the one figure they
+ * always did; a break with a start and an end takes its length from them. No
+ * named breaks: `breakMinutes` as typed, the one unpaid break. Throws what is
+ * wrong with them, to be said as it is.
+ */
+function withBreaks<T extends z.infer<typeof shiftSchema>>(s: T, existing?: { breaks: unknown } | null): T {
+  if (s.breaks === undefined) {
+    /* A screen that does not know breaks: a shift that names some keeps them, and its break total with them. */
+    const kept = breaksOf(existing?.breaks);
+    return kept.length ? { ...s, breakMinutes: unpaidBreakMinutes(kept) } : s;
+  }
+  for (const b of s.breaks) {
+    const timed = Boolean(b.startTime) || Boolean(b.endTime);
+    if (timed && !(b.startTime && b.endTime)) throw fail(400, `${b.name}: give both a start and an end, or only a length.`, 'SHIFT_BREAKS');
+    if (!timed && !(Number(b.minutes) > 0)) throw fail(400, `${b.name}: a break needs a length, or a start and an end.`, 'SHIFT_BREAKS');
+  }
+  const breaks = breaksOf(s.breaks);
+  const problem = breaksProblem(breaks, s);
+  if (problem) throw fail(400, problem, 'SHIFT_BREAKS');
+  return breaks.length ? { ...s, breaks, breakMinutes: unpaidBreakMinutes(breaks) } : { ...s, breaks };
+}
 
 /**
  * A shift's times and rules can change only while no closed month uses it:
@@ -1043,6 +1094,11 @@ attendanceRouter.post('/orgs/:orgId/attendance/shifts', can(PermissionAction.CRE
   const { accountId, orgId } = req.tenant!;
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
+  try {
+    parsed.data = withBreaks(parsed.data);
+  } catch (e) {
+    return sendError(res, e);
+  }
   const data = withFullDay(parsed.data);
   const problem = shiftRuleProblem(data);
   if (problem) return res.status(400).json({ error: problem, code: 'SHIFT_RULES' });
@@ -1062,6 +1118,11 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   if (!existing) return res.status(404).json({ error: 'No such shift.' });
   const parsed = shiftSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid shift.' });
+  try {
+    parsed.data = withBreaks(parsed.data, existing);
+  } catch (e) {
+    return sendError(res, e);
+  }
   const data = withFullDay(parsed.data);
   if (data.halfDayMinutes > data.fullDayMinutes) return res.status(400).json({ error: 'A half day cannot be longer than a full day.', code: 'SHIFT_RULES' });
   /*
@@ -1072,7 +1133,7 @@ attendanceRouter.put('/orgs/:orgId/attendance/shifts/:id', can(PermissionAction.
   const hours = (x: any) => [x.startTime, x.endTime, x.breakMinutes, x.halfDayMinutes, x.fullDayMinutes].join('|');
   const problem = hours(data) !== hours(existing) ? shiftRuleProblem(data) : null;
   parsed.data.fullDayMinutes = data.fullDayMinutes;
-  const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive });
+  const scoring = (x: any) => ({ startTime: x.startTime, endTime: x.endTime, breakMinutes: x.breakMinutes, graceMinutes: x.graceMinutes, earlyOutGraceMinutes: x.earlyOutGraceMinutes, halfDayMinutes: x.halfDayMinutes, fullDayMinutes: x.fullDayMinutes, overtimeAfterMinutes: x.overtimeAfterMinutes ?? null, checkInBeforeMinutes: x.checkInBeforeMinutes ?? null, checkOutAfterMinutes: x.checkOutAfterMinutes ?? null, weeklyOffDays: x.weeklyOffDays, offSaturdays: x.offSaturdays, isActive: x.isActive, breaks: breaksOf(x.breaks), breakMode: x.breakMode === 'PUNCHED' ? 'PUNCHED' : 'FIXED' });
   try {
     /*
      * A shift has no effective date: new times or rules apply to every date it

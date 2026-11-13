@@ -9,6 +9,8 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createShift, deleteShift, hm, listShifts, updateShift } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import ShiftBreaks from '../components/ShiftBreaks';
+import { breaksBody, breaksProblem, unpaidTotal } from '../components/shiftBreaksMath';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -16,6 +18,8 @@ const BLANK = {
   startTime: '09:00',
   endTime: '18:00',
   breakMinutes: 60,
+  breaks: [],
+  breakMode: 'FIXED',
   graceMinutes: 10,
   earlyOutGraceMinutes: 0,
   halfDayMinutes: 240,
@@ -179,7 +183,7 @@ export default function Shifts({ openScreen }) {
                       {s.startTime}–{s.endTime}
                       {s.endTime <= s.startTime ? <span className="ui-caption"> (night)</span> : null}
                     </td>
-                    <td className="ui-num">{s.breakMinutes}m</td>
+                    <td className="ui-num">{s.breakMinutes}m{s.breakMode === 'PUNCHED' ? <span className="ui-caption block">or as punched</span> : null}</td>
                     <td className="ui-num">{s.graceMinutes}m</td>
                     <td className="ui-num">{hm(s.fullDayMinutes)}</td>
                     <td>{offs(s.weeklyOffDays, s.offSaturdays)}</td>
@@ -202,7 +206,7 @@ const blankIfNone = (v) => (v == null ? '' : v);
 
 function ShiftForm({ initial, onClose, onSaved }) {
   const [form, setForm] = useState(() => {
-    const f = { ...initial, checkInBeforeMinutes: blankIfNone(initial.checkInBeforeMinutes), checkOutAfterMinutes: blankIfNone(initial.checkOutAfterMinutes) };
+    const f = { ...initial, breaks: Array.isArray(initial.breaks) ? initial.breaks : [], breakMode: initial.breakMode === 'PUNCHED' ? 'PUNCHED' : 'FIXED', checkInBeforeMinutes: blankIfNone(initial.checkInBeforeMinutes), checkOutAfterMinutes: blankIfNone(initial.checkOutAfterMinutes) };
     /* A new shift's full day is the shift itself; it follows the times until someone types their own. */
     return initial.id ? f : { ...f, fullDayMinutes: netMinutes(f) ?? f.fullDayMinutes };
   });
@@ -222,6 +226,17 @@ function ShiftForm({ initial, onClose, onSaved }) {
       return next;
     });
   };
+  /* Named breaks decide the break: their unpaid total, which the full day follows like a typed break. */
+  const setBreaks = (breaks) =>
+    setForm((f) => {
+      const next = { ...f, breaks, ...(breaks.length ? { breakMinutes: unpaidTotal(breaks) } : { breakMode: 'FIXED' }) };
+      if (fullDayFollows) {
+        const n = netMinutes(next);
+        if (n !== null) next.fullDayMinutes = n;
+      }
+      return next;
+    });
+  const breaksWrong = breaksProblem(form.breaks);
   const net = netMinutes(form);
   /* Checked only when the hours change (as the server does): an older shift whose full day is longer than its hours can still be renamed or turned off. */
   const hoursChanged = !initial.id || [...SHAPE, 'fullDayMinutes'].some((k) => String(form[k]) !== String(initial[k]));
@@ -239,7 +254,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
 
   const save = async (e) => {
     e.preventDefault();
-    if (fullDayTooLong) {
+    if (fullDayTooLong || breaksWrong) {
       setTried(true);
       return;
     }
@@ -249,6 +264,8 @@ function ShiftForm({ initial, onClose, onSaved }) {
       startTime: form.startTime,
       endTime: form.endTime,
       breakMinutes: Number(form.breakMinutes),
+      breaks: breaksBody(form.breaks),
+      breakMode: form.breakMode,
       graceMinutes: Number(form.graceMinutes),
       earlyOutGraceMinutes: Number(form.earlyOutGraceMinutes),
       halfDayMinutes: Number(form.halfDayMinutes),
@@ -316,7 +333,22 @@ function ShiftForm({ initial, onClose, onSaved }) {
           <input type="time" className="ui-input w-full" required value={form.endTime} onChange={set('endTime')} />
           {form.endTime <= form.startTime ? <span className="ui-caption">Night shift — ends the next morning.</span> : null}
         </label>
-        {num('breakMinutes', 'Break (minutes)', 'Deducted when the day runs past a half day.')}
+        {form.breaks.length ? (
+          <>
+            <ShiftBreaks breaks={form.breaks} mode={form.breakMode} onChange={setBreaks} onMode={(breakMode) => setForm((f) => ({ ...f, breakMode }))} />
+            {breaksWrong && tried ? <span className="ui-field-error block sm:col-span-2" role="alert">{breaksWrong}</span> : null}
+          </>
+        ) : (
+          <label className="block">
+            <span className="ui-label">Break (minutes)</span>
+            <input type="number" min={0} className="ui-input w-full" value={form.breakMinutes} onChange={set('breakMinutes')} />
+            <span className="ui-caption">
+              Deducted when the day runs past a half day.{' '}
+              <button type="button" className="ui-link" onClick={() => setBreaks([{ name: 'Break', startTime: '', endTime: '', minutes: Number(form.breakMinutes) || 60, paid: false }])}>Name the breaks</button>
+              {' '}for several, paid ones, or break punches.
+            </span>
+          </label>
+        )}
         {num('graceMinutes', 'Late grace (minutes)')}
         {num('earlyOutGraceMinutes', 'Early-out grace (minutes)')}
         {num('halfDayMinutes', 'Half day (minutes worked)')}

@@ -20,6 +20,8 @@ import OvertimeRuleFields from '../components/OvertimeRuleFields';
  */
 const hours = (m) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
 
+const DAY_WORDS = { working: 'working day', weeklyOff: 'weekly off', holiday: 'holiday' };
+
 const TABS = [
   { value: 'PENDING', label: 'Waiting', tone: 'partial' },
   { value: 'APPROVED', label: 'Approved', tone: 'paid' },
@@ -41,6 +43,8 @@ const EXPORT_COLUMNS = [
   { key: 'date', label: 'Day' },
   { key: 'kind', label: 'Asks for', value: (r) => (r.kind === 'COMP_OFF' ? 'Comp-off' : 'Overtime') },
   { key: 'minutes', label: 'Worked over', value: (r) => hours(r.minutes || 0) },
+  { key: 'rate', label: 'Rate', value: (r) => (r.rate ? `${r.rate}×` : '') },
+  { key: 'overCap', label: 'Over the cap', value: (r) => (r.overCapMinutes ? hours(r.overCapMinutes) : '') },
   { key: 'days', label: 'Comp-off days', value: (r) => (r.kind === 'COMP_OFF' ? r.days : '') },
   { key: 'reason', label: 'Reason' },
   { key: 'status', label: 'Status' },
@@ -164,7 +168,11 @@ export default function OvertimeRequests() {
                     <tr key={r.id}>
                       <td className="ui-col-entity">{r.employeeName}{r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}</td>
                       <td className="ui-col-date whitespace-nowrap">{r.date}</td>
-                      <td>{r.kind === 'COMP_OFF' ? `Comp-off, ${r.days} day${r.days === 1 ? '' : 's'} (worked ${hours(r.minutes)})` : `Overtime ${hours(r.minutes)}`}</td>
+                      <td>
+                        <span className="tabular-nums">{r.kind === 'COMP_OFF' ? `Comp-off, ${r.days} day${r.days === 1 ? '' : 's'} (worked ${hours(r.minutes)})` : `Overtime ${hours(r.minutes)}${r.rate ? ` at ${r.rate}× (${DAY_WORDS[r.dayType] || 'working day'})` : ''}`}</span>
+                        {/* Hours over the company's cap are kept and said here, for whoever decides (overtimePolicy.ts). */}
+                        {r.overCap ? <span className="ui-caption block tabular-nums" style={{ color: 'rgb(var(--warn))' }}>{r.overCap}</span> : null}
+                      </td>
                       <td className="ui-col-grow whitespace-normal min-w-[10rem]">{r.reason}</td>
                       <td className="ui-col-meta">
                         {status !== 'PENDING' ? (

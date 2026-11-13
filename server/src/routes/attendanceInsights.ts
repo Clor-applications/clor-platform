@@ -26,6 +26,9 @@ import { balancesFor } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodLabel, periodStart } from '../services/attendance/leaveAccrual.js';
 import { leavePeriodOf } from '../services/attendance/leaveBalances.js';
 import { decideRequest } from '../services/attendance/requests.js';
+import { OVERTIME_CAP_MAX, OVERTIME_RATE_MAX, SUGGESTED_OVERTIME_CAPS, overtimePolicyOf } from '../services/attendance/overtimePolicy.js';
+import { overtimeDaysFor } from '../services/attendance/overtimeFigures.js';
+import { recordRuleVersion } from '../services/attendance/ruleVersions.js';
 import { managerStepBy } from '../services/attendance/standIns.js';
 import { FIELD_PUNCH_SOURCE, OVERTIME_SOURCE, closeOnEngine, decideOnEngine, engineChains, engineOf, onEngine, syncFromRow } from '../services/attendance/attendanceEngine.js';
 import { writePunchDecision } from '../services/attendance/phonePunch.js';
@@ -284,7 +287,7 @@ attendanceInsightsRouter.get(`${base}/exceptions`, can(PermissionAction.VIEW, R.
   for (const p of people) {
     for (const m of p.missingOut) add({ key: `MISSING_OUT:${m.id}`, kind: 'MISSING_OUT', severity: 'high', title: 'No check-out', detail: 'Checked in, never out. The day is not paid until corrected.', employeeId: p.employeeId, employeeName: p.name, date: m.date, screen: 'records', ref: m.id });
     for (const d of p.noRecord) add({ key: `NO_RECORD:${p.employeeId}:${d}`, kind: 'NO_RECORD', severity: 'medium', title: 'No attendance on a working day', detail: 'No punch, mark or leave. It counts as absent.', employeeId: p.employeeId, employeeName: p.name, date: d, screen: 'records' });
-    for (const o of p.unapprovedOvertime) add({ key: `OVERTIME:${o.id}`, kind: 'OVERTIME', severity: 'low', title: 'Overtime to approve', detail: `${Math.floor(o.minutes / 60)}h ${String(o.minutes % 60).padStart(2, '0')}m, not paid until approved.`, employeeId: p.employeeId, employeeName: p.name, date: o.date, screen: 'records', ref: o.id });
+    for (const o of p.unapprovedOvertime) add({ key: `OVERTIME:${o.id}`, kind: 'OVERTIME', severity: 'low', title: 'Overtime to approve', detail: `${Math.floor(o.minutes / 60)}h ${String(o.minutes % 60).padStart(2, '0')}m, not paid until approved.${o.overCap ? ` ${o.overCap}.` : ''}`, employeeId: p.employeeId, employeeName: p.name, date: o.date, screen: 'records', ref: o.id });
   }
   const named = async (rows: any[]) => withNames(orgId, rows);
   for (const c of await named(queues.corrections)) add({ key: `CORRECTION:${c.id}`, kind: 'CORRECTION', severity: 'medium', title: 'Correction waiting', detail: c.reason, employeeId: c.employeeId, employeeName: c.employeeName, date: c.date, screen: 'requests', ref: c.id });
@@ -1247,12 +1250,17 @@ attendanceInsightsRouter.get(`${base}/phone-punches`, can(PermissionAction.VIEW,
 // Overtime and comp-off: the company's rules, and the requests waiting on HR
 // ---------------------------------------------------------------------------
 
+const otRate = z.coerce.number().min(1, 'An overtime rate is 1 or more times the ordinary rate.').max(OVERTIME_RATE_MAX, `An overtime rate is at most ${OVERTIME_RATE_MAX} times the ordinary rate.`);
+const otCap = (max: number) => z.coerce.number().int('A cap is in whole minutes.').min(0).max(max, 'That cap is longer than the period it is for.').nullable();
+
 const overtimeRules = (s: any) => ({
   overtimeRequests: s?.overtimeRequests ?? true,
   overtimeApproval: s?.overtimeApproval ?? 'HR',
   compOffEnabled: s?.compOffEnabled ?? false,
   compOffLeaveTypeId: s?.compOffLeaveTypeId ?? null,
   confirmCutoffDay: s?.confirmCutoffDay ?? 3,
+  /* Rates by kind of day and the caps (services/attendance/overtimePolicy.ts); '{}' reads as 2× everywhere and no caps. */
+  ...overtimePolicyOf(s?.overtimePolicy),
 });
 
 attendanceInsightsRouter.get(`${base}/overtime/rules`, can(PermissionAction.VIEW, R.records), async (req, res) => {
@@ -1260,9 +1268,10 @@ attendanceInsightsRouter.get(`${base}/overtime/rules`, can(PermissionAction.VIEW
   const { orgId } = req.tenant!;
   const [s, types] = await Promise.all([
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }),
-    peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' } }),
+    /* compOffValidDays: how long comp-off credited to the type lasts (set on the leave type; compOff.ts). */
+    peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true, code: true, compOffValidDays: true }, orderBy: { name: 'asc' } }),
   ]);
-  res.json({ rules: overtimeRules(s), leaveTypes: types });
+  res.json({ rules: overtimeRules(s), leaveTypes: types, suggestedCaps: SUGGESTED_OVERTIME_CAPS });
 });
 
 attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT, R.records), async (req, res) => {
@@ -1275,28 +1284,39 @@ attendanceInsightsRouter.put(`${base}/overtime/rules`, can(PermissionAction.EDIT
       compOffEnabled: z.boolean(),
       compOffLeaveTypeId: z.string().nullable(),
       confirmCutoffDay: z.number().int().min(1).max(28),
+      /* Left out by an older screen: the rates and caps stay as they are. */
+      rates: z.object({ working: otRate, weeklyOff: otRate, holiday: otRate }).optional(),
+      caps: z.object({ dayMinutes: otCap(OVERTIME_CAP_MAX.dayMinutes), weekMinutes: otCap(OVERTIME_CAP_MAX.weekMinutes), quarterMinutes: otCap(OVERTIME_CAP_MAX.quarterMinutes) }).optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the rules.' });
   /* The rules are the company's: a team role does not set them. */
   if (!(await teamScope(req)).all) return res.status(403).json({ error: 'Overtime rules are set by someone who decides for the whole company.', code: 'TEAM_SCOPED' });
-  const v = parsed.data;
+  const { rates, caps, ...v } = parsed.data;
+  if (caps && caps.dayMinutes !== null && caps.weekMinutes !== null && caps.dayMinutes > caps.weekMinutes) return res.status(400).json({ error: 'The cap for a day cannot be more than the cap for a week.' });
+  if (caps && caps.weekMinutes !== null && caps.quarterMinutes !== null && caps.weekMinutes > caps.quarterMinutes) return res.status(400).json({ error: 'The cap for a week cannot be more than the cap for a quarter.' });
   if (v.compOffEnabled && !v.compOffLeaveTypeId) return res.status(400).json({ error: 'Choose the leave type comp-off days are added to.' });
   if (v.compOffLeaveTypeId && !(await peoplePrisma.leaveType.findFirst({ where: { id: v.compOffLeaveTypeId, orgId } }))) return res.status(400).json({ error: 'No such leave type.' });
   const { before, s } = await peopleWrite(orgId, async () => {
-    const before = overtimeRules(await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } }));
-    const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, updatedByUserId: req.auth!.userId }, update: { ...v, updatedByUserId: req.auth!.userId } });
+    const row = await peoplePrisma.attendanceSettings.findUnique({ where: { orgId } });
+    const before = overtimeRules(row);
+    const policy = rates || caps ? { overtimePolicy: { rates: rates ?? before.rates, caps: caps ?? before.caps } } : {};
+    const s = await peoplePrisma.attendanceSettings.upsert({ where: { orgId }, create: { accountId, orgId, ...v, ...policy, updatedByUserId: req.auth!.userId }, update: { ...v, ...policy, updatedByUserId: req.auth!.userId } });
     return { before, s };
   });
   const after = overtimeRules(s);
-  const changed = (Object.keys(after) as Array<keyof typeof after>).filter((k) => before[k] !== after[k]);
+  const changed = (Object.keys(after) as Array<keyof typeof after>).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+  /* Rates and caps decide what a day's overtime is worth: kept with the other scoring rules (ruleVersions.ts). */
+  if (changed.includes('rates') || changed.includes('caps')) {
+    await recordRuleVersion(accountId, orgId, req.auth!.userId, { kind: 'RULES', name: 'Overtime rates and caps', before: { rates: before.rates, caps: before.caps }, after: { rates: after.rates, caps: after.caps } });
+  }
   await recordAudit(req, { entity: 'ATTENDANCE_OVERTIME_RULES', entityId: orgId, action: 'UPDATE', message: changed.length ? `Overtime rules changed: ${changed.join(', ')}` : 'Overtime rules saved, nothing changed', metadata: { before, after } });
   res.json({ rules: after });
 });
 
 attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.VIEW, R.records), async (req, res) => {
   if (!(await attendanceRouteOk(req, res))) return;
-  const { orgId } = req.tenant!;
+  const { accountId, orgId } = req.tenant!;
   const status = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(String(req.query.status)) ? String(req.query.status) : 'PENDING';
   /* A team-scoped role sees its own team's requests. */
   const scope = await teamScope(req);
@@ -1306,13 +1326,16 @@ attendanceInsightsRouter.get(`${base}/overtime/requests`, can(PermissionAction.V
   const chain = await overtimeChain(orgId);
   /* On the approval engine (workflow engine 2d): the chain each was asked under, and whether the manager's step is closed. */
   const engines = await engineChains(orgId, OVERTIME_SOURCE, rows.filter((r) => r.status === 'PENDING').map((r) => r.id));
+  /* What each waiting day's overtime is paid at, and the hours over the company's caps: said to whoever decides, never dropped. */
+  const figures = await overtimeDaysFor(accountId, orgId, rows.filter((r) => r.kind === 'OVERTIME' && r.status === 'PENDING').map((r) => ({ employeeId: r.employeeId, date: r.date })));
   res.json({
     chain,
     requests: rows.map((r) => {
       const p = by.get(r.employeeId);
       const eng = engines.get(r.id);
       const waitingOnManager = (eng?.chain || chain) === 'MANAGER_THEN_HR' && !r.managerApprovedAt && !(eng && eng.step > 1) && Boolean(p?.reportingManagerId) && r.status === 'PENDING';
-      return { ...r, employeeName: p?.name || '—', employeeCode: p?.code || null, waitingOnManager };
+      const day = r.kind === 'OVERTIME' ? figures.days.get(r.employeeId)?.get(r.date) : undefined;
+      return { ...r, employeeName: p?.name || '—', employeeCode: p?.code || null, waitingOnManager, ...(day ? { dayType: day.dayType, rate: day.rate, weightedMinutes: day.weightedMinutes, overCapMinutes: day.overCapMinutes, overCap: day.overCap } : {}) };
     }),
   });
 });

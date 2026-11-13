@@ -45,6 +45,8 @@ export type ExplainInput = {
     earlyOutMinutes: number;
     overtimeMinutes: number;
     overtimeApproved: boolean;
+    /** The unpaid break time taken from the day's punches (a shift on punched breaks); null or absent, the fixed breaks. */
+    breakMinutes?: number | null;
     validated: boolean;
     leaveName?: string | null;
   };
@@ -99,11 +101,17 @@ export function explainDay(input: ExplainInput) {
   } else if (record.checkIn && record.checkOut) {
     const span = Math.max(0, Math.round((record.checkOut.getTime() - record.checkIn.getTime()) / 60000));
     const lessBreak = span > rule.halfDayMinutes ? Math.max(rule.halfDayMinutes, span - rule.breakMinutes) : span;
+    /* A shift on punched breaks, on a day with break punches: the time out comes off, less any paid break (breaks.ts). */
+    const punched = rule.breakMode === 'PUNCHED' && record.breakMinutes !== null && record.breakMinutes !== undefined ? record.breakMinutes : null;
+    const named = (rule.breaks || []).filter((x) => !x.paid);
+    const fixedWords = named.length > 1 ? `the ${rule.breakMinutes} min of breaks (${named.map((x) => `${x.name} ${x.minutes}`).join(', ')})` : `the ${rule.breakMinutes} min break`;
     steps.push({
       kind: 'worked',
-      text: span > rule.halfDayMinutes
-        ? `Out at ${istTime(record.checkOut)}: ${hm(span)} on site, less the ${rule.breakMinutes} min break = ${hm(lessBreak)} worked.`
-        : `Out at ${istTime(record.checkOut)}: ${hm(span)} worked (no break taken off a day shorter than half a day).`,
+      text: punched !== null
+        ? `Out at ${istTime(record.checkOut)}: ${hm(span)} on site, less ${punched} min of breaks punched out and in = ${hm(Math.max(0, span - punched))} worked.`
+        : span > rule.halfDayMinutes
+          ? `Out at ${istTime(record.checkOut)}: ${hm(span)} on site, less ${fixedWords} = ${hm(lessBreak)} worked.${rule.breakMode === 'PUNCHED' ? ' No break was punched that day, so the fixed breaks apply.' : ''}`
+          : `Out at ${istTime(record.checkOut)}: ${hm(span)} worked (no break taken off a day shorter than half a day).`,
     });
     const earlyBy = Math.max(0, Math.round((end.getTime() - record.checkOut.getTime()) / 60000));
     if (!input.holidayName && !offDay && earlyBy > rule.earlyOutGraceMinutes) steps.push({ kind: 'early', text: `Left ${earlyBy} min before the shift ended${rule.earlyOutGraceMinutes ? ` (early-out grace ${rule.earlyOutGraceMinutes} min)` : ''}.` });
@@ -135,7 +143,7 @@ export function explainDay(input: ExplainInput) {
   let matches = true;
   if (record.checkIn && ['DEVICE', 'CLOCK', 'MANUAL', 'REQUEST', 'IMPORT'].includes(record.source)) {
     try {
-      recomputed = computeDay({ date, shift: rule, checkIn: record.checkIn, checkOut: record.checkOut, isHoliday: Boolean(input.holidayName) });
+      recomputed = computeDay({ date, shift: rule, checkIn: record.checkIn, checkOut: record.checkOut, isHoliday: Boolean(input.holidayName), breakTakenMinutes: record.breakMinutes ?? null });
       matches =
         recomputed.status === record.status &&
         recomputed.workedMinutes === record.workedMinutes &&

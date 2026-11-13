@@ -1,3 +1,4 @@
+import { compOffExpiresOn, compOffGrants, expiringOf } from '../services/attendance/compOff.js';
 import { Router } from 'express';
 import { trackFirst } from '../services/productEvents.js';
 import { ownWorkRefusal, selfDecisionAllowed } from '../services/makerChecker.js';
@@ -369,6 +370,8 @@ const policySchema = z.object({
   sandwichHolidays: z.boolean().optional(),
   sandwichIgnoreHalf: z.boolean().optional(),
   onNotice: z.enum(['ALLOW', 'WARN', 'BLOCK']).optional(),
+  /** Comp-off credited to the type is used within this many days of the day worked, else it lapses; null: it does not expire (compOff.ts). */
+  compOffValidDays: z.coerce.number().int().min(1, 'At least one day.').max(730, 'At most 730 days (two years).').nullable().optional(),
 });
 
 async function policyOf(orgId: string, body: unknown): Promise<{ data: Record<string, unknown> } | { error: string }> {
@@ -2156,6 +2159,8 @@ leaveRouter.delete(`${base}/adjustments/:id`, can(PermissionAction.EDIT, R.leave
     if (!row || !inScope(await leaveScope(req), row.employeeId)) throw fail(404, 'No such adjustment.');
     const earning = row.kind === 'ENCASH' ? await payrollPrisma.payrollAdjustment.findUnique({ where: { id: `leave-encash:${row.id}` } }) : null;
     if (row.paidInRunId || (earning && earning.status !== 'CANCELLED')) throw fail(409, 'This encashment is linked to payroll. Cancel its unconsumed earning first, or use a correcting adjustment.');
+    /* A comp-off grant whose unused days lapsed: taking the grant out as well would take those days twice (compOff.ts). */
+    if (row.lapsedAt && (row.lapsedDays || 0) > 0) throw fail(409, 'This comp-off expired and its unused days were taken back. To give them back, remove the lapse entry instead.', 'COMP_OFF_LAPSED');
     await deleteToBin(req, 'leaveAdjustment', row);
     return row;
   });
@@ -3031,7 +3036,7 @@ leaveRouter.post(`${base}/comp-off`, can(PermissionAction.EDIT, R.leave), async 
     const twice = await peoplePrisma.leaveAdjustment.findFirst({ where: { orgId, employeeId: employee.id, leaveTypeId: type.id, workedOn: b.workedOn, reversedAt: null } });
     if (twice) return res.status(409).json({ error: `Comp-off for ${dayWords(b.workedOn)} is already granted.` });
     const year = await leaveYearOf(orgId, b.workedOn);
-    const row = await peoplePrisma.leaveAdjustment.create({ data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, year, days: b.days, kind: 'ADJUST', reason: `Comp-off for ${dayWords(b.workedOn)}: ${b.reason}`, workedOn: b.workedOn, createdByUserId: req.auth!.userId } });
+    const row = await peoplePrisma.leaveAdjustment.create({ data: { accountId, orgId, employeeId: employee.id, leaveTypeId: type.id, year, days: b.days, kind: 'ADJUST', reason: `Comp-off for ${dayWords(b.workedOn)}: ${b.reason}`, workedOn: b.workedOn, expiresOn: compOffExpiresOn(type.compOffValidDays, b.workedOn, today()), createdByUserId: req.auth!.userId } });
     await recordAudit(req, { entity: 'LeaveAdjustment', entityId: row.id, action: 'CREATE', message: `Comp-off ${b.days} for ${employee.name}, worked ${b.workedOn}: ${b.reason}`, metadata: { employeeId: employee.id, workedOn: b.workedOn, days: b.days } });
     res.status(201).json({ adjustment: (await withTypes(orgId, [row]))[0] });
   } catch (e) {
@@ -3367,6 +3372,8 @@ leaveRouter.get('/orgs/:orgId/attendance/me/leave', can(PermissionAction.VIEW, R
     const year = await yearParam(orgId, req.query.year);
     const { types, balances } = await balancesFor(accountId, orgId, [me.id], year);
     const mine = balances.get(me.id)!;
+    /* Comp-off days that expire, soonest first, for the balance's "expires on" (compOff.ts). */
+    const grants = (await compOffGrants(orgId, [me.id])).get(me.id);
     const requests = await peoplePrisma.leaveRequest.findMany({
       where: { accountId, orgId, employeeId: me.id, fromDate: { gte: periodStart(await leavePeriodOf(orgId), year), lte: periodEnd(await leavePeriodOf(orgId), year) } },
       orderBy: [{ fromDate: 'desc' }, { createdAt: 'desc' }],
@@ -3375,7 +3382,7 @@ leaveRouter.get('/orgs/:orgId/attendance/me/leave', can(PermissionAction.VIEW, R
       employee: { id: me.id, name: me.name },
       year,
       today: today(),
-      types: types.filter((t) => t.isActive && (eligibleFor(t as any, me as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null }; }),
+      types: types.filter((t) => t.isActive && (eligibleFor(t as any, me as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => { const b = mine.get(t.id)!; return { id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, isPrivate: t.isPrivate, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...b, projectedAvailable: t.isPaid && b.fullYear != null ? round(b.fullYear - b.used - b.pending) : null, expiring: expiringOf(grants?.get(t.id), b.available, today()) }; }),
       requests: await withTypes(orgId, requests),
     });
   } catch (e) {

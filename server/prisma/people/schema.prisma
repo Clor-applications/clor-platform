@@ -363,6 +363,13 @@ model Shift {
   startTime            String
   endTime              String
   breakMinutes         Int     @default(60)
+  /// The shift's breaks, when it names them (services/attendance/breaks.ts):
+  /// [{ name, startTime?, endTime?, minutes, paid }]. breakMinutes is then their unpaid total.
+  /// Empty: the one unpaid break of breakMinutes, as before.
+  breaks               Json    @default("[]")
+  /// FIXED: the breaks above come off the day. PUNCHED: the break time punched out and in does,
+  /// less the paid breaks, on a day that has break punches.
+  breakMode            String  @default("FIXED")
   /// Arriving within this many minutes of the start is not late.
   graceMinutes         Int     @default(10)
   /// Leaving within this many minutes of the end is not early.
@@ -476,6 +483,9 @@ model AttendanceRecord {
   earlyOutMinutes  Int     @default(0)
   overtimeMinutes  Int     @default(0)
   overtimeApproved Boolean @default(false)
+  /// The unpaid break time taken from the day's punches (a shift on punched breaks); null when the
+  /// shift's fixed breaks were taken off, as on every day before this column.
+  breakMinutes     Int?
 
   /// PRESENT | HALF_DAY | ABSENT | ON_LEAVE | HOLIDAY | WEEKLY_OFF
   status String
@@ -698,6 +708,10 @@ model LeaveType {
   carryForwardMax   Float?
   /// Carried-in days must be used within this many days of the period start; what is left of them then lapses (ERPNext's "expire carry-forwarded leaves"). Null: they last the period.
   carryExpiresAfterDays Int?
+  /// Comp-off credited to this type (a day earned for work on a weekly off or holiday) must be used within this
+  /// many days of the day worked; what is left of it then lapses (services/attendance/compOff.ts). Null: it does
+  /// not expire, as before. Applies to comp-off credited after it is set.
+  compOffValidDays      Int?
 
   // The policy HR sets (founder, 22 Oct 2026: the full leave module in HR).
   // Each default keeps the type working the way it did before these existed.
@@ -844,7 +858,7 @@ model LeaveAdjustment {
   year        Int
   /// Positive adds days, negative takes them away.
   days        Float
-  /// ADJUST | ENCASH
+  /// ADJUST | ENCASH | LAPSE (comp-off not used by its expiry, a debit made by the leave job)
   kind        String  @default("ADJUST")
   reason      String
   /// Set when Payroll pays an encashment.
@@ -853,6 +867,14 @@ model LeaveAdjustment {
   createdByUserId  String
   /// A comp-off grant names the date worked; a year-end pay-out names its run.
   workedOn         String?
+  /// A comp-off grant under a validity (LeaveType.compOffValidDays): the last day it can be used, YYYY-MM-DD.
+  /// Null: it does not expire. Once that day has passed the nightly leave job lapses what is left of it:
+  /// lapsedAt and lapsedDays on this row, and the days taken back by a row of kind LAPSE. The person is
+  /// reminded once, a week before (expiryRemindedAt).
+  expiresOn        String?
+  lapsedAt         DateTime?
+  lapsedDays       Float?
+  expiryRemindedAt DateTime?
   yearEndId        String?
   /// Set when a year-end undo reverses this pay-out; every reader skips reversed rows.
   reversedAt       DateTime?
@@ -862,6 +884,7 @@ model LeaveAdjustment {
   @@index([accountId, orgId, year])
   @@index([orgId, employeeId, leaveTypeId])
   @@index([orgId, employeeId, leaveTypeId, workedOn])
+  @@index([expiresOn])
   @@index([yearEndId])
 }
 
@@ -1535,6 +1558,10 @@ model AttendanceSettings {
   compOffLeaveTypeId    String?
   /// Who decides overtime and comp-off requests: HR | MANAGER | MANAGER_THEN_HR.
   overtimeApproval      String    @default("HR")
+  /// Overtime pay rates by kind of day and overtime caps (services/attendance/overtimePolicy.ts):
+  /// { rates: { working, weeklyOff, holiday }, caps: { dayMinutes, weekMinutes, quarterMinutes } }.
+  /// Read over its defaults: every rate 2 (Factories Act 1948 s.59), every cap off (null).
+  overtimePolicy        Json      @default("{}")
   /// Reader trust: a punch that reaches CLOR more than this many hours after it
   /// was made needs a look (feature attendanceReaderTrust).
   readerLateUploadHours Int       @default(24)

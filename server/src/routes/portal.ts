@@ -43,7 +43,8 @@ import { daysOfMonth, instants, sendError, today, withNames } from '../services/
 import { actorNames, cancelOwnLeave, createLeave, dayWords, decideRuleLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
-import { lapseFor } from '../services/attendance/leaveJobs.js';
+import { compOffExpiringFor, lapseFor } from '../services/attendance/leaveJobs.js';
+import { compOffGrants, expiringOf } from '../services/attendance/compOff.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
 import { readableLines } from '../services/payroll/slipLines.js';
@@ -465,6 +466,11 @@ portalRouter.get('/updates', async (req, res) => {
       return null;
     }),
   ]);
+  /* Comp-off about to expire (compOff.ts): said here too, as staff with no CLOR sign-in get no notification. */
+  const compOffSoon = await compOffExpiringFor(e.accountId, e.orgId, e.id).catch((err) => {
+    console.error('[portal updates] comp-off', err instanceof Error ? err.message : err);
+    return [];
+  });
   const types = new Map((await peoplePrisma.leaveType.findMany({ where: { orgId: e.orgId, id: { in: [...new Set(leave.map((l) => l.leaveTypeId))] } }, select: { id: true, name: true } })).map((t) => [t.id, t.name]));
   const ASK_WORDS: Record<string, string> = { PROFILE_CHANGE: 'Your change to your details', LEAVING: 'Your resignation' };
   const ASK_DONE: Record<string, string> = { APPROVED: 'was approved.', REJECTED: 'was not approved. See My details.', MORE_INFO: 'needs more information from you. Answer it under My details.' };
@@ -494,6 +500,7 @@ portalRouter.get('/updates', async (req, res) => {
   }
   for (const p of punches) items.push({ key: `punch:${p.id}:${p.reviewStatus}`, kind: 'punch', status: String(p.reviewStatus), text: `Your field punch at ${p.localTime.slice(11, 16)} on ${dayWords(p.localTime.slice(0, 10))} was ${p.reviewStatus === 'APPROVED' ? 'approved and counts' : 'refused'}.`, note: null, at: p.at.toISOString() });
   if (lapse) items.push({ key: `lapse:${lapse.year}`, kind: 'lapse', status: 'LAPSE', text: `${lapse.total} ${lapse.total === 1 ? 'day' : 'days'} of leave will lapse on ${dayWords(lapse.end)} unless you take them: ${lapse.lines.map((x) => `${x.leaveType} ${x.days}`).join(', ')}.`, note: null, at: new Date().toISOString() });
+  for (const c of compOffSoon) items.push({ key: `comp-off:${c.id}`, kind: 'lapse', status: 'LAPSE', text: `${c.days} ${c.days === 1 ? 'day' : 'days'} of ${c.leaveType} for work on ${dayWords(c.workedOn)} ${c.days === 1 ? 'expires' : 'expire'} on ${dayWords(c.expiresOn)}. Take ${c.days === 1 ? 'it' : 'them'} by then.`, note: null, at: new Date().toISOString() });
   /* Jobs open to me for referrals, and my referrals that joined or were not taken forward. */
   items.push(...(await referralUpdates(e.accountId, e.orgId, e.id, since).catch(() => [])));
   items.sort((a, b) => b.at.localeCompare(a.at));
@@ -764,6 +771,8 @@ portalRouter.get('/leave', async (req, res) => {
   const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : thisYear;
   const { types, balances, period } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId)!;
+  /* Comp-off days that expire, soonest first, for the balance's "expires on" (compOff.ts). */
+  const grants = (await compOffGrants(orgId, [employeeId])).get(employeeId);
   /* This leave year also lists what is asked for beyond it (a January trip asked for in November), so it can still be changed or withdrawn. */
   const requests = await peoplePrisma.leaveRequest.findMany({
     where: { accountId, orgId, employeeId, fromDate: year === thisYear ? { gte: periodStart(period, year) } : { gte: periodStart(period, year), lte: periodEnd(period, year) } },
@@ -772,7 +781,7 @@ portalRouter.get('/leave', async (req, res) => {
   res.json({
     year,
     today: today(),
-    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...mine.get(t.id) })),
+    types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...mine.get(t.id), expiring: expiringOf(grants?.get(t.id), mine.get(t.id)?.available, today()) })),
     /* Waiting on the approval engine: who it is with now, "With Ravi (your manager)" (SPEC 5.7). */
     requests: await Promise.all((await withTypes(orgId, requests)).map(async (r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null, withWhom: r.status === 'PENDING' ? await withWhom(orgId, r) : null }))),
   });

@@ -1,3 +1,4 @@
+import { punchedBreakFor } from './breaks.js';
 import { peoplePrisma, peopleWrite, afterPeopleCommit } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { computeDay, isOvernight, isWeeklyOff, istDate, istInstant, istTime, monthSummary, nightShiftLabel } from './compute.js';
@@ -264,6 +265,8 @@ export async function writeDay(opts: {
     if (opts.statusOverride === 'ON_LEAVE' && !opts.leaveRequestId) {
       throw fail(409, 'Apply and approve a leave type in People → Leave Requests so the balance is deducted.', 'LEAVE_REQUEST_REQUIRED');
     }
+    /* A shift on punched breaks: the unpaid break time punched that day, or null when nobody punched a break (breaks.ts). */
+    const breakTaken = await punchedBreakFor(opts.orgId, opts.employee.id, opts.date, rule, opts.checkIn, opts.checkOut);
     const computed = computeDay({
       date: opts.date,
       shift: rule,
@@ -271,6 +274,7 @@ export async function writeDay(opts: {
       checkOut: opts.checkOut,
       isHoliday: holiday,
       onLeave: opts.statusOverride === 'ON_LEAVE',
+      breakTakenMinutes: breakTaken,
     });
     const half = opts.halfDayLeave || null;
     const hours = !half ? opts.leaveHours || null : null;
@@ -304,6 +308,7 @@ export async function writeDay(opts: {
       lateMinutes: computed.lateMinutes,
       earlyOutMinutes: computed.earlyOutMinutes,
       overtimeMinutes: computed.overtimeMinutes,
+      breakMinutes: breakTaken,
       status,
       source: opts.source,
       leaveRequestId: opts.leaveRequestId ?? null,
@@ -549,6 +554,9 @@ export async function periodRows(accountId: string, orgId: string, days: string[
   /* Late marks and early exits under the company's rules: the part leave does not cover is loss of pay, never silently (markRules.ts). */
   const { penaltiesOver } = await import('./markRules.js');
   const penalties = await penaltiesOver(accountId, orgId, days, { ctx });
+  /* Overtime at each day's rate, and the part over the company's caps (overtimePolicy.ts), beside the plain approved minutes Payroll reads. */
+  const { overtimeDaysOver, overtimeTotals } = await import('./overtimeFigures.js');
+  const overtime = await overtimeDaysOver(ctx, orgId);
   return ctx.people.map((p) => {
     const span = ctx.spanOf(p);
     const spanSet = new Set(span);
@@ -576,6 +584,7 @@ export async function periodRows(accountId: string, orgId: string, days: string[
       department: p.department,
       unpaidLeaveDays,
       ...summary,
+      ...overtimeTotals(overtime.days.get(p.id), counted, overtime.policy),
       totalDays: summary.totalDays + untrackedDays,
       payableDays: summary.payableDays + untrackedDays,
       untrackedDays,
