@@ -119,7 +119,7 @@ say "Previous release: ${PREVIOUS:-none recorded in git yet}"
 # The revision customers are on now: the rollback target. Read by name, not by
 # tag. A tag only exists while some traffic entry carries it, and until 14 Nov
 # 2026 step 6 used --set-tags, which wiped the previous release's tag, so the
-# printed "--to-tags rel-<previous>" rollback failed when it was needed.
+# printed rollback (by the previous release's tag) failed when it was needed.
 SERVING='<the revision serving now>'
 if [ "$MODE" != dry ]; then
   SERVING=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json \
