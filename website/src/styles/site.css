@@ -4026,3 +4026,20 @@ main > .section:nth-child(odd of .section) .problems li {
   mask-image: linear-gradient(180deg, #000 70%, transparent 98%), linear-gradient(90deg, transparent 0, #000 14%, #000 92%, transparent);
   mask-composite: intersect;
 }
+
+/* The hero video sits on its own white panel, a product window: it reads the
+ * same in every browser, where blending a video into the glow does not. */
+.hero-video {
+  overflow: hidden;
+  border-radius: var(--r-panel);
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 30px 60px -30px rgba(15, 23, 42, 0.28);
+}
+.hero-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 3;
+  scale: 1.08;
+}

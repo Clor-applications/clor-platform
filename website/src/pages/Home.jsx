@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Art3D } from '../components/Art3D.jsx';
 import { Calculator, ChartLineUp, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
@@ -7,6 +7,43 @@ import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
 import { Mark, Status } from '../components/Brand.jsx';
+
+/*
+ * The hero's 15-second loop (video/hero, made with Remotion): the four CLOR
+ * screens fill in one after another along People, Attendance, Payroll, Books.
+ * Muted and looping; the still shows first, and stays for anyone who asks for
+ * reduced motion.
+ */
+function HeroVideo() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      v.pause();
+      v.removeAttribute('autoplay');
+      return;
+    }
+    v.play().catch(() => {});
+  }, []);
+  return (
+    <video
+      ref={ref}
+      width="1200"
+      height="720"
+      poster="/hero/clor-hero-poster.webp"
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      aria-label="CLOR People, Attendance, Payroll and Books screens filling in one after another, with sample data"
+    >
+      <source src="/hero/clor-hero.webm" type="video/webm" />
+      <source src="/hero/clor-hero.mp4" type="video/mp4" />
+    </video>
+  );
+}
 
 /*
  * The home page reads like the suite it is: one line for accounts, payroll and
@@ -171,16 +208,8 @@ export default function Home() {
               No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
             </p>
           </div>
-          <figure className="hero-photo">
-            <img
-              src="/people/hero-books-soft-1400.webp"
-              srcSet="/people/hero-books-soft-700.webp 700w, /people/hero-books-soft-1400.webp 1400w"
-              sizes="(max-width: 900px) 100vw, 640px"
-              width="1400"
-              height="835"
-              fetchPriority="high"
-              alt="An accountant at his desk with the CLOR Books dashboard open on his laptop"
-            />
+          <figure className="hero-photo hero-video">
+            <HeroVideo />
           </figure>
         </div>
       </section>
