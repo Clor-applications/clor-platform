@@ -64,8 +64,8 @@ Where things stand on 13 Nov 2026:
 
 | Door | Address | Picture today |
 |---|---|---|
-| Workspace | app.clor.in | The company building, four wings in the four apps' colours. Drawn (`signin-hq.svg`). |
-| Operator console | ops.clor.in | The operations building at night, with a shield, a gate lock and a beacon. Drawn (`signin-ops.svg`). |
+| Workspace | app.clor.in | Two office buildings with the workspace in front: an open floor of desks, a meeting table, a sofa. Drawn (`signin-hq.svg`). |
+| Operator console | ops.clor.in | A tech park by day: five office buildings, roads, cars, a fountain, a shield and a locked gate. Drawn (`signin-ops.svg`). |
 | Books, People, Payroll, Attendance | each app's own address | One 3D picture each. |
 | Sign up, trial | /signup, /start | 3D building-blocks picture. |
 
@@ -77,7 +77,7 @@ Still wanted, 1536 x 1536 (and a 960 copy), WebP, same 3D clay style as the app 
 | # | File name | Scene |
 |---|---|---|
 | D1 | The six 3D pictures, re-exported with **no title painted in** | Today they carry "Clor Applications Pvt Ltd"; the registered name is CLOR Applications Private Limited. With the title gone the page sets it in type, as it does on the two drawings. |
-| D2 | `signin-hq-1536.webp`, `signin-ops-1536.webp` (optional) | 3D clay renders of the same two buildings, if you would rather all eight pictures be renders. The drawings are the brief: same buildings, same colours. |
+| D2 | `signin-hq-1536.webp`, `signin-ops-1536.webp` (optional) | 3D clay renders of the same two scenes, if you would rather all eight pictures be renders. The drawings are the brief: same buildings, same colours. |
 
 Rules: no words or logos inside the picture, no real people, nobody repeated from another picture,
 leave the top-left and bottom-left corners calm (title and quote card sit there).

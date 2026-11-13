@@ -31,7 +31,8 @@ export const READY = new Set([
 
 /**
  * Pictures that are drawings, not photographs of a 3D render: one `.svg`, sharp at any size
- * (owner, 13 Nov 2026: a company building for the Workspace door and the operator console).
+ * (owner, 13 Nov 2026: one or two office buildings with their workspace for the Workspace door,
+ * a tech park of several buildings for the operator console).
  * Both are written by scripts/auth-buildings.py; change the script, not the files.
  */
 const DRAWN = new Set(['signin-hq', 'signin-ops']);
@@ -56,7 +57,7 @@ const SIGNIN_BY_APP = {
 
 /** Every other page's picture. */
 const SCENES = {
-  /* ops.clor.in: the operations building at night, for every step of a staff sign-in. */
+  /* ops.clor.in: the tech park, for every step of a staff sign-in. */
   ops: 'signin-ops',
   signup: 'signup',
   /* A free trial is the same first step as an account: the building-blocks picture, not the sign-in door. */
@@ -71,7 +72,7 @@ const SCENES = {
 
 /** The file to show for a page (`scene`) on an app's address (`app`, or null on app.clor.in). */
 export function sceneFile(scene, app) {
-  /* The front door (app.clor.in) shows the company's own building; each app's address shows that app's picture. */
+  /* The front door (app.clor.in) shows the company's offices and workspace; each app's address shows that app's picture. */
   const wanted = scene === 'signin' ? SIGNIN_BY_APP[app] || 'signin-hq' : SCENES[scene];
   for (const f of [wanted, 'signin-workspace', 'team']) {
     if (f && READY.has(f)) return f;

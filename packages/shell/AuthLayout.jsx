@@ -111,7 +111,7 @@ function Scene({ file, band = false }) {
       <img className="ui-auth-scene-fill" src={src} alt="" aria-hidden="true" decoding="async" />
       <img className="ui-auth-scene-pic" src={src} srcSet={srcSet} sizes={band ? '100vw' : '70vw'} alt="" decoding="async" fetchpriority="high" />
       {words ? (
-        <p className="ui-auth-scene-title" data-tone={file === 'signin-ops' ? 'night' : undefined}>
+        <p className="ui-auth-scene-title">
           <span>{words[0]}</span>
           <strong>{words[1]}</strong>
         </p>

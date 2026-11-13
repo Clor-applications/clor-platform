@@ -9046,9 +9046,6 @@ button.ui-side-alert { cursor: pointer; }
   line-height: 1.08;
   letter-spacing: -0.03em;
 }
-.ui-auth-scene-title[data-tone='night'] {
-  color: #fff;
-}
 .ui-auth-scene-band .ui-auth-scene-title {
   top: 14px;
   left: 16px;
