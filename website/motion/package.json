@@ -6,7 +6,8 @@
   "scripts": {
     "studio": "remotion studio src/index.jsx",
     "render:connected": "remotion render src/index.jsx ConnectedSuite out/connected-suite.mp4 --codec h264",
-    "render:hero": "remotion render src/index.jsx ClorHero out/clor-hero.mp4 --codec h264"
+    "render:hero": "remotion render src/index.jsx ClorHero out/clor-hero.mp4 --codec h264",
+    "render:photo": "remotion render src/index.jsx ClorPhotoHero out/clor-photo-hero.mp4 --codec h264"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.0",
