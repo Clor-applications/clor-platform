@@ -315,12 +315,14 @@ export async function sendTemplate(opts: SendOptions) {
         ? JSON.stringify(opts.attachments.map((a) => ({ filename: a.filename, contentType: a.contentType, base64: Buffer.from(a.content, 'utf8').toString('base64') })))
         : null,
       status: 'QUEUED',
+      /* In hand from the start: the retry job leaves it alone while this send is under way. */
+      claimedAt: new Date(),
       relatedType: opts.relatedType ?? null,
       relatedId: opts.relatedId ?? null,
     },
   });
 
-  return deliver(row.id, opts.accountId, opts.orgId);
+  return attempt(row, opts.accountId, opts.orgId);
 }
 
 /**
@@ -368,10 +370,54 @@ async function platformSender(row: { templateKey: string; relatedType: string | 
   return { from: fallback, replyTo: undefined };
 }
 
-/** Attempts delivery of one outbox row and records the result. */
+/**
+ * Retries (services/emailRetry.ts runs them). A message is tried at most
+ * MAX_ATTEMPTS times: the first when it is written, then after 1 minute,
+ * 5 minutes, 30 minutes, 2 hours and 6 hours — a mail server that is down for
+ * an afternoon loses nothing, and one that will never take the message is not
+ * knocked on for ever. After the last try the row stays FAILED with no next
+ * time, for a person to look at (Email log) and send again by hand.
+ */
+export const MAX_ATTEMPTS = 6;
+export const RETRY_AFTER_MINUTES = [1, 5, 30, 120, 360];
+/** A claim older than this was left by a sender that died; the message is free again. */
+export const CLAIM_MS = 10 * 60_000;
+
+/** When a message that has now failed `attempts` times is tried again; null when it has used every try. */
+export const nextAttemptAfter = (attempts: number, now = new Date()) =>
+  attempts >= MAX_ATTEMPTS ? null : new Date(now.getTime() + RETRY_AFTER_MINUTES[Math.min(Math.max(attempts, 1), RETRY_AFTER_MINUTES.length) - 1] * 60_000);
+
+/** A row nobody has in hand: never claimed, or claimed by a sender that died. */
+export const unclaimed = (now = new Date()) => ({ OR: [{ claimedAt: null }, { claimedAt: { lt: new Date(now.getTime() - CLAIM_MS) } }] });
+
+/**
+ * Take a message to send it. One UPDATE decides, so of two senders that reach
+ * for the same row (two instances of the retry job, the job and a person
+ * pressing Resend) exactly one gets it and the other sends nothing.
+ */
+async function claim(id: string, now = new Date()) {
+  const r = await platformPrisma.emailOutbox.updateMany({ where: { id, status: { in: ['QUEUED', 'FAILED'] }, ...unclaimed(now) }, data: { claimedAt: now } });
+  return r.count === 1;
+}
+
+/**
+ * Attempts delivery of one outbox row and records the result. A row that is
+ * sent, suppressed, or in another sender's hands is returned as it is.
+ */
 export async function deliver(outboxId: string, accountId?: string | null, orgId?: string | null) {
+  const found = await platformPrisma.emailOutbox.findUnique({ where: { id: outboxId } });
+  if (!found || found.status === 'SENT' || found.status === 'SUPPRESSED') return found;
+  if (!(await claim(found.id))) return platformPrisma.emailOutbox.findUnique({ where: { id: outboxId } });
+  /* Read again under the claim: the count of tries is the one this try adds to. */
   const row = await platformPrisma.emailOutbox.findUnique({ where: { id: outboxId } });
-  if (!row || row.status === 'SENT' || row.status === 'SUPPRESSED') return row;
+  if (!row) return row;
+  return attempt(row, accountId, orgId);
+}
+
+type OutboxRow = NonNullable<Awaited<ReturnType<typeof platformPrisma.emailOutbox.findUnique>>>;
+
+/** One try of a row the caller has claimed. Never throws for a send that failed: the outcome is on the row. */
+async function attempt(row: OutboxRow, accountId?: string | null, orgId?: string | null) {
 
   const resolved = await resolveTransport(accountId ?? row.accountId, orgId ?? row.orgId);
   const transport = resolved.source === 'system' ? { ...resolved, ...(await platformSender(row, resolved.from)) } : resolved;
@@ -399,6 +445,8 @@ export async function deliver(outboxId: string, accountId?: string | null, orgId
         sentAt: new Date(),
         attempts: { increment: 1 },
         lastError: null,
+        nextAttemptAt: null,
+        claimedAt: null,
         // Delivered: the stored copy no longer needs the working link.
         bodyText: withoutLinkTokens(row.bodyText),
         ...(row.bodyHtml ? { bodyHtml: withoutLinkTokens(row.bodyHtml) } : {}),
@@ -411,6 +459,9 @@ export async function deliver(outboxId: string, accountId?: string | null, orgId
         status: 'FAILED',
         attempts: { increment: 1 },
         lastError: String(e?.message || e).slice(0, 500),
+        /* Tried again later by the retry job, later each time; null after the last try. */
+        nextAttemptAt: nextAttemptAfter(row.attempts + 1),
+        claimedAt: null,
       },
     });
   }

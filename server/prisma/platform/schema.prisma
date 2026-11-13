@@ -677,6 +677,12 @@ model EmailOutbox {
   attempts  Int       @default(0)
   lastError String?
   sentAt    DateTime?
+  /// When the retry job sends a FAILED message again. Null on a FAILED row: no
+  /// more automatic tries (it used them all, or failed before retries existed).
+  nextAttemptAt DateTime?
+  /// Set while one sender has the message in hand, so no second sender takes it;
+  /// cleared when the try ends. One left by a crash stops counting after ten minutes.
+  claimedAt     DateTime?
 
   relatedType String?
   relatedId   String?
@@ -687,6 +693,7 @@ model EmailOutbox {
   @@index([accountId, orgId, status])
   @@index([templateKey, createdAt])
   @@index([status, createdAt])
+  @@index([status, nextAttemptAt])
   @@index([createdAt])
 }
 

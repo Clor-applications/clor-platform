@@ -60,7 +60,7 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [~] `/signup` gives every app free forever — fixed on `claude/audit-stage0`: now a dated trial (published trial length, 14 days default), test `signupTrial.test.ts`
 - [x] "Start free trial" lands on Sign in — fixed: `app.clor.in/start` answers 200 on the live app (checked 12 Nov)
 - [x] Production behind main — released through #215 on 12 Nov. Still missing: scripted release with notes and a CHANGELOG entry
-- [ ] Release record: a script that builds, tags and writes release notes (audit P0 8)
+- [~] Release record: a script that builds, tags and writes release notes (audit P0 8) — `scripts/release.sh` (dry run by default; `--stage`, `--go`) and `scripts/release-notes.mjs`, branch `claude/platform-reliability`; not yet used for a real release
 - [~] People / Attendance boundary, permission rule — on `claude/audit-stage0` (PR #218): Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner chose this list 12 Nov). `middleware/rbac.ts` `ATTENDANCE_OPENS_PEOPLE`, test `attendanceBoundary.test.ts`
 - [~] Boundary, employee app — on PR #218: money, engagement and referrals routes need People (`portalNeedsPeople`); `/portal/me` says `people`, and the app hides Money, Jobs, Growth and Celebrations without it
 - [~] Boundary, billing — on PR #218: with People on a plan, Attendance is always free (`peopleIncludesAttendance` in `services/subscriptions.ts`), so nobody pays for both. Upgrade from Attendance to People keeps all data (same tables). Still open: an "Upgrade to People" button for the customer
@@ -92,7 +92,7 @@ write the PR number and date. Last updated: 12 Nov 2026.
 - [ ] Rule 3(1) edit log with before/after values; a failed audit write blocks the change (`middleware/auditMutations.ts`)
 - [ ] Editable roster grid (bulk assign, publish, coverage); OT rates by day type and caps; multiple breaks; comp-off expiry
 - [ ] People reports with filters and charts; letters issued by event
-- [ ] Bigger DB pools or a pooler; payroll run as a background job with `createMany`; email outbox with retry (`services/mailer.ts:231-300`)
+- [ ] Bigger DB pools or a pooler; payroll run as a background job with `createMany`. Email outbox with retry: [~] built (`services/emailRetry.ts`, migration `20261206090000_email_outbox_retry`), branch `claude/platform-reliability`
 - [ ] Payroll EDLI and admin charges computed (`defaults.ts:58`); Labour Code 50% wage rule
 - [ ] Mask PAN and bank numbers in payroll lists, reveal one with step-up (`routes/payrollEmployees.ts:148-209`)
 - [ ] Named second person for incidents and releases; sub-processor list
@@ -109,13 +109,13 @@ write the PR number and date. Last updated: 12 Nov 2026.
 
 ## Smaller findings (any time)
 
-- [ ] Cloud Run settings in the repo (timeout ≥ 300s, min/max instances); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` still describe the retired VM
+- [~] Cloud Run settings in the repo (`deploy/cloudrun.service.yaml`); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` rewritten for Cloud Run, Cloud SQL and Pages — branch `claude/platform-reliability`. Still to do by hand: the live service's request timeout is 60s, not 300s (command in `DEPLOY.md`)
 - [ ] Migrations run at every container start with runtime credentials; a bad one crash-loops all instances (seen 12 Nov). Move to a pre-deploy Cloud Run Job
-- [ ] Alert when a background job fails or goes stale (`JobRun`)
+- [~] Alert when a background job fails or goes stale (`JobRun`) — health check at the end of each wake call (`services/ops/jobHealth.ts`), branch `claude/platform-reliability`
 - [ ] Idempotency keyed by user and company, not the Authorization header (`middleware/idempotency.ts:23`)
 - [ ] E-invoice calls: queue, retry, timeout (`services/einvoice.ts:367`)
 - [ ] zod validation on the 47 route files without it, employee portal first
-- [ ] Readers identified only by printed serial: per-reader IP allow-list (`routes/iclock.ts`)
+- [~] Readers identified only by printed serial: per-reader IP allow-list (`routes/iclock.ts`) — set on the reader's page, branch `claude/platform-reliability`
 - [ ] UPI pay page reflects `?err=` text: use fixed codes (`routes/payRequests.ts:238`)
 - [ ] Separate encryption key, not `JWT_SECRET` fallback (`services/mailer.ts:52`)
 - [ ] Leave day counts are Float: Decimal(6,2) (`prisma/people/schema.prisma:688-878`)

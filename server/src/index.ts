@@ -23,6 +23,7 @@ import { registerPeopleEffects } from './services/people/approvals/effects.js';
 import { startDocumentReminders } from './services/people/documentReminders.js';
 import { startNotificationPruning } from './services/notifications.js';
 import { startOpsAlerts } from './services/ops/alerts.js';
+import { startEmailRetries } from './services/emailRetry.js';
 import { startRenewals } from './billing/renewals.js';
 import { startTrialReminders } from './billing/trialReminders.js';
 import { startBooksDigest } from './services/booksDigest.js';
@@ -124,6 +125,8 @@ startEngagement();
 startNotificationPruning();
 /* Alerts for CLOR staff on ops.clor.in: failing jobs, stuck mail, offline readers, overdue invoices, waiting tickets. */
 startOpsAlerts();
+/* Mail that failed is sent again, later each time, and mail left unsent by a stopped instance is picked up. */
+startEmailRetries();
 /* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
 startRenewals();
 startTrialReminders();

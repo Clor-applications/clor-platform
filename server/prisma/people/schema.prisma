@@ -1010,6 +1010,12 @@ model AttendanceDevice {
   /// An address the reader is calling from that is not approved (yet).
   pendingNetwork    String?
   pendingNetworkAt  DateTime?
+  /// The company's own rule, set on the reader's page: only accept punches from
+  /// these network addresses or ranges ("203.0.113.7/32", "203.0.113.0/24").
+  /// Empty = no rule of its own; the network lock above decides, as before.
+  /// When set it is the whole rule: an address outside it is refused and
+  /// logged, and nothing is approved on the reader's say-so.
+  ipAllowList       String[]  @default([])
 
   createdByUserId String
   createdAt       DateTime @default(now())
