@@ -241,10 +241,13 @@ export async function sendAbsenceNotice(who: Who, caseId: string, input: { repor
       extra: { absentFrom: longDay(c.fromDate), reportBy: longDay(reportBy), signatory, ...(first ? { firstNoticeOn: longDay(istDate(first.sentAt)) } : {}) },
     });
   } catch (e) {
-    /* Nothing went out: the claim is taken back so it can be sent again. */
+    /*
+     * Nothing went out: the claim is taken back so it can be sent again. Only from the status this notice gave it:
+     * a case closed meanwhile (they came back) stays closed rather than opening again.
+     */
     await peopleWrite(who.orgId, async () => {
       await peoplePrisma.absenceNotice.delete({ where: { id: row.id } });
-      await peoplePrisma.absenceCase.update({ where: { id: c.id }, data: { status: seq === 1 ? 'OPEN' : 'NOTICE_1' } });
+      await peoplePrisma.absenceCase.updateMany({ where: { id: c.id, status: seq === 1 ? 'NOTICE_1' : 'NOTICE_2' }, data: { status: seq === 1 ? 'OPEN' : 'NOTICE_1' } });
     });
     if (e instanceof LetterError) throw new AbsenceError(e.message, e.status);
     throw e;
@@ -321,7 +324,16 @@ export async function recordAbsconded(who: Who, caseId: string, input: { lastWor
   try {
     await leaveEmployee({ accountId: who.accountId, orgId: who.orgId, userId: who.userId, source: 'FORM', correlationId: who.correlationId, reason }, existing as any, { lastDay, leavingType: 'ABSCONDED', reason });
   } catch (e) {
-    await peoplePrisma.absenceCase.updateMany({ where: { id: c.id, status: 'ABSCONDED' }, data: { status: 'NOTICE_2', lastWorkingDay: null, closedAt: null, closedByUserId: null, closedNote: null } });
+    /*
+     * Not one transaction with the claim: the leaving spans the platform database (sign-ins), the readers and the
+     * letters, and commits its own record first. So the case is taken back only when the leaving did not get
+     * recorded. Recorded and a later step of it failed, the person has left as absconded: the case says so too,
+     * rather than going back to the second notice with nothing able to record it again ("already left").
+     */
+    const now = await peoplePrisma.employee.findFirst({ where: { id: c.employeeId, orgId: who.orgId }, select: { status: true, leavingType: true } });
+    const left = now?.leavingType === 'ABSCONDED' && (now.status === 'LEFT' || now.status === 'ON_NOTICE');
+    if (!left) await peoplePrisma.absenceCase.updateMany({ where: { id: c.id, status: 'ABSCONDED' }, data: { status: 'NOTICE_2', lastWorkingDay: null, closedAt: null, closedByUserId: null, closedNote: null } });
+    else await audit(who, c.id, 'ABSCONDED', `${existing.name} recorded as absconded, last working day ${longDay(lastDay)}; a later step of the leaving failed: ${e instanceof Error ? e.message : String(e)}`, { employeeId: c.employeeId, lastDay, notices });
     throw e;
   }
   await audit(who, c.id, 'ABSCONDED', `${existing.name} recorded as absconded, last working day ${longDay(lastDay)}`, { employeeId: c.employeeId, lastDay, notices });
