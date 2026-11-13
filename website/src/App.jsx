@@ -11,7 +11,17 @@ const REVEAL =
 
 function useReveal(route) {
   useEffect(() => {
-    const onScroll = () => document.documentElement.classList.toggle('is-scrolled', window.scrollY > 8);
+    /* A fast jump can carry a block past the screen between two frames, so the
+     * observer never sees it: on every scroll, show any block already near or above. */
+    const showPassed = () => {
+      for (const el of document.querySelectorAll('.rv:not(.rv-in)')) {
+        if (el.getBoundingClientRect().top < window.innerHeight * 1.2) el.classList.add('rv-in');
+      }
+    };
+    const onScroll = () => {
+      document.documentElement.classList.toggle('is-scrolled', window.scrollY > 8);
+      showPassed();
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

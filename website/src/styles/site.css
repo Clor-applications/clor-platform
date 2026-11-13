@@ -3791,3 +3791,224 @@ main > .section:nth-child(odd of .section) .problems li {
     grid-row: auto;
   }
 }
+
+/* ===================================================== 3D scenes, 13 Nov 2026
+ * Beside a section heading, where the right half used to be bare. A tilted
+ * plane holds slabs; each slab is a white tile with two darker layers under
+ * it for its edge, rising and settling slowly out of step with the others.
+ * Transform and opacity only; off under reduced motion; hidden on phones.
+ */
+.head--art {
+  grid-template-columns: minmax(0, 46rem) minmax(300px, 1fr);
+  align-items: center;
+  column-gap: var(--gap-col);
+}
+.split > .head.head--art {
+  max-width: none;
+}
+.head-text {
+  display: grid;
+  gap: var(--s-3);
+}
+.art3d {
+  position: relative;
+  height: 230px;
+  margin-block: calc(var(--s-5) * -1);
+  display: grid;
+  place-items: center;
+  perspective: 1100px;
+  pointer-events: none;
+}
+.art3d-plane {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(58deg) rotateZ(-38deg);
+}
+.art3d[data-kind='flow'] .art3d-plane {
+  width: 384px;
+  height: 72px;
+  transform: rotateX(58deg) rotateZ(-28deg) translateX(-10px);
+}
+.art3d[data-kind='vault'] .art3d-plane {
+  width: 190px;
+  height: 128px;
+  margin-top: 40px;
+}
+.art3d[data-kind='product'] .art3d-plane {
+  width: 140px;
+  height: 140px;
+  margin-top: 40px;
+  animation: art-spin 26s linear infinite;
+}
+.art3d[data-kind='stairs'] .art3d-plane {
+  width: 264px;
+  height: 92px;
+  margin-top: -30px;
+}
+.art3d[data-kind='team'] .art3d-plane {
+  width: 248px;
+  height: 196px;
+  margin-top: -20px;
+}
+.art3d-shadow {
+  position: absolute;
+  inset: -18%;
+  border-radius: 40%;
+  background: radial-gradient(closest-side, rgba(15, 23, 42, 0.16), transparent);
+  filter: blur(8px);
+}
+.slab {
+  --slab-bg: #ffffff;
+  --slab-edge: #d6dce6;
+  --slab-line: #e3e8ef;
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  height: var(--h);
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--slab-bg);
+  border: 1px solid var(--slab-line);
+  color: var(--accent);
+  transform-style: preserve-3d;
+  transform: translateZ(var(--z));
+  animation: slab-bob 6.5s ease-in-out infinite;
+  animation-delay: var(--d);
+}
+.slab::before,
+.slab::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: var(--slab-edge);
+  transform: translateZ(-5px);
+}
+.slab::after {
+  transform: translateZ(-10px);
+  filter: brightness(0.9);
+}
+.slab > * {
+  transform: translateZ(1px);
+}
+.slab--accent {
+  --slab-bg: #fff6f1;
+  --slab-edge: #ffb48f;
+  --slab-line: #ffd2bc;
+}
+.slab--lock {
+  --slab-bg: var(--accent);
+  --slab-edge: var(--accent-press);
+  --slab-line: var(--accent);
+  color: #fff;
+}
+.slab-rows {
+  display: grid;
+  gap: 10px;
+  width: 70%;
+}
+.slab-rows i {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: #e8ecf2;
+}
+.slab-rows i:first-child {
+  width: 55%;
+  background: #cfd6e1;
+}
+.slab--accent .slab-rows i {
+  background: #ffe1d2;
+}
+.slab--accent .slab-rows i:first-child {
+  background: #ffbf9f;
+}
+.slab-num {
+  font-weight: 700;
+  font-size: var(--t-lg);
+  color: var(--ink-3);
+}
+.slab-tick {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+.wire {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--len);
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--wire) 45%, #fff);
+  transform: translateZ(4px);
+  overflow: visible;
+}
+.wire::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--wire);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--wire) 18%, transparent);
+  animation: wire-dot 2.4s ease-in-out infinite;
+  animation-delay: var(--d);
+}
+.wire--down {
+  width: 3px;
+  height: var(--len);
+}
+.wire--down::after {
+  animation-name: wire-dot-down;
+}
+@keyframes wire-dot-down {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(var(--len)); opacity: 0; }
+}
+@keyframes slab-bob {
+  0%, 100% { transform: translateZ(var(--z)); }
+  50% { transform: translateZ(calc(var(--z) + 12px)); }
+}
+@keyframes wire-dot {
+  0% { transform: translateX(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(var(--len)); opacity: 0; }
+}
+@keyframes art-spin {
+  from { transform: rotateX(58deg) rotateZ(-38deg); }
+  to { transform: rotateX(58deg) rotateZ(322deg); }
+}
+@media (max-width: 900px) {
+  .head--art {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .art3d {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slab,
+  .wire::after,
+  .art3d-plane {
+    animation: none !important;
+  }
+}
+.art3d[data-kind='product'] {
+  transform: scale(1.4);
+}
+.art3d[data-kind='stairs'],
+.art3d[data-kind='team'] {
+  transform: scale(1.15);
+}

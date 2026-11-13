@@ -1,4 +1,5 @@
 import React from 'react';
+import { Art3D } from '../components/Art3D.jsx';
 import { Calculator, ChartLineUp, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
@@ -256,6 +257,7 @@ export default function Home() {
             id="connected-title"
             title="Attendance feeds payroll. Payroll posts to Books."
             intro="Bought together, the four products read the same employees and post to the same books, so nobody exports a spreadsheet in between. Projects and Timesheet are next."
+            art={<Art3D kind="flow" />}
           />
           <ul className="links">
             {CONNECTIONS.map((x) => (
@@ -276,7 +278,7 @@ export default function Home() {
 
       <section className="section" aria-labelledby="team-title">
         <div className="wrap">
-          <Head id="team-title" title="Who uses CLOR" />
+          <Head id="team-title" title="Who uses CLOR" art={<Art3D kind="team" />} />
           <ul className="groups">
             {TEAMS.map((t) => (
               <li key={t.title}>
