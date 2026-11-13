@@ -4,15 +4,15 @@ import { Briefcase, CalendarDots, Fingerprint, UsersThree, Wallet } from '@phosp
 import { Link } from '../router.jsx';
 
 /** The CLOR logo, as the apps draw it (packages/ui ClorLogo): CLOR in outlined
- *  Baloo 2 ExtraBold, slate, with the orange dot in the mouth of the C
- *  (public/brand/clor-logo-2026-11-13.png, 1012 x 294; dated so no browser keeps
- *  the old ribbon-mark file). The A-for-Applications badge is left off here: at
- *  header size it would be an unreadable speck. */
+ *  Baloo 2 ExtraBold in blaze orange, the dot in the mouth of the C, and the A
+ *  for Applications cut out of a dark blue disc at the foot of the R
+ *  (public/brand/clor-logo-2026-11-13.png, 1086 x 294; dated so no browser keeps
+ *  the old ribbon-mark file). */
 /** The header's copy loads first; the footer's (lazy) waits until it is near. */
 export function Logo({ height = 22, lazy = false, light = false }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src={light ? '/brand/clor-logo-2026-11-13-light.png' : '/brand/clor-logo-2026-11-13.png'} alt="CLOR" height={height} width={Math.round((height * 1012) / 294)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
+      <img src={light ? '/brand/clor-logo-2026-11-13-light.png' : '/brand/clor-logo-2026-11-13.png'} alt="CLOR" height={height} width={Math.round((height * 1086) / 294)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
     </Link>
   );
 }

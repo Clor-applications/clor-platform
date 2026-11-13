@@ -1,16 +1,16 @@
 import React from 'react';
 import { C_D, DOT } from './logoPaths.js';
 
-/* CLOR icon: the C of the wordmark with the orange dot in its mouth (13 Nov 2026).
-   Letters are outlined Baloo 2 ExtraBold, so no font is needed to draw them.
-   The C spans 0..508 across and 0..643 down; this box centres it in a square. */
+/* CLOR icon: the C of the wordmark with the dot in its mouth (13 Nov 2026).
+   Blaze orange, the primary brand colour. Letters are outlined Baloo 2
+   ExtraBold, so no font is needed to draw them. The C spans 0..508 across and
+   0..643 down; this box centres it in a square. */
 const BOX = '-81.5 -13.5 671 671';
 const ORANGE = 'rgb(var(--logo-mark-orange, 255 84 0))';
-const SLATE = 'rgb(var(--logo-mark-slate, 15 23 42))';
 
 export default function ClorMark({ size = 28, color, className = '', title = 'CLOR' }) {
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': 'true' };
-  const letter = color || SLATE;
+  const letter = color || ORANGE;
   const dot = color || ORANGE;
   return (
     <svg
