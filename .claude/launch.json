@@ -49,6 +49,15 @@
         "cd website && npx vite --host 127.0.0.1 --port 5190"
       ],
       "port": 5190
+    },
+    {
+      "name": "app-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "npx vite --host 127.0.0.1 --port 5187"
+      ],
+      "port": 5187
     }
   ]
 }

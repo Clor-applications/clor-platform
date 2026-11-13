@@ -50,27 +50,48 @@ function CustomerBrand() {
 }
 
 /**
- * Lines worth reading, turning over one after another on the picture. Held still
- * for anyone who asks for less motion; the dots let a reader pick one.
+ * Lines worth reading, turning over one after another on the picture: the subject,
+ * the line, who said it. A thin bar fills as the line's time runs; it waits while
+ * the pointer or the keyboard is on the card. Held still for anyone who asks for
+ * less motion; the arrows let a reader go back or on.
  */
+const QUOTE_MS = 8000;
 function Quotes() {
   const [i, setI] = useState(0);
+  const [held, setHeld] = useState(false);
   useEffect(() => {
-    if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const t = setInterval(() => setI((n) => (n + 1) % QUOTES.length), 7000);
-    return () => clearInterval(t);
-  }, [i]);
+    if (held || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setTimeout(() => setI((n) => (n + 1) % QUOTES.length), QUOTE_MS);
+    return () => clearTimeout(t);
+  }, [i, held]);
   const q = QUOTES[i];
+  const go = (step) => setI((n) => (n + step + QUOTES.length) % QUOTES.length);
   return (
-    <figure className="ui-auth-facts">
-      <div key={i} className="ui-auth-fact">
+    <figure
+      className={`ui-auth-facts${held ? ' is-held' : ''}`}
+      onMouseEnter={() => setHeld(true)}
+      onMouseLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={() => setHeld(false)}
+    >
+      <div key={i} className="ui-auth-fact" aria-live="off">
+        <p className="ui-auth-fact-about">{q.about}</p>
         <blockquote>“{q.text}”</blockquote>
         <figcaption>{q.by}</figcaption>
       </div>
-      <div className="ui-auth-fact-dots">
-        {QUOTES.map((x, n) => (
-          <button key={x.text} type="button" aria-label={`Quote ${n + 1} of ${QUOTES.length}`} aria-current={n === i ? 'true' : undefined} onClick={() => setI(n)} />
-        ))}
+      <div className="ui-auth-fact-foot">
+        <span className="ui-auth-fact-bar" aria-hidden="true">
+          <span key={i} style={{ animationDuration: `${QUOTE_MS}ms` }} />
+        </span>
+        <span className="ui-auth-fact-count" aria-hidden="true">
+          {i + 1} / {QUOTES.length}
+        </span>
+        <button type="button" aria-label="Previous quote" onClick={() => go(-1)}>
+          ‹
+        </button>
+        <button type="button" aria-label="Next quote" onClick={() => go(1)}>
+          ›
+        </button>
       </div>
     </figure>
   );
@@ -122,7 +143,12 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
           </aside>
         )}
 
-        <div className="relative flex-1 flex flex-col items-center justify-center px-6 py-10">
+        <div className="ui-auth-side relative flex-1 flex flex-col items-center justify-center px-6 py-10">
+          {file ? (
+            <button type="button" onClick={onHome} className="ui-auth-back hidden lg:inline-flex">
+              <span aria-hidden="true">←</span> Back to clor.in
+            </button>
+          ) : null}
           <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-md'}`}>
             <div className="lg:hidden mb-6 text-center">
               <button type="button" onClick={onHome} className="inline-flex items-center gap-2">
@@ -147,7 +173,10 @@ export default function AuthLayout({ title, subtitle, wide = false, onHome, chil
             </div>
 
             {footer ? <div className="mt-6 text-center text-sm">{footer}</div> : null}
-            <LegalLinks className="mt-6 flex justify-center" />
+          </div>
+          <div className="ui-auth-foot">
+            <LegalLinks className="flex justify-center" />
+            <p className="ui-auth-foot-line">© 2026 CLOR Applications Private Limited</p>
           </div>
         </div>
       </div>

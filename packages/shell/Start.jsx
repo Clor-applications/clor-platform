@@ -93,7 +93,7 @@ export default function Start({ onHome, onSignIn, signedIn = null, signOut = nul
 
   if (step === 'ended') {
     return (
-      <AuthLayout title="This link has ended" subtitle="A link works for 24 hours and once. Start again and we will send a new one." onHome={onHome}>
+      <AuthLayout scene="start" title="This link has ended" subtitle="A link works for 24 hours and once. Start again and we will send a new one." onHome={onHome}>
         <button type="button" className="ui-btn ui-btn-brand ui-btn-lg w-full" onClick={() => setStep('email')}>
           Start again <ArrowRight size={16} aria-hidden="true" />
         </button>
@@ -103,7 +103,7 @@ export default function Start({ onHome, onSignIn, signedIn = null, signOut = nul
 
   if (step === 'setup' && !pending) {
     return (
-      <AuthLayout title="Opening your link…" subtitle="One moment." onHome={onHome}>
+      <AuthLayout scene="start" title="Opening your link…" subtitle="One moment." onHome={onHome}>
         <p className="ui-muted text-sm">Checking the link from your mail.</p>
       </AuthLayout>
     );
@@ -128,6 +128,7 @@ export default function Start({ onHome, onSignIn, signedIn = null, signOut = nul
   if (step === 'sent') {
     return (
       <AuthLayout
+      scene="start"
         title="Check your mail"
         subtitle={`We sent a link to ${sentTo}. Open it to set up your company. It works for 24 hours.`}
         onHome={onHome}
@@ -184,6 +185,7 @@ function EmailStep({ email, setEmail, firstApp, appName, plan, days, onHome, onS
   };
   return (
     <AuthLayout
+      scene="start"
       title={firstApp ? `Start your ${appName(firstApp)} trial` : 'Start your free trial'}
       subtitle={`${days ? `${days} days free, ` : 'Free, '}no card. We send you a link to check your email, then you set up your company.`}
       onHome={onHome}
@@ -304,6 +306,7 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
 
   return (
     <AuthLayout
+      scene="start"
       title="Set up your company"
       subtitle={`${pending.email} is confirmed.${days ? ` Your trial runs ${days} days, no card.` : ''}`}
       wide
