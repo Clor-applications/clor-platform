@@ -1,0 +1,17 @@
+{
+  "name": "clor-motion-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.jsx",
+    "render:connected": "remotion render src/index.jsx ConnectedSuite out/connected-suite.mp4 --codec h264",
+    "render:hero": "remotion render src/index.jsx ClorHero out/clor-hero.mp4 --codec h264"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "remotion": "^4.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
