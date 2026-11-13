@@ -6,7 +6,8 @@ the **Launch Review** (`CLOR-Launch-Review-2026-11-11.pdf`) and the **Platform A
 Both PDFs are on the owner's Desktop.
 
 Any session can continue from here. Tick a line when it is **merged and live**, and
-write the PR number and date. Last updated: 12 Nov 2026.
+write the PR number and date. Last updated: 13 Nov 2026 (every Stage 0 branch below has
+since merged and shipped; checked against `origin/main`, the live API revision and the live app).
 
 `[x]` done and live · `[~]` built, waiting (PR open, merged not released, or partly done) · `[ ]` not started
 
@@ -51,22 +52,26 @@ write the PR number and date. Last updated: 12 Nov 2026.
 
 ## Built, waiting
 
-- [~] **PR #216** nightly backup script — CI green, owner to press Merge (no deploy needed)
-- [~] **PR on branch `claude/audit-stage0`**: timed jobs fix + `/signup` trial + this checklist. Add the rest of Stage 0 to it if CI has not finished
+- [x] **PR #216** nightly backup script — merged
+- [x] **`claude/audit-stage0`** (PR #218) — merged and live
 
 ## Stage 0 — stop the bleeding (audit: about 2 weeks)
 
-- [~] Timed jobs see no data when Cloud Scheduler wakes them (recurring invoices, reminders, digests, purges) — fixed on `claude/audit-stage0`, `server/src/routes/internalJobs.ts`
-- [~] `/signup` gives every app free forever — fixed on `claude/audit-stage0`: now a dated trial (published trial length, 14 days default), test `signupTrial.test.ts`
+- [x] Timed jobs see no data when Cloud Scheduler wakes them (recurring invoices, reminders, digests, purges) — PR #218, live (`server/src/routes/internalJobs.ts`)
+- [x] `/signup` gives every app free forever — PR #218, live: a dated trial (published trial length, 14 days default), test `signupTrial.test.ts`
 - [x] "Start free trial" lands on Sign in — fixed: `app.clor.in/start` answers 200 on the live app (checked 12 Nov)
 - [x] Production behind main — released through #215 on 12 Nov. Still missing: scripted release with notes and a CHANGELOG entry
-- [~] Release record: a script that builds, tags and writes release notes (audit P0 8) — `scripts/release.sh` (dry run by default; `--stage`, `--go`) and `scripts/release-notes.mjs`, branch `claude/platform-reliability`; not yet used for a real release
-- [~] People / Attendance boundary, permission rule — on `claude/audit-stage0` (PR #218): Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner chose this list 12 Nov). `middleware/rbac.ts` `ATTENDANCE_OPENS_PEOPLE`, test `attendanceBoundary.test.ts`
-- [~] Boundary, employee app — on PR #218: money, engagement and referrals routes need People (`portalNeedsPeople`); `/portal/me` says `people`, and the app hides Money, Jobs, Growth and Celebrations without it
-- [~] Boundary, billing — on PR #218: with People on a plan, Attendance is always free (`peopleIncludesAttendance` in `services/subscriptions.ts`), so nobody pays for both. Upgrade from Attendance to People keeps all data (same tables). Still open: an "Upgrade to People" button for the customer
-- [~] Hide the Attendance menu for People customers — on `claude/attendance-boundary-export` (not merged): a company on People is not listed Attendance (rail, switcher, More apps, Workspace), and attendance.clor.in or a notice link opens the matching People screen (`packages/platform/includedApps.js`, test `packages/shell/includedApps.test.js`). Not yet seen in a browser. The employee app stays at attendance.clor.in/#/portal
-- [~] Payroll export for companies paying salaries outside CLOR — same branch: a closed month as Generic, greytHR, Keka or Tally (`services/attendance/payrollExport.ts`, test `attendancePayrollExport.test.ts`), offered on Month close. The greytHR, Keka and Tally headings were not checked against a live account
-- [ ] Error tracker and uptime check with alerts to phone (Sentry free tier or Cloud Monitoring)
+- [~] Release record: a script that builds, tags and writes release notes (audit P0 8) — `scripts/release.sh` and `scripts/release-notes.mjs` merged (PR #225). **Still not used for a real release**: every release so far, including 13 Nov, was built and deployed by hand
+- [x] People / Attendance boundary, permission rule — PR #218, live: Attendance alone opens only Employees, Org Structure, Documents, Announcements, Requests, Approvals in People (owner chose this list 12 Nov). `middleware/rbac.ts` `ATTENDANCE_OPENS_PEOPLE`, test `attendanceBoundary.test.ts`
+- [x] Boundary, employee app — PR #218, live: money, engagement and referrals routes need People (`portalNeedsPeople`); `/portal/me` says `people`, and the app hides Money, Jobs, Growth and Celebrations without it
+- [~] Boundary, billing — PR #218, live: with People on a plan, Attendance is always free (`peopleIncludesAttendance` in `services/subscriptions.ts`), so nobody pays for both. Upgrade from Attendance to People keeps all data (same tables). Still open: an "Upgrade to People" button for the customer
+- [x] Hide the Attendance menu for People customers — PR #224, live: a company on People is not listed Attendance (rail, switcher, More apps, Workspace), and attendance.clor.in or a notice link opens the matching People screen (`packages/platform/includedApps.js`, test `packages/shell/includedApps.test.js`). Seen in the live app on 13 Nov: a company on Books, Payroll and People is listed three applications, with no Attendance. The employee app stays at attendance.clor.in/#/portal
+- [~] Payroll export for companies paying salaries outside CLOR — PR #224, live: a closed month as Generic, greytHR, Keka or Tally (`services/attendance/payrollExport.ts`, test `attendancePayrollExport.test.ts`), offered on Month close. The greytHR, Keka and Tally headings were not checked against a live account
+- [~] Error tracker and uptime check with alerts to phone — **done except the phone** (checked 13 Nov):
+  - Uptime checks live for `api.clor.in`, `app.clor.in` and `clor.in`
+  - Six alert policies on: each of those three down, Cloud SQL down, a scheduled job failing, and clor-api 5xx
+  - Errors group in Cloud Error Reporting, no Sentry needed: `reportError` writes a `ReportedErrorEvent` with the stack, called from the 500 handler and from `unhandledRejection` / `uncaughtException` (`server/src/utils/log.ts`). No error groups in the last week because the API threw none; the pipeline last carried one on 1 Nov
+  - **Left: alerts reach e-mail only** (`suresh@clor.in`). **Owner:** Cloud console, Monitoring, Alerting, Notification channels, add **SMS** (or the Google Cloud mobile app) and enter the code it texts you; then tick that channel on the six policies. It cannot be done from here: the code goes to your phone
 - [ ] **Owner:** GSTIN; prices in ops.clor.in; PAN in ops; lawyer on terms and privacy
 
 ## Stage 1 — private beta, 3–5 free design partners (audit: weeks 3–8)
@@ -110,13 +115,13 @@ write the PR number and date. Last updated: 12 Nov 2026.
 
 ## Smaller findings (any time)
 
-- [~] Cloud Run settings in the repo (`deploy/cloudrun.service.yaml`); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` rewritten for Cloud Run, Cloud SQL and Pages — branch `claude/platform-reliability`. Still to do by hand: the live service's request timeout is 60s, not 300s (command in `DEPLOY.md`)
+- [x] Cloud Run settings in the repo (`deploy/cloudrun.service.yaml`); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` rewritten for Cloud Run, Cloud SQL and Pages — PR #225, merged. The live service's request timeout is **300s**, checked 13 Nov
 - [ ] Migrations run at every container start with runtime credentials; a bad one crash-loops all instances (seen 12 Nov). Move to a pre-deploy Cloud Run Job
-- [~] Alert when a background job fails or goes stale (`JobRun`) — health check at the end of each wake call (`services/ops/jobHealth.ts`), branch `claude/platform-reliability`
+- [x] Alert when a background job fails or goes stale (`JobRun`) — PR #225, live (`services/ops/jobHealth.ts`); the matching alert policy "FAILED: a scheduled job" is on
 - [ ] Idempotency keyed by user and company, not the Authorization header (`middleware/idempotency.ts:23`)
 - [ ] E-invoice calls: queue, retry, timeout (`services/einvoice.ts:367`)
 - [ ] zod validation on the 47 route files without it, employee portal first
-- [~] Readers identified only by printed serial: per-reader IP allow-list (`routes/iclock.ts`) — set on the reader's page, branch `claude/platform-reliability`
+- [x] Readers identified only by printed serial: per-reader IP allow-list (`routes/iclock.ts`) — PR #225, live; set on the reader's page
 - [ ] UPI pay page reflects `?err=` text: use fixed codes (`routes/payRequests.ts:238`)
 - [ ] Separate encryption key, not `JWT_SECRET` fallback (`services/mailer.ts:52`)
 - [ ] Leave day counts are Float: Decimal(6,2) (`prisma/people/schema.prisma:688-878`)
