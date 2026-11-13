@@ -4,15 +4,18 @@ import { Briefcase, CalendarDots, Fingerprint, UsersThree, Wallet } from '@phosp
 import { Link } from '../router.jsx';
 
 /** The CLOR logo, as the apps draw it (packages/ui ClorLogo): CLOR in outlined
- *  Baloo 2 ExtraBold in blaze orange, the dot in the mouth of the C, and the A
- *  for Applications cut out of a dark blue disc at the foot of the R
- *  (public/brand/clor-logo-2026-11-13.png, 1086 x 294; dated so no browser keeps
- *  the old ribbon-mark file). */
+ *  Baloo 2 ExtraBold in dark blue, the blaze orange dot in the mouth of the C,
+ *  and the A for Applications cut out of an orange disc at the foot of the R
+ *  (public/brand/clor-logo-a1.png, 1086 x 294). On the navy header the word
+ *  turns white and the dot and A stay orange (-light).
+ *  The file name carries a version suffix, not a date: the logo was redrawn
+ *  several times under the same dated name and browsers kept serving the old
+ *  picture, so bump a1 -> a2 whenever the artwork changes. */
 /** The header's copy loads first; the footer's (lazy) waits until it is near. */
 export function Logo({ height = 22, lazy = false, light = false }) {
   return (
     <Link href="/" className="logo" aria-label="CLOR home" translate="no">
-      <img src={light ? '/brand/clor-logo-2026-11-13-light.png' : '/brand/clor-logo-2026-11-13.png'} alt="CLOR" height={height} width={Math.round((height * 1086) / 294)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
+      <img src={light ? '/brand/clor-logo-a1-light.png' : '/brand/clor-logo-a1.png'} alt="CLOR" height={height} width={Math.round((height * 1086) / 294)} loading={lazy ? 'lazy' : undefined} fetchPriority={lazy ? undefined : 'high'} />
     </Link>
   );
 }
