@@ -443,15 +443,32 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/validate', can(Permission
     where: { accountId, orgId, id: { in: ids }, checkIn: { not: null }, checkOut: null },
   });
   if (open) return res.status(409).json({ error: `${open} of those days are still open (checked in, not out).` });
-  const beforeRows = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids }, validated: false } });
-  const r = await peoplePrisma.attendanceRecord.updateMany({
-    where: { accountId, orgId, id: { in: ids } },
-    data: { validated: true, validatedByUserId: req.auth!.userId, validatedAt: new Date() },
-  });
-  for (const b of beforeRows) {
-    await logDayChange({ accountId, orgId, employeeId: b.employeeId, date: b.date, recordId: b.id, action: 'VALIDATE', before: b, after: { ...b, validated: true }, userId: req.auth!.userId });
+  /*
+   * Under the company's write lock, as closing a month and every write of a day are: a closed month's days are
+   * final, and a day rewritten a moment ago is read as it is now, not validated unseen. Owner's decision (13 Nov
+   * 2026): validating refuses a closed month too, so a month's sign-offs are settled before it closes. One day in a
+   * closed month refuses the whole batch; reopen the month to validate it.
+   */
+  let count = 0;
+  try {
+    count = await peopleWrite(orgId, async () => {
+      const dates = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids } }, select: { date: true } });
+      const shut = await closedMonths(orgId, dates.map((d) => d.date.slice(0, 7)));
+      if (shut.size) throw new MonthClosedError([...shut].sort()[0]);
+      const beforeRows = await peoplePrisma.attendanceRecord.findMany({ where: { accountId, orgId, id: { in: ids }, validated: false } });
+      const r = await peoplePrisma.attendanceRecord.updateMany({
+        where: { accountId, orgId, id: { in: ids } },
+        data: { validated: true, validatedByUserId: req.auth!.userId, validatedAt: new Date() },
+      });
+      for (const b of beforeRows) {
+        await logDayChange({ accountId, orgId, employeeId: b.employeeId, date: b.date, recordId: b.id, action: 'VALIDATE', before: b, after: { ...b, validated: true }, userId: req.auth!.userId });
+      }
+      return r.count;
+    });
+  } catch (e) {
+    return sendError(res, e);
   }
-  res.json({ validated: r.count });
+  res.json({ validated: count });
 });
 
 attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(PermissionAction.APPROVE, R.records), async (req, res) => {
@@ -461,18 +478,23 @@ attendanceRouter.post('/orgs/:orgId/attendance/records/:id/overtime', can(Permis
   /* A team-scoped role approves its own team's overtime only. */
   if (!r || !inScope(await teamScope(req), r.employeeId)) return res.status(404).json({ error: 'No such day.' });
   if (!r.overtimeMinutes) return res.status(400).json({ error: 'There is no overtime on that day.' });
-  /* Overtime is paid with the month: a closed month's overtime is final (closure audit, 27 Oct 2026). */
+  /*
+   * Overtime is paid with the month: a closed month's overtime is final (closure audit, 27 Oct 2026). Checked under
+   * the company's write lock, as closing a month is, so a month closed a moment ago refuses it.
+   */
   try {
-    await assertMonthOpen(orgId, r.date, r.employeeId);
+    const updated = await peopleWrite(orgId, async () => {
+      await assertMonthOpen(orgId, r.date, r.employeeId);
+      const now = await peoplePrisma.attendanceRecord.findFirst({ where: { id: r.id, accountId, orgId } });
+      if (!now) throw Object.assign(new Error('No such day.'), { status: 404 });
+      const after = await peoplePrisma.attendanceRecord.update({ where: { id: r.id }, data: { overtimeApproved: req.body?.approved !== false } });
+      await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'OVERTIME', before: now, after, userId: req.auth!.userId });
+      return after;
+    });
+    res.json({ record: updated });
   } catch (e) {
     return sendError(res, e);
   }
-  const updated = await peoplePrisma.attendanceRecord.update({
-    where: { id: r.id },
-    data: { overtimeApproved: req.body?.approved !== false },
-  });
-  await logDayChange({ accountId, orgId, employeeId: r.employeeId, date: r.date, recordId: r.id, action: 'OVERTIME', before: r, after: updated, userId: req.auth!.userId });
-  res.json({ record: updated });
 });
 
 /**

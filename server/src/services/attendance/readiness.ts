@@ -116,6 +116,12 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
   const { penaltiesOver } = await import('./markRules.js');
   const due = [...(await penaltiesOver(accountId, orgId, days, { employeeIds: idsOf(scope) })).values()].filter((p) => p.status === 'DUE');
   const dueFromLeave = due.some((p) => p.fromLeave.length > 0);
+  /*
+   * Employees who say their month is wrong, with no answer from HR yet (selfService.ts resolveDispute). A warning,
+   * not a blocker: it is a claim to read, not a figure that is missing, and one person's note must not hold the
+   * company's month. Closing over it is a choice the closer sees.
+   */
+  const openDisputes = await peoplePrisma.attendanceMonthConfirmation.count({ where: { orgId, month, status: 'DISPUTED', resolvedAt: null, ...(idsOf(scope) ? { employeeId: { in: idsOf(scope) } } : {}) } });
   const sum = (f: (p: PersonIssues) => number) => people.reduce((s, p) => s + f(p), 0);
   const overCapDays = sum((p) => p.unapprovedOvertime.filter((o) => o.overCapMinutes > 0).length);
   const checks = [
@@ -132,6 +138,7 @@ export async function monthReadiness(accountId: string, orgId: string, month: st
     { key: 'noRecord', label: 'Working days with no record', severity: 'confirm', count: sum((p) => p.noRecord.length), screen: 'register', hint: 'Each is docked as an unpaid absence (loss of pay) when the month closes.' },
     { key: 'overtime', label: 'Overtime not yet approved', severity: 'check', count: sum((p) => p.unapprovedOvertime.length), screen: 'records', hint: overCapDays ? `Unapproved overtime is not paid. ${overCapDays} of these ${overCapDays === 1 ? 'days has' : 'days have'} hours over the overtime cap.` : 'Unapproved overtime is not paid.' },
     { key: 'unvalidated', label: 'Days not validated', severity: 'check', count: sum((p) => p.unvalidated.length), screen: 'records', hint: 'Payable days are worked out from validated and unvalidated days alike.' },
+    { key: 'disputes', label: 'Employees who say their month is wrong', severity: 'check', count: openDisputes, screen: 'confirmations', hint: 'Read what they wrote and answer each before the month closes.' },
     { key: 'readers', label: 'Reader problems open now', severity: 'check', count: queues.alerts.length, screen: 'readerHealth', hint: 'Punches may be missing from these readers.' },
     ...(due.length ? [{ key: 'penalties', label: 'Late-mark penalties not applied or waived', severity: 'block', count: due.length, screen: 'lateMarks', hint: dueFromLeave ? 'Part comes from leave: apply them so the leave is taken before payroll.' : 'Payroll waits for them: apply or waive them in People, Late marks.' }] : []),
     ...(trustOn ? [{ key: 'trustCheck', label: 'Days whose punches need a look', severity: 'check', count: trustCheck, screen: 'records', hint: 'A punch arrived late, a reader was offline or its clock was out, a phone punch was outside the work sites, or a reader is not registered.' }] : []),

@@ -101,6 +101,13 @@ export function MonthReview({ guard }) {
               {c.note ? <span className="ui-caption block mt-1">“{c.note}”</span> : null}
             </p>
           ) : null}
+          {c?.status === 'DISPUTED' && c.reply ? (
+            <div className="border-l-2 pl-3" style={{ borderColor: 'rgb(var(--border))' }}>
+              <h3 className="ui-t-label">HR’s reply</h3>
+              <p className="text-sm whitespace-pre-line">{c.reply.text}</p>
+              <p className="ui-caption tabular-nums">{new Date(c.reply.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            </div>
+          ) : c?.status === 'DISPUTED' ? <p className="ui-caption">HR has not answered yet.</p> : null}
           {data.canConfirm ? (
             disputing ? (
               <div className="space-y-2">

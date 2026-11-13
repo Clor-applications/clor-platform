@@ -346,7 +346,8 @@ export async function fixFullDays(company: Company, opts: { apply?: boolean; rel
     const newlyHeld: FullDayRow[] = [];
     if (!apply) return { corrected, held: candidates.filter((c) => c.held), open: candidates.filter((c) => !c.held), newlyHeld, settled: settled.length };
 
-    if (settled.length) await peoplePrisma.attendanceFullDayReview.updateMany({ where: { orgId, id: { in: settled.map((s) => s.id) } }, data: { settledAs: 'RECORD_CHANGED', settledAt: new Date() } });
+    /* Still unsettled: HR marking one paid since it was read keeps the paid mark. */
+    if (settled.length) await peoplePrisma.attendanceFullDayReview.updateMany({ where: { orgId, id: { in: settled.map((s) => s.id) }, settledAt: null }, data: { settledAs: 'RECORD_CHANGED', settledAt: new Date() } });
     for (const c of candidates) {
       if (currentLease()?.signal.aborted) break;
       let outcome: 'CORRECTED' | 'CHANGED' | HeldReason | null = c.held;

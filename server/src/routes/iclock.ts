@@ -8,6 +8,7 @@ import { biometricPolicy } from '../services/attendance/biometrics.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { DECIDED, ingestPunches, pinMatcher } from '../services/attendance/punches.js';
 import { markOnReader, storeTemplate, storeUser } from '../services/attendance/readerSync.js';
+import { claimNextCommand } from '../services/attendance/commandQueue.js';
 
 /**
  * /iclock — where biometric readers push punches (ZKTeco / eSSL "ADMS").
@@ -474,9 +475,9 @@ iclockRouter.get(['/getrequest', '/getrequest.aspx'], async (req, res) => {
     /* Who is on it (sync from the reader): when new to CLOR, hourly, and soon after a change there. */
     await readUsersIfDue(device, changedAtReader);
 
-    const next = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'PENDING' }, orderBy: [{ sequence: 'asc' }, { id: 'asc' }] });
+    /* Claimed while still waiting: a command HR cancelled a moment ago is not sent (commandQueue.ts). */
+    const next = await claimNextCommand({ deviceId: device.id });
     if (!next) return text(res, 'OK');
-    await peoplePrisma.deviceCommand.update({ where: { id: next.id }, data: { status: 'SENT', sentAt: new Date(), attempts: { increment: 1 } } });
     return text(res, `C:${next.id}:${next.command}`);
   } catch (e) {
     /* The reader only ever sees OK or ERROR; the reason goes to the logs. */

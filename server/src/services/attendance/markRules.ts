@@ -356,8 +356,9 @@ export async function waive(who: Actor, employeeId: string, month: string, reaso
   const why = String(reason || '').trim();
   if (why.length < 3) throw new MarksError('Say why it is waived.');
   const last = daysOfMonth(month).at(-1)!;
-  await assertMonthOpen(who.orgId, last, employeeId);
   return peopleWrite(who.orgId, async () => {
+    /* Under the lock, as closing a month is: a month closed a moment ago refuses it. */
+    await assertMonthOpen(who.orgId, last, employeeId);
     const row = (await penaltiesOver(who.accountId, who.orgId, daysOfMonth(month), { employeeIds: [employeeId] })).get(employeeId);
     if (!row) throw new MarksError('No such person in this month.', 404);
     if (row.status === 'APPLIED') throw new MarksError('This penalty was applied. Undo the apply first, then waive it.', 409, 'APPLIED');
@@ -372,8 +373,9 @@ export async function waive(who: Actor, employeeId: string, month: string, reaso
 /** Take back a waiver or an apply: the month is worked out from the rules again; leave taken goes back. */
 export async function undo(who: Actor, employeeId: string, month: string, opts: { hr: boolean } = { hr: true }) {
   if (!isMonth(month)) throw new MarksError('Month must be YYYY-MM.');
-  await assertMonthOpen(who.orgId, daysOfMonth(month).at(-1)!, employeeId);
   return peopleWrite(who.orgId, async () => {
+    /* Under the lock, as closing a month is: a month closed a moment ago refuses it. */
+    await assertMonthOpen(who.orgId, daysOfMonth(month).at(-1)!, employeeId);
     const row = await peoplePrisma.attendancePenalty.findUnique({ where: { orgId_employeeId_month: { orgId: who.orgId, employeeId, month } } });
     if (!row) throw new MarksError('Nothing was decided for this month.', 404);
     /* Taken back by whoever decided it, or by HR; an applied month only by HR (it gives leave back). */
@@ -399,7 +401,6 @@ export async function apply(who: Actor, month: string, employeeIds?: string[] | 
   const last = days[days.length - 1];
   /* From the month's last day: payroll is often run on it. */
   if (last > today()) throw new MarksError(`Apply from the last day of ${monthWords(month)}.`, 409, 'NOT_ENDED');
-  await assertMonthOpen(who.orgId, last);
   /* The rule in force on the month's last day decides it, and its version is kept with the month. */
   const { marks: rules, version } = await marksRulesOn(who.orgId, last);
   if (!rules.on) throw new MarksError('Late-mark penalties were switched off that month.', 409, 'OFF');
@@ -407,6 +408,8 @@ export async function apply(who: Actor, month: string, employeeIds?: string[] | 
   const skipped: Array<{ employeeId: string; why: string }> = [];
   let applied = 0;
   await peopleWrite(who.orgId, async () => {
+    /* Under the lock, as closing a month is: a month closed a moment ago refuses it. */
+    await assertMonthOpen(who.orgId, last);
     const rows = await penaltiesOver(who.accountId, who.orgId, days, { employeeIds: employeeIds || undefined });
     for (const r of rows.values()) {
       if (r.status !== 'DUE' || r.days <= 0) continue;

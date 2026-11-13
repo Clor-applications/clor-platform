@@ -21,7 +21,7 @@ import { getMonthSnapshot, monthReadiness, scanDays, scanQueues } from '../servi
 import { payrollExportChoices, payrollExportFile, payrollExportLayout, type PayrollExportFormat } from '../services/attendance/payrollExport.js';
 import { overrideFindings, rangedFindings, temporaryFindings } from '../services/attendance/conflicts.js';
 import { CHAINS, hrMayDecide } from '../services/attendance/approvalChain.js';
-import { confirmationsFor, decideOvertime, overtimeChain } from '../services/attendance/selfService.js';
+import { DisputeError, confirmationsFor, decideOvertime, overtimeChain, resolveDispute } from '../services/attendance/selfService.js';
 import { balancesFor } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodLabel, periodStart } from '../services/attendance/leaveAccrual.js';
 import { leavePeriodOf } from '../services/attendance/leaveBalances.js';
@@ -436,7 +436,44 @@ attendanceInsightsRouter.get(`${base}/months/:month/readiness`, can(PermissionAc
   const r = await monthReadiness(accountId, orgId, month, scope);
   const by = await namesOf(r.snapshots.map((s) => s.createdByUserId));
   /* `scope: 'team'` tells the screen this role sees its team, and does not close or reopen the month. */
-  res.json({ ...r, scope: scope.all ? 'company' : 'team', snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })), confirmations: await confirmationsFor(orgId, month) });
+  /* Confirmations and disputes follow the same scope: a team-scoped role sees and answers its own team's. */
+  const confirmations = await confirmationsFor(orgId, month, scope.all ? undefined : scope.ids);
+  const answeredBy = await namesOf(confirmations.disputed.map((d) => d.resolved?.byUserId || ''));
+  res.json({
+    ...r,
+    scope: scope.all ? 'company' : 'team',
+    snapshots: r.snapshots.map((s) => ({ ...s, by: actorName(s.createdByUserId, by) })),
+    confirmations: { ...confirmations, disputed: confirmations.disputed.map((d) => (d.resolved ? { ...d, resolved: { ...d.resolved, by: actorName(d.resolved.byUserId || '', answeredBy) } } : d)) },
+  });
+});
+
+/**
+ * HR answers an employee who says their month is wrong. Attendance Records EDIT, inside the caller's team; under the
+ * company's write lock and only while the dispute is open (selfService.ts resolveDispute). `seenAt` is when the note
+ * HR read was written, so an answer never lands on a note the employee has sent again since.
+ */
+attendanceInsightsRouter.post(`${base}/months/:month/confirmations/:employeeId/resolve`, can(PermissionAction.EDIT, R.records), async (req, res) => {
+  if (!(await attendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const month = String(req.params.month);
+  const employeeId = String(req.params.employeeId);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ error: 'Months are YYYY-MM.' });
+  const parsed = z
+    .object({
+      reply: z.string().trim().min(3, 'Write a reply the employee will read.').max(1000, 'Keep the reply under 1000 characters.'),
+      seenAt: z.string().datetime().optional().nullable(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid reply.' });
+  if (!inScope(await teamScope(req), employeeId)) return res.status(404).json({ error: 'There is no dispute for this month.', code: 'NO_DISPUTE' });
+  try {
+    const done = await resolveDispute({ accountId, orgId, userId: req.auth!.userId }, employeeId, month, parsed.data.reply, parsed.data.seenAt ? new Date(parsed.data.seenAt) : null);
+    await recordAudit(req, { entity: 'ATTENDANCE_MONTH_CONFIRMATION', entityId: `${employeeId}:${month}`, action: 'RESOLVE', message: `Answered a disputed month (${month})`, metadata: { employeeId, month } });
+    res.json(done);
+  } catch (e) {
+    if (e instanceof DisputeError) return res.status(e.status).json({ error: e.message, code: e.code });
+    return sendError(res, e);
+  }
 });
 
 /**

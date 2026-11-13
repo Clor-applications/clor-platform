@@ -36,6 +36,8 @@ const PILL = {
   SHORTENED: ['Changed', 'ui-pill-neutral'],
   MORE_INFO: ['Needs you', 'ui-pill-warn'],
   LAPSE: ['Use it or lose it', 'ui-pill-warn'],
+  /* HR's answer when I said my month was wrong (server: portal /updates). */
+  ANSWERED: ['HR answered', 'ui-pill-info'],
   /* Referrals (server: services/people/talent/referrals.ts portalUpdates). */
   JOB: ['New job', 'ui-pill-info'],
   JOINED: ['Joined', 'ui-pill-pos'],
@@ -46,7 +48,8 @@ const EVERY = 5 * 60_000;
 /**
  * "What's new" on Today (server: portal /updates): leave and requests
  * approved or rejected with the approver's note, leave cancelled or
- * shortened by someone else, HR's answer on my details or resignation, and
+ * shortened by someone else, HR's answer on my details, resignation or a
+ * month I said was wrong, and
  * the warning that leave will lapse. Checked on open and every five minutes
  * while the app is open; "Got it" puts an item away on this browser.
  */

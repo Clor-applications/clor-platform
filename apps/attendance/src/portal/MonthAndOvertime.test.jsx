@@ -51,6 +51,18 @@ it('says what is wrong only with a few words, and sends it to HR', async () => {
   await waitFor(() => expect(disputeMonth).toHaveBeenCalledWith('2026-10', 'I was on duty on the 12th'));
 });
 
+it('shows HR’s reply on a disputed month, or that HR has not answered yet', async () => {
+  const disputed = { status: 'DISPUTED', note: 'I was on duty on the 12th' };
+  getMonthReview.mockResolvedValueOnce({ month: '2026-10', summary, unresolved: [], pendingOvertime: 0, cutoff: '2026-11-01', canConfirm: false, why: null, confirmation: { ...disputed, reply: { text: 'Corrected the 12th to on duty.', at: '2026-11-05T10:00:00Z' } } });
+  const { unmount } = render(<MonthReview guard={guard} />);
+  expect(await screen.findByText('HR’s reply')).toBeTruthy();
+  expect(screen.getByText('Corrected the 12th to on duty.')).toBeTruthy();
+  unmount();
+  getMonthReview.mockResolvedValueOnce({ month: '2026-10', summary, unresolved: [], pendingOvertime: 0, cutoff: '2026-11-01', canConfirm: false, why: null, confirmation: { ...disputed, reply: null } });
+  render(<MonthReview guard={guard} />);
+  expect(await screen.findByText('HR has not answered yet.')).toBeTruthy();
+});
+
 it('after the cutoff, says why instead of offering to confirm', async () => {
   getMonthReview.mockResolvedValue({ month: '2026-10', summary, unresolved: [], pendingOvertime: 0, cutoff: '2026-11-01', canConfirm: false, why: 'The cutoff has passed. Ask HR to change anything still wrong.', confirmation: null });
   render(<MonthReview guard={guard} />);

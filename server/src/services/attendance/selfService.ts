@@ -151,7 +151,16 @@ export async function monthReview(e: Who, month: string) {
     cutoff,
     canConfirm: ended && t <= cutoff,
     why: !ended ? 'You can confirm the month once it has ended.' : t > cutoff ? `The cutoff (${cutoff}) has passed. Ask HR to change anything still wrong.` : null,
-    confirmation: confirmation ? { status: confirmation.status, note: confirmation.note, unresolved: confirmation.unresolved, at: confirmation.updatedAt } : null,
+    confirmation: confirmation
+      ? {
+          status: confirmation.status,
+          note: confirmation.note,
+          unresolved: confirmation.unresolved,
+          at: confirmation.updatedAt,
+          /* HR's answer to a dispute, shown on the employee's month. */
+          reply: confirmation.resolvedAt ? { text: confirmation.resolution, at: confirmation.resolvedAt } : null,
+        }
+      : null,
   };
 }
 
@@ -159,11 +168,18 @@ export async function confirmMonth(e: Who, month: string, dispute: string | null
   const review = await monthReview(e, month);
   if (!review.canConfirm) throw Object.assign(new Error(review.why || 'This month cannot be confirmed now.'), { status: 409 });
   const status = dispute ? 'DISPUTED' : 'CONFIRMED';
-  const row = await peoplePrisma.attendanceMonthConfirmation.upsert({
-    where: { orgId_employeeId_month: { orgId: e.orgId, employeeId: e.id, month } },
-    create: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, month, status, note: dispute, unresolved: review.unresolved.length },
-    update: { status, note: dispute, unresolved: review.unresolved.length },
-  });
+  /*
+   * Under the company's write lock, as HR's resolve is: a dispute sent again clears HR's answer to the last one, so
+   * it is open again, and a resolve waiting on the lock finds a newer note than the one HR read and is refused.
+   */
+  const cleared = dispute ? { resolvedAt: null, resolvedByUserId: null, resolution: null } : {};
+  const row = await peopleWrite(e.orgId, () =>
+    peoplePrisma.attendanceMonthConfirmation.upsert({
+      where: { orgId_employeeId_month: { orgId: e.orgId, employeeId: e.id, month } },
+      create: { accountId: e.accountId, orgId: e.orgId, employeeId: e.id, month, status, note: dispute, unresolved: review.unresolved.length },
+      update: { status, note: dispute, unresolved: review.unresolved.length, ...cleared },
+    }),
+  );
   if (dispute) {
     await notifyPermission(e.accountId, e.orgId, 'ATTENDANCE::Attendance Records::EDIT', {
       kind: 'attendance.month_disputed',
@@ -175,21 +191,88 @@ export async function confirmMonth(e: Who, month: string, dispute: string | null
   return row;
 }
 
-/** For HR's month close: who confirmed, who disputed (and why), who has not yet. */
-export async function confirmationsFor(orgId: string, month: string) {
+/**
+ * For HR's month close: who confirmed, who disputed (and why, and HR's answer), who has not yet. `employeeIds`
+ * narrows it to a team-scoped reader's team.
+ */
+export async function confirmationsFor(orgId: string, month: string, employeeIds?: string[]) {
+  const mine = employeeIds ? { id: { in: employeeIds } } : {};
   const [rows, people] = await Promise.all([
-    peoplePrisma.attendanceMonthConfirmation.findMany({ where: { orgId, month } }),
-    peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, portalEnabled: true }, select: { id: true, name: true, code: true } }),
+    peoplePrisma.attendanceMonthConfirmation.findMany({ where: { orgId, month, ...(employeeIds ? { employeeId: { in: employeeIds } } : {}) } }),
+    peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, portalEnabled: true, ...mine }, select: { id: true, name: true, code: true } }),
   ]);
   const by = new Map(rows.map((r) => [r.employeeId, r]));
+  const names = new Map(people.map((p) => [p.id, p]));
+  const missing = rows.filter((r) => !names.has(r.employeeId)).map((r) => r.employeeId);
+  /* Someone who disputed and has since left, or lost the app: still named. */
+  for (const p of missing.length ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: missing } }, select: { id: true, name: true, code: true } }) : []) names.set(p.id, p);
+  const disputed = rows
+    .filter((r) => r.status === 'DISPUTED')
+    .map((r) => ({
+      employeeId: r.employeeId,
+      name: names.get(r.employeeId)?.name || '—',
+      code: names.get(r.employeeId)?.code ?? null,
+      note: r.note,
+      at: r.updatedAt,
+      resolved: r.resolvedAt ? { at: r.resolvedAt, byUserId: r.resolvedByUserId, reply: r.resolution } : null,
+    }))
+    .sort((a, b) => Number(Boolean(a.resolved)) - Number(Boolean(b.resolved)) || +b.at - +a.at);
   return {
     month,
     portalPeople: people.length,
     confirmed: rows.filter((r) => r.status === 'CONFIRMED').length,
-    disputed: rows.filter((r) => r.status === 'DISPUTED').map((r) => ({ employeeId: r.employeeId, name: people.find((p) => p.id === r.employeeId)?.name || '—', note: r.note, at: r.updatedAt })),
+    disputed,
+    openDisputes: disputed.filter((d) => !d.resolved).length,
     notYet: people.filter((p) => !by.has(p.id)).length,
   };
 }
+
+export class DisputeError extends Error {
+  constructor(message: string, public status: number, public code: string) {
+    super(message);
+  }
+}
+
+/**
+ * HR answers an employee's disputed month. Under the company's write lock, and only while the dispute is still open:
+ * a second answer, or one to a note the employee has since sent again (`seenAt` is the note HR read), is refused,
+ * never written over. The employee hears of it through the outbox, with HR's reply, in the same transaction.
+ * A closed month can still be answered: the reply changes no day and no figure.
+ */
+export async function resolveDispute(who: { accountId: string; orgId: string; userId: string }, employeeId: string, month: string, reply: string, seenAt?: Date | null) {
+  return peopleWrite(who.orgId, async () => {
+    const row = await peoplePrisma.attendanceMonthConfirmation.findUnique({ where: { orgId_employeeId_month: { orgId: who.orgId, employeeId, month } } });
+    if (!row || row.status !== 'DISPUTED') throw new DisputeError('There is no dispute for this month.', 404, 'NO_DISPUTE');
+    if (row.resolvedAt) throw new DisputeError('This dispute has already been answered.', 409, 'DISPUTE_RESOLVED');
+    if (seenAt && row.updatedAt.getTime() !== seenAt.getTime()) throw new DisputeError('The employee has written again since you opened it. Read their new note first.', 409, 'DISPUTE_CHANGED');
+    const at = new Date();
+    const done = await peoplePrisma.attendanceMonthConfirmation.updateMany({
+      where: { id: row.id, status: 'DISPUTED', resolvedAt: null, updatedAt: row.updatedAt },
+      data: { resolvedAt: at, resolvedByUserId: who.userId, resolution: reply },
+    });
+    if (!done.count) throw new DisputeError('This dispute has already been answered.', 409, 'DISPUTE_RESOLVED');
+    const emp = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId: who.orgId }, select: { userId: true } });
+    /* A CLOR sign-in is told now; the employee app shows the reply on their month and in What's new. */
+    if (emp?.userId && emp.userId !== who.userId) {
+      const { isFeatureEnabled } = await import('../features.js');
+      const people = await isFeatureEnabled(who.accountId, who.orgId, 'people');
+      const { queueNotice } = await import('./notices.js');
+      await queueNotice(
+        who,
+        'direct',
+        {
+          userIds: [emp.userId],
+          notice: { kind: 'attendance.month_dispute_answered', title: `HR answered what you said about your ${monthName(month)} attendance`, body: reply.slice(0, 300), link: { app: people ? 'people' : 'attendance', screen: people ? 'myDays' : 'me' } },
+          dedupeKey: `month-dispute-answered:${row.id}:${at.getTime()}`,
+        },
+        { employeeId, correlationId: `attendance_month_confirmation_${row.id}` },
+      );
+    }
+    return { employeeId, month, resolved: { at, byUserId: who.userId, reply } };
+  });
+}
+
+const monthName = (month: string) => new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 // ---------------------------------------------------------------------------
 // Upcoming shifts
@@ -273,7 +356,8 @@ export async function overtimeFor(e: Who, month: string) {
         compOffDays,
         overtimeRequest: ot ? { id: ot.id, status: ot.status, note: ot.reviewNote } : null,
         compOffRequest: co ? { id: co.id, status: co.status, days: co.days, note: co.reviewNote } : null,
-        canAskOvertime: Boolean(settings?.overtimeRequests ?? true) && (r.overtimeMinutes || 0) > 0 && !r.overtimeApproved && !ot,
+        /* An approved request no longer on the day (it has more overtime now than was approved, writeDay): asked again. */
+        canAskOvertime: Boolean(settings?.overtimeRequests ?? true) && (r.overtimeMinutes || 0) > 0 && !r.overtimeApproved && (!ot || ot.status === 'APPROVED'),
         canAskCompOff: Boolean(settings?.compOffEnabled && settings.compOffLeaveTypeId) && compOffDays > 0 && !co,
       };
     });
