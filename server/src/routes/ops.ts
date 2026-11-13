@@ -321,7 +321,7 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
       select: { id: true, name: true, code: true, createdAt: true, suspendedAt: true, suspendedReason: true, legacyUnrestrictedAt: true },
     });
     if (!account) return res.status(404).json({ error: 'No such account' });
-    const [members, orgs, sub, events, opEvents] = await Promise.all([
+    const [members, orgs, sub, events, opEvents, waiting] = await Promise.all([
       platformPrisma.accountMembership.findMany({ where: { accountId: id }, select: { userId: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: 'asc' } }),
       platformPrisma.org.findMany({
         where: { accountId: id },
@@ -331,6 +331,8 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
       getSubscription(id),
       platformPrisma.authEvent.findMany({ where: { accountId: id }, orderBy: { createdAt: 'desc' }, take: 20, select: { eventType: true, createdAt: true, email: true } }),
       platformPrisma.operatorAuditEvent.findMany({ where: { targetAccountId: id }, orderBy: { at: 'desc' }, take: 20 }),
+      /* A change to the plan waiting for a second person (Approvals), so the page can say so. */
+      platformPrisma.opsApproval.findFirst({ where: { accountId: id, status: 'PENDING', expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, kind: true, summary: true, requestedBy: true, createdAt: true, expiresAt: true } }),
     ]);
     const users = await platformPrisma.user.findMany({
       where: { id: { in: members.map((m) => m.userId) } },
@@ -344,8 +346,12 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
     const opName = new Map(opUsers.map((u) => [u.id, u.fullName]));
     const firstOwner = members.find((m) => m.role === 'OWNER');
     const ownerUser = firstOwner ? userBy.get(firstOwner.userId) : undefined;
+    const asker = waiting ? await platformPrisma.user.findUnique({ where: { id: waiting.requestedBy }, select: { fullName: true, email: true } }) : null;
     res.json({
       account: { ...account, title: customerTitle(account.name, ownerUser?.fullName, orgs[0]?.name), ownerName: ownerUser?.fullName || null },
+      waitingApproval: waiting
+        ? { id: waiting.id, kind: waiting.kind, summary: waiting.summary, askedBy: asker?.fullName || asker?.email || 'A colleague', mine: waiting.requestedBy === req.auth!.userId, createdAt: waiting.createdAt, expiresAt: waiting.expiresAt }
+        : null,
       members: members.map((m) => {
         const u = userBy.get(m.userId);
         return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt) };

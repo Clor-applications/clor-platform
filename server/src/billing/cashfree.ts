@@ -144,6 +144,7 @@ export function normalizeCashfree(body: any): NormalizedEvent {
     accountId,
     amount: rupeesToPaise(payment.payment_amount ?? order.order_amount),
     reference,
+    occurredAt: body.event_time && !Number.isNaN(new Date(body.event_time).getTime()) ? new Date(body.event_time) : undefined,
     raw: body,
   };
   if (body.type === 'PAYMENT_LINK_EVENT') {

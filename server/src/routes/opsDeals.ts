@@ -12,7 +12,8 @@ import { publishedBook } from '../services/pricing/books.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { PRICE_PERIODS, PRICE_UNITS, PRICEABLE_APPS, appName, rupees, type PricePeriod } from '../services/pricing/engine.js';
 import { DealError, fromBookPlan, offerProblem, offerWords, periodEnd, priceDeal, unitWord, type DealOffer, type DealPlan } from '../services/pricing/deals.js';
-import { approvalSettings, askApproval } from '../services/ops/approvals.js';
+import { ALREADY_WAITING, approvalSettings, askApproval, waitingFor } from '../services/ops/approvals.js';
+import { expectPlanUnchanged, planVersion } from '../services/ops/grants.js';
 import { buyerFor, createDraft } from '../billing/invoices.js';
 import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
 import { audit, customerTitle } from './ops.js';
@@ -475,39 +476,28 @@ export const discountShare = (d: { discount: number; listAmount: number }) => (d
  * first time it is set on them. With draftInvoice, the first period's invoice
  * is drafted for Billing to check and issue. Priced again here, so a deal
  * approved later uses the offer and plan as they are then.
+ *
+ * All or nothing. Every write a deal makes is in the platform database (the
+ * offer's count, the plan, its apps, the entitlement, the app switches and the
+ * price), so they are made in one transaction: a step that fails leaves the
+ * customer's plan and the offer's count exactly as they were. Nothing here
+ * calls outside CLOR: no payment gateway is asked, as a deal set by staff is
+ * paid by invoice. The access cache is cleared only after the commit, and the
+ * first invoice is drafted after it too: a draft is its own document, and one
+ * that cannot be made is said, not a reason to undo a deal that is set.
+ *
+ * `basedOn`: for a deal approved after it was asked, the plan's version then
+ * (services/ops/grants.ts). A plan changed directly since is refused, 409,
+ * and nothing is written.
  */
-export async function applyDeal(id: string, v: DealBody, operatorUserId: string) {
+export async function applyDeal(id: string, v: DealBody, operatorUserId: string, opts: { basedOn?: string | null } = {}) {
   const q = await quoteFor(id, v);
   const { plan, offer, deal, held: sameOffer } = q;
-  const before = await getSubscription(id);
-
-  /* Count the customer on the offer first, conditionally, so the last place cannot be taken twice. */
-  if (offer && !sameOffer) {
-    const taken = await platformPrisma.offer.updateMany({
-      where: { id: offer.id, archivedAt: null, pausedAt: null, ...(offer.maxRedemptions != null ? { redemptions: { lt: offer.maxRedemptions } } : {}) },
-      data: { redemptions: { increment: 1 } },
-    });
-    if (!taken.count) throw new DealError(`${offer.code} has just been used up or paused. Choose another offer.`, 409);
-  }
 
   /* Today as it is in India, not in UTC: a deal set at 1 am IST starts that day. */
   const start = v.startsOn || new Date(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10) + 'T00:00:00.000Z');
   const firstDay = v.status === 'trialing' ? new Date(start.getTime() + v.trialDays! * 86_400_000) : start;
   const end = periodEnd(firstDay, deal.period);
-  const keep = new Map((before?.items || []).map((i) => [i.appCode, i]));
-  try {
-    await setSubscription(id, {
-      /* People carries Attendance, as everywhere else a plan is set. */
-      apps: [...new Set([...plan.apps, ...(plan.apps.includes('people') ? ['attendance'] : [])])].map((appCode) => ({ appCode, tier: keep.get(appCode)?.tier ?? null, seats: deal.quantity, priceModel: 'plan', unitAmount: null })),
-      status: v.status,
-      billingInterval: deal.period === 'YEARLY' ? 'year' : 'month',
-      trialEndsAt: v.status === 'trialing' ? firstDay : null,
-      currentPeriodEnd: end,
-    });
-  } catch (e) {
-    if (offer && !sameOffer) await platformPrisma.offer.update({ where: { id: offer.id }, data: { redemptions: { decrement: 1 } } });
-    throw e;
-  }
   /*
    * Counted period by period, as renewals move on (each from the last one's
    * end), so a start on the 31st ends the offer on the day a renewal starts.
@@ -517,23 +507,54 @@ export async function applyDeal(id: string, v: DealBody, operatorUserId: string)
     offerEndsAt = firstDay;
     for (let i = 0; i < offer.durationPeriods; i++) offerEndsAt = periodEnd(offerEndsAt, deal.period);
   }
-  await platformPrisma.subscription.update({
-    where: { accountId: id },
-    data: {
-      planSource: plan.source,
-      planRef: plan.ref,
-      planName: plan.name,
-      planUnit: plan.unit,
-      quantity: deal.quantity,
-      listAmount: deal.listAmount,
-      periodAmount: deal.periodAmount,
-      offerId: offer?.id ?? null,
-      offerCode: offer?.code ?? null,
-      offerEndsAt,
-      currentPeriodStart: firstDay,
-      ...(v.status === 'active' ? { trialEndsAt: null } : {}),
+
+  await platformPrisma.$transaction(
+    async (tx) => {
+      if (opts.basedOn !== undefined) await expectPlanUnchanged(tx, id, opts.basedOn);
+      const before = await getSubscription(id, tx);
+
+      /* Count the customer on the offer first, conditionally, so the last place cannot be taken twice. */
+      if (offer && !sameOffer) {
+        const taken = await tx.offer.updateMany({
+          where: { id: offer.id, archivedAt: null, pausedAt: null, ...(offer.maxRedemptions != null ? { redemptions: { lt: offer.maxRedemptions } } : {}) },
+          data: { redemptions: { increment: 1 } },
+        });
+        if (!taken.count) throw new DealError(`${offer.code} has just been used up or paused. Choose another offer.`, 409);
+      }
+
+      const keep = new Map((before?.items || []).map((i) => [i.appCode, i]));
+      await setSubscription(
+        id,
+        {
+          /* People carries Attendance, as everywhere else a plan is set. */
+          apps: [...new Set([...plan.apps, ...(plan.apps.includes('people') ? ['attendance'] : [])])].map((appCode) => ({ appCode, tier: keep.get(appCode)?.tier ?? null, seats: deal.quantity, priceModel: 'plan', unitAmount: null })),
+          status: v.status,
+          billingInterval: deal.period === 'YEARLY' ? 'year' : 'month',
+          trialEndsAt: v.status === 'trialing' ? firstDay : null,
+          currentPeriodEnd: end,
+        },
+        tx,
+      );
+      await tx.subscription.update({
+        where: { accountId: id },
+        data: {
+          planSource: plan.source,
+          planRef: plan.ref,
+          planName: plan.name,
+          planUnit: plan.unit,
+          quantity: deal.quantity,
+          listAmount: deal.listAmount,
+          periodAmount: deal.periodAmount,
+          offerId: offer?.id ?? null,
+          offerCode: offer?.code ?? null,
+          offerEndsAt,
+          currentPeriodStart: firstDay,
+          ...(v.status === 'active' ? { trialEndsAt: null } : {}),
+        },
+      });
     },
-  });
+    { maxWait: 10_000, timeout: 30_000 },
+  );
   clearAccessCache();
 
   /* The deal is set by now; a draft that cannot be made is said, not a reason to call the deal failed. */
@@ -578,11 +599,14 @@ opsDealsRouter.post('/ops/accounts/:id/deal', ...BILLING, (req, res) =>
       const q = await quoteFor(id, v);
       const limit = (await approvalSettings()).discountPercent;
       if (overLimit(q.deal, limit)) {
-        /* One request at a time per customer, so two cannot both be approved and set. */
-        const waiting = await platformPrisma.opsApproval.findFirst({ where: { accountId: id, kind: 'DEAL', status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
-        if (waiting) return res.status(409).json({ error: 'A deal for this customer is already waiting in Approvals. Withdraw it there first, or wait for the decision.' });
+        /* One change to the plan waiting at a time per customer, so two cannot both be approved and set. */
+        if (await waitingFor(id)) return res.status(409).json({ error: ALREADY_WAITING });
         const customerName = (await accountNames([id])).get(id) || 'A customer';
-        const approval = await askApproval(req, { kind: 'DEAL', accountId: id, customerName, payload: req.body, summary: dealSummary(q), discountPercent: Math.round(discountShare(q.deal)), reason: v.reason });
+        /* With the plan's version now, so one changed directly before it is approved is refused then. */
+        const payload = { ...req.body, basedOn: { subscriptionUpdatedAt: await planVersion(id) } };
+        const approval = await askApproval(req, { kind: 'DEAL', accountId: id, customerName, payload, summary: dealSummary(q), discountPercent: Math.round(discountShare(q.deal)), reason: v.reason });
+        /* The check above is a quick answer; askApproval makes it again under a lock, for two asking at once. */
+        if (!approval) return res.status(409).json({ error: ALREADY_WAITING });
         return res.status(202).json({ needsApproval: true, approval, limit });
       }
       const r = await applyDeal(id, v, req.auth!.userId);

@@ -1,4 +1,4 @@
-import { platformPrisma } from '../utils/platformPrisma.js';
+import { platformPrisma, type PlatformDb } from '../utils/platformPrisma.js';
 import { APP_CATALOG, APP_CODES, SELLABLE_APP_CODES, appByCode, appForFeature, isSellableApp } from '../constants/appCatalog.js';
 
 /**
@@ -25,8 +25,8 @@ export function inGoodStanding(sub: { status: string; currentPeriodEnd: Date | n
   return true; // open-ended / manual
 }
 
-export async function getSubscription(accountId: string) {
-  return platformPrisma.subscription.findUnique({ where: { accountId }, include: { items: true } });
+export async function getSubscription(accountId: string, db: PlatformDb = platformPrisma) {
+  return db.subscription.findUnique({ where: { accountId }, include: { items: true } });
 }
 
 export type AppAccess = {
@@ -170,16 +170,33 @@ export function peopleIncludesAttendance<T extends { appCode: string; priceModel
  * gateway adapters call after a provider confirms). Pricing fields are optional
  * because no pricing model is chosen yet.
  */
-export async function setSubscription(accountId: string, input: SetSubscriptionInput) {
+export async function setSubscription(accountId: string, input: SetSubscriptionInput, db?: PlatformDb) {
   const apps = peopleIncludesAttendance((input.apps || []).filter((a) => isSellableApp(a.appCode)));
   const trialEndsAt =
     input.trialEndsAt ??
     (input.trialDays && input.trialDays > 0 ? new Date(Date.now() + input.trialDays * 86400000) : null);
   const status = input.status || (trialEndsAt ? 'trialing' : 'active');
-  const before = new Set((await getSubscription(accountId))?.items.map((i) => i.appCode) || []);
+  const current = await getSubscription(accountId, db);
+  const before = new Set(current?.items.map((i) => i.appCode) || []);
+  /*
+   * The paid period. Given: it is set (null clears it). Not given: the stored
+   * one is kept, unless it has already ended and the subscription is being
+   * made active. Then it is dropped (open-ended, as a grant by hand is): an
+   * ops grant or reopen on a lapsed account used to keep the old end and
+   * leave the account "active" but lapsed. A caller that must keep the dates
+   * exactly (changing apps) passes them.
+   */
+  const lapsed = Boolean(current?.currentPeriodEnd && current.currentPeriodEnd.getTime() <= Date.now());
+  const currentPeriodEnd = input.currentPeriodEnd !== undefined ? input.currentPeriodEnd : status === 'active' && lapsed ? null : undefined;
 
-  /* A-17: the subscription and its items change together or not at all — a failure between deleting the old items and writing the new ones used to leave the account owning nothing. */
-  const sub = await platformPrisma.$transaction(async (tx) => {
+  /*
+   * A-17: the subscription and its items change together or not at all — a
+   * failure between deleting the old items and writing the new ones used to
+   * leave the account owning nothing. Given a transaction (`db`), everything
+   * here, the entitlement and the app switches too, is written in it, so a
+   * caller with more to write (a deal) commits all of it or none.
+   */
+  const write = async (tx: PlatformDb) => {
     const row = await tx.subscription.upsert({
       where: { accountId },
       create: {
@@ -187,13 +204,13 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
         status,
         billingInterval: input.billingInterval ?? null,
         trialEndsAt,
-        currentPeriodEnd: input.currentPeriodEnd ?? null,
+        currentPeriodEnd: currentPeriodEnd ?? null,
       },
       update: {
         status,
         billingInterval: input.billingInterval ?? undefined,
         trialEndsAt: trialEndsAt ?? undefined,
-        currentPeriodEnd: input.currentPeriodEnd ?? undefined,
+        currentPeriodEnd,
       },
     });
 
@@ -212,11 +229,13 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
       });
     }
     return row;
-  });
+  };
+  if (db) await write(db);
+  else await platformPrisma.$transaction((tx) => write(tx));
 
-  await syncAccountEntitlement(accountId);
-  await syncAppSwitches(accountId, before, new Set(apps.map((a) => a.appCode)));
-  return getSubscription(accountId);
+  await syncAccountEntitlement(accountId, db);
+  await syncAppSwitches(accountId, before, new Set(apps.map((a) => a.appCode)), db);
+  return getSubscription(accountId, db);
 }
 
 /**
@@ -226,14 +245,14 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
  * owned app off keeps it off when something else in the subscription changes.
  * A first subscription counts as adding what it holds.
  */
-export async function syncAppSwitches(accountId: string, before: Set<string>, after: Set<string>) {
-  const orgs = await platformPrisma.org.findMany({ where: { accountId }, select: { id: true } });
+export async function syncAppSwitches(accountId: string, before: Set<string>, after: Set<string>, db: PlatformDb = platformPrisma) {
+  const orgs = await db.org.findMany({ where: { accountId }, select: { id: true } });
   for (const app of APP_CATALOG) {
     if (!app.featureKey || !app.available) continue;
     const now = after.has(app.code);
     if (before.has(app.code) === now) continue;
     for (const o of orgs) {
-      await platformPrisma.featureSetting.upsert({
+      await db.featureSetting.upsert({
         where: { orgId_key: { orgId: o.id, key: app.featureKey } },
         update: { enabled: now, updatedByUserId: 'subscription' },
         create: { accountId, orgId: o.id, key: app.featureKey, enabled: now, updatedByUserId: 'subscription' },
@@ -248,14 +267,14 @@ export async function syncAppSwitches(accountId: string, before: Set<string>, af
  * every feature gate already in the app reflect the subscription with no change
  * to that code.
  */
-export async function syncAccountEntitlement(accountId: string) {
-  const sub = await getSubscription(accountId);
+export async function syncAccountEntitlement(accountId: string, db: PlatformDb = platformPrisma) {
+  const sub = await getSubscription(accountId, db);
   const acct = sub?.items.find((i) => i.appCode === 'accounting');
   if (!acct) return; // no accounting item -> leave entitlement at its default (FULL)
   const planKey = acct.tier || 'FULL';
   const status = sub && inGoodStanding(sub) ? (sub.status === 'trialing' ? 'TRIAL' : 'ACTIVE') : 'PAST_DUE';
   const validUntil = sub?.trialEndsAt ?? sub?.currentPeriodEnd ?? null;
-  await platformPrisma.accountEntitlement.upsert({
+  await db.accountEntitlement.upsert({
     where: { accountId },
     create: { accountId, planKey, status, validUntil },
     update: { planKey, status, validUntil },

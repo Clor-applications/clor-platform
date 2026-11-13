@@ -7,13 +7,15 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { DealError } from '../services/pricing/deals.js';
-import { EXPIRES_HOURS, STATUS_WORDS, approvalSettings, saveApprovalSettings, statusOf } from '../services/ops/approvals.js';
+import { EXPIRES_HOURS, KIND_WORDS, STATUS_WORDS, approvalSettings, saveApprovalSettings, statusOf } from '../services/ops/approvals.js';
+import { applyGrant, recordGrant, type Grant } from '../services/ops/grants.js';
 import { accountNames, applyDeal, dealBody, discountShare, quoteFor } from './opsDeals.js';
 import { audit } from './ops.js';
 
 /**
  * Approvals on the operator console: what a colleague asked for that needs a
- * second person (services/ops/approvals.ts). Everyone on the console reads.
+ * second person (services/ops/approvals.ts): a deal over the discount limit,
+ * or apps given away by hand (a grant). Everyone on the console reads.
  * Billing and the owner approve or turn down, never their own request, each
  * with a fresh authenticator code; the person who asked can withdraw it. Only
  * the owner changes the limit.
@@ -60,6 +62,7 @@ opsApprovalsRouter.get('/ops/approvals', (req, res) =>
         return {
           id: r.id,
           kind: r.kind,
+          kindWord: KIND_WORDS[r.kind] || r.kind,
           accountId: r.accountId,
           customer: r.accountId ? names.get(r.accountId) || 'A customer' : null,
           summary: r.summary,
@@ -97,6 +100,18 @@ async function open(id: string, me: string): Promise<Opened> {
   return { a, self: a.requestedBy === me };
 }
 
+/** A grant as kept on the request (services/ops/grants.ts). */
+const grantPayload = z.discriminatedUnion('route', [
+  z.object({ route: z.literal('plan'), body: z.object({}).passthrough() }),
+  z.object({ route: z.literal('apps'), body: z.object({ apps: z.array(z.string()).min(1), reason: z.string() }) }),
+]);
+/** The plan's version when it was asked; undefined on a request kept before it was recorded. */
+const basedOnOf = (payload: unknown): string | null | undefined => {
+  const b = (payload as { basedOn?: { subscriptionUpdatedAt?: unknown } } | null)?.basedOn;
+  if (!b || typeof b !== 'object') return undefined;
+  return typeof b.subscriptionUpdatedAt === 'string' ? b.subscriptionUpdatedAt : null;
+};
+
 opsApprovalsRouter.post('/ops/approvals/:id/approve', requireOperatorRole('BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: approve a request', async () => {
     const me = req.auth!.userId;
@@ -106,36 +121,59 @@ opsApprovalsRouter.post('/ops/approvals/:id/approve', requireOperatorRole('BILLI
     if ('error' in o) return res.status(o.status).json({ error: o.error });
     if (o.self) return res.status(403).json({ error: 'Someone other than the person who asked must approve it.', code: 'SAME_PERSON' });
     const a = o.a;
+    const isGrant = a.kind === 'GRANT';
     /*
-     * Priced again now: if the plan or offer changed since it was asked, the
-     * approver would be approving numbers they did not see. Then it is closed
-     * and asked again with the new figures.
+     * A deal is priced again now: if the plan or offer changed since it was
+     * asked, the approver would be approving numbers they did not see. Then it
+     * is closed and asked again with the new figures. (A grant has no price
+     * list to change; the plan's version is checked when it is applied.)
      */
-    try {
-      const body = dealBody.parse(a.payload);
-      if (a.accountId) {
-        const q = await quoteFor(a.accountId, body);
-        const now = Math.round(discountShare(q.deal));
-        if (a.discountPercent != null && now !== a.discountPercent) {
-          const why = `The price changed since it was asked: it now takes ${now}% off, not ${a.discountPercent}%.`;
-          const closed = await platformPrisma.opsApproval.updateMany({ where: { id: a.id, status: 'PENDING' }, data: { status: 'FAILED', decidedBy: me, decidedAt: new Date(), result: { error: why } } });
-          if (closed.count) await audit(req, 'APPROVAL_FAILED', { accountId: a.accountId }, { approvalId: a.id, what: a.summary, reason: why }, { customerLog: false });
-          return res.status(409).json({ error: `${why} Nothing was set. Ask again with the prices as they are now.`, code: 'PRICE_CHANGED' });
+    if (!isGrant) {
+      try {
+        const body = dealBody.parse(a.payload);
+        if (a.accountId) {
+          const q = await quoteFor(a.accountId, body);
+          const now = Math.round(discountShare(q.deal));
+          if (a.discountPercent != null && now !== a.discountPercent) {
+            const why = `The price changed since it was asked: it now takes ${now}% off, not ${a.discountPercent}%.`;
+            const closed = await platformPrisma.opsApproval.updateMany({ where: { id: a.id, status: 'PENDING' }, data: { status: 'FAILED', decidedBy: me, decidedAt: new Date(), result: { error: why } } });
+            if (closed.count) await audit(req, 'APPROVAL_FAILED', { accountId: a.accountId }, { approvalId: a.id, what: a.summary, reason: why }, { customerLog: false });
+            return res.status(409).json({ error: `${why} Nothing was set. Ask again with the prices as they are now.`, code: 'PRICE_CHANGED' });
+          }
         }
+      } catch (e) {
+        if (!(e instanceof DealError || e instanceof z.ZodError)) throw e;
+        /* Applying it below says what is wrong and closes the request. */
       }
-    } catch (e) {
-      if (!(e instanceof DealError || e instanceof z.ZodError)) throw e;
-      /* Applying it below says what is wrong and closes the request. */
     }
-    /* Take the request first, so two approvers cannot both apply it. */
-    const taken = await platformPrisma.opsApproval.updateMany({ where: { id: a.id, status: 'PENDING' }, data: { status: 'APPROVED', decidedBy: me, decidedAt: new Date(), decisionNote: p.data.note || null } });
-    if (!taken.count) return res.status(409).json({ error: 'Someone decided this a moment ago. Open Approvals again.' });
+    /*
+     * Take the request first, so two approvers cannot both apply it. Still
+     * waiting and still in time, in the same write: one that expired between
+     * opening it and now is not approved.
+     */
+    const taken = await platformPrisma.opsApproval.updateMany({ where: { id: a.id, status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'APPROVED', decidedBy: me, decidedAt: new Date(), decisionNote: p.data.note || null } });
+    if (!taken.count) {
+      const again = await open(a.id, me);
+      return res.status(409).json({ error: 'error' in again ? again.error : 'Someone decided this a moment ago. Open Approvals again.' });
+    }
     const asker = await platformPrisma.user.findUnique({ where: { id: a.requestedBy }, select: { fullName: true, email: true } });
     const askedBy = asker?.fullName || asker?.email || a.requestedBy;
+    const basedOn = basedOnOf(a.payload);
+    /* Only from APPROVED, so it never overwrites a request someone else has since moved on. */
+    const failed = (error: string) => platformPrisma.opsApproval.updateMany({ where: { id: a.id, status: 'APPROVED' }, data: { status: 'FAILED', result: { error } } });
     try {
-      const body = dealBody.parse(a.payload);
       if (!a.accountId) throw new DealError('The request names no customer.', 409);
-      const r = await applyDeal(a.accountId, body, me);
+      if (isGrant) {
+        const g = grantPayload.parse(a.payload) as Grant;
+        /* One transaction: the plan, its apps, the entitlement and the switches, or none of them. */
+        const r = await applyGrant(a.accountId, g, { basedOn });
+        await platformPrisma.opsApproval.update({ where: { id: a.id }, data: { result: { apps: (r.after?.items || []).map((i) => i.appCode).sort() } } });
+        await audit(req, 'APPROVAL_GRANTED', { accountId: a.accountId }, { approvalId: a.id, what: a.summary, askedBy, note: p.data.note || undefined }, { customerLog: false });
+        await recordGrant(req, a.accountId, g, r, { askedBy, approvedAfterRequest: a.id });
+        return res.json({ status: 'APPROVED', apps: (r.after?.items || []).map((i) => i.appCode).sort() });
+      }
+      const body = dealBody.parse(a.payload);
+      const r = await applyDeal(a.accountId, body, me, { basedOn });
       await platformPrisma.opsApproval.update({ where: { id: a.id }, data: { result: { invoiceId: r.invoiceId, ...(r.invoiceProblem ? { invoiceProblem: r.invoiceProblem } : {}) } } });
       await audit(req, 'APPROVAL_GRANTED', { accountId: a.accountId }, { approvalId: a.id, what: a.summary, askedBy, note: p.data.note || undefined }, { customerLog: false });
       await audit(req, 'SUBSCRIPTION_DEAL_SET', { accountId: a.accountId }, { ...r.record, askedBy, approvedAfterRequest: a.id });
@@ -143,12 +181,12 @@ opsApprovalsRouter.post('/ops/approvals/:id/approve', requireOperatorRole('BILLI
     } catch (e) {
       const why = e instanceof DealError ? e.message : e instanceof z.ZodError ? 'The request could not be read.' : null;
       if (!why) {
-        await platformPrisma.opsApproval.update({ where: { id: a.id }, data: { status: 'FAILED', result: { error: 'Something went wrong while applying it.' } } });
+        await failed('Something went wrong while applying it. Nothing was changed.');
         throw e;
       }
-      await platformPrisma.opsApproval.update({ where: { id: a.id }, data: { status: 'FAILED', result: { error: why } } });
+      await failed(why);
       await audit(req, 'APPROVAL_FAILED', { accountId: a.accountId }, { approvalId: a.id, what: a.summary, reason: why }, { customerLog: false });
-      res.status(409).json({ error: `Approved, but it could not be applied: ${why} Ask again with a deal that works now.` });
+      res.status(409).json({ error: `Approved, but it could not be applied: ${why}`, code: 'NOT_APPLIED' });
     }
   }),
 );

@@ -98,6 +98,7 @@ export async function scheduleClosure(args: { accountId: string; orgId: string; 
     deleteAfter,
     cancelledByUserId: null,
     cancelledAt: null,
+    lastPurgeAt: null,
   };
   return platformPrisma.orgClosure.upsert({ where: { orgId }, create: { orgId, ...data }, update: data });
 }
@@ -107,8 +108,23 @@ export async function cancelClosure(args: { accountId: string; orgId: string; us
   if (!(await mayClose(args.accountId, args.orgId, args.userId))) throw new ClosureError('Only an administrator of this company can cancel its closure.', 403, 'ADMIN_ONLY');
   const c = await platformPrisma.orgClosure.findUnique({ where: { orgId: args.orgId } });
   if (!c || c.status !== 'SCHEDULED') throw new ClosureError('No closure is scheduled.', 409, 'NOT_SCHEDULED');
-  if (c.deleteAfter.getTime() <= now.getTime()) throw new ClosureError('The notice period has ended; the company is being deleted.', 409, 'TOO_LATE');
-  return platformPrisma.orgClosure.update({ where: { orgId: args.orgId }, data: { status: 'CANCELLED', cancelledByUserId: args.userId, cancelledAt: now } });
+  if (c.deleteAfter.getTime() <= now.getTime() || c.lastPurgeAt) throw new ClosureError('The notice period has ended; the company is being deleted.', 409, 'TOO_LATE');
+  /*
+   * A claim, not a plain write: only while it is still scheduled, its notice
+   * still running and the purge not begun (purgeClosedCompanies stamps
+   * lastPurgeAt as it claims the company). Whichever of the two writes first
+   * wins; the other changes nothing.
+   */
+  const done = await platformPrisma.orgClosure.updateMany({
+    where: { orgId: args.orgId, status: 'SCHEDULED', deleteAfter: { gt: now }, lastPurgeAt: null },
+    data: { status: 'CANCELLED', cancelledByUserId: args.userId, cancelledAt: now },
+  });
+  if (!done.count) {
+    const after = await platformPrisma.orgClosure.findUnique({ where: { orgId: args.orgId }, select: { status: true } });
+    if (after?.status === 'CANCELLED') throw new ClosureError('No closure is scheduled.', 409, 'NOT_SCHEDULED');
+    throw new ClosureError('The notice period has ended; the company is being deleted.', 409, 'TOO_LATE');
+  }
+  return platformPrisma.orgClosure.findUniqueOrThrow({ where: { orgId: args.orgId } });
 }
 
 type Dmmf = { datamodel: { models: Array<{ name: string; fields: Array<{ name: string }> }> } };
@@ -305,14 +321,25 @@ export async function purgeClosedCompanies(now = new Date(), opts: { only?: stri
       console.error(`[closure] not starting ${c.orgId}:`, e instanceof Error ? e.message : e);
       break;
     }
-    await record(c.orgId, { purgeAttempts: { increment: 1 }, lastPurgeAt: new Date() });
+    /*
+     * Claim it before deleting anything: still SCHEDULED, notice ended. The
+     * list above was read at the start of the run, and a cancel may have
+     * landed since; then this company is left alone. From here a cancel is
+     * refused (cancelClosure checks lastPurgeAt).
+     */
+    const claimed = await outsideTenant('closure purge: claim a company', () =>
+      platformPrisma.orgClosure.updateMany({ where: { orgId: c.orgId, status: 'SCHEDULED', deleteAfter: { lte: now } }, data: { purgeAttempts: { increment: 1 }, lastPurgeAt: new Date() } })
+    );
+    if (!claimed.count) continue;
     try {
       const counts = await deleteCompanyData(c.orgId, {
         progress: readProgress(c.purgeProgress),
         beforeStep: () => mayContinue(),
         checkpoint: (p) => record(c.orgId, { purgeProgress: JSON.stringify(p), purgeError: null }).then(() => undefined),
       });
-      await record(c.orgId, { status: 'DELETED', deletedAt: new Date(), deletedCounts: JSON.stringify(counts), purgeError: null });
+      await outsideTenant('closure purge: record the deletion', () =>
+        platformPrisma.orgClosure.updateMany({ where: { orgId: c.orgId, status: 'SCHEDULED' }, data: { status: 'DELETED', deletedAt: new Date(), deletedCounts: JSON.stringify(counts), purgeError: null } })
+      );
       /* The account's last company: stop its billing (A-40). Not a reason to undo the purge if it fails. */
       await closeEmptyAccount(c.accountId).catch((e) =>
         console.error(`[closure] ALERT could not close the empty account ${c.accountId}:`, e instanceof Error ? e.message : e) // eslint-disable-line no-console
