@@ -16,6 +16,7 @@ import { suggestSlug } from './slug.js';
 import { track } from './productEvents.js';
 import { issuePasswordResetToken, recordAuthEvent } from './auth.js';
 import { sendTemplate } from './mailer.js';
+import { newCompanyAdminTwoFactor } from './policy.js';
 
 /**
  * Making an account: the one code path.
@@ -113,7 +114,7 @@ export async function bootstrapOwnerRole(accountId: string, orgId: string, userI
  * it, and whether the state and GSTIN are valid, is the caller's to check.
  * Throws QuotaBusyError or ProvisionError(COMPANY_LIMIT).
  */
-export async function createCompany(input: { accountId: string; userId: string; companyName: string; state: string; gstin?: string | null; profile?: Record<string, unknown> }) {
+export async function createCompany(input: { accountId: string; userId: string; companyName: string; state: string; gstin?: string | null; profile?: Record<string, unknown>; adminTwoFactor?: boolean }) {
   const { accountId, userId } = input;
   const name = input.companyName.trim();
   const stateName = input.state.trim();
@@ -138,6 +139,14 @@ export async function createCompany(input: { accountId: string; userId: string; 
   }
   await assignOrgCode(accountId, org.id, name);
   await assignUserCode(userId, org.id);
+  /*
+   * Owners and admins of a new company set up an authenticator before they
+   * reach its data (SX-09 gate, packages/shell/TwoFactorGate.jsx). The sample
+   * company has no person who signs in with a password, so it is left off.
+   */
+  if (input.adminTwoFactor ?? newCompanyAdminTwoFactor()) {
+    await platformPrisma.authPolicy.create({ data: { accountId, orgId: org.id, requireAdminTwoFactor: true, updatedByUserId: userId } });
+  }
 
   const branch = await platformPrisma.branch.create({
     data: {

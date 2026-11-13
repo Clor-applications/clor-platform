@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, onTestFinished } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
@@ -247,6 +247,23 @@ describe('the trial itself', () => {
     }
     /* And its own books open. */
     await request(app).get(`/api/orgs/${trial.orgId}/customers`).set(at(trial)).expect(200);
+  }, 90_000);
+
+  it('a company made now asks its owner for an authenticator before its data; the sample company does not (Stage 1)', async () => {
+    process.env.NEW_COMPANY_ADMIN_TWO_FACTOR = 'on';
+    onTestFinished(() => void delete process.env.NEW_COMPANY_ADMIN_TWO_FACTOR);
+    const c = await company();
+    expect(await platformPrisma.authPolicy.findUnique({ where: { orgId: c.orgId }, select: { requireAdminTwoFactor: true } })).toEqual({ requireAdminTwoFactor: true });
+    expect((await request(app).get(`/api/orgs/${c.orgId}/customers`).set(at(c)).expect(403)).body.code).toBe('TWO_FACTOR_SETUP_REQUIRED');
+    const me = await request(app).get('/api/auth/me').set(at(c)).expect(200);
+    expect(me.body.twoFactorSetupRequired).toBe(true);
+
+    /* With an authenticator set up, the company opens. */
+    const sec = (path: string, b: unknown) => request(app).post(`/api/orgs/${c.orgId}/security${path}`).set(at(c)).send(b as any);
+    const { secret } = (await sec('/two-factor/setup', { password: 'Passw0rd!23' }).expect(200)).body;
+    await clearOfStepEdge();
+    await sec('/two-factor/enable', { code: codeAt(secret, stepNow() - 1) }).expect(200);
+    await request(app).get(`/api/orgs/${c.orgId}/customers`).set(at(c)).expect(200);
   }, 90_000);
 
   it('blocks nothing until it ends; then the account reads, and every change is refused with the reason', async () => {
