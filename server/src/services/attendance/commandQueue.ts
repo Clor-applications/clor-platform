@@ -17,3 +17,21 @@ export async function claimNextCommand(where: Prisma.DeviceCommandWhereInput, no
   /* Lost the claim every time: the reader asks again in a few seconds. */
   return null;
 }
+
+/**
+ * A reader's answer settles a command only while it is still out with the reader on the attempt that was read:
+ * SENT, with the same attempt count. A late or repeated answer (the command was re-queued and sent again, or an
+ * earlier answer already settled it) changes nothing, so it cannot overwrite a newer result. Returns whether this
+ * answer was the one that settled it.
+ */
+export async function settleCommand(
+  cmd: { id: number; attempts: number },
+  data: { status: 'DONE' | 'FAILED'; returnCode: number; lastError: string | null },
+  now = new Date(),
+) {
+  const done = await peoplePrisma.deviceCommand.updateMany({
+    where: { id: cmd.id, status: 'SENT', attempts: cmd.attempts },
+    data: { ...data, doneAt: now },
+  });
+  return done.count > 0;
+}

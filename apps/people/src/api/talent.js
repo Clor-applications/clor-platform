@@ -33,7 +33,7 @@ export const listCandidates = (params) => get(`/candidates${qs(params)}`);
 export const getCandidate = (candidateId) => get(`/candidates/${id(candidateId)}`);
 export const addCandidate = (body) => send('/candidates', 'POST', body).then((r) => r?.candidate);
 export const updateCandidate = (candidateId, body) => send(`/candidates/${id(candidateId)}`, 'PUT', body);
-export const moveCandidate = (candidateId, stage, reason) => send(`/candidates/${id(candidateId)}/stage`, 'POST', { stage, reason });
+export const moveCandidate = (candidateId, stage, reason, extra = {}) => send(`/candidates/${id(candidateId)}/stage`, 'POST', { stage, reason, ...extra });
 export const noteCandidate = (candidateId, note) => send(`/candidates/${id(candidateId)}/notes`, 'POST', { note });
 export const saveResume = (candidateId, file) => send(`/candidates/${id(candidateId)}/resume`, 'POST', file);
 export const hireCandidate = (candidateId, body) => send(`/candidates/${id(candidateId)}/hire`, 'POST', body);

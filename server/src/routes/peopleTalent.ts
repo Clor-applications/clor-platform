@@ -158,8 +158,8 @@ peopleTalentRouter.put(`${base}/candidates/:id`, hiringOn, can(PermissionAction.
   await audit(req, 'Candidate', c.id, 'UPDATE', `Candidate changed: ${c.name}`);
   res.json({ ok: true });
 }));
-peopleTalentRouter.post(`${base}/candidates/:id/stage`, hiringOn, can(PermissionAction.EDIT, R.recruitment), check({ params: idParams, body: z.object({ stage: text(40).nullish(), ...REASONED }) }), handle(async (req, res) => {
-  const c = await hiring.moveCandidate(who(req), String(req.params.id), String(req.body?.stage || ''), req.body?.reason);
+peopleTalentRouter.post(`${base}/candidates/:id/stage`, hiringOn, can(PermissionAction.EDIT, R.recruitment), check({ params: idParams, body: z.object({ stage: text(40).nullish(), overAcceptedOffer: z.boolean().nullish(), ...REASONED }) }), handle(async (req, res) => {
+  const c = await hiring.moveCandidate(who(req), String(req.params.id), String(req.body?.stage || ''), req.body?.reason, { overAcceptedOffer: req.body?.overAcceptedOffer === true });
   await audit(req, 'Candidate', c.id, `STAGE_${c.stage}`, `${c.name}: ${c.stage.toLowerCase()}`, { reason: c.closedReason });
   await referrals.afterCandidateMoved(req.tenant!.accountId, req.tenant!.orgId, c.id).catch((e) => console.error('[referrals]', e instanceof Error ? e.message : e));
   res.json({ ok: true, stage: c.stage });
