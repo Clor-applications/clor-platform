@@ -177,8 +177,10 @@ export async function rejectStatutory(actor: Actor, inviteId: string, note?: str
   const row = await peoplePrisma.joinStatutory.findFirst({ where: { orgId: actor.orgId, inviteId } });
   if (!row) throw new StatutoryError('The joiner sent no statutory details on this invite.', 404);
   if (row.status !== 'SENT') throw new StatutoryError('These details have already been decided.', 409);
-  /* Nothing kept that was not accepted. */
-  const done = await peoplePrisma.joinStatutory.update({ where: { id: row.id }, data: { status: 'REJECTED', decidedByUserId: actor.userId, decidedAt: new Date(), note: String(note || '').slice(0, 300) || null, data: { masked: true, values: maskStatutory(row.data as JoiningStatutory) } as any } });
+  /* Nothing kept that was not accepted. Claimed while still SENT, as approving is: a rejection never lands on details already approved and sent to Payroll. */
+  const claimed = await peoplePrisma.joinStatutory.updateMany({ where: { id: row.id, status: 'SENT' }, data: { status: 'REJECTED', decidedByUserId: actor.userId, decidedAt: new Date(), note: String(note || '').slice(0, 300) || null, data: { masked: true, values: maskStatutory(row.data as JoiningStatutory) } as any } });
+  if (claimed.count !== 1) throw new StatutoryError('These details have already been decided.', 409);
+  const done = await peoplePrisma.joinStatutory.findUniqueOrThrow({ where: { id: row.id } });
   await peoplePrisma.$transaction((tx) => writeChangeLog(tx, actor, { kind: 'JoinStatutory', id: row.id, employeeId: row.employeeId }, [{ field: 'joiningStatutory', before: null, after: `not accepted${note ? `: ${String(note).slice(0, 200)}` : ''}`, redacted: false }]));
   return shape(done as Row);
 }
