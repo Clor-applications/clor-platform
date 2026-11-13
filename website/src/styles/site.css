@@ -4476,3 +4476,147 @@ main > .section::before {
 .head--art {
   align-items: center;
 }
+
+/* ========================================================== deep navy, 13 Nov
+ * Owner, 13 Nov 2026: "not satisfied", pointing at developer-portfolio sites
+ * (near-black grounds, heavy type, glowing 3D mockups). The navy header now
+ * carries down the whole page; orange glows against it. CLOR's own screens
+ * (.win, .hf, the stage sheet) stay light, like real screenshots of the app.
+ */
+:root,
+:root:root {
+  --bg: #0a1120;
+  --surface: #111b2e;
+  --surface-2: #0e1729;
+  --ink: #f1f4f9;
+  --ink-2: #b3bdcf;
+  --ink-3: #8a96ac;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --tint: #0d1628;
+  --tint-line: rgba(255, 255, 255, 0.08);
+  --accent-text: #ff8a4d;
+  --accent-soft: rgba(255, 84, 0, 0.14);
+  color-scheme: dark;
+}
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+/* App screens keep the app's light colours. */
+.win,
+.hf,
+.stage-sheet,
+.mega,
+.mega-panel {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --ink: #0f172a;
+  --ink-2: #475569;
+  --ink-3: #64748b;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --tint: #f4f6fa;
+  --accent-text: #ba3900;
+  --accent-soft: #fff1ea;
+  color: var(--ink);
+}
+.hf-panes {
+  background: #f4f6fa;
+}
+.tile,
+.proof li {
+  background: var(--surface);
+}
+.proof li {
+  color: var(--ink-2);
+}
+.proof svg {
+  color: #4ade80;
+}
+.hf-foot {
+  color: #15803d;
+}
+
+/* Bands: two navies, the lighter one carrying a soft orange glow. */
+main > .section:nth-child(odd of .section) {
+  background: radial-gradient(60% 50% at 85% 0%, rgba(255, 84, 0, 0.08), transparent 70%), var(--tint);
+}
+main > .section:nth-child(even of .section) {
+  background: radial-gradient(50% 50% at 10% 100%, rgba(56, 120, 255, 0.08), transparent 70%), var(--bg);
+}
+main > .section::before {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+}
+
+/* Hero: aurora of orange and blue over a fine grid. */
+.hero--home,
+.p-hero,
+.sol-hero,
+.hero--product {
+  background: radial-gradient(45% 55% at 15% 10%, rgba(255, 84, 0, 0.2), transparent 70%),
+    radial-gradient(40% 50% at 90% 20%, rgba(59, 130, 246, 0.18), transparent 70%), var(--bg);
+}
+.hero--home::before,
+.p-hero::before,
+.sol-hero::before,
+.hero--product::before {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px) !important;
+}
+.h-hero {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+.h-1,
+.h-2 {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.hf {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 40px 80px -30px rgba(0, 0, 0, 0.7), 0 0 120px -40px rgba(255, 84, 0, 0.45);
+}
+.win {
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.7), 0 0 80px -40px rgba(255, 84, 0, 0.35);
+}
+
+/* Buttons: the dark trial button turns light on the navy ground. */
+.btn--trial {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
+}
+.btn--trial:hover {
+  background: #e2e8f0;
+}
+.btn--secondary,
+.btn--ghost {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  background: transparent;
+}
+.text-link,
+a.text-link {
+  color: var(--accent-text);
+}
+.hero-photo img,
+.p-photo--cut img {
+  mix-blend-mode: normal;
+}
+/* Product colours are dark inks made for white; on navy they sit on white chips
+ * (marks) or are lifted towards white (names, bullets). */
+main .mark {
+  background: #fff;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+.app-card-btn {
+  color: #0f172a;
+}
+.app-sec-wrap .app-sec-name,
+.app-sec-wrap .facts-list li::marker {
+  color: color-mix(in srgb, var(--app) 40%, #fff);
+}
