@@ -30,22 +30,18 @@ export const READY = new Set([
 ]);
 
 /**
- * Pictures that are drawings, not photographs of a 3D render: one `.svg`, sharp at any size
- * (owner, 13 Nov 2026: one or two office buildings with their workspace for the Workspace door,
- * a tech park of several buildings for the operator console).
- * Both are written by scripts/auth-buildings.py; change the script, not the files.
- */
-const DRAWN = new Set(['signin-hq', 'signin-ops']);
-
-/**
- * A drawing carries no words, so the page sets its title in type, top left, where the
- * 3D pictures have theirs painted in. Small line first, then the large one.
+ * Pictures that carry no title painted into them (owner's renders, 13 Nov 2026): the page
+ * sets the title in type instead, so the company's registered name is always the right one.
+ * Small line first, then the large one.
  */
 const TITLES = {
   'signin-hq': ['CLOR Applications Private Limited', 'Welcome to CLOR'],
   'signin-ops': ['CLOR Applications Private Limited', 'Operator console'],
 };
 export const sceneTitle = (file) => TITLES[file] || null;
+
+/** The wider of a picture's two files, where it is not the usual 1536. */
+const LARGE = { 'signin-hq': 1254, 'signin-ops': 1254 };
 
 /** The sign-in picture for each app's own address. */
 const SIGNIN_BY_APP = {
@@ -80,13 +76,10 @@ export function sceneFile(scene, app) {
   return null;
 }
 
-export const sceneSrc = (file) =>
-  DRAWN.has(file)
-    ? { src: `/auth/${file}.svg` }
-    : {
-        src: `/auth/${file}-1536.webp`,
-        srcSet: `/auth/${file}-960.webp 960w, /auth/${file}-1536.webp 1536w`,
-      };
+export const sceneSrc = (file) => {
+  const w = LARGE[file] || 1536;
+  return { src: `/auth/${file}-${w}.webp`, srcSet: `/auth/${file}-960.webp 960w, /auth/${file}-${w}.webp ${w}w` };
+};
 
 /**
  * Width over height of each picture, so the picture side is cut to the picture's own

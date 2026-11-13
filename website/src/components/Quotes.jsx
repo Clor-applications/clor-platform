@@ -35,7 +35,7 @@ export default function QuoteBand() {
         </span>
         <div key={i} className="fx-quotes-line">
           <p className="fx-eyebrow">{q.about}</p>
-          <blockquote>{q.text}</blockquote>
+          <blockquote>“{q.text}”</blockquote>
           <figcaption>{q.by}</figcaption>
         </div>
         <div className="fx-quotes-foot">
