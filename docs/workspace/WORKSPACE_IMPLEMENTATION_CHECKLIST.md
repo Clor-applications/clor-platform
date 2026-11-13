@@ -7,6 +7,48 @@ never evidence of server-side authorization.
 
 Audited on branch `claude/subscription-provisioning-gap-003-b84bad` (PR #23).
 
+## What is left on the Workspace side (14 Nov 2026)
+
+Checked against `origin/main` and the live app. The rest of this file is the
+24 October audit and has not been kept up; these are the open items.
+
+### 1. The Overview asks the server for figures it never shows
+
+`GET /account/overview` already returns **`entities`**, **`dataHealth`** and
+**`runRate`** (`server/src/routes/account.ts`, `services/accountHealth.ts`), but
+`apps/admin/src/screens/AccountOverview.jsx` reads none of them: it shows
+Account name, Companies, Company addresses, People and Plan. The server work
+landed with PR #200; the panels did not. PR #132 held the panels and was closed
+on 14 Nov 2026 as stale (conflicting, untouched since 10 Nov). What it meant to
+show, so nobody has to dig it out of a closed branch:
+
+| Figure | Where it comes from |
+|---|---|
+| **Entities** — companies, branches, GST registrations, cost centres | `Org`, active `Branch` (distinct GSTINs, so two branches under one GSTIN count once), active `CostCenter` |
+| **Active seats**, and a seats-by-app panel | Active members who can open the app in at least one company, against `SubscriptionItem.seats`; "no limit" where seats are not metered |
+| **Data health**, and a panel naming each source | Open `ReaderAlert` rows as the reader-check job left them, Tally postings (`AgentJob`) failed this week or waiting over a day, `EmailOutbox` failures this week. "Nothing to sync" when the account has no such source |
+| **Security** — share of active members signing in with an authenticator | Member directory `authenticator` (TOTP). Administrators without one belong under "Needs your attention" |
+| **Monthly run rate** | Subscription items: `per_seat` x seats, `flat`/`per_app` as set, `free` adds nothing, yearly divided by 12, cancelled or paused 0. **If any item has no price it must read "Not priced yet" and name the app** — never a zero that looks like an answer |
+
+### 2. Support grants are not built
+
+The plan's "grant temporary CLOR access" (Workspace P2/P3, with Ops P3
+`SupportGrant`). Nothing in the code matches `SupportGrant`. `OutsideAccess` is
+the customer's own accountant, not CLOR staff. Until this exists, staff cannot
+get time-boxed, audited access to a customer's data to investigate a problem.
+
+### 3. P3 insights and recommendations
+
+Not started.
+
+### Done since the 24 October audit
+
+Overview hierarchy and app cards (#200), the unified inbox across apps (#242),
+the integration status page (#243), the support centre (Workspace `Support`, ops
+`Tickets`), onboarding (`SetupGuide`), seats and subscription use (`PlanChange`,
+`BillingPreview`). The audit's Workspace state-machine risks W1 and W7 were
+fixed by #235 and #238.
+
 ## Decisions taken (24 Oct 2026)
 
 | ID | Decision |
