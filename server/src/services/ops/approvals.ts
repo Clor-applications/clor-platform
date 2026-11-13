@@ -8,10 +8,16 @@ import { audit } from '../../routes/ops.js';
  * Two-person approval (Ops plan: approval-managed changes). An operator asks
  * for a change that is over a limit; a second operator, never the one who
  * asked, approves it with a fresh authenticator code, and only then is it
- * applied, as the approver, with both names on the record. Today the one
- * kind is a subscription deal whose discount is more than the limit in the
- * platform setting `ops.approvals` (routes/opsDeals.ts); the owner sets the
- * limit on the Approvals page.
+ * applied, as the approver, with both names on the record. Two kinds, both
+ * held to the one limit in the platform setting `ops.approvals`, which the
+ * owner sets on the Approvals page:
+ *  - DEAL: a subscription deal whose discount is more than the limit
+ *    (routes/opsDeals.ts);
+ *  - GRANT: apps set free or cheaper by hand ("Free plan by hand", "Change
+ *    apps", Trials "Convert"), counted the same way (services/ops/grants.ts).
+ * Both change the customer's plan, so a customer has at most one of either
+ * waiting, and each request keeps the plan's version when it was asked: one
+ * changed directly since is refused when it is approved.
  *
  * A request lasts EXPIRES_HOURS. One that is not decided by then is shown as
  * expired and cannot be approved: ask again, with the prices as they are then.
@@ -73,12 +79,21 @@ async function tellApprovers(askedBy: string, a: { id: string; summary: string; 
 /**
  * Keep the request, write it in the audit log, and tell the people who can approve it.
  *
- * One waiting request of a kind per customer: the check and the new row are
+ * One waiting request per customer: the check and the new row are
  * made under a lock on the customer's account row, so two operators asking at
  * the same moment cannot both open one (a find, then a create, let both
  * through). Null when one is already waiting.
  */
-export async function askApproval(req: Request, input: { kind: 'DEAL'; accountId: string | null; customerName: string; payload: unknown; summary: string; discountPercent: number | null; reason: string }) {
+export const APPROVAL_KINDS = ['DEAL', 'GRANT'] as const;
+export type ApprovalKind = (typeof APPROVAL_KINDS)[number];
+/** Plain words for a kind, on the Approvals page. */
+export const KIND_WORDS: Record<string, string> = { DEAL: 'Subscription deal', GRANT: 'Apps by hand' };
+export const ALREADY_WAITING = 'A change to this customer’s plan is already waiting in Approvals. Withdraw it there first, or wait for the decision.';
+
+/** Whether a change to this customer's plan is already waiting (a quick answer; askApproval asks again under the lock). */
+export const waitingFor = (accountId: string) => platformPrisma.opsApproval.findFirst({ where: { accountId, kind: { in: [...APPROVAL_KINDS] }, status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
+
+export async function askApproval(req: Request, input: { kind: ApprovalKind; accountId: string | null; customerName: string; payload: unknown; summary: string; discountPercent: number | null; reason: string }) {
   const data = {
     kind: input.kind,
     accountId: input.accountId,
@@ -92,13 +107,14 @@ export async function askApproval(req: Request, input: { kind: 'DEAL'; accountId
   const a = await platformPrisma.$transaction(async (tx) => {
     if (input.accountId) {
       await tx.$queryRaw`SELECT id FROM "Account" WHERE id = ${input.accountId} FOR UPDATE`;
-      const waiting = await tx.opsApproval.findFirst({ where: { accountId: input.accountId, kind: input.kind, status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
+      /* Any kind: a deal and a grant both rewrite the plan, so they wait one at a time. */
+      const waiting = await tx.opsApproval.findFirst({ where: { accountId: input.accountId, kind: { in: [...APPROVAL_KINDS] }, status: 'PENDING', expiresAt: { gt: new Date() } }, select: { id: true } });
       if (waiting) return null;
     }
     return tx.opsApproval.create({ data });
   });
   if (!a) return null;
-  await audit(req, 'APPROVAL_ASKED', { accountId: input.accountId }, { approvalId: a.id, customer: input.customerName, what: input.summary, discount: input.discountPercent != null ? `${input.discountPercent}%` : undefined, reason: input.reason }, { customerLog: false });
+  await audit(req, 'APPROVAL_ASKED', { accountId: input.accountId }, { approvalId: a.id, customer: input.customerName, what: input.summary, kind: KIND_WORDS[input.kind], discount: input.discountPercent != null ? `${input.discountPercent}%` : undefined, reason: input.reason }, { customerLog: false });
   await tellApprovers(req.auth!.userId, a, input.customerName);
   return { id: a.id, summary: a.summary, status: a.status, expiresAt: a.expiresAt };
 }

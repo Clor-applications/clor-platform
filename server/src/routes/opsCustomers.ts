@@ -9,7 +9,9 @@ import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { clientIp, issuePasswordResetToken, revokeAllSessions } from '../services/auth.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
-import { getSubscription, setSubscription, syncAccountEntitlement } from '../services/subscriptions.js';
+import { getSubscription, syncAccountEntitlement } from '../services/subscriptions.js';
+import { applyGrant, askForGrant, recordGrant, type AppsGrant } from '../services/ops/grants.js';
+import { DealError } from '../services/pricing/deals.js';
 import { InvitationError, resendInvitation } from '../services/accountInvitations.js';
 import { deliver, sendTemplate } from '../services/mailer.js';
 import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
@@ -41,7 +43,11 @@ const accountOr404 = async (id: string) => platformPrisma.account.findUnique({ w
 
 const appsBody = reasonBody.extend({ apps: z.array(z.string()).min(1).max(20) });
 
-/** Change which apps the plan carries. Apps kept keep their tier and seats; an app added comes in free until priced. */
+/**
+ * Change which apps the plan carries. Apps kept keep their tier and seats; an
+ * app added comes in free until priced, which gives it away: over the limit
+ * deals use, a second person approves it first (services/ops/grants.ts).
+ */
 opsCustomersRouter.post('/ops/accounts/:id/apps', requireOperatorRole('BILLING'), requireOperatorStepUp, (req, res) =>
   outsideTenant('ops: change apps', async () => {
     const id = String(req.params.id);
@@ -50,19 +56,18 @@ opsCustomersRouter.post('/ops/accounts/:id/apps', requireOperatorRole('BILLING')
     if (!(await accountOr404(id))) return res.status(404).json({ error: 'No such customer' });
     const unknown = parsed.data.apps.filter((a) => !SELLABLE_APP_CODES.includes(a));
     if (unknown.length) return res.status(400).json({ error: `These apps cannot be sold yet: ${unknown.join(', ')}.` });
-    const sub = await getSubscription(id);
-    if (!sub) return res.status(409).json({ error: 'This customer has no plan yet. Use Set a plan first.' });
-    const keep = new Map(sub.items.map((i) => [i.appCode, i]));
-    const before = sub.items.map((i) => i.appCode).sort();
-    const apps = [...new Set(parsed.data.apps)].map((appCode) => {
-      const k = keep.get(appCode);
-      return k ? { appCode, tier: k.tier, seats: k.seats, priceModel: k.priceModel, unitAmount: k.unitAmount } : { appCode, priceModel: 'free' };
-    });
-    /* The paid period stays exactly as it is: only the apps change. */
-    const after = await setSubscription(id, { apps, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd });
-    clearAccessCache();
-    await audit(req, 'SUBSCRIPTION_APPS_CHANGED', { accountId: id }, { from: before, to: (after?.items || []).map((i) => i.appCode).sort(), reason: parsed.data.reason });
-    res.json({ apps: (after?.items || []).map((i) => i.appCode).sort() });
+    if (!(await getSubscription(id))) return res.status(409).json({ error: 'This customer has no plan yet. Use Set a plan first.' });
+    const grant: AppsGrant = { route: 'apps', body: { apps: [...new Set(parsed.data.apps)], reason: parsed.data.reason } };
+    const asked = await askForGrant(req, id, grant, parsed.data.reason);
+    if (asked) return res.status(asked.status).json(asked.body);
+    try {
+      const r = await applyGrant(id, grant);
+      await recordGrant(req, id, grant, r);
+      res.json({ apps: (r.after?.items || []).map((i) => i.appCode).sort() });
+    } catch (e) {
+      if (e instanceof DealError) return res.status(e.status).json({ error: e.message });
+      throw e;
+    }
   }),
 );
 
