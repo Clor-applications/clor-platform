@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Art3D } from '../components/Art3D.jsx';
-import { Bank, Calculator, Check, ChartLineUp, Fingerprint, MapPin, Receipt, Storefront, UsersThree } from '@phosphor-icons/react';
+import { Bank, Calculator, CaretDown, CaretRight, Check, ChartLineUp, Fingerprint, MapPin, Receipt, Storefront, UsersThree } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, productBySlug } from '../site.js';
 import { GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { Head, SettingUp, TrustBand } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
-import { Mark, Status } from '../components/Brand.jsx';
+import { Mark } from '../components/Brand.jsx';
 
 /*
  * The hero window (owner, 13 Nov 2026: the angled video card was "not good").
@@ -276,6 +275,156 @@ function ProductCards() {
   );
 }
 
+/*
+ * Products, after Azure's "Explore tools": filter pills, a photo tile, then a
+ * card per product with its mark, one line and a link.
+ */
+const FILTERS = [
+  ['all', 'All products', null],
+  ['money', 'Accounts and payroll', ['books', 'payroll']],
+  ['people', 'People and time', ['people', 'attendance']],
+  ['soon', 'Coming next', ['projects', 'timesheet']],
+];
+
+function ProductGrid() {
+  const [f, setF] = useState('all');
+  const only = FILTERS.find((x) => x[0] === f)[2];
+  const list = ['books', 'payroll', 'people', 'attendance', 'projects', 'timesheet'].filter((s) => !only || only.includes(s));
+  return (
+    <section className="section section--tint" aria-labelledby="suite-title">
+      <div className="wrap">
+        <p className="eyebrow">Products</p>
+        <h2 className="h-1 az-h" id="suite-title">
+          Connected business applications
+        </h2>
+        <div className="chips" role="tablist" aria-label="Show products">
+          {FILTERS.map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={f === k} className={f === k ? 'is-on' : ''} onClick={() => setF(k)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="pg">
+          <figure className="pg-photo">
+            <img src="/people/attendance-reader-700.webp" srcSet="/people/attendance-reader-700.webp 1x, /people/attendance-reader-1400.webp 2x" alt="An employee punching in at a reader by the office door" loading="lazy" decoding="async" />
+            <figcaption>One login and one list of employees across every product.</figcaption>
+          </figure>
+          <ul className="pg-cards">
+            {list.map((slug) => {
+              const p = productBySlug(slug);
+              return (
+                <li key={slug} className="az-card pg-card" style={{ '--app': p.accent }}>
+                  <Mark product={p} size={40} />
+                  <h3 className="az-card-h">CLOR {p.name}</h3>
+                  <p className="body">{p.line}</p>
+                  {p.status === 'soon' ? <p className="pg-soon">Coming next</p> : null}
+                  <Link className="az-link" href={`/products/${slug}`}>
+                    Explore the product
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/*
+ * How the products connect, after Azure's "Find solutions": an accordion on
+ * the left, the matching CLOR screen in a frame on the right.
+ */
+function Connections() {
+  const [open, setOpen] = useState(0);
+  const x = CONNECTIONS[open];
+  const Win = x.to === 'books' ? WINDOWS.books : WINDOWS[x.to];
+  return (
+    <section className="section" aria-labelledby="connected-title">
+      <div className="wrap">
+        <p className="eyebrow">How they connect</p>
+        <h2 className="h-1 az-h" id="connected-title">
+          Attendance feeds payroll. Payroll posts to Books.
+        </h2>
+        <div className="acc-grid">
+          <ul className="acc">
+            {CONNECTIONS.map((c, i) => {
+              const a = productBySlug(c.from);
+              const b = productBySlug(c.to);
+              const on = i === open;
+              return (
+                <li key={c.from + c.to} className={on ? 'is-on' : ''}>
+                  <button type="button" aria-expanded={on} onClick={() => setOpen(i)}>
+                    <span className="acc-pair">
+                      <Mark product={a} size={26} />
+                      <span aria-hidden="true">→</span>
+                      <Mark product={b} size={26} />
+                    </span>
+                    {a.name} to {b.name}
+                    <CaretDown size={16} weight="bold" aria-hidden="true" className="acc-caret" />
+                  </button>
+                  {on ? (
+                    <div className="acc-body">
+                      <p className="body">{c.text}</p>
+                      <Link className="text-link" href={`/products/${c.to}`}>
+                        More about CLOR {b.name}
+                      </Link>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          <figure className="acc-media" key={open}>
+            <div className="acc-frame">
+              <Win />
+            </div>
+          </figure>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* Who uses CLOR, after Azure's news cards: a photo on top, words, an arrow link. */
+const TEAM_PICS = {
+  'Business owners': ['/people/business-workspace-700.webp', 'A woman at an office desk with CLOR open on her laptop'],
+  'Accountants and CA firms': ['/people/books-invoice-560.webp', 'A GST invoice open in CLOR Books on a laptop'],
+  'Finance teams': ['/people/payroll-payslip-560.webp', 'An employee reading her payslip in the CLOR app'],
+  'HR teams': ['/people/people-hr-700.webp', 'An HR manager looking at an employee record in CLOR People'],
+};
+
+function TeamCards() {
+  return (
+    <section className="section section--tint" aria-labelledby="team-title">
+      <div className="wrap">
+        <p className="eyebrow">Who uses CLOR</p>
+        <h2 className="h-1 az-h" id="team-title">
+          Made for the people who run the back office
+        </h2>
+        <ul className="tc">
+          {TEAMS.map((t) => {
+            const [src, alt] = TEAM_PICS[t.title];
+            return (
+              <li key={t.title} className="az-card tc-card">
+                <img className="tc-img" src={src} alt={alt} loading="lazy" decoding="async" />
+                <h3 className="az-card-h">{t.title}</h3>
+                <p className="body">{t.text}</p>
+                <Link className="az-arrow" href={t.link[0]}>
+                  <span className="az-arrow-box" aria-hidden="true">
+                    <CaretRight size={14} weight="bold" />
+                  </span>
+                  {t.link[1]}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 /* In-page menu that sticks under the header (after azure.microsoft.com). */
 const JUMPS = [
   ['suite-title', 'Products'],
@@ -324,17 +473,6 @@ function JumpBar() {
   );
 }
 
-const SUITE = ['books', 'people', 'payroll', 'attendance'];
-const NEXT = ['projects', 'timesheet'];
-
-/** Each card's picture: a person cut out on the page ground, or a scene that fades into the card. */
-const PICS = {
-  books: { kind: 'cut' },
-  people: { kind: 'cut' },
-  payroll: { kind: 'cut' },
-  attendance: { kind: 'scene' },
-};
-
 export default function Home() {
   const [role, setRole] = useState('finance');
   return (
@@ -378,114 +516,15 @@ export default function Home() {
 
       <JumpBar />
 
-      <section className="section section--tint" aria-labelledby="suite-title">
-        <div className="wrap">
-          <div className="head">
-            <h2 className="h-1" id="suite-title">
-              Connected business applications
-            </h2>
-            <p className="lede">One back office for accounts, people, attendance and payroll, sharing one login and one list of employees.</p>
-          </div>
-          <ul className="apps">
-            {SUITE.map((slug) => {
-              const p = productBySlug(slug);
-              const pic = PICS[slug];
-                            return (
-                <li key={slug} className={`app-card app-card--${pic.kind} app-card--${slug}`} style={{ '--app': p.accent }}>
-                  <div className="app-card-copy">
-                    <div className="app-card-name">
-                      <Mark product={p} size={44} />
-                      <div>
-                        <h3 className="h-3">CLOR {p.name}</h3>
-                        <Status product={p} />
-                      </div>
-                    </div>
-                    <p className="body">{p.line}</p>
-                    <Link className="app-card-btn" href={`/products/${slug}`}>
-                      {`Explore ${p.name}`}
-                      <span aria-hidden="true">→</span>
-                    </Link>
-                  </div>
-                  <img
-                    className="app-card-pic"
-                    src={`/people/${slug}-360.webp`}
-                    srcSet={`/people/${slug}-360.webp 1x, /people/${slug}-720.webp 2x`}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </li>
-              );
-            })}
-          </ul>
-          <div className="apps-next">
-            <p className="apps-next-title">Coming next</p>
-            <ul>
-              {NEXT.map((slug) => {
-                const p = productBySlug(slug);
-                return (
-                  <li key={slug}>
-                    <Link href={`/products/${slug}`} className="apps-next-item">
-                      <Mark product={p} size={32} />
-                      <span>
-                        <span className="apps-next-name">CLOR {p.name}</span>
-                        <span className="body">{p.line}</span>
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-      </section>
+      <ProductGrid />
 
       <ProductCards />
 
-      <section className="section section--tint" aria-labelledby="connected-title">
-        <div className="wrap split">
-          <Head
-            id="connected-title"
-            title="Attendance feeds payroll. Payroll posts to Books."
-            intro="Bought together, the four products read the same employees and post to the same books, so nobody exports a spreadsheet in between. Projects and Timesheet are next."
-            art={<Art3D kind="flow" />}
-          />
-          <ul className="links">
-            {CONNECTIONS.map((x) => (
-              <li key={x.from + x.to}>
-                <span className="links-pair">
-                  <Mark product={productBySlug(x.from)} size={26} />
-                  <span className="links-wire" aria-hidden="true" />
-                  <Mark product={productBySlug(x.to)} size={26} />
-                </span>
-                <p className="body">{x.text}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <Connections />
 
       <SettingUp />
 
-      <section className="section" aria-labelledby="team-title">
-        <div className="wrap">
-          <Head id="team-title" title="Who uses CLOR" art={<Art3D kind="team" />} />
-          <ul className="groups">
-            {TEAMS.map((t) => (
-              <li key={t.title}>
-                <span className="tile" aria-hidden="true">
-                  <t.icon size={22} weight="duotone" />
-                </span>
-                <h3 className="h-3">{t.title}</h3>
-                <p className="body">{t.text}</p>
-                <Link className="text-link" href={t.link[0]}>
-                  {t.link[1]}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <TeamCards />
 
       <TrustBand />
 

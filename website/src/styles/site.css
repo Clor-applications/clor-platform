@@ -2,6 +2,7 @@
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/outfit';
+@import '@fontsource-variable/noto-sans';
 @import '@fontsource/geist-mono/400.css';
 @import '@fontsource/geist-mono/500.css';
 
@@ -4713,7 +4714,7 @@ textarea {
 }
 .hero2-copy .h-hero {
   margin: 0 0 var(--s-4);
-  max-width: 15ch;
+  max-width: 19ch;
 }
 .hero2-copy .lede {
   margin: 0 0 var(--s-5);
@@ -5112,4 +5113,359 @@ main h2[id] {
 }
 .hl-lines {
   padding-bottom: 72px;
+}
+
+/* ============================================== after Azure, 13 Nov (owner:
+ * "i'm loving this"). Medium-weight headings with a small label above,
+ * white 24px cards with a soft shadow, filter pills, an accordion beside a
+ * framed screen, a floating section bar with the demo button, 50px buttons.
+ * Noto Sans stands in for Segoe UI (?font=noto, the default on the preview).
+ */
+:root,
+html[data-font='noto'] {
+  --font-display: 'Noto Sans Variable', system-ui, sans-serif;
+  --font-text: var(--font-display);
+}
+.h-hero,
+.h-1,
+.h-2,
+.az-h {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.eyebrow {
+  margin: 0 0 var(--s-3);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.az-h {
+  font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.75rem);
+  line-height: 1.15;
+  margin: 0 0 var(--s-6);
+  max-width: 26ch;
+}
+.btn--lg {
+  min-height: 50px;
+  padding-inline: 24px;
+  font-size: 15px;
+}
+.az-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: 24px;
+  border: 1px solid #e3e8ef;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 12px 28px -18px rgba(15, 23, 42, 0.22);
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.az-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 22px 40px -20px rgba(15, 23, 42, 0.3);
+}
+.az-card-h {
+  margin: var(--s-2) 0 0;
+  font-size: var(--t-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.az-card .body {
+  margin: 0;
+}
+.az-link {
+  margin-top: auto;
+  padding-top: var(--s-3);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: var(--t-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.az-arrow {
+  margin-top: auto;
+  padding-top: var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: var(--t-sm);
+  text-decoration: none;
+}
+.az-arrow-box {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-control);
+  background: var(--accent);
+  color: #fff;
+  transition: transform 0.2s var(--ease);
+}
+.az-arrow:hover .az-arrow-box {
+  transform: translateX(3px);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 var(--s-6);
+}
+.chips button {
+  padding: 9px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, #fff);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.chips button:hover {
+  background: color-mix(in srgb, var(--ink) 12%, #fff);
+}
+.chips button.is-on {
+  background: var(--ink);
+  color: #fff;
+}
+.chips button:focus-visible,
+.acc button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.pg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: var(--s-4);
+  align-items: stretch;
+}
+.pg-photo {
+  position: relative;
+  margin: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  min-height: 320px;
+}
+.pg-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pg-photo figcaption {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.pg-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+.pg-card {
+  animation: pg-in 0.35s var(--ease) both;
+}
+@keyframes pg-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+.pg-soon {
+  margin: 0;
+  align-self: start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
+.acc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: start;
+}
+.acc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.acc li {
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  padding-left: var(--s-4);
+  transition: border-color 0.2s var(--ease);
+}
+.acc li.is-on {
+  border-left-color: var(--accent);
+}
+.acc button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 18px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--t-lg);
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.acc-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+}
+.acc-caret {
+  margin-left: auto;
+  transition: rotate 0.2s var(--ease);
+}
+.acc li.is-on .acc-caret {
+  rotate: 180deg;
+}
+.acc-body {
+  padding: 0 0 20px;
+  display: grid;
+  gap: var(--s-3);
+  animation: pg-in 0.3s var(--ease) both;
+}
+.acc-body .body {
+  margin: 0;
+  max-width: 48ch;
+}
+.acc-media {
+  margin: 0;
+  padding: clamp(20px, 3vw, 36px);
+  border-radius: 24px;
+  background: radial-gradient(80% 80% at 100% 0%, rgba(255, 84, 0, 0.16), transparent 60%),
+    radial-gradient(70% 70% at 0% 100%, rgba(59, 130, 246, 0.16), transparent 60%), #f3f6fb;
+  animation: pg-in 0.35s var(--ease) both;
+}
+.acc-frame {
+  --win-fs: 13px;
+}
+.acc-frame .win {
+  box-shadow: 0 24px 48px -24px rgba(15, 23, 42, 0.35);
+}
+.tc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+.tc-card {
+  padding: 10px 10px 22px;
+}
+.tc-card > :not(.tc-img) {
+  margin-inline: 14px;
+}
+.tc-img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #eef2f7;
+}
+.jump {
+  top: 72px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  pointer-events: none;
+}
+.jump ul {
+  pointer-events: auto;
+  align-items: center;
+  margin-top: 12px;
+  padding-inline: 28px 10px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.35);
+}
+.jump-cta {
+  margin-left: auto;
+}
+.jump-cta .btn {
+  min-height: 38px;
+  padding-inline: 16px;
+  font-size: var(--t-sm);
+}
+@media (max-width: 1100px) {
+  .pg {
+    grid-template-columns: 1fr;
+  }
+  .pg-photo {
+    min-height: 240px;
+  }
+  .pg-cards,
+  .tc {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 860px) {
+  .acc-grid {
+    grid-template-columns: 1fr;
+  }
+  .jump-cta {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .pg-cards,
+  .tc {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pg-card,
+  .acc-body,
+  .acc-media {
+    animation: none;
+  }
+  .az-card:hover {
+    transform: none;
+  }
+}
+
+/* Section bar lines up with the page column; the header already holds the
+ * demo button, so the bar carries links only (one primary per screen). */
+.jump ul {
+  max-width: var(--wrap);
+  width: calc(100% - 2 * var(--gutter));
+  padding: 0 20px;
+}
+main h2[id] {
+  scroll-margin-top: 170px;
+}
+.acc-body > a {
+  justify-self: start;
 }
