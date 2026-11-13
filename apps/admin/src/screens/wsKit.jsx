@@ -10,6 +10,7 @@ import {
   Buildings,
   CalendarDots,
   ChatCircle,
+  Tray,
   ClockCounterClockwise,
   CreditCard,
   Database,
@@ -44,6 +45,7 @@ import './workspace.css';
  */
 export const ICON = duoSet({
   home: House,
+  inbox: Tray,
   company: BuildingOffice,
   companies: Buildings,
   people: UsersThree,

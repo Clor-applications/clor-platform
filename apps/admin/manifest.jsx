@@ -34,6 +34,7 @@ const BillingPreview = screen('BillingPreview');
 const DataBackup = screen('DataBackup');
 const CloseCompany = screen('CloseCompany');
 const Support = screen('Support');
+const Inbox = screen('Inbox');
 
 /**
  * Workspace: the company's own administration, not any one app's (ADR-010).
@@ -75,7 +76,7 @@ export const adminApp = {
   lineIcons: 'fluent',
 
   modules: [
-    { key: 'home', label: 'Overview', icon: ICON.home, items: ['home', 'support'] },
+    { key: 'home', label: 'Overview', icon: ICON.home, items: ['home', 'inbox', 'support'] },
     { key: 'company', label: 'Company', icon: ICON.company, items: ['companies', 'company', 'branches', 'notifications', 'automations'] },
     { key: 'access', label: 'Access', icon: ICON.people, groups: [
       { label: null, items: ['accessHome'] },
@@ -93,6 +94,8 @@ export const adminApp = {
   /* `permission`: the shell shows an item only to somebody who holds it, and read-only to somebody who cannot change it. */
   nav: [
     { key: 'home', label: 'Overview', icon: ICON.home },
+    /* Workspace plan P1: what waits on this person in every app; the server shows each only what they may decide (routes/workspaceWaiting.ts). */
+    { key: 'inbox', label: 'Inbox', icon: ICON.inbox },
     /* Everyone may ask CLOR for help; what each sees is the server's (their own tickets, or the account's). */
     { key: 'support', label: 'Help and support', icon: ICON.chat },
     { key: 'companies', label: 'Companies', icon: ICON.companies, permission: 'SETTINGS::Company Profile::VIEW' },
@@ -151,5 +154,6 @@ export const adminApp = {
     export: DataBackup,
     close: CloseCompany,
     support: Support,
+    inbox: Inbox,
   },
 };
