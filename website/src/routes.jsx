@@ -79,7 +79,7 @@ const ORG = {
   name: SITE.name,
   legalName: SITE.company,
   url: `${SITE.url}/`,
-  logo: `${SITE.url}/brand/clor-mark-512.png`,
+  logo: `${SITE.url}/brand/clor-mark-512-a1.png`,
   email: SITE.contactEmail,
   address: { '@type': 'PostalAddress', streetAddress: SITE.address, addressLocality: 'Bengaluru', addressRegion: 'Karnataka', postalCode: '560064', addressCountry: 'IN' },
 };
