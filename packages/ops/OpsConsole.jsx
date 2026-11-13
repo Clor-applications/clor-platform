@@ -274,6 +274,12 @@ function Console() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reload, setReload] = useState(0);
 
+  /* The Ops portal theme (forest, R&D 14 Nov 2026): rnd.css keys it off <html data-portal="ops">. */
+  useEffect(() => {
+    document.documentElement.setAttribute('data-portal', 'ops');
+    return () => document.documentElement.removeAttribute('data-portal');
+  }, []);
+
   /* Signing in can leave a company's address behind (/o/CLOR-…); the console has no such pages. */
   useEffect(() => {
     if (/^\/o\//.test(window.location.pathname)) window.history.replaceState({}, '', `${OPS_HOST ? '/' : '/ops'}${window.location.hash}`);

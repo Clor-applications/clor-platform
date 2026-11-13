@@ -636,9 +636,9 @@ function ShellScreens() {
      top of the document (portals), outside the element that sets it, and
      start below the bar rather than under it. */
   useEffect(() => {
-    document.documentElement.style.setProperty('--platform-bar', '3.5rem');
+    document.documentElement.style.setProperty('--platform-bar', phone ? '3.5rem' : '4rem');
     return () => document.documentElement.style.removeProperty('--platform-bar');
-  }, []);
+  }, [phone]);
 
   /* The open app on <html> too, for the same reason: a drawer for a People
      record is drawn outside the shell's element and should wear People's
@@ -941,6 +941,12 @@ function ShellScreens() {
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
     <nav className="ui-split-rail" data-app={app?.id || undefined} aria-label={`${app?.name || ''} modules`}>
+      {/* The CLOR symbol tile heads the rail on a desktop (R&D shell, 14 Nov 2026); the bar's logo steps aside. */}
+      {!phone ? (
+        <button type="button" className="ui-split-brand" aria-label="CLOR home" title="CLOR" onClick={() => openApp(mine[0]?.id)}>
+          <ClorMark size={32} />
+        </button>
+      ) : null}
       {modules.map((m) => {
         const Icon = m.icon;
         /* Two different facts: which module holds the screen you are on, and
@@ -1117,7 +1123,7 @@ function ShellScreens() {
            HR palette (index.css, [data-app]); Accounting keeps its own. */
         data-app={activeAppId || undefined}
         data-palette={activePalette || undefined}
-        style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
+        style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': phone ? '3.5rem' : '4rem' }}
       >
         {/* Keyboard users skip the bar and the rail. Accounting (a Root app) carries its own. */}
         {!Root ? (
@@ -1145,7 +1151,7 @@ function ShellScreens() {
               <Menu size={20} aria-hidden="true" />
             </button>
           ) : null}
-          <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
+          <button type="button" className="ui-topbar-logo flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
             {phone ? <ClorMark size={24} /> : <ClorLogo size={22} />}
           </button>
 

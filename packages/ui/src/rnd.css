@@ -1,0 +1,493 @@
+/*
+ * CLOR R&D brand (owner, 14 Nov 2026): clor-rnd/README.md is the source of truth.
+ *
+ * Loaded last (main.jsx, after index.css and people.css), so this file wins over
+ * the older neon, red, sky and blaze blocks without rewriting them. Selectors
+ * start with `:root:not(#rnd)`: the never-matching id adds id weight, so these
+ * rules beat the palette rules (`:root[data-palette='sky'] .x`) by specificity,
+ * not by !important. Accounting (`data-palette='indigo'`) is left alone.
+ *
+ * Colour has one job per role:
+ *   portal colour  primary button, links, the active nav marker, selected tint, panel tint
+ *   app colours    identify an app only (tiles, app icons, role tags, seat bars)
+ *   status         state only, always with a text label
+ *   neutrals       everything else
+ */
+
+/* ---------------------------------------------------------------- tokens */
+
+:root:not(#rnd):not([data-palette='indigo']) {
+  /* Brand */
+  --graphite: 32 35 41;        /* #202329 */
+  --blaze: 255 84 0;           /* #FF5400 — a mark, never a fill behind text */
+  --soft-white: 247 248 246;   /* #F7F8F6 */
+  --forest: 1 93 71;           /* #015D47 */
+
+  /* App colours: identity only */
+  --app-accounting: 35 42 102; /* #232A66 */
+  --app-people: 107 127 36;    /* #6B7F24 moss */
+  --app-payroll: 0 121 191;    /* #0079BF */
+  --app-attendance: 91 71 196; /* #5B47C4 violet */
+  --app-projects: 46 141 163;  /* #2E8DA3 */
+  --app-timesheet: 87 83 78;   /* #57534E */
+
+  /* Categorical palette, fixed order, never past 8 */
+  --cat-1: 42 120 214;  --cat-2: 235 104 52;  --cat-3: 27 175 122;  --cat-4: 237 161 0;
+  --cat-5: 232 123 164; --cat-6: 0 131 0;     --cat-7: 98 80 214;   --cat-8: 227 73 72;
+
+  /* Leave identity colours, always shown with the name */
+  --leave-casual: 42 120 214; --leave-sick: 235 104 52; --leave-earned: 27 175 122;
+  --leave-compoff: 237 161 0; --leave-wfh: 98 80 214;
+
+  /* Portal theme: Workspace (default) */
+  --act: 197 69 10;            /* #C5450A — white on it 4.96:1 */
+  --act-hover: 154 54 8;       /* #9A3608 */
+  --marker: 255 84 0;          /* #FF5400 */
+  --tint: 255 241 235;         /* #FFF1EB */
+  --panel: 255 248 243;        /* #FFF8F3 */
+  --panel-border: 246 228 216; /* #F6E4D8 */
+
+  /* Neutrals */
+  --fg: 32 35 41;              /* ink #202329 */
+  --fg-heading: 32 35 41;
+  --fg-muted: 58 63 71;        /* secondary #3A3F47 */
+  --fg-subtle: 94 99 107;      /* muted #5E636B — 6.1:1 on white */
+  --app-bg: 255 255 255;
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --surface-sunken: 244 245 242; /* #F4F5F2 */
+  --soft-panel: 246 247 244;     /* #F6F7F4 — charts and grouped content, no border */
+  --border: 228 230 225;         /* hairline #E4E6E1 */
+  --border-field: 220 223 217;   /* #DCDFD9 */
+  --border-strong: 201 204 198;  /* #C9CCC6 */
+  --doc-section: 246 247 244;
+  --heading-bg: 244 245 242;
+  --heading-hover: 236 238 233;
+  --page-heading-bg: 255 255 255;
+  --header-bg: 255 255 255;
+  --nav-fg: 32 35 41; --nav-fg-muted: 58 63 71; --nav-fg-subtle: 94 99 107;
+
+  /* Status */
+  --pos: 1 93 71;     --pos-soft: 230 241 238;   /* Good #015D47 on #E6F1EE */
+  --warn: 138 90 0;   --warn-ink: 138 90 0; --warn-soft: 251 241 220; /* Attention #8A5A00 on #FBF1DC */
+  --neg: 180 35 24;   --neg-hover: 150 28 19; --neg-soft: 252 235 233; /* Problem #B42318 on #FCEBE9 */
+  --neutral-ink: 58 63 71; --neutral-soft: 238 239 236; /* Neutral #3A3F47 on #EEEFEC */
+  --info: 58 63 71;   --info-soft: 238 239 236;
+  --money-out: var(--graphite);
+
+  /* The older names, pointed at the portal theme */
+  --brand: var(--act); --brand-deep: var(--act-hover); --brand-hover: var(--act-hover); --brand-pressed: var(--act-hover);
+  --btn-primary-bg: var(--act); --btn-primary-hover: var(--act-hover);
+  --brand-soft: var(--tint); --brand-subtle: var(--panel); --brand-border: var(--panel-border);
+  --brand-ink: var(--act); --brand-panel: var(--graphite); --on-brand: 255 255 255; --on-primary: 255 255 255;
+  --accent-soft: var(--tint);
+  --ring: var(--act); --link: var(--act); --link-hover: var(--act-hover);
+  --doc-link: var(--act); --doc-link-wash: var(--tint);
+  --st-all-soft: var(--panel); --st-all-strong: var(--tint); --st-all-key: var(--marker); --st-all-ink: var(--act);
+  --rail-bg: 255 255 255; --rail-border: 228 230 225; --rail-hover: 244 245 242; --rail-active: var(--tint);
+  --ws-nav-selected: var(--tint); --ws-nav-selected-ink: var(--fg); --ws-brand: var(--marker);
+  --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 244 245 242;
+  --logo-mark: 255 84 0; --logo-dot: 255 84 0; --logo-mark-orange: 255 84 0; --logo-mark-slate: 32 35 41;
+  --hero-hi: var(--marker);
+  --kpi-line: 228 230 225;
+  --rail-accent: var(--marker);
+  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 244 245 242;
+  --rail-ink: 58 63 71; --rail-ink-strong: 32 35 41;
+  --sky-soft: var(--tint); --sky-ink: var(--act);
+
+  /* Type */
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-brand: 'Sora', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Ops: forest. Set by OpsConsole (data-portal="ops" on <html>). */
+:root:not(#rnd)[data-portal='ops'] {
+  --act: 1 93 71;              /* #015D47 */
+  --act-hover: 1 69 53;        /* #014535 */
+  --marker: 11 138 104;        /* #0B8A68 */
+  --tint: 227 241 236;         /* #E3F1EC */
+  --panel: 242 248 245;        /* #F2F8F5 */
+  --panel-border: 214 232 224; /* #D6E8E0 */
+}
+
+/* People: moss. */
+:root:not(#rnd)[data-palette='sky'],
+:root:not(#rnd)[data-app='people'] {
+  --act: 90 107 31;            /* #5A6B1F */
+  --act-hover: 70 84 23;       /* #465417 */
+  --marker: 122 143 42;        /* #7A8F2A */
+  --tint: 238 241 223;         /* #EEF1DF */
+  --panel: 247 248 238;        /* #F7F8EE */
+  --panel-border: 226 230 204; /* #E2E6CC */
+  /* People's companion tints, now from the categorical palette (88% white mix, 42% black ink). */
+  --mint-soft: 225 245 238;  --mint-ink: 16 102 71;
+  --lilac-soft: 236 234 250; --lilac-ink: 57 46 124;
+  --peach-soft: 252 237 230; --peach-ink: 136 60 30;
+  --butter-soft: 252 241 219; --butter-ink: 138 90 0; --butter: 237 161 0;
+}
+
+/* Attendance: violet. */
+:root:not(#rnd)[data-palette='blaze'],
+:root:not(#rnd)[data-app='attendance'] {
+  --act: 91 71 196;            /* #5B47C4 */
+  --act-hover: 75 58 168;      /* #4B3AA8 */
+  --marker: 117 99 217;        /* #7563D9 */
+  --tint: 238 235 250;         /* #EEEBFA */
+  --panel: 247 246 253;        /* #F7F6FD */
+  --panel-border: 226 221 246; /* #E2DDF6 */
+  --rail-blaze-ink: var(--act);
+}
+
+/* ---------------------------------------------------------------- type */
+
+:root:not(#rnd):not([data-palette='indigo']) body { font-family: var(--font-sans); color: rgb(var(--fg)); }
+
+/* Sora 800 for the brand and page titles only: H1 30/38, −0.02em. */
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-t-page, .ws-title, .ops-title) {
+  font-family: var(--font-brand);
+  font-size: 1.875rem;
+  line-height: 2.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: rgb(var(--fg));
+}
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-display, .ui-h1) {
+  font-family: var(--font-brand);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+/* H2: Sora 700 17/24. */
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-h2, .ws-h2, .ops-h2) {
+  font-family: var(--font-brand);
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ---------------------------------------------------------------- components */
+
+/* Buttons: 36px, 16px sides, 8px radius, 14/600. Primary = --act with white. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-btn {
+  min-height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-btn-sm {
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+}
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(var(--act)) !important;
+  border-color: rgb(var(--act)) !important;
+  color: rgb(255 255 255) !important;
+}
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(var(--act-hover)) !important;
+  border-color: rgb(var(--act-hover)) !important;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-btn-secondary {
+  background-color: rgb(var(--surface));
+  border: 1px solid rgb(var(--border-field));
+  color: rgb(var(--fg));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-btn-secondary:hover:not(:disabled) {
+  background-color: rgb(var(--surface-sunken));
+}
+
+/* Cards: 12px radius, 1px field border, no shadow. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(var(--border-field));
+  box-shadow: none;
+}
+
+/* Table header: 40px, sunken, 12px/600 uppercase, 16px sides. Rows ≥ 56px. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-table thead th {
+  height: 2.5rem;
+  padding: 0 1rem;
+  background-color: rgb(var(--surface-sunken));
+  color: rgb(var(--fg-muted));
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 0;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-table thead th:first-child { border-radius: 0.5rem 0 0 0.5rem; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-table thead th:last-child { border-radius: 0 0.5rem 0.5rem 0; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-table tbody td {
+  box-sizing: border-box;
+  height: 3.5rem;
+  padding: 0.5rem 1rem;
+  vertical-align: middle;
+  border-top: 1px solid rgb(var(--border));
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+/* Pills: 24px, 10px sides, 6px dot. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-pill {
+  height: 1.5rem;
+  padding: 0 0.625rem;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-pill-pos { background-color: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-pill-warn { background-color: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-pill-neg { background-color: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-pill-neutral, .ui-pill-info) { background-color: rgb(var(--neutral-soft)); color: rgb(var(--neutral-ink)); }
+:root:not(#rnd):not([data-palette='indigo']) :is(.ui-pill-pos, .ui-pill-warn, .ui-pill-neg, .ui-pill-neutral)::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+/* Links in the portal colour. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-link { color: rgb(var(--act)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-link:hover { color: rgb(var(--act-hover)); }
+
+/* Focus: the portal colour, 2px. */
+:root:not(#rnd):not([data-palette='indigo']) :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- the shell
+   Rail 64 white · second panel 232 on --panel · top bar 64 · content 32px
+   padding, max 1280. On a desktop the rail and panel run the full height of
+   the window and the top bar sits beside them (README §4).
+------------------------------------------------------------------------ */
+
+@media (min-width: 768px) {
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split:not([data-overlay]),
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] {
+    position: sticky;
+    top: 0;
+    margin-top: -4rem;
+    height: 100vh;
+    height: 100dvh;
+    z-index: calc(var(--z-platform-bar, 40) + 1);
+    border-right: 0;
+  }
+  /* The top bar steps aside for the rail and, when it is open, the panel. */
+  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split) > .ui-topbar { padding-left: calc(4rem + 2rem); }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split:not([data-overlay]) .ui-split-panel) > .ui-topbar { padding-left: calc(4rem + 14.5rem + 2rem); }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split) > .ui-topbar .ui-topbar-logo { display: none; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 0 0 0 4rem; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 4rem; }
+}
+
+:root:not(#rnd):not([data-palette='indigo']) .ui-topbar {
+  height: 4rem;
+  padding-right: 2rem;
+  gap: 0.75rem;
+  background: rgb(var(--surface)) !important;
+  border-bottom: 1px solid rgb(var(--border)) !important;
+}
+@media (max-width: 767px) {
+  :root:not(#rnd):not([data-palette='indigo']) .ui-topbar { height: 3.5rem; padding-right: 0.375rem; }
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-topbar .ui-icon-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  color: rgb(var(--fg));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-topbar-initials {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: rgb(var(--graphite));
+  color: rgb(255 255 255);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-global-search {
+  width: min(520px, 40vw);
+  height: 2.25rem;
+  margin-left: 0;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 0.5rem;
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg-subtle));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-global-search kbd {
+  border-color: rgb(var(--border-strong));
+  background: rgb(var(--surface));
+  color: rgb(var(--fg-muted));
+  font-size: 0.6875rem;
+  line-height: 1.125rem;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-app-switch {
+  height: 2.25rem;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-app-switch-mark { color: rgb(var(--app-color, var(--act))); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-company-pick .ui-select { height: 2.25rem; font-weight: 600; border-color: rgb(var(--border-field)); }
+
+/* Rail: 64px, white, hairline. Symbol tile 36px. 44 × 44 icon buttons, 8px radius, 24px icons. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-rail {
+  width: 4rem;
+  padding: 1rem 0;
+  gap: 0.5rem;
+  align-items: center;
+  background: rgb(var(--surface));
+  border-right: 1px solid rgb(var(--border));
+  box-shadow: none;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 0.5rem;
+  border-radius: 0.5rem;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  flex: none;
+  padding: 0;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: rgb(var(--fg-muted));
+  box-shadow: none;
+  overflow: visible;
+}
+/* The label stays for screen readers; the tooltip (title) shows it. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod > span:not(.ui-split-mod-count) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod > svg { width: 1.5rem; height: 1.5rem; font-size: 1.5rem; transform: none; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current],
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[aria-pressed='true'] {
+  background: rgb(var(--tint));
+  color: rgb(var(--fg));
+  box-shadow: none;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current]::before {
+  content: '';
+  position: absolute;
+  left: -0.625rem;
+  top: 0.625rem;
+  bottom: 0.625rem;
+  width: 3px;
+  height: auto;
+  border-radius: 0 3px 3px 0;
+  background: rgb(var(--marker));
+  animation: none;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current] > svg { color: inherit; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-rail > .ui-split-mod:last-child:not(:first-child)::after { content: none; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: rgb(var(--act));
+  color: rgb(255 255 255);
+  font-size: 0.625rem;
+  line-height: 1rem;
+  font-weight: 700;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-rail-foot {
+  width: 100%;
+  align-items: center;
+  border-top-color: rgb(var(--border));
+}
+
+/* Second panel: 232px on --panel, its own scroll. Sora 800 16px title,
+   12px uppercase groups, 36px items with 20px icons, white active item with a
+   --panel-border ring and a 3px --marker inset. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel {
+  width: 14.5rem;
+  padding: 1.25rem 0.75rem;
+  background: rgb(var(--panel));
+  border-right: 1px solid rgb(var(--panel-border));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head {
+  height: auto;
+  margin: 0 0 0.25rem;
+  padding: 0 0.75rem 0.5rem;
+  border-bottom: 0;
+  background: transparent;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head > .ui-t-sec {
+  font-family: var(--font-brand);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head .ui-icon-btn { width: 1.75rem; height: 1.75rem; color: rgb(var(--fg-subtle)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel .ui-caption {
+  padding: 1rem 0.75rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-subtle));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div.mt-4 { margin-top: 0; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item {
+  height: 2.25rem;
+  margin-bottom: 2px;
+  padding: 0 0.75rem;
+  gap: 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: rgb(var(--fg-muted));
+  background: transparent;
+  box-shadow: none;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item > svg { width: 1.25rem; height: 1.25rem; font-size: 1.25rem; color: inherit; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item:hover { background: rgb(255 255 255 / 0.7); color: rgb(var(--fg)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item[aria-current='page'] {
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 rgb(var(--marker)), 0 0 0 1px rgb(var(--panel-border));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item[aria-current='page'] > svg { color: inherit; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+  font-variant-numeric: tabular-nums;
+}
+
+/* Content: 32px padding, max 1280. */
+@media (min-width: 768px) {
+  :root:not(#rnd):not([data-palette='indigo']) main#main-content { padding: 2rem; }
+  :root:not(#rnd):not([data-palette='indigo']) main#main-content > * { max-width: 80rem; }
+}
+
+/* Phone tab bar: the portal marker on the current tab. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] { color: rgb(var(--act)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] > svg { color: rgb(var(--act)); }

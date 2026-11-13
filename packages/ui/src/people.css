@@ -854,7 +854,7 @@
  * rounded forms suit a people product; Inter keeps tables dense and exact.
  */
 :root[data-palette='sky'] {
-  --font-display: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Inter Variable', 'Inter', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 }
 :root[data-palette='sky'] :is(h1, .ui-t-page, .ui-t-sec, .soft-panel-title, .ui-split-panel-head, .ui-app-switch-name, .soft-band-stat-value, .soft-snap-value, .soft-chart-tip, .soft-event-date b, .people-row-count, .soft-news-title, .soft-event-title) {
   font-family: var(--font-display);
@@ -1823,7 +1823,7 @@
 /* Brand D type: Bricolage Grotesque for what is read as a heading or a large figure; Inter stays for running text, tables and money. */
 :root[data-palette='sky']:not([data-theme='dark']),
 :root:not([data-theme='dark']) [data-palette='sky'] {
-  --font-display: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 /* Colour beside the red (owner, 3 Nov 2026: "only red is visible where is other colours"). Brand D folded every
    wash into lilac, which the red brand turned into one blush: figures, panel heads and the module panel all read pink.
