@@ -9,7 +9,7 @@ import { fromZone, istLocal } from '../services/attendance/punchMapping.js';
 import { markOnReader } from '../services/attendance/readerSync.js';
 import { ingestPunches } from '../services/attendance/punches.js';
 import { commandEffect } from '../services/attendance/adms.js';
-import { claimNextCommand } from '../services/attendance/commandQueue.js';
+import { claimNextCommand, settleCommand } from '../services/attendance/commandQueue.js';
 import { enterTenant } from '../utils/tenantScope.js';
 
 /**
@@ -214,11 +214,8 @@ handle('/updatecmd', async (req, res, device) => {
   const cmd = cmdId
     ? await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'SENT', command: { startsWith: `cmd-id=${cmdId}` } }, orderBy: { id: 'asc' } })
     : null;
-  if (cmd) {
-    await peoplePrisma.deviceCommand.update({
-      where: { id: cmd.id },
-      data: { status: ok ? 'DONE' : 'FAILED', returnCode: ok ? 0 : -1, doneAt: new Date(), lastError: ok ? null : 'The controller reported failure.' },
-    });
+  /* Settled only while still out on that attempt: a repeated answer changes nothing. */
+  if (cmd && (await settleCommand(cmd, { status: ok ? 'DONE' : 'FAILED', returnCode: ok ? 0 : -1, lastError: ok ? null : 'The controller reported failure.' }))) {
     /* A user taken off: no longer held. */
     const eff = commandEffect(cmd.command);
     if (ok && eff?.what === 'removeUser') await markOnReader(device, eff.pin, { remove: true });
@@ -260,8 +257,7 @@ handle('/updateconfig', async (req, res, device) => {
   const configId = q(req, 'config-id');
   if (configId && configId !== '1') {
     const cmd = await peoplePrisma.deviceCommand.findFirst({ where: { deviceId: device.id, status: 'SENT', command: { startsWith: `config-id=${configId} ` } }, orderBy: { id: 'asc' } });
-    if (cmd) {
-      await peoplePrisma.deviceCommand.update({ where: { id: cmd.id }, data: { status: ok ? 'DONE' : 'FAILED', returnCode: ok ? 0 : -1, doneAt: new Date(), lastError: ok ? null : 'The controller refused the record.' } });
+    if (cmd && (await settleCommand(cmd, { status: ok ? 'DONE' : 'FAILED', returnCode: ok ? 0 : -1, lastError: ok ? null : 'The controller refused the record.' }))) {
       const eff = commandEffect(cmd.command);
       if (ok && eff?.what === 'user') await markOnReader(device, eff.pin, { user: true, name: / name=(.*?)(?: user-active=| card1=|$)/.exec(cmd.command)?.[1] || null });
     }

@@ -8,7 +8,7 @@ import { biometricPolicy } from '../services/attendance/biometrics.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { DECIDED, ingestPunches, pinMatcher } from '../services/attendance/punches.js';
 import { markOnReader, storeTemplate, storeUser } from '../services/attendance/readerSync.js';
-import { claimNextCommand } from '../services/attendance/commandQueue.js';
+import { claimNextCommand, settleCommand } from '../services/attendance/commandQueue.js';
 
 /**
  * /iclock — where biometric readers push punches (ZKTeco / eSSL "ADMS").
@@ -501,11 +501,9 @@ iclockRouter.post(['/devicecmd', '/devicecmd.aspx'], async (req, res) => {
       const ok = r.returnCode >= 0;
       const cmd = await peoplePrisma.deviceCommand.findFirst({ where: { id: r.id, serialNumber: serial } });
       if (!cmd) continue;
-      await peoplePrisma.deviceCommand.update({
-        where: { id: cmd.id },
-        data: { status: ok ? 'DONE' : 'FAILED', returnCode: r.returnCode, doneAt: new Date(), lastError: ok ? null : refusalReason(r.returnCode) },
-      });
-      if (!ok || !device || cmd.deviceId !== device.id) continue;
+      /* Only the answer to the attempt still out settles it: a late or repeated reply changes nothing. */
+      const settled = await settleCommand(cmd, { status: ok ? 'DONE' : 'FAILED', returnCode: r.returnCode, lastError: ok ? null : refusalReason(r.returnCode) });
+      if (!settled || !ok || !device || cmd.deviceId !== device.id) continue;
       if (cmd.command === COMMANDS.INFO) {
         const info = parseReaderInfo(r.info);
         /* Kept under Reader logs as the reader said it: firmware differs in what it names its counts. */
