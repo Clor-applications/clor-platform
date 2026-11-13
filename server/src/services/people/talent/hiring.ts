@@ -248,6 +248,12 @@ export async function moveCandidate(who: Who, id: string, stage: string, reason?
   const moved = await peoplePrisma.$transaction(async (tx) => {
     const r = await tx.candidate.updateMany({ where: { id, orgId: who.orgId, stage: c.stage }, data: { stage, stageAt: new Date(), closedReason: stage === 'REJECTED' || stage === 'WITHDRAWN' ? why : null } });
     if (!r.count) throw new TalentError('Someone else moved this candidate. Reload.', 409);
+    /*
+     * Out of the running: an offer still open to them is withdrawn with the move, so its link cannot
+     * be accepted afterwards. The candidate row is written first, as acceptOffer locks it first, so
+     * the two take turns: an offer accepted a moment before stays accepted.
+     */
+    if (stage === 'REJECTED' || stage === 'WITHDRAWN') await tx.offer.updateMany({ where: { orgId: who.orgId, candidateId: id, status: 'SENT' }, data: { status: 'WITHDRAWN' } });
     await event(tx, who, id, { kind: 'STAGE', fromStage: c.stage, toStage: stage, text: why });
     return tx.candidate.findFirstOrThrow({ where: { id } });
   });

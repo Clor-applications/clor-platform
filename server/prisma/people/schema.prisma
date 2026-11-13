@@ -3043,7 +3043,7 @@ model ScheduledChange {
   fromLabel         String?
   toLabel           String?
   effectiveOn       String
-  /// PENDING | APPLIED | CANCELLED
+  /// PENDING | APPLYING (claimed by a run, not yet applied) | APPLIED | CANCELLED
   status            String    @default("PENDING")
   reason            String?
   requestId         String?
