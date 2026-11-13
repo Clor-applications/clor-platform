@@ -196,30 +196,54 @@ describe('a chosen view is marigold ("use different color like green or orange")
   });
 });
 
-describe('the logo is the orange ribbon-arc C-mark (neon brand, 6 Nov 2026)', () => {
+describe('the logo is the drawn CLOR wordmark with the dot in the C (13 Nov 2026)', () => {
   const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
   const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
+  const paths = read('packages/ui/src/components/brand/logoPaths.js');
 
-  it('clorPaths.js is retired — the logo is now the ribbon arc, not letter outlines', () => {
+  it('the letters are outlined shapes, so the logo needs no font and no live text', () => {
     expect(() => read('packages/ui/src/components/brand/clorPaths.js')).toThrow();
-    /* ClorMark is the icon; ClorLogo composes it with "LOR" text */
-    expect(mark).toContain('viewBox="10 0 60 60"');
-    expect(mark).toContain('translate(-4, -6)');
-    expect(logo).toContain('ClorMark');
-    expect(logo).toContain('LOR');
+    /* the whole word is one generated path; nothing renders "LOR" as type any more */
+    expect(paths).toContain('export const WORD_D');
+    expect(paths).toContain('export const C_D');
+    expect(logo).toContain('WORD_D');
+    expect(logo).not.toMatch(/fontWeight: 900/);
+    /* the ribbon arc is gone from the icon */
+    expect(mark).not.toContain('viewBox="10 0 60 60"');
+    expect(mark).not.toContain('translate(-4, -6)');
+    /* the icon is the C of the wordmark plus its dot */
+    expect(mark).toContain('C_D');
+    expect(mark).toContain('DOT');
   });
 
-  it('paints from --logo-mark-orange (255 84 0) — no more oxblood or marigold in the mark', () => {
+  it('the word is dark blue and the dot answers it in blaze orange', () => {
     expect(mark).toContain('var(--logo-mark-orange, 255 84 0)');
+    expect(mark).toContain('var(--logo-mark-slate, 15 23 42)');
+    expect(mark).toMatch(/letter = color \|\| SLATE/);
+    expect(mark).toMatch(/dot = color \|\| ORANGE/);
+    expect(logo).toMatch(/paint = color \|\| SLATE/);
+    expect(logo).toMatch(/badgeInk = color \|\| ORANGE/);
+    expect(logo).toMatch(/r=\{DOT\.r\} fill=\{badgeInk\}/);
     expect(mark).not.toContain('92 10 22');   /* oxblood gone */
     expect(mark).not.toContain('245 166 35'); /* marigold gone */
   });
 
+  it('the A for Applications is always drawn, on a dark blue disc', () => {
+    expect(paths).toContain('export const BADGE_D');
+    /* no size gate any more: the badge is part of the logo */
+    expect(logo).not.toContain('BADGE_FROM');
+    expect(logo).toMatch(/badge = true/);
+    /* the A is cut out of the disc, which is painted in the slate token */
+    expect(logo).toContain('badgeInk');
+    expect(logo).toContain('var(--logo-mark-slate, 15 23 42)');
+  });
+
   it('nothing draws the retired C-tick any more', () => {
     expect(() => read('packages/ui/src/components/brand/ClorTick.jsx')).toThrow();
-    /* icon.svg is now the orange C-mark tile, not the red square */
+    /* icon.svg is the orange tile holding the C and its dot, so the browser tab is orange */
     const icon = read('public/icon.svg');
     expect(icon).toContain('#FF5400');
+    expect(icon).toContain('#FFFFFF');
     expect(icon).not.toContain('#C8102E');
     expect(icon).not.toContain('M74.04 25.96');
   });
