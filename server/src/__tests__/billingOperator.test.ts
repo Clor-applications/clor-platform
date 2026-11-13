@@ -43,7 +43,11 @@ async function stepUp(c: Ctx) {
   /* Review S1: an operator action takes only the operator console's own step-up. */
   return (await request(app).post('/api/ops/step-up').set({ Authorization: `Bearer ${c.token}` }).send({ code: codeAt(secret, stepNow()) }).expect(200)).body.token as string;
 }
-const everything = { apps: [{ appCode: 'people', tier: 'FULL' }, { appCode: 'attendance' }, { appCode: 'payroll' }] };
+/*
+ * Priced, so it gives nothing away and is set at once; a grant of free apps
+ * waits for a second person (opsGrantApproval.test.ts).
+ */
+const everything = { apps: [{ appCode: 'people', tier: 'FULL', priceModel: 'per_seat', unitAmount: 3000 }, { appCode: 'attendance' }, { appCode: 'payroll', priceModel: 'per_seat', unitAmount: 5000 }] };
 
 describe('setting a subscription by hand', () => {
   it('is refused to the customer’s own owner, by either route, and changes nothing', async () => {
