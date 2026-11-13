@@ -126,7 +126,7 @@ export default function Product({ slug }) {
         </div>
       </section>
 
-      <section className="section" aria-labelledby="inside-title">
+      <section className="section" aria-labelledby="inside-title" style={{ '--app': p.accent }}>
         <div className="wrap">
           <Head id="inside-title" title={`What’s in ${p.name}`} />
           <dl className="p-features">

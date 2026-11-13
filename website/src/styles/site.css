@@ -4476,3 +4476,171 @@ main > .section::before {
 .head--art {
   align-items: center;
 }
+
+/* ===================================================== taste audit, 13 Nov
+ * Hero keeps headline, one line and two buttons; the strip of what CLOR
+ * handles sits under the window. People and Attendance share one two-box
+ * section so the page zigzags only twice.
+ */
+.hero--stack .proof {
+  margin: var(--s-5) 0 0;
+  justify-content: center;
+}
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-5);
+}
+.pair-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: clamp(20px, 2.5vw, 32px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: radial-gradient(80% 60% at 50% 0%, color-mix(in srgb, var(--app) 10%, #fff), #fff 70%);
+}
+.pair-win {
+  margin-bottom: var(--s-3);
+  --win-fs: 12.5px;
+}
+.pair-win .win {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 18px 36px -24px rgba(15, 23, 42, 0.3);
+}
+.pair-cell .h-2 {
+  font-size: var(--t-xl);
+  margin: 0;
+}
+.pair-cell .body {
+  margin: 0;
+  max-width: 52ch;
+}
+.pair-cell .text-link {
+  margin-top: auto;
+}
+@media (max-width: 860px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+}
+/* Hero: headline on its own row (two lines), then the line and buttons. */
+.hero-top {
+  grid-template-columns: 1fr;
+  gap: var(--s-4);
+  align-items: start;
+}
+.hero--stack .h-hero {
+  max-width: 24ch;
+}
+.hero-top .hero-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4) var(--s-6);
+}
+.hero-side .lede {
+  margin: 0;
+  max-width: 56ch;
+}
+.hero--stack .hf {
+  margin-top: clamp(28px, 3.5vw, 44px);
+}
+/* No box around a box: the two products sit as plain columns under their screens. */
+.pair-cell {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+/* "What's in" as product-tinted tiles, so it does not repeat the hairline
+ * list of "What it fixes" just above it. */
+.p-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-4);
+  margin: 0;
+}
+.p-feature {
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-5);
+  border: 0;
+  border-radius: var(--r-panel);
+  background: color-mix(in srgb, var(--app, var(--accent)) 6%, #fff);
+}
+.p-feature dt {
+  margin: 0;
+}
+.p-feature dd {
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .p-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .p-features {
+    grid-template-columns: 1fr;
+  }
+}
+/* Steps read left to right on a line with a numbered dot each, instead of a
+ * hairline under every row. */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--s-5);
+  margin: 0;
+  counter-reset: step;
+}
+.steps > div {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  padding: 36px 0 0;
+  border: 0;
+  counter-increment: step;
+}
+.steps > div::before {
+  content: counter(step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.steps > div::after {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: 32px;
+  right: calc(-1 * var(--s-5) + 8px);
+  height: 2px;
+  background: var(--line);
+}
+.steps > div:last-child::after {
+  display: none;
+}
+.steps dt,
+.steps dd {
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .steps > div::after {
+    display: none;
+  }
+}
+.steps {
+  border: 0;
+  padding-top: 0;
+}

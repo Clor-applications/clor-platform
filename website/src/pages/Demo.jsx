@@ -15,10 +15,10 @@ import { PageHead } from './Pages.jsx';
  * not replace the inline messages; the server checks everything again.
  */
 const SIZES = [
-  ['1-10', '1–10'],
-  ['11-20', '11–20'],
-  ['21-50', '21–50'],
-  ['51-200', '51–200'],
+  ['1-10', '1-10'],
+  ['11-20', '11-20'],
+  ['21-50', '21-50'],
+  ['51-200', '51-200'],
   ['200+', 'More than 200'],
 ];
 /* The order fields are checked in, so focus goes to the first wrong one on the page. */

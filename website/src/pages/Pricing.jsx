@@ -156,17 +156,6 @@ export default function Pricing() {
         <section className="section section--tight">
           <div className="wrap stack" style={{ '--stack': 'var(--s-5)' }}>
             <p className="lede">Prices are being set now. Ask for a demo and we will tell you what your company would pay.</p>
-            <div className="actions">
-              <Link className="btn btn--primary" href={SITE.demoUrl}>
-                Request a demo
-              </Link>
-              <a className="btn btn--trial" href={SITE.startUrl}>
-                Start free trial
-              </a>
-              <Link className="btn btn--text" href="/contact?about=pricing">
-                Ask about pricing
-              </Link>
-            </div>
           </div>
         </section>
       )}

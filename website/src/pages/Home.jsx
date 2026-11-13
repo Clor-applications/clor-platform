@@ -242,9 +242,6 @@ function AppSection({ slug, title, lines, flip }) {
     <section className="section app-sec-wrap" aria-labelledby={`${slug}-title`} style={{ '--app': p.accent }}>
       <div className={`wrap app-sec${flip ? ' app-sec--flip' : ''}`}>
         <div className="app-sec-copy">
-          <p className="app-sec-name">
-            <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
-          </p>
           <h2 className="h-1" id={`${slug}-title`}>
             {title}
           </h2>
@@ -261,6 +258,34 @@ function AppSection({ slug, title, lines, flip }) {
         <Stage flip={flip}>
           <Win />
         </Stage>
+      </div>
+    </section>
+  );
+}
+
+/** People and Attendance side by side, so the page does not zigzag four times. */
+function AppPair({ items }) {
+  return (
+    <section className="section" aria-label="CLOR People and CLOR Attendance">
+      <div className="wrap pair">
+        {items.map(({ slug, title, lines }) => {
+          const p = productBySlug(slug);
+          const Win = WINDOWS[slug];
+          return (
+            <article key={slug} className="pair-cell" style={{ '--app': p.accent }} aria-labelledby={`${slug}-title`}>
+              <div className="pair-win">
+                <Win />
+              </div>
+              <h2 className="h-2" id={`${slug}-title`}>
+                {title}
+              </h2>
+              <p className="body">{lines[0]}</p>
+              <Link className="text-link" href={`/products/${slug}`}>
+                More about CLOR&nbsp;{p.name}
+              </Link>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -287,9 +312,7 @@ export default function Home() {
               Accounts, payroll and HR for growing Indian companies.
             </h1>
             <div className="hero-side">
-              <p className="lede">
-                GST accounting in Books, salaries with PF, ESI, PT and TDS in Payroll, every employee’s record in People, and punches from the gate in Attendance. One login, one list of employees, one set of books.
-              </p>
+              <p className="lede">GST books, payroll with PF, ESI, PT and TDS, employee records and gate attendance. One login, one list of employees.</p>
               <div className="actions">
                 <Link className="btn btn--primary btn--lg" href={SITE.demoUrl}>
                   Request a demo
@@ -298,11 +321,9 @@ export default function Home() {
                   Start free trial
                 </a>
               </div>
-              <p className="small hero-note">
-                No card needed. <Link className="text-link" href="/pricing">See pricing</Link>
-              </p>
             </div>
           </div>
+          <HeroFlow />
           <ul className="proof" aria-label="What CLOR handles">
             {PROOF.map((t) => (
               <li key={t}>
@@ -311,7 +332,6 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <HeroFlow />
         </div>
       </section>
 
@@ -377,9 +397,10 @@ export default function Home() {
         </div>
       </section>
 
-      {APPS.map((a, i) => (
+      {APPS.slice(0, 2).map((a, i) => (
         <AppSection key={a.slug} {...a} flip={i % 2 === 1} />
       ))}
+      <AppPair items={APPS.slice(2)} />
 
       <section className="section section--tint" aria-labelledby="connected-title">
         <div className="wrap split">
