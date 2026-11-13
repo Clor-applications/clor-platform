@@ -6,7 +6,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
-import { resolveAccess } from '../services/access.js';
+import { accessForRequest } from '../services/access.js';
 import { RoleType } from '../constants/enums.js';
 import {
   ADMIN_ONLY_ERROR,
@@ -367,7 +367,7 @@ governanceRouter.get('/orgs/:orgId/approvals', async (req, res) => {
    * it — to anybody signed in. A person now sees what waits on a role they
    * hold and what they raised themselves; an administrator sees everything.
    */
-  const access = await resolveAccess(accountId, orgId, userId, branchId);
+  const access = await accessForRequest(req, branchId);
   const scope = access.isAdmin
     ? {}
     : { OR: [{ requestedByUserId: userId }, { rule: { approverRoleId: { in: access.roleIds } } }] };
