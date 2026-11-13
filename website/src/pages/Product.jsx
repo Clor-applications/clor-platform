@@ -30,6 +30,7 @@ function Hero({ p, c, soon }) {
     <section className="hero p-hero" aria-labelledby="p-title">
       <div className={`wrap${ph ? ' p-hero-grid' : ''}`}>
         <div className="hero-copy">
+          <p className="fx-eyebrow">{p.category}</p>
           <h1 id="p-title" className="h-hero">
             CLOR&nbsp;{p.name}
           </h1>
@@ -87,7 +88,7 @@ function SoonPage({ p, c }) {
       <Hero p={p} c={c} soon />
       <section className="section" aria-labelledby="plan-title">
         <div className="wrap split">
-          <Head id="plan-title" title="What we are building" intro="This is the direction, and it may change before release." />
+          <Head id="plan-title" eyebrow="Coming soon" title="What we are building" intro="This is the direction, and it may change before release." />
           <ul className="facts-list">
             {c.planned.map((x) => (
               <li key={x}>{x}</li>
@@ -113,11 +114,13 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="fixes-title">
         <div className="wrap">
-          <Head id="fixes-title" title="What it fixes" />
+          <Head id="fixes-title" eyebrow="Why teams switch" title="What it fixes" />
           <ul className="groups">
             {c.problems.map(([prob, fix]) => (
-              <li key={prob}>
+              <li key={prob} className="fix">
+                <p className="fix-label">Before</p>
                 <h3 className="h-3">{prob}</h3>
+                <p className="fix-label fix-label--now">With CLOR&nbsp;{p.name}</p>
                 <p className="body">{fix}</p>
               </li>
             ))}
@@ -127,7 +130,7 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="inside-title">
         <div className="wrap">
-          <Head id="inside-title" title={`What’s in ${p.name}`} />
+          <Head id="inside-title" eyebrow="Features" title={`What’s in ${p.name}`} />
           <dl className="p-features">
             {c.features.map(([k, v]) => (
               <div key={k} className="p-feature">
@@ -141,7 +144,7 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="flow-title">
         <div className="wrap split">
-          <Head id="flow-title" title={c.workflow.title} />
+          <Head id="flow-title" eyebrow="How the work goes" title={c.workflow.title} />
           <Steps steps={c.workflow.steps} />
         </div>
       </section>
@@ -149,7 +152,7 @@ export default function Product({ slug }) {
       {links.length ? (
         <section className="section" aria-labelledby="links-title">
           <div className="wrap split">
-            <Head id="links-title" title={`${p.name} and the other CLOR products`} intro={`${p.name} works on its own. When you use the others too, these links work for you.`} />
+            <Head id="links-title" eyebrow="Connections" title={`${p.name} and the other CLOR products`} intro={`${p.name} works on its own. When you use the others too, these links work for you.`} />
             <ul className="links">
               {links.map((x) => {
                 const other = productBySlug(x.from === slug ? x.to : x.from);
@@ -174,7 +177,7 @@ export default function Product({ slug }) {
 
       <section className="section" aria-labelledby="roles-title">
         <div className="wrap split">
-          <Head id="roles-title" title="Who sees what" />
+          <Head id="roles-title" eyebrow="Access" title="Who sees what" />
           <div className="stack">
             <p className="lede">{c.roles}</p>
             <Link className="text-link" href="/security">
@@ -201,6 +204,7 @@ export function Products() {
     <>
       <section className="hero hero--product">
         <div className="wrap stack" style={{ '--stack': '1.25rem' }}>
+          <p className="fx-eyebrow">Products</p>
           <h1 className="h-1">The CLOR products</h1>
           <p className="lede">Each one does a job on its own. Bought together, they share one login, one list of employees and one set of books.</p>
         </div>
@@ -212,7 +216,7 @@ export function Products() {
               <h2 className="h-2">{cat}</h2>
               <div className="cat-list">
                 {PRODUCTS.filter((p) => p.category === cat).map((p) => (
-                  <Link key={p.slug} href={`/products/${p.slug}`} className="cat-item">
+                  <Link key={p.slug} href={`/products/${p.slug}`} className="cat-item" data-p={p.slug}>
                     <Mark product={p} size={44} />
                     <span className="stack" style={{ '--stack': '0.4rem' }}>
                       <span className="cat-name">

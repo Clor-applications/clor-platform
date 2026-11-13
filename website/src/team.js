@@ -2,10 +2,14 @@
  * The people behind CLOR, for /company/team. Text from the owner, 12 Nov 2026,
  * lightly copy-edited. A photo goes in `photo` (a path under public/) when we
  * have one; until then the page shows the person's initials.
+ * `tone` picks the card's colour pair; `years` and `fields` are the bio's own facts, as tags.
  */
 export const TEAM = [
   {
     name: 'Anand S R',
+    tone: 'attendance',
+    years: '10+ years',
+    fields: ['Finance', 'Accounting', 'Business operations'],
     initials: 'AS',
     role: 'Founder',
     bio: [
@@ -19,6 +23,9 @@ export const TEAM = [
   },
   {
     name: 'CA Nalina Kumari',
+    tone: 'books',
+    years: '8+ years',
+    fields: ['Chartered Accountant', 'Taxation', 'Compliance'],
     initials: 'NK',
     role: 'Co-founder',
     bio: [
@@ -32,6 +39,9 @@ export const TEAM = [
   },
   {
     name: 'Suresh Kumar',
+    tone: 'payroll',
+    years: '5+ years',
+    fields: ['IT infrastructure', 'Cloud', 'Security'],
     initials: 'SK',
     role: 'Co-founder',
     bio: [
@@ -45,6 +55,8 @@ export const TEAM = [
   },
   {
     name: 'Punar Gowda',
+    tone: 'projects',
+    fields: ['B.E. Mechanical', 'Strategy', 'Business development'],
     initials: 'PG',
     role: 'Director',
     bio: [

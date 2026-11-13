@@ -147,7 +147,7 @@ export default function Demo() {
   if (done) {
     return (
       <>
-        <PageHead title="Request a demo" />
+        <PageHead eyebrow="Demo" title="Request a demo" />
         <section className="section">
           <div className="wrap demo-thanks" ref={thanksRef} tabIndex={-1} role="status">
             <h2 className="h-2">Thank you{done.name ? `, ${done.name}` : ''}.</h2>
@@ -178,7 +178,7 @@ export default function Demo() {
 
   return (
     <>
-      <PageHead title="Request a demo" intro="Tell us about your company. We will call within one working day and show you CLOR with your kind of work." />
+      <PageHead eyebrow="Demo" title="Request a demo" intro="Tell us about your company. We will call within one working day and show you CLOR with your kind of work." />
       <section className="section">
         <div className="wrap contact">
           <form ref={formRef} className="form" onSubmit={submit} noValidate aria-describedby={failed ? 'demo-failed' : undefined}>

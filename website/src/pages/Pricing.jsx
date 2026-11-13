@@ -93,7 +93,7 @@ export default function Pricing() {
 
   return (
     <>
-      <PageHead title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
+      <PageHead eyebrow="Pricing" title="Pay for the products you use." intro="Every CLOR product has its own subscription. A company that needs only payroll pays only for payroll, and adding a product later never means changing plans." />
       {plans.length ? (
         <section className="section section--tight">
           <div className="wrap stack" style={{ '--stack': 'var(--s-6)' }}>
