@@ -1,3 +1,4 @@
+import PhotoHero from './PhotoHero.jsx';
 import React from 'react';
 import { AbsoluteFill, Composition, Easing, interpolate, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 
@@ -54,6 +55,7 @@ export const ClorHero = () => {
 };
 
 export const MotionRoot = () => <>
+  <Composition id="ClorPhotoHero" component={PhotoHero} width={1920} height={1080} fps={30} durationInFrames={210}/>
   <Composition id="ConnectedSuite" component={ConnectedSuite} width={1920} height={1080} fps={30} durationInFrames={270}/>
   <Composition id="ClorHero" component={ClorHero} width={1920} height={1080} fps={30} durationInFrames={210}/>
 </>;
