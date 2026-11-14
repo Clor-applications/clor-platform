@@ -1,0 +1,23 @@
+name: PostgreSQL for the test suite
+description: >
+  PostgreSQL 16 in Docker on port 5434, superuser clor_ci / clor_ci and 300
+  connections: the same server the Mac runner kept (docs/CI-ON-MAC.md), so the
+  test code, its URLs and its roles are unchanged on GitHub's machines.
+runs:
+  using: composite
+  steps:
+    - name: Start PostgreSQL 16
+      shell: bash
+      run: |
+        docker run -d --name clor-pg -p 5434:5432 \
+          -e POSTGRES_USER=clor_ci -e POSTGRES_PASSWORD=clor_ci -e POSTGRES_DB=postgres \
+          postgres:16 -c max_connections=300
+        for i in $(seq 1 60); do
+          if docker exec clor-pg pg_isready -U clor_ci -h localhost >/dev/null 2>&1; then
+            echo "PostgreSQL is up after ${i}s."; exit 0
+          fi
+          sleep 1
+        done
+        docker logs clor-pg
+        echo "PostgreSQL did not start within a minute." >&2
+        exit 1
