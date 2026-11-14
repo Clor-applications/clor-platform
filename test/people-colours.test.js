@@ -76,16 +76,22 @@ describe('tints are named by meaning, not handed out by position', () => {
   it('the shared figure cards on People screens each name a tint; only "To decide" is marigold', () => {
     const revisions = Object.fromEntries(tintsIn(read('apps/payroll/src/screens/SalaryRevisions.jsx')));
     expect(revisions).toMatchObject({ 'To decide': 'butter', Approved: 'mint', 'Yearly rise': 'sky', 'Average rise': 'lilac' });
-    const report = Object.fromEntries(tintsIn(read('apps/people/src/screens/PeopleReports.jsx')));
-    expect(report).toMatchObject({ 'Headcount today': 'sky', Joiners: 'mint', Leavers: 'peach', Attrition: 'lilac' });
+    /* R&D tiles (14 Nov 2026): each tile names its categorical accent in the source, never by its index. */
+    const report = read('apps/people/src/screens/PeopleReports.jsx');
+    expect(report).toMatch(/label: 'Headcount today', [^\n]*accent: 1/);
+    expect(report).toMatch(/label: 'Joiners', [^\n]*accent: 2/);
+    expect(report).toMatch(/label: 'Attrition', [^\n]*accent: 4/);
     expect(read('packages/ui/src/components/list/ListPageParts.jsx')).toMatch(/data-tint=\{card\.tint \|\| undefined\}/);
   });
   it('no quick links in People any more: the module panel names the screens (plan 8 Nov 2026, §3 rule 3)', () => {
     expect(read('apps/people/src/panels.jsx')).not.toMatch(/SideLinks|Quick links/);
     expect(read('packages/ui/src/components/list/SidePanel.jsx')).not.toMatch(/ui-side-today/);
   });
+  it('apps/people/src/workforce/Directory.jsx: each R&D tile names its categorical accent', () => {
+    const tiles = [...read('apps/people/src/workforce/Directory.jsx').matchAll(/\{ key: '\w+', label: '[^']+', cat: (\d)/g)];
+    expect(tiles.length).toBeGreaterThan(2);
+  });
   it.each([
-    'apps/people/src/workforce/Directory.jsx',
     'apps/people/src/organization/Overview.jsx',
     'packages/ui/src/lifecycle/Overview.jsx',
     'packages/ui/src/timeOff/TimeOverview.jsx',
@@ -118,8 +124,8 @@ describe('tints are named by meaning, not handed out by position', () => {
     ];
     for (const f of files) for (const re of byIndex) expect(read(f), `${f} ${re}`).not.toMatch(re);
   });
-  it('faces hash over four washes, none marigold, and the record keeps the person\'s own', () => {
-    expect(read('packages/ui/src/personnel/Employees.jsx')).toMatch(/% 9973, 0\) % 4\}/);
+  it('faces hash over the eight categorical colours, none marigold, and the record keeps the person\'s own', () => {
+    expect(read('packages/ui/src/personnel/Employees.jsx')).toMatch(/% 9973, 0\) % 8\) \+ 1/);
     expect(people).not.toMatch(/data-hue='4'/);
     expect(people).not.toMatch(/\.ui-avatar-initials\[data-hue='\d'\] \{[^}]*--butter/);
     expect(people).not.toMatch(/\.ui-profile \.ui-avatar-initials \{ background: rgb\(var\(--marigold\)\)/);
