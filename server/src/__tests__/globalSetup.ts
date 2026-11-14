@@ -113,6 +113,16 @@ function splitSql(sql: string): string[] {
   return out;
 }
 
+/** One statement from a migration whose other statements `db push` already covers. */
+async function applyStatement(url: string, statement: string) {
+  const db = new PrismaClient({ datasources: { db: { url } } });
+  try {
+    await db.$executeRawUnsafe(statement);
+  } finally {
+    await db.$disconnect();
+  }
+}
+
 async function applyPolicies(url: string, migrationDir: string) {
   const file = resolve(process.cwd(), migrationDir, 'migration.sql');
   let sql = '';
@@ -367,6 +377,9 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261123090100_price_book_one_published');
   /* Payments: one active provider, a partial index `db push` cannot build. */
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261124090100_payment_provider_one_active');
+  /* Ops alerts: one open alert per key, a partial index `db push` cannot build.
+     The rest of that migration creates the table, which db push already did. */
+  await applyStatement(asOwner(platform), 'CREATE UNIQUE INDEX IF NOT EXISTS "OpsAlert_one_open_per_key" ON "OpsAlert"("key") WHERE "resolvedAt" IS NULL');
 
   await grantToAppRole(database, schemas);
 

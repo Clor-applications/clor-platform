@@ -1,5 +1,12 @@
 # CI on a Mac (self-hosted GitHub Actions runner)
 
+> **Not in use since 14 Nov 2026.** The repository is public, so CI runs on
+> GitHub's own machines at no cost, and a public repository must not run on a
+> self-hosted machine (a pull request from any fork could run code on it).
+> PostgreSQL for the tests comes from `.github/actions/postgres`, set up to
+> match what this page describes. Kept for the day the repository is private
+> again.
+
 The `CI` (verify) and `Security` (audit, secrets) workflows run on a Mac, not
 on GitHub's machines. The Clor-applications organization is on GitHub's free
 plan; its Actions minutes for a private repository ran out in October 2026
