@@ -53,20 +53,20 @@ echo "== Image $IMAGE"
 gcloud builds submit "$ROOT/console/api" --project "$PROJECT" --config "$ROOT/console/api/cloudbuild.yaml" "--substitutions=_TAG=$TAG" "--service-account=$BUILD_ACCOUNT" --quiet >/dev/null
 
 echo "== Cloud Run"
-ENVS="NODE_ENV=production@CONSOLE_WEB_ORIGIN=https://console.clor.in@CONSOLE_API_ORIGIN=https://console.clor.in@CONSOLE_OWNER_EMAILS=$OWNERS"
+ENVS="NODE_ENV=production##CONSOLE_WEB_ORIGIN=https://console.clor.in##CONSOLE_API_ORIGIN=https://console.clor.in##CONSOLE_OWNER_EMAILS=$OWNERS"
 # Optional settings pass through from this shell when set (GitHub App ids, Cloudflare account).
 for V in CONSOLE_OWNER_GITHUB_IDS CONSOLE_GITHUB_APP_ID CONSOLE_GITHUB_INSTALLATION_ID CONSOLE_GITHUB_CLIENT_ID CONSOLE_CF_ACCOUNT_ID; do
-  [ -n "${!V:-}" ] && ENVS="$ENVS@$V=${!V}"
+  [ -n "${!V:-}" ] && ENVS="$ENVS##$V=${!V}"
 done
 SECRETS="CONSOLE_SESSION_SECRET=console-session-secret:latest,CONSOLE_DATABASE_URL=console-database-url:latest,CONSOLE_EDGE_SECRET=console-edge-secret:latest,CONSOLE_OWNER_SETUP_CODE=console-owner-setup-code:latest"
 for PAIR in CONSOLE_GITHUB_PRIVATE_KEY=console-github-private-key CONSOLE_GITHUB_CLIENT_SECRET=console-github-client-secret CONSOLE_CF_READ_TOKEN=console-cf-read-token; do
   gcloud secrets describe "${PAIR#*=}" --project "$PROJECT" >/dev/null 2>&1 && SECRETS="$SECRETS,${PAIR%%=*}=${PAIR#*=}:latest"
 done
-# ^@^ makes "@" the list separator, so the comma-separated owner list stays one value.
+# ^##^ makes "##" the list separator, so the comma-separated owner list stays one value (and "@" in an address is safe).
 gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
   --service-account "$SA" --allow-unauthenticated --min-instances 0 --max-instances 2 --memory 512Mi --cpu 1 \
   --add-cloudsql-instances "$PROJECT:$REGION:$INSTANCE" \
-  --set-env-vars "^@^$ENVS" --set-secrets "$SECRETS" --quiet 2>&1 | tail -4
+  --set-env-vars "^##^$ENVS" --set-secrets "$SECRETS" --quiet 2>&1 | tail -8
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')
 echo "Service: $URL"
