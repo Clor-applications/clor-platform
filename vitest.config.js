@@ -26,7 +26,7 @@ export default defineConfig({
     environment: 'jsdom',
     /* The tree moved: screens live under apps/, shared UI under packages/,
        and the cross-cutting suite that reads the whole codebase is in test/. */
-    include: ['apps/**/*.test.{js,jsx}', 'packages/**/*.test.{js,jsx}', 'test/**/*.test.{js,jsx}'],
+    include: ['apps/**/*.test.{js,jsx}', 'packages/**/*.test.{js,jsx}', 'test/**/*.test.{js,jsx}', 'console/web/**/*.test.{js,jsx}'],
     setupFiles: ['test/setup.js'],
     globals: true,
     css: false,

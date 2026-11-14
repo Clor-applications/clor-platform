@@ -5,6 +5,8 @@ node_modules
 dist
 dist-ssr
 server/dist
+dist-console
+console/api/dist
 *.local
 
 # Secrets — never commit

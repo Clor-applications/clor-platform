@@ -8,6 +8,8 @@ const q = (params) => {
 };
 
 export const opsMe = () => apiFetch('/ops/me', o);
+/* A one-minute pass into the Engineering Console for this sign-in attempt; answers where to send the browser. */
+export const opsConsoleGrant = (state) => apiFetch(`/ops/console-grant${q({ state })}`, o);
 export const opsStartTwoFactor = (password) => apiFetch('/ops/two-factor/setup', { ...o, method: 'POST', body: { password } });
 export const opsEnableTwoFactor = (code) => apiFetch('/ops/two-factor/enable', { ...o, method: 'POST', body: { code } });
 export const opsOverview = () => apiFetch('/ops/overview', o);

@@ -18,6 +18,7 @@ import { getSubscription, inGoodStanding, syncAccountEntitlement } from '../serv
 import { useSecondFactor } from './security.js';
 import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLineIndex.js';
 import { sendTemplate } from '../services/mailer.js';
+import { consoleGrantUrl } from '../services/consoleGrant.js';
 import { operatorActionLabel } from '../constants/operatorActions.js';
 import { noteDenials } from '../services/ops/denials.js';
 import { opsListsRouter } from './opsLists.js';
@@ -120,6 +121,25 @@ export async function audit(req: Request, action: string, target: { accountId?: 
     });
   }
 }
+
+/**
+ * Open the Engineering Console with this CLOR login (services/consoleGrant.ts).
+ * `state` is the Console's own sign-in attempt; the answer is where to send
+ * the browser, carrying a one-minute pass for that attempt. Any operator may
+ * ask: who gets into the Console is the Console's decision, from its own
+ * member list and its own authenticator. Each pass is on the operator log.
+ */
+opsRouter.get('/ops/console-grant', async (req, res) => {
+  const state = String(req.query.state || '');
+  if (!/^[0-9a-f]{32}$/.test(state)) return res.status(400).json({ error: 'Start again from the Console sign-in page.' });
+  const u = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, fullName: true, email: true } });
+  if (!u?.email) return res.status(403).json({ error: 'This is for CLOR staff only.', code: 'OPERATOR_ONLY' });
+  const redirectTo = consoleGrantUrl({ userId: u.id, email: u.email, name: u.fullName || u.email }, state);
+  if (!redirectTo) return res.status(503).json({ error: 'Sign-in to the Console with a CLOR login is not set up yet. Use GitHub on the Console sign-in page.', code: 'CONSOLE_OFF' });
+  await audit(req, 'CONSOLE_PASS_ISSUED', { userId: u.id }, { role: res.locals.operatorRole });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ redirectTo });
+});
 
 /** Who I am here. */
 opsRouter.get('/ops/me', async (req, res) => {

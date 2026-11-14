@@ -1,0 +1,11 @@
+# The Console page and its /api forwarder (functions/api/[[path]].js).
+# Publish from this folder, after `npm run console:build` at the repository root:
+#   wrangler pages deploy
+name = "clor-console"
+pages_build_output_dir = "../../dist-console"
+compatibility_date = "2026-10-01"
+
+[vars]
+# The Console API's Cloud Run address. Empty until the service exists: the
+# forwarder then answers 503 "not set up yet".
+ORIGIN = "https://clor-console-398490688104.asia-south1.run.app"

@@ -23,14 +23,22 @@
 # is merged.
 #
 # Two things to know before --stage:
-#  - Migrations run when the new revision starts (server/scripts/cloudrun-start.sh),
-#    so they are applied to the live database BEFORE any traffic moves. That is
-#    why the backup comes first, and why migrations must be additive: the old
-#    revision keeps serving on the new schema until traffic moves, and again
-#    after a rollback.
+#  - Migrations run in a job of their own (scripts/migrate.sh, step 4) after
+#    the image is built and BEFORE the new revision starts, so they are applied
+#    to the live database before any traffic moves. That is why the backup
+#    comes first, and why migrations must be additive: the old revision keeps
+#    serving on the new schema until traffic moves, and again after a rollback.
 #  - Rolling back is moving traffic back to the revision that was serving before
 #    this release. The script reads its name before it moves anything and prints
 #    the command at the end. It does not undo a migration.
+#
+#   scripts/release.sh --rollback <revision>        Prints what a rollback to
+#                                 that Cloud Run revision would run. Nothing else.
+#   scripts/release.sh --rollback <revision> --go   Moves all traffic to it and
+#                                 checks /ready. Needs no checkout of main: it
+#                                 builds and publishes nothing. This is what the
+#                                 Console's Roll back runs (.github/workflows/
+#                                 rollback.yml).
 set -euo pipefail
 
 PROJECT=clor-apps-511409
@@ -50,6 +58,7 @@ SKIP_WEB=0
 SKIP_SITE=0
 PUSH_TAG=1
 SINCE=
+ROLLBACK=
 while [ $# -gt 0 ]; do
   case "$1" in
     --go) MODE=go ;;
@@ -58,7 +67,8 @@ while [ $# -gt 0 ]; do
     --skip-website) SKIP_SITE=1 ;;
     --no-push-tag) PUSH_TAG=0 ;;
     --since) SINCE=${2:?--since needs a ref}; shift ;;
-    -h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --rollback) ROLLBACK=${2:?--rollback needs a Cloud Run revision name}; shift ;;
+    -h|--help) sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
   shift
@@ -91,6 +101,36 @@ run_in() {
   (cd "$dir" && "$@")
 }
 on() { [ "$MODE" = go ] || { [ "$MODE" = stage ] && [ "$1" = stage ]; }; }
+
+# ---------------------------------------------------------------------------
+# Roll back: one traffic move, nothing built, nothing published.
+if [ -n "$ROLLBACK" ]; then
+  [[ "$ROLLBACK" =~ ^"$SERVICE"-[0-9a-z-]+$ ]] || stop "'$ROLLBACK' is not a revision of $SERVICE."
+  [ "$MODE" != stage ] || stop "--rollback goes with --go, or alone for a dry run."
+  step "Roll back $SERVICE to $ROLLBACK$([ "$MODE" = dry ] && echo ' (dry run: nothing is run)')"
+  if [ "$MODE" = go ]; then
+    command -v gcloud >/dev/null || stop "gcloud is not installed."
+    FOUND=$(gcloud run revisions describe "$ROLLBACK" --project "$PROJECT" --region "$REGION" --format='value(metadata.name)' || true)
+    [ -n "$FOUND" ] || stop "Cloud Run has no revision named $ROLLBACK. No traffic was moved."
+    WAS=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json \
+      | node -e 'const s=JSON.parse(require("fs").readFileSync(0,"utf8"));const t=(s.status.traffic||[]).filter(x=>x.percent>0).sort((a,b)=>b.percent-a.percent);process.stdout.write(t.length?t[0].revisionName:"")')
+    say "Serving before: ${WAS:-unknown}"
+  fi
+  run go gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --to-revisions "$ROLLBACK=100"
+  READY_URL=${CLOR_READY_URL:-https://api.clor.in/ready}
+  printf '   $ curl --fail --max-time 20 %q   (up to 6 tries, 10 seconds apart)\n' "$READY_URL"
+  if [ "$MODE" = go ]; then
+    try=1
+    until curl --fail --silent --show-error --max-time 20 --output /dev/null "$READY_URL"; do
+      [ "$try" -lt 6 ] || stop "$READY_URL did not answer 200 after the rollback. Traffic is on $ROLLBACK; it was on ${WAS:-unknown}."
+      say "not ready yet (try $try of 6)"; try=$((try + 1)); sleep 10
+    done
+    say "Ready. All traffic is on $ROLLBACK."
+    say "To undo this rollback: scripts/release.sh --rollback ${WAS:-<revision>} --go"
+  fi
+  say "A rollback does not undo a migration, the web app or the website."
+  exit 0
+fi
 
 # ---------------------------------------------------------------------------
 step "What is being released"

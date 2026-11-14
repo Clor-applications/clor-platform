@@ -1,0 +1,12 @@
+# Builds the Console API image (linux/amd64) and pushes it to Artifact Registry
+# in Mumbai. From the repository root:
+#   gcloud builds submit console/api --config console/api/cloudbuild.yaml --substitutions=_TAG=<git-sha> --service-account=<clor-build>
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/console-api:${_TAG}', '.']
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/clor/console-api:${_TAG}'
+substitutions:
+  _TAG: manual
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,172 @@
+name: Release
+
+# A release of CLOR, run on GitHub's machines instead of one Mac. It runs
+# scripts/release.sh, the same script and the same steps as by hand
+# (DEPLOY.md), so there is one release path, not two.
+#
+# Started from the Engineering Console (console.clor.in, Releases) or from
+# this page by somebody who may write to the repository. Either way nothing
+# here touches production until an owner approves the run: the job sits in
+# the `production` environment, which holds the cloud access, accepts only
+# `main`, and needs a required reviewer. A pull request, from a fork or not,
+# can never reach these credentials.
+#
+# One-time setup of the environment, its variables and secrets:
+# docs/console/SETUP.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'stage: build and start with no customers on it. go: stage, then move customers and publish the web app and the website.'
+        type: choice
+        options: [stage, go]
+        required: true
+      sha:
+        description: The commit on main this release is for. The run stops if main has moved since.
+        type: string
+        required: true
+
+run-name: Release ${{ inputs.mode }} ${{ inputs.sha }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+jobs:
+  # No secrets here and no approval: it only decides whether to ask for one.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::A release runs from main, not from $GITHUB_REF."
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: The commit asked for is the head of main
+        env:
+          WANT: ${{ inputs.sha }}
+        run: |
+          case "$WANT" in *[!0-9a-f]*|'') echo "::error::Not a commit id."; exit 1 ;; esac
+          HEAD_SHA=$(git rev-parse HEAD)
+          if [ "$HEAD_SHA" != "$WANT" ]; then
+            echo "::error::main is at $HEAD_SHA, not $WANT. main moved after the tests ran; run them again on the new commit."
+            exit 1
+          fi
+
+      # The Console checks this too. It is checked again here because this is
+      # where the release actually happens, whoever started it.
+      - name: The full tests passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANT: ${{ inputs.sha }}
+        run: |
+          PASSED=$(gh run list --workflow ci.yml --commit "$WANT" --status success --limit 20 --json event \
+            --jq '[.[] | select(.event == "workflow_dispatch" or .event == "schedule")] | length')
+          if [ "${PASSED:-0}" -lt 1 ]; then
+            echo "::error::No full test run has passed on $WANT. Run CI by hand on main (Actions, CI, Run workflow) and wait for green."
+            exit 1
+          fi
+
+  release:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      contents: write        # the rel-<sha7> tag
+      pull-requests: write   # the CHANGELOG.md pull request
+      id-token: write        # sign in to Google Cloud without a stored key
+    env:
+      MODE: ${{ inputs.mode }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            website/package-lock.json
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_RELEASE_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix server
+          npm ci --prefix website
+
+      # The script refuses to fetch wrangler by npx, and so does this: one
+      # exact version, named in a repository variable, installed once.
+      - name: Install wrangler
+        env:
+          WRANGLER_VERSION: ${{ vars.WRANGLER_VERSION }}
+        run: |
+          case "$WRANGLER_VERSION" in ''|*[!0-9.]*) echo "::error::Set the repository variable WRANGLER_VERSION to an exact version, e.g. the one on the release Mac (wrangler --version)."; exit 1 ;; esac
+          npm install --global "wrangler@$WRANGLER_VERSION"
+
+      # Optional. Without it the connector is built unsigned and connectors at
+      # customers stay on the version they have (release.sh, step 1).
+      - name: The connector signing key
+        env:
+          KEY: ${{ secrets.AGENT_SIGNING_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            umask 077
+            printf '%s\n' "$KEY" > "$RUNNER_TEMP/agent-signing.key"
+            echo "AGENT_SIGNING_KEY_FILE=$RUNNER_TEMP/agent-signing.key" >> "$GITHUB_ENV"
+          else
+            echo "No signing key in this environment; the connector is built unsigned."
+          fi
+
+      - name: Release
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          scripts/release.sh "--$MODE"
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/agent-signing.key"
+
+      # main takes changes by pull request, the release record included.
+      - name: Open the release record pull request
+        if: inputs.mode == 'go'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- CHANGELOG.md; then echo "CHANGELOG.md did not change."; exit 0; fi
+          TAG="rel-$(git rev-parse --short=7 HEAD)"
+          git switch -c "release-record/$TAG"
+          git add CHANGELOG.md
+          git commit -m "Release record: $TAG"
+          git push origin "release-record/$TAG"
+          gh pr create --base main --head "release-record/$TAG" --title "Release record: $TAG" --body "CHANGELOG.md entry written by the release run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
+            || echo "::warning::The release is done, but the CHANGELOG.md pull request could not be opened. The branch release-record/$TAG has the entry."

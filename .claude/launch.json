@@ -58,6 +58,24 @@
         "npx vite --host 127.0.0.1 --port 5187"
       ],
       "port": 5187
+    },
+    {
+      "name": "console-api",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "CONSOLE_DEV_FAKES=1 PORT=4010 npm --prefix console/api run dev"
+      ],
+      "port": 4010
+    },
+    {
+      "name": "console-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "npx vite --config console/web/vite.config.js"
+      ],
+      "port": 5191
     }
   ]
 }
