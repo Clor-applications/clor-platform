@@ -1,57 +1,80 @@
 import {
-  ArrowsClockwise as PArrowsClockwise,
-  ArrowsLeftRight as PArrowsLeftRight,
-  BookOpen as PBookOpen,
-  Briefcase as PBriefcase,
-  Buildings as PBuildings,
-  CalendarBlank as PCalendarBlank,
-  CalendarCheck as PCalendarCheck,
-  CalendarDots as PCalendarDots,
-  CalendarPlus as PCalendarPlus,
-  CalendarX as PCalendarX,
-  ChartBar as PChartBar,
-  ChartLineUp as PChartLineUp,
-  ClipboardText as PClipboardText,
-  Clock as PClock,
-  ClockCounterClockwise as PClockCounterClockwise,
-  Cpu as PCpu,
-  Crosshair as PCrosshair,
-  DeviceMobile as PDeviceMobile,
-  DownloadSimple as PDownloadSimple,
-  EnvelopeSimple as PEnvelopeSimple,
-  FileText as PFileText,
-  Fingerprint as PFingerprint,
-  Gavel as PGavel,
-  GearSix as PGearSix,
-  HandTap as PHandTap,
-  HardHat as PHardHat,
-  Heartbeat as PHeartbeat,
-  Key as PKey,
-  Lightning as PLightning,
-  LinkSimple as PLinkSimple,
-  ListChecks as PListChecks,
-  Lock as PLock,
-  MapPin as PMapPin,
-  NotePencil as PNotePencil,
-  PiggyBank as PPiggyBank,
-  Plug as PPlug,
-  Question as PQuestion,
-  Repeat as PRepeat,
-  ScanSmiley as PScanSmiley,
-  SealCheck as PSealCheck,
-  ShieldCheck as PShieldCheck,
-  ShieldWarning as PShieldWarning,
-  SquaresFour as PSquaresFour,
-  Table as PTable,
-  Timer as PTimer,
-  Trash as PTrash,
-  UploadSimple as PUploadSimple,
-  UserCheck as PUserCheck,
-  UserMinus as PUserMinus,
-  UsersThree as PUsersThree,
-} from '@phosphor-icons/react';
-
-import { duo } from '@ui/components/ui/duoIcon';
+  ArrowClockwiseDashes20Color,
+  ArrowSquare20Color,
+  ArrowSquareDown20Color,
+  ArrowSync20Color,
+  Beach20Color,
+  Book20Color,
+  BotSparkle20Color,
+  BuildingMultiple20Color,
+  Calendar20Color,
+  CalendarCancel20Color,
+  CalendarCheckmark20Color,
+  CalendarCheckmark20Filled,
+  CalendarCheckmark24Color,
+  CalendarClock20Color,
+  CalendarDataBar20Color,
+  CalendarEdit20Color,
+  CalendarPeople20Color,
+  CalendarSync20Color,
+  ChartMultiple20Color,
+  CheckboxPerson20Color,
+  CheckmarkCircle20Color,
+  ClipboardTask20Color,
+  ClipboardTextEdit20Color,
+  Clock20Color,
+  ClockAlarm20Color,
+  Cloud20Color,
+  CodeBlock20Color,
+  CoinMultiple20Color,
+  ContactCard20Color,
+  DataBarVerticalAscending24Color,
+  DataTrending20Color,
+  Database20Color,
+  DocumentAdd20Color,
+  DocumentLock20Color,
+  DocumentText20Color,
+  Globe20Color,
+  History20Color,
+  Home20Color,
+  Home24Color,
+  LinkMultiple20Color,
+  LocationRipple20Color,
+  LockClosed20Color,
+  LockShield20Color,
+  Mail20Color,
+  NumberSymbolSquare20Color,
+  Options20Color,
+  People20Color,
+  People24Color,
+  PeopleList20Color,
+  PeopleSync20Color,
+  Person24Color,
+  PersonAdd20Color,
+  PersonAvailable20Color,
+  PersonFeedback20Color,
+  PersonKey20Color,
+  PersonTentative20Color,
+  PersonWarning20Color,
+  Phone20Color,
+  PhoneLaptop20Color,
+  Savings20Color,
+  ScanPerson20Color,
+  ScanPerson24Color,
+  SearchVisual20Color,
+  Settings20Color,
+  Settings24Color,
+  Shield20Color,
+  ShieldCheckmark20Color,
+  Shifts20Color,
+  Table20Color,
+  TextBulletListSquare20Color,
+  Toolbox20Color,
+  Warning20Color,
+  Wifi20Color,
+  WifiWarning20Color,
+} from '@fluentui/react-icons';
+import { colorIcon } from '@ui/components/ui/colorIcon';
 
 import { lazy } from 'react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
@@ -141,58 +164,98 @@ const reportScreen = (id) => {
   return NamedReport;
 };
 
-/* People's icon family (owner, 9 Nov 2026: "use same icons which is used in people everywhere except books"):
-   Phosphor two-tone marks, under the names the nav below already uses. Attendance's amber stays its own. */
-const ArrowRightLeft = duo(PArrowsLeftRight, 'ArrowRightLeft');
-const BarChart3 = duo(PChartBar, 'BarChart3');
-const TrendChart = duo(PChartLineUp, 'TrendChart');
-const CalendarClock = duo(PCalendarPlus, 'CalendarClock');
-const CalendarRange = duo(PCalendarDots, 'CalendarRange');
-const Gavel = duo(PGavel, 'Gavel');
-const Lightning = duo(PLightning, 'Lightning');
-const Briefcase = duo(PBriefcase, 'Briefcase');
-const Building2 = duo(PBuildings, 'Building2');
-const CalendarCheck = duo(PCalendarCheck, 'CalendarCheck');
-const CalendarDays = duo(PCalendarBlank, 'CalendarDays');
-const CalendarOff = duo(PCalendarX, 'CalendarOff');
-const CircleHelp = duo(PQuestion, 'CircleHelp');
-const ClipboardCheck = duo(PClipboardText, 'ClipboardCheck');
-const Clock3 = duo(PClock, 'Clock3');
-const Cpu = duo(PCpu, 'Cpu');
-const Fingerprint = duo(PFingerprint, 'Fingerprint');
-const HardHat = duo(PHardHat, 'HardHat');
-const HeartPulse = duo(PHeartbeat, 'HeartPulse');
-const KeyRound = duo(PKey, 'KeyRound');
-const LocateFixed = duo(PCrosshair, 'LocateFixed');
-const History = duo(PClockCounterClockwise, 'History');
-const Inbox = duo(PNotePencil, 'Inbox');
-const LayoutDashboard = duo(PSquaresFour, 'LayoutDashboard');
-const ListChecks = duo(PListChecks, 'ListChecks');
-const Mail = duo(PEnvelopeSimple, 'Mail');
-const MapPin = duo(PMapPin, 'MapPin');
-const Plug = duo(PPlug, 'Plug');
-const Repeat = duo(PRepeat, 'Repeat');
-const RefreshCcwDot = duo(PArrowsClockwise, 'RefreshCcwDot');
-const Scale = duo(PPiggyBank, 'Scale');
-const ScanFace = duo(PScanSmiley, 'ScanFace');
-const Tags = duo(PBookOpen, 'Tags');
-const UserMinus = duo(PUserMinus, 'UserMinus');
-const UserRoundCheck = duo(PUserCheck, 'UserRoundCheck');
-const Users = duo(PUsersThree, 'Users');
-const Grid3x3 = duo(PTable, 'Grid3x3');
-const Upload = duo(PUploadSimple, 'Upload');
-const Download = duo(PDownloadSimple, 'Download');
-const ShieldCheck = duo(PShieldCheck, 'ShieldCheck');
-const ShieldAlert = duo(PShieldWarning, 'ShieldAlert');
-const Lock = duo(PLock, 'Lock');
-const Timer = duo(PTimer, 'Timer');
-const BadgeCheck = duo(PSealCheck, 'BadgeCheck');
-const Smartphone = duo(PDeviceMobile, 'Smartphone');
-const Link2 = duo(PLinkSimple, 'Link2');
-const ClipboardList = duo(PGearSix, 'ClipboardList');
-const PunchIcon = duo(PHandTap, 'PunchIcon');
-const AuditIcon = duo(PFileText, 'AuditIcon');
-const BinIcon = duo(PTrash, 'BinIcon');
+/* The R&D shell (14 Nov 2026), the same family as People: Fluent colour icons on the rail (24px) and in the
+   panel (20px) through the shared colorIcon helper; buttons and actions stay on Fluent's line set. */
+const fluent = (icons, size) => Object.fromEntries(Object.entries(icons).map(([key, Icon]) => [key, colorIcon(Icon, Icon.displayName || key, size)]));
+const M = fluent({
+  home: Home24Color,
+  people: People24Color,
+  readers: ScanPerson24Color,
+  attendance: CalendarCheckmark24Color,
+  reports: DataBarVerticalAscending24Color,
+  settings: Settings24Color,
+  me: Person24Color,
+}, 24);
+const I = fluent({
+  today: Home20Color,
+  employees: People20Color,
+  contractor: Toolbox20Color,
+  leaver: PersonTentative20Color,
+  transfer: PeopleSync20Color,
+  department: BuildingMultiple20Color,
+  designation: ContactCard20Color,
+  location: LocationRipple20Color,
+  portal: PhoneLaptop20Color,
+  readerHealth: Wifi20Color,
+  readerSync: Cloud20Color,
+  readerLog: CodeBlock20Color,
+  readers: ScanPerson20Color,
+  enrol: PersonAdd20Color,
+  transactions: Database20Color,
+  punches: History20Color,
+  unmatched: WifiWarning20Color,
+  readerId: NumberSymbolSquare20Color,
+  phonePunch: Phone20Color,
+  records: TextBulletListSquare20Color,
+  exceptions: Warning20Color,
+  attRequest: ClipboardTextEdit20Color,
+  shiftCalendar: CalendarClock20Color,
+  shifts: Shifts20Color,
+  shiftPeople: PeopleList20Color,
+  deptShift: CalendarPeople20Color,
+  tempShift: CalendarEdit20Color,
+  rotation: ArrowSync20Color,
+  away: CalendarCancel20Color,
+  leave: Beach20Color,
+  calendarPeople: CalendarPeople20Color,
+  balance: Savings20Color,
+  register: Table20Color,
+  delegate: PeopleSync20Color,
+  overtime: ClockAlarm20Color,
+  confirm: CheckboxPerson20Color,
+  monthClose: LockClosed20Color,
+  readiness: CheckmarkCircle20Color,
+  insights: DataTrending20Color,
+  summary: CalendarDataBar20Color,
+  calendar: Calendar20Color,
+  lateMarks: Clock20Color,
+  absences: PersonWarning20Color,
+  history: PersonAvailable20Color,
+  catalogue: ChartMultiple20Color,
+  setup: Settings20Color,
+  punchArea: Globe20Color,
+  areaCheck: SearchVisual20Color,
+  attRules: Book20Color,
+  weeklyOff: CalendarSync20Color,
+  overtimeRule: CoinMultiple20Color,
+  leavePolicy: CalendarEdit20Color,
+  workingWeek: CalendarClock20Color,
+  yearEnd: ArrowSquare20Color,
+  requestType: Options20Color,
+  automation: BotSparkle20Color,
+  integrations: LinkMultiple20Color,
+  sso: Shield20Color,
+  roles: PersonKey20Color,
+  mail: Mail20Color,
+  import: DocumentAdd20Color,
+  export: ArrowSquareDown20Color,
+  closeCompany: DocumentLock20Color,
+  compliance: CalendarCheckmark20Color,
+  task: ClipboardTask20Color,
+  steps: TextBulletListSquare20Color,
+  health: ShieldCheckmark20Color,
+  audit: DocumentText20Color,
+  trash: ArrowClockwiseDashes20Color,
+  privacy: LockShield20Color,
+  dataRequests: PersonFeedback20Color,
+  myDays: PersonAvailable20Color,
+  myLeave: Beach20Color,
+}, 20);
+/* The app's own mark, in the Attendance app colour (#5B47C4, --app-attendance): tiles, the switcher, More apps. */
+const AppMark = ({ size = 20, className = '', style, ...rest }) => (
+  <CalendarCheckmark20Filled fontSize={size} className={className} style={{ width: size, height: size, flex: 'none', color: 'rgb(var(--app-attendance))', ...style }} {...rest} />
+);
+AppMark.displayName = 'AttendanceMark';
 
 /**
  * Everything the shell knows about Attendance.
@@ -210,14 +273,14 @@ const BinIcon = duo(PTrash, 'BinIcon');
 export const attendanceApp = {
   id: 'attendance',
   name: 'Attendance',
-  icon: Fingerprint,
+  icon: AppMark,
   blurb: 'Biometric readers, shifts, leave, corrections, registers and payable days — on its own or with People and Payroll.',
   available: true,
   database: 'people.db',
   home: 'today',
-  /** The shared Blaze palette (packages/ui/src/index.css, [data-palette='blaze']). */
+  /** Violet (R&D, 14 Nov 2026): the palette keeps its old name; tokens in rnd.css, older names in index.css [data-palette='blaze']. */
   palette: 'blaze',
-  /** People's icon family: two-tone marks (duoIcon.jsx), and Fluent line icons on buttons and actions. */
+  /** Fluent colour icons on the rail and panel (above); content icons a screen draws stay in People's two-tone set; Fluent line icons on buttons. */
   iconSet: 'duo',
   lineIcons: 'fluent',
   /* The phone's tab bar; the rest is behind Menu (packages/shell/mobileTabs.js). */
@@ -248,14 +311,14 @@ export const attendanceApp = {
        the person's own self-service, apart at the foot of the rail. Module
        keys and screen keys are unchanged where a screen already existed, so
        old links (?open=records) and permissions keep working. */
-    { key: 'today', label: 'Today', items: ['today'] },
-    { key: 'personnel', label: 'People', groups: [
+    { key: 'today', label: 'Today', icon: M.home, items: ['today'] },
+    { key: 'personnel', label: 'People', icon: M.people, groups: [
       { label: 'Directory', items: ['employees', 'contractors'] },
       { label: 'Employment changes', items: ['checklists', 'resignations', 'transfer'] },
       { label: 'Organization', items: ['departments', 'positions', 'areas'] },
       { label: 'Access', items: ['portalAccess'] },
     ] },
-    { key: 'device', label: 'Readers', groups: [
+    { key: 'device', label: 'Readers', icon: M.readers, groups: [
       { label: 'Monitoring', items: ['readerHealth', 'readerSync', 'deviceLogs'] },
       { label: 'Devices', items: ['readers', 'enrolments'] },
       { label: 'Punch data', items: ['transactions', 'unmatched', 'idMapping'] },
@@ -263,7 +326,7 @@ export const attendanceApp = {
          connectors live in Settings → Integrations; file imports in Settings → Import Data. */
       { label: 'Other punch sources', items: ['phonePunches'] },
     ] },
-    { key: 'attendance', label: 'Attendance', groups: [
+    { key: 'attendance', label: 'Attendance', icon: M.attendance, groups: [
       { label: 'Daily operations', items: ['records', 'punches', 'exceptions', 'requests'] },
       { label: 'Scheduling', items: ['scheduleCalendar', 'shifts', 'shiftAssignments', 'departmentSchedule', 'temporarySchedule', 'rotations'] },
       /* Time & Leave (TIME-LEAVE-DECISIONS.md): the same screens People shows, over the same records. */
@@ -271,7 +334,7 @@ export const attendanceApp = {
       { label: 'Time management', items: ['overtime'] },
       { label: 'Period closing', items: ['payrollReadiness', 'confirmations', 'monthClose'] },
     ] },
-    { key: 'reports', label: 'Reports', groups: [
+    { key: 'reports', label: 'Reports', icon: M.reports, groups: [
       { label: 'Overview', items: ['reportInsights'] },
       { label: 'Attendance', items: ['register', 'summary', 'calendar', 'reportLateEarly', 'reportAbsent'] },
       { label: 'Workforce', items: ['reportDepartment', 'reportTimecard'] },
@@ -279,7 +342,7 @@ export const attendanceApp = {
       { label: 'Devices', items: ['reportReaderPunches'] },
       { label: 'All reports', items: ['reports'] },
     ] },
-    { key: 'system', label: 'Settings', groups: [
+    { key: 'system', label: 'Settings', icon: M.settings, groups: [
       { label: 'Organization', items: ['setup', 'sites', 'siteCheck', 'journeySteps'] },
       /* Founder's Work Policy group (NV-02). Weekly off and overtime are views
          over the shifts' own fields and the company rules, not new rules. */
@@ -292,7 +355,7 @@ export const attendanceApp = {
       /* Founder, 21 Oct 2026: what changed, and what was deleted by mistake. */
       { label: 'Audit & recovery', items: ['auditLogs', 'recycleBin'] },
     ] },
-    { key: 'me', label: 'Me', groups: [
+    { key: 'me', label: 'Me', icon: M.me, groups: [
       { label: 'Self-Service', items: ['me', 'myLeave'] },
     ] },
   ],
@@ -303,110 +366,110 @@ export const attendanceApp = {
      `short`: the label on the phone's bottom tab bar, where the full name does not fit. */
   nav: [
     { section: 'Overview' },
-    { key: 'today', label: 'Today', icon: LayoutDashboard, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'today', label: 'Today', icon: I.today, permission: 'ATTENDANCE::Attendance Records::VIEW' },
 
     { section: 'People' },
-    { key: 'employees', label: 'Employees', icon: Users, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'contractors', label: 'Contractors', icon: HardHat, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'resignations', label: 'Resignations', icon: UserMinus, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'transfer', label: 'Transfers', icon: ArrowRightLeft, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'departments', label: 'Departments', icon: Building2, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'positions', label: 'Designations', icon: Briefcase, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'areas', label: 'Locations & sites', icon: MapPin, permission: 'PEOPLE::Org Structure::VIEW' },
-    { key: 'portalAccess', label: 'Employee portal access', icon: KeyRound, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'employees', label: 'Employees', icon: I.employees, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'contractors', label: 'Contractors', icon: I.contractor, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'resignations', label: 'Resignations', icon: I.leaver, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'transfer', label: 'Transfers', icon: I.transfer, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'departments', label: 'Departments', icon: I.department, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'positions', label: 'Designations', icon: I.designation, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'areas', label: 'Locations & sites', icon: I.location, permission: 'PEOPLE::Org Structure::VIEW' },
+    { key: 'portalAccess', label: 'Employee portal access', icon: I.portal, permission: 'ATTENDANCE::Employee Portal::VIEW' },
 
     { section: 'Readers' },
-    { key: 'readerHealth', label: 'Reader health', icon: HeartPulse, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'readerSync', label: 'Sync monitoring', icon: RefreshCcwDot, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'deviceLogs', label: 'Reader logs', icon: History, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'readers', label: 'All readers', icon: Cpu, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'enrolments', label: 'Device enrollment', icon: ScanFace, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'transactions', label: 'Punch transactions', icon: ArrowRightLeft, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'readerHealth', label: 'Reader health', icon: I.readerHealth, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'readerSync', label: 'Sync monitoring', icon: I.readerSync, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'deviceLogs', label: 'Reader logs', icon: I.readerLog, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'readers', label: 'All readers', icon: I.readers, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'enrolments', label: 'Device enrollment', icon: I.enrol, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'transactions', label: 'Punch transactions', icon: I.transactions, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
     /* The same punch log, where attendance staff look for it (founder, 21 Oct 2026). */
-    { key: 'punches', label: 'Punches', icon: PunchIcon, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'unmatched', label: 'Unmatched punches', icon: CircleHelp, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'idMapping', label: 'Employee ID mapping', icon: Link2, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
-    { key: 'phonePunches', label: 'Mobile punches', icon: Smartphone, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'punches', label: 'Punches', icon: I.punches, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'unmatched', label: 'Unmatched punches', icon: I.unmatched, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'idMapping', label: 'Employee ID mapping', icon: I.readerId, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
+    { key: 'phonePunches', label: 'Mobile punches', icon: I.phonePunch, permission: 'ATTENDANCE::Attendance Devices::VIEW' },
 
     { section: 'Attendance' },
-    { key: 'records', label: 'Attendance records', short: 'Records', icon: ListChecks, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'exceptions', label: 'Exceptions', icon: ShieldAlert, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'records', label: 'Attendance records', short: 'Records', icon: I.records, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'exceptions', label: 'Exceptions', icon: I.exceptions, permission: 'ATTENDANCE::Attendance Records::VIEW' },
     /* Missed punch, work from home, on duty, permission hours: one list, one approval (was Corrections). */
-    { key: 'requests', label: 'Attendance fixes', keywords: ['attendance requests', 'missed punch', 'regularise'], short: 'Fixes', icon: Inbox, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
-    { key: 'scheduleCalendar', label: 'Schedule calendar', icon: CalendarRange, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'shifts', label: 'Shifts', icon: Clock3, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'shiftAssignments', label: 'Shift assignments', icon: Users, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'departmentSchedule', label: 'Department schedules', icon: Building2, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'temporarySchedule', label: 'Temporary schedules', icon: CalendarClock, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'rotations', label: 'Shift rotations', icon: Repeat, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'timeOverview', label: "Who's away", icon: LayoutDashboard, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveRequests', label: 'Leave requests', short: 'Leave', icon: CalendarCheck, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveCalendar', label: 'Leave calendar', icon: CalendarDays, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveBalances', label: 'Leave balances', icon: Scale, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'leaveRegister', label: 'Leave register', icon: Grid3x3, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'requests', label: 'Attendance fixes', keywords: ['attendance requests', 'missed punch', 'regularise'], short: 'Fixes', icon: I.attRequest, permission: 'ATTENDANCE::Attendance Requests::VIEW' },
+    { key: 'scheduleCalendar', label: 'Schedule calendar', icon: I.shiftCalendar, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'shifts', label: 'Shifts', icon: I.shifts, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'shiftAssignments', label: 'Shift assignments', icon: I.shiftPeople, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'departmentSchedule', label: 'Department schedules', icon: I.deptShift, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'temporarySchedule', label: 'Temporary schedules', icon: I.tempShift, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'rotations', label: 'Shift rotations', icon: I.rotation, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'timeOverview', label: "Who's away", icon: I.away, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRequests', label: 'Leave requests', short: 'Leave', icon: I.leave, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveCalendar', label: 'Leave calendar', icon: I.calendarPeople, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveBalances', label: 'Leave balances', icon: I.balance, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'leaveRegister', label: 'Leave register', icon: I.register, permission: 'ATTENDANCE::Leave Requests::VIEW' },
     /* Delegates, Leave Year End and Request Types show in simple mode too, as in People (People audit 30 Oct 2026, gap 4). */
-    { key: 'standIns', label: 'Delegates', icon: Users, permission: 'ATTENDANCE::Leave Requests::VIEW' },
-    { key: 'overtime', label: 'Overtime & comp-off', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'confirmations', label: 'Employee confirmations', icon: BadgeCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'monthClose', label: 'Month close', icon: Lock, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'standIns', label: 'Delegates', icon: I.delegate, permission: 'ATTENDANCE::Leave Requests::VIEW' },
+    { key: 'overtime', label: 'Overtime & comp-off', icon: I.overtime, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'confirmations', label: 'Employee confirmations', icon: I.confirm, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'monthClose', label: 'Month close', icon: I.monthClose, permission: 'ATTENDANCE::Attendance Records::VIEW' },
 
     { section: 'Reports' },
-    { key: 'reportInsights', label: 'Attendance insights', icon: TrendChart, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'register', label: 'Daily attendance register', icon: Grid3x3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'summary', label: 'Monthly attendance summary', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'calendar', label: 'Attendance calendar', icon: CalendarDays, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'reportLateEarly', label: 'Late arrivals & early exits', icon: Clock3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'reportAbsent', label: 'Absence report', icon: CalendarOff, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'reportDepartment', label: 'Department attendance', icon: Building2, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'reportTimecard', label: 'Employee attendance history', icon: UserRoundCheck, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'reportOvertime', label: 'Overtime report', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'reportLeave', label: 'Leave report', icon: CalendarCheck, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'reportReaderPunches', label: 'Reader activity', icon: Cpu, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'reports', label: 'Report catalogue', icon: BarChart3, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportInsights', label: 'Attendance insights', icon: I.insights, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'register', label: 'Daily attendance register', icon: I.register, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'summary', label: 'Monthly attendance summary', icon: I.summary, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'calendar', label: 'Attendance calendar', icon: I.calendar, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'reportLateEarly', label: 'Late arrivals & early exits', icon: I.lateMarks, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportAbsent', label: 'Absence report', icon: I.absences, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportDepartment', label: 'Department attendance', icon: I.department, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportTimecard', label: 'Employee attendance history', icon: I.history, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportOvertime', label: 'Overtime report', icon: I.overtime, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportLeave', label: 'Leave report', icon: I.leave, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reportReaderPunches', label: 'Reader activity', icon: I.readers, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'reports', label: 'Report catalogue', icon: I.catalogue, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
 
     { section: 'Settings' },
-    { key: 'setup', label: 'Attendance setup', icon: ClipboardList, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'sites', label: 'Punch areas', icon: LocateFixed, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'siteCheck', label: 'Punch area check', icon: MapPin, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'rules', label: 'Attendance policy', icon: Gavel, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'weeklyOffPolicy', label: 'Weekly off policy', icon: CalendarOff, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'overtimePolicy', label: 'Overtime policy', icon: Timer, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'leaveTypes', label: 'Leave policy', icon: Tags, permission: 'ATTENDANCE::Leave Types::VIEW' },
+    { key: 'setup', label: 'Attendance setup', icon: I.setup, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'sites', label: 'Punch areas', icon: I.punchArea, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'siteCheck', label: 'Punch area check', icon: I.areaCheck, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'rules', label: 'Attendance policy', icon: I.attRules, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'weeklyOffPolicy', label: 'Weekly off policy', icon: I.weeklyOff, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'overtimePolicy', label: 'Overtime policy', icon: I.overtimeRule, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'leaveTypes', label: 'Leave policy', icon: I.leavePolicy, permission: 'ATTENDANCE::Leave Types::VIEW' },
     /* Days off for anyone with no shift; with shifts, the shift decides (TIME-LEAVE-DECISIONS.md M2). */
-    { key: 'workingWeek', label: 'Working week', icon: CalendarOff, permission: 'ATTENDANCE::Leave Types::VIEW' },
-    { key: 'holidays', label: 'Holidays', icon: CalendarDays, permission: 'ATTENDANCE::Holidays::VIEW' },
-    { key: 'leaveYearEnd', label: 'Leave year end', icon: ClipboardCheck, permission: 'ATTENDANCE::Leave Requests::EDIT' },
-    { key: 'requestRules', label: 'Attendance request types', icon: Gavel, permission: 'ATTENDANCE::Attendance Requests::APPROVE' },
+    { key: 'workingWeek', label: 'Working week', icon: I.workingWeek, permission: 'ATTENDANCE::Leave Types::VIEW' },
+    { key: 'holidays', label: 'Holidays', icon: I.calendar, permission: 'ATTENDANCE::Holidays::VIEW' },
+    { key: 'leaveYearEnd', label: 'Leave year end', icon: I.yearEnd, permission: 'ATTENDANCE::Leave Requests::EDIT' },
+    { key: 'requestRules', label: 'Attendance request types', icon: I.requestType, permission: 'ATTENDANCE::Attendance Requests::APPROVE' },
     /* What Attendance sends on its own: read with the rules' right, changed with their edit (routes/automations.ts). */
-    { key: 'automations', label: 'Automations', icon: Lightning, permission: 'ATTENDANCE::Shifts::VIEW' },
-    { key: 'integrations', label: 'Integrations', icon: Plug, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
+    { key: 'automations', label: 'Automations', icon: I.automation, permission: 'ATTENDANCE::Shifts::VIEW' },
+    { key: 'integrations', label: 'Integrations', icon: I.integrations, permission: 'ATTENDANCE::Attendance Integrations::VIEW' },
     /* The same SSO set-up as Accounting's Settings → Single Sign-On: one per company, for every CLOR app. */
-    { key: 'sso', label: 'Users & security', icon: KeyRound, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'rolesAccess', label: 'Roles & access', icon: KeyRound, permission: 'SETTINGS::Roles::VIEW' },
-    { key: 'emailNotifications', label: 'Email notifications', icon: Mail, permission: 'SETTINGS::Company Profile::VIEW' },
-    { key: 'dataImport', label: 'Import data', icon: Upload, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
-    { key: 'dataExport', label: 'Export data', icon: Download, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'sso', label: 'Users & security', icon: I.sso, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'rolesAccess', label: 'Roles & access', icon: I.roles, permission: 'SETTINGS::Roles::VIEW' },
+    { key: 'emailNotifications', label: 'Email notifications', icon: I.mail, permission: 'SETTINGS::Company Profile::VIEW' },
+    { key: 'dataImport', label: 'Import data', icon: I.import, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'dataExport', label: 'Export data', icon: I.export, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     /* LX-07: shared screen; the server lets only the company's owner ask or cancel. */
-    { key: 'closeCompany', label: 'Close company', icon: Lock, permission: 'SETTINGS::Company data::VIEW' },
+    { key: 'closeCompany', label: 'Close company', icon: I.closeCompany, permission: 'SETTINGS::Company data::VIEW' },
     /* HR research Phase 2: statutory and company deadlines with owners and evidence. */
-    { key: 'complianceCalendar', label: 'Compliance', icon: CalendarCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'complianceCalendar', label: 'Compliance', icon: I.compliance, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research: joining and leaving checklists. */
     /* Joining & Leaving tasks and steps: the same screens People shows (JOINING-LEAVING-DECISIONS.md). */
-    { key: 'checklists', label: 'Joining & leaving tasks', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'journeySteps', label: 'Joining & leaving steps', icon: ClipboardCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'checklists', label: 'Joining & leaving tasks', icon: I.task, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'journeySteps', label: 'Joining & leaving steps', icon: I.steps, permission: 'PEOPLE::Employees::VIEW' },
     /* HR research Phase 1: the control tower for one month's payroll. */
-    { key: 'payrollReadiness', label: 'Payroll readiness', icon: ClipboardCheck, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
+    { key: 'payrollReadiness', label: 'Payroll readiness', icon: I.readiness, permission: 'ATTENDANCE::Attendance Records::VIEW', wholeCompany: true },
     /* HR research Phase 1: the implementation auditor. */
-    { key: 'dataHealth', label: 'Data health', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
-    { key: 'auditLogs', label: 'Audit logs', icon: AuditIcon, permission: 'SETTINGS::Audit trail::VIEW' },
+    { key: 'dataHealth', label: 'Data health', icon: I.health, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'auditLogs', label: 'Audit logs', icon: I.audit, permission: 'SETTINGS::Audit trail::VIEW' },
     /* Each person sees only what they may delete (server: routes/recycleBin.ts). */
-    { key: 'recycleBin', label: 'Recycle bin', icon: BinIcon, permission: 'ATTENDANCE::Attendance Records::VIEW' },
-    { key: 'dataProtection', label: 'Data protection', icon: ShieldCheck, permission: 'ATTENDANCE::Employee Portal::VIEW' },
-    { key: 'dataRequests', label: 'Data requests', icon: ShieldCheck, permission: 'PEOPLE::Employees::VIEW' },
+    { key: 'recycleBin', label: 'Recycle bin', icon: I.trash, permission: 'ATTENDANCE::Attendance Records::VIEW' },
+    { key: 'dataProtection', label: 'Data protection', icon: I.privacy, permission: 'ATTENDANCE::Employee Portal::VIEW' },
+    { key: 'dataRequests', label: 'Data requests', icon: I.dataRequests, permission: 'PEOPLE::Employees::VIEW' },
 
     { section: 'Me' },
-    { key: 'me', label: 'My attendance', icon: UserRoundCheck, permission: 'ATTENDANCE::My Attendance::VIEW' },
-    { key: 'myLeave', label: 'My leave', icon: CalendarOff, permission: 'ATTENDANCE::My Attendance::VIEW' },
+    { key: 'me', label: 'My attendance', icon: I.myDays, permission: 'ATTENDANCE::My Attendance::VIEW' },
+    { key: 'myLeave', label: 'My leave', icon: I.myLeave, permission: 'ATTENDANCE::My Attendance::VIEW' },
   ],
   screens: {
     today: AttendanceToday,
