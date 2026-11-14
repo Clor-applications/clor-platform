@@ -1,14 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck } from '@ui/components/ui/lineIcons';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown, ShieldCheck } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
-import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
-import { MoreButton } from '@ui/components/list/ListPageParts';
+import Popover from '@ui/components/ui/Popover';
+import { EXPORT_FORMATS, runListExport } from '@ui/components/list/exportMenu';
 import { getDataHealth, getHeadcount, markFullDaysPaid, snoozeHealthCheck, unmarkFullDaysPaid, unsnoozeHealthCheck } from './api';
 import { notify } from '@ui/components/ui/notify';
 import { plusDaysIso } from '@ui/utils/dates';
+import './data-health.css';
 
 /**
  * Data health (HR research, Phase 1: the implementation auditor). What is
@@ -86,35 +87,40 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
     }
   };
   const rows = (data?.checks || []).flatMap((c) => c.people.map((p) => ({ severity: c.severity, title: c.title, name: p.name, code: p.code || '', detail: p.detail || '', fix: c.fix })));
+  const download = (format) => runListExport({ format, title: 'Data check', fileName: 'Data check', label: 'problem/problems', columns: EXPORT_COLUMNS, rows });
+  const score = data ? healthScore(data) : null;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        entity="privacy"
         title="Data check"
+        description="Gaps in employee records that will cause problems in Payroll, compliance or approvals."
         actions={
-          <span className="flex items-center gap-2">
+          <span className="flex flex-wrap items-center gap-2">
             <button type="button" className="ui-btn ui-btn-secondary" onClick={load}>Check again</button>
-            <MoreButton
-              items={[exportMenuItem('Export')]}
-              onSelect={(k) => {
-                const format = exportFormatFromKey(k);
-                if (format) runListExport({ format, title: 'Data check', fileName: 'Data check', label: 'problem/problems', columns: EXPORT_COLUMNS, rows });
-              }}
-            />
+            <DownloadButton onPick={download} disabled={!rows.length} />
           </span>
         }
       />
-      <div className="pb-8 space-y-6">
+      <div className="dh-page">
         {error ? <p className="ui-field-error" role="alert">{error}</p> : null}
         {!data ? (
           error ? null : <SkeletonCard lines={8} />
         ) : (
           <>
-            <dl className="ui-metric-strip" aria-label="Summary">
-              <div className="ui-metric" data-tint="sky"><span><dd className="ui-metric-value tabular-nums">{data.people}</dd><dt className="ui-metric-label">People checked</dt></span></div>
-              <div className="ui-metric" data-tint="peach"><span><dd className={`ui-metric-value tabular-nums${data.blocking ? ' ui-text-neg' : ''}`}>{data.blocking}</dd><dt className="ui-metric-label">Blocks payday</dt></span></div>
-              <div className="ui-metric" data-tint="peach"><span><dd className="ui-metric-value tabular-nums">{data.checks.length}</dd><dt className="ui-metric-label">Checks to look at</dt></span></div>
+            {/* Two tiles (PEOPLE-26): the score with its bar, and what stops the next payday. */}
+            <dl className="dh-tiles" aria-label="Summary">
+              <div className="dh-tile">
+                <dt className="dh-tile-label">Health score</dt>
+                <dd className="dh-tile-figure"><span className="dh-tile-value">{score.value}</span><span className="dh-tile-of">/ 100</span></dd>
+                <dd className="dh-bar" role="progressbar" aria-label="Health score" aria-valuemin={0} aria-valuemax={100} aria-valuenow={score.value}><span style={{ width: `${score.value}%` }} /></dd>
+                <dd className="dh-tile-note">{score.note}</dd>
+              </div>
+              <div className="dh-tile">
+                <dt className="dh-tile-label">Blocks payday</dt>
+                <dd className="dh-tile-figure"><span className="dh-tile-value" data-tone={data.blocking ? 'neg' : undefined}>{data.blocking}</span></dd>
+                <dd className="dh-tile-note">{data.blocking ? 'Problems payroll cannot run past. Fix these first.' : 'Nothing stands in the way of the next payroll.'}</dd>
+              </div>
             </dl>
             {lastPaid ? (
               <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
@@ -125,54 +131,66 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
             {!data.checks.length ? (
               <EmptyState icon={ShieldCheck} title="Nothing to fix" description="Every check passed: no duplicates, joining dates in place, and payroll has the PAN, UAN, ESIC and bank details it needs." />
             ) : (
-              /* One check per ruled block on the page: what, why, who, and the way to fix it. */
-              <div className="ui-health-list">
-                {data.checks.map((c) => (
-                  <section key={c.id} className="ui-health-item" aria-label={c.title}>
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={`ui-pill ui-pill-${SEVERITY[c.severity]?.tone || 'neutral'}`}>{SEVERITY[c.severity]?.label || c.severity}</span>
-                          <span className="ui-caption">{c.area}</span>
-                        </div>
-                        <h2 className="ui-t-sec">{c.title} <span className="ui-caption tabular-nums">{c.count}</span></h2>
-                      </div>
-                      <span className="flex items-center gap-3">
-                        <button type="button" className="ui-link text-sm" onClick={() => setSnoozing(c)}>Snooze</button>
-                        {fixLink(c)}
-                      </span>
-                    </div>
-                    <p className="text-sm">{c.why} {c.fix}</p>
-                    <ul className="flex flex-wrap gap-2" aria-label="Who">
-                      {c.people.map((p, i) => (
-                        <li key={`${p.id}-${i}`} className="flex max-w-full flex-wrap items-center gap-2">
-                          {/* A long detail (several days) wraps inside its pill rather than pushing the page wide on a phone. */}
-                          <span className="ui-pill ui-pill-neutral max-w-full" style={{ whiteSpace: 'normal' }}>
-                            {p.name}
-                            {p.code ? ` · ${p.code}` : ''}
-                            {p.detail ? ` — ${p.detail}` : ''}
-                          </span>
-                          {p.settle?.length ? (
-                            <button type="button" className="ui-link text-sm" onClick={() => setPaying(p)} aria-label={`Paid the difference to ${p.name}`}>
-                              Paid the difference
-                            </button>
-                          ) : null}
-                        </li>
-                      ))}
-                      {c.count > c.people.length ? <li className="ui-caption self-center">and {c.count - c.people.length} more</li> : null}
-                    </ul>
-                  </section>
-                ))}
-              </div>
+              /* One ruled row per check: severity, what and why, how many, and the way to fix it; who sits under it. */
+              <section className="dh-section" aria-label="Checks">
+                <div className="dh-section-head">
+                  <h2 className="dh-section-title">Checks <span className="ui-caption tabular-nums">{data.checks.length}</span></h2>
+                </div>
+                <ul className="dh-list">
+                  {data.checks.map((c) => {
+                    const sev = SEVERITY[c.severity] || { label: c.severity, tone: 'neutral' };
+                    return (
+                      <li key={c.id} className="dh-row">
+                        <section aria-label={c.title}>
+                          <div className="dh-row-main">
+                            <div className="dh-row-what">
+                              <span className="dh-dot" data-tone={sev.tone} aria-hidden="true" />
+                              <div className="dh-row-text">
+                                <h3 className="dh-row-title">{c.title}</h3>
+                                <p className="dh-row-why">{c.why} {c.fix}</p>
+                              </div>
+                            </div>
+                            <div className="dh-row-side">
+                              <span className="dh-row-area">{c.area}</span>
+                              <span className="ui-pill ui-pill-neutral">{sev.label}</span>
+                              <span className="dh-count">{c.count} {c.count === 1 ? 'person' : 'people'}</span>
+                              <button type="button" className="ui-link text-sm" onClick={() => setSnoozing(c)}>Snooze</button>
+                              {fixLink(c)}
+                            </div>
+                          </div>
+                          <ul className="dh-who" aria-label="Who">
+                            {c.people.map((p, i) => (
+                              <li key={`${p.id}-${i}`}>
+                                {/* A long detail (several days) wraps inside its pill rather than pushing the page wide on a phone. */}
+                                <span className="ui-pill ui-pill-neutral">
+                                  {p.name}
+                                  {p.code ? ` · ${p.code}` : ''}
+                                  {p.detail ? ` — ${p.detail}` : ''}
+                                </span>
+                                {p.settle?.length ? (
+                                  <button type="button" className="ui-link text-sm" onClick={() => setPaying(p)} aria-label={`Paid the difference to ${p.name}`}>
+                                    Paid the difference
+                                  </button>
+                                ) : null}
+                              </li>
+                            ))}
+                            {c.count > c.people.length ? <li className="ui-caption">and {c.count - c.people.length} more</li> : null}
+                          </ul>
+                        </section>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
             )}
             {data.snoozed?.length ? (
-              <section aria-label="Snoozed" className="space-y-2">
-                <h2 className="ui-t-sec">Snoozed</h2>
-                <ul className="divide-y text-sm">
+              <section aria-label="Snoozed" className="dh-section">
+                <h2 className="dh-section-title">Snoozed</h2>
+                <ul className="dh-plain">
                   {data.snoozed.map((c) => (
-                    <li key={c.id} className="py-2 flex flex-wrap items-center gap-2">
+                    <li key={c.id}>
                       <span className="font-medium">{c.title}</span>
-                      <span className="ui-caption">· {c.count} · back <span className="tabular-nums">{formatDate(c.snooze.until)}</span> · {c.snooze.reason}</span>
+                      <span className="ui-caption">· <span className="tabular-nums">{c.count}</span> · back <span className="tabular-nums">{formatDate(c.snooze.until)}</span> · {c.snooze.reason}</span>
                       <button type="button" className="ui-link ml-auto" onClick={() => wake(c)}>Bring back now</button>
                     </li>
                   ))}
@@ -186,6 +204,58 @@ export default function DataHealth({ openScreen, app = 'attendance', localScreen
       {paying ? <PaidDrawer person={paying} onClose={() => setPaying(null)} onDone={(count) => { setLastPaid({ name: paying.name, ids: paying.settle, count }); setPaying(null); load(); }} /> : null}
       {snoozing ? <SnoozeDrawer check={snoozing} onClose={() => setSnoozing(null)} onDone={() => { setSnoozing(null); load(); }} /> : null}
     </div>
+  );
+}
+
+/**
+ * The score on the first tile: the share of the people checked with no gap that blocks payday or needs fixing soon
+ * (tidy-ups are listed but do not lower it). Each check lists a sample of its people, so the people with such a gap
+ * are at least the distinct names shown and at least the largest single check; "at least" says when it is a floor.
+ */
+function healthScore({ people = 0, checks = [] }) {
+  const issues = checks.reduce((n, c) => n + (c.count || 0), 0);
+  const serious = checks.filter((c) => c.severity !== 'TIDY_UP');
+  const ids = new Set();
+  let partial = false;
+  for (const c of serious) {
+    for (const p of c.people || []) if (p.id) ids.add(p.id);
+    if ((c.count || 0) > (c.people || []).filter((p) => p.id).length) partial = true;
+  }
+  const largest = serious.reduce((n, c) => Math.max(n, c.count || 0), 0);
+  const affected = Math.min(people, Math.max(ids.size, largest));
+  const value = people > 0 ? Math.round(((people - affected) / people) * 100) : 100;
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  let note = `No gaps across ${plural(people, 'person', 'people')} checked`;
+  if (issues) {
+    const head = `${plural(issues, 'issue', 'issues')} in ${plural(checks.length, 'check', 'checks')}`;
+    note = affected
+      ? `${head} · ${partial && affected < people ? 'at least ' : ''}${affected} of ${plural(people, 'person', 'people')} need${affected === 1 ? 's' : ''} a fix`
+      : `${head}, all tidy-ups`;
+  }
+  return { value, note };
+}
+
+/** "Download list": the checks and their people as PDF, Excel or CSV. */
+function DownloadButton({ onPick, disabled }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" ref={ref} className="ui-btn ui-btn-secondary" aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen((v) => !v)}>
+        Download list <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {open ? (
+        <Popover anchorRef={ref} onClose={() => setOpen(false)} minWidth={180}>
+          <div className="py-1" role="menu" aria-label="Download list as">
+            {EXPORT_FORMATS.map((f) => (
+              <button key={f.key} type="button" role="menuitem" className="ui-menu-item flex w-full items-center gap-2" onClick={() => { setOpen(false); onPick(f.key); }}>
+                <f.Icon size={16} aria-hidden="true" /> {f.label}
+              </button>
+            ))}
+          </div>
+        </Popover>
+      ) : null}
+    </>
   );
 }
 
@@ -266,27 +336,29 @@ function Headcount() {
   const leavers = data.months.reduce((a, m) => a + m.leavers, 0);
   const attrition = avg > 0 ? Math.round((leavers / avg) * 1000) / 10 : null;
   return (
-    <section aria-label="Headcount" className="space-y-3 border-t pt-6">
+    <section aria-label="Headcount" className="dh-section">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="ui-t-sec">Headcount and movements</h2>
+        <h2 className="dh-section-title">Headcount and movements</h2>
         <div className="flex items-center gap-2 text-sm"><label htmlFor="headcount-asof">As of</label><DatePicker id="headcount-asof" value={asOf} max={today} onChange={(v) => setAsOf(v || today)} /></div>
       </div>
       <p className="text-sm"><span className="tabular-nums font-medium">{data.headcount}</span> {data.headcount === 1 ? 'person' : 'people'} on {formatDate(data.asOf)}{Object.keys(data.byEstablishment).length ? ': ' : ''}{Object.entries(data.byEstablishment).map(([k, v]) => `${k} ${v}`).join(', ')}</p>
       {attrition !== null ? <p className="text-sm">Left in the last {data.months.length} months: <span className="tabular-nums font-medium">{attrition}%</span> of the average headcount</p> : null}
-      <table className="w-full text-sm">
-        <thead><tr className="ui-caption text-left"><th className="py-1.5 font-medium">Month</th><th className="py-1.5 font-medium text-right">Joined</th><th className="py-1.5 font-medium text-right">Left</th><th className="py-1.5 font-medium text-right">Transferred</th><th className="py-1.5 font-medium text-right">At month end</th></tr></thead>
-        <tbody className="divide-y">
+      <div className="dh-table-wrap">
+      <table className="dh-table">
+        <thead><tr><th>Month</th><th className="num">Joined</th><th className="num">Left</th><th className="num">Transferred</th><th className="num">At month end</th></tr></thead>
+        <tbody>
           {[...data.months].reverse().map((m) => (
             <tr key={m.month}>
-              <td className="py-1.5">{monthWords(m.month)}</td>
-              <td className="py-1.5 text-right tabular-nums">{m.joiners}</td>
-              <td className="py-1.5 text-right tabular-nums">{m.leavers}</td>
-              <td className="py-1.5 text-right tabular-nums">{m.transfers}</td>
-              <td className="py-1.5 text-right tabular-nums">{m.headcountAtEnd}</td>
+              <td>{monthWords(m.month)}</td>
+              <td className="num">{m.joiners}</td>
+              <td className="num">{m.leavers}</td>
+              <td className="num">{m.transfers}</td>
+              <td className="num">{m.headcountAtEnd}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
