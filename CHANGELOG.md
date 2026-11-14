@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-9883173 - 2026-11-14
+
+API revision `clor-api-00130-d9b`. Previous release `rel-4483a92` (roll back there).
+
+- #271 App icons: the pack's icon on every app subdomain, and versioned icon links
+- #269 clor.in: Web Interface Guidelines fixes (header overflow, focus, images, a11y)
+- #268 People outbox: log every failed delivery
+- #264 LICENSE: all rights reserved, now that the repository is public
+- #258 Release: roll back by revision, and stop wiping the previous tag
+- #257 Release record: rel-75e6ebc
+- #260 CI on GitHub's machines: the repository is public
+- #265 Release record: rel-4483a92
+
 ## rel-4483a92 - 2026-11-14
 
 API revision `clor-api-00129-pg9`. Previous release `rel-75e6ebc` (roll back there).
