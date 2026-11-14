@@ -16,23 +16,33 @@ Always read `DESIGN.md` before making any visual or UI decision. Fonts, colors,
 spacing, radii, the type scale, and the five-primitive component contract are
 defined there. Do not deviate without explicit user approval.
 
+**Brand (owner, 14 Nov 2026): the R&D hand-off.** Graphite `#202329` + Blaze
+`#FF5400` (an accent, never a fill behind text), Sora 800 for page titles and
+Inter for everything else, portal themes (Workspace orange ink `#C5450A`, Ops
+forest `#015D47`, People moss `#5A6B1F`, Attendance violet `#5B47C4`), and the
+64px rail / 232px panel / 64px top bar shell. Tokens live in
+`packages/ui/src/rnd.css`. Accounting keeps its own indigo look.
+
 Hard rules that come up most often:
 
 - **Tokens only, in app chrome.** No `bg-gray-*`, `text-gray-*`, `border-gray-*`
   or any raw palette class. Every color comes from a CSS variable in
-  `src/index.css`, or dark mode silently breaks.
+  `packages/ui/src/index.css` / `rnd.css`, or dark mode silently breaks.
   **Exception: printed documents.** `InvoicePreview.jsx`, `ExpenseVoucher.jsx`
   and the invoice template renderer are black on white on purpose — a printed
   invoice does not follow the app theme. Leave their raw classes alone.
 - **Two radii.** 8px on anything clickable, 12px on anything holding content.
   `rounded-full` for pills only.
 - **Money is tabular.** Every displayed amount is in tabular figures
-  (`tabular-nums`, the money/mono utility classes), right-aligned, in the
-  words' face: Plus Jakarta Sans, Inter in Accounting. One face per app — no
-  second family for numbers or codes.
+  (`tabular-nums`, the money/mono utility classes), right-aligned, in Inter.
+  No second family for numbers or codes.
 - **No card-in-card.** A list sits on the page ground under one hairline. A
   document is a discrete object and earns a surface.
-- **One primary action per screen**, top right.
+- **One primary action per screen**, top right. Row actions such as Approve
+  are secondary buttons; Reject and Decline are text buttons.
+- **Colour has one job.** Portal colour only for the primary button, links and
+  "you are here"; app colours only to identify an app; status colours only for
+  state, always with a label.
 
 In QA or review, flag any code that does not match `DESIGN.md`.
 

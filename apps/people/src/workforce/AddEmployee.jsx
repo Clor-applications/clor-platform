@@ -19,6 +19,7 @@ import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './sugge
 import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
 import { listBranches } from '../organization/api';
 import { can } from './shared';
+import { BackLink } from '../components/Core';
 import { todayIst } from '@ui/utils/dates';
 
 /**
@@ -32,6 +33,7 @@ import { todayIst } from '@ui/utils/dates';
  * idempotency key, and the server checks everything again.
  */
 const STEPS = [['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['review', 'Review']];
+const STEP_WORDS = { personal: 'personal details', employment: 'job details', organization: 'where they sit and who they report to', review: 'check everything, then create' };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BLANK = {
   firstName: '', lastName: '', preferredName: '', workEmail: '', workPhone: '', email: '', phone: '', dateOfBirth: '', gender: '', guardianName: '', photoUrl: '',
@@ -238,17 +240,23 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
 
   return (
     <div className="space-y-6 ui-wizard">
-      <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Employees', onClick: cancel }, { label: 'Add employee' }]} title="Add employee"
-        actions={draftId ? <button type="button" className="ui-link text-sm" onClick={discardDraft}>Delete saved draft</button> : null} />
-      <ol className="ui-stepper" aria-label="Steps">
+      <div className="pc-head">
+        <BackLink label="Employees" onClick={cancel} />
+        <PageHeader title="Add employee" description={`Step ${stepIndex + 1} of ${STEPS.length} · ${STEP_WORDS[stepKey] || ''}. You can save a draft and finish later.`}
+          actions={<>
+            {draftId ? <button type="button" className="ui-link text-sm" onClick={discardDraft}>Delete saved draft</button> : null}
+            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={saveAsDraft}>Save draft</button>
+          </>} />
+      </div>
+      <ol className="pc-steps" aria-label="Steps" style={{ '--pc-steps': STEPS.length }}>
         {STEPS.map(([k, label], i) => (
-          <li key={k} className={`ui-step ${i === stepIndex ? 'is-current' : ''} ${i < stepIndex ? 'is-done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}>
-            <span className="ui-step-mark" aria-hidden="true">{i < stepIndex ? <Check size={14} /> : i + 1}</span>
-            <span className="ui-step-label">{label}</span>
+          <li key={k} className={`pc-step ${i === stepIndex ? 'is-current' : ''} ${i < stepIndex ? 'is-done' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}>
+            <span>{i + 1}. {label}{i < stepIndex ? <><Check size={14} aria-hidden="true" /><span className="sr-only"> (done)</span></> : null}</span>
           </li>
         ))}
       </ol>
 
+      <div className="pc-wizard-grid">
       {/* noValidate: `check` asks for each field in plain words. The browser's own "fill in this field" stopped Continue
           before `next` ran, so an employee ID still on its way kept the wizard on Employment (H1 on a phone). */}
       <form ref={bodyRef} tabIndex={-1} noValidate className="ui-record-section ui-wizard-body" aria-label={STEPS[stepIndex][1]}
@@ -355,14 +363,57 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
           <button type="button" className="ui-btn ui-btn-secondary" onClick={cancel}>Cancel</button>
           <span className="flex flex-wrap gap-2 ml-auto">
             {stepIndex > 0 ? <button type="button" className="ui-btn ui-btn-secondary" onClick={back}><ArrowLeft size={16} aria-hidden="true" /> Back</button> : null}
-            <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={saveAsDraft}>Save draft</button>
             {stepKey === 'review'
               ? <button type="submit" className="ui-btn ui-btn-primary" disabled={busy || (duplicates?.length && !duplicateReason.trim())}>{busy ? 'Creating…' : 'Create employee'}</button>
               : <button type="submit" className="ui-btn ui-btn-primary">Continue <ArrowRight size={16} aria-hidden="true" /></button>}
           </span>
         </div>
       </form>
+      <WizardSummary form={form} lists={lists} people={people} stepIndex={stepIndex} />
+      </div>
     </div>
+  );
+}
+
+/*
+ * The side summary (PEOPLE-04): who is being added, the steps already filled and when they start, and what the
+ * company's apps do once they are saved. Read from the form; nothing here is a setting.
+ */
+function WizardSummary({ form, lists, people, stepIndex }) {
+  const name = [form.firstName, form.lastName].filter(Boolean).join(' ');
+  const contact = [form.workEmail || form.email, form.phone].filter(Boolean).join(' · ');
+  const nameIn = (items, id) => (items || []).find((x) => x.id === id)?.name;
+  const role = [nameIn(lists.positions, form.jobPositionId), nameIn(lists.departments, form.departmentId)].filter(Boolean).join(' · ');
+  const manager = people.find((x) => x.id === form.reportingManagerId)?.name;
+  const after = [
+    'Their record opens, with joining tasks if the company has a joining checklist.',
+    hasApp('payroll') ? 'Payroll can pay them from their joining month.' : null,
+    hasApp('attendance') ? 'Attendance starts counting their days from the joining date.' : null,
+    'Send them the joining form or employee app access from their record.',
+  ].filter(Boolean);
+  return (
+    <aside className="pc-aside" aria-label="Summary">
+      <section aria-labelledby="add-summary-h">
+        <h2 id="add-summary-h" className="pc-section-title">Summary</h2>
+        <div className="pc-card">
+          <div className="pc-who">
+            <Avatar person={{ name: name || '?', photoUrl: form.photoUrl || null }} size={40} />
+            <span className="pc-who-text"><span className="pc-who-name">{name || 'New employee'}</span><span className="pc-who-sub">{contact || 'No email or phone yet'}</span></span>
+          </div>
+          <dl>
+            {stepIndex > 0 ? <div><dt>{stepIndex === 1 ? 'Step 1' : `Steps 1–${stepIndex}`}</dt><dd>{STEPS.slice(0, stepIndex).map(([, l]) => l).join(', ')} <Check size={14} aria-hidden="true" className="inline" /></dd></div> : null}
+            {form.code ? <div><dt>Employee ID</dt><dd>{form.code}</dd></div> : null}
+            {role ? <div><dt>Role</dt><dd>{role}</dd></div> : null}
+            {manager ? <div><dt>Reports to</dt><dd>{manager}</dd></div> : null}
+            <div><dt>Starts</dt><dd>{form.dateOfJoining ? formatDate(form.dateOfJoining) : 'Joining date not set'}</dd></div>
+          </dl>
+        </div>
+      </section>
+      <section aria-labelledby="add-after-h">
+        <h2 id="add-after-h" className="pc-section-title">After you save</h2>
+        <ul className="pc-next">{after.map((t) => <li key={t}><Check size={16} aria-hidden="true" /><span>{t}</span></li>)}</ul>
+      </section>
+    </aside>
   );
 }
 

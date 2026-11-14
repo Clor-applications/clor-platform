@@ -46,3 +46,19 @@ export function clearAppIntent() {
     /* nothing kept */
   }
 }
+
+/**
+ * The app to open once a company is set up with `picked` apps: the one they
+ * came for if they picked it, the only one if there is one, else Accounting
+ * (where the day starts for companies with several), else the first. Attendance
+ * on a company that also picked People opens People, which includes it.
+ */
+export function landingAfterSetup(picked, intended = appIntent()) {
+  const list = (Array.isArray(picked) ? picked : []).filter((a) => KNOWN.has(a));
+  if (!list.length) return null;
+  let to;
+  if (intended && list.includes(intended)) to = intended;
+  else if (list.length === 1) to = list[0];
+  else to = list.includes('accounting') ? 'accounting' : list[0];
+  return to === 'attendance' && list.includes('people') ? 'people' : to;
+}

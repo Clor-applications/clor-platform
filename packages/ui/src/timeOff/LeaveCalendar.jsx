@@ -10,6 +10,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import { PRIVATE_LABEL, STATUS_LABEL, getWorkingAway, getWorkingWeek, listHolidays, listLeaveRequests, swatchOf, todayIst } from './api';
 import { homeCrumbs } from './shared';
 import { clashDays, clashWords } from './clashes';
+import { LeavePill } from './Figures';
 
 /**
  * Time & Leave → Calendar: who is away in a month, one line a person, with
@@ -46,6 +47,20 @@ const offTest = (week) => {
   };
 };
 
+/** "Ananya Iyer" → "Ananya I.": a month cell has room for a first name and an initial. */
+const shortName = (n) => { const [first, ...rest] = String(n || '').trim().split(/\s+/); return rest.length ? `${first} ${rest[rest.length - 1][0]}.` : first; };
+/** The month as weeks from Monday, with the days of the months either side to fill the first and last week. */
+const weeksOf = (month) => {
+  const days = daysIn(month);
+  const lead = (weekday(days[0]) + 6) % 7;
+  const cells = [...Array.from({ length: lead }, (_, i) => shiftDay(days[0], i - lead)), ...days];
+  while (cells.length % 7) cells.push(shiftDay(cells[cells.length - 1], 1));
+  return Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
+};
+const shiftDay = (iso, by) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + by); return d.toISOString().slice(0, 10); };
+const WEEK_HEAD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const SHOWN_IN_CELL = 3;
+
 /* Which half of a half day, said in the label too: a hover title is no help on a phone or to a screen reader (#80 QA). */
 const halfWords = (h) => (h === 'FIRST' ? ', first half' : h === 'SECOND' ? ', second half' : h ? ', half day' : '');
 
@@ -53,6 +68,8 @@ export default function LeaveCalendar() {
   const today = todayIst();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [dept, setDept] = useState('');
+  /* Month (R&D PEOPLE-12): the weeks with names in each day; By person: one line a person across the month. */
+  const [view, setView] = useState('month');
   const req = useRequest(
     () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)).catch(() => []), getWorkingWeek().catch(() => null), getWorkingAway(month).catch(() => [])])
       .then(([r, h, week, working]) => ({ month, requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week, working })),
@@ -113,6 +130,9 @@ export default function LeaveCalendar() {
             <button type="button" className="ui-icon-btn" aria-label="Next month" onClick={() => setMonth(shift(month, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
           </div>
           {month !== today.slice(0, 7) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMonth(today.slice(0, 7))}>This month</button> : null}
+          <div className="pt-seg" role="group" aria-label="View">
+            {[['month', 'Month'], ['person', 'By person']].map(([k, l]) => <button key={k} type="button" className="pt-seg-item" aria-pressed={view === k} onClick={() => setView(k)}>{l}</button>)}
+          </div>
           {departments.length > 1 ? (
             <div className="w-full sm:w-56">
               <PopupSelect showValueSubtext={false} ariaLabel="Department" value={dept} onChange={(v) => setDept(v || '')} placeholder="Every department"
@@ -136,7 +156,10 @@ export default function LeaveCalendar() {
               ))}
             </ul>
           ) : null}
-          {/* Scrolls sideways on a phone: reachable by keyboard, so the days past the edge can be read (axe scrollable-region-focusable). */}
+          {view === 'month' ? (
+            <MonthGrid month={month} today={today} people={people} isOffDay={isOffDay} holidayOn={holidayOn} clashOn={clashOn} />
+          ) : (
+          /* Scrolls sideways on a phone: reachable by keyboard, so the days past the edge can be read (axe scrollable-region-focusable). */
           <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }} tabIndex={0} role="group" aria-label={`Days of ${title(month)}`}>
             <table className="w-full border-collapse text-xs" aria-label={`Leave in ${title(month)}`}>
               <thead>
@@ -199,18 +222,65 @@ export default function LeaveCalendar() {
               </tbody>
             </table>
           </div>
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Key">
-            {legend.map((t) => {
-              const tone = toneOf(t.row);
-              return <li key={t.key} className="inline-flex items-center gap-1.5"><span className={`inline-block h-2.5 w-2.5 rounded-full ${tone.className || ''}`} style={tone.style} aria-hidden="true" />{t.name}</li>;
-            })}
-            <li className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full ui-dot-quiet" style={{ opacity: 0.4 }} aria-hidden="true" />Waiting</li>
+          )}
+          <ul className="pt-legend" aria-label="Key">
+            {legend.map((t) => (isPrivate(t.row)
+              ? <li key={t.key} className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full ui-dot-quiet" aria-hidden="true" />{t.name}</li>
+              : <li key={t.key}><LeavePill type={t.row} /></li>))}
+            <li className="inline-flex items-center gap-1.5"><span className="pt-cal-leave is-waiting" aria-hidden="true">&nbsp;&nbsp;&nbsp;</span>Waiting</li>
+            <li className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border" style={{ background: 'rgb(var(--surface-sunken))', borderColor: 'rgb(var(--border))' }} aria-hidden="true" />Weekly off</li>
+            {holidayOn.size ? <li className="pt-cal-holiday">Holidays in amber</li> : null}
             {people.some((p) => p.leave.some((x) => x.halfDay)) ? <li className="inline-flex items-center gap-1.5"><span className="inline-flex h-2.5 w-5 border" style={{ borderColor: 'rgb(var(--border))' }} aria-hidden="true"><span className="h-full w-1/2 ui-dot-quiet" /></span>Half day: left half first, right half second</li> : null}
             {workingKinds.map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className="inline-flex h-4 w-4 items-center justify-center text-[0.75rem]" style={workingMark} aria-hidden="true">{WORKING[k].letter}</span>{WORKING[k].name}, working</li>)}
             {[...holidayOn.entries()].map(([d, n]) => <li key={d} className="ui-muted tabular-nums">{Number(d.slice(8))}: {n}</li>)}
           </ul>
         </section>
       )}
+    </div>
+  );
+}
+
+/** The month as a calendar: weeks from Monday, the people away each day under the date, holidays in amber. */
+function MonthGrid({ month, today, people, isOffDay, holidayOn, clashOn }) {
+  const weeks = weeksOf(month);
+  const awayOnDay = (d) => people.flatMap((p) => [
+    ...p.leave.filter((r) => r.fromDate <= d && d <= r.toDate).map((r) => ({ key: r.id, p, r })),
+    ...p.working.filter((w) => w.fromDate <= d && d <= w.toDate).map((w) => ({ key: `w:${w.id}`, p, w })),
+  ]);
+  const empty = !people.length;
+  return (
+    <div className="pt-month" role="table" aria-label={`Leave in ${title(month)}`}>
+      <div className="pt-month-row pt-month-head" role="row">{WEEK_HEAD.map((d) => <span key={d} role="columnheader">{d}</span>)}</div>
+      {weeks.map((week) => (
+        <div key={week[0]} className="pt-month-row" role="row">
+          {week.map((d) => {
+            const inMonth = d.startsWith(month);
+            const away = inMonth ? awayOnDay(d) : [];
+            const holiday = inMonth ? holidayOn.get(d) : null;
+            return (
+              <div key={d} role="cell" className={`pt-day ${inMonth ? '' : 'is-out'} ${inMonth && isOffDay(d) ? 'is-off' : ''}`} aria-label={inMonth ? `${formatDate(d)}${holiday ? `, ${holiday}` : ''}${away.length ? `, ${away.length} away` : ''}` : undefined}>
+                <span className="pt-day-n">{d === today ? <span className="pt-today-mark" aria-current="date">{Number(d.slice(8))}</span> : Number(d.slice(8))}{clashOn.has(d) ? <span className="ui-pill ui-pill-warn ml-auto" title="Two or more of one department away">{away.length} away</span> : null}</span>
+                {holiday ? <span className="pt-cal-holiday">{holiday}</span> : null}
+                {away.slice(0, SHOWN_IN_CELL).map(({ key, p, r, w }) => (r ? (
+                  <span key={key} className={`pt-cal-leave ${r.status === 'PENDING' ? 'is-waiting' : ''}`} title={`${p.name}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`}>
+                    <span className={`inline-block h-2 w-2 shrink-0 rounded-sm ${toneOf(r).className || ''}`} style={toneOf(r).style} aria-hidden="true" />
+                    <span className="truncate" aria-hidden="true">{shortName(p.name)}</span>
+                    <span className="sr-only">{p.name}</span>
+                  </span>
+                ) : (
+                  <span key={key} className="pt-cal-leave" style={workingMark} title={`${p.name}: ${WORKING[w.kind]?.name || w.kind}`}>
+                    <span className="shrink-0 font-medium" aria-hidden="true">{WORKING[w.kind]?.letter || ''}</span>
+                    <span className="truncate" aria-hidden="true">{shortName(p.name)}</span>
+                    <span className="sr-only">{p.name}, {WORKING[w.kind]?.name || w.kind}</span>
+                  </span>
+                )))}
+                {away.length > SHOWN_IN_CELL ? <span className="ui-caption">+{away.length - SHOWN_IN_CELL} more</span> : null}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {empty ? <p className="pt-month-empty" role="status">Nobody is away or working elsewhere in {title(month)}. Approved leave shows on its days here.</p> : null}
     </div>
   );
 }

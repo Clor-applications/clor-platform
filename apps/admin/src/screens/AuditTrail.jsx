@@ -4,8 +4,10 @@ import { Download, RefreshCw, Search } from '@ui/components/ui/lineIcons';
 import { exportRows } from '@ui/components/ListToolbar';
 import { listAudit, listAuditFacets } from '@platform/admin/audit';
 import { hasApp } from '@platform/context';
-import { PageHead } from './wsKit';
+import { AppTag, Avatar, PageHead } from './wsKit';
+import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
+import './ws-security.css';
 
 /*
  * One trail for the company (ADR-010), with each app's share a tab away: an
@@ -14,14 +16,26 @@ import './workspace.css';
  */
 const AUDIT_APPS = [
   { id: 'company', label: 'Company' },
-  { id: 'accounting', label: 'Books' },
+  { id: 'accounting', label: 'Accounting' },
   { id: 'attendance', label: 'People & Attendance' },
   { id: 'payroll', label: 'Payroll' },
 ];
+/* Which app an entry belongs to, as the server sorts them (routes/audit.ts APP_WHERE). */
+const PEOPLE_NAMED = new Set(['Employee', 'PeopleRecord', 'LeaveSettings', 'LeaveAdjustment', 'LeaveAllocation', 'LeaveRequest', 'LeaveType', 'LeaveYearEnd', 'AttendanceRequest', 'AttendanceSettings', 'OvertimeRequest', 'DevicePunch', 'HolidayPick', 'ApprovalStandIn', 'WorkingWeek']);
+const COMPANY_NAMED = new Set(['Company', 'User', 'Role', 'UserPermission', 'Features', 'DataProtection', 'Branch', 'Subscription', 'Credential', 'ApprovalRule', 'SSO', 'Security', 'OutsideAccess', 'SupportGrant']);
+export const appOfEntity = (entity) => {
+  const e = String(entity || '');
+  if (/^PEOPLE_/.test(e)) return 'people';
+  if (/^ATTENDANCE_/.test(e) || PEOPLE_NAMED.has(e)) return 'attendance';
+  if (/^PAYROLL_/.test(e)) return 'payroll';
+  if (COMPANY_NAMED.has(e)) return 'workspace';
+  return 'accounting';
+};
+const APP_WORDS = { people: 'People', attendance: 'Attendance', payroll: 'Payroll', workspace: 'Workspace', accounting: 'Accounting' };
 const offered = () => AUDIT_APPS.filter((a) => a.id === 'company' || hasApp(a.id) || (a.id === 'attendance' && hasApp('people')));
 
 /**
- * Who changed what, and when.
+ * Workspace → Home → Activity (R&D WS-05): who changed what, and when.
  *
  * The trail has been written since the invoice routes were built and could not
  * be read anywhere — an accounting product that records every edit and shows
@@ -67,7 +81,7 @@ const entityLabel = (entity) => {
 /* An action's pill: made is good news, removed is the one to notice, every other change is plain. Always in words. */
 const ACTION_STYLE = {
   CREATE: { className: 'ws-pill ws-pill--ok' },
-  DELETE: { className: 'ws-pill', style: { color: 'rgb(var(--ws-danger))', background: 'rgb(var(--ws-danger-soft))' } },
+  DELETE: { className: 'ws-pill ws-pill--danger' },
 };
 const actionWords = (a) => String(a || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
@@ -208,13 +222,7 @@ export const FieldChanges = ({ changes }) => {
   );
 };
 
-const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-const timeOf = (iso) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-};
-
-export default function AuditTrail() {
+export default function AuditTrail({ tenant } = {}) {
   const [entries, setEntries] = useState([]);
   const [facets, setFacets] = useState({ entities: [], actions: [] });
   const [filters, setFilters] = useState(() => {
@@ -225,8 +233,9 @@ export default function AuditTrail() {
     } catch {
       /* no address */
     }
-    return { app, entity: '', action: '', from: '', to: '', q: '' };
+    return { app, entity: '', action: '', from: '', to: '', q: '', userId: '' };
   });
+  const [span, setSpan] = useState('');
   const [cursor, setCursor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState('');
@@ -263,16 +272,18 @@ export default function AuditTrail() {
 
   const set = (k) => (e) => setFilters((p) => ({ ...p, [k]: e.target.value }));
 
-  const grouped = useMemo(() => {
-    const byDay = new Map();
-    for (const e of entries) {
-      const d = new Date(e.at);
-      const key = Number.isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString(undefined, { dateStyle: 'full' });
-      if (!byDay.has(key)) byDay.set(key, []);
-      byDay.get(key).push(e);
-    }
-    return [...byDay.entries()];
-  }, [entries]);
+  const chooseSpan = (v) => {
+    setSpan(v);
+    if (v !== 'custom') setFilters((p) => ({ ...p, from: spanFrom(v), to: '' }));
+  };
+  /* People seen in what is loaded, for the Person filter; the server filters on the one chosen. */
+  const people = useMemo(() => {
+    const m = new Map();
+    for (const e of entries) if (e.by?.id && !m.has(e.by.id)) m.set(e.by.id, e.by.name || 'Unknown user');
+    if (filters.userId && !m.has(filters.userId)) m.set(filters.userId, 'Chosen person');
+    return [...m.entries()];
+  }, [entries, filters.userId]);
+  const company = tenant?.name || '';
 
   const download = () =>
     exportRows({
@@ -280,19 +291,23 @@ export default function AuditTrail() {
       label: 'entries',
       columns: [
         { key: 'when', label: 'When' },
+        { key: 'app', label: 'App' },
         { key: 'action', label: 'Action' },
         { key: 'record', label: 'Record' },
         { key: 'message', label: 'What happened' },
         { key: 'by', label: 'By' },
         { key: 'email', label: 'Email' },
+        { key: 'company', label: 'Company' },
       ],
       rows: entries.map((e) => ({
         when: when(e.at),
+        app: APP_WORDS[appOfEntity(e.entity)],
         action: e.action,
         record: entityLabel(e.entity),
         message: messageWords(e.message, e.entity, e.action),
         by: e.by?.name || 'Unknown user',
         email: e.by?.email || '',
+        company,
       })),
     });
 
@@ -300,115 +315,108 @@ export default function AuditTrail() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Security', 'Audit trail']}
-          title="Audit trail"
+          crumbs={['Home', 'Activity']}
+          title="Activity"
+          description={`What happened in every app${company ? ` at ${company}` : ' in this company'}: who changed what, and when. Read-only; nothing here can be edited or removed.`}
           actions={
             <>
-              <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading}>
-                <RefreshCw size={16} aria-hidden="true" /> {loading ? 'Loading…' : 'Refresh'}
+              <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading} aria-label={loading ? 'Loading' : 'Refresh'} title="Refresh">
+                <RefreshCw size={16} aria-hidden="true" />
               </button>
-              <button type="button" onClick={download} className="ws-btn ws-btn--primary" disabled={!entries.length}>
-                <Download size={16} aria-hidden="true" /> Export shown
+              <button type="button" onClick={download} className="ws-btn ws-btn--quiet" disabled={!entries.length}>
+                <Download size={16} aria-hidden="true" /> Export
               </button>
             </>
           }
         />
 
-        <div className="flex flex-wrap gap-1" role="tablist" aria-label="Whose changes">
-          {[{ id: '', label: 'Everything' }, ...offered()].map((a) => {
-            const on = filters.app === a.id;
-            return (
-              <button
-                key={a.id || 'all'}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                onClick={() => setFilters((p) => ({ ...p, app: a.id }))}
-                className="ws-btn ws-btn--quiet ws-btn--small"
-                style={on ? { background: 'rgb(var(--ws-accent-soft))', borderColor: 'rgb(var(--ws-accent) / 0.35)', color: 'rgb(var(--ws-accent-hover))' } : undefined}
-              >
-                {a.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3" role="search">
-          <label className="relative grid gap-1 flex-1 min-w-[14rem]">
-            <span className="text-sm font-medium">Contains</span>
-            <span className="relative">
-              <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
-              <input id="audit-q" type="text" value={filters.q} onChange={set('q')} className="ui-input w-full" style={{ paddingLeft: '2.25rem' }} placeholder="Invoice number, name…" />
-            </span>
+        <div className="ws-filters" role="search">
+          <label className="ws-search">
+            <Search size={16} aria-hidden="true" />
+            <span className="sr-only">Search activity</span>
+            <input id="audit-q" type="search" value={filters.q} onChange={set('q')} className="ui-input" placeholder="Search activity" />
           </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">Record</span>
-            <select id="audit-entity" value={filters.entity} onChange={set('entity')} className="ui-select">
-              <option value="">All</option>
-              {facets.entities.map((e) => (
-                <option key={e} value={e}>{entityLabel(e)}</option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">Action</span>
-            <select id="audit-action" value={filters.action} onChange={set('action')} className="ui-select">
-              <option value="">All</option>
-              {facets.actions.map((a) => (
-                <option key={a} value={a}>{actionWords(a)}</option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">From</span>
-            <input id="audit-from" type="date" value={filters.from} onChange={set('from')} className="ui-input" />
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">To</span>
-            <input id="audit-to" type="date" value={filters.to} onChange={set('to')} className="ui-input" />
-          </label>
+          <select id="audit-app" aria-label="App" value={filters.app} onChange={set('app')} className="ui-select">
+            {[{ id: '', label: 'All' }, ...offered()].map((a) => (
+              <option key={a.id || 'all'} value={a.id}>{`App: ${a.label}`}</option>
+            ))}
+          </select>
+          <select id="audit-person" aria-label="Person" value={filters.userId} onChange={set('userId')} className="ui-select">
+            <option value="">Person: Anyone</option>
+            {people.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
+          <select id="audit-entity" aria-label="Record" value={filters.entity} onChange={set('entity')} className="ui-select">
+            <option value="">Record: All</option>
+            {facets.entities.map((e) => (
+              <option key={e} value={e}>{entityLabel(e)}</option>
+            ))}
+          </select>
+          <select id="audit-action" aria-label="Action" value={filters.action} onChange={set('action')} className="ui-select">
+            <option value="">Action: All</option>
+            {facets.actions.map((a) => (
+              <option key={a} value={a}>{actionWords(a)}</option>
+            ))}
+          </select>
+          <DateFilter span={span} from={filters.from} to={filters.to} onSpan={chooseSpan} onFrom={set('from')} onTo={set('to')} />
         </div>
 
         {failed ? (
-          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>The trail could not be read: {failed}</p>
+          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>The activity could not be read: {failed}</p>
         ) : null}
 
         {!entries.length && !loading ? (
-          <div className="ws-setup">
-            <p className="ws-card-blurb">Nothing matches these filters.</p>
-          </div>
+          <p className="ws-card-blurb">Nothing matches these filters.</p>
         ) : !entries.length ? (
-          <p className="ws-card-blurb">Loading the trail…</p>
+          <p className="ws-card-blurb">Loading activity…</p>
         ) : (
           <>
-            <div className="ws-audit" aria-label="Audit trail entries, newest first">
-              {grouped.map(([day, rows]) => (
-                <section key={day} className="ws-audit-day" aria-label={day}>
-                  <h2 className="ws-audit-dayhead">
-                    {day} <span>{rows.length} {rows.length === 1 ? 'change' : 'changes'}</span>
-                  </h2>
-                  <ol className="ws-audit-list">
-                    {rows.map((e) => (
-                      <li key={e.id} className="ws-audit-entry" data-action={e.action}>
-                        <time className="ws-audit-time" dateTime={e.at} title={when(e.at)}>{timeOf(e.at)}</time>
-                        <span className="ws-audit-avatar" aria-hidden="true">{initials(e.by?.name)}</span>
-                        <div className="ws-audit-body">
-                          <p className="ws-audit-line">
-                            <strong title={e.by?.email || undefined}>{e.by?.name || 'Unknown user'}</strong>{' '}
+            <div className="ws-table-wrap">
+              <table className="ws-table ws-sec-table" aria-label="Activity, newest first">
+                <thead>
+                  <tr>
+                    <th scope="col">When</th>
+                    <th scope="col">Who</th>
+                    <th scope="col">App</th>
+                    <th scope="col">What happened</th>
+                    <th scope="col">Company</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((e) => {
+                    const app = appOfEntity(e.entity);
+                    const who = e.by?.name || 'Unknown user';
+                    return (
+                      <tr key={e.id} data-action={e.action}>
+                        <td className="ws-sec-when">
+                          <time dateTime={e.at} title={when(e.at)}>{shortWhen(e.at)}</time>
+                        </td>
+                        <td>
+                          <span className="ws-sec-who" title={e.by?.email || undefined}>
+                            <Avatar name={who} />
+                            <strong>{who}</strong>
+                            {e.entity === 'SupportGrant' ? <span className="ws-tag">Staff</span> : null}
+                          </span>
+                        </td>
+                        <td>
+                          {app === 'workspace' ? <span className="ws-tag">Workspace</span> : <AppTag app={app} />}
+                        </td>
+                        <td className="ws-sec-wrap">
+                          <span className="ws-sec-what">
                             <span>{messageWords(e.message, e.entity, e.action)}</span>
-                          </p>
-                          <p className="ws-audit-meta">
                             <ActionPill action={e.action} />
-                            {e.entity ? <span>{entityLabel(e.entity)}</span> : null}
-                          </p>
+                            {e.entity ? <span className="ws-sec-record">{entityLabel(e.entity)}</span> : null}
+                          </span>
                           <FieldChanges changes={e.changes} />
                           <Changes metadata={e.metadata} />
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              ))}
+                        </td>
+                        <td>{company || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
             <nav className="flex items-center gap-3" aria-label="Pages">

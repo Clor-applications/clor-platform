@@ -309,7 +309,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
               state.setSort({ key, dir: 'asc' });
               onClose();
             }}
-            className={`flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs ui-hover-sunken ${state.sort?.key === key && state.sort?.dir === 'asc' ? 'ui-sunken' : ''}`}
+            className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ui-hover-sunken ${state.sort?.key === key && state.sort?.dir === 'asc' ? 'ui-sunken' : ''}`}
           >
             <span className="w-5 text-center font-medium ui-muted" aria-hidden="true">A↓</span>
             {isDate ? 'Sort Oldest to Newest' : isNumber ? 'Sort Smallest to Largest' : 'Sort A to Z'}
@@ -320,7 +320,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
               state.setSort({ key, dir: 'desc' });
               onClose();
             }}
-            className={`flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs ui-hover-sunken ${state.sort?.key === key && state.sort?.dir === 'desc' ? 'ui-sunken' : ''}`}
+            className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ui-hover-sunken ${state.sort?.key === key && state.sort?.dir === 'desc' ? 'ui-sunken' : ''}`}
           >
             <span className="w-5 text-center font-medium ui-muted" aria-hidden="true">Z↓</span>
             {isDate ? 'Sort Newest to Oldest' : isNumber ? 'Sort Largest to Smallest' : 'Sort Z to A'}

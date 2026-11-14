@@ -17,18 +17,19 @@ beforeEach(() => {
 });
 
 /* W-7.2: the account's own audit, in plain words, filterable, with details on demand. */
-describe('Workspace → Account activity', () => {
+describe('Workspace → Audit log', () => {
   it('lists what happened and who did it, newest first, refusals marked', async () => {
     render(<AccountActivity />);
-    expect(await screen.findByText('Suspended in the account: Kavya')).toBeInTheDocument();
-    const list = within(screen.getByRole('list', { name: /Account activity/ }));
-    expect(list.getByText('Refused: needs an account role')).toBeInTheDocument();
-    expect(list.getByText('Refused')).toBeInTheDocument();
+    const table = within(await screen.findByRole('table', { name: /Audit log/ }));
+    expect(await table.findByText('Suspended in the account')).toBeInTheDocument();
+    expect(table.getAllByText('Kavya').length).toBeGreaterThan(0);
+    expect(table.getByText('Refused: needs an account role')).toBeInTheDocument();
+    expect(table.getByText('Refused')).toBeInTheDocument();
   });
 
   it('filters on the server and pages back', async () => {
     render(<AccountActivity />);
-    await screen.findByText('Suspended in the account: Kavya');
+    await screen.findByText('Suspended in the account');
     fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'DENIED' } });
     await waitFor(() => expect(accountAudit).toHaveBeenLastCalledWith(expect.objectContaining({ result: 'DENIED' })));
     fireEvent.click(await screen.findByRole('button', { name: 'Show older' }));

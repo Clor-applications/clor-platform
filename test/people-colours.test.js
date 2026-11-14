@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { colorOf, swatchOf } from '../packages/ui/src/timeOff/api';
 
 /**
+ * Moss (R&D redesign, owner 14 Nov 2026) replaced the red, coral and marigold brands below; the tests on those
+ * colours went with them. What stays: tones and tints named by meaning in the JSX, and the moss rules at the end.
+ *
  * People's brand colours used where they belong (owner, 31 Oct 2026: "yellow and other colors not utilised
  * properly", then "Yes, all ten"; red brand from 3 Nov 2026). Marigold marks what waits on you, blush what is chosen or done, away has its
  * own mark, red is only for what went wrong, and charts, teams and leave types draw from one brand series.
@@ -12,23 +15,9 @@ import { colorOf, swatchOf } from '../packages/ui/src/timeOff/api';
 const read = (f) => readFileSync(f, 'utf8');
 const people = read('packages/ui/src/people.css');
 const index = read('packages/ui/src/index.css');
-const block = people.slice(people.indexOf('Brand colours where they belong'));
-const token = (src, name) => (src.match(new RegExp(`--${name}:\\s*([\\d ]+);`)) || [])[1]?.trim();
 
-const lum = (rgb) => {
-  const c = rgb.split(' ').map(Number).map((v) => v / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-};
-const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-const WHITE = '255 255 255';
-const OXBLOOD = '92 10 22';
-const MARIGOLD = '245 166 35';
 
-describe('counts that wait on you are marigold', () => {
-  it('styles the count class the tabs render, not one that does not exist', () => {
-    expect(people).not.toMatch(/\.ui-tab \.ui-count|\.ui-split-panel \.ui-count/);
-    expect(people).toMatch(/:is\(\.ui-tab-count, \.ui-side-count\)\[data-tone='warn'\] \{ background: rgb\(var\(--warm\)\) !important; color: rgb\(var\(--oxblood\)\) !important;/);
-  });
+describe('counts that wait on you are marked', () => {
 
   /* The tabs are ListHeader's now (People plan 8 Nov 2026, step 3): a screen names the tone, the header draws the count. */
   it.each([
@@ -43,15 +32,6 @@ describe('counts that wait on you are marigold', () => {
     expect(read('packages/ui/src/components/list/ListHeader.jsx')).toContain('<span className="ui-tab-count tabular-nums" data-tone={t.tone || undefined}>');
   });
 
-  it('the bell count is 12px, red by default and marigold in People, with a dot on unread lines', () => {
-    const bell = read('packages/shell/NotificationBell.jsx');
-    expect(bell).not.toMatch(/text-\[10px\]/);
-    expect(bell).toContain('className="ui-bell-count"');
-    expect(bell).toContain('className="ui-bell-unread"');
-    expect(index).toMatch(/\.ui-bell-count \{[^}]*font-size: 0\.75rem;[^}]*background: rgb\(var\(--neg\)\)/);
-    expect(index).toMatch(/\.ui-bell-unread \{ display: none;/);
-    expect(block).toMatch(/\.ui-bell-count \{ background: rgb\(var\(--warm\)\); color: rgb\(var\(--oxblood\)\); \}/);
-  });
 
   it('side blocks whose count waits on you mark it, and the timeline warning dot is a marigold mark', () => {
     expect(read('packages/ui/src/components/list/SidePanel.jsx')).toContain('<span className="ui-side-count" data-tone={tone}>');
@@ -60,30 +40,10 @@ describe('counts that wait on you are marigold', () => {
     expect(index).toMatch(/\.ui-side-timeline > li\[data-tone='warn'\] \.ui-side-dot \{ background: rgb\(var\(--warn-mark, var\(--warn\)\)\);/);
   });
 
-  it("Home's waiting rows and an unfinished setup step take marigold, once per row", () => {
-    const home = read('apps/people/src/screens/PeopleOverview.jsx');
-    expect(home).toContain("data-tone={t.tone === 'info' ? undefined : 'warn'}");
-    /* The count tile carries the marigold; "This week" beside it is quiet, so the row does not shout twice. */
-    expect(home).toContain("soon: { label: 'This week', pill: 'neutral' }");
-    expect(read('apps/people/src/screens/HomeSetup.jsx')).toContain("s.optional ? 'ui-pill-neutral' : 'ui-pill-warn'");
-    expect(block).toMatch(/\.people-row-count\[data-tone='warn'\] \{ background: rgb\(var\(--warm\)\)/);
-  });
 
-  it('a figure that waits on you and is above nought shows its number in the waiting ink, no top bar', () => {
-    expect(read('packages/ui/src/timeOff/TimeOverview.jsx')).toContain('data-attention={(attention && Number(value) > 0) || undefined}');
-    expect(read('packages/ui/src/lifecycle/Overview.jsx')).toContain('data-zero={Number(value) === 0 || undefined}');
-    expect(block).toMatch(/\.ui-metric\[data-attention\] \.ui-metric-value \{ color: rgb\(var\(--warn\)\); \}/);
-    expect(block).not.toMatch(/\[data-attention\][^}]*inset 0 3px 0/);
-  });
 });
 
 describe('figures', () => {
-  it('oxblood figures leave a nought to the quiet grey rule', () => {
-    const indigo = people.match(/^.*#main-content :is\(h1, h2, [^{]*\{ color: rgb\(var\(--fg-heading\)\); \}$/m)[0];
-    expect(indigo).toContain('.ui-metric:not([data-zero]) .ui-metric-value');
-    expect(indigo).not.toMatch(/, \.ui-metric-value,/);
-    expect(people).toMatch(/\.ui-metric\[data-zero\] \.ui-metric-value \{ color: rgb\(var\(--fg-subtle\)\)/);
-  });
 
   it.each([
     ['apps/people/src/workforce/Directory.jsx', 5],
@@ -116,16 +76,22 @@ describe('tints are named by meaning, not handed out by position', () => {
   it('the shared figure cards on People screens each name a tint; only "To decide" is marigold', () => {
     const revisions = Object.fromEntries(tintsIn(read('apps/payroll/src/screens/SalaryRevisions.jsx')));
     expect(revisions).toMatchObject({ 'To decide': 'butter', Approved: 'mint', 'Yearly rise': 'sky', 'Average rise': 'lilac' });
-    const report = Object.fromEntries(tintsIn(read('apps/people/src/screens/PeopleReports.jsx')));
-    expect(report).toMatchObject({ 'Headcount today': 'sky', Joiners: 'mint', Leavers: 'peach', Attrition: 'lilac' });
+    /* R&D tiles (14 Nov 2026): each tile names its categorical accent in the source, never by its index. */
+    const report = read('apps/people/src/screens/PeopleReports.jsx');
+    expect(report).toMatch(/label: 'Headcount today', [^\n]*accent: 1/);
+    expect(report).toMatch(/label: 'Joiners', [^\n]*accent: 2/);
+    expect(report).toMatch(/label: 'Attrition', [^\n]*accent: 4/);
     expect(read('packages/ui/src/components/list/ListPageParts.jsx')).toMatch(/data-tint=\{card\.tint \|\| undefined\}/);
   });
   it('no quick links in People any more: the module panel names the screens (plan 8 Nov 2026, §3 rule 3)', () => {
     expect(read('apps/people/src/panels.jsx')).not.toMatch(/SideLinks|Quick links/);
     expect(read('packages/ui/src/components/list/SidePanel.jsx')).not.toMatch(/ui-side-today/);
   });
+  it('apps/people/src/workforce/Directory.jsx: each R&D tile names its categorical accent', () => {
+    const tiles = [...read('apps/people/src/workforce/Directory.jsx').matchAll(/\{ key: '\w+', label: '[^']+', cat: (\d)/g)];
+    expect(tiles.length).toBeGreaterThan(2);
+  });
   it.each([
-    'apps/people/src/workforce/Directory.jsx',
     'apps/people/src/organization/Overview.jsx',
     'packages/ui/src/lifecycle/Overview.jsx',
     'packages/ui/src/timeOff/TimeOverview.jsx',
@@ -158,34 +124,8 @@ describe('tints are named by meaning, not handed out by position', () => {
     ];
     for (const f of files) for (const re of byIndex) expect(read(f), `${f} ${re}`).not.toMatch(re);
   });
-  it('a department has one tint on every Organisation screen, from its name, never marigold', async () => {
-    const { tintOf, ORG_TINTS } = await import('../apps/people/src/organization/tints.js');
-    expect(ORG_TINTS).not.toContain('butter');
-    for (const name of ['Sales', 'Production', 'Accounts', 'Human resources', 'Management', 'Head Office']) {
-      expect(ORG_TINTS).toContain(tintOf(name));
-      expect(tintOf(name)).toBe(tintOf(` ${name.toUpperCase()} `));
-    }
-    for (const f of ['apps/people/src/organization/Overview.jsx', 'apps/people/src/organization/StructurePage.jsx', 'apps/people/src/screens/OrgTreeChart.jsx']) {
-      const src = read(f);
-      expect(src, f).toMatch(/import \{ tintOf \} from '(\.\/|\.\.\/organization\/)tints'/);
-      expect(src, f).not.toMatch(/'butter'/);
-    }
-    expect(read('apps/people/src/organization/Overview.jsx')).toMatch(/data-tint=\{tintOf\(x\.name\)\}/);
-    expect(people).toMatch(/\.org-card-bar > span \{ background: rgb\(var\(--tint-ink, var\(--fg-muted\)\)\); \}/);
-    expect(people).not.toMatch(/\.org-card-bar > span \{ background: rgb\(var\(--warm\)\); \}/);
-    expect(read('apps/people/src/organization/StructurePage.jsx')).toMatch(/data-tint=\{tintOf\(r\.name\)\}/);
-    expect(read('apps/people/src/screens/OrgTreeChart.jsx')).toMatch(/\[d, tintOf\(d\)\]/);
-  });
-  it('Home: Waiting for you is the marigold panel; news, events and celebrations are not marigold', () => {
-    const home = read('apps/people/src/screens/PeopleOverview.jsx');
-    expect(home).toMatch(/id="todo-h" icon=\{SealCheck\} tint="butter"/);
-    expect((home.match(/tint="butter"|'butter'/g) || [])).toHaveLength(1);
-    expect(people).not.toMatch(/\.people-celebrate-badge \{ background: rgb\(var\(--butter/);
-    expect(people).not.toMatch(/\.soft-(fun|event\[data-fun\])[^{]*\{[^}]*--butter/);
-    expect(people).not.toMatch(/\.soft-news-icon\[data-symbol\] \{[^}]*--butter/);
-  });
-  it('faces hash over four washes, none marigold, and the record keeps the person\'s own', () => {
-    expect(read('packages/ui/src/personnel/Employees.jsx')).toMatch(/% 9973, 0\) % 4\}/);
+  it('faces hash over the eight categorical colours, none marigold, and the record keeps the person\'s own', () => {
+    expect(read('packages/ui/src/personnel/Employees.jsx')).toMatch(/% 9973, 0\) % 8\) \+ 1/);
     expect(people).not.toMatch(/data-hue='4'/);
     expect(people).not.toMatch(/\.ui-avatar-initials\[data-hue='\d'\] \{[^}]*--butter/);
     expect(people).not.toMatch(/\.ui-profile \.ui-avatar-initials \{ background: rgb\(var\(--marigold\)\)/);
@@ -199,102 +139,74 @@ describe('tints are named by meaning, not handed out by position', () => {
   });
 });
 
-describe('status tokens in brand D', () => {
-  it('warnings: marigold marks, words in a readable warm ink, never marigold text', () => {
-    expect(token(block, 'warn-mark')).toBe(MARIGOLD);
-    expect(token(block, 'warn')).not.toBe(MARIGOLD);
-    expect(contrast(token(block, 'warn'), WHITE)).toBeGreaterThan(4.5);
-    expect(token(block, 'warn-soft')).toBe('254 241 214');
-    expect(contrast(OXBLOOD, token(block, 'warn-soft'))).toBeGreaterThan(4.5);
-    expect(block).toMatch(/\.ui-attention-dot\.is-warn \{ background: rgb\(var\(--warn-mark\)\); \}/);
+describe('moss: People declares no brand of its own (R&D redesign, 14 Nov 2026)', () => {
+  it('declares no brand, neutral or status token: rnd.css owns them', () => {
+    const declared = [...people.matchAll(/^\s*(--[a-z0-9-]+):/gm)].map(([, n]) => n);
+    const brand = declared.filter((n) => /^--(brand|act|marker|tint$|panel|fg|surface|border|app-bg|pos|neg|warn|info|ring|link|choice|rail|frame|oxblood|marigold|teal|warm|butter|mint|lilac|peach|sky|on-)/.test(n));
+    expect(brand).toEqual([]);
+    expect(people).not.toMatch(/var\(--(oxblood|marigold|teal|warm|blush|frame|kind-|btn-icon)/);
   });
 
-  it("red is DESIGN's #B91C1C, readable on white and on its soft tint", () => {
-    expect(token(block, 'neg')).toBe('185 28 28');
-    expect(contrast(token(block, 'neg'), WHITE)).toBeGreaterThan(4.5);
-    expect(contrast(token(block, 'neg'), token(block, 'neg-soft'))).toBeGreaterThan(4.5);
+  it('points teams, chart series and leave slots at the categorical palette, never past eight', () => {
+    for (let i = 1; i <= 8; i += 1) expect(people).toContain(`--dept-${i}: var(--cat-${i});`);
+    for (let i = 0; i <= 7; i += 1) expect(people).toContain(`--leave-${i}: var(--cat-${i + 1});`);
+    expect(people).not.toMatch(/--cat-9/);
   });
 
-  it('away has its own mark, apart from Present\'s oxblood, and is never text', () => {
-    expect(token(block, 'away')).toBe('168 110 124');
-    expect(contrast(token(block, 'away'), WHITE)).toBeGreaterThan(3);
-    expect(contrast(token(block, 'away'), OXBLOOD)).toBeGreaterThan(3);
-    expect(block).toMatch(/\.att-summary \[data-tone='info'\] \{ --t: var\(--away\); \}/);
-    expect(block).not.toMatch(/color: rgb\(var\(--away\)\)/);
-  });
-
-  it('a clash is a look-here line, not an error', () => {
-    expect(read('apps/people/src/panels.jsx')).toMatch(/<SideAlert title=\{`\$\{noManager\} without a manager`\}[^>]*tone="warn"/);
-    expect(block).toMatch(/\.ui-side-alert\[data-tone='warn'\] \{ box-shadow: inset 3px 0 0 rgb\(var\(--warm\)\); \}/);
-  });
-
-  it('oxblood on marigold, the one way marigold carries words, clears AA', () => {
-    expect(contrast(OXBLOOD, MARIGOLD)).toBeGreaterThan(4.5);
-    expect(contrast(MARIGOLD, WHITE)).toBeLessThan(3);
-  });
-});
-
-describe('one brand series for charts, teams and leave types', () => {
-  it('teams: oxblood, marigold, away first; no-team stays grey', () => {
-    expect(token(block, 'dept-1')).toBe(OXBLOOD);
-    expect(token(block, 'dept-2')).toBe(MARIGOLD);
-    expect(token(block, 'dept-3')).toBe('168 110 124');
-    expect(token(block, 'dept-0')).toBe('116 104 108');
-  });
-
-  it('every team mark but marigold reads at least 3:1 on white', () => {
-    for (let i = 0; i <= 8; i += 1) {
-      const slot = token(block, `dept-${i}`);
-      if (slot !== MARIGOLD) expect(contrast(slot, WHITE), `dept-${i}`).toBeGreaterThan(3);
+  it('gives each identity tint a categorical accent', () => {
+    for (const [tint, cat] of [['sky', 1], ['peach', 2], ['mint', 3], ['butter', 4], ['lilac', 7]]) {
+      expect(people).toMatch(new RegExp(`\\[data-tint='${tint}'\\] *\\{ --id: var\\(--cat-${cat}\\);`));
     }
   });
 
-  it('the most common leave type wears the away mark, and the warning brown is never a leave colour', () => {
-    expect(swatchOf({ name: 'Casual leave' })).toBe('rgb(var(--leave-6))');
-    expect(token(block, 'leave-6')).toBe(token(block, 'away'));
-    for (let i = 0; i < 8; i += 1) expect(token(block, `leave-${i}`), `leave-${i}`).not.toBe(token(block, 'warn'));
+  it('draws the figure strip as KPI tiles: 36px chip, 12px uppercase label, 28px tabular number, 3px top accent', () => {
+    expect(people).toMatch(/\.ui-metric-strip > \* \{[^}]*border-radius: 0\.75rem;[^}]*box-shadow: inset 0 3px 0 rgb\(var\(--id\)\);/);
+    expect(people).toMatch(/\.ui-metric-icon \{[^}]*width: 2\.25rem;[^}]*height: 2\.25rem;/);
+    expect(people).toMatch(/\.ui-metric-label \{[^}]*font-size: 0\.75rem;[^}]*text-transform: uppercase;/);
+    expect(people).toMatch(/\.ui-metric-value \{[^}]*font-size: 1\.75rem;[^}]*font-variant-numeric: tabular-nums;/);
+    expect(people).toMatch(/\.ui-metric\[data-zero\] \.ui-metric-value \{ color: rgb\(var\(--fg-subtle\)\); \}/);
+    expect(people).toMatch(/\.ui-metric\[data-attention\] \.ui-metric-value \{ color: rgb\(var\(--warn\)\); \}/);
   });
 
-  it('the gender bar takes the first two of the series, not blue and crimson', () => {
-    const home = read('apps/people/src/screens/PeopleOverview.jsx');
-    expect(home).not.toMatch(/\[6, 3, 5\]/);
-    /* A fourth answer is grey: a chart carries three colours (UI rules, 8 Nov 2026). */
-    expect(home.match(/\[1, 2, 3\]\[i\] \?\? 0/g)).toHaveLength(2);
+  it('shows the page description at 14px and the back link at 13px', () => {
+    expect(people).toMatch(/\.ui-page-heading p\.ui-muted\.ui-t-body \{ display: block;[^}]*font-size: 0\.875rem;/);
+    expect(people).toMatch(/\.ui-breadcrumb \{[^}]*font-size: 0\.8125rem;/);
   });
 
-  it('faces: initials in oxblood on their team wash', () => {
-    expect(block).toMatch(/\.people-face \{ color: rgb\(var\(--oxblood\)\); background: rgb\(var\(--dept\) \/ 0\.16\); \}/);
+  it("folds every Settings group but the open screen's", () => {
+    expect(people).toContain(".ui-split-panel[aria-label='Settings screens'] > div:has(> p.ui-caption):not(:has([aria-current='page'])) > .ui-split-item { position: absolute; visibility: hidden; clip-path: inset(50%); pointer-events: none; }");
   });
 
-  it('a leave type nobody coloured draws its slot token; its own colour wins; the picker still gets a hex', () => {
-    expect(swatchOf({ color: '#123456', name: 'Casual leave' })).toBe('#123456');
-    expect(swatchOf({ name: 'Casual leave' })).toMatch(/^rgb\(var\(--leave-[0-7]\)\)$/);
-    expect(colorOf({ name: 'Casual leave' })).toMatch(/^#[0-9a-f]{6}$/);
-    for (let i = 0; i < 8; i += 1) {
-      expect(token(index, `leave-${i}`), `base leave-${i}`).toBeTruthy();
-      const slot = token(block, `leave-${i}`);
-      /* A leave type is not an error, so never red; every slot but marigold (a fill by rule) reads as a mark on white. */
-      expect(slot, `brand D leave-${i}`).not.toBe(token(block, 'neg'));
-      if (slot !== MARIGOLD) expect(contrast(slot, WHITE), `brand D leave-${i}`).toBeGreaterThan(3);
-    }
-    for (const f of ['LeaveBalances', 'LeaveCalendar', 'LeaveRegister', 'LeaveRequests']) {
-      expect(read(`packages/ui/src/timeOff/${f}.jsx`), f).not.toMatch(/colorOf\(/);
-    }
-  });
-});
-
-describe('chosen and the employee app', () => {
-  /* Since 3 Nov 2026 the panel is blush under an oxblood rail (test/people-red-brand.test.js): the open screen is a white tile with a red edge. */
-  it("the module panel's open screen sits on a white tile, marked with red", () => {
-    expect(block).toMatch(/\.ui-split-panel \.ui-split-item\[aria-current='page'\] \{\n\s*background: rgb\(255 255 255\); color: rgb\(var\(--brand-ink\)\); font-weight: 700; box-shadow: inset 3px 0 0 rgb\(var\(--brand\)\)/);
+  it('a waiting count is the Attention status, never a brand fill', () => {
+    expect(people).not.toMatch(/\.ui-tab \.ui-count|\.ui-split-panel \.ui-count/);
+    expect(people).toMatch(/:is\(\.ui-tab-count, \.ui-side-count\)\[data-tone='warn'\] \{ background: rgb\(var\(--warn-soft\)\) !important; color: rgb\(var\(--warn-ink\)\) !important;/);
+    expect(people).toMatch(/\.people-row-count\[data-tone='warn'\] \{ background: rgb\(var\(--warn-soft\)\); color: rgb\(var\(--warn-ink\)\); \}/);
+    expect(read('apps/people/src/screens/PeopleOverview.jsx')).toContain("data-tone={t.tone === 'info' ? undefined : 'warn'}");
+    expect(index).toMatch(/\.ui-bell-count \{[^}]*font-size: 0\.75rem;/);
   });
 
-  it("the employee app wears brand D's waiting through its own data-brand, not the sky palette", () => {
-    const portal = read('apps/attendance/src/portal/EmployeePortal.jsx');
-    expect(portal).toContain('className="ui-portal min-h-dvh pb-20" data-brand="d"');
-    expect(portal).not.toMatch(/data-palette/);
-    const rules = block.slice(block.indexOf('The employee app'));
-    expect(rules).toMatch(/\.ui-portal\[data-brand='d'\] \.ui-pill-warn \{ background: rgb\(var\(--marigold\)\); color: rgb\(var\(--oxblood, var\(--ink\)\)\); \}/);
+  it('the employee app marks waiting and the open tab through its own data-brand', () => {
+    const rules = people.slice(people.indexOf('The employee app (shared with Attendance'));
     for (const line of rules.split('\n').filter((l) => l.includes('{'))) expect(line).toContain(".ui-portal[data-brand='d']");
+  });
+});
+
+describe('leave types wear the leave tokens (audit M11)', () => {
+  it('the common kinds draw their own token, any other type its slot', () => {
+    expect(swatchOf({ name: 'Casual Leave' })).toMatch(/^rgb\(var\(--leave-casual, var\(--leave-\d\)\)\)$/);
+    expect(swatchOf({ name: 'Sick Leave' })).toContain('--leave-sick');
+    expect(swatchOf({ name: 'Earned Leave' })).toContain('--leave-earned');
+    expect(swatchOf({ name: 'Comp off' })).toContain('--leave-compoff');
+    expect(swatchOf({ name: 'Work from home' })).toContain('--leave-wfh');
+    expect(swatchOf({ name: 'Maternity Leave' })).toMatch(/^rgb\(var\(--leave-[0-7]\)\)$/);
+  });
+  it("a colour the old presets stored is nobody's pick; one the owner picked wins; the picker still gets a hex", () => {
+    expect(swatchOf({ name: 'Casual Leave', color: '#2563eb' })).toContain('--leave-casual');
+    expect(swatchOf({ name: 'Casual Leave', color: '#123456' })).toBe('#123456');
+    expect(colorOf({ name: 'Casual Leave' })).toMatch(/^#[0-9A-F]{6}$/);
+  });
+  it('the policy presets store no colour, and tags pick from the categorical series', () => {
+    expect(read('packages/ui/src/timeOff/LeavePolicy.jsx')).not.toMatch(/color: '#/);
+    expect(read('apps/people/src/screens/Tags.jsx')).toContain("const SWATCHES = ['#2A78D6', '#EB6834', '#1BAF7A', '#EDA100', '#E87BA4', '#008300', '#6250D6', '#E34948'];");
   });
 });

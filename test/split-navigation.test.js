@@ -114,7 +114,7 @@ it('every screen that existed before the regrouping still has a place in the sid
 
 describe('settings pages', () => {
   it('People: every page under Settings has a card, and every card opens a page', () => {
-    const cards = new Set([...readFileSync('apps/people/src/screens/PeopleSettings.jsx', 'utf8').matchAll(/\['([a-zA-Z]+)', '/g)].map((m) => m[1]).filter((k) => !['payroll', 'attendance'].includes(k)));
+    const cards = new Set([...readFileSync('apps/people/src/settingsGroups.js', 'utf8').matchAll(/\['([a-zA-Z]+)', '/g)].map((m) => m[1]).filter((k) => !['payroll', 'attendance'].includes(k)));
     const under = peopleApp.nav.filter((i) => i.parent === 'settings').map((i) => i.key);
     expect(under.filter((k) => !cards.has(k)), 'no card').toEqual([]);
     expect([...cards].filter((k) => !peopleApp.screens[k]), 'no page').toEqual([]);

@@ -114,7 +114,7 @@ export async function bootstrapOwnerRole(accountId: string, orgId: string, userI
  * it, and whether the state and GSTIN are valid, is the caller's to check.
  * Throws QuotaBusyError or ProvisionError(COMPANY_LIMIT).
  */
-export async function createCompany(input: { accountId: string; userId: string; companyName: string; state: string; gstin?: string | null; profile?: Record<string, unknown>; adminTwoFactor?: boolean }) {
+export async function createCompany(input: { accountId: string; userId: string; companyName: string; state: string; gstin?: string | null; profile?: Record<string, unknown>; apps?: string[]; adminTwoFactor?: boolean }) {
   const { accountId, userId } = input;
   const name = input.companyName.trim();
   const stateName = input.state.trim();
@@ -175,10 +175,17 @@ export async function createCompany(input: { accountId: string; userId: string; 
    * A new company starts with the apps its account owns, switched on for it:
    * app switches follow subscription changes, and a company created under a
    * standing subscription never sees one. Failures cannot sink the company.
+   *
+   * `apps`, when given, is what the person picked on company setup, and only
+   * those of the owned apps are switched on. A self-serve sign-up's trial owns
+   * every app, so without this a company set up with Attendance alone also got
+   * People, Payroll and the rest — and People on sends Attendance to People.
+   * The trial still covers the others; they are one switch away (More apps).
    */
   try {
     const owned = (await appAccess(accountId)).ownedApps;
-    for (const app of APP_CATALOG.filter((a) => a.available && a.featureKey && owned.includes(a.code))) {
+    const picked = Array.isArray(input.apps) ? new Set(input.apps.map(String)) : null;
+    for (const app of APP_CATALOG.filter((a) => a.available && a.featureKey && owned.includes(a.code) && (!picked || picked.has(a.code)))) {
       await platformPrisma.featureSetting.upsert({
         where: { orgId_key: { orgId: org.id, key: app.featureKey! } },
         update: {},

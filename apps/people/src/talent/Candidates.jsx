@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { LayoutGrid, List, Plus } from '@ui/components/ui/lineIcons';
+import { Plus } from '@ui/components/ui/lineIcons';
+import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { Avatar } from '@ui/personnel/Employees';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -40,6 +42,18 @@ export default function Candidates({ params = {}, openScreen }) {
   const rows = req.data?.rows || [];
   const counts = req.data?.counts || {};
   const live = (openings.data || []).filter((o) => !['FILLED', 'CLOSED'].includes(o.status));
+  /* The figures (R&D PEOPLE-19), from the stage counts the list answers with; on the board every stage is in the rows. */
+  const n = (k) => (board ? rows.filter((r) => (k === 'open' ? OPEN_STAGES.includes(r.stage) : r.stage === k)).length : Number(counts[k]) || 0);
+  const sources = board ? rows.filter((r) => OPEN_STAGES.includes(r.stage) || r.stage === 'HIRED').reduce((m, r) => { if (r.source) m[r.source] = (m[r.source] || 0) + 1; return m; }, {}) : {};
+  const best = Object.entries(sources).sort((a, b) => b[1] - a[1])[0];
+  const forOne = opening ? (openings.data || []).find((o) => o.id === opening) : null;
+  const tiles = req.data ? [
+    { key: 'open', label: 'In the pipeline', value: n('open'), accent: 1, Icon: TILE_ICON.people, sub: forOne ? forOne.title : 'Every opening' },
+    { key: 'interview', label: 'At interview', value: n('INTERVIEW'), accent: 2, Icon: TILE_ICON.time, sub: n('SCREENING') ? `${n('SCREENING')} in screening` : null },
+    { key: 'offer', label: 'Offers out', value: n('OFFER'), accent: 3, Icon: TILE_ICON.done },
+    best ? { key: 'source', label: 'Best source', value: word(SOURCES, best[0]), accent: 4, Icon: TILE_ICON.job, sub: `${best[1]} of ${Object.values(sources).reduce((a, x) => a + x, 0)} candidates` }
+      : { key: 'hired', label: 'Hired', value: n('HIRED'), accent: 4, Icon: TILE_ICON.award },
+  ] : null;
 
   const move = async (r, to) => {
     try { await moveCandidate(r.id, to); notify.success(`${r.name}: ${word(STAGES, to).toLowerCase()}.`); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not moved.')); }
@@ -63,6 +77,7 @@ export default function Candidates({ params = {}, openScreen }) {
         title="Candidates"
         description="Everyone applying, on one pipeline from applied to hired, as a list or a board of stages."
         primary={canCreate ? { label: 'Add candidate', icon: Plus, onClick: () => setAdding(true) } : null}
+        strip={tiles ? <StatTiles label="Candidate figures" items={tiles} /> : null}
         toolbar={<ToolbarItems {...{ q, setQ, opening, setOpening, openings: openings.data || [], view, chooseView }} />}
         tabs={board ? null : tabItems(TABS.map(([k, l]) => [k, l, counts[COUNT_KEY[k] || k] || 0]))}
         tab={stage}
@@ -97,9 +112,9 @@ function ToolbarItems({ q, setQ, opening, setOpening, openings, view, chooseView
     <>
       <SearchField value={q} onSearch={setQ} placeholder="Search name, e-mail or phone" label="Search candidates" className="w-full sm:w-72" />
       <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Opening" value={opening} alwaysSearch={openings.length > 8} onChange={(v) => setOpening(v || '')} options={[{ value: '', label: 'Every opening' }, ...openings.map((o) => ({ value: o.id, label: o.title }))]} /></div>
-      <div className="inline-flex gap-1" role="group" aria-label="Show as">
-        <button type="button" className={`ui-icon-btn ${view === 'list' ? 'is-active' : ''}`} aria-pressed={view === 'list'} aria-label="List" title="List" onClick={() => chooseView('list')}><List size={16} aria-hidden="true" /></button>
-        <button type="button" className={`ui-icon-btn ${view === 'board' ? 'is-active' : ''}`} aria-pressed={view === 'board'} aria-label="Board" title="Board" onClick={() => chooseView('board')}><LayoutGrid size={16} aria-hidden="true" /></button>
+      <div className="pt-seg" role="group" aria-label="Show as">
+        <button type="button" className="pt-seg-item" aria-pressed={view === 'board'} onClick={() => chooseView('board')}>Board</button>
+        <button type="button" className="pt-seg-item" aria-pressed={view === 'list'} onClick={() => chooseView('list')}>List</button>
       </div>
     </>
   );
@@ -110,17 +125,19 @@ const Toolbar = (props) => <div className="flex flex-wrap items-center gap-2"><T
 function Board({ rows, loading, canEdit, onOpen, onMove }) {
   const cols = [...OPEN_STAGES, 'HIRED'];
   return (
-    <div className="ui-table-scroll" role="region" aria-label="Candidates by stage" tabIndex={0}>
-      <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: `repeat(${cols.length}, minmax(14rem, 1fr))` }}>
+    <div className="pt-board" role="region" aria-label="Candidates by stage" tabIndex={0}>
         {cols.map((s) => {
           const here = rows.filter((r) => r.stage === s);
           return (
-            <section key={s} aria-label={word(STAGES, s)} className="space-y-2">
-              <h3 className="ui-label flex items-center justify-between border-b pb-1.5" style={{ borderColor: 'rgb(var(--border))' }}>{word(STAGES, s)}<span className="tabular-nums">{here.length}</span></h3>
+            <section key={s} aria-label={word(STAGES, s)} className="pt-lane">
+              <h3 className="pt-lane-head">{word(STAGES, s)}<span>{here.length}</span></h3>
               {loading ? <p className="text-sm ui-muted">Loading…</p> : !here.length ? <p className="text-sm ui-muted">Nobody</p> : here.map((r) => (
-                <article key={r.id} className="ui-card p-3 space-y-1">
-                  <button type="button" className="block w-full text-left font-medium truncate" onClick={() => onOpen(r)}>{r.name}</button>
-                  <p className="ui-caption truncate">{[r.openingTitle, day(r.stageAt)].filter(Boolean).join(' · ')}</p>
+                <article key={r.id} className="pt-cand">
+                  <button type="button" className="flex w-full min-w-0 items-center gap-2.5 text-left" onClick={() => onOpen(r)}>
+                    <Avatar person={{ name: r.name }} size={28} />
+                    <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{r.currentEmployer || r.openingTitle || ''}</span></span>
+                  </button>
+                  <p className="flex items-center justify-between gap-2 ui-caption"><span className="pt-chip">{word(SOURCES, r.source) || 'No source'}</span><span className="tabular-nums">{day(r.stageAt)}</span></p>
                   {canEdit && OPEN_STAGES.includes(s) ? (
                     <PopupSelect showValueSubtext={false} ariaLabel={`Move ${r.name}`} value="" placeholder="Move to…" onChange={(v) => v && onMove(r, v)} options={OPEN_STAGES.filter((x) => x !== s).map((x) => ({ value: x, label: word(STAGES, x) }))} />
                   ) : null}
@@ -129,7 +146,6 @@ function Board({ rows, loading, canEdit, onOpen, onMove }) {
             </section>
           );
         })}
-      </div>
     </div>
   );
 }

@@ -167,11 +167,19 @@ describe('invoices to customers', () => {
       .set(h)
       .send({ registered: true, gstin: '29AABCU9603R1ZJ', legalName: 'Clor Applications Pvt Ltd', state: 'Karnataka', sac: '998314', ratePercent: 18 })
       .expect(200);
-    const accountId = await accountOf(await company());
-    const d = await request(app).post('/api/ops/invoices').set(h).send({ accountId, lines: [{ description: 'CLOR Books', quantity: 1, unitAmount: 100000 }] }).expect(201);
+    const cust = await company();
+    const accountId = await accountOf(cust);
+    const d = await request(app)
+      .post('/api/ops/invoices')
+      .set(h)
+      .send({ accountId, lines: [{ description: 'CLOR Books', quantity: 1, unitAmount: 100000 }], periodStart: '2026-11-01', periodEnd: '2026-11-30' })
+      .expect(201);
     expect(d.body.tax).toMatchObject({ kind: 'CGST_SGST', cgst: 9000, sgst: 9000 });
     const i = await request(app).post(`/api/ops/invoices/${d.body.id}/issue`).set(h).expect(200);
     expect(i.body).toMatchObject({ number: `CLR/${fy}/0041`, total: 118000 });
+    /* The customer's list carries the taxable value, the GST and the period, for its own columns. */
+    const listed = (await request(app).get('/api/billing/invoices').set(at(cust)).expect(200)).body.invoices;
+    expect(listed[0]).toMatchObject({ id: d.body.id, subtotal: 100000, taxTotal: 18000, total: 118000, periodStart: '2026-11-01', periodEnd: '2026-11-30' });
     expect(i.body.seller).toMatchObject({ gstin: '29AABCU9603R1ZJ', sac: '998314', address: 'Bengaluru 560001' });
     expect(new Date(i.body.dueDate).getTime() - new Date(i.body.issueDate).getTime()).toBe(7 * 86400000);
     await request(app).put('/api/ops/invoicing').set(h).send({ nextNumber: 41 }).expect(400);
