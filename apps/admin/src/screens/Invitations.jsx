@@ -25,10 +25,10 @@ const ROLES = [
 ];
 const ROLE_LABEL = Object.fromEntries(ROLES.map(([k, l]) => [k, l]));
 const STATUS = {
-  PENDING: ['Waiting', 'ws-pill ws-pill--off'],
+  PENDING: ['Waiting', 'ws-pill ws-pill--warn'],
   ACCEPTED: ['Joined', 'ws-pill ws-pill--ok'],
-  REVOKED: ['Withdrawn', 'ws-pill'],
-  EXPIRED: ['Expired', 'ws-pill'],
+  REVOKED: ['Withdrawn', 'ws-pill ws-pill--neutral'],
+  EXPIRED: ['Expired', 'ws-pill ws-pill--neutral'],
 };
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
@@ -101,6 +101,7 @@ export default function Invitations({ tenant, companies = [] }) {
         <PageHead
           crumbs={['Access', 'Invitations']} scope="account"
           title="Invitations"
+          description="People invited to this account. They choose their own password; a link lasts 7 days."
           actions={
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => { setInviting(true); setNotice(''); setError(''); }}>
               <Plus size={16} aria-hidden="true" /> Invite people

@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import ErrorBoundary from './packages/ui/src/components/ui/ErrorBoundary';
 import './packages/ui/src/index.css';
 import './packages/ui/src/people.css';
+/* R&D brand (14 Nov 2026), last so it wins: clor-rnd/README.md. */
+import './packages/ui/src/rnd.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 

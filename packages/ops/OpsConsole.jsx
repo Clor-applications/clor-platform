@@ -1,12 +1,51 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { KeyRound, LogOut, Menu, X } from '@ui/components/ui/lineIcons';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Bell, KeyRound, LogOut, Menu, X } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
+import {
+  AlertUrgentColor,
+  ApprovalsAppColor,
+  AppsColor,
+  ArrowSyncColor,
+  BuildingGovernmentColor,
+  BuildingPeopleColor,
+  BuildingStoreColor,
+  CalendarClockColor,
+  CalendarPeopleColor,
+  ChatMultipleColor,
+  CommentMultipleColor,
+  CoinMultipleColor,
+  DataBarVerticalAscendingColor,
+  DatabaseColor,
+  DocumentEditColor,
+  DocumentTextColor,
+  DraftsColor,
+  FormColor,
+  GaugeColor,
+  GiftColor,
+  GlobeColor,
+  HistoryColor,
+  LinkColor,
+  LockShieldColor,
+  MailClockColor,
+  MailColor,
+  MegaphoneLoudColor,
+  OptionsColor,
+  PeopleCommunityColor,
+  PeopleListColor,
+  PeopleTeamColor,
+  PersonKeyColor,
+  ReceiptColor,
+  SettingsColor,
+  ShieldColor,
+  VaultColor,
+} from '@fluentui/react-icons';
 
-import { ClorLogo } from '@ui/components/brand';
+import { ClorLogo, ClorMark } from '@ui/components/brand';
+import { colorSet } from '@ui/components/ui/colorIcon';
 import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 import Toaster from '@ui/components/ui/Toaster';
-import { ICON } from '../../apps/admin/src/screens/wsKit';
 import '../../apps/admin/src/screens/workspace.css';
+import './ops.css';
 import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
@@ -35,9 +74,11 @@ import { CustomPlans } from './CustomPlans';
 import { Offers } from './Offers';
 import { Subscriptions } from './Deals';
 import { Approvals } from './Approvals';
+import { AccessRequests } from './AccessRequests';
 import { OpsSearch } from './OpsSearch';
+import { Denials, FeatureSwitches, Organisations, Users } from './Lists';
 import { ROLE } from './kit';
-import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
+import { opsEnableTwoFactor, opsMe, opsMySupportGrants, opsOverview, opsStartTwoFactor } from './api';
 
 /**
  * The CLOR operator console (W-8.2; roadmap items 13 and 14), at ops.clor.in
@@ -53,60 +94,146 @@ import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
  */
 
 /* ------------------------------------------------------------- navigation */
+/* Fluent colour icons for the rail and the panel (R&D hand-off §4); controls stay on the line set. */
+const NI = colorSet(
+  {
+    overview: GaugeColor,
+    insights: DataBarVerticalAscendingColor,
+    savedReplies: CommentMultipleColor,
+    status: GlobeColor,
+    forms: FormColor,
+    accounts: BuildingPeopleColor,
+    orgs: PeopleCommunityColor,
+    users: PeopleListColor,
+    denials: ShieldColor,
+    switches: OptionsColor,
+    subscriptions: ReceiptColor,
+    tickets: ChatMultipleColor,
+    trials: CalendarClockColor,
+    demos: CalendarPeopleColor,
+    links: LinkColor,
+    jobs: ArrowSyncColor,
+    alerts: AlertUrgentColor,
+    pricing: CoinMultipleColor,
+    customPlans: DocumentEditColor,
+    offers: GiftColor,
+    invoices: DocumentTextColor,
+    payments: VaultColor,
+    tax: BuildingGovernmentColor,
+    invoicing: SettingsColor,
+    catalogue: AppsColor,
+    sample: BuildingStoreColor,
+    announcements: MegaphoneLoudColor,
+    emailAddresses: MailColor,
+    emailTemplates: DraftsColor,
+    emailLog: MailClockColor,
+    audit: HistoryColor,
+    access: PersonKeyColor,
+    approvals: ApprovalsAppColor,
+    staff: PeopleTeamColor,
+    trust: HistoryColor,
+    data: DatabaseColor,
+    domain: LockShieldColor,
+  },
+  20,
+);
+
+/*
+ * The rail: five sections (Overview · Customers · Platform · Trust · Billing
+ * and setup). Each opens its first page and lights up while you are on any of
+ * its pages; the panel beside it lists every page, in groups.
+ */
+export const RAIL = [
+  ['overview', 'Overview', NI.overview],
+  ['customers', 'Customers and sales', NI.accounts],
+  ['platform', 'Platform', NI.jobs],
+  ['trust', 'Trust', NI.trust],
+  ['setup', 'Billing and setup', NI.data],
+];
+
 /*
  * The menu, in groups. A screen is listed only when this console has it
- * (SCREENS below), so a group fills in as its screens arrive: Trials, Pricing,
- * Payments, Gateways and Tax come with their own changes and take the places
- * kept for them here.
+ * (SCREENS below). Keys are the addresses (#/customers), kept from before the
+ * R&D names so old links still open: Accounts is #/customers, Jobs & workers
+ * is #/health, Staff audit log is #/audit.
  */
 export const NAV = [
-  { items: [['home', 'Home', ICON.home], ['insights', 'Insights', ICON.data]] },
+  { rail: 'overview', items: [['home', 'Overview', NI.overview], ['insights', 'Insights', NI.insights]] },
   {
     label: 'Customers',
+    rail: 'customers',
     items: [
-      ['customers', 'Customers', ICON.companies],
-      ['tickets', 'Tickets', ICON.chat],
-      ['savedReplies', 'Saved replies', ICON.library],
-      ['trials', 'Trials', ICON.plan],
-      ['demos', 'Demo requests', ICON.mail],
-      ['links', 'Explore links', ICON.invite],
+      ['customers', 'Accounts', NI.accounts],
+      ['orgs', 'Organizations', NI.orgs],
+      ['users', 'Users', NI.users],
+      ['subscriptions', 'Subscriptions', NI.subscriptions],
+      ['tickets', 'Tickets', NI.tickets],
+      ['savedReplies', 'Saved replies', NI.savedReplies],
     ],
   },
   {
-    label: 'Money',
+    label: 'Sales',
+    rail: 'customers',
     items: [
-      ['pricing', 'Pricing', ICON.plan],
-      ['customPlans', 'Custom plans', ICON.library],
-      ['offers', 'Offers', ICON.help],
-      ['subscriptions', 'Subscriptions', ICON.payments],
-      ['approvals', 'Approvals', ICON.secure],
-      ['invoices', 'Invoices', ICON.guide],
-      ['payments', 'Payments', ICON.payroll],
-      ['gateways', 'Gateways', ICON.secure],
-      ['tax', 'Tax', ICON.guide],
-      ['invoicing', 'Invoice settings', ICON.settings],
+      ['trials', 'Trials', NI.trials],
+      ['demos', 'Demo requests', NI.demos],
+      ['links', 'Explore links', NI.links],
+    ],
+  },
+  {
+    label: 'Platform',
+    rail: 'platform',
+    items: [
+      ['health', 'Jobs & workers', NI.jobs],
+      ['denials', 'Entitlement denials', NI.denials],
+      ['switches', 'Feature switches', NI.switches],
+      ['alerts', 'Alerts', NI.alerts],
+      ['status', 'Status page', NI.status],
+    ],
+  },
+  {
+    label: 'Comms',
+    rail: 'platform',
+    items: [
+      ['announcements', 'Announcements', NI.announcements],
+      ['emailAddresses', 'Email addresses', NI.emailAddresses],
+      ['emailTemplates', 'Email templates', NI.emailTemplates],
+      ['emailLog', 'Email log', NI.emailLog],
+    ],
+  },
+  {
+    label: 'Trust',
+    rail: 'trust',
+    items: [
+      ['audit', 'Staff audit log', NI.audit],
+      ['access', 'Access requests', NI.access],
+      ['approvals', 'Approvals', NI.approvals],
+      ['staff', 'Staff and roles', NI.staff, 'SUPER_ADMIN'],
+    ],
+  },
+  {
+    label: 'Billing',
+    rail: 'setup',
+    items: [
+      ['pricing', 'Pricing', NI.pricing],
+      ['customPlans', 'Custom plans', NI.customPlans],
+      ['offers', 'Offers', NI.offers],
+      ['invoices', 'Invoices', NI.invoices],
+      ['payments', 'Payments', NI.payments],
+      ['gateways', 'Gateways', NI.payments],
+      ['tax', 'Tax', NI.tax],
+      ['invoicing', 'Invoice settings', NI.invoicing],
     ],
   },
   {
     label: 'Product',
+    rail: 'setup',
     items: [
-      ['catalogue', 'App catalogue', ICON.apps],
-      ['sample', 'Sample company', ICON.company],
-      ['announcements', 'Announcements', ICON.alert],
-      ['forms', 'Forms on clor.in', ICON.settings],
+      ['catalogue', 'App catalogue', NI.catalogue],
+      ['sample', 'Sample company', NI.sample],
+      ['forms', 'Forms on clor.in', NI.forms],
     ],
   },
-  {
-    label: 'Email',
-    items: [
-      ['emailAddresses', 'Addresses', ICON.mail],
-      ['emailTemplates', 'Templates', ICON.guide],
-      ['emailLog', 'Log', ICON.history],
-    ],
-  },
-  { label: 'System', items: [['alerts', 'Alerts', ICON.warning], ['health', 'System health', ICON.alert], ['status', 'Status page', ICON.secure]] },
-  { label: 'Team', items: [['staff', 'Staff and roles', ICON.team, 'SUPER_ADMIN']] },
-  { items: [['audit', 'Audit log', ICON.security]] },
 ];
 
 /**
@@ -125,6 +252,8 @@ export const SCREENS = {
         setTab={(tab) => go('customers', {}, route.id, tab, true)}
         openDemo={(id) => go('demos', {}, id)}
         openLink={(l) => go(l.page, {}, l.id || '')}
+        openDenials={(account) => go('denials', { account })}
+        openOrgs={(account) => go('orgs', { account })}
       />
     ) : (
       <Customers key={`${route.params.status || 'all'}|${route.params.tag || ''}`} initialStatus={route.params.status || 'all'} initialTag={route.params.tag || ''} openCustomer={(id) => go('customers', {}, id)} />
@@ -141,6 +270,11 @@ export const SCREENS = {
   customPlans: ({ go, me }) => <CustomPlans role={me.role} openCustomer={(id) => go('customers', {}, id)} />,
   offers: ({ me }) => <Offers role={me.role} />,
   subscriptions: ({ go }) => <Subscriptions openCustomer={(id) => go('customers', {}, id, 'subscription')} />,
+  /* Lists across every account (R&D OPS-05, 06, 08, 09): read-only; changes stay on the account's own page. */
+  orgs: ({ route, go }) => <Organisations account={route.params.account || ''} openAccount={(id) => go('customers', {}, id)} clearAccount={() => go('orgs', {}, '', '', true)} />,
+  users: ({ go }) => <Users openAccount={(id) => go('customers', {}, id, 'users')} />,
+  denials: ({ route, go }) => <Denials account={route.params.account || ''} openAccount={(id) => go('customers', {}, id)} clearAccount={() => go('denials', {}, '', '', true)} />,
+  switches: ({ go }) => <FeatureSwitches openAccount={(id) => go('customers', {}, id, 'limits')} />,
   approvals: ({ go }) => <Approvals openCustomer={(id) => go('customers', {}, id, 'subscription')} />,
   /* Payments holds the gateways too (keys, test and live), so the Gateways place stays empty. */
   payments: ({ me }) => <Payments role={me.role} />,
@@ -172,6 +306,7 @@ export const SCREENS = {
   forms: ({ me }) => <Switches me={me} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
+  access: ({ go }) => <AccessRequests openCustomer={(id) => go('customers', {}, id, 'access')} />,
 };
 
 /* The address is the place: #/customers/<id>/users. Back and reload keep it. */
@@ -283,6 +418,13 @@ function Console() {
   const [route, setRoute] = useState(() => parseRoute(typeof window !== 'undefined' ? window.location.hash : ''));
   const [menuOpen, setMenuOpen] = useState(false);
   const [reload, setReload] = useState(0);
+  const [counts, setCounts] = useState({});
+
+  /* The Ops portal theme (forest, R&D 14 Nov 2026): rnd.css keys it off <html data-portal="ops">. */
+  useEffect(() => {
+    document.documentElement.setAttribute('data-portal', 'ops');
+    return () => document.documentElement.removeAttribute('data-portal');
+  }, []);
 
   /* Signing in can leave a company's address behind (/o/CLOR-…); the console has no such pages. */
   useEffect(() => {
@@ -300,6 +442,21 @@ function Console() {
       .then(setMe)
       .catch((e) => setRefused({ code: e?.code || e?.data?.code, message: String(e?.message || e) }));
   }, [user, reload]);
+
+  /* The counts beside Accounts, Organizations, Users and Access requests. Either may fail (a role that cannot see it); the menu simply shows none. */
+  useEffect(() => {
+    if (!me) return;
+    let live = true;
+    opsOverview()
+      .then((o) => live && setCounts((c) => ({ ...c, customers: o?.accounts || 0, orgs: o?.companies || 0, users: o?.users || 0 })))
+      .catch(() => {});
+    opsMySupportGrants()
+      .then((r) => live && setCounts((c) => ({ ...c, access: (r?.grants || []).filter((g) => g.state === 'PENDING').length })))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [me]);
 
   const go = useCallback((page, params = {}, id = '', tab = '', replace = false) => {
     const next = { page, id, tab, params };
@@ -337,41 +494,110 @@ function Console() {
   const has = (key) => groups.some((g) => g.items.some(([k]) => k === key));
   const page = has(route.page) ? route.page : 'home';
   const Screen = SCREENS[page];
+  const section = groups.find((g) => g.items.some(([k]) => k === page))?.rail || 'overview';
+  const firstOf = (rail) => groups.find((g) => g.rail === rail)?.items[0]?.[0];
+  const roleName = ROLE[me.role] || me.role;
+  const name = me.user?.fullName || me.user?.email || 'You';
   return (
     <div className="ops">
-      <header className="ops-bar-top">
-        <button type="button" className="ui-icon-btn ops-menu-btn" aria-label={menuOpen ? 'Close menu' : 'Menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
-          {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-        </button>
-        <ClorLogo size={22} />
-        <span className="ops-badge">Operator</span>
-        <OpsSearch go={go} />
-        <span className="ops-who">{me.user.fullName} · {ROLE[me.role] || me.role}</span>
-        <button type="button" className="ui-icon-btn" aria-label="Sign out" title={`Sign out ${me.user.fullName} · ${ROLE[me.role] || me.role}`} onClick={signOut}>
-          <LogOut size={16} aria-hidden="true" />
-        </button>
-      </header>
-      <div className="ops-shell">
-        <nav className="ops-side" data-open={menuOpen || undefined} aria-label="Operator console">
-          {groups.map((g, i) => (
-            <div key={g.label || i} className="ops-group">
-              {g.label ? <span className="ops-group-label">{g.label}</span> : null}
-              {g.items.map(([k, label, Icon]) => (
-                <button key={k} type="button" className="ops-nav-item" aria-current={page === k ? 'page' : undefined} onClick={() => go(k)}>
-                  <Icon size={18} /> {label}
-                </button>
-              ))}
-            </div>
+      {/* Always drawn, never closable: whoever is looking knows this is the staff console and that every change is on the record. */}
+      <div className="ops-staffbar" role="note" aria-label="Staff console">
+        <span className="ops-staffbar-pill">Staff</span>
+        <span>CLOR Ops · internal · every action is logged with your name and a reason</span>
+      </div>
+      <div className="ops-frame">
+        <nav className="ops-rail" aria-label="Sections">
+          <span className="ops-rail-mark" aria-hidden="true">
+            <ClorMark size={24} title="" />
+          </span>
+          {RAIL.filter(([k]) => firstOf(k)).map(([k, label, Icon]) => (
+            <button key={k} type="button" className="ops-rail-btn" aria-label={label} title={label} data-current={section === k || undefined} onClick={() => go(firstOf(k))}>
+              <Icon size={24} />
+            </button>
           ))}
         </nav>
-        {menuOpen ? <button type="button" className="ops-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} /> : null}
-        <main className="ws">
-          <div className="ws-inner">
-            <Screen key={`${page}/${route.id}`} route={page === route.page ? route : { page, id: '', tab: '', params: {} }} go={go} has={has} me={me} />
+        <nav className="ops-side" data-open={menuOpen || undefined} aria-label="Operator console">
+          <div className="ops-side-scroll">
+            <div className="ops-side-head">
+              <span className="ops-side-title">Ops</span>
+              <span className="ops-side-tag">Internal</span>
+            </div>
+            {groups.map((g, i) => (
+              <div key={g.label || i} className="ops-group">
+                {g.label ? <span className="ops-group-label">{g.label}</span> : null}
+                {g.items.map(([k, label, Icon]) => (
+                  <button key={k} type="button" className="ops-nav-item" aria-current={page === k ? 'page' : undefined} onClick={() => go(k)}>
+                    <Icon size={20} />
+                    <span className="ops-nav-label">{label}</span>
+                    {counts[k] ? <span className="ops-nav-count">{counts[k].toLocaleString('en-IN')}</span> : null}
+                  </button>
+                ))}
+              </div>
+            ))}
           </div>
-        </main>
+        </nav>
+        {menuOpen ? <button type="button" className="ops-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} /> : null}
+        <div className="ops-col">
+          <header className="ops-bar-top">
+            <button type="button" className="ui-icon-btn ops-menu-btn" aria-label={menuOpen ? 'Close menu' : 'Menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
+              {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+            </button>
+            <OpsSearch go={go} />
+            <span className="ops-domain" title="CLOR staff console">
+              <NI.domain size={18} aria-hidden="true" />
+              ops.clor.in
+            </span>
+            {has('alerts') ? (
+              <button type="button" className="ops-round-btn" aria-label="Alerts" title="Alerts" onClick={() => go('alerts')}>
+                <Bell size={18} aria-hidden="true" />
+              </button>
+            ) : null}
+            <Avatar name={name} role={roleName} signOut={signOut} />
+          </header>
+          <main className="ws ops-main">
+            <div className="ws-inner">
+              <Screen key={`${page}/${route.id}`} route={page === route.page ? route : { page, id: '', tab: '', params: {} }} go={go} has={has} me={me} />
+            </div>
+          </main>
+        </div>
       </div>
       <Toaster />
+    </div>
+  );
+}
+
+/** The person signed in: their initials, and a small menu with their name, role and Sign out. */
+function Avatar({ name, role, signOut }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => box.current && !box.current.contains(e.target) && setOpen(false);
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const initials = String(name).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+  return (
+    <div className="ops-avatar-box" ref={box}>
+      <button type="button" className="ops-avatar" aria-label={`${name} · ${role}`} title={`${name} · ${role}`} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((v) => !v)}>
+        {initials}
+      </button>
+      {open ? (
+        <div className="ops-avatar-menu" role="menu">
+          <p className="ops-avatar-who">
+            <strong>{name}</strong>
+            <span>{role}</span>
+          </p>
+          <button type="button" role="menuitem" className="ops-avatar-item" onClick={signOut}>
+            <LogOut size={16} aria-hidden="true" /> Sign out
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -186,3 +186,12 @@ export const opsRemoveSavedReply = (id) => apiFetch(`/ops/saved-replies/${enc(id
 export const opsInsights = () => apiFetch('/ops/insights', o);
 export const opsSwitches = () => apiFetch('/ops/switches', o);
 export const opsSetSwitch = (name, body) => apiFetch(`/ops/switches/${enc(name)}`, { ...o, method: 'PUT', body });
+/* Every support grant the signed-in operator has asked for, across accounts: the console's Access requests page. */
+export const opsMySupportGrants = () => apiFetch('/ops/support-grants', o);
+
+/* Lists across every account, and an account's seats and denials (server: routes/opsLists.ts). Read-only. */
+export const opsOrganisations = (params) => apiFetch(`/ops/organisations${q(params)}`, o);
+export const opsUsers = (params) => apiFetch(`/ops/users${q(params)}`, o);
+export const opsDenials = (params) => apiFetch(`/ops/denials${q(params)}`, o);
+export const opsFeatureSwitches = (params) => apiFetch(`/ops/feature-switches${q(params)}`, o);
+export const opsAccountEntitlements = (id) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/entitlements`, o);

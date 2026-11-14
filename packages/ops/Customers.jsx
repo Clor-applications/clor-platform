@@ -1,17 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Search } from '@ui/components/ui/lineIcons';
+import { AlertTriangle, ArrowLeft, Search } from '@ui/components/ui/lineIcons';
 
 import { notify } from '@ui/components/ui/notify';
-import { ICON, PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
+import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { inr } from './money';
 import { units } from './CustomPlans';
 import { Limits } from './Limits';
 import { SupportAccess } from './SupportAccess';
 import { CustomerNotes } from './CustomerNotes';
 import { DealDrawer } from './Deals';
-import { APP_NAMES, Empty, Err, Loading, Pager, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
+import { APP_NAMES, Empty, Err, Loading, Pager, REASON, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
 import {
   opsAccount,
+  opsAccountEntitlements,
   opsAccounts,
   opsCancelSubscription,
   opsChangeApps,
@@ -106,7 +107,11 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   return (
     <>
-      <PageHead crumbs={['Customers']} title="Customers" meta={data ? `${data.total} ${data.total === 1 ? 'customer' : 'customers'}` : null} />
+      <PageHead
+        title="Accounts"
+        description="Every customer account. Open one to see its companies, subscription, users and support access."
+        meta={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'account' : 'accounts'}` : null}
+      />
       <div className="flex flex-wrap gap-2 items-center" role="search">
         <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 460 }}>
           <span className="sr-only">Search customers</span>
@@ -140,12 +145,12 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
               <tr>
                 <th>Account</th>
                 <th className="hidden md:table-cell">Owner</th>
-                <th className="hidden lg:table-cell">Apps</th>
-                <th className="hidden lg:table-cell">Plan</th>
-                <th>Status</th>
-                <th className="hidden md:table-cell">Trial ends or renews</th>
+                <th className="hidden lg:table-cell">Plan and apps</th>
+                <th className="num hidden sm:table-cell">Companies</th>
                 <th className="num hidden sm:table-cell">Users</th>
-                <th className="hidden md:table-cell">Last sign-in</th>
+                <th className="hidden md:table-cell">Trial ends or renews</th>
+                <th>State</th>
+                <th className="hidden xl:table-cell">Last sign-in</th>
               </tr>
             </thead>
             <tbody>
@@ -168,12 +173,15 @@ export function Customers({ initialStatus = 'all', initialTag = '', openCustomer
                       <div>{a.owner?.name || '—'}</div>
                       <div className="ws-item-sub">{a.owner?.email || ''}</div>
                     </td>
-                    <td className="hidden lg:table-cell" style={{ whiteSpace: 'normal' }}>{appsText(a.apps)}</td>
-                    <td className="hidden lg:table-cell">{planWords(a)}</td>
-                    <td><StatusPill status={status} /></td>
-                    <td className="hidden md:table-cell tabular-nums">{a.plan === 'trialing' ? day(a.trialEndsAt) : a.renewsAt ? day(a.renewsAt) : '—'}</td>
+                    <td className="hidden lg:table-cell" style={{ whiteSpace: 'normal', minWidth: '12rem' }}>
+                      <div>{planWords(a)}</div>
+                      <div className="ws-item-sub">{appsText(a.apps)}</div>
+                    </td>
+                    <td className="num hidden sm:table-cell">{a.companies}</td>
                     <td className="num hidden sm:table-cell">{a.users}</td>
-                    <td className="hidden md:table-cell">{a.lastActiveAt ? ago(a.lastActiveAt) : 'Never'}</td>
+                    <td className="hidden md:table-cell tabular-nums">{a.plan === 'trialing' ? day(a.trialEndsAt) : a.renewsAt ? day(a.renewsAt) : '—'}</td>
+                    <td><StatusPill status={status} /></td>
+                    <td className="hidden xl:table-cell">{a.lastActiveAt ? ago(a.lastActiveAt) : 'Never'}</td>
                   </tr>
                 );
               })}
@@ -200,7 +208,7 @@ const TABS = [
   ['activity', 'Timeline'],
 ];
 
-export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, openLink = () => {} }) {
+export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, openLink = () => {}, openDenials, openOrgs }) {
   /* An old or mistyped link opens the overview rather than an empty page. */
   const tab = TABS.some(([k]) => k === asked) ? asked : 'overview';
   const [d, setD] = useState(null);
@@ -217,30 +225,44 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
   const s = d.subscription;
   const name = a.title || a.name;
   const plan = a.suspendedAt ? 'suspended' : s ? customerStatus(s.status, s.trialEndsAt) : a.legacyUnrestrictedAt ? 'legacy' : 'no-plan';
+  const owner = d.members.find((m) => m.role === 'OWNER');
   return (
     <>
       <div>
-        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={back}>
-          <ArrowLeft size={14} aria-hidden="true" /> Customers
+        <button type="button" className="ops-back" onClick={back}>
+          <ArrowLeft size={16} aria-hidden="true" /> Accounts
         </button>
       </div>
       <PageHead
         title={name}
         description={a.ownerName && a.ownerName !== name ? `Owner: ${a.ownerName}` : null}
-        meta={
-          <>
-            <span className="tabular-nums">{a.code || '—'}</span> · <StatusPill status={plan} />
-          </>
+        actions={
+          tab !== 'subscription' && may(role, 'BILLING', 'SALES') ? (
+            <button type="button" className="ws-btn ws-btn--primary" onClick={() => setTab('subscription')}>
+              Change subscription
+            </button>
+          ) : null
         }
       />
+      <div className="ops-id-line">
+        <span className="tabular-nums">{a.code || '—'}</span>
+        <span>{d.companies.length} {d.companies.length === 1 ? 'company' : 'companies'}</span>
+        <span>{d.members.length} {d.members.length === 1 ? 'user' : 'users'}</span>
+        {owner?.email ? <span>owner {owner.email}</span> : null}
+      </div>
+      <div className="ops-pills">
+        <StatusPill status={plan} />
+        {s?.apps?.length ? <span className="ws-pill">{appsText(s.apps)}</span> : null}
+        {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">Fail-open: every app</span> : null}
+      </div>
       {a.suspendedAt ? (
         <p className="ws-notice" role="status">
           Suspended on {day(a.suspendedAt)}: {a.suspendedReason}. Nobody in this account can open any of its companies until it is resumed.
         </p>
       ) : null}
       <Tabs label={name} tabs={TABS} value={tab} onChange={setTab} />
-      <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-6">
-        {tab === 'overview' ? <Overview d={d} plan={plan} /> : null}
+      <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-8">
+        {tab === 'overview' ? <Overview d={d} plan={plan} setTab={setTab} role={role} openDenials={openDenials} openOrgs={openOrgs} /> : null}
         {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} /> : null}
         {tab === 'limits' ? <Limits id={id} name={name} role={role} /> : null}
         {tab === 'money' ? <Money id={id} /> : null}
@@ -268,46 +290,241 @@ function Facts({ rows }) {
   );
 }
 
-function Overview({ d, plan }) {
-  const owners = d.members.filter((m) => m.role === 'OWNER');
-  const s = d.subscription;
+/* Shortcuts to where each support job lives on this page; every one still asks why and goes in the audit log. */
+const SUPPORT_JOBS = [
+  ['users', 'Reset a password or sign someone out', 'Users', ['SUPPORT']],
+  ['subscription', 'Extend trial, change apps, suspend', 'Reason', ['BILLING', 'SALES', 'SUPPORT']],
+  ['access', 'Ask to look inside a company', 'Customer approves', ['SUPPORT']],
+  ['connections', 'Send failed emails again', 'Reason', ['SUPPORT']],
+];
+
+/* Seats in use at or above this share of those bought reads "Near seats". */
+const NEAR_SEATS = 0.9;
+const APP_INITIAL = { accounting: 'B', people: 'P', payroll: '₹', attendance: 'A', projects: 'Pr' };
+function seatStanding(a) {
+  if (!a.owned) return ['402 if called', 'ws-pill ws-pill--off'];
+  if (a.standing === 'lapsed') return ['Lapsed', 'ws-pill ws-pill--danger'];
+  if (a.seatsBought && a.seatsUsed != null && a.seatsUsed >= a.seatsBought) return ['At seat limit', 'ws-pill ws-pill--danger'];
+  if (a.seatsBought && a.seatsUsed != null && a.seatsUsed >= a.seatsBought * NEAR_SEATS) return ['Near seats', 'ws-pill ws-pill--warn'];
+  return ['Good', 'ws-pill ws-pill--ok'];
+}
+const TIER = { FULL: 'Full', GROWTH: 'Growth', STARTER: 'Starter', LITE: 'Lite', PRO: 'Pro' };
+const ago2 = (d) => {
+  const t = new Date(d);
+  const today = new Date();
+  return t.toDateString() === today.toDateString() ? t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : ago(d);
+};
+
+/** The entitlement panel (R&D CLOR-06): how access is decided here, seats per app, and the latest refusals. */
+function Entitlements({ id, d, openDenials, children }) {
+  const [e, setE] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true;
+    Promise.resolve(opsAccountEntitlements(id))
+      .then((r) => live && r && setE(r))
+      .catch((err) => live && setError(String(err?.message || err)));
+    return () => {
+      live = false;
+    };
+  }, [id]);
+  /* The organizations (children) show whatever happens to this panel. */
+  if (error || !e)
+    return (
+      <>
+        {error ? <Err>{error}</Err> : <Loading />}
+        {children}
+      </>
+    );
+  const plan = e.planName ? `${e.planName}${e.interval ? ` · ${e.interval === 'year' ? 'yearly' : 'monthly'}` : ''}` : null;
   return (
     <>
-      <Facts
-        rows={[
-          ['Owner', owners.length ? owners.map((o) => <div key={o.userId}>{o.name || '—'} · <a href={`mailto:${o.email}`}>{o.email}</a></div>) : '—'],
-          ['Status', <StatusPill key="s" status={plan} />],
-          ['Apps on', s ? appsText(s.apps) : d.account.legacyUnrestrictedAt ? 'Every app (older account)' : 'None'],
-          ['Users', d.members.length],
-          ['Created', day(d.account.createdAt)],
-          ['Last activity', d.lastActiveAt ? `${ago(d.lastActiveAt)} (${when(d.lastActiveAt)})` : 'Nobody has signed in yet'],
-        ]}
-      />
-      <Panel title={`Companies and branches (${d.companies.length})`}>
-        {d.companies.length ? (
-          <ul className="ws-list">
-            {d.companies.map((c) => (
-              <li key={c.id}>
-                <div className="ws-item">
-                  <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.company size={14} /></span>
-                  <span className="ws-item-text">
-                    <span className="ws-item-title">{c.name}</span>
-                    <span className="ws-item-sub">
-                      <span className="tabular-nums">{c.code || '—'}</span> · {c.people} {c.people === 1 ? 'person' : 'people'} · since {day(c.createdAt)}
-                    </span>
-                    {c.branches?.length ? (
-                      <span className="ws-item-sub">Branches: {c.branches.map((b) => `${b.name}${b.state ? ` (${b.state})` : ''}`).join(', ')}</span>
-                    ) : null}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+      <div className="ops-entitlement" data-tone={e.legacyFailOpen ? undefined : 'ok'} role="note">
+        <AlertTriangle size={18} aria-hidden="true" />
+        <strong>{e.legacyFailOpen ? 'Entitlement: legacy fail-open' : e.explicit ? 'Entitlement: explicit subscription' : 'Entitlement: no subscription'}</strong>
+        <span>
+          Effective access = membership ∩ role ∩ subscription ∩ module switch ∩ seats.{' '}
+          {e.legacyFailOpen
+            ? 'This older account has no plan, so every app is open to it until it moves to one.'
+            : e.explicit
+              ? 'Not on the legacy fail-open rule.'
+              : 'Without a subscription every app is refused (402).'}
+        </span>
+        {openDenials ? (
+          <button type="button" className="ops-link" onClick={() => openDenials(d.account.id)}>
+            See every refusal for this account →
+          </button>
+        ) : null}
+      </div>
+      <section className="ops-section" aria-labelledby="ops-seats">
+        <h2 id="ops-seats" className="ops-h2">Subscription and seats</h2>
+        <div className="ws-table-wrap">
+          <table className="ws-table">
+            <caption className="sr-only">Apps, seats and standing</caption>
+            <thead>
+              <tr>
+                <th>App</th>
+                <th className="hidden md:table-cell">Ownership</th>
+                <th className="num">Seats</th>
+                <th>Standing</th>
+              </tr>
+            </thead>
+            <tbody>
+              {e.apps.map((a) => {
+                const [word, cls] = seatStanding(a);
+                return (
+                  <tr key={a.app}>
+                    <td>
+                      <span className="ops-app" data-owned={a.owned ? 'true' : 'false'}>
+                        <span className="ops-app-mark" aria-hidden="true" style={{ '--app': `var(--app-${a.app})` }}>
+                          {APP_INITIAL[a.app] || a.name[0]}
+                        </span>
+                        {APP_NAMES[a.app] || a.name}
+                      </span>
+                    </td>
+                    <td className="hidden md:table-cell">
+                      {!a.owned ? <span className="ws-item-sub">Not owned</span> : e.legacyFailOpen ? 'Legacy, every app' : [plan || 'Set by hand', a.tier ? `${TIER[a.tier] || a.tier} tier` : null].filter(Boolean).join(' · ')}
+                    </td>
+                    <td className="num" title={a.app !== 'accounting' && a.owned ? 'Employees are counted inside the app, not here' : undefined}>
+                      {!a.owned ? '—' : a.seatsBought ? `${a.seatsUsed ?? '—'} / ${a.seatsBought}` : a.seatsUsed != null ? `${a.seatsUsed} ${a.seatsUsed === 1 ? 'user' : 'users'}` : 'Not metered'}
+                    </td>
+                    <td>
+                      <span className={cls} title={a.reason || undefined}>{word}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {children}
+      <section className="ops-section" aria-labelledby="ops-denials">
+        <h2 id="ops-denials" className="ops-h2">Recent access denials</h2>
+        {e.denials.length ? (
+          <div className="ws-table-wrap">
+            <table className="ws-table">
+              <caption className="sr-only">Recent refusals in this account</caption>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Who</th>
+                  <th>Reason code</th>
+                  <th className="hidden md:table-cell">Correlation ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {e.denials.map((x) => (
+                  <tr key={x.id}>
+                    <td className="tabular-nums" title={when(x.at)}>{ago2(x.at)}</td>
+                    <td>{x.who?.name || x.who?.email || 'Someone signed in'}</td>
+                    <td title={REASON[x.code] || undefined}>
+                      <span className="ops-code">{x.code}</span>
+                    </td>
+                    <td className="hidden md:table-cell tabular-nums ops-clip" style={{ maxWidth: 200 }}>{x.requestId || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <p className="ws-card-blurb">No company yet. The owner makes one when they first sign in.</p>
+          <p className="ws-card-blurb">Nobody in this account has been refused in the last 30 days.</p>
         )}
-      </Panel>
+      </section>
     </>
+  );
+}
+
+function Overview({ d, plan, setTab = () => {}, role, openDenials, openOrgs }) {
+  const owners = d.members.filter((m) => m.role === 'OWNER');
+  const s = d.subscription;
+  const jobs = SUPPORT_JOBS.filter(([, , , roles]) => may(role, ...roles));
+  return (
+    <div className="ops-detail">
+      <div className="ops-detail-main">
+        <Entitlements id={d.account.id} d={d} openDenials={openDenials}>
+          <section className="ops-section" aria-labelledby="ops-companies">
+            <div className="ops-section-head">
+              <h2 id="ops-companies" className="ops-h2">Organizations ({d.companies.length})</h2>
+              {openOrgs && d.companies.length ? (
+                <button type="button" className="ops-link" onClick={() => openOrgs(d.account.id)}>
+                  GSTIN and apps →
+                </button>
+              ) : null}
+            </div>
+            {d.companies.length ? (
+              <div className="ws-table-wrap">
+                <table className="ws-table">
+                  <caption className="sr-only">Organizations</caption>
+                  <thead>
+                    <tr>
+                      <th>Organization</th>
+                      <th className="hidden md:table-cell">Org ID</th>
+                      <th className="num">Members</th>
+                      <th className="hidden md:table-cell">Since</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.companies.map((c) => (
+                      <tr key={c.id}>
+                        <td style={{ whiteSpace: 'normal' }}>
+                          <span className="ops-strong">{c.name}</span>
+                          {c.branches?.length ? (
+                            <div className="ws-item-sub">Branches: {c.branches.map((b) => `${b.name}${b.state ? ` (${b.state})` : ''}`).join(', ')}</div>
+                          ) : null}
+                        </td>
+                        <td className="hidden md:table-cell tabular-nums">{c.code || '—'}</td>
+                        <td className="num">{c.people}</td>
+                        <td className="hidden md:table-cell">{day(c.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="ws-card-blurb">No company yet. The owner makes one when they first sign in.</p>
+            )}
+            <p className="ws-card-blurb">Row-level security: every row of this account’s data carries its organization’s ID, and the database refuses rows from any other organization.</p>
+          </section>
+        </Entitlements>
+      </div>
+      <aside className="ops-detail-side">
+        <section className="ops-card" aria-labelledby="ops-account-facts">
+          <h2 id="ops-account-facts" className="ops-h2">Account</h2>
+          <Facts
+            rows={[
+              ['Account ID', <span key="c" className="tabular-nums">{d.account.code || '—'}</span>],
+              ['Owner', owners.length ? owners.map((o) => <div key={o.userId}>{o.name || '—'} · <a href={`mailto:${o.email}`}>{o.email}</a></div>) : '—'],
+              ['Status', <StatusPill key="s" status={plan} />],
+              ['Apps on', s ? appsText(s.apps) : d.account.legacyUnrestrictedAt ? 'Every app (older account)' : 'None'],
+              ...(s?.deal?.planName
+                ? [
+                    ['Plan', `${s.deal.planName}${s.billingInterval ? ` · ${s.billingInterval === 'year' ? 'yearly' : 'monthly'}` : ''}`],
+                    ['MRR', <span key="m" className="tabular-nums">{inr(s.billingInterval === 'year' ? Math.round(s.deal.amount / 12) : s.deal.amount)}</span>],
+                  ]
+                : []),
+              ['Users', <span key="u" className="tabular-nums">{d.members.length}</span>],
+              ['Created', day(d.account.createdAt)],
+              ['Last activity', d.lastActiveAt ? `${ago(d.lastActiveAt)} (${when(d.lastActiveAt)})` : 'Nobody has signed in yet'],
+            ]}
+          />
+        </section>
+        {jobs.length ? (
+          <section className="ops-card" aria-labelledby="ops-support-jobs">
+            <h2 id="ops-support-jobs" className="ops-h2">Support actions</h2>
+            <div className="ops-jobs">
+              {jobs.map(([k, label, hint]) => (
+                <button key={k} type="button" className="ops-job" onClick={() => setTab(k)}>
+                  <span>{label}</span>
+                  <span className="ops-job-hint">{hint}</span>
+                </button>
+              ))}
+            </div>
+            <p className="ws-card-blurb">Every action asks why, and is written to the staff audit log and to the customer’s own audit log.</p>
+          </section>
+        ) : null}
+      </aside>
+    </div>
   );
 }
 

@@ -1,0 +1,144 @@
+/*
+ * Plan pages (Billing & seats, Invoices, Workspace settings): the R&D
+ * hand-off's plan summary card and settings layout. Tokens only.
+ */
+.ws-plan-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px 24px;
+  padding: 20px 24px;
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-radius: 12px;
+  background: rgb(var(--surface, 255 255 255));
+}
+.ws-plan-summary > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+.ws-plan-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-plan-value {
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: rgb(var(--fg, 32 35 41));
+  overflow-wrap: anywhere;
+}
+.ws-plan-money {
+  font-variant-numeric: tabular-nums;
+}
+.ws-plan-sub {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-inv-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.ws-inv-total {
+  font-weight: 600;
+}
+
+/* Settings: a main column of sections and a side column (Workspace settings). */
+.ws-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 32px;
+  align-items: start;
+}
+.ws-settings > div,
+.ws-settings > aside {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .ws-settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ws-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px 24px;
+}
+.ws-field {
+  display: grid;
+  gap: 6px;
+}
+.ws-field > span:first-child {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--fg, 32 35 41));
+}
+.ws-field-help {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle, 94 99 107));
+}
+/* Label and value rows under hairlines (the side column's Data list). */
+.ws-field-value {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--fg, 32 35 41));
+  overflow-wrap: anywhere;
+}
+.ws-kv {
+  display: grid;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-kv > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgb(var(--border, 228 230 225));
+  font-size: 0.875rem;
+}
+.ws-kv dt {
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-kv dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.ws-kv dd.num {
+  font-variant-numeric: tabular-nums;
+}
+/* Danger rows: what it does on the left, an outlined red button on the right. */
+.ws-danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-danger-row strong {
+  display: block;
+  font-size: 0.875rem;
+}
+.ws-danger-row span {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-flat-list {
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-settings .ws-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

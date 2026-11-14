@@ -55,8 +55,8 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
   return (
     <>
       <PageHead
-        crumbs={['Audit log']}
-        title="Audit log"
+        title="Staff audit log"
+        description="Every change a CLOR staff member made, with who, when, the customer and the reason. Nobody can edit or remove a line."
         actions={
           <button type="button" className="ws-btn ws-btn--quiet" disabled={busy || !d?.events?.length} onClick={download}>
             {busy ? 'Preparing…' : 'Download CSV'}

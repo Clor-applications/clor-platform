@@ -103,6 +103,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
         <PageHead
           crumbs={['Data', 'Close company']}
           title={`Close ${name || 'this company'}`}
+          description="Closing stops the company’s apps and, after a notice period, deletes every record. Export first."
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}

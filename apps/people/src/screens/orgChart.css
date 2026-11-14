@@ -190,3 +190,30 @@
 @media (prefers-reduced-transparency: reduce) { .oc-legend-float { background: rgb(var(--surface)); backdrop-filter: none; } }
 @media (max-width: 767px) { .oc-page { height: auto; } .oc-page .oc-stage { flex-direction: column; } .oc-page .oc-frame { min-height: 60vh; } .oc-legend-float { position: static; margin-bottom: 0.5rem; } }
 @media print { .oc-page { height: auto; display: block; } }
+
+/* ---- R&D hand-off (PEOPLE-05): the chart on the soft panel, cards as 12px objects on a field hairline, faces in
+   the person's identity colour, department as a coloured dot beside muted words (text never takes a series colour). */
+.oc {
+  --oc-line: rgb(var(--border-strong));
+  --oc-shadow: 0 0 0 1px rgb(var(--border-field));
+  --oc-shadow-hover: 0 0 0 1px rgb(var(--border-strong));
+}
+.oc .oc-card:not([data-tone]), .oc .oc-legend li:not([data-tone]) { --oc-dot: var(--border-strong); }
+.oc [data-tone='sky'] { --oc-dot: var(--cat-1); }
+.oc [data-tone='peach'] { --oc-dot: var(--cat-2); }
+.oc [data-tone='mint'] { --oc-dot: var(--cat-3); }
+.oc [data-tone='butter'] { --oc-dot: var(--cat-4); }
+.oc [data-tone='lilac'] { --oc-dot: var(--cat-7); }
+.oc .oc-frame { background-color: rgb(var(--soft-panel)); background-image: none; box-shadow: inset 0 0 0 1px rgb(var(--border)); }
+.oc .oc-card { box-shadow: var(--oc-shadow); }
+.oc .oc-card:hover { box-shadow: var(--oc-shadow-hover); }
+.oc .oc-card-main:focus-visible, .oc .oc-count:focus-visible, .oc .oc-zoom-btn:focus-visible { outline-color: rgb(var(--act)); }
+.oc .oc-avatar[style] {
+  background: color-mix(in srgb, rgb(var(--oc-face)) 18%, rgb(255 255 255));
+  color: color-mix(in srgb, rgb(var(--oc-face)) 58%, rgb(0 0 0));
+  font-size: 0.75rem; font-weight: 700;
+}
+.oc .oc-dept { color: rgb(var(--fg-muted)); }
+.oc .oc-dept i, .oc .oc-legend i { background: rgb(var(--oc-dot)); }
+.oc .oc-count:hover { background: rgb(var(--tint)); color: rgb(var(--act)); box-shadow: 0 0 0 1px rgb(var(--panel-border)); }
+.oc .oc-zoom { box-shadow: 0 0 0 1px rgb(var(--border-field)); }

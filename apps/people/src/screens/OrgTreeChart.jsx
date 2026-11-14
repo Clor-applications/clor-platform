@@ -3,6 +3,7 @@ import { tintOf } from '../organization/tints';
 import { Minus, Plus, Maximize2 } from '@ui/components/ui/lineIcons';
 
 import './orgChart.css';
+import { identityCat } from '@ui/personnel/Employees';
 
 /**
  * The org chart as a picture: the top of the company at the top, each
@@ -198,7 +199,7 @@ function PersonCard({ n, ctx, count, seats, open, compact = false }) {
         aria-label={[n.name, n.designation, n.department, dotted ? `also reports to ${dotted.name}` : null, total ? reports : null].filter(Boolean).join(', ')}>
         {n.photoUrl
           ? <img src={n.photoUrl} alt="" className="oc-avatar" />
-          : <span className="oc-avatar" aria-hidden="true">{initialsOf(n.name)}</span>}
+          : <span className="oc-avatar" aria-hidden="true" style={{ '--oc-face': `var(--cat-${identityCat(n.name)})` }}>{initialsOf(n.name)}</span>}
         <span className="oc-text">
           <span className="oc-name" title={n.name}>{n.name}</span>
           <span className="oc-role" title={n.designation || undefined}>{n.designation || '—'}</span>

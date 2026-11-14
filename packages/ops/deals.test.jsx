@@ -137,13 +137,16 @@ describe('operator console: subscriptions', () => {
   it('lists what each customer pays and the monthly total', async () => {
     api.opsSubscriptions.mockResolvedValue({
       monthly: 361000,
+      summary: { mrr: 361000, activeCount: 2, pastDue: 1, pastDueAtRisk: 149900, trialsEndingThisWeek: 3, legacyFailOpen: 0 },
       subscriptions: [{ accountId: 'a', name: 'Meridian', status: 'active', apps: ['people'], planName: 'Meridian special', unit: 'EMPLOYEE', quantity: 30, interval: 'month', amount: 261000, listAmount: 290000, offerCode: 'TEN', offerEndsAt: '2027-02-15T00:00:00Z', renewsAt: '2026-12-15T00:00:00Z' }],
     });
     const open = vi.fn();
     render(<Subscriptions openCustomer={open} />);
-    expect(await screen.findByText('₹3,610 a month from active customers')).toBeInTheDocument();
+    expect(await screen.findByText('₹3,610')).toBeInTheDocument();
+    expect(screen.getByText('₹1,499 at risk')).toBeInTheDocument();
     const row = screen.getAllByRole('row')[1];
-    expect(row).toHaveTextContent('₹2,610 / mo');
+    expect(row).toHaveTextContent('₹2,610');
+    expect(row).toHaveTextContent('Meridian special · monthly');
     expect(row).toHaveTextContent('30 employees');
     fireEvent.click(within(row).getByRole('button', { name: 'Meridian' }));
     expect(open).toHaveBeenCalledWith('a');

@@ -62,10 +62,11 @@ describe('Talent runs on its own routes, and the register is retired for it', ()
   });
 
   it('Talent sits on the rail as Hiring and Performance, gated by the module switches', () => {
-    const talentModule = peopleApp.modules.find((m) => m.key === 'talent');
-    expect(talentModule.groups.map((g) => g.label)).toEqual(['Hiring', 'Performance']);
+    /* Two rail sections since the R&D hand-off (14 Nov 2026). */
+    const itemsOf = (key) => peopleApp.modules.find((m) => m.key === key).groups.flatMap((g) => g.items);
     /* Refer someone is the primary action on Referrals (People plan, 8 Nov 2026), not a menu entry; its address stays. */
-    expect(talentModule.groups.map((g) => g.items)).toEqual([['recruitment', 'candidates', 'interviews', 'referrals'], ['performance', 'reviews', 'oneOnOnes', 'plans', 'learning']]);
+    expect(itemsOf('hiring')).toEqual(['recruitment', 'candidates', 'interviews', 'referrals']);
+    expect(itemsOf('performance')).toEqual(['performance', 'reviews', 'oneOnOnes', 'plans', 'learning']);
     const nav = Object.fromEntries(peopleApp.nav.map((i) => [i.key, i]));
     for (const k of ['recruitment', 'candidates', 'interviews', 'referrals', 'referMe']) expect(nav[k].feature, k).toBe('peopleHiring');
     expect(nav.referMe.parent).toBe('referrals');
