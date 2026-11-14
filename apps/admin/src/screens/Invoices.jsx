@@ -15,9 +15,9 @@ import './ws-plan.css';
  * the document — with its GST breakup and place of supply — to print, save as
  * PDF or pay.
  *
- * The list carries each invoice's total, not its taxable value and GST, so
- * those are on the document rather than in the table; nothing here is a
- * figure the server did not send.
+ * The list carries each invoice's period, taxable value, GST and total, so the
+ * table and the "GST input credit" tile are the server's own figures; the
+ * CGST/SGST or IGST split and the place of supply are on the document.
  */
 
 /** 1 April of the Indian financial year that `now` falls in. */
@@ -31,6 +31,8 @@ export function invoiceFigures(invoices, now = new Date()) {
   const from = fyStart(now);
   const paid = invoices.filter((i) => i.status === 'PAID' && new Date(i.paidAt || i.issueDate) >= from);
   const unpaid = invoices.filter((i) => i.status === 'ISSUED');
+  /* GST charged on this year's invoices (not cancelled ones): what the account may claim as input credit. */
+  const thisFy = invoices.filter((i) => (i.status === 'PAID' || i.status === 'ISSUED') && new Date(i.issueDate || i.createdAt) >= from);
   const next = [...unpaid].sort((a, b) => new Date(a.dueDate || a.issueDate) - new Date(b.dueDate || b.issueDate))[0] || null;
   return {
     paidThisFy: paid.reduce((n, i) => n + Number(i.total || 0), 0),
@@ -39,6 +41,8 @@ export function invoiceFigures(invoices, now = new Date()) {
     unpaidTotal: unpaid.reduce((n, i) => n + Number(i.total || 0), 0),
     unpaidCount: unpaid.length,
     overdue: unpaid.filter((i) => i.overdue).length,
+    gstThisFy: thisFy.reduce((n, i) => n + Number(i.taxTotal || 0), 0),
+    gstCount: thisFy.filter((i) => Number(i.taxTotal || 0) > 0).length,
   };
 }
 
@@ -78,13 +82,17 @@ export default function Invoices() {
               cat={2}
               label="Next to pay"
               value={f.next ? inr(f.next.total) : inr(0)}
-              note={f.next ? `${f.next.number} · ${f.next.overdue ? 'overdue since' : 'due'} ${invoiceDay(f.next.dueDate)}` : 'Nothing to pay'}
+              note={
+                f.next
+                  ? `${f.next.number} · ${f.next.overdue ? 'overdue since' : 'due'} ${invoiceDay(f.next.dueDate)}${f.unpaidCount > 1 ? ` · ${f.unpaidCount} unpaid, ${inr(f.unpaidTotal)}${f.overdue ? `, ${f.overdue} overdue` : ''}` : ''}`
+                  : 'Nothing to pay'
+              }
             />
             <KpiTile
               cat={3}
-              label="Unpaid in all"
-              value={inr(f.unpaidTotal)}
-              note={f.unpaidCount ? `${f.unpaidCount} ${f.unpaidCount === 1 ? 'invoice' : 'invoices'}${f.overdue ? `, ${f.overdue} overdue` : ''}` : 'All paid'}
+              label="GST input credit"
+              value={inr(f.gstThisFy)}
+              note={f.gstThisFy ? `On ${f.gstCount} ${f.gstCount === 1 ? 'invoice' : 'invoices'} · ${fyName}` : `No GST charged · ${fyName}`}
             />
           </div>
         ) : null}
@@ -95,12 +103,12 @@ export default function Invoices() {
           ) : !invoices.length ? (
             <p className="ws-card-blurb">No invoices yet.</p>
           ) : (
-            <InvoiceTable invoices={invoices} onOpen={openInvoice} />
+            <InvoiceTable invoices={invoices} onOpen={openInvoice} detail />
           )}
         </section>
 
         <p className="ws-foot-note">
-          Open an invoice for its taxable value, GST (CGST and SGST, or IGST) and place of supply. {payOnline ? 'An unpaid one can be paid online, by UPI QR or by bank transfer.' : 'An unpaid one shows CLOR’s UPI QR and bank account.'}
+          Open an invoice for its GST breakup (CGST and SGST, or IGST) and place of supply. {payOnline ? 'An unpaid one can be paid online, by UPI QR or by bank transfer.' : 'An unpaid one shows CLOR’s UPI QR and bank account.'}
         </p>
 
         <InvoiceDrawer viewer={viewer} />

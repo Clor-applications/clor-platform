@@ -311,6 +311,11 @@ export const summary = (r: any) => ({
   overdue: isOverdue(r),
   issueDate: r.issueDate,
   dueDate: r.dueDate,
+  /* The taxable value, the GST on it and the period billed: the customer's list shows them per row. */
+  periodStart: r.periodStart ?? null,
+  periodEnd: r.periodEnd ?? null,
+  subtotal: r.subtotal ?? 0,
+  taxTotal: r.taxTotal ?? 0,
   total: r.total,
   paidAt: r.paidAt,
   booksStatus: r.booksStatus,

@@ -19,7 +19,7 @@
 }
 @media (max-width: 640px) {
   .ws-appgrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 .ws-appcard {
@@ -166,7 +166,7 @@ button.ws-attn-row:hover {
 }
 @media (max-width: 700px) {
   .ws-attn-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -179,7 +179,8 @@ button.ws-attn-row:hover {
 }
 @media (max-width: 1180px) {
   .ws-home-split {
-    grid-template-columns: 1fr;
+    /* minmax(0, …): a wide table scrolls in its own frame instead of widening the page on a phone. */
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 .ws-home-col {
@@ -187,6 +188,10 @@ button.ws-attn-row:hover {
   gap: 32px;
   min-width: 0;
   align-content: start;
+}
+/* Each block may shrink below its table, so the table scrolls in its own frame on a phone. */
+.ws-home-col > * {
+  min-width: 0;
 }
 .ws-sec-head {
   display: flex;

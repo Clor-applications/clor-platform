@@ -563,7 +563,7 @@
 }
 @media (max-width: 1180px) {
   .ws-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 /* Numbers that matter, each a way in. */
@@ -1466,21 +1466,20 @@ button.ws-item:hover {
   outline: 2px solid rgb(var(--ws-accent));
   outline-offset: -2px;
 }
-/* Label-over-value facts, three to a row on a drawer, two on a phone. */
+/* Label-over-value facts, three to a row on a drawer, two on a phone: one soft panel with no boxes inside it (README §3 "soft panel, no border"; no card-in-card). */
 .ws-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  /* Hairlines between cells from the gap itself, so any column count draws clean. */
-  gap: 1px;
-  background: rgb(var(--ws-line));
-  border: 1px solid rgb(var(--ws-line));
+  gap: 16px 24px;
+  padding: 16px 20px;
+  background: rgb(var(--soft-panel, 246 247 244));
   border-radius: 12px;
-  overflow: hidden;
 }
 .ws-facts > div {
-  padding: 12px 14px;
-  background: rgb(var(--ws-surface));
   min-width: 0;
+}
+.ws-facts--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .ws-facts dt {
   font-size: 0.75rem;
@@ -1870,14 +1869,9 @@ button.ws-item:hover {
   margin: 12vh auto;
   padding: 0 24px;
 }
-/* Nine sections: below 1600px the name gives way to them (it stays on the sign-out button's tooltip), below 1360px the icons do too. */
+/* Nine sections: below 1600px the name gives way to them (it stays on the sign-out button's tooltip). Ops keeps its icons (packages/ops/ops.css). */
 @media (max-width: 1599px) {
   .ops-who {
-    display: none;
-  }
-}
-@media (max-width: 1359px) {
-  .ops-nav-item svg {
     display: none;
   }
 }
@@ -2313,6 +2307,9 @@ button.ws-item:hover {
 .ws-head > div:first-child {
   display: grid;
   gap: 8px;
+  /* Takes the room the actions leave, so a long description wraps beside them instead of pushing them under the title. */
+  flex: 1 1 0;
+  min-width: 0;
 }
 .ws-title {
   margin-top: 0;
@@ -2760,11 +2757,13 @@ button.ws-stat:hover {
   border-radius: 999px;
   background: rgb(var(--surface-sunken, 244 245 242));
 }
-.ws-meter-bar > span {
-  background: rgb(var(--meter, var(--fg-subtle, 94 99 107)));
-}
+/* With no app to colour it, a meter takes the first identity colour; near the limit the figure, not the bar, turns amber and says so. */
+.ws-meter-bar > span,
 .ws-meter-bar > span[data-tight] {
-  background: rgb(var(--meter, var(--warn-ink, 138 90 0)));
+  background: rgb(var(--meter, var(--cat-1, 42 120 214)));
+}
+.ws-meter[data-tight] .ws-meter-row strong {
+  color: rgb(var(--warn-ink, 138 90 0));
 }
 .ws-seats {
   display: grid;

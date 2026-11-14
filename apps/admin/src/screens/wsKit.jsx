@@ -201,17 +201,23 @@ export function Panel({ title, action, children, labelledBy }) {
 }
 
 /** Usage against an allowance; an unlimited allowance says so instead of drawing a bar. */
-export function Meter({ label, used, limit }) {
+/*
+ * `app` colours the bar in that app's colour (seats); otherwise it takes the first identity colour.
+ * `coverage` is a share where full is good (authenticators, permissions granted): no limit warning.
+ */
+export function Meter({ label, used, limit, app, coverage = false }) {
   const unlimited = limit == null;
   const pct = unlimited ? 0 : Math.min(100, Math.round((Number(used) / Math.max(1, Number(limit))) * 100));
+  const tight = !coverage && !unlimited && pct >= 80;
+  const info = app ? appInfo(app) : null;
   return (
-    <div className="ws-meter">
+    <div className="ws-meter" data-tight={tight ? '' : undefined}>
       <div className="ws-meter-row">
         <span>{label}</span>
-        <strong>{unlimited ? `${used} · no limit` : `${used} / ${limit}`}</strong>
+        <strong>{unlimited ? `${used} · no limit` : `${used} / ${limit}${tight ? (Number(used) > Number(limit) ? ' · over limit' : ' · near limit') : ''}`}</strong>
       </div>
       {unlimited ? null : (
-        <div className="ws-meter-bar" role="meter" aria-valuemin={0} aria-valuemax={Number(limit)} aria-valuenow={Number(used)} aria-label={label}>
+        <div className="ws-meter-bar" role="meter" aria-valuemin={0} aria-valuemax={Number(limit)} aria-valuenow={Number(used)} aria-label={label} style={info ? { '--meter': `var(${info.color})` } : undefined}>
           <span style={{ width: `${pct}%` }} data-tight={pct >= 80 ? '' : undefined} />
         </div>
       )}

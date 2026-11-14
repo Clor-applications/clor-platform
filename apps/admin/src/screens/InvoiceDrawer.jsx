@@ -129,8 +129,28 @@ export function InvoicePill({ inv }) {
   return <span className="ws-pill ws-pill--neutral">{inv.status}</span>;
 }
 
-/** CLOR's invoices as a table: number (opens it), issued, due, total, state and the PDF. */
-export function InvoiceTable({ invoices, onOpen, caption = 'Invoices from CLOR' }) {
+/**
+ * The months an invoice bills, short: "1–30 Nov 2026", "15 Oct – 14 Nov 2026".
+ * An invoice without a period (an older one, or a one-off) says when it was issued.
+ */
+export function invoicePeriod(inv) {
+  const parse = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00`) : null);
+  const a = parse(inv?.periodStart);
+  const b = parse(inv?.periodEnd);
+  if (!a || Number.isNaN(a.getTime())) return inv?.issueDate ? `Issued ${invoiceDay(inv.issueDate)}` : '—';
+  const fmt = (d, o) => d.toLocaleDateString('en-IN', o);
+  if (!b || Number.isNaN(b.getTime())) return `From ${fmt(a, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  if (a.getFullYear() !== b.getFullYear()) return `${fmt(a, { day: 'numeric', month: 'short', year: 'numeric' })} – ${fmt(b, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  if (a.getMonth() !== b.getMonth()) return `${fmt(a, { day: 'numeric', month: 'short' })} – ${fmt(b, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  return `${a.getDate()}–${fmt(b, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
+/**
+ * CLOR's invoices as a table (R&D CLOR-03 / WS-10): number (opens it), the
+ * period billed, the money, the state and the PDF. `detail` adds the taxable
+ * value and the GST before the total, as the Invoices page draws it.
+ */
+export function InvoiceTable({ invoices, onOpen, caption = 'Invoices from CLOR', detail = false }) {
   return (
     <div className="ws-table-wrap">
       <table className="ws-table">
@@ -138,9 +158,10 @@ export function InvoiceTable({ invoices, onOpen, caption = 'Invoices from CLOR' 
         <thead>
           <tr>
             <th>Invoice</th>
-            <th>Issued</th>
-            <th>Due</th>
-            <th className="num">Total</th>
+            <th>Period</th>
+            {detail ? <th className="num">Taxable</th> : null}
+            {detail ? <th className="num">GST</th> : null}
+            <th className="num">{detail ? 'Total' : 'Amount'}</th>
             <th>Status</th>
             <th><span className="sr-only">Document</span></th>
           </tr>
@@ -153,9 +174,10 @@ export function InvoiceTable({ invoices, onOpen, caption = 'Invoices from CLOR' 
                   {i.number}
                 </button>
               </td>
-              <td>{invoiceDay(i.issueDate)}</td>
-              <td>{i.status === 'ISSUED' ? invoiceDay(i.dueDate) : '—'}</td>
-              <td className="num ws-inv-total">{inr(i.total)}</td>
+              <td>{invoicePeriod(i)}</td>
+              {detail ? <td className="num">{i.subtotal == null ? '—' : inr(i.subtotal)}</td> : null}
+              {detail ? <td className="num">{i.taxTotal == null ? '—' : inr(i.taxTotal)}</td> : null}
+              <td className={`num${detail ? ' ws-inv-total' : ''}`}>{inr(i.total)}</td>
               <td><InvoicePill inv={i} /></td>
               <td className="num">
                 <button type="button" className="ws-link" aria-label={`${i.number} as PDF`} onClick={() => onOpen(i.id)}>

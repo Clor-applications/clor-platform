@@ -94,7 +94,7 @@ describe('the Workspace overview', () => {
     const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
     expect(await attention.findByText('1 pending invitation')).toBeInTheDocument();
     expect(await attention.findByText('1 administrator without an authenticator')).toBeInTheDocument();
-    expect(attention.getByText('Company details incomplete')).toBeInTheDocument();
+    expect(attention.getByText('Neev Steels has no GSTIN')).toBeInTheDocument();
     expect(attention.getByText('Gate is offline')).toBeInTheDocument();
     /* Urgent first: the sync problem sits above the invitation. */
     const titles = attention.getAllByRole('listitem').map((li) => li.textContent);

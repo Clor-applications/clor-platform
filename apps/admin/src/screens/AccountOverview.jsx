@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { renameAccount } from '@platform/admin/account';
+import { memberDirectory, renameAccount } from '@platform/admin/account';
 import { formatMoney } from '@ui/utils/money';
 import { formatDateIn, localDateIso } from '@ui/utils/dates';
 import NotConnected from '@ui/components/ui/NotConnected';
@@ -63,7 +63,7 @@ const LimitMeter = ({ label, used, limit }) => {
  * account's activity; anyone else is told so. The field is the General
  * section's; the page's one primary action, Save changes, submits it.
  */
-function AccountName({ name, onRenamed, onDirty }) {
+function AccountName({ name, owners = null, onRenamed, onDirty }) {
   const [value, setValue] = useState(name);
   const [error, setError] = useState('');
   return (
@@ -99,6 +99,17 @@ function AccountName({ name, onRenamed, onDirty }) {
         />
         <span id="ws-name-help" className="ws-field-help">The account’s name on invoices, invitations and the company switcher.</span>
       </label>
+      {/* WS-14's Owner: the account stores owners as member roles, so this names them and Members changes them. */}
+      {owners ? (
+        <div className="ws-field">
+          <span id="ws-owner-label">Owner</span>
+          <p className="ws-field-value" aria-labelledby="ws-owner-label">{owners.length ? owners.join(', ') : 'No owner on record'}</p>
+          <span className="ws-field-help">
+            Change who owns the workspace in{' '}
+            <button type="button" className="ws-link" onClick={() => requestOpenScreen('members')}>Members</button>.
+          </span>
+        </div>
+      ) : null}
       {error ? <p role="alert" className="text-sm" style={{ gridColumn: '1 / -1', color: 'rgb(var(--neg))' }}>{error}</p> : null}
     </form>
   );
@@ -150,13 +161,13 @@ function DataHealth({ health }) {
           {health.issues ? `${health.issues} to fix` : 'All sources working'}
         </span>
       </div>
-      <dl className="ws-facts">
+      <dl className="ws-kv">
         {(health.sources || []).map((src) => (
-          <React.Fragment key={src.key}>
+          <div key={src.key}>
             <dt>{src.label}</dt>
             {/* Not "2 of 1": one reader can raise two alerts, and that read as nonsense live. */}
             <dd className="num">{src.issues ? `${src.total}, ${src.issues} to fix` : src.total}</dd>
-          </React.Fragment>
+          </div>
         ))}
       </dl>
       {(health.alerts || []).length ? (
@@ -198,6 +209,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
   const [failed, setFailed] = useState('');
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
+  const [owners, setOwners] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,6 +223,13 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    /* Who owns the account (owners and administrators may read the directory; anyone else simply does not see the line). */
+    Promise.resolve()
+      .then(memberDirectory)
+      .then((d) => {
+        if (!cancelled && Array.isArray(d?.members)) setOwners(d.members.filter((m) => m.accountRole === 'OWNER' && m.status !== 'SUSPENDED').map((m) => m.name || m.email));
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -279,6 +298,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                 <AccountName
                   key={name}
                   name={name}
+                  owners={owners}
                   onDirty={setDirty}
                   onRenamed={(n) => setData((d) => (d ? { ...d, account: { ...d.account, name: n } } : d))}
                 />
@@ -428,16 +448,13 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
               </section>
 
               {entities ? (
-                <Panel title="What the account is made of">
-                  <dl className="ws-facts">
-                    <dt>Companies</dt>
-                    <dd className="num">{entities.companies}</dd>
-                    <dt>Branches</dt>
-                    <dd className="num">{entities.branches}</dd>
-                    <dt>GST registrations</dt>
-                    <dd className="num">{entities.taxProfiles}</dd>
-                    <dt>Cost centres</dt>
-                    <dd className="num">{entities.costCentres}</dd>
+                <section className="ws-section" aria-labelledby="ws-made-of">
+                  <h2 id="ws-made-of" className="ws-h2">What the account is made of</h2>
+                  <dl className="ws-facts ws-facts--2">
+                    <div><dt>Companies</dt><dd className="num">{entities.companies}</dd></div>
+                    <div><dt>Branches</dt><dd className="num">{entities.branches}</dd></div>
+                    <div><dt>GST registrations</dt><dd className="num">{entities.taxProfiles}</dd></div>
+                    <div><dt>Cost centres</dt><dd className="num">{entities.costCentres}</dd></div>
                   </dl>
                   {entities.companiesWithoutGstin > 0 ? (
                     <p className="ws-card-blurb">
@@ -446,7 +463,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                         : `${entities.companiesWithoutGstin} companies have no GSTIN on record.`}
                     </p>
                   ) : null}
-                </Panel>
+                </section>
               ) : null}
 
               <DataHealth health={health} />

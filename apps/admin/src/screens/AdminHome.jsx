@@ -5,7 +5,8 @@ import { accountAudit, getAccountMe, listAccountMembers, listInvitations, listTi
 import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
-import { AppMark, Avatar, ICON, Meter, Panel, ago, productIcon } from './wsKit';
+import { listOutsideAccess } from '@platform/admin/outsideAccess';
+import { AppMark, Avatar, ICON, Meter, Panel, ago, productIcon, seatState } from './wsKit';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 import { orgId, requestOpenHelp } from '@platform/context';
 import { apiFetch } from '@platform/http';
@@ -75,6 +76,8 @@ const firstName = (user) => String(user?.firstName || user?.fullName || '').trim
 const getWaiting = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/workspace/waiting`, { skipWarehouseHeader: true });
 
 const dateWords = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const DAY = 86400000;
+const WEEK = 7 * DAY;
 const inDays = (n) => (n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`);
 
 /** What the subscription itself needs said (server: subscriptionWatch). Lapsed is the plan line's, said once. */
@@ -95,6 +98,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [activity, setActivity] = useState(null);
   const [waiting, setWaiting] = useState(null);
   const [tickets, setTickets] = useState(null);
+  const [outside, setOutside] = useState(null);
   const attentionRef = useRef(null);
 
   useEffect(() => {
@@ -111,6 +115,11 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           accountAudit({ limit: 6 }).then((a) => live && setActivity(a?.events || [])).catch(() => {});
           memberDirectory()
             .then((d) => live && setDirectory(d?.members || []))
+            .catch(() => {});
+          /* Accountants let in for a time: one whose access ends within a week is worth a word (CLOR-01). */
+          Promise.resolve()
+            .then(listOutsideAccess)
+            .then((o) => live && setOutside(o ? { ...o, readAt: Date.now() } : null))
             .catch(() => {});
         }
         listTickets().then((t) => live && setTickets(t?.tickets || [])).catch(() => {});
@@ -168,18 +177,60 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
       go: openApp ? () => openApp(x.open.app, x.open.screen, x.open.params || {}) : null,
     }));
 
+  /* An app at or past the seats bought: what is left, or how far over (seats bought from the plan, used from the directory). */
+  const seatLines = (seats || [])
+    .filter((x) => x.bought != null && seatState(x.used, x.bought) !== 'ok')
+    .map((x) => {
+      const over = seatState(x.used, x.bought) === 'over';
+      const left = Number(x.bought) - Number(x.used);
+      return {
+        key: `seats-${x.app}`,
+        tag: over ? 'Over limit' : 'Seats',
+        pill: over ? 'danger' : 'warn',
+        tone: 'warn',
+        action: 'Add seats',
+        icon: productIcon(x.app),
+        title: <>{APP_NAME[x.app] || x.app} is using <N>{x.used}</N> of <N>{x.bought}</N> seats</>,
+        sub: over ? `${-left} more than the plan has. Add seats to keep everyone in.` : `${plural(left, 'seat')} left before you need more.`,
+        go: go('billing'),
+      };
+    });
+  /* Outside access that ends within a week: renew it or let it lapse. */
+  const readAt = outside?.readAt || 0;
+  const endingLines = (outside?.outsideAccess || [])
+    .filter((r) => r.effective === 'ACTIVE' && r.expiresAt && Date.parse(r.expiresAt) - readAt < WEEK && Date.parse(r.expiresAt) >= readAt)
+    .slice(0, 3)
+    .map((r) => {
+      const days = Math.max(0, Math.ceil((Date.parse(r.expiresAt) - readAt) / DAY));
+      const who = r.from?.name || r.person?.name || r.person?.email || 'An accountant';
+      return {
+        key: `outside-${r.id}`,
+        tag: days === 0 ? 'Expires today' : `Expires in ${plural(days, 'day')}`,
+        pill: 'warn',
+        tone: 'warn',
+        action: 'Review access',
+        icon: ICON.person,
+        title: `${who}’s access ends ${dateWords(r.expiresAt)}`,
+        sub: 'Renew it or let it lapse.',
+        go: go('outsideAccess'),
+      };
+    });
+  const noGstin = isAdmin && overview ? (overview.companies || []).filter((c) => !c.gstin && !c.archived) : [];
+
   /* Needs your attention: only what is true and actionable, the most urgent first. */
   const attention = [
     planBad ? { key: 'plan', tag: 'Plan', action: 'Open plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: `Status: ${String(plan.status || '').toLowerCase()}.`, go: go('account') } : null,
     seesPlan && bills?.overdue ? { key: 'overdue', tag: 'Overdue', action: 'Pay now', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Open Billing to pay.</>, go: go('billing') } : null,
     renewalLine ? { key: 'renewal', tag: 'Plan', action: 'Choose plan', icon: ICON.plan, ...renewalLine, go: go('account') } : null,
+    ...seatLines,
+    ...endingLines,
     ...waitingLines,
     health?.status === 'attention' ? { key: 'sync', tag: 'Sync', icon: ICON.data, tone: 'warn', title: `${plural(health.issues, 'sync problem')}`, sub: health.alerts?.[0]?.title || health.sources.filter((x) => x.issues).map((x) => x.label).join(', '), go: null } : null,
     privilegedNo2fa ? { key: '2fa', tag: 'Security', action: 'Review members', icon: ICON.warning, tone: 'warn', title: `${privilegedNo2fa} administrator${privilegedNo2fa === 1 ? '' : 's'} without an authenticator`, sub: 'They can change who has access; ask them to switch it on.', go: go('members') } : null,
     seesPlan && bills?.unpaid && !bills.overdue ? { key: 'unpaid', tag: 'Invoice', action: 'Pay', icon: ICON.plan, tone: null, title: `${plural(bills.unpaid, 'CLOR invoice')} to pay`, sub: <><N>{rupees(bills.due)}</N> due. Not overdue yet.</>, go: go('billing') } : null,
     pending ? { key: 'inv', tag: 'Invited', action: 'View invitations', icon: ICON.invite, tone: null, title: `${pending} pending invitation${pending === 1 ? '' : 's'}`, sub: 'Waiting for people to accept.', go: go('invitations') } : null,
     notAssigned.length ? { key: 'na', tag: 'Access', icon: ICON.person, tone: null, title: `You can’t open ${notAssigned.map((s) => s.app.name).join(', ')} yet`, sub: 'An administrator gives access with a role.', go: null } : null,
-    isAdmin && overview && overview.companies?.some((c) => !c.gstin && !c.archived) ? { key: 'gstin', tag: 'Missing', pill: 'danger', action: 'Add GSTIN', icon: ICON.company, tone: null, title: 'Company details incomplete', sub: `${overview.companies.filter((c) => !c.gstin && !c.archived).map((c) => c.name).join(', ')}: no GSTIN on record.`, go: go('companies') } : null,
+    noGstin.length ? { key: 'gstin', tag: 'Missing', pill: 'danger', action: 'Add GSTIN', icon: ICON.company, tone: null, title: noGstin.length === 1 ? `${noGstin[0].name} has no GSTIN` : `${noGstin.length} companies have no GSTIN`, sub: noGstin.length === 1 ? 'Invoices from this company cannot be e-invoiced until it is added.' : `${noGstin.map((c) => c.name).join(', ')}: invoices cannot be e-invoiced until each is added.`, go: go('companies') } : null,
   ].filter(Boolean);
   const repliedTo = (tickets || []).filter((t) => t.status === 'WAITING');
   /* CLOR answered and waits on the customer: after the urgent items, before the routine ones. */
@@ -453,7 +504,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 <Meter label="Companies" used={usage?.companies ?? 0} limit={plan.limits?.maxCompanies ?? null} />
                 <Meter label="Users" used={usage?.users ?? 0} limit={plan.limits?.maxUsers ?? null} />
                 {/* Only seats that were bought in a number; unmetered ones are on each app card. */}
-                {seats ? seats.filter((x) => x.bought != null).map((x) => <Meter key={x.app} label={`${APP_NAME[x.app] || x.app} seats`} used={x.used} limit={x.bought} />) : null}
+                {seats ? seats.filter((x) => x.bought != null).map((x) => <Meter key={x.app} app={x.app} label={`${APP_NAME[x.app] || x.app} seats`} used={x.used} limit={x.bought} />) : null}
               </Panel>
             ) : null}
           </div>
@@ -501,7 +552,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   ) : null
                 }
               >
-                <Meter label="Sign in with an authenticator" used={security.withTotp} limit={security.active || null} />
+                <Meter coverage label="Sign in with an authenticator" used={security.withTotp} limit={security.active || null} />
                 <p className="ws-item-sub" style={{ margin: 0 }}>
                   {privilegedNo2fa ? <><N>{privilegedNo2fa}</N> {privilegedNo2fa === 1 ? 'administrator has' : 'administrators have'} none yet.</> : 'Every administrator uses one.'}
                 </p>
