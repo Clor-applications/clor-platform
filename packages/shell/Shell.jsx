@@ -889,7 +889,8 @@ function ShellScreens() {
     );
   }
   if (deniedCode) return <NoCompanyAccess />;
-  if (!tenant) return <CompanySetup />;
+  /* The new company opens in the app picked on its setup, not the workspace or the first in the list. */
+  if (!tenant) return <CompanySetup onLanding={setChosenAppId} />;
 
   const app = appById(activeAppId);
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */

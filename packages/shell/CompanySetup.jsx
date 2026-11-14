@@ -5,7 +5,7 @@ import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 
 import { ClorLogo } from '@ui/components/brand';
 import { APPS } from './registry';
-import { appIntent, clearAppIntent } from './appIntent';
+import { appIntent, clearAppIntent, landingAfterSetup } from './appIntent';
 import { useSession } from './session';
 
 /**
@@ -32,7 +32,8 @@ import { useSession } from './session';
 
 const GST_STATES = [...new Set(Object.values(GST_STATE_BY_CODE))].sort((a, b) => a.localeCompare(b));
 
-export default function CompanySetup() {
+/* `onLanding(appId)`: told, before the company is made, which app to open once it is (the one picked). */
+export default function CompanySetup({ onLanding } = {}) {
   const { user, createCompany, signOut } = useSession();
 
   const [step, setStep] = useState(0);
@@ -80,6 +81,9 @@ export default function CompanySetup() {
     }
     setBusy(true);
     setError('');
+    /* Said first: the shell swaps this screen for the company as soon as it exists. */
+    const landing = landingAfterSetup(chosen);
+    if (landing && onLanding) onLanding(landing);
     try {
       await createCompany({
         name: form.name.trim(),

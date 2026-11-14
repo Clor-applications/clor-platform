@@ -64,3 +64,19 @@ describe('the company in the address (A-26)', () => {
     await waitFor(() => expect(screen.getByTestId('company').textContent).toBe('first'));
   });
 });
+
+describe('a new company starts with the apps picked (B2)', () => {
+  it('sends the picked apps with the company and switches nothing else on afterwards', async () => {
+    const auth = await import('@platform/auth');
+    auth.setupCompany.mockClear();
+    auth.setFeature.mockClear();
+    auth.setupCompany.mockResolvedValue({ company: { orgId: 'first' }, branch: { id: 'b1' } });
+    let session;
+    function Grab() { session = useSession(); return null; }
+    render(<SessionProvider><Grab /></SessionProvider>);
+    await waitFor(() => expect(session?.tenant?.id).toBe('first'));
+    await session.createCompany({ name: 'First', state: 'Karnataka', apps: ['attendance'] });
+    expect(auth.setupCompany).toHaveBeenCalledWith(expect.objectContaining({ companyName: 'First', state: 'Karnataka', apps: ['attendance'] }));
+    expect(auth.setFeature).not.toHaveBeenCalled();
+  });
+});
