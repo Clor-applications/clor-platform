@@ -77,9 +77,9 @@ since merged and shipped; checked against `origin/main`, the live API revision a
 ## Stage 1 — private beta, 3–5 free design partners (audit: weeks 3–8)
 
 - [ ] Invoice tax computed on the server: subtotal, CGST/SGST/IGST and place of supply recomputed, not trusted from the browser — `server/src/routes/invoices.ts:446-452` (audit P0 4)
-- [ ] Admin 2FA and payroll step-up on by default; today a user with no authenticator skips step-up — `server/src/services/stepUp.ts:84`
-- [ ] Enforce CSP on the app (`public/_headers:15` is Report-Only) and add one to clor.in
-- [ ] SSO session bound to its company, not the whole account — `server/src/routes/sso.ts:227-283`
+- [x] Admin 2FA and payroll step-up on by default (14 Nov): companies created from now ask owners and admins for an authenticator; SSO, directory sync and its tokens need one outright (`stepUpIfHeld`); existing companies keep their setting. A locked account now answers sign-in like an unknown address
+- [x] Enforce CSP on the app and clor.in (enforced since 12 Nov; checked live 14 Nov on app., ops. and clor.in)
+- [x] SSO session bound to its company (11 Nov), and no account-wide Workspace powers once the account has another company (14 Nov, `SSO_ACCOUNT_WIDE`)
 - [ ] Approval emails and Android push (in-app bell only today) — `services/approvals/engine.ts:797`
 - [ ] Payroll: EPS exclusions (58+, joined after Sep 2014 above ₹15k) — `statutory/engine.ts:170-176`
 - [ ] Payroll: ESI contribution period (cover holds to end of Apr–Sep / Oct–Mar) — `engine.ts:211-219`
@@ -116,7 +116,7 @@ since merged and shipped; checked against `origin/main`, the live API revision a
 ## Smaller findings (any time)
 
 - [x] Cloud Run settings in the repo (`deploy/cloudrun.service.yaml`); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` rewritten for Cloud Run, Cloud SQL and Pages — PR #225, merged. The live service's request timeout is **300s**, checked 13 Nov
-- [ ] Migrations run at every container start with runtime credentials; a bad one crash-loops all instances (seen 12 Nov). Move to a pre-deploy Cloud Run Job
+- [x] Migrations run as a pre-deploy step (`scripts/migrate.sh`, called by `scripts/release.sh`), not at container start
 - [x] Alert when a background job fails or goes stale (`JobRun`) — PR #225, live (`services/ops/jobHealth.ts`); the matching alert policy "FAILED: a scheduled job" is on
 - [ ] Idempotency keyed by user and company, not the Authorization header (`middleware/idempotency.ts:23`)
 - [ ] E-invoice calls: queue, retry, timeout (`services/einvoice.ts:367`)
