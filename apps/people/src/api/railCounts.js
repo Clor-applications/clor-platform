@@ -1,6 +1,7 @@
 import { getWaiting } from './approvals.js';
 import { listOpenings } from './talent.js';
 import { listEmployees } from '@ui/personnel/api';
+import { getMyPermissions } from '@ui/api/permissions';
 
 /*
  * Rail counts for People: the one waiting number (requests to approve plus the
@@ -28,10 +29,15 @@ export async function peoplePanelCounts({ tenant } = {}) {
   if (last.counts && last.key === key && Date.now() - last.at < FRESH_MS) return last.counts;
   try {
     const settle = (p) => Promise.resolve().then(p).catch(() => null);
+    /* Only ask for what this person may read: a refused call is noise in the denials log, and a manager's own screens
+       must never draw a refusal (e2e M11). Unknown permissions ask nothing beyond the inbox. */
+    const mine = await settle(getMyPermissions);
+    const granted = new Set(Array.isArray(mine?.permissions) ? mine.permissions : []);
+    const may = (k) => Boolean(mine?.isAdmin) || granted.has(k);
     const [w, staff, openings] = await Promise.all([
       settle(getWaiting),
-      settle(() => listEmployees({ working: 'now', limit: 1 })),
-      settle(() => listOpenings({ status: 'OPEN' })),
+      may('PEOPLE::Employees::VIEW') ? settle(() => listEmployees({ working: 'now', limit: 1 })) : null,
+      may('PEOPLE::Recruitment::VIEW') ? settle(() => listOpenings({ status: 'OPEN' })) : null,
     ]);
     const counts = {};
     const waiting = (k, n) => { if (Number(n) > 0) counts[k] = Number(n); };
