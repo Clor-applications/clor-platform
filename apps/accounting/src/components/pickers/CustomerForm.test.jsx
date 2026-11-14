@@ -27,7 +27,7 @@ import { CustomerForm } from './CustomerPicker';
  */
 
 const db = { customers: [], chartOfAccounts: [], accountGroups: [{ id: 1, companyId: 1, name: 'Sundry Debtors' }], accountTypes: [] };
-const company = { id: 1, name: 'Test Co', state: 'Karnataka' };
+const company = { id: 1, name: 'Test Co', state: 'Karnataka', gstEnabled: true };
 
 const renderForm = (props = {}) =>
   render(<CustomerForm db={db} setDb={() => {}} currentCompany={company} onClose={() => {}} {...props} />);

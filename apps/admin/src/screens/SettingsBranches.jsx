@@ -4,7 +4,7 @@ import { ArrowDownUp, Download, MoreHorizontal, Pencil, Plus, Power, Search, Tra
 import Popover from '@ui/components/ui/Popover';
 import { exportRows } from '@ui/components/ListToolbar';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
+import { GST_STATE_BY_CODE, getGstStateFromGstin, isCompanyGstEnabled } from '@ui/utils/gst';
 import { gstinError } from '@ui/utils/gstinValidation';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
@@ -72,7 +72,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       email: profile.officialEmail || '',
     };
   }, [company]);
-  const gstEnabled = Boolean(company?.profile?.taxCompliances?.gstEnabled ?? company?.gstEnabled ?? company?.gstin);
+  const gstEnabled = isCompanyGstEnabled(company);
   const showType = asksBranchType();
 
   const load = useCallback(async () => {

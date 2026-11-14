@@ -43,7 +43,7 @@ const COMPANY = {
   name: 'Neev Steels',
   gstin: '29ABCDE1234F1Z5',
   state: 'Karnataka',
-  profile: { taxCompliances: { tds: { enabled: true, tan: 'BLRN12345F' } } },
+  profile: { taxCompliances: { gstEnabled: true, tds: { enabled: true, tan: 'BLRN12345F' } } },
 };
 
 const GROUPS = [
@@ -228,7 +228,7 @@ describe('choosing what to deduct against', () => {
   });
 
   it('deducts nothing at all while TDS is switched off for the company', () => {
-    const off = { ...COMPANY, profile: { taxCompliances: { tds: { enabled: false } } } };
+    const off = { ...COMPANY, profile: { taxCompliances: { gstEnabled: true, tds: { enabled: false } } } };
     render(<Host db={dbWith({ companies: [off] })} />);
     expect(screen.getByRole('button', { name: /TDS deduction/ })).toBeDisabled();
     expect(screen.getByText(/TDS is switched off for this company/)).toBeInTheDocument();

@@ -22,7 +22,7 @@ import ItemPicker from './ItemPicker';
  * picker now opens the item form itself.
  */
 
-const COMPANY = { id: 1 };
+const COMPANY = { id: 1, gstEnabled: true };
 
 const dbWith = () => ({
   items: [{ id: 11, companyId: 1, name: 'MS Angle 50mm', code: 'A50', unit: 'Pcs', gstRate: 18, salePrice: 100 }],

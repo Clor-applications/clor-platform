@@ -55,18 +55,11 @@ export const isCompanyTaxEnabled = (company, key) =>
 
 /** One authoritative GST switch for every screen and calculation. */
 export const isCompanyGstEnabled = (company) => {
+  // GST is on only when someone switches it on (Books developer's rule, owner
+  // 15 Nov 2026): a GSTIN on file no longer turns it on by itself.
   const configured = company?.profile?.taxCompliances?.gstEnabled;
   if (typeof configured === 'boolean') return configured;
-  if (typeof company?.gstEnabled === 'boolean') return company.gstEnabled;
-  // No explicit switch: companies made before the switch existed. A GSTIN
-  // means the company is registered, so GST is on.
-  if (String(company?.gstin || '').trim()) return true;
-  // A company that says it is not registered has no GST.
-  const registration = String(company?.gstRegistration || '').trim().toLowerCase();
-  if (registration === 'unregistered' || registration === 'consumer') return false;
-  // Otherwise keep GST on, as the app always did, so older companies keep
-  // their GST columns until someone turns GST off in settings.
-  return true;
+  return company?.gstEnabled === true;
 };
 
 /** Whether the GST registration used by a state/GSTIN may charge tax. */
