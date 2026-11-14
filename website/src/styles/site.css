@@ -127,6 +127,10 @@ h4 {
 [id] {
   scroll-margin-top: 92px;
 }
+/* The same for keyboard focus: Tab never lands a control under the sticky bar. */
+html {
+  scroll-padding-top: 92px;
+}
 /* Focus moves to the page after an in-page navigation; the page itself needs no ring. */
 main:focus {
   outline: none;
@@ -529,7 +533,11 @@ main:focus {
   margin-top: var(--s-6);
 }
 
-@media (max-width: 960px) {
+/* The phone menu takes over below 1080px: from 961px to 1079px the five menus,
+   Sign in and Request a demo did not fit and the page scrolled sideways. The
+   same width is used for Sign in (below), the home page's sticky header and
+   its in-page bar (bands.css). */
+@media (max-width: 1079px) {
   .nav-main,
   .nav-doors {
     display: none;
@@ -2320,7 +2328,7 @@ main:focus {
   display: flex;
   justify-content: center;
 }
-@media (max-width: 960px) {
+@media (max-width: 1079px) {
   .topbar {
     display: none;
   }
@@ -3481,7 +3489,9 @@ html.is-scrolled .nav {
   background: rgba(255, 255, 255, 0.1);
   border-color: #fff;
 }
-@media (max-width: 1100px) {
+/* Up to 1259px the header has room for one button: the trial one goes (it was
+   1100px, and from 1101px to about 1240px the row ran off the screen). */
+@media (max-width: 1259px) {
   .nav-trial {
     display: none;
   }

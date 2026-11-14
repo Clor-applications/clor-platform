@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { Link, usePath } from '../router.jsx';
 import { NAV, SITE } from '../site.js';
-import { Logo, Mark, Status } from './Brand.jsx';
+import { Logo, Mark, ProductName, Status } from './Brand.jsx';
 import { useProducts } from '../catalogue.js';
 
 const CATEGORIES = ['Finance', 'HR', 'Operations'];
@@ -33,7 +33,7 @@ function ProductsMenu({ onPick }) {
                       <Mark product={p} size={34} />
                       <span className="mega-text">
                         <span className="mega-name">
-                          CLOR&nbsp;{p.name} <Status product={p} />
+                          <ProductName name={p.name} /> <Status product={p} />
                         </span>
                         <span className="mega-line">{p.line}</span>
                       </span>
@@ -238,7 +238,7 @@ export default function Nav() {
                   <Mark product={p} size={32} />
                   <span className="mega-text">
                     <span className="mega-name">
-                      CLOR&nbsp;{p.name} <Status product={p} />
+                      <ProductName name={p.name} /> <Status product={p} />
                     </span>
                   </span>
                 </ProductLink>

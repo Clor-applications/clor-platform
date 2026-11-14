@@ -85,6 +85,17 @@ export default function Demo() {
   useEffect(() => {
     if (done) thanksRef.current?.focus();
   }, [done]);
+  /* Half a form filled in: leaving the page asks first. Not once it is sent. */
+  const dirty = !done && (Object.entries(form).some(([k, v]) => k !== 'website' && v.trim()) || apps.size > 0);
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -195,7 +206,7 @@ export default function Demo() {
                 <input id="demo-email" name="email" type="email" autoComplete="email" spellCheck={false} value={form.email} onChange={set('email')} maxLength={200} {...a('email')} />
               </Field>
               <Field id="demo-phone" label="Phone" error={errors.phone}>
-                <input id="demo-phone" name="tel" type="tel" inputMode="tel" autoComplete="tel" placeholder="98450 12345" value={form.phone} onChange={set('phone')} maxLength={20} {...a('phone')} />
+                <input id="demo-phone" name="tel" type="tel" inputMode="tel" autoComplete="tel" placeholder="98450 12345…" value={form.phone} onChange={set('phone')} maxLength={20} {...a('phone')} />
               </Field>
             </div>
             <div className="field-row">
