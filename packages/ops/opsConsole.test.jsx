@@ -1,9 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsMe: vi.fn(), opsStartTwoFactor: vi.fn(), opsEnableTwoFactor: vi.fn() }));
 vi.mock('./api', () => ({
   opsMe: () => api.opsMe(),
+  opsOverview: async () => ({ accounts: 412 }),
+  opsMySupportGrants: async () => ({ grants: [{ id: 'g1', state: 'PENDING' }, { id: 'g2', state: 'ACTIVE' }] }),
   opsStartTwoFactor: (p) => api.opsStartTwoFactor(p),
   opsEnableTwoFactor: (code) => api.opsEnableTwoFactor(code),
 }));
@@ -14,6 +16,7 @@ vi.mock('./Staff', () => ({ Staff: () => <h1>Staff screen</h1> }));
 vi.mock('./Email', () => ({ EmailAddresses: () => <h1>Addresses screen</h1>, EmailTemplates: () => <h1>Templates screen</h1>, EmailLog: ({ initialStatus }) => <h1>Log screen {initialStatus}</h1> }));
 vi.mock('./AppCatalogue', () => ({ AppCatalogue: () => <h1>Catalogue screen</h1> }));
 vi.mock('./AuditLog', () => ({ AuditLog: () => <h1>Audit screen</h1> }));
+vi.mock('./AccessRequests', () => ({ AccessRequests: () => <h1>Access requests screen</h1> }));
 vi.mock('./DemoRequests', () => ({ DemoRequests: () => <h1>Demo screen</h1>, DemoRequestDetail: () => <h1>Demo detail</h1> }));
 vi.mock('./Explore', () => ({ ExploreLinks: () => <h1>Links screen</h1>, SampleCompany: () => <h1>Sample screen</h1> }));
 vi.mock('./Trials', () => ({ Trials: () => <h1>Trials screen</h1> }));
@@ -74,20 +77,33 @@ describe('the operator console', () => {
     expect(api.opsEnableTwoFactor).toHaveBeenCalledWith('123456');
     api.opsMe.mockResolvedValue({ user: { id: 'u1', fullName: 'Asha' }, role: 'SUPER_ADMIN' });
     fireEvent.click(screen.getByRole('button', { name: /open the console/ }));
-    expect(await screen.findByText(/Asha/)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Asha/ })).toBeInTheDocument();
   });
 
-  it('shows the menu in groups, names the role, and keeps Staff and roles for the owner', async () => {
+  it('shows the staff bar, the menu in groups, names the role, and keeps Staff and roles for the owner', async () => {
     api.opsMe.mockResolvedValue({ user: { id: 'u1', fullName: 'Asha' }, role: 'SUPPORT' });
     render(<OpsConsole />);
-    expect(await screen.findByText('Asha · Support')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Asha · Support' })).toBeInTheDocument();
+    expect(screen.getByRole('note', { name: 'Staff console' })).toHaveTextContent('CLOR Ops · internal · every action is logged with your name and a reason');
     expect(screen.getByRole('heading', { name: 'Home screen' })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Operator console' });
-    expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Money', 'Product', 'Email', 'System']);
-    expect([...nav.querySelectorAll('button')].map((b) => b.textContent.trim())).toEqual([
-      'Home', 'Customers', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Pricing', 'Custom plans', 'Offers', 'Subscriptions', 'Approvals', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Announcements', 'Addresses', 'Templates', 'Log', 'Alerts', 'System health', 'Audit log',
+    expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Sales', 'Platform', 'Comms', 'Trust', 'Billing', 'Product']);
+    expect([...nav.querySelectorAll('.ops-nav-label')].map((b) => b.textContent.trim())).toEqual([
+      'Overview', 'Accounts', 'Subscriptions', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Jobs & workers', 'Alerts', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Staff audit log', 'Access requests', 'Approvals', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
+    /* Counts beside Accounts and Access requests (waiting only). */
+    expect(await screen.findByText('412')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Access requests/ })).toHaveTextContent('Access requests1');
+    /* The rail opens a section's first page and marks where you are. */
+    const rail = screen.getByRole('navigation', { name: 'Sections' });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Trust' }));
+    expect(screen.getByRole('heading', { name: 'Audit screen' })).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: 'Trust' })).toHaveAttribute('data-current');
+    /* Sign out sits in the avatar's menu. */
+    fireEvent.click(screen.getByRole('button', { name: 'Asha · Support' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Sign out/ }));
+    expect(session.value.signOut).toHaveBeenCalled();
   });
 
   it('opens the owner on Staff and roles, follows the address, and goes where Home sends it', async () => {
@@ -95,11 +111,11 @@ describe('the operator console', () => {
     window.history.replaceState(null, '', '/ops#/customers/a1/users');
     render(<OpsConsole />);
     expect(await screen.findByRole('heading', { name: 'Customer a1 users' })).toBeInTheDocument();
-    expect(screen.getByText('Ravi · Owner')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ravi · Owner' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Staff and roles/ }));
     expect(screen.getByRole('heading', { name: 'Staff screen' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/staff');
-    fireEvent.click(screen.getByRole('button', { name: /^Home$/ }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Operator console' })).getByRole('button', { name: /^Overview$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Failed emails' }));
     expect(screen.getByRole('heading', { name: 'Log screen FAILED' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/emailLog?status=FAILED');

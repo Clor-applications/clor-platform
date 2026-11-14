@@ -166,6 +166,13 @@ opsRouter.get('/ops/overview', (_req, res) =>
       platformPrisma.account.findMany({ where: { createdAt: { gte: since30 } }, select: { createdAt: true } }),
       platformPrisma.subscription.count({ where: { status: 'trialing', trialEndsAt: { gte: new Date(now), lte: new Date(now + 7 * DAY) } } }),
     ]);
+    /* Paying: a subscription that is active. Legacy: an older account on the fail-open rule (every app, no subscription yet). */
+    const [paying, legacyAccounts] = await Promise.all([
+      platformPrisma.subscription.count({ where: { status: 'active' } }),
+      platformPrisma.account.findMany({ where: { legacyUnrestrictedAt: { not: null }, suspendedAt: null }, select: { id: true } }),
+    ]);
+    const legacyWithPlan = legacyAccounts.length ? await platformPrisma.subscription.count({ where: { accountId: { in: legacyAccounts.map((a) => a.id) } } }) : 0;
+    const newThisWeek = recent.filter((a) => a.createdAt.getTime() >= now - 7 * DAY).length;
     /* Signups per day for the last 30 days, oldest first, every day present. */
     const byDay = new Map<string, number>();
     for (let i = 29; i >= 0; i--) byDay.set(new Date(now - i * DAY).toISOString().slice(0, 10), 0);
@@ -180,6 +187,9 @@ opsRouter.get('/ops/overview', (_req, res) =>
       activeUsers7d: active7,
       suspended,
       trialsEndingIn7d: trialsEnding,
+      paying,
+      legacy: legacyAccounts.length - legacyWithPlan,
+      newThisWeek,
       signups: [...byDay.entries()].map(([day, count]) => ({ day, count })),
     });
   }),

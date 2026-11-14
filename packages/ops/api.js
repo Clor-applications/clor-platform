@@ -165,3 +165,5 @@ export const opsAnnouncementDelete = (id, reason) => apiFetch(ann(id), { ...o, m
 export const opsSupportGrants = (accountId) => apiFetch(`/ops/accounts/${encodeURIComponent(accountId)}/support-grants`, o);
 export const opsAskSupportGrant = (accountId, body) => apiFetch(`/ops/accounts/${encodeURIComponent(accountId)}/support-grants`, { ...o, method: 'POST', body });
 export const opsEndSupportGrant = (id) => apiFetch(`/ops/support-grants/${encodeURIComponent(id)}/end`, { ...o, method: 'POST', body: {} });
+/* Every support grant the signed-in operator has asked for, across accounts: the console's Access requests page. */
+export const opsMySupportGrants = () => apiFetch('/ops/support-grants', o);

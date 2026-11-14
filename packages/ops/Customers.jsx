@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Search } from '@ui/components/ui/lineIcons';
 
 import { notify } from '@ui/components/ui/notify';
-import { ICON, PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
+import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { inr } from './money';
 import { units } from './CustomPlans';
 import { Limits } from './Limits';
@@ -100,7 +100,11 @@ export function Customers({ initialStatus = 'all', openCustomer }) {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   return (
     <>
-      <PageHead crumbs={['Customers']} title="Customers" meta={data ? `${data.total} ${data.total === 1 ? 'customer' : 'customers'}` : null} />
+      <PageHead
+        title="Accounts"
+        description="Every customer account. Open one to see its companies, subscription, users and support access."
+        meta={data ? `${data.total.toLocaleString('en-IN')} ${data.total === 1 ? 'account' : 'accounts'}` : null}
+      />
       <div className="flex flex-wrap gap-2 items-center" role="search">
         <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 460 }}>
           <span className="sr-only">Search customers</span>
@@ -126,12 +130,12 @@ export function Customers({ initialStatus = 'all', openCustomer }) {
               <tr>
                 <th>Account</th>
                 <th className="hidden md:table-cell">Owner</th>
-                <th className="hidden lg:table-cell">Apps</th>
-                <th className="hidden lg:table-cell">Plan</th>
-                <th>Status</th>
-                <th className="hidden md:table-cell">Trial ends or renews</th>
+                <th className="hidden lg:table-cell">Plan and apps</th>
+                <th className="num hidden sm:table-cell">Companies</th>
                 <th className="num hidden sm:table-cell">Users</th>
-                <th className="hidden md:table-cell">Last sign-in</th>
+                <th className="hidden md:table-cell">Trial ends or renews</th>
+                <th>State</th>
+                <th className="hidden xl:table-cell">Last sign-in</th>
               </tr>
             </thead>
             <tbody>
@@ -147,12 +151,15 @@ export function Customers({ initialStatus = 'all', openCustomer }) {
                       <div>{a.owner?.name || '—'}</div>
                       <div className="ws-item-sub">{a.owner?.email || ''}</div>
                     </td>
-                    <td className="hidden lg:table-cell" style={{ whiteSpace: 'normal' }}>{appsText(a.apps)}</td>
-                    <td className="hidden lg:table-cell">{planWords(a)}</td>
-                    <td><StatusPill status={status} /></td>
-                    <td className="hidden md:table-cell tabular-nums">{a.plan === 'trialing' ? day(a.trialEndsAt) : a.renewsAt ? day(a.renewsAt) : '—'}</td>
+                    <td className="hidden lg:table-cell" style={{ whiteSpace: 'normal', minWidth: '12rem' }}>
+                      <div>{planWords(a)}</div>
+                      <div className="ws-item-sub">{appsText(a.apps)}</div>
+                    </td>
+                    <td className="num hidden sm:table-cell">{a.companies}</td>
                     <td className="num hidden sm:table-cell">{a.users}</td>
-                    <td className="hidden md:table-cell">{a.lastActiveAt ? ago(a.lastActiveAt) : 'Never'}</td>
+                    <td className="hidden md:table-cell tabular-nums">{a.plan === 'trialing' ? day(a.trialEndsAt) : a.renewsAt ? day(a.renewsAt) : '—'}</td>
+                    <td><StatusPill status={status} /></td>
+                    <td className="hidden xl:table-cell">{a.lastActiveAt ? ago(a.lastActiveAt) : 'Never'}</td>
                   </tr>
                 );
               })}
@@ -195,30 +202,44 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
   const s = d.subscription;
   const name = a.title || a.name;
   const plan = a.suspendedAt ? 'suspended' : s ? customerStatus(s.status, s.trialEndsAt) : a.legacyUnrestrictedAt ? 'legacy' : 'no-plan';
+  const owner = d.members.find((m) => m.role === 'OWNER');
   return (
     <>
       <div>
-        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={back}>
-          <ArrowLeft size={14} aria-hidden="true" /> Customers
+        <button type="button" className="ops-back" onClick={back}>
+          <ArrowLeft size={16} aria-hidden="true" /> Accounts
         </button>
       </div>
       <PageHead
         title={name}
         description={a.ownerName && a.ownerName !== name ? `Owner: ${a.ownerName}` : null}
-        meta={
-          <>
-            <span className="tabular-nums">{a.code || '—'}</span> · <StatusPill status={plan} />
-          </>
+        actions={
+          tab !== 'subscription' && may(role, 'BILLING', 'SALES') ? (
+            <button type="button" className="ws-btn ws-btn--primary" onClick={() => setTab('subscription')}>
+              Change subscription
+            </button>
+          ) : null
         }
       />
+      <div className="ops-id-line">
+        <span className="tabular-nums">{a.code || '—'}</span>
+        <span>{d.companies.length} {d.companies.length === 1 ? 'company' : 'companies'}</span>
+        <span>{d.members.length} {d.members.length === 1 ? 'user' : 'users'}</span>
+        {owner?.email ? <span>owner {owner.email}</span> : null}
+      </div>
+      <div className="ops-pills">
+        <StatusPill status={plan} />
+        {s?.apps?.length ? <span className="ws-pill">{appsText(s.apps)}</span> : null}
+        {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">Fail-open: every app</span> : null}
+      </div>
       {a.suspendedAt ? (
         <p className="ws-notice" role="status">
           Suspended on {day(a.suspendedAt)}: {a.suspendedReason}. Nobody in this account can open any of its companies until it is resumed.
         </p>
       ) : null}
       <Tabs label={name} tabs={TABS} value={tab} onChange={setTab} />
-      <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-6">
-        {tab === 'overview' ? <Overview d={d} plan={plan} /> : null}
+      <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-8">
+        {tab === 'overview' ? <Overview d={d} plan={plan} setTab={setTab} role={role} /> : null}
         {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} /> : null}
         {tab === 'limits' ? <Limits id={id} name={name} role={role} /> : null}
         {tab === 'money' ? <Money id={id} /> : null}
@@ -245,46 +266,88 @@ function Facts({ rows }) {
   );
 }
 
-function Overview({ d, plan }) {
+/* Shortcuts to where each support job lives on this page; every one still asks why and goes in the audit log. */
+const SUPPORT_JOBS = [
+  ['users', 'Reset a password or sign someone out', 'Users', ['SUPPORT']],
+  ['subscription', 'Extend trial, change apps, suspend', 'Reason', ['BILLING', 'SALES', 'SUPPORT']],
+  ['access', 'Ask to look inside a company', 'Customer approves', ['SUPPORT']],
+  ['connections', 'Send failed emails again', 'Reason', ['SUPPORT']],
+];
+
+function Overview({ d, plan, setTab = () => {}, role }) {
   const owners = d.members.filter((m) => m.role === 'OWNER');
   const s = d.subscription;
+  const jobs = SUPPORT_JOBS.filter(([, , , roles]) => may(role, ...roles));
   return (
-    <>
-      <Facts
-        rows={[
-          ['Owner', owners.length ? owners.map((o) => <div key={o.userId}>{o.name || '—'} · <a href={`mailto:${o.email}`}>{o.email}</a></div>) : '—'],
-          ['Status', <StatusPill key="s" status={plan} />],
-          ['Apps on', s ? appsText(s.apps) : d.account.legacyUnrestrictedAt ? 'Every app (older account)' : 'None'],
-          ['Users', d.members.length],
-          ['Created', day(d.account.createdAt)],
-          ['Last activity', d.lastActiveAt ? `${ago(d.lastActiveAt)} (${when(d.lastActiveAt)})` : 'Nobody has signed in yet'],
-        ]}
-      />
-      <Panel title={`Companies and branches (${d.companies.length})`}>
-        {d.companies.length ? (
-          <ul className="ws-list">
-            {d.companies.map((c) => (
-              <li key={c.id}>
-                <div className="ws-item">
-                  <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.company size={14} /></span>
-                  <span className="ws-item-text">
-                    <span className="ws-item-title">{c.name}</span>
-                    <span className="ws-item-sub">
-                      <span className="tabular-nums">{c.code || '—'}</span> · {c.people} {c.people === 1 ? 'person' : 'people'} · since {day(c.createdAt)}
-                    </span>
-                    {c.branches?.length ? (
-                      <span className="ws-item-sub">Branches: {c.branches.map((b) => `${b.name}${b.state ? ` (${b.state})` : ''}`).join(', ')}</span>
-                    ) : null}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="ws-card-blurb">No company yet. The owner makes one when they first sign in.</p>
-        )}
-      </Panel>
-    </>
+    <div className="ops-detail">
+      <div className="ops-detail-main">
+        <section className="ops-section" aria-labelledby="ops-companies">
+          <h2 id="ops-companies" className="ops-h2">Companies and branches ({d.companies.length})</h2>
+          {d.companies.length ? (
+            <div className="ws-table-wrap">
+              <table className="ws-table">
+                <caption className="sr-only">Companies</caption>
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th className="hidden md:table-cell">Company ID</th>
+                    <th className="num">People</th>
+                    <th className="hidden md:table-cell">Since</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.companies.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ whiteSpace: 'normal' }}>
+                        <span className="ops-strong">{c.name}</span>
+                        {c.branches?.length ? (
+                          <div className="ws-item-sub">Branches: {c.branches.map((b) => `${b.name}${b.state ? ` (${b.state})` : ''}`).join(', ')}</div>
+                        ) : null}
+                      </td>
+                      <td className="hidden md:table-cell tabular-nums">{c.code || '—'}</td>
+                      <td className="num">{c.people}</td>
+                      <td className="hidden md:table-cell">{day(c.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="ws-card-blurb">No company yet. The owner makes one when they first sign in.</p>
+          )}
+        </section>
+      </div>
+      <aside className="ops-detail-side">
+        <section className="ops-card" aria-labelledby="ops-account-facts">
+          <h2 id="ops-account-facts" className="ops-h2">Account</h2>
+          <Facts
+            rows={[
+              ['Account ID', <span key="c" className="tabular-nums">{d.account.code || '—'}</span>],
+              ['Owner', owners.length ? owners.map((o) => <div key={o.userId}>{o.name || '—'} · <a href={`mailto:${o.email}`}>{o.email}</a></div>) : '—'],
+              ['Status', <StatusPill key="s" status={plan} />],
+              ['Apps on', s ? appsText(s.apps) : d.account.legacyUnrestrictedAt ? 'Every app (older account)' : 'None'],
+              ['Users', <span key="u" className="tabular-nums">{d.members.length}</span>],
+              ['Created', day(d.account.createdAt)],
+              ['Last activity', d.lastActiveAt ? `${ago(d.lastActiveAt)} (${when(d.lastActiveAt)})` : 'Nobody has signed in yet'],
+            ]}
+          />
+        </section>
+        {jobs.length ? (
+          <section className="ops-card" aria-labelledby="ops-support-jobs">
+            <h2 id="ops-support-jobs" className="ops-h2">Support actions</h2>
+            <div className="ops-jobs">
+              {jobs.map(([k, label, hint]) => (
+                <button key={k} type="button" className="ops-job" onClick={() => setTab(k)}>
+                  <span>{label}</span>
+                  <span className="ops-job-hint">{hint}</span>
+                </button>
+              ))}
+            </div>
+            <p className="ws-card-blurb">Every action asks why, and is written to the staff audit log and to the customer’s own audit log.</p>
+          </section>
+        ) : null}
+      </aside>
+    </div>
   );
 }
 
