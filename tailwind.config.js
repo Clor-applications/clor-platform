@@ -5,6 +5,7 @@ export default {
     './main.jsx',
     './packages/**/*.{js,ts,jsx,tsx}',
     './apps/**/*.{js,ts,jsx,tsx}',
+    './console/web/**/*.{js,jsx}',
   ],
   // Component classes in @layer components are purged when the class name never
   // appears literally in the scanned source. These variants are composed at

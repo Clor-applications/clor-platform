@@ -46,7 +46,7 @@ before it takes traffic.
 
 ## Releasing
 
-One script, from a clean checkout of `origin/main`:
+One script, from a clean checkout of `origin/main`. The same script can be run on GitHub's machines by the Release workflow (`.github/workflows/release.yml`), started from the Engineering Console or the Actions page and approved by an owner; that route needs the one-time setup in `docs/console/SETUP.md` and is not set up yet (14 Nov 2026). By hand:
 
 ```bash
 scripts/release.sh            # dry run: prints every command and the changelog entry, runs nothing
@@ -146,6 +146,12 @@ prints the exact command when it finishes; it is
 
 ```bash
 gcloud run services update-traffic clor-api --project clor-apps-511409 --region asia-south1 --to-revisions <previous revision>=100
+```
+
+or, the same move with a check that the name is a revision and that `/ready` answers afterwards:
+
+```bash
+scripts/release.sh --rollback <previous revision> --go
 ```
 
 Roll back **by revision name, not by tag**. A tag lasts only while a traffic

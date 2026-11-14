@@ -34,6 +34,7 @@ import { Approvals } from './Approvals';
 import { OpsSearch } from './OpsSearch';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
+import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
 
 /**
  * The CLOR operator console (W-8.2; roadmap items 13 and 14), at ops.clor.in
@@ -272,6 +273,7 @@ function Console() {
   const [refused, setRefused] = useState(null);
   const [route, setRoute] = useState(() => parseRoute(typeof window !== 'undefined' ? window.location.hash : ''));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [grantState, setGrantState] = useState(consoleGrantState);
   const [reload, setReload] = useState(0);
 
   /* Signing in can leave a company's address behind (/o/CLOR-…); the console has no such pages. */
@@ -321,6 +323,8 @@ function Console() {
   }
 
   if (!me) return <p className="ws-card-blurb" style={{ padding: 24 }}>Loading…</p>;
+  /* Arrived from the Engineering Console's "Sign in with CLOR": confirm, then go back there with a pass. */
+  if (grantState) return <ConsoleGrant state={grantState} me={me} onCancel={() => { setGrantState(''); try { window.history.replaceState(null, '', window.location.pathname + window.location.hash); } catch { /* no history */ } }} />;
 
   const allowed = ([key, , , only]) => Boolean(SCREENS[key]) && (!only || me.role === only);
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length);

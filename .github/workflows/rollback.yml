@@ -1,0 +1,73 @@
+name: Roll back
+
+# Moves every customer back to an earlier Cloud Run revision of the API. One
+# traffic move (scripts/release.sh --rollback): nothing is built, nothing is
+# published, and no migration is undone.
+#
+# Started from the Engineering Console (Releases, Roll back) or from this
+# page. It runs in its own environment, `production-rollback`, which has no
+# required reviewer, on purpose: during an outage an engineer must not wait
+# for the owner. In exchange its Google Cloud account can do one thing only,
+# move traffic on the clor-api service (docs/console/SETUP.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: The Cloud Run revision to send all traffic to, e.g. clor-api-00127-622
+        type: string
+        required: true
+      reason:
+        description: Why
+        type: string
+        required: true
+
+run-name: Roll back to ${{ inputs.revision }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-rollback
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::A rollback runs from main, not from $GITHUB_REF."
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_ROLLBACK_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      # Inputs reach the shell as environment values, never pasted into the
+      # script text; release.sh checks the name's shape before anything runs.
+      - name: Roll back
+        env:
+          REVISION: ${{ inputs.revision }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          printf 'Asked for by %s. Reason: %s\n' "$GITHUB_ACTOR" "$REASON"
+          scripts/release.sh --rollback "$REVISION" --go

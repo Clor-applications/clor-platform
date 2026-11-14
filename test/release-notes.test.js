@@ -94,6 +94,21 @@ describe('scripts/release.sh', () => {
     expect(sh).toMatch(/MODE=dry/);
   });
 
+  // protects=a rollback is one traffic move to a revision of this service, checked for shape and existence first, and followed by a ready check; fails_when=it builds or publishes anything, or moves traffic before the name is checked; no_claim=gcloud is not run here; the text of the script is read
+  it('rolls back with one traffic move, after checking the revision name', () => {
+    const start = sh.indexOf('if [ -n "$ROLLBACK" ]; then');
+    const block = sh.slice(start, sh.indexOf('step "What is being released"'));
+    expect(start).toBeGreaterThan(-1);
+    expect(block).toContain('run go gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --to-revisions "$ROLLBACK=100"');
+    expect(block.indexOf('=~ ^"$SERVICE"-[0-9a-z-]+$')).toBeGreaterThan(-1);
+    expect(block.indexOf('=~ ^"$SERVICE"-[0-9a-z-]+$')).toBeLessThan(block.indexOf('update-traffic'));
+    expect(block.indexOf('revisions describe')).toBeLessThan(block.indexOf('update-traffic'));
+    expect(block.indexOf('READY_URL')).toBeGreaterThan(block.indexOf('update-traffic'));
+    expect(block).not.toMatch(/builds submit|pages deploy|migrate\.sh|git tag/);
+    /* The block ends the script: a rollback never falls through into a release. */
+    expect(block).toMatch(/\n {2}exit 0\nfi\n/);
+  });
+
   it('uses the commands in use today, and never sends traffic before the ready check', () => {
     expect(sh).toContain('sql backups create --instance "$SQL_INSTANCE" --project "$PROJECT"');
     expect(sh).toContain('--config cloudbuild.cloudrun.yaml');

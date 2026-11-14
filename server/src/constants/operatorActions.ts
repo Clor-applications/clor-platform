@@ -54,6 +54,7 @@ export const OPERATOR_ACTION_LABELS: Record<string, string> = {
   OPERATOR_INVITE_REVOKED: 'Withdrew a staff invitation',
   OPERATOR_CHANGED: 'Changed a staff member’s role',
   OPERATOR_REMOVED: 'Removed a staff member',
+  CONSOLE_PASS_ISSUED: 'Opened the Engineering Console',
   EMAIL_SENDER_CHANGED: 'Changed a sender address',
   EMAIL_SENDER_TESTED: 'Sent a test from a sender address',
   EMAIL_TEMPLATE_CHANGED: 'Changed an email’s wording',

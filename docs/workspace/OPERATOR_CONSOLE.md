@@ -2,6 +2,8 @@
 
 The back office for **Clor Applications staff only**. Customers never see it.
 
+Engineering jobs (releases, rollbacks, pull requests, the state of the platform) are not here. They are in the Engineering Console, `console.clor.in`: `docs/console/CONSOLE-SPEC.md`.
+
 ## Where
 
 - `https://app.clor.in/ops` (works today, no DNS change)

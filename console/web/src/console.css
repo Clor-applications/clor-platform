@@ -1,0 +1,126 @@
+/*
+ * The Engineering Console. Tokens only (packages/ui/src/index.css); no product
+ * colour of its own: it is not a product, so the action colour is ink.
+ * Two radii: 8px on what is clicked, 12px on what holds content.
+ */
+.con-shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 100dvh; background: rgb(var(--surface)); color: rgb(var(--fg)); font-size: 14px; line-height: 20px; }
+.con-skip { position: absolute; left: -9999px; }
+.con-skip:focus { left: 12px; top: 12px; z-index: 10; background: rgb(var(--surface)); padding: 8px 12px; border-radius: 8px; outline: 2px solid rgb(var(--fg)); }
+
+.con-side { display: flex; flex-direction: column; gap: 16px; padding: 16px 12px; border-right: 1px solid rgb(var(--border)); position: sticky; top: 0; height: 100dvh; }
+.con-brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px; font-weight: 800; font-size: 16px; }
+.con-nav { display: flex; flex-direction: column; gap: 2px; list-style: none; margin: 0; padding: 0; }
+.con-nav-item { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 8px; color: rgb(var(--fg-muted)); font-weight: 500; text-decoration: none; }
+.con-nav-item:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+.con-nav-item[aria-current='page'] { background: rgb(var(--app-bg)); color: rgb(var(--fg)); font-weight: 700; }
+.con-nav-item:focus-visible, .con-link:focus-visible, .con-expand:focus-visible { outline: 2px solid rgb(var(--fg)); outline-offset: 2px; }
+.con-who { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border-top: 1px solid rgb(var(--border)); }
+.con-who-text { display: flex; flex-direction: column; min-width: 0; }
+.con-who-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.con-main { padding: 24px 32px 64px; max-width: 1120px; width: 100%; outline: none; }
+.con-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; margin-bottom: 20px; }
+.con-head-actions { display: flex; gap: 8px; }
+.con-title { font-size: 20px; line-height: 26px; font-weight: 800; margin: 0; text-wrap: balance; }
+.con-h2 { font-size: 14px; line-height: 20px; font-weight: 700; margin: 0 0 8px; }
+.con-h2-note { font-weight: 400; }
+.con-h3 { font-size: 13px; line-height: 18px; font-weight: 700; margin: 16px 0 6px; }
+.con-section { margin-top: 32px; }
+.con-quiet { color: rgb(var(--fg-subtle)); font-size: 13px; line-height: 18px; }
+.con-lede { color: rgb(var(--fg-muted)); margin: 0; }
+.con-body { white-space: pre-wrap; margin: 8px 0; max-width: 72ch; }
+.con-nowrap { white-space: nowrap; }
+.con-num { font-variant-numeric: tabular-nums; color: rgb(var(--fg-subtle)); }
+.con-key { font-family: inherit; font-variant-numeric: tabular-nums; font-size: 13px; background: rgb(var(--surface-sunken)); border: 1px solid rgb(var(--border)); border-radius: 8px; padding: 1px 6px; overflow-wrap: anywhere; }
+.con-link { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 2px; border-radius: 4px; }
+.con-link--icon { display: inline-flex; vertical-align: middle; margin-left: 6px; color: rgb(var(--fg-subtle)); }
+
+.con-btn-primary { background: rgb(var(--fg)); color: rgb(var(--surface)); border-color: rgb(var(--fg)); }
+.con-btn-primary:hover:not(:disabled) { background: rgb(var(--fg-muted)); border-color: rgb(var(--fg-muted)); }
+.con-shell .ui-btn, .con-gate .ui-btn, .con-dialog .ui-btn { border-radius: 8px; gap: 6px; }
+.con-shell .ui-btn:focus-visible, .con-gate .ui-btn:focus-visible, .con-dialog .ui-btn:focus-visible { outline: 2px solid rgb(var(--fg)); outline-offset: 2px; }
+
+.con-pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); border: 1px solid rgb(var(--border)); }
+.con-pill--ok { background: rgb(var(--pos-soft)); color: rgb(var(--pos)); border-color: transparent; }
+.con-pill--warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); border-color: transparent; }
+.con-pill--bad { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); border-color: transparent; }
+.con-marks { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; }
+
+.con-notice { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; margin: 0 0 16px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.con-notice svg { flex: none; margin-top: 2px; }
+.con-notice--bad { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+.con-notice--ok { background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
+.con-error { color: rgb(var(--neg)); font-size: 13px; margin: 0; }
+
+/* A list sits on the page ground under hairlines. No card. */
+.con-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.con-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 4px; border-bottom: 1px solid rgb(var(--border)); }
+.con-row--split { justify-content: space-between; flex-wrap: wrap; }
+.con-row--status { display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) auto; }
+.con-row-name { font-weight: 600; }
+.con-row-fact { min-width: 0; overflow-wrap: anywhere; }
+.con-row-when { text-align: right; white-space: nowrap; }
+.con-row-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+div.con-row { border-top: 1px solid rgb(var(--border)); }
+
+.con-facts { margin: 0 0 8px; border-top: 1px solid rgb(var(--border)); }
+.con-facts > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 10px 4px; border-bottom: 1px solid rgb(var(--border)); }
+.con-facts dt { color: rgb(var(--fg-subtle)); }
+.con-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+.con-run-steps { list-style: none; margin: 8px 0 0; padding: 0 0 0 12px; border-left: 2px solid rgb(var(--border)); }
+.con-run-steps li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 13px; }
+.con-run-steps li[data-state='in_progress'] { font-weight: 700; }
+.con-run-steps li[data-state='failure'] { color: rgb(var(--neg)); }
+
+/* A wide table scrolls in its own container; it never clips. */
+.con-table-wrap { overflow-x: auto; border-top: 1px solid rgb(var(--border)); }
+.con-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 18px; }
+.con-table th { text-align: left; font-weight: 600; color: rgb(var(--fg-subtle)); padding: 10px 12px 10px 4px; border-bottom: 1px solid rgb(var(--border)); white-space: nowrap; }
+.con-table td { padding: 10px 12px 10px 4px; border-bottom: 1px solid rgb(var(--border)); vertical-align: top; }
+.con-table tr[data-failed] td { color: rgb(var(--neg)); }
+.con-num-col { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.con-expand { display: inline-flex; align-items: flex-start; gap: 6px; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; border-radius: 8px; }
+.con-expand svg { flex: none; margin-top: 1px; color: rgb(var(--fg-subtle)); }
+.con-pull-title { font-weight: 600; min-width: 180px; }
+.con-detail-row td { background: rgb(var(--surface-sunken)); }
+.con-detail { padding: 4px 4px 8px 22px; display: flex; flex-direction: column; gap: 6px; }
+.con-files { list-style: none; margin: 0; padding: 0; columns: 2 320px; font-size: 12px; }
+.con-files code { font-family: inherit; overflow-wrap: anywhere; }
+
+.con-dialog { border: 0; border-radius: 12px; padding: 0; width: min(440px, calc(100vw - 32px)); background: rgb(var(--surface)); color: rgb(var(--fg)); box-shadow: var(--shadow-pop); }
+.con-dialog::backdrop { background: rgb(17 24 39 / 0.4); }
+.con-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 0 20px; }
+.con-dialog-head .con-h2 { margin: 0; font-size: 16px; }
+.con-dialog-body { padding: 12px 20px 20px; }
+.con-dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.con-form { display: flex; flex-direction: column; gap: 8px; }
+.con-label { font-size: 13px; font-weight: 600; margin-top: 4px; }
+.con-input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); color: rgb(var(--fg)); font: inherit; }
+.con-input:focus-visible { outline: 2px solid rgb(var(--fg)); outline-offset: 1px; }
+.con-input--code { font-size: 20px; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; text-align: center; max-width: 220px; }
+
+.con-gate { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: rgb(var(--surface)); color: rgb(var(--fg)); font-size: 14px; line-height: 20px; }
+.con-gate-box { width: min(400px, 100%); display: flex; flex-direction: column; gap: 14px; }
+.con-gate-btn { height: 40px; justify-content: center; text-decoration: none; }
+.con-steps { list-style: decimal; margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 14px; }
+.con-steps li > * { display: block; margin-top: 6px; }
+.con-qr { border: 1px solid rgb(var(--border)); border-radius: 12px; }
+
+@media (max-width: 760px) {
+  .con-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .con-side { position: static; height: auto; flex-direction: row; align-items: center; gap: 8px; padding: 8px 16px; border-right: 0; border-bottom: 1px solid rgb(var(--border)); overflow-x: auto; scrollbar-width: none; }
+  .con-brand span, .con-who-text { display: none; }
+  .con-nav { flex-direction: row; }
+  .con-nav-item { height: 44px; white-space: nowrap; }
+  .con-who { margin: 0 0 0 auto; border: 0; padding: 0; }
+  .con-main { padding: 16px 16px 48px; }
+  .con-row--status { grid-template-columns: minmax(0, 1fr) auto; }
+  .con-row--status .con-row-fact, .con-row--status .con-row-when { grid-column: 1 / -1; text-align: left; }
+  .con-facts > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .con-input { min-height: 44px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .con-nav-item, .con-btn-primary { transition: background-color 120ms ease; }
+}
+.con-row--status .con-pill { justify-self: start; }

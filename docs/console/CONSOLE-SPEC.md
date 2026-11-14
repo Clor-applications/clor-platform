@@ -1,6 +1,6 @@
 # CLOR Engineering Console: design spec
 
-`console.clor.in` · written 14 Nov 2026 · status: draft for the owner's review, nothing built
+`console.clor.in` · written 14 Nov 2026 · status: Phase 1 code built and tested on a laptop (section 16); not deployed, no cloud or GitHub setup done (`SETUP.md`)
 
 ## 1. Context
 
@@ -122,8 +122,8 @@ still holds for business staff. Engineering jobs go to the Console.
 | # | Decision | Why | Rejected alternative |
 |---|---|---|---|
 | D1 | Console is its own Pages project and its own Cloud Run service, in new top-level folders `console/web` and `console/api` | A fault in the customer API must not become control of releases. Scale-to-zero, so cost is near nil | Routes under `/console` in `clor-api`: cheaper to build, but one compromise reaches both |
-| D2 | Sign-in is GitHub, through a GitHub App named "CLOR Console" installed on this repository only | Everyone who may touch engineering already has a GitHub account, and GitHub is where the Console acts. No CLOR customer login reaches the Console | CLOR login: ties the control plane to the service it controls |
-| D3 | Members are an allow-list of GitHub numeric user ids with a role. First owner comes from the setting `CONSOLE_OWNER_GITHUB_IDS` | Same pattern as `CLOR_OPERATOR_USER_IDS`. An id cannot be renamed or claimed | Any repository collaborator: too wide |
+| D2 | Two ways to sign in (owner, 14 Nov 2026): GitHub, through a GitHub App named "CLOR Console" installed on this repository only, and a CLOR staff login, through a one-minute signed pass from the customer API. A change on GitHub always uses the person's own GitHub account | The owner asked for both. GitHub is where the Console acts; the CLOR login is the everyday one. The Console keeps its own member list and its own authenticator, so the customer API alone cannot open it | GitHub only (first build): foreign to an owner who does not code. CLOR login only: releases could not be approved, and the Console would depend wholly on the service it controls |
+| D3 | Members are an allow-list of people, each with a GitHub numeric id, a CLOR user id, or both, and a role. First owner comes from the setting `CONSOLE_OWNER_GITHUB_IDS` | Same pattern as `CLOR_OPERATOR_USER_IDS`. An id cannot be renamed or claimed; an address decides access only until the first CLOR sign-in binds the id | Any repository collaborator, or any CLOR operator: too wide |
 | D4 | Console has its own authenticator enrolment. Every write needs a code no older than 5 minutes | Matches Ops. GitHub sign-in alone does not prove the person is at the keyboard now | Trust the GitHub session |
 | D5 | Console's own data (members, audit log) lives in a new database `clor_console` on the existing `clor-pg` instance, reachable only by `clor-console-run` | No new monthly cost. Customer databases are not reachable by the Console at all | New instance (cost); Cloudflare D1 (second stack) |
 | D6 | Production writes run in a new workflow `.github/workflows/release.yml`, inside a GitHub environment `production` limited to `main`, with the owner as required reviewer | The repository is public. Environment secrets are never given to pull requests from forks, and a run cannot start without approval | Console calls Google Cloud directly: puts production keys in a web service |
@@ -405,3 +405,34 @@ enough in production. The staging run in the Workflow layer covers that.
 | `scripts/release.sh` | Add a `--rollback <revision>` mode so the workflow and the Mac share one path |
 | `DEPLOY.md` | Add the Console and the workflow route |
 | `docs/workspace/OPERATOR_CONSOLE.md` | One line pointing engineering jobs to the Console |
+
+## 16. What was built, and where it differs from the sections above (14 Nov 2026)
+
+Built: `console/api` (Express, 47 tests), `console/web` (React, 20 tests),
+`.github/workflows/release.yml` and `rollback.yml`, `scripts/release.sh
+--rollback`, `.github/CODEOWNERS`, CI steps, `console/check-separation.mjs`.
+Looked at in a browser on a laptop with canned GitHub and cloud answers.
+**Not done:** any setup in GitHub, Google Cloud or Cloudflare; any run of the
+two workflows; any real sign-in with GitHub. `SETUP.md` lists the steps.
+
+| Section | As written | As built | Why |
+|---|---|---|---|
+| 5, D5 | Prisma models | Plain SQL (`console/api/migrations/001_init.sql`) and the `pg` driver | Two tables; no generated client to ship |
+| 5, API | `/releases/go` starts the run and approves it | Start and approve are two actions: `POST /releases/go`, then `POST /releases/runs/:id/approve` | GitHub does not hand back the run it started; approving a named run the owner can see is also clearer |
+| 5, API | Stage needs no owner | An Engineer starts Stage; the run still waits for the owner's approval | Stage applies migrations to the live database, so it sits in the `production` environment too |
+| 5, D6 | One `production` environment | Two: `production` (owner approves) and `production-rollback` (no reviewer, an account that can only move traffic) | Section 5 lets an Engineer roll back without the owner; a required reviewer would block that |
+| 5, roles | Service account also reads Monitoring and Logging | Only Cloud Run and Cloud SQL viewer, plus Cloud SQL client for its own database | Phase 1 reads nothing from Monitoring or Logging |
+| 6.1 | "Never shows a stale green" | Kept, but the last good answers live in memory and are lost when the service restarts; a row then says "No answer yet from the source" | No extra table for a cache |
+| 6.2 | Roll back lists the last five revisions that served traffic | Lists the latest 15 revisions; Cloud Run does not record which ones served | |
+| 6.2 | "What is waiting" marks each pull request | Marks the release as a whole (one compare call), not each pull request | One GitHub call instead of one per pull request |
+| 6.3 | Preview link per pull request | Not built | No preview deployments exist for pull requests today |
+| 9, criterion 10 | Exactly one log line per write | One line for a change that worked, written before the change is made; a failed change adds a second line ending `_FAILED` | Nothing can happen unlogged, and the log table takes no updates |
+| 9, criterion 14 | Searches every response fixture for environment names | Searches each read for the session secret, the GitHub token and the authenticator secret | Those are the secrets the API holds |
+| 15 | `docs/workspace/OPERATOR_CONSOLE.md` gets a pointer | Done | |
+| 5, D2 | GitHub sign-in only | GitHub and CLOR login (owner's decision after the first build). Adds `GET /api/ops/console-grant` and a confirm screen in Ops to the customer app, `console/api/src/grant.ts`, a code screen for CLOR sign-ins, a Your sign-in page, and members by CLOR address | See D2 |
+| 2 | "No customer login reaches the Console" | A CLOR staff login now proves identity to the Console. It grants nothing by itself: member list and Console authenticator still apply, and the Console holds only a public key | See D2 |
+
+Still unproven until `SETUP.md` is carried out: that the GitHub App's
+permissions are enough (most of all approving a waiting run with the owner's
+own token), that `release.sh` runs clean on a GitHub machine, and that the
+rollback account can move traffic and nothing else.
