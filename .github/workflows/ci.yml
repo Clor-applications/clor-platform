@@ -331,6 +331,18 @@ jobs:
         if: always()
         run: node e2e/scripts/results.mjs || true
 
+      # The API's background workers write nothing when they are only slow or
+      # stuck. On a failed run, show the outbox that carries bell notices and
+      # the job leases, from the run's own database (kept after the run).
+      - name: Background work at the end (failed runs only)
+        if: failure()
+        continue-on-error: true
+        run: |
+          DB="${E2E_PGADMIN_URL%/*}/$E2E_DB_NAME"
+          psql "$DB" -c 'SELECT name, count(*) AS waiting, min("occurredAt") AS oldest, max(attempts) AS most_attempts, max("lastError") AS an_error FROM people."OutboxEvent" WHERE "deliveredAt" IS NULL GROUP BY name ORDER BY 2 DESC' || true
+          psql "$DB" -c 'SELECT name, count(*) AS delivered, max("deliveredAt") AS last FROM people."OutboxEvent" WHERE "deliveredAt" IS NOT NULL GROUP BY name ORDER BY 2 DESC' || true
+          psql "$DB" -c 'SELECT * FROM platform."JobLease" ORDER BY name' || true
+
       - name: Upload the report
         if: always()
         # A full artifact store must not fail a run whose tests passed: the
