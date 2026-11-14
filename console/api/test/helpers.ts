@@ -4,22 +4,24 @@ import request from 'supertest';
 
 import { createApp } from '../src/app.js';
 import { readConfig } from '../src/config.js';
-import { fakeCloud, fakeGitHub } from '../src/fakes.js';
+import { fakeCloud, fakeGitHub, type FakeGitHub } from '../src/fakes.js';
+import { offGitHub } from '../src/github.js';
 import { memoryStore, type Role } from '../src/store.js';
 import { codeAt, stepNow } from '../src/totp.js';
 
 export const WEB = 'https://console.clor.in';
+export const OWNER_SETUP_CODE = 'OWNER-SETUP-CODE-TEST-1';
 const LOGIN: Record<Role, string> = { OWNER: 'suresh-3333', ENGINEER: 'dev-engineer', VIEWER: 'dev-viewer' };
 
 /** A Console with a memory store, canned GitHub and cloud, and a clock the test moves. */
-export async function world(opts: { clor?: boolean } = {}) {
+export async function world(opts: { clor?: boolean; github?: boolean; password?: boolean } = {}) {
   /* Starts at the real time: the test browser keeps cookies by the real clock, so a fixed past date would have it drop the session cookie as expired. */
   const clock = { at: Date.now() };
   const now = () => clock.at;
   const keys = generateKeyPairSync('ec', { namedCurve: 'P-256' });
-  const config = readConfig({ NODE_ENV: 'test', CONSOLE_WEB_ORIGIN: WEB, CONSOLE_SESSION_SECRET: 'a-test-secret-that-is-long-enough-000', CONSOLE_OWNER_GITHUB_IDS: '1001', CONSOLE_CLOR_GRANT_PUBLIC_KEY: opts.clor === false ? '' : keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() });
+  const config = readConfig({ NODE_ENV: 'test', CONSOLE_WEB_ORIGIN: WEB, CONSOLE_SESSION_SECRET: 'a-test-secret-that-is-long-enough-000', CONSOLE_OWNER_GITHUB_IDS: '1001', CONSOLE_CF_ACCOUNT_ID: 'acct', CONSOLE_CF_READ_TOKEN: 'cf-read-token', ...(opts.github === false ? {} : { CONSOLE_GITHUB_APP_ID: '1', CONSOLE_GITHUB_PRIVATE_KEY: 'k', CONSOLE_GITHUB_INSTALLATION_ID: '1', CONSOLE_GITHUB_CLIENT_ID: 'c', CONSOLE_GITHUB_CLIENT_SECRET: 's' }), ...(opts.password === false ? {} : { CONSOLE_OWNER_EMAILS: 'owner@clor.in', CONSOLE_OWNER_SETUP_CODE: OWNER_SETUP_CODE }), CONSOLE_CLOR_GRANT_PUBLIC_KEY: opts.clor === false ? '' : keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() });
   const store = memoryStore(now);
-  const github = fakeGitHub();
+  const github = opts.github === false ? offGitHub() : fakeGitHub();
   const cloud = fakeCloud();
   const engineer = await store.createMember({ name: 'dev-engineer', role: 'ENGINEER', githubUserId: '1002', githubLogin: 'dev-engineer', clorUserId: null, clorEmail: null, addedBy: null });
   const viewer = await store.createMember({ name: 'dev-viewer', role: 'VIEWER', githubUserId: '1003', githubLogin: 'dev-viewer', clorUserId: null, clorEmail: null, addedBy: null });
@@ -69,5 +71,5 @@ export async function world(opts: { clor?: boolean } = {}) {
   }
   const finishClor = async (agent: ReturnType<typeof request.agent>, grant: string, state: string) => (await agent.get(`/api/auth/clor/callback?grant=${grant}&state=${state}`)).headers.location as string;
 
-  return { app, clock, store, github, cloud, config, signIn, as, enrol, post, patch, pass, publicKeyPem: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), startClor, finishClor, ids: { engineer: engineer.id, viewer: viewer.id } };
+  return { app, clock, store, github: github as FakeGitHub, cloud, config, signIn, as, enrol, post, patch, pass, publicKeyPem: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), startClor, finishClor, ids: { engineer: engineer.id, viewer: viewer.id } };
 }

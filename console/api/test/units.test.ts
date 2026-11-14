@@ -55,12 +55,18 @@ describe('sealing and codes', () => {
 });
 
 describe('settings', () => {
-  // protects=the Console names what is missing rather than starting half-configured; fails_when=a short session secret or an absent setting is not listed; no_claim=index.ts acting on the list is not run here
-  it('lists what is missing for a real start', () => {
-    const missing = missingSettings(readConfig({ CONSOLE_SESSION_SECRET: 'short' }));
-    expect(missing).toContain('CONSOLE_SESSION_SECRET');
-    expect(missing).toContain('CONSOLE_OWNER_GITHUB_IDS');
-    expect(missing).toContain('CONSOLE_GITHUB_PRIVATE_KEY');
-    expect(missingSettings(readConfig({ CONSOLE_SESSION_SECRET: 's'.repeat(32), CONSOLE_OWNER_GITHUB_IDS: '1', CONSOLE_DATABASE_URL: 'x', CONSOLE_GITHUB_APP_ID: '1', CONSOLE_GITHUB_PRIVATE_KEY: 'k', CONSOLE_GITHUB_INSTALLATION_ID: '1', CONSOLE_GITHUB_CLIENT_ID: 'c', CONSOLE_GITHUB_CLIENT_SECRET: 's', CONSOLE_CF_ACCOUNT_ID: 'a', CONSOLE_CF_READ_TOKEN: 't' }))).toEqual([]);
+  // protects=the Console starts only when somebody can get in as an owner, with any one sign-in method, and names what is missing otherwise; no method is required in particular; fails_when=it starts with no owner, demands GitHub, or accepts half-set GitHub; no_claim=index.ts acting on the list is not run here
+  it('needs a session secret, a database and a first owner, by any sign-in method', () => {
+    const base = { CONSOLE_SESSION_SECRET: 's'.repeat(32), CONSOLE_DATABASE_URL: 'x' };
+    const github = { CONSOLE_GITHUB_APP_ID: '1', CONSOLE_GITHUB_PRIVATE_KEY: 'k', CONSOLE_GITHUB_INSTALLATION_ID: '1', CONSOLE_GITHUB_CLIENT_ID: 'c', CONSOLE_GITHUB_CLIENT_SECRET: 's' };
+    const password = { CONSOLE_OWNER_EMAILS: 'Owner@Clor.in', CONSOLE_OWNER_SETUP_CODE: 'a-long-setup-code-123' };
+    expect(missingSettings(readConfig({ CONSOLE_SESSION_SECRET: 'short' }))).toEqual(expect.arrayContaining(['CONSOLE_SESSION_SECRET', 'CONSOLE_DATABASE_URL']));
+    expect(missingSettings(readConfig(base)).join()).toMatch(/a first owner/);
+    expect(missingSettings(readConfig({ ...base, ...password }))).toEqual([]);
+    expect(missingSettings(readConfig({ ...base, ...github, CONSOLE_OWNER_GITHUB_IDS: '1' }))).toEqual([]);
+    expect(missingSettings(readConfig({ ...base, ...github })).join()).toMatch(/a first owner/);
+    expect(missingSettings(readConfig({ ...base, ...password, CONSOLE_OWNER_SETUP_CODE: 'short' })).join()).toMatch(/a first owner/);
+    expect(missingSettings(readConfig({ ...base, ...password, CONSOLE_GITHUB_APP_ID: '1' })).join()).toMatch(/all five CONSOLE_GITHUB/);
+    expect(readConfig({ ...password }).ownerEmails).toEqual(['owner@clor.in']);
   });
 });

@@ -3,7 +3,7 @@ import { Activity, GitPullRequest, KeyRound, ListChecks, LogOut, Rocket, Users }
 
 import ClorMark from '@ui/components/brand/ClorMark';
 
-import { api, clorSignInUrl, signInUrl } from './api';
+import { api } from './api';
 import { GuardProvider, Loading, Notice } from './kit';
 import Audit from './Audit';
 import Enrol from './Enrol';
@@ -11,6 +11,7 @@ import Members from './Members';
 import Overview from './Overview';
 import Pulls from './Pulls';
 import Releases from './Releases';
+import SignIn from './SignIn';
 import SignInCode from './SignInCode';
 import YourSignIn from './YourSignIn';
 
@@ -23,11 +24,6 @@ const SCREENS = [
   { path: '/sign-in', label: 'Your sign-in', icon: KeyRound, screen: YourSignIn },
 ];
 const ROLE = { OWNER: 'Owner', ENGINEER: 'Engineer', VIEWER: 'Viewer' };
-const SIGN_IN_NOTE = {
-  'not-a-member': 'That account is not a member of the Console. Ask an owner to add you.',
-  failed: 'You were not signed in. Try again.',
-  'clor-off': 'Sign-in with CLOR is not set up yet. Use GitHub.',
-};
 function usePath() {
   const [path, setPath] = useState(window.location.pathname);
   useEffect(() => {
@@ -41,26 +37,6 @@ function usePath() {
     window.scrollTo(0, 0);
   }, []);
   return [path, go];
-}
-
-function SignIn() {
-  const note = SIGN_IN_NOTE[new URLSearchParams(window.location.search).get('signin')];
-  const [options, setOptions] = useState({ github: true, clor: false });
-  useEffect(() => {
-    api.signInOptions().then(setOptions, () => {});
-  }, []);
-  return (
-    <main className="con-gate">
-      <div className="con-gate-box">
-        <ClorMark size={36} />
-        <h1 className="con-title">CLOR Console</h1>
-        <p className="con-lede">Releases, pull requests and the state of the platform. For CLOR engineering only.</p>
-        {note ? <Notice tone="bad">{note}</Notice> : null}
-        {options.clor ? <a className="ui-btn con-btn-primary con-gate-btn" href={clorSignInUrl}>Sign in with CLOR</a> : null}
-        <a className={`ui-btn ${options.clor ? 'ui-btn-secondary' : 'con-btn-primary'} con-gate-btn`} href={signInUrl}>Sign in with GitHub</a>
-      </div>
-    </main>
-  );
 }
 
 export default function App() {
@@ -82,7 +58,7 @@ export default function App() {
 
   if (error) return <main className="con-gate"><div className="con-gate-box"><Notice tone="bad">{error}</Notice><button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setError(''); load(); }}>Try again</button></div></main>;
   if (me === undefined) return <main className="con-gate"><Loading /></main>;
-  if (me === null) return <SignIn />;
+  if (me === null) return <SignIn onDone={load} />;
   if (!me.authenticator) return <Enrol me={me} onDone={load} />;
   if (me.needsCode) return <SignInCode me={me} onDone={load} />;
 

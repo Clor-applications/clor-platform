@@ -33,9 +33,10 @@ export default function Pulls({ me }) {
       {error ? <Notice tone="bad">{error.message}</Notice> : null}
       {act.error ? <Notice tone="bad">{act.error}</Notice> : null}
       {act.done ? <Notice tone="ok">{act.done}</Notice> : null}
-      {data && !data.reachable ? <Notice>GitHub could not be reached. {data.checkedAt ? 'This is the list as it was when last checked.' : 'There is no list to show yet.'}</Notice> : null}
+      {data && data.github === false ? <Notice>GitHub is not connected to the Console yet, so there are no pull requests to show.</Notice> : null}
+      {data && data.github !== false && !data.reachable ? <Notice>GitHub could not be reached. {data.checkedAt ? 'This is the list as it was when last checked.' : 'There is no list to show yet.'}</Notice> : null}
       {!data && loading ? <Loading /> : null}
-      {data && data.pulls.length === 0 && data.reachable ? <p className="con-quiet">No pull requests are open.</p> : null}
+      {data && data.pulls.length === 0 && data.reachable && data.github !== false ? <p className="con-quiet">No pull requests are open.</p> : null}
       {data && data.pulls.length ? (
         <div className="con-table-wrap">
           <table className="con-table">

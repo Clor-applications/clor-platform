@@ -6,8 +6,8 @@ import { Dialog, Loading, Notice, PageHead, Pill, ReasonDialog, When, useAction,
 const ROLE = { OWNER: 'Owner', ENGINEER: 'Engineer', VIEWER: 'Viewer' };
 const CAN = { OWNER: 'Everything, including release, merge and members', ENGINEER: 'Run tests, stage, roll back, close pull requests', VIEWER: 'Reads only' };
 
-function AddMember({ onClose, onAdd, clor }) {
-  const [form, setForm] = useState({ githubLogin: '', clorEmail: '', role: 'VIEWER', reason: '' });
+function AddMember({ onClose, onAdd, ways }) {
+  const [form, setForm] = useState({ email: '', githubLogin: '', clorEmail: '', role: 'VIEWER', reason: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -18,8 +18,9 @@ function AddMember({ onClose, onAdd, clor }) {
     try {
       const githubLogin = form.githubLogin.trim().replace(/^@/, '');
       const clorEmail = form.clorEmail.trim();
-      if (!githubLogin && !clorEmail) throw new Error(clor ? 'Give a GitHub username, a CLOR login address, or both.' : 'Give a GitHub username.');
-      await onAdd({ role: form.role, reason: form.reason, ...(githubLogin ? { githubLogin } : {}), ...(clorEmail ? { clorEmail } : {}) });
+      const email = form.email.trim();
+      if (!email && !githubLogin && !clorEmail) throw new Error('Give at least one way for them to sign in.');
+      await onAdd({ role: form.role, reason: form.reason, ...(email ? { email } : {}), ...(githubLogin ? { githubLogin } : {}), ...(clorEmail ? { clorEmail } : {}) });
       onClose();
     } catch (err) {
       if (!err.cancelled) setError(err.message);
@@ -29,13 +30,25 @@ function AddMember({ onClose, onAdd, clor }) {
   return (
     <Dialog title="Add a member" onClose={onClose}>
       <form onSubmit={submit} className="con-form">
-        <label className="con-label" htmlFor="m-login">GitHub username</label>
-        <input id="m-login" className="con-input" autoFocus autoComplete="off" autoCapitalize="none" spellCheck={false} value={form.githubLogin} onChange={set('githubLogin')} />
-        {clor ? (
+        <p className="con-quiet">Give at least one way for them to sign in.</p>
+        {ways.password ? (
+          <>
+            <label className="con-label" htmlFor="m-email">Email address</label>
+            <input id="m-email" className="con-input" type="email" autoFocus autoComplete="off" spellCheck={false} value={form.email} onChange={set('email')} aria-describedby="m-email-help" />
+            <p id="m-email-help" className="con-quiet">They sign in with this and a password. You get a one-time setup code to pass to them.</p>
+          </>
+        ) : null}
+        {ways.github ? (
+          <>
+            <label className="con-label" htmlFor="m-login">GitHub username</label>
+            <input id="m-login" className="con-input" autoComplete="off" autoCapitalize="none" spellCheck={false} value={form.githubLogin} onChange={set('githubLogin')} />
+          </>
+        ) : null}
+        {ways.clor ? (
           <>
             <label className="con-label" htmlFor="m-clor">CLOR login address</label>
             <input id="m-clor" className="con-input" type="email" autoComplete="off" spellCheck={false} value={form.clorEmail} onChange={set('clorEmail')} aria-describedby="m-clor-help" />
-            <p id="m-clor-help" className="con-quiet">They must be CLOR staff in Ops. Give one or both; someone with only a CLOR login can read, and connects GitHub to make changes.</p>
+            <p id="m-clor-help" className="con-quiet">They must be CLOR staff in Ops.</p>
           </>
         ) : null}
         <label className="con-label" htmlFor="m-role">Role</label>
@@ -59,6 +72,8 @@ export default function Members() {
   const act = useAction(reload);
   const [adding, setAdding] = useState(false);
   const [change, setChange] = useState(null);
+  /* A setup code is shown once, here, and nowhere again. */
+  const [code, setCode] = useState(null);
   return (
     <>
       <PageHead title="Members">
@@ -74,11 +89,12 @@ export default function Members() {
               <span>
                 <strong>{m.name}</strong> <Pill tone={m.active ? 'ok' : 'none'}>{m.active ? ROLE[m.role] : 'Switched off'}</Pill>
                 {!m.authenticator ? <> <Pill tone="warn">No authenticator yet</Pill></> : null}
-                <span className="con-quiet"> {[m.githubLogin ? `GitHub ${m.githubLogin}` : null, m.clorEmail ? `CLOR ${m.clorEmail}${m.clorSignedIn ? '' : ' (not signed in yet)'}` : null].filter(Boolean).join(', ')}. Since <When at={m.since} />{m.bootstrap ? '. Set in the Console service; cannot be changed here.' : ''}</span>
+                <span className="con-quiet"> {[m.email ? `${m.email}${m.passwordSet ? '' : m.setupWaiting ? ' (setup code not used yet)' : ' (no password)'}` : null, m.githubLogin ? `GitHub ${m.githubLogin}` : null, m.clorEmail ? `CLOR ${m.clorEmail}${m.clorSignedIn ? '' : ' (not signed in yet)'}` : null].filter(Boolean).join(', ')}. Since <When at={m.since} />{m.bootstrap ? '. Set in the Console service; cannot be changed here.' : ''}</span>
               </span>
               {!m.bootstrap ? (
                 <span className="con-row-actions">
                   {m.active ? Object.keys(ROLE).filter((r) => r !== m.role).map((r) => <button key={r} type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setChange({ m, body: { role: r }, title: `Make ${m.name} ${ROLE[r] === 'Owner' || ROLE[r] === 'Engineer' ? 'an' : 'a'} ${ROLE[r]}`, confirm: 'Change role' })}>Make {ROLE[r]}</button>) : null}
+                  {m.email && data.password ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setChange({ m, body: { resetPassword: true }, title: `Reset ${m.name}'s password`, confirm: 'Reset password', lede: 'Their password stops working at once. You get a new one-time setup code to pass to them.' })}>Reset password</button> : null}
                   {m.authenticator ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setChange({ m, body: { resetAuthenticator: true }, title: `Reset ${m.name}'s authenticator`, confirm: 'Reset', lede: 'They set up an authenticator again at their next sign-in.' })}>Reset authenticator</button> : null}
                   <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setChange({ m, body: { active: !m.active }, title: m.active ? `Switch off ${m.name}` : `Switch ${m.name} back on`, confirm: m.active ? 'Switch off' : 'Switch on', danger: m.active, lede: m.active ? 'They lose access at once.' : '' })}>{m.active ? 'Switch off' : 'Switch on'}</button>
                 </span>
@@ -87,8 +103,16 @@ export default function Members() {
           ))}
         </ul>
       ) : null}
-      {adding ? <AddMember clor={Boolean(data?.clor)} onClose={() => setAdding(false)} onAdd={(m) => act.through(() => api.addMember(m), `${m.githubLogin || m.clorEmail} is added.`)} /> : null}
-      {change ? <ReasonDialog title={change.title} lede={change.lede} confirm={change.confirm} danger={change.danger} onClose={() => setChange(null)} onConfirm={(reason) => act.through(() => api.changeMember(change.m.id, { ...change.body, reason }), 'Saved.')} /> : null}
+      {adding ? <AddMember ways={{ password: Boolean(data?.password), github: Boolean(data?.github), clor: Boolean(data?.clor) }} onClose={() => setAdding(false)} onAdd={(m) => act.through(async () => { const r = await api.addMember(m); if (r.setupCode) setCode({ who: m.email, code: r.setupCode }); }, `${m.email || m.githubLogin || m.clorEmail} is added.`)} /> : null}
+      {change ? <ReasonDialog title={change.title} lede={change.lede} confirm={change.confirm} danger={change.danger} onClose={() => setChange(null)} onConfirm={(reason) => act.through(async () => { const r = await api.changeMember(change.m.id, { ...change.body, reason }); if (r.setupCode) setCode({ who: change.m.email, code: r.setupCode }); }, 'Saved.')} /> : null}
+      {code ? (
+        <Dialog title="Setup code" onClose={() => setCode(null)}>
+          <p className="con-lede">Give this to {code.who}. They open the Console, choose "I have a setup code", and set a password. It works once, for three days.</p>
+          <p><code className="con-key con-key--big">{code.code}</code></p>
+          <p className="con-quiet">It is not shown again. If it is lost, use Reset password to make another.</p>
+          <div className="con-dialog-foot"><button type="button" className="ui-btn con-btn-primary" onClick={() => setCode(null)}>Done</button></div>
+        </Dialog>
+      ) : null}
     </>
   );
 }

@@ -12,7 +12,34 @@ run against production; try the Google Cloud ones on staging first.**
 Order matters: 1 to 4 make the Console itself work (read-only screens, pull
 requests, log, members). 5 to 7 switch on Release and Roll back.
 
-## 1. GitHub App (sign-in, reading, acting)
+## 0. Ways to sign in: all optional, at least one
+
+No sign-in method is built in. Each is on when its own settings are present,
+and the sign-in page shows only those. The service will not start unless
+somebody can get in as an owner.
+
+| Method | On when | Needs |
+|---|---|---|
+| Email address and password | `CONSOLE_OWNER_EMAILS` and `CONSOLE_OWNER_SETUP_CODE` (16+ characters) are set | Nothing outside the Console |
+| GitHub | All five `CONSOLE_GITHUB_*` settings are set (step 1) | A GitHub App |
+| CLOR staff login | `CONSOLE_CLOR_GRANT_PUBLIC_KEY` is set (step 8) | A release of the customer app |
+
+Whichever is used, the Console asks for its own authenticator code before it
+shows anything. A password is stored only as a salted scrypt hash.
+
+**First owner by password:** open the Console, "I have a setup code", your
+address from `CONSOLE_OWNER_EMAILS`, the code from `CONSOLE_OWNER_SETUP_CODE`,
+a new password of 12 characters or more. The code stops working for you once
+your password is set. Other people: Members → Add member → email address; the
+Console shows a one-time setup code, once, to pass to them (good for three
+days). Reset password does the same for someone who has forgotten theirs.
+
+**Without GitHub** the Console still shows the cloud rows on Overview, the
+Log and Members. Rows and actions that need GitHub (tests, pull requests,
+release, roll back) say "Not connected". **Without the Cloudflare read
+token** the Web app and Website rows say the same.
+
+## 1. GitHub App (optional: GitHub sign-in, pull requests, releases)
 
 GitHub → the `Clor-applications` organisation → Settings → Developer settings
 → GitHub Apps → New GitHub App.

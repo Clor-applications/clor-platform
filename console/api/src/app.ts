@@ -7,10 +7,11 @@ import QRCode from 'qrcode';
 import { z } from 'zod';
 
 import type { Cloud } from './cloud.js';
-import type { Config } from './config.js';
+import { cloudflareOn, githubOn, passwordOn, type Config } from './config.js';
 import { GitHubError, type GitHub, type Run } from './github.js';
 import { verifyGrant, type Grant } from './grant.js';
 import { blocksConsoleMerge, marksFor, writtenBy } from './marks.js';
+import { checkPassword, hashPassword, hashSetupCode, MIN_PASSWORD, newSetupCode, sameHash } from './password.js';
 import { seal, unseal } from './seal.js';
 import { atLeast, type Member, type Role, type Store } from './store.js';
 import { newSecret, otpauthUri, verifyCode } from './totp.js';
@@ -26,8 +27,8 @@ export interface Deps {
 interface Session {
   /** The member. */
   mid: string;
-  /** How they came in. A CLOR session has no GitHub token until they connect GitHub. */
-  via: 'github' | 'clor';
+  /** How they came in. Only a GitHub sign-in carries a GitHub token; the others connect GitHub when they need one. */
+  via: 'github' | 'clor' | 'password';
   /** The person's own GitHub token. Sealed inside the cookie; never sent to the page. */
   tok: string;
   exp: number;
@@ -114,8 +115,13 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
     const s = raw ? unseal<Session>(config.sessionSecret, 'session', raw) : null;
     return s && s.exp > now() ? s : null;
   };
+  /* Each way of signing in, and each outside service, is on when its own settings are present. None is assumed. */
   const clorOn = Boolean(config.clor.grantPublicKey);
-  const isBootstrap = (m: Member) => Boolean(m.githubUserId && config.ownerGithubIds.includes(m.githubUserId));
+  const ghOn = githubOn(config);
+  const pwOn = passwordOn(config);
+  const cfOn = cloudflareOn(config) || config.devFakes;
+  const ownerEmail = (email: string | null) => Boolean(pwOn && email && config.ownerEmails.includes(email.toLowerCase()));
+  const isBootstrap = (m: Member) => Boolean(m.githubUserId && config.ownerGithubIds.includes(m.githubUserId)) || ownerEmail(m.email);
   /** A bootstrap owner is an owner whatever their row says, and cannot be switched off from the page. */
   const effective = (m: Member): Member => (isBootstrap(m) ? { ...m, role: 'OWNER', active: true } : m);
   const SESSION_MS = 8 * 3600_000;
@@ -174,7 +180,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   const r = express.Router();
 
   r.get('/health', (_req, res) => res.json({ ok: true }));
-  r.get('/auth/options', (_req, res) => res.json({ github: true, clor: clorOn, dev: config.devFakes && !config.production }));
+  r.get('/auth/options', (_req, res) => res.json({ github: ghOn, clor: clorOn, password: pwOn }));
 
   /*
    * GitHub. Three uses of the same round trip:
@@ -184,6 +190,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
    * Connecting also links the GitHub account to the member the first time.
    */
   r.get('/auth/github', (req, res) => {
+    if (!ghOn) return back(res, 'github-off');
     if (req.query.connect === '1') {
       const s = steppedUpSession(req);
       if (!s) return back(res, 'code-first');
@@ -194,7 +201,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
 
   r.get('/auth/callback', async (req, res) => {
     const kept = takeState(req, res);
-    if (!kept || typeof req.query.code !== 'string') return back(res, 'failed');
+    if (!ghOn || !kept || typeof req.query.code !== 'string') return back(res, 'failed');
     try {
       const { token, expiresAt } = await github.exchangeCode(req.query.code);
       const who = await github.whoAmI(token);
@@ -288,6 +295,67 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   // --- who may do what ----------------------------------------------------
   const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
 
+  /*
+   * Email and password: the Console's own sign-in, needing no outside service.
+   * The password gets a session that can read nothing; the Console's
+   * authenticator code is asked next, as for a CLOR sign-in.
+   *
+   * A password is chosen with a one-time setup code: the first owners use the
+   * one in the service's settings, everybody else the one an owner is shown
+   * when adding them or resetting their password.
+   */
+  const tries = new Map<string, { count: number; until: number }>();
+  const LOCK_MS = 15 * 60_000;
+  const locked = (key: string) => {
+    const t = tries.get(key);
+    return Boolean(t && t.count >= 5 && t.until > now());
+  };
+  const miss = (key: string) => {
+    const t = tries.get(key);
+    tries.set(key, { count: t && t.until > now() ? t.count + 1 : 1, until: now() + LOCK_MS });
+  };
+  const emailField = z.string().trim().toLowerCase().email().max(200);
+
+  r.post('/auth/password', wrap(async (req, res) => {
+    const parsed = z.object({ email: emailField, password: z.string().min(1).max(500) }).safeParse(req.body);
+    if (!pwOn || !parsed.success) return res.status(400).json({ error: 'An email address and a password.' });
+    const key = `in:${parsed.data.email}`;
+    if (locked(key)) return res.status(429).json({ error: 'Too many tries. Wait 15 minutes and try again.' });
+    const m = await store.findByEmail(parsed.data.email);
+    const ok = await checkPassword(parsed.data.password, m?.passwordHash ?? null);
+    if (!m || !ok || !effective(m).active) {
+      miss(key);
+      return res.status(401).json({ error: 'That email address or password is not right.' });
+    }
+    tries.delete(key);
+    setSession(res, { mid: m.id, via: 'password', tok: '', exp: now() + SESSION_MS, stepUpAt: 0 });
+    res.json({ ok: true });
+  }));
+
+  r.post('/auth/password/setup', wrap(async (req, res) => {
+    const parsed = z.object({ email: emailField, code: z.string().trim().min(8).max(100), password: z.string().max(500) }).safeParse(req.body);
+    if (!pwOn || !parsed.success) return res.status(400).json({ error: 'An email address, your setup code and a new password.' });
+    if (parsed.data.password.length < MIN_PASSWORD) return res.status(400).json({ error: `Use ${MIN_PASSWORD} characters or more for the password.` });
+    const { email } = parsed.data;
+    const key = `setup:${email}`;
+    if (locked(key)) return res.status(429).json({ error: 'Too many tries. Wait 15 minutes and try again.' });
+    const given = hashSetupCode(parsed.data.code);
+    let m = await store.findByEmail(email);
+    /* A first owner, named in the service's settings: its setup code works until they have a password. */
+    const asOwner = ownerEmail(email) && !m?.passwordHash && sameHash(given, hashSetupCode(config.ownerSetupCode));
+    const asMember = Boolean(m?.setupCodeHash && m.setupExpiresAt && m.setupExpiresAt.getTime() > now() && sameHash(given, m.setupCodeHash));
+    if ((!asOwner && !asMember) || (m && !effective(m).active)) {
+      miss(key);
+      return res.status(401).json({ error: 'That setup code is not right for this address, or it has run out. Ask an owner for a new one.' });
+    }
+    tries.delete(key);
+    if (!m) m = await store.createMember({ name: email, role: 'OWNER', githubUserId: null, githubLogin: null, clorUserId: null, clorEmail: null, addedBy: null, email });
+    await logLine(m, req, 'PASSWORD_SET', m.name, { firstOwner: asOwner });
+    await store.updateMember(m.id, { passwordHash: await hashPassword(parsed.data.password), setupCodeHash: null, setupExpiresAt: null });
+    setSession(res, { mid: m.id, via: 'password', tok: '', exp: now() + SESSION_MS, stepUpAt: 0 });
+    res.json({ ok: true });
+  }));
+
   const requireMember = (req: Request, res: Response, next: NextFunction) =>
     (async () => {
       const s = readSession(req);
@@ -301,8 +369,8 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   const requireEnrolled = (_req: Request, res: Response, next: NextFunction) =>
     (res.locals.member as Member).totpEnabledAt ? next() : res.status(403).json({ error: 'Set up your authenticator first.', code: 'ENROL' });
   /*
-   * A session that came in with a CLOR login has proved who the person is at
-   * CLOR and nothing else. Before it reads anything it must also pass this
+   * A session that came in with a CLOR login or a password has proved who the
+   * person is and nothing else. Before it reads anything it must also pass this
    * Console's own authenticator, once. So a fault in the customer API, or its
    * signing key in the wrong hands, does not open the Console by itself.
    */
@@ -315,12 +383,14 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   const requireStepUp = (_req: Request, res: Response, next: NextFunction) =>
     now() - (res.locals.session as Session).stepUpAt < STEP_UP_MS ? next() : res.status(401).json({ error: 'Enter a code from your authenticator.', code: 'STEP_UP' });
   /* A change on GitHub is made with the person's own GitHub token, so GitHub's record names them. */
-  const requireGitHub = (_req: Request, res: Response, next: NextFunction) =>
-    (res.locals.session as Session).tok ? next() : res.status(401).json({ error: 'Connect your GitHub account to make changes.', code: 'CONNECT_GITHUB' });
+  const requireGitHub = (_req: Request, res: Response, next: NextFunction) => {
+    if (!ghOn) return res.status(409).json({ error: 'GitHub is not connected to the Console yet, so this cannot be done from here.', code: 'GITHUB_OFF' });
+    return (res.locals.session as Session).tok ? next() : res.status(401).json({ error: 'Connect your GitHub account to make changes.', code: 'CONNECT_GITHUB' });
+  };
 
   const me = (res: Response) => res.locals.member as Member;
   const sess = (res: Response) => res.locals.session as Session;
-  const publicMember = (m: Member) => ({ id: m.id, name: m.name, githubLogin: m.githubLogin, clorEmail: m.clorEmail, clorSignedIn: Boolean(m.clorUserId), role: effective(m).role, active: effective(m).active, authenticator: Boolean(m.totpEnabledAt), bootstrap: isBootstrap(m), since: m.createdAt });
+  const publicMember = (m: Member) => ({ id: m.id, name: m.name, email: m.email, passwordSet: Boolean(m.passwordHash), setupWaiting: Boolean(m.setupCodeHash && m.setupExpiresAt && m.setupExpiresAt.getTime() > now()), githubLogin: m.githubLogin, clorEmail: m.clorEmail, clorSignedIn: Boolean(m.clorUserId), role: effective(m).role, active: effective(m).active, authenticator: Boolean(m.totpEnabledAt), bootstrap: isBootstrap(m), since: m.createdAt });
 
   /**
    * One change: written to the log first, so nothing happens unrecorded, then
@@ -345,7 +415,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   r.get('/me', requireMember, (_req, res) => {
     const m = me(res);
     const s = sess(res);
-    res.json({ name: m.name, role: m.role, via: s.via, authenticator: Boolean(m.totpEnabledAt), needsCode: Boolean(m.totpEnabledAt) && s.via === 'clor' && !s.stepUpAt, github: { connected: Boolean(s.tok), linked: Boolean(m.githubUserId), login: m.githubLogin }, clor: { available: clorOn, linked: Boolean(m.clorUserId), email: m.clorEmail }, steppedUpUntil: s.stepUpAt ? s.stepUpAt + STEP_UP_MS : null });
+    res.json({ name: m.name, role: m.role, via: s.via, authenticator: Boolean(m.totpEnabledAt), needsCode: Boolean(m.totpEnabledAt) && s.via !== 'github' && !s.stepUpAt, github: { available: ghOn, connected: Boolean(s.tok), linked: Boolean(m.githubUserId), login: m.githubLogin }, password: { available: pwOn, set: Boolean(m.passwordHash), email: m.email }, clor: { available: clorOn, linked: Boolean(m.clorUserId), email: m.clorEmail }, steppedUpUntil: s.stepUpAt ? s.stepUpAt + STEP_UP_MS : null });
   });
 
   r.post('/two-factor/setup', requireMember, wrap(async (_req, res) => {
@@ -448,6 +518,8 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
       link: link || null,
     });
     const ago = (iso: string | undefined | null) => iso || null;
+    /* A service that is not set up is not a fault: it is said as such, without a tone. */
+    const notConnected = <R extends ReturnType<typeof row>>(r: R, on: boolean, what: string) => (on ? r : { ...r, tone: 'none' as Tone, state: 'Not connected', fact: `${what} is not connected to the Console yet.`, checkedAt: null, link: null, since: null });
 
     const serving = svc.value?.serving[0];
     const servingRev = svc.value?.revisions.find((x) => x.name === serving?.revision);
@@ -463,14 +535,14 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
     res.json({
       rows: [
         row('api', 'API', svc.ok && ready.ok ? svc : svc.ok ? ready : svc, ready.value?.ok ? 'ok' : 'bad', ready.value?.ok ? 'Working' : 'Not answering', serving ? `${relTag || serving.revision} is serving${serving.percent < 100 ? ` ${serving.percent}%` : ''}` : 'No revision is serving', gcpConsole),
-        { ...row('web', 'Web app', web, 'ok', 'Published', web.value ? `Commit ${sha7(web.value.commit)}` : 'No deployment found'), since: ago(web.value?.createdAt) },
-        { ...row('site', 'Website', site, 'ok', 'Published', site.value ? `Commit ${sha7(site.value.commit)}` : 'No deployment found'), since: ago(site.value?.createdAt) },
+        notConnected({ ...row('web', 'Web app', web, 'ok', 'Published', web.value ? `Commit ${sha7(web.value.commit)}` : 'No deployment found'), since: ago(web.value?.createdAt) }, cfOn, 'Cloudflare'),
+        notConnected({ ...row('site', 'Website', site, 'ok', 'Published', site.value ? `Commit ${sha7(site.value.commit)}` : 'No deployment found'), since: ago(site.value?.createdAt) }, cfOn, 'Cloudflare'),
         { ...row('backup', 'Database backup', backup, backup.value?.status === 'SUCCESSFUL' ? 'ok' : 'bad', backup.value?.status === 'SUCCESSFUL' ? 'Backed up' : 'Last backup failed', backup.value ? 'Latest backup' : 'No backup found'), since: ago(backup.value?.endedAt) },
         { ...row('migration', 'Database changes', migration, migration.value?.ok === false ? 'bad' : 'ok', migration.value?.ok === false ? 'Last run failed' : 'Applied', migration.value ? 'Latest migration run' : 'No run yet'), since: ago(migration.value?.endedAt) },
-        { ...row('tests', 'Tests', ci.ok ? h : ci, !headRun ? 'warn' : headRun.status !== 'completed' ? 'warn' : headRun.conclusion === 'success' ? 'ok' : 'bad', !headRun ? 'Not run' : headRun.status !== 'completed' ? 'Running' : headRun.conclusion === 'success' ? 'Passing' : 'Failing', `main at ${h.value ? sha7(h.value.sha) : 'unknown'}${nightly ? `; last nightly run ${nightly.conclusion === 'success' ? 'passed' : 'failed'}` : ''}`, headRun?.url || actions), since: ago(headRun?.updatedAt) },
-        { ...row('security', 'Security checks', security, !sec ? 'warn' : sec.conclusion === 'success' ? 'ok' : 'bad', !sec ? 'Not run' : sec.conclusion === 'success' ? 'Passing' : 'Failing', 'Dependency audit and secret scan', sec?.url || actions), since: ago(sec?.updatedAt) },
-        row('waiting', 'Waiting to release', wait.ok ? t : wait, wait.value?.pulls.length ? 'warn' : 'ok', wait.value?.pulls.length ? `${wait.value.pulls.length} waiting` : 'Nothing waiting', t.value?.[0] ? `Since ${t.value[0].name}` : 'No release recorded yet'),
-        row('pulls', 'Open pull requests', open, red ? 'bad' : 'ok', `${open.value?.length ?? 0} open`, red ? `${red} with failing checks` : 'None failing'),
+        notConnected({ ...row('tests', 'Tests', ci.ok ? h : ci, !headRun ? 'warn' : headRun.status !== 'completed' ? 'warn' : headRun.conclusion === 'success' ? 'ok' : 'bad', !headRun ? 'Not run' : headRun.status !== 'completed' ? 'Running' : headRun.conclusion === 'success' ? 'Passing' : 'Failing', `main at ${h.value ? sha7(h.value.sha) : 'unknown'}${nightly ? `; last nightly run ${nightly.conclusion === 'success' ? 'passed' : 'failed'}` : ''}`, headRun?.url || actions), since: ago(headRun?.updatedAt) }, ghOn, 'GitHub'),
+        notConnected({ ...row('security', 'Security checks', security, !sec ? 'warn' : sec.conclusion === 'success' ? 'ok' : 'bad', !sec ? 'Not run' : sec.conclusion === 'success' ? 'Passing' : 'Failing', 'Dependency audit and secret scan', sec?.url || actions), since: ago(sec?.updatedAt) }, ghOn, 'GitHub'),
+        notConnected(row('waiting', 'Waiting to release', wait.ok ? t : wait, wait.value?.pulls.length ? 'warn' : 'ok', wait.value?.pulls.length ? `${wait.value.pulls.length} waiting` : 'Nothing waiting', t.value?.[0] ? `Since ${t.value[0].name}` : 'No release recorded yet'), ghOn, 'GitHub'),
+        notConnected(row('pulls', 'Open pull requests', open, red ? 'bad' : 'ok', `${open.value?.length ?? 0} open`, red ? `${red} with failing checks` : 'None failing'), ghOn, 'GitHub'),
         { ...row('staging', 'Staging', staging, 'ok', 'Running', staging.value?.serving[0] ? staging.value.serving[0].revision : 'No revision is serving'), since: ago(stagingRev?.createdAt) },
       ],
     });
@@ -504,6 +576,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   guarded.get('/releases', wrap(async (_req, res) => {
     const s = await releaseState(sess(res).tok);
     res.json({
+      github: ghOn,
       reachable: s.next !== 'UNKNOWN',
       next: s.next,
       head: s.h.value ? { sha: s.h.value.sha, short: sha7(s.h.value.sha), message: s.h.value.message, date: s.h.value.date } : null,
@@ -597,7 +670,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
 
   guarded.get('/pulls', wrap(async (_req, res) => {
     const open = await pulls();
-    res.json({ reachable: open.ok, checkedAt: open.checkedAt, pulls: (open.value || []).map(describe) });
+    res.json({ github: ghOn, reachable: open.ok, checkedAt: open.checkedAt, pulls: (open.value || []).map(describe) });
   }));
 
   async function findPull(req: Request, res: Response) {
@@ -651,10 +724,11 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   }));
 
   guarded.get('/members', requireRole('OWNER'), wrap(async (_req, res) => {
-    res.json({ members: (await store.listMembers()).map(publicMember), clor: clorOn });
+    res.json({ members: (await store.listMembers()).map(publicMember), clor: clorOn, github: ghOn, password: pwOn });
   }));
 
   const newMember = z.object({
+    email: emailField.optional(),
     githubLogin: z.string().trim().regex(/^[A-Za-z0-9-]{1,39}$/).optional(),
     clorEmail: z.string().trim().toLowerCase().email().max(200).optional(),
     role: z.enum(['OWNER', 'ENGINEER', 'VIEWER']),
@@ -663,32 +737,40 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
 
   guarded.post('/members', ...change('OWNER'), wrap(async (req, res) => {
     const parsed = newMember.safeParse(req.body);
-    if (!parsed.success || (!parsed.data.githubLogin && !parsed.data.clorEmail)) return res.status(400).json({ error: 'A GitHub username or a CLOR login address, a role and a reason.' });
-    const { githubLogin, clorEmail, role } = parsed.data;
-    if (clorEmail && !clorOn) return res.status(409).json({ error: 'Sign-in with CLOR is not set up yet. Add them by GitHub username.' });
+    if (!parsed.success || (!parsed.data.email && !parsed.data.githubLogin && !parsed.data.clorEmail)) return res.status(400).json({ error: 'A way to sign in (an email address, a GitHub username or a CLOR login address), a role and a reason.' });
+    const { email, githubLogin, clorEmail, role } = parsed.data;
+    if (email && !pwOn) return res.status(409).json({ error: 'Sign-in with an email address and password is not set up for the Console.' });
+    if (githubLogin && !ghOn) return res.status(409).json({ error: 'GitHub is not connected to the Console yet. Add them by email address.' });
+    if (clorEmail && !clorOn) return res.status(409).json({ error: 'Sign-in with CLOR is not set up yet. Add them another way.' });
     const who = githubLogin ? await github.userByLogin(githubLogin) : null;
     if (githubLogin && !who) return res.status(404).json({ error: 'GitHub has no person with that username.' });
     const all = await store.listMembers();
+    if (email && all.some((m) => (m.email || '').toLowerCase() === email)) return res.status(409).json({ error: 'That email address is already a member.' });
     if (who && all.some((m) => m.githubUserId === who.id)) return res.status(409).json({ error: 'That GitHub account is already a member.' });
     if (clorEmail && all.some((m) => (m.clorEmail || '').toLowerCase() === clorEmail)) return res.status(409).json({ error: 'That CLOR login is already a member.' });
-    const name = who?.login || clorEmail!;
-    await logLine(me(res), req, 'MEMBER_ADDED', name, { githubUserId: who?.id || null, clorEmail: clorEmail || null, role }, parsed.data.reason);
-    const row = await store.createMember({ name, role, githubUserId: who?.id || null, githubLogin: who?.login || null, clorUserId: null, clorEmail: clorEmail || null, addedBy: me(res).id });
-    res.status(201).json({ member: publicMember(row) });
+    const name = email || who?.login || clorEmail!;
+    /* Shown once, here; only its hash is kept. Good for three days. */
+    const setupCode = email ? newSetupCode() : null;
+    await logLine(me(res), req, 'MEMBER_ADDED', name, { email: email || null, githubUserId: who?.id || null, clorEmail: clorEmail || null, role }, parsed.data.reason);
+    const row = await store.createMember({ name, role, githubUserId: who?.id || null, githubLogin: who?.login || null, clorUserId: null, clorEmail: clorEmail || null, addedBy: me(res).id, email: email || null, setupCodeHash: setupCode ? hashSetupCode(setupCode) : null, setupExpiresAt: setupCode ? new Date(now() + 3 * 86_400_000) : null });
+    res.status(201).json({ member: publicMember(row), setupCode });
   }));
 
   guarded.patch('/members/:id', ...change('OWNER'), wrap(async (req, res) => {
-    const parsed = z.object({ role: z.enum(['OWNER', 'ENGINEER', 'VIEWER']).optional(), active: z.boolean().optional(), resetAuthenticator: z.literal(true).optional(), reason }).safeParse(req.body);
+    const parsed = z.object({ role: z.enum(['OWNER', 'ENGINEER', 'VIEWER']).optional(), active: z.boolean().optional(), resetAuthenticator: z.literal(true).optional(), resetPassword: z.literal(true).optional(), reason }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'A change and a reason.' });
     const was = await store.getMember(String(req.params.id));
     if (!was) return res.status(404).json({ error: 'No such member.' });
-    const { role, active, resetAuthenticator } = parsed.data;
+    const { role, active, resetAuthenticator, resetPassword } = parsed.data;
+    if (resetPassword && (!pwOn || !was.email)) return res.status(409).json({ error: 'This member does not sign in with a password.' });
     if (isBootstrap(was) && (role || active === false)) return res.status(409).json({ error: 'This owner is set in the Console service itself and cannot be changed here.' });
     if (was.id === me(res).id && (active === false || (role && role !== 'OWNER'))) return res.status(409).json({ error: 'You cannot remove your own access.' });
-    await logLine(me(res), req, 'MEMBER_CHANGED', was.name, { before: { role: was.role, active: was.active }, after: { role: role ?? was.role, active: active ?? was.active }, resetAuthenticator: Boolean(resetAuthenticator) }, parsed.data.reason);
-    const row = await store.updateMember(was.id, { role: role ?? was.role, active: active ?? was.active });
+    await logLine(me(res), req, 'MEMBER_CHANGED', was.name, { before: { role: was.role, active: was.active }, after: { role: role ?? was.role, active: active ?? was.active }, resetAuthenticator: Boolean(resetAuthenticator), resetPassword: Boolean(resetPassword) }, parsed.data.reason);
+    /* A password reset ends the old password at once and hands back a fresh one-time code, shown once. */
+    const setupCode = resetPassword ? newSetupCode() : null;
+    const row = await store.updateMember(was.id, { role: role ?? was.role, active: active ?? was.active, ...(setupCode ? { passwordHash: null, setupCodeHash: hashSetupCode(setupCode), setupExpiresAt: new Date(now() + 3 * 86_400_000) } : {}) });
     if (resetAuthenticator) await store.setTotp(was.id, { secretEnc: null, enabledAt: null, lastStep: null });
-    res.json({ member: publicMember({ ...row, totpEnabledAt: resetAuthenticator ? null : row.totpEnabledAt }) });
+    res.json({ member: publicMember({ ...row, totpEnabledAt: resetAuthenticator ? null : row.totpEnabledAt }), setupCode });
   }));
 
   r.use(guarded);

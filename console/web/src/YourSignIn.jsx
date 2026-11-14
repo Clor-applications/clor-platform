@@ -14,8 +14,8 @@ const LINK_NOTE = {
 };
 
 /*
- * The two ways into the Console, for the person signed in. Either gets you in
- * to read. A change on GitHub (release, roll back, merge) is always made with
+ * The ways into the Console that are switched on, for the person signed in.
+ * Any of them gets you in to read. A change on GitHub (release, roll back, merge) is always made with
  * your own GitHub account, so a CLOR sign-in connects GitHub before it can
  * change anything. Adding a way to sign in asks for a fresh code first.
  */
@@ -42,24 +42,38 @@ export default function YourSignIn({ me }) {
       {note ? <Notice tone="bad">{note}</Notice> : null}
       {error ? <Notice tone="bad">{error}</Notice> : null}
       <ul className="con-list">
-        <li className="con-row con-row--split">
-          <span>
-            <strong>GitHub</strong>{' '}
-            {me.github.connected ? <Pill tone="ok">Connected now</Pill> : me.github.linked ? <Pill tone="warn">Linked, not connected</Pill> : <Pill>Not linked</Pill>}
-            <span className="con-quiet"> {me.github.login ? `${me.github.login}. ` : ''}{me.github.connected ? 'You can make changes.' : 'Needed to release, roll back, merge or close. Reading does not need it.'}</span>
-          </span>
-          {!me.github.connected ? <button type="button" className="ui-btn con-btn-primary ui-btn-sm" onClick={leaveFor(connectGithubUrl)}>Connect GitHub</button> : null}
-        </li>
-        <li className="con-row con-row--split">
-          <span>
-            <strong>CLOR login</strong>{' '}
-            {!me.clor.available ? <Pill>Not set up</Pill> : me.clor.linked ? <Pill tone="ok">Linked</Pill> : <Pill>Not linked</Pill>}
-            <span className="con-quiet"> {me.clor.email ? `${me.clor.email}. ` : ''}{!me.clor.available ? 'Sign-in with CLOR is switched off for the Console.' : me.clor.linked ? 'You can sign in with CLOR.' : 'Link it to sign in with your CLOR staff login.'}</span>
-          </span>
-          {me.clor.available && !me.clor.linked ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={leaveFor(linkClorUrl)}>Link CLOR login</button> : null}
-        </li>
+        {me.password.available ? (
+          <li className="con-row con-row--split">
+            <span>
+              <strong>Email and password</strong>{' '}
+              {me.password.set ? <Pill tone="ok">Set</Pill> : <Pill>Not set</Pill>}
+              <span className="con-quiet"> {me.password.email ? `${me.password.email}. ` : ''}{me.password.set ? 'An owner can reset it from Members.' : 'An owner adds your email address in Members and gives you a setup code.'}</span>
+            </span>
+          </li>
+        ) : null}
+        {me.github.available ? (
+          <li className="con-row con-row--split">
+            <span>
+              <strong>GitHub</strong>{' '}
+              {me.github.connected ? <Pill tone="ok">Connected now</Pill> : me.github.linked ? <Pill tone="warn">Linked, not connected</Pill> : <Pill>Not linked</Pill>}
+              <span className="con-quiet"> {me.github.login ? `${me.github.login}. ` : ''}{me.github.connected ? 'You can make changes.' : 'Needed to release, roll back, merge or close. Reading does not need it.'}</span>
+            </span>
+            {!me.github.connected ? <button type="button" className="ui-btn con-btn-primary ui-btn-sm" onClick={leaveFor(connectGithubUrl)}>Connect GitHub</button> : null}
+          </li>
+        ) : null}
+        {me.clor.available ? (
+          <li className="con-row con-row--split">
+            <span>
+              <strong>CLOR login</strong>{' '}
+              {me.clor.linked ? <Pill tone="ok">Linked</Pill> : <Pill>Not linked</Pill>}
+              <span className="con-quiet"> {me.clor.email ? `${me.clor.email}. ` : ''}{me.clor.linked ? 'You can sign in with CLOR.' : 'Link it to sign in with your CLOR staff login.'}</span>
+            </span>
+            {!me.clor.linked ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={leaveFor(linkClorUrl)}>Link CLOR login</button> : null}
+          </li>
+        ) : null}
       </ul>
-      <p className="con-quiet" style={{ marginTop: 12 }}>You came in with {me.via === 'clor' ? 'your CLOR login' : 'GitHub'} this time.</p>
+      {!me.github.available ? <p className="con-quiet" style={{ marginTop: 12 }}>GitHub is not connected to the Console yet, so releases and pull requests cannot be read or changed from here.</p> : null}
+      <p className="con-quiet" style={{ marginTop: 12 }}>You came in with {{ clor: 'your CLOR login', github: 'GitHub', password: 'your password' }[me.via]} this time.</p>
     </>
   );
 }

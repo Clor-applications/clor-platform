@@ -18,6 +18,12 @@ export interface Member {
   clorUserId: string | null;
   /** The address they were added by. It decides access only until `clorUserId` is bound. */
   clorEmail: string | null;
+  /** For sign-in with a password. Lower case. */
+  email: string | null;
+  passwordHash: string | null;
+  /** Hash of the one-time code that lets them choose a password, and when it stops working. */
+  setupCodeHash: string | null;
+  setupExpiresAt: Date | null;
   totpSecretEnc: string | null;
   totpEnabledAt: Date | null;
   totpLastStep: number | null;
@@ -43,8 +49,8 @@ export interface AuditFilter {
   limit: number;
 }
 
-export type NewMember = Pick<Member, 'name' | 'role' | 'githubUserId' | 'githubLogin' | 'clorUserId' | 'clorEmail' | 'addedBy'>;
-export type MemberPatch = Partial<Pick<Member, 'name' | 'role' | 'active' | 'githubUserId' | 'githubLogin' | 'clorUserId' | 'clorEmail'>>;
+export type NewMember = Pick<Member, 'name' | 'role' | 'githubUserId' | 'githubLogin' | 'clorUserId' | 'clorEmail' | 'addedBy'> & Partial<Pick<Member, 'email' | 'setupCodeHash' | 'setupExpiresAt'>>;
+export type MemberPatch = Partial<Pick<Member, 'name' | 'role' | 'active' | 'githubUserId' | 'githubLogin' | 'clorUserId' | 'clorEmail' | 'email' | 'passwordHash' | 'setupCodeHash' | 'setupExpiresAt'>>;
 
 /** Everything the Console keeps for itself. Two implementations: Postgres, and memory for tests and local preview. */
 export interface Store {
@@ -52,6 +58,7 @@ export interface Store {
   getMember(id: string): Promise<Member | null>;
   findByGithub(githubUserId: string): Promise<Member | null>;
   findByClor(clorUserId: string): Promise<Member | null>;
+  findByEmail(email: string): Promise<Member | null>;
   /** A member added by this address who has not signed in with CLOR yet. */
   findWaitingByClorEmail(email: string): Promise<Member | null>;
   listMembers(): Promise<Member[]>;
@@ -84,6 +91,9 @@ export function memoryStore(now: () => number = Date.now): Store & { audit: Audi
     async findByClor(clorUserId) {
       return find((m) => m.clorUserId === clorUserId);
     },
+    async findByEmail(email) {
+      return find((m) => Boolean(m.email) && same(m.email, email));
+    },
     async findWaitingByClorEmail(email) {
       return find((m) => !m.clorUserId && same(m.clorEmail, email));
     },
@@ -94,8 +104,9 @@ export function memoryStore(now: () => number = Date.now): Store & { audit: Audi
       for (const other of members.values()) {
         if (m.githubUserId && other.githubUserId === m.githubUserId) throw new Error('That GitHub account already belongs to a member.');
         if (m.clorUserId && other.clorUserId === m.clorUserId) throw new Error('That CLOR login already belongs to a member.');
+        if (m.email && same(other.email, m.email)) throw new Error('That email address already belongs to a member.');
       }
-      const row: Member = { ...m, id: randomUUID(), active: true, totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, createdAt: new Date(now()) };
+      const row: Member = { email: null, setupCodeHash: null, setupExpiresAt: null, ...m, passwordHash: null, id: randomUUID(), active: true, totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, createdAt: new Date(now()) };
       members.set(row.id, row);
       return { ...row };
     },
@@ -106,6 +117,7 @@ export function memoryStore(now: () => number = Date.now): Store & { audit: Audi
         if (other.id === id) continue;
         if (patch.githubUserId && other.githubUserId === patch.githubUserId) throw new Error('That GitHub account already belongs to a member.');
         if (patch.clorUserId && other.clorUserId === patch.clorUserId) throw new Error('That CLOR login already belongs to a member.');
+        if (patch.email && same(other.email, patch.email)) throw new Error('That email address already belongs to a member.');
       }
       Object.assign(m, patch);
       return { ...m };
@@ -142,6 +154,10 @@ const toMember = (r: Record<string, unknown>): Member => ({
   githubLogin: (r.github_login as string) ?? null,
   clorUserId: (r.clor_user_id as string) ?? null,
   clorEmail: (r.clor_email as string) ?? null,
+  email: (r.email as string) ?? null,
+  passwordHash: (r.password_hash as string) ?? null,
+  setupCodeHash: (r.setup_code_hash as string) ?? null,
+  setupExpiresAt: (r.setup_expires_at as Date) ?? null,
   totpSecretEnc: (r.totp_secret_enc as string) ?? null,
   totpEnabledAt: (r.totp_enabled_at as Date) ?? null,
   totpLastStep: r.totp_last_step == null ? null : Number(r.totp_last_step),
@@ -161,7 +177,7 @@ const toAudit = (r: Record<string, unknown>): AuditEvent => ({
   ip: (r.ip as string) ?? null,
 });
 
-const COLUMN: Record<keyof MemberPatch, string> = { name: 'name', role: 'role', active: 'active', githubUserId: 'github_user_id', githubLogin: 'github_login', clorUserId: 'clor_user_id', clorEmail: 'clor_email' };
+const COLUMN: Record<keyof MemberPatch, string> = { name: 'name', role: 'role', active: 'active', githubUserId: 'github_user_id', githubLogin: 'github_login', clorUserId: 'clor_user_id', clorEmail: 'clor_email', email: 'email', passwordHash: 'password_hash', setupCodeHash: 'setup_code_hash', setupExpiresAt: 'setup_expires_at' };
 
 export function pgStore(pool: Pool): Store {
   const q = (text: string, values: unknown[] = []) => pool.query(text, values);
@@ -181,14 +197,15 @@ export function pgStore(pool: Pool): Store {
     getMember: (id) => one('SELECT * FROM console_member WHERE id = $1', [id]),
     findByGithub: (id) => one('SELECT * FROM console_member WHERE github_user_id = $1', [id]),
     findByClor: (id) => one('SELECT * FROM console_member WHERE clor_user_id = $1', [id]),
+    findByEmail: (email) => one('SELECT * FROM console_member WHERE lower(email) = lower($1)', [email]),
     findWaitingByClorEmail: (email) => one('SELECT * FROM console_member WHERE clor_user_id IS NULL AND lower(clor_email) = lower($1)', [email]),
     async listMembers() {
       return (await q('SELECT * FROM console_member ORDER BY created_at')).rows.map(toMember);
     },
     async createMember(m) {
       const r = await q(
-        `INSERT INTO console_member (id, name, role, github_user_id, github_login, clor_user_id, clor_email, added_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [randomUUID(), m.name, m.role, m.githubUserId, m.githubLogin, m.clorUserId, m.clorEmail, m.addedBy],
+        `INSERT INTO console_member (id, name, role, github_user_id, github_login, clor_user_id, clor_email, added_by, email, setup_code_hash, setup_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [randomUUID(), m.name, m.role, m.githubUserId, m.githubLogin, m.clorUserId, m.clorEmail, m.addedBy, m.email ?? null, m.setupCodeHash ?? null, m.setupExpiresAt ?? null],
       ).catch(taken);
       return toMember(r!.rows[0]);
     },

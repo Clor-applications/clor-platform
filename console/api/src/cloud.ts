@@ -72,6 +72,7 @@ export function realCloud(config: Config, fetcher: typeof fetch = fetch): Cloud 
       return e ? { ok: (e.succeededCount || 0) > 0 && !(e.failedCount > 0), endedAt: e.completionTime || e.createTime } : null;
     },
     async pages(projectName) {
+      if (!config.cloudflare.accountId || !config.cloudflare.token) throw new Error('Cloudflare is not connected to the Console yet.');
       const res = await fetcher(`https://api.cloudflare.com/client/v4/accounts/${config.cloudflare.accountId}/pages/projects/${projectName}/deployments?env=production&per_page=1`, {
         headers: { authorization: `Bearer ${config.cloudflare.token}` },
         signal: AbortSignal.timeout(15000),

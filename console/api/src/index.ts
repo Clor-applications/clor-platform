@@ -4,9 +4,9 @@ import pg from 'pg';
 
 import { createApp } from './app.js';
 import { realCloud } from './cloud.js';
-import { missingSettings, readConfig } from './config.js';
+import { githubOn, missingSettings, readConfig } from './config.js';
 import { fakeCloud, fakeGitHub } from './fakes.js';
-import { realGitHub } from './github.js';
+import { offGitHub, realGitHub } from './github.js';
 import { memoryStore, pgStore } from './store.js';
 
 const config = readConfig();
@@ -18,13 +18,17 @@ if (config.devFakes) {
   }
   config.sessionSecret ||= 'local-preview-only-secret-not-for-production-use';
   if (!config.ownerGithubIds.length) config.ownerGithubIds = ['1001'];
+  /* Preview: GitHub settings are faked on so its sign-in shows; password sign-in on with a setup code printed below. */
+  Object.assign(config.github, { appId: 'dev', privateKey: 'dev', installationId: 'dev', clientId: 'dev', clientSecret: 'dev' });
+  if (!config.ownerEmails.length) config.ownerEmails = ['owner@clor.in'];
+  config.ownerSetupCode ||= 'PREVIEW-SETUP-CODE-0000';
   /* So the CLOR sign-in button shows in preview. No pass is ever checked against it: /api/auth/dev?via=clor stands in. */
   config.clor.grantPublicKey ||= generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ type: 'spki', format: 'pem' }).toString();
   const store = memoryStore();
-  await store.createMember({ name: 'owner', role: 'OWNER', githubUserId: '1001', githubLogin: 'owner', clorUserId: null, clorEmail: 'owner@clor.in', addedBy: null });
+  await store.createMember({ name: 'owner', role: 'OWNER', githubUserId: '1001', githubLogin: 'owner', clorUserId: null, clorEmail: 'owner@clor.in', addedBy: null, email: 'owner@clor.in' });
   await store.createMember({ name: 'dev-engineer', role: 'ENGINEER', githubUserId: '1002', githubLogin: 'dev-engineer', clorUserId: null, clorEmail: null, addedBy: null });
   await store.createMember({ name: 'dev-viewer', role: 'VIEWER', githubUserId: '1003', githubLogin: 'dev-viewer', clorUserId: null, clorEmail: null, addedBy: null });
-  createApp({ config, store, github: fakeGitHub(), cloud: fakeCloud() }).listen(config.port, '127.0.0.1', () => console.log(`Console API, local preview with canned answers, on http://127.0.0.1:${config.port}`));
+  createApp({ config, store, github: fakeGitHub(), cloud: fakeCloud() }).listen(config.port, '127.0.0.1', () => console.log(`Console API, local preview with canned answers, on http://127.0.0.1:${config.port}. Password sign-in: owner@clor.in, setup code ${config.ownerSetupCode}`));
 } else {
   const missing = missingSettings(config);
   if (missing.length) {
@@ -32,5 +36,5 @@ if (config.devFakes) {
     process.exit(1);
   }
   const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 4 });
-  createApp({ config, store: pgStore(pool), github: realGitHub(config), cloud: realCloud(config) }).listen(config.port, () => console.log(`Console API on port ${config.port}`));
+  createApp({ config, store: pgStore(pool), github: githubOn(config) ? realGitHub(config) : offGitHub(), cloud: realCloud(config) }).listen(config.port, () => console.log(`Console API on port ${config.port}`));
 }

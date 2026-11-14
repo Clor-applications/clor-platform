@@ -1,7 +1,8 @@
 -- The Console's own database (clor_console). Two tables, nothing of a customer's.
 --
--- A member is a person. They may sign in with GitHub, with their CLOR staff
--- login, or both; each identity belongs to at most one member.
+-- A member is a person. They may sign in with an email address and password,
+-- with GitHub, with their CLOR staff login, or any of them; each identity
+-- belongs to at most one member.
 CREATE TABLE IF NOT EXISTS console_member (
   id               TEXT PRIMARY KEY,
   name             TEXT NOT NULL,
@@ -11,13 +12,18 @@ CREATE TABLE IF NOT EXISTS console_member (
   github_login     TEXT,                     -- shown only; never used to decide access
   clor_user_id     TEXT UNIQUE,              -- the CLOR platform user id, bound at their first CLOR sign-in
   clor_email       TEXT,                     -- the address they were added by; decides access only until the id is bound
+  email            TEXT,                     -- for sign-in with a password; lower case
+  password_hash    TEXT,
+  setup_code_hash  TEXT,                     -- one-time code to choose a password; only its hash
+  setup_expires_at TIMESTAMPTZ,
   totp_secret_enc  TEXT,
   totp_enabled_at  TIMESTAMPTZ,
   totp_last_step   BIGINT,
   added_by         TEXT,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK (github_user_id IS NOT NULL OR clor_user_id IS NOT NULL OR clor_email IS NOT NULL)
+  CHECK (github_user_id IS NOT NULL OR clor_user_id IS NOT NULL OR clor_email IS NOT NULL OR email IS NOT NULL)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS console_member_email ON console_member (lower(email)) WHERE email IS NOT NULL;
 -- One waiting invitation per address.
 CREATE UNIQUE INDEX IF NOT EXISTS console_member_clor_email_waiting ON console_member (lower(clor_email)) WHERE clor_user_id IS NULL AND clor_email IS NOT NULL;
 

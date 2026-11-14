@@ -124,3 +124,5 @@ div.con-row { border-top: 1px solid rgb(var(--border)); }
   .con-nav-item, .con-btn-primary { transition: background-color 120ms ease; }
 }
 .con-row--status .con-pill { justify-self: start; }
+.con-or { text-align: center; color: rgb(var(--fg-subtle)); font-size: 13px; margin: 0; }
+.con-key--big { font-size: 18px; padding: 8px 12px; display: inline-block; letter-spacing: 0.04em; user-select: all; }

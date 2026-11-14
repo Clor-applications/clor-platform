@@ -126,12 +126,12 @@ describe('Pull requests', () => {
 });
 
 describe('signing in', () => {
-  const me = (over = {}) => ({ name: 'owner', role: 'OWNER', via: 'github', authenticator: true, needsCode: false, github: { connected: true, linked: true, login: 'owner' }, clor: { available: true, linked: false, email: null }, steppedUpUntil: null, ...over });
+  const me = (over = {}) => ({ name: 'owner', role: 'OWNER', via: 'github', authenticator: true, needsCode: false, github: { available: true, connected: true, linked: true, login: 'owner' }, password: { available: false, set: false, email: null }, clor: { available: true, linked: false, email: null }, steppedUpUntil: null, ...over });
 
   // protects=the sign-in page offers CLOR only when the Console has it switched on, and always offers GitHub; fails_when=a CLOR button appears while it is off, or GitHub is missing; no_claim=none beyond protects
   it.each([[true, ['Sign in with CLOR', 'Sign in with GitHub']], [false, ['Sign in with GitHub']]])('with CLOR sign-in %s, offers %j', async (clor, links) => {
     api.me.mockRejectedValue(new ApiError('Sign in.', 401, 'SIGN_IN'));
-    api.signInOptions.mockResolvedValue({ github: true, clor });
+    api.signInOptions.mockResolvedValue({ github: true, clor, password: false });
     render(<App />);
     await screen.findByText('CLOR Console');
     await waitFor(() => expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(links));
@@ -140,7 +140,7 @@ describe('signing in', () => {
   // protects=a CLOR sign-in sees only the code screen until the Console's own code is entered; fails_when=any screen or menu is drawn first; no_claim=the API refuses the reads itself
   it('shows a CLOR sign-in nothing but the code screen first', async () => {
     const user = userEvent.setup();
-    api.me.mockResolvedValueOnce(me({ via: 'clor', needsCode: true, github: { connected: false, linked: true, login: 'owner' } })).mockResolvedValue(me({ via: 'clor' }));
+    api.me.mockResolvedValueOnce(me({ via: 'clor', needsCode: true, github: { available: true, connected: false, linked: true, login: 'owner' } })).mockResolvedValue(me({ via: 'clor' }));
     api.stepUp.mockResolvedValue({});
     api.overview.mockResolvedValue({ rows: [] });
     render(<App />);
@@ -167,11 +167,49 @@ describe('signing in', () => {
   // protects=Your sign-in offers exactly what is missing: Connect GitHub when not connected, Link CLOR login when not linked and switched on; fails_when=it offers what is already done, or CLOR while it is off; no_claim=none beyond protects
   it.each([
     [me(), ['Link CLOR login']],
-    [me({ via: 'clor', github: { connected: false, linked: true, login: 'owner' }, clor: { available: true, linked: true, email: 'owner@clor.in' } }), ['Connect GitHub']],
+    [me({ via: 'clor', github: { available: true, connected: false, linked: true, login: 'owner' }, clor: { available: true, linked: true, email: 'owner@clor.in' } }), ['Connect GitHub']],
     [me({ clor: { available: false, linked: false, email: null } }), []],
     [me({ clor: { available: true, linked: true, email: 'owner@clor.in' } }), []],
   ])('offers the missing sign-in steps (%#)', (who, buttons) => {
     show(<YourSignIn me={who} />);
     expect(screen.queryAllByRole('button').map((b) => b.textContent)).toEqual(buttons);
+  });
+
+  // protects=the sign-in page draws only the ways that are switched on, and says so when there is none; nothing is built in; fails_when=GitHub shows while off, or the password form shows while off; no_claim=none beyond protects
+  it.each([
+    [{ github: false, clor: false, password: true }, true, []],
+    [{ github: true, clor: false, password: true }, true, ['Sign in with GitHub']],
+    [{ github: false, clor: true, password: false }, false, ['Sign in with CLOR']],
+    [{ github: false, clor: false, password: false }, false, []],
+  ])('with %j shows the password form: %s, and links %j', async (options, form, links) => {
+    api.me.mockRejectedValue(new ApiError('Sign in.', 401, 'SIGN_IN'));
+    api.signInOptions.mockResolvedValue(options);
+    render(<App />);
+    await screen.findByText('CLOR Console');
+    await waitFor(() => expect(screen.queryAllByRole('link').map((a) => a.textContent)).toEqual(links));
+    expect(Boolean(screen.queryByLabelText('Password'))).toBe(form);
+    expect(Boolean(screen.queryByText(/No way to sign in is set up/))).toBe(!form && links.length === 0);
+  });
+
+  // protects=a password sign-in sends the address and password typed, and a setup sends the code too; fails_when=the wrong call is made or a field is dropped; no_claim=the API checks them
+  it('signs in with a password, or sets one with a setup code', async () => {
+    const user = userEvent.setup();
+    api.me.mockRejectedValue(new ApiError('Sign in.', 401, 'SIGN_IN'));
+    api.signInOptions.mockResolvedValue({ github: false, clor: false, password: true });
+    api.passwordSignIn.mockRejectedValue(new ApiError('That email address or password is not right.', 401));
+    api.passwordSetup.mockResolvedValue({ ok: true });
+    render(<App />);
+    await user.type(await screen.findByLabelText('Email address'), 'owner@clor.in');
+    await user.type(screen.getByLabelText('Password'), 'wrong password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByText('That email address or password is not right.')).toBeTruthy();
+    expect(api.passwordSignIn).toHaveBeenCalledWith('owner@clor.in', 'wrong password');
+
+    await user.click(screen.getByRole('button', { name: 'I have a setup code' }));
+    await user.type(screen.getByLabelText('Setup code'), 'ABCDE-FGHIJ-KLMNO-PQRST');
+    await user.clear(screen.getByLabelText('New password'));
+    await user.type(screen.getByLabelText('New password'), 'a long enough password');
+    await user.click(screen.getByRole('button', { name: 'Set password and sign in' }));
+    await waitFor(() => expect(api.passwordSetup).toHaveBeenCalledWith('owner@clor.in', 'ABCDE-FGHIJ-KLMNO-PQRST', 'a long enough password'));
   });
 });

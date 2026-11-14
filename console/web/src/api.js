@@ -45,6 +45,8 @@ export const linkClorUrl = `${BASE}/api/auth/clor?link=1`;
 export const api = {
   me: () => call('GET', '/me'),
   signInOptions: () => call('GET', '/auth/options'),
+  passwordSignIn: (email, password) => call('POST', '/auth/password', { email, password }),
+  passwordSetup: (email, code, password) => call('POST', '/auth/password/setup', { email, code, password }),
   signOut: () => call('POST', '/auth/sign-out'),
   setupAuthenticator: () => call('POST', '/two-factor/setup'),
   enableAuthenticator: (code) => call('POST', '/two-factor/enable', { code }),

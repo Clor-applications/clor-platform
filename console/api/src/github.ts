@@ -297,3 +297,15 @@ export function realGitHub(config: Config, fetcher: typeof fetch = fetch): GitHu
     },
   };
 }
+
+/** Stands in when the GitHub settings are absent: every call says so, and the Console shows "Not connected". */
+export function offGitHub(): GitHub {
+  const off = async (): Promise<never> => {
+    throw new GitHubError(503, 'GitHub is not connected to the Console yet.');
+  };
+  return {
+    authorizeUrl: () => '',
+    exchangeCode: off, whoAmI: off, userByLogin: off, mainHead: off, openPulls: off, runs: off, runSteps: off, pendingDeployments: off,
+    releaseTags: off, waitingSince: off, dispatch: off, approveRun: off, addLabel: off, merge: off, close: off,
+  };
+}

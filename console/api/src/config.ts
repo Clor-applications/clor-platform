@@ -15,6 +15,12 @@ export interface Config {
   /** When set, every request but /api/health must carry it in x-console-edge: only Cloudflare's forwarder does. */
   edgeSecret: string;
   ownerGithubIds: string[];
+  /**
+   * Sign-in with an email address and password. The first owners are named
+   * here by address; each chooses a password once with `ownerSetupCode`.
+   */
+  ownerEmails: string[];
+  ownerSetupCode: string;
   databaseUrl: string;
   github: { owner: string; repo: string; appId: string; privateKey: string; installationId: string; clientId: string; clientSecret: string };
   gcp: { project: string; region: string; service: string; stagingService: string; migrateJob: string; sqlInstance: string };
@@ -37,6 +43,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sessionSecret: env.CONSOLE_SESSION_SECRET || '',
     edgeSecret: env.CONSOLE_EDGE_SECRET || '',
     ownerGithubIds: list(env.CONSOLE_OWNER_GITHUB_IDS),
+    ownerEmails: list(env.CONSOLE_OWNER_EMAILS).map((e) => e.toLowerCase()),
+    ownerSetupCode: env.CONSOLE_OWNER_SETUP_CODE || '',
     databaseUrl: env.CONSOLE_DATABASE_URL || '',
     github: {
       owner: env.CONSOLE_GITHUB_OWNER || 'Clor-applications',
@@ -67,19 +75,27 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
   };
 }
 
-/** What is missing for a real start. Empty means ready. */
+/** Which outside services are set up. Each is optional; the Console says "not connected" for one that is not. */
+export const githubOn = (c: Config) => Boolean(c.github.appId && c.github.privateKey && c.github.installationId && c.github.clientId && c.github.clientSecret);
+export const cloudflareOn = (c: Config) => Boolean(c.cloudflare.accountId && c.cloudflare.token);
+export const clorOn = (c: Config) => Boolean(c.clor.grantPublicKey);
+export const passwordOn = (c: Config) => Boolean(c.ownerEmails.length && c.ownerSetupCode.length >= 16);
+
+/**
+ * What is missing for a real start. Empty means ready. No sign-in method is
+ * required in particular: GitHub, CLOR login and email with password are each
+ * switched on by their own settings. What is required is that somebody can
+ * get in as an owner.
+ */
 export function missingSettings(c: Config): string[] {
-  const need: Array<[string, string]> = [
-    ['CONSOLE_SESSION_SECRET', c.sessionSecret.length >= 32 ? 'ok' : ''],
-    ['CONSOLE_OWNER_GITHUB_IDS', c.ownerGithubIds.join(',')],
-    ['CONSOLE_DATABASE_URL', c.databaseUrl],
-    ['CONSOLE_GITHUB_APP_ID', c.github.appId],
-    ['CONSOLE_GITHUB_PRIVATE_KEY', c.github.privateKey],
-    ['CONSOLE_GITHUB_INSTALLATION_ID', c.github.installationId],
-    ['CONSOLE_GITHUB_CLIENT_ID', c.github.clientId],
-    ['CONSOLE_GITHUB_CLIENT_SECRET', c.github.clientSecret],
-    ['CONSOLE_CF_ACCOUNT_ID', c.cloudflare.accountId],
-    ['CONSOLE_CF_READ_TOKEN', c.cloudflare.token],
-  ];
-  return need.filter(([, v]) => !v).map(([k]) => k);
+  const missing: string[] = [];
+  if (c.sessionSecret.length < 32) missing.push('CONSOLE_SESSION_SECRET');
+  if (!c.databaseUrl) missing.push('CONSOLE_DATABASE_URL');
+  const byGithub = githubOn(c) && c.ownerGithubIds.length > 0;
+  if (!byGithub && !passwordOn(c)) missing.push('a first owner: CONSOLE_OWNER_EMAILS with CONSOLE_OWNER_SETUP_CODE (16 characters or more), or the CONSOLE_GITHUB_* settings with CONSOLE_OWNER_GITHUB_IDS');
+  /* Half-set GitHub is a mistake, not "off". */
+  const g = c.github;
+  const some = [g.appId, g.privateKey, g.installationId, g.clientId, g.clientSecret].filter(Boolean).length;
+  if (some > 0 && some < 5) missing.push('all five CONSOLE_GITHUB_* settings, or none');
+  return missing;
 }

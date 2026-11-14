@@ -61,7 +61,7 @@ export default function Releases({ me }) {
   const running = data.runs.find((r) => r.status !== 'completed');
   const approvable = data.pending.find((p) => p.canApprove);
   const NEXT_NOTE = {
-    UNKNOWN: 'GitHub or Google Cloud could not be reached, so no step is offered. Nothing has changed.',
+    UNKNOWN: data.github === false ? 'GitHub is not connected to the Console yet, so releases cannot be started from here. Roll back and release from the Mac for now.' : 'GitHub or Google Cloud could not be reached, so no step is offered. Nothing has changed.',
     NOTHING: 'The commit on main is the one that is live. Nothing is waiting.',
     TESTS_RUNNING: 'The full tests are running on this commit.',
     TESTS: 'The full tests have not passed on this commit yet.',
@@ -125,7 +125,7 @@ export default function Releases({ me }) {
           {data.revisions.map((r) => (
             <li key={r.name} className="con-row con-row--split">
               <span><code className="con-key">{r.name}</code>{r.tag ? <span className="con-quiet"> {r.tag}</span> : null} <span className="con-quiet"><When at={r.createdAt} /></span> {r.serving ? <Pill tone="ok">Live now</Pill> : null}</span>
-              {!r.serving && engineer ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(act.busy) || Boolean(running)} onClick={() => setAsk({ kind: 'rollback', revision: r.name })}>Roll back to this</button> : null}
+              {!r.serving && engineer && data.github !== false ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={Boolean(act.busy) || Boolean(running)} onClick={() => setAsk({ kind: 'rollback', revision: r.name })}>Roll back to this</button> : null}
             </li>
           ))}
         </ul>
