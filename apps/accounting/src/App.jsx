@@ -13,7 +13,7 @@ import { ensureBranchAccounts } from './features/inventory/branchAccounts';
 import { getPeriodLockPolicy } from './api/periodLock';
 import { listCustomers, listVendors } from '@ui/api/masters';
 import { reconcilePartyCodes } from '@ui/utils/partyCodeSync';
-import { isCompanyGstEnabled } from '@ui/utils/gst';
+import { isCompanyGstEnabled, isCompanyTaxEnabled } from '@ui/utils/gst';
 import { computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, Check, ChevronDown, ClipboardList, FileStack, FileText, Landmark, ListChecks, LogOut, NotebookPen, Package, PanelLeftOpen, Plus, Receipt, RefreshCw, Search, Settings, ShoppingCart, SlidersHorizontal, Tags, Truck, UserRound, Users, X } from 'lucide-react';
@@ -1439,8 +1439,8 @@ const AppShell = () => {
           { type: 'subgroup', label: 'Accounting' },
           { key: 'bankCash', label: 'Chart of Accounts', icon: Building2, perm: 'ACCOUNTING::Chart of Accounts::VIEW' },
           { key: 'gstRates', label: 'GST Rates', icon: BadgePercent, enabled: isCompanyGstEnabled(currentCompany), perm: 'MASTERS::GST Rates::VIEW' },
-          { key: 'tdsRates', label: 'TDS', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW', feature: 'tds' },
-          { key: 'tcsRates', label: 'TCS Rates', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW', feature: 'tcs' },
+          { key: 'tdsRates', label: 'TDS', icon: BadgePercent, enabled: isCompanyTaxEnabled(currentCompany, 'tds'), perm: 'MASTERS::GST Rates::VIEW' },
+          { key: 'tcsRates', label: 'TCS Rates', icon: BadgePercent, enabled: isCompanyTaxEnabled(currentCompany, 'tcs'), perm: 'MASTERS::GST Rates::VIEW' },
           { type: 'subgroup', label: 'Documents' },
           { key: 'invoiceTemplates', label: 'Invoice Templates', icon: FileText, perm: 'SETTINGS::Document Templates::VIEW' },
           { key: 'docNumbering', label: 'Numbering', icon: Settings, perm: 'SETTINGS::Document Numbering::VIEW' },
@@ -1544,8 +1544,8 @@ const AppShell = () => {
       // navModel made valid pages such as TDS briefly open and then get reset
       // to Dashboard by the unknown-screen guard below.
       if (MASTER_DATA_KEYS.has(want)) {
-        if (want === 'tdsRates') return can('MASTERS::GST Rates::VIEW') && isEnabled('tds');
-        if (want === 'tcsRates') return can('MASTERS::GST Rates::VIEW') && isEnabled('tcs');
+        if (want === 'tdsRates') return can('MASTERS::GST Rates::VIEW') && isCompanyTaxEnabled(currentCompany, 'tds');
+        if (want === 'tcsRates') return can('MASTERS::GST Rates::VIEW') && isCompanyTaxEnabled(currentCompany, 'tcs');
         if (want === 'gstRates') return can('MASTERS::GST Rates::VIEW') && isCompanyGstEnabled(currentCompany);
         return true;
       }

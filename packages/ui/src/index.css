@@ -3995,7 +3995,7 @@
   }
   .ui-feature-search .ui-input {
     padding-inline-start: 2.15rem;
-    border-radius: 0.55rem;
+    border-radius: 8px;
     background: rgb(var(--surface));
   }
   .features-sticky-header {
@@ -4702,7 +4702,7 @@
      rather than a spreadsheet inside a bordered card. */
   .uom-list-page .master-item-table-scroll {
     background: rgb(var(--surface));
-    border-radius: .65rem;
+    border-radius: 12px;
   }
   .master-auto-table.ui-table { width: max-content; min-width: 100%; table-layout: auto; }
   .master-auto-table thead th, .master-auto-table tbody td:not([colspan]) { box-sizing: border-box; padding-inline: .4rem; white-space: nowrap; }
@@ -6285,8 +6285,8 @@ th.ui-th {
 .import-section-heading h2 { margin:0; font-size:1rem; font-weight:700; color:rgb(var(--fg)); }
 .import-section-heading p { margin:.2rem 0 0; font-size:.75rem; color:rgb(var(--fg-muted)); }
 .import-file-badge { border-radius:999px; padding:.25rem .55rem; background:rgb(var(--brand-soft)); color:rgb(var(--brand-ink)); font-size:.7rem; font-weight:700; }
-.import-help-text { margin:0; padding:.55rem .7rem; border-radius:.4rem; background:rgb(var(--surface-sunken)); color:rgb(var(--fg-muted)); font-size:.75rem; }
-.import-fields-panel { overflow:hidden; border:1px solid rgb(var(--border)); border-radius:.45rem; }
+.import-help-text { margin:0; padding:.55rem .7rem; border-radius: 12px; background:rgb(var(--surface-sunken)); color:rgb(var(--fg-muted)); font-size:.75rem; }
+.import-fields-panel { overflow:hidden; border-top:1px solid rgb(var(--border)); }
 .import-fields-title { padding:.5rem .7rem; background:rgb(var(--heading-bg)); border-bottom:1px solid rgb(var(--border)); font-size:.75rem; font-weight:700; color:rgb(var(--fg)); }
 .import-fields-table { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; }
 .import-field-chip { min-height:3.2rem; padding:.45rem .6rem; border-right:1px solid rgb(var(--border)); border-bottom:1px solid rgb(var(--border)); }
@@ -6296,10 +6296,10 @@ th.ui-th {
 .import-input-label { display:flex; align-items:center; gap:.3rem; }
 @media (max-width: 900px) { .import-fields-table { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width: 600px) { .import-fields-table { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-.import-center-page > .ui-card { border-radius: .55rem; }
+.import-center-page > .ui-card { border-radius: 12px; }
 .import-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
-.import-kpi { min-height: 4.2rem; padding: .55rem .7rem; border: 1px solid rgb(var(--border)); border-radius: .35rem; display: grid; grid-template-columns: 1.9rem 1fr; align-content:center; align-items: center; column-gap: .55rem; row-gap:.08rem; background:rgb(var(--surface)); color:rgb(var(--fg)); }
-.import-kpi i { grid-row:1 / 4; display:grid; place-items:center; width:1.9rem; height:1.9rem; border-radius:.35rem; background:rgb(var(--accent-soft)); color:rgb(var(--accent)); font-style:normal; }
+.import-kpi { min-height: 4.2rem; padding: .55rem .7rem; border: 1px solid rgb(var(--border)); border-radius: 12px; display: grid; grid-template-columns: 1.9rem 1fr; align-content:center; align-items: center; column-gap: .55rem; row-gap:.08rem; background:rgb(var(--surface)); color:rgb(var(--fg)); }
+.import-kpi i { grid-row:1 / 4; display:grid; place-items:center; width:1.9rem; height:1.9rem; border-radius: 8px; background:rgb(var(--accent-soft)); color:rgb(var(--accent)); font-style:normal; }
 .import-kpi span { font-size: .68rem; font-weight: 600; color:rgb(var(--fg-muted)); letter-spacing:0; text-transform:none; }
 .import-kpi strong { font-size: 1.05rem; line-height: 1.15; color:rgb(var(--fg)); font-weight:650; }
 .import-kpi small { grid-column: 2; font-size: .62rem; color:rgb(var(--fg-muted)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -7425,12 +7425,12 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 /* Saved Receipt Voucher: one component in Master Data, on screen, and on paper. */
 .receipt-view-header-actions { display: flex; align-items: center; gap: .45rem; }
 .receipt-view-template { position: relative; display: flex; align-items: center; gap: .35rem; font-size: .75rem; color: rgb(var(--fg-muted)); }
-.receipt-view-template-menu { position: absolute; z-index: 100; top: calc(100% + .3rem); right: 0; min-width: 12rem; padding: .25rem; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); border-radius: .75rem; box-shadow: 0 .5rem 1.2rem rgb(15 23 42 / .16); }
+.receipt-view-template-menu { position: absolute; z-index: 100; top: calc(100% + .3rem); right: 0; min-width: 12rem; padding: .25rem; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); border-radius: .75rem; box-shadow: var(--shadow-pop); }
 .receipt-view-template-menu button { display: block; width: 100%; padding: .45rem .6rem; border: 0; border-radius: .5rem; background: transparent; color: rgb(var(--fg)); text-align: left; font-size: .77rem; }
 .receipt-view-template-menu button:hover, .receipt-view-template-menu button[aria-checked='true'] { background: rgb(var(--surface-sunken)); }
 .receipt-view-template-separator { height: 1px; margin: .2rem .35rem; background: rgb(var(--border)); }
-.receipt-template-drawer-overlay { position: fixed; z-index: var(--z-drawer); inset: 0; background: rgb(15 23 42 / .28); }
-.receipt-template-drawer { position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(27rem, 94vw); background: rgb(var(--surface)); box-shadow: -.5rem 0 1.5rem rgb(15 23 42 / .14); }
+.receipt-template-drawer-overlay { position: fixed; z-index: var(--z-drawer); inset: 0; background: rgb(0 0 0 / 0.55); }
+.receipt-template-drawer { position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(27rem, 94vw); background: rgb(var(--surface)); box-shadow: var(--shadow-pop); }
 .receipt-template-drawer > header, .receipt-template-drawer > footer { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .8rem 1rem; border-bottom: 1px solid rgb(var(--border)); }
 .receipt-template-drawer > header small { color: rgb(var(--fg-muted)); }
 .receipt-template-drawer > header h2 { margin: 0; font-size: 1rem; font-weight: 700; }
@@ -7533,7 +7533,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   gap: .75rem;
   padding: .75rem;
   border: 1px solid rgb(var(--border));
-  border-radius: .45rem;
+  border-radius: 12px;
   background: rgb(var(--surface));
 }
 .stock-transfer-form > .ui-page-heading { width: 100%; min-width: 0; }
@@ -7558,7 +7558,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .stock-transfer-form .stock-transfer-address-beside { align-self: center; margin-top: 1rem; }
 .stock-transfer-form .stock-transfer-lines-heading { margin: .35rem 0 .7rem; padding-left: .55rem; border-left: 3px solid rgb(var(--fg)); }
 .stock-transfer-form .stock-transfer-lines-heading h2 { font-size: 1rem; font-weight: 700; line-height: 1.35; }
-.stock-transfer-form .stock-transfer-line-scroll { overflow-x: auto; border: 1px solid rgb(var(--border)); border-radius: .4rem; }
+.stock-transfer-form .stock-transfer-line-scroll { overflow-x: auto; border: 1px solid rgb(var(--border)); border-radius: 12px; }
 .stock-transfer-form .stock-transfer-line-table.ui-table { width: 100%; table-layout: fixed; }
 .stock-transfer-form .stock-transfer-line-table th,
 .stock-transfer-form .stock-transfer-line-table td { padding: .3rem .45rem; }
@@ -7567,7 +7567,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .stock-transfer-form .stock-transfer-add-line { margin-top: .6rem; }
 .stock-transfer-form .stock-transfer-total-wrap { display: flex; justify-content: flex-end; margin-top: .6rem; }
 .stock-transfer-form .stock-transfer-total-box { min-width: 16rem; display: grid; gap: .35rem; padding: .65rem .8rem; border: 1px solid rgb(var(--border)); border-radius: .5rem; background: rgb(var(--surface-sunken)); font-size: .8125rem; }
-.stock-transfer-form .stock-transfer-notes { display: flex; align-items: end; gap: 1rem; padding: .65rem .75rem; border: 1px solid rgb(var(--border)); border-radius: .4rem; }
+.stock-transfer-form .stock-transfer-notes { display: flex; align-items: end; gap: 1rem; padding: .65rem .75rem; border: 1px solid rgb(var(--border)); border-radius: 12px; }
 .stock-transfer-form .stock-transfer-note-field { display: grid; gap: .2rem; flex: 1 1 auto; min-width: 0; }
 .stock-transfer-form .stock-transfer-notes > .ui-muted { max-width: 22rem; }
 @media (max-width: 850px) {
@@ -7590,7 +7590,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   min-height: 2.75rem;
   padding: .25rem .65rem;
   border: 1px solid rgb(var(--border));
-  border-radius: .4rem;
+  border-radius: 12px;
   background: rgb(var(--surface-sunken));
 }
 .journal-detail-page > div > div:first-child .ui-title { color: rgb(var(--fg)); }
@@ -7636,7 +7636,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 }
 
 .journal-entry-form { width: 100%; min-width: 0; }
-.journal-entry-form > .ui-card { border-radius: .4rem; }
+.journal-entry-form > .ui-card { border-radius: 12px; }
 .journal-entry-form table { table-layout: fixed; }
 .journal-entry-form table td { min-width: 0; }
 .journal-entry-form table td:first-child > * { width: 100%; min-width: 0; }
@@ -7678,20 +7678,20 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .import-journal-detail-meta { display: flex; gap: 2rem; padding: .65rem 0; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
 .import-journal-detail-meta > div { display: flex; flex-direction: column; gap: .15rem; font-size: .8rem; }
 .import-journal-detail-meta span, .import-journal-detail-narration span { color: rgb(var(--fg-muted)); }
-.import-journal-detail-narration { padding: .6rem .75rem; background: rgb(var(--surface-sunken)); border-radius: .3rem; font-size: .8rem; }
+.import-journal-detail-narration { padding: .6rem .75rem; background: rgb(var(--surface-sunken)); border-radius: 12px; font-size: .8rem; }
 .import-correction-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
-.import-correction-error { padding: .6rem .75rem; border-radius: .35rem; background: rgb(var(--neg-soft)); color: rgb(var(--neg)); font-size: .8rem; }
+.import-correction-error { padding: .6rem .75rem; border-radius: 12px; background: rgb(var(--neg-soft)); color: rgb(var(--neg)); font-size: .8rem; }
 .import-journal-editor { display: flex; flex-direction: column; gap: .75rem; }
 .import-journal-meta { display: flex; flex-direction: column; gap: .65rem; padding: .75rem; }
 .import-journal-top-fields { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 11rem); gap: .75rem; justify-content: end; }
-.import-journal-lines-wrap { overflow-x: auto; border: 1px solid rgb(var(--border)); border-radius: .4rem; }
+.import-journal-lines-wrap { overflow-x: auto; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
 .import-journal-lines { width: 100%; min-width: 40rem; table-layout: fixed; }
 .import-journal-lines th, .import-journal-lines td { padding: .35rem .45rem; }
 .import-journal-lines th:nth-child(1) { width: 30%; }
 .import-journal-lines th:nth-child(2) { width: 34%; }
 .import-journal-lines th:nth-child(3), .import-journal-lines th:nth-child(4) { width: 16%; }
 .import-journal-lines th:nth-child(5) { width: 4%; }
-.import-journal-totals { align-self: end; width: min(20rem, 100%); padding: .7rem .8rem; border: 1px solid rgb(var(--border)); border-radius: .35rem; }
+.import-journal-totals { align-self: end; width: min(20rem, 100%); padding: .7rem 0; border-top: 1px solid rgb(var(--border)); }
 .import-journal-totals > div { display: flex; justify-content: space-between; gap: 1rem; padding: .2rem 0; font-size: .8rem; }
 .import-journal-totals > div:last-child { border-top: 1px solid rgb(var(--border)); margin-top: .3rem; padding-top: .5rem; }
 @media (max-width: 700px) {
@@ -9909,3 +9909,7 @@ button.ui-side-alert { cursor: pointer; }
   color: rgb(var(--nav-panel-ink, var(--nav-fg))) !important;
 }
 .ui-rail .app-nav-modules .app-nav-module[data-active='true'] > svg { color: rgb(var(--nav-panel-mark, var(--brand))) !important; }
+
+/* Import corrections: one line per section, divided by hairlines rather than a card per line inside the drawer. */
+.import-correction-line { padding-block: .75rem; border-top: 1px solid rgb(var(--border)); }
+.import-correction-line:first-of-type { border-top: 0; }

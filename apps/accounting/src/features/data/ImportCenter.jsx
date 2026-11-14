@@ -518,7 +518,7 @@ export default function ImportCenter({ onBack = null, initialDocType = '', curre
           ) : null}
           <button type="button" onClick={onTemplate} disabled={busy || !docType} className="ui-btn ui-btn-secondary"><Download size={16} /> Download Template</button>
           {batch && reviewCounts.Ready > 0 && (!isJournal || reviewCounts.Errors === 0) && batch.status !== 'COMMITTED' ? <button type="button" onClick={onCommit} disabled={busy} className="ui-btn ui-btn-primary">{busy ? 'Posting…' : isJournal ? `Post ${reviewCounts.Ready} Journals` : 'Import Ready Invoices'}</button> : null}
-          <button type="button" onClick={chooseImportFile} disabled={busy || !docType || !importsOn} className="ui-btn ui-btn-primary"><Upload size={16} /> {isJournal ? 'Import Journals' : 'Import Invoices'}</button>
+          <button type="button" onClick={chooseImportFile} disabled={busy || !docType || !importsOn} className={`ui-btn ${batch && reviewCounts.Ready > 0 && (!isJournal || reviewCounts.Errors === 0) && batch.status !== 'COMMITTED' ? 'ui-btn-secondary' : 'ui-btn-primary'}`}><Upload size={16} /> {isJournal ? 'Import Journals' : 'Import Invoices'}</button>
           <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={onPickFile} className="hidden" aria-label={`Choose ${singularLabel} import file`} />
           </>
         }
@@ -536,7 +536,7 @@ export default function ImportCenter({ onBack = null, initialDocType = '', curre
         >
           <span className="ui-t-label block mb-0.5">Data import is switched off</span>
           Enable data import for this company to upload and validate {documentLabel}.
-          <button type="button" className="ui-btn ui-btn-primary mt-2" disabled={busy}
+          <button type="button" className="ui-btn ui-btn-secondary mt-2" disabled={busy}
             onClick={async () => {
               setBusy(true);
               setError('');
@@ -689,7 +689,7 @@ export default function ImportCenter({ onBack = null, initialDocType = '', curre
         <div className="import-journal-editor">
           {error ? <div className="import-correction-error" role="alert">{error}</div> : null}
           {editingRow.remarks.length ? <div className="import-correction-error"><ul>{[...new Set(editingRow.remarks.flatMap((remark) => remark.replace(/^Line \d+: /, '').split('; ').map((message) => message.trim()).filter(Boolean)))].map((message, index) => <li key={`${message}-${index}`}>{message}</li>)}</ul></div> : null}
-          <div className="ui-card import-journal-meta">
+          <div className="import-journal-meta">
             <div className="import-journal-top-fields">
               <label className="ui-label">Journal No.<input className="ui-input w-full mt-1" value={journalFields.entry_ref} onChange={(event) => setJournalFields((previous) => ({ ...previous, entry_ref: event.target.value }))} /></label>
               <label className="ui-label">Date<input className="ui-input w-full mt-1" type="date" value={journalFields.date} onChange={(event) => setJournalFields((previous) => ({ ...previous, date: event.target.value }))} /></label>
@@ -721,7 +721,7 @@ export default function ImportCenter({ onBack = null, initialDocType = '', curre
         {editingRow ? <div className="import-correction space-y-3">
           {error ? <div className="import-correction-error" role="alert">{error}</div> : null}
           {editingRow.remarks.length ? <div className="import-correction-error">{editingRow.remarks.join('; ')}</div> : null}
-          {editLines.map((line, index) => <section key={line.line} className="ui-card p-3">
+          {editLines.map((line, index) => <section key={line.line} className="import-correction-line">
             <h3 className="ui-t-label mb-2">Line {index + 1}</h3>
             <div className="import-correction-fields">
               {(spec?.columns || []).map((column) => <label key={column.key} className="ui-label">

@@ -49,6 +49,10 @@ export const getGstStateFromGstin = (gstin) => {
 
 export const normalizeState = (value) => String(value || '').trim().toLowerCase();
 
+/** TDS and TCS follow the company's own tax settings, off until switched on. */
+export const isCompanyTaxEnabled = (company, key) =>
+  company?.profile?.taxCompliances?.[key]?.enabled === true;
+
 /** One authoritative GST switch for every screen and calculation. */
 export const isCompanyGstEnabled = (company) => {
   const configured = company?.profile?.taxCompliances?.gstEnabled;

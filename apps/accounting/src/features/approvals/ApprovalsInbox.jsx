@@ -132,7 +132,7 @@ export const ApprovalsInbox = ({ currentCompany, view = 'approvals' }) => {
           </div>}
         </div>
         {selected.status === 'PENDING' && config.scope === 'mine' && <div className="border-t p-4 flex gap-2 justify-end">
-          <button className="ui-btn ui-btn-secondary" disabled={busy || !comment.trim()} onClick={() => decide(false)}><X size={15}/> Reject</button>
+          <button className="ui-btn ui-btn-ghost" disabled={busy || !comment.trim()} onClick={() => decide(false)}><X size={15}/> Reject</button>
           <button className="ui-btn ui-btn-primary" disabled={busy} onClick={() => decide(true)}>{busy ? <Spinner/> : <Check size={15}/>} Approve</button>
         </div>}
       </aside>

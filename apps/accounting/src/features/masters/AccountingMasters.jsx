@@ -1993,8 +1993,8 @@ export const GstRatesList = ({ db, setDb, currentCompany }) => {
 
         {activeActionRate ? <Popover anchorRef={actionAnchorRef} onClose={() => setActionId(null)} minWidth={148}>
           <div className="py-1" role="menu">
-            <button type="button" role="menuitem" className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-[rgb(var(--surface-2))]" onClick={() => { setDrawer({ index: activeActionRate.id, draft: { rate: activeActionRate.rate, name: activeActionRate.name || `GST ${Number(activeActionRate.rate)}%` } }); setActionId(null); }}><Pencil size={14} className="mr-2 inline" /> Edit name</button>
-            <button type="button" role="menuitem" className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-[rgb(var(--surface-2))]" onClick={() => toggleRate(activeActionRate)}>{activeActionRate.active === false ? <><ToggleRight size={14} className="mr-2 inline" /> Enable</> : <><ToggleLeft size={14} className="mr-2 inline" /> Disable</>}</button>
+            <button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[rgb(var(--surface-2))]" onClick={() => { setDrawer({ index: activeActionRate.id, draft: { rate: activeActionRate.rate, name: activeActionRate.name || `GST ${Number(activeActionRate.rate)}%` } }); setActionId(null); }}><Pencil size={14} className="mr-2 inline" /> Edit name</button>
+            <button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[rgb(var(--surface-2))]" onClick={() => toggleRate(activeActionRate)}>{activeActionRate.active === false ? <><ToggleRight size={14} className="mr-2 inline" /> Enable</> : <><ToggleLeft size={14} className="mr-2 inline" /> Disable</>}</button>
           </div>
         </Popover> : null}
 

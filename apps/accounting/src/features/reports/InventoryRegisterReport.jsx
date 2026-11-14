@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ChevronDown, Download, Printer } from 'lucide-react';
 import { buildCatalogReport } from './reportCatalogModel';
 import ReportLayoutPicker from './ReportLayoutPicker';
+import { useDismissable } from '@ui/components/ui/useDismissable';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { formatDateIn } from '@ui/utils/dates';
 import { getDecimalPlaces, getNumberLocale } from '@ui/utils/money';
@@ -47,6 +48,8 @@ export default function InventoryRegisterReport({ db, currentCompany, onBack }) 
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [customOpen, setCustomOpen] = useState(false);
+  const exportRef = useDismissable(exportOpen, () => setExportOpen(false));
+  const customRef = useDismissable(customOpen, () => setCustomOpen(false));
   const columnFilters = useColumnFilters();
 
   const range = useMemo(() => {
@@ -98,9 +101,9 @@ export default function InventoryRegisterReport({ db, currentCompany, onBack }) 
     <header className="inventory-register-toolbar ui-page-heading flex flex-wrap items-center justify-between gap-2">
       <div className="flex min-w-0 shrink-0 items-center gap-2"><button type="button" className="ui-icon-btn" aria-label="Back to Inventory" onClick={onBack}><ArrowLeft size={16}/></button><h1 className="ui-t-page whitespace-nowrap">Inventory Register</h1></div>
       <div className="inventory-register-actions relative flex flex-wrap items-center gap-2">
-        <div className="relative"><select aria-label="Report period" className="ui-select h-8 w-32 text-xs" value={period} onChange={event => { setPeriod(event.target.value); setCustomOpen(event.target.value === 'custom'); }}><option value="all">All periods</option><option value="month">This month</option><option value="year">This year</option><option value="custom">Custom period</option></select>{customOpen && <div className="absolute right-0 top-full z-40 mt-1 w-72 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-3 shadow-lg"><div className="mb-2 text-sm font-semibold">Custom period</div><label className="block text-xs">From<input type="date" className="ui-input mt-1 w-full" value={customStart} onChange={event => setCustomStart(event.target.value)}/></label><label className="mt-2 block text-xs">To<input type="date" className="ui-input mt-1 w-full" value={customEnd} onChange={event => setCustomEnd(event.target.value)}/></label><button type="button" className="ui-btn ui-btn-primary mt-3 w-full" disabled={Boolean(customStart && customEnd && customStart > customEnd)} onClick={() => setCustomOpen(false)}>Apply</button></div>}</div>
+        <div className="relative" ref={customRef}><select aria-label="Report period" className="ui-select h-8 w-32 text-xs" value={period} onChange={event => { setPeriod(event.target.value); setCustomOpen(event.target.value === 'custom'); }}><option value="all">All periods</option><option value="month">This month</option><option value="year">This year</option><option value="custom">Custom period</option></select>{customOpen && <div className="absolute right-0 top-full z-40 mt-1 w-72 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-3 shadow-lg"><div className="mb-2 text-sm font-semibold">Custom period</div><label className="block text-xs">From<input type="date" className="ui-input mt-1 w-full" value={customStart} onChange={event => setCustomStart(event.target.value)}/></label><label className="mt-2 block text-xs">To<input type="date" className="ui-input mt-1 w-full" value={customEnd} onChange={event => setCustomEnd(event.target.value)}/></label><button type="button" className="ui-btn ui-btn-primary mt-3 w-full" disabled={Boolean(customStart && customEnd && customStart > customEnd)} onClick={() => setCustomOpen(false)}>Apply</button></div>}</div>
         <ReportLayoutPicker title="Inventory Register" columns={COLUMNS} defaultKeys={DEFAULT_KEYS} selectedKeys={columnKeys} onSelect={saveColumns} storageKey={`inventory-register-saved-layouts:${currentCompany?.id}`} onOpen={() => setExportOpen(false)}/>
-        <div className="relative"><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setExportOpen(open => !open); }}><Download size={14}/> Export <ChevronDown size={13}/></button>{exportOpen && <div className="absolute right-0 top-full z-40 mt-1 w-32 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-1 shadow-lg"><button type="button" className="report-menu-item" onClick={exportExcel}>Excel</button><button type="button" className="report-menu-item" onClick={exportCsv}>CSV</button><button type="button" className="report-menu-item" onClick={() => { setExportOpen(false); printReport(); }}>PDF</button></div>}</div>
+        <div className="relative" ref={exportRef}><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setExportOpen(open => !open); }}><Download size={14}/> Export <ChevronDown size={13}/></button>{exportOpen && <div className="absolute right-0 top-full z-40 mt-1 w-32 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-1 shadow-lg"><button type="button" className="report-menu-item" onClick={exportExcel}>Excel</button><button type="button" className="report-menu-item" onClick={exportCsv}>CSV</button><button type="button" className="report-menu-item" onClick={() => { setExportOpen(false); printReport(); }}>PDF</button></div>}</div>
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={printReport}><Printer size={14}/> Print</button>
       </div>
     </header>

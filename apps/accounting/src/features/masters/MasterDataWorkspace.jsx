@@ -1,7 +1,7 @@
 import { ArrowLeft, BadgePercent, Boxes, Building2, FileText, Settings, Tags } from 'lucide-react';
 
 import { EntityMark } from '@ui/components/ui/Primitives';
-import { isCompanyGstEnabled } from '@ui/utils/gst';
+import { isCompanyGstEnabled, isCompanyTaxEnabled } from '@ui/utils/gst';
 
 const GROUPS = [
   {
@@ -38,9 +38,13 @@ const ITEM_MASTER_KEYS = new Set(['items', 'itemCategories', 'uoms', 'priceLists
 
 export default function MasterDataWorkspace({ activeKey, currentCompany = null, can = () => true, isEnabled = () => true, onNavigate, onExit, children }) {
   const itemMasterActive = ITEM_MASTER_KEYS.has(activeKey);
-  /* GST follows the company's own GST switch (when a company is handed in);
-     every other master follows its feature flag. */
-  const taxEnabled = (key) => (key === 'gst' && currentCompany ? isCompanyGstEnabled(currentCompany) : isEnabled(key));
+  /* GST, TDS and TCS follow the company's own tax settings (when a company is
+     handed in); every other master follows its feature flag. */
+  const taxEnabled = (key) => {
+    if (currentCompany && key === 'gst') return isCompanyGstEnabled(currentCompany);
+    if (currentCompany && (key === 'tds' || key === 'tcs')) return isCompanyTaxEnabled(currentCompany, key);
+    return isEnabled(key);
+  };
   const groups = GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => (!item.perm || can(item.perm)) && (!item.feature || taxEnabled(item.feature))),
