@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowLeft, ChevronRight } from '@ui/components/ui/lineIcons';
+import { BookOpenRegular, CalendarCheckmarkRegular, FlagRegular, PersonRegular, TimerRegular } from '@fluentui/react-icons';
 import { requestOpenScreen } from '@platform/context';
 import {
   Bell,
@@ -123,7 +124,7 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
     <header className="ws-head">
       <div style={{ minWidth: 0 }}>
         {crumbs.length ? (
-          <div className="ws-crumbs-row">
+          <div className="ws-crumbs-row" data-depth={crumbs.length}>
             {isTop ? null : (
               <button type="button" className="ws-back" onClick={() => goBack(SECTION_HOME[section] || 'home')} aria-label="Back" title="Back">
                 <ArrowLeft size={16} aria-hidden="true" />
@@ -238,4 +239,127 @@ export function ago(d) {
   if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
   const days = Math.round(h / 24);
   return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+/* ------------------------------------------------------------------ R&D kit
+ * README §2–5 (14 Nov 2026): app marks in the app's colour, status pills that
+ * always carry a word, KPI tiles, seat meters and initials avatars.
+ */
+
+/** Every CLOR app the Workspace speaks of: its name, its identity colour token and its mark. */
+export const APP_INFO = {
+  accounting: { name: 'Accounting', color: '--app-accounting', glyph: BookOpenRegular },
+  people: { name: 'People', color: '--app-people', glyph: PersonRegular },
+  payroll: { name: 'Payroll', color: '--app-payroll', glyph: null, text: '₹' },
+  attendance: { name: 'Attendance', color: '--app-attendance', glyph: CalendarCheckmarkRegular },
+  projects: { name: 'Projects', color: '--app-projects', glyph: FlagRegular },
+  timesheet: { name: 'Timesheet', color: '--app-timesheet', glyph: TimerRegular },
+};
+/* Older ids for the same apps. */
+const APP_ALIAS = { books: 'accounting', hr: 'people', time: 'attendance', clortime: 'attendance' };
+export const appInfo = (id) => APP_INFO[APP_ALIAS[id] || id] || null;
+export const appName = (id) => appInfo(id)?.name || (id ? String(id).charAt(0).toUpperCase() + String(id).slice(1) : '');
+
+/** An app's square mark: white glyph on the app colour; `off` greys it (not in the plan). */
+export function AppMark({ app, size = 24, off = false, title }) {
+  const info = appInfo(app);
+  const Glyph = info?.glyph;
+  const label = title ?? info?.name ?? app;
+  return (
+    <span
+      className="ws-appmark"
+      data-off={off || undefined}
+      role="img"
+      aria-label={label}
+      title={label}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.55), borderRadius: size >= 32 ? 8 : 6, ...(info ? { '--app': `var(${info.color})` } : {}) }}
+    >
+      {Glyph ? <Glyph style={{ width: Math.round(size * 0.6), height: Math.round(size * 0.6) }} aria-hidden="true" /> : <span aria-hidden="true">{info?.text || String(label || '?').charAt(0)}</span>}
+    </span>
+  );
+}
+
+/** A neutral tag with a square in an app's colour: role tags, app tags in tables. */
+export function AppTag({ app, children }) {
+  const info = appInfo(app);
+  return (
+    <span className="ws-tag" style={info ? { '--tag': `var(${info.color})` } : undefined}>
+      <i aria-hidden="true" />
+      {children ?? info?.name ?? app}
+    </span>
+  );
+}
+
+/** State, said in words: tone is ok | warn | danger | neutral. */
+export function StatusPill({ tone = 'neutral', children, title }) {
+  return (
+    <span className={`ws-pill ws-pill--${tone}`} title={title}>
+      {children}
+    </span>
+  );
+}
+
+const CAT = ['--cat-1', '--cat-2', '--cat-3', '--cat-4', '--cat-5', '--cat-6', '--cat-7', '--cat-8'];
+/** Initials from a name or an email. */
+export const initials = (name = '') => {
+  const words = String(name).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
+  return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || '?').slice(0, 2)).toUpperCase();
+};
+/** A person's initials on a soft fill, the colour fixed by their name. */
+export function Avatar({ name, size, ink = false }) {
+  const key = String(name || '');
+  let h = 0;
+  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return (
+    <span className="ws-avatar" data-size={size} data-ink={ink || undefined} style={{ '--av': `var(${CAT[h % CAT.length]})` }} aria-hidden="true">
+      {initials(key)}
+    </span>
+  );
+}
+
+/** A KPI tile: identity colour (categorical, 1–8) on the top accent and the chip; the number stays ink. */
+export function KpiTile({ cat = 1, label, value, note, icon: Icon }) {
+  return (
+    <div className="ws-kpi" style={{ '--kpi': `var(--cat-${cat})` }}>
+      <div className="ws-kpi-head">
+        <span className="ws-kpi-chip" aria-hidden="true">{Icon ? <Icon size={18} /> : <i />}</span>
+        <span className="ws-kpi-label">{label}</span>
+      </div>
+      <span className="ws-kpi-value">{value}</span>
+      {note ? <span className="ws-kpi-note">{note}</span> : null}
+    </div>
+  );
+}
+
+/** Where a seat count stands: near at 90%, over past the limit. */
+export const seatState = (used, limit) => (limit == null ? 'ok' : Number(used) > Number(limit) ? 'over' : Number(used) / Math.max(1, Number(limit)) >= 0.9 ? 'near' : 'ok');
+
+/** One app's seats: mark and name, an 8px meter in the app colour with what a seat is, the count and its state. */
+export function SeatRow({ app, used, limit, unit = 'users', note }) {
+  const info = appInfo(app);
+  const state = seatState(used, limit);
+  const pct = limit == null ? 0 : Math.min(100, Math.round((Number(used) / Math.max(1, Number(limit))) * 100));
+  const label = `${info?.name || app} seats`;
+  return (
+    <div className="ws-seat">
+      <span className="ws-seat-app">
+        <AppMark app={app} size={28} />
+        {info?.name || app}
+      </span>
+      <span className="ws-seat-track">
+        {limit == null ? null : (
+          <span className="ws-meter-bar" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={Number(limit)} aria-valuenow={Number(used)} style={info ? { '--meter': `var(${info.color})` } : undefined}>
+            <span style={{ width: `${pct}%` }} />
+          </span>
+        )}
+        {note ? <span className="ws-seat-note">{note}</span> : null}
+      </span>
+      <span className="ws-seat-value" data-state={state}>
+        {limit == null ? `${used} ${unit} · no limit` : `${used} / ${limit} ${unit}`}
+      </span>
+      <span className="ws-seat-state">
+        {state === 'over' ? <StatusPill tone="danger">Over limit</StatusPill> : state === 'near' ? <StatusPill tone="warn">Near limit</StatusPill> : <StatusPill tone="ok">OK</StatusPill>}
+      </span>
+    </div>
+  );
 }

@@ -74,6 +74,7 @@ export function AccessHome({ navItems = [], openScreen }) {
         <PageHead
           crumbs={['Access', 'Overview']}
           title="Access"
+          description="Who is in the account, who is waiting to join, and who can administer it."
           actions={may.has('invitations') ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => openScreen('invitations')}><ICON.invite size={18} /> Invite people</button> : null}
         />
         {dir === null ? <p role="alert" className="text-sm">Visible to owners and administrators.</p> : null}
@@ -156,7 +157,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Security', 'Overview']} title="Security" />
+        <PageHead crumbs={['Security', 'Overview']} title="Security overview" description="How people sign in, who can change access, and the keys other systems hold, at a glance." />
         <div className="ws-stats">
           {p ? (
             <Stat icon={ICON.secure} label="Authenticator for admins" value={p.requireAdminTwoFactor ? 'Required' : 'Optional'} note={p.requirePayrollStepUp ? 'Payroll actions ask for a code' : 'Payroll actions do not ask for a code'} onOpen={may.has('security') ? () => openScreen('security') : null} />
@@ -181,7 +182,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
                 </dl>
               </Panel>
             ) : null}
-            <Panel title="Refused recently" action={may.has('accountActivity') ? <button type="button" className="ws-link" onClick={() => openScreen('accountActivity')}>Account activity <ChevronRight size={16} aria-hidden="true" /></button> : null}>
+            <Panel title="Refused recently" action={may.has('accountActivity') ? <button type="button" className="ws-link" onClick={() => openScreen('accountActivity')}>Audit log <ChevronRight size={16} aria-hidden="true" /></button> : null}>
               {refused?.events?.length ? (
                 <ul className="ws-list">
                   {refused.events.map((e) => (
@@ -235,7 +236,7 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Data', 'Overview']} title="Data" />
+        <PageHead crumbs={['Data', 'Overview']} title="Data" description="Export this company’s records, and close it when it is done with." />
         <div className="ws-layout">
           <div className="ws-main">
             <Panel title="Export">
@@ -257,7 +258,7 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
                   Deletes every record of this company after a notice period.
                 </p>
                 <div>
-                  <button type="button" className="ws-btn ws-btn--danger" onClick={() => openScreen('close')}>
+                  <button type="button" className="ws-btn ws-btn--danger-quiet" onClick={() => openScreen('close')}>
                     Review closing this company
                   </button>
                 </div>

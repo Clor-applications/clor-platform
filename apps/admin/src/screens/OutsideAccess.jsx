@@ -9,8 +9,11 @@ import {
   resumeOutsideAccess,
 } from '@platform/admin/outsideAccess';
 import { APP_LABEL, STATUS, actionsFor, appsText } from './outsideAccessModel';
-import { ICON, PageHead, Stat } from './wsKit';
+import { requestOpenScreen } from '@platform/context';
+import { Plus } from '@ui/components/ui/lineIcons';
+import { Avatar, ICON, PageHead, Stat, StatusPill } from './wsKit';
 import './workspace.css';
+import './ws-access.css';
 
 /**
  * Workspace → Outside access (GAP-006).
@@ -94,7 +97,15 @@ function Change({ action, row, apps, onDone, onClose }) {
 }
 
 /** The pill for a state, in the Workspace's words and tones. */
-const PILL = { 'ui-pill-pos': 'ws-pill ws-pill--ok', 'ui-pill-warn': 'ws-pill ws-pill--role', 'ui-pill-neutral': 'ws-pill ws-pill--off' };
+const PILL = { 'ui-pill-pos': 'ok', 'ui-pill-warn': 'warn', 'ui-pill-neutral': 'neutral' };
+
+/** How outside access works, beside the grants (CLOR-04). */
+const HOW = [
+  ['Scoped', 'Each grant is for this company only, and names the apps the firm may use. Their role decides what they can do there.'],
+  ['Time-limited', 'Give a grant an end date and it stops on that day. Ending soon shows above, so you can extend it.'],
+  ['On the record', 'Everything they do is in your audit log under their own name, never yours.'],
+  ['Yours to end', 'Pause, change or end it at any time. Their history stays; their access does not.'],
+];
 const SOON = 30 * DAY;
 
 export default function OutsideAccess() {
@@ -131,7 +142,13 @@ export default function OutsideAccess() {
       <div className="ws-inner">
         <PageHead
           crumbs={['Access', 'Outside access']}
-          title="Outside access"
+          title="Accountant access"
+          description="Let your CA firm or auditor work in this company with limited, time-bound access, separate from your staff."
+          actions={
+            <button type="button" className="ws-btn ws-btn--primary" onClick={() => requestOpenScreen('users')}>
+              <Plus size={16} aria-hidden="true" /> Add accountant
+            </button>
+          }
         />
 
         {data ? (
@@ -142,6 +159,9 @@ export default function OutsideAccess() {
           </div>
         ) : null}
 
+        <div className="ws-layout">
+          <section className="ws-flat ws-main" aria-labelledby="ws-grants-title">
+            <h2 id="ws-grants-title" className="ws-h2">Grants</h2>
         {failed ? (
           <div className="flex flex-wrap items-center gap-2 text-sm" role="alert">
             <span>{failed}</span>
@@ -155,11 +175,11 @@ export default function OutsideAccess() {
               <caption className="sr-only">People from other accounts with access to this company</caption>
               <thead>
                 <tr>
-                  <th scope="col">Person</th>
-                  <th scope="col">May use</th>
+                  <th scope="col">Firm</th>
+                  <th scope="col">Can use</th>
                   <th scope="col">Status</th>
-                  <th scope="col">Until</th>
-                  <th scope="col">Granted by</th>
+                  <th scope="col">Approved by</th>
+                  <th scope="col" className="num">Ends</th>
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
@@ -171,28 +191,28 @@ export default function OutsideAccess() {
                   return (
                     <tr key={r.id}>
                       <td>
-                        <span className="inline-flex items-center gap-2">
-                          <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.person size={14} /></span>
-                          <span className="ws-item-text">
-                            <span className="ws-item-title">{name}</span>
-                            {sub ? <span className="ws-item-sub">{sub}</span> : null}
+                        <span className="inline-flex items-center gap-3">
+                          <Avatar name={r.from?.name || name} />
+                          <span className="grid" style={{ minWidth: 0 }}>
+                            <span className="ws-cell-main">{name}</span>
+                            {sub ? <span className="ws-cell-sub">{sub}</span> : null}
                           </span>
                         </span>
                       </td>
-                      <td>{appsText(r.apps)}</td>
+                      <td style={{ whiteSpace: 'normal' }}>{appsText(r.apps)}</td>
                       <td>
-                        <span className={PILL[tone] || 'ws-pill'}>{word}</span>
+                        <StatusPill tone={PILL[tone] || 'neutral'}>{word}</StatusPill>
                         {r.endedAt && r.status !== 'ACTIVE' ? <div className="ws-item-sub" style={{ whiteSpace: 'normal' }}>{`${r.endedBy || 'Someone'}, ${dateOf(r.endedAt)}${r.reason ? ` — ${r.reason}` : ''}`}</div> : null}
                       </td>
-                      <td>{r.expiresAt ? dateOf(r.expiresAt) : 'No end'}</td>
                       <td>
-                        <div>{r.grantedBy || 'Carried over'}</div>
-                        <div className="ws-item-sub">{dateOf(r.grantedAt)}</div>
+                        <span className="block">{r.grantedBy || 'Carried over'}</span>
+                        <span className="ws-cell-sub">{dateOf(r.grantedAt)}</span>
                       </td>
+                      <td className="num">{r.expiresAt ? dateOf(r.expiresAt) : 'No end'}</td>
                       <td className="num">
                         <div className="inline-flex justify-end gap-1">
                           {actionsFor(r).map((a) => (
-                            <button key={a} type="button" className={`ws-btn ws-btn--quiet ws-btn--small`} style={a === 'end' ? { color: 'rgb(var(--ws-danger))' } : undefined} aria-label={`${ACTION_LABEL[a]} access for ${name}`} onClick={() => act(r, a)}>
+                            <button key={a} type="button" className={`ws-btn ws-btn--small ${a === 'end' ? 'ws-btn--danger-quiet' : 'ws-btn--quiet'}`} aria-label={`${ACTION_LABEL[a]} access for ${name}`} onClick={() => act(r, a)}>
                               {ACTION_LABEL[a]}
                             </button>
                           ))}
@@ -205,11 +225,24 @@ export default function OutsideAccess() {
             </table>
           </div>
         ) : (
-          <div className="ws-setup">
-            <span className="ws-tile" aria-hidden="true"><ICON.team size={20} /></span>
-            <p className="ws-card-blurb">Nobody from outside. Add an accountant or auditor under Users.</p>
-          </div>
+          <p className="ws-card-blurb">Nobody from outside. Add an accountant or auditor under Users.</p>
         )}
+          </section>
+          <aside className="ws-flat ws-side" aria-labelledby="ws-how-title">
+            <h2 id="ws-how-title" className="ws-h2">How it works</h2>
+            <ol className="ws-steps-side">
+              {HOW.map(([title, text], i) => (
+                <li key={title}>
+                  <span className="ws-step-num" aria-hidden="true">{i + 1}</span>
+                  <span>
+                    <strong>{title}</strong>
+                    <p>{text}</p>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </aside>
+        </div>
       </div>
 
       {change ? (

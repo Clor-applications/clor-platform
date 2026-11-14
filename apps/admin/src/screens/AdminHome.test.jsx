@@ -79,21 +79,18 @@ describe('the Workspace overview', () => {
   it('shows an owner the business at a glance, what needs attention first, and the subscription', async () => {
     const openScreen = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
-    const glance = within(await screen.findByLabelText('Your business at a glance'));
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Welcome back, Kavya');
-    expect(screen.getByText('Account Owner')).toBeInTheDocument();
-    expect(screen.getByText('Neev Group')).toBeInTheDocument();
+    /* R&D hand-off (CLOR-01): the page is the Workspace, with the account's facts on one line under it. */
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Workspace');
+    expect(await screen.findByText('Account Owner')).toBeInTheDocument();
+    expect(await screen.findByText(/Neev Group · 1 company · 2 of 3 apps · 2 members/)).toBeInTheDocument();
     /* One primary action, top right. */
-    fireEvent.click(screen.getByRole('button', { name: 'Add people' }));
+    fireEvent.click(screen.getByRole('button', { name: /Invite people/ }));
     expect(openScreen).toHaveBeenCalledWith('invitations');
-    /* Four tiles: companies, team, applications, attention. */
-    expect((await glance.findByText('Companies')).closest('.ws-stat')).toHaveTextContent('3 branches · 2 GST registrations');
-    expect((await glance.findByText('Team')).closest('.ws-stat')).toHaveTextContent('2');
     /* Payroll's seats are bought, Accounting's are not metered: no "of" total that would be wrong. */
-    expect(glance.getByText('Team').closest('.ws-stat')).toHaveTextContent('3 app seats in use');
-    expect(glance.getByText('Applications').closest('.ws-stat')).toHaveTextContent('2 of 3');
-    expect(glance.getByText('Applications').closest('.ws-stat')).toHaveTextContent('You can open 2 apps');
-    expect(glance.getByText('Needs attention').closest('.ws-stat')).toHaveTextContent('2 urgent items');
+    expect(screen.getByRole('list', { name: '2 urgent items' })).toBeInTheDocument();
+    const companies = within(screen.getByRole('region', { name: 'Companies' }));
+    expect(companies.getByText('Not added')).toBeInTheDocument();
+    expect(companies.getByText('Needs GSTIN')).toBeInTheDocument();
     const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
     expect(await attention.findByText('1 pending invitation')).toBeInTheDocument();
     expect(await attention.findByText('1 administrator without an authenticator')).toBeInTheDocument();
@@ -111,8 +108,9 @@ describe('the Workspace overview', () => {
     expect(within(screen.getByRole('region', { name: 'Security' })).getByText('1 / 2')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Connections' })).getByText('Needs a look')).toBeInTheDocument();
     expect(await screen.findByText('Invitation sent')).toBeInTheDocument();
-    /* Product chrome is monochrome (DESIGN.md): no per-app colour on the tiles. */
-    expect(document.querySelector('.ws-apps .ws-tile[style]')).toBeNull();
+    /* README §2: each app is marked in its own colour, and opens on its own address. */
+    expect(document.querySelectorAll('.ws-apps .ws-appmark').length).toBe(4);
+    expect(screen.getByRole('button', { name: 'Open books.clor.in' })).toBeInTheDocument();
   });
 
   it('puts a trial about to end and an overdue CLOR invoice at the top', async () => {
@@ -167,7 +165,7 @@ describe('the Workspace overview', () => {
     expect(screen.queryByText('Team')).toBeNull();
     expect(screen.queryByRole('region', { name: 'Subscription' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Shortcuts' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add people' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Invite people/ })).toBeNull();
     expect(screen.getByRole('region', { name: 'Help and support' })).toBeInTheDocument();
     expect(api.getAccountOverview).not.toHaveBeenCalled();
     expect(http.apiFetch).not.toHaveBeenCalled();
@@ -178,7 +176,7 @@ describe('the Workspace overview', () => {
     render(<AdminHome tenant={tenant} catalog={CATALOG} navItems={NAV} openApp={() => {}} />);
     expect(await screen.findByRole('region', { name: 'Subscription' })).toBeInTheDocument();
     expect(screen.queryByText('Team')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add people' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Invite people/ })).toBeNull();
     expect(api.memberDirectory).not.toHaveBeenCalled();
   });
 

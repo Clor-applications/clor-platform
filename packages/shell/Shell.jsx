@@ -385,6 +385,17 @@ function ShellScreens() {
   }, [activeAppId, tenant?.id, screenKey, railKey]);
   /* Counts from another app or company are never shown while the new ones load. */
   const railCounts = railLoad.key === railKey ? railLoad.counts : {};
+  /* Counts beside second-panel items (manifest `panelCounts`: { screenKey: n }), e.g. "Members 14" (R&D shell). Same rules as the rail's. */
+  const [panelLoad, setPanelLoad] = useState({ key: '', counts: {} });
+  useEffect(() => {
+    const load = tenant?.id ? appById(activeAppId)?.panelCounts : null;
+    if (!load) return undefined;
+    let live = true;
+    load({ tenant }).then((c) => { if (live) setPanelLoad({ key: railKey, counts: c || {} }); }).catch(() => { if (live) setPanelLoad({ key: railKey, counts: {} }); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tenant is read through railKey
+  }, [activeAppId, tenant?.id, screenKey, railKey]);
+  const panelCounts = panelLoad.key === railKey ? panelLoad.counts : {};
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
@@ -1045,6 +1056,7 @@ function ShellScreens() {
             >
               {item.icon ? <item.icon size={15} aria-hidden="true" /> : null}
               <span className="min-w-0 truncate">{item.label}</span>
+              {Number(panelCounts[item.key]) >= 0 && panelCounts[item.key] != null ? <span className="ui-split-item-count">{panelCounts[item.key]}</span> : null}
             </button>
           ))}
         </div>

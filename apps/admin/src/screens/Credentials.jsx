@@ -47,8 +47,7 @@ const dateOf = (v) => (v ? new Date(v).toLocaleDateString('en-IN', { dateStyle: 
 const agoOf = (v) => (v ? new Date(v).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not used yet');
 
 /* The model's pill tones, in the Workspace's pills. */
-const TONE = { 'ui-pill-pos': 'ws-pill ws-pill--ok', 'ui-pill-neutral': 'ws-pill ws-pill--off', 'ui-pill-warn': 'ws-pill' };
-const WARN = { color: 'rgb(var(--ws-warn))', background: 'rgb(var(--ws-warn-soft))' };
+const TONE = { 'ui-pill-pos': 'ws-pill ws-pill--ok', 'ui-pill-neutral': 'ws-pill ws-pill--neutral', 'ui-pill-warn': 'ws-pill ws-pill--warn' };
 /* The drawers are portalled out of the page: `.ws` brings the tokens without the page padding and ground. */
 const DRAWER_WS = { padding: 0, background: 'none', minHeight: 0 };
 
@@ -232,6 +231,7 @@ export default function Credentials() {
         <PageHead
           crumbs={['Security', 'Credentials']}
           title="Credentials"
+          description="Every key and token this company has given to another system: API keys, connectors, readers and directory sync, and whether each works right now."
           actions={
             <button type="button" className="ws-btn ws-btn--primary" disabled={!data?.mayCreateApiKey} title={data?.createBlockedReason || ''} onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" /> New API key
@@ -239,7 +239,7 @@ export default function Credentials() {
           }
         />
         {data?.createBlockedReason ? <p className="ws-card-blurb" style={{ marginTop: -16 }}>{data.createBlockedReason}</p> : null}
-        {data?.closing ? <p className="text-sm" role="status" style={{ ...WARN, padding: '10px 14px', borderRadius: 8 }}>Closure scheduled: all credentials are paused.</p> : null}
+        {data?.closing ? <p className="ws-band" data-tone="warn" role="status">Closure scheduled: all credentials are paused.</p> : null}
         {shown ? <ShownOnce label={shown.label} value={shown.value} hint={shown.hint} onDone={() => setShown(null)} /> : null}
 
         {data ? (
@@ -251,9 +251,9 @@ export default function Credentials() {
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-3" role="search">
-          <select className="ui-select" aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)} style={{ width: 'auto' }}>
-            <option value="">Every kind</option>
+        <div className="ws-filters" role="search">
+          <select className="ui-select" aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)}>
+            <option value="">Kind: All</option>
             {Object.entries(KIND).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={onlyReview} onChange={(e) => setOnlyReview(e.target.checked)} /> Needs review only</label>
@@ -289,11 +289,11 @@ export default function Credentials() {
                         <div className="font-medium">{c.label || c.owner?.name || KIND[c.kind]}</div>
                         <div className="ws-head-meta">{KIND[c.kind]}{c.owner?.name && c.owner.name !== c.label ? ` · ${c.owner.name}` : ''}{c.scopes ? ` · ${c.scopes.map((x) => SCOPE_LABEL[x] || x).join(', ')}` : ''}</div>
                       </td>
-                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{c.tokenPrefix}…</td>
+                      <td className="tabular-nums" style={{ fontSize: '0.8125rem' }}>{c.tokenPrefix}…</td>
                       <td style={{ whiteSpace: 'normal', minWidth: 160 }}>
                         <span className="inline-flex flex-wrap gap-1">
-                          <span className={TONE[tone] || 'ws-pill'} style={tone === 'ui-pill-warn' ? WARN : undefined}>{word}</span>
-                          {c.needsReviewReason ? <span className="ws-pill" style={WARN}>Needs review</span> : null}
+                          <span className={TONE[tone] || 'ws-pill ws-pill--neutral'}>{word}</span>
+                          {c.needsReviewReason ? <span className="ws-pill ws-pill--warn">Needs review</span> : null}
                         </span>
                         {why && c.effective !== 'COMPANY_CLOSING' ? <div className="ws-head-meta">{why}</div> : null}
                         {c.needsReviewReason ? <div className="ws-head-meta">{c.needsReviewReason}</div> : null}

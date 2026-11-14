@@ -1,0 +1,279 @@
+/*
+ * Workspace · People & access screens (R&D hand-off CLOR-02, CLOR-04, WS-09).
+ * Tokens only; builds on the R&D block at the end of workspace.css.
+ */
+
+/* Small uppercase field and fact labels (12px, secondary ink). */
+.ws-kicker {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+
+/* ------------------------------------------------------------ Members */
+.ws-members tbody tr:hover td {
+  background: rgb(var(--surface-sunken, 244 245 242) / 0.6);
+}
+.ws-members tbody tr[data-selected]:hover td {
+  background: rgb(var(--tint, 255 241 235));
+}
+.ws-member-name {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.ws-member-name .ws-cell-main,
+.ws-member-name .ws-cell-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.ws-member-panel {
+  display: grid;
+  gap: 20px;
+}
+.ws-member-company {
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-member-company-name {
+  flex: 1;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.ws-member-apps,
+.ws-member-roles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.ws-member-apps > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  font-size: 0.875rem;
+}
+.ws-member-apps > li + li,
+.ws-member-roles > li + li {
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-member-roles > li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  font-size: 0.875rem;
+}
+.ws-member-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+  margin: 0;
+}
+.ws-member-facts dt {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-member-facts dd {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+}
+.ws-member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+
+/* ------------------------------------------------------------ Accountant access */
+.ws-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 20px 24px;
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-radius: 12px;
+  background: rgb(var(--surface, 255 255 255));
+}
+.ws-request-text {
+  flex: 1 1 320px;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ws-request-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ws-request-sub {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-request-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* The approve act in a pending row: secondary, outlined in the portal colour (only the header's button is filled). */
+.ws-btn--act-outline {
+  background: rgb(var(--surface, 255 255 255));
+  color: rgb(var(--act, 197 69 10));
+  border-color: rgb(var(--act, 197 69 10));
+}
+.ws-btn--act-outline:hover {
+  background: rgb(var(--tint, 255 241 235));
+}
+.ws-steps-side {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-steps-side > li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-steps-side .ws-step-num {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(var(--neutral-soft, 238 239 236));
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ws-steps-side strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ws-steps-side p {
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+
+/* ------------------------------------------------------------ Roles */
+.ws-roles-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 32px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .ws-roles-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.ws-role-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.ws-role-pick {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  font-size: 0.875rem;
+  color: rgb(var(--fg, 32 35 41));
+  cursor: pointer;
+}
+.ws-role-pick:hover {
+  background: rgb(var(--surface-sunken, 244 245 242));
+}
+.ws-role-pick[aria-current='true'] {
+  background: rgb(var(--tint, 255 241 235));
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 rgb(var(--marker, 255 84 0));
+}
+.ws-role-pick .num {
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+
+/* Permission matrix: each app area flat on the page, under one hairline; its table opens below. */
+.ws-pm-section {
+  display: grid;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+  min-width: 0;
+}
+.ws-pm-section:last-child {
+  border-bottom: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-pm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 4px;
+}
+.ws-pm-section .ws-table-wrap {
+  padding-bottom: 12px;
+}
+.ws-pm-table input[type='checkbox'],
+.ws-pm-head input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: rgb(var(--pos, 1 93 71));
+}
+.ws-pm-table th:not(:first-child),
+.ws-pm-table td:not(:first-child) {
+  width: 84px;
+}
+.ws .ws-flat .ws-kicker {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+/* A flat section in the page layout keeps its own 12px title gap (the layout column sets 32px). */
+.ws-layout > .ws-flat.ws-main,
+.ws-layout > .ws-flat.ws-side {
+  gap: 12px;
+  align-content: start;
+}

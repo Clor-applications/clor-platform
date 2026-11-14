@@ -1,0 +1,296 @@
+/*
+ * Workspace Home, Apps, Companies and Branches (clor-rnd CLOR-01, WS-06/07/08).
+ * Tokens only; the shared pieces (tables, pills, app marks) are in workspace.css.
+ */
+
+/* Your apps: three across, 16px apart. */
+.ws-appgrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .ws-appgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .ws-appgrid {
+    grid-template-columns: 1fr;
+  }
+}
+.ws-appcard {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgb(var(--border-field));
+  background: rgb(var(--surface));
+  transition: border-color 0.15s ease;
+}
+.ws-appcard[data-open]:hover {
+  border-color: rgb(var(--border-strong));
+}
+.ws-appcard-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ws-appcard-name {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.ws-appcard-sub {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted));
+}
+/* The card opens the app; the inner button stays its accessible name. */
+.ws-appcard-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+  text-align: left;
+  cursor: pointer;
+}
+.ws-appcard-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
+.ws-appcard-open:focus-visible {
+  outline: none;
+}
+.ws-appcard:has(.ws-appcard-open:focus-visible) {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+/* The Apps page's bigger card: name in 20px, a facts row, and the action button at the foot. */
+.ws-appcard--big {
+  padding: 20px;
+  gap: 4px;
+}
+.ws-appcard--big .ws-appcard-name {
+  margin-top: 12px;
+  font-family: var(--font-brand);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+}
+.ws-appcard-facts {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+}
+.ws-appcard-facts > :first-child {
+  font-variant-numeric: tabular-nums;
+}
+.ws-appcard-foot {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+/* Needs your attention: pill, then what and why, then the action, under hairlines. */
+.ws-attn {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid rgb(var(--border));
+}
+.ws-attn > li {
+  border-bottom: 1px solid rgb(var(--border));
+}
+.ws-attn-row {
+  width: 100%;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 166px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 12px 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.ws-attn-row {
+  cursor: pointer;
+  border-radius: 8px;
+}
+button.ws-attn-row:hover {
+  background: rgb(var(--surface-sunken));
+}
+.ws-attn-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ws-attn-title {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.ws-attn-sub {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted));
+}
+.ws-attn-act {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--act));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.ws-attn-row > .ws-pill {
+  justify-self: start;
+}
+@media (max-width: 700px) {
+  .ws-attn-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Companies table + recent activity, side by side. */
+.ws-home-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 1180px) {
+  .ws-home-split {
+    grid-template-columns: 1fr;
+  }
+}
+.ws-home-col {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+  align-content: start;
+}
+.ws-sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+/* Recent activity: avatar, who did what, when. */
+.ws-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid rgb(var(--border));
+}
+.ws-feed > li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 4px;
+  border-bottom: 1px solid rgb(var(--border));
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.ws-feed-when {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-subtle));
+  white-space: nowrap;
+}
+
+/* GSTIN not on record, said in the problem colour. */
+.ws-missing {
+  color: rgb(var(--neg));
+}
+.ws-mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+/* Row menu button: a quiet 32px square. */
+.ws-rowmenu {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: rgb(var(--fg-muted));
+  cursor: pointer;
+}
+.ws-rowmenu:hover,
+.ws-rowmenu[aria-expanded='true'] {
+  background: rgb(var(--surface-sunken));
+}
+.ws-table th.ws-th-menu,
+.ws-table td.ws-td-menu {
+  width: 56px;
+  text-align: right;
+}
+
+/* Finish setup: progress, then one row per step. */
+.ws-setupcard {
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 12px;
+  padding: 20px;
+}
+.ws-setupcard-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+}
+.ws-setupcard-bar .ws-meter-bar {
+  width: 240px;
+  --meter: var(--cat-1);
+}
+.ws-setupcard ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ws-setupcard li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  border-top: 1px solid rgb(var(--border));
+  font-size: 0.875rem;
+}
+.ws-list-meta {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-subtle));
+}
+
+/* Sortable headers keep the header's caps (the button reset would drop them). */
+.ws-table thead th button {
+  text-transform: inherit;
+  letter-spacing: inherit;
+  font-weight: inherit;
+  color: inherit;
+}

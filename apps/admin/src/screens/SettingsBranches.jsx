@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownUp, Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from '@ui/components/ui/lineIcons';
+import { ArrowDownUp, Download, MoreHorizontal, Pencil, Plus, Power, Search, Trash2 } from '@ui/components/ui/lineIcons';
 
 import Popover from '@ui/components/ui/Popover';
 import { exportRows } from '@ui/components/ListToolbar';
@@ -7,8 +7,9 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
-import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
+import { PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-home.css';
 
 /**
  * Workspace → Company → Branches (redesign W-R5).
@@ -30,12 +31,12 @@ export function branchRows(branches, { q = '', sort = 'branchCode', dir = 1 }) {
     .sort((a, b) => String(a[sort] || '').localeCompare(String(b[sort] || '')) * dir);
 }
 
-const place = (b) => [b.city, b.state].filter(Boolean).join(', ');
 
 export function SettingsBranches({ orgId, company, onBranchesChanged }) {
   const [branches, setBranches] = useState(null);
   const [error, setError] = useState('');
   const [view, setView] = useState({ q: '', sort: 'branchCode', dir: 1 });
+  const [stateFilter, setStateFilter] = useState('');
   /** The drawer: { mode: 'create' } or { mode: 'view' | 'edit', id }. */
   const [drawer, setDrawer] = useState(null);
   const [menuFor, setMenuFor] = useState(null);
@@ -83,7 +84,8 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
   }, [load]);
 
   const all = useMemo(() => branches || [], [branches]);
-  const rows = useMemo(() => branchRows(all, view), [all, view]);
+  const rows = useMemo(() => branchRows(all, view).filter((b) => !stateFilter || b.state === stateFilter), [all, view, stateFilter]);
+  const statesHere = useMemo(() => [...new Set(all.map((b) => b.state).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [all]);
   const active = all.filter((b) => b.isActive !== false).length;
   const noGstin = all.filter((b) => !b.gstin).length;
   const selected = drawer?.id ? all.find((b) => String(b.id) === String(drawer.id)) || null : null;
@@ -145,6 +147,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         <PageHead
           crumbs={['Company', 'Branches']}
           title="Branches"
+          description={`Offices, plants and sites${company?.name ? ` of ${company.name}` : ''}. A branch in a new state needs its own GSTIN.`}
           actions={
             <>
               <button type="button" className="ws-btn ws-btn--quiet" onClick={exportAll} disabled={!rows.length}>
@@ -157,23 +160,32 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
           }
         />
 
-        {branches ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.companies} label="Branches" value={all.length} note={all.length === 1 ? 'One place of business' : 'Places of business'} />
-            <Stat icon={ICON.secure} label="Active" value={active} note={all.length - active ? `${all.length - active} marked inactive` : 'None marked inactive'} />
-            <Stat icon={ICON.warning} tone={noGstin ? 'warn' : null} label="Without GSTIN" value={noGstin} note={noGstin ? (gstEnabled ? 'GST is on: add each one' : 'Unregistered locations') : 'Every branch has its GSTIN'} />
-          </div>
-        ) : null}
-
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
-        <div className="flex flex-wrap gap-2 items-center" role="search">
-          <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 420 }}>
+        <div className="ws-filters" role="search">
+          <label className="ws-search">
             <span className="sr-only">Search branches</span>
-            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
-            <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search by code, name, city or GSTIN" />
+            <Search size={16} aria-hidden="true" />
+            <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search branches" />
           </label>
-          <span className="ws-head-meta">{rows.length} {rows.length === 1 ? 'branch' : 'branches'}</span>
+          {statesHere.length > 1 ? (
+            <label>
+              <span className="sr-only">State</span>
+              <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+                <option value="">State: All</option>
+                {statesHere.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {branches ? (
+            <span className="ws-list-meta">
+              {rows.length} {rows.length === 1 ? 'branch' : 'branches'}
+              {all.length - active ? <> · <span>{all.length - active} marked inactive</span></> : null}
+              {noGstin ? ` · ${noGstin} without a GSTIN${gstEnabled ? ' (GST is on: add each one)' : ''}` : ''}
+            </span>
+          ) : null}
         </div>
 
         {branches === null ? (
@@ -188,30 +200,37 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
               <caption className="sr-only">Branches of this company</caption>
               <thead>
                 <tr>
-                  {th('branchCode', 'Code')}
                   {th('branchName', 'Branch')}
-                  {th('city', 'Location')}
+                  {th('state', 'State')}
                   <th>GSTIN</th>
                   <th>Status</th>
-                  <th><span className="sr-only">Actions</span></th>
+                  <th className="ws-th-menu"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((b) => (
                   <tr key={b.id}>
-                    <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{b.branchCode || '—'}</td>
                     <td>
-                      <button type="button" className="ws-link" style={{ fontWeight: 600 }} onClick={() => setDrawer({ mode: 'view', id: String(b.id) })}>
+                      <button type="button" className="ws-name-link" onClick={() => setDrawer({ mode: 'view', id: String(b.id) })}>
                         {b.branchName || b.branchCode}
                       </button>
+                      <span className="ws-cell-sub">{[b.branchCode, b.city].filter(Boolean).join(' · ') || '—'}</span>
                     </td>
-                    <td>{place(b) || '—'}</td>
-                    <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{b.gstin || '—'}</td>
-                    <td>{b.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--off">Inactive</span>}</td>
-                    <td className="num">
+                    <td>{b.state || '—'}</td>
+                    <td className="ws-mono">{b.gstin || '—'}</td>
+                    <td>
+                      {b.isActive === false ? (
+                        <span className="ws-pill ws-pill--neutral">Inactive</span>
+                      ) : !b.gstin && gstEnabled ? (
+                        <span className="ws-pill ws-pill--warn">Needs GSTIN</span>
+                      ) : (
+                        <span className="ws-pill ws-pill--ok">Active</span>
+                      )}
+                    </td>
+                    <td className="ws-td-menu">
                       <button
                         type="button"
-                        className="ws-btn ws-btn--quiet ws-btn--small"
+                        className="ws-rowmenu"
                         ref={menuFor === b.id ? menuAnchorRef : null}
                         aria-label={`Actions for ${b.branchName || b.branchCode}`}
                         aria-expanded={menuFor === b.id}
@@ -220,7 +239,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                           setMenuFor((prev) => (prev === b.id ? null : b.id));
                         }}
                       >
-                        <MoreVertical size={16} aria-hidden="true" />
+                        <MoreHorizontal size={16} aria-hidden="true" />
                       </button>
                       {menuFor === b.id ? (
                         <Popover anchorRef={menuAnchorRef} onClose={() => setMenuFor(null)} minWidth={176} maxWidth={240}>
