@@ -74,7 +74,7 @@ What `--go` does, in order:
    nothing has changed for anyone, and the old revision is still serving.
 6. **Starts the image on Cloud Run with no traffic** (`--no-traffic`). The
    serving container does not migrate.
-7. **Tags the revision** `rel-<sha7>`, which gives it its own address:
+7. **Tags the revision** `rel-<sha7>` (`--update-tags`, so earlier tags stay), which gives it its own address:
    `https://rel-<sha7>---clor-api-nmprtntkma-el.a.run.app`.
 8. **Checks `/ready`** on that address, for up to three minutes. If it never
    answers, the script stops here. No traffic has moved; customers are still
@@ -140,17 +140,26 @@ release (`git worktree remove`).
 
 ## Rolling back
 
-**The API:** move traffic back to the previous tag. The script prints the
-exact command when it finishes; it is
+**The API:** move traffic back to the revision that was serving before the
+release. The script reads that revision's name before it moves anything and
+prints the exact command when it finishes; it is
 
 ```bash
-gcloud run services update-traffic clor-api --project clor-apps-511409 --region asia-south1 --to-tags rel-<previous sha7>=100
+gcloud run services update-traffic clor-api --project clor-apps-511409 --region asia-south1 --to-revisions <previous revision>=100
 ```
 
-The previous tag is the section below the newest in `CHANGELOG.md`, and
-`gcloud run services describe clor-api --region asia-south1 --project clor-apps-511409`
-lists every tag still attached. Rolling back takes seconds and does not
-rebuild anything.
+Roll back **by revision name, not by tag**. A tag lasts only while a traffic
+entry carries it, and until 14 Nov 2026 the release tagged the new revision
+with `--set-tags`, which replaces every tag on the service: the previous
+release's tag was gone the moment the new one went live, and
+`--to-tags rel-<previous>=100` failed with "no revision tagged". The release
+now uses `--update-tags`, so old tags stay, but the revision name is the one
+handle that cannot go missing.
+
+To find it by hand: `gcloud run revisions list --service clor-api --region asia-south1 --project clor-apps-511409`
+lists them newest first, and the target is the one created just before the release's; or read the `Cloud Run revision` named
+in the release's `rel-` tag message and its `CHANGELOG.md` section. Rolling
+back takes seconds and does not rebuild anything.
 
 **It does not undo a migration.** That is the reason migrations are additive:
 the old code runs on the new schema. Where one release's notes say more is
