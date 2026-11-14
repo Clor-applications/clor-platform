@@ -38,6 +38,11 @@ export function Mark({ product, size = 36 }) {
   );
 }
 
+/** A product's name, kept whole on one line and out of the browser's page translation. */
+export function ProductName({ name }) {
+  return <span translate="no">CLOR&nbsp;{name}</span>;
+}
+
 export function Status({ product }) {
   return product.status === 'available' ? <span className="status">Available</span> : <span className="status status--soon">Coming soon</span>;
 }

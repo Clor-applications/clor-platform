@@ -15,13 +15,11 @@ export const BUILT_PRICING = first && !first.none && Array.isArray(first.plans) 
 export const provisional = (p) => /sample|mock|not final|draft/i.test(String(p?.note || ''));
 
 /** ₹1,23,456.50 the Indian way; whole rupees drop the paise. */
+const RUPEES = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+const RUPEES_PAISE = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 });
 export function inr(paise) {
   const abs = Math.abs(Number(paise) || 0);
-  const s = String(Math.floor(abs / 100));
-  const last3 = s.slice(-3);
-  const rest = s.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
-  const fraction = abs % 100;
-  return `₹${rest ? `${rest},` : ''}${last3}${fraction ? `.${String(fraction).padStart(2, '0')}` : ''}`;
+  return (abs % 100 ? RUPEES_PAISE : RUPEES).format(abs / 100);
 }
 
 export const UNIT = { COMPANY: ['company', 'companies'], USER: ['user', 'users'], EMPLOYEE: ['employee', 'employees'] };

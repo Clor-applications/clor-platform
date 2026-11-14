@@ -6,7 +6,7 @@ import { useProducts } from '../catalogue.js';
 import { BooksWindow, GstrWindow, WINDOWS } from '../components/Windows.jsx';
 import { SettingUp } from '../components/Sections.jsx';
 import { Faq } from '../components/Blocks.jsx';
-import { Mark, Status } from '../components/Brand.jsx';
+import { Mark, ProductName, Status } from '../components/Brand.jsx';
 import QuoteBand from '../components/Quotes.jsx';
 
 /*
@@ -31,6 +31,7 @@ const HIGHLIGHTS = [
     img: 'attendance-reader',
     slug: 'attendance',
     w: 1400,
+    h: 1050,
     alt: 'An employee punching in on a fingerprint reader at the office door',
     title: 'Punches from the reader at the gate',
     text: 'ZKTeco, eSSL, Hikvision and Matrix readers send punches as they happen.',
@@ -41,6 +42,7 @@ const HIGHLIGHTS = [
     img: 'payroll-payslip',
     slug: 'payroll',
     w: 1120,
+    h: 1400,
     alt: 'An employee reading her October payslip on her phone',
     title: 'Payslips on the employee’s phone',
     text: 'Each payslip shows earnings, PF, ESI, professional tax and TDS, and arrives when the run is locked.',
@@ -51,6 +53,7 @@ const HIGHLIGHTS = [
     img: 'people-hr',
     slug: 'people',
     w: 1400,
+    h: 788,
     alt: 'An HR manager with an employee’s record open in CLOR People',
     title: 'One record for every employee',
     text: 'Personal, job and statutory details with a dated history of every change.',
@@ -63,7 +66,7 @@ const SOLUTIONS = [
   {
     key: 'owners',
     tab: 'Business owners',
-    img: ['business-workspace', 1400, 'A business owner with her CLOR workspace open on a laptop'],
+    img: ['business-workspace', 1400, 788, 'A business owner with her CLOR workspace open on a laptop'],
     link: ['/solutions/businesses', 'CLOR for businesses'],
     items: [
       ['File GST returns', 'File GSTR-1 and GSTR-3B from the invoices you already raised.'],
@@ -74,7 +77,7 @@ const SOLUTIONS = [
   {
     key: 'firms',
     tab: 'Accountants and CA firms',
-    img: ['hero-books-soft', 1400, 'An accountant at his desk with the CLOR Books dashboard open'],
+    img: ['hero-books-soft', 1400, 835, 'An accountant at his desk with the CLOR Books dashboard open'],
     link: ['/solutions/accounting-firms', 'CLOR for accounting firms'],
     items: [
       ['Your own login', 'Your client invites you with your own login and decides what you may see and change.'],
@@ -85,7 +88,7 @@ const SOLUTIONS = [
   {
     key: 'finance',
     tab: 'Finance teams',
-    img: ['books-invoice', 980, 'A GST invoice open in CLOR Books on a laptop'],
+    img: ['books-invoice', 980, 620, 'A GST invoice open in CLOR Books on a laptop'],
     link: ['/products/books', 'CLOR Books'],
     items: [
       ['Journals post themselves', 'Invoices, bills and the salary run post their own journals.'],
@@ -96,7 +99,7 @@ const SOLUTIONS = [
   {
     key: 'hr',
     tab: 'HR teams',
-    img: ['demo-team-3d', 1120, 'A team gathered around a laptop'],
+    img: ['demo-team-3d', 1120, 747, 'A team gathered around a laptop'],
     link: ['/products/people', 'CLOR People'],
     items: [
       ['Joining and exit checklists', 'Joining and exit checklists that HR, IT and the manager each tick off.'],
@@ -253,7 +256,7 @@ function Go({ href, children, external }) {
   );
 }
 
-function Photo({ name, w, alt, lazy = true }) {
+function Photo({ name, w, h, alt, lazy = true }) {
   /* Each picture has a half-size file; the invoice's is 560 wide. */
   const half = name === 'books-invoice' ? 560 : w / 2;
   return (
@@ -261,6 +264,8 @@ function Photo({ name, w, alt, lazy = true }) {
       src={`/people/${name}-${w}.webp`}
       srcSet={`/people/${name}-${half}.webp ${half}w, /people/${name}-${w}.webp ${w}w`}
       sizes="(max-width: 900px) 100vw, 600px"
+      width={w}
+      height={h}
       alt={alt}
       loading={lazy ? 'lazy' : undefined}
       decoding="async"
@@ -280,16 +285,19 @@ function Finder() {
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
-            if (hits[0]) window.location.assign(hits[0].href);
+            if (hits[0]) window.dispatchEvent(new CustomEvent('clor:navigate', { detail: hits[0].href }));
           }}
         >
           <label className="sr-only" htmlFor={id}>
             Search CLOR
           </label>
-          <input id={id} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search CLOR: try GSTR-1, payslip or biometric" autoComplete="off" />
+          <input id={id} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search CLOR: try GSTR-1, payslip or biometric…" autoComplete="off" />
           <button type="submit" aria-label="Search">
-            <MagnifyingGlass size={20} />
+            <MagnifyingGlass size={20} aria-hidden="true" />
           </button>
+          <p className="sr-only" aria-live="polite">
+            {q.trim() ? (hits.length ? `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}` : 'No matches') : ''}
+          </p>
           {q.trim() ? (
             <ul className="fx-find-hits">
               {hits.length ? (
@@ -359,7 +367,7 @@ function Solutions() {
             ))}
           </div>
           <figure className="fx-frame" key={s.key}>
-            <Photo name={s.img[0]} w={s.img[1]} alt={s.img[2]} />
+            <Photo name={s.img[0]} w={s.img[1]} h={s.img[2]} alt={s.img[3]} />
           </figure>
         </div>
         <Go href="/solutions/businesses">See all solutions</Go>
@@ -397,7 +405,9 @@ function ProductCard({ p, feature }) {
         <Mark product={p} size={44} />
         <Status product={p} />
       </div>
-      <h3>CLOR {p.name}</h3>
+      <h3>
+        <ProductName name={p.name} />
+      </h3>
       <p>{p.line}</p>
       <ul className="fx-does">
         {(DOES[p.slug] || []).map((d) => (
@@ -423,7 +433,8 @@ function ProductsBand() {
           Choose the apps your company needs
         </h2>
         <Tabs label="Product group" id="prod" tabs={CATS} current={cat} pick={setCat} />
-        <ul className={`fx-pgrid${cat === 'all' ? ' fx-pgrid--featured' : ''}`} role="tabpanel" id="prod-panel" aria-labelledby={`prod-tab-${cat}`}>
+        <div role="tabpanel" id="prod-panel" aria-labelledby={`prod-tab-${cat}`}>
+        <ul className={`fx-pgrid${cat === 'all' ? ' fx-pgrid--featured' : ''}`}>
           {list.map((p, i) => (
             <ProductCard key={p.slug} p={p} feature={cat === 'all' && i === 0} />
           ))}
@@ -444,6 +455,7 @@ function ProductsBand() {
             </li>
           ) : null}
         </ul>
+        </div>
         <Go href="/products">See all products</Go>
       </div>
     </section>
@@ -469,7 +481,7 @@ function AppsBand() {
         <div className="fx-app" role="tabpanel" id="app-panel" aria-labelledby={`app-tab-${slug}`} data-p={slug}>
           <div className="fx-app-copy">
             <p className="fx-app-name">
-              <Mark product={p} size={28} /> CLOR&nbsp;{p.name}
+              <Mark product={p} size={28} /> <ProductName name={p.name} />
             </p>
             <h3>{a.title}</h3>
             <ul className="facts-list">
@@ -477,7 +489,7 @@ function AppsBand() {
                 <li key={x}>{x}</li>
               ))}
             </ul>
-            <Go href={`/products/${slug}`}>More about CLOR&nbsp;{p.name}</Go>
+            <Go href={`/products/${slug}`}>More about <ProductName name={p.name} /></Go>
           </div>
           <div className="fx-app-win" key={slug} aria-hidden="true">
             <Win />
@@ -647,9 +659,9 @@ export default function Home() {
             {HIGHLIGHTS.map((h) => (
               <li key={h.img} className="fx-card" data-p={h.slug}>
                 <div className="fx-card-pic">
-                  <Photo name={h.img} w={h.w} alt={h.alt} />
+                  <Photo name={h.img} w={h.w} h={h.h} alt={h.alt} />
                   <span className="fx-card-tag">
-                    <Mark product={productBySlug(h.slug)} size={24} /> CLOR&nbsp;{productBySlug(h.slug).name}
+                    <Mark product={productBySlug(h.slug)} size={24} /> <ProductName name={productBySlug(h.slug).name} />
                   </span>
                 </div>
                 <div className="fx-card-body">
@@ -714,7 +726,7 @@ export default function Home() {
                 </a>
               </div>
               <div className="fx-next-pic">
-                <img src="/people/projects-720.webp" srcSet="/people/projects-360.webp 360w, /people/projects-720.webp 720w" sizes="(max-width: 900px) 100vw, 560px" alt="Three colleagues planning work around a table" loading="lazy" decoding="async" />
+                <img src="/people/projects-720.webp" srcSet="/people/projects-360.webp 454w, /people/projects-720.webp 909w" sizes="(max-width: 900px) 100vw, 560px" width="909" height="720" alt="Three colleagues planning work around a table" loading="lazy" decoding="async" />
               </div>
             </div>
             <div className="fx-next-card">

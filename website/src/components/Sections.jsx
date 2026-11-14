@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from '../router.jsx';
 import { Buildings, Check, LockKey, PaperPlaneTilt, ShieldCheck, ToggleRight, UserFocus } from '@phosphor-icons/react';
 import { PRODUCTS } from '../site.js';
-import { Mark } from './Brand.jsx';
+import { Mark, ProductName } from './Brand.jsx';
 
 /*
  * Sections the home page and every product page share, so they stay word for
@@ -73,7 +73,7 @@ export function SettingUp() {
                   return (
                     <li key={slug} style={{ '--i': i, '--app': p.accent }}>
                       <Mark product={p} size={26} />
-                      <span>CLOR {p.name}</span>
+                      <ProductName name={p.name} />
                       <span className="sw-toggle"><span /></span>
                     </li>
                   );
