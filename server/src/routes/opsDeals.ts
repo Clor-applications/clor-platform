@@ -656,6 +656,37 @@ opsDealsRouter.get('/ops/subscriptions', (req, res) =>
         byHand: !r.gatewayName,
       })),
       monthly,
+      summary: await subscriptionSummary(now),
     });
   }),
 );
+
+/**
+ * The four figures above the Subscriptions list (OPS-07), over every
+ * subscription whatever the tab: what active customers bring in a month,
+ * payments late and what they are worth, trials ending in the next seven
+ * days, and older accounts still on the fail-open rule (every app, no plan).
+ */
+async function subscriptionSummary(now: Date) {
+  const week = new Date(now.getTime() + 7 * 86_400_000);
+  const [active, late, trialsEnding, legacy] = await Promise.all([
+    platformPrisma.subscription.findMany({ where: { status: 'active' }, select: { periodAmount: true, listAmount: true, offerEndsAt: true, billingInterval: true } }),
+    platformPrisma.subscription.findMany({ where: { status: 'past_due' }, select: { periodAmount: true, listAmount: true, offerEndsAt: true, billingInterval: true } }),
+    platformPrisma.subscription.count({ where: { status: 'trialing', trialEndsAt: { gte: now, lte: week } } }),
+    platformPrisma.account.findMany({ where: { legacyUnrestrictedAt: { not: null }, suspendedAt: null }, select: { id: true } }),
+  ]);
+  const charged = (r: { periodAmount: number | null; listAmount: number | null; offerEndsAt: Date | null }) => (r.periodAmount == null ? null : r.offerEndsAt && r.offerEndsAt <= now ? r.listAmount : r.periodAmount);
+  const perMonth = (r: (typeof active)[number]) => {
+    const c = charged(r);
+    return c == null ? 0 : r.billingInterval === 'year' ? Math.round(c / 12) : c;
+  };
+  const legacyWithPlan = legacy.length ? await platformPrisma.subscription.count({ where: { accountId: { in: legacy.map((a) => a.id) } } }) : 0;
+  return {
+    mrr: active.reduce((n, r) => n + perMonth(r), 0),
+    activeCount: active.length,
+    pastDue: late.length,
+    pastDueAtRisk: late.reduce((n, r) => n + (charged(r) ?? 0), 0),
+    trialsEndingThisWeek: trialsEnding,
+    legacyFailOpen: legacy.length - legacyWithPlan,
+  };
+}

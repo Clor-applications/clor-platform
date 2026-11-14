@@ -19,6 +19,8 @@ import { useSecondFactor } from './security.js';
 import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLineIndex.js';
 import { sendTemplate } from '../services/mailer.js';
 import { operatorActionLabel } from '../constants/operatorActions.js';
+import { noteDenials } from '../services/ops/denials.js';
+import { opsListsRouter } from './opsLists.js';
 
 /**
  * The Clor operator console (W-8.2): Clor's own staff, looking across every
@@ -38,6 +40,14 @@ import { operatorActionLabel } from '../constants/operatorActions.js';
  * operator is not a member of the accounts they look at.
  */
 export const opsRouter = Router();
+
+/*
+ * Every refusal (402, or 403) on its way out is noted for the Entitlement
+ * denials page (services/ops/denials.ts). Path-less on purpose: this router is
+ * mounted at /api ahead of every tenant router (app.ts), so each request that
+ * reaches them passes here first. It only wraps res.json; it never answers.
+ */
+opsRouter.use(noteDenials);
 
 /*
  * Setting up the authenticator, from the console itself.
@@ -78,6 +88,9 @@ opsRouter.post('/ops/two-factor/enable', requireAuth, ...codeLimiter, requireOpe
 });
 
 opsRouter.use('/ops', requireAuth, requireOperator);
+
+/* The lists across every account: organisations, users, denials, feature switches, an account's seats (routes/opsLists.ts). */
+opsRouter.use(opsListsRouter);
 
 const DAY = 86_400_000;
 

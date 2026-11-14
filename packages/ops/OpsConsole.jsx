@@ -25,10 +25,14 @@ import {
   MailClockColor,
   MailColor,
   MegaphoneLoudColor,
+  OptionsColor,
+  PeopleCommunityColor,
+  PeopleListColor,
   PeopleTeamColor,
   PersonKeyColor,
   ReceiptColor,
   SettingsColor,
+  ShieldColor,
   VaultColor,
 } from '@fluentui/react-icons';
 
@@ -64,6 +68,7 @@ import { Subscriptions } from './Deals';
 import { Approvals } from './Approvals';
 import { AccessRequests } from './AccessRequests';
 import { OpsSearch } from './OpsSearch';
+import { Denials, FeatureSwitches, Organisations, Users } from './Lists';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsMySupportGrants, opsOverview, opsStartTwoFactor } from './api';
 
@@ -86,6 +91,10 @@ const NI = colorSet(
   {
     overview: GaugeColor,
     accounts: BuildingPeopleColor,
+    orgs: PeopleCommunityColor,
+    users: PeopleListColor,
+    denials: ShieldColor,
+    switches: OptionsColor,
     subscriptions: ReceiptColor,
     tickets: ChatMultipleColor,
     trials: CalendarClockColor,
@@ -143,6 +152,8 @@ export const NAV = [
     rail: 'customers',
     items: [
       ['customers', 'Accounts', NI.accounts],
+      ['orgs', 'Organizations', NI.orgs],
+      ['users', 'Users', NI.users],
       ['subscriptions', 'Subscriptions', NI.subscriptions],
       ['tickets', 'Tickets', NI.tickets],
     ],
@@ -161,6 +172,8 @@ export const NAV = [
     rail: 'platform',
     items: [
       ['health', 'Jobs & workers', NI.jobs],
+      ['denials', 'Entitlement denials', NI.denials],
+      ['switches', 'Feature switches', NI.switches],
       ['alerts', 'Alerts', NI.alerts],
     ],
   },
@@ -224,6 +237,8 @@ export const SCREENS = {
         setTab={(tab) => go('customers', {}, route.id, tab, true)}
         openDemo={(id) => go('demos', {}, id)}
         openLink={(l) => go(l.page, {}, l.id || '')}
+        openDenials={(account) => go('denials', { account })}
+        openOrgs={(account) => go('orgs', { account })}
       />
     ) : (
       <Customers key={route.params.status || 'all'} initialStatus={route.params.status || 'all'} openCustomer={(id) => go('customers', {}, id)} />
@@ -240,6 +255,11 @@ export const SCREENS = {
   customPlans: ({ go, me }) => <CustomPlans role={me.role} openCustomer={(id) => go('customers', {}, id)} />,
   offers: ({ me }) => <Offers role={me.role} />,
   subscriptions: ({ go }) => <Subscriptions openCustomer={(id) => go('customers', {}, id, 'subscription')} />,
+  /* Lists across every account (R&D OPS-05, 06, 08, 09): read-only; changes stay on the account's own page. */
+  orgs: ({ route, go }) => <Organisations account={route.params.account || ''} openAccount={(id) => go('customers', {}, id)} clearAccount={() => go('orgs', {}, '', '', true)} />,
+  users: ({ go }) => <Users openAccount={(id) => go('customers', {}, id, 'users')} />,
+  denials: ({ route, go }) => <Denials account={route.params.account || ''} openAccount={(id) => go('customers', {}, id)} clearAccount={() => go('denials', {}, '', '', true)} />,
+  switches: ({ go }) => <FeatureSwitches openAccount={(id) => go('customers', {}, id, 'limits')} />,
   approvals: ({ go }) => <Approvals openCustomer={(id) => go('customers', {}, id, 'subscription')} />,
   /* Payments holds the gateways too (keys, test and live), so the Gateways place stays empty. */
   payments: ({ me }) => <Payments role={me.role} />,
@@ -404,12 +424,12 @@ function Console() {
       .catch((e) => setRefused({ code: e?.code || e?.data?.code, message: String(e?.message || e) }));
   }, [user, reload]);
 
-  /* The counts beside Accounts and Access requests. Either may fail (a role that cannot see it); the menu simply shows none. */
+  /* The counts beside Accounts, Organizations, Users and Access requests. Either may fail (a role that cannot see it); the menu simply shows none. */
   useEffect(() => {
     if (!me) return;
     let live = true;
     opsOverview()
-      .then((o) => live && setCounts((c) => ({ ...c, customers: o?.accounts || 0 })))
+      .then((o) => live && setCounts((c) => ({ ...c, customers: o?.accounts || 0, orgs: o?.companies || 0, users: o?.users || 0 })))
       .catch(() => {});
     opsMySupportGrants()
       .then((r) => live && setCounts((c) => ({ ...c, access: (r?.grants || []).filter((g) => g.state === 'PENDING').length })))

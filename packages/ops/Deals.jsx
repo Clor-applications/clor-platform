@@ -4,6 +4,7 @@ import { notify } from '@ui/components/ui/notify';
 import { PageHead } from '../../apps/admin/src/screens/wsKit';
 import { APP_NAMES, Empty, Err, Loading, ReasonDrawer, Tabs, day } from './kit';
 import { inr } from './money';
+import './lists.css';
 import { unitName, units } from './CustomPlans';
 import { opsDealOptions, opsDealQuote, opsSetDeal, opsSubscriptions } from './api';
 
@@ -244,79 +245,127 @@ export function Subscriptions({ openCustomer }) {
   const [error, setError] = useState('');
   useEffect(() => {
     opsSubscriptions({ status: tab === 'all' ? '' : tab })
-      .then(setD)
+      .then((r) => (setD(r), setError('')))
       .catch((e) => setError(String(e?.message || e)));
   }, [tab]);
+  const sum = d?.summary;
+
+  /* Export the rows this tab shows, as a spreadsheet. */
+  const exportCsv = () => {
+    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [['Account', 'Account ID', 'Plan', 'Billed', 'Apps', 'Amount (₹, before GST)', 'Renews or trial ends', 'State'].map(cell).join(',')];
+    for (const s of d?.subscriptions || []) {
+      lines.push(
+        [s.name, s.code, s.planName || '', s.interval || '', s.apps.map((a) => APP_NAMES[a] || a).join('; '), s.amount != null ? (s.amount / 100).toFixed(2) : '', (s.status === 'trialing' ? s.trialEndsAt : s.renewsAt) || '', STATUS[s.status]?.[0] || s.status]
+          .map(cell)
+          .join(','),
+      );
+    }
+    const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clor-subscriptions-${tab}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const tiles = sum
+    ? [
+        ['MRR', inr(sum.mrr), 1, `${sum.activeCount ?? 0} active, before GST`],
+        ['Past due', String(sum.pastDue), 4, sum.pastDue ? `${inr(sum.pastDueAtRisk)} at risk` : 'Nobody is late', sum.pastDue ? 'warn' : null],
+        ['Trials ending this week', String(sum.trialsEndingThisWeek), 3, 'In the next seven days'],
+        ['Legacy fail-open', String(sum.legacyFailOpen), 8, sum.legacyFailOpen ? 'Every app, no plan: move to a plan' : 'Every account is on a plan', sum.legacyFailOpen ? 'neg' : null],
+      ]
+    : [];
   return (
-    <div className="ws">
-      <div className="ws-inner">
-        <PageHead
-          crumbs={['Money', 'Subscriptions']}
-          title="Subscriptions"
-          description="Every customer with a plan: what they pay, before GST, and when it renews. Set or change one from the customer’s Subscription tab."
-          meta={d && tab === 'active' ? `${inr(d.monthly)} a month from active customers` : null}
-        />
-        <Tabs
-          label="Which subscriptions"
-          value={tab}
-          onChange={(t) => {
-            setD(null);
-            setTab(t);
-          }}
-          tabs={[
-            ['active', 'Active'],
-            ['trialing', 'On trial'],
-            ['past_due', 'Payment due'],
-            ['cancelled', 'Cancelled'],
-            ['all', 'All'],
-          ]}
-        />
-        <Err>{error}</Err>
-        {!d && !error ? (
-          <Loading />
-        ) : d && !d.subscriptions.length ? (
-          <Empty>None here.</Empty>
-        ) : d ? (
-          <div className="ws-table-wrap">
-            <table className="ws-table">
-              <caption className="sr-only">Subscriptions</caption>
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th className="hidden md:table-cell">Plan</th>
-                  <th className="hidden sm:table-cell" style={{ textAlign: 'right' }}>Pays</th>
-                  <th className="hidden sm:table-cell">Renews</th>
+    <>
+      <PageHead
+        title="Subscriptions"
+        description="Plans, apps and renewals, before GST. Change one from the customer’s Subscription tab; customers see the change the next time they load a page."
+        actions={
+          <button type="button" className="ws-btn ws-btn--quiet" onClick={exportCsv} disabled={!d?.subscriptions?.length}>
+            Export
+          </button>
+        }
+      />
+      {tiles.length ? (
+        <div className="ops-kpis">
+          {tiles.map(([label, value, cat, note, state]) => (
+            <div key={label} className="ops-kpi" style={{ '--kpi': `var(--cat-${cat})` }}>
+              <span className="ops-kpi-chip" aria-hidden="true">
+                <span className="ops-kpi-dot" />
+              </span>
+              <span className="ops-kpi-label">{label}</span>
+              <span className="ops-kpi-value" data-state={state || undefined}>
+                {value}
+              </span>
+              <span className="ops-kpi-note">{note}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <Tabs
+        label="Which subscriptions"
+        value={tab}
+        onChange={(t) => {
+          setD((v) => (v ? { ...v, subscriptions: null } : v));
+          setTab(t);
+        }}
+        tabs={[
+          ['active', 'Active'],
+          ['trialing', 'On trial'],
+          ['past_due', 'Payment due'],
+          ['cancelled', 'Cancelled'],
+          ['all', 'All'],
+        ]}
+      />
+      <Err>{error}</Err>
+      {!d?.subscriptions ? (
+        error ? null : <Loading />
+      ) : !d.subscriptions.length ? (
+        <Empty>None here.</Empty>
+      ) : (
+        <div className="ws-table-wrap">
+          <table className="ws-table">
+            <caption className="sr-only">Subscriptions</caption>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th className="hidden md:table-cell">Plan</th>
+                <th className="hidden lg:table-cell">Apps</th>
+                <th className="num hidden sm:table-cell">Amount</th>
+                <th className="num hidden sm:table-cell">Renews</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.subscriptions.map((s) => (
+                <tr key={s.accountId}>
+                  <td>
+                    <button type="button" className="ws-name-link" onClick={() => openCustomer(s.accountId)}>
+                      {s.name}
+                    </button>
+                    {s.amount != null ? <div className="ws-item-sub sm:hidden tabular-nums">{inr(s.amount)} / {s.interval === 'year' ? 'yr' : 'mo'}</div> : null}
+                  </td>
+                  <td className="hidden md:table-cell" style={{ whiteSpace: 'normal' }}>
+                    {s.planName ? `${s.planName}${s.interval ? ` · ${s.interval === 'year' ? 'yearly' : 'monthly'}` : ''}` : s.status === 'trialing' ? 'Trial' : <span className="ws-item-sub">No price set</span>}
+                    {s.quantity && s.unit ? <div className="ws-item-sub">{units(s.unit, s.quantity)}</div> : null}
+                  </td>
+                  <td className="hidden lg:table-cell" style={{ whiteSpace: 'normal' }}>{s.apps.map((a) => APP_NAMES[a] || a).join(', ') || '—'}</td>
+                  <td className="num hidden sm:table-cell">
+                    {s.amount != null ? inr(s.amount) : '—'}
+                    {s.offerCode && s.amount !== s.listAmount ? <div className="ws-item-sub">{s.offerCode} until {day(s.offerEndsAt) === '—' ? 'they stop' : day(s.offerEndsAt)}</div> : null}
+                  </td>
+                  <td className="num hidden sm:table-cell">{s.status === 'trialing' ? `Ends ${day(s.trialEndsAt)}` : day(s.renewsAt)}</td>
+                  <td>
+                    <span className={STATUS[s.status]?.[1] || 'ws-pill'}>{STATUS[s.status]?.[0] || s.status}</span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {d.subscriptions.map((s) => (
-                  <tr key={s.accountId}>
-                    <td>
-                      <button type="button" className="ui-link" onClick={() => openCustomer(s.accountId)}>
-                        {s.name}
-                      </button>
-                      <div className="ws-item-sub">
-                        <span className={STATUS[s.status]?.[1] || 'ws-pill'}>{STATUS[s.status]?.[0] || s.status}</span>
-                        <span className="md:hidden"> · {s.planName || s.apps.map((a) => APP_NAMES[a] || a).join(', ')}</span>
-                        {s.amount != null ? <span className="sm:hidden tabular-nums"> · {inr(s.amount)} / {s.interval === 'year' ? 'yr' : 'mo'}</span> : null}
-                      </div>
-                    </td>
-                    <td className="hidden md:table-cell">
-                      {s.planName || <span className="ws-item-sub">{s.apps.map((a) => APP_NAMES[a] || a).join(', ') || '—'} (no price set)</span>}
-                      {s.quantity && s.unit ? <div className="ws-item-sub">{units(s.unit, s.quantity)}</div> : null}
-                    </td>
-                    <td className="hidden sm:table-cell tabular-nums" style={{ textAlign: 'right' }}>
-                      {s.amount != null ? `${inr(s.amount)} / ${s.interval === 'year' ? 'yr' : 'mo'}` : '—'}
-                      {s.offerCode && s.amount !== s.listAmount ? <div className="ws-item-sub">{s.offerCode} until {day(s.offerEndsAt) === '—' ? 'they stop' : day(s.offerEndsAt)}</div> : null}
-                    </td>
-                    <td className="hidden sm:table-cell tabular-nums">{s.status === 'trialing' ? `Trial ends ${day(s.trialEndsAt)}` : day(s.renewsAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </div>
-    </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }

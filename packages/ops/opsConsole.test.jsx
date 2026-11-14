@@ -32,6 +32,7 @@ vi.mock('./Announcements', () => ({ Announcements: () => <h1>Announcements scree
 vi.mock('./Offers', () => ({ Offers: () => <h1>Offers screen</h1> }));
 vi.mock('./CustomPlans', () => ({ CustomPlans: () => <h1>Custom plans screen</h1>, units: (u, n) => `${n} ${u}`, unitName: (u) => u, UNIT: {} }));
 vi.mock('./Deals', () => ({ Subscriptions: () => <h1>Subscriptions screen</h1>, DealDrawer: () => null }));
+vi.mock('./Lists', () => ({ Organisations: () => <h1>Organisations screen</h1>, Users: () => <h1>Users screen</h1>, Denials: ({ account }) => <h1>Denials screen {account}</h1>, FeatureSwitches: () => <h1>Switches screen</h1> }));
 vi.mock('./OpsSearch', () => ({ OpsSearch: ({ go }) => <button type="button" onClick={() => go('health', { request: 'req-12345678' })}>Search stand-in</button> }));
 const session = vi.hoisted(() => ({ value: { user: { id: 'u1' }, restoring: false, signOut: vi.fn() } }));
 vi.mock('../shell/session', () => ({ useSession: () => session.value }));
@@ -89,7 +90,7 @@ describe('the operator console', () => {
     const nav = screen.getByRole('navigation', { name: 'Operator console' });
     expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Sales', 'Platform', 'Comms', 'Trust', 'Billing', 'Product']);
     expect([...nav.querySelectorAll('.ops-nav-label')].map((b) => b.textContent.trim())).toEqual([
-      'Overview', 'Accounts', 'Subscriptions', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Jobs & workers', 'Alerts', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Staff audit log', 'Access requests', 'Approvals', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company',
+      'Overview', 'Accounts', 'Organizations', 'Users', 'Subscriptions', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Jobs & workers', 'Entitlement denials', 'Feature switches', 'Alerts', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Staff audit log', 'Access requests', 'Approvals', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
     /* Counts beside Accounts and Access requests (waiting only). */
