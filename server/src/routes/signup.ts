@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { pausedRefusal } from '../services/platformSwitches.js';
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -128,6 +129,9 @@ signupRouter.post('/public/signup/start', ...signupStartLimiter, (req, res) =>
     const b = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
     /* A bot filled the hidden field: the same answer as a real start, and nothing kept. */
     if (String(b.website ?? '').trim()) return res.status(202).json({ ok: true });
+    /* Staff paused new trials (Settings in the operator console): the visitor reads why. */
+    const paused = await pausedRefusal('signups');
+    if (paused) return res.status(paused.status).json(paused.body);
     const parsed = startBody.safeParse(b);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Enter your email.', code: 'INVALID' });
     const { email } = parsed.data;

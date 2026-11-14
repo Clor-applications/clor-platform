@@ -165,6 +165,27 @@ export const opsAnnouncementDelete = (id, reason) => apiFetch(ann(id), { ...o, m
 export const opsSupportGrants = (accountId) => apiFetch(`/ops/accounts/${encodeURIComponent(accountId)}/support-grants`, o);
 export const opsAskSupportGrant = (accountId, body) => apiFetch(`/ops/accounts/${encodeURIComponent(accountId)}/support-grants`, { ...o, method: 'POST', body });
 export const opsEndSupportGrant = (id) => apiFetch(`/ops/support-grants/${encodeURIComponent(id)}/end`, { ...o, method: 'POST', body: {} });
+/* Notes and tags on a customer (server: routes/opsNotes.ts). */
+export const opsNotes = (id) => apiFetch(`/ops/accounts/${enc(id)}/notes`, o);
+export const opsAddNote = (id, body) => apiFetch(`/ops/accounts/${enc(id)}/notes`, { ...o, method: 'POST', body });
+export const opsChangeNote = (id, noteId, body) => apiFetch(`/ops/accounts/${enc(id)}/notes/${enc(noteId)}`, { ...o, method: 'PATCH', body });
+export const opsRemoveNote = (id, noteId) => apiFetch(`/ops/accounts/${enc(id)}/notes/${enc(noteId)}`, { ...o, method: 'DELETE' });
+export const opsAddTag = (id, tag) => apiFetch(`/ops/accounts/${enc(id)}/tags`, { ...o, method: 'POST', body: { tag } });
+export const opsRemoveTag = (id, tag) => apiFetch(`/ops/accounts/${enc(id)}/tags/${enc(tag)}`, { ...o, method: 'DELETE' });
+export const opsTags = () => apiFetch('/ops/tags', o);
+/* Status page posts (server: routes/opsStatus.ts). */
+export const opsStatusPosts = () => apiFetch('/ops/status-incidents', o);
+export const opsPostStatus = (body) => apiFetch('/ops/status-incidents', { ...o, method: 'POST', body });
+export const opsUpdateStatus = (id, body) => apiFetch(`/ops/status-incidents/${enc(id)}/updates`, { ...o, method: 'POST', body });
+export const opsRemoveStatus = (id) => apiFetch(`/ops/status-incidents/${enc(id)}`, { ...o, method: 'DELETE' });
+/* Saved replies (server: routes/opsSavedReplies.ts). */
+export const opsSavedReplies = (ticket) => apiFetch(`/ops/saved-replies${q({ ticket })}`, o);
+export const opsSaveSavedReply = (id, body) => apiFetch(id ? `/ops/saved-replies/${enc(id)}` : '/ops/saved-replies', { ...o, method: id ? 'PATCH' : 'POST', body });
+export const opsRemoveSavedReply = (id) => apiFetch(`/ops/saved-replies/${enc(id)}`, { ...o, method: 'DELETE' });
+/* Insights and switches (server: routes/opsInsights.ts). */
+export const opsInsights = () => apiFetch('/ops/insights', o);
+export const opsSwitches = () => apiFetch('/ops/switches', o);
+export const opsSetSwitch = (name, body) => apiFetch(`/ops/switches/${enc(name)}`, { ...o, method: 'PUT', body });
 /* Every support grant the signed-in operator has asked for, across accounts: the console's Access requests page. */
 export const opsMySupportGrants = () => apiFetch('/ops/support-grants', o);
 
