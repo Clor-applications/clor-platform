@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, onTestFinished } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
@@ -167,11 +167,14 @@ describe('#3 a sign-on provider’s role, and a fresh code to change sign-on', (
     expect(await platformPrisma.authEvent.count({ where: { accountId: o.accountId, eventType: 'PROVIDER_UPDATED' } })).toBe(1);
   }, 120_000);
 
-  it('asks for a fresh authenticator code to change sign-on or directory sync, when the person has an authenticator', async () => {
+  it('asks for a fresh authenticator code to change sign-on or directory sync, and an authenticator first (Stage 1)', async () => {
+    process.env.ACCESS_CHANGE_NEEDS_AUTHENTICATOR = 'on';
+    onTestFinished(() => void delete process.env.ACCESS_CHANGE_NEEDS_AUTHENTICATOR);
     const o = await owner('sso-stepup');
     const sec = (path: string, b: unknown = {}, extra: Record<string, string> = {}) => request(app).post(`/api/orgs/${o.orgId}/security${path}`).set(at(o, extra)).send(b as any);
-    /* Without an authenticator: not stopped (as for an administrator grant, W-5.2). */
-    await sec('/providers', provider()).expect(201);
+    /* Without an authenticator: stopped until one is set up. */
+    expect((await sec('/providers', provider()).expect(403)).body.code).toBe('TWO_FACTOR_SETUP_REQUIRED');
+    expect((await sec('/scim').expect(403)).body.code).toBe('TWO_FACTOR_SETUP_REQUIRED');
 
     const { secret } = (await sec('/two-factor/setup', { password: PASSWORD }).expect(200)).body;
     await clearOfStepEdge();

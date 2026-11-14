@@ -257,7 +257,7 @@ export const RolePermissionManager = () => {
                   {selectedRole?.description ? <p className="ui-caption">{selectedRole.description}</p> : null}
                 </div>
                 {!dirty ? <TemplateDrift template={selectedRole?.template} modules={catalog.modules} onMatch={() => applyPreset(selectedRole.template.key)} /> : null}
-                <Meter label="Granted" used={granted.size} limit={total || null} />
+                <Meter coverage label="Granted" used={granted.size} limit={total || null} />
                 <label className="flex items-start gap-2 text-sm" htmlFor="rpm-own-docs">
                   <input id="rpm-own-docs" type="checkbox" className="mt-0.5" checked={ownDocs} onChange={(e) => setOwnDocs(e.target.checked)} />
                   <span>

@@ -16,6 +16,8 @@ import { notify } from '@ui/components/ui/notify';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { DAY_LABEL, DAY_PILL, attendanceIsOn, listRecords, markDay, todayIst } from './api';
 import { homeCrumbs } from './shared';
+import { BarList, ChartPanel, Columns, StatTiles, TILE_ICON } from './Figures';
+import { addDaysIso } from '@ui/utils/dates';
 
 /**
  * Time & Leave → Attendance: everyone's days, read only — the day record leave
@@ -90,6 +92,9 @@ export default function TeamAttendance() {
   const range = view === 'day' ? { from: date, to: date } : { from: `${month}-01`, to: daysIn(month).at(-1) };
   const records = useRequest(() => listRecords(range), [range.from, range.to]);
   const payable = useRequest(() => (view === 'month' ? getPayableDays(month) : Promise.resolve(null)), [view, month]);
+  /* The week to the chosen day, for the "present, last 7 days" chart (R&D PEOPLE-15). */
+  const weekFrom = addDaysIso(date, -6);
+  const week = useRequest(() => (view === 'day' ? listRecords({ from: weekFrom, to: date }).catch(() => null) : Promise.resolve(null)), [view, weekFrom, date]);
   const payOf = useMemo(() => new Map((payable.data?.rows || []).map((r) => [r.employeeId, r])), [payable.data]);
   const [busy, setBusy] = useState('');
 
@@ -178,9 +183,26 @@ export default function TeamAttendance() {
     { key: 'note', label: 'Note', render: (p) => <span className="ui-caption whitespace-normal">{noteOf(p.day)}</span> },
   ];
 
-  /* The day at a glance: one bar, each status its share of the company. */
-  const SUMMARY = [['PRESENT', 'Present', 'pos'], ['HALF_DAY', 'Half day', 'warn'], ['ON_LEAVE', 'On leave', 'info'], ['ABSENT', 'Absent', 'neg'], ['NONE', 'Not marked', 'none']];
   const lateCount = rows.filter((r) => r.day?.lateMinutes).length;
+  /* The day's figures (R&D PEOPLE-15): present (a half day counts as there), late, absent, on leave, not marked yet. */
+  const present = (counts.PRESENT || 0) + (counts.HALF_DAY || 0);
+  const share = (n) => (rows.length ? `${Math.round((n / rows.length) * 1000) / 10}% of ${rows.length}` : null);
+  const tiles = [
+    { key: 'present', label: 'Present', value: present, accent: 'pos', tone: 'pos', sub: share(present) },
+    { key: 'late', label: 'Late', value: lateCount, accent: 'warn', tone: lateCount ? 'warn' : null, sub: lateCount ? 'In after the shift start' : 'Nobody late' },
+    { key: 'absent', label: 'Absent, no leave', value: counts.ABSENT || 0, accent: 'neg', tone: counts.ABSENT ? 'neg' : null, sub: share(counts.ABSENT || 0) },
+    { key: 'leave', label: 'On leave', value: counts.ON_LEAVE || 0, accent: 4, Icon: TILE_ICON.away, sub: share(counts.ON_LEAVE || 0) },
+    { key: 'none', label: 'Not marked', value: counts.NONE || 0, accent: 5, sub: (counts.HOLIDAY || counts.WEEKLY_OFF) ? `${(counts.HOLIDAY || 0) + (counts.WEEKLY_OFF || 0)} on a holiday or weekly off` : null },
+  ];
+  /* Present each day of the week to the chosen day, as a share of everyone (people employed now). */
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDaysIso(weekFrom, i));
+  const weekRows = week.data ? weekDays.map((d) => {
+    const on = (week.data || []).filter((r) => r.date === d);
+    const n = on.filter((r) => r.status === 'PRESENT').length + on.filter((r) => r.status === 'HALF_DAY').length / 2;
+    return { key: d, label: new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' }), value: rows.length ? Math.round((n / rows.length) * 100) : 0 };
+  }) : null;
+  const lateBy = Object.entries(rows.filter((r) => r.day?.lateMinutes).reduce((m, r) => { const k = r.departmentName || r.department || 'No department'; m[k] = (m[k] || 0) + 1; return m; }, {}))
+    .sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, value]) => ({ label, value }));
 
   return (
     <div className="space-y-6">
@@ -205,20 +227,21 @@ export default function TeamAttendance() {
           )}
           <SearchField value={search.query} onSearch={search.setQuery} placeholder="Search name, employee ID or department" label="Search attendance" className="w-full sm:w-80" />
         </>}
+        strip={view === 'day' && !loading ? <StatTiles label={`The day at a glance, ${formatDate(date)}`} items={tiles} /> : null}
         tabs={view === 'day' ? TABS.map(([k, l]) => ({ key: k || 'all', label: l, count: k ? counts[k] : 0, tone: k === 'NONE' ? 'warn' : undefined })) : null}
         tab={status || 'all'}
         onTab={(k) => setStatus(k === 'all' ? '' : k)}
       />
 
-      {/* The day in one bar; its figures are on the tabs, so there is no second row of them (8 Nov 2026 plan, step 3). */}
-      {/* The bar only once something is marked: a day of nobody marked is one grey band saying nothing. */}
-      {view === 'day' && !loading && SUMMARY.some(([k]) => k !== 'NONE' && counts[k]) ? (
-        <section className="att-summary" aria-label="The day at a glance">
-          <div className="att-summary-bar" role="img" aria-label={SUMMARY.map(([k, l]) => `${l} ${counts[k] || 0}`).join(', ')}>
-            {SUMMARY.map(([k, , tone]) => (counts[k] ? <span key={k} data-tone={tone} style={{ flexGrow: counts[k] }} /> : null))}
-          </div>
-          {lateCount ? <p className="ui-caption att-summary-late">{lateCount} late</p> : null}
-        </section>
+      {view === 'day' && !loading && weekRows && rows.length ? (
+        <div className="pt-charts">
+          <ChartPanel title="Present, last 7 days" note="% of everyone employed">
+            <Columns label="Present each day, per cent" rows={weekRows} />
+          </ChartPanel>
+          <ChartPanel title="Late arrivals by department">
+            {lateBy.length ? <BarList label="Late arrivals by department" rows={lateBy} /> : <p className="pt-foot">Nobody was late on {formatDate(date)}.</p>}
+          </ChartPanel>
+        </div>
       ) : null}
 
       {error && loading ? <ErrorState error={error} onRetry={() => { people.reload(); records.reload(); }} /> : view === 'day' ? (

@@ -110,20 +110,30 @@ const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 export const taskNote = (note) => String(note || '').replace(/^(probation|contract):\d{4}-\d{2}-\d{2}\.\s*/, '');
 const formatDateShort = (d) => { const [y, m, dd] = String(d).slice(0, 10).split('-'); return y && m && dd ? `${Number(dd)} ${MONTHS_SHORT[Number(m) - 1]} ${y}` : String(d); };
 
-export const Avatar = ({ person, size = 40 }) =>
-  person?.photoUrl ? (
-    <img src={person.photoUrl} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
-  ) : (
+/*
+ * A person's identity colour: one of the eight categorical colours (README "Multi-colour system"), picked from the
+ * name so the same person is always the same colour. The fallbacks are the same palette for a theme that does not
+ * declare --cat-* (Accounting's indigo).
+ */
+const CAT_FALLBACK = ['42 120 214', '235 104 52', '27 175 122', '237 161 0', '232 123 164', '0 131 0', '98 80 214', '227 73 72'];
+export const identityCat = (name) => ([...String(name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 8) + 1;
+const catColour = (c) => `rgb(var(--cat-${c}, ${CAT_FALLBACK[c - 1]}))`;
+
+export const Avatar = ({ person, size = 40 }) => {
+  if (person?.photoUrl) return <img src={person.photoUrl} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
+  const cat = identityCat(person?.name);
+  return (
     <span
       className="ui-avatar-initials inline-grid shrink-0 place-items-center rounded-full font-semibold"
-      style={{ width: size, height: size, fontSize: Math.max(12, size * 0.38), backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
+      /* The soft fill is the colour mixed 82% with white; the initials are the colour mixed 42% with black. */
+      style={{ width: size, height: size, fontSize: Math.max(12, Math.round(size * 0.36)), backgroundColor: `color-mix(in srgb, ${catColour(cat)} 18%, rgb(255 255 255))`, color: `color-mix(in srgb, ${catColour(cat)} 58%, rgb(0 0 0))` }}
       aria-hidden="true"
       /* Drawn, not text: the initials are a picture of the person, so they never become part of a button's name. */
       data-initials={initials(person?.name)}
-      /* One of four washes picked from the name; only palettes that opt in draw it (People's Sky). Never marigold. */
-      data-hue={[...String(person?.name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 4}
+      data-cat={cat}
     />
   );
+};
 
 const EXPORT_COLUMNS = [
   { key: 'code', label: 'Employee ID' },

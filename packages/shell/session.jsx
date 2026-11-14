@@ -408,6 +408,11 @@ export function SessionProvider({ children }) {
    *
    * The company arrives from the server with a chart of accounts already,
    * which is why Accounting needs no feature switch of its own.
+   *
+   * The apps picked go with the company, and the server switches on exactly
+   * those: a trial owns every app, and switching the picked ones on after the
+   * fact left the rest on too (People on with only Attendance picked, which
+   * then sent Attendance to People).
    */
   const createCompany = useCallback(
     async ({ name, gstin, state, apps = [] }) => {
@@ -415,17 +420,20 @@ export function SessionProvider({ children }) {
         companyName: name,
         ...(gstin ? { gstin } : {}),
         ...(state ? { state } : {}),
+        apps,
       });
 
       const data = await apiMe();
       /* The company just created, not whichever one sorts first. */
       const made = (data?.orgs || []).find((m) => String(m.org?.name || '') === String(name));
       const next = adopt({ ...data, activeOrgId: made?.orgId || data?.activeOrgId }, true);
+      /*
+       * A new company asks its owner for an authenticator first (launch audit,
+       * Stage 1): until then its routes refuse, and the shell shows the set-up.
+       * The server has already switched on the apps the account owns.
+       */
+      if (data?.twoFactorSetupRequired) return next;
 
-      for (const app of apps) {
-        const key = APP_FEATURE[app];
-        if (key && next) await setFeature(next.id, next.branchId, key, true);
-      }
       if (next) await loadApps(next.id, next.branchId);
       return next;
     },

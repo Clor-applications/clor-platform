@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Printer } from '@ui/components/ui/lineIcons';
+import { Download, Info, Printer } from '@ui/components/ui/lineIcons';
+import { LeavePill, Notice } from './Figures';
 
 import { useListSearch } from '@ui/components/ListToolbar';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
@@ -80,11 +81,14 @@ export default function LeaveRegister() {
         title="Leave register"
         actions={data?.rows?.length ? (
           <div className="flex items-center gap-2">
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setPrinting(true)}><Printer size={16} aria-hidden="true" /> Print register</button>
-            <MoreButton items={[exportMenuItem('Export the register')]} onSelect={onMore} />
+            {/* R&D PEOPLE-14: the spreadsheet as a secondary, the printed register (the inspector's copy) as the one primary. */}
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => onMore('export:xlsx')}><Download size={16} aria-hidden="true" /> Download Excel</button>
+            <MoreButton items={[exportMenuItem('Other formats')]} onSelect={onMore} />
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setPrinting(true)}><Printer size={16} aria-hidden="true" /> Print register</button>
           </div>
         ) : null}
       />
+      <p className="ui-list-desc ui-muted -mt-4">Leave with wages for each person and type in the leave period{label ? ` (${label})` : ''}, ready for an inspection.</p>
       {error && !data ? <ErrorState error={error} onRetry={() => { settings.reload(); req.reload(); }} /> : !data ? <SkeletonCard lines={6} /> : (
         <div className="ui-datatable" aria-busy={req.refreshing || undefined}>
           <div className="ui-datatable-toolbar">
@@ -94,6 +98,7 @@ export default function LeaveRegister() {
               {typeOptions.length > 2 || typeId ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={typeId} onChange={(v) => setTypeId(v || '')} options={typeOptions} placeholder="Every type" /></div> : null}
             </div>
           </div>
+          <div className="mb-4"><Notice tone="info" icon={Info}>This register is built from approved leave and the leave policy. Corrections are made on the leave itself, which keeps an audit trail.</Notice></div>
           {!search.filtered.length ? (
             search.query ? <EmptyState kind="filtered" title="Nothing matches" onClearFilters={() => search.setQuery('')} /> : <EmptyState title="Nothing in this period" />
           ) : (
@@ -102,6 +107,7 @@ export default function LeaveRegister() {
                 <table className="ui-table ui-table-sticky w-full" aria-label={`Leave register, ${label}`}>
                   <thead>
                     <tr>
+                      <th scope="col">Code</th>
                       <th scope="col">Employee</th>
                       <th scope="col">Leave</th>
                       {cols.map(([k, l]) => <th key={k} scope="col" className="text-right ui-num">{l}</th>)}
@@ -110,15 +116,16 @@ export default function LeaveRegister() {
                   <tbody className="ui-rows">
                     {pageRows.map((r) => (
                       <tr key={`${r.employeeId}-${r.leaveTypeId}`}>
-                        <td><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></td>
-                        <td><span className="inline-flex items-center gap-2 whitespace-nowrap"><span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: typeColor.get(r.leaveTypeId) }} aria-hidden="true" />{r.leaveType}</span></td>
-                        {cols.map(([k]) => <td key={k} className={`text-right tabular-nums ${k === 'closing' && r[k] < 0 ? 'ui-text-neg' : ''}`}>{num(r[k])}</td>)}
+                        <td className="tabular-nums whitespace-nowrap">{r.code || '—'}</td>
+                        <td><span className="block truncate font-medium">{r.name}</span>{r.department ? <span className="block truncate ui-caption">{r.department}</span> : null}</td>
+                        <td><LeavePill type={{ name: r.leaveType, color: typeColor.get(r.leaveTypeId) }} /></td>
+                        {cols.map(([k]) => <td key={k} className={`text-right tabular-nums ${k === 'closing' ? 'font-semibold' : ''} ${k === 'closing' && r[k] < 0 ? 'ui-text-neg' : ''}`}>{num(r[k])}</td>)}
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr>
-                      <th scope="row" colSpan={2} className="text-left font-medium">Total, <span className="tabular-nums">{search.filtered.length}</span> rows</th>
+                      <th scope="row" colSpan={3} className="text-left font-medium">Total, <span className="tabular-nums">{search.filtered.length}</span> rows</th>
                       {cols.map(([k]) => <td key={k} className="text-right tabular-nums font-medium">{totals[k]}</td>)}
                     </tr>
                   </tfoot>

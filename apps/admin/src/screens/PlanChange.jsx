@@ -28,8 +28,13 @@ const KINDS = [
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null);
 const appName = (code) => APPS.find(([k]) => k === code)?.[1] || code;
 
-export default function PlanChange() {
+/**
+ * `asButton`: the page's one primary action, "Change plan", opening the same
+ * choices in a side panel (Billing & seats, R&D hand-off); without it, a panel.
+ */
+export default function PlanChange({ asButton = false }) {
   const [state, setState] = useState(null);
+  const [menu, setMenu] = useState(false);
   const [asking, setAsking] = useState(null);
   const [stopping, setStopping] = useState(false);
 
@@ -58,45 +63,75 @@ export default function PlanChange() {
     }
   };
 
+  const ask = (k) => {
+    setMenu(false);
+    setAsking(k);
+  };
+  const stop = () => {
+    setMenu(false);
+    setStopping(true);
+  };
+  const keep = async () => {
+    setMenu(false);
+    await resume();
+  };
+
+  const body = (
+    <>
+      <p className="ws-card-blurb">Apps on this plan: {owned.length ? owned.map(appName).join(', ') : 'none'}.</p>
+      {state.mayChangePlan && attendanceOnly ? (
+        <div className="grid gap-2">
+          <p className="ws-card-blurb">People adds hiring, performance, learning, assets, expenses and the rest of HR. Everything in Attendance stays, and Attendance comes off the bill.</p>
+          <div>
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={() => ask('UPGRADE_PEOPLE')}>
+              Move to People
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {state.mayChangePlan ? (
+        <p className="ws-card-blurb">
+          <button type="button" className="ws-link" onClick={() => ask('ADD_APP')}>
+            Ask for another change
+          </button>
+          . CLOR sales replies by email with the price; nothing changes until you agree.
+        </p>
+      ) : null}
+      {state.mayStopPlan && running ? (
+        sub.cancelAtPeriodEnd ? (
+          <p className="ws-card-blurb">
+            This plan will not renew{endsOn ? `; it stops on ${endsOn}` : ''}.{' '}
+            <button type="button" className="ws-link" onClick={keep}>
+              Keep the plan
+            </button>
+          </p>
+        ) : (
+          <p className="ws-card-blurb">
+            <button type="button" className="ws-link" onClick={stop}>
+              Stop renewing
+            </button>
+          </p>
+        )
+      ) : null}
+    </>
+  );
+
   return (
     <>
-      <Panel title="Change the plan">
-        <p className="ws-card-blurb">Apps on this plan: {owned.length ? owned.map(appName).join(', ') : 'none'}.</p>
-        {state.mayChangePlan && attendanceOnly ? (
-          <div className="grid gap-2">
-            <p className="ws-card-blurb">People adds hiring, performance, learning, assets, expenses and the rest of HR. Everything in Attendance stays, and Attendance comes off the bill.</p>
-            <div>
-              <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setAsking('UPGRADE_PEOPLE')}>
-                Move to People
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {state.mayChangePlan ? (
-          <p className="ws-card-blurb">
-            <button type="button" className="ws-link" onClick={() => setAsking('ADD_APP')}>
-              Ask for another change
-            </button>
-            . CLOR sales replies by email with the price; nothing changes until you agree.
-          </p>
-        ) : null}
-        {state.mayStopPlan && running ? (
-          sub.cancelAtPeriodEnd ? (
-            <p className="ws-card-blurb">
-              This plan will not renew{endsOn ? `; it stops on ${endsOn}` : ''}.{' '}
-              <button type="button" className="ws-link" onClick={resume}>
-                Keep the plan
-              </button>
-            </p>
-          ) : (
-            <p className="ws-card-blurb">
-              <button type="button" className="ws-link" onClick={() => setStopping(true)}>
-                Stop renewing
-              </button>
-            </p>
-          )
-        ) : null}
-      </Panel>
+      {asButton ? (
+        <>
+          <button type="button" className="ws-btn ws-btn--primary" onClick={() => setMenu(true)}>
+            Change plan
+          </button>
+          {menu ? (
+            <WsDrawer open onClose={() => setMenu(false)} title="Change the plan" description="CLOR sales replies by email with the new price. Nothing changes until you agree.">
+              <div className="grid gap-4">{body}</div>
+            </WsDrawer>
+          ) : null}
+        </>
+      ) : (
+        <Panel title="Change the plan">{body}</Panel>
+      )}
       {asking ? <AskDrawer first={asking} owned={owned} onClose={() => setAsking(null)} /> : null}
       {stopping ? <StopDrawer endsOn={endsOn} trial={sub?.status === 'trialing'} onClose={() => setStopping(false)} onDone={load} /> : null}
     </>

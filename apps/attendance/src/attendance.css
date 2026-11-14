@@ -1,0 +1,96 @@
+/*
+ * Attendance on the R&D shell (owner, 14 Nov 2026; clor-rnd/README.md §3, §5).
+ * Violet portal tokens come from rnd.css; this file holds only what Attendance's
+ * own screens draw. Colour has one job: identity tiles take the categorical
+ * palette, state takes the status colours (always beside a label), and the
+ * portal violet is left to the primary button, links and "you are here".
+ */
+
+/* KPI tiles (PEOPLE-15): 3px top accent in the tile's colour, a 36px tinted chip,
+   a 12px uppercase label, a 28/36 bold tabular figure and a 12px note. */
+.att-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media (min-width: 768px) { .att-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .att-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+.att-kpi {
+  --kpi: var(--neutral-ink);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 1.25rem 1.25rem 1rem;
+  border: 1px solid rgb(var(--border-field));
+  border-top: 3px solid rgb(var(--kpi));
+  border-radius: 0.75rem;
+  background: rgb(var(--surface));
+}
+.att-kpi[data-k='headcount'] { --kpi: var(--cat-1); }
+.att-kpi[data-k='present'] { --kpi: var(--pos); }
+.att-kpi[data-k='late'] { --kpi: var(--warn-ink); }
+.att-kpi[data-k='absent'] { --kpi: var(--neg); }
+.att-kpi[data-k='leave'] { --kpi: var(--cat-4); }
+.att-kpi[data-k='unmarked'] { --kpi: var(--neutral-ink); }
+
+.att-kpi-head { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.att-kpi-chip {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, rgb(var(--kpi)) 12%, rgb(255 255 255));
+}
+.att-kpi-chip::before {
+  content: '';
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+  background: rgb(var(--kpi));
+}
+.att-kpi-label {
+  min-width: 0;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted));
+}
+.att-kpi-value {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg));
+}
+/* A state figure takes its state's ink, only when there is something to see ("0 late" stays ink). */
+.att-kpi[data-on] .att-kpi-value { color: rgb(var(--kpi)); }
+.att-kpi[data-k='headcount'] .att-kpi-value,
+.att-kpi[data-k='leave'] .att-kpi-value { color: rgb(var(--fg)); }
+.att-kpi-note { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-subtle)); }
+
+/* Charts sit on the soft panel with no border (README §3, the Ramp pattern); series take the categorical palette. */
+.att-chart {
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  background: rgb(var(--soft-panel));
+}
+:root .att-chart .ui-week [data-k='in'],
+:root .att-chart .ui-legend [data-k='in'] { background: rgb(var(--cat-1)); }
+:root .ui-today-hero .ui-today-hero-meter > span { background: rgb(var(--cat-1)); }
+/* The day's title: Sora 700, the H2 voice. */
+:root .ui-today-hero .ui-today-hero-greet {
+  font-family: var(--font-brand);
+  font-size: 1.375rem !important;
+  line-height: 1.875rem !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+/* The queue's leading marks are neutral: violet stays for "you are here". */
+:root .ui-today-hero-action > svg:first-child { color: rgb(var(--fg-muted)); }

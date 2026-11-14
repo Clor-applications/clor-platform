@@ -12,11 +12,36 @@ import { notify } from '../components/ui/notify';
 const url = () => `/orgs/${encodeURIComponent(platformOrgId())}/company-profile`;
 const opts = { skipWarehouseHeader: true };
 
-const SECTIONS = [
-  { title: 'Identity', fields: [['legalName', 'Legal name', { required: true }], ['pan', 'Company PAN', { placeholder: 'AABCC1234D' }], ['tan', 'TAN', { placeholder: 'BLRC12345D' }], ['cin', 'CIN / LLPIN'], ['industry', 'Industry']] },
-  { title: 'Registered address and contact', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['pincode', 'PIN code'], ['phone', 'Phone'], ['email', 'Email'], ['website', 'Website']] },
-  { title: 'Statutory registrations', note: 'Quoted on PF, ESIC, Professional Tax and Labour Welfare Fund returns.', fields: [['epfCode', 'EPF establishment code'], ['esicCode', 'ESIC employer code'], ['ptRegistration', 'Professional Tax registration'], ['lwfRegistration', 'Labour Welfare Fund registration']] },
+/*
+ * R&D PEOPLE-29: plain sections on the page ground (no cards), two columns of fields, the side column for contact.
+ * GSTIN and state are shown read-only where the design puts them; Accounting owns them.
+ */
+const MAIN = [
+  { title: 'Legal', fields: [['legalName', 'Legal name', { required: true, wide: true }], ['industry', 'Industry'], ['cin', 'CIN / LLPIN'], ['pan', 'PAN', { placeholder: 'AABCC1234D' }], ['tan', 'TAN', { placeholder: 'BLRC12345D' }], ['gstin', 'GSTIN', { readOnly: 'Changed in Accounting, where tax is worked out.' }], ['epfCode', 'PF establishment code'], ['esicCode', 'ESIC code'], ['ptRegistration', 'PT registration'], ['lwfRegistration', 'Labour Welfare Fund registration']] },
+  { title: 'Registered office', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['state', 'State', { readOnly: 'Comes from the head office in Accounting.' }], ['pincode', 'PIN code']] },
 ];
+const SIDE = [
+  { title: 'Contact', fields: [['phone', 'Phone'], ['email', 'Email'], ['website', 'Website']] },
+];
+
+function Field({ k, label, o = {}, form, set }) {
+  return (
+    <label className={`block ${o.wide ? 'sm:col-span-2' : ''}`}>
+      <span className="ui-label">{label}{o.required ? <span aria-hidden="true" style={{ color: 'rgb(var(--neg))' }}> *</span> : null}</span>
+      <input
+        className="ui-input w-full"
+        value={form[k] || ''}
+        onChange={o.readOnly ? undefined : set(k)}
+        readOnly={Boolean(o.readOnly)}
+        aria-readonly={o.readOnly ? 'true' : undefined}
+        placeholder={o.readOnly ? '—' : o.placeholder || ''}
+        required={Boolean(o.required)}
+        style={o.readOnly ? { background: 'rgb(var(--surface-sunken))' } : undefined}
+      />
+      {o.readOnly ? <span className="ui-caption mt-1 block">{o.readOnly}</span> : null}
+    </label>
+  );
+}
 
 export default function CompanyDetails() {
   const [form, setForm] = useState(null);
@@ -44,41 +69,42 @@ export default function CompanyDetails() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       <PageHeader
-        entity="settings"
-        title="Company Details"
-        description="Who the employer is, as letters, payslips and statutory returns name it."
+        title="Company details"
+        description="Shown on letters, payslips and statutory returns."
+        actions={form ? <button type="submit" form="company-details" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button> : null}
       />
-      {error ? <p className="ui-card p-4 text-sm" role="alert">{error}</p> : null}
+      {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       {!form ? (
         error ? null : <SkeletonCard lines={8} />
       ) : (
-        <form onSubmit={save} className="space-y-4 pb-8">
-          <section className="ui-card p-4 grid gap-4 sm:grid-cols-3" aria-label="Company">
-            <div><span className="ui-label">Name in CLOR</span><p className="text-sm font-medium">{form.name}</p></div>
-            <div><span className="ui-label">State</span><p className="text-sm">{form.state || '—'}</p></div>
-            <div><span className="ui-label">GSTIN</span><p className="text-sm">{form.gstin || '—'}</p><p className="ui-caption">Changed in Accounting, where tax is worked out.</p></div>
-          </section>
-          {SECTIONS.map((sec) => (
-            <section key={sec.title} className="ui-card p-4 space-y-3" aria-label={sec.title}>
-              <div>
+        <form id="company-details" onSubmit={save} className="grid gap-8 pb-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="space-y-8 min-w-0">
+            {MAIN.map((sec) => (
+              <section key={sec.title} className="space-y-3" aria-label={sec.title}>
                 <h2 className="ui-t-sec">{sec.title}</h2>
-                {sec.note ? <p className="ui-caption">{sec.note}</p> : null}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {sec.fields.map(([k, label, o = {}]) => (
-                  <label key={k} className={`block ${o.wide ? 'sm:col-span-2' : ''}`}>
-                    <span className="ui-label">{label}{o.required ? ' *' : ''}</span>
-                    <input className="ui-input w-full" value={form[k] || ''} onChange={set(k)} placeholder={o.placeholder || ''} required={Boolean(o.required)} />
-                  </label>
-                ))}
-              </div>
-            </section>
-          ))}
-          <div className="flex justify-end">
-            <button type="submit" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save company details'}</button>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {sec.fields.map(([k, label, o]) => <Field key={k} k={k} label={label} o={o} form={form} set={set} />)}
+                </div>
+              </section>
+            ))}
           </div>
+          <aside className="space-y-8 min-w-0">
+            <section className="space-y-3" aria-label="Name in CLOR">
+              <h2 className="ui-t-sec">Name in CLOR</h2>
+              <p className="text-sm font-medium">{form.name}</p>
+              <p className="ui-caption">The name people see in the app and the company switcher.</p>
+            </section>
+            {SIDE.map((sec) => (
+              <section key={sec.title} className="space-y-3" aria-label={sec.title}>
+                <h2 className="ui-t-sec">{sec.title}</h2>
+                <div className="grid gap-4">
+                  {sec.fields.map(([k, label, o]) => <Field key={k} k={k} label={label} o={o} form={form} set={set} />)}
+                </div>
+              </section>
+            ))}
+          </aside>
         </form>
       )}
     </div>

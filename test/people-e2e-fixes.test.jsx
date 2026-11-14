@@ -197,6 +197,8 @@ describe('#80 manager QA: half days say which half; the bell stays on a phone sc
       away({ employeeId: 'l', employeeName: 'Lakshmi Patil', fromDate: day, toDate: day }),
     ]);
     render(<LeaveCalendar />);
+    /* One line a person (the By person view) draws each day's mark; the Month view lists names. */
+    fireEvent.click(await screen.findByRole('button', { name: 'By person' }));
     const first = await screen.findByRole('img', { name: `${day}: Casual leave, approved, first half` });
     const second = screen.getByRole('img', { name: `${day}: Casual leave, approved, second half` });
     const whole = screen.getByRole('img', { name: `${day}: Casual leave, approved` });

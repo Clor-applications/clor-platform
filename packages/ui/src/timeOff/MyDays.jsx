@@ -13,6 +13,7 @@ import PhonePunch from './PhonePunch';
 import MarksLine from './MarksLine';
 import { EnterRequest, KINDS, KIND_NAME, WhenCell, detailsText, monthChoices } from './AttendanceRequests';
 import { homeCrumbs, useCanActForSelf } from './shared';
+import './time-off.css';
 
 /**
  * The basic check-in in HR (founder, 22 Oct 2026): one button for someone
@@ -184,6 +185,71 @@ export function MyRequests({ month, onMonth, asking, onAsk, onAsked, preset = nu
   );
 }
 
+const WEEK_HEAD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const isoAdd = (iso, by) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + by); return d.toISOString().slice(0, 10); };
+const hm = (m) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`;
+const DAY_TONE = { PRESENT: 'is-pos', HALF_DAY: 'is-warn', ABSENT: 'is-neg' };
+
+/**
+ * My days as a calendar (R&D PEOPLE-17): the weeks of the month from Monday, each day's mark and its in and out,
+ * a late day washed amber, today outlined. Only the days the record holds are filled; the rest stay blank.
+ */
+function MyMonth({ records, month, today }) {
+  const byDate = new Map((records || []).map((r) => [r.date, r]));
+  const [y, m] = month.split('-').map(Number);
+  const first = `${month}-01`;
+  const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  const start = isoAdd(first, -((new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7));
+  const cells = [];
+  for (let d = start; d <= last || cells.length % 7; d = isoAdd(d, 1)) cells.push(d);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
+  const title = new Date(`${first}T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return (
+    <div className="pt-month" role="table" aria-label={`My days, ${title}`}>
+      <div className="pt-month-row pt-month-head" role="row">{WEEK_HEAD.map((d) => <span key={d} role="columnheader">{d}</span>)}</div>
+      {weeks.map((w) => (
+        <div key={w[0]} className="pt-month-row" role="row">
+          {w.map((d) => {
+            const inMonth = d.startsWith(month);
+            const r = inMonth ? byDate.get(d) : null;
+            const late = Boolean(r?.lateMinutes);
+            const off = r && ['WEEKLY_OFF', 'HOLIDAY', 'ON_LEAVE'].includes(r.status);
+            return (
+              <div key={d} role="cell" className={`pt-day pt-myday ${inMonth ? '' : 'is-out'} ${off ? 'is-off' : ''} ${late ? 'is-late' : ''} ${d === today ? 'is-today' : ''}`}
+                aria-label={inMonth ? `${formatDate(d)}${r ? `: ${late ? 'Late' : DAY_LABEL[r.status] || r.status}${r.checkInTime ? `, ${r.checkInTime}–${r.checkOutTime || 'still in'}` : ''}` : ''}` : undefined}>
+                <span className="pt-day-n" aria-hidden="true">{inMonth ? Number(d.slice(8)) : ''}</span>
+                {r ? <span className={`pt-myday-mark ${late ? 'is-warn' : DAY_TONE[r.status] || ''}`} aria-hidden="true">{late ? 'Late' : DAY_LABEL[r.status] || r.status}</span> : null}
+                {r?.checkInTime ? <span className="pt-myday-time" aria-hidden="true">{r.checkInTime}–{r.checkOutTime || '…'}</span> : null}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** This month in four lines: days present, late arrivals, leave days, average hours on the days with both punches. */
+function MonthFacts({ records, month }) {
+  const mine = (records || []).filter((r) => r.date.startsWith(month));
+  const present = mine.filter((r) => r.status === 'PRESENT').length + mine.filter((r) => r.status === 'HALF_DAY').length / 2;
+  const late = mine.filter((r) => r.lateMinutes).length;
+  const leave = mine.filter((r) => r.status === 'ON_LEAVE').length;
+  const worked = mine.filter((r) => r.workedMinutes > 0);
+  const avg = worked.length ? worked.reduce((a, r) => a + r.workedMinutes, 0) / worked.length : null;
+  return (
+    <section className="space-y-2" aria-labelledby="my-month-h">
+      <h2 id="my-month-h" className="pt-h2">This month</h2>
+      <ul className="pt-facts">
+        <li><span>Days present</span><span>{present}</span></li>
+        <li><span>Late arrivals</span><span className={late ? 'ui-text-warn' : ''}>{late}</span></li>
+        <li><span>Leave taken</span><span>{leave}</span></li>
+        <li><span>Average hours</span><span>{avg == null ? '—' : hm(avg)}</span></li>
+      </ul>
+    </section>
+  );
+}
+
 export default function MyDays({ params = {} } = {}) {
   const req = useRequest(() => getMyDays(), []);
   const me = req.data;
@@ -217,21 +283,35 @@ export default function MyDays({ params = {} } = {}) {
         <SkeletonCard lines={5} />
       ) : (
         <>
-          {me.phone?.allowed && canAct ? (
-            <>
-              <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={req.reload} />
-              <TodayPunches punches={me.punches} />
-            </>
-          ) : <CheckInCard me={me} onChanged={req.reload} />}
-          <DataTable
-            label="My days"
-            columns={columns}
-            rows={me.records || []}
-            total={(me.records || []).length}
-            noun="days"
-            refreshing={req.refreshing}
-            empty={<EmptyState title="No days in the last month" />}
-          />
+          <div className="pt-mydays">
+            <div className="min-w-0 space-y-3">
+              <MyMonth records={me.records} month={todayIst().slice(0, 7)} today={todayIst()} />
+              {/* The days before this month that the record still holds (the last thirty), as a list. */}
+              {(me.records || []).some((r) => !r.date.startsWith(todayIst().slice(0, 7))) ? (
+                <details className="pt-earlier">
+                  <summary>Earlier days</summary>
+                  <DataTable
+                    label="My days"
+                    columns={columns}
+                    rows={(me.records || []).filter((r) => !r.date.startsWith(todayIst().slice(0, 7)))}
+                    total={(me.records || []).filter((r) => !r.date.startsWith(todayIst().slice(0, 7))).length}
+                    noun="days"
+                    refreshing={req.refreshing}
+                    empty={<EmptyState title="No earlier days" />}
+                  />
+                </details>
+              ) : null}
+            </div>
+            <aside className="space-y-6 min-w-0" aria-label="Today and this month">
+              {me.phone?.allowed && canAct ? (
+                <>
+                  <PhonePunch phone={me.phone} punches={me.punches} onPunch={phonePunch} onDone={req.reload} />
+                  <TodayPunches punches={me.punches} />
+                </>
+              ) : <CheckInCard me={me} onChanged={req.reload} />}
+              <MonthFacts records={me.records} month={todayIst().slice(0, 7)} />
+            </aside>
+          </div>
           <MarksLine month={month} />
           <MyRequests month={month} onMonth={setMonth} asking={asking} preset={fix} onAsk={() => setAsking(false)} onAsked={() => { setAsking(false); req.reload(); }} />
         </>

@@ -6,11 +6,14 @@ import { orgId as platformOrgId, requestOpenApp } from '@platform/context';
 import { STATUS as CREDENTIAL_STATUS } from './credentialsModel';
 import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
 import { listRoles } from '@platform/admin/admin';
-import { ICON, PageHead, Panel, WsDrawer } from './wsKit';
+import { GlobeShieldColor, LockClosedColor, LockShieldColor } from '@fluentui/react-icons';
+import { colorIcon } from '@ui/components/ui/colorIcon';
+import { PageHead, StatusPill, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /**
- * Workspace → Security → Single sign-on (redesign W-R7).
+ * Workspace → Security → Single sign-on (redesign W-R7; R&D WS-11).
  *
  * An OpenID Connect provider (Google Workspace, Microsoft Entra, Okta,
  * Keycloak…) is configured here; from then on an e-mail at one of the domains
@@ -25,11 +28,20 @@ const EMPTY = { kind: 'OIDC', name: '', discoveryUrl: '', issuer: '', clientId: 
 
 /* A provider's state in words; "Stored" is configured but never switched on. */
 const STATUS = {
-  ACTIVE: ['Active', 'ws-pill ws-pill--ok'],
-  DISABLED: ['Switched off', 'ws-pill ws-pill--off'],
-  CONFIGURED_NOT_ACTIVE: ['Stored', 'ws-pill'],
+  ACTIVE: ['Connected', 'ok'],
+  DISABLED: ['Switched off', 'neutral'],
+  CONFIGURED_NOT_ACTIVE: ['Not switched on', 'warn'],
 };
-const CRED_TONE = { 'ui-pill-pos': 'ws-pill ws-pill--ok', 'ui-pill-neutral': 'ws-pill ws-pill--off', 'ui-pill-warn': 'ws-pill' };
+const CRED_TONE = { 'ui-pill-pos': 'ok', 'ui-pill-neutral': 'neutral', 'ui-pill-warn': 'warn' };
+const GLOBE = colorIcon(GlobeShieldColor, 'GlobeShield', 24);
+const LOCK = colorIcon(LockShieldColor, 'LockShield', 24);
+const KEY = colorIcon(LockClosedColor, 'LockClosed', 24);
+/* The two providers most companies use, offered as a card until one is set up; Connect opens the form filled in. */
+const SUGGESTED = [
+  { match: /google/i, name: 'Google Workspace', line: 'Use if your email is on Google Workspace.', Icon: GLOBE, preset: { kind: 'OIDC', name: 'Google Workspace', discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration' } },
+  { match: /microsoft|entra|azure/i, name: 'Microsoft Entra ID', line: 'Use if your email is on Microsoft 365.', Icon: LOCK, preset: { kind: 'OIDC', name: 'Microsoft Entra ID', discoveryUrl: '' } },
+];
+const iconFor = (p) => (/google/i.test(`${p.name} ${p.discoveryUrl || ''}`) ? GLOBE : LOCK);
 /* `.ws` outside the page: its tokens without its page padding and ground. */
 const DRAWER_WS = { padding: 0, background: 'none', minHeight: 0 };
 const day = (d) => new Date(d).toLocaleDateString('en-IN', { dateStyle: 'medium' });
@@ -42,6 +54,20 @@ function Field({ label, hint, wide, children }) {
       {children}
       {hint ? <span className="ui-caption">{hint}</span> : null}
     </label>
+  );
+}
+
+/** A section on the page under one hairline: a title, then its body. */
+function Section({ title, id, action, lede, children }) {
+  return (
+    <section className="ws-sec-section" aria-labelledby={id}>
+      <div className="ws-sec-section-head">
+        <h2 id={id} className="ws-h2">{title}</h2>
+        {action || null}
+      </div>
+      {lede ? <p className="ws-sec-lede">{lede}</p> : null}
+      <div className="ws-sec-body">{children}</div>
+    </section>
   );
 }
 
@@ -137,12 +163,15 @@ export default function SsoSettings() {
   const edit = (p) => setForm({ ...EMPTY, ...p, clientSecret: '', defaultRoleId: p.defaultRoleId || '', emailDomains: p.emailDomains || '', discoveryUrl: p.discoveryUrl || '', issuer: p.issuer || '', scopes: p.scopes || EMPTY.scopes });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
 
+  const suggested = data ? SUGGESTED.filter((x) => !data.providers.some((p) => x.match.test(`${p.name} ${p.discoveryUrl || ''} ${p.issuer || ''} ${p.entryPoint || ''}`))) : [];
+
   return (
     <div className="ws">
       <div className="ws-inner">
         <PageHead
           crumbs={['Security', 'Single sign-on']}
           title="Single sign-on"
+          description="One sign-in for every CLOR app. People at your email domains are offered “Continue with” their provider; roles and company access stay here."
           actions={
             data ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setForm({ ...EMPTY })}>
@@ -155,135 +184,134 @@ export default function SsoSettings() {
         {!data ? (
           <p className="ws-card-blurb">Loading sign-in methods…</p>
         ) : (
-          <div className="ws-layout">
-            <div className="grid gap-5 min-w-0">
-              <Panel title="Sign-in methods" action={<span className="ws-head-meta">{data.providers.length + 1} in all</span>}>
-                <ul className="ws-list" aria-label="Sign-in methods">
-                  <li>
-                    <div className="ws-item">
-                      <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.person size={14} /></span>
-                      <span className="ws-item-text">
-                        <span className="ws-item-title">{data.local.name}</span>
-                        <span className="ws-item-sub">Always on.</span>
-                      </span>
-                      <span className="ws-pill ws-pill--ok">Active</span>
+          <>
+            <ul className="ws-sso-grid" aria-label="Sign-in methods">
+              {data.providers.map((p) => {
+                const [label, tone] = STATUS[p.status] || [p.status, 'neutral'];
+                const unverified = p.domainVerification?.domains?.some((d) => !d.verified);
+                const Icon = iconFor(p);
+                return (
+                  <li key={p.id} className="ws-sso-card">
+                    <div className="ws-sso-head">
+                      <span className="ws-sso-chip" aria-hidden="true"><Icon /></span>
+                      <span className="ws-sso-name">{p.name}</span>
+                      <StatusPill tone={tone}>{label}</StatusPill>
+                      <span className="ws-tag">{p.kind === 'SAML' ? 'SAML 2.0' : 'OpenID Connect'}</span>
+                    </div>
+                    <p className="ws-sso-line">
+                      {p.emailDomains ? p.emailDomains : 'No domains named — nobody is offered it'}
+                      {p.autoProvision ? ' · new people are added automatically' : ''}
+                      {p.lastUsedAt ? ` · last used ${stamp(p.lastUsedAt)}` : ''}
+                    </p>
+                    {p.lastError ? <p className="ws-sso-small" data-tone="neg">Last problem: {p.lastError}</p> : null}
+                    {p.domainVerification?.domains?.length ? (
+                      <p className="ws-sso-small">Domains: {p.domainVerification.domains.map((d) => `${d.domain} ${d.verified ? '✓ verified' : '— not verified'}`).join(' · ')}</p>
+                    ) : null}
+                    {unverified && p.domainVerification.record ? (
+                      <p className="ws-sso-small">
+                        Prove you own them: add a DNS TXT record on each domain with the value <code className="ui-mono break-all">{p.domainVerification.record}</code>, then choose Verify. It cannot be switched on until every domain is verified.
+                      </p>
+                    ) : null}
+                    {p.saml ? (
+                      <p className="ws-sso-small">
+                        At the provider: Reply URL / ACS <code className="ui-mono break-all">{p.saml.acsUrl}</code> · Identifier / Audience <code className="ui-mono break-all">{p.saml.spEntityId}</code> · metadata at the same address as the identifier. NameID as e-mail.
+                      </p>
+                    ) : null}
+                    <div className="ws-sso-actions">
+                      {unverified ? <button type="button" className="ws-btn ws-btn--quiet" onClick={() => verify(p)}>Verify domains</button> : null}
+                      <button type="button" className="ws-btn ws-btn--quiet" onClick={() => toggle(p)}>{p.enabled ? 'Switch off' : 'Switch on'}</button>
+                      <button type="button" className="ws-btn ws-btn--quiet" onClick={() => edit(p)}>Edit</button>
+                      <button type="button" className="ws-btn ws-btn--danger-quiet" aria-label={`Remove ${p.name}`} onClick={() => remove(p)}><Trash2 size={16} aria-hidden="true" /> Remove</button>
                     </div>
                   </li>
-                  {data.providers.map((p) => {
-                    const [label, pill] = STATUS[p.status] || [p.status, 'ws-pill'];
-                    const unverified = p.domainVerification?.domains?.some((d) => !d.verified);
+                );
+              })}
+              {suggested.map((x) => (
+                <li key={x.name} className="ws-sso-card">
+                  <div className="ws-sso-head">
+                    <span className="ws-sso-chip" aria-hidden="true"><x.Icon /></span>
+                    <span className="ws-sso-name">{x.name}</span>
+                    <StatusPill tone="neutral">Not set up</StatusPill>
+                  </div>
+                  <p className="ws-sso-line">{x.line}</p>
+                  <div className="ws-sso-actions">
+                    <button type="button" className="ws-btn ws-btn--quiet" onClick={() => setForm({ ...EMPTY, ...x.preset })}>Connect</button>
+                  </div>
+                </li>
+              ))}
+              <li className="ws-sso-card">
+                <div className="ws-sso-head">
+                  <span className="ws-sso-chip" aria-hidden="true"><KEY /></span>
+                  <span className="ws-sso-name">{data.local.name}</span>
+                  <StatusPill tone="ok">Active</StatusPill>
+                </div>
+                <p className="ws-sso-line">Always on. Passwords keep working for anyone a provider does not cover.</p>
+              </li>
+            </ul>
+
+            <Section
+              title="Directory sync (SCIM 2.0)"
+              id="ws-sso-scim"
+              action={<a className="ws-link" href="/docs/scim.html" target="_blank" rel="noreferrer">Guide</a>}
+              lede="Let Microsoft Entra, Okta, JumpCloud or Google add, update and remove people here automatically. Roles stay in CLOR; groups are not synced."
+            >
+              {scim?.baseUrl ? <Address label="Tenant URL to give the provider" value={scim.baseUrl} /> : null}
+              {newToken ? (
+                <div className="ws-band" data-tone="warn" role="status" style={{ display: 'grid', gap: 8 }}>
+                  <span className="text-sm font-semibold">Secret token — shown once</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <code className="ui-mono text-sm break-all min-w-0 flex-1">{newToken}</code>
+                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={copyToken}><Copy size={14} aria-hidden="true" /> Copy</button>
+                  </div>
+                  <span className="ui-caption">Paste it into your provider with the tenant URL.</span>
+                </div>
+              ) : null}
+              {(scim?.tokens || []).length ? (
+                <ul className="ws-list">
+                  {scim.tokens.map((t) => {
+                    const [word, tone, why] = CREDENTIAL_STATUS[t.status] || CREDENTIAL_STATUS.OWNER_OFF;
                     return (
-                      <li key={p.id}>
-                        <div className="grid gap-2" style={{ padding: '12px 0' }}>
-                          <div className="ws-item" style={{ padding: 0 }}>
-                            <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.secure size={14} /></span>
-                            <span className="ws-item-text">
-                              <span className="ws-item-title">{p.name} <span className="ws-head-meta">· {p.kind}</span></span>
-                              <span className="ws-item-sub">
-                                {p.emailDomains ? `Domains: ${p.emailDomains}` : 'No domains named — nobody is offered it'}
-                                {p.autoProvision ? ' · new people are added automatically' : ''}
-                                {p.lastUsedAt ? ` · last used ${stamp(p.lastUsedAt)}` : ''}
-                              </span>
+                      <li key={t.id}>
+                        <div className="ws-item ws-item--wrap">
+                          <span className="ws-item-text">
+                            <span className="ws-item-title"><code className="ui-mono">{t.tokenPrefix}…</code>{t.agent ? ` · for connector ${t.agent.name}` : ''}</span>
+                            <span className="ws-item-sub">
+                              Made {day(t.createdAt)}{t.lastUsedAt ? ` · last used ${stamp(t.lastUsedAt)}` : ' · not used yet'} · {t.expiresAt ? `expires ${day(t.expiresAt)}` : 'does not expire'}{t.defaultRoleId ? ` · role: ${roles.find((r) => r.id === t.defaultRoleId)?.name || 'set'}` : ''}
+                              {why ? ` · ${why}` : ''}
                             </span>
-                            <span className={pill}>{label}</span>
-                          </div>
-                          <div className="grid gap-1" style={{ paddingLeft: 44 }}>
-                            {p.lastError ? <p className="ui-caption" style={{ color: 'rgb(var(--neg))' }}>Last problem: {p.lastError}</p> : null}
-                            {p.domainVerification?.domains?.length ? (
-                              <p className="ui-caption">Domains: {p.domainVerification.domains.map((d) => `${d.domain} ${d.verified ? '✓ verified' : '— not verified'}`).join(' · ')}</p>
-                            ) : null}
-                            {unverified && p.domainVerification.record ? (
-                              <p className="ui-caption">
-                                Prove you own them: add a DNS TXT record on each domain with the value <code className="ui-mono break-all">{p.domainVerification.record}</code>, then choose Verify. It cannot be switched on until every domain is verified.
-                              </p>
-                            ) : null}
-                            {p.saml ? (
-                              <p className="ui-caption">
-                                At the provider: Reply URL / ACS <code className="ui-mono break-all">{p.saml.acsUrl}</code> · Identifier / Audience <code className="ui-mono break-all">{p.saml.spEntityId}</code> · metadata at the same address as the identifier. NameID as e-mail.
-                              </p>
-                            ) : null}
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {unverified ? <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => verify(p)}>Verify domains</button> : null}
-                              <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => toggle(p)}>{p.enabled ? 'Switch off' : 'Switch on'}</button>
-                              <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => edit(p)}>Edit</button>
-                              <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" aria-label={`Remove ${p.name}`} onClick={() => remove(p)}><Trash2 size={14} aria-hidden="true" /> Remove</button>
-                            </div>
-                          </div>
+                          </span>
+                          <StatusPill tone={CRED_TONE[tone] || 'neutral'}>{word}</StatusPill>
+                          <span className="ws-item-actions flex flex-wrap gap-2">
+                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => requestOpenApp('admin', 'credentials')}>Manage in Credentials</button>
+                            <button type="button" className="ws-btn ws-btn--danger-quiet ws-btn--small" onClick={() => revoke(t)}>Revoke</button>
+                          </span>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
-              </Panel>
+              ) : null}
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="grid gap-1">
+                  <span className="text-sm font-medium">Role for people the provider adds</span>
+                  <select className="ui-select" value={scimRole} onChange={(e) => setScimRole(e.target.value)}>
+                    <option value="">No role (view nothing until assigned)</option>
+                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </label>
+                <button type="button" className="ws-btn ws-btn--quiet" onClick={makeToken}>Make a token</button>
+              </div>
+            </Section>
 
-              <Panel title="Directory sync (SCIM 2.0)" action={<a className="ws-link" href="/docs/scim.html" target="_blank" rel="noreferrer">Guide</a>}>
-                <p className="ws-card-blurb" style={{ marginTop: -6 }}>
-                  Let Microsoft Entra, Okta, JumpCloud or Google add, update and remove people here automatically. Roles stay in CLOR; groups are not synced.
-                </p>
-                {scim?.baseUrl ? <Address label="Tenant URL to give the provider" value={scim.baseUrl} /> : null}
-                {newToken ? (
-                  <div className="grid gap-2" role="status" style={{ padding: 12, borderRadius: 8, background: 'rgb(var(--ws-warn-soft))' }}>
-                    <span className="text-sm font-semibold">Secret token — shown once</span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <code className="ui-mono text-sm break-all min-w-0 flex-1">{newToken}</code>
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={copyToken}><Copy size={14} aria-hidden="true" /> Copy</button>
-                    </div>
-                    <span className="ui-caption">Paste it into your provider with the tenant URL.</span>
-                  </div>
-                ) : null}
-                {(scim?.tokens || []).length ? (
-                  <ul className="ws-list">
-                    {scim.tokens.map((t) => {
-                      const [word, tone, why] = CREDENTIAL_STATUS[t.status] || CREDENTIAL_STATUS.OWNER_OFF;
-                      return (
-                        <li key={t.id}>
-                          <div className="ws-item">
-                            <span className="ws-item-text">
-                              <span className="ws-item-title"><code className="ui-mono">{t.tokenPrefix}…</code>{t.agent ? ` · for connector ${t.agent.name}` : ''}</span>
-                              <span className="ws-item-sub">
-                                Made {day(t.createdAt)}{t.lastUsedAt ? ` · last used ${stamp(t.lastUsedAt)}` : ' · not used yet'} · {t.expiresAt ? `expires ${day(t.expiresAt)}` : 'does not expire'}{t.defaultRoleId ? ` · role: ${roles.find((r) => r.id === t.defaultRoleId)?.name || 'set'}` : ''}
-                                {why ? ` · ${why}` : ''}
-                              </span>
-                            </span>
-                            <span className={CRED_TONE[tone] || 'ws-pill'}>{word}</span>
-                          </div>
-                          <div className="flex flex-wrap gap-2" style={{ paddingBottom: 10 }}>
-                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => requestOpenApp('admin', 'credentials')}>Manage in Credentials</button>
-                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => revoke(t)}>Revoke</button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-                <div className="flex flex-wrap items-end gap-2">
-                  <label className="grid gap-1">
-                    <span className="text-sm font-medium">Role for people the provider adds</span>
-                    <select className="ui-select" value={scimRole} onChange={(e) => setScimRole(e.target.value)}>
-                      <option value="">No role (view nothing until assigned)</option>
-                      {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                    </select>
-                  </label>
-                  <button type="button" className="ws-btn ws-btn--quiet" onClick={makeToken}>Make a token</button>
-                </div>
-              </Panel>
-            </div>
-
-            <aside className="ws-side">
-              <Panel title="At your provider">
-                <Address label="Redirect address to register" value={data.redirectUri} />
-                <p className="ws-card-blurb">
-                  Register this as the redirect URI. Scopes: openid, email, profile.
-                </p>
-                <a className="ws-link" href="/docs/sso.html" target="_blank" rel="noreferrer">Set-up guide</a>
-              </Panel>
-              <Panel title="How it is trusted">
-                <p className="ws-card-blurb">
-                  Verified e-mails at your domains only. Passwords keep working.
-                </p>
-              </Panel>
-            </aside>
-          </div>
+            <Section
+              title="At your provider"
+              id="ws-sso-provider"
+              action={<a className="ws-link" href="/docs/sso.html" target="_blank" rel="noreferrer">Set-up guide</a>}
+              lede="Register this as the redirect URI. Scopes: openid, email, profile. Only verified e-mails at your domains are trusted; passwords keep working."
+            >
+              <Address label="Redirect address to register" value={data.redirectUri} />
+            </Section>
+          </>
         )}
       </div>
 

@@ -11,8 +11,9 @@ import TemplateDrift from './TemplateDrift';
 import PermissionMatrix from './PermissionMatrix';
 import { catalogKeys, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
-import { ICON, PageHead, Panel, Stat, WsDrawer } from './wsKit';
+import { PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-access.css';
 
 function permKey(p) {
   const module = String(p?.module || '').trim();
@@ -130,7 +131,6 @@ export function SettingsRoles({ orgId }) {
     setEditRole(null);
     setForm({ name: '', description: '', ownDocumentsOnly: false, permissions: new Set() });
     setRetired(0);
-    setViewRoleId(null);
     setShowForm(true);
   };
 
@@ -139,13 +139,8 @@ export function SettingsRoles({ orgId }) {
     setOpenMenuForRoleId(null);
   };
 
-  const closeView = () => {
-    setViewRoleId(null);
-  };
-
   const openEdit = (r) => {
     setEditRole(r);
-    setViewRoleId(null);
     const normalized = normalizeRolePermissions(r.permissions || r._normalizedPermissions);
     const held = permissionsToSet(normalized);
     // Keep only what the catalogue still offers. Older roles can hold keys from
@@ -227,9 +222,6 @@ export function SettingsRoles({ orgId }) {
     if (!viewRoleId) return null;
     return roles.find((r) => String(r.id) === String(viewRoleId)) || null;
   }, [roles, viewRoleId]);
-  const viewedPermissions = selectedRole
-    ? permissionsToSet(normalizeRolePermissions(selectedRole.permissions || selectedRole._normalizedPermissions))
-    : new Set();
 
   const exportRoles = (key) => {
     const format = exportFormatFromKey(key);
@@ -249,11 +241,31 @@ export function SettingsRoles({ orgId }) {
     });
   };
 
-  const assigned = roles.reduce((n, r) => n + Number(r.assignedUsersCount || 0), 0);
-  const unused = roles.filter((r) => !Number(r.assignedUsersCount || 0)).length;
-  const custom = roles.filter((r) => String(r.roleType || '') === 'CUSTOM').length;
   const groups = GROUP_ORDER.map((group) => ({ group, rows: filteredRoles.filter((r) => roleGroup(r) === group) })).filter((g) => g.rows.length);
   const errorNote = error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null;
+
+  /* The role shown on the page: the one picked, else the first in the list. */
+  const shownRole = selectedRole || filteredRoles[0] || null;
+  const shownPermissions = shownRole
+    ? permissionsToSet(normalizeRolePermissions(shownRole.permissions || shownRole._normalizedPermissions))
+    : new Set();
+  const peopleOf = (r) => Number(r?.assignedUsersCount || 0);
+
+  /* A copy of a role: the create form, filled with the role's permissions. */
+  const openDuplicate = (r) => {
+    if (!r) return;
+    const known = catalogKeys(catalog.modules);
+    const held = permissionsToSet(normalizeRolePermissions(r.permissions || r._normalizedPermissions));
+    setEditRole(null);
+    setForm({
+      name: `${r.name} (copy)`,
+      description: r.description || '',
+      ownDocumentsOnly: Boolean(r.ownDocumentsOnly),
+      permissions: new Set([...held].filter((k) => !known.size || known.has(k))),
+    });
+    setRetired(0);
+    setShowForm(true);
+  };
 
   return (
     <div className="ws">
@@ -261,114 +273,116 @@ export function SettingsRoles({ orgId }) {
         <PageHead
           crumbs={['Access', 'Roles']}
           title="Roles"
+          description="What each role can do in each app. People can hold different roles in different companies."
           actions={
             <>
               <MoreButton items={[exportMenuItem('Export roles')]} onSelect={exportRoles} />
+              <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={() => openDuplicate(shownRole)} className="ws-btn ws-btn--quiet" disabled={!shownRole}>
+                Duplicate role
+              </PermissionButton>
               <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ws-btn ws-btn--primary">
-                <Plus size={16} aria-hidden="true" /> Create role
+                <Plus size={16} aria-hidden="true" /> New role
               </PermissionButton>
             </>
           }
         />
 
-        {roles.length ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.secure} label="Roles" value={roles.length} note={custom ? `${custom} made here` : 'All from the standard set'} />
-            <Stat icon={ICON.people} label="Assignments" value={assigned} note="People holding a role, counted per role" />
-            <Stat icon={ICON.warning} tone={unused ? 'warn' : null} label="Unused" value={unused} note={unused ? 'Held by nobody' : 'Every role is in use'} />
-          </div>
-        ) : null}
+        {!showForm ? errorNote : null}
 
-        <div className="flex flex-wrap gap-2 items-center" role="search">
-          <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 420 }}>
-            <span className="sr-only">Search roles</span>
-            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
-            <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or description" />
-          </label>
-          <span className="ws-head-meta">{filteredRoles.length} {filteredRoles.length === 1 ? 'role' : 'roles'}</span>
-        </div>
-
-        {!showForm && !selectedRole ? errorNote : null}
-
-        <div className="ws-layout">
-          <div className="grid gap-6 min-w-0">
+        <div className="ws-roles-layout">
+          <section className="ws-flat" aria-label={shownRole ? `${shownRole.name} permissions` : 'Role permissions'}>
             {loading && !roles.length ? (
               <p className="ws-card-blurb">Loading roles…</p>
-            ) : groups.length === 0 ? (
-              <div className="ws-setup">
-                <p className="ws-card-blurb">{roles.length ? 'No role matches this search.' : 'No roles yet. Create the first one.'}</p>
-              </div>
+            ) : !shownRole ? (
+              <p className="ws-card-blurb">{roles.length ? 'No role matches this search.' : 'No roles yet. Create the first one.'}</p>
             ) : (
-              groups.map(({ group, rows }) => (
-                <section key={group} className="grid gap-2" aria-labelledby={`roles-${group}`}>
-                  <h2 id={`roles-${group}`} className="ws-panel-title">{group} <span className="ws-head-meta">· {rows.length}</span></h2>
-                  <div className="ws-table-wrap">
-                    <table className="ws-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '28%' }}>Role</th>
-                          <th>What it is for</th>
-                          <th className="num" style={{ width: 90 }}>People</th>
-                          <th style={{ width: 56 }}><span className="sr-only">Actions</span></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((r) => (
-                          <tr key={r.id}>
-                            <td>
-                              <button type="button" className="text-left" onClick={() => openView(r.id)}>
-                                <strong style={{ fontWeight: 600 }}>{r.name}</strong>
-                              </button>
-                            </td>
-                            <td style={{ whiteSpace: 'normal', color: 'rgb(var(--ws-muted))' }}>{r.description || `${r._permissionLabels?.length || 0} permissions`}</td>
-                            <td className="num">{Number(r.assignedUsersCount || 0)}</td>
-                            <td className="num">
-                              <button
-                                type="button"
-                                ref={openMenuForRoleId === r.id ? menuAnchorRef : null}
-                                className="ws-btn ws-btn--quiet ws-btn--small"
-                                aria-label={`Actions for ${r.name}`}
-                                aria-expanded={openMenuForRoleId === r.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuForRoleId((prev) => (prev === r.id ? null : r.id));
-                                }}
-                              >
-                                <MoreHorizontal size={16} aria-hidden="true" />
-                              </button>
-                              {openMenuForRoleId === r.id ? (
-                                <Popover anchorRef={menuAnchorRef} onClose={() => setOpenMenuForRoleId(null)} minWidth={160} maxWidth={220}>
-                                  <button type="button" className="report-menu-item" onClick={() => openView(r.id)}>View</button>
-                                  <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openEdit(r); }}>Edit</button>
-                                  <PermissionButton
-                                    permission="SETTINGS::Roles::DELETE"
-                                    type="button"
-                                    className="report-menu-item"
-                                    style={{ color: 'rgb(var(--neg))' }}
-                                    onClick={() => { setOpenMenuForRoleId(null); removeRole(r.id); }}
-                                  >
-                                    Delete
-                                  </PermissionButton>
-                                </Popover>
-                              ) : null}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="grid gap-1" style={{ minWidth: 0 }}>
+                    <h2 className="ws-h2">{shownRole.name}</h2>
+                    <p className="ws-foot-note">
+                      {peopleOf(shownRole)} {peopleOf(shownRole) === 1 ? 'person' : 'people'} · {roleGroup(shownRole)}
+                      {String(shownRole.roleType || '') === 'CUSTOM' ? ' · made here' : ''}
+                      {shownRole.description ? ` · ${shownRole.description}` : ''}
+                    </p>
                   </div>
-                </section>
-              ))
+                  <div className="flex gap-2">
+                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => openEdit(shownRole)}>Edit role</button>
+                    <button
+                      type="button"
+                      ref={openMenuForRoleId === shownRole.id ? menuAnchorRef : null}
+                      className="ws-btn ws-btn--quiet ws-btn--small"
+                      aria-label={`Actions for ${shownRole.name}`}
+                      aria-expanded={openMenuForRoleId === shownRole.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuForRoleId((prev) => (prev === shownRole.id ? null : shownRole.id));
+                      }}
+                    >
+                      <MoreHorizontal size={16} aria-hidden="true" />
+                    </button>
+                    {openMenuForRoleId === shownRole.id ? (
+                      <Popover anchorRef={menuAnchorRef} onClose={() => setOpenMenuForRoleId(null)} minWidth={160} maxWidth={220}>
+                        <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openEdit(shownRole); }}>Edit</button>
+                        <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openDuplicate(shownRole); }}>Duplicate</button>
+                        <PermissionButton
+                          permission="SETTINGS::Roles::DELETE"
+                          type="button"
+                          className="report-menu-item"
+                          style={{ color: 'rgb(var(--neg))' }}
+                          onClick={() => { setOpenMenuForRoleId(null); removeRole(shownRole.id); }}
+                        >
+                          Delete
+                        </PermissionButton>
+                      </Popover>
+                    ) : null}
+                  </div>
+                </div>
+                {shownRole.ownDocumentsOnly ? <p><span className="ws-pill ws-pill--neutral">Own documents only</span></p> : null}
+                <TemplateDrift template={shownRole.template} modules={catalog.modules} />
+                {/* The same matrix as Edit, from the server catalogue, read-only. */}
+                {catalog.modules.length ? (
+                  <fieldset disabled aria-label="Permissions (read only)">
+                    <PermissionMatrix key={shownRole.id} modules={catalog.modules} granted={shownPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={2} />
+                  </fieldset>
+                ) : (
+                  <p className="ws-card-blurb">Loading the permission list…</p>
+                )}
+              </>
             )}
-          </div>
+          </section>
 
-          <aside className="ws-side">
-            <Panel title="Account roles">
-              <p className="ws-card-blurb" style={{ marginTop: -6 }}>The level above these, given under Members.</p>
+          <aside className="ws-flat" aria-labelledby="ws-roles-list-title">
+            <h2 id="ws-roles-list-title" className="ws-h2">Roles</h2>
+            <div className="ws-filters" role="search">
+              <label className="ws-search" style={{ flex: '1 1 auto' }}>
+                <span className="sr-only">Search roles</span>
+                <Search size={16} aria-hidden="true" />
+                <input className="ui-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search roles" />
+              </label>
+            </div>
+            {groups.map(({ group, rows }) => (
+              <section key={group} className="grid gap-1" aria-labelledby={`roles-${group}`}>
+                <h3 id={`roles-${group}`} className="ws-kicker" style={{ padding: '8px 12px 0' }}>{group}</h3>
+                <ul className="ws-role-list">
+                  {rows.map((r) => (
+                    <li key={r.id}>
+                      <button type="button" className="ws-role-pick" aria-current={shownRole?.id === r.id ? 'true' : undefined} onClick={() => openView(r.id)}>
+                        <span className="min-w-0 truncate">{r.name}</span>
+                        <span className="num" aria-label={`${peopleOf(r)} ${peopleOf(r) === 1 ? 'person' : 'people'}`}>{peopleOf(r)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            <section className="grid gap-1" aria-labelledby="ws-account-roles">
+              <h3 id="ws-account-roles" className="ws-kicker" style={{ padding: '8px 12px 0' }}>Account roles</h3>
+              <p className="ws-foot-note" style={{ padding: '0 12px' }}>The level above these, given under Members.</p>
               <ul className="ws-list">
                 {ACCOUNT_ROLES.map(([name, what]) => (
                   <li key={name}>
-                    <div className="ws-item">
+                    <div className="ws-item" style={{ minHeight: 48, padding: '8px 12px' }}>
                       <span className="ws-item-text">
                         <span className="ws-item-title">{name}</span>
                         <span className="ws-item-sub" style={{ whiteSpace: 'normal' }}>{what}</span>
@@ -377,40 +391,15 @@ export function SettingsRoles({ orgId }) {
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </section>
           </aside>
         </div>
       </div>
 
       <WsDrawer
-        open={Boolean(selectedRole)}
-        onClose={closeView}
-        title={selectedRole?.name || 'Role'}
-        description={selectedRole ? `${roleGroup(selectedRole)} · ${Number(selectedRole.assignedUsersCount || 0)} ${Number(selectedRole.assignedUsersCount || 0) === 1 ? 'person' : 'people'}` : ''}
-        actions={selectedRole ? (
-          <>
-            <button type="button" onClick={closeView} className="ws-btn ws-btn--quiet">Close</button>
-            <button type="button" onClick={() => { closeView(); openEdit(selectedRole); }} className="ws-btn ws-btn--primary">Edit role</button>
-          </>
-        ) : null}
-      >
-        {selectedRole ? (
-          <div className="grid gap-4">
-            {selectedRole.description ? <p className="ws-card-blurb">{selectedRole.description}</p> : null}
-            {selectedRole.ownDocumentsOnly ? <p className="text-sm"><span className="ws-pill">Own documents only</span></p> : null}
-            <TemplateDrift template={selectedRole.template} modules={catalog.modules} />
-            {/* The same matrix as Edit, from the server catalogue, read-only. */}
-            <fieldset disabled aria-label="Permissions (read only)">
-              <PermissionMatrix modules={catalog.modules} granted={viewedPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={1} />
-            </fieldset>
-          </div>
-        ) : null}
-      </WsDrawer>
-
-      <WsDrawer
         open={showForm}
         onClose={() => setShowForm(false)}
-        title={editRole ? `Edit ${editRole.name}` : 'Create role'}
+        title={editRole ? `Edit ${editRole.name}` : 'New role'}
         actions={(
           <>
             <button type="button" onClick={() => setShowForm(false)} className="ws-btn ws-btn--quiet">Cancel</button>

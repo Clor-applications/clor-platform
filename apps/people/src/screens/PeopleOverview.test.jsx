@@ -29,6 +29,7 @@ vi.mock('@ui/personnel/api', () => ({
 }));
 vi.mock('@ui/timeOff/api', () => ({
   approveLeave: vi.fn(),
+  swatchOf: () => 'rgb(var(--leave-0))',
   listLeaveRequests: vi.fn().mockResolvedValue([{ id: 'l1', status: 'PENDING', fromDate: '2026-11-18', toDate: '2026-11-18', employeeName: 'Asha', days: 1 }]),
 }));
 vi.mock('../api/workspace', () => ({ listRecords: vi.fn().mockResolvedValue([]) }));

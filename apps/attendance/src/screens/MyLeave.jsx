@@ -10,7 +10,7 @@ import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import { expiringWords } from '@ui/timeOff/expiring';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { LEAVE_STATUS, applyLeave, cancelMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
+import { LEAVE_STATUS, applyLeave, cancelMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, listHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import LeaveExplain from '../components/LeaveExplain';
 import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
@@ -19,6 +19,9 @@ import { HoursChoice, PreviewNotes } from '@ui/timeOff/LeaveShape';
 import { amountFigure, amountWords, hoursBetween, hoursBody, hoursReady, hoursText, hoursWords, isHourly } from '@ui/timeOff/partOfDay';
 import { useCanActForSelf } from '@ui/timeOff/shared';
 import { addDaysIso as addDays } from '@ui/utils/dates';
+import { LeavePill } from '@ui/timeOff/Figures';
+import { swatchOf } from '@ui/timeOff/api';
+import './MyLeave.css';
 
 /**
  * My leave (People → Time & Leave → My leave, and Attendance's own): one's
@@ -33,6 +36,19 @@ const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 const dayLabel = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const NUMBER_WORD = ['', 'one', 'two', 'three', 'four'];
+const weekday = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' });
+/*
+ * The company's own holidays still ahead (R&D PEOPLE-16 "Upcoming holidays"): only those for everyone, since a
+ * branch's or an area's holidays need the person's place, which this screen does not have. The holiday list needs
+ * holidays or leave view; without it the panel is left out.
+ */
+const loadUpcoming = (today) => {
+  const y = Number(String(today).slice(0, 4));
+  return Promise.resolve()
+    .then(() => Promise.all([listHolidays(y), listHolidays(y + 1)]))
+    .then(([a, b]) => [...(a || []), ...(b || [])].filter((h) => !h.branchId && !h.areaId && h.date >= today).sort((x, z) => x.date.localeCompare(z.date)).slice(0, 4))
+    .catch(() => null);
+};
 /** What a request would charge, without saving it (server: leave.ts `me/leave/preview`). */
 const previewMyLeave = (body) => apiFetch(`/orgs/${encodeURIComponent(platformOrgId() || '')}/attendance/me/leave/preview`, { method: 'POST', body, skipWarehouseHeader: true });
 /**
@@ -70,6 +86,14 @@ export default function MyLeave() {
   /* Restricted holidays go by the calendar year of today, not the leave period. */
   const [restricted, setRestricted] = useState(null);
   const shownYear = year ?? me?.year;
+  const [upcoming, setUpcoming] = useState(null);
+  const today = me?.today;
+  useEffect(() => {
+    if (!today) return undefined;
+    let live = true;
+    loadUpcoming(today).then((h) => { if (live) setUpcoming(h); });
+    return () => { live = false; };
+  }, [today]);
   const explainLoad = useCallback(() => explainMyLeave(explaining, shownYear), [explaining, shownYear]);
 
   const load = useCallback(() => {
@@ -119,6 +143,7 @@ export default function MyLeave() {
   const header = (
     <PageHeader
       title="My leave"
+      description={me?.employee?.name ? `${me.employee.name} · leave period ${shownYear}` : undefined}
       actions={me ? <>
         <div className="inline-flex items-center gap-1" role="group" aria-label="Leave period">
           <button type="button" className="ui-icon-btn" onClick={() => setYear(shownYear - 1)} aria-label="Previous leave period"><ChevronLeft size={16} aria-hidden="true" /></button>
@@ -134,97 +159,136 @@ export default function MyLeave() {
   if (error && !me) return <div className="space-y-6">{header}<LoadFailed message={error} onRetry={load} /></div>;
   if (!me) return <div className="space-y-6" aria-busy="true">{header}<SkeletonCard lines={6} /></div>;
 
+  const cancellable = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > me.today);
+  const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && !r.minutes && r.fromDate <= me.today && r.toDate > me.today;
+  const hidden = (r) => r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL;
+  /* A type's identity colour: its own when a request carries it, else the one its name maps to (README §1). */
+  const colourOf = new Map((me.requests || []).filter((r) => r.leaveTypeColor).map((r) => [r.leaveTypeId, r.leaveTypeColor]));
   const columns = [
-    { key: 'dates', label: 'Dates', always: true, render: (r) => (
-      <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}{hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{r.halfDay === 'FIRST' ? 'First half' : 'Second half'}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : null}</span>
+    { key: 'type', label: 'Leave', always: true, render: (r) => (hidden(r) ? <span className="ml-private">{r.leaveTypeName}</span> : <LeavePill type={r} />) },
+    { key: 'dates', label: 'Dates', render: (r) => (
+      <span className="block min-w-0">
+        <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}</span>
+        {hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{r.halfDay === 'FIRST' ? 'First half' : 'Second half'}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : null}
+        {!hidden(r) && r.reason ? <span className="ml-reason" title={r.reason}>{r.reason}</span> : null}
+      </span>
     ) },
-    { key: 'type', label: 'Leave', render: (r) => r.leaveTypeName },
     { key: 'days', label: 'Days', align: 'right', render: (r) => <span className="tabular-nums">{r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : r.days}</span> },
-    { key: 'reason', label: 'Reason', render: (r) => (r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL ? '' : r.reason || '') },
     { key: 'status', label: 'Status', render: (r) => (
       <span className="inline-flex flex-col items-start gap-0.5">
         <span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span>
         {r.status === 'REJECTED' && r.reviewNote ? <span className="ui-caption whitespace-normal">{r.reviewNote}</span> : null}
       </span>
     ) },
+    /* Cancel sits on the row as a text button (R&D PEOPLE-16); Change and Came back early stay in the row's menu. */
+    ...(canAct ? [{ key: 'cancel', label: '', align: 'right', always: true, render: (r) => (cancellable(r)
+      ? <button type="button" className="ml-text-btn" onClick={(e) => { e.stopPropagation(); cancel(r); }} aria-label={`Cancel ${r.leaveTypeName}, ${range(r.fromDate, r.toDate)}`}>Cancel</button>
+      : null) }] : []),
   ];
-  const cancellable = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > me.today);
-  const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && !r.minutes && r.fromDate <= me.today && r.toDate > me.today;
 
   return (
-    <div className="space-y-6">
+    <div className="ml-page">
       {header}
       {me.types.length ? (
-        <div className="ui-metric-strip" role="list" aria-label="Balances">
-          {me.types.map((t) => (
-            <div key={t.id} role="listitem">
-              {t.isPaid ? (
-                <button type="button" className="ui-metric" onClick={() => setExplaining(t.id)}>
-                  <span>
-                    <span className="ui-metric-value tabular-nums">{amountFigure(t.available, t)}<span className="ui-caption"> of {amountFigure(t.allocated, t)}{isHourly(t) ? ' hours' : ''}</span></span>
-                    <span className="ui-metric-label">{t.name}{t.pending ? <span className="tabular-nums">, {amountFigure(t.pending, t)} waiting</span> : null}</span>
-                    {t.projectedAvailable != null && t.projectedAvailable !== t.available ? <span className="ui-caption block tabular-nums">{amountFigure(t.available, t)} left · {amountFigure(t.projectedAvailable, t)} by period end</span> : null}
-                    {/* Comp-off under a validity: the days that go first, and when. */}
-                    {t.expiring?.length ? <span className="ui-caption block tabular-nums">{expiringWords(t.expiring, formatDate)}</span> : null}
+        <div className="ml-balances" role="list" aria-label="Balances">
+          {me.types.map((t) => {
+            const swatch = swatchOf({ name: t.name, color: colourOf.get(t.id) });
+            const pct = t.allocated > 0 ? Math.max(0, Math.min(100, (t.available / t.allocated) * 100)) : 0;
+            /* One line under the figure: what is waiting, then what changes it (comp-off expiring, the period's end). */
+            const note = t.expiring?.length ? expiringWords(t.expiring, formatDate)
+              : t.projectedAvailable != null && t.projectedAvailable !== t.available ? `${amountFigure(t.projectedAvailable, t)} by period end`
+                : `${amountFigure(t.used || 0, t)} taken`;
+            return (
+              <div key={t.id} role="listitem" className="ml-balance-cell">
+                {t.isPaid ? (
+                  <button type="button" className="ml-balance is-link" onClick={() => setExplaining(t.id)}>
+                    <span className="ml-balance-head"><LeavePill type={{ name: t.name, color: colourOf.get(t.id) }} /><span className="ml-of">of {amountFigure(t.allocated, t)}{isHourly(t) ? ' hours' : ''}</span></span>
+                    <span className="ml-figure">{amountFigure(t.available, t)}<span className="sr-only"> left</span></span>
+                    <span className="ml-track" aria-hidden="true"><span style={{ width: `${pct}%`, background: swatch }} /></span>
+                    <span className="ml-note">{t.pending ? <span className="ml-waiting">{amountFigure(t.pending, t)} waiting · </span> : null}{note}</span>
                     <span className="sr-only">. How is this worked out?</span>
-                  </span>
-                </button>
-              ) : (
-                <div className="ui-metric">
-                  <span>
-                    <span className="ui-metric-value tabular-nums">{t.used}<span className="ui-caption"> taken</span></span>
-                    <span className="ui-metric-label">{t.name}, unpaid</span>
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
+                  </button>
+                ) : (
+                  <div className="ml-balance">
+                    <span className="ml-balance-head"><LeavePill type={{ name: t.name, color: colourOf.get(t.id) }} /><span className="ml-of">unpaid</span></span>
+                    <span className="ml-figure">{t.used}<span className="ml-of"> taken</span></span>
+                    <span className="ml-note">No balance: every day is unpaid</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <EmptyState title="No leave types yet" description="HR sets them up in Leave Policy." />
       )}
 
-      <DataTable
-        label="My leave requests"
-        columns={columns}
-        rows={me.requests}
-        total={me.requests.length}
-        noun="requests"
-        rowActions={canAct ? (r) => [
-          r.status === 'PENDING' ? { key: 'change', label: 'Change', onSelect: () => setEditing(r) } : null,
-          shortenable(r) ? { key: 'shorten', label: 'Came back early', onSelect: () => setShortening(r) } : null,
-          cancellable(r) ? { key: 'cancel', label: 'Cancel', danger: true, onSelect: () => cancel(r) } : null,
-        ] : null}
-        card={(r) => (
-          <span className="min-w-0">
-            <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : daysText(r.days)}</span><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
-            <span className="block truncate ui-caption tabular-nums">{range(r.fromDate, r.toDate)}</span>
-            {r.status === 'REJECTED' && r.reviewNote ? <span className="block ui-caption">{r.reviewNote}</span> : null}
-          </span>
-        )}
-        empty={<EmptyState title="Nothing asked for in this leave period" />}
-      />
-
-      {restricted?.quota > 0 ? (
-        <section className="space-y-1" aria-labelledby="rh-h">
-          <header className="flex items-baseline justify-between gap-3">
-            <h2 id="rh-h" className="ui-t-sec">Restricted holidays {restricted.year}</h2>
-            <span className="ui-caption tabular-nums">{restricted.picked} of {restricted.quota} picked</span>
-          </header>
-          <ul className="divide-y border-t text-sm">
-            {restricted.holidays.length ? restricted.holidays.map((h) => (
-              <li key={h.id} className="flex flex-wrap items-center gap-3 py-2">
-                <span className="tabular-nums w-28 shrink-0">{formatDate(h.date)}</span>
-                <span className="min-w-0 flex-1 truncate">{h.name}</span>
-                {h.picked ? <span className="ui-pill ui-pill-pos">Picked</span> : null}
-                {h.past ? <span className="ui-caption">Past</span> : !canAct ? null : (
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
-                )}
-              </li>
-            )) : <li className="py-3 text-sm ui-muted">No optional holidays this year.</li>}
-          </ul>
+      <div className={`ml-columns ${upcoming?.length || restricted?.quota > 0 ? 'has-side' : ''}`}>
+        <section className="ml-main" aria-labelledby="ml-requests-h">
+          <h2 id="ml-requests-h" className="ml-h2">My requests</h2>
+          <DataTable
+            label="My leave requests"
+            columns={columns}
+            rows={me.requests}
+            total={me.requests.length}
+            noun="requests"
+            rowActions={canAct ? (r) => [
+              r.status === 'PENDING' ? { key: 'change', label: 'Change', onSelect: () => setEditing(r) } : null,
+              shortenable(r) ? { key: 'shorten', label: 'Came back early', onSelect: () => setShortening(r) } : null,
+            ] : null}
+            card={(r) => (
+              <span className="block min-w-0">
+                <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : daysText(r.days)}</span><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="block truncate ui-caption tabular-nums">{range(r.fromDate, r.toDate)}</span>
+                  {canAct && cancellable(r) ? <button type="button" className="ml-text-btn" onClick={() => cancel(r)} aria-label={`Cancel ${r.leaveTypeName}, ${range(r.fromDate, r.toDate)}`}>Cancel</button> : null}
+                </span>
+                {r.status === 'REJECTED' && r.reviewNote ? <span className="block ui-caption">{r.reviewNote}</span> : null}
+              </span>
+            )}
+            empty={<EmptyState title="Nothing asked for in this leave period" />}
+          />
         </section>
-      ) : null}
+
+        {upcoming?.length || restricted?.quota > 0 ? (
+          <aside className="ml-side" aria-label="Holidays">
+            {upcoming?.length ? (
+              <section aria-labelledby="ml-hol-h">
+                <h2 id="ml-hol-h" className="ml-h2">Upcoming holidays</h2>
+                <ul className="ml-list">
+                  {upcoming.map((h) => (
+                    <li key={h.id || `${h.date}-${h.name}`}>
+                      <span className="min-w-0"><span className="ml-list-name">{h.name}</span><span className="ml-list-sub">{formatDate(h.date)}</span></span>
+                      <span className="ml-list-end">{weekday(h.date)}{h.isOptional ? ' · optional' : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {restricted?.quota > 0 ? (
+              <section aria-labelledby="rh-h">
+                <header className="ml-side-head">
+                  <h2 id="rh-h" className="ml-h2">Restricted holidays {restricted.year}</h2>
+                  <span className="ml-of">{restricted.picked} of {restricted.quota} picked</span>
+                </header>
+                <ul className="ml-list">
+                  {restricted.holidays.length ? restricted.holidays.map((h) => (
+                    <li key={h.id}>
+                      <span className="min-w-0"><span className="ml-list-name">{h.name}</span><span className="ml-list-sub">{formatDate(h.date)}</span></span>
+                      <span className="ml-list-end">
+                        {h.picked ? <span className="ui-pill ui-pill-pos">Picked</span> : null}
+                        {h.past ? <span className="ui-caption">Past</span> : !canAct ? null : (
+                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
+                        )}
+                      </span>
+                    </li>
+                  )) : <li className="ml-list-empty">No optional holidays this year.</li>}
+                </ul>
+              </section>
+            ) : null}
+          </aside>
+        ) : null}
+      </div>
 
       {asking ? <AskLeave types={me.types} onClose={() => setAsking(false)} onDone={() => { setAsking(false); load(); }} /> : null}
       {editing ? <AskLeave types={me.types} rows={me.requests || []} request={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} /> : null}

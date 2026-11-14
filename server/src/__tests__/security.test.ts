@@ -73,18 +73,18 @@ describe('security policy', () => {
       .expect(200);
 
     // Three wrong attempts is now enough, rather than the default eight.
-    let locked = null as any;
-    for (let i = 0; i < 5; i += 1) {
-      const r = await request(app)
-        .post('/api/auth/login')
-        .send({ emailOrUsername: org.email, password: 'wrong' });
-      if (r.status === 429) {
-        locked = r;
-        break;
-      }
+    for (let i = 0; i < 3; i += 1) {
+      await request(app).post('/api/auth/login').send({ emailOrUsername: org.email, password: 'wrong' }).expect(401);
     }
-    expect(locked).toBeTruthy();
-    expect(String(locked.body.error)).toMatch(/20 minute/);
+    const user = await platformPrisma.user.findFirst({ where: { email: org.email }, select: { lockedUntil: true } });
+    expect(user?.lockedUntil).toBeTruthy();
+    const minutes = (user!.lockedUntil!.getTime() - Date.now()) / 60000;
+    expect(minutes).toBeGreaterThan(18);
+    expect(minutes).toBeLessThanOrEqual(20);
+    // Locked, even the right password is refused, with the same answer as a wrong one (W-12.5).
+    const locked = await request(app).post('/api/auth/login').send({ emailOrUsername: org.email, password: 'Passw0rd!23' });
+    expect(locked.status).toBe(401);
+    expect(String(locked.body.error)).toMatch(/Wrong email or password/);
   });
 
   it('enforces password rules on change', async () => {

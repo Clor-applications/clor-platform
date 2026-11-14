@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDownUp, Plus, Search } from '@ui/components/ui/lineIcons';
+import { ArrowDownUp, MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { isValidGstin } from '@ui/utils/gstin';
 import { archiveCompany, getAccountOverview, reactivateCompany } from '@platform/admin/admin';
-import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
+import { AppMark, PageHead, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
+import './ws-home.css';
 
 /**
  * Workspace → Company → Companies (redesign W-R5).
@@ -78,6 +79,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
         <PageHead
           crumbs={['Company', 'Companies']} scope="account"
           title="Companies"
+          description={`Legal entities in ${data?.account?.name || 'your account'}. Each company has its own books, payroll and GST registrations.`}
           actions={
             addCompany ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setAdding(true)} disabled={atLimit} title={atLimit ? 'Your plan’s company allowance is used up.' : undefined}>
@@ -87,23 +89,22 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
           }
         />
 
-        {data ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.companies} label="Companies" value={activeCount} note={`${limit != null ? `${limit} allowed on your plan` : 'no limit on your plan'}${archivedCount ? ` · ${archivedCount} archived` : ''}`} />
-            <Stat icon={ICON.warning} tone={incomplete ? 'warn' : null} label="Setup incomplete" value={incomplete} note={incomplete ? 'No GSTIN on record' : 'Every company has its GSTIN'} />
-            <Stat icon={ICON.people} label="People across companies" value={companies.reduce((n, c) => n + (c.people || 0), 0)} note="Memberships, counted per company" />
-          </div>
-        ) : null}
-
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
-        <div className="flex flex-wrap gap-2 items-center" role="search">
-          <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 420 }}>
+        <div className="ws-filters" role="search">
+          <label className="ws-search">
             <span className="sr-only">Search companies</span>
-            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
-            <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Search by name, GSTIN or state" />
+            <Search size={16} aria-hidden="true" />
+            <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Search by name, GSTIN or state" />
           </label>
-          <span className="ws-head-meta">{list.total} {list.total === 1 ? 'company' : 'companies'}</span>
+          {data ? (
+            <span className="ws-list-meta">
+              {activeCount} {activeCount === 1 ? 'company' : 'companies'}
+              {limit != null ? ` · ${limit} allowed on your plan` : ''}
+              {archivedCount ? ` · ${archivedCount} archived` : ''}
+              {incomplete ? ` · ${incomplete} without a GSTIN` : ''}
+            </span>
+          ) : null}
         </div>
 
         {data === null ? (
@@ -119,38 +120,52 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
               <thead>
                 <tr>
                   {th('name', 'Company')}
-                  <th>Status</th>
-                  {th('state', 'State')}
                   <th>GSTIN</th>
+                  <th>PAN</th>
+                  <th>Apps</th>
                   {th('people', 'Members', true)}
-                  {th('invoices', 'Invoices', true)}
-                  {th('since', 'Added')}
-                  <th><span className="sr-only">Actions</span></th>
+                  <th>Status</th>
+                  <th className="ws-th-menu"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {list.rows.map((c) => {
                   const current = c.orgId === tenant?.id;
+                  const sub = [c.state, c.since ? `added ${day(c.since)}` : '', c.invoices ? `${c.invoices} invoice${c.invoices === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
                   return (
                     <tr key={c.orgId}>
                       <td>
-                        <span className="inline-flex items-center gap-2">
-                          <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.company size={14} /></span>
-                          <button type="button" className="ws-name-link" onClick={() => setOpenId(c.orgId)}>{c.name}</button>
+                        <button type="button" className="ws-name-link" onClick={() => setOpenId(c.orgId)}>{c.name}</button>
+                        {sub ? <span className="ws-cell-sub">{sub}</span> : null}
+                      </td>
+                      <td className="ws-mono">{c.gstin || <span className="ws-missing">Not added</span>}</td>
+                      <td className="ws-mono">{c.pan || '—'}</td>
+                      <td>
+                        <span className="ws-appmarks">
+                          {(c.apps || []).length ? c.apps.map((id) => <AppMark key={id} app={id} size={20} />) : <span className="ws-cell-sub">None</span>}
                         </span>
                       </td>
-                      <td>{c.archived ? <span className="ws-pill ws-pill--off">Archived</span> : current ? <span className="ws-pill ws-pill--role">You are here</span> : c.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill">Setup incomplete</span>}</td>
-                      <td>{c.state || '—'}</td>
-                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{c.gstin || '—'}</td>
                       <td className="num">{c.people}</td>
-                      <td className="num">{c.invoices}</td>
-                      <td>{day(c.since)}</td>
-                      <td className="num">
+                      <td>
+                        {c.archived ? (
+                          <span className="ws-pill ws-pill--neutral">Archived</span>
+                        ) : c.gstin ? (
+                          <span className="ws-pill ws-pill--ok">Active</span>
+                        ) : (
+                          <span className="ws-pill ws-pill--warn">Needs GSTIN</span>
+                        )}
+                        {current ? <span className="ws-cell-sub">You are here</span> : null}
+                      </td>
+                      <td className="ws-td-menu">
                         {!current && switchCompany ? (
                           <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => switchCompany(c.orgId)}>
                             Switch to
                           </button>
-                        ) : null}
+                        ) : (
+                          <button type="button" className="ws-rowmenu" aria-label={`Open ${c.name}`} title="Open" onClick={() => setOpenId(c.orgId)}>
+                            <MoreHorizontal size={16} aria-hidden="true" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

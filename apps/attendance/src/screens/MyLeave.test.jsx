@@ -18,6 +18,7 @@ vi.mock('../api/attendance', () => ({
     types: [{ id: 't1', name: 'Casual leave', isPaid: true, available: 11, allocated: 12, pending: 1 }],
     requests: [{ id: 'r1', leaveTypeName: 'Casual leave', fromDate: '2026-11-18', toDate: '2026-11-18', days: 1, status: 'PENDING', reason: 'Family function' }],
   }),
+  listHolidays: vi.fn().mockResolvedValue([]),
   getMyRestrictedHolidays: vi.fn().mockResolvedValue({ year: 2026, quota: 2, picked: 0, left: 2, holidays: [{ id: 'h1', date: '2026-12-24', name: 'Christmas Eve', picked: false, past: false }] }),
 }));
 

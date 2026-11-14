@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 /*
@@ -65,8 +65,10 @@ describe('Leave requests', () => {
     api.getLeaveRequest.mockResolvedValueOnce({ request: { ...row, leaveTypeName: 'Private leave', reason: null, reasonHidden: true }, history: [], dates: [], balance: null, parts: [], alsoAway: [], waitingForManager: null });
     const { default: LeaveRequests } = await import('../packages/ui/src/timeOff/LeaveRequests');
     render(<LeaveRequests params={{ id: 'r1' }} updateParams={() => {}} />);
-    expect(await screen.findByText('Private: HR reads the reason.')).toBeInTheDocument();
-    expect(screen.queryByText('Family wedding')).not.toBeInTheDocument();
+    const note = await screen.findByText('Private: HR reads the reason.');
+    /* The list behind may show its own (non-private) row's reason; the open request must not. */
+    const drawer = note.closest('[role="dialog"]') || note.closest('aside') || note.parentElement.parentElement;
+    expect(within(drawer).queryByText('Family wedding')).not.toBeInTheDocument();
   });
 
   it('with no leave types yet, Enter leave says so and opens Leave Policy', async () => {

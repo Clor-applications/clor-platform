@@ -37,6 +37,21 @@ export const appsText = (codes = []) => {
     .join(', ');
 };
 
+/* What each refusal reason code means (Entitlement denials; server: services/ops/denials.ts). */
+export const REASON = {
+  APP_NOT_SUBSCRIBED: 'The app is not on the account’s subscription — an upsell signal.',
+  SUBSCRIPTION_LAPSED: 'The account owns the app, but the subscription has lapsed.',
+  NO_ROLE_GRANT: 'The person’s role in that company does not allow it.',
+  NO_MEMBERSHIP: 'The person is not a member of that company or branch.',
+  MODULE_OFF: 'The module is switched off for the company or the account.',
+  TEAM_SCOPED: 'The person sees only their own team.',
+  APP_NOT_IN_ENGAGEMENT: 'An outside accountant whose engagement does not cover the app.',
+  SUPPORT_GRANT_CLOSED: 'CLOR support access ended.',
+  OPERATOR_ONLY: 'Someone who is not CLOR staff asked for the staff console.',
+  COMPANY_ARCHIVED: 'The company is archived, so it is read-only.',
+  USER_LIMIT: 'The account is at its user limit.',
+};
+
 export const Err = ({ children }) => (children ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{children}</p> : null);
 export const Loading = () => <p className="ws-card-blurb">Loading…</p>;
 export const Empty = ({ children }) => (

@@ -365,7 +365,7 @@ function TimeDrawer({ item, onClose, onDone }) {
   return (
     <Drawer open onClose={onClose} title={`${INBOX_KIND[item.kind]}: ${item.employeeName || '—'}`} widthClass="w-[min(32rem,96vw)]" dirty={Boolean(note.trim())}
       actions={<>
-        <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act(false)}>{busy === 'reject' ? 'Saving…' : punch ? 'Refuse' : 'Reject'}</button>
+        <button type="button" className="ui-btn ui-btn-ghost" disabled={Boolean(busy)} onClick={() => act(false)}>{busy === 'reject' ? 'Saving…' : punch ? 'Refuse' : 'Reject'}</button>
         <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act(true)}>{busy === 'approve' ? 'Approving…' : 'Approve'}</button>
       </>}
     >
@@ -424,7 +424,7 @@ function ApprovalDrawer({ id, mine, onClose, onDone }) {
           {deciding ? (
             <>
               <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act('more-info')}>Ask for more</button>
-              <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => act('reject')}>Reject</button>
+              <button type="button" className="ui-btn ui-btn-ghost" disabled={Boolean(busy)} onClick={() => act('reject')}>Reject</button>
               <button type="button" className="ui-btn ui-btn-primary" disabled={Boolean(busy)} onClick={() => act('approve')}>{busy === 'approve' ? 'Approving…' : 'Approve'}</button>
             </>
           ) : null}

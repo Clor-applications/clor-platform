@@ -12,6 +12,8 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import * as api from '../api/compliance';
+import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { todayIst } from '@ui/utils/dates';
 
 /**
  * Compliance, the one place for it (People audit 30 Oct 2026, gaps 10 and
@@ -114,7 +116,20 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
         ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('establishments')}>Work sites</button>
         : null;
 
+  /* The figures over the list (R&D PEOPLE-27): this month's dues, what is late, what is done, what has nobody on it. */
+  const thisMonth = todayIst().slice(0, 7);
+  const dueNow = all.filter((o) => o.period !== 'STANDING' && String(o.dueOn || '').startsWith(thisMonth));
+  const overdue = all.filter((o) => o.status === 'OVERDUE').length;
+  const closed = all.filter((o) => CLOSED.includes(o.status));
+  const nobody = all.filter((o) => OPEN.includes(o.status) && !o.ownerSet).length;
+  const tiles = owed.data ? [
+    { key: 'month', label: 'Due this month', value: dueNow.length, accent: 1, Icon: TILE_ICON.due, sub: `${dueNow.filter((o) => CLOSED.includes(o.status)).length} done` },
+    { key: 'overdue', label: 'Overdue', value: overdue, accent: overdue ? 'neg' : 'pos', tone: overdue ? 'neg' : 'pos', Icon: TILE_ICON.shield, sub: overdue ? 'Past the due date, not done' : 'All on time' },
+    { key: 'done', label: 'Done', value: closed.length, accent: 3, Icon: TILE_ICON.done, sub: `${closed.filter((o) => o.status === 'CHECKED').length} checked by a second person` },
+    { key: 'owner', label: 'Nobody on it', value: nobody, accent: 'warn', tone: nobody ? 'warn' : null, Icon: TILE_ICON.low, sub: 'Open, with no owner' },
+  ] : null;
   const columns = [
+    { key: 'due', label: 'Due', render: (o) => <span className="tabular-nums whitespace-nowrap font-semibold">{o.period === 'STANDING' ? 'Standing' : day(o.dueOn)}{o.period !== 'STANDING' && OPEN.includes(o.status) && daysTo(String(o.dueOn).slice(0, 10)) >= 0 && daysTo(String(o.dueOn).slice(0, 10)) <= 30 ? <span className="block ui-caption font-normal">in {daysTo(String(o.dueOn).slice(0, 10))} day{daysTo(String(o.dueOn).slice(0, 10)) === 1 ? '' : 's'}</span> : null}</span> },
     { key: 'title', label: 'What', always: true, render: (o) => (
       <span className="block min-w-0">
         <span className="block font-medium">{o.title}</span>
@@ -122,7 +137,6 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
       </span>
     ) },
     { key: 'where', label: 'Where', render: (o) => where(o) },
-    { key: 'due', label: 'Due', render: (o) => <span className="tabular-nums whitespace-nowrap">{o.period === 'STANDING' ? 'Standing' : day(o.dueOn)}</span> },
     { key: 'owner', label: 'Owner', render: (o) => <span className={o.ownerSet ? '' : 'ui-muted'}>{o.owner}</span> },
     { key: 'status', label: 'Status', render: (o) => <span className={`ui-pill ${STATUS[o.status]?.[1] || ''}`}>{STATUS[o.status]?.[0] || o.status}</span> },
   ];
@@ -138,6 +152,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
           <SegmentedControl label="Compliance" options={VIEWS.map(([k, l]) => ({ key: k, label: l }))} value={view} onChange={(k) => set({ view: k === 'owed' ? null : k, status: null, id: null })} />
           {view === 'owed' ? <SearchField value={q} onSearch={setQ} placeholder="Search what is owed" label="Search what is owed" className="w-full sm:w-80" /> : null}
         </>}
+        strip={view === 'owed' && tiles ? <StatTiles label="Compliance figures" items={tiles} /> : null}
         tabs={view === 'owed' ? TABS.map(([k, l]) => ({ key: k, label: l, count: all.filter((o) => inTab(o, k)).length, tone: k === 'OVERDUE' ? 'warn' : undefined })) : null}
         tab={tab}
         onTab={(k) => set({ status: k === 'OPEN' ? null : k })}

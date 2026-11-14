@@ -37,10 +37,11 @@ describe('the neon default', () => {
     ]);
   });
 
-  it('Attendance is Solar Amber and Payroll is cyan, neither red', () => {
+  it('Attendance is violet (R&D, 14 Nov 2026) and Payroll is cyan, neither red', () => {
     const blaze = block(":root[data-palette='blaze'],\n[data-palette='blaze'] {");
-    expect(blaze).toMatch(/--brand: 234 179 8;/);
-    expect(blaze).toMatch(/--on-brand: 15 23 42;/);
+    expect(blaze).toMatch(/--brand: var\(--act\);/);
+    expect(blaze).toMatch(/--on-brand: 255 255 255;/);
+    expect(blaze).not.toMatch(/234 179 8|133 77 14/);
     const payroll = block(":root[data-palette='payroll'],\n[data-palette='payroll'] {");
     expect(payroll).toMatch(/--brand: 0 121 191;/);
     for (const b of [blaze, payroll]) expect(b).not.toMatch(/200 16 46|165 13 38|92 10 22/);

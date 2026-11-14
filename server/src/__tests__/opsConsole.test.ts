@@ -95,6 +95,7 @@ describe('the operator console', () => {
     const ov = (await request(app).get('/api/ops/overview').set(bearer(op)).expect(200)).body;
     expect(ov.signups).toHaveLength(30);
     expect(ov.accounts).toBeGreaterThanOrEqual(2);
+    expect(ov).toMatchObject({ paying: expect.any(Number), legacy: expect.any(Number), newThisWeek: expect.any(Number) });
   }, 60_000);
 
   it('suspends an account only with a fresh code; the customer is shut out, sees why, and is let back in', async () => {

@@ -19,6 +19,8 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can, homeCrumbs } from './shared';
 import { useSuggestions } from './suggestions';
 import BulkGrant from './BulkGrant';
+import { BarList, ChartPanel, StatTiles, TILE_ICON } from './Figures';
+import { Avatar } from '@ui/personnel/Employees';
 import { addLeaveAdjustment, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, setAllocation, swatchOf, thisYear, todayIst } from './api';
 
 /**
@@ -28,6 +30,10 @@ import { addLeaveAdjustment, deleteLeaveAdjustment, getLeaveBalances, getLeaveLe
  * it with a reason that stays on the record.
  */
 const KIND = { CARRIED: 'Carried in', EARNED: 'Earned', CREDIT: 'Credited', UPCOMING: 'To be credited', ALLOCATED: 'Set for this person', ADJUST: 'Changed by HR', ENCASH: 'Reserved for payout', TAKEN: 'Approved', PENDING: 'Waiting' };
+/* Running low: 15% of the year's days or one day, whichever is more (the rule the cells colour by). */
+const isLow = (b) => !b?.locked && b?.allocated > 0 && b.available >= 0 && b.available <= Math.max(1, b.allocated * 0.15);
+const sum = (xs) => Math.round(xs.reduce((a, x) => a + (Number(x) || 0), 0) * 10) / 10;
+const fmt = (n) => Number(n).toLocaleString('en-IN', { maximumFractionDigits: 1 });
 const signed = (n) => `${n > 0 ? '+' : ''}${n}`;
 
 export default function LeaveBalances({ openScreen }) {
@@ -52,9 +58,31 @@ export default function LeaveBalances({ openScreen }) {
   const choices = settings.data ? periodChoices(settings.data) : [thisYear() + 1, thisYear(), thisYear() - 1].map((y) => ({ year: y, label: String(y) }));
   const label = choices.find((c) => c.year === year)?.label || year;
 
+  /* The figures over the list (R&D PEOPLE-13): days taken and unused in the period, who is running low, and how
+     much of each type is used, all from the same balances the table shows. */
+  const figures = useMemo(() => {
+    if (!data || !types.length) return null;
+    const all = data.rows || [];
+    const cells = all.flatMap((r) => types.map((t) => r.balances[t.id]).filter(Boolean));
+    const taken = sum(cells.map((b) => b.used));
+    const unused = sum(cells.map((b) => (b.available > 0 ? b.available : 0)));
+    const low = all.filter((r) => types.some((t) => isLow(r.balances[t.id]))).length;
+    const byType = types.map((t) => {
+      const bs = all.map((r) => r.balances[t.id]).filter(Boolean);
+      const given = sum(bs.map((b) => b.allocated));
+      const used = sum(bs.map((b) => b.used));
+      return { key: t.id, type: t, label: t.name, value: given > 0 ? Math.round((used / given) * 100) : 0, given };
+    }).filter((x) => x.given > 0);
+    const most = all.map((r) => ({ r, used: sum(types.map((t) => r.balances[t.id]?.used)) })).filter((x) => x.used > 0).sort((a, b) => b.used - a.used).slice(0, 5);
+    return { taken, unused, low, byType, most, people: all.length };
+  }, [data, types]);
+
   const columns = [
     { key: 'name', label: 'Employee', always: true, render: (r) => (
-      <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span>
+      <span className="flex items-center gap-2.5 min-w-0">
+        <Avatar person={{ name: r.name }} size={32} />
+        <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{[r.code, r.department].filter(Boolean).join(' · ')}</span></span>
+      </span>
     ) },
     ...types.map((t) => ({
       key: t.id,
@@ -66,11 +94,11 @@ export default function LeaveBalances({ openScreen }) {
         const b = r.balances[t.id] || {};
         /* One line a cell, so a screen holds twice the people (owner, 28 Oct 2026 audit). Running low (the side panel's rule:
            15% or one day) reads in the warm colour, below zero in red; a locked balance keeps its reason on a second line. */
-        const low = !b.locked && b.allocated > 0 && b.available >= 0 && b.available <= Math.max(1, b.allocated * 0.15);
+        const low = isLow(b);
         return (
           <span className={`tabular-nums whitespace-nowrap ${b.available < 0 ? 'ui-text-neg' : low ? 'ui-balance-low' : ''}`}>
-            <span>{b.available ?? '—'}</span>
-            {b.locked ? <span className="ui-caption block">{`locked until ${b.lockedUntil ? formatDate(b.lockedUntil) : 'confirmed'}`}</span> : <span className="ui-caption"> of {b.allocated ?? '—'}</span>}
+            <span className="font-medium">{b.available ?? '—'}</span>
+            {b.locked ? <span className="ui-caption block">{`locked until ${b.lockedUntil ? formatDate(b.lockedUntil) : 'confirmed'}`}</span> : <span className="pt-of"> of {b.allocated ?? '—'}</span>}
           </span>
         );
       },
@@ -93,7 +121,35 @@ export default function LeaveBalances({ openScreen }) {
             </div>
           ) : null}
         </> : null}
+        strip={figures ? <StatTiles label="Leave balance figures" items={[
+          { key: 'taken', label: `Days taken, ${label}`, value: fmt(figures.taken), accent: 1, Icon: TILE_ICON.away, sub: figures.people ? `${fmt(figures.taken / figures.people)} per person` : null },
+          { key: 'unused', label: 'Days still unused', value: fmt(figures.unused), accent: 2, Icon: TILE_ICON.gift, sub: `Across ${types.length} paid type${types.length === 1 ? '' : 's'}` },
+          { key: 'low', label: 'Low balances', value: `${figures.low} ${figures.low === 1 ? 'person' : 'people'}`, accent: 'warn', tone: figures.low ? 'warn' : null, Icon: TILE_ICON.low, sub: '15% or less left' },
+          { key: 'people', label: 'People', value: fmt(figures.people), accent: 4, Icon: TILE_ICON.team, sub: 'With a balance this period' },
+        ]} /> : null}
       />
+      {figures && (figures.byType.length || figures.most.length) ? (
+        <div className="pt-charts">
+          <ChartPanel title="How much of each leave is used">
+            {figures.byType.length ? <BarList label="Share of each leave type used" suffix="%" max={100} rows={figures.byType.map((x) => ({ key: x.key, label: x.label, value: x.value, color: swatchOf(x.type) }))} /> : <p className="pt-foot">No days given yet this period.</p>}
+          </ChartPanel>
+          <ChartPanel title="Most leave taken">
+            {figures.most.length ? (
+              <ul className="pt-facts" aria-label="Most leave taken">
+                {figures.most.slice(0, 3).map(({ r, used }) => (
+                  <li key={r.employeeId}>
+                    <button type="button" className="flex min-w-0 items-center gap-2.5 text-left" onClick={() => setOpen(r)}>
+                      <Avatar person={{ name: r.name }} size={28} />
+                      <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span>{r.department ? <span className="block truncate ui-caption">{r.department}</span> : null}</span>
+                    </button>
+                    <span>{fmt(used)} day{used === 1 ? '' : 's'}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="pt-foot">Nobody has taken leave yet this period.</p>}
+          </ChartPanel>
+        </div>
+      ) : null}
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : !data ? <SkeletonCard lines={6} /> : !types.length ? (
         <EmptyState title="No paid leave types yet" description={<>Leave balances need at least one paid leave type. Set them up under {setUpTypes ? <button type="button" className="ui-link" onClick={setUpTypes}>Settings › Leave policy</button> : 'Settings › Leave policy'}.</>} />
       ) : (
@@ -120,6 +176,7 @@ export default function LeaveBalances({ openScreen }) {
           empty={search.query ? <EmptyState kind="filtered" title="Nobody matches" onClearFilters={() => search.setQuery('')} /> : <EmptyState title="Nobody employed in this period" />}
         />
       )}
+      {data && types.length ? <p className="pt-foot">Red means 15% or less is left. Click a person for the ledger behind each number.</p> : null}
       {open ? <Ledger person={open} year={year} label={label} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {granting ? <BulkGrant types={types} year={year} label={label} onClose={() => setGranting(false)} onDone={() => { setGranting(false); req.reload(); }} /> : null}
       {compOff ? <CompOff person={compOff} onClose={() => setCompOff(null)} onDone={() => { setCompOff(null); req.reload(); }} /> : null}

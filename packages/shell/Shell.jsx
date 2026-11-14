@@ -385,6 +385,17 @@ function ShellScreens() {
   }, [activeAppId, tenant?.id, screenKey, railKey]);
   /* Counts from another app or company are never shown while the new ones load. */
   const railCounts = railLoad.key === railKey ? railLoad.counts : {};
+  /* Counts beside second-panel items (manifest `panelCounts`: { screenKey: n }), e.g. "Members 14" (R&D shell). Same rules as the rail's. */
+  const [panelLoad, setPanelLoad] = useState({ key: '', counts: {} });
+  useEffect(() => {
+    const load = tenant?.id ? appById(activeAppId)?.panelCounts : null;
+    if (!load) return undefined;
+    let live = true;
+    load({ tenant }).then((c) => { if (live) setPanelLoad({ key: railKey, counts: c || {} }); }).catch(() => { if (live) setPanelLoad({ key: railKey, counts: {} }); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tenant is read through railKey
+  }, [activeAppId, tenant?.id, screenKey, railKey]);
+  const panelCounts = panelLoad.key === railKey ? panelLoad.counts : {};
   /* A page the platform owns rather than the app (My profile), shown in an
      app's main area. Only for apps that use the shell's menu: an app that
      draws its own (Accounting) has its own profile entry. */
@@ -636,9 +647,9 @@ function ShellScreens() {
      top of the document (portals), outside the element that sets it, and
      start below the bar rather than under it. */
   useEffect(() => {
-    document.documentElement.style.setProperty('--platform-bar', '3.5rem');
+    document.documentElement.style.setProperty('--platform-bar', phone ? '3.5rem' : '4rem');
     return () => document.documentElement.style.removeProperty('--platform-bar');
-  }, []);
+  }, [phone]);
 
   /* The open app on <html> too, for the same reason: a drawer for a People
      record is drawn outside the shell's element and should wear People's
@@ -889,7 +900,8 @@ function ShellScreens() {
     );
   }
   if (deniedCode) return <NoCompanyAccess />;
-  if (!tenant) return <CompanySetup />;
+  /* The new company opens in the app picked on its setup, not the workspace or the first in the list. */
+  if (!tenant) return <CompanySetup onLanding={setChosenAppId} />;
 
   const app = appById(activeAppId);
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
@@ -941,6 +953,12 @@ function ShellScreens() {
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
     <nav className="ui-split-rail" data-app={app?.id || undefined} aria-label={`${app?.name || ''} modules`}>
+      {/* The CLOR symbol tile heads the rail on a desktop (R&D shell, 14 Nov 2026); the bar's logo steps aside. */}
+      {!phone ? (
+        <button type="button" className="ui-split-brand" aria-label="CLOR home" title="CLOR" onClick={() => openApp(mine[0]?.id)}>
+          <ClorMark size={32} />
+        </button>
+      ) : null}
       {modules.map((m) => {
         const Icon = m.icon;
         /* Two different facts: which module holds the screen you are on, and
@@ -1036,8 +1054,9 @@ function ShellScreens() {
               aria-current={isCurrent(item.key) ? 'page' : undefined}
               onClick={() => goTo(item.key)}
             >
-              {item.icon ? <item.icon size={15} aria-hidden="true" /> : null}
+              {item.icon ? <item.icon size={20} aria-hidden="true" /> : null}
               <span className="min-w-0 truncate">{item.label}</span>
+              {Number(panelCounts[item.key]) >= 0 && panelCounts[item.key] != null ? <span className="ui-split-item-count">{panelCounts[item.key]}</span> : null}
             </button>
           ))}
         </div>
@@ -1046,7 +1065,7 @@ function ShellScreens() {
       {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
           <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
-            <LayoutGrid size={15} aria-hidden="true" />
+            <LayoutGrid size={20} aria-hidden="true" />
             More apps
           </button>
         </div>
@@ -1117,7 +1136,7 @@ function ShellScreens() {
            HR palette (index.css, [data-app]); Accounting keeps its own. */
         data-app={activeAppId || undefined}
         data-palette={activePalette || undefined}
-        style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': '3.5rem' }}
+        style={{ backgroundColor: 'rgb(var(--app-bg))', '--platform-bar': phone ? '3.5rem' : '4rem' }}
       >
         {/* Keyboard users skip the bar and the rail. Accounting (a Root app) carries its own. */}
         {!Root ? (
@@ -1145,7 +1164,7 @@ function ShellScreens() {
               <Menu size={20} aria-hidden="true" />
             </button>
           ) : null}
-          <button type="button" className="flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
+          <button type="button" className="ui-topbar-logo flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
             {phone ? <ClorMark size={24} /> : <ClorLogo size={22} />}
           </button>
 

@@ -9,7 +9,8 @@ import { PageHeader } from '../components/ui/Primitives';
  * and changed rarely, in groups, each with a line saying what it is for.
  * Only the rows this person may open: the shell hands over the nav it kept.
  *
- * groups: [{ title, note, items: [[navKey, note]], apps?: [[appId, label, note]] }]
+ * groups: [{ title, note, tone?, items: [[navKey, note]], apps?: [[appId, label, note]] }]; `tone` (1–8) names the
+ * group's identity colour (--cat-N), which a portal's stylesheet may use behind each tile's icon (People, PEOPLE-28).
  */
 export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], description = 'Everything set up once and changed rarely, in one place.' }) {
   const [q, setQ] = useState('');
@@ -35,7 +36,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
       </header>
       {!groups.length ? <p className="ui-muted text-sm">No setting matches “{q}”.</p> : null}
       {groups.map((g) => (
-        <section key={g.title} className="space-y-2" aria-labelledby={`set-${g.title}`}>
+        <section key={g.title} className="space-y-2" aria-labelledby={`set-${g.title}`} data-tone={g.tone || undefined} style={g.tone ? { '--set-tone': `var(--cat-${g.tone})` } : undefined}>
           <div>
             <h2 id={`set-${g.title}`} className="ui-t-sec">{g.title}</h2>
             <p className="ui-caption ui-settings-note">{g.note}</p>
@@ -47,7 +48,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
               return (
                 <li key={key}>
                   <button type="button" onClick={() => openScreen?.(key)} className="ui-settings-row">
-                    {Icon ? <Icon size={16} aria-hidden="true" className="ui-settings-row-icon" /> : <span className="ui-settings-row-icon" aria-hidden="true" />}
+                    <span className="ui-settings-row-icon" aria-hidden="true">{Icon ? <Icon size={20} aria-hidden="true" /> : null}</span>
                     <span className="ui-settings-row-label">{item.label}</span>
                     <span className="ui-settings-row-note">{note}</span>
                     <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
@@ -58,7 +59,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
             {g.apps.map(([id, label, note]) => (
               <li key={id}>
                 <a href={`?app=${id}`} className="ui-settings-row">
-                  <ArrowUpRight size={16} aria-hidden="true" className="ui-settings-row-icon" />
+                  <span className="ui-settings-row-icon" aria-hidden="true"><ArrowUpRight size={20} aria-hidden="true" /></span>
                   <span className="ui-settings-row-label">{label}</span>
                   <span className="ui-settings-row-note">{note}</span>
                   <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />

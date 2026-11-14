@@ -6,44 +6,45 @@
  * Radii follow DESIGN.md: 8px clickable, 12px content, 999px pills.
  */
 :root {
-  /* Workspace tokens, global so drawers and menus (rendered outside .ws) wear them too. Only Workspace classes read them. */
-  --ws-bg: 248 248 249;
+  /* Workspace tokens, global so drawers and menus (rendered outside .ws) wear them too. Only Workspace classes read them.
+     R&D brand (clor-rnd/README.md §3, 14 Nov 2026): neutrals and status are the hand-off's; the action follows the portal (--act). */
+  --ws-bg: 255 255 255;
   --ws-surface: 255 255 255;
-  --ws-stone: 244 244 245;
-  --ws-ink: 39 39 42;
-  --ws-muted: 113 113 122;
-  --ws-line: 228 228 231;
-  --ws-accent: 212 69 0;
-  --ws-accent-hover: 186 57 0;
-  --ws-accent-soft: 255 244 236;
-  --ws-ok: 22 133 107;
-  --ws-ok-soft: 231 243 236;
+  --ws-stone: 244 245 242;
+  --ws-ink: 32 35 41;
+  --ws-muted: 94 99 107;
+  --ws-line: 228 230 225;
+  --ws-accent: var(--act, 197 69 10);
+  --ws-accent-hover: var(--act-hover, 154 54 8);
+  --ws-accent-soft: var(--tint, 255 241 235);
+  --ws-ok: 1 93 71;
+  --ws-ok-soft: 230 241 238;
   --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --ws-warn: 183 121 31;
-  --ws-warn-soft: 253 244 228;
-  --ws-danger: 185 28 28;
-  --ws-danger-soft: 253 236 236;
+  --ws-warn: 138 90 0;
+  --ws-warn-soft: 251 241 220;
+  --ws-danger: 180 35 24;
+  --ws-danger-soft: 252 235 233;
 }
 
 .ws {
-  --ws-bg: 248 248 249;
+  --ws-bg: 255 255 255;
   --ws-surface: 255 255 255;
-  --ws-stone: 244 244 245;
-  --ws-ink: 39 39 42;
-  --ws-muted: 113 113 122;
-  --ws-line: 228 228 231;
-  --ws-accent: 212 69 0;
-  --ws-accent-hover: 186 57 0;
-  --ws-accent-soft: 255 244 236;
-  --ws-ok: 47 122 85;
-  --ws-ok-soft: 231 243 236;
+  --ws-stone: 244 245 242;
+  --ws-ink: 32 35 41;
+  --ws-muted: 94 99 107;
+  --ws-line: 228 230 225;
+  --ws-accent: var(--act, 197 69 10);
+  --ws-accent-hover: var(--act-hover, 154 54 8);
+  --ws-accent-soft: var(--tint, 255 241 235);
+  --ws-ok: 1 93 71;
+  --ws-ok-soft: 230 241 238;
   --ws-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
   background: rgb(var(--ws-surface));
   color: rgb(var(--ws-ink));
   min-height: 100%;
-  /* One even frame from the rail and the bar: 24px, 16px on a phone. */
-  padding: 24px 24px 40px;
+  /* README §4: 32px content padding (16px on a phone, below). */
+  padding: 32px 32px 48px;
 }
 .ws-inner {
   /* Fills the space beside the sidebar, edge to edge inside the page's 24px frame. */
@@ -170,13 +171,14 @@
   color: rgb(var(--ws-muted));
   white-space: nowrap;
 }
+/* A role is a neutral tag (README §3: the portal colour is not decoration). */
 .ws-pill--role {
-  background: rgb(var(--ws-accent-soft));
+  background: rgb(var(--ws-stone));
   color: rgb(var(--ws-ink));
 }
 .ws-pill--ok {
   background: rgb(var(--ws-ok-soft));
-  color: rgb(var(--ws-ink));
+  color: rgb(var(--ws-ok));
 }
 /* Ink on stone, as --ok and --role: muted grey on stone was 4.4:1, under AA for 12px text (QA, 1 Nov 2026). */
 .ws-pill--off {
@@ -526,14 +528,10 @@
    orange #D44500, white on it 4.5:1 (DESIGN.md).
    ====================================================================== */
 .ws {
-  --ws-accent: 212 69 0;
-  --ws-accent-hover: 186 57 0;
-  --ws-accent-soft: 255 244 236;
-  --ws-ok: 22 133 107;
-  --ws-warn: 183 121 31;
-  --ws-warn-soft: 253 244 228;
-  --ws-danger: 185 28 28;
-  --ws-danger-soft: 253 236 236;
+  --ws-warn: 138 90 0;
+  --ws-warn-soft: 251 241 220;
+  --ws-danger: 180 35 24;
+  --ws-danger-soft: 252 235 233;
 }
 .ws-crumbs {
   display: flex;
@@ -565,7 +563,7 @@
 }
 @media (max-width: 1180px) {
   .ws-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 /* Numbers that matter, each a way in. */
@@ -1367,8 +1365,8 @@ button.ws-item:hover {
  */
 :root {
   /* Cards are a soft veil of white over the page ground, not opaque slabs. */
-  --ws-card-bg: rgb(255 255 255 / 0.72);
-  --ws-card-line: rgb(228 228 231 / 0.85);
+  --ws-card-bg: rgb(var(--surface, 255 255 255));
+  --ws-card-line: rgb(var(--border-field, 220 223 217));
 }
 :root {
   /* Welcome greeting. */
@@ -1468,21 +1466,20 @@ button.ws-item:hover {
   outline: 2px solid rgb(var(--ws-accent));
   outline-offset: -2px;
 }
-/* Label-over-value facts, three to a row on a drawer, two on a phone. */
+/* Label-over-value facts, three to a row on a drawer, two on a phone: one soft panel with no boxes inside it (README §3 "soft panel, no border"; no card-in-card). */
 .ws-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  /* Hairlines between cells from the gap itself, so any column count draws clean. */
-  gap: 1px;
-  background: rgb(var(--ws-line));
-  border: 1px solid rgb(var(--ws-line));
+  gap: 16px 24px;
+  padding: 16px 20px;
+  background: rgb(var(--soft-panel, 246 247 244));
   border-radius: 12px;
-  overflow: hidden;
 }
 .ws-facts > div {
-  padding: 12px 14px;
-  background: rgb(var(--ws-surface));
   min-width: 0;
+}
+.ws-facts--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .ws-facts dt {
   font-size: 0.75rem;
@@ -1523,7 +1520,7 @@ button.ws-item:hover {
   color: rgb(var(--ws-ink));
   text-align: left;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-btn);
 }
 .ws-name-link:hover {
   color: rgb(var(--ws-accent-hover));
@@ -1872,14 +1869,9 @@ button.ws-item:hover {
   margin: 12vh auto;
   padding: 0 24px;
 }
-/* Nine sections: below 1600px the name gives way to them (it stays on the sign-out button's tooltip), below 1360px the icons do too. */
+/* Nine sections: below 1600px the name gives way to them (it stays on the sign-out button's tooltip). Ops keeps its icons (packages/ops/ops.css). */
 @media (max-width: 1599px) {
   .ops-who {
-    display: none;
-  }
-}
-@media (max-width: 1359px) {
-  .ops-nav-item svg {
     display: none;
   }
 }
@@ -2282,4 +2274,606 @@ button.ws-item:hover {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+
+/* ======================================================================
+   R&D hand-off (clor-rnd/README.md §4–5, 14 Nov 2026). Loaded after
+   everything above, so these win. Tokens only: --act is the portal
+   colour (Workspace orange ink, Ops forest), app colours identify an app,
+   status colours carry a word, neutrals do the rest.
+   ====================================================================== */
+
+/* Page: 32px padding, max 1280, 32px between sections. */
+.ws-inner {
+  max-width: 1280px;
+  gap: 32px;
+}
+.ws-layout,
+.ws-layout > .ws-main,
+.ws-layout > .ws-side {
+  gap: 32px;
+}
+.ws-layout {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+/* Page header: H1 (Sora 800 30/38, rnd.css) → 14px secondary line, 8px apart; actions top right, aligned to the title. */
+.ws-head {
+  align-items: flex-start;
+  gap: 16px 24px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.ws-head > div:first-child {
+  display: grid;
+  gap: 8px;
+  /* Takes the room the actions leave, so a long description wraps beside them instead of pushing them under the title. */
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ws-title {
+  margin-top: 0;
+}
+.ws-lede {
+  margin-top: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-head .ws-actions {
+  padding-top: 2px;
+}
+/* The Workspace's pages are all top-level now (one panel); a breadcrumb only shows on a sub-page, as a back link. */
+:root[data-app='admin'] .ws-crumbs-row:not([data-depth='3']):not([data-depth='4']) {
+  display: none;
+}
+:root[data-app='admin'] .ws-crumbs-row .ws-crumbs > :not(:nth-last-child(3)) {
+  display: none;
+}
+:root[data-app='admin'] .ws-crumbs-row .ws-crumbs {
+  font-size: 0.8125rem;
+}
+:root[data-app='admin'] .ws-scope {
+  display: none;
+}
+
+/* Buttons: 36px, 16px sides, 8px radius, 14/600, 16px icon, 8px gap. */
+.ws-btn {
+  min-height: 36px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+.ws-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.ws-btn--primary {
+  background: rgb(var(--act, 197 69 10));
+  border-color: rgb(var(--act, 197 69 10));
+  color: rgb(255 255 255);
+  box-shadow: none;
+}
+.ws-btn--primary:hover {
+  background: rgb(var(--act-hover, 154 54 8));
+  border-color: rgb(var(--act-hover, 154 54 8));
+}
+.ws-btn--quiet {
+  background: rgb(var(--surface, 255 255 255));
+  border-color: rgb(var(--border-field, 220 223 217));
+  color: rgb(var(--fg, 32 35 41));
+}
+.ws-btn--quiet:hover {
+  background: rgb(var(--surface-sunken, 244 245 242));
+  border-color: rgb(var(--border-strong, 201 204 198));
+}
+.ws-btn--small {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+}
+/* Reject, Decline, Remove beside ordinary actions: an outlined button in the problem colour. */
+.ws-btn--danger-quiet {
+  background: rgb(var(--surface, 255 255 255));
+  color: rgb(var(--neg, 180 35 24));
+  border-color: rgb(var(--border-field, 220 223 217));
+}
+.ws-btn--danger-quiet:hover {
+  background: rgb(var(--neg-soft, 252 235 233));
+  border-color: rgb(var(--neg, 180 35 24) / 0.4);
+}
+.ws-btn--danger {
+  background: rgb(var(--neg, 180 35 24));
+  border-color: rgb(var(--neg, 180 35 24));
+}
+.ws-link {
+  color: rgb(var(--act, 197 69 10));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.ws-link:hover {
+  color: rgb(var(--act-hover, 154 54 8));
+}
+.ws-name-link {
+  color: rgb(var(--fg, 32 35 41));
+  font-weight: 600;
+}
+
+/* Section titles: Sora 700 17/24 (rnd.css styles .ws-h2; the panel title follows it). */
+.ws-panel-title,
+.ws-section-title {
+  font-family: var(--font-brand);
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.ws-section {
+  gap: 12px;
+}
+
+/* Content surface: 12px radius, 1px field border, 16–24px padding, no shadow. */
+.ws-panel,
+.ws-card,
+.ws-stat,
+.ws-group {
+  background: rgb(var(--surface, 255 255 255));
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-radius: 12px;
+  box-shadow: none;
+}
+.ws-panel {
+  padding: 20px 24px;
+  gap: 16px;
+}
+.ws-card.is-open:hover,
+button.ws-stat:hover {
+  background: rgb(var(--surface, 255 255 255));
+  border-color: rgb(var(--border-strong, 201 204 198));
+  box-shadow: none;
+}
+/* A section that is a list sits on the page under one hairline, not in a card (no card-in-card). */
+.ws-flat {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.ws-flat > .ws-list,
+.ws-flat > .ws-rows {
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+
+/* Stat tile (README §5): 12px label, 26/32 bold tabular value, 12px muted note. */
+.ws-stat {
+  padding: 16px 20px;
+}
+.ws-stat-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-stat-value {
+  font-size: 1.625rem;
+  line-height: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.ws-stat-note {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle, 94 99 107));
+}
+.ws-tile {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+/* KPI tile (README §3): a 3px top accent and a 36px chip in the tile's identity colour, 12px uppercase label, 28/36 number. */
+.ws-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.ws-kpi {
+  --kpi: var(--cat-1, 42 120 214);
+  position: relative;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 20px;
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-top: 3px solid rgb(var(--kpi));
+  border-radius: 12px;
+  background: rgb(var(--surface, 255 255 255));
+  min-width: 0;
+}
+.ws-kpi-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ws-kpi-chip {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, rgb(var(--kpi)) 12%, white);
+  color: color-mix(in srgb, rgb(var(--kpi)) 58%, black);
+}
+.ws-kpi-chip > i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: rgb(var(--kpi));
+}
+.ws-kpi-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-kpi-value {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg, 32 35 41));
+  overflow-wrap: anywhere;
+}
+.ws-kpi-note {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+
+/* Status pills: 24px, 10px sides, a 6px dot, always a word. */
+.ws-pill {
+  height: 24px;
+  padding: 0 10px;
+  gap: 6px;
+  line-height: 1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgb(var(--neutral-soft, 238 239 236));
+  color: rgb(var(--neutral-ink, 58 63 71));
+}
+.ws-pill--ok,
+.ws-pill--warn,
+.ws-pill--danger,
+.ws-pill--off,
+.ws-pill--neutral {
+  gap: 6px;
+}
+.ws-pill--ok::before,
+.ws-pill--warn::before,
+.ws-pill--danger::before,
+.ws-pill--neutral::before,
+.ws-pill--off::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: none;
+}
+.ws-pill--ok {
+  background: rgb(var(--pos-soft, 230 241 238));
+  color: rgb(var(--pos, 1 93 71));
+}
+.ws-pill--warn {
+  background: rgb(var(--warn-soft, 251 241 220));
+  color: rgb(var(--warn-ink, 138 90 0));
+}
+.ws-pill--danger {
+  background: rgb(var(--neg-soft, 252 235 233));
+  color: rgb(var(--neg, 180 35 24));
+}
+.ws-pill--off,
+.ws-pill--neutral {
+  background: rgb(var(--neutral-soft, 238 239 236));
+  color: rgb(var(--neutral-ink, 58 63 71));
+}
+/* An app or role tag: neutral pill with a square in the app's colour. */
+.ws-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgb(var(--neutral-soft, 238 239 236));
+  color: rgb(var(--fg-muted, 58 63 71));
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ws-tag > i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 2px;
+  background: rgb(var(--tag, var(--fg-subtle, 94 99 107)));
+}
+
+/* App marks: the app's colour behind a white glyph (README §2: app colours identify an app only). */
+.ws-appmark {
+  --app: var(--fg-subtle, 94 99 107);
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgb(var(--app));
+  color: rgb(255 255 255);
+  font-weight: 700;
+  line-height: 1;
+}
+.ws-appmark[data-off] {
+  background: rgb(var(--border-strong, 201 204 198));
+}
+.ws-appmarks {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Avatars: initials on a soft categorical fill (82% white), ink-dark text. */
+.ws-avatar {
+  --av: var(--cat-1, 42 120 214);
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, rgb(var(--av)) 18%, white);
+  color: color-mix(in srgb, rgb(var(--av)) 58%, black);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.ws-avatar[data-size='lg'] {
+  width: 36px;
+  height: 36px;
+  font-size: 0.8125rem;
+}
+.ws-avatar[data-ink] {
+  background: rgb(var(--graphite, 32 35 41));
+  color: rgb(255 255 255);
+}
+
+/* Tables (README §5): 40px sunken header with 8px radius, 12/600 uppercase, 16px sides; rows ≥ 56px with a top hairline. */
+.ws-table-wrap {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.ws-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.ws-table thead th {
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 16px;
+  background: rgb(var(--surface-sunken, 244 245 242));
+  color: rgb(var(--fg-muted, 58 63 71));
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 0;
+  vertical-align: middle;
+}
+.ws-table thead th:first-child {
+  border-radius: 8px 0 0 8px;
+}
+.ws-table thead th:last-child {
+  border-radius: 0 8px 8px 0;
+}
+.ws-table tbody td {
+  box-sizing: border-box;
+  height: 56px;
+  padding: 8px 16px;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+  border-bottom: 0;
+  vertical-align: middle;
+}
+.ws-table tbody tr:first-child td {
+  border-top: 0;
+}
+.ws-table .num,
+.ws-table td.money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ws-table .ws-cell-main {
+  display: block;
+  font-weight: 600;
+  color: rgb(var(--fg, 32 35 41));
+}
+.ws-table .ws-cell-sub {
+  display: block;
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-subtle, 94 99 107));
+}
+.ws-table tbody tr[data-selected] td {
+  background: rgb(var(--tint, 255 241 235));
+}
+
+/* Filters row: a 36px search on the sunken field and 36px filter selects. */
+.ws-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ws-filters .ws-search {
+  position: relative;
+  flex: 0 1 280px;
+  min-width: 200px;
+}
+.ws-filters .ws-search > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgb(var(--fg-subtle, 94 99 107));
+  pointer-events: none;
+}
+.ws .ws-filters :is(input, select) {
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+.ws .ws-filters .ws-search input {
+  width: 100%;
+  padding-left: 36px !important;
+}
+.ws .ws-filters select {
+  width: auto;
+  padding-right: 32px;
+}
+
+/* Seat meter (README §5): 8px sunken track, the fill in the app's colour; near or over the limit turns the figure amber or red, with a pill. */
+.ws-meter-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--surface-sunken, 244 245 242));
+}
+/* With no app to colour it, a meter takes the first identity colour; near the limit the figure, not the bar, turns amber and says so. */
+.ws-meter-bar > span,
+.ws-meter-bar > span[data-tight] {
+  background: rgb(var(--meter, var(--cat-1, 42 120 214)));
+}
+.ws-meter[data-tight] .ws-meter-row strong {
+  color: rgb(var(--warn-ink, 138 90 0));
+}
+.ws-seats {
+  display: grid;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-seat {
+  display: grid;
+  grid-template-columns: minmax(160px, 180px) minmax(0, 1fr) minmax(140px, auto) 110px;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 4px;
+  border-bottom: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-seat-app {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+}
+.ws-seat-track {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.ws-seat-note {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle, 94 99 107));
+}
+.ws-seat-value {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ws-seat-value[data-state='near'] {
+  color: rgb(var(--warn-ink, 138 90 0));
+}
+.ws-seat-value[data-state='over'] {
+  color: rgb(var(--neg, 180 35 24));
+}
+.ws-seat-state {
+  justify-self: end;
+}
+@media (max-width: 900px) {
+  .ws-seat {
+    grid-template-columns: 1fr auto;
+    gap: 8px 16px;
+  }
+  .ws-seat-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* Lists on the page: rows of at least 56px under hairlines. */
+.ws-list > li + li {
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-item {
+  min-height: 56px;
+  padding: 10px 4px;
+}
+.ws-item-title {
+  font-weight: 600;
+}
+.ws-item-sub,
+.ws-item-end {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+
+/* A notice band: neutral sunken, or attention amber. */
+.ws-band {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgb(var(--border-strong, 201 204 198));
+  background: rgb(var(--surface-sunken, 244 245 242));
+  font-size: 0.875rem;
+  color: rgb(var(--fg, 32 35 41));
+}
+.ws-band > svg {
+  flex: none;
+}
+.ws-band[data-tone='warn'] {
+  border-color: rgb(var(--warn-ink, 138 90 0) / 0.35);
+  background: rgb(var(--warn-soft, 251 241 220));
+}
+.ws-foot-note {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-subtle, 94 99 107));
+}
+
+/* Danger zone: a plain card with outlined red buttons, not a red slab. */
+.ws-danger {
+  background: rgb(var(--surface, 255 255 255));
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  padding: 20px 24px;
+}
+.ws-danger h2 {
+  color: rgb(var(--fg, 32 35 41));
+}
+
+@media (max-width: 767px) {
+  .ws:not(.ws-drawer) {
+    padding: 16px 16px 32px;
+  }
+  .ws-inner {
+    gap: 24px;
+  }
 }

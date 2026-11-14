@@ -21,6 +21,11 @@
   --accent-hover: #e64b00;
   --accent-press: #ba3900;
   --accent-ink: #ffffff;
+  /* White text on #FF5400 is 3.22:1 and fails WCAG AA for button labels.
+     Filled buttons use this one step deeper (4.5:1), like the app does;
+     #FF5400 stays for the logo, marks and decorative accents (audit M3). */
+  --accent-fill: #d44500;
+  --accent-fill-hover: #ba3900;
   --accent-text: #ba3900;
   --accent-soft: #fff1ea;
   --ok: #15803d;
@@ -247,11 +252,11 @@ main:focus {
 }
 /* No glow: the orange fill is the whole signal. Pressing darkens it and sets it down a pixel. */
 .btn--primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-ink);
 }
 .btn--primary:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
 }
 .btn--primary:active {
   background: var(--accent-press);
@@ -3619,6 +3624,50 @@ html.is-scrolled .nav {
 .status-mark--wait {
   color: var(--ink-3);
 }
+.status-mark--warn {
+  color: var(--accent-text);
+}
+/* Posts from CLOR staff (routes/opsStatus.ts): rows on the page ground under a hairline, newest update first. */
+.status-posts {
+  max-width: 40rem;
+  margin-top: var(--s-6);
+}
+.status-posts-title {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 var(--s-3);
+}
+.status-posts ul,
+.status-posts ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.status-post {
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--line);
+}
+.status-post h3 {
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+.status-post-meta {
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+  margin: var(--s-1) 0 var(--s-3);
+}
+.status-post ol li {
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  margin-top: var(--s-2);
+}
+.status-post-time {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
 .status-note {
   max-width: 40rem;
   margin-top: var(--s-5);
@@ -3688,5 +3737,14 @@ html.is-scrolled .nav {
   }
   .team-who {
     position: static;
+  }
+}
+
+/* Phones up to 419px: the header is the logo and the menu button only. "Request a
+   demo" is already in the hero and in the menu; with it here the menu button was
+   pushed 20px off a 375px screen and the page scrolled sideways (audit B1). */
+@media (max-width: 419px) {
+  .nav-demo {
+    display: none;
   }
 }

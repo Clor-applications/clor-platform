@@ -94,12 +94,9 @@ describe('button state styles', () => {
     expect(block).toMatch(/animation: ui-btn-pulse [^;]*infinite !important/);
   });
 
-  it('in People, gives labelled button icons marigold but never icon-only or danger buttons', () => {
-    expect(people).toMatch(/--btn-icon: 245 166 35;/);
-    const at = people.indexOf('--btn-icon-color: rgb(var(--btn-icon))');
-    const rule = people.slice(people.lastIndexOf('\n:root', at), at);
-    expect(rule).toContain(':not(.ui-btn-icon-only, [data-icon-only])');
-    expect(rule).not.toContain('ui-btn-danger');
-    expect(rule).toContain("[data-palette='sky']");
+  /* Moss (R&D redesign, 14 Nov 2026): no second accent on what you press; the icon takes the button's own colour. */
+  it("in People, a labelled button's icon takes the button's own colour", () => {
+    expect(people).not.toMatch(/--btn-icon/);
+    expect(people).toMatch(/:root\[data-palette='sky'\] :is\(#main-content, body\) \.ui-btn > svg \{ flex: none; color: currentColor; \}/);
   });
 });

@@ -3,6 +3,7 @@ import { ChevronDown, Lock } from '@ui/components/ui/lineIcons';
 
 import { displayModules, moduleKeys, permissionKey } from './permissionKeys';
 import './workspace.css';
+import './ws-access.css';
 
 /*
  * The permission matrix: module sections, one row per resource, one column
@@ -49,11 +50,8 @@ export default function PermissionMatrix({ modules: given, granted, onToggle, on
 
         /* One surface per module: its header and, when open, its table — no box inside a box. */
         return (
-          <section key={id} className="ws-table-wrap" aria-label={mod.label}>
-            <div
-              className="flex items-center justify-between gap-3"
-              style={{ padding: '12px 14px', borderBottom: isOpen ? '1px solid rgb(var(--ws-line))' : 'none' }}
-            >
+          <section key={id} className="ws-pm-section" aria-label={mod.label}>
+            <div className="ws-pm-head">
               <button
                 type="button"
                 className="flex items-center gap-2 min-w-0 text-left"
@@ -69,7 +67,7 @@ export default function PermissionMatrix({ modules: given, granted, onToggle, on
               >
                 <ChevronDown size={16} aria-hidden="true" className={`transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`} />
                 <span className="text-sm" style={{ fontWeight: 600 }}>{mod.label}</span>
-                <span className={`ws-pill${on ? ' ws-pill--role' : ''}`}>{on} of {keys.length}</span>
+                <span className="ws-pill ws-pill--role tabular-nums">{on} of {keys.length}</span>
                 {mod.key === 'SETTINGS' ? (
                   <span className="ws-pill">
                     <Lock size={10} aria-hidden="true" /> Administration
@@ -92,10 +90,11 @@ export default function PermissionMatrix({ modules: given, granted, onToggle, on
             </div>
 
             {isOpen ? (
-              <table className="ws-table">
+              <div className="ws-table-wrap">
+              <table className="ws-table ws-pm-table">
                 <thead>
                   <tr>
-                    <th scope="col">Resource</th>
+                    <th scope="col">Area</th>
                     {ACTION_ORDER.map((a) => (
                       <th key={a} scope="col" style={{ textAlign: 'center' }}>{actionLabel[a]}</th>
                     ))}
@@ -109,7 +108,7 @@ export default function PermissionMatrix({ modules: given, granted, onToggle, on
                     return (
                       <tr key={r.key}>
                         <td style={{ whiteSpace: 'normal', minWidth: 180 }}>
-                          <div>{r.label}</div>
+                          <div style={{ fontWeight: 600 }}>{r.label}</div>
                           {r.description ? <div className="ui-caption">{r.description}</div> : null}
                         </td>
                         {ACTION_ORDER.map((a) => {
@@ -141,6 +140,7 @@ export default function PermissionMatrix({ modules: given, granted, onToggle, on
                   })}
                 </tbody>
               </table>
+              </div>
             ) : null}
           </section>
         );

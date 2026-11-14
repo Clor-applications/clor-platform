@@ -155,7 +155,7 @@ describe('route and menu agree', () => {
     const item = adminApp.nav.find((n) => n.key === 'notifications');
     expect(item.permission).toBe(PERMISSION);
     expect(adminApp.screens.notifications).toBeTruthy();
-    expect(adminApp.modules.find((m) => m.key === 'company').items).toContain('notifications');
+    expect(adminApp.modules.find((m) => m.key === 'apps').items).toContain('notifications');
 
     for (const [file, screens] of [
       ['apps/people/manifest.jsx', 'apps/people/src/screens.js'],

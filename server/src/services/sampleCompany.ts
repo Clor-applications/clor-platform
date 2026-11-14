@@ -103,6 +103,7 @@ async function ensureSkeleton(): Promise<SampleCompany> {
     let org = await platformPrisma.org.findFirst({ where: { accountId, name: SAMPLE.company }, select: { id: true } });
     if (!org) {
       const made = await createCompany({
+        adminTwoFactor: false,
         accountId,
         userId: owner.id,
         companyName: SAMPLE.company,

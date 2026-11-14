@@ -127,7 +127,7 @@ test.describe('Kavya runs HR', () => {
     const lastDay = daysFromNow(30);
     await kavya.goto();
     await kavya.openEmployee(w.people.meena.name);
-    await kavya.main.getByRole('button', { name: 'More', exact: true }).click();
+    await kavya.main.getByRole('button', { name: 'Actions', exact: true }).click();
     await kavya.page.getByRole('menuitem', { name: 'Mark as left' }).click();
     const dialog = kavya.drawerNamed('Meena Iyer is leaving');
     await choose(dialog.getByLabel('Why'), 'Resigned');
@@ -142,7 +142,8 @@ test.describe('Kavya runs HR', () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText(shortDate(lastDay));
     await kavya.openEmployee(w.people.meena.name);
-    await expect(kavya.title).toContainText('On notice');
+    /* The status badge sits in the profile's summary band, beside the name (R&D profile, PEOPLE-03). */
+    await expect(kavya.main.getByText('On notice', { exact: true }).first()).toBeVisible();
     await kavya.main.getByRole('tab', { name: 'Employment' }).click();
     await expect(kavya.main.getByRole('tabpanel')).toContainText(`${shortDate(lastDay)} · Resigned · Handover of Mysuru accounts to Arjun Das`);
     const steps = kavya.main.getByRole('region', { name: 'Leaving' });
@@ -155,7 +156,7 @@ test.describe('Kavya runs HR', () => {
     await kavya.goto();
     await kavya.openEmployee(w.people.priya.name);
 
-    await kavya.main.getByRole('button', { name: 'More', exact: true }).click();
+    await kavya.main.getByRole('button', { name: 'Actions', exact: true }).click();
     await kavya.page.getByRole('menuitem', { name: 'Transfer' }).click();
     let dialog = kavya.drawerNamed('Transfer: Priya Sharma');
     await choose(dialog.getByLabel('Department'), 'Sales');
@@ -163,7 +164,7 @@ test.describe('Kavya runs HR', () => {
     await dialog.getByRole('button', { name: 'Confirm change' }).click();
     await expect(dialog).toBeHidden();
 
-    await kavya.main.getByRole('button', { name: 'More', exact: true }).click();
+    await kavya.main.getByRole('button', { name: 'Actions', exact: true }).click();
     await kavya.page.getByRole('menuitem', { name: 'Change manager' }).click();
     dialog = kavya.drawerNamed('Change manager: Priya Sharma');
     await choose(dialog.getByLabel('New manager'), /Neha Joshi/);
@@ -186,7 +187,7 @@ test.describe('Kavya runs HR', () => {
     const url = `/o/${w.asha.code}/?app=people&open=employee&s.id=${w.people.vikram.id}`;
     for (const p of [kavya.page, second]) {
       await p.goto(url);
-      await p.getByRole('main').getByRole('button', { name: 'Edit', exact: true }).click();
+      await p.getByRole('main').getByRole('button', { name: 'Edit profile', exact: true }).click();
       await expect(p.getByRole('main').getByLabel('Preferred name')).toBeVisible();
     }
     await kavya.main.getByLabel('Preferred name').fill('Vicky');

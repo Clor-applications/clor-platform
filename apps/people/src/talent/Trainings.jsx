@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Download, Plus } from '@ui/components/ui/lineIcons';
+import { AlertTriangle, Download, Plus } from '@ui/components/ui/lineIcons';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -11,6 +11,7 @@ import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { Meter, Notice, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import { assignSeats, certificateFile, deleteTraining, expiringCertificates, getTraining, listTrainings, markSeat, readFile, removeSeat, saveTraining } from '../api/talent';
 import { FormError, Footer, Pill, SHEET, WIDE_SHEET, day, staffOptions, tabItems, todayIst, useParamState, usePerm, usedValues, useStaff } from './shared';
 
@@ -38,6 +39,21 @@ export default function Trainings({ params = {} }) {
   const expiring = tab === 'expiring';
   const req = useRequest(() => (expiring ? expiringCertificates() : listTrainings({ status: tab, q })), [tab, q]);
   const rows = req.data || [];
+  /* The figures (R&D PEOPLE-21), from the trainings on this tab; the lapsing count from its own short list. */
+  const lapsing = useRequest(() => expiringCertificates().catch(() => null), []);
+  const seatsOf = (t) => (t.assigned || 0) + (t.completed || 0) + (t.missed || 0);
+  const total = expiring ? 0 : rows.reduce((a, t) => a + seatsOf(t), 0);
+  const done = expiring ? 0 : rows.reduce((a, t) => a + (t.completed || 0), 0);
+  const mustDo = expiring ? [] : rows.filter((t) => t.mandatory && t.status !== 'CANCELLED');
+  const mustOpen = mustDo.reduce((a, t) => a + (t.assigned || 0) + (t.missed || 0), 0);
+  const hours = expiring ? 0 : rows.reduce((a, t) => a + (Number(t.hours) || 0) * (t.completed || 0), 0);
+  const lapsingN = (lapsing.data || []).length;
+  const tiles = req.data && !expiring ? [
+    { key: 'courses', label: 'Trainings', value: rows.length, accent: 1, Icon: TILE_ICON.course, sub: mustDo.length ? `${mustDo.length} must do` : null },
+    { key: 'done', label: 'Completion', value: total ? `${Math.round((done / total) * 100)}%` : '—', accent: 2, Icon: TILE_ICON.done, sub: `${done} of ${total} people` },
+    { key: 'open', label: 'Must-do not finished', value: mustOpen, accent: 'warn', tone: mustOpen ? 'warn' : null, Icon: TILE_ICON.time, sub: 'Assigned or missed' },
+    { key: 'hours', label: 'Hours learned', value: Math.round(hours).toLocaleString('en-IN'), accent: 4, Icon: TILE_ICON.award, sub: lapsingN ? `${lapsingN} certificate${lapsingN === 1 ? '' : 's'} lapsing soon` : 'Completed hours × people' },
+  ] : null;
   const columns = expiring ? [
     { key: 'person', label: 'Person', always: true, render: (s) => <span className="font-medium">{s.employee?.name}</span> },
     { key: 'training', label: 'Training', render: (s) => s.trainingTitle },
@@ -47,7 +63,8 @@ export default function Trainings({ params = {} }) {
     { key: 'title', label: 'Training', always: true, render: (t) => <span className="min-w-0"><span className="block truncate font-medium">{t.title}</span><span className="block truncate ui-caption">{[kindWord(t.kind), t.provider].filter(Boolean).join(' · ')}</span></span> },
     { key: 'dates', label: 'Dates', render: (t) => <span className="tabular-nums whitespace-nowrap">{t.startDate ? `${day(t.startDate)}${t.endDate && t.endDate !== t.startDate ? ` – ${day(t.endDate)}` : ''}` : '—'}</span> },
     { key: 'hours', label: 'Hours', render: (t) => <span className="tabular-nums">{t.hours ?? '—'}</span> },
-    { key: 'people', label: 'People', render: (t) => <span className="tabular-nums">{t.completed}<span className="ui-muted"> / {t.assigned + t.completed + t.missed}</span></span> },
+    { key: 'people', label: 'Assigned', align: 'right', render: (t) => <span className="tabular-nums">{seatsOf(t)}</span> },
+    { key: 'completed', label: 'Completed', render: (t) => (seatsOf(t) ? <Meter value={(t.completed / seatsOf(t)) * 100} text={`${t.completed} · ${Math.round((t.completed / seatsOf(t)) * 100)}%`} /> : <span className="ui-muted">Nobody yet</span>) },
     { key: 'valid', label: 'Certificate', render: (t) => months(t.validMonths) },
     { key: 'status', label: 'Status', render: (t) => <span className="inline-flex flex-wrap gap-1.5"><Pill map={STATUS} value={t.status} />{t.mandatory ? <span className="ui-pill ui-pill-warn">Must do</span> : null}</span> },
   ];
@@ -59,6 +76,7 @@ export default function Trainings({ params = {} }) {
         description="Trainings, who attends them, and the certificates that lapse."
         primary={canCreate ? { label: 'New training', icon: Plus, onClick: () => setEditing({}) } : null}
         toolbar={expiring ? null : <SearchField value={q} onSearch={setQ} placeholder="Search training or provider" label="Search trainings" className="w-full sm:w-80" />}
+        strip={tiles ? <StatTiles label="Training figures" items={tiles} /> : null}
         tabs={tabItems(TABS)}
         tab={tab}
         onTab={setTab}
@@ -76,6 +94,9 @@ export default function Trainings({ params = {} }) {
             : q || tab ? <EmptyState kind="filtered" title="No trainings match" description="Nothing here matches the search or the tab." />
               : <EmptyState title="No trainings yet" description="Fire safety, first aid, forklift: add a training and who attends it." routes={canCreate ? [{ label: 'New training', onSelect: () => setEditing({}) }] : undefined} />} />
       )}
+      {!expiring && mustOpen ? (
+        <Notice icon={AlertTriangle}><strong>{mustOpen} {mustOpen === 1 ? 'person has' : 'people have'} not finished a must-do training</strong>{mustDo.length === 1 ? ` (${mustDo[0].title}${mustDo[0].endDate || mustDo[0].startDate ? `, by ${day(mustDo[0].endDate || mustDo[0].startDate)}` : ''})` : ''}. Open it to remind them or mark who has.</Notice>
+      ) : null}
       {open ? <TrainingDrawer id={open} onEdit={(t) => { setOpen(null); setEditing(t); }} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
       {editing ? <TrainingForm value={editing} rows={expiring ? [] : rows} onClose={() => setEditing(null)} onSaved={(t) => { setEditing(null); req.reload(); setOpen(t.id); }} /> : null}
     </div>

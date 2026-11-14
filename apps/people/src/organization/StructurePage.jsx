@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { tintOf } from './tints';
+import { Avatar } from '@ui/personnel/Employees';
+import '../people-core.css';
 import { KIND_WORDS } from '@ui/personnel/employmentKinds';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from '../workforce/suggestions';
@@ -34,25 +35,28 @@ export const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).filter((s) =>
 
 export const KINDS = {
   departments: {
-    title: 'Departments', singular: 'department', screen: 'departments',
+    blurb: 'Teams and who heads them. Heads approve leave when the reporting manager is away.', title: 'Departments', singular: 'department', screen: 'departments',
     fields: [
       { key: 'parentId', label: 'Under', type: 'ref', ref: 'departments', placeholder: 'Top level', tree: true },
       { key: 'headEmployeeId', label: 'Head', type: 'person', placeholder: 'Not set' },
     ],
-    columns: [{ key: 'head', label: 'Head', render: (r) => (r.headName ? <span className={`org-head ${r.headLeft ? 'ui-text-neg' : ''}`}><span className="org-head-face" aria-hidden="true">{r.headName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>{r.headName}{r.headLeft ? ' (left)' : ''}</span> : <span className="ui-muted">No head</span>) }],
+    columns: [
+      { key: 'head', label: 'Head', render: (r) => (r.headName ? <span className={`pc-who ${r.headLeft ? 'ui-text-neg' : ''}`}><Avatar person={{ name: r.headName }} size={32} /><span className="pc-who-name">{r.headName}{r.headLeft ? ' (left)' : ''}</span></span> : <span className="ui-muted">No head</span>) },
+      { key: 'parent', label: 'Parent', render: (r, refs) => refs.departments?.get(r.parentId) || '—' },
+    ],
   },
   'job-positions': {
-    title: 'Designations', singular: 'designation', screen: 'jobPositions',
+    blurb: 'The job titles people hold, and the department each belongs to.', title: 'Designations', singular: 'designation', screen: 'jobPositions',
     fields: [{ key: 'departmentId', label: 'Department', type: 'ref', ref: 'departments', placeholder: 'Any department' }],
     columns: [{ key: 'department', label: 'Department', render: (r, refs) => refs.departments?.get(r.departmentId) || '—' }],
   },
   'job-roles': {
-    title: 'Job roles', singular: 'job role', screen: 'jobRoles',
+    blurb: 'The work a designation does, for job descriptions, hiring and reviews.', title: 'Job roles', singular: 'job role', screen: 'jobRoles',
     fields: [{ key: 'jobPositionId', label: 'Designation', type: 'ref', ref: 'job-positions', placeholder: 'Choose…', required: true }],
     columns: [{ key: 'designation', label: 'Designation', render: (r, refs) => refs['job-positions']?.get(r.jobPositionId) || '—' }],
   },
   teams: {
-    title: 'Teams', singular: 'team', screen: 'teams',
+    blurb: 'Smaller groups inside a department, and who leads each.', title: 'Teams', singular: 'team', screen: 'teams',
     fields: [
       { key: 'departmentId', label: 'Department', type: 'ref', ref: 'departments', placeholder: 'Any department' },
       { key: 'leadEmployeeId', label: 'Lead', type: 'person', placeholder: 'Not set' },
@@ -60,7 +64,7 @@ export const KINDS = {
     columns: [{ key: 'department', label: 'Department', render: (r, refs) => refs.departments?.get(r.departmentId) || '—' }],
   },
   seats: {
-    title: 'Positions', singular: 'position', screen: 'seats',
+    blurb: 'Budgeted positions in a team, filled or open.', title: 'Positions', singular: 'position', screen: 'seats',
     fields: [
       { key: 'teamId', label: 'Team', type: 'ref', ref: 'teams', placeholder: 'Choose…', required: true },
       { key: 'jobPositionId', label: 'Designation', type: 'ref', ref: 'job-positions', placeholder: 'Any' },
@@ -69,12 +73,12 @@ export const KINDS = {
     columns: [{ key: 'team', label: 'Team', render: (r, refs) => refs.teams?.get(r.teamId) || '—' }],
   },
   areas: {
-    title: 'Locations', singular: 'location', screen: 'areas',
+    blurb: 'Offices, plants and project sites people work from.', title: 'Locations', singular: 'location', screen: 'areas',
     fields: [{ key: 'parentId', label: 'Inside', type: 'ref', ref: 'areas', placeholder: 'Top level', tree: true }],
     columns: [],
   },
   establishments: {
-    title: 'Work sites', singular: 'work site', screen: 'establishments', noDelete: false,
+    blurb: 'Registered places of work, with their state and statutory registrations.', title: 'Work sites', singular: 'work site', screen: 'establishments', noDelete: false,
     fields: [
       { key: 'state', label: 'State', type: 'state', required: true },
       { key: 'legalEntityId', label: 'Legal company', type: 'ref', ref: 'legal-entities', placeholder: 'Not set' },
@@ -91,7 +95,7 @@ export const KINDS = {
   },
   /* Settings lists: a person's terms and the company in law, laid out like every other list. */
   'employee-types': {
-    title: 'Employment types', singular: 'employment type', screen: 'employeeTypes', settings: true,
+    blurb: 'Permanent, contract, intern and the like: what each counts as, its probation and notice.', title: 'Employment types', singular: 'employment type', screen: 'employeeTypes', settings: true,
     fields: [
       { key: 'category', label: 'Counts as', type: 'select', options: Object.entries(KIND_WORDS) },
       { key: 'probationMonths', label: 'Probation (months)', type: 'text', inputMode: 'numeric', placeholder: 'None' },
@@ -103,9 +107,9 @@ export const KINDS = {
       { key: 'notice', label: 'Notice', render: (r) => (r.noticeDays ? <span className="tabular-nums">{r.noticeDays} days</span> : '—') },
     ],
   },
-  'work-types': { title: 'Work modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
+  'work-types': { blurb: 'How people work: office, field, hybrid or remote.', title: 'Work modes', singular: 'work mode', screen: 'workTypes', settings: true, fields: [], columns: [] },
   'legal-entities': {
-    title: 'Legal entity', singular: 'legal entity', noun: 'legal companies', screen: 'legalEntities', settings: true,
+    blurb: 'The companies in law that employ people.', title: 'Legal entity', singular: 'legal entity', noun: 'legal companies', screen: 'legalEntities', settings: true,
     fields: [
       { key: 'pan', label: 'PAN', type: 'text', placeholder: 'ABCDE1234F' },
       { key: 'cin', label: 'CIN', type: 'text' },
@@ -113,9 +117,9 @@ export const KINDS = {
     ],
     columns: [{ key: 'pan', label: 'PAN', render: (r) => <span className="tabular-nums">{r.pan || '—'}</span> }],
   },
-  'business-units': { title: 'Business units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
-  grades: { title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },
-  'cost-centres': { title: 'Cost centres', singular: 'cost centre', screen: 'costCentres', fields: [], columns: [] },
+  'business-units': { blurb: 'Divisions with their own head and results, for reports and approvals.', title: 'Business units', singular: 'business unit', screen: 'businessUnits', fields: [], columns: [] },
+  grades: { blurb: 'Pay and seniority bands. Grades decide which salary structure and benefits apply.', title: 'Grades', singular: 'grade', screen: 'grades', fields: [], columns: [] },
+  'cost-centres': { blurb: 'Where each person’s cost is booked in Books and Payroll.', title: 'Cost centres', singular: 'cost centre', screen: 'costCentres', fields: [], columns: [] },
 };
 
 /* The registrations a work site holds; the same list Compliance names (services/people/complianceRules.ts). */
@@ -204,26 +208,20 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     try { await deleteItem(kind, r.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
 
-  /* Each row's own colour (stable by name) and its share of the biggest, so a list reads at a glance. */
-  const peak = Math.max(1, ...items.map((x) => x.employeeCount || 0));
   const columns = [
-    { key: 'name', label: 'Name', always: true, render: (r) => (
-      <span className="flex min-w-0 items-center gap-2.5">
-      <span className="org-tile" data-tint={tintOf(r.name)} aria-hidden="true">{(r.name || '?').trim().charAt(0).toUpperCase()}</span>
-      <span className="min-w-0">
-        <span className="block truncate font-medium">{r.name}</span>
-        {TREE_KEY[kind] && r[TREE_KEY[kind]] ? <span className="block truncate ui-caption">{pathOf(items, items.find((x) => x.id === r[TREE_KEY[kind]]) || {}, TREE_KEY[kind])}</span> : null}
-      </span>
-      </span>
-    ) },
+    /* PEOPLE-30..38: the name in bold, with its description (or, in a tree, where it sits) under it. */
+    { key: 'name', label: cfg.singular.charAt(0).toUpperCase() + cfg.singular.slice(1), always: true, render: (r) => {
+      const under = TREE_KEY[kind] && r[TREE_KEY[kind]] && kind !== 'departments' ? pathOf(items, items.find((x) => x.id === r[TREE_KEY[kind]]) || {}, TREE_KEY[kind]) : null;
+      const sub = [under, r.description].filter(Boolean).join(' · ');
+      return <span className="pc-two"><span className="font-semibold">{r.name}</span>{sub ? <span>{sub}</span> : null}</span>;
+    } },
     ...cfg.columns.map((c) => ({ ...c, render: (r) => c.render(r, refNames) })),
     /* Direct count; a department with sub-departments also says how many with them (ORG-R050). */
     /* A legal company is used by its work sites, not by people directly. */
-    { key: 'people', label: kind === 'legal-entities' ? 'Work sites' : 'People', width: '14rem', render: (r) => { const all = withUnder(r); return (
-      <span className="org-count">
-        <span className="org-count-bar" aria-hidden="true"><span style={{ width: `${((r.employeeCount || 0) / peak) * 100}%` }} /></span>
-        <span className="tabular-nums org-count-n">{r.employeeCount || 0}</span>
-        {all > (r.employeeCount || 0) ? <span className="block ui-caption">{all} with sub-{kind === 'areas' ? 'locations' : 'departments'}</span> : null}
+    { key: 'people', label: kind === 'legal-entities' ? 'Work sites' : 'People', align: 'right', render: (r) => { const all = withUnder(r); return (
+      <span className="pc-two text-right">
+        <span className="tabular-nums">{r.employeeCount || 0}</span>
+        {all > (r.employeeCount || 0) ? <span>{all} with sub-{kind === 'areas' ? 'locations' : 'departments'}</span> : null}
       </span>
     ); } },
   ];
@@ -241,9 +239,10 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
       <ListHeader
         section="Settings"
         title={cfg.title}
-        description={`The ${noun} people are filed under, in use or retired, and how many are in each.`}
-        primary={canCreate ? { label: `New ${cfg.singular}`, icon: Plus, onClick: () => setEditing({ name: '', isActive: true }) } : null}
-        toolbar={<SearchField value={q} onSearch={setQ} placeholder={`Search ${noun}`} label={`Search ${noun}`} className="w-full sm:w-80" />}
+        description={cfg.blurb || `The ${noun} people are filed under, in use or retired, and how many are in each.`}
+        primary={canCreate ? { label: `Add ${cfg.singular}`, icon: Plus, onClick: () => setEditing({ name: '', isActive: true }) } : null}
+        toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search" label={`Search ${noun}`} className="w-full sm:w-80" />}
+        toolbarEnd={req.data ? <span className="pc-note tabular-nums" aria-live="polite">{shown.length} {shown.length === 1 ? 'item' : 'items'}</span> : null}
         tabs={[{ key: 'active', label: 'In use', count: counts.active }, { key: 'retired', label: 'Retired', count: counts.retired }]}
         tab={tab}
         onTab={setTab}
@@ -271,7 +270,7 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
             ? <EmptyState kind="filtered" title={`No ${noun} match`} description="Nothing here matches the search." />
             : tab === 'retired'
               ? <EmptyState title={`No retired ${noun}`} description="What you retire stays here, with its history." />
-              : <EmptyState title={`No ${noun} yet`} description={`People are filed under ${noun} once there is one to file them under.`} routes={canCreate ? [{ label: `New ${cfg.singular}`, onSelect: () => setEditing({ name: '', isActive: true }) }] : undefined} />}
+              : <EmptyState title={`No ${noun} yet`} description={`People are filed under ${noun} once there is one to file them under.`} routes={canCreate ? [{ label: `Add ${cfg.singular}`, onSelect: () => setEditing({ name: '', isActive: true }) }] : undefined} />}
         />
       )}
       {editing ? <EditDrawer kind={kind} cfg={cfg} value={editing} items={items} refs={req.data?.refs || {}} staff={req.data?.staff || []} onClose={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); }} onDone={() => { setEditing(null); if (params.new) updateParams?.({ new: null }); req.reload(); }} onRetire={(r) => { setEditing(null); setRetiring(r); }} /> : null}

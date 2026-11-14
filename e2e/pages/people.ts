@@ -10,54 +10,63 @@ import type { Company } from '../support/world';
 
 /** Each screen's menu label → the module it sits under (apps/people/manifest.jsx `modules`). */
 /** Rail modules that hold a single screen: the rail button opens it, with no list. */
-const ONE_SCREEN = new Set(['Home', 'Inbox', 'Settings']);
+const ONE_SCREEN = new Set(['Home']);
+
+/* A screen whose menu item reads differently from its title: Settings is "All settings" in its list. */
+const ITEM: Record<string, string> = { Settings: 'All settings' };
+
+/* The rail names a module in one word; its screen list may carry the long name (R&D menu, 14 Nov 2026). */
+const PANEL: Record<string, string> = { Time: 'Leave & attendance' };
+
+/* A menu item may carry a count after its label ("Employees 10", "Inbox 3"). */
+const itemName = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?: ?\\d+\\+?)?$`);
 
 /** A rail button by its module label; its name carries a count when something waits ("Inbox 3 waiting"). */
 const railButton = (rail: Locator, module: string) => rail.getByRole('button', { name: new RegExp(`^${module}(?: |$)`) });
 
 export const MENU: Record<string, string> = {
   Home: 'Home',
-  Inbox: 'Inbox',
-  Employees: 'People',
-  'Org chart': 'People',
-  Documents: 'People',
-  Joining: 'People',
-  Offers: 'People',
-  'Job changes': 'People',
-  Leaving: 'People',
-  Tasks: 'People',
-  'Salary revisions': 'People',
-  Benefits: 'People',
-  Assets: 'People',
-  Expenses: 'People',
+  Inbox: 'Home',
+  Employees: 'Employees',
+  'Org chart': 'Employees',
+  Documents: 'Employees',
+  Joining: 'Employees',
+  Offers: 'Employees',
+  'Job changes': 'Employees',
+  Leaving: 'Employees',
+  Tasks: 'Employees',
+  'Salary revisions': 'Employees',
+  Benefits: 'Employees',
+  Assets: 'Employees',
+  Expenses: 'Employees',
   "Who's away": 'Time',
   'Leave requests': 'Time',
   'Leave calendar': 'Time',
   'Leave balances': 'Time',
+  'Leave register': 'Time',
   'Daily attendance': 'Time',
-  'Attendance requests': 'Time',
+  'Attendance fixes': 'Time',
   'Shift swaps': 'Time',
   'Late marks': 'Time',
   'Absent without leave': 'Time',
   'Night work': 'Time',
-  'Job openings': 'Talent',
-  Candidates: 'Talent',
-  Interviews: 'Talent',
-  Referrals: 'Talent',
-  Goals: 'Talent',
-  Reviews: 'Talent',
-  'One-on-ones': 'Talent',
-  'Improvement plans': 'Talent',
-  Training: 'Talent',
-  Announcements: 'Workplace',
-  Events: 'Workplace',
-  'Help desk': 'Workplace',
-  Policies: 'Workplace',
-  'Confidential cases': 'Workplace',
-  'Headcount & attrition': 'Reports',
-  'Leave register': 'Reports',
-  'Requests report': 'Reports',
-  'Statutory registers': 'Reports',
+  'Job openings': 'Hiring',
+  Candidates: 'Hiring',
+  Interviews: 'Hiring',
+  Referrals: 'Hiring',
+  Goals: 'Performance',
+  Reviews: 'Performance',
+  'One-on-ones': 'Performance',
+  'Improvement plans': 'Performance',
+  Training: 'Performance',
+  Announcements: 'Engage',
+  Events: 'Engage',
+  'Help desk': 'Engage',
+  Policies: 'Engage',
+  'Confidential cases': 'Engage',
+  'Headcount & attrition': 'Insights',
+  'Requests report': 'Insights',
+  'Statutory registers': 'Insights',
   Settings: 'Settings',
 };
 
@@ -104,7 +113,7 @@ export class PeopleWeb {
   async screensUnder(module: string) {
     const root = await this.drawer();
     const rail = root.getByRole('navigation', { name: 'People modules' });
-    const list = root.getByRole('navigation', { name: `${module} screens` });
+    const list = root.getByRole('navigation', { name: `${PANEL[module] || module} screens` });
     if (!(await list.isVisible().catch(() => false))) await railButton(rail, module).click();
     const labels = (await list.isVisible().catch(() => false)) ? await list.getByRole('button').allTextContents() : [];
     if (this.isPhone && (await this.page.getByRole('dialog', { name: 'People navigation' }).isVisible())) await this.page.keyboard.press('Escape');
@@ -121,10 +130,10 @@ export class PeopleWeb {
     if (!module) throw new Error(`No menu entry "${label}" in pages/people.ts MENU`);
     const root = await this.drawer();
     const rail = root.getByRole('navigation', { name: 'People modules' });
-    const list = root.getByRole('navigation', { name: `${module} screens` });
+    const list = root.getByRole('navigation', { name: `${PANEL[module] || module} screens` });
     const button = railButton(rail, module);
-    if (ONE_SCREEN.has(module)) {
-      /* A module of one screen (Home, Inbox, Settings) opens it straight away. */
+    if (ONE_SCREEN.has(label)) {
+      /* Home opens straight from the rail (Inbox now sits under it). */
       await button.click();
     } else {
       /* The rail button toggles its list: press it only when that list is not already open. */
@@ -133,7 +142,7 @@ export class PeopleWeb {
         if (!(await list.isVisible())) await button.click();
         await expect(list).toBeVisible({ timeout: 2_000 });
       }).toPass({ timeout: 15_000 });
-      await list.getByRole('button', { name: label, exact: true }).click();
+      await list.getByRole('button', { name: itemName(ITEM[label] || label) }).click();
     }
     if (this.isPhone && (await this.page.getByRole('dialog', { name: 'People navigation' }).isVisible())) await this.page.keyboard.press('Escape');
     await expect(this.title).toHaveText(opts.title || label);

@@ -39,8 +39,9 @@ test.describe('Suresh owns the account', () => {
     /* Workspace opens: in place locally (?app=admin), on staging on the front door's own host (app.), where the address carries no app=. */
     await expect(suresh.page.locator('html')).toHaveAttribute('data-app', 'admin');
     if (suresh.isPhone) await suresh.page.getByRole('banner').getByRole('button', { name: 'Menu' }).click();
-    await suresh.page.getByRole('button', { name: 'Access', exact: true }).first().click();
-    await suresh.page.getByRole('button', { name: 'Users', exact: true }).first().click();
+    /* Workspace's "People & access" module (R&D menu: "People" on the rail), then its users page. */
+    await suresh.page.getByRole('navigation', { name: /modules$/ }).getByRole('button', { name: /^People(?: |$)/ }).click();
+    await suresh.page.getByRole('navigation', { name: 'People & access screens' }).getByRole('button', { name: /^Users in this company/ }).click();
     await suresh.settle();
     await expect(suresh.row('Kavya Nair')).toContainText('HR Manager');
     await expect(suresh.row('Rahul Menon')).toContainText('Team Manager');

@@ -70,12 +70,12 @@ describe('sign-in and sessions', () => {
 describe('audit trail', () => {
   it('lists entries with their diff, pages on, and exports what is shown', async () => {
     render(<AuditTrail />);
-    const row = (await screen.findByText('Invoice INV-7 edited')).closest('li');
+    const row = (await screen.findByText('Invoice INV-7 edited')).closest('tr');
     expect(within(row).getByText('12000')).toBeInTheDocument();
     expect(within(row).getByText('Update')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Load older entries/ }));
     await waitFor(() => expect(api.listAudit).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'c2' })));
-    fireEvent.click(screen.getByRole('button', { name: /Export shown/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Export$/ }));
     expect(api.exportRows.mock.calls[0][0].rows[0]).toMatchObject({ action: 'UPDATE', by: 'Asha' });
   });
 });

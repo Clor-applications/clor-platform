@@ -599,7 +599,7 @@ function HrTools() {
           </div>
           <p className="ui-caption">{adapter(form.adapter)?.blurb}</p>
           {adapter(form.adapter)?.prerequisites?.length ? (
-            <div className="rounded-md p-3 text-sm" style={{ backgroundColor: 'rgb(var(--surface))' }}>
+            <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgb(var(--surface))' }}>
               <p className="font-medium">Before you start</p>
               <ul className="mt-1 list-disc space-y-0.5 ps-5 ui-caption">{adapter(form.adapter).prerequisites.map((t) => <li key={t}>{t}</li>)}</ul>
             </div>

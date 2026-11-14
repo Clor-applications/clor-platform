@@ -65,6 +65,26 @@ describe('apps follow the subscription', () => {
     expect(acct?.legacyUnrestrictedAt).toBeNull();
   }, 60_000);
 
+  it('switches on only the apps picked at company setup, while the trial still covers the rest (B2)', async () => {
+    const email = `modules.picked.${Date.now()}.${rnd()}@example.com`;
+    const signup = await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: 'Owner' }).expect(200);
+    const setup = await request(app)
+      .post('/api/auth/setup-company')
+      .set('Authorization', `Bearer ${signup.body.token}`)
+      .send({ companyName: `Picked Co ${rnd()}`, state: 'Karnataka', apps: ['attendance'] })
+      .expect(200);
+    const c = { token: signup.body.token, orgId: setup.body.company.orgId, branchId: setup.body.branch.id };
+    expect(await features(c)).toMatchObject({ attendance: true, people: false, payroll: false });
+    /* Not bought away: the trial owns the others, so adding one later is one switch. */
+    await setFeatures(c, { payroll: true }).expect(200);
+    expect(await features(c)).toMatchObject({ attendance: true, people: false, payroll: true });
+  }, 60_000);
+
+  it('switches every owned app on when setup names no apps, as older clients expect', async () => {
+    const c = await company();
+    expect(await features(c)).toMatchObject({ attendance: true, people: true, payroll: true });
+  }, 60_000);
+
   it('blocks direct Accounting APIs when Accounting is removed', async () => {
     const c = await company();
     await subscribe(c, [{ appCode: 'people', tier: 'FULL' }]);

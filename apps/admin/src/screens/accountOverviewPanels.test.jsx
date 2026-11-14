@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock('@platform/http', () => ({ apiFetch: (...a) => http.apiFetch(...a) }));
 vi.mock('@platform/context', () => ({ orgId: () => 'org1', requestOpenScreen: vi.fn() }));
-vi.mock('@platform/admin/account', () => ({ renameAccount: vi.fn() }));
+vi.mock('@platform/admin/account', () => ({ renameAccount: vi.fn(), memberDirectory: vi.fn(() => Promise.resolve({ members: [{ name: 'Asha Rao', accountRole: 'OWNER', status: 'ACTIVE' }, { name: 'B', accountRole: 'MEMBER', status: 'ACTIVE' }] })) }));
 
 import AccountOverview from './AccountOverview';
 
@@ -42,6 +42,12 @@ describe('Workspace Overview panels', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('Cost centres')).toBeInTheDocument();
     expect(screen.getByText('One company has no GSTIN on record.')).toBeInTheDocument();
+  });
+
+  it('names the account owner from the member directory (WS-14)', async () => {
+    show({});
+    expect(await screen.findByText('Asha Rao')).toBeInTheDocument();
+    expect(screen.getByText('Owner')).toBeInTheDocument();
   });
 
   it('never shows a run rate that looks like an answer when a line has no price', async () => {

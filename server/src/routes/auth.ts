@@ -46,6 +46,8 @@ import { closedForOutsider } from '../services/outsideAccess.js';
 import { exploreInfo } from '../services/explore.js';
 
 /* Compared against when no such user exists, so a miss costs a real bcrypt check (SX-14). */
+/** The one answer a refused sign-in gets, whatever the reason (W-12.5). */
+export const SIGN_IN_REFUSED = 'Wrong email or password. After several wrong tries, sign-in pauses for a few minutes.';
 const LOGIN_DUMMY_HASH = bcrypt.hashSync('not-a-password-0', Number(process.env.BCRYPT_ROUNDS || 12));
 
 export const authRouter = Router();
@@ -90,9 +92,9 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     },
   });
 
-  // One message for "no such user" and "wrong password": distinguishing them
-  // turns the login form into an account-existence oracle.
-  const invalid = () => res.status(401).json({ error: 'Invalid credentials' });
+  // One answer for "no such user", "wrong password" and "locked": telling
+  // them apart turns the login form into an account-existence oracle (W-12.5).
+  const invalid = () => res.status(401).json({ error: SIGN_IN_REFUSED });
 
   if (!user || !user.isActive) {
     /* Spend the same bcrypt time as a real check, so how long the answer takes
@@ -104,10 +106,10 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
   const lockedFor = lockoutRemainingMs(user.lockedUntil);
   if (lockedFor > 0) {
+    /* Same time and answer as an unknown address; the audit records the lock. */
+    await bcrypt.compare(body.password, LOGIN_DUMMY_HASH);
     await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: 'LOCKED_OUT', ip, userAgent });
-    return res.status(429).json({
-      error: `Too many failed attempts. Try again in ${Math.ceil(lockedFor / 60000)} minute(s).`,
-    });
+    return invalid();
   }
 
   const policy = await policyForUser(user.accountId, user.id);
@@ -123,9 +125,6 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
       ip,
       userAgent,
     });
-    if (result.locked) {
-      return res.status(429).json({ error: `Too many failed attempts. Try again in ${policy.lockoutMinutes} minute(s).` });
-    }
     return invalid();
   }
 
@@ -714,6 +713,12 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
        * because nothing branches on it — it is read back onto one screen.
        */
       profile: z.record(z.string(), z.any()).optional(),
+      /*
+       * The apps picked on the setup step (app codes). Only those the account
+       * owns are switched on for the new company; absent, every owned app is,
+       * as before. Accounting has no switch: every company keeps books.
+       */
+      apps: z.array(z.string()).max(20).optional(),
     })
     .parse(req.body);
 
@@ -748,7 +753,7 @@ authRouter.post('/setup-company', requireLiveAuth, async (req: Request, res: Res
   /* Everything a new company needs, in the one account-making path (services/accountProvisioning.ts). */
   let made;
   try {
-    made = await createCompany({ accountId: auth.accountId, userId: auth.userId, companyName: body.companyName, state: stateName, gstin, profile: body.profile });
+    made = await createCompany({ accountId: auth.accountId, userId: auth.userId, companyName: body.companyName, state: stateName, gstin, profile: body.profile, apps: body.apps });
   } catch (e) {
     if (e instanceof QuotaBusyError || e instanceof ProvisionError) return res.status(e.status).json({ error: e.message, code: e.code });
     throw e;

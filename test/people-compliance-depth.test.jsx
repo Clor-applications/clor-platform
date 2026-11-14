@@ -138,6 +138,6 @@ describe('People report', () => {
     expect(await screen.findByText('Aug 2026')).toBeTruthy();
     expect(http.apiFetch.mock.calls[0][0]).toMatch(/\/people\/headcount\?from=\d{4}-\d{2}-01&to=\d{4}-\d{2}-\d{2}$/);
     expect(screen.getAllByText('10.5%').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Left: Resigned 1/)).toBeTruthy();
+    expect(within(screen.getByRole('list', { name: 'Leavers by reason' })).getByText('Resigned')).toBeTruthy();
   });
 });

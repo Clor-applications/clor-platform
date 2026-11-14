@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Percent, UserMinus, UserPlus, Users } from '@ui/components/ui/lineIcons';
+import { BarList, ChartPanel, Columns, Delta, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -114,16 +114,29 @@ export default function PeopleReports({ params = {}, updateParams }) {
   return (
     <DocumentListShell title="Headcount & attrition" entity="people" tight
       moreItems={[exportMenuItem('Export')]} onMoreSelect={onExport}
-      cards={t ? [
-        { label: 'Headcount today', value: d.headcount, count: true, Icon: Users, tone: 'sent', tint: 'sky' },
-        { label: 'Joiners', value: t.joiners, count: true, Icon: UserPlus, tone: 'paid', tint: 'mint' },
-        { label: 'Leavers', value: t.leavers, count: true, Icon: UserMinus, tone: t.leavers ? 'outstanding' : 'draft', tint: 'peach' },
-        { label: 'Attrition', value: pct(t.attritionPct), count: true, Icon: Percent, tone: 'draft', tint: 'lilac' },
-      ] : null}
       above={(
+        <div className="space-y-8">
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full sm:w-80"><PopupSelect showValueSubtext={false} label="Period" value={period.value} onChange={(v) => updateParams?.({ period: v && v !== 'last12' ? v : null }, { push: false })} options={periods.map((p) => ({ value: p.value, label: p.label }))} /></div>
-          {t ? <p className="ui-caption">{[`Attrition: leavers over the average headcount of the months (${t.averageHeadcount})`, reasons.length ? `Left: ${reasons.map(([k, n]) => `${REASONS[k] || k} ${n}`).join(', ')}` : null].filter(Boolean).join(' · ')}</p> : null}
+          {t ? <p className="ui-caption">{`Attrition: leavers over the average headcount of the months (${t.averageHeadcount})`}</p> : null}
+        </div>
+        {/* The figures and the two charts (R&D PEOPLE-25): headcount at each month's end from zero, and why people left. */}
+        {t ? <StatTiles label="Workforce figures" items={[
+          { key: 'headcount', label: 'Headcount today', value: d.headcount, accent: 1, Icon: TILE_ICON.team, sub: t.headcountAtEnd - t.headcountAtStart ? <Delta value={`${t.headcountAtEnd - t.headcountAtStart > 0 ? '+' : ''}${t.headcountAtEnd - t.headcountAtStart}`} good={t.headcountAtEnd >= t.headcountAtStart}>over the period</Delta> : 'No change over the period' },
+          { key: 'joiners', label: 'Joiners', value: t.joiners, accent: 2, Icon: TILE_ICON.people, sub: period.label },
+          { key: 'leavers', label: 'Leavers', value: t.leavers, accent: 3, sub: period.label },
+          { key: 'attrition', label: 'Attrition', value: pct(t.attritionPct), accent: 4, sub: 'Leavers over average headcount' },
+        ]} /> : null}
+        {t && months.length && (t.headcountAtEnd || t.joiners || t.leavers) ? (
+          <div className="pt-charts">
+            <ChartPanel title="Headcount, end of month" note="People employed">
+              <Columns label="Headcount at the end of each month" rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], value: m.headcountAtEnd }))} />
+            </ChartPanel>
+            <ChartPanel title="Why people left">
+              {reasons.length ? <BarList label="Leavers by reason" rows={reasons.sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: REASONS[k] || k, value: n }))} /> : <p className="pt-foot">Nobody left in this period.</p>}
+            </ChartPanel>
+          </div>
+        ) : null}
         </div>
       )}>
       <>

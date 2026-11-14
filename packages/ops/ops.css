@@ -1,0 +1,1036 @@
+/*
+ * CLOR Ops console: the R&D shell and screens (clor-rnd/README.md §4–5,
+ * screens CLOR-05…07 and OPS-04…11). Loaded after workspace.css, so the Ops
+ * look lives here and the Workspace's own rules stay untouched. Every colour
+ * is a token from rnd.css; OpsConsole sets <html data-portal="ops">, which
+ * turns the portal colour (--act, --marker, --tint, --panel) forest.
+ */
+
+/* ------------------------------------------------------------- tokens */
+/* The screens are drawn with the Workspace kit (ws-*): point its colours at the R&D tokens. Drawers render outside .ops, so this sits on <html>. */
+html[data-portal='ops'],
+html[data-portal='ops'] .ws {
+  --ws-bg: var(--surface);
+  --ws-surface: var(--surface);
+  --ws-stone: var(--surface-sunken);
+  --ws-ink: var(--fg);
+  --ws-muted: var(--fg-subtle);
+  --ws-line: var(--border);
+  --ws-accent: var(--act);
+  --ws-accent-hover: var(--act-hover);
+  --ws-accent-soft: var(--tint);
+  --ws-ok: var(--pos);
+  --ws-ok-soft: var(--pos-soft);
+  --ws-warn: var(--warn-ink);
+  --ws-warn-soft: var(--warn-soft);
+  --ws-danger: var(--neg);
+  --ws-danger-soft: var(--neg-soft);
+  --ws-card-bg: rgb(var(--surface));
+  --ws-card-line: rgb(var(--border-field));
+}
+
+/* -------------------------------------------------------------- shell */
+html[data-portal='ops'] .ops {
+  min-height: 100dvh;
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+}
+
+/* The staff bar: 32px, full width, always on top. No close button and no state hides it. */
+html[data-portal='ops'] .ops-staffbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex !important;
+  visibility: visible !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 16px;
+  background: rgb(var(--act));
+  color: rgb(var(--on-brand));
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+html[data-portal='ops'] .ops-staffbar > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ops-staffbar-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgb(var(--on-brand));
+  color: rgb(var(--act));
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+html[data-portal='ops'] .ops-frame {
+  display: grid;
+  grid-template-columns: 64px 232px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* Rail: 64px, white, a hairline on the right. */
+.ops-rail {
+  position: sticky;
+  top: 32px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: calc(100dvh - 32px);
+  padding: 14px 0;
+  background: rgb(var(--surface));
+  border-right: 1px solid rgb(var(--border));
+}
+.ops-rail-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 18px;
+  border-radius: 8px;
+  background: rgb(var(--graphite));
+  /* The C-corner goes white on the graphite tile; the L-corner keeps its orange. */
+  --logo-mark-slate: var(--on-brand);
+}
+.ops-rail-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+.ops-rail-btn:hover {
+  background: rgb(var(--surface-sunken));
+}
+.ops-rail-btn[data-current] {
+  background: rgb(var(--tint));
+}
+.ops-rail-btn[data-current]::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: rgb(var(--marker));
+}
+
+/* Second panel: 232px on the portal tint; it scrolls on its own, so a long menu never stretches the page. */
+html[data-portal='ops'] .ops-side {
+  position: sticky;
+  top: 32px;
+  display: block;
+  height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  background: rgb(var(--panel));
+  border-right: 1px solid rgb(var(--panel-border));
+}
+.ops-side-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 18px 12px 24px;
+}
+.ops-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 0;
+}
+.ops-side-title {
+  font-family: var(--font-brand);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg));
+}
+.ops-side-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--act));
+}
+html[data-portal='ops'] .ops-group {
+  display: grid;
+  gap: 2px;
+}
+html[data-portal='ops'] .ops-group-label {
+  padding: 4px 12px 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-subtle));
+}
+html[data-portal='ops'] .ops-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--fg-muted));
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+html[data-portal='ops'] .ops-nav-item:hover {
+  background: rgb(var(--surface) / 0.7);
+  color: rgb(var(--fg));
+}
+html[data-portal='ops'] .ops-nav-item[aria-current='page'] {
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 rgb(var(--marker)), inset 0 0 0 1px rgb(var(--panel-border));
+}
+/* Icons stay at every width (workspace.css hid them below 1360px for the older nine-section menu). */
+html[data-portal='ops'] .ops-nav-item svg {
+  display: block;
+  flex: none;
+}
+.ops-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ops-nav-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-subtle));
+}
+
+/* The column beside the panel: top bar, then the page. */
+.ops-col {
+  min-width: 0;
+}
+html[data-portal='ops'] .ops-bar-top {
+  position: sticky;
+  top: 32px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 32px;
+  background: rgb(var(--surface));
+  border-bottom: 1px solid rgb(var(--border));
+}
+html[data-portal='ops'] .ops-search {
+  flex: 1 1 auto;
+  max-width: 520px;
+  margin-right: auto;
+}
+html[data-portal='ops'] .ops-search-input {
+  height: 36px;
+  padding-left: 36px;
+  padding-right: 52px;
+  border-radius: 8px;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--surface-sunken));
+  font-size: 0.875rem;
+}
+html[data-portal='ops'] .ops-search-input:focus {
+  background: rgb(var(--surface));
+}
+html[data-portal='ops'] .ops-search-icon {
+  left: 12px;
+  color: rgb(var(--fg-subtle));
+}
+.ops-search-kbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 6px;
+  background: rgb(var(--surface));
+  font: 500 0.75rem/1.25rem var(--font-sans);
+  color: rgb(var(--fg-subtle));
+  pointer-events: none;
+}
+.ops-domain {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: rgb(var(--tint));
+  color: rgb(var(--act));
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ops-round-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 8px;
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+  cursor: pointer;
+}
+.ops-round-btn:hover {
+  background: rgb(var(--surface-sunken));
+}
+.ops-avatar-box {
+  position: relative;
+  flex: none;
+}
+.ops-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(var(--graphite));
+  color: rgb(var(--soft-white));
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ops-avatar-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  min-width: 220px;
+  padding: 6px;
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -12px rgb(var(--fg) / 0.25);
+}
+.ops-avatar-who {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid rgb(var(--border));
+  font-size: 0.875rem;
+}
+.ops-avatar-who span {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+}
+.ops-avatar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  margin-top: 4px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.875rem;
+  color: rgb(var(--fg));
+  cursor: pointer;
+}
+.ops-avatar-item:hover {
+  background: rgb(var(--surface-sunken));
+}
+
+/* The page: 32px padding, max 1280, 32px between sections. */
+html[data-portal='ops'] .ops-main {
+  padding: 32px 32px 48px;
+  background: rgb(var(--surface));
+}
+html[data-portal='ops'] .ops-main > .ws-inner {
+  max-width: 1280px;
+  gap: 32px;
+}
+/* A screen that draws its own .ws frame inside the page does not get a second padding. */
+html[data-portal='ops'] .ops-main .ws {
+  padding: 0;
+  min-height: 0;
+  background: none;
+}
+html[data-portal='ops'] .ops-main .ws > .ws-inner {
+  gap: 32px;
+}
+
+/* Phone and small tablet: no rail; the panel is a sheet from the menu button. */
+@media (max-width: 900px) {
+  html[data-portal='ops'] .ops-frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Hidden but still drawn: Fluent colour icons share gradient ids, and a display:none copy would blank the same icon elsewhere on the page. */
+  .ops-rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    visibility: hidden;
+  }
+  html[data-portal='ops'] .ops-side {
+    position: fixed;
+    top: 32px;
+    left: 0;
+    z-index: 21;
+    width: min(280px, 86vw);
+    height: calc(100dvh - 32px);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 200ms var(--ws-ease), visibility 200ms;
+  }
+  html[data-portal='ops'] .ops-side[data-open] {
+    transform: none;
+    visibility: visible;
+    box-shadow: 0 12px 32px -12px rgb(var(--fg) / 0.3);
+  }
+  html[data-portal='ops'] .ops-scrim {
+    display: block;
+    position: fixed;
+    inset: 32px 0 0;
+    z-index: 20;
+    border: 0;
+    background: rgb(var(--fg) / 0.25);
+  }
+  html[data-portal='ops'] .ops-menu-btn {
+    display: inline-grid;
+  }
+  html[data-portal='ops'] .ops-bar-top {
+    padding: 0 16px;
+    gap: 8px;
+  }
+  html[data-portal='ops'] .ops-main {
+    padding: 24px 16px 40px;
+  }
+}
+@media (max-width: 640px) {
+  .ops-domain,
+  .ops-search-kbd {
+    display: none;
+  }
+  html[data-portal='ops'] .ops-staffbar {
+    justify-content: flex-start;
+    font-size: 0.75rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-portal='ops'] .ops-side {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------- page head */
+/* Title, then a 14px description 8px under it; the one primary at top right, aligned to the title. No breadcrumbs. */
+html[data-portal='ops'] .ops-main .ws-head {
+  align-items: flex-start;
+  gap: 16px 32px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+html[data-portal='ops'] .ops-main .ws-crumbs-row {
+  display: none;
+}
+html[data-portal='ops'] .ops-main .ws-title {
+  margin-top: 0;
+}
+html[data-portal='ops'] .ops-main .ws-lede {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted));
+}
+html[data-portal='ops'] .ops-main .ws-head-meta {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-subtle));
+}
+.ops-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -16px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(var(--fg-muted));
+  cursor: pointer;
+}
+.ops-back:hover {
+  color: rgb(var(--fg));
+}
+.ops-id-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin-top: -24px;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+}
+.ops-id-line > span + span::before {
+  content: '·';
+  padding: 0 8px;
+}
+.ops-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -16px;
+}
+
+/* ------------------------------------------------------------ buttons */
+html[data-portal='ops'] .ws-btn {
+  min-height: 36px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+html[data-portal='ops'] .ws-btn--primary {
+  background: rgb(var(--act));
+  color: rgb(var(--on-brand));
+  box-shadow: none;
+}
+html[data-portal='ops'] .ws-btn--primary:hover:not(:disabled) {
+  background: rgb(var(--act-hover));
+}
+html[data-portal='ops'] .ws-btn--quiet {
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+  border-color: rgb(var(--border-field));
+}
+html[data-portal='ops'] .ws-btn--quiet:hover:not(:disabled) {
+  background: rgb(var(--surface-sunken));
+  border-color: rgb(var(--border-strong));
+}
+html[data-portal='ops'] .ws-btn--small {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+}
+/* A link-looking action: Open →, Review list →. Portal colour, underlined. */
+.ops-link,
+.ops-text-btn {
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--act));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ops-link:hover {
+  color: rgb(var(--act-hover));
+}
+/* Decline, Withdraw: a plain text button in ink, not a second outlined one. */
+.ops-text-btn {
+  padding: 0 8px;
+  height: 36px;
+  color: rgb(var(--fg));
+  text-decoration: none;
+}
+.ops-text-btn:hover {
+  background: rgb(var(--surface-sunken));
+}
+
+/* -------------------------------------------------------------- pills */
+/* 24px, 10px sides, a 6px dot, always a word. */
+html[data-portal='ops'] .ws-pill {
+  height: 24px;
+  padding: 0 10px;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgb(var(--neutral-soft));
+  color: rgb(var(--neutral-ink));
+}
+html[data-portal='ops'] .ws-pill::before,
+html[data-portal='ops'] .ws-pill--off::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: none;
+}
+html[data-portal='ops'] .ws-pill--ok {
+  background: rgb(var(--pos-soft));
+  color: rgb(var(--pos));
+}
+html[data-portal='ops'] .ws-pill--warn {
+  background: rgb(var(--warn-soft));
+  color: rgb(var(--warn-ink));
+}
+html[data-portal='ops'] .ws-pill--danger {
+  background: rgb(var(--neg-soft));
+  color: rgb(var(--neg));
+}
+html[data-portal='ops'] .ws-pill--role {
+  background: rgb(var(--tint));
+  color: rgb(var(--act));
+}
+
+/* ------------------------------------------------------------- tables */
+/* Lists sit on the page: a 40px sunken head with 8px ends, rows of at least 56px under hairlines. */
+html[data-portal='ops'] .ws-table-wrap {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+html[data-portal='ops'] .ws-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+html[data-portal='ops'] .ws-table th {
+  height: 40px;
+  padding: 0 16px;
+  background: rgb(var(--surface-sunken));
+  border: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted));
+}
+html[data-portal='ops'] .ws-table th:first-child {
+  border-radius: 8px 0 0 8px;
+}
+html[data-portal='ops'] .ws-table th:last-child {
+  border-radius: 0 8px 8px 0;
+}
+html[data-portal='ops'] .ws-table td {
+  box-sizing: border-box;
+  height: 56px;
+  padding: 8px 16px;
+  border-top: 1px solid rgb(var(--border));
+  border-bottom: 0;
+  vertical-align: middle;
+}
+html[data-portal='ops'] .ws-table tbody tr:first-child td {
+  border-top: 0;
+}
+html[data-portal='ops'] .ws-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+html[data-portal='ops'] .ws-table th.num {
+  text-align: right;
+}
+.ops-strong {
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.ops-clip {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-portal='ops'] .ops-count {
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+html[data-portal='ops'] .ops-count--bad {
+  color: rgb(var(--neg));
+}
+
+/* ---------------------------------------------------- lists and tabs */
+html[data-portal='ops'] .ws-list > li + li {
+  border-top: 1px solid rgb(var(--border));
+}
+html[data-portal='ops'] .ws-list--ground {
+  border-top: 1px solid rgb(var(--border));
+}
+html[data-portal='ops'] .ws-item {
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: 8px 0;
+}
+html[data-portal='ops'] .ws-item-title {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+html[data-portal='ops'] .ws-item-sub {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-subtle));
+}
+html[data-portal='ops'] .ws-tabs {
+  gap: 24px;
+  border-bottom: 1px solid rgb(var(--border));
+}
+html[data-portal='ops'] .ws-tab {
+  padding: 10px 2px;
+  border-radius: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--fg-muted));
+}
+html[data-portal='ops'] .ws-tab[aria-selected='true'] {
+  font-weight: 600;
+  color: rgb(var(--fg));
+  border-bottom-color: rgb(var(--act));
+}
+
+/* ------------------------------------------------- panels and notices */
+/* A titled section sits on the page (no card-in-card); its list hangs under one hairline. */
+html[data-portal='ops'] .ops-main .ws-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  gap: 12px;
+}
+html[data-portal='ops'] .ops-main .ws-panel-title,
+.ops-h2 {
+  font-family: var(--font-brand);
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg));
+}
+html[data-portal='ops'] .ops-main .ws-panel > .ws-list {
+  border-top: 1px solid rgb(var(--border));
+}
+html[data-portal='ops'] .ws-notice {
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 12px;
+  background: rgb(var(--soft-panel));
+  color: rgb(var(--fg));
+  font-size: 0.875rem;
+}
+html[data-portal='ops'] .ws-empty {
+  border: 1px dashed rgb(var(--border-field));
+  border-radius: 12px;
+  color: rgb(var(--fg-subtle));
+}
+html[data-portal='ops'] .ws-card-blurb {
+  font-size: 0.875rem;
+  color: rgb(var(--fg-subtle));
+}
+/* The quiet note under a list: a soft panel with a warning mark. */
+.ops-callout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 12px;
+  background: rgb(var(--soft-panel));
+  font-size: 0.875rem;
+  color: rgb(var(--fg));
+}
+.ops-callout > svg {
+  flex: none;
+  color: rgb(var(--fg-muted));
+}
+.ops-quiet-line {
+  padding: 16px 0;
+  border-top: 1px solid rgb(var(--border));
+  font-size: 0.875rem;
+  color: rgb(var(--fg-subtle));
+}
+
+/* Stat tiles other screens draw (ws-stat): a 12px content surface. */
+html[data-portal='ops'] .ws-stat {
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgb(var(--border-field));
+  background: rgb(var(--surface));
+}
+html[data-portal='ops'] .ws-stat-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted));
+}
+html[data-portal='ops'] .ws-stat-value {
+  font-size: 1.625rem;
+  line-height: 2rem;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------ overview */
+.ops-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.ops-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+/* KPI tiles: 36px tinted icon chip, 12px uppercase label, 28/36 tabular number, 3px top accent in the tile's identity colour. */
+.ops-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.ops-kpi {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'chip label' 'value value' 'note note';
+  align-items: center;
+  gap: 8px 12px;
+  padding: 16px 16px 18px;
+  border: 1px solid rgb(var(--border-field));
+  border-top: 3px solid rgb(var(--kpi));
+  border-radius: 12px;
+  background: rgb(var(--surface));
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 160ms var(--ws-ease), box-shadow 160ms var(--ws-ease);
+}
+.ops-kpi:hover {
+  border-color: rgb(var(--border-strong));
+  border-top-color: rgb(var(--kpi));
+  box-shadow: 0 8px 20px -16px rgb(var(--fg) / 0.4);
+}
+.ops-kpi-chip {
+  grid-area: chip;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: color-mix(in srgb, rgb(var(--kpi)) 12%, rgb(var(--surface)));
+}
+.ops-kpi-label {
+  grid-area: label;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted));
+}
+.ops-kpi-value {
+  grid-area: value;
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg));
+}
+.ops-kpi-value[data-state='warn'] {
+  color: rgb(var(--warn-ink));
+}
+.ops-kpi-value[data-state='neg'] {
+  color: rgb(var(--neg));
+}
+.ops-kpi-note {
+  grid-area: note;
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+}
+@media (max-width: 1100px) {
+  .ops-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 340px) {
+  .ops-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Needs action beside Recent staff actions; one column on narrower screens. */
+.ops-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 1180px) {
+  .ops-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ops-need {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px 4px;
+}
+.ops-need > .ws-pill {
+  justify-self: start;
+}
+@media (max-width: 600px) {
+  .ops-need {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .ops-need > .ws-pill {
+    grid-column: 1 / -1;
+  }
+}
+.ops-recent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 4px;
+}
+.ops-ink {
+  color: rgb(var(--fg)) !important;
+  font-size: 0.875rem !important;
+}
+.ops-initials {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: color-mix(in srgb, rgb(var(--cat-2)) 18%, rgb(var(--surface)));
+  color: color-mix(in srgb, rgb(var(--cat-2)) 58%, rgb(0 0 0));
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.ops-initials--sm {
+  width: 32px;
+  height: 32px;
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg-muted));
+}
+
+/* ------------------------------------------------------- account page */
+/* Main column and a 300px side column of facts and support actions; the side drops under on narrower screens. */
+.ops-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 28px;
+  align-items: start;
+}
+.ops-detail-main,
+.ops-detail-side {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+@media (max-width: 1180px) {
+  .ops-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* A content surface in the side column: 12px radius, field border, 18px padding. Nothing inside it is another card. */
+.ops-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 12px;
+  background: rgb(var(--surface));
+}
+.ops-card .ops-facts {
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 0;
+  font-size: 0.875rem;
+}
+.ops-card .ops-facts dt,
+.ops-card .ops-facts dd {
+  padding: 10px 0;
+  border-top: 1px solid rgb(var(--border));
+}
+.ops-card .ops-facts dt {
+  padding-right: 12px;
+  color: rgb(var(--fg-muted));
+}
+.ops-card .ops-facts dd {
+  text-align: right;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.ops-card .ops-facts a {
+  color: rgb(var(--act));
+  font-weight: 500;
+}
+.ops-jobs {
+  display: grid;
+  gap: 8px;
+}
+.ops-job {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 8px;
+  background: rgb(var(--surface));
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  color: rgb(var(--fg));
+  cursor: pointer;
+}
+.ops-job:hover {
+  background: rgb(var(--surface-sunken));
+}
+.ops-job-hint {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(var(--fg-subtle));
+}

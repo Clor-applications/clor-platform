@@ -1,0 +1,159 @@
+/*
+ * Workspace security pages on the R&D hand-off (clor-rnd WS-05, WS-11, WS-12,
+ * WS-13): Activity, Audit log, Single sign-on and Sessions. Tokens only; the
+ * shared table, pill, tag and filter pieces are in workspace.css.
+ */
+
+/* Tables of events: the when stays on one line; what happened may wrap. */
+.ws-sec-table td {
+  white-space: nowrap;
+}
+.ws-sec-table td.ws-sec-wrap {
+  white-space: normal;
+  min-width: 240px;
+}
+.ws-sec-when {
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-sec-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.ws-sec-who strong {
+  font-weight: 600;
+}
+.ws-sec-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-sec-tagbtn {
+  border: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.ws-sec-tagbtn:hover {
+  background: rgb(var(--border, 228 230 225));
+}
+.ws-sec-tagbtn:focus-visible {
+  outline: 2px solid rgb(var(--act, 197 69 10));
+  outline-offset: 2px;
+}
+.ws-sec-what {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.ws-sec-record {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle, 94 99 107));
+}
+.ws-sec-table .ws-audit-detail,
+.ws-sec-table .ws-audit-more {
+  margin-top: 6px;
+}
+/* An event opened: its details under the row, on the selected tint's neighbour, the sunken ground. */
+.ws-sec-table tr.ws-sec-detail td {
+  height: auto;
+  border-top: 0;
+  padding: 4px 16px 16px;
+  background: rgb(var(--tint, 255 241 235));
+  white-space: normal;
+}
+.ws-sec-detail dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  font-size: 0.8125rem;
+}
+.ws-sec-detail dt {
+  color: rgb(var(--fg-subtle, 94 99 107));
+}
+
+/* Single sign-on: provider cards, two to a row. */
+.ws-sso-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+}
+.ws-sso-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-radius: 12px;
+  background: rgb(var(--surface, 255 255 255));
+  min-width: 0;
+}
+.ws-sso-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.ws-sso-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.ws-sso-chip {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgb(var(--surface-sunken, 244 245 242));
+}
+.ws-sso-line {
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-sso-small {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+  overflow-wrap: anywhere;
+}
+.ws-sso-small[data-tone='neg'] {
+  color: rgb(var(--neg, 180 35 24));
+}
+.ws-sso-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A section on the page under one hairline: an H2, then rows. */
+.ws-sec-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.ws-sec-section > .ws-sec-body {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(var(--border, 228 230 225));
+}
+.ws-sec-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.ws-sec-lede {
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-sec-rules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 32px;
+}

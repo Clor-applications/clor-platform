@@ -2,30 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { ChevronRight } from '@ui/components/ui/lineIcons';
 import {
   CalendarCheck as PCalendarCheck,
-  CalendarX as PCalendarX,
-  Clock as PClock,
   Cpu as PCpu,
   ListChecks as PListChecks,
   NotePencil as PNotePencil,
-  UserCheck as PUserCheck,
-  UserMinus as PUserMinus,
-  UsersThree as PUsersThree,
 } from '@phosphor-icons/react';
 import { duo as duoIcon } from '@ui/components/ui/duoIcon';
 
-import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
+import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import '../attendance.css';
 
-/* Today's figures in People's two-tone marks (owner, 9 Nov 2026), the same family as the rail beside them. */
+/* The queue and readers in People's two-tone marks (owner, 9 Nov 2026), the same family as the rail beside them. */
 const duo = (Icon, name) => duoIcon(Icon, name, 20);
 const CalendarCheck = duo(PCalendarCheck, 'CalendarCheck');
-const CalendarOff = duo(PCalendarX, 'CalendarOff');
-const Clock = duo(PClock, 'Clock');
 const Cpu = duo(PCpu, 'Cpu');
 const Inbox = duo(PNotePencil, 'Inbox');
 const ListChecks = duo(PListChecks, 'ListChecks');
-const UserCheck = duo(PUserCheck, 'UserCheck');
-const UserX = duo(PUserMinus, 'UserX');
-const Users = duo(PUsersThree, 'Users');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import GetStarted from '../components/GetStarted';
@@ -50,6 +41,20 @@ const ago = (iso) => {
 };
 const weekday = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' });
 const longDate = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+
+/** One of today's figures (R&D KPI tile): the tile's colour on its top edge and chip; a state figure takes its ink when `on`. */
+function Kpi({ k, label, value, note = null, on = false }) {
+  return (
+    <li className="att-kpi" data-k={k} data-on={on || undefined}>
+      <span className="att-kpi-head">
+        <span className="att-kpi-chip" aria-hidden="true" />
+        <span className="att-kpi-label">{label}</span>
+      </span>
+      <span className="att-kpi-value">{value}</span>
+      {note ? <span className="att-kpi-note">{note}</span> : null}
+    </li>
+  );
+}
 
 /** One plain sentence for the day: who is in, who is late, who is away. */
 function daySentence(data, isToday) {
@@ -209,18 +214,18 @@ export default function AttendanceToday({ openScreen }) {
           {/* A company still setting up: six steps read from its records (components/GetStarted.jsx). */}
           <GetStarted openScreen={openScreen} />
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <StatTile label="Headcount" value={data.headcount} icon={Users} />
-            <StatTile label="Present" value={data.present + data.halfDay} icon={UserCheck} tone="pos" hint={data.halfDay ? `${data.halfDay} half day` : null} />
-            <StatTile label="Late" value={data.late.length} icon={Clock} tone={data.late.length ? 'warn' : 'neutral'} />
+          <ul className="att-kpis" aria-label="Today in figures">
+            <Kpi k="headcount" label="Headcount" value={data.headcount} />
+            <Kpi k="present" label="Present" value={data.present + data.halfDay} on={data.present + data.halfDay > 0} note={data.halfDay ? `${data.halfDay} half day` : data.headcount ? `${Math.round(((data.present + data.halfDay) / data.headcount) * 100)}% of headcount` : null} />
+            <Kpi k="late" label="Late" value={data.late.length} on={data.late.length > 0} />
             {/* Red only when there is something to see: "0 absent" is good news, not an alarm. */}
-            <StatTile label="Absent" value={data.absent} icon={UserX} tone={data.absent ? 'neg' : 'neutral'} />
-            <StatTile label="On leave" value={data.onLeave} icon={CalendarOff} />
-            <StatTile label="Not marked" value={data.notMarked} />
-          </div>
+            <Kpi k="absent" label="Absent" value={data.absent} on={data.absent > 0} />
+            <Kpi k="leave" label="On leave" value={data.onLeave} />
+            <Kpi k="unmarked" label="Not marked" value={data.notMarked} />
+          </ul>
 
           <div className="grid items-stretch gap-4 xl:grid-cols-3">
-            <section className={`ui-card p-4 ${readers ? 'xl:col-span-2' : 'xl:col-span-3'}`} aria-labelledby="week-h">
+            <section className={`att-chart ${readers ? 'xl:col-span-2' : 'xl:col-span-3'}`} aria-labelledby="week-h">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
                 <span className="flex items-baseline gap-3">
                   <h2 id="week-h" className="ui-t-sec">Last {week?.length || 7} days</h2>

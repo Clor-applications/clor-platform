@@ -11,6 +11,8 @@ import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { Meter, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { Avatar } from '@ui/personnel/Employees';
 import { checkIn, createGoal, getGoal, listGoals, updateGoal } from '../api/talent';
 import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, todayIst, useParamState, usedValues, useStaff, when } from './shared';
 
@@ -22,14 +24,8 @@ import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, to
 const TABS = [['ACTIVE', 'Active'], ['DONE', 'Done'], ['DROPPED', 'Dropped'], ['all', 'All']];
 const STATUS = { ACTIVE: ['Active', 'ui-pill-info'], DONE: ['Done', 'ui-pill-pos'], DROPPED: ['Dropped', 'ui-pill-neutral'] };
 
-export const Progress = ({ value }) => (
-  <span className="inline-flex items-center gap-2 min-w-[7rem]">
-    <span className="h-1.5 w-16 rounded-full overflow-hidden" style={{ backgroundColor: 'rgb(var(--border))' }} aria-hidden="true">
-      <span className="block h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, value || 0))}%`, backgroundColor: 'rgb(var(--brand))' }} />
-    </span>
-    <span className="tabular-nums">{value || 0}%</span>
-  </span>
-);
+/* Progress as a bar (R&D PEOPLE-20): the first categorical colour, the good-state colour once done; the figure is always written. */
+export const Progress = ({ value }) => <Meter value={value || 0} tone={Number(value) >= 100 ? 'pos' : null} />;
 
 export default function Goals({ params = {} }) {
   const [status, setStatus] = useState('ACTIVE');
@@ -44,9 +40,18 @@ export default function Goals({ params = {} }) {
   const me = req.data?.me || null;
   const people = staff.length ? staff : [...(me ? [me] : []), ...(req.data?.reports || [])];
   const canAdd = Boolean(people.length || req.data?.hr);
+  /* The figures over the list, from the goals on this tab and filter (the active ones by default). */
+  const live = rows.filter((g) => g.status === 'ACTIVE');
+  const share = (h) => (live.length ? `${Math.round((live.filter((g) => g.health === h).length / live.length) * 100)}%` : '—');
+  const tiles = req.data ? [
+    { key: 'set', label: status === 'ACTIVE' ? 'Active goals' : 'Goals', value: rows.length, accent: 1, Icon: TILE_ICON.award, sub: `${new Set(rows.map((g) => g.employee?.id || g.employeeId)).size} people` },
+    { key: 'track', label: 'On track', value: share('ON_TRACK'), accent: 'pos', tone: 'pos', sub: live.length ? 'Of active goals' : 'No active goals' },
+    { key: 'risk', label: 'At risk', value: share('AT_RISK'), accent: 'warn', tone: live.some((g) => g.health === 'AT_RISK') ? 'warn' : null, sub: live.some((g) => g.health === 'BEHIND') ? `${live.filter((g) => g.health === 'BEHIND').length} behind` : null },
+    { key: 'late', label: 'Past their date', value: rows.filter((g) => g.overdue).length, accent: 'neg', tone: rows.some((g) => g.overdue) ? 'neg' : null, sub: 'Still open after the due date' },
+  ] : null;
   const columns = [
+    ...(person ? [] : [{ key: 'person', label: 'Person', render: (g) => (g.employee?.name ? <span className="flex min-w-0 items-center gap-2.5"><Avatar person={{ name: g.employee.name }} size={28} /><span className="truncate font-medium">{g.employee.name}</span></span> : '—') }]),
     { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="block truncate font-medium">{g.title}</span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
-    ...(person ? [] : [{ key: 'person', label: 'Person', render: (g) => g.employee?.name || '—' }]),
     { key: 'due', label: 'Due', render: (g) => <span className={`tabular-nums whitespace-nowrap ${g.overdue ? 'ui-text-neg' : ''}`}>{day(g.dueDate) || '—'}{g.overdue ? ' (late)' : ''}</span> },
     { key: 'progress', label: 'Progress', render: (g) => <Progress value={g.progress} /> },
     { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE' ? <Pill map={HEALTH} value={g.health} /> : <Pill map={STATUS} value={g.status} />) },
@@ -64,6 +69,7 @@ export default function Goals({ params = {} }) {
           <SearchField value={q} onSearch={setQ} placeholder="Search goal or person" label="Search goals" className="w-full sm:w-72" />
           <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(people)]} /></div>
         </>}
+        strip={tiles ? <StatTiles label="Goal figures" items={tiles} /> : null}
         tabs={tabItems(TABS)}
         tab={status}
         onTab={setStatus}

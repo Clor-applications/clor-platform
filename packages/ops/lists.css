@@ -1,0 +1,198 @@
+/*
+ * The console's cross-account lists (OPS-05, 06, 08, 09) and the account
+ * page's entitlement panel (CLOR-06). Tokens from rnd.css only; 8px on what
+ * is clicked, 12px on what holds content, full round for pills and avatars.
+ */
+
+/* Search and filters: one row of 36px controls, a 280px search first. */
+.ops-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ops-search-field {
+  position: relative;
+  flex: 0 1 280px;
+  min-width: 14rem;
+}
+.ops-search-field > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgb(var(--fg-subtle));
+  pointer-events: none;
+}
+html[data-portal='ops'] .ops-search-field > .ui-input {
+  width: 100%;
+  padding-left: 36px;
+}
+/* A name that opens its account: ink like the rest of the row, underlined on hover. */
+.ops-row-link {
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: rgb(var(--fg));
+  text-align: left;
+  cursor: pointer;
+}
+.ops-row-link:hover {
+  color: rgb(var(--act));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ops-filter > .ui-select {
+  width: auto;
+}
+.ops-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 4px 0 12px;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 8px;
+  background: rgb(var(--tint));
+  font-size: 0.875rem;
+  color: rgb(var(--fg));
+}
+.ops-chip > button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: rgb(var(--fg-muted));
+  cursor: pointer;
+}
+.ops-chip > button:hover {
+  background: rgb(var(--surface-sunken));
+}
+
+/* A person in a row: 32px initials in their identity colour, name over email. */
+.ops-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.ops-person .ops-strong,
+.ops-person .ws-item-sub {
+  display: block;
+}
+.ops-initials--list {
+  width: 32px;
+  height: 32px;
+  background: color-mix(in srgb, rgb(var(--who)) 16%, rgb(var(--surface)));
+  color: color-mix(in srgb, rgb(var(--who)) 62%, rgb(0 0 0));
+  font-size: 0.75rem;
+}
+
+/* Reason codes read as codes: semibold ink, no second face. */
+.ops-code {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgb(var(--fg));
+}
+.ops-code-sub {
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.ops-key {
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-muted));
+}
+
+/* KPI tiles without an icon of their own: a small square in the tile's colour, as drawn. */
+.ops-kpi-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: rgb(var(--kpi));
+}
+.ops-kpi[aria-pressed='true'] {
+  border-color: rgb(var(--kpi));
+  box-shadow: inset 0 0 0 1px rgb(var(--kpi));
+}
+div.ops-kpi {
+  cursor: default;
+}
+div.ops-kpi:hover {
+  border-color: rgb(var(--border-field));
+  border-top-color: rgb(var(--kpi));
+  box-shadow: none;
+}
+
+/* ------------------------------------------------- account: entitlements */
+.ops-entitlement {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  padding: 16px;
+  border: 1px solid rgb(var(--warn-ink) / 0.35);
+  border-radius: 12px;
+  background: rgb(var(--warn-soft));
+  font-size: 0.875rem;
+  color: rgb(var(--fg));
+}
+.ops-entitlement[data-tone='ok'] {
+  border-color: rgb(var(--border-field));
+  background: rgb(var(--soft-panel));
+}
+.ops-entitlement > svg {
+  grid-row: span 3;
+  margin-top: 2px;
+  color: rgb(var(--warn-ink));
+}
+.ops-entitlement[data-tone='ok'] > svg {
+  color: rgb(var(--fg-muted));
+}
+.ops-entitlement strong {
+  font-weight: 600;
+}
+.ops-entitlement .ops-link {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+/* An app in the seats table: a 24px square in the app's identity colour beside its name. */
+.ops-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.ops-app-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgb(var(--app));
+  color: rgb(var(--on-brand, 255 255 255));
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.ops-app[data-owned='false'] .ops-app-mark {
+  background: rgb(var(--surface-sunken));
+  color: rgb(var(--fg-subtle));
+}
+.ops-app[data-owned='false'] {
+  color: rgb(var(--fg-muted));
+}
+
+@media (max-width: 640px) {
+  .ops-search-field {
+    flex: 1 1 100%;
+  }
+}
+
+/* Reason codes as tile labels are long single words: let them break on a phone rather than spill out. */
+.ops-kpi-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

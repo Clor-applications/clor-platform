@@ -197,6 +197,8 @@ describe('Time & Leave', () => {
     const day = new Date(`${month}-15T00:00:00Z`).getUTCDay() === 0 ? `${month}-16` : `${month}-15`;
     timeApi.getWorkingAway.mockResolvedValue([{ id: 'w1', employeeId: 'e2', employeeName: 'Ravi Kumar', department: 'Sales', kind: 'WFH', fromDate: day, toDate: day, halfDay: null, place: null }]);
     render(<LeaveCalendar />);
+    /* One line a person (the By person view) draws each day's mark; the Month view lists names. */
+    fireEvent.click(await screen.findByRole('button', { name: 'By person' }));
     const mark = await screen.findByLabelText(`${day}: Work from home`);
     expect(mark).toHaveTextContent('H');
     expect(screen.getByText('Work from home, working')).toBeInTheDocument();

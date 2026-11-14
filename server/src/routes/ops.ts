@@ -20,6 +20,8 @@ import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLin
 import { sendTemplate } from '../services/mailer.js';
 import { consoleGrantUrl } from '../services/consoleGrant.js';
 import { operatorActionLabel } from '../constants/operatorActions.js';
+import { noteDenials } from '../services/ops/denials.js';
+import { opsListsRouter } from './opsLists.js';
 
 /**
  * The Clor operator console (W-8.2): Clor's own staff, looking across every
@@ -39,6 +41,14 @@ import { operatorActionLabel } from '../constants/operatorActions.js';
  * operator is not a member of the accounts they look at.
  */
 export const opsRouter = Router();
+
+/*
+ * Every refusal (402, or 403) on its way out is noted for the Entitlement
+ * denials page (services/ops/denials.ts). Path-less on purpose: this router is
+ * mounted at /api ahead of every tenant router (app.ts), so each request that
+ * reaches them passes here first. It only wraps res.json; it never answers.
+ */
+opsRouter.use(noteDenials);
 
 /*
  * Setting up the authenticator, from the console itself.
@@ -79,6 +89,9 @@ opsRouter.post('/ops/two-factor/enable', requireAuth, ...codeLimiter, requireOpe
 });
 
 opsRouter.use('/ops', requireAuth, requireOperator);
+
+/* The lists across every account: organisations, users, denials, feature switches, an account's seats (routes/opsLists.ts). */
+opsRouter.use(opsListsRouter);
 
 const DAY = 86_400_000;
 
@@ -186,6 +199,13 @@ opsRouter.get('/ops/overview', (_req, res) =>
       platformPrisma.account.findMany({ where: { createdAt: { gte: since30 } }, select: { createdAt: true } }),
       platformPrisma.subscription.count({ where: { status: 'trialing', trialEndsAt: { gte: new Date(now), lte: new Date(now + 7 * DAY) } } }),
     ]);
+    /* Paying: a subscription that is active. Legacy: an older account on the fail-open rule (every app, no subscription yet). */
+    const [paying, legacyAccounts] = await Promise.all([
+      platformPrisma.subscription.count({ where: { status: 'active' } }),
+      platformPrisma.account.findMany({ where: { legacyUnrestrictedAt: { not: null }, suspendedAt: null }, select: { id: true } }),
+    ]);
+    const legacyWithPlan = legacyAccounts.length ? await platformPrisma.subscription.count({ where: { accountId: { in: legacyAccounts.map((a) => a.id) } } }) : 0;
+    const newThisWeek = recent.filter((a) => a.createdAt.getTime() >= now - 7 * DAY).length;
     /* Signups per day for the last 30 days, oldest first, every day present. */
     const byDay = new Map<string, number>();
     for (let i = 29; i >= 0; i--) byDay.set(new Date(now - i * DAY).toISOString().slice(0, 10), 0);
@@ -200,6 +220,9 @@ opsRouter.get('/ops/overview', (_req, res) =>
       activeUsers7d: active7,
       suspended,
       trialsEndingIn7d: trialsEnding,
+      paying,
+      legacy: legacyAccounts.length - legacyWithPlan,
+      newThisWeek,
       signups: [...byDay.entries()].map(([day, count]) => ({ day, count })),
     });
   }),
@@ -242,6 +265,8 @@ const listQuery = z.object({
   q: z.string().trim().max(120).optional(),
   status: z.enum(['all', 'active', 'trialing', 'overdue', 'suspended', 'cancelled', 'no-plan']).optional(),
   page: z.coerce.number().int().min(0).max(10_000).optional(),
+  /* Only customers carrying this staff tag (routes/opsNotes.ts). */
+  tag: z.string().trim().max(40).optional(),
 });
 const PAGE = 25;
 
@@ -250,8 +275,12 @@ opsRouter.get('/ops/accounts', (req, res) =>
   outsideTenant('ops: accounts', async () => {
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
-    const { q = '', status = 'all', page = 0 } = parsed.data;
+    const { q = '', status = 'all', page = 0, tag } = parsed.data;
     const where: any = {};
+    if (tag) {
+      const tagged = await platformPrisma.accountTag.findMany({ where: { tag: { equals: tag, mode: 'insensitive' } }, select: { accountId: true } });
+      where.id = { in: tagged.map((t) => t.accountId) };
+    }
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
@@ -275,11 +304,14 @@ opsRouter.get('/ops/accounts', (req, res) =>
       select: { id: true, name: true, code: true, createdAt: true, suspendedAt: true, legacyUnrestrictedAt: true, orgs: { select: { name: true }, orderBy: { createdAt: 'asc' }, take: 1 }, _count: { select: { orgs: true, users: true } } },
     });
     const ids = accountsAll.map((a) => a.id);
-    const [subs, owners, last] = await Promise.all([
+    const [subs, owners, last, tags] = await Promise.all([
       platformPrisma.subscription.findMany({ where: { accountId: { in: ids } }, select: { accountId: true, status: true, trialEndsAt: true, currentPeriodEnd: true, billingInterval: true, gatewayName: true, items: { select: { appCode: true } } } }),
       platformPrisma.accountMembership.findMany({ where: { accountId: { in: ids }, role: 'OWNER' }, select: { accountId: true, userId: true }, orderBy: { createdAt: 'asc' } }),
       platformPrisma.user.groupBy({ by: ['accountId'], where: { accountId: { in: ids } }, _max: { lastLoginAt: true } }),
+      platformPrisma.accountTag.findMany({ where: { accountId: { in: ids } }, select: { accountId: true, tag: true }, orderBy: { tag: 'asc' } }),
     ]);
+    const tagsBy = new Map<string, string[]>();
+    for (const t of tags) tagsBy.set(t.accountId, [...(tagsBy.get(t.accountId) || []), t.tag]);
     const ownerUsers = await platformPrisma.user.findMany({ where: { id: { in: owners.map((o) => o.userId) } }, select: { id: true, email: true, fullName: true } });
     const userById = new Map(ownerUsers.map((u) => [u.id, u]));
     const ownerBy = new Map<string, { email: string; name: string }>();
@@ -307,6 +339,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
         byHand: s ? !s.gatewayName : false,
         lastActiveAt: lastBy.get(a.id) || null,
         suspended: Boolean(a.suspendedAt),
+        tags: tagsBy.get(a.id) || [],
       };
     });
     if (status === 'active') rows = rows.filter((r) => r.plan === 'active' || r.plan === 'legacy');

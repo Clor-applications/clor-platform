@@ -118,16 +118,28 @@ export const DAY_LABEL = { PRESENT: 'Present', HALF_DAY: 'Half day', ABSENT: 'Ab
 export const DAY_PILL = { PRESENT: 'ui-pill-pos', HALF_DAY: 'ui-pill-warn', ABSENT: 'ui-pill-neg', ON_LEAVE: 'ui-pill-info', HOLIDAY: 'ui-pill-neutral', WEEKLY_OFF: 'ui-pill-neutral' };
 /** A request's dates: one day, or first to last. */
 export const dates = (from, to) => (from === to ? from : `${from} to ${to}`);
-/** A type's colour, or a steady one from its name so the calendar stays readable without set-up. */
-const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#db2777', '#64748b'];
-const slotOf = (t) => [...String(t?.name || t?.leaveTypeName || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length;
-/** A hex for the colour picker (it takes nothing else). */
-export const colorOf = (t) => t?.color || PALETTE[slotOf(t)];
 /**
- * What a swatch draws: the type's own colour, or its slot in the leave series (`--leave-0..7`, the same
- * hexes as PALETTE by default; People's brand D redefines them, so a type nobody coloured wears the brand).
+ * Leave colours (R&D brand, 14 Nov 2026; audit M11): the five common kinds wear their own identity token
+ * (`--leave-casual`, `-sick`, `-earned`, `-compoff`, `-wfh`), any other type a steady slot of the categorical
+ * series (`--leave-0..7`), and a colour the owner picked by hand wins over both. The hexes the old presets and
+ * the old picker default stored count as nobody's pick. A colour is never the only signal: the name goes with it.
  */
-export const swatchOf = (t) => t?.color || `rgb(var(--leave-${slotOf(t)}))`;
+const PALETTE = ['#2A78D6', '#EB6834', '#1BAF7A', '#EDA100', '#E87BA4', '#008300', '#6250D6', '#E34948'];
+const OLD_DEFAULTS = new Set(['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#db2777', '#64748b', '#b45309']);
+const slotOf = (t) => [...String(t?.name || t?.leaveTypeName || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length;
+const KINDS = [['compoff', /\bcomp(ensatory)?[\s-]*off\b|\bcomp\b/i], ['wfh', /work from home|\bwfh\b/i], ['casual', /\bcasual\b/i], ['sick', /\bsick\b|\bmedical\b/i], ['earned', /\bearned\b|\bprivilege\b|\bannual\b/i]];
+/** The common kind a type's name says it is, or null. */
+export const leaveKindOf = (t) => KINDS.find(([, re]) => re.test(String(t?.name || t?.leaveTypeName || '')))?.[0] || null;
+const picked = (t) => (t?.color && !OLD_DEFAULTS.has(String(t.color).toLowerCase()) ? t.color : null);
+/** A hex for the colour picker (it takes nothing else). */
+export const colorOf = (t) => picked(t) || PALETTE[slotOf(t)];
+/** What a swatch draws: the owner's own colour, the kind's token, or the type's slot in the series. */
+export const swatchOf = (t) => {
+  const own = picked(t);
+  if (own) return own;
+  const kind = leaveKindOf(t);
+  return kind ? `rgb(var(--leave-${kind}, var(--leave-${slotOf(t)})))` : `rgb(var(--leave-${slotOf(t)}))`;
+};
 export const thisYear = () => new Date().getFullYear();
 /** Today in India, as the server counts days (not the browser's UTC date). */
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

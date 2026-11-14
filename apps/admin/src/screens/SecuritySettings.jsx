@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, KeyRound, LogOut, Save } from '@ui/components/ui/lineIcons';
+import { AlertTriangle, ChevronRight, KeyRound, LogOut, Save } from '@ui/components/ui/lineIcons';
 
 import {
   changePassword,
@@ -11,11 +11,15 @@ import {
   savePolicy,
 } from '@platform/admin/security';
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
-import { ICON, PageHead, Panel, ago, device } from './wsKit';
+import { ICON, PageHead, Panel, StatusPill, ago, device } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /**
- * Workspace → Security → Sign-in and sessions (redesign W-R7).
+ * Workspace → Security → Sessions (redesign W-R7; R&D WS-12).
+ *
+ * Your signed-in devices first, with the sign-in log; under them the company's
+ * sign-in rules, saved by the one primary action.
  *
  * The company's sign-in rules on the left, saved by the one primary action;
  * the sign-in methods in force, the administrator's own sessions and password
@@ -48,10 +52,21 @@ const savedNote = (keptOut) => {
   return parts.join(' ');
 };
 const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
-const eventTone = (t) => (/SUCCESS|VERIFIED|CHANGED/.test(t) ? 'ws-pill ws-pill--ok' : 'ws-pill');
-/* No danger pill in the kit yet: a failure or lockout borrows the Workspace danger tokens. */
-const DANGER = { color: 'rgb(var(--ws-danger))', background: 'rgb(var(--ws-danger-soft))' };
+const eventTone = (t) => (/FAILED|LOCKED/.test(t) ? 'danger' : /SUCCESS|VERIFIED|CHANGED/.test(t) ? 'ok' : 'neutral');
 const eventWords = (t) => String(t || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
+/** A section on the page under one hairline (no card): a title, then its body. */
+function Section({ title, id, action, children }) {
+  return (
+    <section className="ws-sec-section" aria-labelledby={id}>
+      <div className="ws-sec-section-head">
+        <h2 id={id} className="ws-h2">{title}</h2>
+        {action || null}
+      </div>
+      <div className="ws-sec-body">{children}</div>
+    </section>
+  );
+}
 
 function Check({ checked, onChange, children }) {
   return (
@@ -127,31 +142,136 @@ export const SecuritySettings = ({ openScreen }) => {
     }, 'Password changed — other devices were signed out.');
   };
 
+  /* Lockouts in the recent log: said once, above the rules, so nobody has to read the table to find them. */
+  const lockouts = (events || []).filter((e) => /LOCKED/.test(String(e.eventType || '')));
+  const signOutOthers = () =>
+    run('revoke', async () => {
+      await revokeMySessions();
+      /* The device in hand stays signed in; read back what is left. */
+      const d = await getMySessions().catch(() => null);
+      setSessions(d?.sessions || []);
+    }, 'All your other devices are signed out.');
+
   return (
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Security', 'Sign-in and sessions']}
-          title="Sign-in and sessions"
+          crumbs={['Security', 'Sessions']}
+          title="Sessions"
+          description="Where you are signed in, and the sign-in rules. Sign out anything you do not recognise."
           meta={dirty ? 'Unsaved changes' : notice || null}
           actions={
-            policy ? (
-              <button type="submit" form="security-policy" className="ws-btn ws-btn--primary" disabled={!dirty || busy === 'policy'}>
-                <Save size={16} aria-hidden="true" /> {busy === 'policy' ? 'Saving…' : 'Save rules'}
+            <>
+              <button type="button" className="ws-btn ws-btn--danger-quiet" disabled={busy === 'revoke'} onClick={signOutOthers}>
+                <LogOut size={16} aria-hidden="true" /> {busy === 'revoke' ? 'Signing out…' : 'Sign out everywhere else'}
               </button>
-            ) : null
+              {policy ? (
+                <button type="submit" form="security-policy" className="ws-btn ws-btn--primary" disabled={!dirty || busy === 'policy'}>
+                  <Save size={16} aria-hidden="true" /> {busy === 'policy' ? 'Saving…' : 'Save rules'}
+                </button>
+              ) : null}
+            </>
           }
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
         {notice && !dirty ? <p role="status" className="sr-only">{notice}</p> : null}
 
+        <section className="ws-sec-section" aria-labelledby="ws-sessions-title">
+          <div className="ws-sec-section-head">
+            <h2 id="ws-sessions-title" className="ws-h2">Your devices</h2>
+            {sessions?.length ? <span className="ws-head-meta">{sessions.length} signed in</span> : null}
+          </div>
+          {sessions === null ? (
+            <p className="ws-card-blurb">Loading…</p>
+          ) : sessions.length ? (
+            <div className="ws-table-wrap">
+              <table className="ws-table ws-sec-table">
+                <caption className="sr-only">Your signed-in devices</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Device</th>
+                    <th scope="col">Address</th>
+                    <th scope="col">Signed in</th>
+                    <th scope="col" className="num">Last active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((s) => (
+                    <tr key={s.id}>
+                      <td>
+                        <span className="ws-sec-who">
+                          <span title={s.userAgent || ''}>{device(s.userAgent)}</span>
+                          {s.current ? <span className="ws-tag">This device</span> : null}
+                        </span>
+                      </td>
+                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{s.ip || 'No address'}</td>
+                      <td>{stamp(s.createdAt)}</td>
+                      <td className="num">{ago(s.lastSeenAt || s.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="ws-card-blurb">No other active sessions.</p>
+          )}
+        </section>
+
+        {lockouts.length ? (
+          <div className="ws-band" data-tone="warn" role="note">
+            <AlertTriangle size={18} aria-hidden="true" />
+            <span>
+              <strong>{lockouts.length === 1 ? 'An account was locked' : `${lockouts.length} accounts were locked`}</strong> after failed sign-ins recently
+              {lockouts[0].userEmail || lockouts[0].userName ? ` (${lockouts[0].userName || lockouts[0].userEmail}${lockouts.length > 1 ? ' and others' : ''})` : ''}. If that was not them, reset the password and sign them out in Members.
+            </span>
+          </div>
+        ) : null}
+
+        <section className="ws-sec-section" aria-labelledby="ws-signin-log">
+          <div className="ws-sec-section-head">
+            <h2 id="ws-signin-log" className="ws-h2">Sign-in activity</h2>
+            {events?.length ? <span className="ws-head-meta">{events.length} recent</span> : null}
+          </div>
+          {events === null ? (
+            <p className="ws-card-blurb">Loading…</p>
+          ) : events.length ? (
+            <div className="ws-table-wrap">
+              <table className="ws-table ws-sec-table">
+                <caption className="sr-only">Recent sign-in activity</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">When</th>
+                    <th scope="col">Event</th>
+                    <th scope="col">Who</th>
+                    <th scope="col">Address</th>
+                    <th scope="col">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map((e) => (
+                    <tr key={e.id}>
+                      <td className="ws-sec-when">{stamp(e.createdAt)}</td>
+                      <td><StatusPill tone={eventTone(e.eventType)}>{eventWords(e.eventType)}</StatusPill></td>
+                      <td>{e.userName || e.userEmail || '—'}</td>
+                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{e.ip || '—'}</td>
+                      <td className="ws-sec-wrap ws-head-meta">{e.detail || ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="ws-card-blurb">No sign-ins yet.</p>
+          )}
+        </section>
+
         <div className="ws-layout">
           {!policy ? (
             <p className="ws-card-blurb">{error ? '' : 'Loading the sign-in rules…'}</p>
           ) : (
-            <form id="security-policy" onSubmit={save} className="grid gap-5 min-w-0">
-              <Panel title="Lockout and sessions">
+            <form id="security-policy" onSubmit={save} className="ws-main">
+              <Section title="Lockout and sessions" id="ws-rules-lockout">
                 <div className="grid gap-4 sm:grid-cols-2">
                   {NUMBERS.map((f) => (
                     <label key={f.key} className="grid gap-1">
@@ -160,9 +280,9 @@ export const SecuritySettings = ({ openScreen }) => {
                     </label>
                   ))}
                 </div>
-              </Panel>
+              </Section>
 
-              <Panel title="Passwords">
+              <Section title="Passwords" id="ws-rules-passwords">
                 <label className="grid gap-1" style={{ maxWidth: 260 }}>
                   <span className="text-sm font-medium">Minimum length</span>
                   <input type="number" className="ui-input" min={8} max={64} value={policy.passwordMinLength} onChange={(e) => setField({ passwordMinLength: Number(e.target.value) })} />
@@ -173,9 +293,9 @@ export const SecuritySettings = ({ openScreen }) => {
                     <Check key={f.key} checked={Boolean(policy[f.key])} onChange={(e) => setField({ [f.key]: e.target.checked })}>{f.label}</Check>
                   ))}
                 </fieldset>
-              </Panel>
+              </Section>
 
-              <Panel title="Who may sign in">
+              <Section title="Who may sign in" id="ws-rules-who">
                 <label className="grid gap-1">
                   <span className="text-sm font-medium">Allowed email domains</span>
                   <input className="ui-input" value={policy.allowedEmailDomains || ''} onChange={(e) => setField({ allowedEmailDomains: e.target.value })} placeholder="yourcompany.com, group.com" />
@@ -186,10 +306,10 @@ export const SecuritySettings = ({ openScreen }) => {
                     <Check key={f.key} checked={Boolean(policy[f.key])} onChange={(e) => setField({ [f.key]: e.target.checked })}>{f.label}</Check>
                   ))}
                 </div>
-              </Panel>
+              </Section>
 
               {/* A-13: separation of duties. Approving something about yourself is never allowed, whatever this says. */}
-              <Panel title="Approving your own work">
+              <Section title="Approving your own work" id="ws-rules-maker">
                 <label className="grid gap-1">
                   <span className="sr-only">Who may approve their own work</span>
                   <select id="policy-maker-checker" className="ui-select" value={policy.makerChecker || 'AUTO'} onChange={(e) => setField({ makerChecker: e.target.value })} aria-label="Who may approve their own work">
@@ -202,7 +322,7 @@ export const SecuritySettings = ({ openScreen }) => {
                   Pay runs, salary revisions, adjustments, tax declarations, bank changes and leave. With the first choice a company with one administrator can still run payroll;
                   every approval of one&rsquo;s own work is written to the audit trail. Nobody ever approves their own salary, bank account or tax declaration.
                 </p>
-              </Panel>
+              </Section>
             </form>
           )}
 
@@ -219,7 +339,7 @@ export const SecuritySettings = ({ openScreen }) => {
                       <span className="ws-item-title">{methods?.local?.name || 'Email and password'}</span>
                       <span className="ws-item-sub">Always available</span>
                     </span>
-                    <span className="ws-pill ws-pill--ok">Active</span>
+                    <StatusPill tone="ok">Active</StatusPill>
                   </div>
                 </li>
                 {(methods?.providers || []).map((p) => (
@@ -230,48 +350,11 @@ export const SecuritySettings = ({ openScreen }) => {
                         <span className="ws-item-title">{p.name}</span>
                         <span className="ws-item-sub">{p.kind}{p.emailDomains ? ` · ${p.emailDomains}` : ''}</span>
                       </span>
-                      <span className={p.enabled ? 'ws-pill ws-pill--ok' : 'ws-pill ws-pill--off'}>{p.enabled ? 'On' : 'Off'}</span>
+                      <StatusPill tone={p.enabled ? 'ok' : 'neutral'}>{p.enabled ? 'On' : 'Off'}</StatusPill>
                     </div>
                   </li>
                 ))}
               </ul>
-            </Panel>
-
-            <Panel
-              title="Your sessions"
-              action={
-                <button
-                  type="button"
-                  className="ws-btn ws-btn--quiet ws-btn--small"
-                  disabled={busy === 'revoke'}
-                  onClick={() => run('revoke', async () => {
-                    await revokeMySessions();
-                    setSessions([]);
-                  }, 'All other devices signed out.')}
-                >
-                  <LogOut size={14} aria-hidden="true" /> Sign out everywhere
-                </button>
-              }
-            >
-              {sessions === null ? (
-                <p className="ws-card-blurb">Loading…</p>
-              ) : sessions.length ? (
-                <ul className="ws-list">
-                  {sessions.map((s) => (
-                    <li key={s.id}>
-                      <div className="ws-item">
-                        <span className="ws-item-text">
-                          <span className="ws-item-title truncate" title={s.userAgent || ''}>{device(s.userAgent)}</span>
-                          <span className="ws-item-sub">{s.ip || 'No address'} · signed in {stamp(s.createdAt)}</span>
-                        </span>
-                        <span className="ws-item-end">{ago(s.lastSeenAt || s.createdAt)}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="ws-card-blurb">No other active sessions.</p>
-              )}
             </Panel>
 
             <Panel title="Your password">
@@ -291,44 +374,6 @@ export const SecuritySettings = ({ openScreen }) => {
             <AuthenticatorCard />
           </aside>
         </div>
-
-        <section className="grid gap-3" aria-labelledby="ws-signin-log">
-          <div className="ws-panel-head">
-            <h2 id="ws-signin-log" className="ws-panel-title">Sign-in activity</h2>
-            {events?.length ? <span className="ws-head-meta">{events.length} recent</span> : null}
-          </div>
-          {events === null ? (
-            <p className="ws-card-blurb">Loading…</p>
-          ) : events.length ? (
-            <div className="ws-table-wrap">
-              <table className="ws-table">
-                <caption className="sr-only">Recent sign-in activity</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">When</th>
-                    <th scope="col">Event</th>
-                    <th scope="col">Who</th>
-                    <th scope="col">Address</th>
-                    <th scope="col">Detail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.map((e) => (
-                    <tr key={e.id}>
-                      <td>{stamp(e.createdAt)}</td>
-                      <td><span className={eventTone(e.eventType)} style={/FAILED|LOCKED/.test(e.eventType) ? DANGER : undefined}>{eventWords(e.eventType)}</span></td>
-                      <td>{e.userName || e.userEmail || '—'}</td>
-                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{e.ip || '—'}</td>
-                      <td className="ws-head-meta" style={{ whiteSpace: 'normal' }}>{e.detail || ''}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="ws-setup"><p className="ws-card-blurb">No sign-ins yet.</p></div>
-          )}
-        </section>
       </div>
     </div>
   );
