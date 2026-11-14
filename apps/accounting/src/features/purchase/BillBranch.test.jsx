@@ -35,6 +35,8 @@ const BRANCHES = [
 
 const WAREHOUSES = [
   { id: 'w-blr', companyId: 1, name: 'Bengaluru Store', branchId: 'b-blr' },
+  /* Two in Bengaluru: a branch with one warehouse locks the field to it. */
+  { id: 'w-blr-2', companyId: 1, name: 'Bengaluru Yard', branchId: 'b-blr' },
   { id: 'w-hyd', companyId: 1, name: 'Hyderabad Store', branchId: 'b-hyd' },
 ];
 
@@ -88,18 +90,20 @@ describe('the branch on a bill', () => {
     const user = userEvent.setup();
     renderForm();
     await user.click(fieldNamed('Branch'));
-    expect(optionLabels()).toEqual(expect.arrayContaining(['All branches', 'Bengaluru', 'Hyderabad']));
+    // A bill always belongs to a real branch, so there is no "All branches".
+    expect(optionLabels()).toEqual(['Bengaluru', 'Hyderabad']);
   });
 
   /*
    * The reason the two fields sit in that order: goods received onto a shelf
    * belonging to another branch is the mis-post this is here to stop.
    */
-  it('offers every warehouse while no branch is chosen', async () => {
+  it('starts on the first branch and offers only its warehouses', async () => {
     const user = userEvent.setup();
     renderForm();
+    expect(fieldNamed('Branch')).toHaveTextContent('Bengaluru');
     await user.click(fieldNamed('Warehouse *'));
-    expect(optionLabels()).toEqual(expect.arrayContaining(['Bengaluru Store', 'Hyderabad Store']));
+    expect(optionLabels()).toEqual(['Bengaluru Store', 'Bengaluru Yard']);
   });
 
   it('narrows the warehouses to the chosen branch', async () => {
@@ -110,16 +114,17 @@ describe('the branch on a bill', () => {
     await user.click(screen.getByRole('option', { name: 'Bengaluru' }));
 
     await user.click(fieldNamed('Warehouse *'));
-    expect(optionLabels()).toEqual(['Bengaluru Store']);
+    expect(optionLabels()).toEqual(['Bengaluru Store', 'Bengaluru Yard']);
   });
 
   it('drops a warehouse that belongs to the branch just left', async () => {
     const user = userEvent.setup();
     renderForm();
 
-    await user.click(fieldNamed('Warehouse *'));
-    await user.click(screen.getByRole('option', { name: 'Hyderabad Store' }));
-    expect(fieldNamed('Warehouse *')).toHaveTextContent('Hyderabad Store');
+    // Hyderabad has one warehouse, so the field locks to it and fills it in.
+    await user.click(fieldNamed('Branch'));
+    await user.click(screen.getByRole('option', { name: 'Hyderabad' }));
+    expect(screen.getByRole('textbox', { name: 'Warehouse' }).value).toMatch(/Hyderabad Store/);
 
     await user.click(fieldNamed('Branch'));
     await user.click(screen.getByRole('option', { name: 'Bengaluru' }));
@@ -132,12 +137,12 @@ describe('the branch on a bill', () => {
     renderForm();
 
     await user.click(fieldNamed('Warehouse *'));
-    await user.click(screen.getByRole('option', { name: 'Bengaluru Store' }));
+    await user.click(screen.getByRole('option', { name: 'Bengaluru Yard' }));
 
     await user.click(fieldNamed('Branch'));
     await user.click(screen.getByRole('option', { name: 'Bengaluru' }));
 
-    expect(fieldNamed('Warehouse *')).toHaveTextContent('Bengaluru Store');
+    expect(fieldNamed('Warehouse *')).toHaveTextContent('Bengaluru Yard');
   });
 
   /* Branch and warehouse answer one question — where — so they share a line,

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 import { fetchSharedInvoice } from '../../api/share';
-import { amountInWordsInr } from '@ui/utils/money';
+import { amountInWordsInr, formatMoney } from '@ui/utils/money';
+import { formatDateIn } from '@ui/utils/dates';
 
 /**
  * The invoice as the customer sees it, having followed a link.
@@ -14,11 +15,6 @@ import { amountInWordsInr } from '@ui/utils/money';
  * Black on white, like the printed copy. See DESIGN.md, which exempts printed
  * documents from the app's theme.
  */
-
-const inr = (v) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).format(
-    Number(v || 0)
-  );
 
 const Shell = ({ children }) => (
   <div className="ui-min-h-viewport bg-gray-100 px-4 py-10">
@@ -99,6 +95,8 @@ export default function SharedInvoice({ token }) {
   }
 
   const { from, to, invoice } = data;
+  const company = { currency: from.currency, profile: { companySettings: { baseCurrency: from.currency, numberFormat: from.numberFormat, dateFormat: from.dateFormat, decimalPlaces: from.decimalPlaces } } };
+  const inr = (value) => formatMoney(value, company);
   const showTax = invoice.gstTotal > 0;
 
   return (
@@ -114,8 +112,8 @@ export default function SharedInvoice({ token }) {
             <div className="text-right">
               <div className="text-2xl font-extrabold tracking-wide">TAX INVOICE</div>
               <div className="mt-2 text-xs text-gray-600">No: {invoice.number}</div>
-              <div className="text-xs text-gray-600">Date: {invoice.date}</div>
-              {invoice.dueDate ? <div className="text-xs text-gray-600">Due: {invoice.dueDate}</div> : null}
+              <div className="text-xs text-gray-600">Date: {formatDateIn(invoice.date, company)}</div>
+              {invoice.dueDate ? <div className="text-xs text-gray-600">Due: {formatDateIn(invoice.dueDate, company)}</div> : null}
             </div>
           </div>
         </div>
@@ -154,7 +152,7 @@ export default function SharedInvoice({ token }) {
         <div className="grid grid-cols-2 border-t-2 border-gray-900">
           <div className="border-r-2 border-gray-900 p-4 text-xs">
             <div className="font-semibold uppercase text-gray-700">Amount in words</div>
-            <div className="mt-1">{amountInWordsInr(invoice.total)}</div>
+            <div className="mt-1">{amountInWordsInr(invoice.total, company)}</div>
           </div>
           <div className="p-4 text-sm">
             <div className="flex justify-between py-0.5">

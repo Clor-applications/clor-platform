@@ -1,14 +1,14 @@
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import { selectedBranchId } from '@platform/context';
-import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
+import { bumpCompanyNextNumber, formatVoucherNumberPreview, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getVisibleCustomFields } from '@ui/utils/invoicePrefs';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { plusDaysIso, todayIso } from '@ui/utils/dates';
 import { getLastSelection, setLastSelection } from '@ui/utils/lastSelection';
 import { branchLabel } from '@ui/utils/branchLabel';
-import { computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isIntraStateSupply } from '@ui/utils/gst';
+import { computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isCompanyGstEnabled, isGstRegistrationActive, isIntraStateSupply } from '@ui/utils/gst';
 import { resolvePurchaseRate } from '@ui/utils/pricing';
 import { tdsGroupSide } from '@ui/utils/tdsLedgers';
 import { natureForSection } from '../tds/ruleMaster';
@@ -17,7 +17,7 @@ import { amountInWordsInr, formatMoney, round2 } from '@ui/utils/money';
 import { getVendorDisplayName } from '@ui/utils/contacts';
 import { blockIfClosed } from '@ui/utils/bookClose';
 import { isTracked, needsExpiry } from '@ui/utils/batches';
-import { cancelDocApi, createDocApi, deleteDocApi, hasApiSession, updateDocApi } from '@ui/api/purchaseDocs';
+import { cancelDocApi, createDocApi, deleteDocApi, hasApiSession, listDocNumbersApi, updateDocApi } from '@ui/api/purchaseDocs';
 import { useDocumentFormKeys } from '@ui/components/ui/useDocumentFormKeys';
 import { AmountInWordsBand, DocFormActions, DocFormFootnote } from '@ui/components/DocumentForm';
 import { Ban, Building2, ClipboardList, Copy, CreditCard, Download, Eye, FileStack, FileText, Lock, MoreVertical, Package, Pencil, Plus, Receipt, ShoppingCart, SlidersHorizontal, Trash2, Truck, X } from 'lucide-react';
@@ -26,6 +26,8 @@ import { InvoiceFieldSettings } from '../settings/InvoiceFieldSettings';
 import Modal from '@ui/components/ui/Modal';
 import BillPreview from './BillPreview';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
+import BranchField from '@ui/components/BranchField';
+import VoucherSeriesSelect from '@ui/components/VoucherSeriesSelect';
 import WarehouseField from '@ui/components/WarehouseField';
 import { EmptyState, FieldError, FieldErrorSummary, StatusPill } from '@ui/components/ui/Primitives';
 import VendorPicker from '../../components/pickers/VendorPicker';
@@ -46,6 +48,14 @@ import { DocDate, DocumentNumber, MoneyValue } from '@ui/components/docs';
 import { DebitNoteForm } from './purchaseShared';
 
 export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, warehouses = [], defaultWarehouseId = '', branches = [], onOpenBillSettings = null, screenTitle = '', onBack = null }) => {
+  const [serverBillNumbers, setServerBillNumbers] = useState([]);
+  useEffect(() => {
+    if (initialData?.id || !hasApiSession()) return undefined;
+    let cancelled = false;
+    listDocNumbersApi('bill').then((numbers) => { if (!cancelled) setServerBillNumbers(numbers); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [initialData?.id, currentCompany?.id]);
+  const gstEnabled = isCompanyGstEnabled(currentCompany);
   const fieldErrors = useFieldErrors('bill');
   const { isEnabled: featureIsEnabled } = useFeatures();
   const branchesEnabled = featureIsEnabled('branches');
@@ -209,7 +219,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
   const billNumbering = billDocSettings?.numbering?.bill;
   const isBillAuto = String(billNumbering?.mode || '').toLowerCase() === 'auto';
   const lockBillNumber = isBillAuto && !billNumbering?.allowManualOverride;
-  const generatedBillNumber = nextFreeVoucherNumber({db, company: currentCompany, voucherKey: 'bill', branchId: branchIdForNumbering, takenNumbers: (db.bills || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()) });
+  const generatedBillNumber = nextFreeVoucherNumber({db, company: currentCompany, voucherKey: 'bill', branchId: branchIdForNumbering, takenNumbers: [...(db.bills || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()), ...serverBillNumbers] });
 
   /*
    * The number in the field follows the series it came from.
@@ -261,6 +271,11 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
   const vendor = formData.vendorId ? vendors.find((v) => v.id === parseInt(formData.vendorId)) : null;
   const { state: vendorState, gstin: vendorGstin } = getPartyGstProfile(vendor);
   const isIntra = isIntraStateSupply({ companyState, partyState: vendorState });
+  const billBranch = companyBranches.find((row) => String(row?.id) === String(branchIdInList || branchIdForNumbering || ''));
+  const gstRegistrationActive = isGstRegistrationActive(currentCompany, {
+    state: billBranch?.state || companyState,
+    gstin: billBranch?.gstin || billBranch?.gstIn || currentCompany?.gstin,
+  });
 
   const addItem = () => {
     setFormData((prev) => ({
@@ -313,7 +328,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
         const computed = computeGstForLine({
           quantity: Number(next.quantity ?? 1),
           rate: Number(next.rate ?? 0),
-          gstRate: Number(next.gstRate ?? 0),
+          gstRate: gstRegistrationActive ? Number(next.gstRate ?? 0) : 0,
           discountPct: Number(next.discountPct ?? 0),
           isIntra,
         });
@@ -332,7 +347,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
     });
   };
 
-  const computed = computeGstForLines({ lines: formData.items, isIntra });
+  const computed = computeGstForLines({ lines: gstEnabled && gstRegistrationActive ? formData.items : formData.items.map((line) => ({ ...line, gstRate: 0 })), isIntra });
 
   /*
    * The bill as it stands, for Preview.
@@ -466,6 +481,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
        the series as it stands now, not as it stood when the form opened. */
     const editing = Boolean(initialData?.id);
     let billNumber = String(billNumberValue || '').trim();
+    let knownServerNumbers = serverBillNumbers;
     // An existing bill keeps the number it has; the series is for new ones.
     if (isBillAuto && !editing) {
       if (lockBillNumber) billNumber = String(generatedBillNumber || '').trim();
@@ -478,9 +494,25 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
       return;
     }
 
+    /* Another device may have used the next number since this form opened, so
+       the series is checked against the server once more before saving. */
+    if (!wantsDraft && !initialData?.id && isBillAuto && hasApiSession()) {
+      try {
+        const latestNumbers = await listDocNumbersApi('bill');
+        knownServerNumbers = latestNumbers;
+        setServerBillNumbers(latestNumbers);
+        if (!numberTouched || lockBillNumber) {
+          billNumber = nextFreeVoucherNumber({ db, company: currentCompany, voucherKey: 'bill', branchId: branchIdForNumbering, takenNumbers: [...(db.bills || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()), ...latestNumbers] });
+        }
+      } catch (err) {
+        notify.error(String(err?.message || 'Could not check the next bill number.'));
+        return;
+      }
+    }
+
     // Everything about a field, gathered in one pass and shown at the fields —
     // not one at a time in the opposite corner of the screen.
-    const billNumberClash = db.bills.some((b) => b.companyId === currentCompany.id && String(b.id) !== String(initialData?.id || '') && String(b.number || '').trim() === billNumber);
+    const billNumberClash = db.bills.some((b) => b.companyId === currentCompany.id && String(b.id) !== String(initialData?.id || '') && String(b.number || '').trim() === billNumber) || (!initialData?.id && knownServerNumbers.includes(billNumber));
 
     fieldErrors.reset();
     fieldErrors.require('number', billNumber, 'Bill number is required');
@@ -502,8 +534,9 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
     // Closed books: nothing back-dates into a period already reported.
     {
       const closed = blockIfClosed(db, currentCompany.id, formData.date, 'This bill');
-      if (closed) {
-        notify.error(closed);
+      const originalClosed = initialData?.id ? blockIfClosed(db, currentCompany.id, initialData.date, 'This bill') : null;
+      if (closed || originalClosed) {
+        notify.error(originalClosed || closed);
         return;
       }
     }
@@ -740,6 +773,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
           primary, which read as two separate decisions. */}
       <DocFormActions
         title={screenTitle}
+        titleAddon={!initialData?.id ? <VoucherSeriesSelect db={db} setDb={setDb} currentCompany={currentCompany} voucherKey="bill" branchId={branchIdForNumbering} onNumberChange={(number) => { setNumberTouched(false); setFormData((old) => ({ ...old, number })); setNumberingOpen(false); }} /> : null}
         onBack={onBack}
         sticky={Boolean(screenTitle)}
         secondaryLabel="Save Draft"
@@ -818,19 +852,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div id="bill-branch-field">
             {branchesEnabled ? (
-              <PopupSelect
-                label="Branch"
-      title="branches"
-                value={String(branchIdInList || '')}
-                onChange={onBranchChange}
-                icon={Building2}
-                options={[
-                  { value: '', label: 'All branches' },
-                  ...branchOptions.map((b) => ({ value: String(b.id), label: branchLabel(b) })),
-                ]}
-                placeholder="Select Branch"
-                showValueSubtext={false}
-              />
+              <BranchField label="Branch" value={branchIdInList} onChange={onBranchChange} options={branchOptions} />
             ) : (
               <div><label className="ui-label" htmlFor="bill-branch-locked">Branch</label><div className="relative"><Lock size={14} className="ui-muted pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2" /><input id="bill-branch-locked" className="ui-input ui-sunken w-full ps-8" readOnly value={lockedBranchName} title="Branches are disabled; the default branch is used automatically." /></div></div>
             )}
@@ -916,7 +938,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
             <button
               type="button"
               ref={numberingBtnRef}
-              onClick={() => setNumberingOpen((v) => !v)}
+              onClick={() => setNumberingOpen(true)}
               className="absolute end-1 top-1/2 -translate-y-1/2 ui-icon-btn !h-7 !w-7"
               aria-label="Bill numbering settings"
               aria-haspopup="dialog"
@@ -929,6 +951,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
           <FieldError error={fieldErrors.error('number')} id={fieldErrors.errorId('number')} />
           {numberingOpen ? (
             <DocNumberingPopover
+              key={`bill-${billNumbering?.seriesId || 'default'}`}
               anchorRef={numberingBtnRef}
               db={db}
               setDb={setDb}
@@ -939,6 +962,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
               manualLabel="Typed on each bill"
               branchId={branchIdForNumbering}
               settings={billNumbering}
+              onSaved={(nextSettings) => setFormData((p) => ({ ...p, number: nextSettings.mode === 'manual' || nextSettings.enabled === false ? '' : formatVoucherNumberPreview(nextSettings) }))}
               onClose={() => setNumberingOpen(false)}
               onOpenFullSettings={() => {
                 setNumberingOpen(false);
@@ -1014,6 +1038,12 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
           <label className="ui-label">Line Items</label>
         </div>
 
+        {gstEnabled && !gstRegistrationActive ? (
+          <div className="mb-2 rounded-lg border border-[rgb(var(--warn)/0.45)] bg-[rgb(var(--warn-soft))] px-3 py-2 text-sm">
+            GST registration for this branch/state is inactive. GST options remain visible for reference, but no GST will be calculated on this purchase entry.
+          </div>
+        ) : null}
+
         <div className="border rounded-lg overflow-hidden">
           <table className="ui-table ui-grid-dense w-full ui-table-wide">
             <thead className="ui-sunken">
@@ -1028,7 +1058,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
                   Rate (₹) <span className="text-[rgb(var(--neg-ink))]">*</span>
                 </th>
                 <th className="ui-th ui-num w-[7%]">Disc %</th>
-                <th className="ui-th ui-num w-[8%]">Tax %</th>
+                {gstEnabled ? <th className="ui-th ui-num w-[8%]">Tax %</th> : null}
                 <th className="ui-th ui-num w-[13%]">Amount (₹)</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -1100,9 +1130,9 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
                           aria-label={`Discount percent for line ${idx + 1}`}
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      {gstEnabled ? <td className="px-3 py-2">
                         <span className="ui-num block text-sm">{Number(item.gstRate ?? 0)}%</span>
-                      </td>
+                      </td> : null}
                       <td className="ui-col-amount px-3 py-2">{formatMoney(item.lineTotal || 0, currentCompany)}</td>
                       <td className="px-3 py-2">
                         <button type="button" onClick={() => removeItem(idx)} aria-label={`Remove line ${idx + 1}`} title="Remove line" className="text-[rgb(var(--neg))] hover:text-[rgb(var(--neg))]">
@@ -1112,7 +1142,7 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
                     </tr>
                     {tracked ? (
                       <tr className="border-t-0">
-                        <td colSpan={9} className="px-3 pb-2 pt-0">
+                        <td colSpan={gstEnabled ? 9 : 8} className="px-3 pb-2 pt-0">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="ui-muted font-medium">Batch:</span>
                             <input
@@ -1959,7 +1989,7 @@ export const BillsList = ({
       denseCards
     >
         <div className="ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}>
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky purchase-auto-table">
           <colgroup>
             <col /><col /><col /><col /><col /><col /><col /><col />
             <col style={{ width: '2.75rem' }} />

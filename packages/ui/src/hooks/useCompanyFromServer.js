@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { rememberCompanyDisplaySettings } from '../utils/money';
 
 /**
  * The company the browser is looking at, taken from the server.
@@ -24,15 +25,26 @@ const isPlaceholder = (c) =>
 /** The local shape, from the server's org record. */
 const companyFromOrg = (org, fallbackId) => {
   const profile = org?.profile && typeof org.profile === 'object' ? org.profile : {};
-  const gstin = String(profile.gstin || '').trim();
+  const settings = profile.companySettings && typeof profile.companySettings === 'object' ? profile.companySettings : {};
+  const gstin = String(settings.gstin || profile.gstin || '').trim();
   return {
     id: fallbackId,
-    name: String(org?.name || '').trim() || 'Company',
+    name: String(settings.companyName || org?.name || '').trim() || 'Company',
+    legalName: String(settings.legalName || org?.name || '').trim(),
     gstin,
     gstRegistration: gstin ? 'Regular' : 'Unregistered',
-    state: String(profile.state || '').trim(),
-    country: String(profile.country || 'India'),
-    currency: String(profile.baseCurrency || profile.currency || 'INR'),
+    state: String(settings.regStateName || profile.state || '').trim(),
+    address: [settings.regAddress1, settings.regAddress2].filter(Boolean).join(', '),
+    city: String(settings.regCity || '').trim(),
+    pincode: String(settings.regPincode || '').trim(),
+    country: String(settings.regCountry || profile.country || 'India'),
+    currency: String(settings.baseCurrency || profile.baseCurrency || profile.currency || 'INR'),
+    pan: String(settings.pan || '').trim(),
+    cin: String(settings.cin || '').trim(),
+    phone: String(settings.phone || '').trim(),
+    email: String(settings.officialEmail || '').trim(),
+    website: String(settings.website || '').trim(),
+    logo: String(settings.logo || '').trim(),
     tradeName: String(profile.tradeName || '').trim() || undefined,
     entityType: profile.entityType || undefined,
     profile: {
@@ -57,6 +69,7 @@ export const useCompanyFromServer = ({ enabled, orgs, activeOrgId, setDb }) => {
     // Once per org per session: this fills a gap, it does not poll.
     if (appliedFor.current === orgId) return;
     appliedFor.current = orgId;
+    if (org?.profile?.companySettings) rememberCompanyDisplaySettings(companyFromOrg(org, 0));
 
     setDb((prev) => {
       const companies = Array.isArray(prev?.companies) ? prev.companies : [];
@@ -78,29 +91,37 @@ export const useCompanyFromServer = ({ enabled, orgs, activeOrgId, setDb }) => {
         return { ...prev, companies: merged, activeCompanyId: companies[blankIdx].id };
       }
 
-      /*
-       * Known company: fill the blanks only. Somebody who corrected their
-       * trade name here must not find it reverted on the next sign-in, and a
-       * state typed locally is a deliberate answer to a question the server
-       * may never have been asked.
-       */
+      // Local edits win: a field is taken from the server only where the
+      // local value is empty, or the name is still the placeholder. The
+      // address, PAN and contact fields exist only when the company settings
+      // were saved on the server, so they are filled only then.
       const current = companies[idx];
       const server = companyFromOrg(org, current.id);
+      const hasSettings = Boolean(org?.profile?.companySettings);
+      const keys = ['name', 'gstin', 'state', 'country', 'currency', 'tradeName', 'entityType'];
+      if (hasSettings) {
+        keys.push('legalName', 'address', 'city', 'pincode', 'pan', 'cin', 'phone', 'email', 'website', 'logo');
+      }
       const filled = { ...current };
-      for (const key of ['name', 'gstin', 'state', 'country', 'currency', 'tradeName', 'entityType']) {
+      for (const key of keys) {
         const localValue = String(current?.[key] ?? '').trim();
         const serverValue = String(server?.[key] ?? '').trim();
         const localIsPlaceholder = key === 'name' ? isPlaceholder(current) : !localValue;
         if (localIsPlaceholder && serverValue) filled[key] = server[key];
       }
+      if (filled.gstin && !current.gstin && !current.gstRegistration) filled.gstRegistration = 'Regular';
       filled.profile = {
         ...server.profile,
         ...(current.profile && typeof current.profile === 'object' ? current.profile : {}),
         backendCompanyId: org.id,
         handle: org.slug || current?.profile?.handle || null,
       };
+      if (hasSettings) filled.profile.companySettings = server.profile.companySettings;
 
-      const changed = ['name', 'gstin', 'state', 'country', 'currency'].some((k) => filled[k] !== current[k]);
+      // As before, tradeName and entityType alone are not worth a rewrite.
+      const watched = keys.filter((k) => k !== 'tradeName' && k !== 'entityType');
+      const changed = watched.some((k) => filled[k] !== current[k]) || (hasSettings
+        && JSON.stringify(filled.profile.companySettings) !== JSON.stringify(current?.profile?.companySettings));
       if (!changed && current?.profile?.backendCompanyId === org.id) return prev;
       return { ...prev, companies: companies.map((c, i) => (i === idx ? filled : c)) };
     });

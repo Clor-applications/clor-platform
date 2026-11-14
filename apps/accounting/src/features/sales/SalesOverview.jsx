@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import {
   AlertTriangle,
@@ -167,6 +167,15 @@ const SalesOverview = ({
         .sort((a, b) => getBranchLabel(a).localeCompare(getBranchLabel(b))),
     [branches]
   );
+
+  useEffect(() => {
+    if (!branchesSorted.length || selectedBranchIds.length) return;
+    const id = normalizeId(branchesSorted[0]?.id);
+    if (!id) return;
+    setSelectedBranchIds([id]);
+    setPendingBranchIds([id]);
+    localStorage.setItem(companyStorageKey('dashboardBranchIds'), JSON.stringify([id]));
+  }, [branchesSorted, selectedBranchIds.length]);
 
   const branchById = useMemo(() => {
     const map = new Map();
@@ -732,17 +741,6 @@ const SalesOverview = ({
       {branchPickerOpen ? (
         <Modal onClose={() => setBranchPickerOpen(false)} title="Select Branches" maxWidthClass="max-w-2xl">
           <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => setPendingBranchIds([])}
-              className={`w-full px-4 py-3 rounded-lg border text-left ${
-                pendingBranchIds.length === 0 ? 'ui-sunken ui-border-c' : 'ui-surface ui-hover-sunken ui-border-c'
-              }`}
-            >
-              <div className="font-medium">All branches</div>
-              <div className="text-xs ui-muted">Show these figures for every branch</div>
-            </button>
-
             <div className="border rounded-lg overflow-hidden">
               <div className="max-h-[55vh] overflow-y-auto divide-y">
                 {branchesLoading ? (
@@ -765,7 +763,7 @@ const SalesOverview = ({
                             setPendingBranchIds((prev) => {
                               const next = new Set(Array.isArray(prev) ? prev : []);
                               if (e.target.checked) next.add(id);
-                              else next.delete(id);
+                              else if (next.size > 1) next.delete(id);
                               return Array.from(next);
                             })
                           }

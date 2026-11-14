@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import type { DbClient } from '../utils/dbClient.js';
+import { assertPeriodUnlocked, periodLockModuleForSource } from './periodLock.js';
 
 // ---------------------------------------------------------------------------
 // Double-entry posting.
@@ -65,6 +66,7 @@ export type PostingRequest = {
   userId: string;
   date: string;
   journalCode: string;
+  entryNo?: string;
   narration?: string | null;
   sourceDocType?: string | null;
   sourceDocId?: string | null;
@@ -386,6 +388,10 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
      * stockLedger.ts.
      */
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:${orgId}:${branchId ?? ''}`}, 0))`;
+    /* The organisation's own period-lock rules, per kind of document. These
+       sit beside the fiscal-year lock checked just below; either refuses. */
+    const periodModule = periodLockModuleForSource(req.sourceDocType);
+    if (periodModule) await assertPeriodUnlocked({ accountId, orgId, userId, module: periodModule, date, db: tx });
     const fy = await ensureFiscalYear(tx, accountId, orgId, userId, date);
 
     if (fy.status === 'CLOSED') {
@@ -432,7 +438,7 @@ export async function postEntry(req: PostingRequest, tx?: DbClient) {
       resolved.push({ ...l, ledgerAccountId });
     }
 
-    const entryNo = await nextEntryNo(tx, orgId, branchId, journal.code);
+    const entryNo = req.entryNo ?? await nextEntryNo(tx, orgId, branchId, journal.code);
 
     /* REVERSED as well as POSTED: a reversed entry is still a link in the
        chain. Looking at POSTED alone made the next entry skip back past every

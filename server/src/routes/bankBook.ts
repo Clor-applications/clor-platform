@@ -10,6 +10,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { recordBankDateChange } from '../services/bankDateAudit.js';
 import { sentOnly } from '../utils/sentOnly.js';
+import { assertPeriodUnlocked } from '../services/periodLock.js';
 
 /**
  * The cash and bank book.
@@ -75,6 +76,7 @@ bankBookRouter.post('/orgs/:orgId/bank-book', EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId, branchId } = req.tenant!;
   const body = entrySchema.parse(req.body);
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'cashBank', date: body.date });
 
   const row = await prisma.bankBookEntry.create({
     data: {
@@ -108,6 +110,8 @@ bankBookRouter.patch('/orgs/:orgId/bank-book/:id', EDIT, async (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Entry not found' });
 
   const body = sentOnly(entrySchema.partial().parse(req.body), req.body);
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'cashBank', date: existing.date });
+  if (body.date && body.date !== existing.date) await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'cashBank', date: body.date });
   const row = await prisma.bankBookEntry.update({
     where: { id: existing.id },
     data: {
@@ -131,6 +135,7 @@ bankBookRouter.delete('/orgs/:orgId/bank-book/:id', EDIT, async (req, res) => {
     where: { id: String(req.params.id), accountId, orgId },
   });
   if (!existing) return res.status(404).json({ error: 'Entry not found' });
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'cashBank', date: existing.date });
   await prisma.bankBookEntry.delete({ where: { id: existing.id } });
   res.json({ deleted: true, id: existing.id });
 });

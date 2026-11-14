@@ -62,7 +62,7 @@ export default useServerMasters;
  * Match order: backend id first, then case-insensitive name — a local row
  * created before write-through adopts its server twin instead of duplicating.
  */
-export const mirrorServerRows = ({ setDb, collection, backendKey, serverRows, companyId, mapRow }) => {
+export const mirrorServerRows = ({ setDb, collection, backendKey, serverRows, companyId, mapRow, syncFields = [] }) => {
   if (!Array.isArray(serverRows) || !serverRows.length) return;
   setDb((prev) => {
     const locals = Array.isArray(prev[collection]) ? prev[collection] : [];
@@ -75,14 +75,26 @@ export const mirrorServerRows = ({ setDb, collection, backendKey, serverRows, co
     let nextId = locals.reduce((m, r) => Math.max(m, Number(r?.id) || 0), 0);
     const additions = [];
     const adoptions = new Map(); // localId -> backendId
+    const updates = new Map();
+
+    const fieldsToSync = (server, local) => Object.fromEntries(syncFields
+      .filter((field) => server?.[field] != null && server[field] !== '' && server[field] !== local?.[field])
+      .map((field) => [field, server[field]]));
 
     for (const srv of serverRows) {
       const sid = String(srv?.id || '');
-      if (!sid || byBackend.has(sid)) continue;
+      if (!sid) continue;
+      const linked = byBackend.get(sid);
+      if (linked) {
+        const fields = fieldsToSync(srv, linked);
+        if (Object.keys(fields).length) updates.set(linked.id, fields);
+        continue;
+      }
       const nameKey = String(srv?.name || '').trim().toLowerCase();
       const twin = nameKey ? byName.get(nameKey) : null;
       if (twin && !twin[backendKey]) {
         adoptions.set(twin.id, sid);
+        updates.set(twin.id, fieldsToSync(srv, twin));
         continue;
       }
       if (twin) continue; // same name already linked to another server row
@@ -90,7 +102,7 @@ export const mirrorServerRows = ({ setDb, collection, backendKey, serverRows, co
       additions.push({ id: collection === 'items' ? sid : ++nextId, companyId, [backendKey]: sid, ...mapRow(srv) });
     }
 
-    if (!additions.length && !adoptions.size) return prev;
+    if (!additions.length && !adoptions.size && !updates.size) return prev;
     // A local-only item matched to a server one takes the server id, and
     // every local line naming it follows.
     let renamed = {};
@@ -102,8 +114,14 @@ export const mirrorServerRows = ({ setDb, collection, backendKey, serverRows, co
       ...renamed,
       [collection]: [
         ...locals.map((r) =>
-          adoptions.has(r.id)
-            ? { ...r, [backendKey]: adoptions.get(r.id), ...(collection === 'items' ? { id: adoptions.get(r.id) } : {}) }
+          adoptions.has(r.id) || updates.has(r.id)
+            ? {
+                ...r,
+                ...(adoptions.has(r.id)
+                  ? { [backendKey]: adoptions.get(r.id), ...(collection === 'items' ? { id: adoptions.get(r.id) } : {}) }
+                  : {}),
+                ...updates.get(r.id),
+              }
             : r
         ),
         ...additions,

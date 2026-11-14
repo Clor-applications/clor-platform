@@ -77,7 +77,43 @@ export const DISPLAY_FEATURE_KEYS = new Set([
   'inventory', 'stockTransfers', 'batchSerial', 'batchExpiry', 'reorderAlerts',
   'bankReconciliation', 'standaloneReceiptsPayments', 'paymentTerms',
   'einvoice', 'approvals',
+  'periodLock',
+  'customerCodes', 'vendorCodes',
 ]);
+
+/** Plain-language questions shown beside the Yes / No control. */
+export const FEATURE_LABELS = {
+  branches: 'Enable multiple branches',
+  warehouses: 'Enable multiple warehouses',
+  multiCurrency: 'Enable foreign currencies',
+  companyGroups: 'Enable multiple companies',
+  periodLock: 'Enable period lock',
+  customerCodes: 'Enable customer codes',
+  vendorCodes: 'Enable vendor codes',
+  pos: 'Enable point-of-sale billing',
+  estimates: 'Enable quotations and estimates',
+  salesOrders: 'Enable sales orders',
+  deliveryChallans: 'Enable delivery challans',
+  recurringInvoices: 'Enable recurring invoices',
+  creditNotes: 'Enable sales returns and credit notes',
+  salesmen: 'Enable salesperson tracking',
+  discountRules: 'Enable automatic discount rules',
+  priceLists: 'Enable customer price lists',
+  purchaseOrders: 'Enable purchase orders',
+  debitNotes: 'Enable purchase returns and debit notes',
+  expenses: 'Enable expense booking',
+  inventory: 'Enable inventory tracking',
+  stockTransfers: 'Enable stock and branch transfers',
+  batchSerial: 'Enable batch and serial tracking',
+  batchExpiry: 'Enable batch expiry tracking',
+  reorderAlerts: 'Enable reorder alerts',
+  gst: 'Enable GST',
+  tds: 'Enable TDS',
+  tcs: 'Enable TCS',
+  einvoice: 'Enable e-Invoice and e-Way Bill',
+};
+
+export const labelForFeature = (key, fallback = '') => FEATURE_LABELS[String(key || '')] || fallback;
 
 /**
  * feature key → group key.
@@ -92,6 +128,7 @@ const ASSIGNMENT = {
   warehouses:      { group: 'organisation', icon: Warehouse,   config: 'settingsWarehouses', configLabel: 'Configure' },
   multiCurrency:   { group: 'organisation', icon: Coins,       config: 'settingsCurrencies', configLabel: 'Configure' },
   companyGroups:   { group: 'organisation', icon: Building2 },
+  periodLock:     { group: 'organisation', icon: ShieldCheck, config: 'periodLock', configLabel: 'Configure' },
 
   /* General */
   paymentReminders:{ group: 'general', icon: BellRing },
@@ -100,6 +137,8 @@ const ASSIGNMENT = {
   gridTools:       { group: 'general', icon: Table2 },
   imports:         { group: 'general', icon: Upload },
   partyCodes:      { group: 'general', icon: UserRoundCheck },
+  customerCodes:   { group: 'general', icon: UserRoundCheck },
+  vendorCodes:     { group: 'general', icon: UserRoundCheck },
 
   /* Sales */
   pos:             { group: 'sales', icon: MonitorSmartphone },
@@ -144,7 +183,6 @@ const ASSIGNMENT = {
 
   /* Accounting */
   ledger:     { group: 'accounting', icon: ScrollText },
-  periodLock: { group: 'accounting', icon: ShieldCheck },
 
   /* Taxation */
   einvoice: { group: 'taxation', icon: FileStack, config: 'settingsTax', configLabel: 'Configure' },

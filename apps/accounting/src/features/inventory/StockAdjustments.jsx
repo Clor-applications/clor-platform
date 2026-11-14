@@ -11,8 +11,9 @@ import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import ItemPicker from '../../components/pickers/ItemPicker';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { isStockItem } from '@ui/utils/inventory';
-import { getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
+import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import DocNumberField from '@ui/components/DocNumberField';
+import VoucherSeriesSelect from '@ui/components/VoucherSeriesSelect';
 import { DocumentNumber, DocDate } from '@ui/components/docs';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { DocFormActions } from '@ui/components/DocumentForm';
@@ -273,28 +274,13 @@ const StockAdjustments = ({
       let nextId = existing.reduce((m, a) => Math.max(m, Number(a?.id || 0)), 0);
       const stamp = new Date().toISOString();
 
-      /*
-       * Each row takes the next free number in the series — the rule the
-       * form's preview uses. This offset the series by the row's internal id
-       * instead, so the first adjustment the form called ADJ-1 was saved as
-       * ADJ-2, and numbers drifted further with every deletion.
-       */
-      const taken = existing
-        .filter((a) => Number(a?.companyId) === Number(companyId))
-        .map((a) => String(a?.number || '').trim())
-        .filter(Boolean);
-      const created = rows.map((r) => {
+      let working = prev;
+      rows.forEach((r) => {
         const wh = normalizeId(r.warehouseId) || normalizeId(warehouseId);
-        const number =
-          nextFreeVoucherNumber({
-            db: prev,
-            company: currentCompany,
-            voucherKey: 'stockAdjustment',
-            branchId: branchOfWarehouse(wh) || activeBranchId || null,
-            takenNumbers: taken,
-          }) || `ADJ-${nextId + 1}`;
-        taken.push(number);
-        return {
+        const branchId = branchOfWarehouse(wh) || activeBranchId || null;
+        const company = working.companies.find((item) => item.id === companyId) || currentCompany;
+        const number = nextFreeVoucherNumber({ db: working, company, voucherKey: 'stockAdjustment', branchId, takenNumbers: safeArray(working.stockAdjustments).filter((item) => item.companyId === companyId).map((item) => String(item.number || '').trim()) }) || `ADJ-${nextId + 1}`;
+        const row = {
           id: ++nextId,
           companyId,
           number,
@@ -307,9 +293,10 @@ const StockAdjustments = ({
           reason: String(r.reason || reason || '').trim(),
           createdAt: stamp,
         };
+        working = { ...working, stockAdjustments: [...safeArray(working.stockAdjustments), row], companies: bumpCompanyNextNumber({ db: working, companyId, voucherKey: 'stockAdjustment', usedNumber: number, branchId }) };
       });
 
-      return { ...prev, stockAdjustments: [...existing, ...created] };
+      return working;
     });
   };
 
@@ -510,6 +497,7 @@ const StockAdjustments = ({
       <div className="space-y-6">
         <DocFormActions
           title="New Stock Adjustment"
+          titleAddon={<VoucherSeriesSelect db={db} setDb={setDb} currentCompany={currentCompany} voucherKey="stockAdjustment" branchId={form.branchId || branchOfWarehouse(form.warehouseId) || activeBranchId || null} />}
           onBack={() => {
             resetForm();
             setCreating(false);
@@ -599,6 +587,7 @@ const StockAdjustments = ({
                     onChange={() => {}}
                     disabled
                     voucherKey="stockAdjustment"
+                    seriesInHeader={false}
                     title="Adjustment numbering"
                     sampleLabel="Next adjustment will be"
                     manualLabel="Typed on each adjustment"
@@ -777,10 +766,10 @@ const StockAdjustments = ({
       onStatusChange={setAdjFilter}
     >
       <div className="overflow-x-auto ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 11.5rem)' }} data-fill-viewport>
-        <table className={`ui-table ui-table-wide ui-table-sticky ${adjRows.length ? '' : 'cash-bank-empty-table'}`}>
+        <table className={`ui-table ui-table-wide ui-table-sticky inventory-auto-table ${adjRows.length ? '' : 'cash-bank-empty-table'}`}>
           <thead>
             <tr>
-              <ColumnHeader label="Date" col="date" state={colFilters} align="center" />
+              <ColumnHeader align="center" label="Date" col="date" state={colFilters} />
               <ColumnHeader label="Number" col="number" state={colFilters} />
               <ColumnHeader label="Branch" col="branch" state={colFilters} />
               <ColumnHeader label="Warehouse" col="warehouse" state={colFilters} />

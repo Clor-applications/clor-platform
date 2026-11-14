@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 
-import { AlertTriangle, Boxes, Download, Package, PackageCheck, PackageX, Printer, Share2 } from 'lucide-react';
+import { AlertTriangle, Boxes, Download, Package, PackageCheck, PackageX, Printer, Settings2, Share2 } from 'lucide-react';
 
-import { formatMoney, round2 } from '@ui/utils/money';
+import { round2 } from '@ui/utils/money';
 import { EmptyState, TableTotals } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import Popover from '@ui/components/ui/Popover';
+import Drawer from '@ui/components/ui/Drawer';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
 import { buildItemStockLedger, computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
@@ -13,6 +15,7 @@ import { DocDate } from '@ui/components/docs';
 import { csvSafeValue } from '@ui/utils/csv';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { escapeHtml } from '@ui/utils/html';
+import { latestPurchaseRate } from '@ui/utils/pricing';
 
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
@@ -139,12 +142,12 @@ const periodRange = (id, company) => {
   return { from: '', to: '' };
 };
 
-const ItemLedgerView = ({ db, currentCompany, itemId, fromDate, toDate, warehouseId, warehouseName = '' }) => {
+const ItemLedgerView = ({ db, currentCompany, itemId, fromDate, toDate, warehouseIds, warehouseName = '' }) => {
   const companyId = currentCompany.id;
 
   const ledger = useMemo(
-    () => buildItemStockLedger({ db, companyId, itemId, fromDate, toDate, warehouseId }),
-    [db, companyId, itemId, fromDate, toDate, warehouseId]
+    () => buildItemStockLedger({ db, companyId, itemId, fromDate, toDate, warehouseIds }),
+    [db, companyId, itemId, fromDate, toDate, warehouseIds]
   );
 
   if (!ledger.item) {
@@ -285,14 +288,47 @@ const ItemLedgerView = ({ db, currentCompany, itemId, fromDate, toDate, warehous
   );
 };
 
-const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpenItems = null }) => {
+const InventoryModule = ({ db, setDb, openModal, currentCompany, warehouses = [], onOpenItems = null }) => {
   const companyId = currentCompany.id;
+  const savedConfig = currentCompany.inventoryConfig || {};
+  const showTransferColumns = Boolean(savedConfig.showTransferColumns);
+  const valuationMethod = savedConfig.valuationMethod === 'latestPurchase' ? 'latestPurchase' : 'itemPurchase';
+  const [configurationOpen, setConfigurationOpen] = useState(false);
+  const [configurationDraft, setConfigurationDraft] = useState(null);
+  const valuationRate = (it) => {
+    const rate = valuationMethod === 'latestPurchase'
+      ? latestPurchaseRate({ db, companyId, itemId: it.id, item: it }).rate
+      : it.purchasePrice;
+    const value = Number(rate);
+    return Number.isFinite(value) ? value : 0;
+  };
+  const movementQty = (row, direction) => {
+    const total = Number(row?.[direction === 'in' ? 'inQty' : 'outQty'] ?? 0);
+    const transfer = Number(row?.[direction === 'in' ? 'transferInQty' : 'transferOutQty'] ?? 0);
+    return showTransferColumns ? round2(total - transfer) : total;
+  };
+  const saveConfiguration = () => {
+    if (typeof setDb !== 'function') return;
+    setDb((previous) => ({
+      ...previous,
+      companies: safeArray(previous.companies).map((company) => String(company.id) === String(companyId)
+        ? { ...company, inventoryConfig: configurationDraft }
+        : company),
+    }));
+    setConfigurationOpen(false);
+    notify.success('Inventory configuration saved.');
+  };
 
   const [viewMode, setViewMode] = useState('qty');
   const [period, setPeriod] = useState('last30');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-  const [warehouseId, setWarehouseId] = useState(''); // '' => All warehouses
+  const [customPeriodOpen, setCustomPeriodOpen] = useState(false);
+  const [branchIds, setBranchIds] = useState([]);
+  const [warehouseIds, setWarehouseIds] = useState([]);
+  const [locationPicker, setLocationPicker] = useState('');
+  const branchPickerRef = useRef(null);
+  const warehousePickerRef = useRef(null);
   const colFilters = useColumnFilters();
 
   const { fromDate, toDate } = useMemo(() => {
@@ -302,9 +338,23 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
   }, [period, customFrom, customTo, currentCompany]);
 
   const warehouseOptions = useMemo(() => {
-    const list = safeArray(warehouses);
+    const list = safeArray(warehouses).filter((w) => !w.companyId || String(w.companyId) === String(companyId));
     return list.slice().sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
-  }, [warehouses]);
+  }, [warehouses, companyId]);
+
+  const branchOptions = useMemo(() => safeArray(db.branches)
+    .filter((b) => !b.companyId || String(b.companyId) === String(companyId))
+    .sort((a, b) => String(a.name || a.branchName || '').localeCompare(String(b.name || b.branchName || ''))), [db.branches, companyId]);
+  const selectedBranchIds = branchIds.filter((id) => branchOptions.some((b) => String(b.id) === id));
+  const availableWarehouses = warehouseOptions.filter((w) => !selectedBranchIds.length || selectedBranchIds.includes(String(w.branchId)));
+  const selectedWarehouseIds = warehouseIds.filter((id) => availableWarehouses.some((w) => String(w.id) === id));
+  const allWarehousesSelected = selectedWarehouseIds.length === 0;
+  const filteredWarehouseIds = allWarehousesSelected
+    ? availableWarehouses.map((w) => String(w.id))
+    : selectedWarehouseIds;
+  const warehouseFilterKey = filteredWarehouseIds?.join('|') || '';
+  const warehouseFilterIds = useMemo(() => filteredWarehouseIds, [warehouseFilterKey, filteredWarehouseIds === null]);
+  const toggleSelection = (value, selected, setter) => setter(selected.includes(value) ? selected.filter((id) => id !== value) : [...selected, value]);
 
   const allStockItems = useMemo(() => {
     return safeArray(db.items)
@@ -317,8 +367,8 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
   const itemSearch = useListSearch(allStockItems, ['name', 'code', 'hsnSac', 'barcode', 'category'], 'inventory');
 
   const summaryByItemId = useMemo(() => {
-    return computeInventorySummaryByItemId({ db, companyId, fromDate, toDate, warehouseId });
-  }, [db, companyId, fromDate, toDate, warehouseId]);
+    return computeInventorySummaryByItemId({ db, companyId, fromDate, toDate, warehouseIds: warehouseFilterIds });
+  }, [db, companyId, fromDate, toDate, warehouseFilterIds]);
 
   /**
    * The same column filters the invoice list uses.
@@ -330,12 +380,13 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
    */
   const cellValue = (it, key) => {
     const row = summaryByItemId.get(String(it.id));
-    const rate = Number(it.purchasePrice ?? 0);
-    const safeRate = Number.isFinite(rate) ? rate : 0;
+    const safeRate = valuationRate(it);
     const qty = {
       opening: Number(row?.openingQty ?? 0),
-      purchases: Number(row?.purchasesQty ?? 0),
-      sales: Number(row?.salesQty ?? 0),
+      in: movementQty(row, 'in'),
+      out: movementQty(row, 'out'),
+      transferIn: Number(row?.transferInQty ?? 0),
+      transferOut: Number(row?.transferOutQty ?? 0),
       dn: Number(row?.debitNoteQty ?? 0),
       cn: Number(row?.creditNoteQty ?? 0),
       closing: Number(row?.closingQty ?? 0),
@@ -350,18 +401,19 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
       colFilters.apply(itemSearch.filtered, {
         item: (it) => cellValue(it, 'item'),
         opening: (it) => cellValue(it, 'opening'),
-        purchases: (it) => cellValue(it, 'purchases'),
-        sales: (it) => cellValue(it, 'sales'),
+        in: (it) => cellValue(it, 'in'),
+        out: (it) => cellValue(it, 'out'),
+        transferIn: (it) => cellValue(it, 'transferIn'),
+        transferOut: (it) => cellValue(it, 'transferOut'),
         dn: (it) => cellValue(it, 'dn'),
         cn: (it) => cellValue(it, 'cn'),
         closing: (it) => cellValue(it, 'closing'),
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [itemSearch.filtered, colFilters, summaryByItemId, viewMode]
+    [itemSearch.filtered, colFilters, summaryByItemId, viewMode, showTransferColumns, valuationMethod]
   );
 
   const openLedger = (item) => {
-    const wh = warehouseOptions.find((w) => String(w.id) === String(warehouseId));
     openModal(
       <ItemLedgerView
         db={db}
@@ -369,8 +421,8 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
         itemId={item.id}
         fromDate={fromDate}
         toDate={toDate}
-        warehouseId={warehouseId}
-        warehouseName={wh?.name || ''}
+        warehouseIds={warehouseFilterIds}
+        warehouseName={selectedWarehouseIds.length === 1 ? availableWarehouses.find((w) => String(w.id) === selectedWarehouseIds[0])?.name : ''}
       />,
       { title: 'Stock Ledger', maxWidthClass: 'max-w-5xl' }
     );
@@ -387,16 +439,17 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
     items
       .map((it) => {
         const r = summaryByItemId.get(String(it.id));
-        const rate = Number(it.purchasePrice ?? 0);
-        const safeRate = Number.isFinite(rate) ? rate : 0;
+        const safeRate = valuationRate(it);
         const at = (qty) => (viewMode === 'value' ? round2(Number(qty ?? 0) * safeRate) : Number(qty ?? 0));
         return {
           name: it.name || '',
           code: it.code || '',
           unit: String(it.unit || '').trim(),
           opening: at(r?.openingQty),
-          purchases: at(r?.purchasesQty),
-          sales: at(r?.salesQty),
+          in: at(movementQty(r, 'in')),
+          out: at(movementQty(r, 'out')),
+          transferIn: at(r?.transferInQty),
+          transferOut: at(r?.transferOutQty),
           dn: at(r?.debitNoteQty),
           cn: at(r?.creditNoteQty),
           closing: at(r?.closingQty),
@@ -411,8 +464,12 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
       { key: 'code', label: 'Code' },
       { key: 'unit', label: 'Unit' },
       { key: 'opening', label: `Opening ${suffix}` },
-      { key: 'purchases', label: `Purchases ${suffix}` },
-      { key: 'sales', label: `Sales ${suffix}` },
+      { key: 'in', label: `Purchases ${suffix}` },
+      { key: 'out', label: `Sales ${suffix}` },
+      ...(showTransferColumns ? [
+        { key: 'transferIn', label: `Transfer In ${suffix}` },
+        { key: 'transferOut', label: `Transfer Out ${suffix}` },
+      ] : []),
       { key: 'dn', label: `DN ${suffix}` },
       { key: 'cn', label: `CN ${suffix}` },
       { key: 'closing', label: `Closing ${suffix}` },
@@ -457,20 +514,20 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, summaryByItemId]);
 
-  const stockKpis = useMemo(() => {
+  const stockKpis = (() => {
     let stockValue = 0;
     let outOfStock = 0;
     let negative = 0;
     for (const it of items) {
       const row = summaryByItemId.get(String(it.id));
       const closing = Number(row?.closingQty ?? 0);
-      const rate = Number(it.purchasePrice ?? 0);
-      stockValue += closing * (Number.isFinite(rate) ? rate : 0);
+      stockValue += closing * valuationRate(it);
       if (closing === 0) outOfStock += 1;
       if (closing < 0) negative += 1;
     }
     return { stockValue: round2(stockValue), outOfStock, negative };
-  }, [items, summaryByItemId]);
+  })();
+  const wholeMoney = (value) => `₹${Math.round(Number(value || 0)).toLocaleString('en-IN')}`;
 
   return (
     <DocumentListShell
@@ -486,14 +543,64 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
         placeholder: 'Search items…',
         label: 'Search items',
       }}
-      moreItems={[exportMenuItem('Export stock')]}
+      headerExtras={
+        <>
+          <div className="flex items-center gap-1.5">
+            <label className="ui-label !mb-0 whitespace-nowrap" htmlFor="inv-view">View</label>
+            <select id="inv-view" value={viewMode} onChange={(e) => setViewMode(e.target.value)} className="ui-select ui-ctl-compact px-2 text-xs">
+              <option value="qty">Qty</option>
+              <option value="value">Value</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="ui-label !mb-0 whitespace-nowrap">Branch</span>
+            <button ref={branchPickerRef} type="button" className="ui-btn ui-btn-secondary ui-ctl-compact max-w-40 truncate" aria-label="Branch" aria-expanded={locationPicker === 'branch'} onClick={() => setLocationPicker(locationPicker === 'branch' ? '' : 'branch')}>
+              {selectedBranchIds.length === 1
+                ? (branchOptions.find((b) => String(b.id) === selectedBranchIds[0])?.name || branchOptions.find((b) => String(b.id) === selectedBranchIds[0])?.branchName)
+                : selectedBranchIds.length ? `${selectedBranchIds.length} branches` : 'All branches'}
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="ui-label !mb-0 whitespace-nowrap">Warehouse</span>
+            <button ref={warehousePickerRef} type="button" className="ui-btn ui-btn-secondary ui-ctl-compact max-w-44 truncate" aria-label="Warehouse" aria-expanded={locationPicker === 'warehouse'} onClick={() => setLocationPicker(locationPicker === 'warehouse' ? '' : 'warehouse')}>
+              {selectedWarehouseIds.length === 1
+                ? availableWarehouses.find((w) => String(w.id) === selectedWarehouseIds[0])?.name
+                : selectedWarehouseIds.length ? `${selectedWarehouseIds.length} warehouses` : 'All warehouses'}
+            </button>
+          </div>
+          {locationPicker ? (
+            <Popover anchorRef={locationPicker === 'branch' ? branchPickerRef : warehousePickerRef} onClose={() => setLocationPicker('')} minWidth={230} labelledBy="inventory-location-picker-title">
+              <div className="p-2">
+                <div id="inventory-location-picker-title" className="px-2 py-1 font-semibold">Select {locationPicker === 'branch' ? 'branches' : 'warehouses'}</div>
+                <button type="button" className="ui-hover-sunken w-full px-2 py-1.5 text-left text-sm" onClick={() => locationPicker === 'branch' ? setBranchIds([]) : setWarehouseIds([])}>
+                  {locationPicker === 'branch' ? 'All branches' : 'All warehouses'}
+                </button>
+                {(locationPicker === 'branch' ? branchOptions : availableWarehouses).map((location) => {
+                  const id = String(location.id);
+                  const selected = locationPicker === 'branch' ? selectedBranchIds : selectedWarehouseIds;
+                  return <label key={id} className="ui-hover-sunken flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm">
+                    <input type="checkbox" checked={selected.includes(id)} onChange={() => locationPicker === 'branch' ? toggleSelection(id, selectedBranchIds, setBranchIds) : toggleSelection(id, selectedWarehouseIds, setWarehouseIds)} />
+                    <span>{location.name || location.branchName}</span>
+                  </label>;
+                })}
+              </div>
+            </Popover>
+          ) : null}
+        </>
+      }
+      moreItems={[{ key: 'configuration', label: 'Configuration', Icon: Settings2 }, exportMenuItem('Export stock')]}
       onMoreSelect={(k) => {
+        if (k === 'configuration') {
+          setConfigurationDraft({ showTransferColumns, valuationMethod });
+          setConfigurationOpen(true);
+          return;
+        }
         const format = exportFormatFromKey(k);
         if (format) runInventoryExport(format);
       }}
       cards={[
         { label: 'Items', value: items.length, count: true, tone: 'draft', Icon: Package },
-        { label: 'Stock value', value: stockKpis.stockValue, tone: 'sent', Icon: Boxes },
+        { label: 'Stock value', value: wholeMoney(stockKpis.stockValue), tone: 'sent', Icon: Boxes },
         { label: 'In stock', value: invCounts.IN ?? 0, count: true, tone: 'paid', Icon: PackageCheck },
         { label: 'Out of stock', value: stockKpis.outOfStock, count: true, tone: 'outstanding', Icon: PackageX },
         { label: 'Negative', value: stockKpis.negative, count: true, tone: 'overdue', Icon: AlertTriangle },
@@ -503,57 +610,18 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
       statusValue={invFilter}
       statusCounts={invCounts}
       onStatusChange={setInvFilter}
-      /* View, warehouse and period ride the far end of the status row.
-         They changed what every column below means, so they belong to the
-         table — but as a band of their own between the pills and the first
-         row they were a second toolbar over the list, while the status row
-         beside them stood two thirds empty. */
       tabsExtras={
         <>
-          <div className="flex items-center gap-1.5">
-            <label className="ui-label !mb-0 whitespace-nowrap" htmlFor="inv-view">View</label>
-            <select
-              id="inv-view"
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value)}
-              className="ui-select ui-ctl-compact px-2 text-xs"
-            >
-              <option value="qty">Qty</option>
-              <option value="value">Value</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <label className="ui-label !mb-0 whitespace-nowrap" htmlFor="inv-warehouse">Warehouse</label>
-            <select
-              id="inv-warehouse"
-              value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
-              className="ui-select ui-ctl-compact px-2 text-xs"
-            >
-              <option value="">All Warehouses</option>
-              {warehouseOptions.map((w) => (
-                <option key={String(w.id)} value={String(w.id)}>
-                  {w.name || `Warehouse ${w.id}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/*
-            Label and control on one line, like the two beside it.
-            This group wrapped inside itself, so at most widths the word "Period"
-            sat on its own line and pushed its select a row lower than View and
-            Warehouse — three controls that do the same job, sitting at two
-            different heights. The custom dates are their own group now, free to
-            wrap onto the next line without taking the label with them.
-          */}
-          <div className="flex items-center gap-1.5">
+          <div className="relative flex items-center gap-1.5">
             <label className="ui-label !mb-0 whitespace-nowrap" htmlFor="inv-period">Period</label>
             <select
               id="inv-period"
               value={period}
-              onChange={(e) => setPeriod(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setPeriod(next);
+                setCustomPeriodOpen(next === 'custom');
+              }}
               className="ui-select ui-ctl-compact px-2 text-xs"
             >
               {PERIOD_OPTIONS.map((o) => (
@@ -564,54 +632,24 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
             </select>
           </div>
 
-          {period === 'custom' ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                className="ui-input !w-[9.5rem] px-2 text-sm"
-                aria-label="From date"
-              />
-              <span className="ui-subtle">to</span>
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                className="ui-input !w-[9.5rem] px-2 text-sm"
-                aria-label="To date"
-              />
+          {customPeriodOpen ? (
+            <div className="absolute start-0 top-[calc(100%+0.4rem)] z-30 grid w-80 grid-cols-2 gap-2 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-3 shadow-xl">
+              <label className="ui-label">From<input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="ui-input mt-1 w-full text-xs" /></label>
+              <label className="ui-label">To<input type="date" min={customFrom || undefined} value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="ui-input mt-1 w-full text-xs" /></label>
+              <div className="col-span-2 flex justify-end"><button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={() => setCustomPeriodOpen(false)}>Apply</button></div>
             </div>
-          ) : null}
-
-          {/* One click back to the defaults — offered only while a filter
-              is actually narrowing something. */}
-          {viewMode !== 'qty' || warehouseId || period !== 'last30' ? (
-            <button
-              type="button"
-              className="ui-btn ui-btn-ghost ui-btn-sm"
-              onClick={() => {
-                setViewMode('qty');
-                setWarehouseId('');
-                setPeriod('last30');
-                setCustomFrom('');
-                setCustomTo('');
-              }}
-            >
-              Reset
-            </button>
           ) : null}
         </>
       }
       tip={{
         storageKey: 'clor.tip.inventory',
         Icon: Boxes,
-        text: 'Nothing here is stored — every column is worked out from the bills, invoices and adjustments in the period.',
+        text: 'Stock movements are calculated from posted transactions.',
       }}
     >
 
       <div className="overflow-x-auto ui-table-scroll inventory-table-scroll" data-fill-viewport>
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky inventory-stock-table inventory-auto-table">
           {/*
             Plain headings with the same filter control the invoice list uses.
             Each column used to carry its own total stacked above the label,
@@ -620,19 +658,23 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
           */}
           <thead>
             <tr>
-              <ColumnHeader label="Item" col="item" state={colFilters} />
+              <ColumnHeader label="Item Code" col="code" state={colFilters} />
+              <ColumnHeader label="Item Name" col="name" state={colFilters} />
+              <ColumnHeader label="UOM" col="unit" state={colFilters} />
               <ColumnHeader label="Opening" col="opening" state={colFilters} className="ui-num" align="right" />
-              <ColumnHeader label="Purchases" col="purchases" state={colFilters} className="ui-num" align="right" />
-              <ColumnHeader label="Sales" col="sales" state={colFilters} className="ui-num" align="right" />
-              <ColumnHeader label="DN (Return)" col="dn" state={colFilters} className="ui-num" align="right" />
-              <ColumnHeader label="CN (Return)" col="cn" state={colFilters} className="ui-num" align="right" />
+              <ColumnHeader label="Purchases" col="in" state={colFilters} className="ui-num" align="right" />
+              <ColumnHeader label="Sales" col="out" state={colFilters} className="ui-num" align="right" />
+              {showTransferColumns ? <ColumnHeader label="Transfer In" col="transferIn" state={colFilters} className="ui-num" align="right" /> : null}
+              {showTransferColumns ? <ColumnHeader label="Transfer Out" col="transferOut" state={colFilters} className="ui-num" align="right" /> : null}
+              <ColumnHeader label="Debit Note" col="dn" state={colFilters} className="ui-num" align="right" />
+              <ColumnHeader label="Credit Note" col="cn" state={colFilters} className="ui-num" align="right" />
               <ColumnHeader label="Closing" col="closing" state={colFilters} className="ui-num" align="right" />
             </tr>
           </thead>
           <tbody className="ui-rows">
             {shownItems.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={showTransferColumns ? 11 : 9}>
                   <EmptyState
                     icon={Boxes}
                     kind="new"
@@ -661,19 +703,18 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
             {shownItems.map((it) => {
               const row = summaryByItemId.get(String(it.id));
               const unit = String(it.unit || '').trim();
-              const rate = Number(it.purchasePrice ?? 0);
-              const safeRate = Number.isFinite(rate) ? rate : 0;
+              const safeRate = valuationRate(it);
 
               const opening = Number(row?.openingQty ?? 0);
-              const purchases = Number(row?.purchasesQty ?? 0);
-              const sales = Number(row?.salesQty ?? 0);
+              const stockIn = movementQty(row, 'in');
+              const stockOut = movementQty(row, 'out');
               const dn = Number(row?.debitNoteQty ?? 0);
               const cn = Number(row?.creditNoteQty ?? 0);
               const closing = Number(row?.closingQty ?? 0);
 
               const fmt = (v) => {
-                if (viewMode === 'value') return formatMoney(round2(Number(v || 0) * safeRate), currentCompany);
-                return `${Number(v || 0)}${unit ? ` ${unit}` : ''}`;
+                if (viewMode === 'value') return wholeMoney(Number(v || 0) * safeRate);
+                return `${Number(v || 0)}`;
               };
 
               return (
@@ -683,13 +724,14 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
                   onClick={() => openLedger(it)}
       title="Click to view ledger"
                 >
-                  <td className="ui-col-entity">
-                    <div>{it.name}</div>
-                    <div className="text-xs ui-muted">{it.code || ''}</div>
-                  </td>
+                  <td className="ui-col-code">{it.code || '—'}</td>
+                  <td className="ui-col-entity">{it.name}</td>
+                  <td className="ui-col-uom">{unit || '—'}</td>
                   <td className="ui-col-amount ui-mono">{fmt(opening)}</td>
-                  <td className="ui-col-amount ui-mono">{fmt(purchases)}</td>
-                  <td className="ui-col-amount ui-mono">{fmt(sales)}</td>
+                  <td className="ui-col-amount ui-mono">{fmt(stockIn)}</td>
+                  <td className="ui-col-amount ui-mono">{fmt(stockOut)}</td>
+                  {showTransferColumns ? <td className="ui-col-amount ui-mono">{fmt(row?.transferInQty)}</td> : null}
+                  {showTransferColumns ? <td className="ui-col-amount ui-mono">{fmt(row?.transferOutQty)}</td> : null}
                   <td className="ui-col-amount ui-mono">{fmt(dn)}</td>
                   <td className="ui-col-amount ui-mono">{fmt(cn)}</td>
                   <td className="ui-col-amount ui-mono font-medium">{fmt(closing)}</td>
@@ -699,12 +741,27 @@ const InventoryModule = ({ db, openModal, currentCompany, warehouses = [], onOpe
           </tbody>
         </table>
       </div>
+      <p className="px-2 py-1 text-xs ui-muted">{showTransferColumns ? 'Transfer in/out shown separately; other adjustments remain in Purchases/Sales.' : 'Purchases/Sales include transfer in/out and other stock adjustments.'}</p>
       <TableTotals
         count={shownItems.length}
         totalCount={allStockItems.length}
         noun="items"
-        figures={[{ label: 'Stock value', value: formatMoney(stockKpis.stockValue, currentCompany) }]}
+        figures={[{ label: 'Stock value', value: wholeMoney(stockKpis.stockValue) }]}
       />
+      <Drawer open={configurationOpen} onClose={() => setConfigurationOpen(false)} title="Inventory configuration" actions={<button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={saveConfiguration}>Save</button>}>
+        <div className="space-y-6">
+          <label className="flex items-start justify-between gap-4">
+            <span><strong className="block text-sm">Show Transfer In / Out separately</strong><span className="block text-xs ui-muted mt-1">Separate transfers from Purchases and Sales columns.</span></span>
+            <input type="checkbox" className="mt-1" checked={Boolean(configurationDraft?.showTransferColumns)} onChange={(e) => setConfigurationDraft((draft) => ({ ...draft, showTransferColumns: e.target.checked }))} />
+          </label>
+          <label className="block text-sm font-medium" htmlFor="inventory-valuation-method">Stock valuation method</label>
+          <select id="inventory-valuation-method" className="ui-select w-full" value={configurationDraft?.valuationMethod || 'itemPurchase'} onChange={(e) => setConfigurationDraft((draft) => ({ ...draft, valuationMethod: e.target.value }))}>
+            <option value="itemPurchase">Item purchase price</option>
+            <option value="latestPurchase">Latest purchase cost</option>
+          </select>
+          <p className="text-xs ui-muted">Used for Value view and stock value totals. Quantity is unchanged.</p>
+        </div>
+      </Drawer>
     </DocumentListShell>
   );
 };

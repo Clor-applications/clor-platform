@@ -111,7 +111,7 @@ const mapItem = (it, companyId) => ({
   code: it.code || '',
   name: it.name || '',
   description: it.description || '',
-  type: String(it.itemType || '').toUpperCase() === 'SERVICE' ? 'Service' : 'Goods',
+  type: String(it.itemType || '').toUpperCase() === 'CAPITAL_ASSET' ? 'Capital Asset' : String(it.itemType || '').toUpperCase() === 'SERVICE' ? 'Service' : 'Goods',
   unit: it.unit || 'Pcs',
   hsnSac: it.hsnSac || '',
   gstRate: num(it.gstRate),
@@ -525,12 +525,11 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
          * again and the postings would be refused with no explanation.
          */
         const years = (await yearsPending)?.fiscalYears || [];
-        const lockedThrough = years
-          .map((y) => String(y?.lockedThrough || '').slice(0, 10))
-          .filter(Boolean)
-          .sort()
-          .pop();
-        if (lockedThrough) collected.fyLocks = [{ companyId: currentCompanyId, upTo: lockedThrough }];
+        // One row per closed financial year: reopening an earlier year must
+        // not be hidden behind a later one that is still closed.
+        collected.fyLocks = years
+          .filter((y) => y?.lockedThrough)
+          .map((y) => ({ companyId: currentCompanyId, fyName: String(y.name), upTo: String(y.lockedThrough).slice(0, 10) }));
       } catch {
         /* same rule: what does not arrive hydrates nothing */
       }
@@ -733,19 +732,17 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
         }
 
         /*
-         * The lock is one row per company and the server's answer wins: it is
-         * the book that actually refuses the posting. Appending it the way
-         * documents are appended would leave a stale local lock beside it and
-         * two different answers to "how far are the books closed".
+         * The locks are one row per financial year and the server's answer
+         * wins: it is the book that actually refuses the posting. Appending
+         * them the way documents are appended would leave a stale local lock
+         * beside them and two different answers to "how far are the books
+         * closed". A company the server says has no closed year ends with none.
          */
         if (collected.fyLocks) {
           const others = (Array.isArray(prev.fyLocks) ? prev.fyLocks : []).filter(
             (l) => l.companyId !== currentCompanyId
           );
-          const mine = (Array.isArray(prev.fyLocks) ? prev.fyLocks : []).find(
-            (l) => l.companyId === currentCompanyId
-          );
-          next.fyLocks = [...others, { ...(mine || {}), ...collected.fyLocks[0] }];
+          next.fyLocks = [...others, ...collected.fyLocks];
         }
 
         for (const [, collection, idKey] of [

@@ -15,7 +15,7 @@ warehousesRouter.use(requireAuth, requireTenantContext);
 
 const warehouseSchema = z.object({
   branchId: z.string().min(1),
-  code: z.string().min(1).max(20).optional(),
+  code: z.string().trim().min(1).max(20),
   name: z.string().min(1).max(200),
   addressLine1: z.string().max(250).optional().nullable(),
   addressLine2: z.string().max(250).optional().nullable(),
@@ -59,6 +59,9 @@ warehousesRouter.post('/orgs/:orgId/warehouses', requirePermission('MASTERS', Pe
 
   const branch = await platformPrisma.branch.findFirst({ where: { accountId, orgId, id: body.branchId } });
   if (!branch) return res.status(400).json({ error: 'Invalid branch' });
+  if (branch.branchType === 'SERVICE') return res.status(400).json({ error: 'Service branches cannot have warehouses. Select a Trading or Both branch.' });
+  const duplicateCode = await prisma.warehouse.findFirst({ where: { accountId, orgId, code: body.code.toUpperCase() } });
+  if (duplicateCode) return res.status(409).json({ error: 'Warehouse code already exists' });
 
   if (body.gstRegistrationType !== 'UNREGISTERED' && body.gstin) {
     validateGstinOrThrow(String(body.gstin), body.state || branch.state);
@@ -69,7 +72,7 @@ warehousesRouter.post('/orgs/:orgId/warehouses', requirePermission('MASTERS', Pe
       accountId,
       orgId,
       branchId: body.branchId,
-      code: String(body.code || `WH-${Date.now().toString(36).toUpperCase()}`).slice(0, 20),
+      code: body.code.toUpperCase(),
       name: body.name,
       addressLine1: body.addressLine1 ?? null,
       addressLine2: body.addressLine2 ?? null,
@@ -104,6 +107,12 @@ warehousesRouter.patch('/orgs/:orgId/warehouses/:warehouseId', requirePermission
   const nextBranchId = body.branchId ?? existing.branchId;
   const branch = await platformPrisma.branch.findFirst({ where: { accountId, orgId, id: nextBranchId } });
   if (!branch) return res.status(400).json({ error: 'Invalid branch' });
+  if (nextBranchId !== existing.branchId && branch.branchType === 'SERVICE') return res.status(400).json({ error: 'Service branches cannot have warehouses. Select a Trading or Both branch.' });
+  const nextCode = body.code?.toUpperCase();
+  if (nextCode && nextCode !== existing.code) {
+    const duplicateCode = await prisma.warehouse.findFirst({ where: { accountId, orgId, code: nextCode, id: { not: warehouseId } } });
+    if (duplicateCode) return res.status(409).json({ error: 'Warehouse code already exists' });
+  }
 
   const nextState = body.state ?? existing.state ?? branch.state;
   const nextGstin = body.gstin ?? existing.gstin;
@@ -116,8 +125,7 @@ warehousesRouter.patch('/orgs/:orgId/warehouses/:warehouseId', requirePermission
     where: { id: warehouseId },
     data: {
       ...('branchId' in body ? { branchId: body.branchId } : {}),
-      // A warehouse code is an accounting identity. It is assigned once and
-      // deliberately excluded from updates.
+      ...('code' in body ? { code: nextCode } : {}),
       ...('name' in body ? { name: body.name! } : {}),
       ...('addressLine1' in body ? { addressLine1: body.addressLine1 ?? null } : {}),
       ...('addressLine2' in body ? { addressLine2: body.addressLine2 ?? null } : {}),

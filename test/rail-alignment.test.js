@@ -73,12 +73,12 @@ describe('the rail has one left edge', () => {
     expect(CSS).toMatch(/:not\(\.ui-nav-collapse\)\s*\{[^}]*padding-inline-start:\s*1rem/);
   });
 
-  it('keeps the control in the rail, where the icons are', () => {
-    /* The collapse control is now an icon button in the rail's own header
-       (App.jsx), not a nav row: it must still exist, say what it does, and
-       report its state. */
-    expect(APP).toMatch(/onClick=\{toggleNavCollapsed\}/);
-    expect(APP).toMatch(/aria-pressed=\{navCollapsed\}/);
-    expect(APP).toMatch(/'Expand navigation' : 'Collapse navigation'/);
+  it('closes the split rail\'s screen panel from the panel itself', () => {
+    /* The split rail (15 Nov 2026) replaced the collapse toggle: the strip of
+       modules is always 72px, and the panel of the open module's screens
+       carries its own X. It must exist, say what it closes, and close it. */
+    expect(APP).toMatch(/className="app-nav-section-close ui-icon-btn"/);
+    expect(APP).toMatch(/aria-label=\{`Close \$\{selectedNavGroup\.label\}`\}/);
+    expect(APP).toMatch(/onClick=\{\(\) => setOpenGroups\(\{\}\)\}/);
   });
 });

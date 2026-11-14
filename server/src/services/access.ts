@@ -45,8 +45,14 @@ type BranchScope = string | typeof COMPANY_WIDE | undefined;
 const branchWhere = (branchId: BranchScope) =>
   branchId === COMPANY_WIDE ? { branchId: null } : branchId ? { OR: [{ branchId: null }, { branchId }] } : {};
 
-/** Role ids from direct assignments plus every role inside assigned profiles. */
-export async function resolveRoleIds(accountId: string, orgId: string, userId: string, branchId?: BranchScope) {
+/**
+ * Role ids from direct assignments plus every role inside assigned profiles.
+ *
+ * With a warehouse named, the roles the user holds at that one warehouse count
+ * too. They add to the branch roles and only while working in that warehouse
+ * of that branch; they are never read for a company-wide question.
+ */
+export async function resolveRoleIds(accountId: string, orgId: string, userId: string, branchId?: BranchScope, warehouseId?: string) {
   const direct = await platformPrisma.userRoleAssignment.findMany({
     where: { accountId, orgId, userId, ...branchWhere(branchId) },
     select: { roleId: true },
@@ -65,21 +71,31 @@ export async function resolveRoleIds(accountId: string, orgId: string, userId: s
     });
   }
 
-  return Array.from(new Set([...direct, ...fromProfiles].map((r) => r.roleId)));
+  const atWarehouse =
+    branchId && branchId !== COMPANY_WIDE && warehouseId
+      ? await platformPrisma.userWarehouseRoleAssignment.findMany({
+          where: { accountId, orgId, userId, branchId, warehouseId },
+          select: { roleId: true },
+        })
+      : [];
+
+  return Array.from(new Set([...direct, ...fromProfiles, ...atWarehouse].map((r) => r.roleId)));
 }
 
 /**
- * Cached per user, org and branch for a few seconds (see utils/accessCache.ts).
- * The result is shared between requests: callers must not mutate it.
+ * Cached per user, org, branch and warehouse for a few seconds (see
+ * utils/accessCache.ts). The result is shared between requests: callers must
+ * not mutate it.
  */
 export function resolveAccess(
   accountId: string,
   orgId: string,
   userId: string,
-  branchId?: BranchScope
+  branchId?: BranchScope,
+  warehouseId?: string
 ): Promise<EffectiveAccess> {
-  return cachedAccess(`access|${accountId}|${orgId}|${userId}|${branchId || ''}`, () =>
-    resolveAccessUncached(accountId, orgId, userId, branchId)
+  return cachedAccess(`access|${accountId}|${orgId}|${userId}|${branchId || ''}|${warehouseId || ''}`, () =>
+    resolveAccessUncached(accountId, orgId, userId, branchId, warehouseId)
   );
 }
 
@@ -101,19 +117,21 @@ export function resolveGrantAccess(accountId: string, orgId: string): Promise<Ef
 /** The caller's own access: their roles, or the grant's when CLOR staff are on one. */
 export function accessForRequest(
   req: { tenant?: { accountId: string; orgId: string; supportGrant?: unknown }; auth?: { userId: string } },
-  branchId?: BranchScope
+  branchId?: BranchScope,
+  warehouseId?: string
 ): Promise<EffectiveAccess> {
   const { accountId, orgId } = req.tenant!;
-  return req.tenant!.supportGrant ? resolveGrantAccess(accountId, orgId) : resolveAccess(accountId, orgId, req.auth!.userId, branchId);
+  return req.tenant!.supportGrant ? resolveGrantAccess(accountId, orgId) : resolveAccess(accountId, orgId, req.auth!.userId, branchId, warehouseId);
 }
 
 async function resolveAccessUncached(
   accountId: string,
   orgId: string,
   userId: string,
-  branchId?: BranchScope
+  branchId?: BranchScope,
+  warehouseId?: string
 ): Promise<EffectiveAccess> {
-  return accessFromRoles(await resolveRoleIds(accountId, orgId, userId, branchId));
+  return accessFromRoles(await resolveRoleIds(accountId, orgId, userId, branchId, warehouseId));
 }
 
 async function accessFromRoles(roleIds: string[]): Promise<EffectiveAccess> {

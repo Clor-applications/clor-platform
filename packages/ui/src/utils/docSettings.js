@@ -12,8 +12,8 @@ export const VOUCHER_DEFS = [
 // Numbering supports additional voucher types beyond printable templates.
 export const NUMBERING_VOUCHER_DEFS = [
   ...VOUCHER_DEFS,
-  { key: 'warehouseTransfer', label: 'Warehouse Transfer', listKey: null },
-  { key: 'branchTransfer', label: 'Branch Transfer', listKey: null },
+  { key: 'warehouseTransfer', label: 'Warehouse Transfer', listKey: 'stockTransfers' },
+  { key: 'branchTransfer', label: 'Branch Transfer', listKey: 'stockTransfers' },
   // Every document a branch raises gets its own series, so two branches
   // never collide on a number and each book reads as its own.
   { key: 'salesOrder', label: 'Sales Order', listKey: 'salesOrders' },
@@ -37,6 +37,13 @@ export const TEMPLATE_OPTIONS = [
   { id: 'a4Modern', name: 'A4 (Modern)' },
   { id: 'a4BoxedGst', name: 'A4 (Boxed GST Split)' },
   { id: 'a4Letterhead', name: 'A4 (Letterhead)' },
+  { id: 'a4DetailedGst', name: 'A4 (Detailed GST)' },
+  { id: 'standardClor', name: 'Standard CLOR Tax Invoice' },
+];
+
+export const TRANSFER_TEMPLATE_OPTIONS = [
+  { id: 'standard', name: 'Standard Transfer' },
+  { id: 'compact', name: 'Compact Transfer' },
 ];
 
 export const ACCENT_OPTIONS = [
@@ -52,21 +59,68 @@ export const getVoucherDef = (voucherKey) => VOUCHER_DEFS.find((v) => v.key === 
 
 export const getNumberingVoucherDef = (voucherKey) => NUMBERING_VOUCHER_DEFS.find((v) => v.key === voucherKey);
 
+const DEFAULT_SERIES_PREFIX = { invoice: 'INV-', estimate: 'EST-', bill: 'BILL-', purchaseOrder: 'PO-', expense: 'EXP-', creditNote: 'CN-', debitNote: 'DN-', journalEntry: 'JE-', warehouseTransfer: 'WT-', branchTransfer: 'BT-', salesOrder: 'SO-', pos: 'POS-', deliveryChallan: 'DC-', receipt: 'RCPT-', payment: 'PAY-', stockAdjustment: 'ADJ-' };
+
+export const getVoucherSeries = (company, voucherKey) => {
+  const base = company?.docSettings || {};
+  const additional = Array.isArray(base.numberingSeries?.[voucherKey]) ? base.numberingSeries[voucherKey] : [];
+  const configured = [
+    { mode: 'auto', enabled: true, prefix: DEFAULT_SERIES_PREFIX[voucherKey] || '', ...(base.numbering?.[voucherKey] || {}), id: 'default', name: 'Default series', isDefault: true, isActive: base.numbering?.[voucherKey]?.isActive !== false },
+    ...additional.map((series) => ({ ...series, isDefault: false, isActive: series.isActive !== false })),
+  ];
+  // Older books can contain two independently counted series with the same
+  // format. Give the later series its own prefix before it issues a duplicate.
+  const used = new Set();
+  return configured.map((series, index) => {
+    let result = series;
+    let key = voucherSeriesFormatKey(result);
+    if (used.has(key)) {
+      const stem = String(series.name || `Series ${index + 1}`).replace(/[^a-z0-9 ]/gi, '').trim().split(/\s+/)[0].slice(0, 3).toUpperCase() || `S${index + 1}`;
+      let suffix = 1;
+      do {
+        result = { ...series, prefix: `${stem}${suffix === 1 ? '' : suffix}-` };
+        key = voucherSeriesFormatKey(result);
+        suffix += 1;
+      } while (used.has(key));
+    }
+    used.add(key);
+    return result;
+  });
+};
+
+export const voucherSeriesFormatKey = (series) => formatVoucherNumberPreview({
+  ...series, mode: 'auto', enabled: true, nextNumber: 1, digits: 0,
+});
+
+export const getActiveVoucherSeries = (company, voucherKey) => {
+  const series = getVoucherSeries(company, voucherKey).filter((item) => item.isActive);
+  const activeId = company?.docSettings?.activeNumberingSeries?.[voucherKey];
+  return series.find((item) => item.id === activeId) || series[0] || getVoucherSeries(company, voucherKey)[0];
+};
+
 export const getDocSettings = (db, company, { branchId = null } = {}) => {
   const companyId = company?.id;
   const base = company?.docSettings || {};
 
   const normalizedBranchId = branchId ? String(branchId).trim() : '';
+  // The branches API is organisation-scoped and its rows may have no companyId.
+  const companyBranches = (Array.isArray(db?.branches) ? db.branches : []).filter((branch) => !branch?.companyId || String(branch.companyId) === String(companyId || ''));
+  const selectedBranch = normalizedBranchId
+    ? companyBranches.find((branch) => String(branch?.id || '').trim() === normalizedBranchId)
+    : (companyBranches.length === 1 ? companyBranches[0] : null);
+  const selectedBranchCode = String(selectedBranch?.branchCode || selectedBranch?.code || '').trim();
   const byBranch = (base?.numberingByBranch && typeof base.numberingByBranch === 'object') ? base.numberingByBranch : {};
   const branchOverrides = normalizedBranchId ? (byBranch?.[normalizedBranchId] || {}) : {};
 
   const ensureNumbering = (voucherKey, fallbackPrefix, { fallbackNextNumber } = {}) => {
     const listKey = getNumberingVoucherDef(voucherKey)?.listKey;
     const count = listKey ? (db?.[listKey] || []).filter((d) => d.companyId === companyId).length : 0;
-    const existing = (branchOverrides && typeof branchOverrides === 'object' && branchOverrides?.[voucherKey])
+    const activeSeries = getActiveVoucherSeries(company, voucherKey);
+    const existing = activeSeries.id === 'default' && branchOverrides?.[voucherKey]
       ? branchOverrides[voucherKey]
-      : (base?.numbering?.[voucherKey] || {});
+      : activeSeries;
     return {
+      seriesId: activeSeries.id,
       mode: existing.mode || 'auto',
       enabled: existing.enabled !== false,
       prefix: existing.prefix !== undefined ? existing.prefix : fallbackPrefix,
@@ -82,7 +136,9 @@ export const getDocSettings = (db, company, { branchId = null } = {}) => {
       includeBranchCode: Boolean(existing.includeBranchCode),
       includeLocationCode: Boolean(existing.includeLocationCode),
       includeDocumentTypeCode: Boolean(existing.includeDocumentTypeCode),
-      branchCode: String(existing.branchCode || ''),
+      // Branch codes are maintained on the branch master. A saved generic
+      // numbering placeholder such as "BR" must never mask that real code.
+      branchCode: selectedBranchCode,
       locationCode: String(existing.locationCode || ''),
       documentTypeCode: String(existing.documentTypeCode || ''),
       /**
@@ -131,6 +187,7 @@ export const getDocSettings = (db, company, { branchId = null } = {}) => {
     },
     templates: {
       invoice: ensureTemplate('invoice', 'classic', 'blue'),
+      receipt: ensureTemplate('receipt', 'modernReceipt', 'blue'),
       estimate: ensureTemplate('estimate', 'classic', 'blue'),
       bill: ensureTemplate('bill', 'classic', 'indigo'),
       purchaseOrder: ensureTemplate('purchaseOrder', 'classic', 'indigo'),
@@ -138,6 +195,8 @@ export const getDocSettings = (db, company, { branchId = null } = {}) => {
       creditNote: ensureTemplate('creditNote', 'classic', 'orange'),
       debitNote: ensureTemplate('debitNote', 'classic', 'orange'),
       journalEntry: ensureTemplate('journalEntry', 'minimal', 'slate'),
+      warehouseTransfer: ensureTemplate('warehouseTransfer', 'standard', 'blue'),
+      branchTransfer: ensureTemplate('branchTransfer', 'standard', 'blue'),
     },
   };
 };
@@ -178,7 +237,7 @@ export const formatVoucherNumberPreview = (numbering, offset = 0) => {
   const parts = [clean(prefix)];
   if (numbering.includeDocumentTypeCode) parts.push(clean(numbering.documentTypeCode));
   if (datePart) parts.push(datePart);
-  if (numbering.includeBranchCode) parts.push(clean(numbering.branchCode || 'BR'));
+  if (numbering.includeBranchCode && clean(numbering.branchCode)) parts.push(clean(numbering.branchCode));
   if (numbering.includeLocationCode) parts.push(clean(numbering.locationCode || 'LOC'));
   parts.push(body);
   if (suffix) parts.push(clean(suffix));
@@ -249,6 +308,21 @@ export const bumpCompanyNextNumber = ({ db, companyId, voucherKey, usedNumber, b
     if (c.id !== companyId) return c;
 
     const baseDoc = (c?.docSettings && typeof c.docSettings === 'object') ? c.docSettings : {};
+    if (currentNumbering.seriesId && currentNumbering.seriesId !== 'default') {
+      const existingSeries = Array.isArray(baseDoc.numberingSeries?.[voucherKey]) ? baseDoc.numberingSeries[voucherKey] : [];
+      return {
+        ...c,
+        docSettings: {
+          ...baseDoc,
+          numberingSeries: {
+            ...(baseDoc.numberingSeries || {}),
+            [voucherKey]: existingSeries.map((series) => series.id === currentNumbering.seriesId
+              ? { ...series, nextNumber: Math.max(Number(series.nextNumber || 1), nextNumber) }
+              : series),
+          },
+        },
+      };
+    }
     const normalizedBranchId = branchId ? String(branchId).trim() : '';
 
     if (normalizedBranchId) {

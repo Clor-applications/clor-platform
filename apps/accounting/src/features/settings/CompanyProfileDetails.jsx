@@ -38,6 +38,7 @@ export const CompanyProfileDetails = ({ form, company }) => {
         <Detail label="Date of Incorporation" value={form.incorporationDate} />
         <Detail label="Currency" value={form.baseCurrency} />
         <Detail label="Number Format" value={form.numberFormat} mono />
+        <Detail label="Decimal Places" value={String(form.decimalPlaces ?? 2)} />
         <Detail label="Date Format" value={form.dateFormat} mono />
         <Detail label="Financial Year Begins From" value={form.financialYearStart} />
         <Detail label="Books Begin From" value={form.booksBeginDate} />

@@ -205,7 +205,7 @@ export default function VendorsList({ db, setDb, currentCompany }) {
       onStatusChange={setVendStatus}
     >
       <div className="overflow-x-auto ui-table-scroll vendor-table-scroll">
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky purchase-auto-table">
           <thead>
             <tr>
               <ColumnHeader label="Name" col="name" state={vendorSearchFilters} />

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Download, Printer } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Download, Printer } from '@ui/components/ui/lineIcons';
 import { notify } from './ui/notify';
 import { mountPrintableClone, paperWidthPx, printElement } from '../utils/printElement';
 
@@ -15,7 +15,7 @@ import { mountPrintableClone, paperWidthPx, printElement } from '../utils/printE
  * @param title     what this is, shown above the paper
  * @param fileBase  the document number; becomes the PDF's filename
  */
-export const PrintDownloadFrame = ({ title, fileBase, children, page = {} }) => {
+export const PrintDownloadFrame = ({ title, fileBase, children, page = {}, onBack, extraActions, downloadLabel = 'Download' }) => {
   const paperRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
   const docNumber = String(fileBase || '').trim();
@@ -102,8 +102,12 @@ export const PrintDownloadFrame = ({ title, fileBase, children, page = {} }) => 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <div className="ui-muted text-sm">{title}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          {onBack ? <button type="button" onClick={onBack} className="ui-icon-btn" aria-label="Back to list"><ArrowLeft size={17} /></button> : null}
+          <div className="ui-title truncate text-base font-semibold">{title}</div>
+        </div>
         <div className="flex items-center gap-2">
+          {extraActions}
           <button type="button" onClick={doPrint} className="ui-btn ui-btn-secondary">
             <Printer size={16} /> Print
           </button>
@@ -113,7 +117,7 @@ export const PrintDownloadFrame = ({ title, fileBase, children, page = {} }) => 
             disabled={downloading}
             className="px-3 py-2 rounded-lg ui-btn ui-btn-primary flex items-center gap-2"
           >
-            <Download size={16} /> {downloading ? 'Preparing...' : 'Download'}
+            <Download size={16} /> {downloading ? 'Preparing...' : downloadLabel}
           </button>
         </div>
       </div>

@@ -1,17 +1,20 @@
-import React, { useMemo } from 'react';
-import { Ban, BookOpen, ClipboardList, Download, Pencil, Plus, Receipt, Trash2, Undo2, Upload } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Ban, BookOpen, ClipboardList, MoreVertical, Plus, Receipt, Undo2, Upload } from 'lucide-react';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { usePeriodFilter } from '@ui/components/ListControls';
 import { useListSearch } from '@ui/components/ListToolbar';
-import { EmptyState, StatusPill, TableTotals } from '@ui/components/ui/Primitives';
+import { EmptyState, TableTotals } from '@ui/components/ui/Primitives';
 import { confirmDialog } from '@ui/components/ui/notify';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import Popover from '@ui/components/ui/Popover';
+import JournalEntryDetail from './JournalEntryDetail';
 import { formatMoney } from '@ui/utils/money';
 import { reverseJournalOnLedger } from '@ui/utils/journalSync';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import { tdsReversalEventFrom } from '../tds/engine';
+import { getJournalEntries } from '@ui/api/ledger';
 
 /**
  * The journal list.
@@ -22,31 +25,62 @@ import { tdsReversalEventFrom } from '../tds/engine';
 export default function JournalEntriesList({ db, setDb, currentCompany, onNewJournal, onEditJournal, onNavigate = null }) {
   const { isEnabled } = useFeatures();
   const importsOn = isEnabled('imports');
+  const [importedEntries, setImportedEntries] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    setImportedEntries([]);
+    // Wrapped so a missing company (getJournalEntries throws before it
+    // returns a promise) lands in the catch, not in the render.
+    Promise.resolve().then(() => getJournalEntries(200, 'IMPORT_JOURNAL')).then(({ entries = [] }) => {
+      if (cancelled) return;
+      const reversalIds = new Set(entries.map((entry) => entry.reversedById).filter(Boolean));
+      setImportedEntries(entries.filter((entry) => entry.status !== 'REVERSED' && !reversalIds.has(entry.id)).map((entry) => {
+        const lines = (entry.lines || []).map((line) => ({
+          accountName: line.ledgerAccount?.name || '',
+          accountCode: line.ledgerAccount?.code || '',
+          description: line.description || '',
+          debit: Number(line.debit || 0),
+          credit: Number(line.credit || 0),
+        }));
+        return {
+          id: `import-${entry.id}`,
+          companyId: currentCompany.id,
+          backendEntryId: entry.id,
+          imported: true,
+          number: entry.entryNo || '',
+          date: String(entry.date || '').slice(0, 10),
+          narration: entry.narration || '',
+          lines,
+          totalDebit: lines.reduce((sum, line) => sum + line.debit, 0),
+          totalCredit: lines.reduce((sum, line) => sum + line.credit, 0),
+          status: entry.status || 'POSTED',
+        };
+      }));
+    }).catch(() => { if (!cancelled) setImportedEntries([]); });
+    return () => { cancelled = true; };
+  }, [currentCompany.id]);
+  const allJournals = useMemo(() => {
+    const local = (db.journalEntries || []).filter((entry) => entry.companyId === currentCompany.id);
+    const localIds = new Set(local.map((entry) => String(entry.backendEntryId || '')).filter(Boolean));
+    return [...local, ...importedEntries.filter((entry) => !localIds.has(String(entry.backendEntryId)))];
+  }, [db.journalEntries, currentCompany.id, importedEntries]);
   const jvPeriod = usePeriodFilter();
   const jvSearch = useListSearch(
-    db.journalEntries.filter((j) => j.companyId === currentCompany.id),
-    ['number', 'narration', 'date', 'status']
+    allJournals,
+    ['number', 'narration', 'date']
   );
   const jvFilters = useColumnFilters();
+  const [actionRow, setActionRow] = useState(null);
+  const [selectedJournalId, setSelectedJournalId] = useState(null);
+  const actionAnchorRef = useRef(null);
   const journalEntries = jvFilters.applyFilters(jvSearch.filtered.filter((r) => jvPeriod.inRange(r?.date)), {
     number: (r) => r.number,
     date: (r) => r.date,
     narration: (r) => r.narration,
-    status: (r) => r.status,
+    debit: (r) => Number(r.totalDebit || 0),
+    credit: (r) => Number(r.totalCredit || 0),
   });
 
-  /*
-   * What a journal is: balanced, out by something, or taken back.
-   *
-   * The last is the one somebody scans for — a reversed entry still sits in
-   * the books and must, but it is not a live posting and reading the list
-   * without being able to tell them apart is how a reversal gets counted
-   * twice.
-   */
-  const jvStatusOf = (jv) => {
-    if (String(jv?.status || '') === 'REVERSED') return 'Reversed';
-    return Number(jv?.totalDebit || 0) === Number(jv?.totalCredit || 0) ? 'Balanced' : 'Unbalanced';
-  };
   const jvShown = journalEntries;
 
   /*
@@ -61,14 +95,14 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
     let unbalanced = 0;
     let reversed = 0;
     for (const jv of journalEntries) {
-      const st = jvStatusOf(jv);
-      if (st === 'Reversed') {
+      // A reversed entry stays in the books but is not a live posting.
+      if (String(jv?.status || '').toUpperCase() === 'REVERSED') {
         reversed += 1;
         continue;
       }
       debit += Number(jv.totalDebit || 0);
       lines += (jv.lines || []).length;
-      if (st === 'Unbalanced') unbalanced += 1;
+      if (Number(jv.totalDebit || 0) !== Number(jv.totalCredit || 0)) unbalanced += 1;
     }
     return { count: journalEntries.length, debit, lines, unbalanced, reversed };
   }, [journalEntries]);
@@ -79,7 +113,6 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
     { key: 'narration', label: 'Narration' },
     { key: 'debit', label: 'Debit', value: (r) => Number(r.totalDebit ?? r.debit ?? 0) },
     { key: 'credit', label: 'Credit', value: (r) => Number(r.totalCredit ?? r.credit ?? 0) },
-    { key: 'status', label: 'Status', value: (r) => jvStatusOf(r) },
   ];
 
   const deleteEntry = async (jv) => {
@@ -129,7 +162,8 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
     if (posted) {
       const { reversed } = await reverseJournalOnLedger(jv);
       if (!reversed) return;
-      setDb({
+      if (jv.imported) setImportedEntries((entries) => entries.map((entry) => entry.id === jv.id ? { ...entry, status: 'REVERSED' } : entry));
+      else setDb({
         ...db,
         tdsTransactions: reverseTdsEvents(db),
         journalEntries: (Array.isArray(db.journalEntries) ? db.journalEntries : []).map((x) =>
@@ -147,6 +181,9 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
       ),
     });
   };
+
+  const selectedJournal = allJournals.find((entry) => String(entry.id) === String(selectedJournalId));
+  if (selectedJournal) return <JournalEntryDetail entry={selectedJournal} db={db} company={currentCompany} onBack={() => setSelectedJournalId(null)} />;
 
   return (
     <DocumentListShell
@@ -214,7 +251,6 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
             <col className="journal-col-narration" />
             <col className="journal-col-money" />
             <col className="journal-col-money" />
-            <col className="journal-col-status" />
             <col className="journal-col-actions" />
           </colgroup>
           <thead>
@@ -222,16 +258,15 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
               <ColumnHeader label="JV #" col="number" state={jvFilters} />
               <ColumnHeader label="Date" col="date" state={jvFilters} align="center" />
               <ColumnHeader label="Narration" col="narration" state={jvFilters} />
-              <th scope="col" className="ui-num">Debit</th>
-              <th scope="col" className="ui-num">Credit</th>
-              <ColumnHeader label="Status" col="status" state={jvFilters} align="center" />
+              <ColumnHeader label="Debit" col="debit" state={jvFilters} className="ui-num" align="right" type="number" />
+              <ColumnHeader label="Credit" col="credit" state={jvFilters} className="ui-num" align="right" type="number" />
               <th scope="col"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="ui-rows">
             {jvShown.length === 0 ? (
               <tr>
-                <td colSpan="7">
+                <td colSpan="6">
                   <EmptyState
                     icon={BookOpen}
                     kind="new"
@@ -257,41 +292,22 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
               </tr>
             ) : (
               jvShown.map((jv) => (
-                <tr key={jv.id}>
+                <tr key={jv.id} className="cursor-pointer" tabIndex={0} onClick={() => setSelectedJournalId(jv.id)} onKeyDown={(event) => { if (event.key === 'Enter') setSelectedJournalId(jv.id); }}>
                   <td className="ui-col-id">{jv.number}</td>
                   <td className="ui-col-date">{jv.date}</td>
-                  <td className="ui-col-entity">
-                    <div className="ui-narration">{jv.narration || '-'}</div>
-                    <div className="text-xs ui-muted">{(jv.lines || []).length} lines</div>
-                  </td>
+                  <td className="ui-col-entity" title={jv.narration || ''}>{jv.narration || '—'}</td>
                   <td className="ui-col-amount">{formatMoney(jv.totalDebit || 0, currentCompany)}</td>
                   <td className="ui-col-amount">{formatMoney(jv.totalCredit || 0, currentCompany)}</td>
-                  <td>
-                    <StatusPill status={jvStatusOf(jv)} />
-                  </td>
-                  <td className="ui-col-meta">
-                    <div className="flex justify-end gap-2">
-                      {jv.status === 'REVERSED' ? (
-                        <span className="text-sm ui-muted">Reversed</span>
-                      ) : (
-                      <>
-                      <button
+                  <td className="ui-action-col" onClick={(event) => event.stopPropagation()}>
+                    {jv.status !== 'REVERSED' ? <button
+                      ref={actionRow?.id === jv.id ? actionAnchorRef : null}
                         type="button"
-                        onClick={() => onEditJournal?.(jv)}
-                        className="px-3 py-1.5 rounded-lg border ui-surface ui-hover-sunken ui-border-c text-sm flex items-center gap-1"
-                      >
-                        <Pencil size={16} /> Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteEntry(jv)}
-                        className="px-3 py-1.5 rounded-lg border ui-surface ui-hover-sunken ui-border-c text-sm flex items-center gap-1 text-[rgb(var(--neg))]"
-                      >
-                        <Trash2 size={16} /> {jv.backendEntryId ? 'Reverse' : 'Delete'}
-                      </button>
-                      </>
-                      )}
-                    </div>
+                      className="ui-icon-btn"
+                      aria-label={`Actions for ${jv.number}`}
+                      aria-haspopup="menu"
+                      aria-expanded={actionRow?.id === jv.id}
+                      onClick={(event) => { actionAnchorRef.current = event.currentTarget; setActionRow(actionRow?.id === jv.id ? null : jv); }}
+                    ><MoreVertical size={16} /></button> : null}
                   </td>
                 </tr>
               ))
@@ -299,9 +315,15 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
           </tbody>
         </table>
       </div>
+      {actionRow ? <Popover anchorRef={actionAnchorRef} onClose={() => setActionRow(null)} minWidth={150} maxWidth={190} autoFocus={false}>
+        <div role="menu" aria-label={`Actions for ${actionRow.number}`} className="p-1">
+          {!actionRow.imported ? <button type="button" role="menuitem" className="report-menu-item w-full text-left" onClick={() => { const row = actionRow; setActionRow(null); onEditJournal?.(row); }}>Edit</button> : null}
+          <button type="button" role="menuitem" className="report-menu-item w-full text-left text-[rgb(var(--neg))]" onClick={() => { const row = actionRow; setActionRow(null); deleteEntry(row); }}>{actionRow.backendEntryId ? 'Reverse' : 'Delete'}</button>
+        </div>
+      </Popover> : null}
       <TableTotals
         count={jvShown.length}
-        totalCount={(db.journalEntries || []).filter((j) => j.companyId === currentCompany.id).length}
+        totalCount={allJournals.length}
         noun="entries"
         figures={[{ label: 'Posted value', value: formatMoney(jvHeadline.debit, currentCompany) }]}
       />

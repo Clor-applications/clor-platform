@@ -12,6 +12,7 @@ import { allocateNumber, ensureDefaultSeries } from '../services/numbering.js';
 import { receiptAccountsFor } from '../services/receiptAccounts.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { baseCurrencyFor, isBase, rateFor, round2, toBase } from '../services/fx.js';
+import { assertPeriodUnlocked } from '../services/periodLock.js';
 import {
   OverAllocationError,
   assertAllocationsFit,
@@ -166,6 +167,7 @@ paymentsRouter.post('/orgs/:orgId/payments', async (req, res) => {
   if (await authorize(req, perms.module, PermissionAction.CREATE, perms.resource)) {
     return res.status(403).json({ error: `You do not have permission to create ${perms.resource.toLowerCase()}` });
   }
+  await assertPeriodUnlocked({ accountId, orgId, userId, module: 'cashBank', date: body.date });
 
   const mode = await prisma.ledgerAccount.findFirst({
     where: { id: body.ledgerAccountId, orgId, isActive: true, controlKind: { in: ['CASH', 'BANK'] } },
@@ -298,6 +300,7 @@ paymentsRouter.post('/orgs/:orgId/payments', async (req, res) => {
     });
   } catch (e: any) {
     if (e instanceof OverAllocationError) return res.status(e.status).json({ error: e.message });
+    if (String(e?.code || '') === 'P2002') return res.status(409).json({ error: 'That receipt or payment number is already used in this company.' });
     throw e;
   }
 
@@ -426,6 +429,125 @@ paymentsRouter.post('/orgs/:orgId/payments', async (req, res) => {
   res.status(201).json({ payment: normalize(created), settlements: (created as any).settlements ?? [] });
 });
 
+/**
+ * Editing a receipt.
+ *
+ * The old journal entry is reversed, the allocations are replaced, settlement
+ * is worked out again and a fresh entry is posted, all in one transaction, so
+ * the books never hold a receipt with no entry or with two.
+ */
+paymentsRouter.put('/orgs/:orgId/payments/:paymentId', async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const { accountId, orgId, branchId } = req.tenant!;
+  const userId = req.auth!.userId;
+  const body = paymentSchema.parse(req.body);
+  if (body.direction !== 'RECEIPT') return res.status(400).json({ error: 'Only receipts can be edited here' });
+  // Also records whether the caller is limited to their own documents, which
+  // the lookup below reads.
+  const refusal = await authorize(req, RECEIPT.module, PermissionAction.EDIT, RECEIPT.resource);
+  if (refusal) return res.status(refusal.status).json(refusal.body);
+
+  const original = await prisma.payment.findFirst({
+    where: { id: String(req.params.paymentId), accountId, orgId, branchId, direction: 'RECEIPT', ...ownDocsWhere(req) },
+    include: { allocations: true },
+  });
+  if (!original) return res.status(404).json({ error: 'Receipt not found' });
+  await assertPeriodUnlocked({ accountId, orgId, userId, module: 'cashBank', date: original.date });
+  if (body.date !== original.date) await assertPeriodUnlocked({ accountId, orgId, userId, module: 'cashBank', date: body.date });
+  if (original.status !== 'POSTED') return res.status(409).json({ error: 'Only posted receipts can be edited' });
+  if (original.reconciled) return res.status(409).json({ error: 'Unreconcile this receipt before editing it' });
+  const mode = await prisma.ledgerAccount.findFirst({
+    where: { id: body.ledgerAccountId, orgId, isActive: true, controlKind: { in: ['CASH', 'BANK'] } },
+  });
+  if (!mode) return res.status(400).json({ error: 'Choose a cash or bank account for this receipt' });
+  const deductionTotal = round2((body.deductions || []).reduce((sum, deduction) => sum + deduction.amount, 0));
+  const settledTotal = round2(body.amount + deductionTotal);
+  if ((body.allocations || []).reduce((sum, allocation) => sum + allocation.amount, 0) > settledTotal + 0.005) {
+    return res.status(400).json({ error: 'Allocated amount is more than the receipt' });
+  }
+  const baseCurrency = await baseCurrencyFor(accountId, orgId);
+  const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
+  const payCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
+  const payRate = isBase(payCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
+  if (!(payRate > 0)) return res.status(400).json({ error: `Enter the conversion rate from ${payCurrency} to ${baseCurrency}` });
+  const invoiceIds = (body.allocations || []).filter((allocation) => allocation.docType === 'INVOICE').map((allocation) => allocation.docId);
+  const bookedRates = new Map<string, number>();
+  if (invoiceIds.length) {
+    const invoices = await prisma.invoice.findMany({ where: { orgId, id: { in: invoiceIds } }, select: { id: true, exchangeRate: true } });
+    for (const invoice of invoices) bookedRates.set(invoice.id, Number(invoice.exchangeRate) || 1);
+  }
+  const fxDifference = round2((body.allocations || []).reduce((sum, allocation) => {
+    const booked = bookedRates.get(allocation.docId);
+    return booked ? sum + toBase(allocation.amount, payRate) - toBase(allocation.amount, booked) : sum;
+  }, 0));
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const oldEntries = await tx.journalEntry.findMany({
+        where: { accountId, orgId, sourceDocType: 'RECEIPT', sourceDocId: original.id, status: 'POSTED', reversesId: null },
+        select: { id: true },
+      });
+      for (const entry of oldEntries) await reverseEntry({ accountId, orgId, branchId, userId, entryId: entry.id, narration: `Reversal of receipt ${original.number} after edit` }, tx);
+
+      await tx.paymentAllocation.deleteMany({ where: { paymentId: original.id, accountId, orgId } });
+      await assertAllocationsFit(tx, {
+        accountId, orgId,
+        allocations: (body.allocations || []) as Array<{ docType: 'INVOICE' | 'BILL'; docId: string; amount: number }>,
+      });
+      const receipt = await tx.payment.update({
+        where: { id: original.id },
+        data: {
+          number: String(body.number || original.number).trim(), date: body.date,
+          partyType: body.partyType ?? null, partyId: body.partyId ?? null, partyName: body.partyName ?? null,
+          ledgerAccountId: body.ledgerAccountId, instrumentRef: body.instrumentRef ?? null,
+          instrumentDate: body.instrumentDate ?? null,
+          amount: new Prisma.Decimal(body.amount.toFixed(2)), currency: payCurrency,
+          exchangeRate: new Prisma.Decimal(String(payRate)), notes: body.notes ?? null,
+          allocations: { create: (body.allocations || []).map((allocation) => ({
+            accountId, orgId, branchId, docType: allocation.docType, docId: allocation.docId,
+            amount: new Prisma.Decimal(allocation.amount.toFixed(2)),
+          })) },
+        },
+        include: { allocations: true },
+      });
+      const settlements = await recalcSettlementForPayment(tx, { accountId, orgId, paymentId: original.id });
+      // A document the receipt no longer settles has to be worked out again too.
+      const newDocumentKeys = new Set((body.allocations || []).map((allocation) => `${allocation.docType}:${allocation.docId}`));
+      for (const allocation of original.allocations) {
+        const kind = String(allocation.docType) === 'BILL' ? 'BILL' as const : 'INVOICE' as const;
+        if (!newDocumentKeys.has(`${kind}:${allocation.docId}`)) {
+          await recalcDocumentSettlement(tx, { accountId, orgId, docType: kind, docId: allocation.docId });
+        }
+      }
+      await postEntry({
+        accountId, orgId, branchId, userId, date: body.date,
+        journalCode: mode.controlKind === 'BANK' ? 'BNK' : 'CSH',
+        narration: `Receipt ${receipt.number}${body.partyName ? ` - ${body.partyName}` : ''}`,
+        sourceDocType: 'RECEIPT', sourceDocId: receipt.id,
+        // The same lines a new receipt posts; see the create route above.
+        lines: [
+          { ledgerAccountId: mode.id, debit: toBase(body.amount, payRate), description: 'Money received' },
+          ...(body.deductions || []).map((deduction) => ({
+            controlKind: deduction.kind === 'TDS' ? 'TDS_RECEIVABLE' as const : deduction.kind === 'BANK_CHARGES' ? 'BANK_CHARGES' as const : 'EXPENSES' as const,
+            debit: toBase(deduction.amount, payRate),
+            description: deduction.note || (deduction.kind === 'TDS' ? 'TDS deducted by customer' : deduction.kind === 'BANK_CHARGES' ? 'Bank charges' : 'Other charges'),
+          })),
+          { controlKind: 'AR', credit: round2(toBase(settledTotal, payRate) - fxDifference), partyType: 'CUSTOMER', partyId: body.partyId || null, description: `From ${body.partyName || 'customer'}` },
+          ...(fxDifference === 0 ? [] : [fxDifference > 0
+            ? { controlKind: 'FX_GAIN_LOSS' as const, credit: fxDifference, description: 'Exchange gain on settlement' }
+            : { controlKind: 'FX_GAIN_LOSS' as const, debit: -fxDifference, description: 'Exchange loss on settlement' }]),
+        ],
+      }, tx);
+      return Object.assign(receipt, { settlements });
+    });
+    return res.json({ payment: normalize(updated), settlements: (updated as any).settlements ?? [] });
+  } catch (error: any) {
+    if (error instanceof OverAllocationError) return res.status(error.status).json({ error: error.message });
+    if (String(error?.code || '') === 'P2002') return res.status(409).json({ error: 'That receipt or payment number is already used in this company.' });
+    return res.status(Number(error?.status || 400)).json({ error: String(error?.message || 'Unable to update the receipt') });
+  }
+});
+
 /** Reversal, not deletion: a posted payment stays in the audit trail. */
 paymentsRouter.post('/orgs/:orgId/payments/:paymentId/reverse', async (req, res) => {
   if (!orgOk(req, res)) return;
@@ -450,10 +572,13 @@ paymentsRouter.post('/orgs/:orgId/payments/:paymentId/reverse', async (req, res)
   if (refusal) return res.status(refusal.status).json(refusal.body);
   const payment = req.ownDocumentsOnly && found.createdByUserId !== req.auth!.userId ? null : found;
   if (!payment) return res.status(404).json({ error: 'Payment not found' });
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'cashBank', date: payment.date });
   if (payment.status === 'REVERSED') return res.status(409).json({ error: 'Already reversed' });
 
+  /* Not the contra entries an earlier edit of this receipt left behind: they
+     already cancel an entry, and reversing them would bring it back. */
   const entries = await prisma.journalEntry.findMany({
-    where: { accountId, orgId, sourceDocType: payment.direction, sourceDocId: payment.id, status: 'POSTED' },
+    where: { accountId, orgId, sourceDocType: payment.direction, sourceDocId: payment.id, status: 'POSTED', reversesId: null },
     select: { id: true },
   });
   for (const e of entries) {
@@ -512,6 +637,7 @@ paymentsRouter.patch('/orgs/:orgId/payments/:paymentId/reconcile', async (req, r
     where: { id: String(req.params.paymentId), accountId, orgId, ...ownDocsWhere(req) },
   });
   if (!payment) return res.status(404).json({ error: 'Payment not found' });
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'cashBank', date: payment.date });
 
   const body = reconcileSchema.parse(req.body);
   const next = {

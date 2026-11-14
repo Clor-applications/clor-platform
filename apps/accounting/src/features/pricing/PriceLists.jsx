@@ -3,6 +3,7 @@ import { ArrowLeft, Ban, CheckCircle2, Download, MoreVertical, Pencil, Plus, Tag
 import { PageHeader, EmptyState } from '@ui/components/ui/Primitives';
 import { Pagination, usePaged } from '@ui/components/list/ListPageParts';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import Drawer from '@ui/components/ui/Drawer';
 import { useListSearch } from '@ui/components/ListToolbar';
 import { notify, confirmDialog } from '@ui/components/ui/notify';
 import { pushMaster, removeMaster, saveMaster } from '@ui/utils/masterSync';
@@ -55,6 +56,11 @@ export default function PriceLists({ db, setDb, currentCompany }) {
 
   const [editingId, setEditingId] = useState(null);
   const [newName, setNewName] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newApplyTo, setNewApplyTo] = useState('all');
+  const [newValidFrom, setNewValidFrom] = useState('');
+  const [newValidTo, setNewValidTo] = useState('');
+  const [savingNew, setSavingNew] = useState(false);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -124,9 +130,16 @@ export default function PriceLists({ db, setDb, currentCompany }) {
      * the same customer was quoted differently depending on who raised the
      * document, and clearing that browser lost the prices outright.
      */
-    const serverPatch = await saveMaster('priceLists', name, {
-      description: '', applyTo: 'all', validFrom: '', validTo: '', status: 'active', rates: {},
-    });
+    if (newValidFrom && newValidTo && newValidTo < newValidFrom) {
+      notify.error('Valid to cannot be earlier than valid from.');
+      return;
+    }
+    setSavingNew(true);
+    const data = {
+      description: newDescription.trim(), applyTo: newApplyTo,
+      validFrom: newValidFrom, validTo: newValidTo, status: 'active', rates: {},
+    };
+    const serverPatch = await saveMaster('priceLists', name, data);
     setDb((prev) => ({
       ...prev,
       priceLists: [
@@ -135,10 +148,10 @@ export default function PriceLists({ db, setDb, currentCompany }) {
           id: nextId,
           companyId,
           name,
-          description: '',
-          applyTo: 'all',
-          validFrom: '',
-          validTo: '',
+          description: data.description,
+          applyTo: data.applyTo,
+          validFrom: data.validFrom,
+          validTo: data.validTo,
           status: 'active',
           rates: {},
           createdAt: new Date().toISOString(),
@@ -147,16 +160,28 @@ export default function PriceLists({ db, setDb, currentCompany }) {
       ],
     }));
     setNewName('');
+    setNewDescription('');
+    setNewApplyTo('all');
+    setNewValidFrom('');
+    setNewValidTo('');
+    setSavingNew(false);
     setCreating(false);
-    setEditingId(nextId);
     notify.success(`Price list "${name}" created.`);
   };
 
   const removeList = async (list) => {
-    const users = customers.filter((c) => Number(c.priceListId) === Number(list.id)).length;
+    const directUsers = customers.filter((c) => Number(c.priceListId) === Number(list.id)).length;
+    const groupUsers = (db.accountGroups || []).filter((g) =>
+      g.companyId === companyId && Number(g.priceListId) === Number(list.id)
+    ).length;
+    const users = directUsers + groupUsers;
+    if (users) {
+      notify.error(`Cannot delete "${list.name}" because ${users} customer or group assignment${users === 1 ? '' : 's'} use it.`);
+      return;
+    }
     const ok = await confirmDialog({
       title: 'Delete price list',
-      message: `Delete "${list.name}"?${users ? ` ${users} customer(s) currently use it and will fall back to standard rates.` : ''}`,
+      message: `Delete unused price list "${list.name}"?`,
       confirmLabel: 'Delete',
     });
     if (!ok) return;
@@ -164,9 +189,6 @@ export default function PriceLists({ db, setDb, currentCompany }) {
     setDb((prev) => ({
       ...prev,
       priceLists: (prev.priceLists || []).filter((p) => Number(p.id) !== Number(list.id)),
-      customers: (prev.customers || []).map((c) =>
-        c.companyId === companyId && Number(c.priceListId) === Number(list.id) ? { ...c, priceListId: null } : c
-      ),
     }));
     if (Number(editingId) === Number(list.id)) setEditingId(null);
   };
@@ -265,34 +287,6 @@ export default function PriceLists({ db, setDb, currentCompany }) {
           placeholder: 'Search price lists…',
           label: 'Search price lists',
         }}
-        headerExtras={
-          creating ? (
-            <>
-              <input
-                type="text"
-                autoFocus
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    createList();
-                  }
-                  if (e.key === 'Escape') {
-                    setCreating(false);
-                    setNewName('');
-                  }
-                }}
-                className="ui-input w-44 px-2 text-sm"
-                placeholder="Retail, Wholesale…"
-                aria-label="New price list name"
-              />
-              <button type="button" onClick={createList} className="ui-btn ui-btn-secondary">
-                Create
-              </button>
-            </>
-          ) : null
-        }
         moreItems={[exportMenuItem('Export price lists')]}
         onMoreSelect={(k) => {
           const format = exportFormatFromKey(k);
@@ -487,6 +481,42 @@ export default function PriceLists({ db, setDb, currentCompany }) {
             </div>
           </div>
         ) : null}
+
+        <Drawer
+          open={creating}
+          onClose={() => { setCreating(false); setSavingNew(false); }}
+          title="New price list"
+          description="Create a rate card for customers, groups, or selected items."
+          widthClass="w-[min(30rem,92vw)]"
+          actions={(
+            <button type="button" onClick={createList} disabled={savingNew} className="ui-btn ui-btn-primary">
+              {savingNew ? 'Saving…' : 'Save'}
+            </button>
+          )}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="ui-label" htmlFor="new-price-list-name">Price list name *</label>
+              <input id="new-price-list-name" autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} className="ui-input mt-1 w-full" placeholder="e.g. Retail, Wholesale" />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="new-price-list-apply">Apply to</label>
+              <select id="new-price-list-apply" value={newApplyTo} onChange={(e) => setNewApplyTo(e.target.value)} className="ui-select mt-1 w-full">
+                <option value="all">All items</option>
+                <option value="selected">Selected items</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="ui-label" htmlFor="new-price-list-from">Valid from</label><input id="new-price-list-from" type="date" value={newValidFrom} onChange={(e) => setNewValidFrom(e.target.value)} className="ui-input mt-1 w-full" /></div>
+              <div><label className="ui-label" htmlFor="new-price-list-to">Valid to</label><input id="new-price-list-to" type="date" value={newValidTo} onChange={(e) => setNewValidTo(e.target.value)} className="ui-input mt-1 w-full" /></div>
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="new-price-list-description">Description</label>
+              <textarea id="new-price-list-description" rows={3} value={newDescription} onChange={(e) => setNewDescription(e.target.value)} className="ui-input mt-1 w-full resize-none" placeholder="Optional description" />
+            </div>
+            <p className="ui-caption">After saving, use Edit to enter item-specific rates and assign customers.</p>
+          </div>
+        </Drawer>
       </DocumentListShell>
     );
   }

@@ -24,12 +24,6 @@ import { Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
  * Nothing here holds feature state of its own.
  */
 
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'on', label: 'Enabled' },
-  { key: 'off', label: 'Disabled' },
-];
-
 /** Yes/No, not a switch: a dropdown says what the current answer IS. */
 const YesNo = ({ value, onChange, disabled, label }) => (
   <select
@@ -44,18 +38,13 @@ const YesNo = ({ value, onChange, disabled, label }) => (
   </select>
 );
 
-const chipStyle = (on) =>
-  on
-    ? { backgroundColor: 'rgb(var(--brand) / 0.12)', color: 'rgb(var(--brand-ink))', border: '1px solid rgb(var(--brand) / 0.3)' }
-    : { border: '1px solid rgb(var(--border-strong))' };
-
 /**
  * Search, the group chips and the state chips. `searchRef` lets the frame
  * that holds the search decide what Escape means while it has text.
  */
 export const FeatureFilters = ({ model, searchRef = null }) => (
-  <div className="flex flex-wrap items-center gap-2">
-    <div className="ui-scope-field inline-flex" style={{ flex: '1 1 16rem', maxWidth: '22rem' }}>
+  <div className="ui-feature-search-row">
+    <div className="ui-feature-search">
       <Search size={16} aria-hidden="true" />
       <input
         ref={searchRef}
@@ -66,20 +55,6 @@ export const FeatureFilters = ({ model, searchRef = null }) => (
         aria-label="Search features"
         className="ui-input w-full"
       />
-    </div>
-
-    <div className="ms-auto flex items-center gap-1.5">
-      {FILTERS.map((f) => (
-        <button
-          key={f.key}
-          type="button"
-          onClick={() => model.setState(f.key)}
-          className="ui-btn ui-btn-sm"
-          style={chipStyle(model.state === f.key)}
-        >
-          {f.label}
-        </button>
-      ))}
     </div>
   </div>
 );
@@ -112,7 +87,7 @@ const FeatureRow = ({ row, section, model, onNavigate }) => {
   const Icon = row.icon;
   const parent = row.dependsOn ? model.catalog.find((x) => x.key === row.dependsOn) : null;
   const blocked = Boolean(parent && model.values[parent.key] === false);
-  const disabled = row.locked || blocked || row.notEntitled || row.readOnly;
+  const disabled = row.locked || blocked || row.taxBlocked || row.notEntitled || row.readOnly;
   const losing = !row.readOnly && model.values[row.key] ? model.childrenOf(row.key) : [];
 
   return (
@@ -144,6 +119,7 @@ const FeatureRow = ({ row, section, model, onNavigate }) => {
             </span>
           ) : null}
           {blocked ? <span className="ui-pill ui-pill-warn">Needs {parent.label}</span> : null}
+          {row.taxBlocked ? <span className="ui-pill ui-pill-warn">Enable GST first</span> : null}
         </span>
         {/* Explanatory text only where something is at stake: a dependency, a
             consequence, or a value this surface does not own. A line under
@@ -161,7 +137,7 @@ const FeatureRow = ({ row, section, model, onNavigate }) => {
         </span>
       ) : (
         <YesNo
-          value={Boolean(model.effective[row.key])}
+          value={Boolean(row.enabled)}
           onChange={(next) => model.toggle(row.key, next)}
           disabled={disabled}
           label={row.label}
@@ -183,15 +159,11 @@ const FeatureRow = ({ row, section, model, onNavigate }) => {
 };
 
 const FeatureCategory = ({ section, model, onNavigate }) => (
-  <section className="ui-card overflow-hidden">
+  <section className="ui-feature-category overflow-hidden">
     <div
-      className="px-4 py-2 ui-sunken flex items-center justify-between gap-3"
-      style={{ borderBottom: '1px solid rgb(var(--border))' }}
+      className="ui-feature-category-heading flex items-center justify-between gap-3"
     >
       <div className="ui-t-label">{section.label}</div>
-      <div className="ui-caption">
-        {section.items.length} {section.items.length === 1 ? 'feature' : 'features'}
-      </div>
     </div>
     <div className="ui-feature-grid">
       {section.items.map((r) => (
@@ -206,10 +178,10 @@ export const FeatureCatalog = ({ model, onNavigate = null }) => {
   if (model.loading) return <SkeletonCard lines={5} />;
 
   return (
-    <div className="space-y-3">
+    <div className="ui-feature-catalog-grid">
       {model.error ? (
         <div
-          className="ui-card p-3 text-sm"
+          className="ui-card ui-feature-catalog-wide p-3 text-sm"
           role="alert"
           style={{ borderColor: 'rgb(var(--neg))', color: 'rgb(var(--neg))' }}
         >
@@ -218,7 +190,7 @@ export const FeatureCatalog = ({ model, onNavigate = null }) => {
       ) : null}
 
       {!model.sections.length ? (
-        <div className="ui-card p-6 text-center text-sm ui-muted">
+        <div className="ui-card ui-feature-catalog-wide p-6 text-center text-sm ui-muted">
           {model.query.trim() ? `No feature matches “${model.query.trim()}”.` : 'Nothing here.'}
         </div>
       ) : null}
@@ -227,7 +199,7 @@ export const FeatureCatalog = ({ model, onNavigate = null }) => {
         <FeatureCategory key={section.key} section={section} model={model} onNavigate={onNavigate} />
       ))}
 
-      <p className="ui-subtle text-xs">
+      <p className="ui-subtle ui-feature-catalog-wide text-xs">
         Switching a feature off hides it. Nothing already recorded is deleted, and turning it back on restores access.
       </p>
     </div>

@@ -1,4 +1,5 @@
 import { userInfo } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 import dotenv from 'dotenv';
 import { defineConfig } from 'vitest/config';
@@ -68,6 +69,13 @@ process.env.PEOPLE_DATABASE_URL = TEST_PEOPLE_DATABASE_URL;
 process.env.PLATFORM_DATABASE_URL = TEST_PLATFORM_DATABASE_URL;
 
 export default defineConfig({
+  /* A few tests load the web app's plain-JavaScript helpers by path
+     (packages/ui/src/utils). Those helpers may import the platform context
+     the way the browser build does, so the alias the web build uses is
+     named here too. */
+  resolve: {
+    alias: { '@platform': fileURLToPath(new URL('../packages/platform', import.meta.url)) },
+  },
   test: {
     environment: 'node',
     // Kills global-agent keep-alive; see the file for the port-reuse race.

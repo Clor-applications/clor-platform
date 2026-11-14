@@ -3,8 +3,10 @@ import QRCode from 'qrcode';
 
 import { ACCENT_OPTIONS, getDocSettings } from '@ui/utils/docSettings';
 import { amountInWordsInr, formatMoney } from '@ui/utils/money';
+import { formatDateIn } from '@ui/utils/dates';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { getInvoicePrintSettings } from '@ui/utils/invoicePrintSettings';
+import './DetailedGstInvoice.css';
 import {
   getInvoicePrefs,
   isInvoicePrefOn,
@@ -56,8 +58,16 @@ const batchNote = (l) =>
     ? `Batch ${String(l.batchNo).trim()}${String(l?.expiryDate || '').trim() ? ` · Exp ${String(l.expiryDate).trim()}` : ''}`
     : '';
 
-const InvoicePreview = ({ db, currentCompany, invoice }) => {
-  const docSettings = useMemo(() => getDocSettings(db, currentCompany), [db, currentCompany]);
+const InvoicePreview = ({ db, currentCompany, invoice, docSettingsOverride = null }) => {
+  const docSettings = useMemo(() => {
+    if (docSettingsOverride) return docSettingsOverride;
+    // The invoice list can keep the selected company object from the previous
+    // render while the template designer has just saved a newer docSettings
+    // value into db.companies. Resolve the freshest company record here so
+    // list previews immediately use the template selected in Master Data.
+    const freshCompany = (db?.companies || []).find((company) => String(company?.id) === String(currentCompany?.id)) || currentCompany;
+    return getDocSettings(db, freshCompany, { branchId: invoice?.branchId || null });
+  }, [db, currentCompany, invoice?.branchId, docSettingsOverride]);
   const printSettings = useMemo(() => getInvoicePrintSettings(docSettings), [docSettings]);
   const printOn = (key) => printSettings.options[key] !== false;
 
@@ -221,6 +231,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
   const accent = ACCENT_OPTIONS.find((a) => a.id === accentId) || ACCENT_OPTIONS[0];
 
   const company = currentCompany || {};
+  const date = value => formatDateIn(value, company);
   const companyLogo = (className = 'h-14 w-14') => company?.logo ? (
     <img
       src={company.logo}
@@ -323,7 +334,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
           <div className="text-sm font-semibold text-gray-900">{printSettings.title}</div>
           {printSettings.subtitle ? <div className="text-xs text-gray-500">{printSettings.subtitle}</div> : null}
           <div className="text-xs text-gray-500">No: {invoice?.number || '-'}</div>
-          <div className="text-xs text-gray-500">Date: {invoice?.date || '-'}</div>
+          <div className="text-xs text-gray-500">Date: {date(invoice?.date) || '-'}</div>
         </div>
       </div>
 
@@ -337,7 +348,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
           {printOn('customerState') && (customer?.state || customer?.billingAddress?.state) ? <div className="text-xs text-gray-500">State: {customer?.state || customer?.billingAddress?.state}</div> : null}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <InfoRow label="Due Date" value={invoice?.dueDate || ''} right />
+          <InfoRow label="Due Date" value={date(invoice?.dueDate)} right />
           {printOn('placeOfSupply') ? <InfoRow label="Place of Supply" value={invoice?.placeOfSupplyState || ''} right /> : null}
           <InfoRow label="Tax Type" value={invoice?.taxType ? String(invoice.taxType).replace('_', ' / ') : ''} right />
           <InfoRow label="Status" value={invoice?.status || ''} right />
@@ -415,7 +426,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
           </div>
           <TdsLines invoice={invoice} currentCompany={currentCompany} />
           {printOn('amountInWords') && prefOn('amountInWords') ? (
-            <div className="border-t pt-2 mt-2 text-xs text-gray-600">{amountInWordsInr(Number(invoice?.total ?? 0))}</div>
+            <div className="border-t pt-2 mt-2 text-xs text-gray-600">{amountInWordsInr(Number(invoice?.total ?? 0), company)}</div>
           ) : null}
         </div>
       </div>
@@ -466,6 +477,135 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
       {printOn('footerNote') && printSettings.footerText ? <div className="text-xs text-center text-gray-500">{printSettings.footerText}</div> : null}
     </div>
   );
+
+  if (templateId === 'a4DetailedGst' || templateId === 'standardClor') {
+    const money = (value) => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const rows = lines.map((line, index) => {
+      const item = line?.itemId ? itemsById.get(String(line.itemId)) : null;
+      const quantity = Number(line?.quantity || 0);
+      const rate = Number(line?.rate || 0);
+      const taxable = Number(line?.taxableAmount ?? line?.taxable ?? line?.amount ?? (quantity * rate));
+      const gstRate = Number(line?.gstRate || 0);
+      const tax = Number(line?.gstAmount ?? ((Number(line?.cgstAmount || 0) + Number(line?.sgstAmount || 0) + Number(line?.igstAmount || 0)) || taxable * gstRate / 100));
+      return { line, item, index, quantity, rate, taxable, gstRate, tax, hsn: String(line?.hsnSac || item?.hsnSac || ''), name: itemLabel(item, line) || '-' };
+    });
+    const groupedTax = Array.from(rows.reduce((map, row) => {
+      const key = `${row.hsn || '—'}|${row.gstRate}`;
+      const entry = map.get(key) || { hsn: row.hsn || '—', rate: row.gstRate, taxable: 0, cgst: 0, sgst: 0, igst: 0, tax: 0 };
+      entry.taxable += row.taxable;
+      const split = invoice?.taxType !== 'IGST' && invoice?.taxType !== 'IGST_ONLY' && Number(invoice?.igstTotal || 0) === 0;
+      entry.cgst += Number(row.line?.cgstAmount ?? (split ? row.tax / 2 : 0));
+      entry.sgst += Number(row.line?.sgstAmount ?? (split ? row.tax / 2 : 0));
+      entry.igst += Number(row.line?.igstAmount ?? (split ? 0 : row.tax));
+      entry.tax += row.tax;
+      map.set(key, entry);
+      return map;
+    }, new Map()).values());
+    const customerName = invoice?.customerName || customer?.displayName || customer?.name || '—';
+    const shipping = invoice?.shipToAddress;
+    const shippingAddress = shipping ? [shipping.line1, shipping.line2, shipping.city, shipping.state, shipping.pincode].filter(Boolean).join(', ') : '';
+    const detail = (label, value) => value ? <div className="detailed-gst-fact" key={label}><b>{label}</b><span>{value}</span></div> : null;
+    const totals = [
+      ['Taxable value', invoice?.subtotal ?? rows.reduce((sum, row) => sum + row.taxable, 0)],
+      ['Discount', invoice?.invoiceDiscountApplied],
+      ['CGST', invoice?.cgstTotal],
+      ['SGST', invoice?.sgstTotal],
+      ['IGST', invoice?.igstTotal],
+      ['Cess', invoice?.cessTotal],
+      ['Other charges', invoice?.otherChargesTotal],
+      ['Round off', invoice?.roundOff],
+    ];
+    const declaration = String(printSettings.declarationText || docSettings?.templates?.invoice?.declarationText || '').trim();
+    if (templateId === 'standardClor') {
+      const addressOne = [company?.address, company?.addressLine1].filter(Boolean).join(', ');
+      const addressTwo = [company?.addressLine2, company?.city, company?.state, company?.pincode, company?.country].filter(Boolean).join(', ');
+      const billingAddress = customer?.billingAddress || {};
+      const billingOne = [billingAddress?.line1, billingAddress?.line2].filter(Boolean).join(', ');
+      const billingTwo = [billingAddress?.city, billingAddress?.state, billingAddress?.pincode, billingAddress?.country].filter(Boolean).join(', ');
+      const shipOne = [shipping?.line1, shipping?.line2].filter(Boolean).join(', ');
+      const shipTwo = [shipping?.city, shipping?.state, shipping?.pincode, shipping?.country].filter(Boolean).join(', ');
+      const totalLine = (label, value, prominent = false) => <div className={prominent ? 'clor-total-grand' : ''}><dt>{label}</dt><dd>{formatMoney(Number(value || 0), currentCompany)}</dd></div>;
+      return (
+        <article className="printable clor-standard-invoice" data-invoice-preview aria-label="Standard CLOR tax invoice">
+          <header className="clor-standard-top">
+            <div className="clor-standard-brand">{printOn('companyLogo') && companyLogo('clor-standard-logo') ? companyLogo('clor-standard-logo') : <><span>CLOR</span><small>Accounting Made Simple</small></>}</div>
+            <h2>{printSettings.title || 'TAX INVOICE'}</h2>
+          </header>
+          <section className="clor-company-and-invoice">
+            <div className="clor-company-lines">
+              <strong>{String(company?.legalName || company?.name || 'Company').toUpperCase()}</strong>
+              {printOn('companyAddress') ? <><span>{addressOne || '—'}</span><span>{addressTwo || '—'}</span></> : null}
+              <span>{[printOn('companyGstin') && company?.gstin && `GSTIN: ${company.gstin}`, printOn('companyPan') && company?.pan && `PAN: ${company.pan}`].filter(Boolean).join('  |  ')}</span>
+              {printOn('companyCin') ? <span>CIN: {company?.cin || '—'}</span> : null}
+              <span>{[printOn('companyPhone') && company?.phone, printOn('companyWebsite') && company?.website, printOn('companyEmail') && company?.email].filter(Boolean).join('  |  ')}</span>
+            </div>
+            <dl className="clor-invoice-facts">
+              <div><dt>Invoice No.</dt><dd>{invoice?.number || '—'}</dd></div>
+              <div><dt>Invoice Date</dt><dd>{date(invoice?.date) || '—'}</dd></div>
+              <div><dt>Due Date</dt><dd>{date(invoice?.dueDate) || '—'}</dd></div>
+              <div><dt>Place of Supply</dt><dd>{invoice?.placeOfSupplyState || '—'}</dd></div>
+              <div><dt>Reverse Charge</dt><dd>{invoice?.reverseCharge ? 'Yes' : 'No'}</dd></div>
+            </dl>
+          </section>
+          <section className="clor-party-grid">
+            <div><h3>Bill To</h3><strong>{customerName}</strong><span>{billingOne || customerAddress || '—'}</span><span>{billingTwo}</span><span>{[printOn('customerGstin') && (invoice?.customerGstin || customer?.gstin) && `GSTIN: ${invoice?.customerGstin || customer?.gstin}`, printOn('placeOfSupply') && invoice?.placeOfSupplyState && `Place of Supply: ${invoice.placeOfSupplyState}`].filter(Boolean).join('  |  ')}</span></div>
+            <div><h3>Ship To</h3><strong>{shipping?.label || customerName}</strong><span>{shipOne || billingOne || customerAddress || '—'}</span><span>{shipTwo || billingTwo}</span><span>{[printOn('customerGstin') && (invoice?.customerGstin || customer?.gstin) && `GSTIN: ${invoice?.customerGstin || customer?.gstin}`, printOn('placeOfSupply') && invoice?.placeOfSupplyState && `Place of Supply: ${invoice.placeOfSupplyState}`].filter(Boolean).join('  |  ')}</span></div>
+          </section>
+          <table className="clor-item-table"><thead><tr><th>#</th><th>Description</th>{printOn('hsnSac') ? <th>HSN/SAC</th> : null}<th>Qty</th><th>Unit</th>{printOn('rate') ? <th>Unit Price (₹)</th> : null}<th>Discount (₹)</th><th>Taxable Value (₹)</th>{printOn('gstRate') ? <th>GST</th> : null}<th>Amount (₹)</th></tr></thead><tbody>{rows.length ? rows.map((row) => <tr key={row.index}><td>{row.index + 1}</td><td>{row.name}{printOn('itemDescription') && row.line?.description && row.line.description !== row.name ? <small>{row.line.description}</small> : null}</td>{printOn('hsnSac') ? <td>{row.hsn || '—'}</td> : null}<td>{row.quantity.toLocaleString('en-IN')}</td><td>{row.line?.unit || row.item?.unit || '—'}</td>{printOn('rate') ? <td>{money(row.rate)}</td> : null}<td>{money(row.line?.discountAmount || 0)}</td><td>{money(row.taxable)}</td>{printOn('gstRate') ? <td>{row.gstRate}%</td> : null}<td>{money(Number(row.line?.lineTotal ?? row.taxable + row.tax))}</td></tr>) : <tr><td colSpan="10">No line items</td></tr>}</tbody></table>
+          <section className="clor-after-items">
+            <div />
+            <dl className="clor-totals">{totalLine('Sub Total', invoice?.subtotal)}{Number(invoice?.cgstTotal || 0) ? totalLine('CGST', invoice.cgstTotal) : null}{Number(invoice?.sgstTotal || 0) ? totalLine('SGST', invoice.sgstTotal) : null}{Number(invoice?.igstTotal || 0) ? totalLine('IGST', invoice.igstTotal) : null}{totalLine('Total Amount', invoice?.total, true)}</dl>
+          </section>
+          {printOn('amountInWords') && prefOn('amountInWords') ? <div className="clor-amount-words"><b>Amount in Words</b><span>{amountInWordsInr(Number(invoice?.total || 0), company)}</span></div> : null}
+          <section className="clor-payment-row"><div>{printOn('paymentDetails') ? <><h3>Bank Details</h3>{paymentBlock()}</> : null}</div></section>
+          <section className="clor-terms"><h3>Terms &amp; Conditions</h3><p>{printOn('terms') && prefOn('terms') ? (docSettings?.templates?.invoice?.termsText || '') : ''}</p></section>
+          <div className="clor-computer-note"><span />{printSettings.footerText || 'This is a computer generated invoice. Signature is not required.'}<span /></div>
+        </article>
+      );
+    }
+    return (
+      <article className={`printable detailed-gst-invoice ${templateId === 'standardClor' ? 'standard-clor-invoice' : ''}`} data-invoice-preview aria-label="Detailed GST invoice">
+        <header className="detailed-gst-header">
+          <div className="detailed-gst-logo">{printOn('companyLogo') && companyLogo('max-h-16 max-w-20') ? companyLogo('max-h-16 max-w-20') : <div><span className="detailed-gst-wordmark">CLOR</span><small className="detailed-gst-tagline">Accounting Made Simple</small></div>}</div>
+          <div className="detailed-gst-company">
+            <strong>{company?.legalName || company?.name || 'Company'}</strong>
+            {templateId === 'standardClor' ? <>
+              {printOn('companyAddress') ? <><span>{[company?.address, company?.addressLine1].filter(Boolean).join(', ')}</span><span>{[company?.addressLine2, company?.city, company?.state, company?.pincode, company?.country].filter(Boolean).join(', ')}</span></> : null}
+              <span>{[printOn('companyGstin') && company?.gstin && `GSTIN: ${company.gstin}`, printOn('companyPan') && company?.pan && `PAN: ${company.pan}`].filter(Boolean).join('  |  ')}</span>
+              {printOn('companyCin') && company?.cin ? <span>CIN: {company.cin}</span> : null}
+              <span>{[printOn('companyPhone') && company?.phone, printOn('companyWebsite') && company?.website, printOn('companyEmail') && company?.email].filter(Boolean).join('  |  ')}</span>
+            </> : <>
+              {printOn('companyAddress') && companyAddress ? <span>{companyAddress}</span> : null}
+              <span>{[printOn('companyPhone') && company?.phone, printOn('companyEmail') && company?.email, printOn('companyWebsite') && company?.website].filter(Boolean).join('  |  ')}</span>
+              <span>{[printOn('companyGstin') && company?.gstin && `GSTIN: ${company.gstin}`, printOn('companyPan') && company?.pan && `PAN: ${company.pan}`, printOn('companyCin') && company?.cin && `CIN: ${company.cin}`].filter(Boolean).join('  |  ')}</span>
+            </>}
+            {printOn('companyUdyam') && company?.udyamNumber ? <span>Udyam No.: {company.udyamNumber}</span> : null}
+          </div>
+          <h2>{printSettings.title || 'INVOICE'}</h2>
+        </header>
+        <div className="detailed-gst-band">Invoice Details</div>
+        <section className="detailed-gst-facts">
+          <div>{detail('Invoice No.', invoice?.number)}{detail('Invoice Date', date(invoice?.date))}{printOn('documentReferences') ? <>{detail('Due Date', date(invoice?.dueDate))}{detail('Reference No.', invoice?.refNo)}{detail('Reference Date', date(invoice?.refDate))}</> : null}{printOn('placeOfSupply') ? detail('Place of Supply', invoice?.placeOfSupplyState) : null}{detail('Reverse Charge', invoice?.reverseCharge ? 'Yes' : 'No')}</div>
+          <div>{printOn('dispatchDetails') ? <>{detail('Transporter', invoice?.transporterName)}{detail('Vehicle No.', invoice?.vehicleNo)}{detail('LR/GR No. / Date', [invoice?.lrNumber, invoice?.lrDate].filter(Boolean).join(' / '))}</> : null}{printOn('documentReferences') ? referenceLines().filter((row) => !['Ref No.', 'Ref Date', 'Transporter', 'Vehicle no.', 'LR / GR no.'].includes(row.label)).map((row) => detail(row.label, row.value)) : null}</div>
+        </section>
+        <section className="detailed-gst-parties">
+          <div><h3>Billing Details</h3>{detail('Customer Name', customerName)}{printOn('customerAddress') ? detail('Address', customerAddress) : null}{printOn('customerGstin') ? detail('GSTIN', invoice?.customerGstin || customer?.gstin) : null}{printOn('customerPan') ? detail('PAN', invoice?.customerPan || customer?.pan) : null}{printOn('customerState') ? detail('State / Code', [customer?.billingAddress?.state || customer?.state || invoice?.placeOfSupplyState, codeForStateName(customer?.billingAddress?.state || customer?.state || invoice?.placeOfSupplyState)].filter(Boolean).join(' / ')) : null}{printOn('placeOfSupply') ? detail('Place of Supply', invoice?.placeOfSupplyState) : null}</div>
+          {printOn('consignee') ? <div><h3>Shipping Details</h3>{detail('Customer Name', shipping?.label || customerName)}{printOn('customerAddress') ? detail('Address', shippingAddress || customerAddress) : null}{printOn('customerGstin') ? detail('GSTIN', invoice?.customerGstin || customer?.gstin) : null}{printOn('customerState') ? detail('State / Code', [shipping?.state || invoice?.placeOfSupplyState, codeForStateName(shipping?.state || invoice?.placeOfSupplyState)].filter(Boolean).join(' / ')) : null}{printOn('placeOfSupply') ? detail('Place of Supply', invoice?.placeOfSupplyState) : null}</div> : null}
+        </section>
+        <table className="detailed-gst-items"><thead><tr>{printOn('serialNumber') ? <th>S.No.</th> : null}<th>Item Details</th>{printOn('batchDetails') && rows.some((row) => batchNote(row.line)) ? <th>Batch / Dates</th> : null}{printOn('hsnSac') ? <th>HSN/SAC</th> : null}{printOn('quantity') ? <th>Qty</th> : null}{printOn('rate') ? <th>Rate</th> : null}{rows.some((row) => row.line?.mrp) ? <th>MRP</th> : null}{rows.some((row) => row.line?.discountPercent || row.line?.discountRate) ? <th>Discount %</th> : null}{printOn('gstRate') ? <th>GST %</th> : null}{printOn('taxAmount') ? <th>Tax Amount</th> : null}<th>Taxable Value</th></tr></thead>
+          <tbody>{rows.length ? rows.map((row) => <tr key={row.index}>{printOn('serialNumber') ? <td>{row.index + 1}</td> : null}<td className="detailed-gst-item-name"><b>{row.name}</b>{printOn('itemDescription') && row.line?.description && row.line.description !== row.name ? <span>{row.line.description}</span> : null}{printOn('partNumber') && (row.line?.partNumber || row.item?.partNumber) ? <span>{row.line?.partNumber || row.item?.partNumber}</span> : null}</td>{printOn('batchDetails') && rows.some((entry) => batchNote(entry.line)) ? <td>{batchNote(row.line)}</td> : null}{printOn('hsnSac') ? <td>{row.hsn || '—'}</td> : null}{printOn('quantity') ? <td>{row.quantity.toLocaleString('en-IN')}{row.line?.unit ? ` ${row.line.unit}` : ''}</td> : null}{printOn('rate') ? <td>{money(row.rate)}</td> : null}{rows.some((entry) => entry.line?.mrp) ? <td>{money(row.line?.mrp)}</td> : null}{rows.some((entry) => entry.line?.discountPercent || entry.line?.discountRate) ? <td>{row.line?.discountPercent ?? row.line?.discountRate ?? 0}</td> : null}{printOn('gstRate') ? <td>{row.gstRate.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td> : null}{printOn('taxAmount') ? <td>{money(row.tax)}</td> : null}<td>{money(row.taxable)}</td></tr>) : <tr><td colSpan="11" className="detailed-gst-empty">No line items</td></tr>}</tbody>
+        </table>
+        <section className="detailed-gst-summary">
+          <div>{printOn('hsnSummary') && groupedTax.length ? <table className="detailed-gst-tax"><thead><tr><th>HSN/SAC</th><th>Taxable Value</th><th>GST Rate</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total Tax</th></tr></thead><tbody>{groupedTax.map((row) => <tr key={`${row.hsn}-${row.rate}`}><td>{row.hsn}</td><td>{money(row.taxable)}</td><td>{row.rate}%</td><td>{money(row.cgst)}</td><td>{money(row.sgst)}</td><td>{money(row.igst)}</td><td>{money(row.tax)}</td></tr>)}</tbody></table> : null}</div>
+          <dl className="detailed-gst-totals">{totals.filter(([label, value]) => label === 'Taxable value' || (printOn('taxSummary') && Number(value) !== 0)).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{money(value)}</dd></div>)}<div className="detailed-gst-grand"><dt>Grand Total</dt><dd>{formatMoney(Number(invoice?.total || 0), currentCompany)}</dd></div>{Number(invoice?.tdsAmount || 0) > 0 ? <><div><dt>Less: TDS</dt><dd>{money(invoice.tdsAmount)}</dd></div><div><dt>Net payable</dt><dd>{money(Number(invoice.total || 0) - Number(invoice.tdsAmount || 0))}</dd></div></> : null}</dl>
+        </section>
+        {printOn('amountInWords') && prefOn('amountInWords') ? <div className="detailed-gst-words"><b>Amount in words:</b> {amountInWordsInr(Number(invoice?.total || 0), company)}</div> : null}
+        <section className="detailed-gst-bottom"><div>{printOn('paymentDetails') ? <><h3>Bank Details &amp; QR code</h3>{paymentBlock()}</> : null}</div><div>{invoice?.irn ? <><h3>E-Way &amp; E-invoicing details</h3><div className="detailed-gst-irn">IRN: {invoice.irn}</div>{invoice?.irnAckNo ? <div>Ack: {invoice.irnAckNo} {invoice?.irnAckDate || ''}</div> : null}{invoice?.ewbNo ? <div>E-Way Bill: {invoice.ewbNo}</div> : null}{irnQrDataUrl ? <img src={irnQrDataUrl} alt="Signed e-invoice QR" /> : null}</> : null}</div></section>
+        <footer className="detailed-gst-footer"><div><h3>Terms and Conditions</h3>{printOn('terms') && prefOn('terms') ? <p>{docSettings?.templates?.invoice?.termsText || ''}</p> : null}{printedCustomFields('terms').map((field) => <p key={field.key}>{field.label}: {field.value}</p>)}</div><div><h3>Declaration</h3>{printOn('declaration') && prefOn('declaration') ? <p>{declaration}</p> : null}{printOn('jurisdiction') && printSettings.jurisdictionText ? <p>{printSettings.jurisdictionText}</p> : null}{printOn('signature') ? <div className="detailed-gst-signature">For {company?.name || 'Company'}<span>Authorised Signatory</span></div> : null}</div></footer>
+        {printOn('footerNote') && printSettings.footerText ? <div className="detailed-gst-note">{printSettings.footerText}</div> : null}
+      </article>
+    );
+  }
 
   if (templateId === 'modern') {
     return (
@@ -567,11 +707,11 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
             <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 p-3 text-xs">
               <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Invoice no.</b><span>{invoice?.number || '-'}</span></div>
               {hasTransport && invoice?.transporterName ? <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Transporter</b><span>{invoice.transporterName}</span></div> : <div />}
-              <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Invoice date</b><span>{invoice?.date || '-'}</span></div>
+              <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Invoice date</b><span>{date(invoice?.date) || '-'}</span></div>
               {hasTransport && invoice?.vehicleNo ? <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Vehicle no.</b><span>{invoice.vehicleNo}</span></div> : <div />}
               {hasReference ? <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Reference</b><span>{[invoice?.refNo, invoice?.refDate].filter(Boolean).join(' · ')}</span></div> : null}
               {hasTransport && (invoice?.lrNumber || invoice?.lrDate) ? <div className="grid grid-cols-[8rem_1fr] gap-2"><b>LR / GR</b><span>{[invoice?.lrNumber, invoice?.lrDate].filter(Boolean).join(' · ')}</span></div> : null}
-              {printOn('documentReferences') ? <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Due date</b><span>{invoice?.dueDate || '—'}</span></div> : null}
+              {printOn('documentReferences') ? <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Due date</b><span>{date(invoice?.dueDate) || '—'}</span></div> : null}
               {hasOrder ? <div className="grid grid-cols-[8rem_1fr] gap-2"><b>Order</b><span>{invoice?.orderNumber || invoice?.workOrderNo}</span></div> : null}
             </div>
           </section>
@@ -660,7 +800,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
               <div className="flex justify-between"><span>Taxable value</span><b>{wholeMoney(invoice?.subtotal)}</b></div>
               {printOn('taxSummary') ? <><div className="flex justify-between"><span>CGST</span><span>{wholeMoney(invoice?.cgstTotal)}</span></div><div className="flex justify-between"><span>SGST</span><span>{wholeMoney(invoice?.sgstTotal)}</span></div><div className="flex justify-between"><span>IGST</span><span>{wholeMoney(invoice?.igstTotal)}</span></div></> : null}
               <div className="flex justify-between border-t pt-2 mt-2 text-sm"><b>Grand total</b><b>{wholeMoney(invoice?.total)}</b></div>
-              {printOn('amountInWords') ? <div className="border-t pt-2 mt-2 text-[10px] text-gray-600">{amountInWordsInr(Number(invoice?.total || 0))}</div> : null}
+              {printOn('amountInWords') ? <div className="border-t pt-2 mt-2 text-[10px] text-gray-600">{amountInWordsInr(Number(invoice?.total || 0), company)}</div> : null}
             </div>
           </section>
 
@@ -700,8 +840,8 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
               <div className="text-right">
                 <div className="text-3xl font-extrabold tracking-wide">{printSettings.title}</div>
                 <div className="mt-2 text-xs text-gray-600">Invoice No: {invoice?.number || '-'}</div>
-                <div className="text-xs text-gray-600">Date: {invoice?.date || '-'}</div>
-                {invoice?.dueDate ? <div className="text-xs text-gray-600">Due: {invoice.dueDate}</div> : null}
+                <div className="text-xs text-gray-600">Date: {date(invoice?.date) || '-'}</div>
+                {invoice?.dueDate ? <div className="text-xs text-gray-600">Due: {date(invoice.dueDate)}</div> : null}
               </div>
             </div>
 
@@ -800,7 +940,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
             </div>
 
             {printOn('amountInWords') && prefOn('amountInWords') ? (
-              <div className="text-xs text-gray-700">{amountInWordsInr(Number(invoice?.total ?? 0))}</div>
+              <div className="text-xs text-gray-700">{amountInWordsInr(Number(invoice?.total ?? 0), company)}</div>
             ) : null}
 
             {paymentBlock()}
@@ -858,7 +998,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
               <div className="text-right">
                 <div className="text-3xl font-extrabold tracking-wide">{printSettings.title}</div>
                 <div className="mt-2 text-xs text-gray-600">Invoice No: {invoice?.number || '-'}</div>
-                <div className="text-xs text-gray-600">Date: {invoice?.date || '-'}</div>
+                <div className="text-xs text-gray-600">Date: {date(invoice?.date) || '-'}</div>
               </div>
             </div>
           </div>
@@ -967,7 +1107,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
             </div>
 
             {printOn('amountInWords') && prefOn('amountInWords') ? (
-              <div className="text-xs mt-4">{amountInWordsInr(Number(invoice?.total ?? 0))}</div>
+              <div className="text-xs mt-4">{amountInWordsInr(Number(invoice?.total ?? 0), company)}</div>
             ) : null}
 
             <div className="mt-4">{paymentBlock()}</div>
@@ -1020,7 +1160,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
               <div className="text-right">
                 <div className="text-3xl font-extrabold tracking-wide">{printSettings.title}</div>
                 <div className="mt-2 text-xs opacity-95">Invoice No: {invoice?.number || '-'}</div>
-                <div className="text-xs opacity-95">Date: {invoice?.date || '-'}</div>
+                <div className="text-xs opacity-95">Date: {date(invoice?.date) || '-'}</div>
               </div>
             </div>
           </div>
@@ -1110,7 +1250,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
             </div>
 
             {printOn('amountInWords') && prefOn('amountInWords') ? (
-              <div className="text-xs text-gray-700">{amountInWordsInr(Number(invoice?.total ?? 0))}</div>
+              <div className="text-xs text-gray-700">{amountInWordsInr(Number(invoice?.total ?? 0), company)}</div>
             ) : null}
 
             {paymentBlock()}
@@ -1208,7 +1348,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
                 <div className="font-semibold">Invoice No.</div>
                 <div>{invoice?.number || '-'}</div>
                 <div className="font-semibold">Invoice Date</div>
-                <div>{invoice?.date || '-'}</div>
+                <div>{date(invoice?.date) || '-'}</div>
                 {!isClean && (
                   <>
                     <div className="font-semibold">Challan Date</div>
@@ -1216,7 +1356,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
                   </>
                 )}
                 <div className="font-semibold">Due Date</div>
-                <div>{invoice?.dueDate || '—'}</div>
+                <div>{date(invoice?.dueDate) || '—'}</div>
               </div>
             </div>
           </div>
@@ -1286,7 +1426,7 @@ const InvoicePreview = ({ db, currentCompany, invoice }) => {
               {printOn('amountInWords') && prefOn('amountInWords') ? (
                 <>
                   <div className="font-semibold">Total in words</div>
-                  <div className="text-[10px] text-gray-700">{amountInWordsInr(Number(invoice?.total ?? 0))}</div>
+                  <div className="text-[10px] text-gray-700">{amountInWordsInr(Number(invoice?.total ?? 0), company)}</div>
                 </>
               ) : null}
 

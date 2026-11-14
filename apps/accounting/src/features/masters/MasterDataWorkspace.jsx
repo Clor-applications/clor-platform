@@ -1,6 +1,7 @@
 import { ArrowLeft, BadgePercent, Boxes, Building2, FileText, Settings, Tags } from 'lucide-react';
 
 import { EntityMark } from '@ui/components/ui/Primitives';
+import { isCompanyGstEnabled } from '@ui/utils/gst';
 
 const GROUPS = [
   {
@@ -26,6 +27,7 @@ const GROUPS = [
     items: [
       { key: 'invoiceTemplates', label: 'Invoice Templates', icon: FileText, perm: 'SETTINGS::Document Templates::VIEW' },
       { key: 'docNumbering', label: 'Numbering', icon: Settings, perm: 'SETTINGS::Document Numbering::VIEW' },
+      { key: 'codeNumbering', label: 'Code Numbering', icon: Settings, perm: 'SETTINGS::Company Profile::VIEW' },
       { key: 'settingsTerms', label: 'Terms & Conditions', icon: FileText, perm: 'SETTINGS::Document Templates::VIEW' },
     ],
   },
@@ -34,20 +36,23 @@ const GROUPS = [
 export const MASTER_DATA_KEYS = new Set(['mdm', ...GROUPS.flatMap((group) => group.items.map((item) => item.key))]);
 const ITEM_MASTER_KEYS = new Set(['items', 'itemCategories', 'uoms', 'priceLists']);
 
-export default function MasterDataWorkspace({ activeKey, can = () => true, isEnabled = () => true, onNavigate, onExit, children }) {
+export default function MasterDataWorkspace({ activeKey, currentCompany = null, can = () => true, isEnabled = () => true, onNavigate, onExit, children }) {
   const itemMasterActive = ITEM_MASTER_KEYS.has(activeKey);
+  /* GST follows the company's own GST switch (when a company is handed in);
+     every other master follows its feature flag. */
+  const taxEnabled = (key) => (key === 'gst' && currentCompany ? isCompanyGstEnabled(currentCompany) : isEnabled(key));
   const groups = GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => (!item.perm || can(item.perm)) && (!item.feature || isEnabled(item.feature))),
+    items: group.items.filter((item) => (!item.perm || can(item.perm)) && (!item.feature || taxEnabled(item.feature))),
   })).filter((group) => group.items.length);
 
   return (
     <div className="space-y-0">
-      <div className="settings-page-bar sticky top-0 z-50 flex items-center border-b ui-border-c">
+      <div className="settings-page-bar master-data-page-bar sticky top-0 z-50 flex items-center border-b ui-border-c">
         <div className={`flex min-w-0 flex-1 items-center gap-2 ${itemMasterActive ? 'settings-users-topbar' : ''}`}>
           {onExit ? <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={onExit} aria-label="Back to application"><ArrowLeft size={15} aria-hidden="true" /> Back to app</button> : null}
           {itemMasterActive ? (
-            <><h1 className="sr-only">Master Data</h1><div id={`master-${activeKey}-header-slot`} className="settings-users-header-slot min-w-0" /></>
+            <><h1 className="sr-only">Master Data</h1><div id={`master-${activeKey}-header-slot`} className="master-data-header-slot min-w-0" /></>
           ) : (
             <><EntityMark entity="items" /><h1 className="ui-t-page">Master Data</h1></>
           )}

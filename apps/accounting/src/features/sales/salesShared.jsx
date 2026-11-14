@@ -5,6 +5,7 @@ import { selectedBranchId } from '@platform/context';
 import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import { getVisibleCustomFields } from '@ui/utils/invoicePrefs';
 import { branchLabel } from '@ui/utils/branchLabel';
+import BranchField from '@ui/components/BranchField';
 import { returnableLines } from '@ui/utils/returns';
 import { notify } from '@ui/components/ui/notify';
 import { blockIfClosed } from '@ui/utils/bookClose';
@@ -511,19 +512,8 @@ export const CreditNoteForm = ({ db, setDb, currentCompany, initialOriginalInvoi
       */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-6 gap-y-4">
         <div className="lg:col-span-6 space-y-4">
-          <div>
-            <label htmlFor="cn-branch" className="ui-label">Branch</label>
-            <select
-              id="cn-branch"
-              className="ui-select w-full"
-              value={branchIdInList || ''}
-              onChange={(e) => setBranchId(e.target.value)}
-            >
-              <option value="">All branches</option>
-              {branchOptions.map((b) => (
-                <option key={String(b.id)} value={String(b.id)}>{branchLabel(b)}</option>
-              ))}
-            </select>
+          <div id="cn-branch">
+            <BranchField value={branchIdInList} onChange={setBranchId} options={branchOptions} />
           </div>
 
           <WarehouseField

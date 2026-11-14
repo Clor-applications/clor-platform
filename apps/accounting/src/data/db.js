@@ -1,5 +1,6 @@
 // Centralized DB initialization + migrations
 import { computeInventorySummaryByItemId, getItemOpeningQty, isStockItem } from '@ui/utils/inventory.js';
+import { COMMON_UOMS } from './uoms.js';
 
 export const getDefaultDocSettings = () => ({
   numbering: {
@@ -31,6 +32,7 @@ export const getDefaultDocSettings = () => ({
   },
   templates: {
     invoice: { templateId: 'classic', accentId: 'blue' },
+    receipt: { templateId: 'modernReceipt', accentId: 'blue' },
     estimate: { templateId: 'classic', accentId: 'blue' },
     bill: { templateId: 'classic', accentId: 'indigo' },
     purchaseOrder: { templateId: 'classic', accentId: 'indigo' },
@@ -151,6 +153,7 @@ export const normalizeDB = (db) => {
       { typeName: 'Assets', name: 'Loans & Advances (Asset)', parentName: 'Current Assets' },
       { typeName: 'Assets', name: 'Inventory', parentName: 'Current Assets' },
       { typeName: 'Assets', name: 'Sundry Debtors', parentName: 'Current Assets', groupCategory: 'Customer' },
+      { typeName: 'Assets', name: 'Branch', parentName: 'Current Assets' },
       { typeName: 'Assets', name: 'Fixed Assets' },
       { typeName: 'Assets', name: 'Investments' },
 
@@ -1214,27 +1217,37 @@ export const normalizeDB = (db) => {
     next.gstRates = rates;
   }
 
-  if (!Array.isArray(next.uoms)) {
+  {
     const companies = Array.isArray(next.companies) ? next.companies : [];
-    const defaultUoms = ['Pcs', 'Hours'];
-    let nextId = 1;
+    const uoms = Array.isArray(next.uoms) ? [...next.uoms] : [];
+    let nextId = uoms.reduce((max, row) => Math.max(max, Number(row?.id) || 0), 0);
+    let companiesChanged = false;
+    next.companies = companies.map((company) => {
+      const docSettings = company?.docSettings && typeof company.docSettings === 'object' ? company.docSettings : {};
+      const migrations = docSettings?.migrations && typeof docSettings.migrations === 'object' ? docSettings.migrations : {};
+      if (migrations.uomCatalogV1Applied) return company;
 
-    next.uoms = companies.flatMap((c) => {
-      const fromItems = Array.isArray(next.items)
-        ? next.items
-            .filter((i) => i.companyId === c.id)
-            .map((i) => String(i?.unit || '').trim())
+      const have = new Set(
+        uoms.filter((row) => Number(row.companyId) === Number(company.id))
+          .flatMap((row) => [row.name, row.code])
+          .map((value) => String(value || '').trim().toLowerCase())
             .filter(Boolean)
-        : [];
-
-      const names = Array.from(new Set([...defaultUoms, ...fromItems]));
-
-      return names.map((name) => ({
-        id: nextId++,
-        companyId: c.id,
-        name,
-      }));
+      );
+      for (const preset of COMMON_UOMS) {
+        if (have.has(preset.name.toLowerCase()) || have.has(preset.code.toLowerCase())) continue;
+        uoms.push({ id: ++nextId, companyId: company.id, ...preset, description: '', preset: true });
+      }
+      companiesChanged = true;
+      return {
+        ...company,
+        docSettings: {
+          ...docSettings,
+          migrations: { ...migrations, uomCatalogV1Applied: true, uomCatalogV1AppliedAt: new Date().toISOString() },
+        },
+      };
     });
+    next.uoms = uoms;
+    if (!companiesChanged) next.companies = companies;
   }
 
   // Seed demo vouchers/transactions (one-time per company)
@@ -2441,6 +2454,23 @@ export const buildLedgerStatement = (db, companyId, accountId) => {
   }
 
   // Invoices
+  // Internal branch clearing. Opposite entries are attached to the two
+  // branch ledgers, so the Branch asset head nets to zero when consolidated.
+  // A warehouse movement inside one branch never enters this subledger.
+  if (target.branchClearingId) for (const transfer of safeArray(db?.stockTransfers)) {
+    if (Number(transfer?.companyId) !== cid) continue;
+    const source = String(transfer?.sourceBranchId || '');
+    const destination = String(transfer?.targetBranchId || '');
+    if (!source || !destination || source === destination) continue;
+    if (['draft', 'submitted', 'cancelled', 'rejected'].includes(lower(transfer?.status))) continue;
+    const amount = r2(Number(transfer?.total || 0) || safeArray(transfer?.lines).reduce((sum, line) => sum + Number(line?.qty || 0) * Number(line?.rate || 0), 0));
+    if (!amount) continue;
+    const id = String(target.branchClearingId);
+    if (id !== source && id !== destination) continue;
+    pushRow({ date: transfer.date, particulars: id === source ? `Due from ${transfer.targetBranchName || 'receiving branch'}` : `Due to ${transfer.sourceBranchName || 'sending branch'}`, voucherType: 'Branch Transfer', voucherNo: transfer.number || String(transfer.id), narration: transfer.reason || '', debit: id === source ? amount : 0, credit: id === destination ? amount : 0, meta: { voucherKey: 'stockTransfer', voucherId: transfer.id, sourceBranchId: source, targetBranchId: destination, internalBranchTransfer: true } });
+  }
+
+  // Invoices
   for (const inv of safeArray(db?.invoices)) {
     if (Number(inv?.companyId) !== cid) continue;
     const st = lower(inv?.status);
@@ -2486,7 +2516,6 @@ export const buildLedgerStatement = (db, companyId, accountId) => {
       reference: safeText(inv?.refNo || ''),
     };
 
-    addPostingIfMatches({ date, voucherType: 'Invoice', voucherNo, narration, debitId: customerAccountId, creditId: salesRevenueId || suspenseId, amount: subtotal });
     addPostingIfMatches({ date, voucherType: 'Invoice', voucherNo, narration, debitId: customerAccountId, creditId: salesRevenueId || suspenseId, amount: subtotal, meta: invoiceMeta });
     addPostingIfMatches({ date, voucherType: 'Invoice', voucherNo, narration, debitId: customerAccountId, creditId: gstOutCgstId || suspenseId, amount: cgst, meta: invoiceMeta });
     addPostingIfMatches({ date, voucherType: 'Invoice', voucherNo, narration, debitId: customerAccountId, creditId: gstOutSgstId || suspenseId, amount: sgst, meta: invoiceMeta });

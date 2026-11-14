@@ -50,6 +50,15 @@ export default function usePaymentModes(db = null, companyId = null) {
   useEffect(() => {
     let cancelled = false;
 
+    // The local chart is already available when the form opens. Surface it
+    // immediately so the required account field never remains blocked behind
+    // a server round-trip; the async pass below replaces local ids with their
+    // posting ids when the API responds.
+    if (localModes.length) {
+      setModes(localModes);
+      setLoading(false);
+    }
+
     (async () => {
       try {
         const rows = await listPaymentModes();

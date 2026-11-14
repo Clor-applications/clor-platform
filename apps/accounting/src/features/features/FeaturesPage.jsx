@@ -15,14 +15,22 @@ import { useFeatureCatalog } from './useFeatureCatalog';
  *
  * Same catalogue, same filters, same one save — composed, not copied.
  */
-export const FeaturesPage = ({ onNavigate = null, currentCompany = null }) => {
-  const model = useFeatureCatalog(currentCompany);
+export const FeaturesPage = ({ onNavigate = null, currentCompany = null, setDb = null }) => {
+  const model = useFeatureCatalog(currentCompany, setDb);
 
   return (
-    <div className="space-y-3">
-      <PageHeader entity="settings" title="Features" actions={<FeatureSaveActions model={model} />} />
-      <div className="ui-card p-2 ui-feature-toolbar">
+    <div className="features-page space-y-3">
+      <div className="features-sticky-header">
+        <PageHeader
+          entity="settings"
+          title="Features"
+          actions={(
+            <>
         <FeatureFilters model={model} />
+              <FeatureSaveActions model={model} />
+            </>
+          )}
+        />
       </div>
       <FeatureCatalog model={model} onNavigate={onNavigate} />
     </div>

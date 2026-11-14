@@ -55,8 +55,14 @@ const setFeature = async (key: string, enabled: boolean) => {
   await request(app).put(`/api/orgs/${owner.orgId}/features`).set(auth(owner)).send({ features }).expect(200);
 };
 
-const stage = (docType: string, csv: string) =>
-  request(app).post(`/api/orgs/${owner.orgId}/imports`).set(auth(owner)).send({ docType, csv });
+const stage = (docType: string, csv: string) => {
+  // Older fixture files predate per-journal series. Keep those test cases
+  // focused on their original validation rule.
+  const lines = csv.trimEnd().split(/\r?\n/);
+  const withSeries = docType === 'JOURNAL' && !lines[0].toLowerCase().includes('transaction series') && !lines[0].toLowerCase().includes('transaction_series')
+    ? `${lines[0]},transaction_series\n${lines.slice(1).map((line) => `${line},Default`).join('\n')}` : csv;
+  return request(app).post(`/api/orgs/${owner.orgId}/imports`).set(auth(owner)).send({ docType, csv: withSeries });
+};
 
 const validate = (batchId: string) =>
   request(app).post(`/api/orgs/${owner.orgId}/imports/${batchId}/validate`).set(auth(owner));
@@ -67,6 +73,8 @@ const commit = (batchId: string) =>
 /** Two ledger codes that exist in every org's default chart. */
 let cashCode = '';
 let salesCode = '';
+let cashName = '';
+let salesName = '';
 
 beforeAll(async () => {
   owner = await makeOwner();
@@ -75,9 +83,11 @@ beforeAll(async () => {
   // Touch the ledger so the default chart exists, then read real codes from it.
   await request(app).get(`/api/orgs/${owner.orgId}/ledger/trial-balance`).set(auth(owner)).expect(200);
   const accounts = await request(app).get(`/api/orgs/${owner.orgId}/ledger/accounts`).set(auth(owner)).expect(200);
-  const rows = accounts.body.accounts as Array<{ code: string; controlKind: string | null }>;
+  const rows = accounts.body.accounts as Array<{ code: string; name: string; controlKind: string | null }>;
   cashCode = rows.find((a) => a.controlKind === 'CASH')!.code;
   salesCode = rows.find((a) => a.controlKind === 'SALES')!.code;
+  cashName = rows.find((a) => a.controlKind === 'CASH')!.name;
+  salesName = rows.find((a) => a.controlKind === 'SALES')!.name;
 }, 60_000);
 
 describe('the CSV reader', () => {
@@ -119,7 +129,8 @@ describe('templates', () => {
 
     expect(res.headers['content-type']).toMatch(/text\/csv/);
     const { headers, rows } = parseCsv(res.text);
-    expect(headers).toContain('entry_ref');
+    expect(headers).toEqual(['date', 'journal no', 'transaction series', 'ledger name', 'ledger code', 'debit', 'credit', 'description', 'narration']);
+    expect(rows[0]['transaction series']).toBe('Default');
     expect(headers).toContain('debit');
 
     const debit = rows.reduce((s, r) => s + Number(r.debit || 0), 0);
@@ -168,6 +179,99 @@ describe('staging', () => {
 });
 
 describe('journal import', () => {
+  it('keeps every line with one journal number in one balanced entry', async () => {
+    const csv = `Date,Journal No,Transaction series,Ledger Code,Debit,Credit,Description,Narration\n2026-04-01,77,Default,${cashCode},30,,First line,One entry\n2026-04-01,77,Default,${cashCode},20,,Second line,One entry\n2026-04-01,77,Default,${salesCode},,50,Revenue,One entry`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    expect(checked.body.issues).toHaveLength(0);
+    const done = await commit(staged.body.batch.id).expect(200);
+    expect(done.body.postedJournals).toHaveLength(1);
+    const entry = await prisma.journalEntry.findUnique({ where: { id: done.body.postedJournals[0].entryId }, include: { lines: true } });
+    expect(entry?.lines).toHaveLength(3);
+  });
+
+  it('requires a shared date and narration for one journal number while allowing line descriptions to differ', async () => {
+    const csv = `Date,Journal No,Transaction series,Ledger Code,Debit,Credit,Description,Narration\n2026-04-01,78,Default,${cashCode},50,,Cash line,First narration\n2026-04-02,78,Default,${salesCode},,50,Revenue line,Second narration`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    expect(checked.body.issues).toHaveLength(2);
+    expect(checked.body.issues[0].error).toMatch(/one date/);
+    expect(checked.body.issues[0].error).toMatch(/one narration/);
+  });
+
+  it('rejects a ledger name that does not match its supplied ledger code', async () => {
+    const csv = `Date,Journal No,Transaction series,Ledger Name,Ledger Code,Debit,Credit,Description,Narration\n2026-04-01,80,Default,Wrong ledger,${cashCode},50,,Cash,One entry\n2026-04-01,80,Default,${salesName},${salesCode},,50,Sales,One entry`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    expect(checked.body.issues[0].error).toMatch(/does not match ledger name/);
+  });
+
+  it('rejects the same journal file when it is uploaded and posted a second time', async () => {
+    const csv = `Date,Journal No,Transaction series,Ledger Code,Debit,Credit,Description,Narration\n2026-04-01,79,Default,${cashCode},50,,Cash,Duplicate check\n2026-04-01,79,Default,${salesCode},,50,Sales,Duplicate check`;
+    const first = await stage('JOURNAL', csv).expect(201);
+    expect((await validate(first.body.batch.id).expect(200)).body.issues).toHaveLength(0);
+    const posted = await commit(first.body.batch.id).expect(200);
+    const second = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(second.body.batch.id).expect(200);
+    expect(checked.body.issues.map((issue: any) => issue.error).join(' ')).toMatch(/already posted/);
+    expect(checked.body.batch.validRows).toBe(0);
+    const entries = await prisma.journalEntry.findMany({ where: { id: posted.body.postedJournals[0].entryId } });
+    expect(entries).toHaveLength(1);
+  });
+
+  it('accepts ledger names without codes and posts the balanced entry', async () => {
+    const csv = `entry_ref,date,account_name,debit,credit\nJV-NAME,2026-04-01,${cashName},50,\nJV-NAME,2026-04-01,${salesName},,50\n`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    expect(checked.body.issues).toHaveLength(0);
+    const done = await commit(staged.body.batch.id).expect(200);
+    expect(done.body.committed).toBe(2);
+    expect(done.body.postedJournals).toEqual([expect.objectContaining({ serial: 'JV-NAME', number: expect.stringMatching(/^JE-/) })]);
+  });
+
+  it('accepts the displayed journal template headings', async () => {
+    const csv = `Date,Journal No,Transaction series,Ledger Name,Ledger Code,Debit,Credit,Description,Narration\n2026-04-01,JV-HEAD,Default,${cashName},,50,,Receipt,Opening\n2026-04-01,JV-HEAD,Default,,${salesCode},,50,Revenue,Opening`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    expect(checked.body.issues).toHaveLength(0);
+  });
+
+  it('accepts day-month-year dates from an uploaded journal CSV', async () => {
+    const csv = `Date,Journal No,Transaction series,Ledger Name,Ledger Code,Debit,Credit,Description,Narration\n31-10-2026,31,Default,${cashName},,50,,Cash,October\n31-10-2026,31,Default,,${salesCode},,50,Sales,October`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    expect(checked.body.issues).toHaveLength(0);
+    const detail = await request(app).get(`/api/orgs/${owner.orgId}/imports/${staged.body.batch.id}`).set(auth(owner)).expect(200);
+    expect(detail.body.rows[0].raw.date).toBe('2026-10-31');
+  });
+
+  it('requires a transaction series in uploaded journal files', async () => {
+    const csv = `Date,Journal No,Ledger Code,Debit,Credit\n2026-04-01,1,${cashCode},50,\n2026-04-01,1,${salesCode},,50`;
+    const res = await request(app).post(`/api/orgs/${owner.orgId}/imports`).set(auth(owner)).send({ docType: 'JOURNAL', csv }).expect(400);
+    expect(res.body.error).toMatch(/transaction_series/);
+  });
+
+  it('rejects unknown or mixed transaction series in one journal', async () => {
+    const csv = `Date,Journal No,Transaction series,Ledger Code,Debit,Credit\n2026-04-01,1,Default,${cashCode},50,\n2026-04-01,1,Missing,${salesCode},,50`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    expect(checked.body.batch.errorRows).toBe(2);
+    expect(checked.body.issues.map((issue: any) => issue.error).join(' ')).toMatch(/one transaction series/);
+    expect(checked.body.issues.map((issue: any) => issue.error).join(' ')).toMatch(/No active journal transaction series named/);
+  });
+
+  it('shows every error on a journal line', async () => {
+    const csv = `entry_ref,date,account_name,debit,credit\nJV-MULTI,31-10-2026,Unknown ledger,100,100\nJV-MULTI,31-10-2026,${salesName},,100\n`;
+    const staged = await stage('JOURNAL', csv).expect(201);
+    const checked = await validate(staged.body.batch.id).expect(200);
+    const first = String(checked.body.issues.find((issue: any) => issue.rowNumber === 2)?.error);
+    /* 31-10-2026 is read as a date now: journal files may carry DD-MM-YYYY
+       (Books, 14 Nov 2026), so the date is no longer among the errors. */
+    expect(first).not.toMatch(/Date .*YYYY-MM-DD/);
+    expect(first).toMatch(/No ledger account with name/);
+    expect(first).toMatch(/either a debit or a credit/);
+  });
+
   it('refuses to commit before validation has run', async () => {
     const csv = `entry_ref,date,account_code,debit,credit\nJV-N,2026-04-01,${cashCode},50,\nJV-N,2026-04-01,${salesCode},,50\n`;
     const staged = await stage('JOURNAL', csv).expect(201);
@@ -269,9 +373,10 @@ describe('invoice import', () => {
   it('keeps the historical number and totals the lines', async () => {
     const num = `OLD-${rnd().toUpperCase()}`;
     const csv = [
-      'invoice_no,date,customer_name,description,quantity,rate,gst_rate',
-      `${num},2026-04-04,"Acme, Ltd",Consulting,2,1000,18`,
-      `${num},2026-04-04,"Acme, Ltd",Support,1,500,18`,
+      /* Due date and item are required on an invoice line (Books, 14 Nov 2026). */
+      'invoice_no,date,due_date,customer_name,item,description,quantity,rate,gst_rate',
+      `${num},2026-04-04,2026-05-04,"Acme, Ltd",SRV-1,Consulting,2,1000,18`,
+      `${num},2026-04-04,2026-05-04,"Acme, Ltd",SRV-2,Support,1,500,18`,
     ].join('\n');
 
     const staged = await stage('INVOICE', csv).expect(201);
@@ -291,7 +396,7 @@ describe('invoice import', () => {
   it('carries the columns the creation form has: due date, refs, unit, HSN and a line discount', async () => {
     const num = `EXT-${rnd().toUpperCase()}`;
     const csv = [
-      'invoice_no,date,customer_name,description,quantity,rate,gst_rate,due_date,item_code,unit,hsn_sac,discount_pct,ref_no,ref_date,place_of_supply',
+      'invoice_no,date,customer_name,description,quantity,rate,gst_rate,due_date,item,unit,hsn_sac,discount_pct,ref_no,ref_date,place_of_supply',
       `${num},2026-04-04,Acme,Consulting,2,1000,18,2026-05-04,FG-100,Hrs,9983,10,SO-77,2026-04-01,Karnataka`,
     ].join('\n');
 
@@ -325,7 +430,7 @@ describe('invoice import', () => {
 
   it('rejects a quantity that is not a number', async () => {
     const csv =
-      'invoice_no,date,customer_name,description,quantity,rate,gst_rate\nBADQ,2026-04-05,Acme,Consulting,many,1000,18\n';
+      'invoice_no,date,due_date,customer_name,item,description,quantity,rate,gst_rate\nBADQ,2026-04-05,2026-05-05,Acme,SRV-1,Consulting,many,1000,18\n';
     const staged = await stage('INVOICE', csv).expect(201);
     const res = await validate(staged.body.batch.id).expect(200);
     expect(String(res.body.issues[0].error)).toMatch(/quantity/i);

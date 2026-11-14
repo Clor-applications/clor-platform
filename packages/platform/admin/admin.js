@@ -104,6 +104,19 @@ export function getUserAccess(orgId, userId) {
   });
 }
 
+/**
+ * Where a person works and as what, saved in one go: their branches with a
+ * role in each, the warehouses they may use, and any role held at one
+ * warehouse. It replaces their branches and directly assigned roles here.
+ */
+export function setUserAccess(orgId, userId, access) {
+  return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/access`, {
+    method: 'PUT',
+    body: access,
+    skipWarehouseHeader: true,
+  });
+}
+
 export function getUserBranches(orgId, userId) {
   return apiFetch(`/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/branches`, {
     skipWarehouseHeader: true,

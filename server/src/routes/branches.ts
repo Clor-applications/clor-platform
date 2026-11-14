@@ -17,6 +17,16 @@ branchesRouter.use(requireAuth, requireTenantContext);
 const branchSchema = z.object({
   branchCode: z.string().min(1).max(20),
   branchName: z.string().min(1).max(200),
+  branchType: z.enum(['SERVICE', 'TRADING', 'BOTH']).default('SERVICE'),
+  warehouse: z.object({
+    code: z.string().trim().min(1).max(20),
+    name: z.string().trim().min(1).max(200),
+    addressLine1: z.string().trim().min(1).max(250),
+    addressLine2: z.string().max(250).optional().nullable(),
+    city: z.string().max(100).optional().nullable(),
+    state: z.string().min(1).max(100),
+    country: z.string().min(1).max(100),
+  }).optional(),
   addressLine1: z.string().min(1).max(250),
   addressLine2: z.string().max(250).optional().nullable(),
   city: z.string().max(100).optional().nullable(),
@@ -60,6 +70,14 @@ branchesRouter.post('/orgs/:orgId/branches', requirePermission('MASTERS', Permis
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
   const body = branchSchema.parse(req.body);
+  if (body.branchType === 'SERVICE' && body.warehouse) return res.status(400).json({ error: 'Service branches cannot have warehouses' });
+  if (body.branchType !== 'SERVICE' && !body.warehouse) return res.status(400).json({ error: 'Warehouse details are required for a trading or mixed branch' });
+  const warehouseInput = body.warehouse;
+  if (warehouseInput) {
+    // Same rule as the warehouse form: one code per company.
+    const duplicateCode = await prisma.warehouse.findFirst({ where: { accountId, orgId, code: warehouseInput.code.toUpperCase() }, select: { id: true } });
+    if (duplicateCode) return res.status(409).json({ error: 'Warehouse code already exists' });
+  }
 
   // GST rules
   if (body.gstRegistrationType !== 'UNREGISTERED') {
@@ -84,6 +102,7 @@ branchesRouter.post('/orgs/:orgId/branches', requirePermission('MASTERS', Permis
       orgId,
       branchCode: body.branchCode,
       branchName: body.branchName,
+      branchType: body.branchType,
       addressLine1: body.addressLine1,
       addressLine2: body.addressLine2 ?? null,
       city: body.city ?? null,
@@ -108,6 +127,40 @@ branchesRouter.post('/orgs/:orgId/branches', requirePermission('MASTERS', Permis
     return branch;
   });
 
+  /*
+   * A trading or mixed branch is created together with its first warehouse.
+   *
+   * The warehouse lives in the Books database and the branch in the platform
+   * one, so the two cannot share a transaction. If the warehouse cannot be
+   * saved the new branch is removed again, so nobody is left with a trading
+   * branch that has nowhere to keep stock.
+   */
+  if (warehouseInput) {
+    try {
+      const warehouse = await prisma.warehouse.create({ data: {
+        accountId, orgId, branchId: created.id,
+        code: warehouseInput.code.toUpperCase(),
+        name: warehouseInput.name,
+        addressLine1: warehouseInput.addressLine1,
+        addressLine2: warehouseInput.addressLine2 ?? null,
+        city: warehouseInput.city ?? null,
+        state: warehouseInput.state,
+        country: warehouseInput.country,
+        gstin: created.gstin,
+        gstRegistrationType: created.gstRegistrationType,
+        createdByUserId: userId,
+      } });
+      await platformPrisma.userWarehouseAccess.create({ data: { accountId, orgId, branchId: created.id, warehouseId: warehouse.id, userId } });
+    } catch (error) {
+      await prisma.warehouse.deleteMany({ where: { accountId, orgId, branchId: created.id } }).catch(() => {});
+      await platformPrisma.$transaction([
+        platformPrisma.userBranchMembership.deleteMany({ where: { accountId, orgId, branchId: created.id } }),
+        platformPrisma.branch.delete({ where: { id: created.id } }),
+      ]).catch(() => {});
+      throw error;
+    }
+  }
+
   await logBranchChange(req, null, created);
   res.status(201).json({ branch: created });
 });
@@ -120,7 +173,8 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
 
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
-  const body = sentOnly(branchSchema.partial().parse(req.body), req.body);
+  // The first warehouse can only be given while creating the branch.
+  const body = sentOnly(branchSchema.omit({ warehouse: true }).partial().parse(req.body), req.body);
 
   const existing = await platformPrisma.branch.findFirst({
     where: { accountId, orgId, id: branchId },
@@ -139,8 +193,17 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
   const nextState = body.state ?? existing.state;
   const nextGstin = body.gstin ?? existing.gstin;
   const nextRegType = body.gstRegistrationType ?? existing.gstRegistrationType;
+  const nextBranchType = body.branchType ?? existing.branchType;
+  // Checked only when the type is being changed, so a branch saved before
+  // branch types existed can still have its phone or address edited.
+  if ('branchType' in body && nextBranchType !== existing.branchType && nextBranchType !== 'SERVICE' && !await prisma.warehouse.count({ where: { accountId, orgId, branchId } })) {
+    return res.status(400).json({ error: 'Create a warehouse before changing this branch to Trading or Both' });
+  }
 
-  if (nextRegType !== 'UNREGISTERED') {
+  // Legacy branches may contain a GSTIN saved before checksum validation.
+  // Editing a phone or address must not force a tax identifier change; any
+  // change to GSTIN, registration type, or state still receives full checks.
+  if (nextRegType !== 'UNREGISTERED' && ('gstin' in body || 'state' in body || 'gstRegistrationType' in body)) {
     validateGstinOrThrow(String(nextGstin || ''), nextState);
   }
 
@@ -149,6 +212,7 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
     data: {
       // Branch code is a permanent accounting identity after creation.
       ...('branchName' in body ? { branchName: body.branchName } : {}),
+      ...('branchType' in body ? { branchType: body.branchType } : {}),
       ...('addressLine1' in body ? { addressLine1: body.addressLine1 } : {}),
       ...('addressLine2' in body ? { addressLine2: body.addressLine2 ?? null } : {}),
       ...('city' in body ? { city: body.city ?? null } : {}),

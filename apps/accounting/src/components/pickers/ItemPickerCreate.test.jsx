@@ -104,6 +104,8 @@ describe('creating an item from a document line', () => {
     await user.click(screen.getByRole('button', { name: /Create a new item/ }));
 
     await user.type(within(dialog()).getByLabelText(/Item Name/), 'Copper Wire');
+    /* A taxable item needs its HSN once GST is on. */
+    await user.type(within(dialog()).getByLabelText(/HSN \/ SAC/), '8544');
     await user.click(within(dialog()).getByRole('button', { name: /Create Item|Save Item/ }));
 
     await waitFor(() => expect(picked).toHaveBeenCalled());

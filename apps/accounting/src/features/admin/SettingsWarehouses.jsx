@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { TableSkeleton } from '@ui/components/ui/Primitives';
 import { exportRows } from '@ui/components/ListToolbar';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -10,6 +11,8 @@ import { Download, MoreVertical, Pencil, Plus, Power, Search, Trash2 } from 'luc
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 
 export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChanged }) {
+  const [headerHost, setHeaderHost] = useState(null);
+  useEffect(() => { setHeaderHost(document.getElementById('settingsWarehouses-header-slot')); }, []);
   const [warehouses, setWarehouses] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -79,6 +82,7 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
         value: String(b.id),
         label: String(b.branchName || b.name || '').trim() || `Branch ${String(b.id)}`,
         code: b.branchCode ? String(b.branchCode) : undefined,
+        branchType: b.branchType,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [branches]);
@@ -94,7 +98,9 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
     try {
       setError('');
       const res = await listBranches(orgId);
-      setBranches(Array.isArray(res.branches) ? res.branches : []);
+      const rows = Array.isArray(res.branches) ? res.branches : [];
+      setBranches(rows);
+      setForm((current) => rows.find((item) => String(item.id) === String(current.branchId))?.branchType === 'SERVICE' ? { ...current, branchId: '' } : current);
     } catch (err) {
       setBranches([]);
       setError(err.message || 'Failed to load branches');
@@ -107,10 +113,7 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
     setError('');
     try {
       const res = await listWarehouses(orgId);
-      const all = Array.isArray(res.warehouses) ? res.warehouses : [];
-      // Filter by branchId if provided
-      const filtered = branchId ? all.filter((w) => String(w.branchId) === String(branchId)) : all;
-      setWarehouses(filtered);
+      setWarehouses(Array.isArray(res.warehouses) ? res.warehouses : []);
     } catch (err) {
       setError(err.message || 'Failed to load warehouses');
     } finally {
@@ -143,6 +146,10 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
       const selectedBranchId = String(form.branchId || '').trim();
       if (!selectedBranchId) {
         setError('Branch is required');
+        return;
+      }
+      if (branchLookup.get(selectedBranchId)?.branchType === 'SERVICE') {
+        setError('Service branches cannot have warehouses. Select a Trading or Both branch.');
         return;
       }
 
@@ -182,7 +189,7 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
       if (res?.warehouse?.id) setViewWarehouseId(String(res.warehouse.id));
       if (typeof onWarehousesChanged === 'function') onWarehousesChanged();
       setForm({
-        branchId: branchId ? String(branchId) : '',
+        branchId: branchLookup.get(String(branchId || ''))?.branchType === 'SERVICE' ? '' : branchId ? String(branchId) : '',
         code: '',
         name: '',
         addressLine1: '',
@@ -245,6 +252,7 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
     try {
       const payload = {
         branchId: String(editForm.branchId || '').trim(),
+        code: String(editForm.code || '').trim().toUpperCase(),
         name: String(editForm.name || '').trim(),
         addressLine1: String(editForm.addressLine1 || '').trim() || null,
         addressLine2: String(editForm.addressLine2 || '').trim() || null,
@@ -259,6 +267,8 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
       };
 
       if (!payload.branchId) throw new Error('Branch is required');
+      if (branchLookup.get(payload.branchId)?.branchType === 'SERVICE' && payload.branchId !== String(selectedWarehouse?.branchId || '')) throw new Error('Service branches cannot have warehouses. Select a Trading or Both branch.');
+      if (!payload.code) throw new Error('Warehouse code is required');
       if (!payload.name) throw new Error('Warehouse name is required');
       if ((companyGstEnabled || payload.gstRegistrationType !== 'UNREGISTERED') && !payload.gstin) {
         throw new Error('GSTIN is mandatory while GST is enabled');
@@ -330,8 +340,7 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
     return warehouses.find((w) => String(w.id) === String(viewWarehouseId)) || null;
   }, [warehouses, viewWarehouseId]);
 
-  return (
-    <div className="settings-warehouses settings-branches space-y-3">
+  const toolbar = (
       <div className="branch-list-toolbar flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[rgb(var(--heading-bg))] px-3 py-2">
         <div><div className="ui-t-sec">Warehouses</div><div className="ui-caption">{filteredWarehouses.length} {filteredWarehouses.length === 1 ? 'warehouse' : 'warehouses'}</div></div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
@@ -368,6 +377,11 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
           </PermissionButton>
         </div>
       </div>
+  );
+
+  return (
+    <div className="settings-warehouses settings-branches space-y-3">
+      {headerHost ? createPortal(toolbar, headerHost) : toolbar}
 
       {error && <div className="text-sm text-[rgb(var(--neg))] bg-[rgb(var(--neg-soft))] border border-[rgb(var(--neg)/0.35)] rounded-lg p-3">{error}</div>}
 
@@ -401,19 +415,14 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
               <div className="branch-editor-section grid grid-cols-12 gap-3">
                 <div className="col-span-12 sm:col-span-6">
                   <label className="ui-label">Warehouse Code</label>
-                  <input className="ui-input w-full cursor-not-allowed bg-[rgb(var(--surface-sunken))]" value={editForm.code} readOnly aria-readonly="true" title="Warehouse code cannot be changed after creation" />
+                  <input className="ui-input w-full ui-mono" value={editForm.code} onChange={(e) => setEditForm((p) => ({ ...p, code: e.target.value }))} required maxLength={20} />
                 </div>
                 <div className="col-span-12 sm:col-span-6">
-                  <PopupSelect
-                    label="Branch *"
-                    value={editForm.branchId}
-                    onChange={(v) => {
-                      setEditForm((p) => ({ ...p, branchId: v }));
-                      setError('');
-                    }}
-                    options={branchOptions}
-                    placeholder="Select branch"
-                  />
+                  <label className="ui-label" htmlFor="edit-warehouse-branch">Branch *</label>
+                  <select id="edit-warehouse-branch" className="ui-select w-full" value={editForm.branchId || ''} onChange={(e) => { setEditForm((p) => ({ ...p, branchId: e.target.value })); setError(''); }} required>
+                    <option value="">Select branch</option>
+                    {branchOptions.map((option) => <option key={option.value} value={option.value} disabled={option.branchType === 'SERVICE'}>{option.code ? `${option.code} - ` : ''}{option.label}{option.branchType === 'SERVICE' ? ' (Service branch)' : ''}</option>)}
+                  </select>
                 </div>
                 <div className="col-span-12">
                   <label className="ui-label" htmlFor="settingswarehouses-warehouse-name">Warehouse Name *</label>
@@ -539,20 +548,25 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
                 <div className="ui-detail-value">{selectedWarehouse.isActive !== false ? 'Active' : 'Inactive'}</div>
               </div>
 
-              <div className="col-span-12 sm:col-span-6">
+              <div className="col-span-12 branch-editor-section grid grid-cols-2 gap-3">
+                <div className="branch-editor-section-title col-span-2">Address</div>
+              <div>
                 <div className="ui-detail-label">Address</div>
                 <div className="ui-detail-value">
                   {[selectedWarehouse.addressLine1, selectedWarehouse.addressLine2].filter(Boolean).join(', ') || '—'}
                 </div>
               </div>
-              <div className="col-span-12 sm:col-span-6">
+              <div>
                 <div className="ui-detail-label">Location</div>
                 <div className="ui-detail-value">
                   {[selectedWarehouse.city, selectedWarehouse.state, selectedWarehouse.country].filter(Boolean).join(', ') || '—'}
                 </div>
               </div>
+              </div>
 
-              <div className="col-span-12 sm:col-span-4">
+              <div className="col-span-12 branch-editor-section grid grid-cols-3 gap-3">
+                <div className="branch-editor-section-title col-span-3">Contact</div>
+              <div>
                 <div className="ui-detail-label">Contact Person</div>
                 <div className="ui-detail-value">{selectedWarehouse.contactPerson || '—'}</div>
               </div>
@@ -563,6 +577,7 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
               <div className="col-span-12 sm:col-span-4">
                 <div className="ui-detail-label">Email</div>
                 <div className="ui-detail-value">{selectedWarehouse.email || '—'}</div>
+              </div>
               </div>
             </div>
           )}
@@ -579,16 +594,11 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
               <input className="ui-input w-full ui-mono" value={form.code} onChange={onChange('code')} required maxLength={20} />
             </div>
             <div className="col-span-12 sm:col-span-4">
-              <PopupSelect
-                label="Branch *"
-                value={form.branchId}
-                onChange={(v) => {
-                  setForm((p) => ({ ...p, branchId: v }));
-                  setError('');
-                }}
-                options={branchOptions}
-                placeholder="Select branch"
-              />
+              <label className="ui-label" htmlFor="new-warehouse-branch">Branch *</label>
+              <select id="new-warehouse-branch" className="ui-select w-full" value={form.branchId || ''} onChange={(e) => { setForm((p) => ({ ...p, branchId: e.target.value })); setError(''); }} required>
+                <option value="">Select branch</option>
+                {branchOptions.map((option) => <option key={option.value} value={option.value} disabled={option.branchType === 'SERVICE'}>{option.code ? `${option.code} - ` : ''}{option.label}{option.branchType === 'SERVICE' ? ' (Service branch)' : ''}</option>)}
+              </select>
             </div>
             <div className="col-span-12 sm:col-span-4">
               <label className="ui-label" htmlFor="settingswarehouses-warehouse-name-2">Warehouse Name *</label>
@@ -686,7 +696,7 @@ export function SettingsWarehouses({ orgId, branchId, company, onWarehousesChang
           <div className="px-6 py-10 text-center ui-muted">No warehouses found.</div>
         ) : (
           <table className="branch-table ui-table w-full table-fixed ui-settled">
-            <colgroup><col style={{ width: '14%' }} /><col style={{ width: '22%' }} /><col style={{ width: '18%' }} /><col style={{ width: '16%' }} /><col style={{ width: '18%' }} /><col style={{ width: '8%' }} /><col style={{ width: '4%' }} /></colgroup>
+            <colgroup><col style={{ width: '14%' }} /><col style={{ width: '21%' }} /><col style={{ width: '17%' }} /><col style={{ width: '14%' }} /><col style={{ width: '17%' }} /><col style={{ width: '9%' }} /><col style={{ width: '8%' }} /></colgroup>
             <thead className="ui-sunken border-b">
               <tr>
                 <th className="ui-th">Warehouse Code</th>

@@ -1,12 +1,14 @@
 import React, { useMemo, useRef, useState } from 'react';
+import VoucherSeriesSelect from '@ui/components/VoucherSeriesSelect';
 import { BarChart3, Clock3, List, RotateCcw, Settings, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
 import { notify } from '@ui/components/ui/notify';
 import { computeGstForLines } from '@ui/utils/gst';
 import { formatMoney } from '@ui/utils/money';
+import { formatDateIn } from '@ui/utils/dates';
 import { checkoutErrorCode, newCheckoutId, posCheckoutApi } from '../../api/posCheckout';
 import { createPosDayClose } from '@ui/api/posDayClose';
 import { hasApiSession } from '@ui/api/purchaseDocs';
-import { bumpCompanyNextNumber, getDocSettings } from '@ui/utils/docSettings';
+import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import DocNumberingPopover from '@ui/components/DocNumberingPopover';
 import { selectedBranchId, selectedWarehouseId } from '@platform/context';
 import { escapeHtml } from '@ui/utils/html';
@@ -160,14 +162,14 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
     if (w) {
       w.document.write(
         `<pre style="font-family:monospace;font-size:12px;padding:12px">` +
-          `${escapeHtml(currentCompany.name)}\nZ REPORT · ${escapeHtml(today)}\n` +
+          `${escapeHtml(currentCompany.name)}\nZ REPORT · ${escapeHtml(formatDateIn(today, currentCompany))}\n` +
           `--------------------------------\n` +
           `Invoices     ${record.invoices}\n` +
-          `Cash         ${record.cash.toFixed(2)}\nUPI          ${record.upi.toFixed(2)}\nCard         ${record.card.toFixed(2)}\n` +
-          `TOTAL        ${record.total.toFixed(2)}\n` +
+          `Cash         ${formatMoney(record.cash, currentCompany)}\nUPI          ${formatMoney(record.upi, currentCompany)}\nCard         ${formatMoney(record.card, currentCompany)}\n` +
+          `TOTAL        ${formatMoney(record.total, currentCompany)}\n` +
           `--------------------------------\n` +
-          `Counted cash ${countedCash.toFixed(2)}\nExpected     ${record.cash.toFixed(2)}\n` +
-          `${overShort === 0 ? 'TALLIED' : overShort > 0 ? `OVER  +${overShort.toFixed(2)}` : `SHORT ${overShort.toFixed(2)}`}\n` +
+          `Counted cash ${formatMoney(countedCash, currentCompany)}\nExpected     ${formatMoney(record.cash, currentCompany)}\n` +
+          `${overShort === 0 ? 'TALLIED' : overShort > 0 ? `OVER  +${formatMoney(overShort, currentCompany)}` : `SHORT ${formatMoney(Math.abs(overShort), currentCompany)}`}\n` +
           `</pre>`
       );
       w.document.close();
@@ -275,7 +277,9 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
     try {
       const buyer = customerName.trim() || 'Walk-in Customer';
       const activeBranchId = String(selectedBranchId() || '').trim();
+      if (!activeBranchId) { notify.error('Select a branch before recording a POS sale.'); return; }
       const today = new Date().toISOString().slice(0, 10);
+      const selectedPosNumber = nextFreeVoucherNumber({ db, company: currentCompany, voucherKey: 'pos', branchId: activeBranchId || null, takenNumbers: (db.invoices || []).filter((invoice) => invoice.companyId === companyId).map((invoice) => String(invoice.number || '').trim()) });
 
       if (!checkoutIdRef.current) checkoutIdRef.current = newCheckoutId();
       const checkoutId = checkoutIdRef.current;
@@ -284,6 +288,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
       try {
         sale = await posCheckoutApi({
           checkoutId,
+          number: selectedPosNumber || undefined,
           tender,
           date: today,
           customerName: buyer,
@@ -362,6 +367,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
       const receipt = {
         id: nextPayId,
         companyId,
+        branchId: activeBranchId || '',
         backendPaymentId: sale.payment.id,
         voucherType: 'receipt',
         direction: 'IN',
@@ -399,11 +405,11 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
       if (w) {
         w.document.write(
           `<pre style="font-family:monospace;font-size:12px;padding:12px">` +
-            `${escapeHtml(currentCompany.name)}\n${escapeHtml(number)} · ${escapeHtml(today)}\nCustomer: ${escapeHtml(buyer)}\n` +
+            `${escapeHtml(currentCompany.name)}\n${escapeHtml(number)} · ${escapeHtml(formatDateIn(today, currentCompany))}\nCustomer: ${escapeHtml(buyer)}\n` +
             `--------------------------------\n` +
-            computed.lines.map((l) => `${escapeHtml(l.description)}\n  ${escapeHtml(l.quantity)} x ${l.rate.toFixed(2)} = ${l.lineTotal.toFixed(2)}`).join('\n') +
+            computed.lines.map((l) => `${escapeHtml(l.description)}\n  ${escapeHtml(l.quantity)} x ${escapeHtml(formatMoney(l.rate, currentCompany))} = ${escapeHtml(formatMoney(l.lineTotal, currentCompany))}`).join('\n') +
             `\n--------------------------------\n` +
-            `Subtotal  ${computed.subtotal.toFixed(2)}\nGST       ${computed.gstTotal.toFixed(2)}\nTOTAL     ${computed.total.toFixed(2)}\nPaid by   ${escapeHtml(tenderLabel(tender))}\n\nThank you!` +
+            `Subtotal  ${escapeHtml(formatMoney(computed.subtotal, currentCompany))}\nGST       ${escapeHtml(formatMoney(computed.gstTotal, currentCompany))}\nTOTAL     ${escapeHtml(formatMoney(computed.total, currentCompany))}\nPaid by   ${escapeHtml(tenderLabel(tender))}\n\nThank you!` +
             `</pre>`
         );
         w.document.close();
@@ -426,10 +432,11 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
       <div className="flex items-center justify-between">
         <div><h2 className="ui-t-sec">Counter billing</h2><p className="ui-helper">Scan an item or search by name and code.</p></div>
         <div className="flex items-center gap-2">
+          <VoucherSeriesSelect db={db} setDb={setDb} currentCompany={currentCompany} voucherKey="pos" branchId={posBranchId} onSelect={() => setNumberingOpen(false)} />
           <button
             type="button"
             ref={numberingBtnRef}
-            onClick={() => setNumberingOpen((v) => !v)}
+            onClick={() => setNumberingOpen(true)}
             className="ui-icon-btn !h-7 !w-7"
             aria-label="POS numbering settings"
             aria-haspopup="dialog"
@@ -446,6 +453,7 @@ function PosBillingScreen({ db, setDb, currentCompany }) {
 
       {numberingOpen ? (
         <DocNumberingPopover
+          key={`pos-${posNumbering?.seriesId || 'default'}`}
           anchorRef={numberingBtnRef}
           db={db}
           setDb={setDb}

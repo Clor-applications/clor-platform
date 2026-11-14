@@ -3,9 +3,11 @@ import { ArrowRight } from 'lucide-react';
 
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import DocNumberField from '@ui/components/DocNumberField';
+import VoucherSeriesSelect from '@ui/components/VoucherSeriesSelect';
 import { notify } from '@ui/components/ui/notify';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { postJournalToLedger } from '@ui/utils/journalSync';
+import { blockIfClosed } from '@ui/utils/bookClose';
 import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import { cashBankIndex } from './transactions';
 import { selectedBranchId } from '@platform/context';
@@ -70,9 +72,9 @@ const ContraForm = ({ db, setDb, currentCompany, onClose, initialData = null, on
 
     /* Year-end lock: a transfer back-dates into closed books no more than a
        journal does — because it is one. */
-    const lock = (db.fyLocks || []).find((l) => l.companyId === companyId);
-    if (lock && String(form.date || '').slice(0, 10) <= lock.upTo) {
-      notify.error(`Books are locked up to ${lock.upTo} (Year-End Close). Pick a later date or unlock the year.`);
+    const lockError = blockIfClosed(db, companyId, form.date, 'This contra entry');
+    if (lockError) {
+      notify.error(lockError);
       return;
     }
 
@@ -98,13 +100,14 @@ const ContraForm = ({ db, setDb, currentCompany, onClose, initialData = null, on
     const chartRows = (db.chartOfAccounts || []).filter((a) => a.companyId === companyId);
     const ledgerPatch = await postJournalToLedger({
       chartRows,
-      entry: { date: form.date, narration, lines },
+      entry: { date: form.date, narration, lines, branchId },
     });
 
     const nextId = (db.journalEntries || []).reduce((m, j) => Math.max(m, Number(j?.id || 0)), 0) + 1;
     const savedJournal = {
       id: nextId,
       companyId,
+      branchId,
       number,
       date: form.date,
       narration,
@@ -143,6 +146,7 @@ const ContraForm = ({ db, setDb, currentCompany, onClose, initialData = null, on
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end"><VoucherSeriesSelect db={db} setDb={setDb} currentCompany={currentCompany} voucherKey="journalEntry" branchId={branchId || null} onNumberChange={(number) => set({ number })} /></div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <DocNumberField
           id="contra-number"
@@ -151,6 +155,7 @@ const ContraForm = ({ db, setDb, currentCompany, onClose, initialData = null, on
           onChange={(e) => set({ number: e.target.value })}
           disabled={lockNumber}
           voucherKey="journalEntry"
+          seriesInHeader={false}
           title="Journal numbering"
           sampleLabel="Next voucher will be"
           manualLabel="Typed on each voucher"

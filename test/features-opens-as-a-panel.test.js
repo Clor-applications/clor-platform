@@ -25,15 +25,17 @@ describe('the rail', () => {
   it('treats Features as a destination from anywhere, like every other entry', () => {
     /* A click on the rail is "take me there". From Home, from an invoice
        half-typed, from a report — the full page, never the panel. */
-    expect(APP).toContain("onClick={() => goTo(entry.key)}");
+    expect(APP).toMatch(/setOpenGroups\(\{\}\);\s*goTo\(entry\.key\);/);
     expect(APP).not.toContain('handleFeaturesNavigation(e.currentTarget)');
     expect(APP).not.toMatch(/isFeatures \? handleFeaturesNavigation/);
     expect(APP).not.toContain('openFeatures(e.currentTarget)');
   });
 
   it('lights the route it is on, never an overlay merely open over it', () => {
-    expect(APP).toContain('data-active={isRoute}');
-    expect(APP).toContain('data-active={isGroupActive || undefined}');
+    /* The split rail (15 Nov 2026): one button per module, lit by the route
+       (or, for a group, by its open panel or the screen you are on). */
+    expect(APP).toContain('data-active={isSelected || undefined}');
+    expect(APP).toMatch(/active === entry\.key \|\| \(entry\.key === 'reports' && REPORT_SCREENS\.has\(active\)\)/);
     expect(APP).not.toMatch(/data-active=\{[^}]*featuresOpen/);
     /* The rail never opens the panel, so it has nothing to announce as expanded. */
     expect(APP).not.toContain('aria-expanded={isFeatures');
@@ -49,7 +51,9 @@ describe('the rail', () => {
        entry unfolds children rather than navigating. Leaving the panel over
        the page while the group unfolded beside it would take two clicks to
        reach anything. */
-    const group = APP.slice(APP.indexOf('// Collapsed rail: a group tap re-opens') - 600, APP.indexOf('// Collapsed rail: a group tap re-opens'));
+    const at = APP.indexOf('if (isGroup) {');
+    expect(at).toBeGreaterThan(-1);
+    const group = APP.slice(at, APP.indexOf('} else {', at));
     expect(group).toContain('setFeaturesOpen(false);');
   });
 

@@ -71,6 +71,7 @@ export default function FeaturesPanel({
   onClose,
   onNavigate = null,
   currentCompany = null,
+  setDb = null,
   /** The rail button that opened the panel; focus goes back to it on close. */
   returnFocusRef = null,
 }) {
@@ -149,6 +150,7 @@ export default function FeaturesPanel({
       onClose={onClose}
       onNavigate={onNavigate}
       currentCompany={currentCompany}
+      setDb={setDb}
       panelRef={panelRef}
       searchRef={searchRef}
     />,
@@ -159,8 +161,8 @@ export default function FeaturesPanel({
 /* Split so the catalogue's state lives only while the panel is open: closing
    discards an unsaved edit the way leaving the page did, and reopening reads
    the store fresh rather than showing a stale copy. */
-const FeaturesPanelBody = ({ rect, closing, beginClose, onClose, onNavigate, currentCompany, panelRef, searchRef }) => {
-  const model = useFeatureCatalog(currentCompany);
+const FeaturesPanelBody = ({ rect, closing, beginClose, onClose, onNavigate, currentCompany, setDb, panelRef, searchRef }) => {
+  const model = useFeatureCatalog(currentCompany, setDb);
   const titleId = 'features-panel-title';
 
   const box = rect || { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };

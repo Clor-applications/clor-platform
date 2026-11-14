@@ -49,6 +49,36 @@ export const getGstStateFromGstin = (gstin) => {
 
 export const normalizeState = (value) => String(value || '').trim().toLowerCase();
 
+/** One authoritative GST switch for every screen and calculation. */
+export const isCompanyGstEnabled = (company) => {
+  const configured = company?.profile?.taxCompliances?.gstEnabled;
+  if (typeof configured === 'boolean') return configured;
+  if (typeof company?.gstEnabled === 'boolean') return company.gstEnabled;
+  // No explicit switch: companies made before the switch existed. A GSTIN
+  // means the company is registered, so GST is on.
+  if (String(company?.gstin || '').trim()) return true;
+  // A company that says it is not registered has no GST.
+  const registration = String(company?.gstRegistration || '').trim().toLowerCase();
+  if (registration === 'unregistered' || registration === 'consumer') return false;
+  // Otherwise keep GST on, as the app always did, so older companies keep
+  // their GST columns until someone turns GST off in settings.
+  return true;
+};
+
+/** Whether the GST registration used by a state/GSTIN may charge tax. */
+export const isGstRegistrationActive = (company, { state = '', gstin = '' } = {}) => {
+  if (!isCompanyGstEnabled(company)) return false;
+  const registrations = company?.profile?.taxCompliances?.gstRegistrations;
+  if (!Array.isArray(registrations) || !registrations.length) return true;
+  const wantedGstin = String(gstin || '').trim().toUpperCase();
+  const wantedState = normalizeState(state);
+  const match = registrations.find((row) => {
+    if (wantedGstin && String(row?.gstin || '').trim().toUpperCase() === wantedGstin) return true;
+    return wantedState && normalizeState(row?.state) === wantedState;
+  }) || registrations.find((row) => row?.primary) || registrations[0];
+  return String(match?.status || 'Active').trim().toLowerCase() === 'active';
+};
+
 export const getCompanyGstProfile = (company) => {
   return {
     gstin: String(company?.gstin || '').trim(),

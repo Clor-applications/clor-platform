@@ -270,6 +270,44 @@ describe('receipts and payments', () => {
     expect(res.body.payment.allocations[0].amount).toBe(600);
   });
 
+  it('edits a posted receipt without duplicating its voucher or settlement', async () => {
+    const org = await makeOwner();
+    const modes = await modesFor(org);
+    const bank = modes.find((mode) => mode.controlKind === 'BANK')!;
+    const invoice = await request(app)
+      .post(`/api/orgs/${org.orgId}/invoices`)
+      .set(auth(org))
+      .send({ date: '2026-08-17', customerName: 'Acme', subtotal: 1000, total: 1000, items: [] })
+      .expect(201);
+    const invoiceId = invoice.body.invoice.id;
+    const created = await request(app)
+      .post(`/api/orgs/${org.orgId}/payments`)
+      .set(auth(org))
+      .send({ direction: 'RECEIPT', date: '2026-08-18', ledgerAccountId: bank.id, amount: 600,
+        allocations: [{ docType: 'INVOICE', docId: invoiceId, amount: 600 }] })
+      .expect(201);
+    const original = created.body.payment;
+    const edited = await request(app)
+      .put(`/api/orgs/${org.orgId}/payments/${original.id}`)
+      .set(auth(org))
+      .send({ direction: 'RECEIPT', number: original.number, date: '2026-08-19', ledgerAccountId: bank.id,
+        amount: 400, instrumentRef: 'NEFT-EDITED', allocations: [{ docType: 'INVOICE', docId: invoiceId, amount: 400 }] })
+      .expect(200);
+    expect(edited.body.payment.id).toBe(original.id);
+    expect(edited.body.payment.number).toBe(original.number);
+    expect(edited.body.payment.amount).toBe(400);
+    expect(edited.body.payment.allocations).toHaveLength(1);
+    expect(edited.body.payment.allocations[0].amount).toBe(400);
+    const stored = await prisma.payment.findMany({ where: { orgId: org.orgId, direction: 'RECEIPT' } });
+    expect(stored).toHaveLength(1);
+    const postedEntries = await prisma.journalEntry.findMany({
+      where: { orgId: org.orgId, sourceDocType: 'RECEIPT', sourceDocId: original.id, status: 'POSTED' },
+    });
+    expect(postedEntries).toHaveLength(2); // The reversal and the replacement.
+    const trialBalance = await request(app).get(`/api/orgs/${org.orgId}/ledger/trial-balance`).set(auth(org)).expect(200);
+    expect(trialBalance.body.totals.balanced).toBe(true);
+  });
+
   it('reverses rather than deletes, leaving the ledger balanced', async () => {
     const org = await makeOwner();
     const modes = await modesFor(org);

@@ -360,11 +360,11 @@ export function ExportButton({ title, fileName, sheetName, columns, rows, subtit
  * do nothing is noise. The page window is five wide, so page 40 of 60 does not
  * render sixty buttons.
  */
-export function Pagination({ total, page, perPage, pageCount, onPage, onPerPage, noun = 'rows' }) {
+export function Pagination({ total, page, perPage, pageCount, onPage, onPerPage, noun = 'rows', className = '' }) {
   if (total <= perPage && perPage === 10) return null;
   const first = Math.max(1, Math.min(page - 2, pageCount - 4));
   return (
-    <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3" style={{ borderTop: '1px solid rgb(var(--border))' }}>
+    <div className={`flex items-center justify-between gap-3 flex-wrap px-4 py-3 ${className}`} style={{ borderTop: '1px solid rgb(var(--border))' }}>
       <span className="ui-subtle text-xs">
         Showing {(total === 0 ? 0 : (page - 1) * perPage + 1).toLocaleString('en-IN')} to {Math.min(page * perPage, total).toLocaleString('en-IN')} of {total.toLocaleString('en-IN')} {noun}
       </span>

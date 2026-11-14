@@ -117,11 +117,11 @@ describe('basic details', () => {
     const user = userEvent.setup();
     renderForm();
 
-    expect(screen.getByLabelText('Customer Code')).toHaveValue('200000');
+    expect(screen.getByLabelText('Customer Code')).toHaveValue('CUST-00001');
     await user.type(screen.getByPlaceholderText('Enter 15 digit GSTIN'), '29AABCU9603R1ZJ');
     await user.click(screen.getByRole('button', { name: /Fetch from GSTIN/i }));
 
-    expect(screen.getByLabelText('Customer Code')).toHaveValue('200000');
+    expect(screen.getByLabelText('Customer Code')).toHaveValue('CUST-00001');
   });
 
   it('refuses to fetch a number that is not 15 characters', async () => {
@@ -219,7 +219,7 @@ describe('the remaining tabs', () => {
     const user = userEvent.setup();
     renderForm();
 
-    expect(screen.getByLabelText('Customer Code')).toHaveValue('200000');
+    expect(screen.getByLabelText('Customer Code')).toHaveValue('CUST-00001');
 
     await user.click(screen.getByRole('tab', { name: 'Credit Details' }));
     expect(screen.getByLabelText(/Credit Period/)).toBeInTheDocument();
@@ -272,7 +272,7 @@ describe('the record reaches the server', () => {
    */
   it('sends the whole master, and keeps the code the server allotted', async () => {
     const { createCustomer } = await import('@ui/api/masters');
-    createCustomer.mockResolvedValue({ party: { id: 'srv_1', code: '200000' } });
+    createCustomer.mockResolvedValue({ party: { id: 'srv_1', code: 'CUST-00001' } });
 
     const rows = [];
     const user = userEvent.setup();
@@ -302,14 +302,15 @@ describe('the record reaches the server', () => {
     expect(createCustomer).toHaveBeenCalledTimes(1);
     const sent = createCustomer.mock.calls[0][0];
     expect(sent.name).toBe('Acme Traders');
-    expect(sent.code).toBe('200000');
+    // Automatic code numbering: the server allots the code, so none is sent.
+    expect(sent.code).toBeUndefined();
     expect(sent.msmeNumber).toBe('UDYAM-KR-03-0001234');
     expect(sent.contacts).toEqual([{ name: 'Priya Nair', position: 'Accounts', email: undefined, mobile: undefined, isPrimary: false }]);
 
     // The allotted code comes back onto the local row — this is the master's
     // "auto generated", which previously stayed blank.
     const written = rows.at(-1);
-    expect(written.customers.at(-1).code).toBe('200000');
+    expect(written.customers.at(-1).code).toBe('CUST-00001');
     expect(written.customers.at(-1).backendPartyId).toBe('srv_1');
   });
 
@@ -328,7 +329,7 @@ describe('the record reaches the server', () => {
     await user.click(screen.getByRole('button', { name: /^Save$/ }));
 
     expect(rows.at(-1).customers.at(-1).name).toBe('Offline Co');
-    expect(rows.at(-1).customers.at(-1).code).toBe('200000');
+    expect(rows.at(-1).customers.at(-1).code).toBe('CUST-00001');
     expect(notify.error).toHaveBeenCalled();
   });
 });

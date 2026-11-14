@@ -5,8 +5,10 @@ import Popover from '@ui/components/ui/Popover';
 import { exportRows } from '@ui/components/ListToolbar';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
+import { gstinError } from '@ui/utils/gstinValidation';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
+import { hasApp, platformContext } from '@platform/context';
 import { PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
@@ -19,9 +21,22 @@ import './ws-home.css';
  * head office (code HO) is kept in step with the company's own address and
  * GSTIN when its fields are empty. A branch is deleted only while it has no
  * transactions — the server refuses otherwise and says so.
+ *
+ * Where the company keeps books, a branch also says what it does: Service,
+ * Trading or Both. A branch that trades holds stock, so adding one adds its
+ * first warehouse with it; a service branch has none.
  */
 const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).map((s) => String(s || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-const EMPTY_NEW = { branchCode: '', branchName: '', addressLine1: '', addressLine2: '', city: '', state: '', country: 'India', gstRegistrationType: 'UNREGISTERED', gstin: '' };
+const EMPTY_NEW = { branchCode: '', branchName: '', branchType: '', addressLine1: '', addressLine2: '', city: '', state: '', country: 'India', gstRegistrationType: 'UNREGISTERED', gstin: '', contactPerson: '', phone: '', email: '' };
+const EMPTY_WAREHOUSE = { code: '', name: '', addressLine1: '', addressLine2: '', city: '', state: '', country: 'India' };
+const BRANCH_TYPES = [
+  ['SERVICE', 'Service'],
+  ['TRADING', 'Trading'],
+  ['BOTH', 'Both · Service and Trading'],
+];
+export const branchTypeLabel = (type) => (type === 'SERVICE' ? 'Service' : type === 'TRADING' ? 'Trading' : 'Both');
+/* Branch type decides whether a branch holds stock, which only matters to a company that keeps books. With no app list to go by (a screen opened outside the shell), it is shown. */
+const asksBranchType = () => !(platformContext()?.apps || []).length || hasApp('accounting');
 
 /** Search and sort the directory rows. */
 export function branchRows(branches, { q = '', sort = 'branchCode', dir = 1 }) {
@@ -58,6 +73,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
     };
   }, [company]);
   const gstEnabled = Boolean(company?.profile?.taxCompliances?.gstEnabled ?? company?.gstEnabled ?? company?.gstin);
+  const showType = asksBranchType();
 
   const load = useCallback(async () => {
     if (!orgId) return;
@@ -67,7 +83,17 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       let rows = Array.isArray(res.branches) ? res.branches : [];
       const headOffice = rows.find((b) => String(b.branchCode || '').trim().toUpperCase() === 'HO');
       if (headOffice) {
-        const fill = Object.fromEntries(Object.entries(companyDefaults).filter(([key, value]) => value && !String(headOffice[key] || '').trim()));
+        /* A company GSTIN that fails its own check is not copied down, and a head office already carrying a bad one keeps its state and registration until that is corrected. */
+        const badGstinHere = Boolean(gstinError(headOffice.gstin));
+        const fill = Object.fromEntries(
+          Object.entries(companyDefaults).filter(
+            ([key, value]) =>
+              value &&
+              !String(headOffice[key] || '').trim() &&
+              (key !== 'gstin' || !gstinError(value)) &&
+              !(badGstinHere && ['state', 'gstRegistrationType'].includes(key))
+          )
+        );
         if (Object.keys(fill).length) {
           const synced = await updateBranch(orgId, headOffice.id, fill);
           if (synced?.branch) rows = rows.map((b) => (String(b.id) === String(headOffice.id) ? synced.branch : b));
@@ -125,6 +151,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       columns: [
         { key: 'branchCode', label: 'Code' },
         { key: 'branchName', label: 'Branch' },
+        ...(showType ? [{ key: 'branchType', label: 'Type', value: (b) => branchTypeLabel(b.branchType) }] : []),
         { key: 'city', label: 'City' },
         { key: 'state', label: 'State' },
         { key: 'gstin', label: 'GSTIN' },
@@ -201,6 +228,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
               <thead>
                 <tr>
                   {th('branchName', 'Branch')}
+                  {showType ? <th>Type</th> : null}
                   {th('state', 'State')}
                   <th>GSTIN</th>
                   <th>Status</th>
@@ -216,6 +244,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                       </button>
                       <span className="ws-cell-sub">{[b.branchCode, b.city].filter(Boolean).join(' · ') || '—'}</span>
                     </td>
+                    {showType ? <td>{branchTypeLabel(b.branchType)}</td> : null}
                     <td>{b.state || '—'}</td>
                     <td className="ws-mono">{b.gstin || '—'}</td>
                     <td>
@@ -281,12 +310,32 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
             key="create"
             initial={{ ...EMPTY_NEW, gstRegistrationType: gstEnabled ? 'REGULAR' : 'UNREGISTERED' }}
             gstEnabled={gstEnabled}
+            showType={showType}
             onCancel={() => setDrawer(null)}
             submitLabel="Add branch"
-            onSubmit={async (f) => {
-              if (!String(f.state || '').trim()) throw new Error('State is required — pick the branch state.');
-              if (gstEnabled && !String(f.gstin || '').trim()) throw new Error('GSTIN is mandatory while GST is enabled.');
-              const payload = { ...f, gstRegistrationType: gstEnabled && f.gstRegistrationType === 'UNREGISTERED' ? 'REGULAR' : f.gstRegistrationType, gstin: f.gstin || null };
+            onSubmit={async (f, w) => {
+              const t = (v) => String(v || '').trim();
+              if (!t(f.state)) throw new Error('State is required — pick the branch state.');
+              if (showType && !f.branchType) throw new Error('Choose whether this is a Service, Trading, or Both branch.');
+              if (gstEnabled && !t(f.gstin)) throw new Error('GSTIN is mandatory while GST is enabled.');
+              const badGstin = gstinError(f.gstin);
+              if (badGstin) throw new Error(badGstin);
+              const holdsStock = showType && f.branchType !== 'SERVICE';
+              if (holdsStock && (!t(w.code) || !t(w.name) || !t(w.addressLine1) || !t(w.state))) {
+                throw new Error('Warehouse code, name, address, and state are required for this branch.');
+              }
+              const { branchType, ...rest } = f;
+              const payload = {
+                ...rest,
+                ...(showType ? { branchType } : {}),
+                gstRegistrationType: gstEnabled && f.gstRegistrationType === 'UNREGISTERED' ? 'REGULAR' : f.gstRegistrationType,
+                gstin: f.gstin || null,
+                contactPerson: t(f.contactPerson) || null,
+                phone: t(f.phone) || null,
+                email: t(f.email) || null,
+                /* A branch that trades is created together with its first warehouse. */
+                ...(holdsStock ? { warehouse: { ...w, code: t(w.code).toUpperCase(), name: t(w.name), addressLine1: t(w.addressLine1), state: t(w.state) } } : {}),
+              };
               const res = await createBranch(orgId, payload);
               setBranches((prev) => [...(prev || []), res.branch]);
               /* Saving opens what was saved, so what was stored can be checked at once. */
@@ -302,6 +351,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
             initial={{
               branchCode: String(selected.branchCode || ''),
               branchName: String(selected.branchName || ''),
+              branchType: String(selected.branchType || 'BOTH'),
               addressLine1: String(selected.addressLine1 || ''),
               addressLine2: String(selected.addressLine2 || ''),
               city: String(selected.city || ''),
@@ -314,6 +364,8 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
               email: String(selected.email || ''),
             }}
             gstEnabled={gstEnabled}
+            showType={showType}
+            savedGstin={String(selected.gstin || '')}
             submitLabel="Save changes"
             onCancel={() => setDrawer({ mode: 'view', id: String(selected.id) })}
             onSubmit={async (f) => {
@@ -321,6 +373,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
               const payload = {
                 branchCode: t(f.branchCode),
                 branchName: t(f.branchName),
+                ...(showType ? { branchType: t(f.branchType) || 'BOTH' } : {}),
                 addressLine1: t(f.addressLine1),
                 addressLine2: t(f.addressLine2) || null,
                 city: t(f.city) || null,
@@ -337,7 +390,16 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
               if (!payload.addressLine1) throw new Error('Address is required');
               if (!payload.state) throw new Error('State is required');
               if ((gstEnabled || payload.gstRegistrationType !== 'UNREGISTERED') && !payload.gstin) throw new Error('GSTIN is mandatory while GST is enabled');
-              const res = await updateBranch(orgId, selected.id, payload);
+              /* A GSTIN saved before the check existed does not block other edits; a changed one must pass. */
+              const gstinChanged = String(payload.gstin || '').toUpperCase() !== String(selected.gstin || '').toUpperCase();
+              if (gstinChanged && gstinError(payload.gstin)) throw new Error(gstinError(payload.gstin));
+              /* Only what changed is sent, so an untouched field is never re-validated or rewritten. */
+              const patch = Object.fromEntries(Object.entries(payload).filter(([key, value]) => String(value ?? '') !== String(selected[key] ?? '')));
+              if (!Object.keys(patch).length) {
+                setDrawer({ mode: 'view', id: String(selected.id) });
+                return;
+              }
+              const res = await updateBranch(orgId, selected.id, patch);
               if (res?.branch) replace(res.branch);
               else await load();
               /* Back to the record just saved, not out of it. */
@@ -346,7 +408,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
             }}
           />
         ) : selected ? (
-          <BranchDetail branch={selected} />
+          <BranchDetail branch={selected} showType={showType} />
         ) : null}
       </WsDrawer>
     </div>
@@ -354,10 +416,11 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
 }
 
 /** The record, read. */
-function BranchDetail({ branch: b }) {
+function BranchDetail({ branch: b, showType = false }) {
   const rows = [
     ['Code', b.branchCode, true],
     ['Name', b.branchName],
+    ...(showType ? [['Type', branchTypeLabel(b.branchType)]] : []),
     ['Status', b.isActive !== false ? 'Active' : 'Inactive'],
     ['Address', [b.addressLine1, b.addressLine2].filter(Boolean).join(', ')],
     ['Location', [b.city, b.state, b.country].filter(Boolean).join(', ')],
@@ -380,8 +443,19 @@ function BranchDetail({ branch: b }) {
 }
 
 /** Adding or editing a branch. `onSubmit` throws with a sentence to show. */
-function BranchForm({ initial, editing = false, gstEnabled, submitLabel, onSubmit, onCancel }) {
+function BranchForm({ initial, editing = false, gstEnabled, showType = false, savedGstin = '', submitLabel, onSubmit, onCancel }) {
   const [f, setF] = useState(initial);
+  /* The first warehouse of a new branch that holds stock. */
+  const [w, setW] = useState(EMPTY_WAREHOUSE);
+  const setWarehouse = (k) => (e) => {
+    const next = e.target.value;
+    setError('');
+    setW((p) => ({ ...p, [k]: next }));
+  };
+  const holdsStock = !editing && showType && Boolean(f.branchType) && f.branchType !== 'SERVICE';
+  const typedGstin = String(f.gstin || '').trim();
+  const gstinNote = typedGstin.length >= 15 ? gstinError(typedGstin) : '';
+  const gstinIsSaved = editing && typedGstin.toUpperCase() === String(savedGstin || '').trim().toUpperCase();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => {
@@ -410,6 +484,19 @@ function BranchForm({ initial, editing = false, gstEnabled, submitLabel, onSubmi
       />
     </label>
   );
+  const warehouseField = (k, label, o = {}) => (
+    <label className={`grid gap-1 ${o.wide ? 'sm:col-span-2' : ''}`}>
+      <span className="text-sm font-medium">{label}{o.required ? <span aria-hidden="true"> *</span> : null}</span>
+      <input
+        className={`ui-input w-full ${o.mono ? 'ui-mono' : ''}`}
+        value={w[k] || ''}
+        onChange={setWarehouse(k)}
+        required={Boolean(o.required)}
+        maxLength={o.maxLength}
+        spellCheck={o.mono ? false : undefined}
+      />
+    </label>
+  );
 
   return (
     <form
@@ -419,7 +506,7 @@ function BranchForm({ initial, editing = false, gstEnabled, submitLabel, onSubmi
         setBusy(true);
         setError('');
         try {
-          await onSubmit(f);
+          await onSubmit(f, w);
         } catch (err) {
           const message = String(err?.message || 'Not saved.');
           setError(message);
@@ -434,6 +521,20 @@ function BranchForm({ initial, editing = false, gstEnabled, submitLabel, onSubmi
         <legend className="ws-panel-title mb-3">Branch</legend>
         {field('branchCode', 'Branch code', { required: true, mono: true, readOnly: editing, title: editing ? 'Branch code cannot be changed after creation' : undefined })}
         {field('branchName', 'Branch name', { required: true })}
+        {showType ? (
+          <label className="grid gap-1 sm:col-span-2">
+            <span className="text-sm font-medium">Branch type{editing ? null : <span aria-hidden="true"> *</span>}</span>
+            <select className="ui-select" value={f.branchType || ''} onChange={set('branchType')} required={!editing}>
+              {editing ? null : <option value="">Choose…</option>}
+              {BRANCH_TYPES.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <span className="ui-caption">
+              {editing ? 'To change a service branch to Trading or Both, create its warehouse first.' : 'Trading and Both branches need a warehouse for stock.'}
+            </span>
+          </label>
+        ) : null}
       </fieldset>
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="ws-panel-title mb-3">Address</legend>
@@ -463,13 +564,47 @@ function BranchForm({ initial, editing = false, gstEnabled, submitLabel, onSubmi
           </select>
         </label>
         {field('gstin', 'GSTIN', { mono: true, placeholder: '15 characters, e.g. 29ABCDE1234F1Z5' })}
+        {gstinNote ? (
+          <p role="alert" className="text-xs sm:col-span-2" style={{ color: 'rgb(var(--neg))' }}>
+            {gstinNote}
+            {gstinIsSaved ? ' Other branch details can still be saved.' : ''}
+          </p>
+        ) : null}
       </fieldset>
-      {editing ? (
+      <fieldset className="grid gap-4 sm:grid-cols-2">
+        <legend className="ws-panel-title mb-3">Contact</legend>
+        {field('contactPerson', 'Contact person', { wide: true })}
+        {field('phone', 'Phone', { type: 'tel' })}
+        {field('email', 'Email', { type: 'email' })}
+      </fieldset>
+      {holdsStock ? (
         <fieldset className="grid gap-4 sm:grid-cols-2">
-          <legend className="ws-panel-title mb-3">Contact</legend>
-          {field('contactPerson', 'Contact person', { wide: true })}
-          {field('phone', 'Phone')}
-          {field('email', 'Email', { type: 'email' })}
+          <legend className="ws-panel-title mb-1">Warehouse for this branch</legend>
+          <p className="ui-caption sm:col-span-2">Choose the warehouse code and address. Both are saved with the branch.</p>
+          {warehouseField('code', 'Warehouse code', { required: true, mono: true, maxLength: 20 })}
+          {warehouseField('name', 'Warehouse name', { required: true })}
+          {warehouseField('addressLine1', 'Warehouse address', { required: true, wide: true })}
+          <div className="sm:col-span-2">
+            <button
+              type="button"
+              className="ws-btn ws-btn--quiet ws-btn--small"
+              onClick={() => setW((p) => ({ ...p, addressLine1: f.addressLine1, addressLine2: f.addressLine2 || '', city: f.city, state: f.state, country: f.country }))}
+            >
+              Use branch address
+            </button>
+          </div>
+          {warehouseField('city', 'City')}
+          <label className="grid gap-1">
+            <span className="text-sm font-medium">State <span aria-hidden="true">*</span></span>
+            <select className="ui-select" value={w.state} onChange={setWarehouse('state')} required>
+              <option value="">Choose…</option>
+              {w.state && !STATES.includes(w.state) ? <option value={w.state}>{w.state}</option> : null}
+              {STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+          {warehouseField('country', 'Country')}
         </fieldset>
       ) : null}
       <div className="flex gap-2">

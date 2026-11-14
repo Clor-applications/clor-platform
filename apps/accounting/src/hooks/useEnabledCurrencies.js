@@ -19,7 +19,7 @@ export default function useEnabledCurrencies(company = null) {
     const load = multiCurrency ? listCurrencies : () => ({ baseCurrency: fallbackBase, currencies: [] });
     Promise.resolve().then(load).then((data) => {
       setBaseCurrency(String(data?.baseCurrency || fallbackBase).toUpperCase());
-      setEnabled(Array.isArray(data?.currencies) ? data.currencies : []);
+      setEnabled(Array.isArray(data?.currencies) ? data.currencies.filter((currency) => currency?.isActive !== false) : []);
     }).catch(() => {
       setBaseCurrency(fallbackBase);
       setEnabled([]);

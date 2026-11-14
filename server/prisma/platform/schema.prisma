@@ -136,6 +136,8 @@ model Branch {
   contactPerson       String?
   /// Branch status (developer change 9 Oct 2026): inactive branches stay for history but take no new work.
   isActive            Boolean @default(true)
+  /// What the branch does: SERVICE | TRADING | BOTH (Books developer change, 28 Oct 2026). Only trading and mixed branches hold warehouses.
+  branchType          String  @default("BOTH")
 
   parentBranchId          String?
   shareHeadOfficeSettings Boolean @default(false)
@@ -235,6 +237,8 @@ model User {
   /// second identity with the same address. The route already refused a
   /// duplicate; this makes it structural rather than a rule one handler happens
   /// to keep.
+  warehouseRoleAssignments UserWarehouseRoleAssignment[]
+
   @@unique([email])
   @@index([accountId])
 
@@ -287,6 +291,26 @@ model UserWarehouseAccess {
   @@unique([accountId, orgId, branchId, warehouseId, userId])
   @@index([accountId, orgId, branchId, warehouseId])
 }
+/// A role a user holds at one warehouse, on top of their branch role. Warehouse
+/// lives in the accounting schema, so there is no relation to it here.
+model UserWarehouseRoleAssignment {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  branchId        String
+  warehouseId     String
+  userId          String
+  roleId          String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, orgId, warehouseId, userId])
+  @@index([accountId, orgId, branchId, userId])
+}
+
 
 // ----------------------------
 // Roles + permissions
@@ -315,6 +339,7 @@ model Role {
 
   permissions RolePermission[]
   assignments UserRoleAssignment[]
+  warehouseRoleAssignments UserWarehouseRoleAssignment[]
 
   @@unique([orgId, branchId, name])
   @@index([accountId, orgId])

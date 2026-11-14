@@ -1,7 +1,10 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { SlidersHorizontal } from '@ui/components/ui/lineIcons';
 
 import DocNumberingPopover from './DocNumberingPopover';
+import VoucherSeriesSelect from './VoucherSeriesSelect';
+import { formatVoucherNumberPreview } from '../utils/docSettings';
 
 /**
  * A document's number, with the series it came from on the field itself.
@@ -39,12 +42,18 @@ const DocNumberField = ({
   onOpenFullSettings = null,
   className = '',
   children = null,
+  seriesInHeader = true,
 }) => {
   const btnRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const [headerSlot, setHeaderSlot] = useState(null);
+  const containerRef = useCallback((node) => {
+    if (node) setHeaderSlot(node.closest('form')?.querySelector('[data-doc-series-slot]') || null);
+  }, []);
+  const seriesPicker = seriesInHeader ? <VoucherSeriesSelect db={db} setDb={setDb} currentCompany={currentCompany} voucherKey={voucherKey} branchId={branchId} onNumberChange={(number) => onChange?.({ target: { value: number } })} onSelect={() => setOpen(false)} /> : null;
 
   return (
-    <div className={className}>
+    <div className={className} ref={containerRef}>
       <label className="ui-label" htmlFor={id}>{label}</label>
       <div className="relative">
         <input
@@ -59,7 +68,7 @@ const DocNumberField = ({
         <button
           type="button"
           ref={btnRef}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(true)}
           className="absolute end-1 top-1/2 -translate-y-1/2 ui-icon-btn !h-7 !w-7"
           aria-label={`${title || 'Document'} settings`}
           aria-haspopup="dialog"
@@ -69,9 +78,11 @@ const DocNumberField = ({
           <SlidersHorizontal size={16} aria-hidden="true" />
         </button>
       </div>
+      {seriesPicker ? (headerSlot ? createPortal(seriesPicker, headerSlot) : <div className="mt-1.5">{seriesPicker}</div>) : null}
       {children}
       {open ? (
         <DocNumberingPopover
+          key={`${voucherKey}-${settings?.seriesId || 'default'}`}
           anchorRef={btnRef}
           db={db}
           setDb={setDb}
@@ -82,6 +93,14 @@ const DocNumberField = ({
           manualLabel={manualLabel}
           branchId={branchId}
           settings={settings}
+          onSaved={(nextSettings) => {
+            // The form owns the current number in local state. Keep that
+            // field in sync when the series is edited from inside the form.
+            // Every voucher form uses this shared field, so the fix applies
+            // consistently to payments, receipts, invoices and all others.
+            const nextNumber = nextSettings.mode === 'manual' || nextSettings.enabled === false ? '' : formatVoucherNumberPreview(nextSettings);
+            onChange?.({ target: { value: nextNumber } });
+          }}
           onClose={() => setOpen(false)}
           onOpenFullSettings={() => {
             setOpen(false);

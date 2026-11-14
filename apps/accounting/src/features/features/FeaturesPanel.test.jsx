@@ -32,6 +32,7 @@ vi.mock('../settings/featureRegistry', () => ({
   TAX_FEATURES: [],
   groupForFeature: () => 'sales',
   iconForFeature: () => null,
+  labelForFeature: (key, fallback = '') => fallback,
   settingsLinkFor: (k) => (k === 'salesOrders' ? { key: 'settingsSalesOrders', label: 'Configure' } : null),
 }));
 

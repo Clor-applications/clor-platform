@@ -188,7 +188,8 @@ function register(kind: QuoteKind) {
 
       await ensureDefaultSeries({ accountId, orgId, branchId, docType: kind, userId });
 
-      const created = await prisma.$transaction(async (tx) => {
+      let created;
+      try { created = await prisma.$transaction(async (tx) => {
         const number =
           String(body.number || '').trim() ||
           (await allocateNumber(tx as any, { accountId, orgId, branchId, docType: kind, userId, date: body.date }))
@@ -225,7 +226,10 @@ function register(kind: QuoteKind) {
             createdByUserId: userId,
           },
         });
-      });
+      }); } catch (error: any) {
+        if (String(error?.code || '') === 'P2002') return res.status(409).json({ error: `Number is already used for ${cfg.resource} in this company.` });
+        throw error;
+      }
 
       res.status(201).json({ document: normalize(created) });
     }

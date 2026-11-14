@@ -287,7 +287,7 @@ describe('approval thresholds', () => {
     });
     expect(before).toHaveLength(0);
 
-    const pending = await request(app).get(`/api/orgs/${org.orgId}/approvals`).set(auth(ctxFor(raiser.token, org))).expect(200);
+    const pending = await request(app).get(`/api/orgs/${org.orgId}/approvals?scope=requested`).set(auth(ctxFor(raiser.token, org))).expect(200);
     const reqId = pending.body.requests.find((r: any) => r.docId === big.body.invoice.id).id;
 
     // The raiser cannot approve their own document.
@@ -346,7 +346,29 @@ describe('approval thresholds', () => {
     expect(posted).toHaveLength(1);
   });
 
-  it('does not hold a document raised by someone who already holds the approver role', async () => {
+  it('blocks submission when no active approver can take the first level', async () => {
+    const org = await makeOwner();
+    const role = await makeRole('Unassigned approver', ['SALES::Invoices::VIEW'], undefined, org);
+    await request(app).post(`/api/orgs/${org.orgId}/approval-rules`).set(auth(org))
+      .send({ docType: 'INVOICE', name: 'Needs owner', minAmount: 1, approverRoleId: role }).expect(201);
+    const response = await request(app).post(`/api/orgs/${org.orgId}/invoices`).set(auth(org))
+      .send(invoiceBody({ subtotal: 100, total: 100 })).expect(409);
+    expect(String(response.body.error)).toMatch(/no active approver/i);
+    expect(await prisma.invoice.count({ where: { orgId: org.orgId } })).toBe(0);
+  });
+
+  it('applies approval settings only within the selected company', async () => {
+    const first = await makeOwner();
+    const second = await makeOwner();
+    await request(app).put(`/api/orgs/${first.orgId}/approval-settings`).set(auth(first))
+      .send({ allowSelfApproval: true, requireApprovalRemarks: true }).expect(200);
+    const firstPolicy = await request(app).get(`/api/orgs/${first.orgId}/approval-settings`).set(auth(first)).expect(200);
+    const secondPolicy = await request(app).get(`/api/orgs/${second.orgId}/approval-settings`).set(auth(second)).expect(200);
+    expect(firstPolicy.body.policy).toEqual({ allowSelfApproval: true, requireApprovalRemarks: true });
+    expect(secondPolicy.body.policy).toEqual({ allowSelfApproval: false, requireApprovalRemarks: false });
+  });
+
+  it('holds a document even when its creator also holds the approver role', async () => {
     const org = await makeOwner();
     const role = await makeRole('SelfApprover', ['SALES::Invoices::VIEW', 'SALES::Invoices::CREATE'], undefined, org);
     await request(app)
@@ -357,6 +379,8 @@ describe('approval thresholds', () => {
 
     const user = await makeUser(org);
     await request(app).post(`/api/orgs/${org.orgId}/users/${user.id}/roles`).set(auth(org)).send({ roleId: role, branchId: null }).expect(201);
+    const otherApprover = await makeUser(org);
+    await request(app).post(`/api/orgs/${org.orgId}/users/${otherApprover.id}/roles`).set(auth(org)).send({ roleId: role, branchId: null }).expect(201);
 
     const res = await request(app)
       .post(`/api/orgs/${org.orgId}/invoices`)
@@ -364,8 +388,62 @@ describe('approval thresholds', () => {
       .send(invoiceBody({ subtotal: 90000, total: 90000 }))
       .expect(201);
 
-    expect(res.body.approval).toBeUndefined();
-    expect(res.body.invoice.status).not.toBe('Pending Approval');
+    expect(res.body.approval.required).toBe(true);
+    expect(res.body.invoice.status).toBe('Pending Approval');
+    const ownRequests = await request(app).get(`/api/orgs/${org.orgId}/approvals?scope=requested`).set(auth(ctxFor(user.token, org))).expect(200);
+    const approvalId = ownRequests.body.requests.find((r: any) => r.docId === res.body.invoice.id).id;
+    await request(app).post(`/api/orgs/${org.orgId}/approvals/${approvalId}/decide`)
+      .set(auth(ctxFor(user.token, org))).send({ approve: true }).expect(403);
+  });
+
+  it('moves through two approval levels and posts only after the final decision', async () => {
+    const org = await makeOwner();
+    const firstRole = await makeRole('First approver', ['SALES::Invoices::VIEW'], undefined, org);
+    const secondRole = await makeRole('Final approver', ['SALES::Invoices::VIEW'], undefined, org);
+    const first = await makeUser(org);
+    const second = await makeUser(org);
+    await request(app).post(`/api/orgs/${org.orgId}/users/${first.id}/roles`).set(auth(org)).send({ roleId: firstRole, branchId: null }).expect(201);
+    await request(app).post(`/api/orgs/${org.orgId}/users/${second.id}/roles`).set(auth(org)).send({ roleId: secondRole, branchId: null }).expect(201);
+    for (const [name, sequence, approverRoleId] of [['Manager', 1, firstRole], ['Director', 2, secondRole]] as const) {
+      await request(app).post(`/api/orgs/${org.orgId}/approval-rules`).set(auth(org))
+        .send({ docType: 'INVOICE', name, minAmount: 1000, sequence, approverRoleId }).expect(201);
+    }
+    const invoice = await request(app).post(`/api/orgs/${org.orgId}/invoices`).set(auth(org))
+      .send(invoiceBody({ subtotal: 8000, total: 8000 })).expect(201);
+    const levelOne = await request(app).get(`/api/orgs/${org.orgId}/approvals`).set(auth(ctxFor(first.token, org))).expect(200);
+    expect(levelOne.body.requests).toHaveLength(1);
+    const initialId = levelOne.body.requests[0].id;
+    const firstDecision = await request(app).post(`/api/orgs/${org.orgId}/approvals/${initialId}/decide`)
+      .set(auth(ctxFor(first.token, org))).send({ approve: true }).expect(200);
+    expect(firstDecision.body.posted).toBe(false);
+    expect(firstDecision.body.nextLevel.sequence).toBe(2);
+    expect(await prisma.journalEntry.count({ where: { orgId: org.orgId, sourceDocId: invoice.body.invoice.id } })).toBe(0);
+    const levelTwo = await request(app).get(`/api/orgs/${org.orgId}/approvals`).set(auth(ctxFor(second.token, org))).expect(200);
+    expect(levelTwo.body.requests).toHaveLength(1);
+    const finalDecision = await request(app).post(`/api/orgs/${org.orgId}/approvals/${levelTwo.body.requests[0].id}/decide`)
+      .set(auth(ctxFor(second.token, org))).send({ approve: true }).expect(200);
+    expect(finalDecision.body.posted).toBe(true);
+    expect(finalDecision.body.nextLevel).toBeNull();
+    expect(await prisma.journalEntry.count({ where: { orgId: org.orgId, sourceDocId: invoice.body.invoice.id, status: 'POSTED' } })).toBe(1);
+  });
+
+  it('holds a purchase bill until approval and then posts its journal', async () => {
+    const org = await makeOwner();
+    const role = await makeRole('Bill approver', ['PURCHASE::Bills::VIEW'], undefined, org);
+    const approver = await makeUser(org);
+    await request(app).post(`/api/orgs/${org.orgId}/users/${approver.id}/roles`).set(auth(org))
+      .send({ roleId: role, branchId: null }).expect(201);
+    await request(app).post(`/api/orgs/${org.orgId}/approval-rules`).set(auth(org))
+      .send({ docType: 'BILL', name: 'Bill review', minAmount: 100, approverRoleId: role }).expect(201);
+    const created = await request(app).post(`/api/orgs/${org.orgId}/bills`).set(auth(org))
+      .send({ date: '2026-04-10', partyName: 'Supplier Co', subtotal: 1000, total: 1000, items: [] }).expect(201);
+    expect(created.body.document.status).toBe('Pending Approval');
+    expect(await prisma.journalEntry.count({ where: { orgId: org.orgId, sourceDocId: created.body.document.id } })).toBe(0);
+    const pending = await request(app).get(`/api/orgs/${org.orgId}/approvals`).set(auth(ctxFor(approver.token, org))).expect(200);
+    const result = await request(app).post(`/api/orgs/${org.orgId}/approvals/${pending.body.requests[0].id}/decide`)
+      .set(auth(ctxFor(approver.token, org))).send({ approve: true }).expect(200);
+    expect(result.body.posted).toBe(true);
+    expect(await prisma.journalEntry.count({ where: { orgId: org.orgId, sourceDocId: created.body.document.id, status: 'POSTED' } })).toBe(1);
   });
 
   it('rejects a document and leaves it out of the ledger', async () => {
@@ -391,6 +469,9 @@ describe('approval thresholds', () => {
 
     const pending = await request(app).get(`/api/orgs/${org.orgId}/approvals`).set(auth(ctxFor(approver.token, org))).expect(200);
     const reqId = pending.body.requests.find((r: any) => r.docId === inv.body.invoice.id).id;
+
+    await request(app).post(`/api/orgs/${org.orgId}/approvals/${reqId}/decide`)
+      .set(auth(ctxFor(approver.token, org))).send({ approve: false }).expect(400);
 
     const decided = await request(app)
       .post(`/api/orgs/${org.orgId}/approvals/${reqId}/decide`)

@@ -117,7 +117,7 @@ sharePublicRouter.get('/public/invoice/:token', async (req, res) => {
   if (!invoice) return res.status(404).json({ error: 'This link is no longer available' });
 
   const [org, headOffice] = await Promise.all([
-    platformPrisma.org.findFirst({ where: { id: link.orgId }, select: { name: true } }),
+    platformPrisma.org.findFirst({ where: { id: link.orgId }, select: { name: true, profileJson: true, baseCurrency: true } }),
     platformPrisma.branch.findFirst({
       where: { orgId: link.orgId, branchCode: 'HO' },
       select: { addressLine1: true, city: true, state: true, gstin: true },
@@ -137,11 +137,21 @@ sharePublicRouter.get('/public/invoice/:token', async (req, res) => {
     return Number.isFinite(x) ? x : 0;
   };
 
+  let companySettings: Record<string, unknown> = {};
+  try {
+    const profile = JSON.parse(org?.profileJson || '{}');
+    companySettings = profile?.companySettings && typeof profile.companySettings === 'object' ? profile.companySettings : {};
+  } catch { /* older organisations may have no profile */ }
+
   res.json({
     from: {
-      name: org?.name || '',
-      address: [headOffice?.addressLine1, headOffice?.city, headOffice?.state].filter(Boolean).join(', '),
-      gstin: headOffice?.gstin || '',
+      name: String(companySettings.legalName || org?.name || ''),
+      address: [companySettings.regAddress1, companySettings.regAddress2, companySettings.regCity, companySettings.regStateName, companySettings.regPincode].filter(Boolean).join(', ') || [headOffice?.addressLine1, headOffice?.city, headOffice?.state].filter(Boolean).join(', '),
+      gstin: String(companySettings.gstin || headOffice?.gstin || ''),
+      currency: String(companySettings.baseCurrency || org?.baseCurrency || 'INR'),
+      numberFormat: String(companySettings.numberFormat || '12,34,567.89'),
+      dateFormat: String(companySettings.dateFormat || 'DD-MM-YYYY'),
+      decimalPlaces: Number(companySettings.decimalPlaces ?? 2),
     },
     to: {
       name: (invoice as any).customerName || '',

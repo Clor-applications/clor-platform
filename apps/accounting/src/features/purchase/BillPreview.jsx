@@ -2,7 +2,8 @@ import { getDocSettings } from '@ui/utils/docSettings';
 import React, { useMemo, useState } from 'react';
 import { Printer, Download, Share2 } from 'lucide-react';
 
-import { formatMoney } from '@ui/utils/money';
+import { formatMoney, getDecimalPlaces, getNumberLocale } from '@ui/utils/money';
+import { formatDateIn } from '@ui/utils/dates';
 import { notify } from '@ui/components/ui/notify';
 import { getCompanyGstProfile } from '@ui/utils/gst';
 import { returnableLines } from '@ui/utils/returns';
@@ -19,6 +20,10 @@ import { escapeHtml as esc } from '@ui/utils/html';
 
 
 const BillPreview = ({ db, currentCompany, bill }) => {
+  const number = (value) => new Intl.NumberFormat(getNumberLocale(currentCompany), {
+    minimumFractionDigits: getDecimalPlaces(currentCompany),
+    maximumFractionDigits: getDecimalPlaces(currentCompany),
+  }).format(Number(value) || 0);
   // Terms are stored per document type and were only ever printed on the
   // invoice, so a bill could hold terms that nothing put on the page.
   const billTerms = String(getDocSettings(db, currentCompany)?.templates?.bill?.termsText || '').trim();
@@ -56,9 +61,9 @@ const BillPreview = ({ db, currentCompany, bill }) => {
           <td>${esc(l.description || l.itemName || '')}${l.batchNo ? `<div class="sub">Batch ${esc(l.batchNo)}${l.expiryDate ? ` · exp ${esc(l.expiryDate)}` : ''}</div>` : ''}</td>
           <td>${esc(l.hsnSac || '')}</td>
           <td class="r">${qty}</td>
-          <td class="r">${rate.toFixed(2)}</td>
+          <td class="r">${number(rate)}</td>
           <td class="r">${Number(l.gstRate || 0)}%</td>
-          <td class="r">${(qty * rate).toFixed(2)}</td>
+          <td class="r">${number(qty * rate)}</td>
         </tr>`;
       })
       .join('');
@@ -69,7 +74,7 @@ const BillPreview = ({ db, currentCompany, bill }) => {
       ...(Number(bill?.sgstTotal || 0) ? [['SGST', Number(bill.sgstTotal)]] : []),
       ...(Number(bill?.igstTotal || 0) ? [['IGST', Number(bill.igstTotal)]] : []),
     ]
-      .map(([label, v]) => `<tr><td>${esc(label)}</td><td class="r">${v.toFixed(2)}</td></tr>`)
+      .map(([label, v]) => `<tr><td>${esc(label)}</td><td class="r">${number(v)}</td></tr>`)
       .join('');
 
     return `<!doctype html><html><head><meta charset="utf-8">
@@ -97,15 +102,16 @@ const BillPreview = ({ db, currentCompany, bill }) => {
       </style></head><body>
       <div class="head">
         <div>
-          <h1>${esc(currentCompany?.name || '')}</h1>
+          <h1>${esc(currentCompany?.legalName || currentCompany?.name || '')}</h1>
+          ${currentCompany?.address ? `<div class="muted">${esc([currentCompany.address, currentCompany.city, currentCompany.state, currentCompany.pincode].filter(Boolean).join(', '))}</div>` : ''}
           ${companyGstin ? `<div class="muted">GSTIN: ${esc(companyGstin)}</div>` : ''}
           ${companyState ? `<div class="muted">${esc(companyState)}</div>` : ''}
         </div>
         <div style="text-align:right">
           <div style="font-size:16px;font-weight:700">PURCHASE BILL</div>
           <div class="muted">No: ${esc(bill?.number || '')}</div>
-          <div class="muted">Date: ${esc(bill?.date || '')}</div>
-          ${bill?.dueDate ? `<div class="muted">Due: ${esc(bill.dueDate)}</div>` : ''}
+          <div class="muted">Date: ${esc(formatDateIn(bill?.date, currentCompany))}</div>
+          ${bill?.dueDate ? `<div class="muted">Due: ${esc(formatDateIn(bill.dueDate, currentCompany))}</div>` : ''}
         </div>
       </div>
 
@@ -120,7 +126,7 @@ const BillPreview = ({ db, currentCompany, bill }) => {
         <div>
           <div class="label">Reference</div>
           <div>Vendor bill no: ${esc(bill?.refNo || '—')}</div>
-          <div>Vendor bill date: ${esc(bill?.refDate || '—')}</div>
+          <div>Vendor bill date: ${esc(formatDateIn(bill?.refDate, currentCompany) || '—')}</div>
           <div>Place of supply: ${esc(bill?.placeOfSupplyState || '—')}</div>
           ${bill?.reverseCharge ? '<div>Reverse charge: Yes</div>' : ''}
         </div>
@@ -133,14 +139,14 @@ const BillPreview = ({ db, currentCompany, bill }) => {
 
       <table class="totals">
         ${taxRows}
-        <tr class="grand"><td>Total</td><td class="r">${Number(bill?.total || 0).toFixed(2)}</td></tr>
-        ${Number(bill?.paidAmount || 0) ? `<tr><td>Paid</td><td class="r">${Number(bill.paidAmount).toFixed(2)}</td></tr>` : ''}
-        ${returnedValue ? `<tr><td>Debit notes</td><td class="r">-${returnedValue.toFixed(2)}</td></tr>` : ''}
+        <tr class="grand"><td>Total</td><td class="r">${number(bill?.total)}</td></tr>
+        ${Number(bill?.paidAmount || 0) ? `<tr><td>Paid</td><td class="r">${number(bill.paidAmount)}</td></tr>` : ''}
+        ${returnedValue ? `<tr><td>Debit notes</td><td class="r">-${number(returnedValue)}</td></tr>` : ''}
       </table>
 
       ${
         returnedValue
-          ? `<div class="note">${esc(returned.fullyReturned ? 'Fully returned' : 'Partly returned')} — debit notes of ${returnedValue.toFixed(2)} have been raised against this bill.</div>`
+          ? `<div class="note">${esc(returned.fullyReturned ? 'Fully returned' : 'Partly returned')} — debit notes of ${number(returnedValue)} have been raised against this bill.</div>`
           : ''
       }
 

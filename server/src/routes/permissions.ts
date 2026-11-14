@@ -5,7 +5,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
-import { resolveUserPermissions, accessForRequest } from '../services/access.js';
+import { COMPANY_WIDE, resolveAccess, resolveUserPermissions, accessForRequest } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
 import {
   ADMIN_ONLY_ERROR,
@@ -114,9 +114,11 @@ permissionsRouter.put(
 
     const role = await platformPrisma.role.findFirst({
       where: { id: roleId, accountId, orgId },
-      select: { id: true, name: true, roleType: true },
+      select: { id: true, name: true, roleType: true, branchId: true },
     });
     if (!role) return res.status(404).json({ error: 'Role not found' });
+    // A role kept for one branch is changed from that branch.
+    if (role.branchId && role.branchId !== req.tenant!.branchId) return res.status(403).json({ error: 'Switch to the role’s branch first' });
 
     // A role reaches whoever holds it, wherever they work: bounded by what the caller holds company-wide (A-19).
     const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'EDIT'));
@@ -185,6 +187,23 @@ permissionsRouter.put(
       .filter(Boolean);
     const missing = unheldGrants(authority, added);
     if (missing.length) return res.status(403).json(cannotGrantError(missing));
+
+    // The same for field levels: nobody raises a permission's level above the
+    // one they hold themselves. Judged company-wide, like the grant above; an
+    // administrator holds every level.
+    if (!authority.isAdmin) {
+      const own = await resolveAccess(accountId, orgId, req.auth!.userId, COMPANY_WIDE);
+      for (const [key, level] of Object.entries(body.levels || {})) {
+        const id = idByKey.get(key);
+        if (!id || !wantedIds.has(id)) continue;
+        const existing = currentByPermId.get(id);
+        const before = existing?.allowed ? existing.permLevel : 0;
+        const asked = Number(level) || 0;
+        if (asked > before && asked > (own.levels.get(key) ?? 0)) {
+          return res.status(403).json({ error: 'Cannot grant a field level you do not hold', code: 'cannot_grant_unheld_level', permissions: [key] });
+        }
+      }
+    }
 
     await platformPrisma.$transaction(async (tx) => {
       const levelByPermId = new Map<string, number>();
@@ -326,7 +345,8 @@ permissionsRouter.get('/orgs/:orgId/permissions/me', async (req, res) => {
   // it. Bring the creator's ADMIN role up to the full preset, once.
   await syncOwnerRoleIfCreator(accountId, orgId, userId);
 
-  const access = await accessForRequest(req, branchId);
+  // Roles held at the warehouse being worked in count here as they do in requirePermission.
+  const access = await accessForRequest(req, branchId, req.tenant!.warehouseId);
 
   const roles = access.roleIds.length
     ? await platformPrisma.role.findMany({

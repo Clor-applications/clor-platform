@@ -266,7 +266,7 @@ export default function BatchSerialManager() {
                   <AlertTriangle size={16} className="ui-muted" />
                   <span className="text-sm ui-muted">Soonest expiry first — the order stock should leave in.</span>
                 </div>
-                <table className="ui-table w-full text-sm">
+                <table className="ui-table w-full text-sm inventory-auto-table">
                   <thead>
                     <tr className="text-left ui-muted">
                       <th className="px-4 py-2">Lot</th>
@@ -353,7 +353,7 @@ export default function BatchSerialManager() {
               </div>
 
               <div className="ui-card overflow-x-auto">
-                <table className="ui-table w-full text-sm">
+                <table className="ui-table w-full text-sm inventory-auto-table">
                   <thead>
                     <tr className="text-left ui-muted">
                       <th className="px-4 py-2">Serial</th>

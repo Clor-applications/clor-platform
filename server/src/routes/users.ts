@@ -47,6 +47,7 @@ const updateUserSchema = z
   .object({
     email: z.string().email().optional(),
     fullName: z.string().min(1).max(120).optional(),
+    mobile: z.string().max(30).optional().nullable(),
     isActive: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'No fields to update' });
@@ -112,7 +113,7 @@ usersRouter.get('/orgs/:orgId/users', requirePermission('SETTINGS', PermissionAc
   const memberships = await platformPrisma.userOrgMembership.findMany({
     where: { accountId, orgId },
     include: {
-      user: { select: { id: true, code: true, email: true, fullName: true, isActive: true, leftAt: true, leftReason: true, lastWorkingDay: true, leftNote: true, releasedEmail: true } },
+      user: { select: { id: true, code: true, email: true, fullName: true, phone: true, isActive: true, leftAt: true, leftReason: true, lastWorkingDay: true, leftNote: true, releasedEmail: true } },
     },
     orderBy: [{ createdAt: 'asc' }],
   });
@@ -120,14 +121,16 @@ usersRouter.get('/orgs/:orgId/users', requirePermission('SETTINGS', PermissionAc
   const userIds = memberships.map((m) => m.userId);
   const assignments = userIds.length
     ? await platformPrisma.userRoleAssignment.findMany({
-        where: { accountId, orgId, userId: { in: userIds }, branchId: null },
-        select: { userId: true, roleId: true, createdAt: true },
+        where: { accountId, orgId, userId: { in: userIds }, OR: [{ branchId: null }, { branchId: req.tenant!.branchId }] },
+        select: { userId: true, roleId: true, branchId: true, createdAt: true },
         orderBy: [{ createdAt: 'desc' }],
       })
     : [];
 
+  // One role per person on this screen: the one they hold in the branch being
+  // worked in, else their company-wide one.
   const roleIdByUserId = new Map<string, string>();
-  for (const a of assignments) {
+  for (const a of [...assignments].sort((x, y) => Number(Boolean(y.branchId)) - Number(Boolean(x.branchId)))) {
     if (!roleIdByUserId.has(a.userId)) roleIdByUserId.set(a.userId, a.roleId);
   }
 
@@ -136,6 +139,7 @@ usersRouter.get('/orgs/:orgId/users', requirePermission('SETTINGS', PermissionAc
     code: m.user.code || null,
     email: m.user.email,
     fullName: m.user.fullName,
+    mobile: m.user.phone,
     // legacy compatibility for older UI code
     name: m.user.fullName,
     isActive: m.user.isActive,
@@ -315,7 +319,7 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
    * access to this company (company access), not rename or switch off the
    * person everywhere.
    */
-  if (('fullName' in body || 'isActive' in body) && userId !== req.auth!.userId) {
+  if (('fullName' in body || 'isActive' in body || 'mobile' in body) && userId !== req.auth!.userId) {
     const target = await platformPrisma.user.findUnique({ where: { id: userId }, select: { accountId: true } });
     if (!target || target.accountId !== accountId) {
       return res.status(403).json({
@@ -347,6 +351,7 @@ usersRouter.patch('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', Pe
       // A changed address has not been proven by anyone yet.
       ...('email' in body ? { email: body.email!.toLowerCase(), emailVerifiedAt: null } : {}),
       ...('fullName' in body ? { fullName: body.fullName! } : {}),
+      ...('mobile' in body ? { phone: body.mobile?.trim() || null } : {}),
       ...('isActive' in body ? { isActive: Boolean(body.isActive) } : {}),
     },
     select: { id: true, email: true, fullName: true, isActive: true },
@@ -490,6 +495,7 @@ usersRouter.put('/users/:userId/companies', requirePermission('SETTINGS', Permis
           platformPrisma.userRoleAssignment.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userRoleProfile.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           /* Branch and warehouse grants go too, or re-adding the company silently restores them (as DELETE /orgs/:orgId/users/:userId does). */
+          platformPrisma.userWarehouseRoleAssignment.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userBranchMembership.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
           platformPrisma.userOrgMembership.deleteMany({ where: { accountId, userId, orgId: { in: toRemove } } }),
@@ -519,6 +525,7 @@ usersRouter.put('/orgs/:orgId/users/:userId/role', requirePermission('SETTINGS',
 
   const role = body.roleId ? await platformPrisma.role.findFirst({ where: { id: body.roleId, accountId, orgId } }) : null;
   if (body.roleId && !role) return res.status(404).json({ error: 'Role not found' });
+  if (role?.branchId) return res.status(400).json({ error: 'Role belongs to a branch, so it cannot be given company-wide' });
 
   const refused = await assignmentRefusal(req, accountId, orgId, userId, role, null);
   if (refused) return res.status(refused.status).json(refused.body);
@@ -620,7 +627,7 @@ usersRouter.get('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
   // No branch: every assignment counts, wherever it applies.
   const access = await resolveAccess(accountId, orgId, userId);
 
-  const [direct, profiles, branches] = await Promise.all([
+  const [direct, profiles, branches, memberships, warehouses, warehouseRoles] = await Promise.all([
     platformPrisma.userRoleAssignment.findMany({
       where: { accountId, orgId, userId },
       select: { branchId: true, role: { select: { id: true, name: true, roleType: true, ownDocumentsOnly: true } } },
@@ -630,6 +637,9 @@ usersRouter.get('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
       select: { profile: { select: { id: true, name: true, roles: { select: { roleId: true } } } } },
     }),
     platformPrisma.branch.findMany({ where: { accountId, orgId }, select: { id: true, branchName: true } }),
+    platformPrisma.userBranchMembership.findMany({ where: { accountId, orgId, userId }, select: { branchId: true }, orderBy: [{ createdAt: 'asc' }] }),
+    platformPrisma.userWarehouseAccess.findMany({ where: { accountId, orgId, userId }, select: { warehouseId: true } }),
+    platformPrisma.userWarehouseRoleAssignment.findMany({ where: { accountId, orgId, userId }, select: { warehouseId: true, roleId: true } }),
   ]);
   const branchName = new Map(branches.map((b) => [b.id, b.branchName]));
 
@@ -646,6 +656,9 @@ usersRouter.get('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
     roles: [
       ...direct.map((a) => ({
         ...a.role,
+        /* Where the assignment applies and which role it is, as the access editor (PUT below) sends them back. */
+        branchId: a.branchId,
+        roleId: a.role.id,
         scope: a.branchId ? `Branch: ${branchName.get(a.branchId) || a.branchId}` : 'Whole company',
       })),
       ...profileRoles.map((r) => ({
@@ -655,7 +668,161 @@ usersRouter.get('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS
     ],
     permissions: Array.from(access.permissions).sort(),
     restrictions: Object.fromEntries([...restrictions].map(([type, ids]) => [type, ids.size])),
+    /* The branches and warehouses the person may work in, and the roles held at one warehouse only. */
+    branchIds: memberships.map((row) => row.branchId),
+    warehouseIds: warehouses.map((row) => row.warehouseId),
+    warehouseRoles,
   });
+});
+
+const userScopeSchema = z.object({
+  branches: z.array(z.object({ branchId: z.string().min(1), roleId: z.string().min(1) })).min(1),
+  warehouseIds: z.array(z.string()).default([]),
+  warehouseRoles: z.array(z.object({ warehouseId: z.string().min(1), roleId: z.string().min(1) })).default([]),
+});
+
+/**
+ * Sets where one person works and as what, in one save: their branches with a
+ * role in each, the warehouses they may use, and any role they hold at one
+ * warehouse on top of their branch role.
+ *
+ * It replaces the person's branches, direct role assignments and warehouses in
+ * this company, so it is bounded like every other way of giving access:
+ *
+ *  - each role is checked as a role assignment in its branch is (the caller
+ *    manages users there, holds what the role grants, and only an
+ *    administrator hands out an Administrator role);
+ *  - taking away a branch, or a company-wide role, needs the caller to manage
+ *    users where that was held;
+ *  - a company administrator is not edited here: they reach every branch
+ *    already, and this would replace their company-wide role with branch ones.
+ *
+ * Role profiles are left as they are.
+ */
+usersRouter.put('/orgs/:orgId/users/:userId/access', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
+  const { accountId, orgId } = req.tenant!;
+  const userId = String(req.params.userId);
+  const callerId = req.auth!.userId;
+  if (String(req.params.orgId) !== orgId) return res.status(403).json({ error: 'orgId mismatch' });
+
+  const body = userScopeSchema.parse(req.body);
+  const branchIds = body.branches.map((row) => row.branchId);
+  if (new Set(branchIds).size !== branchIds.length) return res.status(400).json({ error: 'Each branch may have one role' });
+  const warehouseIds = Array.from(new Set(body.warehouseIds));
+
+  if (!(await isMember(accountId, orgId, userId))) return res.status(404).json({ error: 'User not found in company' });
+  if (await userIsAdmin(accountId, orgId, userId)) {
+    return res.status(403).json({
+      error: 'A company administrator already works in every branch. Change their company-wide role first to limit them to branches.',
+      code: 'admin_access_not_scoped',
+    });
+  }
+
+  const gate = permKey('SETTINGS', 'Users', 'EDIT');
+  const roleIds = [...new Set([...body.branches.map((row) => row.roleId), ...body.warehouseRoles.map((row) => row.roleId)])];
+  const [validBranches, validRoles, validWarehouses, heldAssignments, heldBranches] = await Promise.all([
+    platformPrisma.branch.findMany({ where: { accountId, orgId, id: { in: branchIds } }, select: { id: true } }),
+    platformPrisma.role.findMany({ where: { accountId, orgId, id: { in: roleIds } }, select: { id: true, branchId: true, roleType: true } }),
+    warehouseIds.length ? prisma.warehouse.findMany({ where: { accountId, orgId, id: { in: warehouseIds } }, select: { id: true, branchId: true } }) : Promise.resolve([]),
+    platformPrisma.userRoleAssignment.findMany({ where: { accountId, orgId, userId }, select: { branchId: true, roleId: true } }),
+    platformPrisma.userBranchMembership.findMany({ where: { accountId, orgId, userId }, select: { branchId: true } }),
+  ]);
+  if (validBranches.length !== branchIds.length) return res.status(400).json({ error: 'Invalid branch' });
+  const roleById = new Map(validRoles.map((role) => [role.id, role]));
+  if (body.branches.some((row) => !roleById.has(row.roleId) || (roleById.get(row.roleId)!.branchId && roleById.get(row.roleId)!.branchId !== row.branchId))) {
+    return res.status(400).json({ error: 'Role is not available for its selected branch' });
+  }
+  if (validWarehouses.length !== warehouseIds.length || validWarehouses.some((row) => !branchIds.includes(row.branchId))) {
+    return res.status(400).json({ error: 'Every warehouse must belong to a selected branch' });
+  }
+  const warehouseById = new Map(validWarehouses.map((warehouse) => [warehouse.id, warehouse]));
+  const warehouseRoleProblem =
+    new Set(body.warehouseRoles.map((row) => row.warehouseId)).size !== body.warehouseRoles.length ||
+    body.warehouseRoles.some((row) => {
+      const warehouse = warehouseById.get(row.warehouseId);
+      const role = roleById.get(row.roleId);
+      return !warehouse || !role || (role.branchId && role.branchId !== warehouse.branchId);
+    });
+  if (warehouseRoleProblem) return res.status(400).json({ error: 'Warehouse roles require an assigned warehouse and a role in its branch' });
+
+  // Taking away what the person holds today: a company-wide role by somebody
+  // who manages users company-wide, a branch by somebody who manages it there.
+  if (heldAssignments.some((a) => a.branchId === null)) {
+    const { refusal } = await grantAuthority(req, null, gate);
+    if (refusal) return res.status(refusal.status).json(refusal.body);
+  }
+  const leavingBranches = new Set([...heldBranches.map((row) => row.branchId), ...heldAssignments.map((a) => a.branchId).filter((id): id is string => Boolean(id))]);
+  for (const branchId of leavingBranches) {
+    if (branchIds.includes(branchId)) continue; // judged below, as an assignment in that branch
+    const { refusal } = await grantAuthority(req, branchId, gate);
+    if (refusal) return res.status(403).json({ error: 'Cannot remove access from another branch', code: 'not_in_branch' });
+  }
+
+  // Each branch role, exactly as POST …/roles judges one.
+  let grantsAdminRole = false;
+  for (const assignment of body.branches) {
+    const role = roleById.get(assignment.roleId)!;
+    const refused = await assignmentRefusal(req, accountId, orgId, userId, role, assignment.branchId);
+    if (refused) return res.status(refused.status).json(refused.body);
+    if (role.roleType === RoleType.ADMIN) grantsAdminRole = true;
+  }
+  // A role at one warehouse is bounded by what the caller holds in that warehouse's branch.
+  for (const assignment of body.warehouseRoles) {
+    const role = roleById.get(assignment.roleId)!;
+    const refused = await assignmentRefusal(req, accountId, orgId, userId, role, warehouseById.get(assignment.warehouseId)!.branchId);
+    if (refused) return res.status(refused.status).json(refused.body);
+    if (role.roleType === RoleType.ADMIN) grantsAdminRole = true;
+  }
+  /* W-5.2, as POST …/roles: handing out an Administrator role takes a fresh code where the granter has an authenticator. */
+  if (grantsAdminRole && userId !== callerId) {
+    const granter = await platformPrisma.user.findUnique({ where: { id: callerId }, select: { totpEnabledAt: true } });
+    if (granter?.totpEnabledAt && !hasValidStepUp(req)) {
+      return res.status(403).json({ error: 'Enter the code from your authenticator app to make someone an administrator.', code: 'STEP_UP_REQUIRED' });
+    }
+  }
+
+  try {
+    await platformPrisma.$transaction(async (tx) => {
+      await tx.userWarehouseRoleAssignment.deleteMany({ where: { accountId, orgId, userId } });
+      await tx.userWarehouseAccess.deleteMany({ where: { accountId, orgId, userId } });
+      await tx.userRoleAssignment.deleteMany({ where: { accountId, orgId, userId } });
+      await tx.userBranchMembership.deleteMany({ where: { accountId, orgId, userId } });
+      for (const { branchId, roleId } of body.branches) {
+        await tx.userBranchMembership.create({ data: { accountId, orgId, branchId, userId } });
+        await tx.userRoleAssignment.create({ data: { accountId, orgId, branchId, userId, roleId, createdByUserId: callerId } });
+      }
+      for (const warehouse of validWarehouses) {
+        await tx.userWarehouseAccess.create({ data: { accountId, orgId, branchId: warehouse.branchId, warehouseId: warehouse.id, userId } });
+      }
+      for (const { warehouseId, roleId } of body.warehouseRoles) {
+        await tx.userWarehouseRoleAssignment.create({
+          data: { accountId, orgId, branchId: warehouseById.get(warehouseId)!.branchId, warehouseId, userId, roleId, createdByUserId: callerId },
+        });
+      }
+      await assertAnAdminRemains(tx, accountId, orgId);
+    });
+  } catch (err) {
+    if (err instanceof LastAdminError) return res.status(409).json(LAST_ADMIN_ERROR);
+    throw err;
+  }
+
+  /* Written by name here; the general recorder (auditMutations) leaves it. */
+  if (req.res) req.res.locals.audited = true;
+  await platformPrisma.auditLog.create({
+    data: {
+      accountId,
+      orgId,
+      branchId: req.tenant!.branchId,
+      entity: 'User',
+      entityId: userId,
+      action: 'ACCESS',
+      message: `Access set: ${body.branches.length} branch role(s), ${validWarehouses.length} warehouse(s), ${body.warehouseRoles.length} warehouse role(s)`,
+      metadata: JSON.stringify({ branches: body.branches, warehouseIds, warehouseRoles: body.warehouseRoles }),
+      createdByUserId: callerId,
+    },
+  });
+
+  res.json({ ok: true });
 });
 
 usersRouter.post('/orgs/:orgId/users/:userId/password', requirePermission('SETTINGS', PermissionAction.EDIT, 'Users'), async (req, res) => {
@@ -993,6 +1160,7 @@ usersRouter.delete('/orgs/:orgId/users/:userId', requirePermission('SETTINGS', P
   // Profiles too: a profile left behind is a set of roles waiting to come back
   // the moment anybody re-adds this person.
   await platformPrisma.userRoleProfile.deleteMany({ where: { accountId, orgId, userId } });
+  await platformPrisma.userWarehouseRoleAssignment.deleteMany({ where: { accountId, orgId, userId } });
   await platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId, orgId, userId } });
   await platformPrisma.userBranchMembership.deleteMany({ where: { accountId, orgId, userId } });
   await platformPrisma.userOrgMembership.deleteMany({ where: { accountId, orgId, userId } });
@@ -1050,6 +1218,16 @@ usersRouter.post('/orgs/:orgId/users/:userId/branches', requirePermission('SETTI
 
   const body = assignBranchesSchema.parse(req.body);
   const branchIds = Array.from(new Set(body.branchIds));
+  const valid = await platformPrisma.branch.count({ where: { accountId, orgId, id: { in: branchIds } } });
+  if (valid !== branchIds.length) return res.status(400).json({ error: 'Invalid branch' });
+  // Giving or taking a branch is done by somebody who manages users in that branch.
+  const existingBranches = await platformPrisma.userBranchMembership.findMany({ where: { accountId, orgId, userId }, select: { branchId: true } });
+  const before = new Set(existingBranches.map((row) => row.branchId));
+  const changed = [...branchIds.filter((id) => !before.has(id)), ...[...before].filter((id) => !branchIds.includes(id))];
+  for (const branchId of changed) {
+    const { refusal } = await grantAuthority(req, branchId, permKey('SETTINGS', 'Users', 'EDIT'));
+    if (refusal) return res.status(403).json({ error: 'Cannot assign users in this branch', code: 'not_in_branch' });
+  }
 
   /* Review N4: this can add the person to the company; if so, its domain rule applies as anywhere else (owners and outsiders exempt). */
   const alreadyMember = await platformPrisma.userOrgMembership.findFirst({ where: { accountId, orgId, userId }, select: { id: true } });
@@ -1096,6 +1274,7 @@ usersRouter.post('/orgs/:orgId/users/:userId/roles', requirePermission('SETTINGS
   if (!role) return res.status(404).json({ error: 'Role not found' });
 
   const scopeBranchId = body.branchId ?? null;
+  if (role.branchId && role.branchId !== scopeBranchId) return res.status(400).json({ error: 'Role belongs to another branch' });
   if (scopeBranchId) {
     const branch = await platformPrisma.branch.findFirst({ where: { id: scopeBranchId, accountId, orgId }, select: { id: true } });
     if (!branch) return res.status(400).json({ error: 'Branch does not belong to this organisation' });
@@ -1148,22 +1327,35 @@ usersRouter.post('/orgs/:orgId/users/:userId/warehouses', requirePermission('SET
   const body = assignWarehousesSchema.parse(req.body);
   const warehouseIds = Array.from(new Set(body.warehouseIds));
 
-  // clear then assign
-  await platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId, orgId, userId } });
+  // Checked before anything is cleared: a wrong id used to leave the person
+  // with no warehouses at all.
+  const warehouses = await prisma.warehouse.findMany({ where: { accountId, orgId, id: { in: warehouseIds } }, select: { id: true, branchId: true } });
+  if (warehouses.length !== warehouseIds.length) return res.status(400).json({ error: 'Invalid warehouse' });
 
-  for (const warehouseId of warehouseIds) {
-    const wh = await prisma.warehouse.findFirst({ where: { accountId, orgId, id: warehouseId } });
-    if (!wh) return res.status(400).json({ error: `Invalid warehouse ${warehouseId}` });
-    await platformPrisma.userWarehouseAccess.create({
-      data: {
-        accountId,
-        orgId,
-        branchId: wh.branchId,
-        warehouseId,
-        userId,
-      },
-    });
+  // A warehouse is given, or taken away, by somebody who manages users in its
+  // branch; and given only to somebody who works in that branch.
+  const existing = await platformPrisma.userWarehouseAccess.findMany({ where: { accountId, orgId, userId }, select: { warehouseId: true, branchId: true } });
+  const had = new Set(existing.map((row) => row.warehouseId));
+  const added = warehouses.filter((w) => !had.has(w.id));
+  const removed = existing.filter((row) => !warehouseIds.includes(row.warehouseId));
+  for (const warehouse of added) {
+    const member = await platformPrisma.userBranchMembership.findFirst({ where: { accountId, orgId, branchId: warehouse.branchId, userId }, select: { id: true } });
+    if (!member && !(await userIsAdmin(accountId, orgId, userId))) return res.status(400).json({ error: 'User has no access to the warehouse branch' });
   }
+  for (const branchId of new Set([...added.map((w) => w.branchId), ...removed.map((row) => row.branchId)])) {
+    const { refusal } = await grantAuthority(req, branchId, permKey('SETTINGS', 'Users', 'EDIT'));
+    if (refusal) return res.status(403).json({ error: 'Cannot assign this warehouse', code: 'not_in_branch' });
+  }
+
+  await platformPrisma.$transaction(async (tx) => {
+    // clear then assign
+    await tx.userWarehouseAccess.deleteMany({ where: { accountId, orgId, userId } });
+    // A role held at a warehouse goes when the warehouse does.
+    await tx.userWarehouseRoleAssignment.deleteMany({ where: { accountId, orgId, userId, warehouseId: { notIn: warehouseIds } } });
+    for (const wh of warehouses) {
+      await tx.userWarehouseAccess.create({ data: { accountId, orgId, branchId: wh.branchId, warehouseId: wh.id, userId } });
+    }
+  });
 
   res.json({ ok: true });
 });

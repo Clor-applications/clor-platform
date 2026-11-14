@@ -69,7 +69,7 @@ describe('items', () => {
       .set(auth(owner))
       .send({ name: `Consulting ${rnd()}`, itemType: 'SERVICE', trackBy: 'BATCH' })
       .expect(400);
-    expect(String(res.body.error)).toMatch(/service item/i);
+    expect(String(res.body.error)).toMatch(/only goods can be tracked by batch/i);
   });
 
   it('treats name and unit together as the identity', async () => {

@@ -1,3 +1,5 @@
+import { getCompanyDisplaySettings } from './money.js';
+
 /**
  * Today and offsets as YYYY-MM-DD, for form defaults.
  *
@@ -43,10 +45,14 @@ export const addDaysIso = (iso, n) => {
  * Storage does not move: this formats on the way out, and anything that
  * compares or sorts still sees the ISO value.
  */
-export const formatDateIn = (value) => {
+export const formatDateIn = (value, company) => {
   const iso = String(value || '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   const [y, m, d] = iso.split('-');
+  const format = getCompanyDisplaySettings(company).dateFormat || 'DD/MM/YYYY';
+  if (format === 'YYYY-MM-DD') return iso;
+  if (format === 'MM/DD/YYYY') return `${m}/${d}/${y}`;
+  if (format === 'DD-MM-YYYY') return `${d}-${m}-${y}`;
   return `${d}/${m}/${y}`;
 };
 

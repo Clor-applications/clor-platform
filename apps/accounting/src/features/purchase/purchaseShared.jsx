@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isIntraStateSupply } from '@ui/utils/gst';
 import { selectedBranchId } from '@platform/context';
-import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
+import { bumpCompanyNextNumber, formatVoucherNumberPreview, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import { getLastSelection, setLastSelection } from '@ui/utils/lastSelection';
 import { branchLabel } from '@ui/utils/branchLabel';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -18,6 +18,8 @@ import { useDocumentFormKeys } from '@ui/components/ui/useDocumentFormKeys';
 import { AmountInWordsBand, DocFormActions, DocFormFootnote } from '@ui/components/DocumentForm';
 import { Building2, Package, Plus, SlidersHorizontal, Trash2, Truck } from 'lucide-react';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
+import BranchField from '@ui/components/BranchField';
+import VoucherSeriesSelect from '@ui/components/VoucherSeriesSelect';
 import WarehouseField from '@ui/components/WarehouseField';
 import VendorPicker from '../../components/pickers/VendorPicker';
 import DocNumberingPopover from '@ui/components/DocNumberingPopover';
@@ -657,6 +659,7 @@ export const DebitNoteForm = ({
     <form ref={formRef} onSubmit={handleSubmit} onKeyDown={onFormKeyDown} className="ui-creation-form space-y-3">
       <DocFormActions
         title={screenTitle}
+        titleAddon={!initialData?.id ? <VoucherSeriesSelect db={db} setDb={setDb} currentCompany={currentCompany} voucherKey="debitNote" branchId={branchIdForNumbering} onNumberChange={(number) => { setNumberTouched(true); setFormData((old) => ({ ...old, number })); setNumberingOpen(false); }} /> : null}
         onBack={onBack}
         sticky={Boolean(screenTitle)}
         primaryLabel={initialData?.id ? 'Update Debit Note' : 'Create Debit Note'}
@@ -692,19 +695,7 @@ export const DebitNoteForm = ({
               that reverses a bill. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div id="return-branch-field">
-          <PopupSelect
-            label="Branch"
-      title="branches"
-            value={String(branchIdInList || '')}
-            onChange={onBranchChange}
-            icon={Building2}
-            options={[
-              { value: '', label: 'All branches' },
-              ...branchOptions.map((b) => ({ value: String(b.id), label: branchLabel(b) })),
-            ]}
-            placeholder="Select Branch"
-            showValueSubtext={false}
-          />
+          <BranchField value={branchIdInList} onChange={onBranchChange} options={branchOptions} />
         </div>
 
             <WarehouseField
@@ -820,7 +811,7 @@ export const DebitNoteForm = ({
             <button
               type="button"
               ref={numberingBtnRef}
-              onClick={() => setNumberingOpen((v) => !v)}
+              onClick={() => setNumberingOpen(true)}
               className="absolute end-1 top-1/2 -translate-y-1/2 ui-icon-btn !h-7 !w-7"
               aria-label="Return numbering settings"
               aria-haspopup="dialog"
@@ -832,6 +823,7 @@ export const DebitNoteForm = ({
           </div>
           {numberingOpen ? (
             <DocNumberingPopover
+              key={`debitNote-${debitNumbering?.seriesId || 'default'}`}
               anchorRef={numberingBtnRef}
               db={db}
               setDb={setDb}
@@ -842,6 +834,7 @@ export const DebitNoteForm = ({
               manualLabel="Typed on each return"
               branchId={branchIdForNumbering}
               settings={debitNumbering}
+              onSaved={(nextSettings) => setFormData((p) => ({ ...p, number: nextSettings.mode === 'manual' || nextSettings.enabled === false ? '' : formatVoucherNumberPreview(nextSettings) }))}
               onClose={() => setNumberingOpen(false)}
               onOpenFullSettings={() => {
                 setNumberingOpen(false);

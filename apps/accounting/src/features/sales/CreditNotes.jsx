@@ -1,4 +1,5 @@
 import { useFeatures } from '@ui/permissions/useFeatures';
+import { branchLabel } from '@ui/utils/branchLabel';
 import { useMemo, useState } from 'react';
 import KnockOffForm from '@ui/components/KnockOffForm';
 import { hasApiSession as hasDocsApiSession, saveSettlementApi } from '@ui/api/purchaseDocs';
@@ -123,6 +124,7 @@ export const CreditNotesList = ({
       original: (r) => r.originalInvoiceNumber,
       customer: (r) => r.customerName,
       warehouse: (r) => warehouseById.get(String(r?.warehouseId || ''))?.name || r?.warehouseId || '',
+      branch: (r) => branchLabel(r, branches, warehouses),
       date: (r) => r.date,
       total: (r) => r.total,
     }
@@ -169,6 +171,7 @@ export const CreditNotesList = ({
     { key: 'number', label: 'Credit #' },
     { key: 'originalInvoiceNumber', label: 'Original invoice' },
     { key: 'customerName', label: 'Customer' },
+    { key: 'branch', label: 'Branch', value: (r) => branchLabel(r, branches, warehouses) },
     { key: 'date', label: 'Date' },
     { key: 'total', label: 'Total', value: (r) => Number(r.total || 0) },
     { key: 'status', label: 'Status', value: (r) => cnStatusOf(r) },
@@ -245,7 +248,7 @@ export const CreditNotesList = ({
       denseCards
     >
       <div className="overflow-x-auto ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}>
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky branch-fill-table returns-fill-table sales-auto-table">
           <thead>
             <tr>
               <ColumnHeader label="Credit #" col="number" state={cnFilters} />
@@ -255,13 +258,14 @@ export const CreditNotesList = ({
               <ColumnHeader label="Amount" col="total" state={cnFilters} className="ui-num" align="right" />
               <ColumnHeader label="Status" col="status" state={cnFilters} align="center" />
               <ColumnHeader label="Warehouse" col="warehouse" state={cnFilters} />
+              <ColumnHeader label="Branch" col="branch" state={cnFilters} />
               <th scope="col"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="ui-rows">
             {creditNotes.length === 0 ? (
               <tr>
-                <td colSpan="8">
+                <td colSpan="9">
                   {cnFilterChips.length === 0 && !cnStatus ? (
                     <EmptyState
                       icon={Receipt}
@@ -326,6 +330,7 @@ export const CreditNotesList = ({
                       <StatusPill status={cnStatusOf(cn)} />
                     </td>
                     <td className="ui-col-meta">{whLabel}</td>
+                    <td className="ui-col-meta truncate" title={branchLabel(cn, branches, warehouses)}>{branchLabel(cn, branches, warehouses)}</td>
                     <td className="text-right">
                       <button
                         type="button"

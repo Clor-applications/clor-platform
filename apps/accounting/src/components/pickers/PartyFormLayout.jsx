@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Info, Search } from 'lucide-react';
+import PartyCodeSettingsButton from './PartyCodeSettingsButton';
 
 import { AddressTab, ContactsTab, FormRow } from './customerFormParts';
 import { DocFormActions } from '@ui/components/DocumentForm';
@@ -11,6 +12,8 @@ import { todayIso } from '@ui/utils/dates';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import useEnabledCurrencies from '../../hooks/useEnabledCurrencies';
+import { isCompanyGstEnabled } from '@ui/utils/gst';
+import { partyCodeFormat } from '@ui/utils/masterCodes';
 
 /**
  * The party master, laid out once and used by both customers and vendors.
@@ -92,6 +95,9 @@ export function PartyFormLayout({
   branchOptions = [],
   multiBranchEnabled = false,
   baseCurrency = 'INR',
+  currentCompany = null,
+  db,
+  setDb,
   onDuplicate = null,
   gstinFetching,
   fetchFromGstin,
@@ -107,9 +113,12 @@ export function PartyFormLayout({
   setPrimaryContact,
 }) {
   const { isEnabled } = useFeatures();
+  const codeKind = cfg.noun === 'Vendor' ? 'vendor' : 'customer';
+  const codeFormat = partyCodeFormat(currentCompany, codeKind);
   const multiCurrencyEnabled = isEnabled('multiCurrency');
+  const gstEnabled = isCompanyGstEnabled(currentCompany);
   const { options: currencyOptions } = useEnabledCurrencies({ currency: baseCurrency });
-  const rows = formData.gstRegistration === 'Registered' ? LEFT_ROWS.withGstin : LEFT_ROWS.withoutGstin;
+  const rows = gstEnabled && formData.gstRegistration === 'Registered' ? LEFT_ROWS.withGstin : LEFT_ROWS.withoutGstin;
 
   useEffect(() => {
     if (multiCurrencyEnabled) return;
@@ -200,7 +209,7 @@ export function PartyFormLayout({
           */}
           <div className="party-basic-grid mt-5 grid gap-x-14 gap-y-4 lg:grid-cols-2">
 
-          <FormRow className="lg:col-start-1 lg:row-start-1" label="GST" hint="Decides whether a GSTIN is required, and whether input credit can be claimed on what you buy from them.">
+          {gstEnabled ? <FormRow className="lg:col-start-1 lg:row-start-1" label="GST" hint="Decides whether a GSTIN is required, and whether input credit can be claimed on what you buy from them.">
             <div className="flex items-center gap-6 pt-1.5">
               {[
                 { v: 'Registered', l: 'Registered' },
@@ -218,9 +227,9 @@ export function PartyFormLayout({
                 </label>
               ))}
             </div>
-          </FormRow>
+          </FormRow> : null}
 
-          {formData.gstRegistration === 'Registered' ? (
+          {gstEnabled && formData.gstRegistration === 'Registered' ? (
             <FormRow className={rows.gstin} label="GSTIN" hint="The first two digits are the state code and characters 3–12 are the PAN, so both are filled from the number.">
               {/* The field is 15 characters wide or it is not a GSTIN field.
                   Sharing one 256px cell with the fetch button left it 77px —
@@ -380,7 +389,7 @@ export function PartyFormLayout({
                   />
                 </FormRow>
               ) : null}
-              {codesEnabled ? (
+              {codesEnabled && isEnabled(cfg.noun === 'Vendor' ? 'vendorCodes' : 'customerCodes') ? (
                 <FormRow
                   className={cfg.noun === 'Customer'
                     ? 'lg:col-start-1 lg:row-start-4'
@@ -389,9 +398,9 @@ export function PartyFormLayout({
                       : 'lg:col-start-2 lg:row-start-4'}
                   label={`${cfg.noun} Code`}
                   htmlFor="party-code-preview"
-                  hint={`Automatically allotted in the ${cfg.noun.toLowerCase()} series.`}
+                  hint={`Customize the format or enter a code of your own.`}
                 >
-                  <input id="party-code-preview" type="text" value={formData.code || automaticCode || ''} readOnly aria-label={`${cfg.noun} Code`} aria-readonly="true" className="ui-input ui-mono customer-code-final cursor-not-allowed font-semibold" />
+                  <div className="flex items-center gap-2"><input id="party-code-preview" type="text" value={formData.code || (codeFormat.mode === 'manual' ? '' : automaticCode) || ''} readOnly={codeFormat.mode === 'automatic'} onChange={(event) => setFormData((previous) => ({ ...previous, code: event.target.value.toUpperCase() }))} aria-label={`${cfg.noun} Code`} placeholder={codeFormat.mode === 'manual' ? 'Enter code' : ''} className="ui-input ui-mono customer-code-final min-w-0 flex-1 font-semibold" /><PartyCodeSettingsButton currentCompany={currentCompany} db={db} setDb={setDb} kind={codeKind} /></div>
                 </FormRow>
               ) : null}
           </div>
@@ -549,7 +558,7 @@ export function PartyFormLayout({
                 two GSTINs. Both fields are bound to the one field in state, so
                 a correction made on either is the correction everywhere.
               */}
-              <div>
+              {gstEnabled ? <div>
                 <label className="ui-label" htmlFor="cust-stat-gstin">GSTIN</label>
                 <input
                   id="cust-stat-gstin"
@@ -561,7 +570,7 @@ export function PartyFormLayout({
                   maxLength={15}
                 />
                 <p className="ui-caption mt-1">The same number as Basic Details — editing either changes both.</p>
-              </div>
+              </div> : null}
               <div>
                 <label className="ui-label" htmlFor="cust-pan">PAN</label>
                 <input

@@ -322,8 +322,8 @@ describe('importing the new document types', () => {
   it('posts an imported invoice to the ledger, not just into the list', async () => {
     const before = await tb();
     const csv = [
-      'invoice_no,date,customer_name,description,quantity,rate,gst_rate,tax_type',
-      `IMPINV-${rnd().toUpperCase()},2026-04-18,Acme Ltd,Consulting,1,1000,18,CGST_SGST`,
+      'invoice_no,date,due_date,customer_name,item,description,quantity,rate,gst_rate,tax_type',
+      `IMPINV-${rnd().toUpperCase()},2026-04-18,2026-05-18,Acme Ltd,SRV-1,Consulting,1,1000,18,CGST_SGST`,
     ].join('\n');
 
     await runImport('INVOICE', csv);

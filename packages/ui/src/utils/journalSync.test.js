@@ -43,13 +43,14 @@ beforeEach(() => {
 
 describe('posting a manual journal to the ledger', () => {
   it('posts it, so the trial balance is the same on every machine', async () => {
-    const patch = await postJournalToLedger({ chartRows: chart, entry });
+    const patch = await postJournalToLedger({ chartRows: chart, entry: { ...entry, branchId: 'branch-1' } });
 
     expect(posted).toHaveBeenCalledTimes(1);
     const body = posted.mock.calls[0][0];
     expect(body.date).toBe('2026-09-10');
     expect(body.journalCode).toBe('JV');
     expect(body.narration).toBe('September rent');
+    expect(body.branchId).toBe('branch-1');
     expect(body.lines).toEqual([
       { ledgerAccountId: 'srv-rent', debit: 25000, credit: 0, description: 'rent for Sept' },
       { ledgerAccountId: 'srv-bank', debit: 0, credit: 25000, description: undefined },

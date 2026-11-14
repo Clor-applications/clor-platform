@@ -19,6 +19,8 @@ import { FxError, baseCurrencyFor, isBase, rateFor, toBase } from '../services/f
 import { SettledDocument, assertPurchaseDocRemovable } from '../services/settledDocGuard.js';
 import { refuseUnknownLineItems } from '../services/lineItems.js';
 import { InsufficientStock, withStockCheck } from '../services/stockLedger.js';
+import { assertPeriodUnlocked, periodLockModuleForSource } from '../services/periodLock.js';
+import { ApprovalError, evaluateApproval, isPending } from '../services/approvals.js';
 
 /**
  * Bills, credit notes and debit notes.
@@ -248,6 +250,20 @@ function register(kind: DocKind) {
   };
 
   purchaseDocsRouter.get(
+    `/orgs/:orgId/${cfg.path}/numbers`,
+    requirePermission(cfg.module, PermissionAction.VIEW, cfg.resource),
+    async (req, res) => {
+      if (!orgOk(req, res)) return;
+      const { accountId, orgId } = req.tenant!;
+      // Number uniqueness is organisation-wide, including other branches, so
+      // this is deliberately not narrowed by branch or by own-documents-only:
+      // it returns numbers alone, never a document.
+      const rows = await table().findMany({ where: { accountId, orgId }, select: { number: true } });
+      res.json({ numbers: rows.map((row: { number: string }) => row.number) });
+    }
+  );
+
+  purchaseDocsRouter.get(
     `/orgs/:orgId/${cfg.path}`,
     requirePermission(cfg.module, PermissionAction.VIEW, cfg.resource),
     async (req, res) => {
@@ -276,6 +292,9 @@ function register(kind: DocKind) {
       const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
       if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
       if (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items)) return;
+
+      const createPeriodModule = periodLockModuleForSource(kind);
+      if (createPeriodModule) await assertPeriodUnlocked({ accountId, orgId, userId, module: createPeriodModule, date: body.date });
 
       await ensureLedgerSetup(accountId, orgId, userId);
 
@@ -349,6 +368,22 @@ function register(kind: DocKind) {
         throw e;
       }
 
+      let approval;
+      try {
+        approval = await evaluateApproval({
+          accountId, orgId, branchId, userId, docType: kind, docId: created.id,
+          amount: num(body.total),
+        });
+      } catch (e: any) {
+        await table().delete({ where: { id: created.id } });
+        if (e instanceof ApprovalError) return res.status(e.status).json({ error: e.message });
+        throw e;
+      }
+      if (approval.required) {
+        const held = await table().update({ where: { id: created.id }, data: { status: 'Pending Approval' } });
+        return res.status(201).json({ document: normalize(held), approval: { required: true, rule: approval.ruleName } });
+      }
+
       // Posting failure removes the document: the books and the list must not
       // disagree.
       try {
@@ -410,12 +445,20 @@ function register(kind: DocKind) {
       const docId = String(req.params.docId);
       const existing = await table().findFirst({ where: { id: docId, accountId, orgId, branchId, ...ownDocsWhere(req) } });
       if (!existing) return res.status(404).json({ error: `${cfg.resource} not found` });
+      if (await isPending(accountId, orgId, kind, docId)) {
+        return res.status(409).json({ error: 'This document is awaiting approval and cannot be edited' });
+      }
 
       const body = docSchema.parse(req.body);
       if (await refuseUnknownLineItems(res, accountId, orgId, body.items)) return;
       if (body.warehouseId !== undefined && (body.warehouseId || null) !== (existing.warehouseId || null)) {
         const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
         if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
+      }
+      const periodModule = periodLockModuleForSource(kind);
+      if (periodModule) {
+        await assertPeriodUnlocked({ accountId, orgId, userId, module: periodModule, date: existing.date });
+        if (body.date !== existing.date) await assertPeriodUnlocked({ accountId, orgId, userId, module: periodModule, date: body.date });
       }
       const settledAmount = num(existing.settledAmount);
       if (num(body.total) + 0.0001 < settledAmount) {
@@ -557,10 +600,15 @@ function register(kind: DocKind) {
     requirePermission(cfg.module, PermissionAction.EDIT, cfg.resource),
     async (req, res) => {
       if (!orgOk(req, res)) return;
-      const { accountId, orgId } = req.tenant!;
+      const { accountId, orgId, branchId } = req.tenant!;
 
-      const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) } });
+      const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, branchId, ...ownDocsWhere(req) } });
       if (!doc) return res.status(404).json({ error: `${cfg.resource} not found` });
+      if (await isPending(accountId, orgId, kind, doc.id)) {
+        return res.status(409).json({ error: 'This document is awaiting approval and cannot be settled' });
+      }
+      const periodModule = periodLockModuleForSource(kind);
+      if (periodModule) await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: periodModule, date: doc.date });
 
       const parsed = settlementSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -634,8 +682,13 @@ function register(kind: DocKind) {
       if (!orgOk(req, res)) return;
       const { accountId, orgId, branchId } = req.tenant!;
 
-      const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) } });
+      const doc = await table().findFirst({ where: { id: String(req.params.docId), accountId, orgId, branchId, ...ownDocsWhere(req) } });
       if (!doc) return res.status(404).json({ error: `${cfg.resource} not found` });
+      if (await isPending(accountId, orgId, kind, doc.id)) {
+        return res.status(409).json({ error: 'This document is awaiting approval and cannot be deleted' });
+      }
+      const periodModule = periodLockModuleForSource(kind);
+      if (periodModule) await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: periodModule, date: doc.date });
 
       // Not while a payment, a note or a settlement still leans on it.
       try {
@@ -667,3 +720,43 @@ function register(kind: DocKind) {
 }
 
 (['BILL', 'CREDIT_NOTE', 'DEBIT_NOTE', 'EXPENSE'] as DocKind[]).forEach(register);
+
+/** Release a held purchase-side document only after its final approval. */
+export async function postApprovedPurchaseDoc(opts: {
+  accountId: string; orgId: string; branchId: string; userId: string;
+  kind: DocKind; docId: string;
+}) {
+  const cfg = CONFIG[opts.kind];
+  const table = (prisma as any)[cfg.model];
+  const doc = await table.findFirst({ where: {
+    id: opts.docId, accountId: opts.accountId, orgId: opts.orgId, branchId: opts.branchId,
+  } });
+  if (!doc) throw new Error('Approval document not found');
+  if (doc.status !== 'Pending Approval') throw new Error('Document is not pending approval');
+  const existing = await prisma.journalEntry.findFirst({ where: {
+    accountId: opts.accountId, orgId: opts.orgId, sourceDocType: opts.kind,
+    sourceDocId: doc.id, status: 'POSTED',
+  } });
+  const periodModule = periodLockModuleForSource(opts.kind);
+  if (periodModule) await assertPeriodUnlocked({ accountId: opts.accountId, orgId: opts.orgId,
+    userId: opts.userId, module: periodModule, date: doc.date });
+  if (!existing) {
+    await ensureLedgerSetup(opts.accountId, opts.orgId, opts.userId);
+    const fxRate = num(doc.exchangeRate) || 1;
+    const extras = spreadExtras(doc);
+    await postEntry({
+    accountId: opts.accountId, orgId: opts.orgId, branchId: opts.branchId, userId: opts.userId,
+    date: doc.date, journalCode: cfg.journalCode,
+    narration: `${cfg.resource} ${doc.number} - ${doc.partyName} (approved)`,
+    sourceDocType: opts.kind, sourceDocId: doc.id,
+    lines: cfg.lines({
+      partyId: doc.partyId, partyName: doc.partyName,
+      subtotal: toBase(num(doc.subtotal), fxRate),
+      cgstTotal: toBase(num(doc.cgstTotal), fxRate), sgstTotal: toBase(num(doc.sgstTotal), fxRate),
+      igstTotal: toBase(num(doc.igstTotal), fxRate), total: toBase(num(doc.total), fxRate),
+      tdsAmount: toBase(num(extras.tdsAmount), fxRate),
+    }),
+    });
+  }
+  await table.update({ where: { id: doc.id }, data: { status: 'Unpaid' } });
+}

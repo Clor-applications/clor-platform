@@ -159,8 +159,8 @@ describe('editing a bill with TDS', () => {
 
 /** A bill for one line at `rate`, ready to save. */
 const fillBill = async (user, rate) => {
-  await user.click(screen.getByRole('combobox', { name: 'Warehouse *' }));
-  await user.click(await screen.findByRole('option', { name: 'Main Store' }));
+  /* One warehouse: the field locks to it and fills itself (Books rule). */
+  expect(screen.getByRole('textbox', { name: 'Warehouse' }).value).toMatch(/Main Store/);
   await user.click(screen.getByPlaceholderText('Type a vendor name'));
   await user.click(await screen.findByRole('option', { name: /Steel Supply Co/ }));
   /* The item field is a type-ahead: click it, then take the suggestion. */

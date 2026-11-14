@@ -5,19 +5,30 @@ const base = () => `/orgs/${encodeURIComponent(orgId())}`;
 const opts = { skipWarehouseHeader: true };
 
 // Approvals
-export const getApprovals = (status = 'PENDING') =>
-  apiFetch(`${base()}/approvals?status=${encodeURIComponent(status)}`, opts);
+export const getApprovals = (status = 'PENDING', scope = 'mine') =>
+  apiFetch(`${base()}/approvals?status=${encodeURIComponent(status)}&scope=${encodeURIComponent(scope)}`, opts);
+export const getApprovalHistory = (requestId) =>
+  apiFetch(`${base()}/approvals/${encodeURIComponent(requestId)}/history`, opts);
+export const getApprovalSettings = () => apiFetch(`${base()}/approval-settings`, opts);
+export const saveApprovalSettings = (policy) =>
+  apiFetch(`${base()}/approval-settings`, { method: 'PUT', body: policy, ...opts });
 export const decideApproval = (requestId, approve, comment) =>
   apiFetch(`${base()}/approvals/${encodeURIComponent(requestId)}/decide`, {
     method: 'POST',
     body: { approve, comment },
     ...opts,
   });
+export const retryApprovalPosting = (requestId) =>
+  apiFetch(`${base()}/approvals/${encodeURIComponent(requestId)}/retry-post`, {
+    method: 'POST', ...opts,
+  });
 
 // Approval rules
 export const getApprovalRules = () => apiFetch(`${base()}/approval-rules`, opts);
 export const createApprovalRule = (rule) =>
   apiFetch(`${base()}/approval-rules`, { method: 'POST', body: rule, ...opts });
+export const updateApprovalRule = (id, rule) =>
+  apiFetch(`${base()}/approval-rules/${encodeURIComponent(id)}`, { method: 'PUT', body: rule, ...opts });
 export const deleteApprovalRule = (id) =>
   apiFetch(`${base()}/approval-rules/${encodeURIComponent(id)}`, { method: 'DELETE', ...opts });
 

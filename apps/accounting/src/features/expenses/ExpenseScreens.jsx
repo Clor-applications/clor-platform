@@ -6,7 +6,7 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { formatMoney, round2 } from '@ui/utils/money';
 import { downloadCsvTemplate, parseCsv, readFileText } from '@ui/utils/csv';
 import { getVendorDisplayName } from '@ui/utils/contacts';
-import { getCompanyGstProfile, getPartyGstProfile, isIntraStateSupply } from '@ui/utils/gst';
+import { getCompanyGstProfile, getPartyGstProfile, isCompanyGstEnabled, isIntraStateSupply } from '@ui/utils/gst';
 import { selectedBranchId, selectedWarehouseId } from '@platform/context';
 import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import RecordDisbursementForm from '../payments/RecordDisbursementForm';
@@ -26,6 +26,7 @@ import { useDocumentFormKeys } from '@ui/components/ui/useDocumentFormKeys';
 import { DocFormActions, DocFormFootnote } from '@ui/components/DocumentForm';
 import VendorPicker from '../../components/pickers/VendorPicker';
 import DocNumberField from '@ui/components/DocNumberField';
+import BranchField from '@ui/components/BranchField';
 import LedgerField from '../../components/pickers/LedgerField';
 import { postJournalToLedger, reverseJournalOnLedger } from '@ui/utils/journalSync';
 import DocHeaderStrip from '@ui/components/ui/DocHeaderStrip';
@@ -34,7 +35,7 @@ import { normalizeId, ChartAccountForm } from '../../appShared';
 
 const ExpenseVoucher = lazy(() => import('./ExpenseVoucher'));
 
-export const ExpensesList = ({ db, setDb, openModal, currentCompany }) => {
+export const ExpensesList = ({ db, setDb, openModal, currentCompany, branches = [] }) => {
   const expenses = db.expenses.filter((e) => e.companyId === currentCompany.id);
   // This screen had no search at all — the only way to find a voucher was to
   // scroll, or to know its date and narrow the period around it.
@@ -432,6 +433,7 @@ export const ExpensesList = ({ db, setDb, openModal, currentCompany }) => {
             db={db}
             setDb={setDb}
             currentCompany={currentCompany}
+            branches={branches}
             openModal={openModal}
             screenTitle={editingExpense ? `Edit Expense ${editingExpense.number || ''}`.trim() : 'New Expense'}
             initialData={editingExpense}
@@ -680,10 +682,13 @@ export const expenseTdsBase = (lines = [], ledgers = []) => {
   );
 };
 
-export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, initialData = null, screenTitle = '', onBack = null }) => {
+export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, initialData = null, screenTitle = '', onBack = null, branches = [] }) => {
   const expenseErrors = useFieldErrors('expense');
   const activeBranchId = normalizeId(selectedBranchId() || '');
-  const expenseDocSettings = getDocSettings(db, currentCompany, { branchId: activeBranchId || null });
+  const companyBranches = useMemo(() => (Array.isArray(branches) ? branches : []).filter((row) => !row?.companyId || Number(row.companyId) === Number(currentCompany.id)), [branches, currentCompany.id]);
+  const [pickedBranchId, setPickedBranchId] = useState(() => String(initialData?.branchId || activeBranchId || companyBranches[0]?.id || '').trim());
+  const expenseBranchId = companyBranches.some((row) => String(row.id) === pickedBranchId) ? pickedBranchId : String(companyBranches[0]?.id || pickedBranchId || '').trim();
+  const expenseDocSettings = getDocSettings(db, currentCompany, { branchId: expenseBranchId || null });
   const expenseNumbering = expenseDocSettings?.numbering?.expense;
   const isExpenseAuto = String(expenseNumbering?.mode || '').toLowerCase() === 'auto';
   const lockExpenseNumber = isExpenseAuto && !expenseNumbering?.allowManualOverride;
@@ -694,7 +699,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
     db,
     company: currentCompany,
     voucherKey: 'expense',
-    branchId: activeBranchId || null,
+    branchId: expenseBranchId || null,
     takenNumbers: takenExpenseNumbers,
   });
 
@@ -786,7 +791,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
   }, [db.chartOfAccounts, db.accountGroups, currentCompany.id]);
 
   const { state: companyState } = getCompanyGstProfile(currentCompany);
-  const gstEnabled = Boolean(currentCompany?.profile?.taxCompliances?.gstEnabled ?? currentCompany?.gstEnabled ?? currentCompany?.gstin);
+  const gstEnabled = isCompanyGstEnabled(currentCompany);
   const vendor = formData.vendorId ? vendors.find((v) => v.id === parseInt(formData.vendorId)) : null;
 
   // The due date follows the entry date plus whatever credit the vendor has on
@@ -947,8 +952,8 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
           })),
         };
         const saved = initialData?.backendDocId
-          ? await updateDocApi('expense', initialData.backendDocId, payload)
-          : await createDocApi('expense', payload);
+          ? await updateDocApi('expense', initialData.backendDocId, payload, expenseBranchId)
+          : await createDocApi('expense', payload, expenseBranchId);
         backendDocId = saved?.id || backendDocId;
         serverNumber = String(saved?.number || '');
       } catch (err) {
@@ -991,7 +996,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
       paidAmount: Number(initialData?.paidAmount || 0),
       status: wantsDraft ? 'Draft' : (initialData?.status && initialData.status !== 'Draft' ? initialData.status : 'Unpaid'),
       // Where this was entered from, so the header's scope can find it later.
-      branchId: activeBranchId || '',
+      branchId: expenseBranchId || '',
       warehouseId: String(selectedWarehouseId() || '').trim(),
       createdAt: initialData?.createdAt || new Date().toISOString(),
     };
@@ -1040,7 +1045,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
               company: currentCompany,
               party: vendor,
               source: { type: 'expense', id: newExpense.id, number: newExpense.number },
-              branchId: activeBranchId || '',
+              branchId: expenseBranchId || '',
               date: formData.date,
             }
           ),
@@ -1059,7 +1064,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
       tdsTransactions: nextTdsEvent ? [...remainingTdsEvents, nextTdsEvent] : remainingTdsEvents,
       companies: initialData?.id
         ? db.companies
-        : bumpCompanyNextNumber({ db, companyId: currentCompany.id, voucherKey: 'expense', usedNumber: expenseNumber, branchId: activeBranchId || null }),
+        : bumpCompanyNextNumber({ db, companyId: currentCompany.id, voucherKey: 'expense', usedNumber: expenseNumber, branchId: expenseBranchId || null }),
     });
     onClose?.();
     notify.success(initialData?.id ? 'Expense updated!' : 'Expense created!');
@@ -1105,6 +1110,17 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
       */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-6 gap-y-4">
         <div className="lg:col-span-7 space-y-4">
+          <BranchField
+            value={expenseBranchId}
+            options={initialData?.id ? companyBranches.filter((row) => String(row.id) === expenseBranchId) : companyBranches}
+            onChange={(branchId) => {
+              const next = String(branchId || '').trim();
+              if (!next || next === expenseBranchId) return;
+              setPickedBranchId(next);
+              const nextNumber = nextFreeVoucherNumber({ db, company: currentCompany, voucherKey: 'expense', branchId: next, takenNumbers: takenExpenseNumbers });
+              setFormData((prev) => ({ ...prev, number: nextNumber || prev.number }));
+            }}
+          />
           {/* Vendor drives GST on every line below, so it leads. */}
           <div>
             <VendorPicker
@@ -1170,10 +1186,11 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
               disabled={lockExpenseNumber}
               required
               voucherKey="expense"
+              seriesInHeader={!initialData?.id}
       title="Expense numbering"
               sampleLabel="Next voucher will be"
               manualLabel="Typed on each voucher"
-              branchId={activeBranchId || null}
+              branchId={expenseBranchId || null}
               settings={expenseNumbering}
               db={db}
               setDb={setDb}
@@ -1262,8 +1279,8 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
               <col style={{ width: '28%' }} />
               <col style={{ width: '20%' }} />
               <col style={{ width: '13%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '12%' }} />
+              {gstEnabled ? <col style={{ width: '8%' }} /> : null}
+              {gstEnabled ? <col style={{ width: '12%' }} /> : null}
               <col style={{ width: '11%' }} />
               <col style={{ width: '4%' }} />
             </colgroup>
@@ -1273,8 +1290,8 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
                 <th className="ui-th">Expense Ledger</th>
                 <th className="ui-th">Description</th>
                 <th className="ui-th">Amount</th>
-                <th className="ui-th">GST %</th>
-                <th className="ui-th ui-num">GST Amount</th>
+                {gstEnabled ? <th className="ui-th">GST %</th> : null}
+                {gstEnabled ? <th className="ui-th ui-num">GST Amount</th> : null}
                 <th className="ui-th ui-num">Total</th>
                 <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
               </tr>
@@ -1323,7 +1340,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
                         aria-label={`Amount, line ${idx + 1}`}
                       />
                     </td>
-                    <td className="px-1.5 py-2">
+                    {gstEnabled ? <td className="px-1.5 py-2">
                       {/* An unregistered vendor cannot charge GST, so the rate is
                           not a choice at all — showing NA beats a dead dropdown. */}
                       {vendorChargesGst ? (
@@ -1339,10 +1356,10 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
                       ) : (
                         <span className="ui-muted text-sm" title="GST applies only to registered vendors">NA</span>
                       )}
-                    </td>
-                    <td className="ui-col-amount px-2 py-2 text-right">
+                    </td> : null}
+                    {gstEnabled ? <td className="ui-col-amount px-2 py-2 text-right">
                       {vendorChargesGst ? formatMoney(row.gstAmount, currentCompany) : <span className="ui-muted">NA</span>}
-                    </td>
+                    </td> : null}
                     <td className="ui-col-amount px-2 py-2 text-right">{formatMoney(row.lineTotal, currentCompany)}</td>
                     <td className="px-3 py-2 text-right">
                       <button type="button" onClick={() => removeLine(idx)} className="text-[rgb(var(--neg))]" aria-label={`Remove line ${idx + 1}`}>
@@ -1382,7 +1399,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
             <span>Subtotal:</span>
             <span className="ui-money">{formatMoney(computed.subtotal, currentCompany)}</span>
           </div>
-          {vendorChargesGst ? (
+          {gstEnabled ? (vendorChargesGst ? (
             isIntra ? (
               <>
                 <div className="flex justify-between">
@@ -1405,7 +1422,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
               <span>GST:</span>
               <span>NA</span>
             </div>
-          )}
+          )) : null}
           <div className="ui-total-row border-t pt-2">
             <span>Total Expense:</span>
             <span className="ui-money">{formatMoney(computed.total, currentCompany)}</span>
@@ -1489,7 +1506,7 @@ export const ExpenseForm = ({ db, setDb, currentCompany, openModal, onClose, ini
   );
 };
 
-export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose, initialData = null }) => {
+export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose, initialData = null, branches = [] }) => {
   const formRef = useRef(null);
   const accounts = db.chartOfAccounts.filter((a) => a.companyId === currentCompany.id);
 
@@ -1507,11 +1524,18 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
   }, [accounts, initialData]);
 
   const activeBranchId = normalizeId(selectedBranchId() || '');
-  const jvDocSettings = getDocSettings(db, currentCompany, { branchId: activeBranchId || null });
+  const companyBranches = (Array.isArray(branches) ? branches : []).filter((row) => !row?.companyId || Number(row.companyId) === Number(currentCompany.id));
+  const [pickedBranchId, setPickedBranchId] = useState(() => String(initialData?.branchId || activeBranchId || companyBranches[0]?.id || '').trim());
+  /* A caller that hands over no branch list (the ledger drill-down, a modal)
+     still posts to the branch the header is on, rather than being refused. */
+  const journalBranchId = companyBranches.some((row) => String(row.id) === pickedBranchId)
+    ? pickedBranchId
+    : String(companyBranches[0]?.id || (companyBranches.length ? '' : pickedBranchId) || '').trim();
+  const jvDocSettings = getDocSettings(db, currentCompany, { branchId: journalBranchId || null });
   const jvNumbering = jvDocSettings?.numbering?.journalEntry;
   const isJvAuto = String(jvNumbering?.mode || '').toLowerCase() === 'auto';
   const lockJvNumber = isJvAuto && !jvNumbering?.allowManualOverride;
-  const generatedJvNumber = nextFreeVoucherNumber({db, company: currentCompany, voucherKey: 'journalEntry', branchId: activeBranchId || null, takenNumbers: (db.journalEntries || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()) });
+  const generatedJvNumber = nextFreeVoucherNumber({db, company: currentCompany, voucherKey: 'journalEntry', branchId: journalBranchId || null, takenNumbers: (db.journalEntries || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()) });
 
   const isEdit = Boolean(initialData && initialData.id);
 
@@ -1523,17 +1547,18 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
       isEdit && Array.isArray(initialData?.lines) && initialData.lines.length
         ? initialData.lines.map((l) => ({
             accountId: String(l?.accountId || '').trim(),
+            description: String(l?.description || ''),
             debit: Number(l?.debit || 0),
             credit: Number(l?.credit || 0),
           }))
         : [
-            { accountId: '', debit: 0, credit: 0 },
-            { accountId: '', debit: 0, credit: 0 },
+            { accountId: '', description: '', debit: 0, credit: 0 },
+            { accountId: '', description: '', debit: 0, credit: 0 },
           ],
   }));
 
   const addLine = () => {
-    setFormData((p) => ({ ...p, lines: [...p.lines, { accountId: '', debit: 0, credit: 0 }] }));
+    setFormData((p) => ({ ...p, lines: [...p.lines, { accountId: '', description: '', debit: 0, credit: 0 }] }));
   };
 
   const removeLine = (index) => {
@@ -1644,14 +1669,10 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Year-end lock: nothing back-dates into closed books.
-    {
-      const lock = (db.fyLocks || []).find((l) => l.companyId === currentCompany.id);
-      if (lock && String(formData.date || '').slice(0, 10) <= lock.upTo) {
-        notify.error(`Books are locked up to ${lock.upTo} (Year-End Close). Pick a later date or unlock the year.`);
-        return;
-      }
-    }
+    if (!journalBranchId) { notify.error('Select a branch before posting this journal.'); return; }
+
+    const closed = blockIfClosed(db, currentCompany.id, formData.date, 'This journal entry');
+    if (closed) { notify.error(closed); return; }
 
     let jvNumber = String(formData.number || '').trim();
     if (isJvAuto) {
@@ -1677,6 +1698,7 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
     const cleanLines = (formData.lines || [])
       .map((l) => ({
         accountId: String(l.accountId || '').trim(),
+        description: String(l.description || '').trim(),
         debit: round2(Number(l.debit || 0)),
         credit: round2(Number(l.credit || 0)),
       }))
@@ -1724,7 +1746,7 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
         if (!reversed) return;
         editPatch = await postJournalToLedger({
           chartRows: accounts,
-          entry: { date: formData.date, narration: formData.narration, lines: resolveLines },
+          entry: { date: formData.date, narration: formData.narration, lines: resolveLines, branchId: journalBranchId },
         });
       }
 
@@ -1732,6 +1754,7 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
         ...initialData,
         ...editPatch,
         number: jvNumber,
+        branchId: journalBranchId,
         date: formData.date,
         narration: formData.narration,
         lines: resolveLines,
@@ -1778,7 +1801,7 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
                 company: currentCompany,
                 party: tdsParty,
                 source: { type: 'journal', id: initialData.id, number: jvNumber },
-                branchId: activeBranchId || '',
+                branchId: journalBranchId,
                 date: formData.date,
               }
             ),
@@ -1816,12 +1839,13 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
      */
     const ledgerPatch = await postJournalToLedger({
       chartRows: accounts,
-      entry: { date: formData.date, narration: formData.narration, lines: resolveLines },
+      entry: { date: formData.date, narration: formData.narration, lines: resolveLines, branchId: journalBranchId },
     });
 
     const newJv = {
       id: nextId,
       companyId: currentCompany.id,
+      branchId: journalBranchId,
       number: jvNumber,
       date: formData.date,
       narration: formData.narration,
@@ -1868,7 +1892,7 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
                 company: currentCompany,
                 party: tdsParty,
                 source: { type: 'journal', id: nextId, number: jvNumber },
-                branchId: activeBranchId || '',
+                branchId: journalBranchId,
                 date: formData.date,
               }
             ),
@@ -1879,7 +1903,7 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
       ...db,
       tdsTransactions: tdsEvent ? [...tdsEventRows, tdsEvent] : db.tdsTransactions,
       journalEntries: [...(Array.isArray(db.journalEntries) ? db.journalEntries : []), newJv],
-      companies: bumpCompanyNextNumber({ db, companyId: currentCompany.id, voucherKey: 'journalEntry', usedNumber: jvNumber, branchId: activeBranchId || null }),
+      companies: bumpCompanyNextNumber({ db, companyId: currentCompany.id, voucherKey: 'journalEntry', usedNumber: jvNumber, branchId: journalBranchId }),
     });
 
     onClose?.();
@@ -1896,34 +1920,57 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
   });
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} onKeyDown={onFormKeyDown} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} onKeyDown={onFormKeyDown} className="journal-entry-form space-y-3">
       <DocFormActions
+        title={isEdit ? 'Edit Journal Entry' : 'New Journal Entry'}
+        onBack={onClose}
+        ownCard
+        sticky
         primaryLabel={isEdit ? 'Update Entry' : 'Create Entry'}
         disabled={!isBalanced}
       />
 
-      <DocHeaderStrip
-        numberLabel="Journal No."
-        number={formData.number}
-        onNumberChange={(v) => setFormData((p) => ({ ...p, number: v }))}
-        numberLocked={lockJvNumber}
-        numberHint={lockJvNumber ? 'Numbered automatically from the series' : ''}
-        numbering={{
-          voucherKey: 'journalEntry',
-          title: 'Journal numbering',
-          sampleLabel: 'Next entry will be',
-          manualLabel: 'Typed on each entry',
-          branchId: activeBranchId || null,
-          settings: jvNumbering,
-          db,
-          setDb,
-          currentCompany,
-        }}
-        date={formData.date}
-        onDateChange={(v) => setFormData((p) => ({ ...p, date: v }))}
-      />
+      <div className="ui-card journal-entry-meta">
+        <div className="journal-entry-branch"><BranchField value={journalBranchId} options={isEdit ? companyBranches.filter((row) => String(row.id) === journalBranchId) : companyBranches} onChange={(branchId) => {
+          if (isEdit) return;
+          setPickedBranchId(branchId);
+          const nextNumber = nextFreeVoucherNumber({ db, company: currentCompany, voucherKey: 'journalEntry', branchId, takenNumbers: (db.journalEntries || []).filter((row) => row.companyId === currentCompany.id).map((row) => String(row.number || '').trim()) });
+          setFormData((previous) => ({ ...previous, number: nextNumber || previous.number }));
+        }} /></div>
+        <DocHeaderStrip
+          numberLabel="Journal No."
+          number={formData.number}
+          onNumberChange={(v) => setFormData((p) => ({ ...p, number: v }))}
+          numberLocked={lockJvNumber}
+          numbering={{
+            voucherKey: 'journalEntry',
+            seriesInHeader: !isEdit,
+            title: 'Journal numbering',
+            sampleLabel: 'Next entry will be',
+            manualLabel: 'Typed on each entry',
+            branchId: journalBranchId || null,
+            settings: jvNumbering,
+            db,
+            setDb,
+            currentCompany,
+          }}
+          date={formData.date}
+          onDateChange={(v) => setFormData((p) => ({ ...p, date: v }))}
+        />
+        <div className="journal-entry-narration">
+          <label className="ui-label" htmlFor="journal-narration">Narration</label>
+          <input
+            id="journal-narration"
+            type="text"
+            value={formData.narration}
+            onChange={(e) => setFormData((p) => ({ ...p, narration: e.target.value }))}
+            className="ui-input w-full"
+            placeholder="Optional"
+          />
+        </div>
+      </div>
       {tdsLine ? (
-        <div className="ui-sunken rounded-lg border p-3">
+        <div className="ui-card p-3">
           <div className="ui-t-label">TDS adjustment</div>
           <p className="ui-caption mt-0.5">
             This entry moves {tdsLine.account.name}. Naming who it belongs to puts it in the TDS register and the
@@ -1961,38 +2008,24 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
 
 
       <div>
-        <label className="ui-label" htmlFor="app-narration">Narration</label>
-        <input id="app-narration"
-          type="text"
-          value={formData.narration}
-          onChange={(e) => setFormData((p) => ({ ...p, narration: e.target.value }))}
-          className="ui-input w-full"
-          placeholder="Optional"
-        />
-      </div>
+        <h3 className="ui-t-sec mb-2">Line Items</h3>
 
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <label className="ui-label">Lines</label>
-          <button type="button" onClick={addLine} className="ui-fg ui-hover-fg text-sm flex items-center gap-1">
-            <Plus size={16} /> Add Line
-          </button>
-        </div>
-
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-visible">
           <table className="ui-table w-full">
+            <colgroup><col style={{ width: '30%' }} /><col style={{ width: '34%' }} /><col style={{ width: '16%' }} /><col style={{ width: '16%' }} /><col style={{ width: '4%' }} /></colgroup>
             <thead className="ui-sunken">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium">Account</th>
-                <th className="px-3 py-2 text-right text-xs font-medium">Debit</th>
-                <th className="px-3 py-2 text-right text-xs font-medium">Credit</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium">Ledger</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium">Description</th>
+                <th className="px-2 py-1.5 text-right text-xs font-medium">Debit</th>
+                <th className="px-2 py-1.5 text-right text-xs font-medium">Credit</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {formData.lines.map((line, idx) => (
                 <tr key={idx} className="border-t" data-line-row={idx}>
-                  <td className="ui-col-meta px-3 py-2">
+                  <td className="ui-col-meta px-2 py-1">
                     <PopupSelect
                       label={null}
                       ariaLabel={`Ledger, line ${idx + 1}`}
@@ -2008,22 +2041,25 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
                       onCustomAction={(typed) => openCreateLedgerForLine(idx, typed)}
                     />
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-2 py-1">
+                    <input type="text" value={line.description || ''} onChange={(e) => updateLine(idx, 'description', e.target.value)} className="ui-input w-full min-w-0" placeholder="Line description" maxLength={300} aria-label={`Description, line ${idx + 1}`} />
+                  </td>
+                  <td className="px-2 py-1 text-right">
                     <input
                       type="number"
                       value={line.debit}
                       onChange={(e) => updateLine(idx, 'debit', e.target.value)}
-                      className="ui-input w-32 px-2 py-1 text-right"
+                      className="ui-input w-full min-w-0 px-2 py-1 text-right"
                       min="0"
                       step="0.01"
                     />
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-2 py-1 text-right">
                     <input
                       type="number"
                       value={line.credit}
                       onChange={(e) => updateLine(idx, 'credit', e.target.value)}
-                      className="ui-input w-32 px-2 py-1 text-right"
+                      className="ui-input w-full min-w-0 px-2 py-1 text-right"
                       min="0"
                       step="0.01"
                     />
@@ -2044,6 +2080,10 @@ export const JournalEntryForm = ({ db, setDb, currentCompany, openModal, onClose
             </tbody>
           </table>
         </div>
+
+        <button type="button" onClick={addLine} className="ui-btn ui-btn-secondary mt-2 flex items-center gap-1">
+          <Plus size={16} /> Add Line
+        </button>
 
         <div className="mt-3 flex justify-end">
           <div className="ui-card p-3 w-80" aria-live="polite">

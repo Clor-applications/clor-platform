@@ -106,6 +106,8 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     defaultEnabled: true,
     category: 'Operations',
   },
+  { key: 'customerCodes', label: 'Customer codes', description: 'Assign codes to customers.', defaultEnabled: false, category: 'Operations' },
+  { key: 'vendorCodes', label: 'Vendor codes', description: 'Assign codes to vendors.', defaultEnabled: false, category: 'Operations' },
   {
     key: 'salesmen',
     label: 'Salesman tracking',
@@ -210,7 +212,7 @@ export const FEATURE_CATALOG: FeatureDef[] = [
     key: 'periodLock',
     label: 'Period lock',
     description: 'Close a period so nothing can post into it after the fact.',
-    defaultEnabled: true,
+    defaultEnabled: false,
     category: 'Accounting',
   },
   {
