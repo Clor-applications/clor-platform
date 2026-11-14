@@ -13,8 +13,9 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { structure } from '../workforce/api';
 import { listBranches } from '../organization/api';
-import { createOpening, deleteOpening, getOpening, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
+import { createOpening, deleteOpening, getOpening, listCandidates, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
 import { ReferralBlock } from './ReferralSettings';
+import { BarList, ChartPanel, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, day, staffOptions, tabItems, useParamState, usePerm, useStaff, usedValues } from './shared';
 
 /**
@@ -37,6 +38,21 @@ export default function Openings({ params = {}, openScreen }) {
   const [closing, setClosing] = useState(null);
   const req = useRequest(() => listOpenings({ status, q }), [status, q]);
   const rows = req.data || [];
+  /* The figures and the pipeline (R&D PEOPLE-18): every opening, and the candidates' stage counts, whatever the tab. */
+  const every = useRequest(() => listOpenings({ status: 'all' }).catch(() => null), []);
+  const pipeline = useRequest(() => listCandidates({ stage: 'open', limit: 1 }).catch(() => null), []);
+  const all = every.data || [];
+  const byStatus = (st) => all.filter((o) => o.status === st).length;
+  const places = all.filter((o) => ['OPEN', 'ON_HOLD'].includes(o.status)).reduce((a, o) => a + (Number(o.places) || 0), 0);
+  const counts = pipeline.data?.counts || {};
+  const tiles = every.data ? [
+    { key: 'open', label: 'Open roles', value: byStatus('OPEN'), accent: 1, Icon: TILE_ICON.job, sub: byStatus('ON_HOLD') ? `${byStatus('ON_HOLD')} on hold` : `${places} place${places === 1 ? '' : 's'} to fill` },
+    { key: 'running', label: 'Candidates in the running', value: counts.open ?? '—', accent: 2, Icon: TILE_ICON.people, sub: counts.INTERVIEW ? `${counts.INTERVIEW} at interview` : null },
+    { key: 'hired', label: 'Hired', value: counts.HIRED ?? '—', accent: 3, Icon: TILE_ICON.done, sub: counts.OFFER ? `${counts.OFFER} offer${counts.OFFER === 1 ? '' : 's'} out` : null },
+    { key: 'asked', label: 'Asked for', value: byStatus('REQUESTED'), accent: 'warn', tone: byStatus('REQUESTED') ? 'warn' : null, Icon: TILE_ICON.waiting, sub: 'Openings managers asked for' },
+  ] : null;
+  const stages = [['APPLIED', 'Applied'], ['SCREENING', 'Screening'], ['INTERVIEW', 'Interview'], ['OFFER', 'Offer'], ['HIRED', 'Hired']];
+  const flow = pipeline.data ? stages.map(([k, label]) => ({ key: k, label, value: Number(counts[k]) || 0 })) : null;
 
   const move = async (row, to) => {
     if (to === 'CLOSED') { setClosing(row); return; }
@@ -59,9 +75,9 @@ export default function Openings({ params = {}, openScreen }) {
 
   const columns = [
     { key: 'title', label: 'Job', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.departmentName, r.designationName, r.branchName || r.location].filter(Boolean).join(' · ')}</span></span> },
-    { key: 'active', label: 'Candidates', render: (r) => (r.active ? <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('candidates', { opening: r.id }); }}>{r.active}</button> : <span className="ui-muted tabular-nums">0</span>) },
+    { key: 'active', label: 'Candidates', align: 'right', render: (r) => (r.active ? <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('candidates', { opening: r.id }); }}>{r.active}</button> : <span className="ui-muted tabular-nums">0</span>) },
     /* Hired of places: a declined offer frees a place, a hire takes one (People plan 8 Nov 2026, step 4). */
-    { key: 'hired', label: 'Filled', render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.hired ? '' : 'ui-muted'}`}>{r.hired} of {r.places}</span> },
+    { key: 'hired', label: 'Filled', align: 'right', render: (r) => <span className={`tabular-nums whitespace-nowrap ${r.hired ? '' : 'ui-muted'}`}>{r.hired} of {r.places}</span> },
     { key: 'manager', label: 'Hiring manager', render: (r) => r.hiringManagerName || <span className="ui-muted">—</span> },
     { key: 'target', label: 'Fill by', render: (r) => <span className="tabular-nums whitespace-nowrap">{day(r.targetDate) || '—'}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className="inline-flex flex-wrap items-center gap-1.5"><Pill map={OPENING_STATUS} value={r.status} />{r.applyOpen ? <span className="ui-pill ui-pill-info">Apply link on</span> : null}{r.referralOpen ? <span className="ui-pill ui-pill-info">Referrals on</span> : null}</span> },
@@ -83,11 +99,17 @@ export default function Openings({ params = {}, openScreen }) {
         description="What the company is hiring for; candidates and interviews hang off each opening."
         primary={canCreate ? { label: canEdit ? 'New opening' : 'Ask for an opening', icon: Plus, onClick: () => setEditing(blank) } : null}
         toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search job, department or place" label="Search openings" className="w-full sm:w-80" />}
+        strip={tiles ? <StatTiles label="Hiring figures" items={tiles} /> : null}
         tabs={tabItems(TABS)}
         tab={status}
         onTab={setStatus}
         tabsLabel="Openings"
       />
+      {flow && flow.some((x) => x.value) ? (
+        <ChartPanel title="Pipeline, every opening">
+          <BarList label="Candidates at each stage" one rows={flow} />
+        </ChartPanel>
+      ) : null}
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
           label="Job openings"

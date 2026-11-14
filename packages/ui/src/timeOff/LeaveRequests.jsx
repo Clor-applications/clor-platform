@@ -3,7 +3,9 @@ import LeaveDocumentField from './LeaveDocumentField';
 import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from './HalfDayChoice';
 import { HoursChoice, PreviewNotes } from './LeaveShape';
 import { hoursBody, hoursReady, hoursText, isHourly } from './partOfDay';
-import { Check, Download, Plus, X } from '@ui/components/ui/lineIcons';
+import { AlertTriangle, Check, Download, Plus, X } from '@ui/components/ui/lineIcons';
+import { LeavePill, Notice, StatTiles, TILE_ICON } from './Figures';
+import { clashDays } from './clashes';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -23,7 +25,7 @@ import { can, homeCrumbs, istDay } from './shared';
 import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
-  PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, cancelLeave, createLeaveRequest, daysText,
+  PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, bulkReviewLeave, cancelLeave, getTimeOverview, createLeaveRequest, daysText,
   getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave,
   shortenLeave, swatchOf, updateLeaveRequest, listPeople,
 } from './api';
@@ -79,6 +81,13 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   const rows = list.data?.requests || [];
   const counts = list.data?.counts || {};
   const [adding, setAdding] = useState(false);
+  /* Today's figures for the tiles and the clash notice: the same overview Who's away reads; a refusal leaves them out. */
+  const overview = useRequest(() => getTimeOverview().catch(() => null), []);
+  const [chosen, setChosen] = useState(() => new Set());
+  const [deciding, setDeciding] = useState(false);
+  const mayApprove = allowed('ATTENDANCE::Leave Requests::APPROVE');
+  /* While a request is open its drawer decides; the list's own buttons step aside so there is one place to decide. */
+  const waitingTab = tab === 'PENDING' && mayApprove && !openId;
   const filtered = Boolean(p.q || p.type);
   /* No leave types yet: nothing can be entered or asked for, so the screen's one action is to set them up (People plan 8 Nov 2026, step 3). */
   const noTypes = Array.isArray(types.data) && types.data.length === 0;
@@ -94,15 +103,66 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         </span>
       </span>
     ) },
-    { key: 'type', label: 'Leave', render: (r) => <span className="inline-flex items-center gap-2 whitespace-nowrap"><TypeDot row={r} />{r.leaveTypeName}</span> },
+    { key: 'type', label: 'Leave', render: (r) => (r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL ? <span className="inline-flex items-center gap-2 whitespace-nowrap"><TypeDot row={r} />{r.leaveTypeName}</span> : <LeavePill type={r} />) },
     { key: 'dates', label: 'Dates', render: (r) => <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}{hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{half(r.halfDay)}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : r.groupId ? <span className="ui-caption block">Part of a longer leave</span> : null}</span> },
     { key: 'days', label: 'Days', align: 'right', render: (r) => <span className="tabular-nums">{r.days}</span> },
     { key: 'asked', label: tab === 'PENDING' ? 'Waiting since' : 'Asked', render: (r) => <span className={`whitespace-nowrap ${tab === 'PENDING' && waitedDays(r.createdAt) > 2 ? 'ui-text-warn' : ''}`}>{tab === 'PENDING' ? waitedText(r.createdAt) : formatDate(istDay(r.createdAt))}</span> },
+    { key: 'reason', label: 'Reason', render: (r) => (r.reasonHidden ? <span className="ui-muted">Private</span> : <span className="block max-w-xs truncate" title={r.reason || undefined}>{r.reason || <span className="ui-muted">—</span>}</span>) },
     { key: 'status', label: 'Status', render: (r) => <StatusPill row={r} /> },
+    /* Waiting rows decide in place (R&D PEOPLE-11): Reject is a text button and opens the request for the reason it needs; Approve is secondary. */
+    ...(waitingTab ? [{ key: 'decide', label: '', align: 'right', always: true, render: (r) => (
+      <span className="pt-row-actions">
+        <button type="button" className="pt-text-btn" onClick={() => setOpenId(r.id)}>Reject</button>
+        <button type="button" className="ui-btn ui-btn-secondary" disabled={deciding} onClick={() => approveOne(r)}>Approve</button>
+      </span>
+    ) }] : []),
   ];
   /* People: a tab that already names the one status every row shares drops the column that would only repeat it; a manager's step still shows it. */
   const oneStatus = statusFromTab && tab !== 'all' && rows.length > 0 && rows.every((r) => r.status === rows[0].status && !(r.status === 'PENDING' && (r.managerApprovedAt || r.ruleStep > 1)));
   const shownColumns = oneStatus ? columns.filter((c) => c.key !== 'status') : columns;
+
+  const decided = () => { setChosen(new Set()); list.reload(); overview.reload(); };
+  const approveOne = async (r) => {
+    setDeciding(true);
+    try {
+      const out = await approveLeave(r.id, '');
+      notify.success(out?.stage === 'NEXT' ? 'Your step is approved. It moves on to the next step.' : `Approved: ${r.employeeName}.`);
+      decided();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not approved.'));
+    } finally {
+      setDeciding(false);
+    }
+  };
+  const approveChosen = async () => {
+    if (!chosen.size) return;
+    setDeciding(true);
+    try {
+      const out = await bulkReviewLeave([...chosen], true);
+      const failed = Number(out?.failed || 0);
+      const done = Number(out?.done ?? chosen.size - failed);
+      if (failed) notify.error(`${done} approved; ${failed} could not be: ${out?.results?.[0]?.error || 'open them to see why.'}`);
+      else notify.success(done === 1 ? 'Approved.' : `${done} approved.`);
+      decided();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not approved.'));
+    } finally {
+      setDeciding(false);
+    }
+  };
+
+  /* The tiles: what waits (the oldest first, so the first row says how long), what is approved in the period, who is away today. */
+  const ov = overview.data;
+  const oldest = tab === 'PENDING' && rows.length && !p.q && !p.type ? waitedDays(rows[0].createdAt) : null;
+  const awayToday = ov ? (ov.awayToday?.length || 0) + (ov.workingAwayToday?.length || 0) : null;
+  const tiles = [
+    { key: 'waiting', label: 'Waiting for a decision', value: counts.PENDING ?? '—', accent: 'warn', tone: Number(counts.PENDING) > 0 ? 'warn' : null, Icon: TILE_ICON.waiting, sub: oldest == null ? 'In this leave period' : oldest === 0 ? 'Oldest asked today' : `Oldest ${oldest} day${oldest === 1 ? '' : 's'}`, busy: list.loading && !list.data },
+    { key: 'approved', label: 'Approved', value: counts.APPROVED ?? '—', accent: 2, Icon: TILE_ICON.done, sub: 'In this leave period', busy: list.loading && !list.data },
+    { key: 'rejected', label: 'Rejected', value: counts.REJECTED ?? '—', accent: 3, sub: 'In this leave period', busy: list.loading && !list.data },
+    awayToday == null ? null : { key: 'away', label: 'Away today', value: awayToday, accent: 4, Icon: TILE_ICON.away, sub: ov?.upcoming?.length ? `${new Set(ov.upcoming.map((x) => x.employeeId)).size} more in the next 7 days` : 'Nobody else in the next 7 days', onClick: openScreen ? () => openScreen('leaveCalendar') : null },
+  ];
+  /* The first thin day ahead, today and the next fourteen (M4): two or more of one department away at once. */
+  const clash = ov ? clashDays([...(ov.awayToday || []), ...(ov.upcoming || [])], ov.today || istDay(new Date().toISOString()), addDays(ov.today || istDay(new Date().toISOString()), 14), { oneGroup: Boolean(ov.team) })[0] : null;
 
   const exportAll = async () => {
     try {
@@ -123,9 +183,14 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         breadcrumb={homeCrumbs()}
         title="Leave requests"
         description="Leave asked for in the employee app or entered here: waiting for a decision, or decided, in the leave period."
-        secondary={allowed('ATTENDANCE::Leave Requests::EXPORT') || perms?.isAdmin ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportAll}><Download size={16} aria-hidden="true" /> Export</button> : null}
+        secondary={<>
+          {allowed('ATTENDANCE::Leave Requests::EXPORT') || perms?.isAdmin ? <button type="button" className="ui-btn ui-btn-secondary" onClick={exportAll}><Download size={16} aria-hidden="true" /> Export</button> : null}
+          {waitingTab && !setUpTypes && allowed('ATTENDANCE::Leave Requests::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAdding(true)} disabled={noTypes}><Plus size={16} aria-hidden="true" /> Enter leave</button> : null}
+        </>}
         primary={setUpTypes ? { label: 'Set up leave types', onClick: setUpTypes }
+          : waitingTab ? { label: chosen.size ? `Approve ${chosen.size} chosen` : 'Approve chosen', icon: Check, onClick: approveChosen, disabled: !chosen.size || deciding, title: chosen.size ? undefined : 'Tick the requests to approve' }
           : allowed('ATTENDANCE::Leave Requests::CREATE') ? { label: 'Enter leave', icon: Plus, onClick: () => setAdding(true), disabled: noTypes, title: noTypes ? 'No leave types yet' : undefined } : null}
+        strip={<StatTiles label="Leave figures" items={tiles} />}
         toolbar={<>
           <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search leave requests" className="w-full sm:w-72" />
           <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder="Every type" /></div>
@@ -133,7 +198,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         </>}
         tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: counts[k], tone: k === 'PENDING' ? 'warn' : undefined }))}
         tab={tab}
-        onTab={(k) => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}
+        onTab={(k) => { setChosen(new Set()); set({ tab: k === 'PENDING' ? null : k, page: null }, true); }}
       />
 
       <DataTable
@@ -147,6 +212,9 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         onPage={(n) => set({ page: n > 1 ? n : null }, true)}
         onPageSize={(n) => set({ size: n === 25 ? null : n, page: null })}
         onRowClick={(r) => setOpenId(r.id)}
+        selectable={waitingTab}
+        selected={chosen}
+        onSelect={setChosen}
         loading={list.loading || (!year && settings.loading)}
         refreshing={list.refreshing}
         card={(r) => (
@@ -175,6 +243,12 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
           <EmptyState title={`No ${tab === 'all' ? '' : `${STATUS_LABEL[tab].toLowerCase()} `}requests in this period`} />
         )}
       />
+
+      {clash ? (
+        <Notice icon={AlertTriangle}>
+          <strong>{clash.names.length === 2 ? clash.names.join(' and ') : `${clash.names[0]} and ${clash.count - 1} others`}{clash.group ? ` in ${clash.group}` : ''}</strong> are away at the same time, {range(clash.date, clash.to)}{clash.waiting ? ` (${clash.waiting} still waiting)` : ''}.
+        </Notice>
+      ) : null}
 
       {openId ? <RequestDrawer id={openId} allowed={allowed} onClose={() => { setOpenId(null); if (p.id) set({ id: null }); }} onDone={() => { setOpenId(null); if (p.id) set({ id: null }); list.reload(); }} /> : null}
       {adding ? <EnterLeave openScreen={openScreen} onClose={() => setAdding(false)} onDone={() => { setAdding(false); set({ tab: null, page: null }); list.reload(); }} /> : null}

@@ -65,6 +65,10 @@ it('draws the month grid with nobody away, and says so in the grid rather than i
   render(<LeaveCalendar />);
   expect(await screen.findByRole('status')).toBeTruthy();
   expect(screen.getByRole('status').textContent).toContain('Nobody is away or working elsewhere in November 2026');
+  /* The month view (R&D PEOPLE-12) draws its weeks from Monday; By person keeps one column a day. */
+  expect(within(screen.getByRole('table', { name: 'Leave in November 2026' })).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+  fireEvent.click(screen.getByRole('button', { name: 'By person' }));
+  expect(screen.getByRole('status').textContent).toContain('Nobody is away or working elsewhere in November 2026');
   const grid = screen.getByRole('group', { name: 'Days of November 2026' });
   expect(within(grid).getAllByRole('columnheader')).toHaveLength(31);
   expect(within(grid).getByRole('rowheader', { name: 'Away' })).toBeTruthy();
