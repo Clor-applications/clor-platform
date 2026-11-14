@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserMinus } from '@ui/components/ui/lineIcons';
+import { ListChecks, UserMinus } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import PickPersonDrawer from '@ui/personnel/PickPersonDrawer';
@@ -10,10 +10,13 @@ import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { READER_PILL, leavingExtras, pageLeavers } from './api';
-import { PersonCell, Progress, can, crumbs } from './shared';
+import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+
+import { READER_PILL, leavingExtras, lifecycleOverview, pageLeavers } from './api';
+import { PersonCell, can, crumbs } from './shared';
 import { STAGE_PILL } from './Joining';
 import PlanDrawer from './Plan';
+import { LateNotice, StepsMeter } from './StepsMeter';
 
 /**
  * Joining & Leaving → Leaving: everyone on notice or recently gone. For each,
@@ -38,6 +41,17 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
   const [open, setOpen] = useState(null);
   const [picking, setPicking] = useState(false);
   const counts = list.data?.counts || {};
+  /* Last days this week, final wages and the readers, across every leaver (the Joining & leaving overview); a refusal leaves those tiles out. */
+  const overview = useRequest(() => lifecycleOverview().catch(() => null), []);
+  const ov = overview.data?.counts || null;
+  const tab = (k) => () => set({ view: k === 'notice' ? null : k, page: null }, true);
+  const busy = !list.data && list.loading;
+  const tiles = list.data?.hidden ? [] : [
+    { key: 'notice', label: 'On notice', value: Number(counts.notice || 0), sub: ov ? `${Number(ov.lastDaysThisWeek || 0)} last day this week` : 'Serving their notice', accent: 2, Icon: TILE_ICON.team, onClick: tab('notice'), busy },
+    { key: 'clearing', label: 'Left, steps open', value: Number(counts.clearing || 0), sub: 'Plans still running', accent: 3, Icon: TILE_ICON.done, onClick: tab('clearing'), busy },
+    ov ? { key: 'wages', label: 'Final wages late', value: Number(ov.wagesLate || 0), tone: ov.wagesLate ? 'neg' : null, accent: ov.wagesLate ? 'neg' : 'neutral', sub: `${Number(ov.wagesDue || 0)} due within two days`, Icon: TILE_ICON.money } : null,
+    ov ? { key: 'readers', label: 'Readers not confirmed', value: Number(ov.readersNotConfirmed || 0), tone: ov.readersNotConfirmed ? 'warn' : null, accent: ov.readersNotConfirmed ? 'warn' : 'neutral', sub: ov.readersFailed ? `${ov.readersFailed} failed: remove by hand` : 'Attendance readers', Icon: TILE_ICON.shield } : null,
+  ];
   /* Opened from a notice (final pay due, a line to sign, an exit interview answered): the plan of that person. */
   useEffect(() => {
     if (!p.open) return undefined;
@@ -63,7 +77,7 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
   const columns = [
     { key: 'person', label: 'Person', always: true, render: (r) => <PersonCell person={r} line={[r.code, r.leavingType ? TYPE_WORD[r.leavingType] || r.leavingType : r.designation].filter(Boolean).join(' · ')} /> },
     { key: 'last', label: 'Last day', render: (r) => <span className="tabular-nums whitespace-nowrap">{formatDate(r.dateOfLeaving)}<span className="block"><span className={`ui-pill ${STAGE_PILL[r.stage] || 'ui-pill-neutral'}`}>{r.stageLabel}</span></span></span> },
-    { key: 'steps', label: 'Steps', render: (r) => <Progress done={r.done} total={r.total} late={r.late} /> },
+    { key: 'steps', label: 'Steps', render: (r) => <StepsMeter done={r.done} total={r.total} late={r.late} /> },
     { key: 'readers', label: 'Readers', render: (r) => (r.readers ? <span className={`ui-pill ${READER_PILL[r.readers.state] || 'ui-pill-neutral'}`}>{r.readers.word}</span> : <span className="ui-caption">—</span>) },
     { key: 'wages', label: 'Final wages', render: (r) => (r.wages
       ? <span className={`whitespace-nowrap ${r.wages.late ? 'ui-text-neg font-medium' : ''}`}>{r.wages.paid ? 'Paid' : r.wages.late ? `Late since ${formatDate(r.wages.dueDate)}` : `Due ${formatDate(r.wages.dueDate)}`}</span>
@@ -77,12 +91,15 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
         breadcrumb={crumbs()}
         title="Leaving"
         description="Everyone on notice or recently gone: their last day, the steps, the readers, final wages and sign-in."
+        secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Steps</button> : null}
         primary={can(perms, 'PEOPLE::Employees::EDIT') ? { label: 'Record a leaving', icon: UserMinus, onClick: () => setPicking(true) } : null}
+        strip={<StatTiles label="Leaving figures" items={tiles} />}
         toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search leavers" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
         tab={view}
         onTab={(k) => set({ view: k === 'notice' ? null : k, page: null }, true)}
       />
+      <LateNotice rows={list.data?.rows} />
       <DataTable
         label="Leaving"
         columns={columns}

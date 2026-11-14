@@ -131,7 +131,10 @@ describe('tints are named by meaning, not handed out by position', () => {
     expect(people).not.toMatch(/\.ui-profile \.ui-avatar-initials \{ background: rgb\(var\(--marigold\)\)/);
   });
   it('every figure strip names its tints, Data health\'s gaps clay', () => {
-    expect(read('packages/ui/src/personnel/DataHealth.jsx').match(/className="ui-metric" data-tint="peach"/g)).toHaveLength(2);
+    /* Data check (PEOPLE-26) moved to two R&D tiles: the score with its bar, and what blocks payday in the problem colour. */
+    const health = read('packages/ui/src/personnel/DataHealth.jsx');
+    expect(health.match(/className="dh-tile"/g)).toHaveLength(2);
+    expect(health).toMatch(/className="dh-tile-value" data-tone=\{data\.blocking \? 'neg'/);
     for (const f of ['apps/people/src/workforce/ImportEmployees.jsx', 'apps/people/src/workforce/Directory.jsx', 'packages/ui/src/personnel/DataHealth.jsx']) {
       expect(read(f), f).not.toMatch(/<div className="ui-metric"(?! data-tint)[ >]/);
     }
