@@ -47,7 +47,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
               return (
                 <li key={key}>
                   <button type="button" onClick={() => openScreen?.(key)} className="ui-settings-row">
-                    {Icon ? <Icon size={16} aria-hidden="true" className="ui-settings-row-icon" /> : <span className="ui-settings-row-icon" aria-hidden="true" />}
+                    <span className="ui-settings-row-icon" aria-hidden="true">{Icon ? <Icon size={20} aria-hidden="true" /> : null}</span>
                     <span className="ui-settings-row-label">{item.label}</span>
                     <span className="ui-settings-row-note">{note}</span>
                     <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
@@ -58,7 +58,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
             {g.apps.map(([id, label, note]) => (
               <li key={id}>
                 <a href={`?app=${id}`} className="ui-settings-row">
-                  <ArrowUpRight size={16} aria-hidden="true" className="ui-settings-row-icon" />
+                  <span className="ui-settings-row-icon" aria-hidden="true"><ArrowUpRight size={20} aria-hidden="true" /></span>
                   <span className="ui-settings-row-label">{label}</span>
                   <span className="ui-settings-row-note">{note}</span>
                   <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />

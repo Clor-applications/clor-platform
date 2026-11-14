@@ -68,7 +68,7 @@ describe('money is not emphasis', () => {
   /* Tabular figures and right alignment are what mark money instead. */
   it('keeps the signals that replaced the weight', () => {
     const money = block('.ui-col-amount.ui-col-amount');
-    expect(money).toMatch(/Plus Jakarta Sans/);
+    expect(money).toMatch(/Inter/);
     expect(money).toMatch(/text-align:\s*right/);
     expect(money).toMatch(/tabular-nums/);
   });
@@ -115,7 +115,7 @@ describe('detail panels state rather than emphasise', () => {
   });
 
   it('a money value in a panel keeps the money face', () => {
-    expect(block('.ui-detail-value.ui-detail-mono')).toMatch(/Plus Jakarta Sans/);
+    expect(block('.ui-detail-value.ui-detail-mono')).toMatch(/Inter/);
   });
 });
 
@@ -200,7 +200,7 @@ describe('every amount wears the money face', () => {
   it('the inline money classes agree on weight 400', () => {
     const shared = block('.ui-money,\n  .ui-amount');
     expect(shared).toMatch(/font-weight:\s*400/);
-    expect(shared).toMatch(/Plus Jakarta Sans/);
+    expect(shared).toMatch(/Inter/);
   });
 
   /* A headline figure is emphasised by its size, not by its weight as well. */

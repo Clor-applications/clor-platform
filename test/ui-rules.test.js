@@ -7,20 +7,22 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The owner's UI rules (8 Nov 2026), People and Attendance only: rows 48px, controls 40px and 44px on a
- * phone, icons 18px in the rail and menu and 16px in buttons and tables, a chart three colours at most.
+ * The owner's UI rules (8 Nov 2026), now Attendance only: rows 48px, controls 40px and 44px on a phone, icons
+ * 18px in the rail and menu and 16px in buttons and tables. People moved to the R&D geometry on 14 Nov 2026
+ * (rnd.css: 36px controls, 56px rows) and its Home chart to the categorical series, eight colours at most.
  * The page stays white. Accounting keeps its own measured 36px baseline.
  */
 const people = readFileSync('packages/ui/src/people.css', 'utf8');
 const index = readFileSync('packages/ui/src/index.css', 'utf8');
 const home = readFileSync('apps/people/src/screens/PeopleOverview.jsx', 'utf8');
 const block = people.slice(people.indexOf('UI rules (owner, 8 Nov 2026)'), people.indexOf(' * The employee app (shared with Attendance'));
-const SCOPE = ":is([data-palette='sky'], [data-palette='blaze'])";
+const rnd = readFileSync('packages/ui/src/rnd.css', 'utf8');
+const SCOPE = "[data-palette='blaze']";
 
 describe('UI rules, 8 Nov 2026', () => {
-  it('is written once, for People and Attendance only', () => {
+  it('is written once, for Attendance only', () => {
     expect(block.length).toBeGreaterThan(100);
-    expect(block).not.toMatch(/indigo/);
+    expect(block).not.toMatch(/indigo|data-palette='sky'/);
     for (const line of block.split('\n').filter((l) => /\{ [a-z-]+:/.test(l))) {
       expect(line.includes(SCOPE), line).toBe(true);
     }
@@ -51,8 +53,13 @@ describe('UI rules, 8 Nov 2026', () => {
     expect(index).toMatch(/\.ui-btn \{[^}]*min-height: 2\.25rem;/);
   });
 
-  it('gives a chart on People Home three colours, the rest one grey "Other"', () => {
-    expect(home).toMatch(/const CHART_COLOURS = 3;/);
+  it('leaves People on the R&D geometry: 36px controls and 56px rows from rnd.css', () => {
+    expect(rnd).toMatch(/\.ui-btn \{\s*min-height: 2\.25rem;/);
+    expect(rnd).toMatch(/\.ui-table tbody td \{[^}]*height: 3\.5rem;/);
+  });
+
+  it('gives a chart on People Home the categorical series, eight colours at most, the rest one grey "Other"', () => {
+    expect(home).toMatch(/const CHART_COLOURS = 8;/);
     expect(home).not.toMatch(/DEPT_COLOURS/);
     expect(home).toMatch(/'Other'/);
     expect(home).not.toMatch(/\?\? 8\}/);

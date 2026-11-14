@@ -285,7 +285,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     <>
       {canCancel ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={cancel}>Withdraw</button> : null}
       {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
-      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
+      <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
       {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button> : null}
     </>
   ) : OPEN_STATUSES.includes(r.status) && canCancel ? (

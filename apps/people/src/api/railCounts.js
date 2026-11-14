@@ -7,5 +7,6 @@ import { getWaiting } from './approvals.js';
  */
 export async function peopleRailCounts() {
   const w = await getWaiting().catch(() => null);
-  return { approvals: Number(w?.waiting) || 0 };
+  /* On Home's rail button: the Inbox sits under Home since the R&D hand-off (14 Nov 2026). */
+  return { overview: Number(w?.waiting) || 0 };
 }

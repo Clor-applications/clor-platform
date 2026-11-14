@@ -171,7 +171,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
           {statesHere.length > 1 ? (
             <label>
               <span className="sr-only">State</span>
-              <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+              <select className="ui-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
                 <option value="">State: All</option>
                 {statesHere.map((st) => (
                   <option key={st} value={st}>{st}</option>

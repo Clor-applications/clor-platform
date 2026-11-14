@@ -6,7 +6,8 @@ import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { createTag, deleteTag, listTags } from '@ui/personnel/api';
 
-const SWATCHES = ['#E54F38', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#64748B'];
+/* The categorical series (rnd.css --cat-1..8), stored as hex because a tag keeps its colour. */
+const SWATCHES = ['#2A78D6', '#EB6834', '#1BAF7A', '#EDA100', '#E87BA4', '#008300', '#6250D6', '#E34948'];
 
 /** Labels for grouping people — Remote, Night shift, Key person. */
 export default function Tags() {
