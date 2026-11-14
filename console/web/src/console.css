@@ -126,3 +126,5 @@ div.con-row { border-top: 1px solid rgb(var(--border)); }
 .con-row--status .con-pill { justify-self: start; }
 .con-or { text-align: center; color: rgb(var(--fg-subtle)); font-size: 13px; margin: 0; }
 .con-key--big { font-size: 18px; padding: 8px 12px; display: inline-block; letter-spacing: 0.04em; user-select: all; }
+.con-code { font-size: 20px; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; text-align: center; }
+.ui-auth .con-notice { margin: 0; }

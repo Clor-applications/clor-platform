@@ -121,7 +121,8 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   const pwOn = passwordOn(config);
   const cfOn = cloudflareOn(config) || config.devFakes;
   const ownerEmail = (email: string | null) => Boolean(pwOn && email && config.ownerEmails.includes(email.toLowerCase()));
-  const isBootstrap = (m: Member) => Boolean(m.githubUserId && config.ownerGithubIds.includes(m.githubUserId)) || ownerEmail(m.email);
+  const ownerClor = (email: string | null) => Boolean(clorOn && email && config.ownerClorEmails.includes(email.toLowerCase()));
+  const isBootstrap = (m: Member) => Boolean(m.githubUserId && config.ownerGithubIds.includes(m.githubUserId)) || ownerEmail(m.email) || (Boolean(m.clorUserId) && ownerClor(m.clorEmail));
   /** A bootstrap owner is an owner whatever their row says, and cannot be switched off from the page. */
   const effective = (m: Member): Member => (isBootstrap(m) ? { ...m, role: 'OWNER', active: true } : m);
   const SESSION_MS = 8 * 3600_000;
@@ -146,6 +147,20 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
     if (!m) {
       const waiting = await store.findWaitingByClorEmail(g.email);
       if (waiting) m = await store.updateMember(waiting.id, { clorUserId: g.clorUserId, clorEmail: g.email });
+    }
+    /*
+     * A first owner by CLOR login, named in the service's settings. If the same
+     * person already has a member here by password under that address, the CLOR
+     * login is added to that member rather than making a second one.
+     */
+    /* Once: after the address is bound to a CLOR user id, no other CLOR account may claim it. */
+    const claimed = !m && ownerClor(g.email) && (await store.listMembers()).some((x) => x.clorUserId && (x.clorEmail || '').toLowerCase() === g.email);
+    if (!m && ownerClor(g.email) && !claimed) {
+      const same = await store.findByEmail(g.email);
+      m = same && !same.clorUserId
+        ? await store.updateMember(same.id, { clorUserId: g.clorUserId, clorEmail: g.email })
+        : await store.createMember({ name: g.name, role: 'OWNER', githubUserId: null, githubLogin: null, clorUserId: g.clorUserId, clorEmail: g.email, addedBy: null });
+      await store.addAudit({ memberId: m.id, actor: m.name, action: 'CLOR_LOGIN_LINKED', target: g.email, reason: null, detail: { clorUserId: g.clorUserId, firstOwner: true }, ip: null });
     }
     return m && effective(m).active ? m : null;
   }

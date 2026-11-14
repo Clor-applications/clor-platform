@@ -133,7 +133,7 @@ describe('signing in', () => {
     api.me.mockRejectedValue(new ApiError('Sign in.', 401, 'SIGN_IN'));
     api.signInOptions.mockResolvedValue({ github: true, clor, password: false });
     render(<App />);
-    await screen.findByText('CLOR Console');
+    await screen.findByRole('heading', { name: 'Sign in to the Console' });
     await waitFor(() => expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(links));
   });
 
@@ -144,7 +144,7 @@ describe('signing in', () => {
     api.stepUp.mockResolvedValue({});
     api.overview.mockResolvedValue({ rows: [] });
     render(<App />);
-    expect(await screen.findByText('Enter your authenticator code')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Enter your code' })).toBeTruthy();
     expect(screen.queryByRole('navigation')).toBeNull();
     expect(api.overview).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText('Six-digit code'), '123456');
@@ -185,7 +185,7 @@ describe('signing in', () => {
     api.me.mockRejectedValue(new ApiError('Sign in.', 401, 'SIGN_IN'));
     api.signInOptions.mockResolvedValue(options);
     render(<App />);
-    await screen.findByText('CLOR Console');
+    await screen.findByRole('heading', { name: 'Sign in to the Console' });
     await waitFor(() => expect(screen.queryAllByRole('link').map((a) => a.textContent)).toEqual(links));
     expect(Boolean(screen.queryByLabelText('Password'))).toBe(form);
     expect(Boolean(screen.queryByText(/No way to sign in is set up/))).toBe(!form && links.length === 0);
@@ -211,5 +211,18 @@ describe('signing in', () => {
     await user.type(screen.getByLabelText('New password'), 'a long enough password');
     await user.click(screen.getByRole('button', { name: 'Set password and sign in' }));
     await waitFor(() => expect(api.passwordSetup).toHaveBeenCalledWith('owner@clor.in', 'ABCDE-FGHIJ-KLMNO-PQRST', 'a long enough password'));
+  });
+
+  // protects=with the CLOR login on it is the one primary action, and the password form waits behind a link; fails_when=the password form is drawn beside it, or cannot be reached; no_claim=none beyond protects
+  it('leads with the CLOR login and keeps the password form behind a link', async () => {
+    const user = userEvent.setup();
+    api.me.mockRejectedValue(new ApiError('Sign in.', 401, 'SIGN_IN'));
+    api.signInOptions.mockResolvedValue({ github: false, clor: true, password: true });
+    render(<App />);
+    expect((await screen.findByRole('link', { name: 'Sign in with CLOR' })).getAttribute('href')).toBe('/api/auth/clor');
+    expect(screen.queryByLabelText('Password')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Use a Console password instead' }));
+    expect(screen.getByLabelText('Password')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
   });
 });

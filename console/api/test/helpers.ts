@@ -14,12 +14,12 @@ export const OWNER_SETUP_CODE = 'OWNER-SETUP-CODE-TEST-1';
 const LOGIN: Record<Role, string> = { OWNER: 'suresh-3333', ENGINEER: 'dev-engineer', VIEWER: 'dev-viewer' };
 
 /** A Console with a memory store, canned GitHub and cloud, and a clock the test moves. */
-export async function world(opts: { clor?: boolean; github?: boolean; password?: boolean } = {}) {
+export async function world(opts: { clor?: boolean; github?: boolean; password?: boolean; ownerClor?: string } = {}) {
   /* Starts at the real time: the test browser keeps cookies by the real clock, so a fixed past date would have it drop the session cookie as expired. */
   const clock = { at: Date.now() };
   const now = () => clock.at;
   const keys = generateKeyPairSync('ec', { namedCurve: 'P-256' });
-  const config = readConfig({ NODE_ENV: 'test', CONSOLE_WEB_ORIGIN: WEB, CONSOLE_SESSION_SECRET: 'a-test-secret-that-is-long-enough-000', CONSOLE_OWNER_GITHUB_IDS: '1001', CONSOLE_CF_ACCOUNT_ID: 'acct', CONSOLE_CF_READ_TOKEN: 'cf-read-token', ...(opts.github === false ? {} : { CONSOLE_GITHUB_APP_ID: '1', CONSOLE_GITHUB_PRIVATE_KEY: 'k', CONSOLE_GITHUB_INSTALLATION_ID: '1', CONSOLE_GITHUB_CLIENT_ID: 'c', CONSOLE_GITHUB_CLIENT_SECRET: 's' }), ...(opts.password === false ? {} : { CONSOLE_OWNER_EMAILS: 'owner@clor.in', CONSOLE_OWNER_SETUP_CODE: OWNER_SETUP_CODE }), CONSOLE_CLOR_GRANT_PUBLIC_KEY: opts.clor === false ? '' : keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() });
+  const config = readConfig({ NODE_ENV: 'test', CONSOLE_WEB_ORIGIN: WEB, CONSOLE_SESSION_SECRET: 'a-test-secret-that-is-long-enough-000', CONSOLE_OWNER_GITHUB_IDS: '1001', ...(opts.ownerClor ? { CONSOLE_OWNER_CLOR_EMAILS: opts.ownerClor } : {}), CONSOLE_CF_ACCOUNT_ID: 'acct', CONSOLE_CF_READ_TOKEN: 'cf-read-token', ...(opts.github === false ? {} : { CONSOLE_GITHUB_APP_ID: '1', CONSOLE_GITHUB_PRIVATE_KEY: 'k', CONSOLE_GITHUB_INSTALLATION_ID: '1', CONSOLE_GITHUB_CLIENT_ID: 'c', CONSOLE_GITHUB_CLIENT_SECRET: 's' }), ...(opts.password === false ? {} : { CONSOLE_OWNER_EMAILS: 'owner@clor.in', CONSOLE_OWNER_SETUP_CODE: OWNER_SETUP_CODE }), CONSOLE_CLOR_GRANT_PUBLIC_KEY: opts.clor === false ? '' : keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() });
   const store = memoryStore(now);
   const github = opts.github === false ? offGitHub() : fakeGitHub();
   const cloud = fakeCloud();

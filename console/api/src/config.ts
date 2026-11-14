@@ -21,6 +21,8 @@ export interface Config {
    */
   ownerEmails: string[];
   ownerSetupCode: string;
+  /** CLOR staff logins that are owners from their first CLOR sign-in, by address. Bound to the CLOR user id then. */
+  ownerClorEmails: string[];
   databaseUrl: string;
   github: { owner: string; repo: string; appId: string; privateKey: string; installationId: string; clientId: string; clientSecret: string };
   gcp: { project: string; region: string; service: string; stagingService: string; migrateJob: string; sqlInstance: string };
@@ -45,6 +47,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ownerGithubIds: list(env.CONSOLE_OWNER_GITHUB_IDS),
     ownerEmails: list(env.CONSOLE_OWNER_EMAILS).map((e) => e.toLowerCase()),
     ownerSetupCode: env.CONSOLE_OWNER_SETUP_CODE || '',
+    ownerClorEmails: list(env.CONSOLE_OWNER_CLOR_EMAILS).map((e) => e.toLowerCase()),
     databaseUrl: env.CONSOLE_DATABASE_URL || '',
     github: {
       owner: env.CONSOLE_GITHUB_OWNER || 'Clor-applications',
@@ -92,7 +95,8 @@ export function missingSettings(c: Config): string[] {
   if (c.sessionSecret.length < 32) missing.push('CONSOLE_SESSION_SECRET');
   if (!c.databaseUrl) missing.push('CONSOLE_DATABASE_URL');
   const byGithub = githubOn(c) && c.ownerGithubIds.length > 0;
-  if (!byGithub && !passwordOn(c)) missing.push('a first owner: CONSOLE_OWNER_EMAILS with CONSOLE_OWNER_SETUP_CODE (16 characters or more), or the CONSOLE_GITHUB_* settings with CONSOLE_OWNER_GITHUB_IDS');
+  const byClor = clorOn(c) && c.ownerClorEmails.length > 0;
+  if (!byGithub && !byClor && !passwordOn(c)) missing.push('a first owner: CONSOLE_OWNER_EMAILS with CONSOLE_OWNER_SETUP_CODE (16 characters or more), or CONSOLE_OWNER_CLOR_EMAILS with CONSOLE_CLOR_GRANT_PUBLIC_KEY, or the CONSOLE_GITHUB_* settings with CONSOLE_OWNER_GITHUB_IDS');
   /* Half-set GitHub is a mistake, not "off". */
   const g = c.github;
   const some = [g.appId, g.privateKey, g.installationId, g.clientId, g.clientSecret].filter(Boolean).length;

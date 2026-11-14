@@ -2,7 +2,9 @@ import { createHmac, generateKeyPairSync } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { WEB, world } from './helpers.js';
+import request from 'supertest';
+
+import { OWNER_SETUP_CODE, WEB, world } from './helpers.js';
 
 const OWNER = { id: 'clor-user-owner', email: 'owner@clor.in', name: 'Owner' };
 
@@ -204,5 +206,28 @@ describe('signing in with a CLOR login', () => {
     const owner = await w.as('OWNER');
     expect((await w.post(owner.agent, '/members', { clorEmail: 'finance@clor.in', role: 'VIEWER', reason: 'Wants to see releases' })).status).toBe(409);
     expect((await owner.agent.get('/api/auth/options')).body).toMatchObject({ github: true, clor: false });
+  });
+
+  // protects=a CLOR login named in the service's settings is an owner from its first sign-in, bound to its CLOR user id, and joins the member that address already has by password instead of making a second; another CLOR account is not; fails_when=an unnamed login becomes an owner, two members result, or a later account with the same address gets in; no_claim=the customer API vouching for the address is server/src/__tests__/consoleGrant.test.ts
+  it('makes the named CLOR login an owner, once, on the member it already has', async () => {
+    const w = await world({ ownerClor: 'Owner@Clor.in' });
+    const first = await w.startClor();
+    expect(await w.finishClor(first.agent, w.pass(first.state, { id: 'stranger', email: 'stranger@clor.in' }), first.state)).toBe(`${WEB}/?signin=not-a-member`);
+
+    /* The owner already set a password under the same address. */
+    const byPassword = request.agent(w.app);
+    await w.post(byPassword, '/auth/password/setup', { email: OWNER.email, code: OWNER_SETUP_CODE, password: 'a long enough password' }).expect(200);
+    const before = (await w.store.findByEmail(OWNER.email))!;
+
+    const { agent, state } = await w.startClor();
+    expect(await w.finishClor(agent, w.pass(state, OWNER), state)).toBe(`${WEB}/`);
+    expect((await agent.get('/api/me')).body).toMatchObject({ via: 'clor', role: 'OWNER' });
+    const after = (await w.store.findByClor(OWNER.id))!;
+    expect(after.id).toBe(before.id);
+    expect((await w.store.listMembers()).filter((m) => m.email === OWNER.email || m.clorEmail === OWNER.email)).toHaveLength(1);
+    expect(w.store.audit.at(-1)).toMatchObject({ action: 'CLOR_LOGIN_LINKED', detail: { firstOwner: true } });
+
+    const other = await w.startClor();
+    expect(await w.finishClor(other.agent, w.pass(other.state, { id: 'someone-else', email: OWNER.email }), other.state)).toBe(`${WEB}/?signin=not-a-member`);
   });
 });

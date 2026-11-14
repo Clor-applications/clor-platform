@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 
-import ClorMark from '@ui/components/brand/ClorMark';
-
 import { api } from './api';
+import Gate from './Gate';
 import { Notice } from './kit';
 
 /*
@@ -27,17 +26,16 @@ export default function SignInCode({ me, onDone }) {
     }
   };
   return (
-    <main className="con-gate">
-      <form className="con-gate-box con-form" onSubmit={submit}>
-        <ClorMark size={36} />
-        <h1 className="con-title">Enter your authenticator code</h1>
-        <p className="con-lede">Signed in as {me.name}. The Console asks for its authenticator code before it shows anything.</p>
-        <label className="con-label" htmlFor="con-signin-code">Six-digit code</label>
-        <input id="con-signin-code" className="con-input con-input--code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+    <Gate title="Enter your code" subtitle={`Signed in as ${me.name}. Open your authenticator app and type the 6-digit code for CLOR Console.`}>
+      <form className="space-y-5" onSubmit={submit}>
+        <div className="space-y-2">
+          <label className="ui-label" htmlFor="con-signin-code">Six-digit code</label>
+          <input id="con-signin-code" className="ui-input h-11 w-full con-code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+        </div>
         {error ? <Notice tone="bad">{error}</Notice> : null}
-        <button type="submit" className="ui-btn con-btn-primary con-gate-btn" disabled={busy || code.length !== 6}>Continue</button>
-        <button type="button" className="ui-btn ui-btn-ghost con-gate-btn" onClick={() => api.signOut().finally(() => window.location.assign('/'))}>Sign out</button>
+        <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy || code.length !== 6}>Continue</button>
+        <p className="text-sm text-center"><button type="button" className="ui-link font-medium" onClick={() => api.signOut().finally(() => window.location.assign('/'))}>Sign out</button></p>
       </form>
-    </main>
+    </Gate>
   );
 }

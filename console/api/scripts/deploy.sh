@@ -59,6 +59,15 @@ for V in CONSOLE_OWNER_GITHUB_IDS CONSOLE_GITHUB_APP_ID CONSOLE_GITHUB_INSTALLAT
   [ -n "${!V:-}" ] && ENVS="$ENVS##$V=${!V}"
 done
 SECRETS="CONSOLE_SESSION_SECRET=console-session-secret:latest,CONSOLE_DATABASE_URL=console-database-url:latest,CONSOLE_EDGE_SECRET=console-edge-secret:latest,CONSOLE_OWNER_SETUP_CODE=console-owner-setup-code:latest"
+# Sign-in with a CLOR staff login: only when asked for (CONSOLE_ENABLE_CLOR=1), because the button
+# leads to Ops, and Ops must already have the pass screen released. The same address(es) become
+# owners by CLOR login.
+if [ "${CONSOLE_ENABLE_CLOR:-}" = "1" ]; then
+  gcloud secrets describe console-clor-grant-public-key --project "$PROJECT" >/dev/null 2>&1 || { echo "No console-clor-grant-public-key secret: make the key pair first (docs/console/SETUP.md, step 8)." >&2; exit 1; }
+  gcloud secrets add-iam-policy-binding console-clor-grant-public-key --project "$PROJECT" --member "serviceAccount:$SA" --role roles/secretmanager.secretAccessor --quiet >/dev/null
+  SECRETS="$SECRETS,CONSOLE_CLOR_GRANT_PUBLIC_KEY=console-clor-grant-public-key:latest"
+  ENVS="$ENVS##CONSOLE_OWNER_CLOR_EMAILS=$OWNERS"
+fi
 for PAIR in CONSOLE_GITHUB_PRIVATE_KEY=console-github-private-key CONSOLE_GITHUB_CLIENT_SECRET=console-github-client-secret CONSOLE_CF_READ_TOKEN=console-cf-read-token; do
   gcloud secrets describe "${PAIR#*=}" --project "$PROJECT" >/dev/null 2>&1 && SECRETS="$SECRETS,${PAIR%%=*}=${PAIR#*=}:latest"
 done

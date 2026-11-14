@@ -246,21 +246,35 @@ The Console can also be opened with a CLOR staff login. The customer API makes
 a one-minute pass; the Console checks it with a public key. The private key
 lives only in the customer API, the public key only in the Console.
 
-```bash
-openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out console-grant-private.pem
-openssl ec -in console-grant-private.pem -pubout -out console-grant-public.pem
-```
+The key pair was made on 15 Nov 2026 and is already in Secret Manager; neither
+half is attached to a service yet:
 
-| Where | Setting | Value |
+| Secret | Holds | Goes to |
 |---|---|---|
-| `clor-api` (Secret Manager) | `CONSOLE_GRANT_PRIVATE_KEY` | Contents of `console-grant-private.pem` |
-| `clor-api` | `CONSOLE_API_ORIGIN` | `https://console.clor.in` |
-| `clor-console` | `CONSOLE_CLOR_GRANT_PUBLIC_KEY` | Contents of `console-grant-public.pem` (not a secret) |
-| `clor-console` | `CONSOLE_CLOR_OPS_ORIGIN` | `https://ops.clor.in` |
+| `CONSOLE_GRANT_PRIVATE_KEY` | The private key | `clor-api` only |
+| `console-clor-grant-public-key` | The public key | `clor-console` only |
 
-Delete both `.pem` files from the laptop afterwards. This needs a release of
-the customer API and web app, because the pass route and the Ops confirm
-screen are new (`server/src/services/consoleGrant.ts`, `packages/ops/ConsoleGrant.jsx`).
+To switch it on, in this order:
+
+1. Merge this work and release the customer app (`scripts/release.sh --go`),
+   so the pass route and the Ops confirm screen are live.
+2. Give the customer API the private key (a new revision; move traffic to it
+   as for any release):
+   `gcloud run services update clor-api --project clor-apps-511409 --region asia-south1 --update-secrets CONSOLE_GRANT_PRIVATE_KEY=CONSOLE_GRANT_PRIVATE_KEY:latest --update-env-vars CONSOLE_API_ORIGIN=https://console.clor.in`
+   and let `clor-api-run` read that secret.
+3. Give the Console the public key: `CONSOLE_ENABLE_CLOR=1 console/api/scripts/deploy.sh <owner address>`.
+   The same address becomes an owner by CLOR login, joined to the member it
+   already has by password.
+
+Doing 3 before 1 puts a "Sign in with CLOR" button on the Console that leads
+to an Ops page which ignores it.
+
+To make a new pair (rotation):
+
+```bash
+openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt | gcloud secrets versions add CONSOLE_GRANT_PRIVATE_KEY --data-file=-
+gcloud secrets versions access latest --secret CONSOLE_GRANT_PRIVATE_KEY | openssl ec -pubout 2>/dev/null | gcloud secrets versions add console-clor-grant-public-key --data-file=-
+```
 
 How it then works:
 
@@ -272,8 +286,9 @@ How it then works:
   close they connect their own GitHub account (Your sign-in), because those
   are done on GitHub in their name. The owner needs a GitHub account either
   way: GitHub only lets a GitHub user approve a release.
-- You, the first owner: sign in with GitHub once, then Your sign-in → Link
-  CLOR login. After that either button works.
+- You, the first owner: nothing to do. Your address is named in the
+  Console's settings (`CONSOLE_OWNER_CLOR_EMAILS`), so your first CLOR sign-in
+  makes you an owner on the member you already have.
 - Others: Members → Add member, by GitHub username, CLOR login address, or both.
 
 To switch it off: remove `CONSOLE_CLOR_GRANT_PUBLIC_KEY` from `clor-console`.
