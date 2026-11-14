@@ -40,6 +40,8 @@ import { trialOffer } from '../services/trialPlan.js';
 import { ACCOUNT_ADMINS, accountRoleOf } from '../services/accountMembership.js';
 import { QuotaBusyError } from '../services/quotaLock.js';
 import { acrossCompanies, outsideTenant } from '../utils/tenantScope.js';
+import { grantedCompanies } from '../services/supportGrants.js';
+import { operatorRole } from '../middleware/operator.js';
 import { closedForOutsider } from '../services/outsideAccess.js';
 import { exploreInfo } from '../services/explore.js';
 
@@ -552,6 +554,13 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
   );
   accounts.sort((x, y) => Number(y.home) - Number(x.home) || String(x.name).localeCompare(String(y.name)));
 
+  /*
+   * CLOR staff: the customer companies a live support grant opens, after their
+   * own (docs/workspace/SUPPORT_GRANTS.md). Each carries its grant, so the app
+   * can say whose company this is and until when.
+   */
+  const supportOrgs = (await operatorRole(user.id)) ? await grantedCompanies(user.id) : [];
+
   return res.json({
     /*
      * GAP-011 (ADR-003): `user.accountId` is the person's HOME account — where
@@ -562,7 +571,8 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
      */
     user: { ...user, homeAccountId: user.accountId, accountCode: ownAccount?.code || null },
     activeAccountId: activeMembership ? activeMembership.accountId : null,
-    orgs: orgMemberships.map((m) => ({
+    orgs: [
+      ...orgMemberships.map((m) => ({
       orgId: m.orgId,
       accountId: m.accountId,
       branchId: defaultBranchByOrg[m.orgId] || null,
@@ -578,6 +588,24 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
         profile: orgProfile(m.org.profileJson),
       },
     })),
+      ...supportOrgs
+        .filter((g) => !orgMemberships.some((m) => m.orgId === g.org.id))
+        .map((g) => ({
+          orgId: g.org.id,
+          accountId: g.accountId,
+          branchId: g.branchId,
+          supportGrant: { scope: g.grant.scope, expiresAt: g.grant.expiresAt },
+          org: {
+            id: g.org.id,
+            name: g.org.name,
+            slug: g.org.slug || null,
+            code: g.org.code || null,
+            legacyCode: g.org.legacyCode || null,
+            archivedAt: g.org.archivedAt || null,
+            profile: orgProfile(g.org.profileJson),
+          },
+        })),
+    ],
     /* Only a company this person is in: the header is an echo, not a fact (A-10). */
     activeOrgId: activeMembership ? activeOrgId : null,
     /* W-1: the person's role in the account being worked in (OWNER / ADMIN / BILLING_ADMIN / MEMBER), or null. Shown, not trusted: every route checks it again. */

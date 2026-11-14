@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-4483a92 - 2026-11-14
+
+API revision `clor-api-00129-pg9`. Previous release `rel-75e6ebc` (roll back there).
+
+- #256 Support grants: CLOR staff see a customer's company only when the customer says yes
+
 ## [0.0.1] - 2026-11-06
 
 ### Changed

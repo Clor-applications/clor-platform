@@ -83,13 +83,40 @@ export function resolveAccess(
   );
 }
 
+/**
+ * What CLOR staff on a support grant hold: the company's own administrator
+ * roles, company-wide (docs/workspace/SUPPORT_GRANTS.md). They hold no role of
+ * their own, so without this every screen would refuse them. It is not the
+ * last word: `supportGrantLimits` still keeps a read-only grant from writing,
+ * keeps salary, documents and bank details shut, and keeps access changes out
+ * of reach whatever the scope.
+ */
+export function resolveGrantAccess(accountId: string, orgId: string): Promise<EffectiveAccess> {
+  return cachedAccess(`grant-access|${accountId}|${orgId}`, async () => {
+    const admin = await platformPrisma.role.findMany({ where: { accountId, orgId, roleType: RoleType.ADMIN, branchId: null }, select: { id: true } });
+    return accessFromRoles(admin.map((r) => r.id));
+  });
+}
+
+/** The caller's own access: their roles, or the grant's when CLOR staff are on one. */
+export function accessForRequest(
+  req: { tenant?: { accountId: string; orgId: string; supportGrant?: unknown }; auth?: { userId: string } },
+  branchId?: BranchScope
+): Promise<EffectiveAccess> {
+  const { accountId, orgId } = req.tenant!;
+  return req.tenant!.supportGrant ? resolveGrantAccess(accountId, orgId) : resolveAccess(accountId, orgId, req.auth!.userId, branchId);
+}
+
 async function resolveAccessUncached(
   accountId: string,
   orgId: string,
   userId: string,
   branchId?: BranchScope
 ): Promise<EffectiveAccess> {
-  const roleIds = await resolveRoleIds(accountId, orgId, userId, branchId);
+  return accessFromRoles(await resolveRoleIds(accountId, orgId, userId, branchId));
+}
+
+async function accessFromRoles(roleIds: string[]): Promise<EffectiveAccess> {
 
   if (!roleIds.length) {
     return { roleIds, isAdmin: false, ownDocumentsOnly: false, permissions: new Set(), levels: new Map() };

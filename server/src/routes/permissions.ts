@@ -5,7 +5,7 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
-import { resolveAccess, resolveUserPermissions } from '../services/access.js';
+import { resolveUserPermissions, accessForRequest } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
 import {
   ADMIN_ONLY_ERROR,
@@ -326,7 +326,7 @@ permissionsRouter.get('/orgs/:orgId/permissions/me', async (req, res) => {
   // it. Bring the creator's ADMIN role up to the full preset, once.
   await syncOwnerRoleIfCreator(accountId, orgId, userId);
 
-  const access = await resolveAccess(accountId, orgId, userId, branchId);
+  const access = await accessForRequest(req, branchId);
 
   const roles = access.roleIds.length
     ? await platformPrisma.role.findMany({

@@ -2229,3 +2229,57 @@ button.ws-item:hover {
     background: rgb(var(--ws-line) / 0.45);
   }
 }
+
+/* ------------------------------------------- CLOR support access (support grants) */
+.ws-sg-rule {
+  max-width: 68ch;
+}
+.ws-sg-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid rgb(var(--ws-line));
+}
+.ws-sg-request {
+  display: grid;
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgb(var(--ws-line));
+}
+.ws-sg-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-sg-reason {
+  font-size: 0.9375rem;
+  max-width: 68ch;
+}
+.ws-sg-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+.ws-sg-choices fieldset {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.ws-sg-choices fieldset legend {
+  float: left;
+  margin-right: 4px;
+}
+.ws-sg-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+}
+.ws-sg-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
