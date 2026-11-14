@@ -1,3 +1,4 @@
+import { publicIncidents } from '../services/statusIncidents.js';
 import cors from 'cors';
 import { Router } from 'express';
 
@@ -44,8 +45,15 @@ export async function publicStatus(now = Date.now()) {
     asking ||= storeChecks().finally(() => { asking = null; });
     last = { at: now, checks: await asking };
   }
-  const parts = PARTS.map(([key, name]) => ({ key, name, ok: last!.checks[key] }));
-  return { ok: parts.every((p) => p.ok), parts, checkedAt: new Date(last.at).toISOString() };
+  /* What staff posted (routes/opsStatus.ts): an open incident on a part marks it, even when its store answers. */
+  const incidents = await publicIncidents(new Date(now)).catch(() => []);
+  const live = incidents.filter((i) => !i.resolvedAt && !i.upcoming && (i.kind === 'INCIDENT' || i.state === 'IN_PROGRESS'));
+  const parts = PARTS.map(([key, name]) => {
+    const hit = live.filter((i) => !i.parts.length || i.parts.includes(key));
+    const worst = hit.some((i) => i.impact === 'OUTAGE') ? 'OUTAGE' : hit.some((i) => i.impact === 'MAJOR') ? 'MAJOR' : hit.length ? 'MINOR' : null;
+    return { key, name, ok: last!.checks[key] && worst !== 'OUTAGE', ...(worst ? { impact: worst } : {}) };
+  });
+  return { ok: parts.every((p) => p.ok && !('impact' in p)), parts, incidents, checkedAt: new Date(last.at).toISOString() };
 }
 
 /** For tests: forget the kept answer. */

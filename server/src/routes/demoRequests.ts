@@ -1,3 +1,4 @@
+import { pausedRefusal } from '../services/platformSwitches.js';
 import { Router } from 'express';
 import type { Request } from 'express';
 import cors from 'cors';
@@ -168,6 +169,8 @@ demoRequestsRouter.post('/public/demo-requests', ...demoRequestLimiter, (req, re
     const b = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
     /* A bot filled the hidden field: the same answer as a real request, and nothing kept. */
     if (String(b.website ?? '').trim()) return res.status(201).json({ ok: true });
+    const paused = await pausedRefusal('demoRequests');
+    if (paused) return res.status(paused.status).json(paused.body);
     const parsed = demoBody.safeParse(b);
     if (!parsed.success) return res.status(400).json({ error: 'Check the fields marked below.', code: 'INVALID', fields: fieldErrors(parsed.error) });
     const d = parsed.data;

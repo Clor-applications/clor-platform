@@ -62,6 +62,8 @@ const replySchema = z.object({
   body: z.string().trim().min(1, 'Write a reply.').max(8000),
   internal: z.boolean().optional(),
   solve: z.boolean().optional(),
+  /* The saved reply it started from, if any (routes/opsSavedReplies.ts): counted, so the list puts the useful ones first. */
+  savedReplyId: z.string().trim().max(64).optional(),
 });
 
 opsTicketsRouter.post('/ops/tickets/:id/reply', requireOperatorRole('SUPPORT'), requireOperatorStepUp, (req, res) =>
@@ -73,6 +75,7 @@ opsTicketsRouter.post('/ops/tickets/:id/reply', requireOperatorRole('SUPPORT'), 
     if (t.status === 'CLOSED' && !parsed.data.internal) return res.status(409).json({ error: 'This ticket is closed. Add an internal note, or open it again first.' });
     const internal = Boolean(parsed.data.internal);
     const r = await staffReply(t, req.auth!.userId, parsed.data.body, internal, !internal && Boolean(parsed.data.solve));
+    if (parsed.data.savedReplyId) await platformPrisma.supportSavedReply.updateMany({ where: { id: parsed.data.savedReplyId }, data: { usedCount: { increment: 1 } } });
     await audit(req, internal ? 'TICKET_NOTE' : 'TICKET_REPLIED', { accountId: t.accountId }, { ticket: ticketCode(t.number), solved: Boolean(parsed.data.solve), told: r.told }, { customerLog: false });
     const fresh = await platformPrisma.supportTicket.findUnique({ where: { id: t.id }, include: { messages: { orderBy: { createdAt: 'asc' } } } });
     res.json({ ticket: await staffTicket(fresh), told: r.told });

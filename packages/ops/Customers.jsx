@@ -7,6 +7,7 @@ import { inr } from './money';
 import { units } from './CustomPlans';
 import { Limits } from './Limits';
 import { SupportAccess } from './SupportAccess';
+import { CustomerNotes } from './CustomerNotes';
 import { DealDrawer } from './Deals';
 import { APP_NAMES, Empty, Err, Loading, Pager, REASON, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
 import {
@@ -31,6 +32,7 @@ import {
   opsSendResetLink,
   opsSignOutEverywhere,
   opsSuspend,
+  opsTags,
 } from './api';
 
 /**
@@ -82,14 +84,18 @@ export function StatusPill({ status }) {
 const planWords = (a) => (a.plan === 'no-plan' || a.plan === 'legacy' ? '—' : a.interval === 'year' ? 'Yearly' : a.interval === 'month' ? 'Monthly' : a.byHand ? 'Set by hand' : 'Through payments');
 
 /* ------------------------------------------------------------------ list */
-export function Customers({ initialStatus = 'all', openCustomer }) {
-  const [view, setView] = useState({ q: '', status: initialStatus, page: 0 });
+export function Customers({ initialStatus = 'all', initialTag = '', openCustomer }) {
+  const [view, setView] = useState({ q: '', status: initialStatus, tag: initialTag, page: 0 });
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [tags, setTags] = useState([]);
+  useEffect(() => {
+    opsTags().then((r) => setTags(r.tags || [])).catch(() => setTags([]));
+  }, []);
   useEffect(() => {
     let live = true;
     const t = setTimeout(() => {
-      opsAccounts(view)
+      opsAccounts(view.tag ? view : { q: view.q, status: view.status, page: view.page })
         .then((r) => live && (setData(r), setError('')))
         .catch((e) => live && setError(String(e?.message || e)));
     }, 200);
@@ -117,6 +123,14 @@ export function Customers({ initialStatus = 'all', openCustomer }) {
             <option key={k} value={k}>{label}</option>
           ))}
         </select>
+        {tags.length || view.tag ? (
+          <select className="ui-select" style={{ width: 'auto' }} aria-label="Tag" value={view.tag} onChange={(e) => setView((v) => ({ ...v, tag: e.target.value, page: 0 }))}>
+            <option value="">Any tag</option>
+            {tags.map((t) => (
+              <option key={t.tag} value={t.tag}>{`${t.tag} (${t.customers})`}</option>
+            ))}
+          </select>
+        ) : null}
       </div>
       <Err>{error}</Err>
       {!data ? (
@@ -147,6 +161,13 @@ export function Customers({ initialStatus = 'all', openCustomer }) {
                     <td>
                       <button type="button" className="ws-name-link" onClick={() => openCustomer(a.id)}>{a.title || a.name}</button>
                       <div className="ws-item-sub tabular-nums">{a.code || '—'}</div>
+                      {a.tags?.length ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {a.tags.map((t) => (
+                            <span key={t} className="ws-pill">{t}</span>
+                          ))}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="hidden md:table-cell">
                       <div>{a.owner?.name || '—'}</div>
@@ -183,6 +204,7 @@ const TABS = [
   ['users', 'Users'],
   ['connections', 'Connections'],
   ['access', 'Support access'],
+  ['notes', 'Notes'],
   ['activity', 'Timeline'],
 ];
 
@@ -248,6 +270,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {tab === 'users' ? <Users id={id} role={role} /> : null}
         {tab === 'connections' ? <Connections id={id} role={role} /> : null}
         {tab === 'access' ? <SupportAccess id={id} companies={d.companies} role={role} /> : null}
+        {tab === 'notes' ? <CustomerNotes id={id} role={role} /> : null}
         {tab === 'activity' ? <Timeline id={id} openLink={openLink} /> : null}
       </div>
     </>

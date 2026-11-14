@@ -1,0 +1,13 @@
+/*
+ * Joining and Leaving (clor-rnd PEOPLE-07 "Onboarding & exit"). Tokens only (rnd.css triplets).
+ * The step meter: an 8px sunken track, the fill in the first categorical colour while steps are open and in
+ * the "good" green once every step is done, the count written beside it so the colour is never the only signal.
+ */
+.lc-steps { display: inline-flex; flex-direction: column; gap: 0.25rem; min-width: 8.5rem; width: 100%; max-width: 12rem; }
+.lc-steps-line { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.lc-steps-track { flex: 1 1 auto; display: block; height: 0.5rem; min-width: 3rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.lc-steps-fill { display: block; height: 100%; border-radius: 999px; background: rgb(var(--cat-1)); }
+.lc-steps-fill[data-done='yes'] { background: rgb(var(--pos)); }
+.lc-steps-count { flex: none; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.lc-steps-late { font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: rgb(var(--neg)); }
+.lc-none { font-size: 0.8125rem; color: rgb(var(--fg-muted)); }

@@ -380,6 +380,8 @@ export default async function setup() {
   /* Ops alerts: one open alert per key, a partial index `db push` cannot build.
      The rest of that migration creates the table, which db push already did. */
   await applyStatement(asOwner(platform), 'CREATE UNIQUE INDEX IF NOT EXISTS "OpsAlert_one_open_per_key" ON "OpsAlert"("key") WHERE "resolvedAt" IS NULL');
+  /* Ops portal: customer notes and tags are staff only. */
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261215090100_ops_notes_rls');
 
   await grantToAppRole(database, schemas);
 

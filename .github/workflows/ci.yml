@@ -307,11 +307,13 @@ jobs:
       - name: Typecheck the end-to-end tests
         run: npx tsc -p e2e
 
-      # Ports clear of PostgreSQL (5432/5434) and anything else on the machine.
+      # Ports clear of PostgreSQL (5432/5434) and anything else on the machine,
+      # and of the ports browsers refuse to open (6566, 6665-6669, 6697...: a
+      # run once drew 6665 and Chrome answered ERR_UNSAFE_PORT). 7100-7599 has none.
       - name: Ports for this run
         run: |
           echo "E2E_API_PORT=$((4400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
-          echo "E2E_WEB_PORT=$((6400 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
+          echo "E2E_WEB_PORT=$((7100 + ${{ github.run_id }} % 500))" >> "$GITHUB_ENV"
 
       - name: End-to-end, smoke set
         if: github.event_name == 'pull_request'

@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { APP_NAMES, Err, Loading, Tabs, may, when } from './kit';
 import { opsTicket, opsTicketChange, opsTicketReply, opsTickets } from './api';
+import { SavedReplyPicker } from './SavedReplies';
 
 /**
  * Customer tickets (operator console, Ops plan P1). Everyone on the console
@@ -111,6 +112,7 @@ export function TicketPage({ id, back, openCustomer, lookUp, me }) {
   const [t, setT] = useState(null);
   const [error, setError] = useState('');
   const [body, setBody] = useState('');
+  const [savedReplyId, setSavedReplyId] = useState('');
   const [internal, setInternal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
@@ -136,8 +138,9 @@ export function TicketPage({ id, back, openCustomer, lookUp, me }) {
   };
   const send = (solve) =>
     run(async () => {
-      const r = await opsTicketReply(id, { body: body.trim(), internal, solve });
+      const r = await opsTicketReply(id, { body: body.trim(), internal, solve, ...(savedReplyId && !internal ? { savedReplyId } : {}) });
       setBody('');
+      setSavedReplyId('');
       return r;
     }, internal ? 'Note added. The customer does not see it.' : (r) => (r.told ? 'Sent. The customer has it by email.' : 'Saved on the ticket. The email did not go; the customer sees it in their Workspace.'));
 
@@ -171,6 +174,15 @@ export function TicketPage({ id, back, openCustomer, lookUp, me }) {
             </ol>
             {canAct ? (
               <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); if (body.trim()) send(false); }}>
+                {!internal ? (
+                  <SavedReplyPicker
+                    ticketId={id}
+                    onPick={(r) => {
+                      setBody(r.filled || r.body);
+                      setSavedReplyId(r.id);
+                    }}
+                  />
+                ) : null}
                 <label className="grid">
                   <span>{internal ? 'Internal note (CLOR only)' : `Reply to ${t.openedBy.name}`}</span>
                   <textarea className="ui-input" rows={5} value={body} onChange={(e) => setBody(e.target.value)} maxLength={8000} />
