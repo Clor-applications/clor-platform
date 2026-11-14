@@ -21,6 +21,7 @@ import { orgId as platformOrgId } from '@platform/context';
  */
 export { default as AdminHome } from './screens/AdminHome';
 export { default as OutsideAccess } from './screens/OutsideAccess';
+export { default as SupportAccess } from './screens/SupportAccess';
 export { default as RolePermissionManager } from './screens/RolePermissionManager';
 export { default as SecuritySettings } from './screens/SecuritySettings';
 export { default as SsoSettings } from './screens/SsoSettings';

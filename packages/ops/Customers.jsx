@@ -6,6 +6,7 @@ import { ICON, PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
 import { inr } from './money';
 import { units } from './CustomPlans';
 import { Limits } from './Limits';
+import { SupportAccess } from './SupportAccess';
 import { DealDrawer } from './Deals';
 import { APP_NAMES, Empty, Err, Loading, Pager, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
 import {
@@ -173,6 +174,7 @@ const TABS = [
   ['requests', 'Requests'],
   ['users', 'Users'],
   ['connections', 'Connections'],
+  ['access', 'Support access'],
   ['activity', 'Timeline'],
 ];
 
@@ -223,6 +225,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} openLink={openLink} /> : null}
         {tab === 'users' ? <Users id={id} role={role} /> : null}
         {tab === 'connections' ? <Connections id={id} role={role} /> : null}
+        {tab === 'access' ? <SupportAccess id={id} companies={d.companies} role={role} /> : null}
         {tab === 'activity' ? <Timeline id={id} openLink={openLink} /> : null}
       </div>
     </>

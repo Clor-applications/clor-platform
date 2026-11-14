@@ -85,6 +85,8 @@ const toTenant = (membership) => ({
   legacyCode: membership.org?.legacyCode || null,
   /* Archived (read-only): listed apart in the picker, with a banner inside. */
   archivedAt: membership.org?.archivedAt || null,
+  /* CLOR staff on a support grant: { scope, expiresAt }. Shown so they always know whose company this is; the server enforces it. */
+  supportGrant: membership.supportGrant || null,
   accountId: membership.accountId || null,
   /* Every tenant-scoped route wants a branch as well as a company, and the
      route that lists branches wants one too — so the platform answers it. */
