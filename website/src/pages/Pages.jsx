@@ -606,36 +606,97 @@ export function ServiceStatus() {
     };
   }, []);
   const parts = state?.parts || STATUS_PARTS.map((name) => ({ key: name, name, ok: state ? false : null }));
-  const headline = !state ? 'Checking…' : state.down ? 'CLOR is not answering' : state.ok ? 'Everything is working' : 'Some parts are not working';
+  /* What CLOR staff posted: problems being fixed, maintenance coming, and what was fixed this week. */
+  const posts = state?.incidents || [];
+  const open = posts.filter((i) => !i.resolvedAt && !i.upcoming);
+  const coming = posts.filter((i) => i.upcoming);
+  const closed = posts.filter((i) => i.resolvedAt);
+  const troubled = parts.some((p) => p.impact);
+  const headline = !state
+    ? 'Checking…'
+    : state.down
+      ? 'CLOR is not answering'
+      : state.ok
+        ? 'Everything is working'
+        : parts.some((p) => p.ok === false)
+          ? 'Some parts are not working'
+          : 'Some parts have a problem';
   const intro = !state
     ? 'Asking CLOR now.'
     : state.down
       ? 'We could not reach CLOR from your browser. Check your own internet first. If it is working, CLOR is down: please write to us.'
       : state.ok
         ? 'Every part of CLOR answered just now.'
-        : 'The parts marked below did not answer just now. The others are working.';
+        : troubled
+          ? 'We know about it and are working on it. What we know is below.'
+          : 'The parts marked below did not answer just now. The others are working.';
+  const mark = (p) =>
+    p.ok === null ? ['Checking…', ' status-mark--wait'] : !p.ok ? ['Not working', ' status-mark--bad'] : p.impact ? [p.impact === 'MINOR' ? 'Slow or partly working' : 'Problem', ' status-mark--warn'] : ['Working', ''];
   return (
     <>
       <PageHead eyebrow="Status" title={headline} intro={intro} />
       <section className="section section--flush">
         <div className="wrap">
           <ul className="status-list" aria-live="polite">
-            {parts.map((p) => (
-              <li key={p.key}>
-                <span>{p.name}</span>
-                <span className={`status-mark${p.ok === false ? ' status-mark--bad' : p.ok === null ? ' status-mark--wait' : ''}`}>
-                  {p.ok === null ? 'Checking…' : p.ok ? 'Working' : 'Not working'}
-                </span>
-              </li>
-            ))}
+            {parts.map((p) => {
+              const [word, tone] = mark(p);
+              return (
+                <li key={p.key}>
+                  <span>{p.name}</span>
+                  <span className={`status-mark${tone}`}>{word}</span>
+                </li>
+              );
+            })}
           </ul>
+          <StatusPosts title="Now" posts={open} />
+          <StatusPosts title="Planned maintenance" posts={coming} />
+          <StatusPosts title="Fixed this week" posts={closed} />
           <p className="body status-note">
-            {state ? `Checked at ${clock(state.checkedAt)}. This page checks again every minute. ` : null}
+            {state && !state.down ? `Checked at ${clock(state.checkedAt)}. This page checks again every minute. ` : null}
             Something wrong that this page does not show? Write to <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>.
           </p>
         </div>
       </section>
     </>
+  );
+}
+
+const POST_STATE = {
+  INVESTIGATING: 'Looking into it',
+  IDENTIFIED: 'Cause found',
+  MONITORING: 'Fixed, watching',
+  RESOLVED: 'Resolved',
+  SCHEDULED: 'Planned',
+  IN_PROGRESS: 'Under way',
+  COMPLETED: 'Done',
+};
+const PART_WORD = { platform: 'Sign-in and Workspace', accounting: 'Books', people: 'People and Attendance', payroll: 'Payroll' };
+const stamp = (iso) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
+function StatusPosts({ title, posts }) {
+  if (!posts.length) return null;
+  return (
+    <div className="status-posts">
+      <h2 className="status-posts-title">{title}</h2>
+      <ul>
+        {posts.map((i) => (
+          <li key={i.id} className="status-post">
+            <h3>{i.title}</h3>
+            <p className="status-post-meta">
+              {i.parts.length ? i.parts.map((p) => PART_WORD[p] || p).join(', ') : 'All of CLOR'}
+              {i.kind === 'MAINTENANCE' && i.endsAt ? ` · ${stamp(i.startsAt)} to ${stamp(i.endsAt)}` : ''}
+            </p>
+            <ol>
+              {i.updates.map((u) => (
+                <li key={u.at}>
+                  <strong>{POST_STATE[u.state] || u.state}</strong> <span className="status-post-time">{stamp(u.at)}</span> — {u.body}
+                </li>
+              ))}
+            </ol>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

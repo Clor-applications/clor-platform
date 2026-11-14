@@ -16,6 +16,10 @@ import { InvoiceSettings } from './InvoiceSettings';
 import { Trials } from './Trials';
 import { Pricing } from './Pricing';
 import { Settings as TaxSettings } from './Settings';
+import { Insights } from './Insights';
+import { SavedReplies } from './SavedReplies';
+import { StatusPage } from './StatusPage';
+import { Switches } from './Switches';
 import { ExploreLinks, SampleCompany } from './Explore';
 import { CustomerPage, Customers } from './Customers';
 import { Home } from './Home';
@@ -56,12 +60,13 @@ import { opsEnableTwoFactor, opsMe, opsStartTwoFactor } from './api';
  * kept for them here.
  */
 export const NAV = [
-  { items: [['home', 'Home', ICON.home]] },
+  { items: [['home', 'Home', ICON.home], ['insights', 'Insights', ICON.data]] },
   {
     label: 'Customers',
     items: [
       ['customers', 'Customers', ICON.companies],
       ['tickets', 'Tickets', ICON.chat],
+      ['savedReplies', 'Saved replies', ICON.library],
       ['trials', 'Trials', ICON.plan],
       ['demos', 'Demo requests', ICON.mail],
       ['links', 'Explore links', ICON.invite],
@@ -88,6 +93,7 @@ export const NAV = [
       ['catalogue', 'App catalogue', ICON.apps],
       ['sample', 'Sample company', ICON.company],
       ['announcements', 'Announcements', ICON.alert],
+      ['forms', 'Forms on clor.in', ICON.settings],
     ],
   },
   {
@@ -98,7 +104,7 @@ export const NAV = [
       ['emailLog', 'Log', ICON.history],
     ],
   },
-  { label: 'System', items: [['alerts', 'Alerts', ICON.warning], ['health', 'System health', ICON.alert]] },
+  { label: 'System', items: [['alerts', 'Alerts', ICON.warning], ['health', 'System health', ICON.alert], ['status', 'Status page', ICON.secure]] },
   { label: 'Team', items: [['staff', 'Staff and roles', ICON.team, 'SUPER_ADMIN']] },
   { items: [['audit', 'Audit log', ICON.security]] },
 ];
@@ -121,7 +127,7 @@ export const SCREENS = {
         openLink={(l) => go(l.page, {}, l.id || '')}
       />
     ) : (
-      <Customers key={route.params.status || 'all'} initialStatus={route.params.status || 'all'} openCustomer={(id) => go('customers', {}, id)} />
+      <Customers key={`${route.params.status || 'all'}|${route.params.tag || ''}`} initialStatus={route.params.status || 'all'} initialTag={route.params.tag || ''} openCustomer={(id) => go('customers', {}, id)} />
     ),
   demos: ({ route, go, me }) =>
     route.id ? (
@@ -160,6 +166,10 @@ export const SCREENS = {
     ),
   alerts: ({ go, me }) => <Alerts go={go} me={me} />,
   announcements: ({ me }) => <Announcements me={me} />,
+  insights: () => <Insights />,
+  savedReplies: ({ me }) => <SavedReplies me={me} />,
+  status: ({ me }) => <StatusPage me={me} />,
+  forms: ({ me }) => <Switches me={me} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
 };

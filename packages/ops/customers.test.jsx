@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => Object.fromEntries(
-  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections'].map((k) => [k, vi.fn()]),
+  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsTags'].map((k) => [k, vi.fn()]),
 ));
 vi.mock('./api', () => api);
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -27,6 +27,7 @@ const detail = (over = {}) => ({
 
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
+  api.opsTags.mockResolvedValue({ tags: [] });
   notify.success.mockReset();
 });
 
@@ -280,7 +281,7 @@ describe('a customer’s page', () => {
     const setTab = vi.fn();
     render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={setTab} openDemo={() => {}} />);
     const tabs = await screen.findByRole('tablist');
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Limits', 'Invoices and payments', 'Requests', 'Users', 'Connections', 'Support access', 'Timeline']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Overview', 'Subscription', 'Limits', 'Invoices and payments', 'Requests', 'Users', 'Connections', 'Support access', 'Notes', 'Timeline']);
     fireEvent.click(within(tabs).getByRole('tab', { name: 'Users' }));
     expect(setTab).toHaveBeenCalledWith('users');
   });

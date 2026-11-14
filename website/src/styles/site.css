@@ -3619,6 +3619,50 @@ html.is-scrolled .nav {
 .status-mark--wait {
   color: var(--ink-3);
 }
+.status-mark--warn {
+  color: var(--accent-text);
+}
+/* Posts from CLOR staff (routes/opsStatus.ts): rows on the page ground under a hairline, newest update first. */
+.status-posts {
+  max-width: 40rem;
+  margin-top: var(--s-6);
+}
+.status-posts-title {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 var(--s-3);
+}
+.status-posts ul,
+.status-posts ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.status-post {
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--line);
+}
+.status-post h3 {
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+.status-post-meta {
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+  margin: var(--s-1) 0 var(--s-3);
+}
+.status-post ol li {
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  margin-top: var(--s-2);
+}
+.status-post-time {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
 .status-note {
   max-width: 40rem;
   margin-top: var(--s-5);

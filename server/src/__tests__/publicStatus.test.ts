@@ -13,7 +13,9 @@ describe('GET /api/public/status: is CLOR working, for anybody to ask', () => {
     expect(res.body.ok).toBe(true);
     expect(res.body.parts.map((p: any) => p.name)).toEqual(['Sign-in and Workspace', 'Books', 'People and Attendance', 'Payroll']);
     expect(res.body.parts.every((p: any) => p.ok === true)).toBe(true);
-    expect(Object.keys(res.body).sort()).toEqual(['checkedAt', 'ok', 'parts']);
+    /* incidents: what staff posted from the operator console (routes/opsStatus.ts); none here. */
+    expect(Object.keys(res.body).sort()).toEqual(['checkedAt', 'incidents', 'ok', 'parts']);
+    expect(res.body.incidents).toEqual([]);
     expect(Object.keys(res.body.parts[0]).sort()).toEqual(['key', 'name', 'ok']);
   });
 

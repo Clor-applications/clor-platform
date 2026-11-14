@@ -222,6 +222,8 @@ const listQuery = z.object({
   q: z.string().trim().max(120).optional(),
   status: z.enum(['all', 'active', 'trialing', 'overdue', 'suspended', 'cancelled', 'no-plan']).optional(),
   page: z.coerce.number().int().min(0).max(10_000).optional(),
+  /* Only customers carrying this staff tag (routes/opsNotes.ts). */
+  tag: z.string().trim().max(40).optional(),
 });
 const PAGE = 25;
 
@@ -230,8 +232,12 @@ opsRouter.get('/ops/accounts', (req, res) =>
   outsideTenant('ops: accounts', async () => {
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
-    const { q = '', status = 'all', page = 0 } = parsed.data;
+    const { q = '', status = 'all', page = 0, tag } = parsed.data;
     const where: any = {};
+    if (tag) {
+      const tagged = await platformPrisma.accountTag.findMany({ where: { tag: { equals: tag, mode: 'insensitive' } }, select: { accountId: true } });
+      where.id = { in: tagged.map((t) => t.accountId) };
+    }
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
@@ -255,11 +261,14 @@ opsRouter.get('/ops/accounts', (req, res) =>
       select: { id: true, name: true, code: true, createdAt: true, suspendedAt: true, legacyUnrestrictedAt: true, orgs: { select: { name: true }, orderBy: { createdAt: 'asc' }, take: 1 }, _count: { select: { orgs: true, users: true } } },
     });
     const ids = accountsAll.map((a) => a.id);
-    const [subs, owners, last] = await Promise.all([
+    const [subs, owners, last, tags] = await Promise.all([
       platformPrisma.subscription.findMany({ where: { accountId: { in: ids } }, select: { accountId: true, status: true, trialEndsAt: true, currentPeriodEnd: true, billingInterval: true, gatewayName: true, items: { select: { appCode: true } } } }),
       platformPrisma.accountMembership.findMany({ where: { accountId: { in: ids }, role: 'OWNER' }, select: { accountId: true, userId: true }, orderBy: { createdAt: 'asc' } }),
       platformPrisma.user.groupBy({ by: ['accountId'], where: { accountId: { in: ids } }, _max: { lastLoginAt: true } }),
+      platformPrisma.accountTag.findMany({ where: { accountId: { in: ids } }, select: { accountId: true, tag: true }, orderBy: { tag: 'asc' } }),
     ]);
+    const tagsBy = new Map<string, string[]>();
+    for (const t of tags) tagsBy.set(t.accountId, [...(tagsBy.get(t.accountId) || []), t.tag]);
     const ownerUsers = await platformPrisma.user.findMany({ where: { id: { in: owners.map((o) => o.userId) } }, select: { id: true, email: true, fullName: true } });
     const userById = new Map(ownerUsers.map((u) => [u.id, u]));
     const ownerBy = new Map<string, { email: string; name: string }>();
@@ -287,6 +296,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
         byHand: s ? !s.gatewayName : false,
         lastActiveAt: lastBy.get(a.id) || null,
         suspended: Boolean(a.suspendedAt),
+        tags: tagsBy.get(a.id) || [],
       };
     });
     if (status === 'active') rows = rows.filter((r) => r.plan === 'active' || r.plan === 'legacy');
