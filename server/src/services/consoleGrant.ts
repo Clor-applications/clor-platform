@@ -24,7 +24,7 @@ import jwt from 'jsonwebtoken';
 export const CONSOLE_GRANT_SECONDS = 60;
 
 const privateKey = () => String(process.env.CONSOLE_GRANT_PRIVATE_KEY || '').replace(/\\n/g, '\n').trim();
-const consoleApi = () => String(process.env.CONSOLE_API_ORIGIN || 'https://console-api.clor.in').replace(/\/$/, '');
+const consoleApi = () => String(process.env.CONSOLE_API_ORIGIN || 'https://console.clor.in').replace(/\/$/, '');
 
 export const consoleGrantOn = () => Boolean(privateKey());
 

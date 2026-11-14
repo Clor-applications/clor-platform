@@ -82,6 +82,22 @@ describe('who gets in', () => {
   });
 });
 
+describe('the direct address', () => {
+  // protects=with an edge secret set, only requests carrying it are answered, so the run.app address is closed; the health check stays open for Cloud Run; fails_when=a request without the secret, or with a wrong one, gets past; no_claim=Cloudflare adding the header is the forwarder's job, not run here
+  it('answers only through the forwarder when an edge secret is set', async () => {
+    const { createApp } = await import('../src/app.js');
+    const { readConfig } = await import('../src/config.js');
+    const { fakeCloud, fakeGitHub } = await import('../src/fakes.js');
+    const { memoryStore } = await import('../src/store.js');
+    const app = createApp({ config: readConfig({ CONSOLE_SESSION_SECRET: 's'.repeat(40), CONSOLE_EDGE_SECRET: 'edge-secret-value', CONSOLE_WEB_ORIGIN: WEB }), store: memoryStore(), github: fakeGitHub(), cloud: fakeCloud() });
+    expect((await request(app).get('/api/health')).status).toBe(200);
+    expect((await request(app).get('/api/auth/options')).status).toBe(403);
+    expect((await request(app).get('/api/auth/options').set('x-console-edge', 'edge-secret-valuX')).status).toBe(403);
+    expect((await request(app).get('/api/me').set('x-console-edge', 'wrong')).body.code).toBe('EDGE_REQUIRED');
+    expect((await request(app).get('/api/auth/options').set('x-console-edge', 'edge-secret-value')).status).toBe(200);
+  });
+});
+
 describe('who may change what', () => {
   // protects=every change needs a code entered in the last five minutes, whatever the role; fails_when=any write gets past with a stale step-up; no_claim=none beyond protects
   it('refuses every write once the code is older than five minutes', async () => {

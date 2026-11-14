@@ -13,7 +13,8 @@ const LOGIN: Record<Role, string> = { OWNER: 'suresh-3333', ENGINEER: 'dev-engin
 
 /** A Console with a memory store, canned GitHub and cloud, and a clock the test moves. */
 export async function world(opts: { clor?: boolean } = {}) {
-  const clock = { at: Date.parse('2026-11-14T10:00:00Z') };
+  /* Starts at the real time: the test browser keeps cookies by the real clock, so a fixed past date would have it drop the session cookie as expired. */
+  const clock = { at: Date.now() };
   const now = () => clock.at;
   const keys = generateKeyPairSync('ec', { namedCurve: 'P-256' });
   const config = readConfig({ NODE_ENV: 'test', CONSOLE_WEB_ORIGIN: WEB, CONSOLE_SESSION_SECRET: 'a-test-secret-that-is-long-enough-000', CONSOLE_OWNER_GITHUB_IDS: '1001', CONSOLE_CLOR_GRANT_PUBLIC_KEY: opts.clor === false ? '' : keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() });

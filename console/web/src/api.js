@@ -1,8 +1,8 @@
 /*
- * The Console's API. In production the page is console.clor.in and the API is
- * console-api.clor.in (VITE_CONSOLE_API); on a laptop the dev server passes
- * /api through. Every change carries the X-Console header, which the API
- * requires along with this page's origin.
+ * The Console's API, at /api on the page's own address (Cloudflare forwards it
+ * to the service: functions/api/[[path]].js; on a laptop the dev server does).
+ * VITE_CONSOLE_API points it elsewhere if ever needed. Every change carries
+ * the X-Console header, which the API requires along with this page's origin.
  */
 const BASE = (import.meta.env?.VITE_CONSOLE_API || '').replace(/\/$/, '');
 
@@ -24,7 +24,7 @@ async function call(method, path, body) {
       body: method === 'GET' ? undefined : JSON.stringify(body || {}),
     });
   } catch {
-    throw new ApiError('The Console could not be reached. Check your connection and try again.', 0);
+    throw new ApiError('The Console server is not answering. The page loaded, so your connection is fine; the server behind it is down or not set up yet.', 0);
   }
   let data = null;
   try {

@@ -21,7 +21,7 @@ GitHub → the `Clor-applications` organisation → Settings → Developer setti
 |---|---|
 | Name | CLOR Console |
 | Homepage URL | `https://console.clor.in` |
-| Callback URL | `https://console-api.clor.in/api/auth/callback` |
+| Callback URL | `https://console.clor.in/api/auth/callback` |
 | Expire user authorization tokens | On |
 | Request user authorization during installation | Off |
 | Webhook | Off |
@@ -111,24 +111,35 @@ gcloud run deploy clor-console --project $PROJECT --region $REGION \
   --image $REGION-docker.pkg.dev/$PROJECT/clor/console-api:$(git rev-parse --short=7 HEAD) \
   --service-account $SA --allow-unauthenticated --min-instances 0 --max-instances 2 \
   --add-cloudsql-instances $PROJECT:$REGION:clor-pg \
-  --set-env-vars NODE_ENV=production,CONSOLE_WEB_ORIGIN=https://console.clor.in,CONSOLE_API_ORIGIN=https://console-api.clor.in,CONSOLE_OWNER_GITHUB_IDS=<your numeric id>,CONSOLE_GITHUB_APP_ID=<app id>,CONSOLE_GITHUB_INSTALLATION_ID=<installation id>,CONSOLE_GITHUB_CLIENT_ID=<client id>,CONSOLE_CF_ACCOUNT_ID=<cloudflare account id> \
+  --set-env-vars NODE_ENV=production,CONSOLE_WEB_ORIGIN=https://console.clor.in,CONSOLE_API_ORIGIN=https://console.clor.in,CONSOLE_OWNER_GITHUB_IDS=<your numeric id>,CONSOLE_GITHUB_APP_ID=<app id>,CONSOLE_GITHUB_INSTALLATION_ID=<installation id>,CONSOLE_GITHUB_CLIENT_ID=<client id>,CONSOLE_CF_ACCOUNT_ID=<cloudflare account id> \
   --set-secrets CONSOLE_SESSION_SECRET=console-session-secret:latest,CONSOLE_DATABASE_URL=console-database-url:latest,CONSOLE_GITHUB_PRIVATE_KEY=console-github-private-key:latest,CONSOLE_GITHUB_CLIENT_SECRET=console-github-client-secret:latest,CONSOLE_CF_READ_TOKEN=console-cf-read-token:latest
 ```
 
 "Allow unauthenticated" means Google does not ask for a Google login; the
 Console's own sign-in guards every route. The service refuses to start if a
-setting is missing and names it in its log. Map `console-api.clor.in` to the
-service (Cloud Run → Manage custom domains, or the same way `api.clor.in` is
-mapped).
+setting is missing and names it in its log.
+
+The API has no address of its own. `console.clor.in/api/*` is forwarded to it
+by a Cloudflare Pages Function (`console/web/functions/api/[[path]].js`), the
+same arrangement as `api.clor.in`. Two things tie them together:
+
+- `ORIGIN` in `console/web/wrangler.toml`: the service's `run.app` address.
+- An edge secret, so the `run.app` address answers nothing directly:
+  `openssl rand -hex 32`, stored as the secret `console-edge-secret`, given to
+  the service as `CONSOLE_EDGE_SECRET`, and to the page with
+  `wrangler pages secret put CONSOLE_EDGE_SECRET --project-name clor-console`.
 
 ## 4. Console page on Cloudflare Pages
 
 - Cloudflare → My Profile → API Tokens → Create Token → custom: **Account →
   Cloudflare Pages → Read**, this account only. That is `console-cf-read-token`.
 - Workers & Pages → Create → Pages → project name `clor-console`, direct upload.
-- Publish: `VITE_CONSOLE_API=https://console-api.clor.in npm run console:build`
-  then `wrangler pages deploy dist-console --project-name clor-console --branch main`.
+- Publish: `npm run console:build`, then from `console/web`: `wrangler pages deploy --branch main`
+  (it reads `wrangler.toml` there and uploads the page and the forwarder).
 - Custom domain `console.clor.in` on that project.
+
+Done 15 Nov 2026: the project, the page and `console.clor.in` exist. `ORIGIN`
+is still empty, so `/api` answers "The Console server is not set up yet."
 
 Open https://console.clor.in, sign in with GitHub, set up your authenticator.
 Overview, Pull requests, Log and Members work from here. Release and Roll
@@ -216,7 +227,7 @@ openssl ec -in console-grant-private.pem -pubout -out console-grant-public.pem
 | Where | Setting | Value |
 |---|---|---|
 | `clor-api` (Secret Manager) | `CONSOLE_GRANT_PRIVATE_KEY` | Contents of `console-grant-private.pem` |
-| `clor-api` | `CONSOLE_API_ORIGIN` | `https://console-api.clor.in` |
+| `clor-api` | `CONSOLE_API_ORIGIN` | `https://console.clor.in` |
 | `clor-console` | `CONSOLE_CLOR_GRANT_PUBLIC_KEY` | Contents of `console-grant-public.pem` (not a secret) |
 | `clor-console` | `CONSOLE_CLOR_OPS_ORIGIN` | `https://ops.clor.in` |
 

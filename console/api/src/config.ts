@@ -12,6 +12,8 @@ export interface Config {
   /** Where this API is reached from a browser. Its routes all sit under /api. */
   apiOrigin: string;
   sessionSecret: string;
+  /** When set, every request but /api/health must carry it in x-console-edge: only Cloudflare's forwarder does. */
+  edgeSecret: string;
   ownerGithubIds: string[];
   databaseUrl: string;
   github: { owner: string; repo: string; appId: string; privateKey: string; installationId: string; clientId: string; clientSecret: string };
@@ -33,6 +35,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webOrigin: env.CONSOLE_WEB_ORIGIN || 'http://127.0.0.1:5191',
     apiOrigin: env.CONSOLE_API_ORIGIN || env.CONSOLE_WEB_ORIGIN || 'http://127.0.0.1:5191',
     sessionSecret: env.CONSOLE_SESSION_SECRET || '',
+    edgeSecret: env.CONSOLE_EDGE_SECRET || '',
     ownerGithubIds: list(env.CONSOLE_OWNER_GITHUB_IDS),
     databaseUrl: env.CONSOLE_DATABASE_URL || '',
     github: {

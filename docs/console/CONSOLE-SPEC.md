@@ -429,6 +429,7 @@ two workflows; any real sign-in with GitHub. `SETUP.md` lists the steps.
 | 9, criterion 10 | Exactly one log line per write | One line for a change that worked, written before the change is made; a failed change adds a second line ending `_FAILED` | Nothing can happen unlogged, and the log table takes no updates |
 | 9, criterion 14 | Searches every response fixture for environment names | Searches each read for the session secret, the GitHub token and the authenticator secret | Those are the secrets the API holds |
 | 15 | `docs/workspace/OPERATOR_CONSOLE.md` gets a pointer | Done | |
+| 5, diagram | API on its own address, `console-api.clor.in` | API at `console.clor.in/api`, forwarded by a Cloudflare Pages Function with an edge secret, as `api.clor.in` is | One origin: first-party cookie, no cross-site calls, no second DNS name |
 | 5, D2 | GitHub sign-in only | GitHub and CLOR login (owner's decision after the first build). Adds `GET /api/ops/console-grant` and a confirm screen in Ops to the customer app, `console/api/src/grant.ts`, a code screen for CLOR sign-ins, a Your sign-in page, and members by CLOR address | See D2 |
 | 2 | "No customer login reaches the Console" | A CLOR staff login now proves identity to the Console. It grants nothing by itself: member list and Console authenticator still apply, and the Console holds only a public key | See D2 |
 

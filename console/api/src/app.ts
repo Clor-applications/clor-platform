@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 import cookieParser from 'cookie-parser';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -51,6 +51,15 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'same-site' } }));
   app.use(cookieParser());
   app.use(express.json({ limit: '32kb' }));
+
+  /* Only through Cloudflare (console/web/functions/api): the direct run.app address answers nothing but its health check. */
+  app.use((req, res, next) => {
+    if (!config.edgeSecret || req.path === '/api/health') return next();
+    const given = Buffer.from(String(req.headers['x-console-edge'] || ''));
+    const want = Buffer.from(config.edgeSecret);
+    if (given.length !== want.length || !timingSafeEqual(given, want)) return res.status(403).json({ error: 'Open the Console at its own address.', code: 'EDGE_REQUIRED' });
+    next();
+  });
 
   /* The page lives on another address (console.clor.in), so it is named here and nobody else is. */
   app.use((req, res, next) => {
