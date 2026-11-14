@@ -1054,7 +1054,7 @@ function ShellScreens() {
               aria-current={isCurrent(item.key) ? 'page' : undefined}
               onClick={() => goTo(item.key)}
             >
-              {item.icon ? <item.icon size={15} aria-hidden="true" /> : null}
+              {item.icon ? <item.icon size={20} aria-hidden="true" /> : null}
               <span className="min-w-0 truncate">{item.label}</span>
               {Number(panelCounts[item.key]) >= 0 && panelCounts[item.key] != null ? <span className="ui-split-item-count">{panelCounts[item.key]}</span> : null}
             </button>
@@ -1065,7 +1065,7 @@ function ShellScreens() {
       {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
           <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
-            <LayoutGrid size={15} aria-hidden="true" />
+            <LayoutGrid size={20} aria-hidden="true" />
             More apps
           </button>
         </div>

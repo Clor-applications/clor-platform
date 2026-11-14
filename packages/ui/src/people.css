@@ -666,34 +666,6 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
 .people-step-note { grid-area: note; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
 
 /*
- * UI rules (owner, 8 Nov 2026), now Attendance only: People takes rnd.css's geometry (36px controls, 56px rows,
- * 20px menu icons). Accounting and Payroll keep their measured geometry, and printed documents are untouched.
- * Rows 48px. Controls 40px, 44px on a phone. Icons 18px in the rail and menu, 16px in buttons and tables.
- * Doubled classes and the id lift these over the palette rules without !important.
- */
-:root[data-palette='blaze']:not([data-density='compact']) :is(#main-content, .ui-scrim) .ui-table.ui-table tbody tr { height: 3rem; }
-:root[data-palette='blaze']:not([data-density='compact']) :is(#main-content, .ui-scrim) .ui-table.ui-table tbody td { padding-block: calc(0.375rem - 0.5px); }
-
-:root[data-palette='blaze'] :is(#main-content, .ui-scrim) .ui-btn.ui-btn:not(.ui-icon-btn, .ui-btn-sm, .ui-grid-dense *) { height: 2.5rem; min-height: 2.5rem; }
-:root[data-palette='blaze'] :is(#main-content, .ui-scrim) :is(.ui-input, .ui-select):not(.ui-ctl-compact, textarea, .ui-grid-dense *) { min-height: 2.5rem; }
-:root[data-palette='blaze'] :is(#main-content, .ui-scrim) input:is([type='date'], [type='datetime-local'], [type='time']).ui-input:not(.ui-ctl-compact, .ui-grid-dense *),
-:root[data-palette='blaze'] :is(#main-content, .ui-scrim) .ui-search-field.ui-search-field .ui-input { height: 2.5rem; }
-:root[data-palette='blaze'] :is(#main-content, .ui-scrim) .ui-icon-btn.ui-icon-btn:not(.ui-table *, .ui-grid-dense *) { width: 2.5rem; height: 2.5rem; }
-:root[data-palette='blaze'] :is(#main-content, .ui-scrim) .ui-choice-chip.ui-choice-chip { height: 2.5rem; padding-inline: 1rem; }
-
-@media (max-width: 767px) {
-  html:root[data-palette='blaze'] :is(#main-content, .ui-scrim) :is(.ui-btn.ui-btn.ui-btn, .ui-icon-btn.ui-icon-btn.ui-icon-btn):not(.ui-table *, .ui-grid-dense *) { height: auto; min-height: 2.75rem; min-width: 2.75rem; }
-  html:root[data-palette='blaze'] :is(#main-content, .ui-scrim) :is(.ui-input, .ui-select):not(.ui-ctl-compact, textarea, .ui-grid-dense *),
-  html:root[data-palette='blaze'] :is(#main-content, .ui-scrim) input:is([type='date'], [type='datetime-local'], [type='time']).ui-input:not(.ui-ctl-compact, .ui-grid-dense *),
-  html:root[data-palette='blaze'] :is(#main-content, .ui-scrim) .ui-search-field.ui-search-field .ui-input,
-  html:root[data-palette='blaze'] :is(#main-content, .ui-scrim) .ui-choice-chip.ui-choice-chip { height: 2.75rem; min-height: 2.75rem; }
-}
-
-html:root[data-palette='blaze'] :is(.ui-split-rail, .ui-split-panel, .ui-shell) :is(.ui-split-mod, .ui-split-item, .ui-nav-item) > svg:is(.ui-glyph, svg) { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; }
-html:root[data-palette='blaze'] :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-icon-btn) > svg,
-html:root[data-palette='blaze'] :is(#main-content, .ui-scrim) .ui-table tbody td > svg { width: 1rem; height: 1rem; font-size: 1rem; }
-
-/*
  * The employee app (shared with Attendance). Waiting reads as the Attention status and the open tab carries the
  * portal marker, through its own `data-brand="d"`, so Attendance's web screens keep their own look.
  */
