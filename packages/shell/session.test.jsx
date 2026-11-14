@@ -71,11 +71,19 @@ describe('a new company starts with the apps picked (B2)', () => {
     auth.setupCompany.mockClear();
     auth.setFeature.mockClear();
     auth.setupCompany.mockResolvedValue({ company: { orgId: 'first' }, branch: { id: 'b1' } });
-    let session;
-    function Grab() { session = useSession(); return null; }
-    render(<SessionProvider><Grab /></SessionProvider>);
-    await waitFor(() => expect(session?.tenant?.id).toBe('first'));
-    await session.createCompany({ name: 'First', state: 'Karnataka', apps: ['attendance'] });
+    /* A button that runs createCompany from inside the provider, so the test needs no handle on the session. */
+    function Make() {
+      const { tenant, createCompany } = useSession();
+      return (
+        <button type="button" data-testid="make" data-tenant={tenant?.id || ''} onClick={() => createCompany({ name: 'First', state: 'Karnataka', apps: ['attendance'] })}>
+          make
+        </button>
+      );
+    }
+    render(<SessionProvider><Make /></SessionProvider>);
+    await waitFor(() => expect(screen.getByTestId('make').dataset.tenant).toBe('first'));
+    screen.getByTestId('make').click();
+    await waitFor(() => expect(auth.setupCompany).toHaveBeenCalled());
     expect(auth.setupCompany).toHaveBeenCalledWith(expect.objectContaining({ companyName: 'First', state: 'Karnataka', apps: ['attendance'] }));
     expect(auth.setFeature).not.toHaveBeenCalled();
   });
