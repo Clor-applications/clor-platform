@@ -28,8 +28,9 @@
 #    why the backup comes first, and why migrations must be additive: the old
 #    revision keeps serving on the new schema until traffic moves, and again
 #    after a rollback.
-#  - Rolling back is moving traffic to the previous tag; the script prints the
-#    command at the end. It does not undo a migration.
+#  - Rolling back is moving traffic back to the revision that was serving before
+#    this release. The script reads its name before it moves anything and prints
+#    the command at the end. It does not undo a migration.
 set -euo pipefail
 
 PROJECT=clor-apps-511409
@@ -115,6 +116,18 @@ fi
 PREVIOUS=${SINCE:-$(git tag --list 'rel-*' --merged HEAD --sort=-creatordate | grep -vx "$TAG" | head -1 || true)}
 say "Previous release: ${PREVIOUS:-none recorded in git yet}"
 
+# The revision customers are on now: the rollback target. Read by name, not by
+# tag. A tag only exists while some traffic entry carries it, and until 14 Nov
+# 2026 step 6 used --set-tags, which wiped the previous release's tag, so the
+# printed rollback (by the previous release's tag) failed when it was needed.
+SERVING='<the revision serving now>'
+if [ "$MODE" != dry ]; then
+  SERVING=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json \
+    | node -e 'const s=JSON.parse(require("fs").readFileSync(0,"utf8"));const t=(s.status.traffic||[]).filter(x=>x.percent>0).sort((a,b)=>b.percent-a.percent);process.stdout.write(t.length?t[0].revisionName:"")')
+  [ -n "$SERVING" ] || stop "Could not read which revision is serving now, so there would be nothing to roll back to."
+fi
+say "Serving now (the rollback target): $SERVING"
+
 # ---------------------------------------------------------------------------
 step "1. The on-site connector, signed (DEPLOY.md, The on-site connector)"
 if [ -f "$SIGNING_KEY" ]; then
@@ -151,7 +164,9 @@ if on stage; then
 fi
 
 step "6. Tag the revision $TAG"
-run stage gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --set-tags "$TAG=$REVISION"
+# --update-tags adds this one and keeps the rest. --set-tags replaces every tag
+# on the service, which deleted the previous release's tag (14 Nov 2026).
+run stage gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --update-tags "$TAG=$REVISION"
 
 step "7. Is it ready? $TAG_URL/ready"
 # /ready answers 200 once the API has started and reached its databases. It is
@@ -221,11 +236,7 @@ else
 fi
 
 step "Done$([ "$MODE" = dry ] && echo ' (dry run: nothing was run)')"
-if [ -n "$PREVIOUS" ] && [ "${PREVIOUS#rel-}" != "$PREVIOUS" ]; then
-  say "To roll the API back: gcloud run services update-traffic $SERVICE --project $PROJECT --region $REGION --to-tags $PREVIOUS=100"
-else
-  say "To roll the API back, move traffic to the previous rel- tag:"
-  say "  gcloud run services update-traffic $SERVICE --project $PROJECT --region $REGION --to-tags rel-<previous sha7>=100"
-fi
+say "To roll the API back, move traffic to the revision that was serving before this release:"
+say "  gcloud run services update-traffic $SERVICE --project $PROJECT --region $REGION --to-revisions $SERVING=100"
 say "To roll the web app or the website back: Cloudflare dashboard, the Pages project, Deployments, the one before, Rollback."
 if [ "$MODE" = dry ]; then say "Nothing was changed. Run with --stage to try the new revision without traffic, or --go to release."; fi

@@ -6,6 +6,8 @@ import Demo from './pages/Demo.jsx';
 import Product, { Products } from './pages/Product.jsx';
 import { About, Businesses, Contact, Firms, Integrations, Legal, NotFound, Resources, Security, ServiceStatus, Team } from './pages/Pages.jsx';
 import Pricing from './pages/Pricing.jsx';
+/* The one font file every page needs first (the same hashed file site.css loads), so text does not wait for the stylesheet. */
+import fontUrl from '@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2?url';
 
 /** Every page: its address, title, description and component. The sitemap is made from this list. */
 export const ROUTES = [
@@ -51,7 +53,10 @@ export function headFor(path) {
   const r = routeFor(path);
   const title = titleFor(r);
   const url = `${SITE.url}${r.path === '/' ? '/' : r.path}`;
+  const api = new URL(SITE.apiUrl, SITE.url).origin;
   return [
+    `<link rel="preload" href="${fontUrl}" as="font" type="font/woff2" crossorigin />`,
+    ...(api === new URL(SITE.url).origin ? [] : [`<link rel="preconnect" href="${api}" crossorigin />`]),
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(r.description)}" />`,
     r.noindex ? '<meta name="robots" content="noindex" />' : `<link rel="canonical" href="${url}" />`,

@@ -3,7 +3,7 @@ import { Link } from '../router.jsx';
 import { CONNECTIONS, SITE, demoFor, productBySlug } from '../site.js';
 import { useProducts } from '../catalogue.js';
 import { PRODUCT_CONTENT } from '../content.js';
-import { Mark, Status } from '../components/Brand.jsx';
+import { Mark, ProductName, Status } from '../components/Brand.jsx';
 import { Closing, Faq, SectionHead, Steps } from '../components/Blocks.jsx';
 import { Head } from '../components/Sections.jsx';
 
@@ -32,7 +32,7 @@ function Hero({ p, c, soon }) {
         <div className="hero-copy">
           <p className="fx-eyebrow">{p.category}</p>
           <h1 id="p-title" className="h-hero">
-            CLOR&nbsp;{p.name}
+            <ProductName name={p.name} />
           </h1>
           {soon ? <Status product={p} /> : null}
           <p className="lede">
@@ -120,7 +120,7 @@ export default function Product({ slug }) {
               <li key={prob} className="fix">
                 <p className="fix-label">Before</p>
                 <h3 className="h-3">{prob}</h3>
-                <p className="fix-label fix-label--now">With CLOR&nbsp;{p.name}</p>
+                <p className="fix-label fix-label--now">With <ProductName name={p.name} /></p>
                 <p className="body">{fix}</p>
               </li>
             ))}
@@ -220,7 +220,7 @@ export function Products() {
                     <Mark product={p} size={44} />
                     <span className="stack" style={{ '--stack': '0.4rem' }}>
                       <span className="cat-name">
-                        CLOR&nbsp;{p.name} <Status product={p} />
+                        <ProductName name={p.name} /> <Status product={p} />
                       </span>
                       <span className="body">{p.line}</span>
                     </span>

@@ -461,7 +461,18 @@ export function Contact() {
           >
             <label className="field">
               <span>What it’s about</span>
-              <select value={about} onChange={(e) => setAbout(e.target.value)}>
+              <select
+                value={about}
+                onChange={(e) => {
+                  setAbout(e.target.value);
+                  /* The address follows the topic, so a copied link opens the same form. */
+                  const q = new URLSearchParams(window.location.search);
+                  if (e.target.value === 'general') q.delete('about');
+                  else q.set('about', e.target.value);
+                  const s = q.toString();
+                  window.history.replaceState(window.history.state, '', `${window.location.pathname}${s ? `?${s}` : ''}`);
+                }}
+              >
                 {Object.entries(TOPICS).map(([k, v]) => (
                   <option key={k} value={k}>
                     {v}
@@ -613,7 +624,7 @@ export function ServiceStatus() {
               <li key={p.key}>
                 <span>{p.name}</span>
                 <span className={`status-mark${p.ok === false ? ' status-mark--bad' : p.ok === null ? ' status-mark--wait' : ''}`}>
-                  {p.ok === null ? 'Checking' : p.ok ? 'Working' : 'Not working'}
+                  {p.ok === null ? 'Checking…' : p.ok ? 'Working' : 'Not working'}
                 </span>
               </li>
             ))}
