@@ -1,0 +1,165 @@
+/*
+ * People · employee side (R&D hand-off PEOPLE-02..10, clor-rnd/README.md §3 and §5). Employees, the profile, Add
+ * employee, the org chart, Documents and Salary revisions. Tokens only (rnd.css): moss for what you press and where you
+ * are, the categorical palette (--cat-1..8) for identity, status colours only beside a word.
+ * Prefix `pc-` so nothing here reaches another screen.
+ */
+
+/* ------------------------------------------------------------------ KPI tiles */
+.pc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.pc-kpis[data-count='3'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pc-kpi-cell { min-width: 0; }
+.pc-kpi {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  grid-template-areas: 'icon label' 'value value' 'note note';
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.75rem;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 9rem;
+  padding: 1.25rem;
+  text-align: left;
+  align-content: start;
+  border: 1px solid rgb(var(--border-field));
+  border-radius: 0.75rem;
+  background: rgb(var(--surface));
+  box-shadow: inset 0 3px 0 rgb(var(--pc-id, var(--border-strong)));
+  color: rgb(var(--fg));
+}
+button.pc-kpi { cursor: pointer; transition: background-color var(--dur-state, 150ms) ease; }
+button.pc-kpi:hover { background: rgb(var(--surface-sunken)); }
+button.pc-kpi:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: 2px; }
+.pc-kpi-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, rgb(var(--pc-id, var(--border-strong))) 12%, rgb(var(--surface)));
+}
+.pc-kpi-icon > svg { width: 1.25rem; height: 1.25rem; font-size: 1.25rem; }
+.pc-kpi-icon > i { width: 0.75rem; height: 0.75rem; border-radius: 3px; background: rgb(var(--pc-id)); }
+.pc-kpi-label { grid-area: label; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 0.75rem; line-height: 1rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(var(--fg-muted)); }
+.pc-kpi-value { grid-area: value; font-size: 1.75rem; line-height: 2.25rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-kpi-value[data-tone='warn']:not([data-zero]) { color: rgb(var(--warn-ink)); }
+.pc-kpi-value[data-tone='neg']:not([data-zero]) { color: rgb(var(--neg)); }
+.pc-kpi-note { grid-area: note; display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.pc-delta { display: inline-flex; flex: none; align-items: center; height: 1.375rem; padding: 0 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums; background: rgb(var(--pos-soft)); color: rgb(var(--pos)); }
+.pc-delta[data-good='no'] { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+
+/* ------------------------------------------------------------------ Page header pieces */
+.pc-back { display: inline-flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; border-radius: 0.5rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+.pc-back:hover { color: rgb(var(--fg)); }
+.pc-back:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: 2px; }
+.pc-head { display: flex; flex-direction: column; }
+.pc-head > .ui-page-heading { margin-bottom: 0; }
+.pc-section-title { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: rgb(var(--fg)); }
+
+/* ------------------------------------------------------------------ Charts on the soft panel */
+.pc-charts { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: 2rem; align-items: start; }
+.pc-charts > section { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+.pc-bars { margin: 0; padding: 1.5rem; border-radius: 0.75rem; background: rgb(var(--soft-panel)); }
+.pc-bars > ul { display: grid; gap: 0.75rem; }
+.pc-bars li { display: grid; grid-template-columns: minmax(6rem, 8rem) minmax(0, 1fr) 2.5rem; align-items: center; gap: 1rem; font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg)); }
+.pc-bar { display: block; height: 0.75rem; }
+.pc-bar > span { display: block; height: 100%; min-width: 2px; border-radius: 3px; background: rgb(var(--pc-id)); }
+.pc-bars b { text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+.pc-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding: 1.5rem; border-radius: 0.75rem; background: rgb(var(--soft-panel)); }
+.pc-facts dt { font-size: 0.75rem; line-height: 1rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(var(--fg-muted)); }
+.pc-facts dd { margin-top: 0.5rem; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.pc-facts button { text-align: left; border-radius: 0.5rem; }
+.pc-facts button:hover dd { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Meter on the sunken track (identity fill, value in ink). */
+.pc-meter { display: block; height: 0.5rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
+.pc-meter > span { display: block; height: 100%; border-radius: 999px; background: rgb(var(--pc-id)); }
+
+/* ------------------------------------------------------------------ Tables: a person with a line under */
+.pc-who { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.pc-who-text { min-width: 0; }
+.pc-who-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: rgb(var(--fg)); }
+.pc-who-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
+.pc-two { display: block; min-width: 0; }
+.pc-two > span:first-child { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgb(var(--fg)); }
+.pc-two > span + span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); }
+.pc-up { color: rgb(var(--pos)); font-variant-numeric: tabular-nums; }
+.pc-note { font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+
+/* ------------------------------------------------------------------ Profile (PEOPLE-03) */
+.pc-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(16rem, 26rem); align-items: center; gap: 1.5rem; padding: 2rem 1.5rem; border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface)); }
+.pc-summary .ui-avatar-edit, .pc-summary > :first-child { flex: none; }
+.pc-summary-role { font-size: 1rem; line-height: 1.5rem; font-weight: 600; color: rgb(var(--fg)); }
+.pc-summary-line { margin-top: 0.25rem; font-size: 0.875rem; line-height: 1.375rem; color: rgb(var(--fg-muted)); overflow-wrap: anywhere; }
+.pc-summary-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; margin-top: 0.5rem; }
+.pc-summary-pills .pc-chip { display: inline-flex; align-items: center; height: 1.5rem; padding: 0 0.625rem; border-radius: 999px; background: rgb(var(--neutral-soft)); color: rgb(var(--neutral-ink)); font-size: 0.75rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.pc-summary-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem 1.5rem; }
+.pc-summary-facts dt { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.pc-summary-facts dd { margin-top: 0.375rem; font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg)); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pc-summary-facts dd .ui-link { font-weight: 500; }
+.pc-summary-alerts { display: flex; flex-wrap: wrap; gap: 0.375rem 1rem; margin-top: 0.5rem; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.pc-summary-alerts .is-warn { color: rgb(var(--warn-ink)); font-weight: 600; }
+
+/* The profile's right column (Leave balance, Team): blocks on the page ground under a hairline, no cards. */
+.pc-side-block { display: flex; flex-direction: column; }
+.pc-side-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgb(var(--border)); }
+.pc-side-list > li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 3.5rem; padding: 0.5rem 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+.pc-side-list > li:last-child { border-bottom: 0; }
+.pc-side-list b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pc-leave-pill { display: inline-flex; align-items: center; gap: 0.375rem; height: 1.5rem; max-width: 12rem; padding: 0 0.625rem; border-radius: 999px; background: rgb(var(--surface-sunken)); font-size: 0.75rem; font-weight: 500; color: rgb(var(--fg)); }
+.pc-leave-pill > i { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 2px; background: var(--swatch); }
+.pc-leave-pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-person { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-width: 0; text-align: left; border-radius: 0.5rem; }
+button.pc-person:hover .pc-who-name { text-decoration: underline; text-underline-offset: 2px; }
+button.pc-person:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: 2px; }
+
+/* ------------------------------------------------------------------ Add employee (PEOPLE-04) */
+.pc-steps { display: grid; grid-template-columns: repeat(var(--pc-steps, 4), minmax(0, 1fr)); gap: 0.5rem; }
+.pc-step { display: flex; flex-direction: column; gap: 0.625rem; min-width: 0; padding: 0; text-align: left; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+.pc-step::before { content: ''; display: block; height: 0.25rem; border-radius: 999px; background: rgb(var(--surface-sunken)); }
+.pc-step.is-done::before, .pc-step.is-current::before { background: rgb(var(--marker)); }
+.pc-step.is-current { color: rgb(var(--fg)); font-weight: 600; }
+.pc-step > span { display: inline-flex; align-items: center; gap: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-wizard-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem); gap: 2rem; align-items: start; }
+.pc-wizard-grid > form { min-width: 0; }
+html:root #main-content .pc-wizard-grid .ui-wizard-body { border-top: 0; padding-top: 0; }
+html:root #main-content .pc-wizard-grid .ui-form-grid { max-width: none; }
+html:root #main-content .pc-wizard-grid .ui-wizard-actions { max-width: none; }
+.pc-card { padding: 1.5rem; border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface)); }
+.pc-card dl { display: grid; gap: 1rem; margin-top: 1.25rem; }
+.pc-card dt { font-size: 0.75rem; line-height: 1rem; color: rgb(var(--fg-muted)); }
+.pc-card dd { margin-top: 0.375rem; font-size: 0.875rem; color: rgb(var(--fg)); font-variant-numeric: tabular-nums; }
+.pc-aside { display: flex; flex-direction: column; gap: 1.5rem; position: sticky; top: calc(var(--platform-bar, 4rem) + 1.5rem); }
+.pc-aside > section > h2 { margin-bottom: 0.75rem; }
+.pc-next > li { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.875rem 0; border-top: 1px solid rgb(var(--border)); font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg)); }
+.pc-next > li > svg { flex: none; margin-top: 0.125rem; color: rgb(var(--pos)); }
+
+/* ------------------------------------------------------------------ Narrow screens */
+@media (max-width: 1279px) {
+  .pc-summary { grid-template-columns: auto minmax(0, 1fr); }
+  .pc-summary-facts { grid-column: 1 / -1; }
+  .pc-wizard-grid { grid-template-columns: minmax(0, 1fr); }
+  .pc-aside { position: static; }
+}
+@media (max-width: 1023px) {
+  .pc-kpis, .pc-kpis[data-count='3'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pc-charts { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 639px) {
+  .pc-kpis, .pc-kpis[data-count='3'] { gap: 0.75rem; }
+  .pc-kpi { min-height: 0; padding: 1rem; row-gap: 0.5rem; }
+  .pc-kpi-value { font-size: 1.5rem; line-height: 2rem; }
+  .pc-bars, .pc-facts { padding: 1rem; }
+  .pc-bars li { grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr) 2rem; gap: 0.625rem; }
+  .pc-summary { grid-template-columns: minmax(0, 1fr); padding: 1.25rem; gap: 1rem; }
+  .pc-steps > .pc-step:not(.is-current) > span { visibility: hidden; }
+}
+
+/* Employees: the tiles, then the charts, 32px apart (PEOPLE-02). */
+.pc-directory-top { display: flex; flex-direction: column; gap: 2rem; margin-block: 0.5rem 0.5rem; }
+
+/* The profile's portrait is graphite with soft-white initials (README §2: graphite for avatar fills); a photo stays a photo. */
+.pc-summary .ui-avatar-initials { background-color: rgb(var(--fg)) !important; color: rgb(var(--soft-white, 247 248 246)) !important; font-size: 1.375rem !important; font-weight: 700; }

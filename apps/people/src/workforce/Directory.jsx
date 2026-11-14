@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarEdit24Color, PeopleAdd24Color, PeopleAdd32Color, PhoneLaptop24Color } from '@fluentui/react-icons';
+import { CalendarClock20Color, CalendarEdit24Color, People20Color, PeopleAdd20Color, PeopleAdd24Color, PeopleAdd32Color, PersonWarning20Color, PhoneLaptop24Color } from '@fluentui/react-icons';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
-import { CalendarClock, Download, Filter, Pencil, Plus, Trash2, TreePalm, Upload, UserCheck, UserMinus, Users, X } from '@ui/components/ui/lineIcons';
-import { useContentIcon } from '@ui/components/ui/colorSwap';
+import { Download, Filter, Pencil, Plus, Trash2, Upload, X } from '@ui/components/ui/lineIcons';
+import { KpiTiles, BarPanel } from '../components/Core';
+import { getOverview } from '@ui/personnel/api';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable, { ColumnSettings } from '@ui/components/ui/DataTable';
@@ -87,7 +88,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   if (selKey !== listKey) { setSelKey(listKey); setSelected(new Set()); }
 
   /* Lower-priority columns start hidden so the table fits beside both sidebars; Columns shows them (WF-03). */
-  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type', 'location'] }));
+  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type', 'location', 'department', 'code'] }));
   const setPrefs = (next) => { setPrefsState(next); writeJson(COLUMNS_KEY, next); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulk, setBulk] = useState(null);
@@ -100,22 +101,25 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const total = Number(list.data?.total || 0);
   /* Managers to filter and move people to: everyone still here, by name (500 at most for the picker). */
   const [managers, setManagers] = useState([]);
-  useEffect(() => { listEmployees({ limit: 500, sort: 'name' }).then((r) => setManagers((r?.employees || []).filter((e) => e.status !== 'LEFT').map((e) => ({ id: e.id, name: e.code ? `${e.name} (${e.code})` : e.name })))).catch(() => {}); }, []);
+  /* The same read also counts people by employment type for the chart (up to 500 people; past that the chart says so). */
+  const [everyone, setEveryone] = useState(null);
+  useEffect(() => { listEmployees({ limit: 500, sort: 'name' }).then((r) => { const here = (r?.employees || []).filter((e) => e.status !== 'LEFT'); setEveryone({ rows: here, total: Number(r?.total || here.length) }); setManagers(here.map((e) => ({ id: e.id, name: e.code ? `${e.name} (${e.code})` : e.name }))); }).catch(() => {}); }, []);
 
   const openRecord = (r, recordTab = 'overview') => openScreen?.('employee', { id: r.id, tab: recordTab });
   const columns = [
     { key: 'name', label: 'Employee', sortable: true, always: true, render: (r) => (
-      <span className="flex items-center gap-2.5 min-w-0">
-        <Avatar person={r} size={28} />
-        <span className="min-w-0">
-          <span className="block truncate font-medium">{r.preferredName ? `${r.name} (${r.preferredName})` : r.name}</span>
-          <span className="block truncate ui-caption">{r.workEmail || r.email || ''}</span>
+      <span className="pc-who">
+        <Avatar person={r} size={32} />
+        <span className="pc-who-text">
+          <span className="pc-who-name">{r.preferredName ? `${r.name} (${r.preferredName})` : r.name}</span>
+          <span className="pc-who-sub">{r.code || r.workEmail || r.email || ''}</span>
         </span>
       </span>
     ) },
     { key: 'code', label: 'Employee ID', sortable: true, render: (r) => <span className="tabular-nums">{r.code || '—'}</span> },
     { key: 'department', label: 'Department', sortable: true, render: (r) => r.department || '—' },
-    { key: 'designation', label: 'Designation', sortable: true, render: (r) => r.designation || '—' },
+    /* The department sits under the designation (PEOPLE-02), so the separate column starts hidden. */
+    { key: 'designation', label: 'Designation', sortable: true, render: (r) => (r.designation || r.department ? <span className="pc-two"><span>{r.designation || '—'}</span>{r.department ? <span>{r.department}</span> : null}</span> : '—') },
     { key: 'manager', label: 'Manager', render: (r) => r.reportingManagerName || '—' },
     { key: 'branch', label: 'Works at', render: (r) => <span className="whitespace-nowrap">{r.branchName || '—'}</span> },
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },
@@ -206,7 +210,12 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         title="Employees"
         description={firstRun ? 'No one here yet. Add your team to start using leave, attendance and payroll.' : 'Everyone who works here, with where they sit and where they stand.'}
         /* The strip's figures (working now, joining, left, on notice) are not the tabs' counts, so it stays. */
-        strip={firstRun ? null : <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />}
+        strip={firstRun ? null : (
+          <div className="pc-directory-top">
+            <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
+            {tab === 'directory' ? <Breakdown counts={counts.data} everyone={everyone} types={lists.types} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} /> : null}
+          </div>
+        )}
         secondary={firstRun ? null : <>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
           {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
@@ -218,7 +227,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
           </button>
         </> : null}
-        toolbarEnd={!firstRun && (tab === 'directory' || tab === 'team') ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: ['manager', 'type', 'location'] }} /> : null}
+        toolbarEnd={!firstRun && (tab === 'directory' || tab === 'team') ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: ['manager', 'type', 'location', 'department', 'code'] }} /> : null}
         tabs={firstRun ? [] : [{ key: 'directory', label: 'Directory' }, counts.data?.myTeam ? { key: 'team', label: 'My team', count: counts.data.myTeam } : null, { key: 'views', label: 'Saved views' }, pendingCount ? { key: 'pending', label: 'Pending actions', count: pendingCount } : null]}
         tab={tab}
         onTab={(k) => set({ tab: k === 'directory' ? null : k }, true)}
@@ -367,28 +376,62 @@ function ExportDrawer({ counts, filtered, onClose, onExport }) {
 }
 
 function MetricStrip({ counts, onPick }) {
-  const mark = useContentIcon();
-  if (!counts) return <div className="ui-metric-strip" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
-  /* The owner's and the CEO's picture: who works here now, who is coming, who came and went this month, who is leaving. */
+  if (!counts) return <div className="pc-kpis" aria-busy="true"><span className="ui-skel ui-skel-text" /></div>;
+  const n = (v) => Number(v || 0);
+  /* The owner's picture (PEOPLE-02): who works here now, who is coming, who came this month, who is leaving. The
+     company may keep leavings from this reader (Company choices): then no notice tile. */
   const items = [
-    { k: 'total', label: 'Working now', tint: 'sky', value: counts.total, Icon: Users, patch: { working: 'now' } },
-    { k: 'joining', label: 'Joining', tint: 'mint', value: counts.joining, Icon: CalendarClock, patch: 'joining' },
-    { k: 'joinedMonth', label: 'Joined this month', tint: 'mint', value: counts.joinedThisMonth ?? 0, Icon: UserCheck, patch: 'joinedMonth' },
-    { k: 'leftMonth', label: 'Left this month', tint: 'peach', value: counts.leftThisMonth ?? 0, Icon: UserMinus, patch: 'leftMonth' },
-    { k: 'onNotice', label: 'On notice', tint: 'lilac', value: counts.onNotice, Icon: UserMinus, patch: { status: 'ON_NOTICE' } },
-    { k: 'onLeave', label: 'On leave today', tint: 'mint', value: counts.onLeave, Icon: TreePalm, patch: null },
-  /* The company keeps who is leaving from this reader (Company choices): no leaving counts. */
-  ].filter((m) => !counts.leavingsHidden || (m.k !== 'leftMonth' && m.k !== 'onNotice'));
+    { key: 'total', label: 'Working now', cat: 1, Icon: People20Color, value: n(counts.total), note: `${n(counts.onLeave)} on leave today`, onClick: () => onPick({ working: 'now' }) },
+    { key: 'joining', label: 'Joining', cat: 4, Icon: CalendarClock20Color, value: n(counts.joining), note: 'Joining date still to come', onClick: () => onPick({ from: tomorrowIst() }) },
+    { key: 'joinedMonth', label: 'Joined this month', cat: 3, Icon: PeopleAdd20Color, value: n(counts.joinedThisMonth), note: counts.monthStart ? `Since ${formatDate(counts.monthStart)}` : null, onClick: () => onPick({ status: 'ALL', from: counts.monthStart, to: todayIst() }) },
+    counts.leavingsHidden ? null : { key: 'onNotice', label: 'On notice', cat: 2, Icon: PersonWarning20Color, value: n(counts.onNotice), note: counts.leftThisMonth != null ? `${n(counts.leftThisMonth)} left this month` : null, onClick: () => onPick({ status: 'ON_NOTICE' }) },
+  ];
+  return <KpiTiles label="Workforce counts" items={items} />;
+}
+
+/*
+ * By department (PEOPLE-02): today's headcount per department on the soft panel, from the same overview Home reads,
+ * and beside it the movements the tiles do not carry, each opening the list filtered to them.
+ */
+function Breakdown({ counts, everyone, types, onPick }) {
+  const overview = useRequest(() => getOverview(), []);
+  const depts = overview.data?.byDepartment || [];
+  if (!overview.data && !counts) return null;
+  /* By employment type: everyone working now, from the directory's own read of up to 500 people. */
+  const today = todayIst();
+  const working = (everyone?.rows || []).filter((e) => !e.dateOfJoining || String(e.dateOfJoining).slice(0, 10) <= today);
+  const byType = new Map();
+  for (const e of working) {
+    const name = types.find((t) => t.id === e.employeeTypeId)?.name || 'No type set';
+    byType.set(name, (byType.get(name) || 0) + 1);
+  }
+  const typeRows = [...byType.entries()].map(([name, count]) => ({ name, count })).sort((x, y) => y.count - x.count);
+  const facts = [
+    { k: 'onLeave', label: 'On leave today', value: counts?.onLeave },
+    counts?.leavingsHidden ? null : { k: 'leftMonth', label: 'Left this month', value: counts?.leftThisMonth, patch: counts ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : null },
+    { k: 'suspended', label: 'Suspended', value: counts?.suspended, patch: { status: 'SUSPENDED' } },
+    counts?.leavingsHidden ? null : { k: 'left', label: 'Everyone who left', value: counts?.left, patch: { status: 'LEFT' } },
+  ].filter(Boolean);
   return (
-    <div className="ui-metric-strip" role="list" aria-label="Workforce counts">
-      {items.map(({ k, label, tint, value, Icon: LineIcon, patch }) => {
-        const Icon = mark(LineIcon);
-        const body = (tail) => <><Icon size={18} aria-hidden="true" className="ui-metric-icon" /><span><span className="ui-metric-value tabular-nums">{value}</span> <span className="ui-metric-label">{label}</span>{tail ? <span className="sr-only">{tail}</span> : null}</span></>;
-        /* The list item holds the button, so it is still announced as a button. */
-        return patch ? (
-          <div key={k} role="listitem" data-tint={tint}><button type="button" className="ui-metric" data-zero={Number(value) === 0 || undefined} onClick={() => onPick(patch === 'joining' ? { from: tomorrowIst() } : patch === 'joinedMonth' ? { status: 'ALL', from: counts.monthStart, to: todayIst() } : patch === 'leftMonth' ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : patch)}>{body(': show them')}</button></div>
-        ) : <div key={k} role="listitem" className="ui-metric" data-tint={tint} data-zero={Number(value) === 0 || undefined}>{body()}</div>;
-      })}
+    <div className="pc-charts">
+      <section aria-labelledby="by-dept-h">
+        <h2 id="by-dept-h" className="pc-section-title">By department</h2>
+        {depts.length ? <BarPanel label="Working now by department" rows={depts} /> : <p className="pc-bars pc-note">{overview.loading ? 'Loading…' : 'No departments yet.'}</p>}
+      </section>
+      <section aria-labelledby="by-type-h">
+        <h2 id="by-type-h" className="pc-section-title">By employee type</h2>
+        {typeRows.length ? <BarPanel label="Working now by employee type" rows={typeRows} /> : <p className="pc-bars pc-note">{everyone ? 'Nobody working yet.' : 'Loading…'}</p>}
+        {everyone && everyone.total > everyone.rows.length ? <p className="pc-note">Counted from the first {everyone.rows.length} people.</p> : null}
+        <dl className="pc-facts">
+          {facts.map((f) => (
+            <div key={f.k}>
+              {f.patch && Number(f.value) ? (
+                <button type="button" onClick={() => onPick(f.patch)}><dt>{f.label}</dt><dd>{f.value}</dd></button>
+              ) : <><dt>{f.label}</dt><dd>{f.value ?? '—'}</dd></>}
+            </div>
+          ))}
+        </dl>
+      </section>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Briefcase, Building2, CalendarClock, Camera, ChevronDown, Clock, Hash, Hourglass, MapPin, Pencil, Plus, UserRound } from '@ui/components/ui/lineIcons';
+import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import RecordTabs from '@ui/components/ui/RecordTabs';
@@ -30,6 +30,8 @@ import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './sugge
 import { StatusBadge, can } from './shared';
 import OfferDrawer from './OfferDrawer';
 import AppAccessSend from './AppAccessSend';
+import { BackLink } from '../components/Core';
+import { getLeaveBalances, swatchOf } from '@ui/timeOff/api';
 import { AppAccessHistory, PersonAssets, PersonCelebrations, PersonPolicies, ProbationSection } from './RecordExtras';
 import { todayIst } from '@ui/utils/dates';
 
@@ -46,6 +48,17 @@ import { todayIst } from '@ui/utils/dates';
  */
 const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
 const LAST_DIRECTORY = 'people.workforce.lastDirectory';
+/* "7 yrs 5 mos" since a date (India's calendar day), or null before it. */
+const tenure = (from) => {
+  const [y, m, d] = String(from).slice(0, 10).split('-').map(Number);
+  const [ty, tm, td] = todayIst().split('-').map(Number);
+  let months = (ty - y) * 12 + (tm - m) - (td < d ? 1 : 0);
+  if (!y || months < 0) return null;
+  const yrs = Math.floor(months / 12);
+  months %= 12;
+  const part = (n, one, many) => (n ? `${n} ${n === 1 ? one : many}` : '');
+  return [part(yrs, 'yr', 'yrs'), part(months, 'mo', 'mos')].filter(Boolean).join(' ') || 'Under a month';
+};
 const shown = (v) => (v === null || v === undefined || v === '' ? null : v);
 /* The open section form says whether it holds unsaved edits, so a tab or another Edit asks before replacing it. */
 const FormDirty = createContext(null);
@@ -187,45 +200,19 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     allowed('PEOPLE::Employees::DELETE') ? ['delete', 'Delete'] : null,
   ].filter(Boolean);
   const headerDates = datesFor(kindOf(lists?.types, person.employeeTypeId));
+  const typeName = lists?.types.find((t) => t.id === person.employeeTypeId)?.name;
   const probation = probationState(person, todayIst());
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        breadcrumb={[{ label: 'People' }, { label: 'Employees', onClick: backToDirectory }, { label: person.name }]}
-        title={
-          <span className="ui-profile">
-            <PhotoControl person={person} canEdit={editable} onSaved={(emp) => setPerson(emp)} />
-            <span className="min-w-0">
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span>{person.name}</span>
-                {person.preferredName ? <span className="ui-profile-aka">“{person.preferredName}”</span> : null}
-                <StatusBadge employee={person} />
-              </span>
-              <ul className="ui-profile-facts" aria-label="Summary">
-                {person.code ? <li><Hash size={14} aria-hidden="true" /><span className="tabular-nums">{person.code}</span></li> : null}
-                {person.designation ? <li><Briefcase size={14} aria-hidden="true" />{person.designation}</li> : null}
-                {person.department ? <li><Building2 size={14} aria-hidden="true" />{person.department}</li> : null}
-                {person.branchName || person.areaName || person.workLocation ? <li><MapPin size={14} aria-hidden="true" />{person.branchName || person.areaName || person.workLocation}</li> : null}
-                {person.reportingManagerName ? <li><UserRound size={14} aria-hidden="true" /><span>Reports to {person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button>}</span></li> : null}
-                {person.hours === 'PART_TIME' ? <li><Clock size={14} aria-hidden="true" />Part-time</li> : null}
-                {probation === 'ON' ? <li><Hourglass size={14} aria-hidden="true" /><span>On probation until <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span></span></li> : null}
-                {probation === 'OVER' ? <li className="is-warn"><Hourglass size={14} aria-hidden="true" /><span>Probation ended <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span>, not confirmed</span></li> : null}
-                {person.contractEndDate && person.status !== 'LEFT' ? (
-                  String(person.contractEndDate).slice(0, 10) < todayIst()
-                    ? <li className="is-warn"><CalendarClock size={14} aria-hidden="true" /><span>{headerDates.contractLabel === 'Internship ends' ? 'Internship ended' : 'Contract ended'} <span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></span></li>
-                    : <li><CalendarClock size={14} aria-hidden="true" /><span>{headerDates.contractLabel} <span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></span></li>
-                ) : null}
-                {!person.code && !person.designation && !person.department ? <li>No role or department yet</li> : null}
-              </ul>
-              <TagLine person={person} tags={lists?.tags || []} canEdit={allowed('PEOPLE::Employees::EDIT')} onSaved={(emp) => setPerson(emp)} />
-            </span>
-          </span>
-        }
+      <div className="pc-head">
+        <BackLink label="Employees" onClick={backToDirectory} />
+        <PageHeader
+          title={<>{person.name}{person.preferredName ? <span className="ui-profile-aka"> “{person.preferredName}”</span> : null}</>}
         actions={<>
           {moreItems.length ? (
             <>
-              <button ref={moreRef} type="button" className="ui-btn ui-btn-secondary" aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}>More <ChevronDown size={14} aria-hidden="true" /></button>
+              <button ref={moreRef} type="button" className="ui-btn ui-btn-secondary" aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}>Actions <ChevronDown size={14} aria-hidden="true" /></button>
               {moreOpen ? (
                 <Popover anchorRef={moreRef} onClose={() => setMoreOpen(false)} minWidth={220}>
                   <MenuList items={moreItems} onPick={(k) => {
@@ -247,9 +234,43 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
               ) : null}
             </>
           ) : null}
-          {editable ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => leaveTo({ tab: ['employment', 'organization'].includes(tab) ? tab : 'personal', edit: tab === 'employment' ? 'employment' : tab === 'organization' ? null : 'name', action: tab === 'organization' ? 'transfer' : null }, true)}><Pencil size={16} aria-hidden="true" /> Edit</button> : null}
+          {editable ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => leaveTo({ tab: ['employment', 'organization'].includes(tab) ? tab : 'personal', edit: tab === 'employment' ? 'employment' : tab === 'organization' ? null : 'name', action: tab === 'organization' ? 'transfer' : null }, true)}>Edit profile</button> : null}
         </>}
-      />
+        />
+      </div>
+
+      {/* Who this is, at a glance (PEOPLE-03): the portrait, the role, the status and the four facts asked most. */}
+      <section className="pc-summary" aria-label="Summary">
+        <PhotoControl person={person} canEdit={editable} onSaved={(emp) => setPerson(emp)} />
+        <div className="min-w-0">
+          <p className="pc-summary-role">{person.designation || 'No designation yet'}</p>
+          <p className="pc-summary-line">{[person.department, person.branchName || person.areaName || person.workLocation, person.workEmail || person.email].filter(Boolean).join(' · ') || 'No department or place of work yet'}</p>
+          <div className="pc-summary-pills">
+            <StatusBadge employee={person} />
+            {typeName ? <span className="pc-chip">{typeName}</span> : null}
+            {person.hours === 'PART_TIME' ? <span className="pc-chip">Part-time</span> : null}
+            {person.code ? <span className="pc-chip">{person.code}</span> : null}
+          </div>
+          {probation === 'ON' || probation === 'OVER' || (person.contractEndDate && person.status !== 'LEFT') ? (
+            <p className="pc-summary-alerts">
+              {probation === 'ON' ? <span><Hourglass size={14} aria-hidden="true" className="inline mr-1" />On probation until <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span></span> : null}
+              {probation === 'OVER' ? <span className="is-warn"><Hourglass size={14} aria-hidden="true" className="inline mr-1" />Probation ended <span className="tabular-nums">{formatDate(String(person.probationEndDate).slice(0, 10))}</span>, not confirmed</span> : null}
+              {person.contractEndDate && person.status !== 'LEFT' ? (
+                String(person.contractEndDate).slice(0, 10) < todayIst()
+                  ? <span className="is-warn"><CalendarClock size={14} aria-hidden="true" className="inline mr-1" />{headerDates.contractLabel === 'Internship ends' ? 'Internship ended' : 'Contract ended'} <span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></span>
+                  : <span><CalendarClock size={14} aria-hidden="true" className="inline mr-1" />{headerDates.contractLabel} <span className="tabular-nums">{formatDate(String(person.contractEndDate).slice(0, 10))}</span></span>
+              ) : null}
+            </p>
+          ) : null}
+          <TagLine person={person} tags={lists?.tags || []} canEdit={allowed('PEOPLE::Employees::EDIT')} onSaved={(emp) => setPerson(emp)} />
+        </div>
+        <dl className="pc-summary-facts">
+          <div><dt>Reports to</dt><dd>{person.reportingManagerName ? (person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button>) : <span className="ui-muted">No manager</span>}</dd></div>
+          <div><dt>Joined</dt><dd>{person.dateOfJoining ? <>{formatDate(String(person.dateOfJoining).slice(0, 10))}{tenure(person.dateOfJoining) ? ` · ${tenure(person.dateOfJoining)}` : ''}</> : <span className="ui-muted">Not set</span>}</dd></div>
+          <div><dt>Location</dt><dd>{person.branchName || person.areaName || person.workLocation || <span className="ui-muted">Not set</span>}</dd></div>
+          <div><dt>Phone</dt><dd>{person.phone || person.workPhone || <span className="ui-muted">Not given</span>}</dd></div>
+        </dl>
+      </section>
 
       {(rec.data.permits || []).filter((p) => p.daysLeft <= 30).map((p, i) => (
         <Alert key={p.id || `hidden-${i}`} tone={p.expired ? 'neg' : 'warn'} title={p.expired ? `${p.title} expired on ${formatDate(p.expiresOn)}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}>{p.restrictsWork ? `Until renewed: ${p.restrictsWork}.` : 'Add the renewed copy on Documents.'}</Alert>
@@ -261,7 +282,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
           edit half-made on A can never be saved onto B. */}
       <FormDirty.Provider value={reportDirty}>
       <RecordTabs tabs={tabsAllowed} value={tab} onChange={(k) => leaveTo({ tab: k === 'overview' ? null : k, edit: null, action: null }, true)} label={`${person.name} sections`}>
-        {tab === 'overview' ? <Overview key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
+        {tab === 'overview' ? <Overview key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} openScreen={openScreen} goTo={(t) => set({ tab: t }, true)} go={(patch) => set(patch, true)} /> : null}
         {tab === 'personal' ? <Personal key={person.id} person={person} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
         {tab === 'employment' ? <Employment key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} openScreen={openScreen} /> : null}
         {tab === 'organization' ? <Organization key={person.id} person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onSendAccess={() => setGivingAccess(true)} accessKey={accessKey} /> : null}
@@ -497,7 +518,7 @@ function TagLine({ person, tags, canEdit, onSaved }) {
 
 /* --------------------------------------------------------------- Overview */
 
-function Overview({ person, data, lists, allowed, goTo, go }) {
+function Overview({ person, data, lists, allowed, openScreen, goTo, go }) {
   const activity = useRequest(() => employeeActivity(person.id), [person.id, person.version]);
   /* Open items: this person's joining and leaving tasks not yet done. */
   const checklist = useRequest(() => openTasksFor(person.id), [person.id]);
@@ -549,8 +570,11 @@ function Overview({ person, data, lists, allowed, goTo, go }) {
           </Section>
         ) : null}
       </div>
-      {/* At wide widths the latest activity sits beside the record (spec §6, WF-04 context rail); narrower, it is the Activity tab. */}
-      <aside className="ui-record-rail" aria-label="Recent activity">
+      {/* The right column (PEOPLE-03): leave left, the people around them, then the latest activity. At narrower widths it
+          falls under the record; the Activity tab has the whole story. */}
+      <aside className="ui-record-rail space-y-8" aria-label="At a glance">
+        {allowed('ATTENDANCE::Leave Requests::VIEW') && person.status !== 'LEFT' ? <LeaveBalanceBlock person={person} openScreen={openScreen} /> : null}
+        <TeamBlock person={person} openScreen={openScreen} />
         <Section title="Recent activity" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('activity')}>View all</button>}>
           {activity.loading ? <span className="ui-skel ui-skel-text" /> : activity.error ? <ErrorState error={activity.error} onRetry={activity.reload} compact /> : (
             <ActivityTimeline filters={false} events={(activity.data?.events || []).slice(0, 5)} />
@@ -559,6 +583,57 @@ function Overview({ person, data, lists, allowed, goTo, go }) {
         {allowed('PEOPLE::Employee Notes::CREATE') ? <CommentBox employeeId={person.id} onPosted={activity.reload} /> : null}
       </aside>
     </div>
+  );
+}
+
+/* This year's leave left, one line per type with its colour and name (the same balances Leave balances shows). */
+function LeaveBalanceBlock({ person, openScreen }) {
+  const req = useRequest(() => getLeaveBalances(), []);
+  const row = req.data?.rows?.find((r) => r.employeeId === person.id);
+  const types = (req.data?.types || []).filter((t) => row?.balances?.[t.id]);
+  if (req.error || (req.data && !types.length)) return null;
+  return (
+    <section className="pc-side-block" aria-labelledby={`lb-${person.id}`}>
+      <header className="pc-side-head">
+        <h2 id={`lb-${person.id}`} className="pc-section-title">Leave balance</h2>
+        <button type="button" className="ui-link text-sm" onClick={() => openScreen?.('leaveBalances')}>All balances</button>
+      </header>
+      {!req.data ? <span className="ui-skel ui-skel-text mt-3" /> : (
+        <ul className="pc-side-list">
+          {types.map((t) => {
+            const b = row.balances[t.id];
+            const n = Number(b.available ?? 0);
+            return (
+              <li key={t.id}>
+                <span className="pc-leave-pill" style={{ '--swatch': swatchOf(t) }}><i aria-hidden="true" /><span>{t.name}</span></span>
+                <b className={n < 0 ? 'ui-text-neg' : ''}>{b.available ?? '—'} {Math.abs(n) === 1 ? 'day' : 'days'}</b>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function TeamRow({ id, name, sub, opens = true, openScreen }) {
+  const body = <><Avatar person={{ name }} size={32} /><span className="pc-who-text"><span className="pc-who-name">{name}</span><span className="pc-who-sub">{sub}</span></span></>;
+  return <li>{opens && id ? <button type="button" className="pc-person" onClick={() => openScreen?.('employee', { id })}>{body}</button> : <span className="pc-person">{body}</span>}</li>;
+}
+
+/* Their manager and the people who report to them, each opening their own profile. */
+function TeamBlock({ person, openScreen }) {
+  const reports = person.directReports || [];
+  const first = person.preferredName || person.firstName || String(person.name || '').split(' ')[0];
+  if (!person.reportingManagerName && !reports.length) return null;
+  return (
+    <section className="pc-side-block" aria-labelledby={`team-${person.id}`}>
+      <header className="pc-side-head"><h2 id={`team-${person.id}`} className="pc-section-title">Team</h2>{reports.length > 6 ? <span className="ui-caption tabular-nums">{reports.length} report to {first}</span> : null}</header>
+      <ul className="pc-side-list">
+        {person.reportingManagerName ? <TeamRow openScreen={openScreen} id={person.reportingManagerId} name={person.reportingManagerName} sub="Manager" opens={person.managerOpens !== false} /> : null}
+        {reports.slice(0, 6).map((r) => <TeamRow openScreen={openScreen} key={r.id} id={r.id} name={r.name} sub={r.designation ? `${r.designation} · reports to ${first}` : `Reports to ${first}`} />)}
+      </ul>
+    </section>
   );
 }
 
