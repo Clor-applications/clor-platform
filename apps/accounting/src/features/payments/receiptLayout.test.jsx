@@ -111,15 +111,17 @@ describe('the allocation table', () => {
     /* The amount used to be pushed to the far right of whatever the ledger
        column left over, so a figure sat half a screen from its own row, and
        the bills link shared the amount's cell. */
-    expect(headers()).toEqual(['#', 'Ledger', 'Amount', 'Outstanding Bills', 'Action']);
+    // Labels from the Books redesign; the delete column is named for screen readers only.
+    expect(headers()).toEqual(['Sl no', 'Ledger', 'Amount', 'Bills', '']);
   });
 
   it('keeps the ledger from eating the row', () => {
     render(<Host />);
     const table = screen.getByText(/Ledger allocation/i).closest('section').querySelector('table');
     const [, ledger, amount] = [...table.querySelectorAll('th')];
-    expect(ledger.style.width).toBe('34%');
-    expect(amount.style.width).toBe('20%');
+    // Fixed widths (Books redesign): the amount sits right after the ledger.
+    expect(ledger.style.width).toBe('55%');
+    expect(amount.style.width).toBe('14%');
 
     /* And the amount fills its cell rather than hugging one edge of it. */
     expect(screen.getByLabelText(/Amount, allocation row 1/i).className).toMatch(/w-full/);

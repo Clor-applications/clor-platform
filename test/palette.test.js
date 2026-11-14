@@ -19,16 +19,18 @@ describe('shared palettes', () => {
     expect(byPalette).toEqual({ blaze: ['attendance'], sky: ['people'], indigo: ['accounting'], payroll: ['payroll'] });
   });
 
-  it('Indigo is Direction D as it was, keyed on the palette, and leaves the CLOR logo alone', () => {
-    const start = css.indexOf('The Indigo palette');
+  it('Indigo (Books) wears the red brand, with its own blue header rows and panel, and leaves the CLOR logo alone', () => {
+    /* Owner, 15 Nov 2026: Books leaves Direction D's indigo/lilac for the
+       in-app red palette; the shared red block paints it. Books keeps the
+       pale blue list header rows and its clor.in blue for the screens panel. */
+    expect(css).toContain(":root:where([data-palette='sky'], [data-palette='indigo']) {");
+    const start = css.indexOf("Books (data-palette='indigo') on the red brand");
     expect(start).toBeGreaterThan(-1);
     const block = css.slice(start, css.indexOf('@layer base', start));
-    expect(block).toMatch(/--indigo: 35 42 102;/);
-    expect(block).toMatch(/--brand: var\(--indigo\);/);
-    expect(block).toMatch(/--brand-soft: var\(--lilac\);/);
-    expect(block).toMatch(/--app-bg: var\(--cotton\);/);
-    /* Money out stays red there; the red brand's ink-with-a-minus is for the other apps. */
-    expect(block).toMatch(/--money-out: var\(--neg\);/);
+    expect(block).toMatch(/--heading-bg: 234 242 248;/);
+    expect(block).toMatch(/--nav-panel-mark: 61 79 224;/);
+    /* No second brand: the action colour comes from the red block. */
+    expect(block).not.toMatch(/--brand:|--lilac|--cotton/);
     expect(block).not.toMatch(/--logo-(mark|dot):/);
     expect(block).not.toMatch(/\[data-app=/);
     /* The light values must not outrank the dark theme's own tokens. */

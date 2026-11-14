@@ -68,7 +68,31 @@ describe('InvoicePreview', () => {
     expect(screen.queryByText(/29AAAAA0000A1Z5/)).not.toBeInTheDocument();
   });
 
-  it.each(['modern', 'minimal', 'compact', 'bold', 'classic', 'a4Modern', 'a4BoxedGst', 'a4Letterhead', 'a5', 'a5Compact', 'a5Clean', 'a5Boxed'])(
+  it('renders the designer draft with the same template and title as an invoice view', () => {
+    const db = { companies: [COMPANY], customers: [], uoms: [], gstRates: [], items: [] };
+    const draft = { templates: { invoice: { templateId: 'compact', printTitle: 'SALES INVOICE' } } };
+    const { container } = render(
+      <InvoicePreview db={db} currentCompany={COMPANY} invoice={invoiceWith([LINE])} docSettingsOverride={draft} />
+    );
+    expect(container.querySelector('[data-invoice-preview]')).toBeInTheDocument();
+    expect(screen.getAllByText('SALES INVOICE').length).toBeGreaterThan(0);
+    expect(container.querySelector('.printable > .border')).toBeInTheDocument();
+  });
+
+  it('renders the detailed GST reference layout with live invoice values', () => {
+    const company = { ...COMPANY, docSettings: { templates: { invoice: { templateId: 'a4DetailedGst', printOptions: { hsnSummary: true } } } } };
+    const db = { companies: [company], customers: [], uoms: [], gstRates: [], items: [] };
+    const { container } = render(<InvoicePreview db={db} currentCompany={company} invoice={invoiceWith([LINE])} />);
+    expect(container.querySelector('.detailed-gst-invoice')).toBeInTheDocument();
+    expect(screen.getByText('Invoice Details')).toBeInTheDocument();
+    expect(screen.getByText('Billing Details')).toBeInTheDocument();
+    expect(screen.getByText('Shipping Details')).toBeInTheDocument();
+    expect(screen.getAllByText('HSN/SAC').length).toBeGreaterThan(0);
+    expect(screen.getByText('MS Angle 50mm')).toBeInTheDocument();
+    expect(screen.getByText('Grand Total')).toBeInTheDocument();
+  });
+
+  it.each(['modern', 'minimal', 'compact', 'bold', 'classic', 'a4Modern', 'a4BoxedGst', 'a4Letterhead', 'a4DetailedGst', 'standardClor', 'a5', 'a5Compact', 'a5Clean', 'a5Boxed'])(
     'prints the saved company logo in the %s template',
     (templateId) => {
       const company = {

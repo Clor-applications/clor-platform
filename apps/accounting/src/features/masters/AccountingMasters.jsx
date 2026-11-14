@@ -15,7 +15,13 @@ import { useListSearch } from '@ui/components/ListToolbar';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
 import ItemForm from './ItemForm';
-import { pushMaster, removeMaster, saveMaster } from '@ui/utils/masterSync';
+import { patchMaster, pushMaster, removeMaster, saveMaster } from '@ui/utils/masterSync';
+import { createOrgMaster, listOrgMasters } from '@ui/api/masters';
+import { hasApiSession as hasDocsApiSession } from '@ui/api/purchaseDocs';
+import { usePermissions } from '@ui/permissions/usePermissions';
+import Drawer from '@ui/components/ui/Drawer';
+import Popover from '@ui/components/ui/Popover';
+import { COMMON_UOMS } from '../../data/uoms';
 
 export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches = [], onNavigate = null }) => {
   /*
@@ -23,6 +29,8 @@ export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches
    * item being written — true for a new one.
    */
   const [itemForm, setItemForm] = useState(null);
+  const [itemActionId, setItemActionId] = useState(null);
+  const itemActionAnchorRef = useRef(null);
   const items = db.items.filter((i) => i.companyId === currentCompany.id);
   const itemSearch = useListSearch(items, ['code', 'name', 'hsnSac', 'category', 'barcode']);
   const itemSearchFilters = useColumnFilters();
@@ -33,6 +41,7 @@ export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches
     hsn: (r) => r.hsnSac,
     gst: (r) => r.gstRate,
     price: (r) => r.salePrice,
+    purchasePrice: (r) => r.purchasePrice,
   });
   const inventoryByItemId = useMemo(() => {
     return computeInventorySummaryByItemId({ db, companyId: currentCompany.id });
@@ -87,14 +96,16 @@ export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches
   const ITEM_TABS = [
     { value: 'ALL', label: 'All', tone: 'all' },
     { value: 'GOODS', label: 'Goods', tone: 'paid' },
-    { value: 'SERVICE', label: 'Services', tone: 'sent' },
+    { value: 'SERVICE', label: 'Service', tone: 'sent' },
+    { value: 'CAPITAL_ASSET', label: 'Capital Asset', tone: 'partial' },
     { value: 'NOHSN', label: 'No HSN/SAC', tone: 'overdue' },
     { value: 'NOPRICE', label: 'No sale price', tone: 'outstanding' },
   ];
   const itemMatches = (it, tab) => {
     const isService = String(it.type || '').toLowerCase() === 'service';
-    if (tab === 'GOODS') return !isService;
+    if (tab === 'GOODS') return String(it.type || '').toLowerCase() === 'goods';
     if (tab === 'SERVICE') return isService;
+    if (tab === 'CAPITAL_ASSET') return String(it.type || '').toLowerCase().replace(/[_\s-]+/g, '') === 'capitalasset';
     if (tab === 'NOHSN') return !String(it.hsnSac || '').trim();
     if (tab === 'NOPRICE') return !Number(it.salePrice || 0);
     return true;
@@ -181,15 +192,16 @@ export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches
       onStatusChange={setItemFilter}
     >
       <div className="ui-table-scroll item-table-scroll">
-        <table className={`ui-table ui-table-wide ui-table-sticky ${visibleItems.length ? '' : 'cash-bank-empty-table'}`}>
+        <table className={`ui-table ui-table-wide ui-table-sticky item-master-table sales-auto-table ${visibleItems.length ? '' : 'cash-bank-empty-table'}`}>
           <thead>
             <tr>
               <ColumnHeader label="Code" col="code" state={itemSearchFilters} />
-              <ColumnHeader label="Name" col="name" state={itemSearchFilters} />
+              <ColumnHeader label="Name" col="name" state={itemSearchFilters} className="item-name-column" />
               <ColumnHeader label="Type" col="type" state={itemSearchFilters} />
               <ColumnHeader label="HSN/SAC" col="hsn" state={itemSearchFilters} />
               <ColumnHeader label="GST %" col="gst" state={itemSearchFilters} className="ui-num" align="right" />
               <ColumnHeader label="Sale price" col="price" state={itemSearchFilters} className="ui-num" align="right" />
+              <ColumnHeader label="Purchase price" col="purchasePrice" state={itemSearchFilters} className="ui-num" align="right" />
               <th scope="col">Stock</th>
               <th scope="col"><span className="sr-only">Actions</span></th>
             </tr>
@@ -197,7 +209,7 @@ export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches
           <tbody className="ui-rows">
             {visibleItems.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <EmptyState
                     icon={Package}
                     kind="new"
@@ -221,11 +233,12 @@ export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches
             {visibleItems.map((item) => (
               <tr key={item.id}>
                 <td className="ui-col-id">{item.code}</td>
-                <td className="ui-col-entity">{item.name}</td>
+                <td className="ui-col-entity item-name-column">{item.name}</td>
                 <td className="ui-col-meta">{item.type}</td>
                 <td className="ui-col-id">{item.hsnSac || '-'}</td>
                 <td className="ui-col-amount ui-mono">{Number.isFinite(Number(item.gstRate)) ? Number(item.gstRate) : 0}</td>
                 <td className="ui-col-amount">{formatMoney(item.salePrice || 0, currentCompany)}</td>
+                <td className="ui-col-amount">{formatMoney(item.purchasePrice || 0, currentCompany)}</td>
                 <td className="ui-col-meta">
                   {isStockItem(item) ? (
                     <>
@@ -235,31 +248,20 @@ export const ItemsList = ({ db, setDb, currentCompany, warehouses = [], branches
                     '-'
                   )}
                 </td>
-                <td className="px-4 py-2.5 ui-col-meta">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onEdit(item)}
-                      className="px-3 py-1.5 rounded-lg border ui-surface ui-hover-sunken ui-border-c text-sm flex items-center gap-1"
-      title="Edit"
-                    >
-                      <Pencil size={16} /> Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(item)}
-                      className="px-3 py-1.5 rounded-lg border ui-surface ui-hover-sunken ui-border-c text-sm flex items-center gap-1 text-[rgb(var(--neg))]"
-      title="Delete"
-                    >
-                      <Trash2 size={16} /> Delete
-                    </button>
-                  </div>
+                <td className="ui-action-col">
+                  <button ref={itemActionId === item.id ? itemActionAnchorRef : null} type="button" className="ui-icon-btn" aria-label={`Actions for ${item.name}`} aria-haspopup="menu" aria-expanded={itemActionId === item.id} onClick={(event) => { itemActionAnchorRef.current = event.currentTarget; setItemActionId(itemActionId === item.id ? null : item.id); }}><MoreVertical size={16} /></button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {itemActionId != null ? <Popover anchorRef={itemActionAnchorRef} onClose={() => setItemActionId(null)} minWidth={150}>
+        <div className="py-1" role="menu">
+          <button type="button" role="menuitem" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm ui-hover-sunken" onClick={() => { const item = items.find((row) => row.id === itemActionId); setItemActionId(null); if (item) onEdit(item); }}><Pencil size={15} /> Edit</button>
+          <button type="button" role="menuitem" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[rgb(var(--neg))] ui-hover-sunken" onClick={() => { const item = items.find((row) => row.id === itemActionId); setItemActionId(null); if (item) onDelete(item); }}><Trash2 size={15} /> Delete</button>
+        </div>
+      </Popover> : null}
       <TableTotals count={visibleItems.length} totalCount={items.length} noun="items" />
     </DocumentListShell>
   );
@@ -1330,48 +1332,146 @@ export const ChartOfAccounts = ({ db, setDb, openModal, currentCompany, onOpenLe
 };
 
 export const UomsList = ({ db, setDb, currentCompany }) => {
+  const { can, loading: permissionsLoading } = usePermissions();
+  const canCreateUnit = can('MASTERS::Masters::CREATE');
+  const canEditUnit = can('MASTERS::Masters::EDIT');
+  const canDeleteUnit = can('MASTERS::Masters::DELETE');
   const uoms = (db.uoms || [])
     .filter((u) => u.companyId === currentCompany.id)
     .slice()
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
-  const [newUom, setNewUom] = useState('');
-  const uomSearch = useListSearch(uoms, ['name']);
+  const seededCompanyRef = useRef(null);
+  const [drawer, setDrawer] = useState(null);
+  const [unitActionId, setUnitActionId] = useState(null);
+  const unitActionAnchorRef = useRef(null);
+  const [draft, setDraft] = useState({ name: '', code: '', category: 'Count', description: '' });
+  const [saving, setSaving] = useState(false);
+  const uomSearch = useListSearch(uoms, ['name', 'code', 'category', 'description']);
   const visibleUoms = uomSearch.filtered;
 
-  const addUom = async () => {
-    const name = String(newUom || '').trim();
-    if (!name) {
-      notify.error('Please enter a UoM name.');
-      return;
-    }
+  useEffect(() => {
+    if (!currentCompany?.id || seededCompanyRef.current === currentCompany.id || (hasDocsApiSession() && permissionsLoading)) return;
+    seededCompanyRef.current = currentCompany.id;
+    const existing = new Set(uoms.flatMap((u) => [u.name, u.code]).map((v) => String(v || '').trim().toLowerCase()).filter(Boolean));
+    const missing = COMMON_UOMS.filter((u) => !existing.has(u.name.toLowerCase()) && !existing.has(u.code.toLowerCase()));
+    let nextId = Math.max(0, ...(db.uoms || []).map((u) => Number(u.id) || 0));
+    const added = missing.map((u) => ({ ...u, id: ++nextId, companyId: currentCompany.id, description: '', preset: true }));
+    if (added.length) setDb((prev) => ({ ...prev, uoms: [...(prev.uoms || []), ...added] }));
+    if (!hasDocsApiSession()) return;
+    let cancelled = false;
+    const reconcile = async () => {
+      let serverUnits;
+      try {
+        serverUnits = (await listOrgMasters(['UOM']))?.masters || [];
+      } catch {
+        return;
+      }
+      if (cancelled) return;
+      const key = (value) => String(value || '').trim().toLowerCase();
+      const serverMatch = (unit, rows) => rows.find((row) => key(row.name) === key(unit.name) || (unit.code && key(row.data?.code) === key(unit.code)));
+      const attachServerIds = (rows) => setDb((prev) => ({ ...prev, uoms: (prev.uoms || []).map((unit) => {
+        if (unit.companyId !== currentCompany.id || unit.backendMasterId) return unit;
+        const match = serverMatch(unit, rows);
+        return match ? { ...unit, backendMasterId: match.id, name: match.name, ...match.data } : unit;
+      }) }));
+      attachServerIds(serverUnits);
+      if (!canCreateUnit) return;
+      for (const unit of COMMON_UOMS) {
+        if (serverMatch(unit, serverUnits)) continue;
+        try {
+          const created = (await createOrgMaster('UOM', unit.name, { code: unit.code, category: unit.category, description: '', preset: true }))?.master;
+          if (created) serverUnits.push(created);
+        } catch (error) {
+          if (error?.status === 409) continue;
+          if (error?.status !== 403) notify.error(`Could not sync units: ${error?.message || error}`);
+          break;
+        }
+      }
+      if (!cancelled) {
+        try { attachServerIds((await listOrgMasters(['UOM']))?.masters || serverUnits); } catch { attachServerIds(serverUnits); }
+      }
+    };
+    reconcile();
+    return () => { cancelled = true; };
+  }, [currentCompany?.id, permissionsLoading, canCreateUnit]);
 
-    const exists = uoms.some((u) => String(u.name || '').trim().toLowerCase() === name.toLowerCase());
-    if (exists) {
-      notify.error('This UoM already exists.');
-      return;
-    }
-
-    const nextId = Math.max(0, ...(db.uoms || []).map((u) => Number(u.id) || 0)) + 1;
-    // Every item carries a unit, so a unit list held in one browser meant a
-    // second person could not enter the item at all.
-    const serverPatch = await saveMaster('uoms', name);
-    const next = { id: nextId, companyId: currentCompany.id, name, ...serverPatch };
-
-    setDb({
-      ...db,
-      uoms: [...(db.uoms || []), next],
-    });
-    setNewUom('');
+  const openCreate = () => {
+    setDraft({ name: '', code: '', category: 'Count', description: '' });
+    setDrawer({ mode: 'create' });
   };
 
-  const deleteUom = async (id) => {
-    const row = (db.uoms || []).find((u) => u.id === id);
-    if (row) await removeMaster(row);
-    setDb({
-      ...db,
-      uoms: (db.uoms || []).filter((u) => u.id !== id),
+  const openEdit = (row) => {
+    setDraft({
+      name: String(row.name || ''),
+      code: String(row.code || ''),
+      category: String(row.category || 'Other'),
+      description: String(row.description || ''),
     });
+    setDrawer({ mode: 'edit', row });
+  };
+
+  const closeDrawer = () => { setDrawer(null); setSaving(false); };
+
+  const saveUom = async () => {
+    const name = String(draft.name || '').trim();
+    const code = String(draft.code || '').trim().toUpperCase();
+    if (!name) {
+      notify.error('Unit name is required.');
+      return;
+    }
+    if (!code) {
+      notify.error('Unit code is required.');
+      return;
+    }
+    const editingId = drawer?.row?.id;
+    const exists = uoms.some((u) => Number(u.id) !== Number(editingId) && (
+      String(u.name || '').trim().toLowerCase() === name.toLowerCase() ||
+      String(u.code || '').trim().toLowerCase() === code.toLowerCase()
+    ));
+    if (exists) {
+      notify.error('Another unit already has this name or code.');
+      return;
+    }
+    setSaving(true);
+    const data = { code, category: String(draft.category || 'Other'), description: String(draft.description || '').trim() };
+    if (drawer?.mode === 'edit') {
+      const before = drawer.row;
+      const oldName = String(before.name || '').trim();
+      await pushMaster({ ...before, name, ...data });
+      setDb((prev) => ({
+        ...prev,
+        uoms: (prev.uoms || []).map((u) => Number(u.id) === Number(before.id) ? { ...u, name, ...data } : u),
+        items: (prev.items || []).map((item) => item.companyId === currentCompany.id && String(item.unit || '').trim().toLowerCase() === oldName.toLowerCase() ? { ...item, unit: name } : item),
+      }));
+      notify.success(`Unit "${name}" updated.`);
+    } else {
+      const serverPatch = await saveMaster('uoms', name, data);
+      setDb((prev) => {
+        const nextId = Math.max(0, ...(prev.uoms || []).map((u) => Number(u.id) || 0)) + 1;
+        return { ...prev, uoms: [...(prev.uoms || []), { id: nextId, companyId: currentCompany.id, name, ...data, ...serverPatch }] };
+      });
+      notify.success(`Unit "${name}" created.`);
+    }
+    closeDrawer();
+  };
+
+  const usageCount = (row) => (db.items || []).filter((item) =>
+    item.companyId === currentCompany.id &&
+    [row.name, row.code].some((value) => String(item.unit || '').trim().toLowerCase() === String(value || '').trim().toLowerCase())
+  ).length;
+
+  const deleteUom = async (row) => {
+    const used = usageCount(row);
+    if (used) {
+      notify.error(`Cannot delete "${row.name}" because ${used} item${used === 1 ? '' : 's'} use it.`);
+      return;
+    }
+    const ok = await confirmDialog({ title: 'Delete unit?', message: `Delete "${row.name}" from the unit master?`, confirmLabel: 'Delete' });
+    if (!ok) return;
+    await removeMaster(row);
+    setDb((prev) => ({ ...prev, uoms: (prev.uoms || []).filter((u) => Number(u.id) !== Number(row.id)) }));
+    notify.success(`Unit "${row.name}" deleted.`);
   };
 
   return (
@@ -1380,54 +1480,67 @@ export const UomsList = ({ db, setDb, currentCompany }) => {
       title="Units of Measure"
       compact
       tight
-      className="master-item-list-page"
+      className="master-item-list-page uom-list-page"
       headerPortalId="master-uoms-header-slot"
       company={currentCompany}
       search={{ value: uomSearch.query, onChange: uomSearch.setQuery, placeholder: 'Search units…', label: 'Search units' }}
-      headerExtras={
-        <input
-          type="text"
-          value={newUom}
-          onChange={(e) => setNewUom(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') addUom(); }}
-          className="ui-input ui-ctl-compact w-48"
-          aria-label="Unit name"
-          placeholder="New unit, e.g. Pcs"
-        />
-      }
-      primary={<button type="button" onClick={addUom} className="ui-btn ui-btn-primary"><Plus size={15} /> Add unit</button>}
+      primary={canCreateUnit ? <button type="button" onClick={openCreate} className="ui-btn ui-btn-primary"><Plus size={15} /> Add unit</button> : null}
     >
         <div className="ui-table-scroll master-item-table-scroll">
-          <table className={`ui-table ui-table-wide ui-table-sticky w-full ${visibleUoms.length ? '' : 'cash-bank-empty-table'}`}>
+          <table className={`ui-table ui-table-wide ui-table-sticky master-auto-table uom-master-table ${visibleUoms.length ? '' : 'cash-bank-empty-table'}`}>
             <thead>
               <tr>
-                <th>Unit</th>
-                <th><span className="sr-only">Actions</span></th>
+                <th>Code</th>
+                <th className="master-grow-column">Unit</th>
+                <th>Type</th>
+                <th className="ui-num">Used by</th>
+                {(canEditUnit || canDeleteUnit) ? <th><span className="sr-only">Actions</span></th> : null}
               </tr>
             </thead>
             <tbody className="ui-rows">
               {visibleUoms.length === 0 ? (
                 <tr>
-                  <td colSpan="2" className="px-6 py-10 text-center ui-muted">
+                  <td colSpan={canEditUnit || canDeleteUnit ? 5 : 4} className="px-6 py-10 text-center ui-muted">
                     {uoms.length ? 'No units match' : 'No units yet'}
                   </td>
                 </tr>
               ) : (
                 visibleUoms.map((u) => (
                   <tr key={u.id} className="ui-hover-sunken">
-                    <td className="px-4 py-2.5 ui-col-entity">{u.name}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <button type="button" onClick={() => deleteUom(u.id)} aria-label={`Delete unit ${u.name}`} title="Delete" className="text-[rgb(var(--neg))] hover:text-[rgb(var(--neg))]">
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
+                    <td className="px-4 py-2.5 ui-mono">{u.code || '—'}</td>
+                    <td className="px-4 py-2.5 ui-col-entity master-grow-column">{u.name}</td>
+                    <td className="px-4 py-2.5 ui-muted">{u.category || 'Other'}</td>
+                    <td className="px-4 py-2.5 ui-num">{usageCount(u)}</td>
+                    {(canEditUnit || canDeleteUnit) ? <td className="ui-action-col">
+                      <button ref={unitActionId === u.id ? unitActionAnchorRef : null} type="button" className="ui-icon-btn" aria-label={`Actions for ${u.name}`} aria-haspopup="menu" aria-expanded={unitActionId === u.id} onClick={(event) => { unitActionAnchorRef.current = event.currentTarget; setUnitActionId(unitActionId === u.id ? null : u.id); }}><MoreVertical size={16} /></button>
+                    </td> : null}
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
-
+      {unitActionId != null && (canEditUnit || canDeleteUnit) ? <Popover anchorRef={unitActionAnchorRef} onClose={() => setUnitActionId(null)} minWidth={150}>
+        <div className="py-1" role="menu">
+          {canEditUnit ? <button type="button" role="menuitem" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm ui-hover-sunken" onClick={() => { const row = uoms.find((u) => u.id === unitActionId); setUnitActionId(null); if (row) openEdit(row); }}><Pencil size={15} /> Edit</button> : null}
+          {canDeleteUnit ? <button type="button" role="menuitem" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[rgb(var(--neg))] ui-hover-sunken" onClick={() => { const row = uoms.find((u) => u.id === unitActionId); setUnitActionId(null); if (row) deleteUom(row); }}><Trash2 size={15} /> Delete</button> : null}
+        </div>
+      </Popover> : null}
+      <Drawer
+        open={Boolean(drawer)}
+        onClose={closeDrawer}
+        title={drawer?.mode === 'edit' ? 'Edit unit' : 'Add unit'}
+        description="Units saved here are available throughout item and document entry."
+        widthClass="w-[min(26rem,92vw)]"
+        actions={<button type="button" onClick={saveUom} disabled={saving} className="ui-btn ui-btn-primary">{saving ? 'Saving…' : 'Save'}</button>}
+      >
+        <div className="space-y-4">
+          <div><label className="ui-label" htmlFor="uom-name">Unit name *</label><input id="uom-name" autoFocus value={draft.name} onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))} className="ui-input mt-1 w-full" placeholder="e.g. Pieces" /></div>
+          <div><label className="ui-label" htmlFor="uom-code">Code *</label><input id="uom-code" value={draft.code} maxLength={8} onChange={(e) => setDraft((v) => ({ ...v, code: e.target.value.toUpperCase() }))} className="ui-input ui-mono mt-1 w-full" placeholder="e.g. PCS" /></div>
+          <div><label className="ui-label" htmlFor="uom-category">Type</label><select id="uom-category" value={draft.category} onChange={(e) => setDraft((v) => ({ ...v, category: e.target.value }))} className="ui-select mt-1 w-full">{['Count', 'Weight', 'Volume', 'Length', 'Area', 'Time', 'Packaging', 'Service', 'Other'].map((value) => <option key={value}>{value}</option>)}</select></div>
+          <div><label className="ui-label" htmlFor="uom-description">Description</label><textarea id="uom-description" rows={3} value={draft.description} onChange={(e) => setDraft((v) => ({ ...v, description: e.target.value }))} className="ui-input mt-1 w-full resize-none" placeholder="Optional" /></div>
+        </div>
+      </Drawer>
     </DocumentListShell>
   );
 };
@@ -1452,6 +1565,8 @@ export const ItemCategoriesList = ({ db, setDb, currentCompany }) => {
   const [newDescription, setNewDescription] = useState('');
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(null); // { id, name, description }
+  const [categoryActionId, setCategoryActionId] = useState(null);
+  const categoryActionAnchorRef = useRef(null);
 
   const catSearch = useListSearch(categories, ['name', 'description']);
   const catFilters = useColumnFilters();
@@ -1656,11 +1771,11 @@ export const ItemCategoriesList = ({ db, setDb, currentCompany }) => {
       </div> : null}
 
         <div className="ui-table-scroll master-item-table-scroll">
-          <table className={`ui-table ui-table-wide ui-table-sticky ${rows.length ? '' : 'cash-bank-empty-table'}`}>
+          <table className={`ui-table ui-table-wide ui-table-sticky master-auto-table category-master-table ${rows.length ? '' : 'cash-bank-empty-table'}`}>
             <thead>
               <tr>
                 <ColumnHeader label="Category" col="name" state={catFilters} />
-                <ColumnHeader label="Description" col="description" state={catFilters} />
+                <ColumnHeader label="Description" col="description" state={catFilters} className="master-grow-column" />
                 <ColumnHeader label="Items" col="items" state={catFilters} className="ui-num" align="right" />
                 <th scope="col"><span className="sr-only">Actions</span></th>
               </tr>
@@ -1694,7 +1809,7 @@ export const ItemCategoriesList = ({ db, setDb, currentCompany }) => {
                           <span>{c.name}</span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 ui-col-meta">
+                      <td className="px-4 py-2.5 ui-col-meta master-grow-column">
                         {isEditing ? (
                           <input
                             type="text"
@@ -1707,7 +1822,7 @@ export const ItemCategoriesList = ({ db, setDb, currentCompany }) => {
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-right ui-num">{countFor(c.name)}</td>
-                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      <td className="ui-action-col text-right whitespace-nowrap">
                         {isEditing ? (
                           <>
                             <button type="button" onClick={saveEdit} className="ui-btn ui-btn-primary ui-btn-sm text-xs mr-2">
@@ -1718,24 +1833,7 @@ export const ItemCategoriesList = ({ db, setDb, currentCompany }) => {
                             </button>
                           </>
                         ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setEditing({ id: c.id, name: c.name, description: c.description || '' })}
-                              className="ui-icon-btn mr-1"
-                              aria-label={`Edit ${c.name}`}
-                            >
-                              <Pencil size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteCategory(c)}
-                              className="ui-icon-btn text-[rgb(var(--neg))]"
-                              aria-label={`Delete ${c.name}`}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
+                          <button ref={categoryActionId === c.id ? categoryActionAnchorRef : null} type="button" className="ui-icon-btn" aria-label={`Actions for ${c.name}`} aria-haspopup="menu" aria-expanded={categoryActionId === c.id} onClick={(event) => { categoryActionAnchorRef.current = event.currentTarget; setCategoryActionId(categoryActionId === c.id ? null : c.id); }}><MoreVertical size={16} /></button>
                         )}
                       </td>
                     </tr>
@@ -1745,6 +1843,12 @@ export const ItemCategoriesList = ({ db, setDb, currentCompany }) => {
             </tbody>
           </table>
         </div>
+      {categoryActionId != null ? <Popover anchorRef={categoryActionAnchorRef} onClose={() => setCategoryActionId(null)} minWidth={150}>
+        <div className="py-1" role="menu">
+          <button type="button" role="menuitem" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm ui-hover-sunken" onClick={() => { const row = categories.find((c) => c.id === categoryActionId); setCategoryActionId(null); if (row) setEditing({ id: row.id, name: row.name, description: row.description || '' }); }}><Pencil size={15} /> Edit</button>
+          <button type="button" role="menuitem" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[rgb(var(--neg))] ui-hover-sunken" onClick={() => { const row = categories.find((c) => c.id === categoryActionId); setCategoryActionId(null); if (row) deleteCategory(row); }}><Trash2 size={15} /> Delete</button>
+        </div>
+      </Popover> : null}
       <TableTotals count={rows.length} totalCount={rows.length} noun="categories" />
     </DocumentListShell>
   );
@@ -1756,23 +1860,37 @@ export const GstRatesList = ({ db, setDb, currentCompany }) => {
     .slice()
     .sort((a, b) => Number(a.rate) - Number(b.rate));
 
-  const [newRate, setNewRate] = useState('');
-  const [newRateName, setNewRateName] = useState('');
+  const [drawer, setDrawer] = useState(null);
+  const [actionId, setActionId] = useState(null);
+  const actionAnchorRef = useRef(null);
+  const activeActionRate = gstRates.find((rate) => rate.id === actionId) || null;
 
-  const addRate = async () => {
-    const rate = Number(newRate);
+  const saveRate = async (event) => {
+    event.preventDefault();
+    const draft = drawer?.draft || {};
+    const existing = drawer.index != null ? gstRates.find((r) => r.id === drawer.index) : null;
+    const rate = existing ? Number(existing.rate) : Number(draft.rate);
     if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
       notify.error('Please enter a valid GST rate (0 to 100).');
       return;
     }
 
-    const exists = gstRates.some((r) => Number(r.rate) === rate);
+    const exists = !existing && gstRates.some((r) => Number(r.rate) === rate);
     if (exists) {
       notify.error('This GST rate already exists.');
       return;
     }
 
-    const name = String(newRateName || '').trim() || `GST ${rate}%`;
+    const name = String(draft.name || '').trim() || `GST ${rate}%`;
+
+    if (existing) {
+      const updated = { ...existing, name };
+      await patchMaster(updated, { name });
+      setDb({ ...db, gstRates: (db.gstRates || []).map((r) => r.id === drawer.index ? updated : r) });
+      setDrawer(null);
+      notify.success(`${name} updated.`);
+      return;
+    }
 
     const nextId = Math.max(0, ...(db.gstRates || []).map((r) => Number(r.id) || 0)) + 1;
     const next = {
@@ -1780,6 +1898,7 @@ export const GstRatesList = ({ db, setDb, currentCompany }) => {
       companyId: currentCompany.id,
       rate,
       name,
+      active: true,
     };
 
     // The named rate becomes a ledger of its own, so tax collected under it
@@ -1818,17 +1937,16 @@ export const GstRatesList = ({ db, setDb, currentCompany }) => {
       gstRates: [...(db.gstRates || []), { ...next, ...patch }],
       ...(rateLedger ? { chartOfAccounts: [...coa, rateLedger] } : {}),
     });
-    setNewRate('');
-    setNewRateName('');
+    setDrawer(null);
     notify.success(rateLedger ? `${name} added — ledger created under Duties & Taxes.` : `${name} added.`);
   };
 
-  const deleteRate = async (id) => {
-    await removeMaster((db.gstRates || []).find((r) => r.id === id));
-    setDb({
-      ...db,
-      gstRates: (db.gstRates || []).filter((r) => r.id !== id),
-    });
+  const toggleRate = async (row) => {
+    const updated = { ...row, active: row.active === false };
+    await patchMaster(updated, { name: updated.name, data: { rate: updated.rate, active: updated.active } });
+    setDb({ ...db, gstRates: (db.gstRates || []).map((r) => r.id === row.id ? updated : r) });
+    setActionId(null);
+    notify.success(`${updated.name || `GST ${updated.rate}%`} ${updated.active ? 'enabled' : 'disabled'}.`);
   };
 
   return (
@@ -1836,57 +1954,24 @@ export const GstRatesList = ({ db, setDb, currentCompany }) => {
       entity="gst"
       title="GST Rates"
       company={currentCompany}
-      cards={[{ label: 'GST rates', value: gstRates.length, count: true, tone: 'draft', Icon: BadgePercent }]}
-      denseCards
+      description=""
+      className="gst-rates-page"
+      primary={<button type="button" onClick={() => setDrawer({ index: null, draft: { rate: '', name: '' } })} className="ui-btn ui-btn-primary"><Plus size={15} /> Add rate</button>}
     >
-        <div className="grid grid-cols-1 gap-2 border-b px-3 py-2 ui-border-c sm:grid-cols-[8rem_minmax(12rem,1fr)_auto]">
-          <div>
-            <input
-              type="number"
-              value={newRate}
-              onChange={(e) => setNewRate(e.target.value)}
-              className="ui-input ui-ctl-compact w-full"
-              min="0"
-              max="100"
-              step="0.01"
-              aria-label="GST rate percent"
-              placeholder="Rate %, e.g. 18"
-            />
-          </div>
-          <div>
-            <input
-              type="text"
-              value={newRateName}
-              onChange={(e) => setNewRateName(e.target.value)}
-              className="ui-input ui-ctl-compact w-full"
-              aria-label="GST rate name"
-              placeholder={Number(newRate) > 0 ? `Name, e.g. GST ${Number(newRate)}%` : 'Rate name, e.g. GST 18%'}
-            />
-          </div>
-          <div>
-            <button
-              type="button"
-              onClick={addRate}
-              className="ui-btn ui-btn-primary ui-btn-sm w-full sm:w-auto"
-            >
-              <Plus size={15} /> Add rate
-            </button>
-          </div>
-        </div>
-
-        <div className="ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}>
+        <div className="gst-rates-table-wrap ui-table-scroll ui-table-fit">
           <table className="ui-table ui-table-wide ui-table-sticky w-full">
             <thead>
               <tr>
                 <th>Rate</th>
                 <th>Name</th>
+                <th>Status</th>
                 <th><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody className="ui-rows">
               {gstRates.length === 0 ? (
                 <tr>
-                  <td colSpan="3" className="px-6 py-10 text-center ui-muted">
+                  <td colSpan="4" className="px-6 py-10 text-center ui-muted">
                     No GST rates found
                   </td>
                 </tr>
@@ -1895,10 +1980,9 @@ export const GstRatesList = ({ db, setDb, currentCompany }) => {
                   <tr key={r.id} className="ui-hover-sunken">
                     <td className="px-4 py-2.5 ui-col-entity">{Number(r.rate)}%</td>
                     <td className="px-4 py-2.5 ui-col-meta">{r.name || `GST ${Number(r.rate)}%`}</td>
+                    <td className="px-4 py-2.5"><span className="ui-status-pill" data-tone={r.active === false ? 'muted' : 'positive'}>{r.active === false ? 'Inactive' : 'Active'}</span></td>
                     <td className="px-4 py-2.5 text-right">
-                      <button type="button" onClick={() => deleteRate(r.id)} aria-label={`Delete ${Number(r.rate)}% rate`} title="Delete" className="text-[rgb(var(--neg))] hover:text-[rgb(var(--neg))]">
-                        <Trash2 size={16} />
-                      </button>
+                      <button ref={actionId === r.id ? actionAnchorRef : null} type="button" className="ui-icon-btn" aria-label={`Actions for ${r.name || `GST ${Number(r.rate)}%`}`} aria-haspopup="menu" aria-expanded={actionId === r.id} onClick={(event) => { actionAnchorRef.current = event.currentTarget; setActionId(actionId === r.id ? null : r.id); }}><MoreVertical size={16} /></button>
                     </td>
                   </tr>
                 ))
@@ -1906,6 +1990,21 @@ export const GstRatesList = ({ db, setDb, currentCompany }) => {
             </tbody>
           </table>
         </div>
+
+        {activeActionRate ? <Popover anchorRef={actionAnchorRef} onClose={() => setActionId(null)} minWidth={148}>
+          <div className="py-1" role="menu">
+            <button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[rgb(var(--surface-2))]" onClick={() => { setDrawer({ index: activeActionRate.id, draft: { rate: activeActionRate.rate, name: activeActionRate.name || `GST ${Number(activeActionRate.rate)}%` } }); setActionId(null); }}><Pencil size={14} className="mr-2 inline" /> Edit name</button>
+            <button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[rgb(var(--surface-2))]" onClick={() => toggleRate(activeActionRate)}>{activeActionRate.active === false ? <><ToggleRight size={14} className="mr-2 inline" /> Enable</> : <><ToggleLeft size={14} className="mr-2 inline" /> Disable</>}</button>
+          </div>
+        </Popover> : null}
+
+        <Drawer open={Boolean(drawer)} onClose={() => setDrawer(null)} title={drawer?.index == null ? 'Add GST rate' : 'Edit GST rate name'} description={drawer?.index == null ? 'Set the percentage and display name for this rate.' : 'The saved GST percentage cannot be changed.'} widthClass="w-[min(26rem,92vw)]">
+          {drawer ? <form className="space-y-4" onSubmit={saveRate}>
+            <label className="ui-label block">Rate (%) *<input autoFocus type="number" min="0" max="100" step="0.01" required readOnly={drawer.index != null} className="ui-input w-full mt-1" value={drawer.draft.rate} onChange={(e) => setDrawer((x) => ({ ...x, draft: { ...x.draft, rate: e.target.value } }))} placeholder="e.g. 18" /></label>
+            <label className="ui-label block">{drawer.index == null ? 'Rate name' : 'Description / name'}<input className="ui-input w-full mt-1" value={drawer.draft.name} onChange={(e) => setDrawer((x) => ({ ...x, draft: { ...x.draft, name: e.target.value } }))} placeholder="e.g. GST 18%" /></label>
+            <div className="flex justify-end gap-2 pt-2"><button type="button" className="ui-btn ui-btn-secondary" onClick={() => setDrawer(null)}>Cancel</button><button type="submit" className="ui-btn ui-btn-primary">Save rate</button></div>
+          </form> : null}
+        </Drawer>
 
     </DocumentListShell>
   );

@@ -43,7 +43,7 @@ const COMPANY = {
   name: 'Neev Steels',
   gstin: '29ABCDE1234F1Z5',
   state: 'Karnataka',
-  profile: { taxCompliances: { tds: { enabled: true, tan: 'BLRN12345F' } } },
+  profile: { taxCompliances: { gstEnabled: true, tds: { enabled: true, tan: 'BLRN12345F' } } },
 };
 
 const GROUPS = [
@@ -159,8 +159,8 @@ describe('editing a bill with TDS', () => {
 
 /** A bill for one line at `rate`, ready to save. */
 const fillBill = async (user, rate) => {
-  await user.click(screen.getByRole('combobox', { name: 'Warehouse *' }));
-  await user.click(await screen.findByRole('option', { name: 'Main Store' }));
+  /* One warehouse: the field locks to it and fills itself (Books rule). */
+  expect(screen.getByRole('textbox', { name: 'Warehouse' }).value).toMatch(/Main Store/);
   await user.click(screen.getByPlaceholderText('Type a vendor name'));
   await user.click(await screen.findByRole('option', { name: /Steel Supply Co/ }));
   /* The item field is a type-ahead: click it, then take the suggestion. */
@@ -228,7 +228,7 @@ describe('choosing what to deduct against', () => {
   });
 
   it('deducts nothing at all while TDS is switched off for the company', () => {
-    const off = { ...COMPANY, profile: { taxCompliances: { tds: { enabled: false } } } };
+    const off = { ...COMPANY, profile: { taxCompliances: { gstEnabled: true, tds: { enabled: false } } } };
     render(<Host db={dbWith({ companies: [off] })} />);
     expect(screen.getByRole('button', { name: /TDS deduction/ })).toBeDisabled();
     expect(screen.getByText(/TDS is switched off for this company/)).toBeInTheDocument();

@@ -56,14 +56,18 @@ export const getLedgerAccounts = () => apiFetch(`${base()}/accounts`, opts);
  * Used when a cash/bank ledger is added to the client chart of accounts so it
  * becomes a real payment mode in receipt/payment entry.
  */
-export const createLedgerAccount = ({ name, accountType, controlKind, sourceKey }) =>
+export const createLedgerAccount = ({ code, name, accountType, controlKind, sourceKey }) =>
   apiFetch(`${base()}/accounts`, {
     ...opts,
     method: 'POST',
-    body: { name, accountType, controlKind, sourceKey },
+    body: { code, name, accountType, controlKind, sourceKey },
   });
 
-export const getJournalEntries = (limit = 50) => apiFetch(`${base()}/entries?limit=${limit}`, opts);
+export const getJournalEntries = (limit = 50, docType = '') => {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (docType) query.set('docType', docType);
+  return apiFetch(`${base()}/entries?${query}`, opts);
+};
 
 /**
  * The postings a document still has in the books, if any.
@@ -98,11 +102,12 @@ export const getDocumentPostings = async (docType, docId) => {
  * trial balance, the P&L and the balance sheet differed by machine, and the
  * server's own books were missing entries somebody had made on purpose.
  */
-export const postJournalEntry = ({ date, journalCode = 'JV', narration, lines }) =>
+export const postJournalEntry = ({ date, journalCode = 'JV', narration, lines, branchId }) =>
   apiFetch(`${base()}/entries`, {
     method: 'POST',
     body: { date, journalCode, narration: narration || null, lines },
     ...opts,
+    ...(branchId ? { headers: { 'x-branch-id': String(branchId) } } : {}),
   });
 
 /**
@@ -112,11 +117,12 @@ export const postJournalEntry = ({ date, journalCode = 'JV', narration, lines })
  * reversed by an equal and opposite entry, so the audit trail shows both what
  * was recorded and that it was undone.
  */
-export const reverseJournalEntry = (entryId, narration) =>
+export const reverseJournalEntry = (entryId, narration, branchId) =>
   apiFetch(`${base()}/entries/${entryId}/reverse`, {
     method: 'POST',
     body: { narration: narration || undefined },
     ...opts,
+    ...(branchId ? { headers: { 'x-branch-id': String(branchId) } } : {}),
   });
 
 /** Reconcile a contra entry against the bank statement; the server keeps the bank-date history. */

@@ -168,8 +168,9 @@ describe('what the party lists say about money', () => {
     const cells = [...screen.getByText('Acme Traders').closest('tr').querySelectorAll('td')];
     // 11,800 overdue plus 5,000 not yet due. The overdue column beside it
     // carries only the first, so the two cannot stand in for each other.
-    expect(cells[5].textContent).toMatch(/16,800/);
-    expect(cells[6].textContent).toMatch(/11,800/);
+    // Branch sits before the money columns (cell 5).
+    expect(cells[6].textContent).toMatch(/16,800/);
+    expect(cells[7].textContent).toMatch(/11,800/);
   });
 
   it('marks the part of it that is late', () => {

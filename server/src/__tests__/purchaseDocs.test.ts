@@ -322,8 +322,8 @@ describe('importing the new document types', () => {
   it('posts an imported invoice to the ledger, not just into the list', async () => {
     const before = await tb();
     const csv = [
-      'invoice_no,date,customer_name,description,quantity,rate,gst_rate,tax_type',
-      `IMPINV-${rnd().toUpperCase()},2026-04-18,Acme Ltd,Consulting,1,1000,18,CGST_SGST`,
+      'invoice_no,date,due_date,customer_name,item,description,quantity,rate,gst_rate,tax_type',
+      `IMPINV-${rnd().toUpperCase()},2026-04-18,2026-05-18,Acme Ltd,SRV-1,Consulting,1,1000,18,CGST_SGST`,
     ].join('\n');
 
     await runImport('INVOICE', csv);
@@ -334,5 +334,64 @@ describe('importing the new document types', () => {
     expect(moved(before, after, 'AR')).toBe(1180);
     expect(moved(before, after, 'SALES')).toBe(-1000);
     expect(after.totals.balanced).toBe(true);
+  });
+});
+
+/*
+ * A held document keeps the status its raiser gave it. Release used to force
+ * every one to "Unpaid", so an expense recorded as paid came back unpaid.
+ */
+describe('a purchase document held for approval', () => {
+  it('comes back with the status it was raised with once released', async () => {
+    await setFeature('approvals', true);
+    const role = await request(app)
+      .post(`/api/orgs/${owner.orgId}/roles`)
+      .set(auth(owner))
+      .send({ name: `Bill approver ${rnd()}`, roleType: 'CUSTOM', permissions: ['PURCHASE::Bills::VIEW'] })
+      .expect(201);
+    const roleId = role.body.role.id;
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/approval-rules`)
+      .set(auth(owner))
+      .send({ docType: 'BILL', name: `Bill hold ${rnd()}`, minAmount: 50000, approverRoleId: roleId })
+      .expect(201);
+    const email = `bill.approver.${rnd()}@example.com`;
+    const user = await request(app)
+      .post('/api/users')
+      .set(auth(owner))
+      .send({ email, fullName: 'Bill approver', password: 'Passw0rd!23', orgIds: [owner.orgId], branchIdsByOrg: { [owner.orgId]: [owner.branchId] } })
+      .expect(201);
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/users/${user.body.user.id}/roles`)
+      .set(auth(owner))
+      .send({ roleId, branchId: null })
+      .expect(201);
+    const login = await request(app).post('/api/auth/login').send({ emailOrUsername: email, password: 'Passw0rd!23' }).expect(200);
+    const approver: Ctx = { token: login.body.token, orgId: owner.orgId, branchId: owner.branchId };
+
+    const held = await request(app)
+      .post(`/api/orgs/${owner.orgId}/bills`)
+      .set(auth(owner))
+      .send(docBody({ date: '2026-04-20', subtotal: 60000, cgstTotal: 0, sgstTotal: 0, gstTotal: 0, total: 60000,
+        items: [{ description: 'Machine', quantity: 1, rate: 60000, gstRate: 0 }], status: 'Paid' }))
+      .expect(201);
+    expect(held.body.approval?.required).toBe(true);
+    expect(held.body.document.status).toBe('Pending Approval');
+    expect(held.body.document.heldStatus).toBeUndefined();
+
+    const inbox = await request(app).get(`/api/orgs/${owner.orgId}/approvals`).set(auth(approver)).expect(200);
+    const pending = inbox.body.requests.find((r: any) => r.docId === held.body.document.id);
+    expect(pending).toBeTruthy();
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/approvals/${pending.id}/decide`)
+      .set(auth(approver))
+      .send({ approve: true, comment: 'ok' })
+      .expect(200);
+
+    const list = await request(app).get(`/api/orgs/${owner.orgId}/bills`).set(auth(owner)).expect(200);
+    const rows = list.body.documents || list.body.bills || list.body.items || [];
+    const row = rows.find((d: any) => d.id === held.body.document.id);
+    expect(row?.status).toBe('Paid');
+    expect(row?.heldStatus).toBeUndefined();
   });
 });

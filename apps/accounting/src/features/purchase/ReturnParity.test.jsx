@@ -38,6 +38,7 @@ const BRANCHES = [
 ];
 const WAREHOUSES = [
   { id: 'w-blr', companyId: 1, name: 'Bengaluru Store', branchId: 'b-blr' },
+  { id: 'w-blr-2', companyId: 1, name: 'Bengaluru Yard', branchId: 'b-blr' },
   { id: 'w-hyd', companyId: 1, name: 'Hyderabad Store', branchId: 'b-hyd' },
 ];
 
@@ -84,7 +85,7 @@ describe('the purchase return asks what the bill asks', () => {
     /* The bill list on this form is a plain <select>, so scope the check to the
        panel that just opened rather than every option on the screen. */
     const panel = screen.getByRole('listbox');
-    expect(within(panel).getAllByRole('option').map((o) => o.textContent.trim())).toEqual(['Bengaluru Store']);
+    expect(within(panel).getAllByRole('option').map((o) => o.textContent.trim())).toEqual(['Bengaluru Store', 'Bengaluru Yard']);
   });
 
   it('carries the series control on the number field', async () => {

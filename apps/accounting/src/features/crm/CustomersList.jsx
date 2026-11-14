@@ -10,6 +10,7 @@ import { CustomerForm } from '../../components/pickers/CustomerPicker';
 import CustomerDetailPage from './CustomerDetailPage';
 import { getCustomerDisplayName } from '@ui/utils/contacts';
 import { formatMoney } from '@ui/utils/money';
+import { branchLabel } from '@ui/utils/branchLabel';
 import { isGstRegistered, outstandingByParty, standingOf } from '@ui/utils/partyStanding';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
@@ -23,6 +24,7 @@ import { PermissionButton } from '@ui/permissions/ActionGuard';
  */
 export default function CustomersList({ db, setDb, currentCompany, onNewTransaction, onEditTransaction }) {
   const customers = db.customers.filter((c) => c.companyId === currentCompany.id);
+  const companyBranches = (db.branches || []).filter((branch) => String(branch.companyId) === String(currentCompany.id));
   const customerSearch = useListSearch(customers, [(c) => getCustomerDisplayName(c), 'phone', 'mobile', 'email', 'gstin']);
   const customerSearchFilters = useColumnFilters();
   const shownCustomers = customerSearchFilters.applyFilters(customerSearch.filtered, {
@@ -31,6 +33,7 @@ export default function CustomersList({ db, setDb, currentCompany, onNewTransact
     email: (r) => r.email,
     gstReg: (r) => r.gstRegistration,
     gstin: (r) => r.gstin,
+    branch: (r) => branchLabel(r, companyBranches),
   });
   const [isCreating, setIsCreating] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -97,6 +100,7 @@ export default function CustomersList({ db, setDb, currentCompany, onNewTransact
     { key: 'email', label: 'Email' },
     { key: 'gstRegistration', label: 'GST Reg.' },
     { key: 'gstin', label: 'GSTIN' },
+    { key: 'branch', label: 'Branch', value: (r) => branchLabel(r, companyBranches) },
     { key: 'outstanding', label: 'Outstanding', value: (r) => standingOf(customerStanding, r.id).outstanding },
     { key: 'overdue', label: 'Overdue', value: (r) => standingOf(customerStanding, r.id).overdue },
   ];
@@ -223,14 +227,15 @@ export default function CustomersList({ db, setDb, currentCompany, onNewTransact
       onStatusChange={setCustStatus}
     >
       <div className="overflow-x-auto ui-table-scroll customer-table-scroll">
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky branch-fill-table customers-fill-table">
           <thead>
             <tr>
-              <ColumnHeader label="Name" col="name" state={customerSearchFilters} />
+              <ColumnHeader label="Name" col="name" state={customerSearchFilters} className="branch-fill-grow" />
               <ColumnHeader label="Phone" col="phone" state={customerSearchFilters} />
               <ColumnHeader label="Email" col="email" state={customerSearchFilters} />
               <ColumnHeader label="GST Reg." col="gstReg" state={customerSearchFilters} />
               <ColumnHeader label="GSTIN" col="gstin" state={customerSearchFilters} />
+              <ColumnHeader label="Branch" col="branch" state={customerSearchFilters} />
               <th scope="col" className="ui-num">Outstanding</th>
               {/* Overdue beside outstanding, not instead of it: the second
                   figure is the one somebody rings about. */}
@@ -240,7 +245,7 @@ export default function CustomersList({ db, setDb, currentCompany, onNewTransact
           <tbody className="ui-rows">
             {visibleCustomers.length === 0 ? (
               <tr>
-                <td colSpan="7">
+                <td colSpan="8">
                   <EmptyState
                     icon={Users}
                     kind="new"
@@ -292,6 +297,7 @@ export default function CustomersList({ db, setDb, currentCompany, onNewTransact
                   <td className="ui-col-meta truncate" title={customer.gstin || ''}>
                     {customer.gstin || '-'}
                   </td>
+                  <td className="ui-col-meta truncate" title={branchLabel(customer, companyBranches)}>{branchLabel(customer, companyBranches)}</td>
                   <td className="ui-col-amount">
                     {formatMoney(standingOf(customerStanding, customer.id).outstanding, currentCompany)}
                   </td>

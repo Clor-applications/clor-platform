@@ -14,6 +14,9 @@ import {
   setUserPrimaryRole,
   changeUserPassword,
   listBranches,
+  listWarehouses,
+  getUserAccess,
+  setUserAccess,
   assignUserBranches,
   getUserBranches,
   getUserCompanies,
@@ -29,6 +32,7 @@ import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
+import UserLocationAccessTable from './UserLocationAccessTable';
 import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
@@ -64,7 +68,8 @@ export function filterUsers(users, { q = '', status = '' }, roleName = () => '')
   });
 }
 
-const EMPTY_FORM = { fullName: '', email: '', mobile: '', password: '', roleId: '' };
+const EMPTY_FORM = { fullName: '', email: '', mobile: '', password: '', roleId: '', isActive: true };
+const EMPTY_ACCESS = { branches: [], warehouseIds: [], warehouseRoles: [] };
 
 const LEFT_REASON = { RESIGNED: 'Resigned', TERMINATED: 'Employment ended', ROLE_CHANGED: 'Moved to a role without access', CONTRACT_ENDED: 'Contract ended', RETIRED: 'Retired', OTHER: 'Other' };
 const shortDate = (iso) => {
@@ -88,12 +93,16 @@ export function SettingsUsers({ orgId }) {
   const [menuFor, setMenuFor] = useState(null);
   const menuAnchorRef = useRef(null);
 
-  /* The drawer: { kind: 'create' | 'view' | 'edit' | 'companies' | 'branches' | 'password', user } */
+  /* The drawer: { kind: 'create' | 'view' | 'edit' | 'companies' | 'branches' | 'access' | 'password', user } */
   const [panel, setPanel] = useState(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [createBranchIds, setCreateBranchIds] = useState([]);
-  const [editForm, setEditForm] = useState({ fullName: '', email: '', roleId: '', isActive: true });
+  const [editForm, setEditForm] = useState({ fullName: '', email: '', mobile: '', roleId: '', isActive: true });
+  /* Roles by branch: the person's branches with a role in each, and their warehouses. */
+  const [access, setAccess] = useState(EMPTY_ACCESS);
+  const [accessBranches, setAccessBranches] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
   const [companyRows, setCompanyRows] = useState([]);
   const [companyChecked, setCompanyChecked] = useState([]);
   const [branchIds, setBranchIds] = useState([]);
@@ -165,7 +174,7 @@ export function SettingsUsers({ orgId }) {
   };
 
   const openEdit = (u) => {
-    setEditForm({ fullName: u.fullName || u.name || '', email: u.email || '', roleId: u.roleId || '', isActive: u.isActive !== false });
+    setEditForm({ fullName: u.fullName || u.name || '', email: u.email || '', mobile: u.mobile || '', roleId: u.roleId || '', isActive: u.isActive !== false });
     open('edit', u);
   };
 
@@ -207,6 +216,43 @@ export function SettingsUsers({ orgId }) {
     }
   };
 
+  /**
+   * Roles by branch: a role in each branch the person works in, the warehouses
+   * they may use there, and any role held at one warehouse only. A role they
+   * hold company-wide is offered as the starting role of every branch, because
+   * saving here replaces it with the branch roles.
+   */
+  const openAccess = async (u) => {
+    open('access', u);
+    setAccess(EMPTY_ACCESS);
+    setPanelLoading(true);
+    try {
+      const [held, branchList, warehouseList] = await Promise.all([
+        getUserAccess(orgId, u.id),
+        /* The branch list is not loaded with the page where the Branches feature is off; a role still belongs to a branch. */
+        branches.length ? Promise.resolve({ branches }) : listBranches(orgId).catch(() => ({ branches: [] })),
+        /* Warehouses belong to Accounting: a company without it has none, and that is not an error here. */
+        Promise.resolve().then(() => listWarehouses(orgId)).catch(() => ({ warehouses: [] })),
+      ]);
+      const direct = (held?.roles || []).filter((row) => row.roleId);
+      const companyWide = direct.find((row) => !row.branchId)?.roleId || '';
+      setAccessBranches(Array.isArray(branchList?.branches) ? branchList.branches : []);
+      setWarehouses(Array.isArray(warehouseList?.warehouses) ? warehouseList.warehouses : []);
+      setAccess({
+        branches: uniqueIds(held?.branchIds).map((branchId) => ({
+          branchId,
+          roleId: direct.find((row) => normalizeId(row.branchId) === branchId)?.roleId || companyWide,
+        })),
+        warehouseIds: uniqueIds(held?.warehouseIds),
+        warehouseRoles: (held?.warehouseRoles || []).map((row) => ({ warehouseId: normalizeId(row.warehouseId), roleId: normalizeId(row.roleId) })),
+      });
+    } catch (e) {
+      setError(rbacErrorMessage(e, 'Could not load their branches and roles'));
+    } finally {
+      setPanelLoading(false);
+    }
+  };
+
   const act = async (fn, fallback) => {
     setBusy(true);
     setError('');
@@ -236,6 +282,8 @@ export function SettingsUsers({ orgId }) {
         branchIdsByOrg: { [orgId]: picked.length ? picked : activeBranchId ? [activeBranchId] : [] },
       });
       if (form.roleId) await assignUserRole(orgId, res.user.id, form.roleId, null);
+      /* Added now, to sign in later: the login exists but stays switched off. */
+      if (form.isActive === false) await updateUser(orgId, res.user.id, { isActive: false });
       close();
       await loadData();
     }, 'Failed to create user');
@@ -246,7 +294,7 @@ export function SettingsUsers({ orgId }) {
     const id = panel?.user?.id;
     if (!id) return;
     act(async () => {
-      await updateUser(orgId, id, { fullName: editForm.fullName, email: editForm.email, isActive: Boolean(editForm.isActive) });
+      await updateUser(orgId, id, { fullName: editForm.fullName, email: editForm.email, mobile: editForm.mobile, isActive: Boolean(editForm.isActive) });
       await setUserPrimaryRole(orgId, id, editForm.roleId || null);
       close();
       await loadData();
@@ -272,6 +320,19 @@ export function SettingsUsers({ orgId }) {
       await assignUserBranches(orgId, panel.user.id, ids);
       close();
     }, 'Failed to assign branches');
+  };
+
+  const submitAccess = (e) => {
+    e.preventDefault();
+    if (!access.branches.length || access.branches.some((row) => !row.roleId)) {
+      setError('Select at least one branch and a role for each selected branch.');
+      return;
+    }
+    act(async () => {
+      await setUserAccess(orgId, panel.user.id, access);
+      close();
+      await loadData();
+    }, 'Failed to save branches and roles');
   };
 
   const submitPassword = (e) => {
@@ -415,6 +476,13 @@ export function SettingsUsers({ orgId }) {
             <label className="text-sm font-medium" htmlFor="ws-user-role">Role</label>
             <RoleSelect id="ws-user-role" roles={assignableRoles} value={form.roleId} onChange={(roleId) => setForm((f) => ({ ...f, roleId }))} />
           </div>
+          <label className="flex items-start gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" className="ui-checkbox mt-0.5" checked={form.isActive !== false} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} />
+            <span>
+              Active user
+              <span className="block ui-caption">Untick to add them now and let them sign in later.</span>
+            </span>
+          </label>
         </form>
       ),
     };
@@ -439,6 +507,7 @@ export function SettingsUsers({ orgId }) {
             {quiet('Edit', () => openEdit(u))}
             {quiet('Companies', () => openCompanies(u))}
             {branchesEnabled ? quiet('Branches', () => openBranches(u)) : null}
+            {quiet('Roles by branch', () => openAccess(u))}
             {quiet('Set a password', () => open('password', u))}
             {u.isActive === false ? quiet('Reactivate', () => bringBack(u)) : quiet('Mark as left', () => openLeave(u))}
           </div>
@@ -464,6 +533,10 @@ export function SettingsUsers({ orgId }) {
           <label className="grid gap-1 sm:col-span-2">
             <span className="text-sm font-medium">Email <span aria-hidden="true">*</span></span>
             <input type="email" className="ui-input w-full" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} required spellCheck={false} />
+          </label>
+          <label className="grid gap-1 sm:col-span-2">
+            <span className="text-sm font-medium">Mobile</span>
+            <input type="tel" inputMode="tel" className="ui-input w-full" value={editForm.mobile || ''} onChange={(e) => setEditForm((p) => ({ ...p, mobile: e.target.value }))} />
           </label>
           <div className="grid gap-1">
             <label className="text-sm font-medium" htmlFor="ws-user-edit-role">Role</label>
@@ -523,6 +596,23 @@ export function SettingsUsers({ orgId }) {
             })}
           </ul>
           {!panelLoading && branchesSorted.length === 0 ? <p className="ws-card-blurb">No branches yet. Add them under Company → Branches.</p> : null}
+        </form>
+      ),
+    };
+  } else if (panel?.kind === 'access' && u) {
+    drawer = {
+      title: `Roles by branch: ${nameOf(u)}`,
+      description: 'Saving replaces the roles assigned to them in this company with the ones listed here.',
+      actions: footer('ws-user-access', 'Save access'),
+      wide: true,
+      body: (
+        <form id="ws-user-access" onSubmit={submitAccess} className="grid gap-3">
+          {errorNote}
+          {panelLoading ? (
+            <p className="ws-card-blurb">Loading their branches and roles…</p>
+          ) : (
+            <UserLocationAccessTable branches={accessBranches} warehouses={warehouses} roles={roles} value={access} onChange={setAccess} />
+          )}
         </form>
       ),
     };
@@ -686,6 +776,7 @@ export function SettingsUsers({ orgId }) {
                           )}
                           <button type="button" className="report-menu-item" onClick={() => openCompanies(row)}>Companies</button>
                           {branchesEnabled ? <button type="button" className="report-menu-item" onClick={() => openBranches(row)}>Branches</button> : null}
+                          <button type="button" className="report-menu-item" onClick={() => openAccess(row)}>Roles by branch</button>
                           <button type="button" className="report-menu-item" onClick={() => open('password', row)}>Set a password</button>
                           <PermissionButton permission="SETTINGS::Users::DELETE" type="button" className="report-menu-item" style={{ color: 'rgb(var(--neg))' }} onClick={() => remove(row)}>
                             Remove
@@ -701,7 +792,7 @@ export function SettingsUsers({ orgId }) {
         )}
       </div>
 
-      <WsDrawer open={Boolean(panel)} onClose={close} title={drawer.title} description={drawer.description} actions={drawer.actions} widthClass="w-[min(38rem,92vw)]">
+      <WsDrawer open={Boolean(panel)} onClose={close} title={drawer.title} description={drawer.description} actions={drawer.actions} widthClass={drawer.wide ? 'w-[min(52rem,96vw)]' : 'w-[min(38rem,92vw)]'}>
         {drawer.body}
       </WsDrawer>
     </div>

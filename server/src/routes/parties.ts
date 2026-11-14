@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -10,6 +11,8 @@ import { validateGstinOrThrow } from '../utils/gstin.js';
 import { allowsEntity, resolveUserPermissions } from '../services/access.js';
 import { forgetEntityAccess } from '../services/integrity/crossStore.js';
 import { sentOnly } from '../utils/sentOnly.js';
+import { getFeatures } from '../services/features.js';
+import { codeFormatFor, reservePartyCode } from '../services/partyCodeNumbering.js';
 
 /**
  * Customers and vendors.
@@ -113,58 +116,11 @@ const partySchema = z.object({
 });
 
 /*
- * A code the user did not supply. Sequential per org and party type, so two
- * customers created on the same day do not collide and the number means
- * something to a human reading a statement. Not a NumberSeries: a party code is
- * an identifier, not a document number, and it must never consume from the same
- * counter a GST return is reconciled against.
+ * A party code is whatever format the company set up under Code Numbering:
+ * letters, digits and a few separators, with no more than ten digits in all.
  */
-/*
- * The code format, which the business sets rather than inherits.
- *
- * `prefix` and `padding` come from the org's party-code settings; the defaults
- * are CUS-0001 and VEN-0001. Deliberately NOT a NumberSeries: a party code
- * identifies a record, and it must never draw from the counter a GST return is
- * reconciled against.
- */
-async function nextPartyCode(accountId: string, orgId: string, kind: string) {
-  const start = kind === 'VENDOR' ? 600000 : 200000;
-  const end = kind === 'VENDOR' ? 999999 : 599999;
-
-  /*
-   * The highest code in this range, not every code in the org.
-   *
-   * The first version read the whole party table and built a Set to find the
-   * first unused number. That is one row read per customer the business has
-   * ever had, every time somebody adds one — the slowest request is the one
-   * their best year produces — and listsAreBounded refused it for exactly that
-   * reason. A `take` would have quietened the test and broken the function: a
-   * truncated set makes a used code look free, and the next insert dies on the
-   * unique index.
-   *
-   * So the database answers the question instead of handing over the data. One
-   * row, ordered, bounded by the index.
-   *
-   * It does mean a deleted party's code is not handed out again. That is worth
-   * having rather than working around: a code that meant one customer in March
-   * and another in June makes every statement printed between them ambiguous.
-   */
-  const highest = await prisma.party.findFirst({
-    where: { accountId, orgId, code: { gte: String(start), lte: String(end) } },
-    select: { code: true },
-    orderBy: { code: 'desc' },
-  });
-
-  const last = Number(highest?.code);
-  const next = Number.isFinite(last) && last >= start ? last + 1 : start;
-  if (next > end) {
-    throw new Error(`No ${kind === 'VENDOR' ? 'vendor' : 'customer'} codes remain in the configured range`);
-  }
-  return String(next);
-}
-
 const validPartyCode = (kind: PartyKind, code: string) =>
-  kind === 'VENDOR' ? /^[6-9]\d{5}$/.test(code) : /^[2-5]\d{5}$/.test(code);
+  /^[A-Za-z0-9_/-]+$/.test(code) && (code.match(/\d/g) || []).length <= 10;
 
 /** The scalar columns added for the customer master. */
 const extraScalars = (body: any) => ({
@@ -298,6 +254,7 @@ function register(kind: PartyKind, basePath: string) {
     const { accountId, orgId } = req.tenant!;
     const search = String(req.query.search || '').trim();
     const take = Math.min(500, Math.max(1, Number(req.query.limit || 200)));
+    const skip = Math.max(0, Number(req.query.skip || 0));
 
     const rows = await prisma.party.findMany({
       where: {
@@ -318,6 +275,7 @@ function register(kind: PartyKind, basePath: string) {
           : {}),
       },
       orderBy: { name: 'asc' },
+      skip,
       take,
     });
 
@@ -347,30 +305,23 @@ function register(kind: PartyKind, basePath: string) {
     const { accountId, orgId } = req.tenant!;
     const body = partySchema.parse(req.body);
     const requestedCode = String(body.code || '').trim();
-    if (requestedCode && !validPartyCode(kind, requestedCode)) {
-      return res.status(400).json({
-        error: kind === 'VENDOR'
-          ? 'Vendor code must be 6 digits and start with 6, 7, 8, or 9'
-          : 'Customer code must be 6 digits and start with 2, 3, 4, or 5',
-      });
-    }
+    if (requestedCode && !validPartyCode(kind, requestedCode)) return res.status(400).json({ error: 'Code may contain letters, numbers, hyphens, slashes and underscores, with at most 10 digits' });
     /*
-     * A code the user typed must be free. One we allot can lose a race: two
-     * customers added at once both read the same highest code (seen under
-     * load on staging), so the second looks again rather than failing.
+     * Codes are a feature the company switches on, in a format it chooses
+     * (Code Numbering settings, kept on the company profile). The number
+     * itself comes from a counter row inside the transaction below, so two
+     * parties added at once cannot be given the same code.
      */
-    let partyCode = requestedCode;
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const candidate = requestedCode || (await nextPartyCode(accountId, orgId, kind));
-      const taken = await prisma.party.findFirst({ where: { accountId, orgId, code: candidate }, select: { id: true } });
-      if (!taken) {
-        partyCode = candidate;
-        break;
-      }
-      if (requestedCode) return res.status(409).json({ error: `Party code ${candidate} is already in use` });
-      partyCode = '';
-    }
-    if (!partyCode) return res.status(409).json({ error: 'Could not allot a party code; try again' });
+    const flags = await getFeatures(accountId, orgId);
+    const enabled = flags[kind === 'VENDOR' ? 'vendorCodes' : 'customerCodes'] !== false;
+    const org = await platformPrisma.org.findFirst({ where: { accountId, id: orgId }, select: { profileJson: true } });
+    const format = codeFormatFor(org?.profileJson || null, kind);
+    if (enabled && format.mode === 'manual' && !requestedCode) return res.status(400).json({ error: 'Enter a code for this party' });
+    if (enabled && format.mode === 'automatic' && requestedCode) return res.status(400).json({ error: 'Manual code entry is disabled in Code Numbering settings' });
+    const branch = format.includeBranchCode
+      ? await platformPrisma.branch.findFirst({ where: { accountId, orgId, id: req.tenant!.branchId }, select: { id: true, branchCode: true } })
+      : null;
+    if (enabled && format.includeBranchCode && !branch) return res.status(400).json({ error: 'The active branch is unavailable for code numbering' });
 
     if (body.gstin) {
       // Throws a 400-shaped error when the checksum or state code is wrong.
@@ -380,7 +331,9 @@ function register(kind: PartyKind, basePath: string) {
     const partyType = body.alsoOtherType ? 'BOTH' : kind;
 
     try {
-      const created = await prisma.party.create({
+      const full = await prisma.$transaction(async (tx) => {
+      const partyCode = !enabled ? null : requestedCode || await reservePartyCode(tx, accountId, orgId, kind, format, branch?.id || '', branch?.branchCode || '');
+      const created = await tx.party.create({
         data: {
           accountId,
           orgId,
@@ -390,6 +343,7 @@ function register(kind: PartyKind, basePath: string) {
            * does not use is still a column somebody has to explain later.
            */
           code: partyCode,
+          codeBranchId: branch?.id || null,
           name: body.name.trim(),
           legalName: body.legalName ?? null,
           gstin: body.gstin ? body.gstin.trim().toUpperCase() : null,
@@ -423,15 +377,16 @@ function register(kind: PartyKind, basePath: string) {
           createdByUserId: req.auth!.userId,
         },
       });
-      await replaceChildren(prisma, { accountId, orgId, partyId: created.id }, body);
-      const full = await prisma.party.findUnique({
+      await replaceChildren(tx, { accountId, orgId, partyId: created.id }, body);
+      return tx.party.findUnique({
         where: { id: created.id },
         include: { addresses: { orderBy: { sortOrder: 'asc' } }, contacts: { orderBy: { sortOrder: 'asc' } } },
+      });
       });
       res.status(201).json({ party: normalize(full) });
     } catch (err: any) {
       if (String(err?.code || '') === 'P2002') {
-        return res.status(409).json({ error: 'A record with that name already exists' });
+        return res.status(409).json({ error: 'A party with that name or code already exists in this company' });
       }
       throw err;
     }
@@ -449,14 +404,8 @@ function register(kind: PartyKind, basePath: string) {
     }
 
     const body = sentOnly(partySchema.partial().parse(req.body), req.body);
-    if (body.code != null && !validPartyCode(kind, String(body.code).trim())) {
-      return res.status(400).json({
-        error: kind === 'VENDOR'
-          ? 'Vendor code must be 6 digits and start with 6, 7, 8, or 9'
-          : 'Customer code must be 6 digits and start with 2, 3, 4, or 5',
-      });
-    }
-    if (body.code != null) {
+    if (body.code != null && String(body.code).trim() && !validPartyCode(kind, String(body.code).trim())) return res.status(400).json({ error: 'Code may contain letters, numbers, hyphens, slashes and underscores, with at most 10 digits' });
+    if (body.code != null && String(body.code).trim()) {
       const code = String(body.code).trim();
       const duplicateCode = await prisma.party.findFirst({
         where: { accountId, orgId, code, id: { not: existing.id } },
@@ -476,6 +425,9 @@ function register(kind: PartyKind, basePath: string) {
       else if (k === 'openingBalance') data[k] = new Prisma.Decimal(Number(v).toFixed(2));
       else if (k === 'gstin') data[k] = v ? String(v).trim().toUpperCase() : null;
       else if (k === 'name') data[k] = String(v).trim();
+      // A cleared code is stored as "no code": blank strings would collide on
+      // the one-code-per-company index.
+      else if (k === 'code') data[k] = String(v ?? '').trim() || null;
       else data[k] = v;
     }
     if (body.alsoOtherType === true) data.partyType = 'BOTH';
@@ -491,7 +443,7 @@ function register(kind: PartyKind, basePath: string) {
       res.json({ party: normalize(updated) });
     } catch (err: any) {
       if (String(err?.code || '') === 'P2002') {
-        return res.status(409).json({ error: 'A record with that name already exists' });
+        return res.status(409).json({ error: 'A party with that name or code already exists in this company' });
       }
       throw err;
     }

@@ -345,6 +345,8 @@ export function buildApp() {
   app.use(['/api/orgs/:orgId/people/my/request-forms', '/api/portal/people/forms'], express.json({ limit: '7mb' }), (err: any, _req: any, res: any, next: any) => (err?.type === 'entity.too.large' ? res.status(413).json({ error: 'The files are too large together: up to 4 MB in one request.', code: 'TOO_LARGE' }) : next(err)));
   /* A referral may carry the friend's résumé (≤ 2 MB, base64). */
   app.use(['/api/orgs/:orgId/people/referrals/me/refer', '/api/portal/people/referrals/refer'], express.json({ limit: '3mb' }));
+  /* Books' company profile may carry the logo (≤ 2 MB, base64). */
+  app.use('/api/orgs/:orgId/profile', express.json({ limit: '3mb' }));
   /* A bill photo or PDF spent for work (≤ 5 MB, base64), from the employee app. */
   app.use('/api/portal/people/money/lines', express.json({ limit: '7mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */

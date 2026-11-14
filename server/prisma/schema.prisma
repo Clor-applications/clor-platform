@@ -1069,6 +1069,8 @@ model Party {
 
   partyType String // CUSTOMER | VENDOR | BOTH
   code      String?
+  /// The branch whose series numbered this code, when codes run per branch.
+  codeBranchId String?
   name      String
   legalName String?
 
@@ -1133,10 +1135,27 @@ model Party {
   contacts  PartyContact[]
 
   @@unique([orgId, partyType, name])
+  /// One code, one party, within a company (Books developer change, 6 Nov 2026).
+  @@unique([orgId, code])
   @@unique([orgId, sourceSystem, sourceKey])
   @@index([accountId, orgId, partyType, isActive])
   @@index([accountId, orgId, gstin])
 }
+/// The next customer or vendor code for a company. `branchScope` is '' when one
+/// series serves the whole company, or a branch id when each branch counts its own.
+model PartyCodeCounter {
+  id          String   @id @default(cuid())
+  accountId   String
+  orgId       String
+  kind        String
+  branchScope String   @default("")
+  nextNumber  BigInt   @default(1)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([orgId, kind, branchScope])
+  @@index([accountId, orgId])
+}
+
 
 /// An address beyond the billing and shipping ones the party carries directly.
 ///

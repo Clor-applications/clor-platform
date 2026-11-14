@@ -13,7 +13,12 @@ import { ItemForm } from '../../App';
  * answers that a return cannot tell apart afterwards.
  */
 
-const co = { id: 1, name: 'Mani beriyanis', state: 'Karnataka' };
+const co = {
+  id: 1,
+  name: 'Mani beriyanis',
+  state: 'Karnataka',
+  profile: { taxCompliances: { gstEnabled: true } },
+};
 const db = {
   companies: [co],
   items: [],

@@ -33,9 +33,14 @@ export async function listDocsApi(kind) {
   return Array.isArray(data?.documents) ? data.documents : [];
 }
 
-export async function createDocApi(kind, payload) {
+export async function listDocNumbersApi(kind) {
+  const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}/numbers`);
+  return Array.isArray(data?.numbers) ? data.numbers : [];
+}
+
+export async function createDocApi(kind, payload, branchId = '') {
   try {
-    const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}`, { method: 'POST', body: payload });
+    const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}`, { method: 'POST', body: payload, ...(branchId ? { headers: { 'x-branch-id': String(branchId) } } : {}) });
     return data?.document || null;
   } catch (err) {
     // The server's unique-constraint handler answers a bare "Already exists" —
@@ -60,10 +65,11 @@ export async function cancelDocApi(kind, docId) {
   return data?.document || null;
 }
 
-export async function updateDocApi(kind, docId, payload) {
+export async function updateDocApi(kind, docId, payload, branchId = '') {
   const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}/${encodeURIComponent(docId)}`, {
     method: 'PATCH',
     body: payload,
+    ...(branchId ? { headers: { 'x-branch-id': String(branchId) } } : {}),
   });
   return data?.document || null;
 }

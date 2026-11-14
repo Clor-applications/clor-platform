@@ -112,6 +112,8 @@ async function branchBelongsToOrg(accountId: string, orgId: string, branchId: st
   return Boolean(branch);
 }
 
+const BRANCH_ROLE_ERROR = 'Switch to the role’s branch first';
+
 rolesRouter.get('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionAction.VIEW, 'Roles'), async (req, res) => {
   const accountId = req.tenant!.accountId;
   const orgId = String(req.params.orgId);
@@ -135,21 +137,23 @@ rolesRouter.get('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionAc
   });
 
   const roleIds = roles.map((r) => r.id);
-  const assignmentCounts = roleIds.length
-    ? await platformPrisma.userRoleAssignment.groupBy({
-        by: ['roleId'],
+  // Counted as people, not assignments: someone holding a role in three
+  // branches is one user of it.
+  const assignments = roleIds.length
+    ? await platformPrisma.userRoleAssignment.findMany({
         where: { accountId, orgId, roleId: { in: roleIds } },
-        _count: { roleId: true },
+        select: { roleId: true, userId: true },
       })
     : [];
-  const countByRoleId = new Map<string, number>();
-  for (const row of assignmentCounts) {
-    countByRoleId.set(row.roleId, row._count.roleId);
+  const usersByRoleId = new Map<string, Set<string>>();
+  for (const row of assignments) {
+    if (!usersByRoleId.has(row.roleId)) usersByRoleId.set(row.roleId, new Set());
+    usersByRoleId.get(row.roleId)!.add(row.userId);
   }
 
   const rolesWithCounts = roles.map((r) => ({
     ...r,
-    assignedUsersCount: countByRoleId.get(r.id) || 0,
+    assignedUsersCount: usersByRoleId.get(r.id)?.size || 0,
     group: roleGroup(r),
     /* A stock role someone changed keeps its own grants when the template moves on; the screen says how it differs. */
     template: templateDrift(r, r.permissions.filter((p) => p.allowed).map((p) => permKey(p.permission.module, p.permission.subModule, p.permission.action))),
@@ -165,6 +169,8 @@ rolesRouter.post('/orgs/:orgId/roles', requirePermission('SETTINGS', PermissionA
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
   const body = roleSchema.parse(req.body);
+  // A role kept for one branch is made and changed from that branch.
+  if (body.branchId && body.branchId !== req.tenant!.branchId) return res.status(403).json({ error: BRANCH_ROLE_ERROR });
 
   // A role reaches whoever holds it, wherever they work: bounded by what the caller holds company-wide (A-19).
   const { authority, refusal } = await grantAuthority(req, null, permKey('SETTINGS', 'Roles', 'CREATE'));
@@ -222,6 +228,8 @@ rolesRouter.patch('/orgs/:orgId/roles/:roleId', requirePermission('SETTINGS', Pe
 
   const role = await platformPrisma.role.findFirst({ where: { id: roleId, accountId, orgId } });
   if (!role) return res.status(404).json({ error: 'Role not found' });
+  if (role.branchId && role.branchId !== req.tenant!.branchId) return res.status(403).json({ error: BRANCH_ROLE_ERROR });
+  if (body.branchId && body.branchId !== req.tenant!.branchId) return res.status(403).json({ error: BRANCH_ROLE_ERROR });
 
   // An Administrator role, and anything becoming one, is administered only by
   // an administrator.

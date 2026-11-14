@@ -5,6 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@ui/api/payments', () => ({ createPayment: vi.fn(async () => ({ id: 'srv-1' })) }));
 vi.mock('@ui/api/cashbank', () => ({ listPaymentModes: vi.fn(async () => []) }), { virtual: true });
 
+/* A payment is booked to the branch the user is working in (Books rule). */
+vi.mock('@platform/context', async (importOriginal) => ({ ...(await importOriginal()), selectedBranchId: () => 'b1' }));
+
 import RecordDisbursementForm from './RecordDisbursementForm';
 
 /**

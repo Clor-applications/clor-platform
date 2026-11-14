@@ -9,8 +9,9 @@ import { getPermissionCatalog } from '@ui/api/permissions';
 import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
 import TemplateDrift from './TemplateDrift';
 import PermissionMatrix from './PermissionMatrix';
-import { catalogKeys, permissionLabel } from './permissionKeys';
+import { catalogKeys, displayModules, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import { usePermissions } from '@ui/permissions/usePermissions';
 import { PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
@@ -82,6 +83,8 @@ function permissionsToSet(perms) {
 }
 
 export function SettingsRoles({ orgId }) {
+  /* Saving a role can change what the person saving it may do; their own permissions are read again afterwards. */
+  const reloadMyPermissions = usePermissions()?.reload;
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -93,6 +96,11 @@ export function SettingsRoles({ orgId }) {
   const [catalog, setCatalog] = useState({ modules: [], presets: [] });
   /** Grants the role holds that the catalogue has since retired; dropped on save. */
   const [retired, setRetired] = useState(0);
+  /** Narrows the permission list in the role form; it never changes what is granted. */
+  const [permissionSearch, setPermissionSearch] = useState('');
+  useEffect(() => {
+    if (showForm) setPermissionSearch('');
+  }, [showForm]);
   const [search, setSearch] = useState('');
   const [openMenuForRoleId, setOpenMenuForRoleId] = useState(null);
   /** The trigger the open menu hangs from; only one row's menu is open. */
@@ -174,6 +182,8 @@ export function SettingsRoles({ orgId }) {
         const normalized = normalizeRolePermissions(res.role?.permissions);
         const nextRole = {
           ...res.role,
+          // The save answers with the role, not with who holds it: keep the count the list already had.
+          assignedUsersCount: res.role?.assignedUsersCount ?? editRole.assignedUsersCount ?? 0,
           _normalizedPermissions: normalized,
           _permissionLabels: normalized.filter((p) => p.allowed !== false).map((p) => permissionLabel(catalog.modules, permKey(p))),
         };
@@ -190,6 +200,7 @@ export function SettingsRoles({ orgId }) {
         setRoles((prev) => [...prev, nextRole]);
       }
       setShowForm(false);
+      reloadMyPermissions?.();
     } catch (err) {
       const perm = err?.data?.permission;
       const permHint = perm?.module && perm?.action ? ` (missing: ${perm.module}${perm.subModule ? ` / ${perm.subModule}` : ''} / ${perm.action})` : '';
@@ -250,6 +261,17 @@ export function SettingsRoles({ orgId }) {
     ? permissionsToSet(normalizeRolePermissions(shownRole.permissions || shownRole._normalizedPermissions))
     : new Set();
   const peopleOf = (r) => Number(r?.assignedUsersCount || 0);
+
+  /* The role form's permission list, narrowed to what the search names. A hidden row keeps whatever it was granted. */
+  const permissionQuery = permissionSearch.trim().toLowerCase();
+  const formModules = permissionQuery
+    ? displayModules(catalog.modules)
+        .map((m) => ({
+          ...m,
+          resources: (m.resources || []).filter((r) => `${m.label} ${r.label} ${r.description || ''}`.toLowerCase().includes(permissionQuery)),
+        }))
+        .filter((m) => m.resources.length)
+    : catalog.modules;
 
   /* A copy of a role: the create form, filled with the role's permissions. */
   const openDuplicate = (r) => {
@@ -448,11 +470,28 @@ export function SettingsRoles({ orgId }) {
               </p>
             ) : null}
             {catalog.modules.length ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="ws-search" style={{ flex: '1 1 auto' }}>
+                  <span className="sr-only">Find a module or permission</span>
+                  <Search size={16} aria-hidden="true" />
+                  <input
+                    className="ui-input"
+                    value={permissionSearch}
+                    onChange={(e) => setPermissionSearch(e.target.value)}
+                    placeholder="Find a module or permission"
+                  />
+                </label>
+                <span className="ui-caption whitespace-nowrap tabular-nums">{form.permissions.size} selected</span>
+              </div>
+            ) : null}
+            {catalog.modules.length && !formModules.length ? (
+              <p className="ws-card-blurb">No permissions match your search.</p>
+            ) : catalog.modules.length ? (
               <PermissionMatrix
-                key={editRole?.id || 'new'}
-                modules={catalog.modules}
+                key={`${editRole?.id || 'new'}:${permissionQuery}`}
+                modules={formModules}
                 granted={form.permissions}
-                initiallyOpen={1}
+                initiallyOpen={permissionQuery ? formModules.length : 1}
                 onToggle={(k) =>
                   setForm((prev) => {
                     const next = new Set(prev.permissions);

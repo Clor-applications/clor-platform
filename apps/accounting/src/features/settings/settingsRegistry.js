@@ -96,7 +96,8 @@ export const SETTINGS_ITEMS = [
   { key: 'settingsCompany', title: 'Company Profile', category: 'organisation', icon: Building2, perm: 'SETTINGS::Company Profile::VIEW', description: 'Name, GSTIN, address and the state your supplies are made from.', keywords: ['gstin', 'address', 'pan', 'logo', 'state', 'legal name'] },
   { key: 'settingsWarehouses', title: 'Warehouses', category: 'organisation', icon: Package, perm: 'MASTERS::Company/Branch setup::VIEW', description: 'Where stock is held, and which branch each store belongs to.', keywords: ['godown', 'store', 'stock location'] },
   { key: 'yearEndClose', title: 'Financial Year', category: 'organisation', icon: Settings, perm: 'ACCOUNTING::Ledger::VIEW', description: 'The year the books run on, and closing a period against further entries.', keywords: ['fy', 'year end', 'close', 'lock', 'period'] },
-  { key: 'settingsCurrencies', title: 'Currency', category: 'organisation', icon: Coins, perm: 'ACCOUNTING::Ledger::VIEW', feature: 'multiCurrency', description: 'The currencies you bill in and the rates they convert at.', keywords: ['forex', 'exchange rate', 'multi currency'] },
+  { key: 'periodLock', title: 'Period Lock', category: 'organisation', icon: Settings, perm: 'SETTINGS::Company Profile::VIEW', description: 'Module posting cutoffs, user exceptions and independent financial year locks.', keywords: ['lock', 'period', 'financial year', 'year end', 'posting', 'exception', 'auto lock'] },
+  { key: 'settingsCurrencies', standalone: true, title: 'Currency', category: 'organisation', icon: Coins, perm: 'ACCOUNTING::Ledger::VIEW', feature: 'multiCurrency', description: 'The currencies you bill in and the rates they convert at.', keywords: ['forex', 'exchange rate', 'multi currency'] },
 
   // Document and module controls live with the other platform settings.
   { key: 'settingsModules', title: 'Modules', category: 'platform', icon: Boxes, perm: 'SETTINGS::Company Profile::VIEW', group: 'System', description: 'Which parts of the product this company uses.', keywords: ['features', 'turn on', 'enable', 'switch off'] },
@@ -131,6 +132,7 @@ export const SETTINGS_ITEMS = [
   { key: 'paymentReminders', standalone: true, title: 'Payment Reminders', category: 'platform', icon: Bell, perm: 'SALES::Receipts::VIEW', feature: 'paymentReminders', group: 'Communication', description: 'When a customer is chased for an overdue invoice.', keywords: ['reminder', 'dunning', 'chase', 'overdue'] },
   { key: 'invoiceTemplates', standalone: true, title: 'Invoice Templates', category: 'platform', icon: FileText, perm: 'SETTINGS::Document Templates::VIEW', group: 'Documents', description: 'What a printed document looks like.', keywords: ['template', 'print', 'layout', 'letterhead'] },
   { key: 'docNumbering', title: 'Numbering', category: 'platform', icon: Settings, perm: 'SETTINGS::Document Numbering::VIEW', group: 'Documents', description: 'The prefix and next number for every kind of document.', keywords: ['prefix', 'series', 'sequence', 'next number'] },
+  { key: 'codeNumbering', standalone: true, title: 'Code Numbering', category: 'platform', icon: Settings, perm: 'SETTINGS::Company Profile::VIEW', group: 'Masters', description: 'Customer and vendor code formats and sequences.', keywords: ['customer code', 'vendor code', 'prefix', 'master numbering'] },
   /*
    * Backup was written, wired to a screen, and never put here — so there was no
    * route to it from anywhere in the product. A company's own data, and the

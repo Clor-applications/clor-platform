@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { branchLabel } from '@ui/utils/branchLabel';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { usePeriodFilter } from '@ui/components/ListControls';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -16,7 +17,7 @@ import Modal from '@ui/components/ui/Modal';
 import PrintDownloadFrame from '@ui/components/PrintDownloadFrame';
 import DocumentPrintView from '@ui/components/DocumentPrintView';
 import { selectedBranchId } from '@platform/context';
-import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
+import { bumpCompanyNextNumber, formatVoucherNumberPreview, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import { getVisibleCustomFields } from '@ui/utils/invoicePrefs';
 import { computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isIntraStateSupply } from '@ui/utils/gst';
 import { getCustomerDisplayName } from '@ui/utils/contacts';
@@ -116,6 +117,7 @@ export const EstimatesList = ({
       number: (r) => r.number,
       customer: (r) => r.customerName,
       warehouse: (r) => warehouseById.get(String(r?.warehouseId || ''))?.name || r?.warehouseId || '',
+      branch: (r) => branchLabel(r, branches, warehouses),
       date: (r) => r.date,
       due: (r) => r.dueDate || r.expiryDate,
       total: (r) => r.total,
@@ -306,6 +308,7 @@ export const EstimatesList = ({
   const estExportColumns = [
     { key: 'number', label: 'Quotation #' },
     { key: 'customerName', label: 'Customer' },
+    { key: 'branch', label: 'Branch', value: (r) => branchLabel(r, branches, warehouses) },
     { key: 'date', label: 'Date' },
     { key: 'dueDate', label: 'Valid till' },
     { key: 'subtotal', label: 'Taxable', value: (r) => Number(r.subtotal || 0) },
@@ -367,7 +370,7 @@ export const EstimatesList = ({
       denseCards
     >
       <div className="overflow-x-auto ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}>
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky branch-fill-table quotations-fill-table sales-auto-table">
           <thead>
 
             <tr>
@@ -380,6 +383,7 @@ export const EstimatesList = ({
               <ColumnHeader label="Amount" col="total" state={estFilters} className="ui-num" align="right" />
               <ColumnHeader label="Status" col="status" state={estFilters} align="center" />
               <ColumnHeader label="Warehouse" col="warehouse" state={estFilters} />
+              <ColumnHeader label="Branch" col="branch" state={estFilters} />
               <th scope="col" className="ui-action-col"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
@@ -420,6 +424,7 @@ export const EstimatesList = ({
                     <StatusPill status={estStatusOf(est)} />
                   </td>
                   <td className="ui-col-meta">{whLabel}</td>
+                  <td className="ui-col-meta truncate" title={branchLabel(est, branches, warehouses)}>{branchLabel(est, branches, warehouses)}</td>
                   <td
                     className="ui-action-col relative"
                     onMouseDown={(e) => e.stopPropagation()}
@@ -797,8 +802,13 @@ export const EstimateForm = ({ db, setDb, currentCompany, initialData = null, on
 
     const customer = customers.find((c) => c.id === parseInt(formData.customerId));
 
+    if (!String(initialData?.branchId || activeBranchId || '').trim()) {
+      notify.error('Select a branch before saving this quotation.');
+      return;
+    }
     const nextEstimateCore = {
       number: estimateNumber,
+      branchId: String(initialData?.branchId || activeBranchId || '').trim(),
       date: formData.date,
       dueDate: formData.dueDate,
       customerId: formData.customerId,
@@ -963,10 +973,12 @@ export const EstimateForm = ({ db, setDb, currentCompany, initialData = null, on
               disabled={lockEstimateNumberOnCreate}
               required
               voucherKey="estimate"
+              seriesInHeader={!isEdit}
       title="Quotation numbering"
               sampleLabel="Next quotation will be"
               manualLabel="Typed on each quotation"
               settings={estimateNumbering}
+              onSaved={(nextSettings) => setFormData((p) => ({ ...p, number: formatVoucherNumberPreview(nextSettings) }))}
               db={db}
               setDb={setDb}
               currentCompany={currentCompany}

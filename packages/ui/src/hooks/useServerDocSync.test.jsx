@@ -321,8 +321,7 @@ describe('how far the books are closed', () => {
   it('takes the server\'s answer, since that is what refuses a posting', async () => {
     getFiscalYears.mockResolvedValue({
       fiscalYears: [
-        // Newest first, the way the route orders them — so the answer has to
-        // be the furthest date, not whichever row happens to come last.
+        // Newest first, the way the route orders them. Each year's state stays separate.
         { name: '2027-28', lockedThrough: null },
         { name: '2026-27', lockedThrough: '2026-09-30' },
         { name: '2025-26', lockedThrough: '2026-03-31' },
@@ -333,13 +332,14 @@ describe('how far the books are closed', () => {
 
     expect(book.fyLocks).toEqual([
       { companyId: 2, upTo: '2020-03-31' },
-      { companyId: 1, upTo: '2026-09-30' },
+      { companyId: 1, fyName: '2026-27', upTo: '2026-09-30' },
+      { companyId: 1, fyName: '2025-26', upTo: '2026-03-31' },
     ]);
   });
 
-  it('leaves the lock alone when the server has none', async () => {
+  it('clears local locks when the server has none', async () => {
     const book = await hydrate({ fyLocks: [{ companyId: 1, upTo: '2026-03-31' }] });
-    expect(book.fyLocks).toEqual([{ companyId: 1, upTo: '2026-03-31' }]);
+    expect(book.fyLocks).toEqual([]);
   });
 });
 

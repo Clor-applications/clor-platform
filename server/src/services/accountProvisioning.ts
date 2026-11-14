@@ -125,7 +125,12 @@ export async function createCompany(input: { accountId: string; userId: string; 
    * name. State and GSTIN are stored here as well as on the head-office
    * branch; the branch is where tax is computed from.
    */
-  const profileJson = JSON.stringify({ ...(input.profile && typeof input.profile === 'object' ? input.profile : {}), state: stateName, gstin: gstin || null });
+  const given = input.profile && typeof input.profile === 'object' ? input.profile : {};
+  // GST is read from its switch alone (Books, 15 Nov 2026): a company set up
+  // with a GSTIN starts with the switch on, unless the profile says otherwise.
+  const givenTax = (given as any).taxCompliances && typeof (given as any).taxCompliances === 'object' ? (given as any).taxCompliances : {};
+  const taxCompliances = typeof givenTax.gstEnabled === 'boolean' ? givenTax : { ...givenTax, gstEnabled: Boolean(gstin) };
+  const profileJson = JSON.stringify({ ...given, taxCompliances, state: stateName, gstin: gstin || null });
 
   /* The plan's company allowance, checked and used under the account's quota lock (W-6.1). */
   const releaseQuota = await lockQuota(accountId, 'COMPANIES');

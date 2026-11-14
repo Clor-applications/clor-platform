@@ -233,7 +233,7 @@ export default function ReorderAlerts({ db, setDb, currentCompany }) {
       }}
     >
       <div className="overflow-x-auto ui-table-scroll compact-list-table-scroll" data-fill-viewport>
-          <table className="ui-table ui-table-wide ui-table-sticky">
+          <table className="ui-table ui-table-wide ui-table-sticky inventory-auto-table">
             <thead>
               <tr>
                 <th scope="col">Item</th>

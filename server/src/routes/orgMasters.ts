@@ -315,7 +315,7 @@ orgMastersRouter.post('/orgs/:orgId/masters', MASTERS_EDIT, async (req, res) => 
   }
 });
 
-orgMastersRouter.patch('/orgs/:orgId/masters/:id', MASTERS_EDIT, async (req, res) => {
+orgMastersRouter.patch('/orgs/:orgId/masters/:id', requirePermission('MASTERS', PermissionAction.EDIT, 'Masters'), async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await prisma.orgMaster.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
@@ -348,7 +348,7 @@ orgMastersRouter.patch('/orgs/:orgId/masters/:id', MASTERS_EDIT, async (req, res
  * postings, so one Payroll uses is switched off rather than deleted, and the
  * per-person access that named a deleted one goes with it.
  */
-orgMastersRouter.delete('/orgs/:orgId/masters/:id', MASTERS_EDIT, async (req, res) => {
+orgMastersRouter.delete('/orgs/:orgId/masters/:id', requirePermission('MASTERS', PermissionAction.DELETE, 'Masters'), async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const existing = await prisma.orgMaster.findFirst({ where: { id: String(req.params.id), accountId, orgId } });

@@ -8,6 +8,9 @@ vi.mock('@ui/utils/journalSync', () => ({
   postJournalToLedger: (...a) => postJournalToLedger(...a),
 }));
 
+/* A challan is booked to the branch the user is working in (Books rule). */
+vi.mock('@platform/context', async (importOriginal) => ({ ...(await importOriginal()), selectedBranchId: () => 'b1' }));
+
 import ChallanForm from './ChallanForm';
 
 /**

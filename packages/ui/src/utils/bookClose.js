@@ -15,17 +15,27 @@
  * quietly rewriting a filed period.
  */
 
+import { moduleForDescription, moduleLockMessage } from './periodLock';
+import { fyNameFor } from './bookLockSync';
+import { currentUser } from '@platform/context';
+
 const asDate = (v) => String(v || '').slice(0, 10);
 
 /** The company's close date, or '' when the books are open. */
 export const closedUpto = (db, companyId) => {
-  const lock = (db?.fyLocks || []).find((l) => Number(l?.companyId) === Number(companyId));
+  return (db?.fyLocks || []).filter((l) => Number(l?.companyId) === Number(companyId)).map((l) => asDate(l.upTo)).filter(Boolean).sort().pop() || '';
+};
+
+/** The cutoff for the financial year containing this date. */
+export const financialYearLockThrough = (db, companyId, date) => {
+  const year = fyNameFor(date);
+  const lock = (db?.fyLocks || []).find((l) => Number(l?.companyId) === Number(companyId) && (l.fyName || fyNameFor(l.upTo)) === year);
   return lock ? asDate(lock.upTo) : '';
 };
 
 /** Whether a document dated `date` falls inside the closed period. */
 export const isDateLocked = (db, companyId, date) => {
-  const upTo = closedUpto(db, companyId);
+  const upTo = financialYearLockThrough(db, companyId, date);
   const d = asDate(date);
   if (!upTo || !d) return false;
   return d <= upTo;
@@ -38,8 +48,8 @@ export const isDateLocked = (db, companyId, date) => {
  * do about it. "Operation not permitted" tells nobody anything.
  */
 export const lockedMessage = (db, companyId, date, what = 'This document') => {
-  const upTo = closedUpto(db, companyId);
-  return `${what} is dated ${asDate(date)}, inside books closed up to ${upTo}. Reopen the period under Settings → Financial Year to change it.`;
+  const upTo = financialYearLockThrough(db, companyId, date);
+  return `${what} is dated ${asDate(date)}, inside books closed up to ${upTo}. Reopen that financial year under Settings → Period Lock to change it.`;
 };
 
 /**
@@ -50,8 +60,11 @@ export const lockedMessage = (db, companyId, date, what = 'This document') => {
  *   const err = blockIfClosed(db, companyId, date, 'This invoice');
  *   if (err) { notify.error(err); return; }
  */
-export const blockIfClosed = (db, companyId, date, what) =>
-  isDateLocked(db, companyId, date) ? lockedMessage(db, companyId, date, what) : null;
+export const blockIfClosed = (db, companyId, date, what) => {
+  if (isDateLocked(db, companyId, date)) return lockedMessage(db, companyId, date, what);
+  const module = moduleForDescription(what);
+  return module ? moduleLockMessage(db, companyId, module, date, String(currentUser()?.id || '')) : null;
+};
 
 /**
  * The financial years the books actually contain.

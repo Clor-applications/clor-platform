@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search as SearchIcon } from '@ui/components/ui/lineIcons';
 import { useDismissable } from './ui/useDismissable';
+import { getDecimalPlaces, getNumberLocale } from '../utils/money';
 
 /**
  * Column filters, the way a spreadsheet does them.
@@ -220,7 +221,7 @@ const FilterPanel = ({ column, state, anchorRect, onClose }) => {
     if (!isNumber || raw === '') return raw;
     const number = Number(raw);
     return Number.isFinite(number)
-      ? new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(number)
+      ? new Intl.NumberFormat(getNumberLocale(), { maximumFractionDigits: getDecimalPlaces() }).format(number)
       : raw;
   };
   const displayTextValue = (raw) => (isNumber || isDate ? displayValue(raw) : String(raw || ''));

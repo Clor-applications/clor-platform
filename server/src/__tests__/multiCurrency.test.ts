@@ -119,6 +119,25 @@ describe('currency setup', () => {
     expect(res.body.currencies.map((c: any) => c.code)).toContain('USD');
   });
 
+  it('can disable and re-enable a configured currency without deleting it', async () => {
+    const listed = await request(app).get(`/api/orgs/${owner.orgId}/currencies`).set(auth(owner)).expect(200);
+    const usd = listed.body.currencies.find((currency: any) => currency.code === 'USD');
+
+    const disabled = await request(app)
+      .patch(`/api/orgs/${owner.orgId}/currencies/${usd.id}`)
+      .set(auth(owner))
+      .send({ isActive: false })
+      .expect(200);
+    expect(disabled.body.currency.isActive).toBe(false);
+
+    const enabled = await request(app)
+      .patch(`/api/orgs/${owner.orgId}/currencies/${usd.id}`)
+      .set(auth(owner))
+      .send({ isActive: true })
+      .expect(200);
+    expect(enabled.body.currency.isActive).toBe(true);
+  });
+
   it('refuses to add the base currency as a foreign one', async () => {
     const res = await request(app)
       .post(`/api/orgs/${owner.orgId}/currencies`)
@@ -180,6 +199,11 @@ describe('rate resolution', () => {
   });
 });
 
+/*
+ * The rate is typed on the invoice (Books, 14 Nov 2026): the form fills it from
+ * the rate on file for the date, and the server posts at the rate the document
+ * carries rather than looking one up behind the user's back.
+ */
 describe('posting a foreign-currency invoice', () => {
   it('posts the translated amount, not the face value', async () => {
     const before = await trialBalance();
@@ -187,7 +211,7 @@ describe('posting a foreign-currency invoice', () => {
     await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(owner))
-      .send(invoicePayload({ currency: 'USD', exchangeRate: 83 })) // rate entered on the invoice
+      .send({ ...invoicePayload({ currency: 'USD' }), exchangeRate: 83 })
       .expect(201);
 
     const after = await trialBalance();
@@ -202,7 +226,7 @@ describe('posting a foreign-currency invoice', () => {
     const created = await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(owner))
-      .send(invoicePayload({ currency: 'USD', date: '2026-06-05', exchangeRate: 85 }))
+      .send({ ...invoicePayload({ currency: 'USD', date: '2026-06-05' }), exchangeRate: 85 })
       .expect(201);
 
     const list = await request(app).get(`/api/orgs/${owner.orgId}/invoices`).set(auth(owner)).expect(200);
@@ -228,14 +252,14 @@ describe('posting a foreign-currency invoice', () => {
     expect(after.totals.debit - before.totals.debit).toBe(1000);
   });
 
-  it('refuses a foreign-currency invoice with no conversion rate, rather than posting a wrong number', async () => {
+  it('refuses a foreign-currency invoice that carries no rate, rather than posting a wrong number', async () => {
     const res = await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
       .set(auth(owner))
       .send(invoicePayload({ currency: 'USD', date: '2026-01-15' }))
       .expect(400);
 
-    expect(String(res.body.error)).toMatch(/conversion rate/i);
+    expect(String(res.body.error)).toMatch(/enter the conversion rate/i);
   });
 
   it('leaves no invoice behind when the rate lookup fails', async () => {
@@ -253,7 +277,9 @@ describe('posting a foreign-currency invoice', () => {
 });
 
 describe('the multiCurrency feature switch', () => {
-  it('will not switch multi-currency off while foreign-currency invoices exist', async () => {
+  it('cannot be switched off while foreign-currency invoices exist', async () => {
+    /* The invoices above are in USD; turning the feature off would strand them
+       (Books, 14 Nov 2026: a feature in use is refused, with the reason). */
     const current = await request(app).get(`/api/orgs/${owner.orgId}/features`).set(auth(owner)).expect(200);
     const res = await request(app)
       .put(`/api/orgs/${owner.orgId}/features`)
@@ -261,22 +287,67 @@ describe('the multiCurrency feature switch', () => {
       .send({ features: { ...(current.body.features || {}), multiCurrency: false } })
       .expect(409);
     expect(res.body.code).toBe('FEATURE_IN_USE');
+    expect(String(res.body.error)).toMatch(/foreign-currency invoices/i);
   });
+});
 
-  it('stops new currencies being added when it is off', async () => {
-    // A company with no foreign-currency invoices, so the switch is free to turn off.
-    const fresh = await makeOwner();
-    const current = await request(app).get(`/api/orgs/${fresh.orgId}/features`).set(auth(fresh)).expect(200);
+/*
+ * An invoice held for approval keeps the rate typed on it. The approver's
+ * release used to post the face value: USD 60,000 landed as INR 60,000.
+ */
+describe('a foreign-currency invoice held for approval', () => {
+  it('posts the translated amount when the approver releases it', async () => {
+    await setFeature('approvals', true);
+    const role = await request(app)
+      .post(`/api/orgs/${owner.orgId}/roles`)
+      .set(auth(owner))
+      .send({ name: `FX approver ${rnd()}`, roleType: 'CUSTOM', permissions: ['SALES::Invoices::VIEW'] })
+      .expect(201);
+    const roleId = role.body.role.id;
     await request(app)
-      .put(`/api/orgs/${fresh.orgId}/features`)
-      .set(auth(fresh))
-      .send({ features: { ...(current.body.features || {}), multiCurrency: false } })
+      .post(`/api/orgs/${owner.orgId}/approval-rules`)
+      .set(auth(owner))
+      .send({ docType: 'INVOICE', name: `FX hold ${rnd()}`, minAmount: 50000, approverRoleId: roleId })
+      .expect(201);
+
+    const email = `fx.approver.${rnd()}@example.com`;
+    const user = await request(app)
+      .post('/api/users')
+      .set(auth(owner))
+      .send({ email, fullName: 'FX approver', password: 'Passw0rd!23', orgIds: [owner.orgId], branchIdsByOrg: { [owner.orgId]: [owner.branchId] } })
+      .expect(201);
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/users/${user.body.user.id}/roles`)
+      .set(auth(owner))
+      .send({ roleId, branchId: null })
+      .expect(201);
+    const login = await request(app).post('/api/auth/login').send({ emailOrUsername: email, password: 'Passw0rd!23' }).expect(200);
+    const approver: Ctx = { token: login.body.token, orgId: owner.orgId, branchId: owner.branchId };
+
+    const before = await trialBalance();
+    const held = await request(app)
+      .post(`/api/orgs/${owner.orgId}/invoices`)
+      .set(auth(owner))
+      .send({
+        ...invoicePayload({ currency: 'USD', date: '2026-05-20', subtotal: 60000, total: 60000,
+          items: [{ description: 'Export services', quantity: 1, rate: 60000, gstRate: 0 }] }),
+        exchangeRate: 83,
+      })
+      .expect(201);
+    expect(held.body.approval?.required).toBe(true);
+    expect((await trialBalance()).totals.debit).toBe(before.totals.debit);
+
+    const inbox = await request(app).get(`/api/orgs/${owner.orgId}/approvals`).set(auth(approver)).expect(200);
+    const pending = inbox.body.requests.find((r: any) => r.docId === held.body.invoice.id);
+    expect(pending).toBeTruthy();
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/approvals/${pending.id}/decide`)
+      .set(auth(approver))
+      .send({ approve: true, comment: 'ok' })
       .expect(200);
-    const res = await request(app)
-      .post(`/api/orgs/${fresh.orgId}/currencies`)
-      .set(auth(fresh))
-      .send({ code: 'GBP', name: 'Pound' })
-      .expect(400);
-    expect(String(res.body.error)).toMatch(/switched off/i);
+
+    const after = await trialBalance();
+    expect(after.totals.debit - before.totals.debit).toBe(60000 * 83);
+    expect(after.totals.balanced).toBe(true);
   });
 });

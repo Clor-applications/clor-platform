@@ -9,10 +9,11 @@ import DocumentCustomFields, { hasCustomFieldsAt } from '@ui/components/Document
 import { useFeatures } from '@ui/permissions/useFeatures';
 import useEnabledCurrencies from '../../hooks/useEnabledCurrencies';
 import { getLastSelection, setLastSelection } from '@ui/utils/lastSelection';
-import { bumpCompanyNextNumber, getDocSettings, nextFreeVoucherNumber } from '@ui/utils/docSettings';
+import { bumpCompanyNextNumber, formatVoucherNumberPreview, getDocSettings, getVoucherSeries, nextFreeVoucherNumber } from '@ui/utils/docSettings';
 import { branchLabel } from '@ui/utils/branchLabel';
+import BranchField from '@ui/components/BranchField';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
-import { canDetermineSupplyType, computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isIntraStateSupply } from '@ui/utils/gst';
+import { canDetermineSupplyType, computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isCompanyGstEnabled, isGstRegistrationActive, isIntraStateSupply } from '@ui/utils/gst';
 import { computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
 import { useServerOnHand } from '@ui/hooks/useServerOnHand';
 import { resolveSaleRate } from '@ui/utils/pricing';
@@ -57,6 +58,7 @@ import Modal from '@ui/components/ui/Modal';
  */
 export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onClose, warehouses = [], defaultWarehouseId = '', branches = [], onOpenInvoiceSettings = null, onDuplicateInvoice = null, screenTitle = '', screenSubtitle = '', onBack = null }) => {
   const isEdit = Boolean(initialData && (initialData.id !== undefined && initialData.id !== null));
+  const gstEnabled = isCompanyGstEnabled(currentCompany);
 
   /**
    * Which fields this company's invoice carries — see utils/invoicePrefs.
@@ -429,6 +431,15 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
   const isInvoiceAuto = String(invoiceNumbering?.mode || '').toLowerCase() === 'auto';
   const lockInvoiceNumberOnCreate = !isEdit && isInvoiceAuto && !invoiceNumbering?.allowManualOverride;
   const generatedInvoiceNumber = !isEdit ? nextFreeVoucherNumber({db, company: currentCompany, voucherKey: 'invoice', branchId: branchIdForNumbering, takenNumbers: (db.invoices || []).filter((x) => x.companyId === currentCompany.id).map((x) => String(x.number || '').trim()) }) : '';
+  const availableInvoiceSeries = getVoucherSeries(currentCompany, 'invoice').filter((series) => series.isActive);
+  const selectedInvoiceSeriesId = invoiceNumbering?.seriesId || 'default';
+  const selectInvoiceSeries = (seriesId) => {
+    const companyWithSeries = { ...currentCompany, docSettings: { ...(currentCompany.docSettings || {}), activeNumberingSeries: { ...(currentCompany.docSettings?.activeNumberingSeries || {}), invoice: seriesId } } };
+    const nextNumber = nextFreeVoucherNumber({ db, company: companyWithSeries, voucherKey: 'invoice', branchId: branchIdForNumbering, takenNumbers: (db.invoices || []).filter((invoice) => invoice.companyId === currentCompany.id).map((invoice) => String(invoice.number || '').trim()) });
+    setDb((old) => ({ ...old, companies: old.companies.map((company) => company.id === currentCompany.id ? companyWithSeries : company) }));
+    setFormData((old) => ({ ...old, number: nextNumber }));
+    setNumberingOpen(false);
+  };
 
   /*
    * Only the warehouses of the chosen branch. Stock leaving a shelf that
@@ -502,6 +513,11 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
       .join(', ');
   const { state: customerState, gstin: customerGstin } = getPartyGstProfile(selectedCustomer);
   const isIntra = isIntraStateSupply({ companyState, partyState: customerState });
+  const invoiceBranch = (branches || []).find((row) => String(row?.id) === String(branchIdInList || branchIdForNumbering || ''));
+  const gstRegistrationActive = isGstRegistrationActive(currentCompany, {
+    state: invoiceBranch?.state || companyState,
+    gstin: invoiceBranch?.gstin || invoiceBranch?.gstIn || currentCompany?.gstin,
+  });
 
   // Index of a row that was just added, so focus can land in it. Entry is
   // keyboard-driven: adding a line and then reaching for the mouse defeats it.
@@ -682,7 +698,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
       const computed = computeGstForLine({
         quantity: Number(newItems[index].quantity ?? 1),
         rate: Number(newItems[index].rate ?? 0),
-        gstRate: Number(newItems[index].gstRate ?? 0),
+        gstRate: gstRegistrationActive ? Number(newItems[index].gstRate ?? 0) : 0,
         isIntra,
         discountPct: Number(newItems[index].discountPct ?? 0),
         discountAmount: Number(newItems[index].discountAmount ?? 0),
@@ -728,13 +744,13 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
   };
 
   const computed = computeGstForLines({
-    lines: formData.items,
+    lines: gstEnabled && gstRegistrationActive ? formData.items : formData.items.map((line) => ({ ...line, gstRate: 0 })),
     isIntra,
     invoiceDiscount:
       formData.invoiceDiscountEnabled && Number(formData.invoiceDiscountValue) > 0
         ? { type: formData.invoiceDiscountType || 'pct', value: Number(formData.invoiceDiscountValue) }
         : null,
-    otherCharges: formData.otherCharges,
+    otherCharges: gstEnabled && gstRegistrationActive ? formData.otherCharges : (formData.otherCharges || []).map((charge) => ({ ...charge, gstRate: 0 })),
   });
 
   /*
@@ -934,8 +950,9 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
     // Closed books: nothing back-dates into a period already reported.
     {
       const closed = blockIfClosed(db, currentCompany.id, formData.date, 'This invoice');
-      if (closed) {
-        notify.error(closed);
+      const originalClosed = initialData?.id ? blockIfClosed(db, currentCompany.id, initialData.date, 'This invoice') : null;
+      if (closed || originalClosed) {
+        notify.error(originalClosed || closed);
         return;
       }
     }
@@ -1372,6 +1389,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
       <DocFormActions
         title={screenTitle}
         subtitle={screenSubtitle}
+        titleAddon={!isEdit ? <label className="flex min-w-0 items-center gap-2 text-xs font-medium"><span className="shrink-0">Series</span><select className="ui-select ui-ctl-compact w-40 max-w-[32vw]" aria-label="Invoice number series" value={selectedInvoiceSeriesId} onChange={(event) => selectInvoiceSeries(event.target.value)}>{availableInvoiceSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label> : null}
         onBack={onBack ? requestBack : null}
         sticky={Boolean(screenTitle)}
         primaryLabel={isDraftInvoice ? (isEdit ? 'Finalize Invoice' : 'Create Invoice') : 'Update Invoice'}
@@ -1530,20 +1548,11 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
                 form — a chain with forty branches should be typed at, not
                 scrolled. */}
             <div id="invoice-branch-field">
-              <PopupSelect
-                label="Branch"
-      title="branches"
-                value={String(branchIdInList || '')}
-                onChange={onBranchChange}
-                icon={Building2}
-                options={[
-                  { value: '', label: 'All branches' },
-                  ...branchOptions.map((b) => ({ value: String(b.id), label: branchLabel(b) })),
-                ]}
-                placeholder="All branches"
-                showValueSubtext={false}
-                disabled={financialLocked}
-              />
+              {/* The branch is part of what was posted, so it closes with the
+                  rest once the invoice is in the books. */}
+              <fieldset className="contents" disabled={financialLocked}>
+                <BranchField value={branchIdInList} onChange={onBranchChange} options={branchOptions} />
+              </fieldset>
             </div>
 
           <div
@@ -1682,7 +1691,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
               <button
                 type="button"
                 ref={numberingBtnRef}
-                onClick={() => setNumberingOpen((v) => !v)}
+                onClick={() => setNumberingOpen(true)}
                 className="absolute end-1 top-1/2 -translate-y-1/2 ui-icon-btn !h-7 !w-7"
                 aria-label="Invoice numbering settings"
                 aria-haspopup="dialog"
@@ -1695,6 +1704,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
             <FieldError error={fieldErrors.error('number')} id={fieldErrors.errorId('number')} />
             {numberingOpen ? (
               <DocNumberingPopover
+                key={`invoice-${selectedInvoiceSeriesId}`}
                 anchorRef={numberingBtnRef}
                 db={db}
                 setDb={setDb}
@@ -1705,6 +1715,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
                 manualLabel="Typed on each invoice"
                 branchId={branchIdForNumbering}
                 settings={invoiceNumbering}
+                onSaved={(nextSettings) => setFormData((p) => ({ ...p, number: nextSettings.mode === 'manual' || nextSettings.enabled === false ? '' : formatVoucherNumberPreview(nextSettings) }))}
                 onClose={() => setNumberingOpen(false)}
                 onOpenFullSettings={() => {
                   setNumberingOpen(false);
@@ -2146,6 +2157,11 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
           </div>
         </div>
 
+        {gstEnabled && !gstRegistrationActive ? (
+          <div className="mb-2 rounded-lg border border-[rgb(var(--warn)/0.45)] bg-[rgb(var(--warn-soft))] px-3 py-2 text-sm">
+            GST registration for this branch/state is inactive. GST options remain visible for reference, but no GST will be calculated on this sales entry.
+          </div>
+        ) : null}
         {/* The lines are the invoice's economics. Once it is in the books the
             server refuses to change them, and the way that used to be found out
             was to retype the whole table, press Save, and be told by a toast
@@ -2177,7 +2193,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
                   Rate (₹) <span className="text-[rgb(var(--neg-ink))]">*</span>
                 </th>
                 <th className="ui-th ui-num w-[7%]">Disc %</th>
-                <th className="ui-th ui-num w-[8%]">Tax %</th>
+                {gstEnabled ? <th className="ui-th ui-num w-[8%]">Tax %</th> : null}
                 <th className="ui-th ui-num w-[13%]">Amount (₹)</th>
                 <th className="px-2 py-1.5 w-9"></th>
               </tr>
@@ -2272,7 +2288,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
                       aria-label={`Discount percent for line ${idx + 1}`}
                     />
                   </td>
-                  <td className="px-2 py-1.5">
+                  {gstEnabled ? <td className="px-2 py-1.5">
                     {prefOn('lineTaxEditable') ? (
                       <select
                         value={String(item.gstRate ?? 0)}
@@ -2292,7 +2308,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
                       // field that will not move.
                       <span className="ui-num block text-sm">{Number(item.gstRate ?? 0)}%</span>
                     )}
-                  </td>
+                  </td> : null}
                   <td className="ui-col-amount px-2 py-1.5">{formatMoney((computed.lines[idx]?.lineTotal ?? item.lineTotal) || 0, currentCompany)}</td>
                   <td className="px-2 py-1.5">
                     <button

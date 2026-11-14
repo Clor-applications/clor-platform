@@ -12,6 +12,9 @@ import { postJournalToLedger } from '@ui/utils/journalSync';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
 import { FieldError, FieldErrorSummary } from '@ui/components/ui/Primitives';
 import { createPayment } from '@ui/api/payments';
+import { allocationLedgerOptions } from './allocationLedgerOptions';
+import PartyBalanceButton from '../../components/pickers/PartyBalanceButton';
+import { selectedBranchId } from '@platform/context';
 import usePaymentModes, { modeLabel } from './usePaymentModes';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { payableOutstanding, sourceTdsOf } from '@ui/utils/onAccount';
@@ -47,6 +50,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
   const formRef = useRef(null);
   const fieldErrors = useFieldErrors('payment');
   const companyId = currentCompany.id;
+  const paymentBranchId = String(initialData?.branchId || selectedBranchId() || '').trim();
 
   const initial = useMemo(() => {
     const d = initialData && typeof initialData === 'object' ? initialData : null;
@@ -385,12 +389,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
    * payment is a no-op somebody has to unpick later.
    */
   const allocationLedgers = useMemo(() => {
-    const cid = Number(currentCompany?.id);
-    return (db?.chartOfAccounts || [])
-      .filter((a) => Number(a?.companyId) === cid && a?.isActive !== false)
-      .filter((a) => String(a.id) !== String(ledgerAccountId))
-      .map((a) => ({ id: a.id, name: a.name }))
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return allocationLedgerOptions(db?.chartOfAccounts, currentCompany?.id, ledgerAccountId);
   }, [db?.chartOfAccounts, currentCompany?.id, ledgerAccountId]);
 
   const vendorRecord = useMemo(
@@ -464,6 +463,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!paymentBranchId) { notify.error('Select an active branch before recording a payment.'); return; }
 
     const amount = paymentAmountFromRows;
     const vendorIdNum = Number(partyVendorId);
@@ -541,8 +541,9 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
 
     {
       const closed = blockIfClosed(db, currentCompany.id, formData.date, 'This payment');
-      if (closed) {
-        notify.error(closed);
+      const originalClosed = initialData?.id ? blockIfClosed(db, currentCompany.id, initialData.date, 'This payment') : null;
+      if (closed || originalClosed) {
+        notify.error(originalClosed || closed);
         return;
       }
     }
@@ -590,6 +591,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
         const billById = new Map(safeArray(db.bills).map((b) => [Number(b.id), b]));
         posted = await createPayment({
           direction: 'PAYMENT',
+          number: String(formData.number || '').trim() || undefined,
           date: formData.date,
           partyType: 'VENDOR',
           partyId: vendor?.backendPartyId ? String(vendor.backendPartyId) : null,
@@ -628,11 +630,12 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
       setSaving(false);
     }
 
-    const paymentNo = String(posted?.number || '').trim() || `PAY-${paymentId}`;
+    const paymentNo = String(posted?.number || '').trim() || String(formData.number || '').trim() || `PAY-${paymentId}`;
 
     const paymentRecord = {
       id: paymentId,
       companyId,
+      branchId: paymentBranchId,
       voucherType: 'payment',
       voucherId: null,
       direction: 'OUT',
@@ -714,6 +717,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
           chartRows: accounts,
           entry: {
             date: String(formData.date).slice(0, 10),
+            branchId: paymentBranchId,
             narration: `Payment ${paymentNo}`,
             lines,
           },
@@ -961,6 +965,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
                   setFormData((p) => ({ ...p, number: e.target.value }));
                 }}
                 voucherKey="payment"
+                seriesInHeader={!initialData?.id}
       title="Payment numbering"
                 sampleLabel="Next payment will be"
                 manualLabel="Typed on each payment"
@@ -1084,6 +1089,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
         </div>
       </div>
 
+      {partyVendor ? <div className="mb-2 flex items-center gap-2 text-sm"><span className="ui-muted">Vendor balance and transactions</span><PartyBalanceButton db={db} currentCompany={currentCompany} partyId={partyVendor.id} kind="vendor" /></div> : null}
       <AllocationTable
         rows={ledgerRows}
         onChange={setLedgerRows}
@@ -1092,6 +1098,7 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
         documentTotal={0}
         documentLabel="Bills settled"
         heading="Ledger allocation"
+        showSummary={false}
         noun="payment"
         money={(v) => formatMoney(v, currentCompany)}
         db={db}
@@ -1123,6 +1130,23 @@ const RecordDisbursementForm = ({ db, setDb, currentCompany, onClose, screenTitl
           };
         }}
       />
+
+      <div className="flex justify-end">
+        <div className="w-full max-w-sm rounded-lg border border-[rgb(var(--warn)/0.45)] bg-[rgb(var(--warn-soft))] px-3 py-2.5">
+          <div className="flex items-center justify-between text-sm">
+            <span>Against documents</span>
+            <span className="ui-money">{formatMoney(computed.allocated, currentCompany)}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between text-sm">
+            <span>On account</span>
+            <span className="ui-money">{formatMoney(computed.advance, currentCompany)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-[rgb(var(--warn)/0.35)] pt-2">
+            <span className="text-base font-semibold">Total</span>
+            <span className="ui-money-lg">{formatMoney(paymentAmountFromRows, currentCompany)}</span>
+          </div>
+        </div>
+      </div>
 
       {billsOpen ? (
         <OutstandingBillsModal

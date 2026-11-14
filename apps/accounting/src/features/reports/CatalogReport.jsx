@@ -1,0 +1,139 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ChevronDown, Download, Printer, Search, SlidersHorizontal } from 'lucide-react';
+import { buildLedgerStatement } from '../../data/db';
+import { buildCatalogReport } from './reportCatalogModel';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
+import ReportLayoutPicker from './ReportLayoutPicker';
+import { useDismissable } from '@ui/components/ui/useDismissable';
+import { formatDateIn } from '@ui/utils/dates';
+import { formatReportAmount } from './reportComparison';
+
+const dateText = value => formatDateIn(value);
+const money = formatReportAmount;
+const addressOf = company => {const address=company?.registeredAddress||company?.address;const profile=company?.profile?.companySettings||{};if(typeof address==='string')return [address,profile.regAddress2,company?.city||profile.regCity,company?.state||profile.regStateName,company?.pincode||profile.regPincode].filter(Boolean).join(', ');if(address&&typeof address==='object')return[address.line1,address.line2,address.city,address.state,address.pincode].filter(Boolean).join(', ');return[profile.regAddress1,profile.regAddress2,profile.regCity,profile.regStateName,profile.regPincode].filter(Boolean).join(', ');};
+
+export default function CatalogReport({ title, db, currentCompany, onBack }) {
+  const [period, setPeriod] = useState('month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [draftStart, setDraftStart] = useState('');
+  const [draftEnd, setDraftEnd] = useState('');
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const periodRef = useDismissable(periodOpen, () => setPeriodOpen(false));
+  const exportRef = useDismissable(exportOpen, () => setExportOpen(false));
+  const [query, setQuery] = useState('');
+  const [groupFilter, setGroupFilter] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [columnWidths, setColumnWidths] = useState({});
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const tableContainerRef = useRef(null);
+  const [ledgerId, setLedgerId] = useState('');
+  const [warehouseId, setWarehouseId] = useState('');
+  const [expiryDays, setExpiryDays] = useState(30);
+  const [page, setPage] = useState(1);
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedLedger, setSelectedLedger] = useState(null);
+  const columnFilters = useColumnFilters();
+  const [selectedColumnKeys, setSelectedColumnKeys] = useState(null);
+  const range = useMemo(() => {const now=new Date();const iso=value=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;if(period==='all')return{start:'',end:''};if(period==='year')return{start:`${now.getFullYear()}-01-01`,end:iso(now)};if(period==='30days'){const start=new Date(now);start.setDate(start.getDate()-29);return{start:iso(start),end:iso(now)};}if(period==='custom')return{start:customStart,end:customEnd};return{start:iso(new Date(now.getFullYear(),now.getMonth(),1)),end:iso(new Date(now.getFullYear(),now.getMonth()+1,0))};},[period,customStart,customEnd]);
+  const groupSummary = title === 'Ledger Group Summary';
+  const ledgerSummary = title === 'Ledger Summary' || groupSummary;
+  const outstandingReport = title === 'Outstanding Receivables' || title === 'Outstanding Payables';
+  const statutoryReport = /^(GST|GSTR|HSN\/SAC|Tax Liability|Input Tax Credit|TDS|Section-wise TDS|Party-wise TDS|Filing-ready TDS|TCS)/.test(title);
+  const compactBusinessReport = ledgerSummary || outstandingReport || statutoryReport;
+  const detail = groupSummary && Boolean(selectedGroup);
+  const ledgerDetail = ledgerSummary && Boolean(selectedLedger);
+  const reportTitle = selectedLedger?.ledger || (detail ? selectedGroup : title);
+  const model = useMemo(() => buildCatalogReport(db,currentCompany.id,ledgerDetail ? 'Ledger Statement' : detail ? 'Ledger Summary' : title,range,{ledgerId: selectedLedger?.id || ledgerId,warehouseId,expiryDays}),[db,currentCompany.id,title,range,ledgerId,warehouseId,expiryDays,detail,ledgerDetail,selectedLedger]);
+  const layoutColumnsKey = `report-layout-columns:v1:${title}:${ledgerDetail ? 'ledger-statement' : detail ? 'detail' : 'summary'}`;
+  const savedColumnKeys = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(layoutColumnsKey) || 'null'); }
+    catch { return null; }
+  }, [layoutColumnsKey]);
+  const defaultColumnKeys = model.columns.map(column => column.key);
+  const requestedKeys = selectedColumnKeys?.scope === layoutColumnsKey ? selectedColumnKeys.keys : savedColumnKeys;
+  const displayColumns = compactBusinessReport && Array.isArray(requestedKeys)
+    ? requestedKeys.map(key => model.columns.find(column => column.key === key)).filter(Boolean)
+    : model.columns;
+  const reportColumns = displayColumns.length ? displayColumns : model.columns;
+  const selectColumns = keys => { localStorage.setItem(layoutColumnsKey, JSON.stringify(keys)); setSelectedColumnKeys({ scope: layoutColumnsKey, keys }); };
+  const rows = useMemo(() => model.rows.filter(row=>(!selectedGroup || !detail || ledgerDetail || row.group === selectedGroup) && (!groupFilter || (detail || !groupSummary ? row.group : row.name) === groupFilter) && (!query.trim()||model.columns.some(column=>String(row[column.key]??'').toLowerCase().includes(query.trim().toLowerCase())))),[model,query,groupFilter,selectedGroup,detail,groupSummary,ledgerDetail]);
+  const filteredRows = columnFilters.apply(rows, Object.fromEntries(model.columns.map(column => [column.key, row => row[column.key]])));
+  const groups = useMemo(() => [...new Set(model.rows.map(row => groupSummary && !detail ? row.name : row.group).filter(Boolean))].sort(), [model,groupSummary,detail]);
+  const autoWidths = useMemo(() => model.columns.map(column => {
+    const content = model.rows.reduce((longest, row) => Math.max(longest, String(column.numeric ? money(row[column.key]) : row[column.key] ?? '').length), column.label.length);
+    return Math.max(column.numeric ? 116 : column.key === 'code' ? 88 : 150, Math.min(['name','ledger','group'].includes(column.key) ? 300 : 220, content * 7 + 34));
+  }), [model]);
+  useEffect(() => {
+    if (!compactBusinessReport || !tableContainerRef.current || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(entries => setAvailableWidth(entries[0].contentRect.width));
+    observer.observe(tableContainerRef.current);
+    return () => observer.disconnect();
+  }, [compactBusinessReport]);
+  const extraWidth = Math.max(0, availableWidth - autoWidths.reduce((sum, width) => sum + width, 0));
+  const widths = model.columns.map((column, index) => columnWidths[column.key] || autoWidths[index] + (column.key === 'ledger' ? extraWidth * 0.6 : column.key === 'group' ? extraWidth * 0.4 : ['name','party','number'].includes(column.key) ? extraWidth / model.columns.filter(item => ['name','party','number'].includes(item.key)).length : 0));
+  const reportWidths = reportColumns.map(column => widths[model.columns.findIndex(item => item.key === column.key)]);
+  const resizeColumn = (event, column, index) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = widths[index];
+    const move = next => setColumnWidths(current => ({ ...current, [column.key]: Math.max(64, startWidth + next.clientX - startX) }));
+    const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop, { once: true });
+  };
+  const pageSize=Number.MAX_SAFE_INTEGER;
+  const pageCount=Math.max(1,Math.ceil(filteredRows.length/pageSize));
+  const visible=filteredRows.slice((Math.min(page,pageCount)-1)*pageSize,Math.min(page,pageCount)*pageSize);
+  const asOfDate=range.end&&range.end<new Date().toISOString().slice(0,10)?range.end:new Date().toISOString().slice(0,10);
+  const periodLabel=['Batch-wise Report','Near Expiry','Expired Stock'].includes(title)?`As of ${dateText(asOfDate)}`:range.start||range.end?`${range.start?dateText(range.start):'Beginning'} – ${range.end?dateText(range.end):'Today'}`:'All periods';
+  const printReport=()=>{document.body.classList.add('catalog-report-printing');const cleanup=()=>{document.body.classList.remove('catalog-report-printing');window.removeEventListener('afterprint',cleanup);};window.addEventListener('afterprint',cleanup);window.print();window.setTimeout(cleanup,120000);};
+  const exportExcel=async()=>{const{default:writeXlsxFile}=await import('write-excel-file/browser');const data=[[{value:currentCompany.name,type:String,fontWeight:'bold',columnSpan:reportColumns.length}],[{value:reportTitle,type:String,fontWeight:'bold',columnSpan:reportColumns.length}],[{value:periodLabel,type:String,columnSpan:reportColumns.length}],reportColumns.map(column=>({value:column.label,type:String,fontWeight:'bold'})),...filteredRows.map(row=>reportColumns.map(column=>({value:column.numeric?Number(row[column.key]||0):String(row[column.key]??''),type:column.numeric?Number:String,format:column.numeric?'#,##,##0.00':undefined,align:column.numeric?'right':'left'})))];await writeXlsxFile(data,{sheet:reportTitle.replace(/[^a-z0-9 -]/gi,' ').slice(0,31),columns:reportColumns.map(column=>({width:column.numeric?18:Math.min(38,Math.max(16,column.label.length+8))}))}).toFile(`${reportTitle.replace(/[^a-z0-9]+/gi,'-')}.xlsx`);setExportOpen(false);};
+  const exportGroupEntries = async () => {
+    const { default: writeXlsxFile } = await import('write-excel-file/browser');
+    const headings = ['Group','Code','Ledger','Date','Voucher Type','Voucher No.','Particulars','Narration','Debit','Credit','Running Balance'];
+    const lines = model.rows.filter(ledger => ledger.group === selectedGroup).flatMap(ledger => {
+      const statement = buildLedgerStatement(db, currentCompany.id, ledger.id);
+      const before = statement.rows.filter(row => range.start && String(row.date).slice(0,10) < range.start);
+      const entries = statement.rows.filter(row => (!range.start || String(row.date).slice(0,10) >= range.start) && (!range.end || String(row.date).slice(0,10) <= range.end));
+      const opening = before.at(-1)?.runningBalance ?? statement.openingBalance ?? 0;
+      return [[selectedGroup, ledger.code || '', ledger.ledger, range.start || '', '', '', 'Opening balance', '', 0, 0, opening], ...entries.map(row => [selectedGroup, ledger.code || '', ledger.ledger, String(row.date).slice(0,10), row.voucherType, row.voucherNo, row.particulars, row.narration, row.debit, row.credit, row.runningBalance])];
+    });
+    const data = [[{ value: currentCompany.name, type: String, columnSpan: headings.length }], [{ value: `${selectedGroup} · Complete ledger entries`, type: String, columnSpan: headings.length }], [{ value: periodLabel, type: String, columnSpan: headings.length }], headings.map(value => ({ value, type: String, fontWeight: 'bold' })), ...lines.map(line => line.map((value,index) => ({ value: index >= 8 ? Number(value || 0) : String(value ?? ''), type: index >= 8 ? Number : String })))];
+    await writeXlsxFile(data, { sheet: 'Ledger Entries', columns: headings.map((_,index) => ({ width: index === 6 || index === 7 ? 32 : 18 })) }).toFile(`${selectedGroup.replace(/[^a-z0-9]+/gi,'-')}-ledger-entries.xlsx`);
+    setExportOpen(false);
+  };
+  const inventoryReport = /^(Inventory Register|Batch-wise Report|Reorder Level Report|Near Expiry|Expired Stock|Negative Stock|Stock Summary|Stock Ledger|Stock Valuation|Reorder Report|Negative Stock Report|Item Movement|Item-wise Stock|Warehouse-wise Stock|Branch-wise Stock)$/.test(title);
+  const ledgerSelector=['Ledger Statement','General Ledger'].includes(title);
+  const warehouseSelector=inventoryReport;
+  const backLabel = statutoryReport ? `Back to ${/^TCS/.test(title) ? 'TCS' : /^(TDS|Section-wise TDS|Party-wise TDS|Filing-ready TDS)/.test(title) ? 'TDS' : 'GST'} reports` : outstandingReport ? 'Back to Outstanding Registers' : 'Back to Ledgers';
+  const layoutGroup = statutoryReport ? (/^TCS/.test(title) ? 'tcs' : /^(TDS|Section-wise TDS|Party-wise TDS|Filing-ready TDS)/.test(title) ? 'tds' : 'gst') : outstandingReport ? 'outstanding' : 'ledgers';
+  const compactHeader = <header className="catalog-report-toolbar ui-page-heading flex flex-wrap items-center justify-between gap-2">
+    <div className="flex min-w-0 items-center gap-2">
+      {ledgerDetail ? <button type="button" className="ui-icon-btn" aria-label={detail ? 'Back to group ledgers' : 'Back to Ledger Summary'} onClick={() => { setSelectedLedger(null); setQuery(''); setColumnWidths({}); columnFilters.clearAll(); setPage(1); }}><ArrowLeft size={16}/></button>
+        : detail ? <button type="button" className="ui-icon-btn" aria-label="Back to Ledger Group Summary" onClick={() => { setSelectedGroup(''); setQuery(''); setGroupFilter(''); setColumnWidths({}); columnFilters.clearAll(); setPage(1); }}><ArrowLeft size={16}/></button>
+        : onBack ? <button type="button" className="ui-icon-btn" aria-label={backLabel} onClick={onBack}><ArrowLeft size={16}/></button> : null}
+      <h1 className="ui-t-page whitespace-nowrap">{reportTitle}</h1>
+    </div>
+    <div className="relative flex flex-wrap items-center gap-2">
+      <label className="relative block"><Search size={14} className="absolute left-2.5 top-2 ui-muted"/><input className="ui-input h-8 w-52 pl-8 text-xs" placeholder="Search this report" aria-label="Search this report" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }}/></label>
+      <div className="relative" ref={periodRef}><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm min-w-32 justify-between" onClick={() => { setPeriodOpen(open => !open); setExportOpen(false); }}>{period === 'all' ? 'All periods' : period === 'month' ? 'This month' : period === 'year' ? 'This year' : period === '30days' ? 'Last 30 days' : 'Custom'} <ChevronDown size={13}/></button>
+        {periodOpen && <div className="absolute right-0 top-full z-40 mt-1 w-64 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-2 shadow-lg">{[['all','All periods'],['month','This month'],['year','This year'],['30days','Last 30 days'],['custom','Custom']].map(([key,label]) => <button type="button" key={key} className="report-menu-item" onClick={() => { setPeriod(key); if (key !== 'custom') setPeriodOpen(false); setPage(1); }}>{label}</button>)}{period === 'custom' && <div className="mt-2 space-y-2 border-t ui-border-c pt-2"><label className="block text-xs">From<input type="date" className="ui-input mt-1 w-full" value={draftStart} onChange={event => setDraftStart(event.target.value)}/></label><label className="block text-xs">To<input type="date" className="ui-input mt-1 w-full" value={draftEnd} onChange={event => setDraftEnd(event.target.value)}/></label><button type="button" className="ui-btn ui-btn-primary w-full" disabled={Boolean(draftStart && draftEnd && draftStart > draftEnd)} onClick={() => { setCustomStart(draftStart); setCustomEnd(draftEnd); setPeriodOpen(false); setPage(1); }}>Apply</button></div>}</div>}
+      </div>
+      <ReportLayoutPicker key={layoutColumnsKey} title={reportTitle} columns={model.columns} defaultKeys={defaultColumnKeys} selectedKeys={reportColumns.map(column => column.key)} onSelect={selectColumns} storageKey={`report-saved-layouts:v3:group:${layoutGroup}`} onOpen={() => { setExportOpen(false); setPeriodOpen(false); }}/>
+      <div className="relative" ref={exportRef}><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setExportOpen(open => !open); setPeriodOpen(false); }}><Download size={14}/> Export <ChevronDown size={13}/></button>{exportOpen && <div className="absolute right-0 top-full z-40 mt-1 w-44 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-1 shadow-lg"><button type="button" className="report-menu-item" onClick={exportExcel}>Excel</button>{detail && !ledgerDetail && <button type="button" className="report-menu-item" onClick={exportGroupEntries}>Complete entries</button>}<button type="button" className="report-menu-item" onClick={() => { setExportOpen(false); printReport(); }}>PDF</button></div>}</div>
+      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={printReport}><Printer size={14}/> Print</button>
+    </div>
+  </header>;
+  return <div className="catalog-report space-y-2 p-3 lg:p-4">
+    {compactBusinessReport ? compactHeader :     <header className={`catalog-report-toolbar flex flex-wrap items-center justify-between gap-2 ${title==='Inventory Register'?'inventory-register-toolbar':''} bg-[rgb(var(--heading-bg))] px-3 py-2 ${ledgerSummary || inventoryReport ? "ui-page-heading" : "rounded-lg"}`}><div className="flex items-center gap-2">{(ledgerSummary || inventoryReport) && !detail && onBack && <button type="button" className="ui-icon-btn" aria-label={inventoryReport ? "Back to Inventory Reports" : "Back to Ledgers"} onClick={onBack}><ArrowLeft size={16}/></button>}{detail && <button type="button" className="ui-icon-btn" aria-label="Back to Ledger Group Summary" onClick={()=>{setSelectedGroup('');setQuery('');setGroupFilter('');setColumnWidths({});setPage(1);}}><ArrowLeft size={16}/></button>}<h1 className="ui-t-page">{detail ? selectedGroup : title}</h1></div><div className={`flex flex-wrap items-center gap-2 ${title==='Inventory Register'?'inventory-register-actions':''}`}>{inventoryReport && <label className="relative"><Search size={14} className="absolute left-2.5 top-2 ui-muted"/><input className="ui-input h-8 w-52 pl-8 text-xs" placeholder="Search this report" aria-label="Search this report" value={query} onChange={event=>{setQuery(event.target.value);setPage(1);}}/></label>}{inventoryReport && warehouseSelector && <select aria-label="Warehouse" className="ui-select h-8 min-w-36 text-xs" value={warehouseId} onChange={event=>{setWarehouseId(event.target.value);setPage(1);}}><option value="">All warehouses</option>{(db.warehouses||[]).filter(row=>String(row.companyId)===String(currentCompany.id)).map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</select>}{title==='Near Expiry' && <select aria-label="Expiry window" className="ui-select h-8 text-xs" value={expiryDays} onChange={event=>setExpiryDays(Number(event.target.value))}><option value={30}>Next 30 days</option><option value={60}>Next 60 days</option><option value={90}>Next 90 days</option></select>}<div className="relative" ref={periodRef}><button className="ui-btn ui-btn-secondary h-8 min-w-32 justify-between text-xs" onClick={()=>setPeriodOpen(!periodOpen)}>{period==='all'?'All periods':period==='month'?'This month':period==='year'?'This year':period==='30days'?'Last 30 days':'Custom'} <ChevronDown size={14}/></button>{periodOpen&&<div className="absolute right-0 top-full z-30 mt-1 w-64 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-2 shadow-lg">{[['all','All periods'],['month','This month'],['year','This year'],['30days','Last 30 days'],['custom','Custom']].map(([key,label])=><button key={key} className="w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-[rgb(var(--heading-bg))]" onClick={()=>{if(key==='custom'){setDraftStart(customStart);setDraftEnd(customEnd);setPeriod('custom');}else{setPeriod(key);setPeriodOpen(false);setPage(1);}}}>{label}</button>)}{period==='custom'&&<div className="mt-2 space-y-2 border-t ui-border-c pt-2"><label className="block text-xs">From<input className="ui-input mt-1 w-full" type="date" value={draftStart} onChange={event=>setDraftStart(event.target.value)}/></label><label className="block text-xs">To<input className="ui-input mt-1 w-full" type="date" value={draftEnd} onChange={event=>setDraftEnd(event.target.value)}/></label><button className="ui-btn ui-btn-primary w-full" disabled={Boolean(draftStart&&draftEnd&&draftStart>draftEnd)} onClick={()=>{setCustomStart(draftStart);setCustomEnd(draftEnd);setPeriodOpen(false);setPage(1);}}>Apply</button></div>}</div>}</div><div className="relative" ref={exportRef}><button className="ui-btn ui-btn-secondary h-8 text-xs" onClick={()=>setExportOpen(!exportOpen)}><Download size={14}/> Export <ChevronDown size={12}/></button>{exportOpen&&<div className="absolute right-0 top-full z-30 mt-1 w-44 rounded-lg border ui-border-c bg-[rgb(var(--surface))] p-1 shadow-lg"><button className="w-full px-2 py-1 text-left text-sm hover:bg-[rgb(var(--heading-bg))]" onClick={exportExcel}>Excel</button>{detail && <button className="w-full px-2 py-1 text-left text-sm hover:bg-[rgb(var(--heading-bg))]" onClick={exportGroupEntries}>Complete entries</button>}<button className="w-full px-2 py-1 text-left text-sm hover:bg-[rgb(var(--heading-bg))]" onClick={()=>{setExportOpen(false);printReport();}}>PDF</button></div>}</div><button className="ui-btn ui-btn-secondary h-8 text-xs" onClick={printReport}><Printer size={14}/> Print</button></div></header>}
+    {!compactBusinessReport && !inventoryReport && <div className="catalog-report-controls flex flex-wrap items-center justify-between gap-2 py-1"><div className="flex flex-wrap gap-2">{ledgerSelector&&<select aria-label="Ledger" className="ui-select h-8 min-w-48 text-xs" value={ledgerId} onChange={event=>{setLedgerId(event.target.value);setPage(1);}}><option value="">All ledgers</option>{(db.chartOfAccounts||[]).filter(row=>String(row.companyId)===String(currentCompany.id)).map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</select>}{warehouseSelector&&<select aria-label="Warehouse" className="ui-select h-8 min-w-44 text-xs" value={warehouseId} onChange={event=>{setWarehouseId(event.target.value);setPage(1);}}><option value="">All warehouses</option>{(db.warehouses||[]).filter(row=>String(row.companyId)===String(currentCompany.id)).map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</select>}</div><label className="relative"><Search size={14} className="absolute left-2.5 top-2 ui-muted"/><input className="ui-input h-8 w-60 pl-8 text-xs" placeholder="Search this report" aria-label="Search this report" value={query} onChange={event=>{setQuery(event.target.value);setPage(1);}}/></label></div>}
+    <div className={`catalog-report-print-area ${compactBusinessReport || inventoryReport ? "" : "rounded-lg border ui-border-c"}`}><div className="catalog-report-print-heading text-center"><strong>{currentCompany.name}</strong><div>{addressOf(currentCompany)}</div><strong>{reportTitle}</strong><div>{periodLabel}</div></div>{!compactBusinessReport && !inventoryReport && <div className="px-3 py-1.5 text-xs ui-muted">Period: {periodLabel} · {rows.length} row{rows.length===1?'':'s'}</div>}<div ref={tableContainerRef} className="overflow-x-auto"><table className={`catalog-report-table ${compactBusinessReport ? "ledger-summary-table w-full" : inventoryReport ? `${title==='Inventory Register'?'inventory-register-table':''} inventory-report-table w-full` : "w-full min-w-[640px]"} border-collapse text-xs`} style={compactBusinessReport ? { width: Math.max(760, reportWidths.reduce((sum, width) => sum + width, 0)), minWidth: "100%", tableLayout: "fixed" } : undefined}>{compactBusinessReport && <colgroup>{reportColumns.map((column,index)=><col key={column.key} style={{width:reportWidths[index]}}/>)}</colgroup>}<thead className="bg-[rgb(var(--heading-bg))]"><tr>{compactBusinessReport ? reportColumns.map(column=><ColumnHeader key={column.key} label={column.label} col={column.key} state={columnFilters} type={column.numeric ? "number" : column.key.toLowerCase().includes("date") ? "date" : "text"} align={column.numeric ? "right" : "left"} className={`whitespace-nowrap ${columnFilters.filters[column.key] ? "sales-report-filter-active" : ""}`} onResizeStart={(event,key)=>{const index=model.columns.findIndex(item=>item.key===key);resizeColumn(event,model.columns[index],index);}}/>) : model.columns.map(column=><th key={column.key} className={`relative px-3 py-2 ${column.numeric?'text-right':'text-left'}`}>{column.label}{ledgerSummary && (column.key === 'ledger' || column.key === 'name') && <button type="button" className="ledger-summary-header-action" aria-label="Search ledgers" onClick={()=>{setSearchOpen(true);setFilterOpen(false);}}><Search size={13}/></button>}{ledgerSummary && (column.key === 'group' || column.key === 'name') && <button type="button" className="ledger-summary-header-action" aria-label="Filter ledgers" onClick={()=>{setFilterOpen(true);setSearchOpen(false);}}><SlidersHorizontal size={13}/></button>}{ledgerSummary && (column.key === 'ledger' || column.key === 'name') && searchOpen && <span className="ledger-summary-header-editor"><input className="ui-input h-7 min-w-0 flex-1 px-2 text-xs" aria-label="Search ledger rows" placeholder="Search..." value={query} onChange={event=>{setQuery(event.target.value);setPage(1);}}/><button type="button" aria-label="Close ledger search" onClick={()=>setSearchOpen(false)}>×</button></span>}{ledgerSummary && (column.key === 'group' || column.key === 'name') && filterOpen && <span className="ledger-summary-header-editor"><select className="ui-select h-7 min-w-0 flex-1 text-xs" aria-label="Ledger group filter" value={groupFilter} onChange={event=>{setGroupFilter(event.target.value);setPage(1);}}><option value="">All groups</option>{groups.map(group=><option key={group} value={group}>{group}</option>)}</select><button type="button" aria-label="Close group filter" onClick={()=>setFilterOpen(false)}>×</button></span>}{ledgerSummary && <span role="separator" aria-label={`Resize ${column.label} column`} className="ledger-summary-resize" onPointerDown={event=>resizeColumn(event,column,model.columns.indexOf(column))}/>}</th>)}</tr></thead><tbody>{visible.map((row,index)=><tr key={row.id||index} className={compactBusinessReport || inventoryReport ? "" : "border-t ui-border-c"}><>{reportColumns.map(column=><td key={column.key} className={`px-3 py-1.5 ${column.numeric?'text-right tabular-nums':''}`}>{groupSummary && !detail && !ledgerDetail && column.key === 'name' ? <button type="button" className="text-left text-[rgb(var(--link))] hover:underline" onClick={()=>{setSelectedGroup(row.name);setQuery('');setGroupFilter('');setColumnWidths({});setSearchOpen(false);setFilterOpen(false);columnFilters.clearAll();setPage(1);}}>{row.name}</button> : ledgerSummary && !ledgerDetail && column.key === 'ledger' ? <button type="button" className="text-left text-[rgb(var(--link))] hover:underline" onClick={()=>{setSelectedLedger({id:row.id,ledger:row.ledger});setQuery('');setGroupFilter('');setColumnWidths({});columnFilters.clearAll();setPage(1);}}>{row.ledger}</button> : column.numeric?money(row[column.key]):String(row[column.key]??'–')||'–'}</td>)}</></tr>)}{!visible.length&&<tr><td colSpan={reportColumns.length} className="px-4 py-10 text-center ui-muted">No entries match this report and period.</td></tr>}</tbody></table></div>{model.note&&<p className="border-t ui-border-c px-3 py-2 text-xs ui-muted">{model.note}</p>}</div>
+    {rows.length>pageSize&&<div className="catalog-report-pagination flex items-center justify-end gap-2 text-xs ui-muted"><span>{(Math.min(page,pageCount)-1)*pageSize+1}–{Math.min(Math.min(page,pageCount)*pageSize,rows.length)} of {rows.length}</span><button className="ui-btn ui-btn-secondary h-7" disabled={page<=1} onClick={()=>setPage(value=>Math.max(1,value-1))}>Previous</button><button className="ui-btn ui-btn-secondary h-7" disabled={page>=pageCount} onClick={()=>setPage(value=>Math.min(pageCount,value+1))}>Next</button></div>}
+  </div>;
+}
+
+
+

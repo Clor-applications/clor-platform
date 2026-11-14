@@ -305,8 +305,17 @@ async function resolveTenant(userId: string, orgId: string, branchId: string, wa
       }
     }
 
-    // Only treat it as the active warehouse when the user may actually use it.
-    if (allowedWarehouseIds.includes(warehouseId)) resolvedWarehouseId = warehouseId;
+    // Only treat it as the active warehouse when the user may actually use it
+    // and it belongs to the branch being worked in. Roles held at a warehouse
+    // are read off this value (services/access.ts), so a warehouse of another
+    // branch must not become the active one here.
+    if (allowedWarehouseIds.includes(warehouseId)) {
+      const selectedWarehouse = await prisma.warehouse.findFirst({
+        where: { id: warehouseId, accountId, orgId, branchId },
+        select: { id: true },
+      });
+      if (selectedWarehouse) resolvedWarehouseId = selectedWarehouse.id;
+    }
   }
 
   const tenant: TenantContext = {

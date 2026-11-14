@@ -113,7 +113,7 @@ const getWarehouseId = () => contextWarehouseId();
  * The page body is still logged for whoever is debugging; it is just not the
  * thing on screen.
  */
-function describeHttpFailure(status, text) {
+function describeHttpFailure(status, text, method = 'GET') {
   const raw = String(text || '').trim();
   const isHtml = /^\s*<(!doctype|html|head|body)/i.test(raw);
 
@@ -122,7 +122,9 @@ function describeHttpFailure(status, text) {
     if (status === 502 || status === 503 || status === 504) {
       return `The server could not be reached (${status}). It may be restarting — try again in a moment.`;
     }
-    if (status >= 500) return `The server could not complete that (${status}). Nothing was saved.`;
+    if (status >= 500) return method === 'GET'
+      ? `The server could not load this data (${status}). Please retry.`
+      : `The server could not complete that (${status}). Nothing was saved.`;
     return `Request failed (${status}).`;
   }
 
@@ -313,7 +315,7 @@ export async function apiFetch(
         transientRetryCount: transientRetryCount + 1,
       });
     }
-    const err = new Error(data?.error || describeHttpFailure(res.status, text));
+    const err = new Error(data?.error || describeHttpFailure(res.status, text, method));
     err.status = res.status;
     err.data = data;
     /* The reference a person can quote to support (spec v1 §8 "API unavailable"). */

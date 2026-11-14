@@ -121,33 +121,45 @@ describe('the rest of the master', () => {
   });
 
   /*
-   * A code the user did not supply. Deliberately NOT from NumberSeries: a party
-   * code identifies a record, and it must never consume from the counter a GST
-   * return is reconciled against.
+   * Codes are a feature the company switches on (Code Numbering, Books 14 Nov
+   * 2026). Off, a party has no code at all; switching it on numbers the
+   * existing ones once (with confirmation) and every new one after. Deliberately NOT from NumberSeries: a party code identifies a record
+   * and must never consume from the counter a GST return is reconciled against.
    */
-  it('generates sequential six-digit customer codes in the 2–5 series', async () => {
+  it('gives no code while customer codes are off, not even a typed one', async () => {
     const a = await create({ name: `Auto ${rnd()}` }).expect(201);
-    expect(a.body.party.code).toMatch(/^[2-5]\d{5}$/);
+    expect(a.body.party.code ?? null).toBeNull();
 
-    const b = await create({ name: `Auto ${rnd()}` }).expect(201);
-    expect(Number(b.body.party.code)).toBe(Number(a.body.party.code) + 1);
-
-    const c = await create({ name: `Manual ${rnd()}`, code: '500001' }).expect(201);
-    expect(c.body.party.code).toBe('500001');
+    const typed = `C-${rnd().slice(0, 6)}`.toUpperCase();
+    const c = await create({ name: `Manual ${rnd()}`, code: typed }).expect(201);
+    expect(c.body.party.code ?? null).toBeNull();
   });
 });
 
-describe('party code ranges', () => {
-  it('rejects customer codes outside the customer range', async () => {
-    await create({ name: `Bad customer ${rnd()}`, code: '600001' }).expect(400);
+describe('party codes, switched on', () => {
+  beforeAll(async () => {
+    await request(app).put(`/api/orgs/${owner.orgId}/features`).set(auth(owner))
+      .send({ features: { customerCodes: true, vendorCodes: true }, confirmCodeBackfill: true }).expect(200);
   });
 
-  it('generates vendor codes in the 6–9 series', async () => {
+  it('numbers customers CUST-00001, CUST-00002 … from its own counter', async () => {
+    const a = await create({ name: `Auto ${rnd()}` }).expect(201);
+    expect(a.body.party.code).toMatch(/^CUST-\d{5}$/);
+    const b = await create({ name: `Auto ${rnd()}` }).expect(201);
+    expect(Number(b.body.party.code.slice(5))).toBe(Number(a.body.party.code.slice(5)) + 1);
+  });
+
+  it('refuses a typed code while numbering is automatic', async () => {
+    const res = await create({ name: `Typed ${rnd()}`, code: 'X-1' }).expect(400);
+    expect(String(res.body.error)).toMatch(/manual code entry is disabled/i);
+  });
+
+  it('numbers vendors on their own series', async () => {
     const res = await request(app)
       .post(`/api/orgs/${owner.orgId}/vendors`)
       .set(auth(owner))
       .send({ name: `Vendor ${rnd()}` })
       .expect(201);
-    expect(res.body.party.code).toMatch(/^[6-9]\d{5}$/);
+    expect(res.body.party.code).toMatch(/^VEND-\d{5}$/);
   });
 });

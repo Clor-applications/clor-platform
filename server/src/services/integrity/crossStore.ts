@@ -49,6 +49,8 @@ export async function forgetEntityAccess({ accountId, orgId }: Company, entityTy
 
 /** A warehouse has gone: so has the access to it. */
 export async function forgetWarehouseAccess({ accountId, orgId }: Company, warehouseId: string) {
+  /* Roles held at the warehouse go with it, or they would return if its id were ever granted again. */
+  await platformPrisma.userWarehouseRoleAssignment.deleteMany({ where: { accountId, orgId, warehouseId } });
   const r = await platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId, orgId, warehouseId } });
   return r.count;
 }

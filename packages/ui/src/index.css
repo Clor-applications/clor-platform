@@ -944,103 +944,34 @@
 }
 
 /* ---------------------------------------------------------------------------
-   The Indigo palette: Direction D, "Done, daily" (2026-10-29), kept for
-   Accounting (owner, 3 Nov 2026: "do not change color to accounting").
+   Books (data-palette='indigo') on the red brand (owner, 15 Nov 2026).
 
-   Every other app moved to the red brand above; Accounting opts into this
-   palette with `palette: 'indigo'` in its manifest and keeps the colours it
-   had: indigo #232A66 acts, lilac #E9E5F4 is chosen and done, cotton #FAF6EE
-   is the page, and money out stays red. The logo is the CLOR logo, the same
-   in every app, so this palette leaves --logo-mark and --logo-dot alone.
+   Books used to keep Direction D's indigo and lilac. The owner moved it onto
+   the in-app palette every other app uses (oxblood headings, brand ink
+   #A50D26, marigold, blush, the warm ground #FAF6F4, ink #1F1A1C, money in
+   #107E3E, error #B91C1C), so the shared block above now paints Books too.
+   Indigo #232A66 / #3D4FE0 stays as the app's identity only: its tile, its
+   mark and clor.in, never the chrome.
+
+   One thing Books keeps of its own: the header row of every list (Invoice #,
+   Customer, Date ...) is the pale blue-grey #EAF2F8, as in the Books build
+   the owner signed off, so a column header never reads as a blush selection.
 --------------------------------------------------------------------------- */
-/* As light as the platform's own :root block (:where), so the dark theme's
-   values still win where the dark block below does not restate them. */
 :root:where([data-palette='indigo']),
 :root:not([data-theme='dark']) [data-palette='indigo'] {
-  --cotton: 250 246 238; --indigo: 35 42 102; --marigold: 245 166 35; --lilac: 233 229 244;
-  --app-bg: var(--cotton); --surface: 255 255 255; --surface-raised: 255 255 255;
-  --surface-sunken: 247 244 238; --border: 232 227 216; --border-strong: 190 184 172;
-  --border-field: 205 199 188; --doc-section: 252 250 246;
-  /* Text is indigo-black, not zinc: a cold grey on cotton reads as a smudge.
-     fg-muted 7.8:1 and fg-subtle 5.3:1 on cotton; both higher on white. */
-  --fg: 26 29 61; --fg-muted: 72 75 106; --fg-subtle: 98 100 128;
-  /* White on indigo is 13.2:1; the hover lifts, pressed sinks. */
-  --brand: var(--indigo); --brand-deep: 24 29 74; --brand-hover: 48 56 128; --brand-pressed: 22 26 66;
-  --brand-soft: var(--lilac); --brand-subtle: 244 242 250; --brand-border: 201 194 228;
-  --brand-ink: var(--indigo); --brand-panel: var(--indigo); --on-brand: 255 255 255;
-  --doc-link: 52 62 148; --doc-link-wash: 244 242 250; --accent-soft: var(--brand-soft);
-  --ring: var(--indigo); --link: 52 62 148; --link-hover: var(--indigo); --info: 72 75 106; --info-soft: 244 242 250;
-  --st-all-soft: 244 242 250; --st-all-strong: var(--lilac); --st-all-key: var(--indigo); --st-all-ink: var(--indigo);
-  --nav-fg: 26 29 61; --nav-fg-muted: 72 75 106; --nav-fg-subtle: 98 100 128;
-  --rail-bg: var(--cotton); --rail-border: 232 227 216; --rail-hover: 241 237 229; --rail-active: var(--lilac);
-  --heading-bg: 244 242 250; --heading-hover: var(--lilac); --page-heading-bg: 244 242 250; --header-bg: 247 244 238;
-  --cursor-bg: 255 255 255; --cursor-fg: 26 29 61;
-  --nav-dashboard: var(--indigo); --nav-sales: var(--indigo); --nav-crm: var(--indigo);
-  --nav-purchases: var(--indigo); --nav-cashbank: var(--indigo); --nav-expenses: var(--indigo);
-  --nav-inventory: var(--indigo); --nav-journal: var(--indigo); --nav-approvals: var(--indigo);
-  --nav-reports: var(--indigo); --nav-masterdata: var(--indigo); --nav-settings: var(--indigo);
-  --nav-dashboard-ink: var(--lilac); --nav-sales-ink: var(--lilac); --nav-crm-ink: var(--lilac);
-  --nav-purchases-ink: var(--lilac); --nav-cashbank-ink: var(--lilac); --nav-expenses-ink: var(--lilac);
-  --nav-inventory-ink: var(--lilac); --nav-journal-ink: var(--lilac); --nav-approvals-ink: var(--lilac);
-  --nav-reports-ink: var(--lilac); --nav-masterdata-ink: var(--lilac); --nav-settings-ink: var(--lilac);
-  --ov-blue: var(--indigo); --ov-blue-soft: var(--lilac); --ov-blue-wash: 252 250 246;
-  --ov-green: 72 75 106; --ov-green-soft: var(--lilac); --ov-green-wash: 252 250 246;
-  --ov-amber: 72 75 106; --ov-amber-soft: var(--lilac); --ov-amber-wash: 252 250 246;
-  --ov-violet: var(--indigo); --ov-violet-soft: var(--lilac); --ov-violet-wash: 252 250 246;
-  --ov-orange: var(--indigo); --ov-orange-soft: var(--lilac); --ov-orange-wash: 252 250 246;
-  --kpi-line: 232 227 216;
-  --kpi-sales-bg: 252 250 246; --kpi-sales-ink: 26 29 61;
-  --kpi-invoices-bg: 244 242 250; --kpi-invoices-ink: var(--indigo);
-  --kpi-received-bg: 240 253 244; --kpi-received-ink: 21 128 61;
-  --kpi-due-bg: 252 250 246; --kpi-due-ink: 72 75 106;
-  --kpi-overdue-bg: 254 242 242; --kpi-overdue-ink: 185 28 28;
-  --kpi-credit-bg: 244 242 250; --kpi-credit-ink: var(--indigo);
-  --pos: 16 126 62; --pos-soft: 235 247 239;
-  --neg: 187 0 0; --neg-hover: 153 0 0; --neg-soft: 253 237 237;
-  --warn: 233 115 12; --warn-ink: 154 70 0; --warn-soft: 255 244 230;
-  /* The admin rail's selected module: lilac, like every other selection. */
-  --ws-nav-selected: var(--lilac); --ws-nav-selected-ink: var(--indigo); --ws-brand: var(--indigo);
-  /* What the red brand added that Direction D never had: unset, so the old fallbacks apply again. */
-  --btn-primary-bg: initial; --btn-primary-hover: initial; --fg-heading: initial;
-  --choice: initial; --on-choice: initial; --choice-tray: initial;
-  /* Money out stays red in Accounting. */
-  --money-out: var(--neg);
+  --heading-bg: 234 242 248; --heading-hover: 220 234 244; --page-heading-bg: 234 242 248;
+  /* The screens panel wears Books' own blue from clor.in (owner, 15 Nov
+     2026): a pale tint of Books bright #3D4FE0 as the ground (#EFF1FC), its
+     hairline, #3D4FE0 as the open screen's edge and deep #232A66 for the
+     open module's words. Identity colour on "you are here" only. */
+  --nav-panel: 239 241 252; --nav-panel-border: 218 222 249; --nav-panel-mark: 61 79 224; --nav-panel-ink: 35 42 102;
 }
 
 :root[data-theme='dark'][data-palette='indigo'],
 :root[data-theme='dark'] [data-palette='indigo'] {
-  --app-bg: 16 18 40; --surface: 25 28 58; --surface-sunken: 32 36 72; --surface-raised: 42 47 90;
-  --border: 44 49 92; --border-strong: 78 84 132; --border-field: 62 68 114; --doc-section: 29 32 66;
-  --fg: 250 246 238; --fg-muted: 192 189 214; --fg-subtle: 166 163 194;
-  --brand: var(--marigold); --brand-deep: 250 196 102; --brand-hover: 250 186 74; --brand-pressed: 224 146 20;
-  --btn-primary-bg: var(--marigold); --btn-primary-hover: 250 186 74;
-  --brand-soft: 48 53 104; --brand-subtle: 32 36 72; --brand-border: 98 104 160; --brand-ink: 250 200 110;
-  --on-brand: var(--indigo); --on-primary: var(--indigo); --on-accent: var(--indigo); --accent-soft: 48 53 104;
-  --ring: var(--marigold); --doc-link: 200 194 242; --doc-link-wash: 42 47 90;
-  --link: 200 194 242; --link-hover: var(--lilac); --info: 192 189 214; --info-soft: 42 47 90;
-  --st-all-soft: 32 36 72; --st-all-strong: 48 53 104; --st-all-key: var(--marigold); --st-all-ink: 250 230 190;
-  --rail-bg: 12 14 32; --rail-border: 32 36 72; --rail-hover: 25 28 58; --rail-active: 48 53 104;
-  --heading-bg: 42 47 90; --heading-hover: 48 53 104; --page-heading-bg: 25 28 58; --header-bg: 21 24 50;
-  --cursor-bg: 32 36 72; --cursor-fg: 250 246 238;
-  --nav-fg: 250 246 238; --nav-fg-muted: 192 189 214; --nav-fg-subtle: 140 137 172;
-  --nav-dashboard: 200 194 242; --nav-sales: 200 194 242; --nav-crm: 200 194 242;
-  --nav-purchases: 200 194 242; --nav-cashbank: 200 194 242; --nav-expenses: 200 194 242;
-  --nav-inventory: 200 194 242; --nav-journal: 200 194 242; --nav-approvals: 200 194 242;
-  --nav-reports: 200 194 242; --nav-masterdata: 200 194 242; --nav-settings: 200 194 242;
-  --nav-dashboard-ink: 48 53 104; --nav-sales-ink: 48 53 104; --nav-crm-ink: 48 53 104;
-  --nav-purchases-ink: 48 53 104; --nav-cashbank-ink: 48 53 104; --nav-expenses-ink: 48 53 104;
-  --nav-inventory-ink: 48 53 104; --nav-journal-ink: 48 53 104; --nav-approvals-ink: 48 53 104;
-  --nav-reports-ink: 48 53 104; --nav-masterdata-ink: 48 53 104; --nav-settings-ink: 48 53 104;
-  --kpi-line: 44 49 92;
-  --kpi-sales-bg: 29 32 66; --kpi-sales-ink: 250 246 238;
-  --kpi-invoices-bg: 32 36 72; --kpi-invoices-ink: var(--lilac);
-  --kpi-received-bg: 5 46 22; --kpi-received-ink: 74 222 128;
-  --kpi-due-bg: 32 36 72; --kpi-due-ink: 192 189 214;
-  --kpi-overdue-bg: 69 10 10; --kpi-overdue-ink: 248 113 113;
-  --kpi-credit-bg: 29 32 66; --kpi-credit-ink: var(--lilac);
-  --ws-nav-selected: 48 53 104; --ws-nav-selected-ink: 250 246 238; --ws-brand: var(--marigold);
-  --fg-heading: initial; --money-out: var(--neg);
-  --choice: initial; --on-choice: initial; --choice-tray: initial;
+  /* The same cool tint at night: a slate step off the oxblood ground. */
+  --heading-bg: 40 44 56; --heading-hover: 52 58 74; --page-heading-bg: 34 37 48;
+  --nav-panel: 27 30 58; --nav-panel-border: 48 54 104; --nav-panel-mark: 140 152 245; --nav-panel-ink: 200 206 252;
 }
 
 @layer base {
@@ -2468,6 +2399,8 @@
      never part of the paper or a browser-generated PDF. */
   @media print {
     body.print-mode > *:not(.invoice-print-host) { display: none !important; }
+    body.receipt-printing > *:not(.receipt-print-host) { display: none !important; }
+    body.receipt-printing > .receipt-print-host { display: block !important; position: static !important; width: 100% !important; padding: 0 !important; }
     body.print-mode .invoice-print-host {
       display: block !important;
       position: static !important;
@@ -2521,6 +2454,25 @@
     z-index: -1;
     background: #fff;
   }
+
+  .receipt-print-host { display: none; color: #17212f; font-family: Inter, Arial, sans-serif; font-size: 11pt; }
+  .receipt-print-heading { text-align: center; padding: 0 0 16px; border-bottom: 2px solid #273747; }
+  .receipt-print-company { font-size: 18pt; font-weight: 750; }
+  .receipt-print-address { margin-top: 4px; color: #556273; font-size: 9pt; }
+  .receipt-print-title { margin-top: 13px; font-size: 14pt; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .receipt-print-meta { display: flex; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid #d5dce4; }
+  .receipt-print-meta strong { margin-right: 8px; color: #566476; font-size: 9pt; text-transform: uppercase; }
+  .receipt-print-details { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 30px; padding: 24px 0; }
+  .receipt-print-details > div { display: flex; flex-direction: column; gap: 5px; }
+  .receipt-print-details span, .receipt-print-amount span { color: #637182; font-size: 9pt; }
+  .receipt-print-details strong { font-weight: 650; }
+  .receipt-print-amount { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #edf2f6; border-radius: 8px; }
+  .receipt-print-amount strong { font-size: 17pt; }
+  .receipt-print-allocations { margin-top: 25px; }
+  .receipt-print-allocations h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .04em; }
+  .receipt-print-allocations > div { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e7ed; }
+  .receipt-print-notes { margin-top: 24px; line-height: 1.5; white-space: pre-wrap; }
+  @media print { .receipt-print-host { display: block !important; } }
   .ui-scrim { animation: ui-fade var(--dur-state) linear both; }
   @media (prefers-reduced-motion: reduce) {
     .ui-dialog { animation-name: ui-fade; }
@@ -3685,6 +3637,18 @@
      instead; the page itself never does. */
   .ui-table-wide { min-width: 60rem; }
 
+  /* These customer-facing lists use every available pixel. Other columns keep
+     their content width; the name column receives the remaining room. */
+  .branch-fill-table.ui-table { width: max-content; min-width: 100%; table-layout: auto; }
+  .branch-fill-table .branch-fill-grow { width: auto; min-width: 12rem; }
+  .branch-fill-table tbody td { white-space: nowrap; }
+  .branch-fill-table tbody td.ui-action-col { overflow: visible; }
+  /* Invoice references vary by series and year. Let their real content set
+     the minimum width so the next cell cannot paint over a long number. */
+  .invoice-fill-table.ui-table { width: max-content; min-width: 100%; }
+  .invoice-fill-table thead th.invoice-number-column,
+  .invoice-fill-table tbody td.ui-col-id { min-width: max-content; white-space: nowrap; }
+
   /* The shell owns the viewport, and everything under it is painted the same
      ground. Without this, any height the shell does not claim — a browser
      where 100dvh resolves short, a window taller than the page was rendered
@@ -3712,6 +3676,7 @@
   .ui-rail .ui-nav-item[data-active='true'][data-tone] svg,
   .ui-rail .ui-nav-item:not([data-level='module'])[data-active='true'][data-tone] svg { color: rgb(var(--nav-fg)); }
   .ui-rail .ui-nav-item[data-active='true']::before { background-color: rgb(var(--brand)); }
+
 
   /* The two pickers in the top bar say where you are working — the branch and
      the warehouse every document will be filed against. They were plain
@@ -3972,20 +3937,83 @@
     align-items: center;
     gap: 0.75rem;
     min-height: 2.75rem;   /* matches the compact list rows used elsewhere */
-    padding: 0.375rem 0.75rem;
+    padding: 0.375rem 0.625rem;
     background-color: rgb(var(--surface));
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+    border-radius: 0.5rem;
+    transition: background-color 120ms ease;
   }
-  .ui-feature-row + .ui-feature-row { border-top: 1px solid rgb(var(--border)); }
+  .ui-feature-row:hover { background-color: rgb(var(--surface-sunken) / 0.7); }
+  .ui-feature-row .text-sm { font-size: 0.8125rem; line-height: 1.125rem; }
+  .ui-feature-row + .ui-feature-row { margin-top: 0.125rem; }
   .ui-feature-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.125rem 0.75rem;
   }
-  .ui-feature-grid .ui-feature-row:nth-child(2) { border-top: 0; }
-  .ui-feature-grid .ui-feature-row:nth-child(even) { border-inline-start: 1px solid rgb(var(--border)); }
+  .ui-feature-catalog-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 1rem;
+  }
+  .ui-feature-catalog-wide { grid-column: 1 / -1; }
+  .ui-feature-category {
+    min-width: 0;
+    padding: 0.25rem;
+    background: transparent;
+  }
+  .ui-feature-category-heading {
+    margin-bottom: 0.25rem;
+    padding: 0.35rem 0.625rem;
+    border-radius: 0.5rem;
+    background: rgb(var(--heading-bg) / 0.72);
+  }
+  .ui-feature-category-heading .ui-t-label {
+    color: rgb(var(--fg));
+    font-weight: 800;
+  }
+  .ui-feature-search-row {
+    display: flex;
+    align-items: center;
+    flex: 1 1 16rem;
+  }
+  .ui-feature-search {
+    position: relative;
+    width: min(22rem, 40vw);
+    min-width: 14rem;
+  }
+  .ui-feature-search > svg {
+    position: absolute;
+    z-index: 1;
+    inset-inline-start: 0.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgb(var(--fg-muted));
+    pointer-events: none;
+  }
+  .ui-feature-search .ui-input {
+    padding-inline-start: 2.15rem;
+    border-radius: 8px;
+    background: rgb(var(--surface));
+  }
+  .features-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 45;
+    margin-inline: -0.25rem;
+    padding: 0.35rem 0.25rem 0.2rem;
+    border-bottom: 1px solid rgb(var(--border) / 0.7);
+    background: rgb(var(--surface) / 0.96);
+    backdrop-filter: blur(10px);
+  }
+  .features-sticky-header .ui-page-heading { margin-bottom: 0; }
+  @media (max-width: 720px) {
+    .ui-feature-search { width: min(100%, 22rem); min-width: 12rem; }
+  }
   @media (max-width: 850px) {
     .ui-feature-grid { grid-template-columns: minmax(0, 1fr); }
-    .ui-feature-grid .ui-feature-row:nth-child(2) { border-top: 1px solid rgb(var(--border)); }
-    .ui-feature-grid .ui-feature-row:nth-child(even) { border-inline-start: 0; }
   }
 
   .ui-feature-mark {
@@ -4019,6 +4047,7 @@
     height: 1.875rem;
     padding-block: 0.125rem;
     flex: none;
+    font-size: 0.8125rem;
   }
 
   .ui-feature-toolbar .ui-input { min-height: 2rem; height: 2rem; }
@@ -4511,11 +4540,13 @@
     padding-block: 0.1875rem;
   }
   .customer-list-page,
+  .receipts-list-page,
   .item-list-page,
   .master-item-list-page,
   .cash-bank-transactions-page,
   .journal-list-page,
-  .sales-list-page {
+  .sales-list-page,
+  .currency-list-page {
     display: flex;
     flex-direction: column;
     height: calc(100dvh - 2.5rem);
@@ -4523,19 +4554,23 @@
     gap: .25rem;
   }
   .customer-list-page > :not([hidden]) ~ :not([hidden]),
+  .receipts-list-page > :not([hidden]) ~ :not([hidden]),
   .item-list-page > :not([hidden]) ~ :not([hidden]),
   .master-item-list-page > :not([hidden]) ~ :not([hidden]),
   .cash-bank-transactions-page > :not([hidden]) ~ :not([hidden]),
   .journal-list-page > :not([hidden]) ~ :not([hidden]),
-  .sales-list-page > :not([hidden]) ~ :not([hidden]) {
+  .sales-list-page > :not([hidden]) ~ :not([hidden]),
+  .currency-list-page > :not([hidden]) ~ :not([hidden]) {
     margin-top: 0;
   }
   .customer-list-page > .ui-page-heading,
+  .receipts-list-page > .ui-page-heading,
   .item-list-page > .ui-page-heading,
   .master-item-list-page > .ui-page-heading,
   .cash-bank-transactions-page > .ui-page-heading,
   .journal-list-page > .ui-page-heading,
-  .sales-list-page > .ui-page-heading {
+  .sales-list-page > .ui-page-heading,
+  .currency-list-page > .ui-page-heading {
     margin-bottom: 0;
     padding-block: .35rem;
     /* The page is a fixed-height column; when its actions wrap onto three
@@ -4543,16 +4578,19 @@
     flex: 0 0 auto;
   }
   .customer-list-page > section[aria-label='Summary'] .ui-card,
+  .receipts-list-page > section[aria-label='Summary'] .ui-card,
   .journal-list-page > section[aria-label='Summary'] .ui-card,
   .sales-list-page > section[aria-label='Summary'] .ui-card {
     padding-block: .25rem;
   }
   .customer-list-page > .ui-card:last-child,
+  .receipts-list-page > .ui-card:last-child,
   .item-list-page > .ui-card:last-child,
   .master-item-list-page > .ui-card:last-child,
   .cash-bank-transactions-page > .ui-card:last-child,
   .journal-list-page > .ui-card:last-child,
-  .sales-list-page > .ui-card:last-child {
+  .sales-list-page > .ui-card:last-child,
+  .currency-list-page > .ui-card:last-child {
     display: flex;
     min-height: 0;
     flex: 1 1 auto;
@@ -4563,15 +4601,18 @@
     flex: 0 0 auto;
   }
   .customer-list-page .customer-table-scroll,
+  .receipts-list-page .transactions-table-scroll,
   .item-list-page .item-table-scroll,
   .master-item-list-page .master-item-table-scroll,
   .cash-bank-transactions-page .cash-bank-transactions-scroll:not(.cash-bank-transactions-empty),
   .journal-list-page .journal-table-scroll:not(.journal-table-empty),
-  .sales-list-page .ui-table-scroll {
+  .sales-list-page .ui-table-scroll,
+  .currency-list-page .currency-table-scroll {
     height: auto;
     min-height: 0;
     max-height: none;
     flex: 1 1 auto;
+    overflow: auto;
   }
   .customer-table-scroll,
   .vendor-table-scroll,
@@ -4589,6 +4630,31 @@
     min-height: 0;
     max-height: none;
   }
+  .receipts-list-page .transactions-table-scroll {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+    overflow: auto;
+  }
+  .receipts-list-page .transactions-table-scroll { overflow-x: hidden; overflow-y: auto; }
+  .receipts-list-page .receipts-bottom-scroll { flex: 0 0 auto; width: 100%; height: 14px; overflow-x: auto; overflow-y: hidden; }
+  .receipts-list-page .receipts-pagination { padding: .2rem .75rem; min-height: 2rem; gap: .4rem; }
+  .receipts-list-page .receipts-pagination .ui-btn { min-height: 1.5rem; padding: .1rem .4rem; }
+  .receipts-list-page .receipts-pagination select { width: 5.5rem; }
+  .transactions-table-scroll.transactions-table-empty {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
+  /* Receipt and payment columns follow their longest visible value. A fixed
+     table width lets long voucher numbers and party names paint over the next
+     cell instead of enlarging their own column. */
+  .transactions-table-scroll > .ui-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+  }
   .settings-content:has(.item-list-page) {
     min-height: 0;
     padding: .35rem !important;
@@ -4599,33 +4665,65 @@
     padding: .35rem !important;
     overflow: hidden;
   }
+  .settings-content:has(.currency-list-page) {
+    min-height: 0;
+    padding: .35rem !important;
+    overflow: hidden;
+  }
   .settings-content .item-list-page {
     height: 100%;
   }
   .settings-content .master-item-list-page {
     height: 100%;
   }
+  .settings-content .currency-list-page {
+    height: 100%;
+  }
   .item-list-page .item-table-scroll {
     height: auto;
     min-height: 0;
     max-height: none;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
   }
+  .item-master-table.ui-table { width: max-content; min-width: 100%; table-layout: auto; }
+  .item-master-table th, .item-master-table td:not([colspan]) { box-sizing: border-box; padding-inline: .4rem; white-space: nowrap; }
+  .item-master-table :is(th, td).item-name-column { width: auto; min-width: 18rem; }
+  .item-master-table :is(th, td):not(.item-name-column) { width: 1%; }
+  .item-master-table .ui-action-col { overflow: visible; text-align: center; }
   .master-item-list-page .master-item-table-scroll {
     height: auto;
     min-height: 0;
     max-height: none;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
+  }
+  /* Units are a short reference list, so they read as one clean catalogue
+     rather than a spreadsheet inside a bordered card. */
+  .uom-list-page .master-item-table-scroll {
+    background: rgb(var(--surface));
+    border-radius: 12px;
+  }
+  .master-auto-table.ui-table { width: max-content; min-width: 100%; table-layout: auto; }
+  .master-auto-table thead th, .master-auto-table tbody td:not([colspan]) { box-sizing: border-box; padding-inline: .4rem; white-space: nowrap; }
+  .master-auto-table :is(th, td).master-grow-column { width: auto; min-width: 16rem; }
+  .master-auto-table :is(th, td):not(.master-grow-column) { width: 1%; }
+  .master-auto-table .ui-action-col { overflow: visible; text-align: center; }
+  .uom-master-table thead th + th,
+  .uom-master-table tbody td + td {
+    border-left: 0;
+  }
+  .uom-master-table thead th,
+  .uom-master-table tbody td {
+    padding-top: .3rem !important;
+    padding-bottom: .3rem !important;
   }
   .journal-list-page .journal-table-scroll {
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
   }
   .cash-bank-transactions-page .cash-bank-transactions-scroll {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: auto;
   }
   .cash-bank-transactions-page .cash-bank-transactions-empty {
     height: auto;
@@ -4659,16 +4757,28 @@
     width: 100%;
     table-layout: fixed;
   }
-  .journal-entry-table .journal-col-number { width: 13%; }
-  .journal-entry-table .journal-col-date { width: 11%; }
-  .journal-entry-table .journal-col-narration { width: 22%; }
-  .journal-entry-table .journal-col-money { width: 11%; }
-  .journal-entry-table .journal-col-status { width: 10%; }
-  .journal-entry-table .journal-col-actions { width: 22%; }
+  .journal-entry-table .journal-col-number { width: 30%; }
+  .journal-entry-table .journal-col-date { width: 12%; }
+  .journal-entry-table .journal-col-narration { width: 34%; }
+  .journal-entry-table .journal-col-money { width: 10%; }
+  .journal-entry-table .journal-col-actions { width: 4%; }
   .journal-entry-table td,
   .journal-entry-table th {
-    padding-block: .42rem;
+    padding-block: .34rem;
+    padding-inline: .35rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+  .journal-entry-table tbody td.ui-col-entity {
+    color: rgb(var(--fg));
+    font-size: var(--type-body);
+    font-style: normal;
+    font-weight: 400;
+  }
+  .journal-entry-table tbody td.ui-col-id { font-size: var(--type-body); }
+  .journal-entry-table tbody td.ui-action-col { overflow: visible; }
+  .journal-entry-table thead th { overflow: visible; }
   .journal-table-empty .ui-in {
     padding-block: 2rem;
   }
@@ -5797,19 +5907,28 @@ th.ui-th {
 .numbering-designer { display: flex; min-width: 0; height: 100%; min-height: 0; flex-direction: column; overflow: hidden; }
 .numbering-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .35rem; }
 .numbering-title-actions { display: flex; align-items: center; gap: .4rem; }
-.numbering-layout { display: grid; grid-template-columns: minmax(14rem, 27%) minmax(0, 1fr); min-height: 0; flex: 1; gap: .65rem; align-items: stretch; overflow: hidden; }
+.numbering-layout { display: grid; grid-template-columns: minmax(11.5rem, 23%) minmax(0, 1fr); min-width: 0; min-height: 0; flex: 1; gap: .5rem; align-items: stretch; overflow: hidden; }
 .numbering-types { display: flex; min-height: 0; flex-direction: column; overflow: hidden; }
 .numbering-pane-heading { display: flex; flex-direction: column; padding: .42rem .55rem; border-bottom: 1px solid rgb(var(--border)); }
 .numbering-pane-heading span { color: rgb(var(--fg-muted)); font-size: var(--type-support); }
 .numbering-types nav { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-.numbering-types nav button { display: grid; grid-template-columns: 1.55rem minmax(0, 1fr) auto; align-items: center; width: 100%; gap: .35rem; min-height: 2.35rem; padding: .2rem .4rem; text-align: left; border-bottom: 1px solid rgb(var(--border)); }
+.numbering-types nav button { display: grid; grid-template-columns: 1.55rem minmax(0, 1fr) auto; align-items: center; width: 100%; gap: .35rem; min-height: 2rem; padding: .2rem .4rem; text-align: left; border-bottom: 1px solid rgb(var(--border)); }
 .numbering-types nav button[data-active='true'] { background: rgb(var(--page-heading-bg)); box-shadow: inset .18rem 0 0 rgb(var(--brand)); }
 .numbering-types nav button > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
 .numbering-types nav button b { font-size: .75rem; }
 .numbering-types nav button small { overflow: hidden; color: rgb(var(--fg-muted)); font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
 .numbering-doc-icon { display: grid; width: 1.45rem; height: 1.45rem; place-items: center; color: rgb(var(--brand)); background: rgb(var(--brand) / .1); }
-.numbering-editor { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-.numbering-editor-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .75rem; padding: .45rem .6rem; border-bottom: 1px solid rgb(var(--border)); }
+.numbering-editor { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.numbering-editor-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .5rem; padding: .45rem .6rem; border-bottom: 1px solid rgb(var(--border)); }
+.numbering-series-table { width: 100%; table-layout: fixed; }
+.ui-table.numbering-series-table thead th, .ui-table.numbering-series-table tbody td { min-width: 0; padding: .45rem .4rem; overflow-wrap: anywhere; white-space: normal; vertical-align: middle; }
+.numbering-series-table th:nth-child(1) { width: 29%; }
+.numbering-series-table th:nth-child(2) { width: 17%; }
+.numbering-series-table th:nth-child(3) { width: 28%; }
+.numbering-series-table th:nth-child(4) { width: 17%; }
+.numbering-series-table th:nth-child(5) { width: 9%; }
+.numbering-series-table td:last-child { text-align: right; }
+.numbering-series-table .ui-pill { white-space: nowrap; }
 .numbering-head-preview { display: flex; align-items: center; gap: .4rem; }
 .numbering-head-preview span { color: rgb(var(--fg-muted)); font-size: var(--type-support); }
 .numbering-head-preview strong { padding: .28rem .55rem; color: rgb(var(--fg)); font-size: .8rem; letter-spacing: .02em; background: rgb(var(--page-heading-bg)); border: 1px solid rgb(var(--border)); }
@@ -5829,8 +5948,8 @@ th.ui-th {
 .numbering-switch-row input:checked { background: rgb(var(--brand)); }
 .numbering-switch-row input:checked::before { transform: translateX(.85rem); }
 @media (max-width: 900px) {
-  .numbering-layout { grid-template-columns: 1fr; }
-  .numbering-types nav { max-height: 15rem; }
+  .numbering-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .numbering-types nav { max-height: 8rem; }
   .numbering-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .company-profile-view {
@@ -5851,6 +5970,100 @@ th.ui-th {
 .settings-users-header-slot {
   order: 1;
   margin-inline-start: auto;
+}
+.master-data-page-bar {
+  min-height: 2.25rem;
+  padding: 0 !important;
+  background-color: rgb(var(--surface-sunken)) !important;
+}
+.master-data-page-bar > div {
+  width: 100%;
+  gap: 0;
+}
+.master-data-page-bar > div > button {
+  flex: 0 0 15rem;
+  justify-content: flex-start;
+  padding-inline: .75rem;
+}
+.master-data-header-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.master-data-header-slot .ui-page-heading {
+  width: 100%;
+  min-height: 2.25rem;
+  margin: 0;
+  padding: .15rem .5rem;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: .5rem;
+  border: 0;
+  background-color: transparent !important;
+}
+.master-data-header-slot .ui-page-heading h1 {
+  font-size: .875rem !important;
+  line-height: 1.2rem !important;
+}
+.master-data-header-slot .ui-page-heading > :last-child {
+  margin-inline-start: auto;
+}
+.settings-compact-page-bar {
+  min-height: 2.25rem;
+  padding: 0 .5rem 0 0 !important;
+  background-color: rgb(var(--surface-sunken)) !important;
+}
+.settings-compact-topbar { gap: 0; }
+.settings-compact-back {
+  flex: 0 0 15rem;
+  justify-content: flex-start;
+  padding-inline: .75rem;
+  margin: 0;
+}
+.settings-compact-title {
+  padding-inline: .5rem;
+  font-size: .875rem !important;
+  line-height: 1.2rem !important;
+}
+.settings-compact-header-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.settings-compact-header-slot > * {
+  width: 100%;
+  margin: 0;
+  padding: .15rem .5rem;
+  min-height: 2.25rem;
+  align-items: center;
+  background-color: transparent !important;
+}
+.settings-compact-header-slot h1 { font-size: .875rem !important; }
+.settings-compact-header-slot .branch-list-toolbar {
+  padding: .15rem .5rem;
+  gap: .5rem;
+  border-radius: 0;
+  background: transparent !important;
+}
+.settings-compact-header-slot .branch-list-toolbar > :first-child {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  white-space: nowrap;
+}
+.settings-compact-header-slot .branch-list-toolbar .ui-t-sec { font-size: .875rem; }
+.settings-compact-page-bar > label { margin-inline: .5rem; }
+.settings-compact-page-bar + .settings-workspace > .settings-content {
+  padding: 0 .35rem .35rem !important;
+}
+
+
+@media (max-width: 639px) {
+  .settings-compact-back { flex-basis: auto; }
+}
+@media (max-width: 639px) {
+  .master-data-page-bar > div > button { flex-basis: auto; }
+  .master-data-header-slot .ui-page-heading { flex-wrap: wrap; }
 }
 .users-settings-page .ui-page-heading {
   margin-bottom: 0;
@@ -5911,9 +6124,8 @@ th.ui-th {
 .roles-settings-table th:nth-child(4) { width: 16%; }
 .roles-settings-table th:nth-child(5) { width: 10%; }
 .company-profile-actions {
-  position: absolute;
-  right: 0;
-  top: -3.55rem;
+  position: static;
+  margin-bottom: .75rem;
 }
 
 /* Company profile: two fields per row, following the compact statutory-form
@@ -6060,6 +6272,96 @@ th.ui-th {
   min-height: 1.35rem !important;
 }
 
+
+#main-content:has(.import-center-page) { overflow:hidden; }
+.import-center-page { max-width: 100%; display:flex; flex-direction:column; height:100%; min-height:0; gap:.6rem; }
+.import-center-page > :not([hidden]) ~ :not([hidden]) { margin-top:0; }
+.import-center-page > :not(.import-review-workspace) { flex-shrink:0; }
+.import-center-page > .ui-page-heading { margin-bottom: 0; padding-block: .35rem; }
+.import-center-page { background: rgb(var(--surface)); }
+.import-upload-card { border-color: rgb(var(--border)); box-shadow: 0 1px 3px rgb(var(--fg) / .04); }
+.import-csv-input { min-height: 7rem; resize: vertical; }
+.import-section-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding-bottom:.65rem; border-bottom:1px solid rgb(var(--border)); }
+.import-section-heading h2 { margin:0; font-size:1rem; font-weight:700; color:rgb(var(--fg)); }
+.import-section-heading p { margin:.2rem 0 0; font-size:.75rem; color:rgb(var(--fg-muted)); }
+.import-file-badge { border-radius:999px; padding:.25rem .55rem; background:rgb(var(--brand-soft)); color:rgb(var(--brand-ink)); font-size:.7rem; font-weight:700; }
+.import-help-text { margin:0; padding:.55rem .7rem; border-radius: 12px; background:rgb(var(--surface-sunken)); color:rgb(var(--fg-muted)); font-size:.75rem; }
+.import-fields-panel { overflow:hidden; border-top:1px solid rgb(var(--border)); }
+.import-fields-title { padding:.5rem .7rem; background:rgb(var(--heading-bg)); border-bottom:1px solid rgb(var(--border)); font-size:.75rem; font-weight:700; color:rgb(var(--fg)); }
+.import-fields-table { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; }
+.import-field-chip { min-height:3.2rem; padding:.45rem .6rem; border-right:1px solid rgb(var(--border)); border-bottom:1px solid rgb(var(--border)); }
+.import-field-chip strong { display:block; font-size:.72rem; font-weight:700; color:rgb(var(--fg)); }
+.import-field-chip span { color:rgb(var(--neg)); margin-left:.15rem; }
+.import-field-chip small { display:block; margin-top:.15rem; font-size:.62rem; color:rgb(var(--fg-muted)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.import-input-label { display:flex; align-items:center; gap:.3rem; }
+@media (max-width: 900px) { .import-fields-table { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width: 600px) { .import-fields-table { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.import-center-page > .ui-card { border-radius: 12px; }
+.import-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+.import-kpi { min-height: 4.2rem; padding: .55rem .7rem; border: 1px solid rgb(var(--border)); border-radius: 12px; display: grid; grid-template-columns: 1.9rem 1fr; align-content:center; align-items: center; column-gap: .55rem; row-gap:.08rem; background:rgb(var(--surface)); color:rgb(var(--fg)); }
+.import-kpi i { grid-row:1 / 4; display:grid; place-items:center; width:1.9rem; height:1.9rem; border-radius: 8px; background:rgb(var(--accent-soft)); color:rgb(var(--accent)); font-style:normal; }
+.import-kpi span { font-size: .68rem; font-weight: 600; color:rgb(var(--fg-muted)); letter-spacing:0; text-transform:none; }
+.import-kpi strong { font-size: 1.05rem; line-height: 1.15; color:rgb(var(--fg)); font-weight:650; }
+.import-kpi small { grid-column: 2; font-size: .62rem; color:rgb(var(--fg-muted)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.import-kpi-blue i { color:rgb(var(--info)); }
+.import-kpi-green i { color:rgb(var(--pos)); }
+.import-kpi-amber i { color:rgb(var(--warn)); }
+.import-kpi-red i { color:rgb(var(--neg)); }
+.import-status-tabs { display:flex; align-items:center; gap:1.2rem; min-height:2.2rem; padding:0 .25rem; border-bottom:1px solid rgb(var(--border)); }
+.import-status-tabs span { padding:.55rem .25rem; color:rgb(var(--fg-muted)); font-size:.72rem; font-weight:600; }
+.import-status-tabs span b { margin-left:.2rem; color:rgb(var(--fg)); font-weight:700; }
+.import-status-tabs .is-active { color:rgb(var(--brand-ink)); border-bottom:2px solid rgb(var(--brand)); }
+.import-review-workspace { min-height:0; flex:1; display:flex; flex-direction:column; background:rgb(var(--surface)); border-radius:.5rem; }
+.import-review-toolbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; padding:.2rem .5rem 0; }
+.import-review-toolbar .import-status-tabs { border:0; gap:.75rem; flex-shrink:0; }
+.import-status-tabs button { padding:.7rem .25rem; border-bottom:2px solid transparent; background:transparent; font-size:.75rem; color:rgb(var(--fg-muted)); white-space:nowrap; }
+.import-status-tabs button b { font-weight:500; }
+/* The search box is the shared .ui-input; this only places it and its icon. */
+.import-review-search { display:flex; align-items:center; gap:.4rem; margin-left:auto; color:rgb(var(--fg-muted)); }
+.import-review-search input { width:14rem; max-width:100%; }
+.import-review-scroll { flex:1; min-height:0; overflow:auto; margin-top:.25rem; }
+.import-review-table { min-width:60rem; }
+.import-review-table th:first-child { width:2.5rem; }
+.import-review-table th:last-child { width:4rem; }
+.import-review-table th { font-size:.7rem; text-transform:none; letter-spacing:0; }
+.import-review-table td { font-size:.75rem; padding:.5rem .65rem; }
+.import-review-table td strong { font-weight:600; }
+.import-row-file { display:block; margin-top:.15rem; font-size:.65rem; color:rgb(var(--fg-muted)); }
+.import-row-remark { display:block; max-width:17rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.import-review-status { display:inline-flex; border-radius:999px; padding:.15rem .55rem; font-size:.68rem; font-weight:600; white-space:nowrap; }
+.import-review-status[data-status='Ready'], .import-review-status[data-status='Imported'] { background:rgb(var(--pos-soft)); color:rgb(var(--pos)); }
+.import-review-status[data-status='Needs Review'] { background:rgb(var(--warn-soft)); color:rgb(var(--warn-ink)); }
+.import-review-status[data-status='Errors'] { background:rgb(var(--neg-soft)); color:rgb(var(--neg)); }
+.import-review-empty { min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.4rem; padding:.6rem; color:rgb(var(--fg-muted)); text-align:center; max-width:calc(100vw - 2rem); }
+.import-review-empty h2 { font-size:.95rem; font-weight:600; color:rgb(var(--fg)); }
+.import-review-empty p { font-size:.8rem; max-width:28rem; }
+.import-upload-drawer { width:min(38rem,100vw); }
+.gst-rates-table-wrap { max-height:60vh; overflow:hidden; }
+.gst-rates-page > .ui-card { overflow:visible; }
+.gst-rates-table-wrap { overflow:visible; }
+.gst-rates-table-wrap .ui-table { width:100%; min-width:0; table-layout:fixed; }
+.gst-rates-table-wrap th:nth-child(1), .gst-rates-table-wrap td:nth-child(1) { width:18%; }
+.gst-rates-table-wrap th:nth-child(2), .gst-rates-table-wrap td:nth-child(2) { width:auto; }
+.gst-rates-table-wrap th:nth-child(3), .gst-rates-table-wrap td:nth-child(3) { width:8rem; }
+
+.gst-rates-table-wrap td:last-child { position:relative; z-index:1001; }
+.gst-rates-table-wrap .ui-table-sticky thead,
+.gst-rates-table-wrap .ui-table-sticky thead th { z-index:0 !important; }
+.import-upload-drawer .import-upload-card { border:0; box-shadow:none; padding:0; }
+.import-upload-drawer .import-upload-card > .grid { grid-template-columns:1fr; }
+.import-upload-drawer .import-fields-table { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.import-line-details { display:grid; grid-template-columns:1fr 1.5fr; gap:.6rem; font-size:.8rem; }
+.import-line-details dt { color:rgb(var(--fg-muted)); }
+.import-line-details dd { overflow-wrap:anywhere; }
+@media (max-width: 720px) { .import-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .import-kpi { min-height:3.8rem; padding:.45rem .65rem; }
+  .import-kpi i { width:2rem; height:2rem; }
+  .import-review-search { flex:1; margin-left:0; }
+  .import-review-search input { width:100%; min-width:0; }
+}
+
+
 /* One compact column-header height across list tables, entry grids and
    report tables. The 16px label line plus 5.6px above and below is 27.2px,
    approximately 15% below the previous 32px header. */
@@ -6176,6 +6478,7 @@ th.ui-th {
 .ui-rail .ui-nav-item[data-active='true']::before {
   background-color: rgb(var(--heading-hover));
 }
+
 
 /* Creation forms use the full workspace beside the application rail. A small
    gap keeps the drawer visually separate from navigation, while min-width: 0
@@ -6546,7 +6849,7 @@ th.ui-th {
 /* Branch settings follows the same compact list-and-detail rhythm as the
    primary application pages while remaining inside the Settings workspace. */
 .settings-branches {
-  padding-top: .35rem;
+  padding-top: 0;
 }
 .settings-branches .branch-list-toolbar :where(.ui-input, .ui-btn) {
   min-height: 2rem;
@@ -6618,6 +6921,16 @@ th.ui-th {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--type-body);
+}
+.settings-branches .branch-table :is(th, td):last-child {
+  padding-inline: .4rem;
+  overflow: visible;
+  text-align: center;
+}
+.settings-branches .branch-table td:last-child .ui-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .settings-branches .branch-table td:first-child button {
   max-width: 100%;
@@ -6763,6 +7076,627 @@ th.ui-th {
   .ui-row-total > th {
     font-weight: 500;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Books: report, receipt and import screens (ported from the Books developer)
+--------------------------------------------------------------------------- */
+/* P&L report controls and statement column sizing */
+select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
+.profit-loss-table-wrapper { overflow: hidden; }
+.profit-loss-table-wrapper.pnl-multi-comparison { overflow-x: auto; }
+.pnl-multi-comparison .pnl-particulars-heading,
+.pnl-multi-comparison .profit-loss-statement tbody td:first-child {
+  position: sticky;
+  left: 0;
+  box-shadow: inset -1px 0 rgb(var(--border-strong));
+}
+.pnl-period-heading {
+  border-right: 1px solid rgb(var(--border-strong));
+  border-bottom: 1px solid rgb(var(--border));
+}
+.pnl-period-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.pnl-particulars-heading { border-right: 1px solid rgb(var(--border-strong)); }
+.pnl-amount-heading { border-right: 1px solid rgb(var(--border)); }
+.pnl-report-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.pnl-report-table thead th {
+  border-right: 1px solid rgb(var(--border));
+  border-bottom: 1px solid rgb(var(--border));
+}
+.pnl-report-table thead tr:last-child th,
+.pnl-report-table thead th[rowspan] {
+  border-bottom-color: rgb(var(--border-strong));
+}
+.pnl-report-table thead th:last-child {
+  border-right: 0;
+}
+.profit-loss-table-wrapper > .profit-loss-statement {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+.profit-loss-statement th,
+.profit-loss-statement td { box-sizing: border-box; overflow: hidden; }
+.profit-loss-statement th { resize: none; }
+.profit-loss-statement .profit-loss-blank-cell {
+  padding: 0;
+  background: rgb(var(--surface));
+}
+.profit-loss-statement tbody tr { border-top: 0 !important; }
+.report-section-heading > td,
+.report-section-heading > td:first-child,
+.report-section-heading > .profit-loss-blank-cell {
+  background-color: rgb(var(--surface)) !important;
+  font-size: 12.5px;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+}
+.report-section-heading button { font-size: inherit; font-weight: 700 !important; text-transform: uppercase; }
+.ledger-summary-table th {
+  border: 1px solid rgb(var(--border));
+  white-space: nowrap;
+}
+.inventory-report-table thead th {
+  border: 1px solid rgb(var(--border));
+  white-space: nowrap;
+  font-weight: 700;
+}
+.inventory-report-table tbody td { border: 0; }
+.inventory-report-table tbody tr:hover { background: rgb(var(--heading-bg) / 0.45); }
+.inventory-register-toolbar,
+.inventory-register-actions { flex-wrap: nowrap; }
+.inventory-register-toolbar { gap: .75rem; }
+.inventory-register-toolbar > :first-child { flex: 0 0 auto; }
+.inventory-register-actions > * { flex: 0 0 auto; }
+.inventory-register-actions input[aria-label="Search this report"] { width: 11rem; }
+.inventory-register-actions select[aria-label="Warehouse"] { width: 9.5rem; min-width: 0; }
+.inventory-register-table { table-layout: fixed; }
+.inventory-register-table th,
+.inventory-register-table td { padding: .4rem .5rem; }
+.inventory-register-table th:nth-child(1) { width: 9%; }
+.inventory-register-table th:nth-child(2) { width: 14%; }
+.inventory-register-table th:nth-child(3) { width: 13%; }
+.inventory-register-table th:nth-child(4) { width: 10%; }
+.inventory-register-table th:nth-child(5) { width: 10%; }
+.inventory-register-table th:nth-child(6) { width: 10%; }
+.inventory-register-table th:nth-child(7) { width: 18%; }
+.inventory-register-table th:nth-child(8) { width: 7%; }
+.inventory-register-table th:nth-child(9) { width: 9%; }
+.inventory-register-table tbody td { overflow-wrap: anywhere; vertical-align: top; }
+.inventory-register-report .inventory-register-toolbar,
+.inventory-register-report .inventory-register-actions { flex-wrap: wrap; }
+.inventory-register-report .inventory-register-actions { flex: 0 0 auto; }
+.inventory-register-report .inventory-register-actions select[aria-label="Report period"] { width: 8rem; }
+.inventory-register-grid { table-layout: fixed; }
+.inventory-register-grid th { white-space: nowrap; font-weight: 700; }
+.inventory-register-grid td { overflow-wrap: anywhere; vertical-align: top; }
+
+
+@media (max-width: 860px) {
+  .inventory-register-report .inventory-register-toolbar,
+  .inventory-register-report .inventory-register-actions { flex-wrap: wrap; }
+  .inventory-register-table-wrap { overflow-x: auto; }
+  .inventory-register-grid { min-width: 850px; }
+}
+@media print {
+  
+}
+@media (max-width: 940px) {
+  .inventory-register-toolbar,
+  .inventory-register-actions { flex-wrap: wrap; }
+  .inventory-register-table { min-width: 850px; }
+}
+.ledger-summary-header-action { float: right; margin-left: 4px; padding: 0; color: rgb(var(--fg-muted)); }
+.ledger-summary-header-editor {
+  position: absolute;
+  inset: 2px 8px 2px 2px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgb(var(--heading-bg));
+}
+.ledger-summary-header-editor > button { padding: 0 4px; }
+.ledger-summary-table tbody td {
+  border: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ledger-summary-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  z-index: 2;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+.balance-sheet-gap > td { height: 14px; padding: 0 !important; }
+.pnl-print-heading { display: none; }
+.trial-balance-print-heading { display: none; }
+.cash-flow-print-heading { display: none; }
+.financial-print-heading { display: none; }
+.catalog-report-print-heading { display: none; }
+
+@media print {
+  body.balance-sheet-printing * { visibility: hidden !important; }
+  body.balance-sheet-printing .balance-sheet-print-area,
+  body.balance-sheet-printing .balance-sheet-print-area * { visibility: visible !important; }
+  body.balance-sheet-printing .balance-sheet-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+  }
+  body.balance-sheet-printing .financial-print-heading {
+    display: grid !important;
+    gap: 2px;
+    text-align: center;
+    padding: 3mm 0 4mm;
+    color: #111;
+    font-size: 11px;
+  }
+  body.balance-sheet-printing .financial-print-heading strong { font-size: 14px; }
+  body.balance-sheet-printing .profit-loss-table-wrapper {
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  body.balance-sheet-printing .profit-loss-statement { width: 100% !important; }
+  body.balance-sheet-printing .profit-loss-statement button {
+    border: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: #111 !important;
+    text-decoration: none !important;
+  }
+  body.balance-sheet-printing .profit-loss-statement svg { display: none !important; }
+  body.cash-flow-printing .cash-flow-table-wrapper { overflow: visible !important; }
+  body.catalog-report-printing * { visibility: hidden !important; }
+  body.catalog-report-printing .catalog-report-print-area,
+  body.catalog-report-printing .catalog-report-print-area * { visibility: visible !important; }
+  body.catalog-report-printing .catalog-report-print-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; border: 0 !important; color: #111 !important; background: white !important; }
+  body.catalog-report-printing .catalog-report-print-heading { display: block !important; margin: 0 0 12px; padding: 8px; }
+  body.catalog-report-printing .catalog-report-table { width: 100% !important; min-width: 0 !important; }
+  body.catalog-report-printing .catalog-report-table tr { break-inside: avoid; }
+  body.catalog-report-printing .catalog-report-table th,
+  body.catalog-report-printing .catalog-report-table td { font-size: 10px !important; color: #111 !important; }
+  body.cash-flow-printing * { visibility: hidden !important; }
+  body.cash-flow-printing .cash-flow-print-area,
+  body.cash-flow-printing .cash-flow-print-area * { visibility: visible !important; }
+  body.cash-flow-printing .cash-flow-print-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; border: 0 !important; color: #111 !important; background: white !important; }
+  body.cash-flow-printing .cash-flow-print-heading { display: block !important; margin: 0 0 12px; padding: 8px; }
+  body.cash-flow-printing .cash-flow-table { width: 100% !important; }
+  body.cash-flow-printing .cash-flow-table svg,
+  body.cash-flow-printing .cash-flow-ui-only { display: none !important; }
+  body.cash-flow-printing .cash-flow-table button { color: #111 !important; text-decoration: none !important; }
+  body.cash-flow-printing .cash-flow-table tr { break-inside: avoid; }
+  body.cash-flow-printing .cash-flow-table th,
+  body.cash-flow-printing .cash-flow-table td { font-size: 10px !important; color: #111 !important; }
+  body.trial-balance-printing * { visibility: hidden !important; }
+  body.trial-balance-printing .trial-balance-print-area,
+  body.trial-balance-printing .trial-balance-print-area * { visibility: visible !important; }
+  body.trial-balance-printing .trial-balance-print-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; border: 0 !important; color: #111 !important; background: white !important; }
+  body.trial-balance-printing .trial-balance-period { display: none !important; }
+  body.trial-balance-printing .trial-balance-print-heading { display: block !important; margin: 0 0 12px; padding: 8px; }
+  body.trial-balance-printing .trial-balance-table { width: 100% !important; }
+  body.trial-balance-printing .trial-balance-table tr { break-inside: avoid; }
+  body.trial-balance-printing .trial-balance-table th,
+  body.trial-balance-printing .trial-balance-table td { font-size: 10px !important; color: #111 !important; }
+  @page { size: A4 landscape; margin: 10mm; }
+  body.pnl-report-printing * { visibility: hidden !important; }
+  body.pnl-report-printing .profit-loss-table-wrapper,
+  body.pnl-report-printing .profit-loss-table-wrapper * { visibility: visible !important; }
+  body.pnl-report-printing .profit-loss-table-wrapper {
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  body.pnl-report-printing .profit-loss-table-wrapper > .flex { display: none !important; }
+  body.pnl-report-printing .pnl-print-heading {
+    display: block !important;
+    text-align: center;
+    padding: 3mm 0 4mm;
+    color: #111;
+  }
+  body.pnl-report-printing .pnl-print-company { font-size: 16px; font-weight: 700; }
+  body.pnl-report-printing .pnl-print-address { font-size: 11px; margin-top: 2px; }
+  body.pnl-report-printing .pnl-print-title { font-size: 14px; font-weight: 700; margin-top: 6px; }
+  body.pnl-report-printing .pnl-print-period { font-size: 11px; margin-top: 3px; }
+  body.pnl-report-printing .profit-loss-statement {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+  body.pnl-report-printing .profit-loss-statement tr { break-inside: avoid; }
+  body.pnl-report-printing .profit-loss-statement th,
+  body.pnl-report-printing .profit-loss-statement td {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Inventory movement tables keep the descriptive columns readable while
+   giving each stock movement the same compact footprint. */
+.inventory-stock-table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+.inventory-table-scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+.inventory-stock-table th {
+  white-space: nowrap;
+  padding-inline: .25rem !important;
+}
+.inventory-stock-table .report-column-heading-button {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 0 !important;
+  gap: .2rem;
+}
+.inventory-stock-table td.ui-col-amount {
+  white-space: nowrap;
+}
+.sales-report-filter-active {
+  background: rgb(var(--brand-soft)) !important;
+  color: rgb(var(--brand-ink));
+  box-shadow: inset 0 -2px 0 rgb(var(--brand));
+}
+
+/* Receipts use the width each visible value needs, with compact ruled cells.
+   A resized column clips its own value instead of painting into the next one. */
+@media (min-width: 1024px) {
+  .receipts-list-page section[aria-label='Summary'] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.receipts-list-page .transactions-table-scroll > .receipts-data-table {
+  width: 100%;
+  min-width: 100%;
+  table-layout: auto;
+}
+.receipts-list-page .receipts-data-table :is(th, td) {
+  box-sizing: border-box;
+  padding-inline: .25rem !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.receipts-list-page .transactions-table-scroll > .receipts-data-table > :is(thead, tbody) > tr > :is(th, td) {
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
+.receipts-list-page .receipts-data-table tbody td:nth-child(-n+6),
+.receipts-list-page .receipts-data-table tbody td:nth-child(-n+6) :is(span, a, button, time) {
+  color: rgb(var(--fg)) !important;
+  font-family: inherit !important;
+  font-size: var(--type-body) !important;
+  font-weight: 400 !important;
+  font-style: normal;
+  letter-spacing: normal !important;
+  line-height: 1.125rem;
+}
+.receipts-list-page .receipts-data-table tbody td.ui-col-date { font-variant-numeric: tabular-nums; }
+.receipts-list-page .receipts-data-table .ui-cell-ref { padding: 0; margin: 0; }
+.receipts-list-page .receipts-data-table .ui-cell-ref:hover { background: transparent; text-decoration: none; }
+.receipts-list-page .receipts-data-table tbody td { padding-block: .34rem !important; }
+.receipts-list-page .receipts-data-table thead th { padding-block: .3rem !important; }
+.receipts-list-page .receipts-data-table .report-column-heading-button {
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: .15rem;
+}
+.receipts-list-page .receipts-data-table th.ui-num .report-column-heading-button { margin-left: auto; }
+.receipts-list-page .receipts-data-table .report-column-heading-button > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.receipts-list-page .receipts-data-table:not(.receipts-data-table-manual) :is(th, td):nth-child(1) { width: 6rem; min-width: 6rem; max-width: 6rem; }
+.receipts-list-page .receipts-data-table:not(.receipts-data-table-manual) :is(th, td):nth-child(2) { width: 12.8rem; min-width: 12.8rem; max-width: 12.8rem; }
+.receipts-list-page .receipts-data-table:not(.receipts-data-table-manual) :is(th, td):nth-child(5) { width: 10.3rem; min-width: 10.3rem; max-width: 10.3rem; }
+.receipts-list-page .receipts-data-table :is(th, td):nth-child(7) { width: 2.3rem; min-width: 2.3rem; max-width: 2.3rem; }
+.receipts-list-page .receipts-data-table-manual :is(th, td) { min-width: 0; max-width: none; }
+.receipts-list-page .receipts-data-table:not(.receipts-data-table-manual) td:nth-child(6) { min-width: 7.5rem; }
+.receipts-list-page .receipts-data-table td:nth-child(7) { width: 2.3rem; padding-inline: .2rem !important; }
+.receipts-list-page .receipts-data-table td:nth-child(2) > * { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.receipts-list-page .transactions-table-scroll > .receipts-data-table-manual {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+/* Saved Receipt Voucher: one component in Master Data, on screen, and on paper. */
+.receipt-view-header-actions { display: flex; align-items: center; gap: .45rem; }
+.receipt-view-template { position: relative; display: flex; align-items: center; gap: .35rem; font-size: .75rem; color: rgb(var(--fg-muted)); }
+.receipt-view-template-menu { position: absolute; z-index: 100; top: calc(100% + .3rem); right: 0; min-width: 12rem; padding: .25rem; background: rgb(var(--surface)); border: 1px solid rgb(var(--border)); border-radius: .75rem; box-shadow: var(--shadow-pop); }
+.receipt-view-template-menu button { display: block; width: 100%; padding: .45rem .6rem; border: 0; border-radius: .5rem; background: transparent; color: rgb(var(--fg)); text-align: left; font-size: .77rem; }
+.receipt-view-template-menu button:hover, .receipt-view-template-menu button[aria-checked='true'] { background: rgb(var(--surface-sunken)); }
+.receipt-view-template-separator { height: 1px; margin: .2rem .35rem; background: rgb(var(--border)); }
+.receipt-template-drawer-overlay { position: fixed; z-index: var(--z-drawer); inset: 0; background: rgb(0 0 0 / 0.55); }
+.receipt-template-drawer { position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(27rem, 94vw); background: rgb(var(--surface)); box-shadow: var(--shadow-pop); }
+.receipt-template-drawer > header, .receipt-template-drawer > footer { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .8rem 1rem; border-bottom: 1px solid rgb(var(--border)); }
+.receipt-template-drawer > header small { color: rgb(var(--fg-muted)); }
+.receipt-template-drawer > header h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+.receipt-template-drawer > footer { justify-content: flex-end; border-top: 1px solid rgb(var(--border)); border-bottom: 0; }
+.receipt-template-drawer-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem; }
+.receipt-template-drawer-scroll > .invoice-template-field { display: flex; margin-bottom: .8rem; }
+@media (max-width: 680px) {
+  .receipt-view-header-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .receipt-view-template span { display: none; }
+}
+.receipt-voucher {
+  --receipt-accent: 44 105 185;
+  width: min(100%, 46rem);
+  margin: 0 auto;
+  padding: 1.35rem;
+  background: #fff;
+  color: #17243a;
+  border: 1px solid #dce4ee;
+  border-radius: .45rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: .72rem;
+  line-height: 1.4;
+  box-shadow: 0 .35rem 1.2rem rgb(20 43 76 / .06);
+}
+.receipt-voucher[data-accent='indigo'] { --receipt-accent: 79 70 229; }
+.receipt-voucher[data-accent='green'] { --receipt-accent: 28 132 82; }
+.receipt-voucher[data-accent='orange'] { --receipt-accent: 209 101 34; }
+.receipt-voucher[data-accent='violet'] { --receipt-accent: 124 58 237; }
+.receipt-voucher[data-accent='slate'] { --receipt-accent: 80 98 118; }
+.receipt-voucher-header { display: grid; grid-template-columns: 6rem minmax(0, 1fr) 14rem; align-items: start; gap: .75rem; }
+.receipt-voucher-logo img { display: block; width: 5.7rem; height: auto; object-fit: contain; }
+.receipt-voucher-company { display: flex; flex-direction: column; gap: .06rem; min-width: 0; font-size: .62rem; }
+.receipt-voucher-company strong { font-size: .78rem; }
+.receipt-voucher-title { align-self: stretch; padding: .5rem .7rem; background: rgb(var(--receipt-accent) / .1); border-radius: .4rem; }
+.receipt-voucher-title > strong { display: block; font-size: 1.3rem; line-height: 1.15; letter-spacing: .055em; color: rgb(var(--receipt-accent)); }
+.receipt-voucher-title > div { display: grid; grid-template-columns: 1fr auto; gap: .5rem; margin-top: .35rem; }
+.receipt-voucher-title span { display: flex; flex-direction: column; gap: .05rem; font-size: .58rem; color: #65738a; }
+.receipt-voucher-title b { color: #17243a; font-size: .67rem; }
+.receipt-voucher-facts { display: grid; grid-template-columns: 1.1fr .9fr; gap: 1.2rem; margin: .85rem 0; }
+.receipt-voucher-from { display: flex; flex-direction: column; gap: .1rem; padding: .65rem .8rem; background: #f2f5f8; border-radius: .35rem; }
+.receipt-voucher-from small { color: #66748a; }
+.receipt-voucher-from strong { font-size: .8rem; }
+.receipt-voucher-facts dl { display: grid; gap: .17rem; margin: 0; }
+.receipt-voucher-facts dl > div { display: grid; grid-template-columns: 6.7rem minmax(0, 1fr); gap: .35rem; }
+.receipt-voucher-facts dt { color: #66748a; }
+.receipt-voucher-facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.receipt-voucher-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .64rem; }
+.receipt-voucher-table th, .receipt-voucher-table td { padding: .38rem .28rem; border: 1px solid #e5ebf2; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.receipt-voucher-table :is(th, td)[data-column='serialNumber'] { width: 1.4rem; padding-inline: .22rem; text-align: center; white-space: nowrap; }
+.receipt-voucher-table thead { background: rgb(var(--receipt-accent) / .09); }
+.receipt-voucher-table thead th { font-weight: 700; line-height: 1.2; }
+.receipt-voucher-table :is(th, td)[data-column='invoiceAmount'], .receipt-voucher-table :is(th, td)[data-column='tdsAmount'], .receipt-voucher-table :is(th, td)[data-column='receivedAmount'] { text-align: right; }
+.receipt-voucher-table tbody :is(td)[data-column='invoiceAmount'], .receipt-voucher-table tbody :is(td)[data-column='tdsAmount'], .receipt-voucher-table tbody :is(td)[data-column='receivedAmount'] { white-space: nowrap; }
+.receipt-voucher-table tfoot { background: #f1f5f9; font-weight: 700; }
+.receipt-voucher-table tfoot th:last-child { background: rgb(var(--receipt-accent) / .13); }
+.receipt-voucher-total, .receipt-voucher-words { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .7rem; padding: .5rem .7rem; background: #f2f5f8; border-radius: .32rem; }
+.receipt-voucher-total strong { font-size: 1rem; }
+.receipt-voucher-words span { color: #627188; white-space: nowrap; }
+.receipt-voucher-footer { display: grid; grid-template-columns: 1fr 1.2fr .9fr; gap: .75rem; margin-top: .8rem; padding-top: .65rem; border-top: 1px solid #e3e9f1; }
+.receipt-voucher-footer > div { display: flex; flex-direction: column; min-width: 0; gap: .08rem; padding-inline: .5rem; border-left: 1px solid #e3e9f1; }
+.receipt-voucher-footer > div:first-child { border-left: 0; padding-left: 0; }
+.receipt-voucher-footer b { font-size: .65rem; }
+.receipt-voucher-signature { align-items: center; justify-content: flex-end; text-align: center; background: rgb(var(--receipt-accent) / .06); border-radius: .3rem; }
+.receipt-voucher-signature span { margin-bottom: .35rem; font-family: cursive; font-size: .72rem; }
+
+
+@media (max-width: 680px) {
+  .receipt-voucher-header { grid-template-columns: 4.5rem minmax(0, 1fr); }
+  .receipt-voucher-logo img { width: 4.2rem; }
+  .receipt-voucher-title { grid-column: 1 / -1; }
+  .receipt-voucher-facts { grid-template-columns: 1fr; }
+  .receipt-voucher-footer { grid-template-columns: 1fr; }
+  .receipt-voucher-footer > div { border-left: 0; padding: .35rem 0; }
+  .receipt-voucher-table { font-size: .56rem; }
+  .receipt-voucher-table th, .receipt-voucher-table td { padding: .2rem; }
+}
+@media print {
+  body.receipt-printing > .receipt-print-host { padding: 8mm !important; box-sizing: border-box; }
+  .receipt-print-host .receipt-voucher { width: 100%; max-width: none; padding: 0; border: 0; box-shadow: none; }
+  .receipt-print-host .receipt-voucher :is(.receipt-voucher-title, .receipt-voucher-from, .receipt-voucher-table thead, .receipt-voucher-table tfoot, .receipt-voucher-words, .receipt-voucher-signature) { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+/* Sales lists size to the longest visible value in each column. A long
+   voucher or customer name grows its own column and the list scrolls only
+   when the sum of those widths exceeds the available viewport. */
+.sales-auto-table.ui-table { width: max-content; min-width: 100%; table-layout: auto; }
+.sales-auto-table.ui-table thead th,
+.sales-auto-table.ui-table tbody td:not([colspan]) { box-sizing: border-box; padding-inline: .4rem; white-space: nowrap; }
+.purchase-auto-table.ui-table { width: max-content; min-width: 100%; table-layout: auto; }
+.purchase-auto-table.ui-table thead th,
+.purchase-auto-table.ui-table tbody td:not([colspan]) { box-sizing: border-box; padding-inline: .4rem; white-space: nowrap; }
+.inventory-auto-table.ui-table { width: max-content; min-width: 100%; table-layout: auto; }
+.inventory-auto-table.ui-table thead th,
+.inventory-auto-table.ui-table tbody td:not([colspan]) { box-sizing: border-box; padding-inline: .4rem; white-space: nowrap; }
+
+.stock-transfer-form .stock-transfer-details-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+  gap: .75rem;
+  padding: .75rem;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  background: rgb(var(--surface));
+}
+.stock-transfer-form > .ui-page-heading { width: 100%; min-width: 0; }
+.stock-transfer-header-controls { display: flex; align-items: center; gap: .5rem; min-width: 0; flex-wrap: wrap; }
+.stock-transfer-header-controls label { font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.stock-transfer-header-controls select { min-width: 8rem; }
+.stock-transfer-form > .stock-transfer-details-panel,
+.stock-transfer-form > .stock-transfer-lines,
+.stock-transfer-form > .stock-transfer-notes { margin-inline: .5rem; }
+.stock-transfer-form .stock-transfer-locations,
+.stock-transfer-form .stock-transfer-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: .75rem; min-width: 0; }
+.stock-transfer-form .stock-transfer-locations { grid-column: 1; grid-row: 1; }
+.stock-transfer-form .stock-transfer-meta { grid-column: 2; grid-row: 1 / span 2; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: end; border-inline-start: 1px solid rgb(var(--border)); padding-inline-start: .85rem; }
+.stock-transfer-form .stock-transfer-locations > div,
+.stock-transfer-form .stock-transfer-meta > div { min-width: 0; }
+
+.stock-transfer-form .stock-transfer-error { grid-column: 1 / -1; }
+.stock-transfer-form .stock-transfer-destination { grid-column: 1; grid-row: 2; display: grid; gap: .65rem; min-width: 0; }
+.stock-transfer-form .stock-transfer-destination-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; min-width: 0; }
+.stock-transfer-form .stock-transfer-destination-fields.is-branch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stock-transfer-form .stock-transfer-address-text { margin-top: .3rem; line-height: 1.35; overflow-wrap: anywhere; min-width: 0; }
+.stock-transfer-form .stock-transfer-address-beside { align-self: center; margin-top: 1rem; }
+.stock-transfer-form .stock-transfer-lines-heading { margin: .35rem 0 .7rem; padding-left: .55rem; border-left: 3px solid rgb(var(--fg)); }
+.stock-transfer-form .stock-transfer-lines-heading h2 { font-size: 1rem; font-weight: 700; line-height: 1.35; }
+.stock-transfer-form .stock-transfer-line-scroll { overflow-x: auto; border: 1px solid rgb(var(--border)); border-radius: 12px; }
+.stock-transfer-form .stock-transfer-line-table.ui-table { width: 100%; table-layout: fixed; }
+.stock-transfer-form .stock-transfer-line-table th,
+.stock-transfer-form .stock-transfer-line-table td { padding: .3rem .45rem; }
+.stock-transfer-form .stock-transfer-line-table th:last-child,
+.stock-transfer-form .stock-transfer-line-table td:last-child { text-align: center; }
+.stock-transfer-form .stock-transfer-add-line { margin-top: .6rem; }
+.stock-transfer-form .stock-transfer-total-wrap { display: flex; justify-content: flex-end; margin-top: .6rem; }
+.stock-transfer-form .stock-transfer-total-box { min-width: 16rem; display: grid; gap: .35rem; padding: .65rem .8rem; border: 1px solid rgb(var(--border)); border-radius: .5rem; background: rgb(var(--surface-sunken)); font-size: .8125rem; }
+.stock-transfer-form .stock-transfer-notes { display: flex; align-items: end; gap: 1rem; padding: .65rem .75rem; border: 1px solid rgb(var(--border)); border-radius: 12px; }
+.stock-transfer-form .stock-transfer-note-field { display: grid; gap: .2rem; flex: 1 1 auto; min-width: 0; }
+.stock-transfer-form .stock-transfer-notes > .ui-muted { max-width: 22rem; }
+@media (max-width: 850px) {
+  .stock-transfer-form .stock-transfer-details-panel { grid-template-columns: minmax(0, 1fr); }
+  .stock-transfer-form .stock-transfer-locations,
+  .stock-transfer-form .stock-transfer-meta { grid-column: 1; grid-row: auto; }
+  .stock-transfer-form .stock-transfer-meta { border-inline-start: 0; padding-inline-start: 0; }
+  .stock-transfer-form .stock-transfer-destination { grid-column: 1; grid-row: auto; }
+  .stock-transfer-form .stock-transfer-destination-fields.is-branch { grid-template-columns: minmax(0, 1fr); }
+  .stock-transfer-form .stock-transfer-notes { flex-wrap: wrap; }
+}
+
+/* Keep the journal voucher outside Tailwind's layer pruning: it is opened on
+   demand, so its document classes must be available before that first click. */
+@media (min-width: 1280px) {
+  .journal-list-page > section[aria-label='Summary'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.journal-detail-page { width: 100%; min-width: 0; padding: .25rem .35rem 1.25rem; }
+.journal-detail-page > div > div:first-child {
+  min-height: 2.75rem;
+  padding: .25rem .65rem;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  background: rgb(var(--surface-sunken));
+}
+.journal-detail-page > div > div:first-child .ui-title { color: rgb(var(--fg)); }
+.journal-detail-page > div > div:last-child { margin-top: .65rem; }
+.journal-voucher-paper {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.3rem 1.5rem;
+  background: #fff;
+  border: 1px solid #d5dbe1;
+  border-radius: .4rem;
+  color: #17212b;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: .8125rem;
+}
+.journal-voucher-head { text-align: center; padding-bottom: .9rem; }
+.journal-voucher-head h1 { margin: 0; font-size: 1.125rem; line-height: 1.4; font-weight: 700; }
+.journal-voucher-head p { margin: .1rem 0 0; color: #56616e; line-height: 1.4; }
+.journal-voucher-head h2 { margin: .7rem 0 0; font-size: .9375rem; line-height: 1.3; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.journal-voucher-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1.5rem; border-top: 1px solid #d5dbe1; border-bottom: 1px solid #d5dbe1; padding: .75rem 0; }
+.journal-voucher-meta > div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .5rem; min-width: 0; align-items: start; }
+.journal-voucher-meta span { color: #66717d; }
+.journal-voucher-meta strong { overflow-wrap: anywhere; font-weight: 600; }
+.journal-voucher-lines { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: .85rem; }
+.journal-voucher-lines :is(th, td) { padding: .55rem .5rem; border-bottom: 1px solid #e2e6ea; text-align: left; vertical-align: top; }
+.journal-voucher-lines thead th, .journal-voucher-lines tfoot th { background: #edf2f6; font-weight: 700; }
+.journal-voucher-lines thead th:first-child, .journal-voucher-lines tbody td:first-child { width: 2.5rem; }
+.journal-voucher-lines thead th:nth-child(4), .journal-voucher-lines thead th:nth-child(5) { width: 18%; }
+.journal-voucher-lines .ui-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.journal-voucher-lines td small { display: block; margin-top: .1rem; color: #66717d; }
+.journal-voucher-narration { margin-top: 1rem; padding: .65rem .75rem; background: #f6f8fa; border-radius: .25rem; }
+.journal-voucher-narration span { color: #66717d; font-weight: 600; }
+.journal-voucher-narration p { margin: .3rem 0 0; white-space: pre-wrap; }
+@media (max-width: 700px) {
+  .journal-detail-page > div > div:first-child { flex-wrap: wrap; }
+  .journal-voucher-paper { padding: 1rem; }
+  .journal-voucher-meta { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+  .journal-voucher-paper { max-width: none; border: 0; border-radius: 0; padding: 0; }
+}
+
+.journal-entry-form { width: 100%; min-width: 0; }
+.journal-entry-form > .ui-card { border-radius: 12px; }
+.journal-entry-form table { table-layout: fixed; }
+.journal-entry-form table td { min-width: 0; }
+.journal-entry-form table td:first-child > * { width: 100%; min-width: 0; }
+.journal-entry-meta { display: grid; grid-template-columns: minmax(0, 1fr); gap: .65rem; padding: .7rem .85rem; }
+.journal-entry-branch { grid-row: 1; grid-column: 1; width: min(20rem, 100%); align-self: end; }
+.journal-entry-meta .ui-panel { grid-row: 1; grid-column: 1; }
+.journal-entry-narration { grid-row: 2; }
+.journal-entry-narration { min-width: 0; width: 100%; }
+.journal-entry-meta .ui-panel { width: max-content; max-width: 100%; min-width: 0; justify-self: end; display: grid; grid-template-columns: 11rem 10rem; gap: .75rem; padding: 0; border: 0; background: transparent !important; }
+.journal-entry-meta .ui-panel > div { min-width: 0; width: 100%; }
+.journal-entry-meta .ui-panel > div:first-child > .relative { width: 100%; }
+.journal-entry-meta .ui-panel input#doc-number, .journal-entry-meta .ui-panel input#doc-date { width: 100% !important; }
+@media (max-width: 760px) {
+  .journal-entry-branch { grid-row: 1; }
+  .journal-entry-meta .ui-panel { grid-row: 2; }
+  .journal-entry-narration { grid-row: 3; }
+  .journal-entry-meta .ui-panel { justify-self: start; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); width: 100%; }
+}
+
+.import-center-page .ui-page-heading { min-height: 3.25rem; }
+.import-center-page .ui-page-heading .ui-t-page { font-size: 1.25rem; }
+.import-review-table { width: 100%; min-width: 0; table-layout: fixed; }
+.import-review-table th:nth-child(1) { width: 2.5rem; }
+.import-review-table th:nth-child(2) { width: 17%; }
+.import-review-table th:nth-child(3) { width: 12%; }
+.import-review-table th:nth-child(4) { width: 18%; }
+.import-review-table th:nth-child(5), .import-review-table th:nth-child(6) { width: 10%; }
+.import-review-table th:nth-child(7) { width: 8%; }
+.import-review-table th:nth-child(9) { width: 5.5rem; }
+.import-review-table td { overflow: hidden; text-overflow: ellipsis; }
+.import-row-actions { display: flex; align-items: center; gap: .2rem; }
+.import-review-table.is-journal th:last-child { width: auto; }
+.import-journal-clickable { cursor: pointer; }
+.import-journal-clickable:hover { background: rgb(var(--surface-sunken)); }
+.import-journal-clickable:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: -2px; }
+.import-journal-detail { display: flex; flex-direction: column; gap: .8rem; }
+.import-journal-detail header { text-align: center; display: flex; flex-direction: column; gap: .2rem; }
+.import-journal-detail header h3 { font-size: 1.1rem; font-weight: 700; }
+.import-journal-detail-meta { display: flex; gap: 2rem; padding: .65rem 0; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+.import-journal-detail-meta > div { display: flex; flex-direction: column; gap: .15rem; font-size: .8rem; }
+.import-journal-detail-meta span, .import-journal-detail-narration span { color: rgb(var(--fg-muted)); }
+.import-journal-detail-narration { padding: .6rem .75rem; background: rgb(var(--surface-sunken)); border-radius: 12px; font-size: .8rem; }
+.import-correction-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.import-correction-error { padding: .6rem .75rem; border-radius: 12px; background: rgb(var(--neg-soft)); color: rgb(var(--neg)); font-size: .8rem; }
+.import-journal-editor { display: flex; flex-direction: column; gap: .75rem; }
+.import-journal-meta { display: flex; flex-direction: column; gap: .65rem; padding: .75rem; }
+.import-journal-top-fields { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 11rem); gap: .75rem; justify-content: end; }
+.import-journal-lines-wrap { overflow-x: auto; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+.import-journal-lines { width: 100%; min-width: 40rem; table-layout: fixed; }
+.import-journal-lines th, .import-journal-lines td { padding: .35rem .45rem; }
+.import-journal-lines th:nth-child(1) { width: 30%; }
+.import-journal-lines th:nth-child(2) { width: 34%; }
+.import-journal-lines th:nth-child(3), .import-journal-lines th:nth-child(4) { width: 16%; }
+.import-journal-lines th:nth-child(5) { width: 4%; }
+.import-journal-totals { align-self: end; width: min(20rem, 100%); padding: .7rem 0; border-top: 1px solid rgb(var(--border)); }
+.import-journal-totals > div { display: flex; justify-content: space-between; gap: 1rem; padding: .2rem 0; font-size: .8rem; }
+.import-journal-totals > div:last-child { border-top: 1px solid rgb(var(--border)); margin-top: .3rem; padding-top: .5rem; }
+@media (max-width: 700px) {
+  .import-correction-fields { grid-template-columns: minmax(0, 1fr); }
+  .import-review-table { min-width: 48rem; }
 }
 
 /* ---- Legal documents (packages/shell/legal) -------------------------------
@@ -8876,3 +9810,106 @@ button.ui-side-alert { cursor: pointer; }
 .ui-auth-scene-band .ui-auth-scene-title {
   display: none;
 }
+
+/* The split rail (Books, owner 15 Nov 2026). Unlayered and last, so it
+   outranks the rail rules above it. A 72px strip of modules, each
+   an icon over its name, and beside it a panel of the open module's
+   screens. The strip and the panel share one hairline. */
+.app-nav-shell { padding: 0; }
+.app-nav-layout { display: flex; min-width: 0; }
+.app-nav-modules {
+  flex: 0 0 4.5rem;
+  padding: 0.375rem 0.3125rem;
+  border-inline-end: 1px solid rgb(var(--rail-border));
+  scrollbar-width: thin;
+}
+.ui-rail .app-nav-modules .app-nav-module {
+  width: 100%;
+  min-height: 3rem;
+  margin-bottom: 0.125rem;
+  padding: 0.375rem 0.125rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1875rem;
+  text-align: center;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  font-weight: 500;
+  border-radius: 8px;
+}
+/* Two lines at most: "Cash & Bank" and "Journal Entries" break at the space instead of losing their ends. */
+.app-nav-modules .app-nav-module > span { max-width: 100%; overflow: hidden; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+/* No bar on the strip: a module is lit by its fill, the bar belongs to the screen you are on. */
+.ui-rail .app-nav-modules .app-nav-module::before { display: none; }
+/* The screens panel, drawn like the other apps' second panel (rnd.css
+   .ui-split-panel): Books' clor.in blue tint with its hairline (--nav-panel),
+   a Sora title, uppercase group labels, 36px rows, and the open screen a
+   white tile with a hairline ring and a 3px brand edge. */
+.app-nav-sections {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.75rem 0.5rem;
+  background: rgb(var(--nav-panel, var(--brand-subtle)));
+  border-inline-end: 1px solid rgb(var(--nav-panel-border, var(--brand-border)));
+  scrollbar-width: thin;
+}
+.app-nav-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.125rem 0.5rem 0.625rem;
+  margin-bottom: 0.25rem;
+  font-family: var(--font-brand, 'Sora', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: rgb(var(--nav-panel-ink, var(--fg-heading, var(--fg))));
+}
+.app-nav-section-close { flex: none; width: 1.75rem; height: 1.75rem; min-height: 1.75rem; padding: 0; color: rgb(var(--fg-subtle)); }
+.app-nav-section-heading {
+  padding: 1rem 0.625rem 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-subtle));
+}
+.ui-rail .app-nav-sections .app-nav-section-item {
+  width: 100%;
+  min-height: 2.25rem;
+  margin-bottom: 2px;
+  padding: 0 0.625rem !important;
+  gap: 0.625rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: rgb(var(--fg-muted));
+  background: transparent;
+}
+.ui-rail .app-nav-sections .app-nav-section-item > svg { color: inherit; }
+.ui-rail .app-nav-sections .app-nav-section-item:hover { background: rgb(var(--surface) / 0.7); color: rgb(var(--fg)); }
+.ui-rail .app-nav-sections .app-nav-section-item[data-active='true'] {
+  background: rgb(var(--surface)) !important;
+  color: rgb(var(--fg)) !important;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: inset 3px 0 0 rgb(var(--nav-panel-mark, var(--brand))), 0 0 0 1px rgb(var(--nav-panel-border, var(--brand-border)));
+}
+.ui-rail .app-nav-sections .app-nav-section-item[data-active='true'] > svg { color: inherit; }
+/* The edge is the inset shadow; the rail's ::before bar would double it. */
+.ui-rail .app-nav-sections .app-nav-section-item::before { display: none; }
+.ui-rail .app-nav-modules .app-nav-module[data-active='true'] {
+  border-radius: 8px;
+  background: rgb(var(--nav-panel, var(--rail-active))) !important;
+  color: rgb(var(--nav-panel-ink, var(--nav-fg))) !important;
+}
+.ui-rail .app-nav-modules .app-nav-module[data-active='true'] > svg { color: rgb(var(--nav-panel-mark, var(--brand))) !important; }
+
+/* Import corrections: one line per section, divided by hairlines rather than a card per line inside the drawer. */
+.import-correction-line { padding-block: .75rem; border-top: 1px solid rgb(var(--border)); }
+.import-correction-line:first-of-type { border-top: 0; }

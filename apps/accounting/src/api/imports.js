@@ -8,6 +8,9 @@ const opts = { skipWarehouseHeader: true };
 
 export const listImportSpecs = () => apiFetch(`${base()}/imports/specs`, opts);
 
+/** The journal voucher series an imported journal can be numbered from. */
+export const listJournalImportSeries = () => apiFetch(`${base()}/imports/journal-series`, opts).then((d) => d?.series || []);
+
 export const stageImport = ({ docType, csv, fileName }) =>
   apiFetch(`${base()}/imports`, { method: 'POST', body: { docType, csv, fileName }, ...opts });
 

@@ -95,7 +95,7 @@ const isAfterDate = (dateStr, toDate) => {
   return d > to;
 };
 
-export const buildStockMovements = ({ db, companyId, warehouseId = '' }) => {
+export const buildStockMovements = ({ db, companyId, warehouseId = '', warehouseIds = null }) => {
   const items = safeArray(db?.items).filter((i) => Number(i?.companyId) === Number(companyId));
   const itemsById = new Map(items.map((i) => [String(i.id), i]));
   const whFilter = String(warehouseId || '').trim();
@@ -224,6 +224,7 @@ export const buildStockMovements = ({ db, companyId, warehouseId = '' }) => {
     const returnedToSource = String(t?.mismatchResolution || '') === 'RETURN';
 
     const date = String(t?.date || '').trim();
+    const receivedDate = String(t?.receivedDate || t?.receivedAt || date).slice(0, 10);
     const voucherId = t?.id;
     const voucherNumber = t?.number || '';
 
@@ -271,7 +272,7 @@ export const buildStockMovements = ({ db, companyId, warehouseId = '' }) => {
           movements.push(
             normalizeMovement({
               companyId,
-              date,
+              date: receivedDate,
               voucherType: 'stockTransfer',
               voucherId,
               voucherNumber,
@@ -305,7 +306,7 @@ export const buildStockMovements = ({ db, companyId, warehouseId = '' }) => {
           movements.push(
             normalizeMovement({
               companyId,
-              date,
+              date: receivedDate,
               voucherType: 'stockTransfer',
               voucherId,
               voucherNumber,
@@ -336,12 +337,14 @@ export const buildStockMovements = ({ db, companyId, warehouseId = '' }) => {
     return ta.localeCompare(tb);
   });
 
-  return { items, itemsById, movements };
+  const selectedWarehouses = Array.isArray(warehouseIds) ? new Set(warehouseIds.map(String)) : null;
+  return { items, itemsById, movements: selectedWarehouses ? movements.filter((m) => selectedWarehouses.has(m.warehouseId)) : movements };
 };
 
-export const computeInventorySummaryByItemId = ({ db, companyId, fromDate = '', toDate = '', warehouseId = '' }) => {
+export const computeInventorySummaryByItemId = ({ db, companyId, fromDate = '', toDate = '', warehouseId = '', warehouseIds = null }) => {
   const whFilter = String(warehouseId || '').trim();
-  const { items, movements } = buildStockMovements({ db, companyId, warehouseId: whFilter });
+  const selectedWarehouses = Array.isArray(warehouseIds) ? new Set(warehouseIds.map(String)) : null;
+  const { items, movements } = buildStockMovements({ db, companyId, warehouseId: whFilter, warehouseIds });
 
   const map = new Map();
   for (const item of items) {
@@ -349,6 +352,10 @@ export const computeInventorySummaryByItemId = ({ db, companyId, fromDate = '', 
     map.set(itemId, {
       itemId,
       openingQty: 0,
+      inQty: 0,
+      outQty: 0,
+      transferInQty: 0,
+      transferOutQty: 0,
       purchasesQty: 0,
       salesQty: 0,
       debitNoteQty: 0,
@@ -366,7 +373,9 @@ export const computeInventorySummaryByItemId = ({ db, companyId, fromDate = '', 
     // Opening stock now names its warehouse. Unfiltered, every item's opening
     // counts; filtered, only the opening that belongs to this warehouse does.
     const openingWh = getItemOpeningWarehouseId(item);
-    const openingCounts = !whFilter || !openingWh || openingWh === whFilter;
+    const openingCounts = selectedWarehouses
+      ? !openingWh || selectedWarehouses.has(openingWh)
+      : !whFilter || !openingWh || openingWh === whFilter;
     row.openingQty = openingCounts ? getItemOpeningQty(item) : 0;
     row.closingQty = row.openingQty;
   }
@@ -384,6 +393,8 @@ export const computeInventorySummaryByItemId = ({ db, companyId, fromDate = '', 
 
   // 2) Period movements and closing as-of toDate
   for (const m of movements) {
+    // Earlier movements are already included in openingQty above.
+    if (String(fromDate || '').trim() && isBeforeDate(m.date, fromDate)) continue;
     if (String(toDate || '').trim() && isAfterDate(m.date, toDate)) continue;
 
     const row = map.get(String(m.itemId));
@@ -391,6 +402,15 @@ export const computeInventorySummaryByItemId = ({ db, companyId, fromDate = '', 
 
     const inPeriod = isDateInRange(m.date, fromDate, toDate);
     if (inPeriod) {
+      // The summary's In and Out columns include every stock movement,
+      // including transfers. The voucher-specific figures remain available
+      // for detailed reports.
+      row.inQty = round2(row.inQty + m.qtyIn);
+      row.outQty = round2(row.outQty + m.qtyOut);
+      if (m.voucherType === 'stockTransfer') {
+        row.transferInQty = round2(row.transferInQty + m.qtyIn);
+        row.transferOutQty = round2(row.transferOutQty + m.qtyOut);
+      }
       if (m.voucherType === 'bill') row.purchasesQty = round2(row.purchasesQty + m.qtyIn);
       if (m.voucherType === 'invoice') row.salesQty = round2(row.salesQty + m.qtyOut);
       if (m.voucherType === 'debitNote') row.debitNoteQty = round2(row.debitNoteQty + m.qtyOut);
@@ -407,14 +427,18 @@ export const computeInventorySummaryByItemId = ({ db, companyId, fromDate = '', 
   return map;
 };
 
-export const buildItemStockLedger = ({ db, companyId, itemId, fromDate = '', toDate = '', warehouseId = '' }) => {
+export const buildItemStockLedger = ({ db, companyId, itemId, fromDate = '', toDate = '', warehouseId = '', warehouseIds = null }) => {
   const whFilter = String(warehouseId || '').trim();
-  const { itemsById, movements } = buildStockMovements({ db, companyId, warehouseId: whFilter });
+  const selectedWarehouses = Array.isArray(warehouseIds) ? new Set(warehouseIds.map(String)) : null;
+  const { itemsById, movements } = buildStockMovements({ db, companyId, warehouseId: whFilter, warehouseIds });
   const item = itemsById.get(String(itemId));
   if (!item) return { item: null, openingQty: 0, rows: [] };
 
   // Opening as-of fromDate (openingQty + net movements before fromDate)
-  let openingQty = whFilter ? 0 : getItemOpeningQty(item);
+  const openingWarehouse = getItemOpeningWarehouseId(item);
+  let openingQty = selectedWarehouses
+    ? (!openingWarehouse || selectedWarehouses.has(openingWarehouse) ? getItemOpeningQty(item) : 0)
+    : (!whFilter || !openingWarehouse || openingWarehouse === whFilter ? getItemOpeningQty(item) : 0);
   if (String(fromDate || '').trim()) {
     for (const m of movements) {
       if (String(m.itemId) !== String(itemId)) continue;

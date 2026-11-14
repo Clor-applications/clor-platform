@@ -16,7 +16,23 @@ The R&D hand-off in `clor-rnd/README.md` (with 77 screens in `clor-rnd/ui-screen
 is the source of truth. Where this file and the hand-off disagree, the hand-off
 wins and this file is the one to fix. Tokens live in `packages/ui/src/rnd.css`,
 loaded after `index.css` and `people.css`; Accounting (`data-palette='indigo'`)
-keeps its own look and is untouched.
+is outside the hand-off and keeps its own look, described below.
+
+### Books (Accounting) — owner, 15 Nov 2026
+
+Books wears the in-app red palette: headings oxblood `#5C0A16`, brand ink
+`#A50D26`, marigold `#F5A623`, blush tint `#FBE8EA`, page ground `#FAF6F4`,
+ink `#1F1A1C`, money in `#107E3E`, overdue / error `#B91C1C`. Indigo `#232A66`
+and bright `#3D4FE0` are Books' identity only (its app tile, mark and clor.in),
+never the chrome. The header row of every list (Invoice #, Customer, Date …)
+and the page heading band are the pale blue-grey `#EAF2F8` (`--heading-bg`,
+`--page-heading-bg`; hover `#DCEAF4`). Navigation is the split rail: a 72px
+strip of modules, each an icon over its name, and a panel of the open
+module's screens with an X to close it. The panel is drawn like every other
+app's second panel: a pale tint of Books' clor.in blue, `#EFF1FC` (`--nav-panel`), with its hairline,
+a Sora 800 title, uppercase group labels, 36px rows, and the open screen a
+white tile with a hairline ring and a 3px Books blue `#3D4FE0` edge; the open
+module in the strip sits on the same tint with a `#3D4FE0` icon and `#232A66` words.
 
 | Token | Hex | Use |
 |---|---|---|
@@ -690,6 +706,17 @@ because focus, portals and event order cannot be read off the source.
 7. Build Payroll on the primitives with no new layout code. That build proves the system holds.
 
 ## Decisions Log
+
+- **2026-11-15 — Books palette and split rail (owner):** Books leaves
+  Direction D's indigo/lilac for the in-app red palette (oxblood, brand ink
+  `#A50D26`, marigold, blush, `#FAF6F4` ground); indigo stays as Books' app
+  identity only. List header rows and the page heading band stay pale
+  blue-grey `#EAF2F8` on every list. The inline expanding rail and its
+  collapse toggle are replaced by the split rail from the Books developer's
+  build (module strip plus screens panel with a close X). The top bar is
+  three columns (company, centred search with FY, page and avatar) so a long
+  company name truncates instead of running under the search. Supersedes
+  "Accounting keeps its indigo" (2026-11-03).
 
 - **2026-11-14 — R&D brand (owner):** the `clor-rnd` hand-off replaces the neon
   brand, People coral, Attendance amber and Plus Jakarta Sans. Graphite +

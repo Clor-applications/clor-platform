@@ -10,3 +10,10 @@ export const listCurrencies = () => apiFetch(`${base()}/currencies`, opts);
 
 export const createCurrency = (currency) =>
   apiFetch(`${base()}/currencies`, { method: 'POST', body: currency, ...opts });
+
+export const updateCurrencyStatus = (currencyId, isActive) =>
+  apiFetch(`${base()}/currencies/${encodeURIComponent(currencyId)}`, {
+    method: 'PATCH',
+    body: { isActive: Boolean(isActive) },
+    ...opts,
+  });

@@ -11,7 +11,7 @@
  * code.
  */
 
-const DEFAULT_START = { service: 10000, goods: 20000 };
+const DEFAULT_START = { service: 10001, goods: 20001 };
 
 /** 'Service' → 'service'; anything else is goods. */
 export const itemTypeKey = (type) => (String(type || '').trim().toLowerCase() === 'service' ? 'service' : 'goods');

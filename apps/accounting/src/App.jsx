@@ -9,18 +9,24 @@ import { useCompanyFromServer } from '@ui/hooks/useCompanyFromServer';
 import Toaster from '@ui/components/ui/Toaster';
 import ResizableTables from '@ui/components/ResizableTables';
 import StockTransferModule, { StockTransferEditor } from './features/inventory/StockTransferModule';
+import { ensureBranchAccounts } from './features/inventory/branchAccounts';
+import { getPeriodLockPolicy } from './api/periodLock';
+import { listCustomers, listVendors } from '@ui/api/masters';
+import { reconcilePartyCodes } from '@ui/utils/partyCodeSync';
+import { isCompanyGstEnabled, isCompanyTaxEnabled } from '@ui/utils/gst';
 import { computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, Check, ChevronDown, ClipboardList, FileStack, FileText, Landmark, ListChecks, LogOut, NotebookPen, Package, PanelLeftClose, PanelLeftOpen, Plus, Receipt, RefreshCw, Search, Settings, ShoppingCart, SlidersHorizontal, Tags, Truck, UserRound, Users } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, Check, ChevronDown, ClipboardList, FileStack, FileText, Landmark, ListChecks, LogOut, NotebookPen, Package, PanelLeftOpen, Plus, Receipt, RefreshCw, Search, Settings, ShoppingCart, SlidersHorizontal, Tags, Truck, UserRound, Users, X } from 'lucide-react';
 /* Duotone icons for the module rail — the two-tone fill is what reads as a
    "coloured icon" rather than a tinted outline. Leaf items stay lucide, tinted
    with their module colour, so the two sets never mix at the same level. */
 import { Bank as PhBank, ChartBar as PhReports, Database as PhMaster, GearSix as PhSettings, Notebook as PhJournal, Package as PhInventory, Receipt as PhSales, ShieldCheck as PhApprovals, ShoppingCartSimple as PhPurchases, SquaresFour as PhDashboard, Wallet as PhExpenses } from '@phosphor-icons/react';
 import Modal from '@ui/components/ui/Modal';
 import { getDefaultDocSettings, initEmptyDB, normalizeDB } from './data/db';
+import { addInventoryReportSamples, addSampleScenario } from './data/sampleScenario';
 import InvoiceTemplateDesigner from './features/settings/InvoiceTemplateDesigner';
-import NumberingDesigner from './features/settings/NumberingDesigner';
-import { formatMoney, round2 } from '@ui/utils/money';
+import NumberingDesigner from './features/settings/NumberingSeriesDesigner';
+import { formatMoney, rememberCompanyDisplaySettings } from '@ui/utils/money';
 
 import {
   PaymentsTransactionsList,
@@ -101,6 +107,7 @@ const HUB_SCREENS = new Set([
   'tdsTcs',
   'trialBalance',
   'yearEndClose',
+  'periodLock',
 ]);
 
 const HUB_SCREEN_FEATURES = {
@@ -157,6 +164,7 @@ import ItemForm from './features/masters/ItemForm';
 import EmailSettings from './features/settings/EmailSettings';
 import ProfileSettings from './features/settings/ProfileSettings';
 import NumberingSettings from './features/settings/NumberingSettings';
+import CodeNumberingSettings from './features/settings/CodeNumberingSettings';
 import CurrencySettings from './features/settings/CurrencySettings';
 const BatchSerialManager = lazy(() => import('./features/inventory/BatchSerialManager'));
 const PriceLists = lazy(() => import('./features/pricing/PriceLists'));
@@ -175,6 +183,7 @@ const TdsTcsReport = lazy(() => import('./features/reports/TdsTcsReport'));
 const SalesBySalesman = lazy(() => import('./features/reports/SalesBySalesman'));
 const FixedAssets = lazy(() => import('./features/accounting/FixedAssets'));
 const YearEndClose = lazy(() => import('./features/accounting/YearEndClose'));
+const PeriodLockSettings = lazy(() => import('./features/settings/PeriodLockSettings'));
 const CostCenters = lazy(() => import('./features/accounting/CostCenters'));
 const SharedInvoice = lazy(() => import('./features/sales/SharedInvoice'));
 const BankReconciliation = lazy(() => import('./features/cashBank/BankReconciliation'));
@@ -212,7 +221,12 @@ import { useCommandPalette } from '@ui/components/ui/useCommandPalette';
 import SalesOverview from './features/sales/SalesOverview';
 import GovernanceSettings from './features/admin/GovernanceSettings';
 import ApprovalsInbox from './features/approvals/ApprovalsInbox';
+import ApprovalSettings from './features/approvals/ApprovalSettings';
 import LedgerTrialBalance from './features/reports/LedgerTrialBalance';
+import TrialBalanceReport from './features/reports/TrialBalanceReport';
+import ProfitLossReport from './features/reports/ProfitLossReport';
+import BalanceSheetReport from './features/reports/BalanceSheetReport';
+import CashFlowReport from './features/reports/CashFlowReport';
 import { FeatureProvider } from '@ui/permissions/FeatureProvider';
 import { useFeatures } from '@ui/permissions/useFeatures';
 import { useTheme } from '@ui/components/ui/useTheme';
@@ -225,10 +239,13 @@ import ReportsWorkspace from './features/reports/ReportsWorkspace';
 import { ExpensesList, ExpenseForm, JournalEntryForm } from './features/expenses/ExpenseScreens';
 import { normalizeId, ChartAccountForm } from './appShared';
 import { ItemsList, ChartOfAccounts, UomsList, ItemCategoriesList, GstRatesList } from './features/masters/AccountingMasters';
-import { LedgerView, ProfitLoss, BalanceSheet, CashFlowStatement } from './features/reports/FinancialStatements';
+import { LedgerView } from './features/reports/FinancialStatements';
 import { GstComplianceWorkspace, MsmeComplianceWorkspace } from './features/gst/GstCompliance';
 import { DocTemplateSettings, CompanyProfile, SettingsView } from './features/settings/AccountingSettingsView';
 import { resolveServerOrgId } from './appShared';
+
+// Screens the Reports module lights in the rail while one of them is open.
+const REPORT_SCREENS = new Set(['reports', 'trialBalance', 'profitLoss', 'balanceSheet', 'cashFlow', 'gstr1', 'gstr3b', 'salesReports']);
 export { SettingsView };
 export { LegacyGstr1Report } from './features/gst/GstCompliance';
 export { expenseTdsBase } from './features/expenses/ExpenseScreens';
@@ -303,89 +320,6 @@ const InventoryOverview = ({ db, currentCompany }) => {
 registerLedgerForm(ChartAccountForm);
 
 
-const TrialBalance = ({ db, currentCompany, onOpenLedger }) => {
-  const accounts = db.chartOfAccounts.filter((a) => a.companyId === currentCompany.id);
-  const groups = db.accountGroups.filter((g) => g.companyId === currentCompany.id);
-  const isDebitNature = (type) => ['Asset', 'Expense'].includes(String(type || '').trim());
-
-  const rows = useMemo(() => {
-    const groupById = new Map(groups.map((g) => [String(g.id), g]));
-    return accounts.map((account) => {
-      const bal = Number(account?.balance ?? 0);
-      const debitNature = isDebitNature(account?.type);
-
-      const debit = debitNature ? Math.max(0, bal) : Math.max(0, -bal);
-      const credit = debitNature ? Math.max(0, -bal) : Math.max(0, bal);
-
-      const groupName = account?.groupId ? String(groupById.get(String(account.groupId))?.name || '') : '';
-
-      return {
-        ...account,
-        _group: groupName,
-        _debit: round2(debit),
-        _credit: round2(credit),
-      };
-    });
-  }, [accounts, groups]);
-
-  const totalDebit = rows.reduce((sum, r) => sum + Number(r._debit ?? 0), 0);
-  const totalCredit = rows.reduce((sum, r) => sum + Number(r._credit ?? 0), 0);
-
-  return (
-    <div className="space-y-6">
-      <h3 className="ui-t-sec">Trial Balance</h3>
-
-      <div className="ui-surface rounded-xl shadow-sm overflow-hidden border">
-        <table className="ui-table w-full">
-          <thead className="ui-sunken border-b">
-            <tr>
-              <th className="ui-th">Account</th>
-              <th className="ui-th">Group</th>
-              <th className="ui-th ui-num">Debit</th>
-              <th className="ui-th ui-num">Credit</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {rows.map((account) => (
-              <tr key={account.id} className="ui-hover-sunken">
-                <td className="px-4 py-2.5 ui-col-meta">
-                  <button
-                    type="button"
-                    onClick={() => onOpenLedger && onOpenLedger(account.id)}
-                    className="font-medium text-left hover:underline"
-                  >
-                    {account.name}
-                  </button>
-                </td>
-                <td className="ui-col-meta px-4 py-2.5 ui-muted">{account._group || '-'}</td>
-                <td className="ui-col-amount px-4 py-2.5 text-right">
-                  {account._debit > 0 ? formatMoney(account._debit, currentCompany) : '-'}
-                </td>
-                <td className="ui-col-amount px-4 py-2.5 text-right">
-                  {account._credit > 0 ? formatMoney(account._credit, currentCompany) : '-'}
-                </td>
-              </tr>
-            ))}
-            <tr className="ui-sunken font-bold border-t-2">
-              <td className="px-4 py-2.5 ui-col-meta">TOTAL</td>
-              <td className="ui-col-amount px-4 py-2.5" />
-              <td className="ui-money px-4 py-2.5 text-right">{formatMoney(totalDebit, currentCompany)}</td>
-              <td className="ui-col-amount px-4 py-2.5 text-right">{formatMoney(totalCredit, currentCompany)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div className={`p-4 rounded-lg ${Math.abs(totalDebit - totalCredit) < 0.01 ? 'bg-[rgb(var(--pos-soft))]' : 'bg-[rgb(var(--neg-soft))]'}`}>
-        <p className={`font-medium ${Math.abs(totalDebit - totalCredit) < 0.01 ? 'text-[rgb(var(--pos))]' : 'text-[rgb(var(--neg))]'}`}>
-          {Math.abs(totalDebit - totalCredit) < 0.01 ? '✓ Trial Balance is balanced' : '✗ Trial Balance is not balanced'}
-        </p>
-      </div>
-    </div>
-  );
-};
-
-
 const AccountingOverview = () => {
   return (
     <div className="ui-surface rounded-xl shadow-sm p-6 border">
@@ -439,13 +373,16 @@ const SalesReports = ({ db, currentCompany }) => {
  * one line saying what question it answers, grouped by category. Tiles are
  * clickable cards, so they take the hover lift.
  */
-const ReportsOverview = ({ db, currentCompany, onNavigate, onExit, isEnabled, branches = [], warehouses = [], defaultBranchId = '', defaultWarehouseId = '' }) => (
+const ReportsOverview = ({ db, currentCompany, onNavigate, onExit, isEnabled, canView, branches = [], warehouses = [], defaultBranchId = '', defaultWarehouseId = '', onLoadSamples, onLoadInventorySamples }) => (
   <ReportsWorkspace
     db={db}
     currentCompany={currentCompany}
     onNavigate={onNavigate}
     onExit={onExit}
     isEnabled={isEnabled}
+    canView={canView}
+    onLoadSamples={onLoadSamples}
+    onLoadInventorySamples={onLoadInventorySamples}
     branches={branches}
     warehouses={warehouses}
     defaultBranchId={defaultBranchId}
@@ -692,8 +629,40 @@ const AppShell = () => {
     (db.companies || [])[0] ||
     { id: 1, name: 'Accounting', currency: 'INR' };
 
+  /* Money and dates are formatted from the company's own settings (currency,
+     decimal places, number and date format) by helpers that have no company
+     in hand, so the active company's choices are kept where they can read them. */
+  useEffect(() => {
+    if (isAuthenticated && currentCompany?.profile?.backendCompanyId) rememberCompanyDisplaySettings(currentCompany);
+  }, [isAuthenticated, currentCompany?.id, currentCompany?.currency, currentCompany?.profile?.backendCompanyId, currentCompany?.profile?.companySettings]);
+
   // Fresh browser, existing books: pull server documents into the local db.
   useServerDocSync({ enabled: isAuthenticated, currentCompanyId: currentCompany?.id, setDb });
+  /* Customer and vendor codes are allotted by the server, so the working copy
+     takes the server's codes whenever one of the two code features is on. */
+  const partyCodesOrgId = String(platformOrgId() || '').trim();
+  useEffect(() => {
+    if (!isAuthenticated || !partyCodesOrgId || !currentCompany?.id || featuresLoading || (!isEnabled('customerCodes') && !isEnabled('vendorCodes'))) return;
+    let cancelled = false;
+    const allPages = async (loader, field) => {
+      const rows = [];
+      for (let skip = 0; ; skip += 500) {
+        const page = await loader('', { limit: 500, skip });
+        const batch = Array.isArray(page?.[field]) ? page[field] : [];
+        rows.push(...batch);
+        if (batch.length < 500) return rows;
+      }
+    };
+    Promise.all([
+      isEnabled('customerCodes') ? allPages(listCustomers, 'customers') : Promise.resolve([]),
+      isEnabled('vendorCodes') ? allPages(listVendors, 'vendors') : Promise.resolve([]),
+    ]).then(([customers, vendors]) => {
+      if (!cancelled && String(platformOrgId() || '') === partyCodesOrgId) {
+        setDb((previous) => reconcilePartyCodes(previous, currentCompany.id, customers, vendors));
+      }
+    }).catch(() => { /* local master data remains available offline */ });
+    return () => { cancelled = true; };
+  }, [isAuthenticated, partyCodesOrgId, currentCompany?.id, featuresLoading, isEnabled('customerCodes'), isEnabled('vendorCodes'), setDb]);
   /* The TDS compliance stores follow the same rule as every master: local
      is the working copy, the server is where every device meets. */
   useTdsSync(db, setDb, isAuthenticated ? currentCompany : null);
@@ -845,6 +814,17 @@ const AppShell = () => {
    */
   const meUser = authCtx?.data?.user || {};
   const userEmail = String(meUser.email || localStorage.getItem('userEmail') || '').trim() || 'User';
+  /* The period-lock policy is the server's; the working copy carries it so
+     every form can refuse a locked date before the save is attempted. */
+  useEffect(() => {
+    if (!isAuthenticated || !activeOrgId || !currentCompany?.id) return;
+    let live = true;
+    getPeriodLockPolicy().then(({ policy }) => {
+      if (!live || !policy) return;
+      setDb((prev) => ({ ...prev, periodLockPolicies: [...(prev.periodLockPolicies || []).filter((row) => Number(row.companyId) !== Number(currentCompany.id)), { companyId: currentCompany.id, policy }] }));
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [isAuthenticated, activeOrgId, currentCompany?.id]);
   const userDisplayName =
     [meUser.firstName, meUser.lastName].filter(Boolean).join(' ').trim() || String(meUser.fullName || '').trim();
   const userAvatarUrl = meUser.avatarUrl || '';
@@ -1070,6 +1050,37 @@ const AppShell = () => {
     return scoped;
   }, [dbForAccess, branchesForUser, warehousesForUser, currentCompany?.id, displayedFinancialYear, financialYearCollections, financialYearForDate]);
 
+  // Inventory has its own branch, warehouse and period filters. Give it the
+  // full company movement history; the location selector limits movements to
+  // warehouses this user can access. The global active location would make a
+  // newly selected branch appear empty before Inventory could filter it.
+  const inventoryDbForUser = useMemo(() => ({
+    ...dbForUser,
+    invoices: db.invoices,
+    bills: db.bills,
+    debitNotes: db.debitNotes,
+    creditNotes: db.creditNotes,
+    stockAdjustments: db.stockAdjustments,
+    stockTransfers: db.stockTransfers,
+  }), [dbForUser, db.invoices, db.bills, db.debitNotes, db.creditNotes, db.stockAdjustments, db.stockTransfers]);
+
+  // A transfer belongs to both locations. The header's active warehouse and
+  // financial year must not remove it from the transfer register after saving.
+  // Keep the register limited to locations the user is allowed to access.
+  const transferDbForUser = useMemo(() => ({
+    ...dbForUser,
+    stockTransfers: (Array.isArray(db.stockTransfers) ? db.stockTransfers : []).filter((transfer) => {
+      if (Number(transfer?.companyId) !== Number(currentCompany?.id)) return false;
+      if (!hasBranchRestriction) return true;
+      const sourceBranch = String(transfer?.sourceBranchId || '').trim();
+      const targetBranch = String(transfer?.targetBranchId || '').trim();
+      const sourceWarehouse = String(transfer?.sourceWarehouseId || '').trim();
+      const targetWarehouse = String(transfer?.targetWarehouseId || '').trim();
+      return allowedBranchIdSet.has(sourceBranch) || allowedBranchIdSet.has(targetBranch)
+        || allowedWarehouseIdSet.has(sourceWarehouse) || allowedWarehouseIdSet.has(targetWarehouse);
+    }),
+  }), [dbForUser, db.stockTransfers, currentCompany?.id, hasBranchRestriction, allowedBranchIdSet, allowedWarehouseIdSet]);
+
   /* Another app's shell may send someone straight to settings (?open=settings or a settings key); taken once, then forgotten from the address. */
   const [active, setActive] = useState(() => {
     try {
@@ -1242,6 +1253,8 @@ const AppShell = () => {
   const [creditNoteEditor, setCreditNoteEditor] = useState({ open: false, initialOriginalInvoiceId: null });
   const [journalEditor, setJournalEditor] = useState({ open: false, initial: null });
   const [stockTransferEditor, setStockTransferEditor] = useState({ open: false, initial: null });
+  const [autoSubmitTransfer, setAutoSubmitTransfer] = useState(null);
+  const [templateVoucherKey, setTemplateVoucherKey] = useState('invoice');
 
   useEffect(() => {
     if (onSettingsDetour) return;
@@ -1265,7 +1278,7 @@ const AppShell = () => {
     if (active !== 'receipts') setReceiptEditor({ open: false });
     if (active !== 'payments' && active !== 'paymentsExpense') setPaymentEditor({ open: false });
     if (active !== 'journalEntries') setJournalEditor({ open: false, initial: null });
-    if (active !== 'warehouseTransfers' && active !== 'branchTransfers') setStockTransferEditor({ open: false, initial: null });
+    if (active !== 'warehouseTransfers' && active !== 'branchTransfers') setStockTransferEditor({ open: false, initial: null, mode: null });
   }, [active, onSettingsDetour]);
 
   // What each settings area would tell you if you opened it. Shown beside its
@@ -1280,8 +1293,7 @@ const AppShell = () => {
     if (!values.length) return '';
     return `${values.filter(Boolean).length}/${values.length}`;
   }, [currentCompany?.profile?.features]);
-  const gstStateLabel =
-    (currentCompany?.profile?.taxCompliances?.gstEnabled ?? currentCompany?.gstEnabled ?? currentCompany?.gstin) ? 'GST on' : 'GST off';
+  const gstStateLabel = isCompanyGstEnabled(currentCompany) ? 'GST on' : 'GST off';
   const emailStateLabel = currentCompany?.profile?.emailSettings?.fromAddress ? '' : 'Not set';
 
   const navModel = useMemo(
@@ -1301,11 +1313,11 @@ const AppShell = () => {
           { key: 'pos', label: 'POS', icon: Receipt, perm: 'SALES::Invoices::CREATE', feature: 'pos' },
           { key: 'receipts', label: 'Receipts', icon: Receipt, perm: 'SALES::Receipts::VIEW', feature: 'standaloneReceiptsPayments' },
           { key: 'estimates', label: 'Quotations', icon: ClipboardList, perm: 'SALES::Estimates::VIEW', feature: 'estimates' },
-          { key: 'salesOrders', label: 'Sales Orders', icon: ClipboardList, perm: 'SALES::Invoices::VIEW', feature: 'salesOrders' },
-          { key: 'deliveryChallans', label: 'Delivery Challans', icon: Truck, perm: 'SALES::Invoices::VIEW', feature: 'deliveryChallans' },
+          { key: 'salesOrders', label: 'Sales Orders', icon: ClipboardList, perm: 'SALES::Sales Orders::VIEW', feature: 'salesOrders' },
+          { key: 'deliveryChallans', label: 'Delivery Challans', icon: Truck, perm: 'SALES::Delivery Challans::VIEW', feature: 'deliveryChallans' },
           { key: 'creditNotes', label: 'Sales Returns', icon: Receipt, perm: 'SALES::Credit Notes::VIEW', feature: 'creditNotes' },
           { key: 'recurringInvoices', label: 'Recurring', icon: RefreshCw, perm: 'SALES::Invoices::VIEW', feature: 'recurringInvoices' },
-          { key: 'salesmen', label: 'Salesmen', icon: Users, perm: 'SALES::Invoices::VIEW', feature: 'salesmen' },
+          { key: 'salesmen', label: 'Salesmen', icon: Users, perm: 'MASTERS::Salesmen::VIEW', feature: 'salesmen' },
         ],
       },
       {
@@ -1374,11 +1386,24 @@ const AppShell = () => {
        * Settings → Payroll, so the month-end path is Overview, Pay Runs, done.
        */
       { type: 'item', key: 'journalEntries', label: 'Journal Entries', icon: PhJournal, ph: true, tone: 'journal', perm: 'ACCOUNTING::Journal Entries::VIEW' },
-      { type: 'item', key: 'approvals', label: 'Approvals', icon: PhApprovals, ph: true, tone: 'approvals', feature: 'approvals' },
+      {
+        /* `approvals` stays the key for the inbox itself: the shell, the
+           notification bell and saved links all open it by that name. */
+        type: 'group', key: 'approvalsMenu', label: 'Approvals', icon: PhApprovals, ph: true, tone: 'approvals', feature: 'approvals',
+        items: [
+          { key: 'approvalsOverview', label: 'Overview', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+          { key: 'approvals', label: 'My Approvals', icon: PhApprovals, ph: true, feature: 'approvals' },
+          { key: 'approvalsRequests', label: 'My Requests', icon: PhApprovals, ph: true, feature: 'approvals' },
+          { key: 'approvalsAll', label: 'All Approvals', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+          { key: 'settingsGovernance', label: 'Approval Workflows', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW' },
+          { key: 'approvalSettings', label: 'Approval Settings', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+          { key: 'approvalsHistory', label: 'Approval History', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+        ],
+      },
       {
         type: 'group',
         key: 'complianceMenu',
-        label: 'Compliance',
+        label: 'Taxes',
         tone: 'reports',
         icon: PhApprovals,
         ph: true,
@@ -1404,16 +1429,22 @@ const AppShell = () => {
            * under Organisation — so asking for company profile got you
            * whichever one you happened to click.
            */
+          { type: 'subgroup', label: 'Organisation' },
           { key: 'companies', label: 'Companies', icon: Building2, perm: 'SETTINGS::Company Profile::VIEW', feature: 'companyGroups' },
           { type: 'subgroup', label: 'Items' },
           { key: 'items', label: 'Item List', icon: Tags, perm: 'MASTERS::Items::VIEW' },
           { key: 'itemCategories', label: 'Item Categories', icon: Tags, perm: 'MASTERS::Items::VIEW' },
           { key: 'uoms', label: 'Units', icon: Boxes, perm: 'MASTERS::Items::VIEW' },
           { key: 'priceLists', label: 'Price Lists', icon: Tags, perm: 'MASTERS::Items::VIEW', feature: 'priceLists' },
+          { type: 'subgroup', label: 'Accounting' },
           { key: 'bankCash', label: 'Chart of Accounts', icon: Building2, perm: 'ACCOUNTING::Chart of Accounts::VIEW' },
-          { key: 'gstRates', label: 'GST Rates', icon: BadgePercent, perm: 'MASTERS::GST Rates::VIEW' },
+          { key: 'gstRates', label: 'GST Rates', icon: BadgePercent, enabled: isCompanyGstEnabled(currentCompany), perm: 'MASTERS::GST Rates::VIEW' },
+          { key: 'tdsRates', label: 'TDS', icon: BadgePercent, enabled: isCompanyTaxEnabled(currentCompany, 'tds'), perm: 'MASTERS::GST Rates::VIEW' },
+          { key: 'tcsRates', label: 'TCS Rates', icon: BadgePercent, enabled: isCompanyTaxEnabled(currentCompany, 'tcs'), perm: 'MASTERS::GST Rates::VIEW' },
+          { type: 'subgroup', label: 'Documents' },
           { key: 'invoiceTemplates', label: 'Invoice Templates', icon: FileText, perm: 'SETTINGS::Document Templates::VIEW' },
           { key: 'docNumbering', label: 'Numbering', icon: Settings, perm: 'SETTINGS::Document Numbering::VIEW' },
+          { key: 'codeNumbering', label: 'Code Numbering', icon: Settings, perm: 'SETTINGS::Company Profile::VIEW' },
           { key: 'settingsTerms', label: 'Terms & Conditions', icon: FileText, perm: 'SETTINGS::Document Templates::VIEW' },
         ],
       },
@@ -1451,7 +1482,7 @@ const AppShell = () => {
      * else happened to invalidate this memo, and switching an application on
      * did nothing visible until the page was reloaded.
      */
-    [branchCountLabel, warehouseCountLabel, featureCountLabel, gstStateLabel, emailStateLabel, isEnabled]
+    [branchCountLabel, warehouseCountLabel, featureCountLabel, gstStateLabel, emailStateLabel, isEnabled, currentCompany]
   );
 
   /*
@@ -1513,9 +1544,9 @@ const AppShell = () => {
       // navModel made valid pages such as TDS briefly open and then get reset
       // to Dashboard by the unknown-screen guard below.
       if (MASTER_DATA_KEYS.has(want)) {
-        if (want === 'tdsRates') return can('MASTERS::GST Rates::VIEW') && isEnabled('tds');
-        if (want === 'tcsRates') return can('MASTERS::GST Rates::VIEW') && isEnabled('tcs');
-        if (want === 'gstRates') return can('MASTERS::GST Rates::VIEW') && isEnabled('gst');
+        if (want === 'tdsRates') return can('MASTERS::GST Rates::VIEW') && isCompanyTaxEnabled(currentCompany, 'tds');
+        if (want === 'tcsRates') return can('MASTERS::GST Rates::VIEW') && isCompanyTaxEnabled(currentCompany, 'tcs');
+        if (want === 'gstRates') return can('MASTERS::GST Rates::VIEW') && isCompanyGstEnabled(currentCompany);
         return true;
       }
       if (visibleSettings({ can, isEnabled }).some((item) => String(item.key) === want)) return true;
@@ -1524,7 +1555,9 @@ const AppShell = () => {
         const item = candidates.find((candidate) => String(candidate?.key) === want);
         if (!item) continue;
         return (
+          item.enabled !== false &&
           (!item.perm || can(item.perm)) &&
+          (!item.permsAll || item.permsAll.every((permission) => can(permission))) &&
           (!item.permAny || item.permAny.some((permission) => can(permission))) &&
           isEnabled(item.feature) &&
           (!item.features || item.features.every((feature) => isEnabled(feature)))
@@ -1532,7 +1565,7 @@ const AppShell = () => {
       }
       return false;
     },
-    [navModel, can, isEnabled]
+    [navModel, can, isEnabled, currentCompany]
   );
 
   useScreenUrl({ active, setActive, isKnown: isKnownScreen, ready: !permsLoading && !featuresLoading && !permsError });
@@ -1600,12 +1633,6 @@ const AppShell = () => {
   });
 
   // --- shell trio: collapsed rail, quick create, notifications ---
-  const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('navCollapsed') === '1');
-  const toggleNavCollapsed = () =>
-    setNavCollapsed((v) => {
-      try { localStorage.setItem('navCollapsed', v ? '0' : '1'); } catch { /* best effort */ }
-      return !v;
-    });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   /*
    * Features is two things, and they are not the same thing.
@@ -1726,13 +1753,16 @@ const AppShell = () => {
     if (permsLoading) return navModel;
     // Hidden when the user lacks the permission OR the org has the feature off.
     const allow = (entry) =>
+      entry.enabled !== false &&
       (!entry.perm || can(entry.perm)) &&
+      (!entry.permsAll || entry.permsAll.every((permission) => can(permission))) &&
       (!entry.permAny || entry.permAny.some((k) => can(k))) &&
       isEnabled(entry.feature) &&
       (!entry.features || entry.features.every((feature) => isEnabled(feature)));
     return navModel
       .map((entry) => {
         if (entry.type !== 'group') return allow(entry) ? entry : null;
+        if (!allow(entry)) return null;
         const kept = entry.items.filter((i) => i.type === 'subgroup' || allow(i));
         // A heading whose every item was hidden by a permission or a feature
         // flag is a section that says nothing. Keep a heading only when a real
@@ -1831,6 +1861,9 @@ const AppShell = () => {
     setOpenGroups((prev) => (prev[activeGroupKey] ? prev : { [activeGroupKey]: true }));
   }, [activeGroupKey]);
 
+  // The module whose screens the split rail's second panel is showing.
+  const selectedNavGroup = visibleNav.find((entry) => entry.type === 'group' && openGroups[entry.key]) || null;
+
   useEffect(() => {
     if (!isAuthenticated) return;
     const orgId = resolveServerOrgId(currentCompany);
@@ -1841,9 +1874,22 @@ const AppShell = () => {
       setWarehousesLoading(true);
       setWarehousesError('');
       try {
-        const data = await listWarehouses(String(orgId));
+        let data;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            data = await listWarehouses(String(orgId));
+            break;
+          } catch (error) {
+            if (cancelled) return;
+            if (attempt === 2 || (error?.status && error.status < 500)) throw error;
+            await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 1500));
+          }
+        }
         if (cancelled) return;
-        const list = Array.isArray(data?.warehouses) ? data.warehouses : [];
+        // Server locations are scoped by orgId; local selectors scope by the
+        // active company's id. Carry that id into the shared reference list.
+        const list = (Array.isArray(data?.warehouses) ? data.warehouses : [])
+          .map((warehouse) => ({ ...warehouse, companyId: currentCompany.id }));
         setWarehouses(list);
         if (activeWarehouseId && !list.some((w) => String(w.id) === String(activeWarehouseId))) {
           selectWarehouse('');
@@ -1879,7 +1925,8 @@ const AppShell = () => {
       try {
         const data = await listBranches(String(orgId));
         if (cancelled) return;
-        const list = Array.isArray(data?.branches) ? data.branches : [];
+        const list = (Array.isArray(data?.branches) ? data.branches : [])
+          .map((branch) => ({ ...branch, companyId: currentCompany.id }));
         setBranches(list);
       } catch (e) {
         if (cancelled) return;
@@ -1897,6 +1944,11 @@ const AppShell = () => {
       cancelled = true;
     };
   }, [isAuthenticated, currentCompany?.id, currentCompany?.profile?.backendCompanyId, activeOrgId, dbStorageKey]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentCompany?.id || !branches.length) return;
+    setDb(previous => ensureBranchAccounts(previous, currentCompany.id, branches));
+  }, [isAuthenticated, currentCompany?.id, branches, setDb]);
 
   // Ensure we always have an active branch id (some flows don't populate backendBranchId)
   useEffect(() => {
@@ -2018,11 +2070,16 @@ const AppShell = () => {
     const run = async () => {
       try {
         const nameToMatch = 'head warehouse';
-        let head = (Array.isArray(warehouses) ? warehouses : []).find((w) => String(w?.name || '').trim().toLowerCase() === nameToMatch) || null;
+        const branchId = String(selectedBranchId() || currentCompany?.profile?.backendBranchId || '').trim();
+        const known = Array.isArray(warehouses) ? warehouses : [];
+        /* The branch's own warehouse comes first: a company set up with a
+           default store has no need of a second one made just for this. */
+        let head = known.find((w) => String(w?.name || '').trim().toLowerCase() === nameToMatch)
+          || (branchId ? known.find((w) => String(w?.branchId) === branchId) : null)
+          || null;
 
         if (!head) {
           const orgId = resolveServerOrgId(currentCompany);
-          const branchId = String(selectedBranchId() || currentCompany?.profile?.backendBranchId || '').trim();
 
           if (orgId && branchId) {
             const payload = {
@@ -2477,33 +2534,16 @@ const AppShell = () => {
         );
       case 'journalEntries':
         if (journalEditor.open) {
-          const isEdit = Boolean(journalEditor.initial && journalEditor.initial?.id !== undefined && journalEditor.initial?.id !== null);
           return (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="ui-t-sec">{isEdit ? 'Edit Journal Entry' : 'New Journal Entry'}</h3>
-                  <div className="text-sm ui-muted">{isEdit ? journalEditor.initial?.number || '' : ''}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setJournalEditor({ open: false, initial: null })}
-                  className="ui-btn ui-btn-secondary"
-                >
-                  Back
-                </button>
-              </div>
-              <div className="ui-surface border rounded-xl p-4">
-                <JournalEntryForm
-                  db={dbForUser}
-                  setDb={setDb}
-                  currentCompany={currentCompany}
-                  openModal={openModal}
-                  initialData={journalEditor.initial}
-                  onClose={() => setJournalEditor({ open: false, initial: null })}
-                />
-              </div>
-            </div>
+            <JournalEntryForm
+              db={dbForUser}
+              setDb={setDb}
+              currentCompany={currentCompany}
+              branches={branchesForUser}
+              openModal={openModal}
+              initialData={journalEditor.initial}
+              onClose={() => setJournalEditor({ open: false, initial: null })}
+            />
           );
         }
         return (
@@ -2588,6 +2628,7 @@ const AppShell = () => {
             openModal={openModal}
             currentCompany={currentCompany}
             onRecordReceipt={() => setReceiptEditor({ open: true })}
+            onEditReceipt={(receipt) => setReceiptEditor({ open: true, initial: receipt })}
           />
         );
       case 'payments':
@@ -2949,16 +2990,14 @@ const AppShell = () => {
         );
       }
       case 'inventory':
-        return <InventoryModule db={dbForUser} setDb={setDb} openModal={openModal} currentCompany={currentCompany} warehouses={warehousesForUser} onOpenItems={() => setActive('items')} />;
+        return <InventoryModule db={inventoryDbForUser} setDb={setDb} openModal={openModal} currentCompany={currentCompany} warehouses={warehousesForUser} onOpenItems={() => setActive('items')} />;
       case 'warehouseTransfers':
       case 'branchTransfers':
         if (stockTransferEditor.open) {
-          const mode = active === 'branchTransfers' ? 'branch' : 'warehouse';
           return (
-            <div className="space-y-6">
-              <div className="ui-surface border rounded-xl p-4">
-                <StockTransferEditor
-                  db={dbForUser}
+            <StockTransferEditor
+                  db={transferDbForUser}
+                  inventoryDb={inventoryDbForUser}
                   setDb={setDb}
                   currentCompany={currentCompany}
                   branches={branchesForUser}
@@ -2967,17 +3006,17 @@ const AppShell = () => {
                   allWarehouses={warehouses}
                   activeWarehouseId={activeWarehouseId}
                   initial={stockTransferEditor.initial}
-                  mode={mode}
+                  mode={stockTransferEditor.mode}
+                  onCreateOut={setAutoSubmitTransfer}
                   onBack={() => setStockTransferEditor({ open: false, initial: null })}
-                />
-              </div>
-            </div>
+            />
           );
         }
 
         return (
           <StockTransferModule
-            db={dbForUser}
+            db={transferDbForUser}
+            inventoryDb={inventoryDbForUser}
             setDb={setDb}
             currentCompany={currentCompany}
             openModal={openModal}
@@ -2986,8 +3025,12 @@ const AppShell = () => {
             mode={active === 'branchTransfers' ? 'branch' : 'warehouse'}
             activeWarehouseId={activeWarehouseId}
             activeBranchId={activeBranchId}
-            onNew={() => setStockTransferEditor({ open: true, initial: null })}
-            onEdit={(initial) => setStockTransferEditor({ open: true, initial })}
+            onNew={() => setStockTransferEditor({ open: true, initial: null, mode: active === 'branchTransfers' ? 'branch' : 'warehouse' })}
+            onEdit={(initial) => setStockTransferEditor({ open: true, initial, mode: active === 'branchTransfers' ? 'branch' : 'warehouse' })}
+            autoSubmitTransfer={autoSubmitTransfer}
+            onAutoSubmitHandled={() => setAutoSubmitTransfer(null)}
+            onTemplateSettings={(voucherKey) => { setTemplateVoucherKey(voucherKey); setActive('invoiceTemplates'); }}
+            unrestricted={!hasBranchRestriction}
           />
         );
       case 'financials':
@@ -3002,7 +3045,14 @@ const AppShell = () => {
             currentCompany={currentCompany}
             initialAction={companiesIntent}
             onActionConsumed={() => setCompaniesIntent(null)}
-            onSwitched={() => setActive('dashboard')}
+            onSwitched={(company) => {
+              const targetOrgId = String(company?.profile?.backendCompanyId || '').trim();
+              if (targetOrgId && targetOrgId !== String(platformOrgId() || '')) {
+                switchOrg(targetOrgId);
+              } else {
+                setActive('dashboard');
+              }
+            }}
           />
         );
       case 'purchaseOverview':
@@ -3203,7 +3253,7 @@ const AppShell = () => {
           />
         );
       case 'expenses':
-        return <ExpensesList db={dbForUser} setDb={setDb} openModal={openModal} currentCompany={currentCompany} />;
+        return <ExpensesList db={dbForUser} setDb={setDb} openModal={openModal} currentCompany={currentCompany} branches={branchesForUser} />;
       case 'items':
         return (
           <ItemsList
@@ -3260,11 +3310,16 @@ const AppShell = () => {
       case 'accounts':
         return <ChartOfAccounts db={dbForUser} setDb={setDb} openModal={openModal} currentCompany={currentCompany} onOpenLedger={openLedger} />;
       case 'trialBalance':
-        return <TrialBalance db={dbForUser} currentCompany={currentCompany} onOpenLedger={openLedger} />;
+        return <TrialBalanceReport db={dbForUser} currentCompany={currentCompany} onOpenLedger={openLedger} />;
       case 'profitLoss':
-        return <ProfitLoss db={dbForUser} currentCompany={currentCompany} onOpenLedger={openLedger} />;
+        return <ProfitLossReport db={dbForUser} currentCompany={currentCompany} onBack={() => setActive('reports')} onLoadSamples={() => {
+          const result = addSampleScenario(db, currentCompany, new Date(), { branchId: activeBranchId, warehouseId: activeWarehouseId });
+          if (!result.added) { notify.info('The sample entries are already loaded in this company book.'); return; }
+          setDb(result.db);
+          notify.success('Added twelve months of linked sample entries to this company book.');
+        }} />;
       case 'balanceSheet':
-        return <BalanceSheet db={dbForUser} currentCompany={currentCompany} onOpenLedger={openLedger} />;
+        return <BalanceSheetReport db={dbForUser} currentCompany={currentCompany} onBack={() => setActive('reports')} />;
       case 'ledger':
         return (
           <LedgerView
@@ -3280,7 +3335,7 @@ const AppShell = () => {
           />
         );
       case 'cashFlow':
-        return <CashFlowStatement db={dbForUser} currentCompany={currentCompany} />;
+        return <CashFlowReport db={dbForUser} currentCompany={currentCompany} />;
       case 'reports':
         return (
           <ReportsOverview
@@ -3289,10 +3344,23 @@ const AppShell = () => {
             onNavigate={(key) => setActive(key)}
             onExit={exitWorkspace}
             isEnabled={isEnabled}
+            canView={can}
             branches={branchesForUser}
             warehouses={warehousesForUser}
             defaultBranchId={activeBranchId}
             defaultWarehouseId={activeWarehouseId}
+            onLoadSamples={() => {
+              const result = addSampleScenario(db, currentCompany, new Date(), { branchId: activeBranchId, warehouseId: activeWarehouseId });
+              if (!result.added) { notify.info('The twelve-month sample set is already loaded for this company.'); return; }
+              setDb(result.db);
+              notify.success('Added twelve months of linked sample orders, invoices, returns, payments, stock, journals and bank entries.');
+            }}
+            onLoadInventorySamples={() => {
+              const result = addInventoryReportSamples(db, currentCompany, new Date(), { branchId: activeBranchId, warehouseId: activeWarehouseId, warehouses: warehousesForUser });
+              if (!result.added) { notify.info('The inventory report examples are already loaded for this company.'); return; }
+              setDb(result.db);
+              notify.success(result.repaired ? 'Aligned inventory examples with the active branch and warehouse.' : 'Added inventory examples for batches, expiry, reorder levels and negative stock.');
+            }}
           />
         );
       case 'gstCompliance':
@@ -3317,11 +3385,14 @@ const AppShell = () => {
             db={dbForUser}
             setDb={setDb}
             currentCompany={currentCompany}
+            initialVoucherKey={templateVoucherKey}
             onBack={() => setActive(settingsBackTarget(lastScreenRef.current))}
           />
         );
       case 'docNumbering':
         return <DocNumberingSettings db={dbForUser} setDb={setDb} currentCompany={currentCompany} branches={branchesForUser} />;
+      case 'codeNumbering':
+        return <CodeNumberingSettings db={dbForUser} setDb={setDb} currentCompany={currentCompany} />;
       case 'docTemplates':
         return <DocTemplateSettings db={dbForUser} setDb={setDb} currentCompany={currentCompany} />;
       case 'companyProfile':
@@ -3399,7 +3470,7 @@ const AppShell = () => {
           </div>
         );
       case 'features':
-        return <FeaturesPage onNavigate={setActive} currentCompany={currentCompany} />;
+        return <FeaturesPage onNavigate={setActive} currentCompany={currentCompany} setDb={setDb} />;
       /*
        * The old capability surfaces, pointed at the new one.
        *
@@ -3415,11 +3486,11 @@ const AppShell = () => {
       case 'settingsAccounting':
       case 'settingsPaymentsReceipts':
       case 'settingsDocuments':
-        return <FeaturesPage onNavigate={setActive} currentCompany={currentCompany} />;
+        return <FeaturesPage onNavigate={setActive} currentCompany={currentCompany} setDb={setDb} />;
       case 'settingsEmail':
         return <EmailSettings />;
       case 'settingsGovernance':
-        return <GovernanceSettings />;
+        return <GovernanceSettings initialTab="rules" />;
       case 'settingsProfile':
         return <ProfileSettings />;
       case 'settingsNumbering':
@@ -3434,6 +3505,8 @@ const AppShell = () => {
         return (
           <ImportCenter
             initialDocType={importKind}
+            currentCompany={currentCompany}
+            db={dbForUser}
             onBack={() => setActive(lastScreenRef.current || 'invoices')}
           />
         );
@@ -3491,6 +3564,8 @@ const AppShell = () => {
         return <FixedAssets db={dbForUser} setDb={setDb} currentCompany={currentCompany} />;
       case 'yearEndClose':
         return <YearEndClose db={dbForUser} setDb={setDb} currentCompany={currentCompany} />;
+      case 'periodLock':
+        return <PeriodLockSettings db={dbForUser} setDb={setDb} currentCompany={currentCompany} />;
       case 'costCenters':
         return <CostCenters db={dbForUser} setDb={setDb} currentCompany={currentCompany} />;
       case 'priceLists':
@@ -3602,7 +3677,13 @@ const AppShell = () => {
           />
         );
       case 'approvals':
-        return <ApprovalsInbox currentCompany={currentCompany} />;
+      case 'approvalsOverview':
+      case 'approvalsRequests':
+      case 'approvalsAll':
+      case 'approvalsHistory':
+        return <ApprovalsInbox key={active} view={active} currentCompany={currentCompany} />;
+      case 'approvalSettings':
+        return <ApprovalSettings />;
       case 'settingsPosAccounts':
         return (
           <PosPaymentAccounts
@@ -3687,7 +3768,7 @@ const AppShell = () => {
        Cash Accounts set the state, React re-rendered, and this memo handed
        back the same list element it had built before — the button did nothing
        at all, and so did Edit. Add an editor here, add it to this list. */
-  }, [active, bankAcctForm, billEditor, branchesError, branchesForUser, branchesLoading, companiesIntent, creditNoteEditor, currentCompany, dbForUser, debitNoteEditor, estimateEditor, exitWorkspace, importKind, invoiceEditor, journalEditor, openLedger, paymentEditor, receiptEditor, ledgerNav, stockTransferEditor, warehousesForUser, activeWarehouseId, activeBranchId, poEditor]);
+  }, [active, bankAcctForm, billEditor, branchesError, branchesForUser, branchesLoading, companiesIntent, creditNoteEditor, currentCompany, dbForUser, inventoryDbForUser, transferDbForUser, debitNoteEditor, estimateEditor, exitWorkspace, hasBranchRestriction, importKind, invoiceEditor, journalEditor, openLedger, paymentEditor, receiptEditor, ledgerNav, stockTransferEditor, templateVoucherKey, autoSubmitTransfer, warehousesForUser, activeWarehouseId, activeBranchId, poEditor]);
 
 
   if (hasBranchRestriction && !authCtx.loading && authCtx.data && allowedBranchIds.length === 0) {
@@ -3751,30 +3832,12 @@ const AppShell = () => {
           borderBottom: '1px solid rgb(var(--border))',
         }}
       >
-        <div className="w-full px-2.5 lg:px-3 h-10 flex items-center justify-between gap-1.5">
-          {/* No gap here: the only two children are the rail-width company block
-              and the search, and a gap between them would push the search off
-              the content's left edge by exactly that much. Each child spaces
-              its own contents. */}
+        <div className="w-full px-2.5 lg:px-3 h-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+          {/* Left: the company, over the rail. It takes what the column gives
+              and truncates, so a long name can no longer run under the
+              search beside it. */}
           <div className="flex items-center min-w-0">
-            {/*
-              The company sits over the rail, and nothing else does.
-
-              This block is exactly the rail's width and pulled out to the
-              header's true left edge, so the column below it and the name
-              above it share one boundary — and whatever follows starts where
-              the page content starts rather than floating over the navigation.
-            */}
-            <div
-              className={`flex items-center gap-1.5 min-w-0 shrink-0 md:-ms-3 md:ps-3 lg:-ms-4 lg:ps-4 ${
-                /* Collapsed, the rail is 60px — narrower than the company name
-                   — so there is no column left to match. Pinning the block to
-                   60 would crush the name; pinning it to 240 would strand the
-                   search 180px into open page. Natural width keeps the two
-                   together, which is what the collapsed rail is asking for. */
-                dedicatedWorkspaceMode || navCollapsed ? '' : 'md:w-56 lg:w-60'
-              }`}
-            >
+            <div className="flex items-center gap-1.5 min-w-0 w-full">
             {/* Phone-only: the rail lives in a drawer, opened here. */}
             {!dedicatedWorkspaceMode ? <button
               type="button"
@@ -3786,16 +3849,16 @@ const AppShell = () => {
               <PanelLeftOpen size={18} aria-hidden="true" />
             </button> : null}
             <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain" />
-            <div className="relative" ref={orgMenuRef}>
+            <div className="relative min-w-0 flex-1" ref={orgMenuRef}>
                 <button
                   type="button"
                   onClick={() => setOrgMenuOpen((v) => !v)}
-                  className="ui-btn ui-btn-ghost !h-8 !min-h-8 !px-1.5 max-w-[16rem]"
+                  className="ui-btn ui-btn-ghost !h-8 !min-h-8 !px-1.5 w-fit max-w-full min-w-0"
                   aria-haspopup="menu"
                   aria-expanded={orgMenuOpen}
                 >
-                  <span className="ui-title text-sm truncate">{activeOrgName}</span>
-                  <ChevronDown size={14} aria-hidden="true" />
+                  <span className="ui-title text-sm min-w-0 truncate text-left">{activeOrgName}</span>
+                  <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
                 </button>
 
                 {orgMenuOpen ? (
@@ -3838,19 +3901,36 @@ const AppShell = () => {
                   </div>
                 ) : null}
               </div>
+            </div>
+          </div>
+
+
+          <div className="hidden md:flex items-center justify-center gap-2 min-w-0">
+            {/*
+              Search, in the middle of the bar.
+
+              It used to sit in the dashboard's hero card, which meant it was
+              on exactly one screen — and the one screen you are least likely
+              to be on when you want to find an invoice. Command-K already
+              reaches it from anywhere; this is the visible affordance for the
+              people who do not know that yet, so it belongs where it is always
+              in view. The keycap says how to skip the click.
+
+              Centred in the bar with the financial year beside it, as in the
+              Books build the owner signed off (15 Nov 2026).
+            */}
             <button
               type="button"
-              onClick={toggleNavCollapsed}
-              className="ui-icon-btn hidden md:inline-flex !h-7 !w-7 shrink-0"
-              aria-pressed={navCollapsed}
-              aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
-              title={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+              onClick={() => setPaletteOpen(true)}
+              className="ui-input flex items-center gap-1.5 w-40 lg:w-64 shrink-0 text-start ps-2.5 pe-1.5 !h-8 !min-h-8"
+              style={{ color: 'rgb(var(--fg-subtle))' }}
+              aria-label="Search invoices, customers, items"
             >
-              {navCollapsed ? <PanelLeftOpen size={15} aria-hidden="true" /> : <PanelLeftClose size={15} aria-hidden="true" />}
+              <Search size={16} aria-hidden="true" className="shrink-0" />
+              <span className="truncate">Search invoices, customers, items…</span>
+              <kbd className="ui-kbd ms-auto shrink-0" aria-hidden="true">⌘K</kbd>
             </button>
-            </div>
-
-            {financialYearOptions.length ? <label className="hidden md:flex items-center gap-1.5 ms-2 me-2 text-xs ui-muted whitespace-nowrap">
+            {financialYearOptions.length ? <label className="flex items-center gap-1.5 text-xs ui-muted whitespace-nowrap">
               <span>FY</span>
               <select
                 value={displayedFinancialYear}
@@ -3866,37 +3946,9 @@ const AppShell = () => {
                 {financialYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
               </select>
             </label> : null}
-
-            {/*
-              Search, at the content's left edge.
-
-              It used to sit in the dashboard's hero card, which meant it was
-              on exactly one screen — and the one screen you are least likely
-              to be on when you want to find an invoice. Command-K already
-              reaches it from anywhere; this is the visible affordance for the
-              people who do not know that yet, so it belongs where it is always
-              in view. The keycap says how to skip the click.
-
-              It begins where the page begins, not over the rail: the block
-              beside it is the rail's width, so this lines up with the content
-              under it and reads as part of the page rather than the navigation.
-            */}
-            <button
-              type="button"
-              onClick={() => setPaletteOpen(true)}
-              className="ui-input hidden md:flex items-center gap-1.5 w-48 lg:w-64 shrink-0 text-start ps-2.5 pe-1.5 !h-8 !min-h-8"
-              style={{ color: 'rgb(var(--fg-subtle))' }}
-              aria-label="Search invoices, customers, items"
-            >
-              <Search size={16} aria-hidden="true" className="shrink-0" />
-              <span className="truncate">Search invoices, customers, items…</span>
-              <kbd className="ui-kbd ms-auto shrink-0" aria-hidden="true">⌘K</kbd>
-            </button>
           </div>
 
-          <div className="flex items-center gap-1.5">
-
-
+          <div className="flex items-center justify-end gap-1.5 min-w-0">
             <span className="ui-pill ui-pill-neutral hidden lg:inline-flex">{activeLabel}</span>
             {/* The theme belongs to the platform bar above: one control, and
                 one answer for every app a company has open. */}
@@ -4068,181 +4120,109 @@ const AppShell = () => {
         ) : null}
         {!dedicatedWorkspaceMode ? <aside
           /*
-           * Operable while the Features panel is open, deliberately.
+           * The split rail (owner, 15 Nov 2026, from the Books build).
            *
-           * It used to be inert, on the theory that the rail should not
-           * navigate out from under an open panel. In practice the panel is a
-           * tool, not a modal: it covers the content area and the rail stays
-           * fully lit beside it, so a rail that ignores clicks reads as a
-           * broken app rather than as a protected one. Clicking any
-           * destination now puts the panel away and goes there, in one click.
+           * A strip of modules, each an icon over its name, and beside it a
+           * panel listing the screens of the module you opened, with an X to
+           * put it away. The names under the icons are what make the strip
+           * learnable; the panel keeps a forty-screen module from pushing the
+           * rest of the rail below the fold.
+           *
+           * Operable while the Features panel is open, deliberately: the panel
+           * is a tool over the content, so clicking any destination puts it
+           * away and goes there in one click.
            */
-          className={`shrink-0 transition-[width] duration-200 ${navCollapsed ? 'ui-rail-narrow' : 'md:w-56 lg:w-60'} ${
+          className={`shrink-0 transition-[width] duration-200 ${selectedNavGroup ? 'md:w-[16.25rem]' : 'md:w-[4.5rem]'} ${
             mobileNavOpen
-              ? 'ui-rail-drawer max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:w-72 max-md:overflow-y-auto max-md:p-2 max-md:ui-in-left'
+              ? 'ui-rail-drawer max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:w-72 max-md:overflow-y-auto max-md:ui-in-left'
               : 'max-md:hidden'
           } md:block`}
         >
           <nav
             aria-label="Main"
-            /* Height, not max-height: the account block is pinned to the foot
-               of the rail, and a content-sized rail leaves it floating in the
-               middle of the screen with nothing under it. */
-            className="ui-rail p-2 md:h-full flex flex-col min-h-0"
+            className="ui-rail app-nav-shell md:h-full flex flex-col min-h-0"
           >
-            <div className="ui-nav-scroll space-y-1.5 min-h-0 flex-1 overflow-y-auto">
-              {visibleNav.map((entry) => {
-                if (entry.type === 'item') {
+            <div className="app-nav-layout min-h-0 flex-1">
+              <div className="app-nav-modules ui-nav-scroll min-h-0 overflow-y-auto" aria-label="Modules">
+                {visibleNav.map((entry) => {
                   const Icon = entry.icon;
-                  const reportKeys = new Set([
-                    'reports',
-                    'trialBalance',
-                    'profitLoss',
-                    'balanceSheet',
-                    'cashFlow',
-                    'gstr1',
-                    'gstr3b',
-                    'salesReports',
-                  ]);
-                  const isReportsEntry = entry.key === 'reports';
-                  const isRoute = active === entry.key || (isReportsEntry && reportKeys.has(active));
-                  /* Every rail entry is a destination, Features included: the
-                     rail is "take me there", so it goes to the full page from
-                     anywhere. The panel is the contextual tool, reached from
-                     ⌘K while working in a module — never from the rail. The
-                     rail lights the route you are on; a panel open over it is
-                     not a route. */
+                  const isGroup = entry.type === 'group';
+                  const isSelected = isGroup
+                    ? selectedNavGroup?.key === entry.key || (!selectedNavGroup && activeGroupKey === entry.key)
+                    : active === entry.key || (entry.key === 'reports' && REPORT_SCREENS.has(active));
                   return (
                     <button
                       key={entry.key}
                       type="button"
-                      onClick={() => goTo(entry.key)}
-                      className={`ui-nav-item ${navCollapsed ? 'md:justify-center' : ''}`}
+                      className="app-nav-module ui-nav-item"
                       data-level="module"
                       data-tone={entry.tone}
-                      data-active={isRoute}
-                      aria-current={isRoute ? 'page' : undefined}
-      title={navCollapsed ? entry.label : undefined}
+                      data-active={isSelected || undefined}
+                      aria-current={isSelected && !isGroup ? 'page' : undefined}
+                      aria-expanded={isGroup ? selectedNavGroup?.key === entry.key : undefined}
+                      title={entry.label}
+                      onClick={() => {
+                        if (isGroup) {
+                          /* Reaching for a group is the first half of going
+                             somewhere, so the Features panel is put away too.
+                             A second press on the open module closes its panel. */
+                          setFeaturesOpen(false);
+                          setOpenGroups((prev) => (prev[entry.key] ? {} : { [entry.key]: true }));
+                        } else {
+                          setOpenGroups({});
+                          goTo(entry.key);
+                        }
+                      }}
                     >
-                      <Icon
-                        size={16}
-                        aria-hidden="true"
-                        {...(entry.ph ? { weight: 'fill' } : {})}
-                        
-                      />
-                      <span className={navCollapsed ? 'md:hidden' : ''}>{entry.label}</span>
+                      <Icon size={18} aria-hidden="true" {...(entry.ph ? { weight: 'fill' } : {})} />
+                      <span>{entry.label}</span>
                     </button>
                   );
-                }
-
-                const GroupIcon = entry.icon;
-                const isOpen = !!openGroups[entry.key];
-                const isGroupActive = activeGroupKey === entry.key;
-
-                return (
-                  <div key={entry.key}>
+                })}
+              </div>
+              {selectedNavGroup ? (
+                <div className="app-nav-sections ui-nav-scroll min-h-0 overflow-y-auto" aria-label={`${selectedNavGroup.label} screens`}>
+                  <div className="app-nav-section-title">
+                    <span className="truncate">{selectedNavGroup.label}</span>
                     <button
                       type="button"
-                      onClick={() => {
-                        /* Reaching for a group is the first half of going
-                           somewhere, so the Features panel — a tool over the
-                           screen, not a place — is put away here too, rather
-                           than sitting over the page while the group unfolds
-                           beside it. */
-                        setFeaturesOpen(false);
-                        // Collapsed rail: a group tap re-opens the rail with
-                        // that group expanded — a flyout would need its own
-                        // focus management for four entries.
-                        if (navCollapsed && window.innerWidth >= 768) {
-                          toggleNavCollapsed();
-                          setOpenGroups({ [entry.key]: true });
-                          return;
-                        }
-                        // One group open at a time. With eleven modules and
-                        // Settings alone running to forty entries, two groups
-                        // open pushes the rest below the fold and the rail
-                        // becomes something you scroll rather than read.
-                        setOpenGroups((prev) => (prev[entry.key] ? {} : { [entry.key]: true }));
-                      }}
-                      className={`ui-nav-item ${navCollapsed ? 'md:justify-center' : 'justify-between'}`}
-                      data-level="module"
-                      data-tone={entry.tone}
-                      data-active={isGroupActive || undefined}
-                      aria-expanded={isOpen}
-      title={navCollapsed ? entry.label : undefined}
+                      className="app-nav-section-close ui-icon-btn"
+                      aria-label={`Close ${selectedNavGroup.label}`}
+                      title="Close"
+                      onClick={() => setOpenGroups({})}
                     >
-                      <span className={`flex items-center gap-2.5 ${navCollapsed ? 'md:gap-0' : ''}`}>
-                        <GroupIcon
-                          size={16}
-                          aria-hidden="true"
-                          {...(entry.ph ? { weight: 'fill' } : {})}
-                          
-                        />
-                        <span className={navCollapsed ? 'md:hidden' : ''}>{entry.label}</span>
-                      </span>
-                      <ChevronDown
-                        size={14}
-                        aria-hidden="true"
-                        className={`transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'} ${navCollapsed ? 'md:hidden' : ''}`}
-                      />
+                      <X size={15} aria-hidden="true" />
                     </button>
-
-                    {isOpen && (
-                      <div className={`mt-0.5 space-y-0.5 pl-5 ${navCollapsed ? 'md:hidden' : ''}`}>
-                        {entry.items.map((item) => {
-                          // A heading inside a group. Settings is fifteen items
-                          // and heading for twenty-five once Payroll, CRM and
-                          // Attendance arrive; without headings it is a list
-                          // you read every time instead of a shape you learn.
-                          if (item.type === 'subgroup') {
-                            return (
-                              <div
-                                key={`sub-${item.label}`}
-                                className="ui-t-label px-2.5 pt-3 pb-1 first:pt-1"
-                              >
-                                {item.label}
-                              </div>
-                            );
-                          }
-
-                          const Icon = item.icon;
-                          const isActive = active === item.key;
-                          // What the screen would tell you if you opened it.
-                          const state = typeof item.state === 'function' ? item.state() : item.state;
-                          return (
-                            <button
-                              key={item.key}
-                              type="button"
-                              onClick={() => goTo(item.key)}
-                              className="ui-nav-item"
-                              data-tone={entry.tone}
-                              data-active={isActive}
-                              aria-current={isActive ? 'page' : undefined}
-                            >
-                              <Icon
-                                size={16}
-                                aria-hidden="true"
-                                
-                              />
-                              <span className="min-w-0 truncate">{item.label}</span>
-                              {state ? (
-                                <span className="ml-auto shrink-0 text-xs ui-subtle tabular-nums">{state}</span>
-                              ) : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
-                );
-              })}
+                  {selectedNavGroup.items.map((item) => {
+                    // A heading inside a group: Settings runs to dozens of
+                    // screens, and headings make it a shape you learn.
+                    if (item.type === 'subgroup') {
+                      return <div key={`sub-${item.label}`} className="app-nav-section-heading ui-t-label">{item.label}</div>;
+                    }
+                    const ItemIcon = item.icon;
+                    const isActive = active === item.key;
+                    // What the screen would tell you if you opened it.
+                    const state = typeof item.state === 'function' ? item.state() : item.state;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => goTo(item.key)}
+                        className="app-nav-section-item ui-nav-item"
+                        data-tone={selectedNavGroup.tone}
+                        data-active={isActive || undefined}
+                        aria-current={isActive ? 'page' : undefined}
+                      >
+                        <ItemIcon size={16} aria-hidden="true" />
+                        <span className="min-w-0 truncate">{item.label}</span>
+                        {state ? <span className="ml-auto shrink-0 text-xs ui-subtle tabular-nums">{state}</span> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
-            {/*
-              The rail used to carry an account menu here, pinned to the bottom.
-              It moved to the avatar in the top right — one identity control,
-              where the sketch put it. Two doors to the same room turned out to
-              be two things to keep in step for no gain.
-            */}
           </nav>
         </aside> : null}
 
@@ -4320,13 +4300,15 @@ const AppShell = () => {
           ) : null}
 
           {warehousesError ? (
-            <div className="mb-4 rounded-lg border border-[rgb(var(--neg)/0.35)] bg-[rgb(var(--neg-soft))] px-4 py-3 text-sm text-[rgb(var(--neg))]">
-              Could not load warehouses: {warehousesError}
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[rgb(var(--neg)/0.35)] bg-[rgb(var(--neg-soft))] px-4 py-3 text-sm text-[rgb(var(--neg))]">
+              <span>Could not load warehouses: {warehousesError}</span>
+              <button type="button" className="ui-btn ui-btn-sm" onClick={reloadWarehouses}>Retry</button>
             </div>
           ) : null}
           {dedicatedMasterDataMode ? (
             <MasterDataWorkspace
               activeKey={active}
+              currentCompany={currentCompany}
               can={can}
               isEnabled={isEnabled}
               onNavigate={setActive}
@@ -4387,6 +4369,7 @@ const AppShell = () => {
           setActive(key);
         }}
         currentCompany={currentCompany}
+        setDb={setDb}
         returnFocusRef={featuresTriggerRef}
       />
 

@@ -258,12 +258,12 @@ export const LedgerView = ({
     }
     if (key === 'expense') {
       const ex = (Array.isArray(db.expenses) ? db.expenses : []).find((x) => String(x?.id) === String(id));
-      openModal(<ExpenseForm db={db} setDb={setDb} currentCompany={currentCompany} openModal={openModal} onClose={() => openModal(null)} initialData={ex} />);
+      openModal(<ExpenseForm db={db} setDb={setDb} currentCompany={currentCompany} branches={branches} openModal={openModal} onClose={() => openModal(null)} initialData={ex} />);
       return;
     }
     if (key === 'journalEntry') {
       const je = (Array.isArray(db.journalEntries) ? db.journalEntries : []).find((x) => String(x?.id) === String(id));
-      openModal(<JournalEntryForm db={db} setDb={setDb} currentCompany={currentCompany} initialData={je} onClose={() => openModal(null)} />);
+      openModal(<JournalEntryForm db={db} setDb={setDb} currentCompany={currentCompany} branches={branches} initialData={je} onClose={() => openModal(null)} />);
       return;
     }
 

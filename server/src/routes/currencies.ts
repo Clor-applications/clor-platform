@@ -80,6 +80,27 @@ currenciesRouter.post('/orgs/:orgId/currencies', EDIT, async (req, res) => {
   res.status(201).json({ currency: created });
 });
 
+const currencyStatusSchema = z.object({ isActive: z.boolean() });
+
+/** Keep historical documents intact while controlling which currencies may be used next. */
+currenciesRouter.patch('/orgs/:orgId/currencies/:currencyId', EDIT, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  if (!(await featureOn(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const body = currencyStatusSchema.parse(req.body);
+
+  const existing = await prisma.currency.findFirst({
+    where: { id: String(req.params.currencyId), accountId, orgId },
+  });
+  if (!existing) return res.status(404).json({ error: 'Currency not found' });
+
+  const currency = await prisma.currency.update({
+    where: { id: existing.id },
+    data: { isActive: body.isActive },
+  });
+  res.json({ currency });
+});
+
 const rateSchema = z.object({
   code: z.string().min(3).max(3),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

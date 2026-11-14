@@ -1,0 +1,6 @@
+export const RECEIPT_TEMPLATE_GROUPS = [
+  { key: 'identity', label: 'Organisation details', options: [['companyLogo', 'Company logo'], ['companyAddress', 'Registered address'], ['companyPhone', 'Phone'], ['companyEmail', 'Email'], ['companyGstin', 'GSTIN'], ['companyPan', 'PAN'], ['signature', 'Authorised signature']] },
+  { key: 'receiptHeader', label: 'Receipt header', options: [['voucherNumber', 'Receipt number'], ['voucherDate', 'Date'], ['receivedFrom', 'Received from'], ['receiptDate', 'Receipt date'], ['receiptMode', 'Mode of receipt'], ['referenceNumber', 'Reference number'], ['referenceDate', 'Reference date'], ['accountName', 'Bank or cash account'], ['currency', 'Currency'], ['customerAddress', 'Customer address'], ['customerGstin', 'Customer GSTIN'], ['customerPan', 'Customer PAN']] },
+  { key: 'receiptLines', label: 'Allocation table', options: [['allocationTable', 'Show allocation table'], ['serialNumber', 'Serial number'], ['particulars', 'Particulars'], ['invoiceNumber', 'Invoice number'], ['invoiceDate', 'Invoice date'], ['invoiceAmount', 'Invoice amount'], ['tdsAmount', 'TDS'], ['receivedAmount', 'Received amount']] },
+  { key: 'receiptFooter', label: 'Totals and footer', options: [['totalRow', 'Allocation total'], ['amountInWords', 'Amount in words'], ['bankDetails', 'Bank details'], ['notes', 'Notes']] },
+];

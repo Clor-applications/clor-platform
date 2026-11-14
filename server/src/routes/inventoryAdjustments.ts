@@ -8,6 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { userMayUseBranch, userMayUseWarehouse } from '../middleware/tenantContext.js';
+import { assertPeriodUnlocked } from '../services/periodLock.js';
 
 export const inventoryAdjustmentsRouter = Router();
 inventoryAdjustmentsRouter.use(requireAuth, requireTenantContext);
@@ -40,6 +41,7 @@ inventoryAdjustmentsRouter.post('/orgs/:orgId/adjustments', requirePermission('I
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
   const body = adjustmentSchema.parse(req.body);
+  await assertPeriodUnlocked({ accountId, orgId, userId, module: 'inventory', date: new Date().toISOString().slice(0, 10) });
 
   // Access check to branch/warehouse
   if (!(await userMayUseBranch(accountId, orgId, userId, body.branchId))) return res.status(403).json({ error: 'No access to branch' });

@@ -8,6 +8,7 @@ import { formatMoney } from '@ui/utils/money';
 import { fyRange } from '@ui/utils/tdsTcs';
 import { ASSET_BLOCKS, assetRows } from '@ui/utils/fixedAssets';
 import { DocDate } from '@ui/components/docs';
+import { selectedBranchId } from '@platform/context';
 
 /**
  * Fixed asset register + WDV depreciation schedule.
@@ -20,6 +21,7 @@ import { DocDate } from '@ui/components/docs';
  */
 export default function FixedAssets({ db, setDb, currentCompany }) {
   const companyId = currentCompany.id;
+  const branchId = String(selectedBranchId() || '').trim();
   const fy = useMemo(() => fyRange(), []);
   const rows = useMemo(() => assetRows(db, companyId, fy), [db, companyId, fy]);
 
@@ -107,6 +109,7 @@ export default function FixedAssets({ db, setDb, currentCompany }) {
   const totalDep = rows.reduce((s, r) => s + r.dep, 0);
 
   const draftDepJournal = () => {
+    if (!branchId) { notify.error('Select a branch before drafting a depreciation journal.'); return; }
     if (!totalDep) {
       notify.error('No depreciation to book.');
       return;
@@ -131,6 +134,7 @@ export default function FixedAssets({ db, setDb, currentCompany }) {
         {
           id: nextId,
           companyId,
+          branchId,
           number: `JE-DEP-${nextId}`,
           date: fy.to,
           narration: `Depreciation for ${fy.label} (WDV) — auto-drafted from the asset register`,
