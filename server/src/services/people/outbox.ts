@@ -133,6 +133,9 @@ export async function deliverOutbox(now = new Date(), limit = 50) {
           data: { attempts, lastError: String(e instanceof Error ? e.message : e).slice(0, 500), nextAttemptAt: parked ? null : new Date(now.getTime() + wait * 60_000), ...(parked ? { failedAt: now } : {}) },
         }),
       );
+      /* Every failure is said, not only the last: an event that fails once and then succeeds on its retry a minute later would otherwise leave nothing to look at. */
+      // eslint-disable-next-line no-console
+      if (!parked) console.warn(`[people-outbox] ${row.name} ${row.id} failed (attempt ${attempts}, next in ${wait} min): ${String(e instanceof Error ? e.stack || e.message : e).slice(0, 600)}`);
       // eslint-disable-next-line no-console
       if (parked) console.error(`[people-outbox] ${row.name} ${row.id} failed after ${attempts} attempts: ${String(e instanceof Error ? e.message : e).slice(0, 200)}`);
       failed += 1;
