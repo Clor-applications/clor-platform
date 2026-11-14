@@ -96,7 +96,6 @@ export function SavedReplies({ me }) {
           crumbs={['Customers', 'Saved replies']}
           title="Saved replies"
           description="Answers Support gives often, picked in a ticket’s reply box and changed there before sending."
-          meta={rows ? `${rows.length} ${rows.length === 1 ? 'reply' : 'replies'}` : null}
           actions={canWrite ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>New saved reply</button> : null}
         />
         <Err>{error}</Err>
@@ -105,7 +104,7 @@ export function SavedReplies({ me }) {
         ) : !rows.length ? (
           <Empty>No saved replies yet.</Empty>
         ) : (
-          <Panel title="Most used first">
+          <Panel title={`${rows.length} ${rows.length === 1 ? 'reply' : 'replies'}, most used first`}>
             <ul className="ws-list">
               {rows.map((r) => (
                 <li key={r.id}>

@@ -239,7 +239,6 @@ export function StatusPage({ me }) {
           crumbs={['System', 'Status page']}
           title="Status page"
           description="Posts on clor.in/status, next to the automatic checks: problems CLOR is fixing, and planned maintenance."
-          meta={d ? `${d.open.length} open` : null}
           actions={
             <span className="inline-flex gap-2">
               <a className="ws-btn ws-btn--quiet" href="https://clor.in/status" target="_blank" rel="noreferrer">Open clor.in/status</a>

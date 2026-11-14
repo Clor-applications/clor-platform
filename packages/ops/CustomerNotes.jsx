@@ -125,7 +125,7 @@ export function CustomerNotes({ id, role }) {
                   <div className="ws-item">
                     <span className="ws-item-text">
                       <span className="ws-item-title">
-                        {n.pinned ? <span className="ws-pill ws-pill--warn mr-2">Pinned</span> : null}
+                        {n.pinned ? <span className="ws-pill ws-pill--neutral mr-2">Pinned</span> : null}
                         {n.author}
                         {n.mine ? ' (you)' : ''}
                       </span>
