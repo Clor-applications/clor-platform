@@ -712,7 +712,8 @@ export const peopleApp = {
     overview: PeopleOverview,
     approvals: Approvals,
     policies: Policies,
-    employees: withSidePanel(Employees, panel('EmployeesPanel')),
+    /* Employees draws its own figures and charts (PEOPLE-02); a side panel would repeat them. */
+    employees: Employees,
     employee: EmployeeRecord,
     employeeNew: AddEmployee,
     employeeImport: ImportEmployees,
