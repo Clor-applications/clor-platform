@@ -8,4 +8,4 @@ compatibility_date = "2026-10-01"
 [vars]
 # The Console API's Cloud Run address. Empty until the service exists: the
 # forwarder then answers 503 "not set up yet".
-ORIGIN = ""
+ORIGIN = "https://clor-console-398490688104.asia-south1.run.app"
