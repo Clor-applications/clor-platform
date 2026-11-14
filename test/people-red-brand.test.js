@@ -197,6 +197,18 @@ describe('a chosen view is marigold ("use different color like green or orange")
 });
 
 describe('the logo is the CL frame and the pack\'s letters (14 Nov 2026)', () => {
+  it('every app subdomain wears the same pack icon, and the links carry a version so browsers drop the old one', () => {
+    const icon = read('public/icon.svg');
+    for (const app of ['accounting', 'attendance', 'payroll', 'people']) {
+      expect(read(`public/icons/${app}.svg`), `${app}.svg`).toBe(icon);
+      expect(readFileSync(`public/icons/${app}-192.png`).equals(readFileSync('public/clor-icon-192.png')), `${app}-192.png`).toBe(true);
+    }
+    const html = read('index.html');
+    expect(html).toContain('href="/icon.svg?v=b1"');
+    expect(html).toContain("'/icons/people.svg?v=b1'");
+    expect(read('website/index.html')).toContain('href="/brand/favicon.svg?v=b1"');
+  });
+
   const logo = read('packages/ui/src/components/brand/ClorLogo.jsx');
   const mark = read('packages/ui/src/components/brand/ClorMark.jsx');
   const paths = read('packages/ui/src/components/brand/logoPaths.js');
