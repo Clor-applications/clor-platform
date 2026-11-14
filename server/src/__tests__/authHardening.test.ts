@@ -354,31 +354,22 @@ describe('sessions', () => {
 });
 
 describe('lockout', () => {
-  it('locks the account after repeated wrong passwords and says so', async () => {
+  it('locks the account after repeated wrong passwords, answering exactly as for an unknown address (W-12.5)', async () => {
     const u = await makeUser();
+    const signIn = (emailOrUsername: string, password: string) => request(app).post('/api/auth/login').send({ emailOrUsername, password });
+    const unknown = await signIn(`nobody.${Date.now()}@example.com`, 'wrong-password').expect(401);
 
-    let lockedResponse: any = null;
     for (let i = 0; i < 10; i += 1) {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({ emailOrUsername: u.email, password: 'wrong-password' });
-      if (res.status === 429) {
-        lockedResponse = res;
-        break;
-      }
+      const res = await signIn(u.email, 'wrong-password');
       expect(res.status).toBe(401);
-      // The failure message must not reveal whether the account exists.
-      expect(String(res.body.error)).toBe('Invalid credentials');
+      expect(res.body).toEqual(unknown.body);
     }
+    const row = await platformPrisma.user.findUnique({ where: { id: u.id }, select: { lockedUntil: true } });
+    expect(row?.lockedUntil && row.lockedUntil > new Date()).toBe(true);
+    expect(await platformPrisma.authEvent.count({ where: { userId: u.id, eventType: 'LOCKED_OUT' } })).toBeGreaterThan(0);
 
-    expect(lockedResponse).toBeTruthy();
-    expect(String(lockedResponse.body.error)).toMatch(/too many failed attempts/i);
-
-    // Even the correct password is refused while locked.
-    await request(app)
-      .post('/api/auth/login')
-      .send({ emailOrUsername: u.email, password: u.password })
-      .expect(429);
+    // Even the correct password is refused while locked, with the same answer.
+    expect((await signIn(u.email, u.password).expect(401)).body).toEqual(unknown.body);
   });
 
   it('clears the counter after a successful sign-in', async () => {
