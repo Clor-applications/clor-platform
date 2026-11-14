@@ -4,33 +4,37 @@
  * Settings panel beside it (manifest `modules`), so a row is never on one and missing from the other.
  *
  * items: [navKey, the one line that says what the page is for]
+ * tone: the group's identity colour on the Settings page (--cat-N, PEOPLE-28: Organisation blue, Time off yellow,
+ *   Access violet, Data orange), behind each tile's icon chip.
  */
 export const SETTINGS_GROUPS = [
   {
     title: 'Organisation',
+    tone: 1,
     note: 'Who the employer is and how it is organised.',
     items: [
-      ['companyDetails', 'Legal name, PAN, TAN, address and statutory registrations'],
+      ['companyDetails', 'Legal name, PAN, TAN, GSTIN, addresses'],
       ['legalEntities', 'Only when one group runs more than one registered company: which one each work site belongs to'],
       ['businessUnits', 'Divisions you report on separately'],
       ['branches', 'Offices and other places people work from'],
       ['areas', 'Where people are based, for holidays and reports'],
       ['establishments', 'Registered work sites, each with its own registrations and registers'],
-      ['departments', 'The departments people belong to, and who heads each'],
+      ['departments', 'Departments and their heads'],
       ['teams', 'Teams inside departments'],
-      ['jobPositions', 'The designations people hold'],
+      ['jobPositions', 'Job titles used on letters'],
       ['jobRoles', 'Job roles across designations'],
       ['seats', 'Positions people fill, open or taken'],
-      ['grades', 'Pay grades and bands'],
-      ['employeeTypes', 'Permanent, fixed-term, trainee, intern, consultant: what each counts as, probation and notice'],
+      ['grades', 'Pay bands and eligibility'],
+      ['employeeTypes', 'Full-time, contract, intern: probation and notice'],
       ['workTypes', 'Office, remote, hybrid, field'],
-      ['costCentres', 'Where each person’s cost is booked'],
-      ['tags', 'Labels to group people any way you like'],
+      ['costCentres', 'Where salary cost is booked'],
+      ['tags', 'Free labels for filtering'],
       ['orgChanges', 'Every change to the structure: what, who, when'],
     ],
   },
   {
     title: 'People records',
+    tone: 3,
     note: 'What is kept about people, and what happens when they join or leave.',
     items: [
       ['customFields', 'Your own fields on every person: who sees them, who edits them'],
@@ -42,10 +46,11 @@ export const SETTINGS_GROUPS = [
   },
   {
     title: 'Time off',
+    tone: 4,
     note: 'Leave rules and the company calendar.',
     items: [
-      ['leaveTypes', 'The leave period, and each kind of leave: credits and their dates, who it is for, notice, carry forward, pay-out'],
-      ['holidays', 'Company and location holidays'],
+      ['leaveTypes', 'Leave types, credits, carry forward and rules'],
+      ['holidays', 'Holiday lists by location'],
       ['leaveBlocks', 'Days nobody may ask for leave, such as the year-end close; for some departments or leave types'],
       ['workingWeek', 'Which days of the week are off, for everyone not on a shift'],
       ['leaveYearEnd', 'What carries, lapses or is paid out when the leave period ends'],
@@ -55,6 +60,7 @@ export const SETTINGS_GROUPS = [
   },
   {
     title: 'Shifts & readers',
+    tone: 5,
     note: 'How shifts repeat, where people may punch from, and how readers know each person.',
     items: [
       ['shiftPolicy', 'The shift for anyone with no schedule, and what a late arrival costs'],
@@ -74,6 +80,7 @@ export const SETTINGS_GROUPS = [
   },
   {
     title: 'Requests & approvals',
+    tone: 6,
     note: 'What people may ask for, who decides, and who stands in when the approver is away.',
     items: [
       ['approvalRules', 'Who decides job changes, resignations, probation, policies: steps, due days, overdue'],
@@ -87,12 +94,13 @@ export const SETTINGS_GROUPS = [
   },
   {
     title: 'Access',
+    tone: 7,
     note: 'Who signs in, what they may do, and which features are on.',
     items: [
       ['selfService', 'Who can sign in to the employee app'],
       ['sso', 'Users, sign-in and single sign-on, in Workspace'],
       ['rolesAccess', 'What each role may do in People, in Workspace'],
-      ['modules', 'Simple mode, HR modules on or off, and which apps the subscription carries'],
+      ['modules', 'Turn People features on or off'],
     ],
     apps: [
       ['payroll', 'Payroll', 'Salaries, statutory deductions and payslips for these people'],
@@ -101,15 +109,16 @@ export const SETTINGS_GROUPS = [
   },
   {
     title: 'Data',
+    tone: 2,
     note: 'Bring data in, take it out, and keep it right.',
     items: [
-      ['dataImport', 'Employees, leave balances and more from a spreadsheet'],
-      ['dataExport', 'A copy of the company’s HR data'],
+      ['dataImport', 'Bring employees and balances in from Excel'],
+      ['dataExport', 'Download your HR data'],
       ['integrations', 'Webhooks, API keys and HR tool sync'],
-      ['dataProtection', 'Privacy notice and consent (DPDP)'],
-      ['dataRequests', 'Employees’ requests to see, correct or erase data'],
+      ['dataProtection', 'DPDP Act notice and consent'],
+      ['dataRequests', 'Requests to see, correct or erase data'],
       ['privacy', 'Who opened sensitive details, how long records are kept, and auditor access'],
-      ['recycleBin', 'Bring back what was deleted in the last 30 days'],
+      ['recycleBin', 'Restore what was deleted in 30 days'],
       ['auditLogs', 'Who changed what, and when'],
       ['auditEvidence', 'What the company has shared with an outside auditor, and until when'],
     ],

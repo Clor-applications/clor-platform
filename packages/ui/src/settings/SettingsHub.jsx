@@ -9,7 +9,8 @@ import { PageHeader } from '../components/ui/Primitives';
  * and changed rarely, in groups, each with a line saying what it is for.
  * Only the rows this person may open: the shell hands over the nav it kept.
  *
- * groups: [{ title, note, items: [[navKey, note]], apps?: [[appId, label, note]] }]
+ * groups: [{ title, note, tone?, items: [[navKey, note]], apps?: [[appId, label, note]] }]; `tone` (1–8) names the
+ * group's identity colour (--cat-N), which a portal's stylesheet may use behind each tile's icon (People, PEOPLE-28).
  */
 export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], description = 'Everything set up once and changed rarely, in one place.' }) {
   const [q, setQ] = useState('');
@@ -35,7 +36,7 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
       </header>
       {!groups.length ? <p className="ui-muted text-sm">No setting matches “{q}”.</p> : null}
       {groups.map((g) => (
-        <section key={g.title} className="space-y-2" aria-labelledby={`set-${g.title}`}>
+        <section key={g.title} className="space-y-2" aria-labelledby={`set-${g.title}`} data-tone={g.tone || undefined} style={g.tone ? { '--set-tone': `var(--cat-${g.tone})` } : undefined}>
           <div>
             <h2 id={`set-${g.title}`} className="ui-t-sec">{g.title}</h2>
             <p className="ui-caption ui-settings-note">{g.note}</p>

@@ -469,6 +469,8 @@ export const peopleApp = {
   railOpensHome: true,
   /* Counts beside rail entries: what waits in the Inbox (src/api/railCounts.js). */
   railCounts: () => import('./src/api/railCounts.js').then((m) => m.peopleRailCounts()),
+  /* Counts beside panel items (R&D shell): employees, open jobs and what waits in each inbox (src/api/railCounts.js). {} on failure. */
+  panelCounts: (ctx) => import('./src/api/railCounts.js').then((m) => m.peoplePanelCounts(ctx)).catch(() => ({})),
   /* Search (People plan, 8 Nov 2026): people by name, code or email; and jobs by the words people use for them. */
   searchRecords: (q) => import('@ui/personnel/search').then((m) => m.findPeople(q)),
   searchActions: [
@@ -682,7 +684,7 @@ export const peopleApp = {
     { key: 'dataImport', label: 'Import data', icon: I.import, permission: 'PEOPLE::Employees::CREATE', parent: 'settings' },
     { key: 'settings', label: 'All settings', icon: I.settings, hub: true },
     /* Founder, 22 Oct 2026: modules switch on and off, within what the subscription carries. */
-    { key: 'modules', label: 'Features & apps', icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
+    { key: 'modules', label: 'Modules & apps', keywords: ['features', 'features & apps'], icon: I.modules, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'companyDetails', label: 'Company details', icon: I.office, permission: 'SETTINGS::Company Profile::VIEW', parent: 'settings' },
     { key: 'legalEntities', label: 'Legal entity', icon: I.legal, permission: 'PEOPLE::Org Structure::VIEW', parent: 'settings', feature: 'peopleDetailed' },
     { key: 'establishments', label: 'Work sites', icon: I.site, permission: 'PEOPLE::Org Structure::VIEW', feature: 'peopleOrgDetail', parent: 'settings' },
