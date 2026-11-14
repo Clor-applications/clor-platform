@@ -226,6 +226,7 @@ const normalize = (row: any) => ({
   itemsJson: undefined,
   ...spreadExtras(row),
   extrasJson: undefined,
+  heldStatus: undefined,
 });
 
 const orgOk = (req: any, res: any) => {
@@ -380,7 +381,11 @@ function register(kind: DocKind) {
         throw e;
       }
       if (approval.required) {
-        const held = await table().update({ where: { id: created.id }, data: { status: 'Pending Approval' } });
+        // The status the raiser chose comes back when the approver releases it.
+        const held = await table().update({ where: { id: created.id }, data: {
+          status: 'Pending Approval',
+          extrasJson: JSON.stringify({ ...spreadExtras(created), heldStatus: created.status }),
+        } });
         return res.status(201).json({ document: normalize(held), approval: { required: true, rule: approval.ruleName } });
       }
 
@@ -758,5 +763,9 @@ export async function postApprovedPurchaseDoc(opts: {
     }),
     });
   }
-  await table.update({ where: { id: doc.id }, data: { status: 'Unpaid' } });
+  const { heldStatus, ...restExtras } = spreadExtras(doc);
+  await table.update({ where: { id: doc.id }, data: {
+    status: typeof heldStatus === 'string' && heldStatus ? heldStatus : 'Unpaid',
+    extrasJson: Object.keys(restExtras).length ? JSON.stringify(restExtras) : null,
+  } });
 }

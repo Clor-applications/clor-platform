@@ -8,6 +8,10 @@
 -- Sales Reports (VIEW, EXPORT) it can now do with each new group, and an
 -- administrator narrows it from the roles screen if they want to.
 
+-- Role and RolePermission force row-level security: without the bypass the
+-- copy below would read no rows and grant nothing.
+SET clor.bypass = 'on';
+
 INSERT INTO "Permission" ("id", "module", "subModule", "action")
 SELECT gen_random_uuid()::text, 'REPORTS', g."subModule", a."action"
 FROM (VALUES ('Purchase Reports'), ('Inventory Reports'), ('Expense Reports'), ('Receipt Reports'),
@@ -26,3 +30,5 @@ JOIN "Permission" np ON np."module" = 'REPORTS' AND np."action" = h."action"
                          'TDS Reports', 'TCS Reports')
 WHERE rp."allowed"
 ON CONFLICT ("roleId", "permissionId") DO NOTHING;
+
+RESET clor.bypass;

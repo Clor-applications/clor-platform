@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requireTenantContext, userMayUseWarehouse } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { parseCsv, toCsv } from '../services/csv.js';
@@ -497,7 +497,13 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/commit', CREATE, async (req, r
       if (normalized) itemBySku.set(normalized, item);
     }
   }
-  const warehouses = await prisma.warehouse.findMany({ where: { accountId, orgId, isActive: true } });
+  // Only the batch branch's warehouses that this person may use: a name in the
+  // file must not reach another branch's stock.
+  const branchWarehouses = await prisma.warehouse.findMany({ where: { accountId, orgId, branchId: batch.branchId, isActive: true } });
+  const warehouses = [];
+  for (const warehouse of branchWarehouses) {
+    if (await userMayUseWarehouse(accountId, orgId, userId, warehouse.id)) warehouses.push(warehouse);
+  }
   const warehouseByName = new Map(warehouses.map((warehouse) => [String(warehouse.name).trim().toLowerCase(), warehouse.id]));
 
   let committed = 0;

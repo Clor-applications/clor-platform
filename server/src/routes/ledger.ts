@@ -90,9 +90,15 @@ ledgerRouter.post('/orgs/:orgId/ledger/accounts', requirePermission(MODULE, Perm
   if (sourceKey) {
     const existing = await prisma.ledgerAccount.findFirst({
       where: { orgId, sourceSystem: 'client-chart', sourceKey },
-      select: { id: true, code: true },
+      select: { id: true, code: true, accountType: true },
     });
+    /* A ledger that already carries postings keeps its type: retyping it would
+       move every past line to another statement (an asset into expenses). */
+    const postedTo = (ledgerAccountId: string) => prisma.journalLine.count({ where: { orgId, ledgerAccountId } });
     if (existing) {
+      if (body.accountType && body.accountType !== existing.accountType && await postedTo(existing.id)) {
+        return res.status(409).json({ error: `Ledger ${existing.code} has postings, so its type cannot change from ${existing.accountType} to ${body.accountType}` });
+      }
       const requestedCode = String(body.code || '').trim();
       const codeOwner = requestedCode && requestedCode !== existing.code
         ? await prisma.ledgerAccount.findFirst({ where: { orgId, branchId: null, code: requestedCode }, select: { id: true } }) : null;
@@ -105,8 +111,17 @@ ledgerRouter.post('/orgs/:orgId/ledger/accounts', requirePermission(MODULE, Perm
     }
     const matchingCode = String(body.code || '').trim() ? await prisma.ledgerAccount.findFirst({
       where: { orgId, branchId: null, code: String(body.code).trim() },
-      select: { id: true, sourceKey: true },
+      select: { id: true, sourceKey: true, accountType: true, controlKind: true },
     }) : null;
+    /* A control ledger (receivables, tax, stock …) is the system's own and is
+       never taken over by an imported chart row, and a posted ledger keeps
+       its type. */
+    if (matchingCode && !matchingCode.sourceKey && matchingCode.controlKind) {
+      return res.status(409).json({ error: `Ledger code ${body.code} is a system ledger; give this row another code` });
+    }
+    if (matchingCode && !matchingCode.sourceKey && body.accountType && body.accountType !== matchingCode.accountType && await postedTo(matchingCode.id)) {
+      return res.status(409).json({ error: `Ledger code ${body.code} has postings as ${matchingCode.accountType}; give this row another code` });
+    }
     if (matchingCode && !matchingCode.sourceKey) {
       const updated = await prisma.ledgerAccount.update({
         where: { id: matchingCode.id },

@@ -478,6 +478,21 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const row = await prisma.invoice.findUnique({ where: { id } });
   if (!row) return res.status(500).json({ error: 'Failed to create invoice' });
 
+  // The currency and rate are fixed on the document before any approval hold,
+  // so an approver's release posts the same translated amounts.
+  const baseCurrency = await baseCurrencyFor(accountId, orgId);
+  const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
+  const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
+  const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
+  if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) {
+    await prisma.invoice.delete({ where: { id } });
+    return res.status(400).json({ error: `Invoice not saved: Enter the conversion rate from ${docCurrency} to ${baseCurrency}` });
+  }
+  await prisma.invoice.update({
+    where: { id },
+    data: { currency: docCurrency, exchangeRate: fxRate, baseTotal: toBase(Number(body.total ?? 0), fxRate) },
+  });
+
   // Approval thresholds are evaluated before anything reaches the ledger: an
   // invoice awaiting sign-off must not appear in the books.
   let approval;
@@ -512,16 +527,6 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
     // kept in one. Translate every amount at the rate in force on the document
     // date before posting — mixing currencies in one ledger would give a trial
     // balance that foots to zero and means nothing.
-    const baseCurrency = await baseCurrencyFor(accountId, orgId);
-    const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
-    const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
-    const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
-    if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) throw new FxError(`Enter the conversion rate from ${docCurrency} to ${baseCurrency}`);
-
-    await prisma.invoice.update({
-      where: { id },
-      data: { currency: docCurrency, exchangeRate: fxRate, baseTotal: toBase(Number(body.total ?? 0), fxRate) },
-    });
 
     await postEntry({
       accountId,

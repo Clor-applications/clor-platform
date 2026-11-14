@@ -85,7 +85,9 @@ featuresRouter.patch('/orgs/:orgId/party-code-settings', requirePermission('SETT
    * counter left behind by a failure is corrected by saving again.
    */
   await platformPrisma.org.update({ where: { id: org.id }, data: { profileJson: JSON.stringify({ ...profile, partyCodeSettings }) } });
-  await prisma.partyCodeCounter.updateMany({ where: { accountId, orgId, kind: kind.toUpperCase() }, data: { nextNumber: BigInt(format.nextNumber) } });
+  // A counter only moves forward: saving the form again with the number it
+  // showed earlier must not hand out codes already issued.
+  await prisma.partyCodeCounter.updateMany({ where: { accountId, orgId, kind: kind.toUpperCase(), nextNumber: { lt: BigInt(format.nextNumber) } }, data: { nextNumber: BigInt(format.nextNumber) } });
   await recordAudit(req, { entity: 'Company', entityId: orgId, action: 'UPDATE', message: `Changed ${kind} code numbering`, metadata: { kind } });
   res.json({ partyCodeSettings });
 });

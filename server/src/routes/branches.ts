@@ -173,8 +173,11 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
 
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
-  // The first warehouse can only be given while creating the branch.
-  const body = sentOnly(branchSchema.omit({ warehouse: true }).partial().parse(req.body), req.body);
+  /* The first warehouse travels with the branch: on create, or here when a
+     service branch becomes Trading or Both (it holds no warehouse yet, and a
+     warehouse cannot be added to a service branch, so it must come together). */
+  const { warehouse: firstWarehouse, ...rest } = branchSchema.partial().parse(req.body);
+  const body = sentOnly(rest, req.body);
 
   const existing = await platformPrisma.branch.findFirst({
     where: { accountId, orgId, id: branchId },
@@ -196,8 +199,16 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
   const nextBranchType = body.branchType ?? existing.branchType;
   // Checked only when the type is being changed, so a branch saved before
   // branch types existed can still have its phone or address edited.
-  if ('branchType' in body && nextBranchType !== existing.branchType && nextBranchType !== 'SERVICE' && !await prisma.warehouse.count({ where: { accountId, orgId, branchId } })) {
-    return res.status(400).json({ error: 'Create a warehouse before changing this branch to Trading or Both' });
+  const needsFirstWarehouse = 'branchType' in body && nextBranchType !== existing.branchType && nextBranchType !== 'SERVICE'
+    && !await prisma.warehouse.count({ where: { accountId, orgId, branchId } });
+  if (needsFirstWarehouse && !firstWarehouse) {
+    return res.status(400).json({ error: 'Give the first warehouse when changing this branch to Trading or Both' });
+  }
+  if (firstWarehouse && !needsFirstWarehouse) {
+    return res.status(400).json({ error: 'A warehouse is given here only when a service branch becomes Trading or Both; add others under Warehouses' });
+  }
+  if (firstWarehouse && await prisma.warehouse.findFirst({ where: { accountId, orgId, code: firstWarehouse.code.toUpperCase() }, select: { id: true } })) {
+    return res.status(409).json({ error: 'Warehouse code already exists' });
   }
 
   // Legacy branches may contain a GSTIN saved before checksum validation.
@@ -205,6 +216,26 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
   // change to GSTIN, registration type, or state still receives full checks.
   if (nextRegType !== 'UNREGISTERED' && ('gstin' in body || 'state' in body || 'gstRegistrationType' in body)) {
     validateGstinOrThrow(String(nextGstin || ''), nextState);
+  }
+
+  /* Books database first, then the branch: if the branch cannot be saved the
+     warehouse is removed again, as on create. */
+  let firstWarehouseId: string | null = null;
+  if (firstWarehouse) {
+    const wh = await prisma.warehouse.create({ data: {
+      accountId, orgId, branchId,
+      code: firstWarehouse.code.toUpperCase(),
+      name: firstWarehouse.name,
+      addressLine1: firstWarehouse.addressLine1,
+      addressLine2: firstWarehouse.addressLine2 ?? null,
+      city: firstWarehouse.city ?? null,
+      state: firstWarehouse.state,
+      country: firstWarehouse.country,
+      gstin: existing.gstin,
+      gstRegistrationType: existing.gstRegistrationType as any,
+      createdByUserId: userId,
+    } });
+    firstWarehouseId = wh.id;
   }
 
   const updated = await platformPrisma.branch.update({
@@ -229,7 +260,13 @@ branchesRouter.patch('/orgs/:orgId/branches/:branchId', requirePermission('MASTE
       // update audit via updatedAt (Prisma @updatedAt)
       createdByUserId: existing.createdByUserId || userId,
     } as any,
+  }).catch(async (error) => {
+    if (firstWarehouseId) await prisma.warehouse.delete({ where: { id: firstWarehouseId } }).catch(() => {});
+    throw error;
   });
+  if (firstWarehouseId) {
+    await platformPrisma.userWarehouseAccess.create({ data: { accountId, orgId, branchId, warehouseId: firstWarehouseId, userId } }).catch(() => {});
+  }
 
   await logBranchChange(req, existing, updated);
   res.json({ branch: updated });

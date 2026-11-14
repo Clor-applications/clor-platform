@@ -290,3 +290,64 @@ describe('the multiCurrency feature switch', () => {
     expect(String(res.body.error)).toMatch(/foreign-currency invoices/i);
   });
 });
+
+/*
+ * An invoice held for approval keeps the rate typed on it. The approver's
+ * release used to post the face value: USD 60,000 landed as INR 60,000.
+ */
+describe('a foreign-currency invoice held for approval', () => {
+  it('posts the translated amount when the approver releases it', async () => {
+    await setFeature('approvals', true);
+    const role = await request(app)
+      .post(`/api/orgs/${owner.orgId}/roles`)
+      .set(auth(owner))
+      .send({ name: `FX approver ${rnd()}`, roleType: 'CUSTOM', permissions: ['SALES::Invoices::VIEW'] })
+      .expect(201);
+    const roleId = role.body.role.id;
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/approval-rules`)
+      .set(auth(owner))
+      .send({ docType: 'INVOICE', name: `FX hold ${rnd()}`, minAmount: 50000, approverRoleId: roleId })
+      .expect(201);
+
+    const email = `fx.approver.${rnd()}@example.com`;
+    const user = await request(app)
+      .post('/api/users')
+      .set(auth(owner))
+      .send({ email, fullName: 'FX approver', password: 'Passw0rd!23', orgIds: [owner.orgId], branchIdsByOrg: { [owner.orgId]: [owner.branchId] } })
+      .expect(201);
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/users/${user.body.user.id}/roles`)
+      .set(auth(owner))
+      .send({ roleId, branchId: null })
+      .expect(201);
+    const login = await request(app).post('/api/auth/login').send({ emailOrUsername: email, password: 'Passw0rd!23' }).expect(200);
+    const approver: Ctx = { token: login.body.token, orgId: owner.orgId, branchId: owner.branchId };
+
+    const before = await trialBalance();
+    const held = await request(app)
+      .post(`/api/orgs/${owner.orgId}/invoices`)
+      .set(auth(owner))
+      .send({
+        ...invoicePayload({ currency: 'USD', date: '2026-05-20', subtotal: 60000, total: 60000,
+          items: [{ description: 'Export services', quantity: 1, rate: 60000, gstRate: 0 }] }),
+        exchangeRate: 83,
+      })
+      .expect(201);
+    expect(held.body.approval?.required).toBe(true);
+    expect((await trialBalance()).totals.debit).toBe(before.totals.debit);
+
+    const inbox = await request(app).get(`/api/orgs/${owner.orgId}/approvals`).set(auth(approver)).expect(200);
+    const pending = inbox.body.requests.find((r: any) => r.docId === held.body.invoice.id);
+    expect(pending).toBeTruthy();
+    await request(app)
+      .post(`/api/orgs/${owner.orgId}/approvals/${pending.id}/decide`)
+      .set(auth(approver))
+      .send({ approve: true, comment: 'ok' })
+      .expect(200);
+
+    const after = await trialBalance();
+    expect(after.totals.debit - before.totals.debit).toBe(60000 * 83);
+    expect(after.totals.balanced).toBe(true);
+  });
+});

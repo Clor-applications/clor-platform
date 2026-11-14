@@ -25,6 +25,7 @@ import { permKey } from '../constants/permissionCatalog.js';
 import { ApprovalError, decide, notifyDecision, reopen } from '../services/approvals.js';
 import { isAppEntitled } from '../services/subscriptions.js';
 import { ensureLedgerSetup, invoicePostingLines, postEntry } from '../services/ledger.js';
+import { toBase } from '../services/fx.js';
 import { entityExists } from '../services/integrity/crossStore.js';
 import { postApprovedPurchaseDoc } from './purchaseDocs.js';
 import { assertPeriodUnlocked, periodLockModuleForSource } from '../services/periodLock.js';
@@ -558,6 +559,8 @@ async function releaseApprovedDocument(opts: {
     if (inv.status !== 'Pending Approval') return Boolean(existing);
     if (!existing) {
       await ensureLedgerSetup(opts.accountId, opts.orgId, opts.userId);
+      // Held invoices keep the rate typed on them; the ledger is in base currency.
+      const fxRate = Number(inv.exchangeRate) || 1;
       await postEntry({
         accountId: opts.accountId,
         orgId: opts.orgId,
@@ -565,17 +568,17 @@ async function releaseApprovedDocument(opts: {
         userId: opts.userId,
         date: String(inv.date),
         journalCode: 'SAL',
-        narration: `Invoice ${inv.number} (approved)`,
+        narration: `Invoice ${inv.number} (approved)` + (fxRate === 1 ? '' : ` (${inv.currency} at ${fxRate})`),
         sourceDocType: 'INVOICE',
         sourceDocId: inv.id,
         lines: invoicePostingLines({
           customerId: inv.customerId,
           customerName: inv.customerName,
-          subtotal: Number(inv.subtotal),
-          cgstTotal: Number(inv.cgstTotal),
-          sgstTotal: Number(inv.sgstTotal),
-          igstTotal: Number(inv.igstTotal),
-          total: Number(inv.total),
+          subtotal: toBase(Number(inv.subtotal), fxRate),
+          cgstTotal: toBase(Number(inv.cgstTotal), fxRate),
+          sgstTotal: toBase(Number(inv.sgstTotal), fxRate),
+          igstTotal: toBase(Number(inv.igstTotal), fxRate),
+          total: toBase(Number(inv.total), fxRate),
         }),
       });
     }

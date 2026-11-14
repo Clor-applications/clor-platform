@@ -4,6 +4,11 @@
 
 ALTER TABLE "Party" ADD COLUMN "codeBranchId" TEXT;
 
+-- "Party" forces row-level security; without the bypass the clean-up below
+-- would see no rows when the migration role is not a superuser, and the unique
+-- index (which row security does not filter) would then fail on real data.
+SET clor.bypass = 'on';
+
 -- The unique index below would refuse a company that already has two parties
 -- on one code. An empty code is no code. Where a real code repeats, the oldest
 -- party keeps it and each later one gets a numbered suffix, so nothing is lost
@@ -16,9 +21,12 @@ WITH ranked AS (
   WHERE "code" IS NOT NULL
 )
 UPDATE "Party" p
-SET "code" = p."code" || '-DUP' || ranked.n
+-- The row id keeps the renamed code from landing on a code already in use.
+SET "code" = p."code" || '-DUP' || ranked.n || '-' || left(p."id", 6)
 FROM ranked
 WHERE p."id" = ranked."id" AND ranked.n > 1;
+
+RESET clor.bypass;
 
 CREATE UNIQUE INDEX "Party_orgId_code_key" ON "Party"("orgId", "code");
 
