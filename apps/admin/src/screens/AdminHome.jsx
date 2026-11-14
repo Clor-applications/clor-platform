@@ -1,15 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronRight } from '@ui/components/ui/lineIcons';
+import { ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 
 import { accountAudit, getAccountMe, listAccountMembers, listInvitations, listTickets, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
-import { ICON, Meter, Panel, Stat, ago, productIcon } from './wsKit';
+import { listOutsideAccess } from '@platform/admin/outsideAccess';
+import { AppMark, Avatar, ICON, Meter, Panel, ago, productIcon, seatState } from './wsKit';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 import { orgId, requestOpenHelp } from '@platform/context';
 import { apiFetch } from '@platform/http';
 import './workspace.css';
+import './ws-home.css';
 
 /**
  * Workspace → Overview (redesign W-R4; Workspace plan 11 Nov 2026, P0).
@@ -57,6 +59,12 @@ const N = ({ children }) => <span className="ui-num">{children}</span>;
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const APP_NAME = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance', projects: 'Projects' };
 
+/* The address an app opens on (shell/appHosts.js: the accounting app lives at books). */
+const HOST_LABEL = { accounting: 'books' };
+export const hostLabel = (id) => `${HOST_LABEL[id] || id}.clor.in`;
+/* An app's state as a pill: open is good; the rest are neutral facts, not alarms. */
+const pillOf = (s) => (s.key === 'open' ? 'ws-pill ws-pill--ok' : 'ws-pill ws-pill--neutral');
+
 const firstName = (user) => String(user?.firstName || user?.fullName || '').trim().split(/\s+/)[0] || '';
 
 
@@ -68,6 +76,8 @@ const firstName = (user) => String(user?.firstName || user?.fullName || '').trim
 const getWaiting = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/workspace/waiting`, { skipWarehouseHeader: true });
 
 const dateWords = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const DAY = 86400000;
+const WEEK = 7 * DAY;
 const inDays = (n) => (n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`);
 
 /** What the subscription itself needs said (server: subscriptionWatch). Lapsed is the plan line's, said once. */
@@ -79,20 +89,6 @@ export function renewalNotice(renewal, planBad = false) {
   return null;
 }
 
-function SkeletonStats() {
-  return (
-    <div className="ws-stats" aria-hidden="true">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="ws-stat" style={{ display: 'grid', gap: 8 }}>
-          <span className="ui-skel ui-skel-text" style={{ width: '40%' }} />
-          <span className="ui-skel" style={{ height: 24, width: '30%', borderRadius: 8 }} />
-          <span className="ui-skel ui-skel-text" style={{ width: '70%' }} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function AdminHome({ user, tenant, catalog = [], navItems = [], openScreen, openApp, openMoreApps, accountName = '' }) {
   const [me, setMe] = useState(undefined);
   const [overview, setOverview] = useState(null);
@@ -102,6 +98,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [activity, setActivity] = useState(null);
   const [waiting, setWaiting] = useState(null);
   const [tickets, setTickets] = useState(null);
+  const [outside, setOutside] = useState(null);
   const attentionRef = useRef(null);
 
   useEffect(() => {
@@ -118,6 +115,11 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           accountAudit({ limit: 6 }).then((a) => live && setActivity(a?.events || [])).catch(() => {});
           memberDirectory()
             .then((d) => live && setDirectory(d?.members || []))
+            .catch(() => {});
+          /* Accountants let in for a time: one whose access ends within a week is worth a word (CLOR-01). */
+          Promise.resolve()
+            .then(listOutsideAccess)
+            .then((o) => live && setOutside(o ? { ...o, readAt: Date.now() } : null))
             .catch(() => {});
         }
         listTickets().then((t) => live && setTickets(t?.tickets || [])).catch(() => {});
@@ -144,7 +146,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const planned = products.filter((a) => !a.available);
   const states = built.map((a) => ({ app: a, state: appState(a, tenant, myApps) }));
   const notAssigned = states.filter((s) => s.state.key === 'noaccess');
-  const openable = states.filter((s) => s.state.key === 'open');
   const onCount = states.filter((s) => s.state.key === 'open' || s.state.key === 'noaccess').length;
   const activeMembers = members ? members.filter((m) => m.status === 'ACTIVE').length : null;
   const plan = overview?.plan;
@@ -159,8 +160,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   /* Seats for the apps that are built and on the account; Workspace itself is not a seat. */
   const seatApps = built.filter((a) => (tenant?.subscriptions || []).includes(a.id) || (overview?.seats || []).some((x) => x.app === a.id)).map((a) => a.id);
   const seats = directory ? seatsByApp(directory, overview?.seats, seatApps) : null;
-  const seatsInUse = seats ? seats.reduce((n, x) => n + x.used, 0) : null;
-  const seatsBought = seats && seats.every((x) => x.bought != null) ? seats.reduce((n, x) => n + x.bought, 0) : null;
   const planBad = plan && plan.inGoodStanding === false;
   const renewalLine = seesPlan ? renewalNotice(renewal, planBad) : null;
 
@@ -171,298 +170,290 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
       key: `waiting-${x.key}`,
       icon: productIcon(x.app) || ICON.history,
       tone: 'brand',
+      tag: APP_NAME[x.app] || x.app,
+      action: 'Open',
       title: <><N>{x.count}</N> {x.label}</>,
       sub: `In ${APP_NAME[x.app] || x.app}.`,
       go: openApp ? () => openApp(x.open.app, x.open.screen, x.open.params || {}) : null,
     }));
 
+  /* An app at or past the seats bought: what is left, or how far over (seats bought from the plan, used from the directory). */
+  const seatLines = (seats || [])
+    .filter((x) => x.bought != null && seatState(x.used, x.bought) !== 'ok')
+    .map((x) => {
+      const over = seatState(x.used, x.bought) === 'over';
+      const left = Number(x.bought) - Number(x.used);
+      return {
+        key: `seats-${x.app}`,
+        tag: over ? 'Over limit' : 'Seats',
+        pill: over ? 'danger' : 'warn',
+        tone: 'warn',
+        action: 'Add seats',
+        icon: productIcon(x.app),
+        title: <>{APP_NAME[x.app] || x.app} is using <N>{x.used}</N> of <N>{x.bought}</N> seats</>,
+        sub: over ? `${-left} more than the plan has. Add seats to keep everyone in.` : `${plural(left, 'seat')} left before you need more.`,
+        go: go('billing'),
+      };
+    });
+  /* Outside access that ends within a week: renew it or let it lapse. */
+  const readAt = outside?.readAt || 0;
+  const endingLines = (outside?.outsideAccess || [])
+    .filter((r) => r.effective === 'ACTIVE' && r.expiresAt && Date.parse(r.expiresAt) - readAt < WEEK && Date.parse(r.expiresAt) >= readAt)
+    .slice(0, 3)
+    .map((r) => {
+      const days = Math.max(0, Math.ceil((Date.parse(r.expiresAt) - readAt) / DAY));
+      const who = r.from?.name || r.person?.name || r.person?.email || 'An accountant';
+      return {
+        key: `outside-${r.id}`,
+        tag: days === 0 ? 'Expires today' : `Expires in ${plural(days, 'day')}`,
+        pill: 'warn',
+        tone: 'warn',
+        action: 'Review access',
+        icon: ICON.person,
+        title: `${who}’s access ends ${dateWords(r.expiresAt)}`,
+        sub: 'Renew it or let it lapse.',
+        go: go('outsideAccess'),
+      };
+    });
+  const noGstin = isAdmin && overview ? (overview.companies || []).filter((c) => !c.gstin && !c.archived) : [];
+
   /* Needs your attention: only what is true and actionable, the most urgent first. */
   const attention = [
-    planBad ? { key: 'plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: `Status: ${String(plan.status || '').toLowerCase()}.`, go: go('account') } : null,
-    seesPlan && bills?.overdue ? { key: 'overdue', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Open Billing to pay.</>, go: go('billing') } : null,
-    renewalLine ? { key: 'renewal', icon: ICON.plan, ...renewalLine, go: go('account') } : null,
+    planBad ? { key: 'plan', tag: 'Plan', action: 'Open plan', icon: ICON.alert, tone: 'danger', title: 'Your plan needs attention', sub: `Status: ${String(plan.status || '').toLowerCase()}.`, go: go('account') } : null,
+    seesPlan && bills?.overdue ? { key: 'overdue', tag: 'Overdue', action: 'Pay now', icon: ICON.plan, tone: 'danger', title: `${plural(bills.overdue, 'CLOR invoice')} overdue`, sub: <><N>{rupees(bills.due)}</N> to pay in all. Open Billing to pay.</>, go: go('billing') } : null,
+    renewalLine ? { key: 'renewal', tag: 'Plan', action: 'Choose plan', icon: ICON.plan, ...renewalLine, go: go('account') } : null,
+    ...seatLines,
+    ...endingLines,
     ...waitingLines,
-    health?.status === 'attention' ? { key: 'sync', icon: ICON.data, tone: 'warn', title: `${plural(health.issues, 'sync problem')}`, sub: health.alerts?.[0]?.title || health.sources.filter((x) => x.issues).map((x) => x.label).join(', '), go: null } : null,
-    privilegedNo2fa ? { key: '2fa', icon: ICON.warning, tone: 'warn', title: `${privilegedNo2fa} administrator${privilegedNo2fa === 1 ? '' : 's'} without an authenticator`, sub: 'They can change who has access; ask them to switch it on.', go: go('members') } : null,
-    seesPlan && bills?.unpaid && !bills.overdue ? { key: 'unpaid', icon: ICON.plan, tone: null, title: `${plural(bills.unpaid, 'CLOR invoice')} to pay`, sub: <><N>{rupees(bills.due)}</N> due. Not overdue yet.</>, go: go('billing') } : null,
-    pending ? { key: 'inv', icon: ICON.invite, tone: null, title: `${pending} pending invitation${pending === 1 ? '' : 's'}`, sub: 'Waiting for people to accept.', go: go('invitations') } : null,
-    notAssigned.length ? { key: 'na', icon: ICON.person, tone: null, title: `You can’t open ${notAssigned.map((s) => s.app.name).join(', ')} yet`, sub: 'An administrator gives access with a role.', go: null } : null,
-    isAdmin && overview && overview.companies?.some((c) => !c.gstin && !c.archived) ? { key: 'gstin', icon: ICON.company, tone: null, title: 'Company details incomplete', sub: `${overview.companies.filter((c) => !c.gstin && !c.archived).map((c) => c.name).join(', ')}: no GSTIN on record.`, go: go('companies') } : null,
+    health?.status === 'attention' ? { key: 'sync', tag: 'Sync', icon: ICON.data, tone: 'warn', title: `${plural(health.issues, 'sync problem')}`, sub: health.alerts?.[0]?.title || health.sources.filter((x) => x.issues).map((x) => x.label).join(', '), go: null } : null,
+    privilegedNo2fa ? { key: '2fa', tag: 'Security', action: 'Review members', icon: ICON.warning, tone: 'warn', title: `${privilegedNo2fa} administrator${privilegedNo2fa === 1 ? '' : 's'} without an authenticator`, sub: 'They can change who has access; ask them to switch it on.', go: go('members') } : null,
+    seesPlan && bills?.unpaid && !bills.overdue ? { key: 'unpaid', tag: 'Invoice', action: 'Pay', icon: ICON.plan, tone: null, title: `${plural(bills.unpaid, 'CLOR invoice')} to pay`, sub: <><N>{rupees(bills.due)}</N> due. Not overdue yet.</>, go: go('billing') } : null,
+    pending ? { key: 'inv', tag: 'Invited', action: 'View invitations', icon: ICON.invite, tone: null, title: `${pending} pending invitation${pending === 1 ? '' : 's'}`, sub: 'Waiting for people to accept.', go: go('invitations') } : null,
+    notAssigned.length ? { key: 'na', tag: 'Access', icon: ICON.person, tone: null, title: `You can’t open ${notAssigned.map((s) => s.app.name).join(', ')} yet`, sub: 'An administrator gives access with a role.', go: null } : null,
+    noGstin.length ? { key: 'gstin', tag: 'Missing', pill: 'danger', action: 'Add GSTIN', icon: ICON.company, tone: null, title: noGstin.length === 1 ? `${noGstin[0].name} has no GSTIN` : `${noGstin.length} companies have no GSTIN`, sub: noGstin.length === 1 ? 'Invoices from this company cannot be e-invoiced until it is added.' : `${noGstin.map((c) => c.name).join(', ')}: invoices cannot be e-invoiced until each is added.`, go: go('companies') } : null,
   ].filter(Boolean);
   const repliedTo = (tickets || []).filter((t) => t.status === 'WAITING');
   /* CLOR answered and waits on the customer: after the urgent items, before the routine ones. */
   const firstCalm = attention.findIndex((a) => a.tone !== 'danger' && a.tone !== 'warn');
-  if (repliedTo.length) attention.splice(firstCalm < 0 ? attention.length : firstCalm, 0, { key: 'tickets', icon: ICON.chat, tone: 'brand', title: repliedTo.length === 1 ? `CLOR replied to ${repliedTo[0].code}` : `CLOR replied to ${repliedTo.length} tickets`, sub: repliedTo.length === 1 ? repliedTo[0].subject : 'They are waiting for your answer.', go: go('support') });
+  if (repliedTo.length) attention.splice(firstCalm < 0 ? attention.length : firstCalm, 0, { key: 'tickets', tag: 'Support', action: 'Reply', icon: ICON.chat, tone: 'brand', title: repliedTo.length === 1 ? `CLOR replied to ${repliedTo[0].code}` : `CLOR replied to ${repliedTo.length} tickets`, sub: repliedTo.length === 1 ? repliedTo[0].subject : 'They are waiting for your answer.', go: go('support') });
   const urgent = attention.filter((a) => a.tone === 'danger' || a.tone === 'warn').length;
 
   const name = firstName(user);
-  const toAttention = () => attentionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const account = accountName || overview?.account?.name || tenant?.name || '';
+  const companyCount = entities?.companies ?? (overview ? (overview.companies || []).filter((c) => !c.archived).length : null);
+  const memberCount = activeMembers ?? (security ? security.active : null);
+  /* One line of facts under the title, each only when it was read. */
+  const facts = [
+    account || null,
+    companyCount != null ? plural(companyCount, 'company', 'companies') : null,
+    `${onCount} of ${built.length} apps`,
+    memberCount != null ? plural(memberCount, 'member') : null,
+  ].filter(Boolean);
+  const companiesTable = isAdmin && overview ? (overview.companies || []) : null;
 
   return (
     <div className="ws">
       <div className="ws-inner">
-        <section className="ws-hero" aria-labelledby="ws-hero-title">
-          <div className="ws-hero-row">
-            <div className="ws-hero-text">
-              <p className="ws-hero-crumb">
-                <ICON.companies size={18} />
-                <span className="ws-hero-account" title={accountName || overview?.account?.name || tenant?.name || ''}>
-                  {accountName || overview?.account?.name || tenant?.name || 'Your account'}
-                </span>
-                {role ? <span className="ws-pill ws-pill--ok">{ROLE_LABEL[role] || role}</span> : null}
-              </p>
-              <h1 id="ws-hero-title" className="ws-hero-title">{name ? `Welcome back, ${name}` : 'Welcome back'}</h1>
-              <p className="ws-hero-lede">{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
+        <header className="ws-head">
+          <div style={{ minWidth: 0 }}>
+            <h1 className="ws-title">Workspace</h1>
+            <p className="ws-lede">
+              {facts.join(' · ')}
+              {role ? <> <span className="ws-pill ws-pill--neutral" style={{ marginLeft: 8, verticalAlign: 'middle' }}>{ROLE_LABEL[role] || role}</span></> : null}
+            </p>
+            <p className="sr-only">{name ? `Welcome back, ${name}. ` : ''}{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
+          </div>
+          {isAdmin && go('invitations') ? (
+            <div className="ws-actions">
+              <button type="button" className="ws-btn ws-btn--primary" onClick={go('invitations')}>
+                <Plus size={16} aria-hidden="true" /> Invite people
+              </button>
             </div>
-            {isAdmin && go('invitations') ? (
-              <button type="button" className="ws-btn ws-btn--primary ws-hero-action" onClick={go('invitations')}>
-                <ICON.invite size={18} aria-hidden="true" /> Add people
+          ) : null}
+        </header>
+
+        <section className="ws-section" aria-labelledby="ws-apps-title">
+          <div className="ws-section-head">
+            <h2 id="ws-apps-title" className="ws-h2">Your apps</h2>
+            {go('apps') ? (
+              <button type="button" className="ws-link" onClick={go('apps')}>
+                All apps <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            ) : openMoreApps ? (
+              <button type="button" className="ws-link" onClick={() => openMoreApps()}>
+                Manage apps <ChevronRight size={16} aria-hidden="true" />
               </button>
             ) : null}
           </div>
+          <ul className="ws-appgrid ws-apps" role="list">
+            {states.map(({ app: a, state: s }) => {
+              const open = s.key === 'open';
+              const seat = seats?.find((x) => x.app === a.id);
+              return (
+                <li key={a.id}>
+                  <article className="ws-appcard" data-open={open || undefined}>
+                    <div className="ws-appcard-top">
+                      <AppMark app={a.id} size={36} off={!open && s.key !== 'noaccess'} title={a.name} />
+                      <span className={pillOf(s)}>{s.label}</span>
+                    </div>
+                    <div>
+                      <h3 className="ws-appcard-name">{a.name}</h3>
+                      {open ? (
+                        <button type="button" className="ws-appcard-open" onClick={() => openApp?.(a.id)}>
+                          Open {hostLabel(a.id)}
+                        </button>
+                      ) : s.key === 'off' && openMoreApps ? (
+                        <button type="button" className="ws-appcard-open" onClick={() => openMoreApps()}>
+                          See how to add it
+                        </button>
+                      ) : (
+                        <p className="ws-appcard-sub">{s.key === 'noaccess' ? 'Ask an administrator for a role.' : s.key === 'plan' ? 'Add it to your plan.' : a.blurb}</p>
+                      )}
+                      {seat ? (
+                        <p className="ws-appcard-sub" style={{ marginTop: 4 }}>
+                          <N>{seat.used}</N> {seat.bought != null ? <>of <N>{seat.bought}</N> seats</> : seat.used === 1 ? 'person has access' : 'people have access'}
+                        </p>
+                      ) : null}
+                    </div>
+                  </article>
+                </li>
+              );
+            })}
+            {planned.map((a) => (
+              <li key={a.id}>
+                <article className="ws-appcard" aria-label={`${a.name}, coming soon`}>
+                  <div className="ws-appcard-top">
+                    <AppMark app={a.id} size={36} off title={a.name} />
+                    <span className="ws-pill ws-pill--neutral">Coming soon</span>
+                  </div>
+                  <div>
+                    <h3 className="ws-appcard-name">{a.name}</h3>
+                    <p className="ws-appcard-sub ws-clamp-2" title={a.blurb}>{a.blurb}</p>
+                  </div>
+                </article>
+              </li>
+            ))}
+          </ul>
         </section>
 
-        {loading ? (
-          <SkeletonStats />
-        ) : (
-          <div className="ws-stats" aria-label="Your business at a glance">
-            {entities ? (
-              <Stat
-                icon={ICON.companies}
-                label="Companies"
-                value={<N>{entities.companies}</N>}
-                note={
-                  <>
-                    <N>{entities.branches}</N> {entities.branches === 1 ? 'branch' : 'branches'} · <N>{entities.taxProfiles}</N> GST {entities.taxProfiles === 1 ? 'registration' : 'registrations'}
-                  </>
-                }
-                onOpen={go('companies')}
-              />
+        {myApps && myApps.length === 0 ? (
+          <section className="ws-setup" role="status" aria-labelledby="ws-noaccess-title">
+            <h2 id="ws-noaccess-title" className="ws-h2">No app access yet</h2>
+            <p className="ws-card-blurb">You are in {tenant?.name || 'this company'}, but no app is open to you yet. An administrator gives access by giving you a role.</p>
+          </section>
+        ) : null}
+
+        <section ref={attentionRef} className="ws-section" style={{ scrollMarginTop: 16 }} aria-labelledby="ws-attn-title">
+          <div className="ws-section-head">
+            <h2 id="ws-attn-title" className="ws-h2">Needs your attention</h2>
+            {waitingLines.length && go('inbox') ? (
+              <button type="button" className="ws-link" onClick={go('inbox')}>
+                Open inbox <ChevronRight size={16} aria-hidden="true" />
+              </button>
             ) : null}
-            {seats ? (
-              <Stat
-                icon={ICON.people}
-                label="Team"
-                value={<N>{activeMembers ?? security.active}</N>}
-                note={seatsBought != null ? <><N>{seatsInUse}</N> of <N>{seatsBought}</N> seats in use</> : <><N>{seatsInUse}</N> app {seatsInUse === 1 ? 'seat' : 'seats'} in use{pending ? <> · <N>{pending}</N> invited</> : null}</>}
-                onOpen={go('members')}
-              />
-            ) : null}
-            <Stat
-              icon={ICON.apps}
-              label="Applications"
-              value={<><N>{onCount}</N> <span className="ws-stat-of">of <N>{built.length}</N></span></>}
-              note={myApps ? (openable.length ? `You can open ${plural(openable.length, 'app')}` : 'None open to you yet') : 'Switched on for this company'}
-              onOpen={openMoreApps ? () => openMoreApps() : null}
-            />
-            <Stat
-              icon={urgent ? ICON.warning : ICON.alert}
-              tone={attention.some((a) => a.tone === 'danger') ? 'danger' : urgent ? 'warn' : null}
-              label="Needs attention"
-              value={attention.length ? <N>{attention.length}</N> : 'All clear'}
-              note={attention.length ? (urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent') : 'Nothing needs you right now'}
-              onOpen={attention.length ? toAttention : null}
-            />
           </div>
-        )}
-
-        <div className="ws-layout">
-          <div className="ws-main">
-            <div ref={attentionRef} style={{ scrollMarginTop: 16 }}>
-              <Panel
-                title="Needs your attention"
-                action={
-                  waitingLines.length && go('inbox') ? (
-                    <button type="button" className="ws-link" onClick={go('inbox')}>
-                      Open inbox <ChevronRight size={16} aria-hidden="true" />
-                    </button>
-                  ) : null
-                }
-              >
-                {loading ? (
-                  <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
-                    <span className="ui-skel ui-skel-text" />
-                    <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
-                  </div>
-                ) : attention.length ? (
-                  <ul className="ws-list">
-                    {attention.map((a) => {
-                      const body = (
-                        <>
-                          <span className={`ws-tile${a.tone ? ` ws-tile--${a.tone}` : ''}`} aria-hidden="true">
-                            <a.icon size={18} />
-                          </span>
-                          <span className="ws-item-text">
-                            <span className="ws-item-title">{a.title}</span>
-                            <span className="ws-item-sub">{a.sub}</span>
-                          </span>
-                          {a.go ? <ChevronRight size={16} aria-hidden="true" /> : null}
-                        </>
-                      );
-                      return <li key={a.key}>{a.go ? <button type="button" className="ws-item" onClick={a.go}>{body}</button> : <div className="ws-item">{body}</div>}</li>;
-                    })}
-                  </ul>
-                ) : (
-                  <p className="ws-card-blurb">Nothing needs you right now.</p>
-                )}
-              </Panel>
+          {loading ? (
+            <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
+              <span className="ui-skel ui-skel-text" />
+              <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
             </div>
+          ) : attention.length ? (
+            <ul className="ws-attn" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
+              {attention.map((a) => {
+                const body = (
+                  <>
+                    <span className={`ws-pill ws-pill--${a.pill || (a.tone === 'danger' ? 'danger' : a.tone === 'warn' ? 'warn' : 'neutral')}`}>{a.tag}</span>
+                    <span className="ws-attn-text">
+                      <span className="ws-attn-title">{a.title}</span>
+                      <span className="ws-attn-sub">{a.sub}</span>
+                    </span>
+                    {a.go ? <span className="ws-attn-act">{a.action || 'Open'} <span aria-hidden="true">→</span></span> : <span />}
+                  </>
+                );
+                return <li key={a.key}>{a.go ? <button type="button" className="ws-attn-row" onClick={a.go}>{body}</button> : <div className="ws-attn-row">{body}</div>}</li>;
+              })}
+            </ul>
+          ) : (
+            <p className="ws-card-blurb">Nothing needs you right now.</p>
+          )}
+        </section>
 
-            <section className="ws-section" aria-labelledby="ws-apps-title">
-              <div className="ws-section-head">
-                <h2 id="ws-apps-title" className="ws-h2">My applications</h2>
-                {openMoreApps ? (
-                  <button type="button" className="ws-link" onClick={() => openMoreApps()}>
-                    Manage apps <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                ) : null}
-              </div>
-              <ul className="ws-apps" role="list" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))' }}>
-                {states.map(({ app: a, state: s }) => {
-                  const Icon = productIcon(a.id);
-                  const open = s.key === 'open';
-                  const seat = seats?.find((x) => x.app === a.id);
-                  return (
-                    <li key={a.id}>
-                      <article className={`ws-card${open ? ' is-open' : ''}`}>
-                        <div className="ws-card-top">
-                          <span className="ws-tile">
-                            <Icon size={22} />
-                          </span>
-                          <div className="ws-card-id" style={{ display: 'grid', justifyItems: 'start' }}>
-                            <h3 className="ws-card-name">{a.name}</h3>
-                            <span className={s.pill}>{s.label}</span>
-                          </div>
-                        </div>
-                        <p className="ws-card-blurb ws-clamp-2" style={{ marginTop: 0 }} title={a.blurb}>{a.blurb}</p>
-                        {seat ? (
-                          <p className="ws-item-sub" style={{ margin: 0 }}>
-                            <N>{seat.used}</N> {seat.bought != null ? <>of <N>{seat.bought}</N> seats</> : seat.used === 1 ? 'person has access' : 'people have access'}
-                          </p>
-                        ) : null}
-                        <div className="mt-auto">
-                          {open ? (
-                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small ws-card-link" onClick={() => openApp?.(a.id)}>
-                              Open {a.name} <ArrowRight size={14} aria-hidden="true" />
-                            </button>
-                          ) : s.key === 'off' && openMoreApps ? (
-                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => openMoreApps()}>
-                              See how to add it
-                            </button>
-                          ) : (
-                            <span className="ws-item-sub">{s.key === 'noaccess' ? 'Ask an administrator for a role.' : s.key === 'plan' ? 'Contact CLOR to add it to your plan.' : ''}</span>
-                          )}
-                        </div>
-                      </article>
-                    </li>
-                  );
-                })}
-              </ul>
-              {planned.length ? (
-                <ul className="ws-apps" role="list" aria-label="Apps on the way" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))' }}>
-                  {planned.map((a) => {
-                    const Icon = productIcon(a.id);
-                    return (
-                      <li key={a.id}>
-                        <article className="ws-card is-soon" style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <span className="ws-tile">
-                            <Icon size={22} />
-                          </span>
-                          <span className="ws-item-text">
-                            <span className="ws-item-title">
-                              {a.name} <span className="ws-pill" style={{ marginLeft: 6 }}>Coming soon</span>
-                            </span>
-                            <span className="ws-item-sub">{a.blurb}</span>
-                          </span>
-                        </article>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-            </section>
-
-            {myApps && myApps.length === 0 ? (
-              <section className="ws-setup" role="status" aria-labelledby="ws-noaccess-title">
-                <h2 id="ws-noaccess-title" className="ws-h2">No app access yet</h2>
-                <p className="ws-card-blurb">You are in {tenant?.name || 'this company'}, but no app is open to you yet. An administrator gives access by giving you a role.</p>
+        <div className="ws-home-split">
+          <div className="ws-home-col">
+            {companiesTable ? (
+              <section aria-labelledby="ws-cos-title">
+                <div className="ws-sec-head">
+                  <h2 id="ws-cos-title" className="ws-h2">Companies</h2>
+                  {go('companies') ? <button type="button" className="ws-link" onClick={go('companies')}>Add company</button> : null}
+                </div>
+                {companiesTable.length ? (
+                  <div className="ws-table-wrap">
+                    <table className="ws-table">
+                      <caption className="sr-only">Companies in this account</caption>
+                      <thead>
+                        <tr>
+                          <th>Company</th>
+                          <th>GSTIN</th>
+                          <th>Apps</th>
+                          <th className="num">Members</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {companiesTable.map((c) => (
+                          <tr key={c.orgId}>
+                            <td>
+                              <span className="ws-cell-main">{c.name}</span>
+                              {c.state ? <span className="ws-cell-sub">{c.state}</span> : null}
+                            </td>
+                            <td className="ws-mono">{c.gstin || <span className="ws-missing">Not added</span>}</td>
+                            <td>
+                              <span className="ws-appmarks">
+                                {(c.apps || []).length ? c.apps.map((id) => <AppMark key={id} app={id} size={20} />) : <span className="ws-cell-sub">None</span>}
+                              </span>
+                            </td>
+                            <td className="num">{c.people ?? 0}</td>
+                            <td>{c.archived ? <span className="ws-pill ws-pill--neutral">Archived</span> : c.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--warn">Needs GSTIN</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="ws-card-blurb">No companies yet.</p>
+                )}
               </section>
             ) : null}
 
-            {activity || (health && health.sources.length) ? (
-              <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' }}>
-                {activity ? (
-                  <Panel
-                    title="Recent activity"
-                    action={
-                      go('accountActivity') ? (
-                        <button type="button" className="ws-link" onClick={go('accountActivity')}>
-                          View all <ChevronRight size={16} aria-hidden="true" />
-                        </button>
-                      ) : null
-                    }
-                  >
-                    {activity.length ? (
-                      <ul className="ws-list">
-                        {activity.map((e) => (
-                          <li key={e.id}>
-                            <div className="ws-item">
-                              <span className={`ws-tile${e.result === 'DENIED' ? ' ws-tile--danger' : ''}`} aria-hidden="true">
-                                {e.result === 'DENIED' ? <ICON.warning size={18} /> : <ICON.history size={18} />}
-                              </span>
-                              <span className="ws-item-text">
-                                <span className="ws-item-title">
-                                  {ACTION_WORDS[e.action] || e.action}
-                                  {e.targetName ? `: ${e.targetName}` : ''}
-                                </span>
-                                <span className="ws-item-sub">{e.actor?.name || 'Someone'}</span>
-                              </span>
-                              <span className="ws-item-end">{ago(e.at)}</span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="ws-card-blurb">No activity yet.</p>
-                    )}
-                  </Panel>
-                ) : null}
-                {health && health.sources.length ? (
-                  <Panel title="Connections">
-                    <ul className="ws-list">
-                      {health.sources.map((x) => (
-                        <li key={x.key}>
-                          <div className="ws-item">
-                            <span className={`ws-tile${x.issues ? ' ws-tile--warn' : ''}`} aria-hidden="true">
-                              {x.issues ? <ICON.warning size={18} /> : <ICON.data size={18} />}
-                            </span>
-                            <span className="ws-item-text">
-                              <span className="ws-item-title">{x.label}</span>
-                              <span className="ws-item-sub">
-                                {x.key === 'readers' ? <><N>{x.total}</N> active{x.issues ? <> · <N>{x.issues}</N> open {x.issues === 1 ? 'alert' : 'alerts'}</> : ''}</> : null}
-                                {x.key === 'connectors' ? <><N>{x.total}</N> active{x.lastSeenAt ? ` · last heard ${ago(x.lastSeenAt)}` : ' · not connected yet'}</> : null}
-                                {x.key === 'tally' ? <><N>{x.total}</N> this week{x.failed ? <> · <N>{x.failed}</N> failed</> : ''}{x.waiting ? <> · <N>{x.waiting}</N> waiting over a day</> : ''}</> : null}
-                                {x.key === 'email' ? <><N>{x.total}</N> this week{x.issues ? <> · <N>{x.issues}</N> not delivered</> : ''}</> : null}
-                              </span>
-                            </span>
-                            <span className={x.issues ? 'ws-pill ws-pill--warn' : 'ws-pill ws-pill--ok'}>{x.issues ? 'Needs a look' : 'Working'}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </Panel>
-                ) : null}
-              </div>
+            {health && health.sources.length ? (
+              <Panel title="Connections">
+                <ul className="ws-list">
+                  {health.sources.map((x) => (
+                    <li key={x.key}>
+                      <div className="ws-item">
+                        <span className="ws-item-text">
+                          <span className="ws-item-title">{x.label}</span>
+                          <span className="ws-item-sub">
+                            {x.key === 'readers' ? <><N>{x.total}</N> active{x.issues ? <> · <N>{x.issues}</N> open {x.issues === 1 ? 'alert' : 'alerts'}</> : ''}</> : null}
+                            {x.key === 'connectors' ? <><N>{x.total}</N> active{x.lastSeenAt ? ` · last heard ${ago(x.lastSeenAt)}` : ' · not connected yet'}</> : null}
+                            {x.key === 'tally' ? <><N>{x.total}</N> this week{x.failed ? <> · <N>{x.failed}</N> failed</> : ''}{x.waiting ? <> · <N>{x.waiting}</N> waiting over a day</> : ''}</> : null}
+                            {x.key === 'email' ? <><N>{x.total}</N> this week{x.issues ? <> · <N>{x.issues}</N> not delivered</> : ''}</> : null}
+                          </span>
+                        </span>
+                        <span className={x.issues ? 'ws-pill ws-pill--warn' : 'ws-pill ws-pill--ok'}>{x.issues ? 'Needs a look' : 'Working'}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
             ) : null}
-          </div>
 
-          <aside className="ws-side" aria-label="Workspace side panel">
             {plan ? (
               <Panel
                 title="Subscription"
                 action={
-                  go('account') ? (
-                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={go('account')}>
+                  go('billing') || go('account') ? (
+                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={go('billing') || go('account')}>
                       Manage
                     </button>
                   ) : null
@@ -513,8 +504,41 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 <Meter label="Companies" used={usage?.companies ?? 0} limit={plan.limits?.maxCompanies ?? null} />
                 <Meter label="Users" used={usage?.users ?? 0} limit={plan.limits?.maxUsers ?? null} />
                 {/* Only seats that were bought in a number; unmetered ones are on each app card. */}
-                {seats ? seats.filter((x) => x.bought != null).map((x) => <Meter key={x.app} label={`${APP_NAME[x.app] || x.app} seats`} used={x.used} limit={x.bought} />) : null}
+                {seats ? seats.filter((x) => x.bought != null).map((x) => <Meter key={x.app} app={x.app} label={`${APP_NAME[x.app] || x.app} seats`} used={x.used} limit={x.bought} />) : null}
               </Panel>
+            ) : null}
+          </div>
+
+          <aside className="ws-home-col" aria-label="Workspace side panel">
+            {activity ? (
+              <section aria-labelledby="ws-activity-title">
+                <div className="ws-sec-head">
+                  <h2 id="ws-activity-title" className="ws-h2">Recent activity</h2>
+                  {go('accountActivity') ? (
+                    <button type="button" className="ws-link" onClick={go('accountActivity')}>View all</button>
+                  ) : null}
+                </div>
+                {activity.length ? (
+                  <ul className="ws-feed">
+                    {activity.map((e) => (
+                      <li key={e.id}>
+                        <Avatar name={e.actor?.name || 'Someone'} />
+                        <span style={{ minWidth: 0 }}>
+                          <strong style={{ fontWeight: 600 }}>{e.actor?.name || 'Someone'}</strong>{' '}
+                          <span style={{ color: e.result === 'DENIED' ? 'rgb(var(--neg))' : undefined }}>
+                            {e.result === 'DENIED' ? 'was refused: ' : ''}
+                            {ACTION_WORDS[e.action] || e.action}
+                            {e.targetName ? `: ${e.targetName}` : ''}
+                          </span>
+                        </span>
+                        <span className="ws-feed-when">{ago(e.at)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="ws-card-blurb">No activity yet.</p>
+                )}
+              </section>
             ) : null}
 
             {security ? (
@@ -528,74 +552,44 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   ) : null
                 }
               >
-                <Meter label="Sign in with an authenticator" used={security.withTotp} limit={security.active || null} />
+                <Meter coverage label="Sign in with an authenticator" used={security.withTotp} limit={security.active || null} />
                 <p className="ws-item-sub" style={{ margin: 0 }}>
                   {privilegedNo2fa ? <><N>{privilegedNo2fa}</N> {privilegedNo2fa === 1 ? 'administrator has' : 'administrators have'} none yet.</> : 'Every administrator uses one.'}
                 </p>
               </Panel>
             ) : null}
 
-            {isAdmin ? (
-              <Panel title="Shortcuts">
-                <ul className="ws-list">
-                  {[
-                    ['companies', ICON.company, 'Add a company'],
-                    ['members', ICON.people, 'Members and access'],
-                    ['roles', ICON.secure, 'Roles and permissions'],
-                    ['export', ICON.data, 'Export your data'],
-                  ]
-                    .filter(([key]) => go(key))
-                    .map(([key, Icon, title]) => (
-                      <li key={key}>
-                        <button type="button" className="ws-item ws-item--button" onClick={go(key)}>
-                          <span className="ws-tile" aria-hidden="true"><Icon size={18} /></span>
-                          <span className="ws-item-text"><span className="ws-item-title">{title}</span></span>
-                          <ChevronRight size={16} aria-hidden="true" />
-                        </button>
-                      </li>
-                    ))}
-                </ul>
-              </Panel>
-            ) : null}
-
             <Panel title="Help and support">
               <ul className="ws-list">
                 {[
-                  ['welcome', ICON.library, 'Help centre', 'Guides for the Workspace and every app'],
-                  ['setup', ICON.guide, 'Set up your workspace', 'The four steps to a ready company'],
-                  ['readers', ICON.guide, 'Integrations', 'Readers, Tally, HR tools, single sign-on'],
-                ].map(([topic, Icon, title, sub]) => (
+                  ['welcome', 'Help centre', 'Guides for the Workspace and every app'],
+                  ['setup', 'Set up your workspace', 'The four steps to a ready company'],
+                  ['readers', 'Integrations', 'Readers, Tally, HR tools, single sign-on'],
+                ].map(([topic, title, sub]) => (
                   <li key={title}>
                     <button type="button" className="ws-item ws-item--button" onClick={() => requestOpenHelp(topic)}>
-                      <span className="ws-tile" aria-hidden="true">
-                        <Icon size={18} />
-                      </span>
                       <span className="ws-item-text">
                         <span className="ws-item-title">{title}</span>
                         <span className="ws-item-sub">{sub}</span>
                       </span>
+                      <ChevronRight size={16} aria-hidden="true" />
                     </button>
                   </li>
                 ))}
                 {go('support') ? (
                   <li>
                     <button type="button" className="ws-item ws-item--button" onClick={go('support')}>
-                      <span className="ws-tile" aria-hidden="true">
-                        <ICON.chat size={18} />
-                      </span>
                       <span className="ws-item-text">
                         <span className="ws-item-title">Ask CLOR support</span>
                         <span className="ws-item-sub">{tickets?.some((t) => t.status === 'OPEN' || t.status === 'WAITING') ? `${tickets.filter((t) => t.status === 'OPEN' || t.status === 'WAITING').length} open · see your tickets` : 'Open a ticket and get the answer by email'}</span>
                       </span>
+                      <ChevronRight size={16} aria-hidden="true" />
                     </button>
                   </li>
                 ) : null}
                 {operator.contactEmail ? (
                   <li>
                     <a className="ws-item" href={`mailto:${operator.contactEmail}`}>
-                      <span className="ws-tile" aria-hidden="true">
-                        <ICON.chat size={18} />
-                      </span>
                       <span className="ws-item-text">
                         <span className="ws-item-title">Contact support</span>
                         <span className="ws-item-sub">{operator.contactEmail}</span>

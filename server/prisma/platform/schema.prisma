@@ -1937,6 +1937,37 @@ model ApiError {
   @@index([requestId])
 }
 
+// ----------------------------
+// Each time the platform refused a signed-in person (a 402 or a 403 with its reason code), for CLOR staff's
+// Entitlement denials page: "why can't I open this?" answered by one search. Who, which account and company,
+// the reason code, the app, the route shape and the request id. Never the request body or the message.
+// Capped: at most 120 notes a minute per instance, and pruned after 30 days.
+// ----------------------------
+model EntitlementDenial {
+  id        String   @id @default(cuid())
+  accountId String?
+  orgId     String?
+  userId    String?
+  /// The refusal's reason code, e.g. APP_NOT_SUBSCRIBED, NO_ROLE_GRANT, MODULE_OFF.
+  code      String
+  status    Int
+  /// accounting | people | payroll | attendance | projects, when the refusal names one.
+  app       String?
+  /// The feature or permission refused, when the refusal names one (e.g. a feature key or "payroll.runs").
+  feature   String?
+  method    String
+  /// The route, ids replaced by ":id", no query string.
+  route     String
+  /// The request id the customer was shown (the correlation id).
+  requestId String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([accountId, createdAt])
+  @@index([code, createdAt])
+  @@index([requestId])
+}
+
 /// How a member of CLOR staff reaches a customer's company, and only how
 /// (docs/workspace/SUPPORT_GRANTS.md). Staff hold no membership in a customer
 /// company, so without a live row here they open nothing: the check sits in

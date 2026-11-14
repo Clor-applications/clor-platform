@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
+import { ChevronRight, Plus, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
+import { requestOpenScreen } from '@platform/context';
 
 import { confirmDialog } from '@ui/components/ui/notify';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
-import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
+import { AppMark, AppTag, Avatar, ICON, PageHead, Stat, StatusPill, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-access.css';
 
 /**
  * Workspace → Members (W-4): everyone in the account, with what they can
@@ -23,7 +25,8 @@ import './workspace.css';
  */
 
 const ROLE_LABEL = { OWNER: 'Owner', ADMIN: 'Administrator', BILLING_ADMIN: 'Billing admin', MEMBER: 'Member' };
-const APP_LABEL = { accounting: 'Books', payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
+const APP_LABEL = { accounting: 'Accounting', payroll: 'Payroll', people: 'People', attendance: 'Attendance' };
+const STATUS = { ACTIVE: { tone: 'ok', label: 'Active' }, SUSPENDED: { tone: 'danger', label: 'Suspended' }, INVITED: { tone: 'neutral', label: 'Invited' } };
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never');
 
 /** The directory rows that pass the filters. */
@@ -50,6 +53,7 @@ export default function Members() {
   const [filters, setFilters] = useState({ q: '', status: '', companyId: '', app: '', role: '', risk: '' });
   const [openId, setOpenId] = useState('');
   const [detail, setDetail] = useState(null);
+  const [detailCompany, setDetailCompany] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(() => {
@@ -69,6 +73,7 @@ export default function Members() {
   const openMember = (userId) => {
     setOpenId(userId);
     setDetail(null);
+    setDetailCompany('');
     memberAccess(userId)
       .then(setDetail)
       .catch((e) => setDetail({ error: String(e?.message || 'Could not load this person’s access.') }));
@@ -90,10 +95,49 @@ export default function Members() {
     }
   };
 
+  const companyCount = data?.companies?.length || 0;
+  const exportCsv = () => {
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [['Name', 'Email', 'Account role', 'Status', 'Companies', 'Apps', 'Roles'].map(q).join(',')];
+    for (const m of rows) {
+      lines.push([
+        m.name || '',
+        m.email || '',
+        ROLE_LABEL[m.accountRole] || m.accountRole,
+        STATUS[m.status]?.label || m.status,
+        m.companies.map((c) => c.name).join('; '),
+        [...new Set(m.companies.flatMap((c) => c.apps))].map((x) => APP_LABEL[x] || x).join('; '),
+        [...new Set(m.companies.flatMap((c) => c.roles || []))].join('; '),
+      ].map(q).join(','));
+    }
+    const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'members.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const shown = detail && !detail.error ? detail.companies.find((c) => c.orgId === detailCompany) || detail.companies[0] || null : null;
+
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Access', 'Members']} scope="account" title="Members" />
+        <PageHead
+          crumbs={['Access', 'Members']}
+          scope="account"
+          title="Members"
+          description="Everyone who can sign in to this account: staff, your accountant and devices."
+          actions={
+            <>
+              <button type="button" className="ws-btn ws-btn--quiet" onClick={exportCsv} disabled={!rows.length}>
+                Export
+              </button>
+              <button type="button" className="ws-btn ws-btn--primary" onClick={() => requestOpenScreen('invitations')}>
+                <Plus size={16} aria-hidden="true" /> Invite people
+              </button>
+            </>
+          }
+        />
 
         {data?.members?.length ? (
           (() => {
@@ -112,34 +156,34 @@ export default function Members() {
           })()
         ) : null}
 
-        <div className="flex flex-wrap gap-2 items-center" role="search">
-          <label className="relative flex-1 min-w-[14rem]">
+        <div className="ws-filters" role="search">
+          <label className="ws-search">
             <span className="sr-only">Search by name or email</span>
-            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
-            <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={filters.q} onChange={set('q')} placeholder="Search name or email" />
+            <Search size={16} aria-hidden="true" />
+            <input className="ui-input" value={filters.q} onChange={set('q')} placeholder="Search name or email" />
           </label>
-          <select className="ui-select" aria-label="Status" value={filters.status} onChange={set('status')} style={{ width: 'auto' }}>
-            <option value="">Any status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="SUSPENDED">Suspended</option>
-          </select>
-          <select className="ui-select" aria-label="Account role" value={filters.role} onChange={set('role')} style={{ width: 'auto' }}>
-            <option value="">Any account role</option>
-            {Object.entries(ROLE_LABEL).map(([k, l]) => (
-              <option key={k} value={k}>{l}</option>
-            ))}
-          </select>
-          <select className="ui-select" aria-label="Company" value={filters.companyId} onChange={set('companyId')} style={{ width: 'auto' }}>
-            <option value="">Any company</option>
+          <select className="ui-select" aria-label="Company" value={filters.companyId} onChange={set('companyId')}>
+            <option value="">Company: All</option>
             {(data?.companies || []).map((c) => (
               <option key={c.orgId} value={c.orgId}>{c.name}</option>
             ))}
           </select>
-          <select className="ui-select" aria-label="App" value={filters.app} onChange={set('app')} style={{ width: 'auto' }}>
-            <option value="">Any app</option>
+          <select className="ui-select" aria-label="App" value={filters.app} onChange={set('app')}>
+            <option value="">App: All</option>
             {Object.entries(APP_LABEL).map(([k, l]) => (
               <option key={k} value={k}>{l}</option>
             ))}
+          </select>
+          <select className="ui-select" aria-label="Account role" value={filters.role} onChange={set('role')}>
+            <option value="">Access: All</option>
+            {Object.entries(ROLE_LABEL).map(([k, l]) => (
+              <option key={k} value={k}>{l}</option>
+            ))}
+          </select>
+          <select className="ui-select" aria-label="Status" value={filters.status} onChange={set('status')}>
+            <option value="">Status: All</option>
+            <option value="ACTIVE">Active</option>
+            <option value="SUSPENDED">Suspended</option>
           </select>
         </div>
 
@@ -149,27 +193,67 @@ export default function Members() {
         {data === null ? (
           <p className="ws-card-blurb">Loading members…</p>
         ) : rows.length === 0 ? (
-          <div className="ws-setup">
-            <p className="ws-card-blurb">{data.members.length ? 'Nobody matches these filters.' : 'Nobody is in the account yet. Invite people under Invitations.'}</p>
-          </div>
+          <p className="ws-card-blurb">{data.members.length ? 'Nobody matches these filters.' : 'Nobody is in the account yet. Invite people under Invitations.'}</p>
         ) : (
-          <ul className="ws-admin" role="list" style={{ gridTemplateColumns: '1fr', gap: 8 }}>
-            {rows.map((m) => (
-              <li key={m.userId}>
-                <button type="button" className="ws-group ws-row" style={{ minHeight: 64, padding: '12px 16px', alignItems: 'center' }} onClick={() => openMember(m.userId)}>
-                  <span className="grid" style={{ minWidth: 0, flex: 1 }}>
-                    <span className="font-medium truncate">{m.name || m.email}</span>
-                    <span className="ws-card-blurb truncate" style={{ marginTop: 0 }}>
-                      {m.email} · {m.companies.length ? m.companies.map((c) => `${c.name}${c.apps.length ? ` (${c.apps.map((a) => APP_LABEL[a] || a).join(', ')})` : ' (no app)'}`).join('; ') : 'in no company'}
-                    </span>
-                  </span>
-                  <span className="ws-pill ws-pill--role">{ROLE_LABEL[m.accountRole] || m.accountRole}</span>
-                  {m.status === 'SUSPENDED' ? <span className="ws-pill">Suspended</span> : null}
-                  <ChevronRight size={16} className="ws-chev" style={{ opacity: 1 }} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="ws-table-wrap">
+            <table className="ws-table ws-members">
+              <caption className="sr-only">Members of this account</caption>
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th>Access</th>
+                  <th>Roles</th>
+                  <th>Status</th>
+                  <th><span className="sr-only">Open</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((m) => {
+                  const roles = [];
+                  for (const c of m.companies) {
+                    for (const r of c.roles || []) {
+                      const name = typeof r === 'string' ? r : r?.name;
+                      if (name && !roles.some((x) => x.name === name)) roles.push({ name, app: c.apps.length === 1 ? c.apps[0] : null });
+                    }
+                  }
+                  const st = STATUS[m.status] || { tone: 'neutral', label: m.status };
+                  return (
+                    <tr key={m.userId} data-selected={openId === m.userId || undefined} onClick={() => openMember(m.userId)} style={{ cursor: 'pointer' }}>
+                      <td>
+                        <span className="flex items-center gap-3" style={{ minWidth: 0 }}>
+                          <Avatar name={m.name || m.email} size="lg" ink={m.accountRole === 'OWNER'} />
+                          <button type="button" className="ws-member-name" onClick={(e) => { e.stopPropagation(); openMember(m.userId); }}>
+                            <span className="ws-cell-main">{m.name || m.email}</span>
+                            <span className="ws-cell-sub">{m.email}</span>
+                          </button>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="ws-cell-main" style={{ fontWeight: 500 }}>{ROLE_LABEL[m.accountRole] || m.accountRole}</span>
+                        <span className="ws-cell-sub">
+                          {!m.companies.length ? 'In no company' : companyCount && m.companies.length >= companyCount ? (companyCount === 1 ? 'The company' : `All ${companyCount} companies`) : `${m.companies.length} of ${companyCount || m.companies.length} companies`}
+                        </span>
+                      </td>
+                      <td style={{ whiteSpace: 'normal' }}>
+                        {m.accountRole === 'OWNER' && !roles.length ? (
+                          'Full access'
+                        ) : roles.length ? (
+                          <span className="ws-tags">
+                            {roles.slice(0, 3).map((r) => <AppTag key={r.name} app={r.app}>{r.name}</AppTag>)}
+                            {roles.length > 3 ? <span className="ws-cell-sub">+{roles.length - 3} more</span> : null}
+                          </span>
+                        ) : (
+                          <span className="ws-cell-sub">No role</span>
+                        )}
+                      </td>
+                      <td><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
+                      <td className="num"><ChevronRight size={16} aria-hidden="true" className="ws-chev" /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -179,9 +263,9 @@ export default function Members() {
         ) : detail.error ? (
           <p role="alert" className="text-sm">{detail.error}</p>
         ) : (
-          <div className="grid gap-5">
+          <div className="ws-member-panel">
             <div className="grid gap-2">
-              <label htmlFor="ws-member-role" className="text-sm font-medium">Account role</label>
+              <label htmlFor="ws-member-role" className="ws-kicker">Account role</label>
               <select
                 id="ws-member-role"
                 className="ui-select"
@@ -195,55 +279,82 @@ export default function Members() {
                   <option key={k} value={k}>{l}</option>
                 ))}
               </select>
-              <p className="ui-caption">
-                {detail.status === 'SUSPENDED' ? 'Suspended in this account. ' : ''}Member since {day(detail.memberSince)} · last signed in {day(detail.lastSignInAt)} · authenticator {detail.authenticator ? 'on' : 'off'}
-              </p>
             </div>
 
             {detail.companies.length === 0 ? <p className="ui-caption">Not in any company of this account.</p> : null}
-            {detail.companies.map((c) => (
-              <section key={c.orgId} className="ui-card p-4 grid gap-2" aria-label={c.name}>
+            {detail.companies.length > 1 ? (
+              <div className="grid gap-2">
+                <label htmlFor="ws-member-company" className="ws-kicker">Company</label>
+                <select id="ws-member-company" className="ui-select" value={shown?.orgId || ''} onChange={(e) => setDetailCompany(e.target.value)}>
+                  {detail.companies.map((c) => (
+                    <option key={c.orgId} value={c.orgId}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {shown ? (
+              <section className="ws-member-company" aria-label={shown.name}>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-medium flex-1">{c.name}</h3>
-                  {c.isAdmin ? <span className="ui-pill ui-pill-info">Company admin</span> : null}
+                  <h3 className="ws-member-company-name">{shown.name}</h3>
+                  {shown.isAdmin ? <StatusPill tone="neutral">Company admin</StatusPill> : null}
                 </div>
-                <p className="text-sm">Apps: {c.apps.length ? c.apps.map((a) => APP_LABEL[a] || a).join(', ') : 'none — no role opens an app'}</p>
-                {c.branches.length ? <p className="ui-caption">Branches: {c.branches.join(', ')}</p> : null}
-                <ul className="grid gap-1 text-sm">
-                  {c.roles.map((r) => (
+                <p className="ws-kicker">Apps</p>
+                {shown.apps.length ? (
+                  <ul className="ws-member-apps" aria-label={`Apps: ${shown.apps.map((a) => APP_LABEL[a] || a).join(', ')}`}>
+                    {shown.apps.map((a) => (
+                      <li key={a}>
+                        <AppMark app={a} size={24} />
+                        <span>{APP_LABEL[a] || a}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="ui-caption">No app: no role here opens one.</p>
+                )}
+                <p className="sr-only">Apps: {shown.apps.length ? shown.apps.map((a) => APP_LABEL[a] || a).join(', ') : 'none'}</p>
+                <p className="ws-kicker">Roles</p>
+                <ul className="ws-member-roles">
+                  {shown.roles.map((r) => (
                     <li key={r.name}>
-                      <strong>{r.name}</strong>{' '}
+                      <strong>{r.name}</strong>
                       <span className="ui-caption">
                         {r.via === 'direct' ? `given${r.grantedBy ? ` by ${r.grantedBy}` : ''}${r.grantedAt ? ` on ${day(r.grantedAt)}` : ''}` : 'through a role profile'}
                       </span>
                     </li>
                   ))}
-                  {c.roles.length === 0 ? <li className="ui-caption">No role here.</li> : null}
+                  {shown.roles.length === 0 ? <li className="ui-caption">No role here.</li> : null}
                 </ul>
-                {c.sensitive.length ? (
+                {shown.sensitive.length ? (
                   <p className="ui-caption flex items-start gap-1">
-                    <ShieldAlert size={14} aria-hidden="true" className="mt-0.5 shrink-0" /> Can reach sensitive data: {c.sensitive.length} permission{c.sensitive.length === 1 ? '' : 's'} on payroll, people, salary, bank or documents.
+                    <ShieldAlert size={14} aria-hidden="true" className="mt-0.5 shrink-0" /> Can reach sensitive data: {shown.sensitive.length} permission{shown.sensitive.length === 1 ? '' : 's'} on payroll, people, salary, bank or documents.
                   </p>
                 ) : null}
-                <div>
-                  <button
-                    type="button"
-                    className="ui-btn ui-btn-secondary ui-btn-sm"
-                    onClick={async () => {
-                      if (!(await confirmDialog({ title: `Remove from ${c.name}?`, message: 'They lose access to this company only.', confirmLabel: 'Remove from company' }))) return;
-                      act(() => removeMemberFromCompany(detail.userId, c.orgId), `Removed from ${c.name}.`);
-                    }}
-                  >
-                    Remove from {c.name}
-                  </button>
-                </div>
               </section>
-            ))}
+            ) : null}
 
-            <div className="flex flex-wrap gap-2">
+            <dl className="ws-member-facts">
+              <div>
+                <dt>Branches</dt>
+                <dd>{shown?.branches?.length ? shown.branches.join(', ') : '—'}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>{detail.status === 'SUSPENDED' ? 'Suspended in this account' : 'Active'}</dd>
+              </div>
+              <div>
+                <dt>Sign-in</dt>
+                <dd>Authenticator {detail.authenticator ? 'on' : 'off'} · last {day(detail.lastSignInAt)}</dd>
+              </div>
+              <div>
+                <dt>Member since</dt>
+                <dd>{day(detail.memberSince)}</dd>
+              </div>
+            </dl>
+
+            <div className="ws-member-actions">
               <button
                 type="button"
-                className="ui-btn ui-btn-secondary"
+                className="ws-btn ws-btn--quiet"
                 onClick={async () => {
                   if (!(await confirmDialog({ title: 'Sign out everywhere?', message: 'Ends every session now. They can sign in again.', confirmLabel: 'Sign out everywhere', tone: 'neutral' }))) return;
                   act(() => signOutMember(detail.userId), 'Signed out of every session.');
@@ -252,13 +363,13 @@ export default function Members() {
                 Sign out everywhere
               </button>
               {detail.status === 'SUSPENDED' ? (
-                <button type="button" className="ui-btn ui-btn-secondary" onClick={() => act(() => reinstateMember(detail.userId), 'Reinstated: their roles work again.')}>
+                <button type="button" className="ws-btn ws-btn--quiet" onClick={() => act(() => reinstateMember(detail.userId), 'Reinstated: their roles work again.')}>
                   Reinstate in the account
                 </button>
               ) : (
                 <button
                   type="button"
-                  className="ui-btn ui-btn-danger"
+                  className="ws-btn ws-btn--danger-quiet"
                   onClick={async () => {
                     if (!(await confirmDialog({ title: 'Suspend in the account?', message: 'They lose access to every company until reinstated.', confirmLabel: 'Suspend' }))) return;
                     act(() => suspendMember(detail.userId), 'Suspended in every company of the account.');
@@ -267,6 +378,18 @@ export default function Members() {
                   <UserX size={16} aria-hidden="true" /> Suspend in the account
                 </button>
               )}
+              {shown ? (
+                <button
+                  type="button"
+                  className="ws-btn ws-btn--danger-quiet"
+                  onClick={async () => {
+                    if (!(await confirmDialog({ title: `Remove from ${shown.name}?`, message: 'They lose access to this company only.', confirmLabel: 'Remove from company' }))) return;
+                    act(() => removeMemberFromCompany(detail.userId, shown.orgId), `Removed from ${shown.name}.`);
+                  }}
+                >
+                  Remove from {shown.name}
+                </button>
+              ) : null}
             </div>
           </div>
         )}

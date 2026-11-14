@@ -36,6 +36,12 @@ export function OpsSearch({ go }) {
 
   useEffect(() => {
     const onKey = (e) => {
+      /* ⌘K or Ctrl+K from anywhere; "/" when not typing in a field. */
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && String(e.key).toLowerCase() === 'k') {
+        e.preventDefault();
+        input.current?.focus();
+        return;
+      }
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target?.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
@@ -97,7 +103,7 @@ export function OpsSearch({ go }) {
         ref={input}
         type="search"
         className="ui-input ops-search-input"
-        placeholder="Search customers, people, GSTIN, phone, invoice, request ID"
+        placeholder="Search accounts, companies, people, GSTIN, request IDs"
         aria-label="Search the console"
         role="combobox"
         aria-expanded={showList}
@@ -113,6 +119,7 @@ export function OpsSearch({ go }) {
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
       />
+      <kbd className="ops-search-kbd" aria-hidden="true">⌘K</kbd>
       {showList ? (
         <ul className="ops-search-list" id={listId} role="listbox" aria-label="Results">
           {!r ? (

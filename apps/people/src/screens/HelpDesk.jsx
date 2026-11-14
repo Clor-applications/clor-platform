@@ -16,6 +16,7 @@ import {
   deskAssign, deskMessage, deskMoveToCase, deskReopen, deskResolve, deskTemplates, getDeskRequest, listDesk, orgUsers, raiseDeskRequest,
 } from '../api/desk';
 import { istDay } from '@ui/utils/dates';
+import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 
 /**
  * Help desk (DESK-01..06): what employees asked, by queue, with reply-by
@@ -54,19 +55,32 @@ export default function HelpDesk({ params = {} }) {
     { key: 'subject', label: 'Request', always: true, render: (r) => <span className="min-w-0"><span className="block truncate font-medium">{r.subject}</span><span className="block truncate ui-caption">{catLabel(r.category)}</span></span> },
     { key: 'from', label: 'From', render: (r) => <span>{r.employeeName}{r.employeeCode ? <span className="ui-caption tabular-nums"> · {r.employeeCode}</span> : null}</span> },
     { key: 'queue', label: 'Queue', render: (r) => r.queue },
-    { key: 'urgency', label: 'Urgency', render: (r) => URGENCY[r.urgency] || r.urgency },
+    { key: 'urgency', label: 'Urgency', render: (r) => <span className={`ui-pill ${r.urgency === 'URGENT' || r.urgency === 'HIGH' ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{URGENCY[r.urgency] || r.urgency}</span> },
     { key: 'reply', label: 'Reply by', render: (r) => (r.firstReplyAt ? <span className="ui-muted">Replied</span> : <span className={`tabular-nums whitespace-nowrap ${late(r.replyOverdue)}`}>{when(r.replyBy)}</span>) },
     { key: 'resolve', label: 'Resolve by', render: (r) => <span className={`tabular-nums whitespace-nowrap ${late(r.resolveOverdue)}`}>{day(r.resolveBy)}{r.resolveOverdue ? ' (late)' : ''}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span> },
   ];
   /* A tab whose rows all share one status already says it; Open keeps the column while a reopened case sits among them. */
   const rowsShown = data?.requests || [];
+  /* The figures over the list (R&D PEOPLE-24), from the requests on this tab and filter. */
+  const tabWord = TABS.find(([k]) => k === status)?.[1] || 'Open';
+  const replyLate = rowsShown.filter((r) => r.replyOverdue && !r.firstReplyAt).length;
+  const resolveLate = rowsShown.filter((r) => r.resolveOverdue).length;
+  const urgent = rowsShown.filter((r) => r.urgency === 'HIGH' || r.urgency === 'URGENT').length;
+  const tiles = data ? [
+    { key: 'shown', label: tabWord, value: rowsShown.length, accent: 1, Icon: TILE_ICON.cases, sub: mine ? 'Assigned to you' : queue !== 'all' ? queue : 'Every queue' },
+    { key: 'reply', label: 'Reply overdue', value: replyLate, accent: 'warn', tone: replyLate ? 'warn' : null, sub: 'Past the reply-by time' },
+    { key: 'resolve', label: 'Past resolve-by', value: resolveLate, accent: 'neg', tone: resolveLate ? 'neg' : null, sub: 'Still not resolved' },
+    { key: 'urgent', label: 'High or urgent', value: urgent, accent: 4, Icon: TILE_ICON.time },
+  ] : null;
   const oneStatus = status !== 'ALL' && rowsShown.length > 0 && rowsShown.every((r) => r.status === rowsShown[0].status);
 
   return (
     <div className="space-y-6">
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Help desk' }]} title="Help desk"
         actions={canEdit ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setRaising(true)}><Plus size={16} aria-hidden="true" /> New request</button> : null} />
+      <p className="ui-list-desc ui-muted -mt-4">Questions and requests from employees. Confidential cases are kept apart, for the people the case routes name.</p>
+      {tiles ? <StatTiles label="Help desk figures" items={tiles} /> : null}
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
           tabs={(

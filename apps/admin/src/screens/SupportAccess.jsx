@@ -18,11 +18,11 @@ const when = (v) => (v ? new Date(v).toLocaleString('en-IN', { dateStyle: 'mediu
 const HOURS = [4, 8, 24, 48, 72];
 const SCOPE = { READ_ONLY: 'Read only', READ_WRITE: 'Read and change' };
 const STATE = {
-  PENDING: ['Waiting for you', 'ws-pill ws-pill--role'],
+  PENDING: ['Waiting for you', 'ws-pill ws-pill--warn'],
   ACTIVE: ['Open', 'ws-pill ws-pill--ok'],
-  EXPIRED: ['Ran out', 'ws-pill ws-pill--off'],
-  ENDED: ['Ended', 'ws-pill ws-pill--off'],
-  REVOKED: ['Refused', 'ws-pill ws-pill--off'],
+  EXPIRED: ['Ran out', 'ws-pill ws-pill--neutral'],
+  ENDED: ['Ended', 'ws-pill ws-pill--neutral'],
+  REVOKED: ['Refused', 'ws-pill ws-pill--neutral'],
 };
 
 /** One request, with the choice of how long and how much. */
@@ -118,7 +118,7 @@ export default function SupportAccess() {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Access', 'CLOR support access']} title="CLOR support access" />
+        <PageHead crumbs={['Access', 'CLOR support access']} title="CLOR support access" description="CLOR staff can look at your data only when you let them, for a time, and every view is in your audit log." />
 
         <p className="ws-card-blurb ws-sg-rule">
           CLOR staff see this company only when somebody here lets them in, for the hours chosen. Salary and payslips, employee

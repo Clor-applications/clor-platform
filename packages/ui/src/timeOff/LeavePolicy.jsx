@@ -63,14 +63,14 @@ const APPROVAL_WORDS = { HR: 'HR decides', MANAGER: 'the manager decides', MANAG
  */
 const ENCASH_BASE = [{ value: 'BASIC_DA', label: 'Basic and DA (the gratuity wage)' }, { value: 'GROSS', label: 'Gross: the salary structure, no bonus or arrears' }];
 const ENCASH_DIVISOR = [{ value: '26', label: '26 working days' }, { value: '30', label: '30 days' }];
-const EARNED = { name: 'Earned Leave', code: 'EL', accrual: 'MONTHLY', encashable: true, minNoticeDays: 7, color: '#d97706' };
-const CASUAL = { name: 'Casual Leave', code: 'CL', accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' };
-const SICK = { name: 'Sick Leave', code: 'SL', backdatedDays: 7, isPrivate: true, color: '#16a34a' };
+const EARNED = { name: 'Earned Leave', code: 'EL', accrual: 'MONTHLY', encashable: true, minNoticeDays: 7 };
+const CASUAL = { name: 'Casual Leave', code: 'CL', accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3 };
+const SICK = { name: 'Sick Leave', code: 'SL', backdatedDays: 7, isPrivate: true };
 /* Code on Social Security, ch. VI: 26 weeks as one request in calendar days, 80 days worked in the 12 months before. */
 const MATERNITY_HELP = '26 weeks (12 from the third child).';
-const MATERNITY = { name: 'Maternity Leave', code: 'ML', annualDays: 182, gender: 'FEMALE', allowHalfDay: false, prorateForJoiners: false, isPrivate: true, color: '#db2777', description: MATERNITY_HELP, maxDaysPerRequest: 182, countsCalendarDays: true, availableAfterDays: 80, availableAfterBasis: 'DAYS_WORKED' };
-const PATERNITY = { name: 'Paternity Leave', code: 'PL', annualDays: 15, gender: 'MALE', allowHalfDay: false, isPrivate: true, color: '#0891b2' };
-const LOP = { name: 'Loss of Pay', code: 'LOP', isPaid: false, annualDays: 0, color: '#64748b' };
+const MATERNITY = { name: 'Maternity Leave', code: 'ML', annualDays: 182, gender: 'FEMALE', allowHalfDay: false, prorateForJoiners: false, isPrivate: true, description: MATERNITY_HELP, maxDaysPerRequest: 182, countsCalendarDays: true, availableAfterDays: 80, availableAfterBasis: 'DAYS_WORKED' };
+const PATERNITY = { name: 'Paternity Leave', code: 'PL', annualDays: 15, gender: 'MALE', allowHalfDay: false, isPrivate: true };
+const LOP = { name: 'Loss of Pay', code: 'LOP', isPaid: false, annualDays: 0 };
 /*
  * Each set's figure the research says is disputed or out of date (TIME-LEAVE-MARKET-RESEARCH.md, statute table and
  * G1). The numbers are left as they were; the owner is told to check them when creating the set.
@@ -85,20 +85,20 @@ const STATE_SETS = [
 ];
 /* The usual Indian set. Sick and maternity leave are private: the reason is nobody's business but HR's. */
 const TEMPLATES = [
-  { name: 'Casual Leave', code: 'CL', annualDays: 12, accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3, color: '#2563eb' },
-  { name: 'Sick Leave', code: 'SL', annualDays: 6, backdatedDays: 7, isPrivate: true, color: '#16a34a' },
-  { name: 'Earned Leave', code: 'EL', annualDays: 15, accrual: 'MONTHLY', carryForwardMax: 30, encashable: true, maxEncashDays: 15, minNoticeDays: 7, availableAfterDays: 180, color: '#d97706' },
+  { name: 'Casual Leave', code: 'CL', annualDays: 12, accrual: 'MONTHLY', creditOn: 'START', minNoticeDays: 1, maxDaysPerRequest: 3 },
+  { name: 'Sick Leave', code: 'SL', annualDays: 6, backdatedDays: 7, isPrivate: true },
+  { name: 'Earned Leave', code: 'EL', annualDays: 15, accrual: 'MONTHLY', carryForwardMax: 30, encashable: true, maxEncashDays: 15, minNoticeDays: 7, availableAfterDays: 180 },
   MATERNITY,
-  { name: 'Paternity Leave', code: 'PL', annualDays: 5, gender: 'MALE', allowHalfDay: false, color: '#0891b2' },
-  { name: 'Loss of Pay', code: 'LOP', isPaid: false, annualDays: 0, color: '#64748b' },
+  { name: 'Paternity Leave', code: 'PL', annualDays: 5, gender: 'MALE', allowHalfDay: false },
+  { name: 'Loss of Pay', code: 'LOP', isPaid: false, annualDays: 0 },
 ];
 /*
  * Statutory earned leave, by days worked (OSH Code s.32, Factories Act s.79: TIME-LEAVE-MARKET-RESEARCH.md G1 and G3).
  * On the calendar year, as both laws count it. Starting points: the owner edits them.
  */
 const STATUTORY = [
-  { name: 'Earned Leave (OSH Code)', code: 'EL', accrualBasis: 'PER_DAYS_WORKED', perDaysWorked: 20, minDaysWorked: 180, annualDays: 0, carryForwardMax: 30, oshCarry: true, minNoticeDays: 7, color: '#d97706', description: 'One day for every 20 days worked last year, once 180 days are worked.' },
-  { name: 'Earned Leave (Factories Act)', code: 'EL', accrualBasis: 'PER_DAYS_WORKED', perDaysWorked: 20, minDaysWorked: 240, annualDays: 0, carryForwardMax: 30, minNoticeDays: 7, color: '#b45309', description: 'One day for every 20 days worked last year, once 240 days are worked.' },
+  { name: 'Earned Leave (OSH Code)', code: 'EL', accrualBasis: 'PER_DAYS_WORKED', perDaysWorked: 20, minDaysWorked: 180, annualDays: 0, carryForwardMax: 30, oshCarry: true, minNoticeDays: 7, description: 'One day for every 20 days worked last year, once 180 days are worked.' },
+  { name: 'Earned Leave (Factories Act)', code: 'EL', accrualBasis: 'PER_DAYS_WORKED', perDaysWorked: 20, minDaysWorked: 240, annualDays: 0, carryForwardMax: 30, minNoticeDays: 7, description: 'One day for every 20 days worked last year, once 240 days are worked.' },
 ];
 const BASIS = [
   { value: 'CALENDAR', label: 'Days a year' },

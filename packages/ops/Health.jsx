@@ -42,8 +42,8 @@ export function Health({ go, request = '' }) {
   return (
     <>
       <PageHead
-        crumbs={['System health']}
-        title="System health"
+        title="Jobs & workers"
+        description="Background work outside requests: postings, e-invoices, reader punches, messages and renewals. Fixing a stopped worker stays with engineering."
         meta={d ? <>Checked {when(d.at)}</> : null}
         actions={
           <button type="button" className="ws-btn ws-btn--quiet" onClick={() => { setD(null); setError(''); load(); }}>
@@ -59,26 +59,8 @@ export function Health({ go, request = '' }) {
           <p className="ws-notice" role="status">
             <span className={`ws-pill ${cls}`}>{word}</span> {says}
           </p>
-          <Panel title="In the last day">
-            <ul className="ws-list">
-              {d.signals.map((s) => (
-                <li key={s.key}>
-                  <div className="ws-item">
-                    <span className="ws-item-text">
-                      <span className="ws-item-title">{s.label}</span>
-                    </span>
-                    {s.screen && s.count ? (
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => go('emailLog', { status: 'FAILED' })}>
-                        Open
-                      </button>
-                    ) : null}
-                    <span className={`tabular-nums ops-count${s.count ? ' ops-count--bad' : ''}`}>{s.count}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-          <Panel title="Background jobs">
+          <section className="ops-section" aria-labelledby="ops-queues">
+            <h2 id="ops-queues" className="ops-h2">Background jobs</h2>
             {d.workers.length ? (
               <>
                 {troubled.length ? <WorkerList workers={troubled} /> : <p className="ws-card-blurb">Every background job ran on time.</p>}
@@ -92,7 +74,37 @@ export function Health({ go, request = '' }) {
             ) : (
               <p className="ws-card-blurb">No background job has run in the last week. On a new server that is expected for a few minutes; after that, tell engineering.</p>
             )}
-          </Panel>
+          </section>
+          <section className="ops-section" aria-labelledby="ops-signals">
+            <h2 id="ops-signals" className="ops-h2">Failed in the last day</h2>
+            <div className="ws-table-wrap">
+              <table className="ws-table">
+                <caption className="sr-only">What failed in the last day</caption>
+                <thead>
+                  <tr>
+                    <th>What</th>
+                    <th className="num">Count</th>
+                    <th><span className="sr-only">Open</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.signals.map((s) => (
+                    <tr key={s.key}>
+                      <td style={{ whiteSpace: 'normal' }}>{s.label}</td>
+                      <td className={`num ops-count${s.count ? ' ops-count--bad' : ''}`}>{s.count}</td>
+                      <td className="num">
+                        {s.screen && s.count ? (
+                          <button type="button" className="ops-link" onClick={() => go('emailLog', { status: 'FAILED' })}>
+                            Open
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </>
       )}
       <RequestLookup initial={request} />
@@ -102,26 +114,39 @@ export function Health({ go, request = '' }) {
 
 function WorkerList({ workers }) {
   return (
-    <ul className="ws-list">
-      {workers.map((w) => {
-        const [ww, wc] = WORKER_STATE[w.state];
-        return (
-          <li key={w.worker}>
-            <div className="ws-item">
-              <span className="ws-item-text">
-                <span className="ws-item-title">{workerName(w.worker)}</span>
-                <span className="ws-item-sub">
-                  Last ran {ago(w.lastStartedAt)}, {gapWords(w.usualGapMinutes)}
-                  {w.failedToday ? ` · failed ${w.failedToday} ${w.failedToday === 1 ? 'time' : 'times'} today` : ''}
-                  {w.state === 'failing' && w.lastError ? ` · ${w.lastError}` : ''}
-                </span>
-              </span>
-              <span className={`ws-pill ${wc}`}>{ww}</span>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="ws-table-wrap">
+      <table className="ws-table">
+        <caption className="sr-only">Background jobs</caption>
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>State</th>
+            <th className="num">Failed (24 h)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {workers.map((w) => {
+            const [ww, wc] = WORKER_STATE[w.state];
+            return (
+              <tr key={w.worker}>
+                <td style={{ whiteSpace: 'normal' }}>
+                  <span className="ops-strong">{workerName(w.worker)}</span>
+                  <div className="ws-item-sub">
+                    Last ran {ago(w.lastStartedAt)}, {gapWords(w.usualGapMinutes)}
+                    {w.failedToday ? ` · failed ${w.failedToday} ${w.failedToday === 1 ? 'time' : 'times'} today` : ''}
+                    {w.state === 'failing' && w.lastError ? ` · ${w.lastError}` : ''}
+                  </div>
+                </td>
+                <td>
+                  <span className={`ws-pill ${wc}`}>{ww}</span>
+                </td>
+                <td className={`num${w.failedToday ? ' ops-count--bad' : ''}`}>{w.failedToday}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

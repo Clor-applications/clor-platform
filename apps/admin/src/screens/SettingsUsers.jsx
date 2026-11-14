@@ -74,7 +74,7 @@ const shortDate = (iso) => {
 /** "Resigned · last day 31 Oct 2026". */
 const leftLine = (left) => [LEFT_REASON[left?.reason] || 'Left', left?.lastWorkingDay ? `last day ${shortDate(left.lastWorkingDay)}` : ''].filter(Boolean).join(' · ');
 const statusPill = (u) =>
-  u.left ? <span className="ws-pill ws-pill--off">Left</span> : u.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--off">Inactive</span>;
+  u.left ? <span className="ws-pill ws-pill--neutral">Left</span> : u.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--neutral">Inactive</span>;
 
 export function SettingsUsers({ orgId }) {
   const { isEnabled } = useFeatures();
@@ -593,6 +593,7 @@ export function SettingsUsers({ orgId }) {
         <PageHead
           crumbs={['Access', 'Users']}
           title="Users"
+          description="Everyone who signs in to this company, their role here and whether they can sign in."
           actions={
             <>
               <MoreButton items={[exportMenuItem('Export users')]} onSelect={exportUsers} />
@@ -611,14 +612,14 @@ export function SettingsUsers({ orgId }) {
           </div>
         ) : null}
 
-        <div className="flex flex-wrap gap-2 items-center" role="search">
-          <label className="relative flex-1 min-w-[14rem]" style={{ maxWidth: 420 }}>
+        <div className="ws-filters" role="search">
+          <label className="ws-search" style={{ flexBasis: 360 }}>
             <span className="sr-only">Search users</span>
-            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 ui-muted" />
-            <input className="ui-input" style={{ paddingLeft: '2.25rem' }} value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search name, email, user ID or role" />
+            <Search size={16} aria-hidden="true" />
+            <input className="ui-input" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search name, email, user ID or role" />
           </label>
-          <select className="ui-select" aria-label="Status" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} style={{ width: 'auto' }}>
-            <option value="">Any status</option>
+          <select className="ui-select" aria-label="Status" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
+            <option value="">Status: All</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>

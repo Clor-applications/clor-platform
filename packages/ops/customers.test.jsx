@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => Object.fromEntries(
-  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections'].map((k) => [k, vi.fn()]),
+  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsAccountEntitlements'].map((k) => [k, vi.fn()]),
 ));
 vi.mock('./api', () => api);
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -63,6 +63,32 @@ describe('a customer’s page', () => {
     expect(screen.getByText('asha@rao.in')).toBeInTheDocument();
     expect(screen.getByText(/Branches: Head office \(Karnataka\)/)).toBeInTheDocument();
     expect(screen.getByText('Nobody has signed in yet')).toBeInTheDocument();
+  });
+
+  it('shows seats per app, the entitlement rule and recent access denials on Overview', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsAccountEntitlements.mockResolvedValue({
+      explicit: true,
+      legacyFailOpen: false,
+      planName: 'Growth',
+      interval: 'month',
+      apps: [
+        { app: 'accounting', name: 'Books', owned: true, tier: 'GROWTH', seatsBought: 10, seatsUsed: 9, standing: 'entitled', reason: null },
+        { app: 'projects', name: 'Projects', owned: false, tier: null, seatsBought: null, seatsUsed: null, standing: 'none', reason: null },
+      ],
+      denials: [{ id: 'd1', at: '2026-11-01T10:42:00Z', who: { name: 'Priya Shah', email: 'p@x.in' }, org: 'Rao Textiles', code: 'APP_NOT_SUBSCRIBED', status: 402, app: 'projects', requestId: 'c-7f2b04' }],
+    });
+    const openDenials = vi.fn();
+    render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} openDenials={openDenials} />);
+    expect(await screen.findByText('Entitlement: explicit subscription')).toBeInTheDocument();
+    const seats = screen.getByRole('table', { name: 'Apps, seats and standing' });
+    expect(within(seats).getAllByRole('row')[1]).toHaveTextContent('9 / 10');
+    expect(within(seats).getAllByRole('row')[1]).toHaveTextContent('Near seats');
+    expect(within(seats).getAllByRole('row')[2]).toHaveTextContent('402 if called');
+    expect(screen.getByText('APP_NOT_SUBSCRIBED')).toBeInTheDocument();
+    expect(screen.getByText('c-7f2b04')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /See every refusal/ }));
+    expect(openDenials).toHaveBeenCalledWith('a1');
   });
 
   it('titles the page with the business and names the owner under it', async () => {

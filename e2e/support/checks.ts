@@ -151,7 +151,9 @@ export async function auditScreen(page: Page, testInfo: TestInfo, opts: { title?
     const lit = await page.locator('nav:not([aria-label="Breadcrumb"]):not([aria-label$="quick navigation"]) [aria-current="page"]:visible').first().textContent({ timeout: 300 }).catch(() => null);
     const h1 = await page.locator('main h1:visible').first().textContent({ timeout: 300 }).catch(() => null);
     /* Home greets the person by name instead ("Good afternoon, Rahul"), by design. */
-    if (lit && h1 && lit.trim() !== 'Home' && lit.trim() !== h1.trim()) report(problems, key, 'title-is-menu-label', `the page title "${h1.trim()}" is not the menu label "${lit.trim()}"`, device);
+    /* A lit item may carry a count ("Employees10"), and the settings hub's item reads "All settings". */
+    const litLabel = lit ? lit.trim().replace(/\s*\d+\+?$/, '').replace(/^All settings$/, 'Settings') : lit;
+    if (litLabel && h1 && litLabel !== 'Home' && litLabel !== h1.trim()) report(problems, key, 'title-is-menu-label', `the page title "${h1.trim()}" is not the menu label "${litLabel}"`, device);
   }
 
   /* 3. axe: serious and critical, minus the known list. On a still page: a fade half-way through reads as low contrast. */

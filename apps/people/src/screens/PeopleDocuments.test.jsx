@@ -10,7 +10,7 @@ import PeopleDocuments from './PeopleDocuments';
  */
 const api = vi.hoisted(() => ({ listCompanyDocuments: vi.fn(), listAllEmployees: vi.fn(), getDocument: vi.fn() }));
 vi.mock('@ui/personnel/api', () => api);
-vi.mock('@ui/personnel/Employees', () => ({ EmployeeDocuments: () => null }));
+vi.mock('@ui/personnel/Employees', () => ({ EmployeeDocuments: () => null, Avatar: () => null }));
 const perms = vi.hoisted(() => ({ current: { permissions: new Set() } }));
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => perms.current }));
 
@@ -22,18 +22,18 @@ beforeEach(() => {
   api.listAllEmployees.mockResolvedValue({ employees: [{ id: 'e1', name: 'Ravi Kumar' }] });
 });
 
-it('offers New document to someone who may add files', async () => {
+it('offers Upload to someone who may add files', async () => {
   perms.current = { permissions: new Set(['PEOPLE::Documents::VIEW', 'PEOPLE::Documents::CREATE']) };
   render(<PeopleDocuments />);
   expect((await screen.findAllByText('Offer letter')).length).toBeGreaterThan(0);
-  expect(screen.getByRole('button', { name: /New document/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^(Upload|New document)$/ })).toBeTruthy();
 });
 
-it('does not offer New document to a reader who may only view', async () => {
+it('does not offer Upload to a reader who may only view', async () => {
   perms.current = { permissions: new Set(['PEOPLE::Documents::VIEW']) };
   render(<PeopleDocuments />);
   expect((await screen.findAllByText('Offer letter')).length).toBeGreaterThan(0);
-  expect(screen.queryByRole('button', { name: /New document/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^(Upload|New document)$/ })).toBeNull();
 });
 
 it('leaves the empty register without the add route for a view-only reader', async () => {
@@ -41,5 +41,5 @@ it('leaves the empty register without the add route for a view-only reader', asy
   api.listCompanyDocuments.mockResolvedValue([]);
   render(<PeopleDocuments />);
   expect(await screen.findByText('No documents yet')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: /New document/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^(Upload|New document)$/ })).toBeNull();
 });

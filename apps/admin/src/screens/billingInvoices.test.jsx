@@ -75,3 +75,27 @@ describe('invoices in Workspace, Billing', () => {
     expect(await screen.findByText('No invoices yet.')).toBeTruthy();
   });
 });
+
+describe('the Invoices page’s figures (WS-10)', () => {
+  it('says the period billed, and the year’s GST as input credit from the list alone', async () => {
+    const { invoicePeriod } = await import('./InvoiceDrawer');
+    const { invoiceFigures } = await import('./Invoices');
+    expect(invoicePeriod({ periodStart: '2026-11-01', periodEnd: '2026-11-30' })).toBe('1–30 Nov 2026');
+    expect(invoicePeriod({ periodStart: '2026-10-15', periodEnd: '2026-11-14' })).toBe('15 Oct – 14 Nov 2026');
+    expect(invoicePeriod({ issueDate: '2026-11-10T06:00:00Z' })).toMatch(/^Issued /);
+    const now = new Date('2026-11-14T00:00:00Z');
+    const f = invoiceFigures(
+      [
+        { status: 'PAID', issueDate: '2026-10-01', paidAt: '2026-10-05', total: 118000, taxTotal: 18000 },
+        { status: 'ISSUED', issueDate: '2026-11-01', dueDate: '2026-11-20', total: 59000, taxTotal: 9000 },
+        { status: 'VOID', issueDate: '2026-11-02', total: 59000, taxTotal: 9000 },
+        { status: 'PAID', issueDate: '2026-02-01', paidAt: '2026-02-05', total: 11800, taxTotal: 1800 },
+      ],
+      now,
+    );
+    expect(f.gstThisFy).toBe(27000);
+    expect(f.gstCount).toBe(2);
+    expect(f.paidThisFy).toBe(118000);
+    expect(f.next.total).toBe(59000);
+  });
+});

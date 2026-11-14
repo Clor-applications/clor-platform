@@ -1,10 +1,9 @@
-/* One face outside Accounting (8 Nov 2026): Plus Jakarta Sans for words and, with tabular
-   figures, for numbers. The second face for numbers (JetBrains Mono) is retired.
-   Inter kept for Accounting (indigo palette). Bricolage Grotesque retired.
-   All self-hosted (Fontsource, SIL OFL 1.1), not Google — no IP leakage before sign-in. */
+/* R&D brand (owner, 14 Nov 2026; clor-rnd/README.md): Inter for everything,
+   Sora 700/800 for the brand and page titles only. Both self-hosted
+   (Fontsource, SIL OFL 1.1), never Google — no IP leakage before sign-in. */
 @import '@fontsource-variable/inter';
-@import '@fontsource-variable/plus-jakarta-sans';
-/* Bricolage Grotesque retired in neon brand (5–6 Nov 2026). */
+@import '@fontsource/sora/700.css';
+@import '@fontsource/sora/800.css';
 
 @tailwind base;
 @tailwind components;
@@ -449,15 +448,17 @@
   --z-platform-bar: 200;
   --z-platform-menu: 210;
 
-  --radius-btn: 0.25rem;
-  --radius-input: 0.25rem;
-  --radius-sm: 0.25rem;
-  --radius: 0.25rem;
-  --radius-lg: 0.25rem;
-  --radius-xl: 0.375rem;
-  /* The figures across an overview. Square on purpose: at 12px five small
-     cards in a row read as five pills rather than five panels of figures. */
-  --radius-kpi: 0.25rem;
+  /* Two radii (DESIGN.md Layout): 8px on anything clickable, 12px on anything
+     holding content. These were 4px from the first import, which left every app
+     outside People square-cornered (UI audit M1, 14 Nov 2026). */
+  --radius-btn: 0.5rem;
+  --radius-input: 0.5rem;
+  --radius-sm: 0.5rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 0.75rem;
+  /* Figure tiles hold content, so they take the content radius. */
+  --radius-kpi: 0.75rem;
 
   /* Layout */
   --sidebar-w: 260px;
@@ -1045,7 +1046,7 @@
 @layer base {
   html {
     /* Inter, matching the reference the module overviews are drawn from. */
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     /* Tabular figures everywhere: money columns must not jitter between rows. */
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
@@ -2304,7 +2305,7 @@
      Inter at display sizes for headline moments — one face, ranked by size
      and weight rather than by switching family. */
   .ui-display {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'ss01', 'cv11';
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -2676,7 +2677,7 @@
     font-size: 0.8125rem;
   }
   .ui-table-totals .fig {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 500, per DESIGN.md. At 600 every figure in every table read as
        emphasised, which means none of them did — a column where each cell
@@ -2759,7 +2760,7 @@
     box-shadow: 0 -2px 10px rgb(28 25 23 / 0.06);
   }
   .ui-entry-summary .fig {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
@@ -3286,7 +3287,7 @@
      doing 200 vouchers a day and an owner reading outstandings.
   --------------------------------------------------------------------------- */
   .ui-t-page {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.75rem;       /* 28px — Graphite's title size */
     line-height: 2.25rem;     /* 36px */
     font-weight: 700;
@@ -3411,7 +3412,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -3425,7 +3426,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -3452,7 +3453,7 @@
     font-weight: 500;
   }
   .ui-total-row > :last-child {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;
     font-weight: 400;
@@ -3529,7 +3530,7 @@
   /* The scan anchor. Mono so digits align down the column and the eye can run
      it like a list of codes rather than prose. */
   .ui-col-id.ui-col-id {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -3594,7 +3595,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -3613,7 +3614,7 @@
      or a glyph.
   ------------------------------------------------------------------------- */
   .ui-cell-ref {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--doc-link));
     font-weight: 600;
@@ -3670,7 +3671,7 @@
     overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 
@@ -3730,10 +3731,9 @@
      about the same period, and a divided band asked the reader to accept them
      as one thing. Apart, each is its own object and can carry its own colour.
 
-     The corners are the deliberate exception to the two-radius rule: at 12px
-     five small cards in a row read as five pills, and the point of the row is
-     that they are panels of figures. `--radius-kpi` exists so the exception
-     is named and findable rather than a bare 0 somebody later "fixes".
+     The corners follow the two-radius rule like every other content
+     container: 12px (UI audit M1, 14 Nov 2026). `--radius-kpi` stays as its
+     own name so the figure tiles can be tuned without touching cards.
   --------------------------------------------------------------------------- */
   .ui-kpi-band {
     display: grid;
@@ -4494,7 +4494,7 @@
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.10);
   }
   .ui-segment-count {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -4739,7 +4739,7 @@
      left-aligned, which is why a column of rates did not line up on the
      decimal and had to be read one cell at a time. */
   .ui-grid-dense input[type='number'] {
-    font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
     text-align: right;
@@ -5228,12 +5228,12 @@ label {
    authoritative here so the same heading means the same thing on every page. */
 body, button, input, select, textarea, table,
 .font-sans, .font-serif {
-  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 /* Numbers outside Accounting: the words' face with tabular figures, so digits line up. */
 .font-mono, .ui-mono, .ui-metric,
 .tabular-nums, [class*='ui-amount'] {
-  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
 }
 code, pre { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
@@ -5262,7 +5262,7 @@ h1, h1[class], .ui-t-page {
   letter-spacing: -0.025em;
 }
 h1, .ui-t-page, .ui-wordmark {
-  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: normal;
 }
 /* The wordmark: always CLOR, ExtraBold, tight, in the theme's logo ink. */
@@ -7171,91 +7171,58 @@ th.ui-th {
 }
 
 /*
- * The Blaze palette: Attendance in Solar Amber (neon brand, owner 5–6 Nov
- * 2026; the red brand 3–9 Nov, Blaze Orange and Graphite 21 Oct–3 Nov). The
- * name stays so manifests keep working. Shared.
+ * The Blaze palette: Attendance in violet #5B47C4 (R&D hand-off, owner
+ * 14 Nov 2026; Solar Amber 5–14 Nov was too close to Workspace orange). The
+ * name stays so manifests keep working.
  *
- * A palette, not an app's styling: any CLOR app opts in with
- * `palette: 'blaze'` in its manifest, and the shell sets data-palette="blaze"
- * on <html> and on the app's wrapper. Today only Attendance does. Everything
- * below is colour only (no size, spacing or layout) and works through the
- * shared tokens, so the shared components pick it up without changes.
+ * `palette: 'blaze'` in a manifest makes the shell set data-palette="blaze"
+ * on <html> and on the app's wrapper. The portal tokens themselves (--act,
+ * --act-hover, --marker, --tint, --panel, --panel-border) live in rnd.css;
+ * this block only points the older token names at them, on the wrapper too,
+ * so nothing inside the app keeps an amber value. The rail, panel, buttons,
+ * pills and tables are drawn by rnd.css.
  *
- *   page ground          pure white
- *   ink                  #111827 (17.7:1)
- *   sidebar (icon rail)  white over a hairline, labels slate #4B5563 (7.6:1)
- *   current module       amber edge bar and tint, icon in amber ink #854D0E (6.9:1)
- *   primary buttons      Solar Amber #EAB308 with slate words #0F172A (9.3:1);
- *                        white on amber would be 1.9:1, so never white
- *   accent on light      amber for the tab underline and bars; #854D0E where
- *                        amber is text (6.9:1); focus #A16207 (4.9:1)
- *   tables, forms        neutral white and grey, names in ink
- *
- * Tokens it sets (others keep the platform values): --app-bg, --fg, --brand*,
- * --btn-primary-*, --on-brand, --accent-soft, --ring, --link*, --col-party,
- * --page-heading-bg, --heading-bg, --rail-*, --hero-hi.
+ *   primary button, links, focus   --act #5B47C4 with white (6.2:1)
+ *   active rail / panel marker     --marker #7563D9
+ *   selected fill                  --tint #EEEBFA
+ *   second sidebar                 --panel #F7F6FD over --panel-border #E2DDF6
  */
 :root[data-palette='blaze'],
 [data-palette='blaze'] {
   --app-bg: 255 255 255;
-  --fg: 17 24 39;
-  --brand: 234 179 8;
-  --brand-deep: 133 77 14;
-  --brand-hover: 202 138 4;
-  --brand-pressed: 161 98 7;
-  --btn-primary-bg: 234 179 8;
-  --btn-primary-hover: 202 138 4;
-  --brand-soft: 254 249 231;
-  --brand-subtle: 254 252 243;
-  --brand-border: 253 230 138;
-  --brand-ink: 133 77 14;
-  --on-brand: 15 23 42;
-  --accent-soft: 254 249 231;
-  --ring: 161 98 7;
-  --link: 133 77 14;
-  --link-hover: 113 63 18;
-  --col-party: 17 24 39;
+  --brand: var(--act);
+  --brand-deep: var(--act-hover);
+  --brand-hover: var(--act-hover);
+  --brand-pressed: var(--act-hover);
+  --btn-primary-bg: var(--act);
+  --btn-primary-hover: var(--act-hover);
+  --brand-soft: var(--tint);
+  --brand-subtle: var(--panel);
+  --brand-border: var(--panel-border);
+  --brand-ink: var(--act);
+  --on-brand: 255 255 255;
+  --on-primary: 255 255 255;
+  --accent-soft: var(--tint);
+  --ring: var(--act);
+  --link: var(--act);
+  --link-hover: var(--act-hover);
   --page-heading-bg: 255 255 255;
-  --heading-bg: 249 250 251;
   --rail-graphite: 255 255 255;
   --rail-graphite-top: 255 255 255;
-  --rail-graphite-hover: 249 250 251;
-  --rail-ink: 75 85 99;
-  --rail-ink-strong: 15 23 42;
-  --rail-blaze: 234 179 8;
-  --rail-blaze-ink: 133 77 14;
-  /* The greeting's coloured word is amber ink: amber itself is 1.9:1 on white. */
-  --hero-hi: 133 77 14;
+  --rail-graphite-hover: 244 245 242;
+  --rail-blaze: var(--marker);
+  --rail-blaze-ink: var(--act);
+  --hero-hi: var(--act);
 }
 :root[data-theme='dark'][data-palette='blaze'],
 :root[data-theme='dark'] [data-palette='blaze'] {
-  --app-bg: 11 15 23;
-  --fg: 243 244 246;
-  --brand: 250 204 21;
-  --brand-deep: 253 224 71;
-  --brand-hover: 253 224 71;
-  --brand-pressed: 234 179 8;
-  --btn-primary-bg: 250 204 21;
-  --btn-primary-hover: 253 224 71;
-  --brand-soft: 54 42 10;
-  --brand-subtle: 36 30 12;
-  --brand-border: 113 63 18;
-  --brand-ink: 253 224 71;
-  --on-brand: 15 23 42;
-  --accent-soft: 54 42 10;
-  --ring: 250 204 21;
-  --link: 253 224 71;
-  --link-hover: 254 240 138;
-  --col-party: 243 244 246;
-  --page-heading-bg: 17 24 39;
-  --heading-bg: 17 24 39;
-  --rail-graphite: 11 15 23;
-  --rail-graphite-top: 17 24 39;
-  --rail-graphite-hover: 31 41 55;
-  --rail-ink: 209 213 219;
-  --rail-ink-strong: 243 244 246;
-  --rail-blaze: 250 204 21;
-  --rail-blaze-ink: 250 204 21;
+  --brand: 160 148 236;
+  --brand-ink: 190 181 245;
+  --link: 190 181 245;
+  --link-hover: 214 208 250;
+  --ring: 160 148 236;
+  --rail-blaze: 160 148 236;
+  --rail-blaze-ink: 190 181 245;
 }
 
 /* The dashboard ground is the palette's own (white); cards, tables and forms stay white on it. */
@@ -7263,139 +7230,12 @@ th.ui-th {
   background-color: rgb(var(--app-bg));
 }
 
-/*
- * Sidebar: the icon rail, white over a hairline. The module you are in gets an
- * amber bar on the rail's edge, an amber tint behind it and its icon in amber
- * ink; the label is slate and bold. Hover lifts the icon a touch. "Me" is about
- * you, not the company, so it sits apart at the foot of the rail.
- */
-:root[data-palette='blaze'] .ui-split-rail {
-  background: linear-gradient(to bottom, rgb(var(--rail-graphite-top)), rgb(var(--rail-graphite)) 14rem);
-  border-right-color: rgb(var(--border));
-  gap: 0.375rem;
-}
-:root[data-palette='blaze'] .ui-split-mod {
-  position: relative;
-  padding-block: 0.625rem;
-  color: rgb(var(--rail-ink));
-  transition: background-color var(--dur-surface) ease, color var(--dur-surface) ease;
-}
-:root[data-palette='blaze'] .ui-split-mod > svg {
-  transition: transform var(--dur-surface, 150ms) ease, color var(--dur-surface, 150ms) ease;
-}
-:root[data-palette='blaze'] .ui-split-mod:hover {
-  background: rgb(var(--rail-graphite-hover));
-  color: rgb(var(--rail-ink-strong));
-}
-:root[data-palette='blaze'] .ui-split-mod:hover > svg { transform: translateY(-1px); }
-:root[data-palette='blaze'] .ui-split-mod[data-current] {
-  background: rgb(var(--rail-blaze) / 0.16);
-  color: rgb(var(--rail-ink-strong));
-  font-weight: 600;
-  box-shadow: inset 0 0 0 1px rgb(var(--rail-blaze) / 0.28);
-}
-:root[data-palette='blaze'] .ui-split-mod[data-current] > svg { color: rgb(var(--rail-blaze-ink)); }
-/* The bar sits on the rail's left edge, outside the tile's padding. */
-:root[data-palette='blaze'] .ui-split-mod[data-current]::before {
-  content: '';
-  position: absolute;
-  left: -0.375rem; top: 22%; bottom: 22%;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: rgb(var(--rail-blaze));
-}
-:root[data-palette='blaze'] .ui-split-mod[aria-pressed='true']:not([data-current]) {
-  background: rgb(var(--rail-graphite-hover));
-  color: rgb(var(--rail-ink-strong));
-  box-shadow: inset 0 0 0 1px rgb(var(--border));
-}
-:root[data-palette='blaze'] .ui-split-mod:focus-visible {
-  outline-color: rgb(var(--rail-ink-strong));
-}
-:root[data-palette='blaze'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child) {
-  margin-top: auto;
-}
-:root[data-palette='blaze'] .ui-split-rail > .ui-split-mod:last-child:not(:first-child)::after {
-  content: '';
-  position: absolute;
-  left: 22%; right: 22%; top: -0.5rem;
-  height: 1px;
-  background: rgb(var(--border));
-}
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes ui-rail-mark { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-  :root[data-palette='blaze'] .ui-split-mod[data-current]::before { animation: ui-rail-mark 260ms cubic-bezier(.2,.8,.2,1) both; }
-}
-
-/* The current screen in the module panel: amber bar, the icon in amber ink, the name in ink. */
-:root[data-palette='blaze'] .ui-split-item[aria-current='page'] {
-  box-shadow: inset 3px 0 0 rgb(var(--brand));
-}
-:root[data-palette='blaze'] .ui-split-item[aria-current='page'] > svg {
-  color: rgb(var(--brand-ink));
-}
-
-/* Phone tab bar: the screen you are on gets an amber top bar and an amber-ink icon. */
-:root[data-palette='blaze'] .ui-tabbar-item[aria-current='page'] {
-  box-shadow: inset 0 2px 0 rgb(var(--brand));
-}
-:root[data-palette='blaze'] .ui-tabbar-item[aria-current='page'] > svg {
-  color: rgb(var(--brand-ink));
-}
-
-/*
- * Primary actions, selected segments and the active tab. The graphite rules
- * further up are !important, so these answer them the same way and come later.
- */
-:root[data-palette='blaze'] :is(.ui-btn-primary, .ui-btn-brand) {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-palette='blaze'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
-  background-color: rgb(var(--btn-primary-hover)) !important;
-  border-color: rgb(var(--btn-primary-hover)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-palette='blaze'] :is(.ui-btn-primary, .ui-btn-brand):active:not(:disabled) {
-  background-color: rgb(var(--brand-pressed)) !important;
-  border-color: rgb(var(--brand-pressed)) !important;
-}
-:root[data-palette='blaze'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
-  background-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
-  border-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
-  color: rgb(var(--on-choice, var(--on-brand))) !important;
-}
-:root[data-palette='blaze'] .ui-segment[aria-selected='true'] .ui-segment-count {
-  color: rgb(var(--on-choice, var(--on-brand))) !important;
-}
+/* Selected segments and the active tab: graphite choice (rnd.css), the tab line in the marker. */
 :root[data-palette='blaze'] :is(.ui-tab.is-active, [role='tab'][aria-selected='true']:not(.ui-segment)) {
   color: rgb(var(--fg));
 }
 :root[data-palette='blaze'] .ui-tab.is-active::after {
-  background-color: rgb(var(--brand));
-}
-:root[data-theme='dark'][data-palette='blaze'] :is(.ui-btn-primary, .ui-btn-brand) {
-  background-color: rgb(var(--btn-primary-bg)) !important;
-  border-color: rgb(var(--btn-primary-bg)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-theme='dark'][data-palette='blaze'] :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
-  background-color: rgb(var(--btn-primary-hover)) !important;
-  border-color: rgb(var(--btn-primary-hover)) !important;
-  color: rgb(var(--on-brand)) !important;
-}
-:root[data-theme='dark'][data-palette='blaze'] :is(.ui-segment[aria-selected='true'], [role='tab'][aria-selected='true'].ui-segment) {
-  background-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
-  border-color: rgb(var(--choice, var(--btn-primary-bg))) !important;
-  color: rgb(var(--on-choice, var(--on-brand))) !important;
-}
-:root[data-theme='dark'][data-palette='blaze'] .ui-segment[aria-selected='true'] .ui-segment-count {
-  background-color: rgb(0 0 0 / 0.16) !important;
-  color: rgb(var(--on-choice, var(--on-brand))) !important;
-}
-:root[data-theme='dark'][data-palette='blaze'] .ui-tab.is-active::after {
-  background-color: rgb(var(--brand));
+  background-color: rgb(var(--marker));
 }
 
 /*
@@ -7895,7 +7735,7 @@ th.ui-th {
 }
 .ui-auth-today-title {
   margin-bottom: 12px;
-  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
