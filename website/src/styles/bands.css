@@ -44,7 +44,21 @@
   text-decoration: underline;
   text-underline-offset: 4px;
 }
-@media (max-width: 1320px) {
+/* The full row (logo, five menus, two quiet links, Sign in and both buttons)
+   did not fit the 1360px content column at any width: the page scrolled
+   sideways at 1440 and 1536px. With the quiet links the logo keeps its 40px
+   (owner, 10 Nov) and the menus sit 8px from the right-hand group, 1342px in
+   all, which fits from 1620px up; below that the quiet links go. Employee
+   portal stays in the phone menu and Contact sales in the Company menu. */
+@media (min-width: 1620px) {
+  .nav-bar {
+    gap: 8px;
+  }
+  .nav-bar > .nav-main {
+    margin-left: 32px;
+  }
+}
+@media (max-width: 1619px) {
   .nav-quiet {
     display: none;
   }
@@ -53,7 +67,7 @@
 body:has(.fx-secnav) .nav {
   position: relative;
 }
-@media (max-width: 960px) {
+@media (max-width: 1079px) {
   body:has(.fx-secnav) .nav {
     position: sticky;
   }
@@ -292,6 +306,8 @@ body:has(.fx-secnav) .nav {
   color: #aab6d0;
 }
 .fx-hero-note a {
+  display: inline-block;
+  padding-block: 6px;
   color: #fff;
   font-weight: 600;
   text-underline-offset: 4px;
@@ -409,7 +425,7 @@ body:has(.fx-secnav) .nav {
 .fx [id] {
   scroll-margin-top: 84px;
 }
-@media (max-width: 960px) {
+@media (max-width: 1079px) {
   /* The header sticks on a phone, so this bar scrolls away with the page. */
   .fx-secnav {
     position: static;
@@ -2946,7 +2962,8 @@ body:has(.fx-secnav) .nav {
 .pg .section--tight:not(:has(.price-group)) > .wrap.stack::before {
   content: '';
   position: absolute;
-  inset: calc(-1 * var(--s-6)) calc(var(--gutter) - var(--s-6));
+  /* Never past the screen edge: on a phone the gutter is narrower than the card's overhang. */
+  inset: calc(-1 * var(--s-6)) max(0px, calc(var(--gutter) - var(--s-6)));
   z-index: 0;
   background: #fff;
   border: 1px solid var(--fx-edge);
@@ -3181,6 +3198,34 @@ body:has(.fx-secnav) .nav {
 .fx-quotes-in.is-held .fx-quotes-bar > span {
   animation-play-state: paused;
 }
+.fx-quotes-ctl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  width: min(100%, 368px);
+}
+.fx-quotes-ctl .fx-quotes-bar {
+  flex: 1;
+}
+.fx-quotes-pause {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--r-control, 8px);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease), border-color 150ms var(--ease);
+}
+.fx-quotes-pause:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.5);
+}
 @keyframes fx-quote-run {
   from {
     transform: scaleX(0);
@@ -3196,10 +3241,17 @@ body:has(.fx-secnav) .nav {
   .fx-quotes-bar > span {
     animation: none;
   }
+  /* Nothing turns by itself here, so there is nothing to pause. */
+  .fx-quotes-ctl {
+    display: none;
+  }
 }
 
-/* The narrowest phones (320px): the header keeps the logo and the menu; the demo button is in the menu. */
-@media (max-width: 359px) {
+/* Phones up to 419px: the header keeps the logo and the menu; the demo button
+   is in the hero and the menu. With it, the menu button was pushed off a 375px
+   screen and the page scrolled sideways (UX audit B1; PR #267 carries the same
+   rule in site.css). */
+@media (max-width: 419px) {
   .nav .nav-demo {
     display: none;
   }

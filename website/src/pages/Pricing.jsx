@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from '../router.jsx';
+import { Link, useSearch } from '../router.jsx';
 import { PRODUCTS, SITE, appIdFor, demoFor } from '../site.js';
-import { Mark } from '../components/Brand.jsx';
+import { Mark, ProductName } from '../components/Brand.jsx';
 import { Closing, Faq } from '../components/Blocks.jsx';
 import { PageHead } from './Pages.jsx';
 import { useProducts } from '../catalogue.js';
@@ -82,7 +82,21 @@ export default function Pricing() {
   const products = useProducts();
   const hasYearly = Boolean(pricing?.plans.some((p) => p.yearly));
   const hasMonthly = Boolean(pricing?.plans.some((p) => p.monthly));
-  const [chosen, setPeriod] = useState('monthly');
+  const [chosen, setChosen] = useState('monthly');
+  /* ?period=yearly opens the yearly prices, and the switch writes it back, so a shared link shows what was seen. */
+  const search = useSearch();
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setChosen(new URLSearchParams(search).get('period') === 'yearly' ? 'yearly' : 'monthly'));
+    return () => cancelAnimationFrame(frame);
+  }, [search]);
+  const setPeriod = (p) => {
+    setChosen(p);
+    const q = new URLSearchParams(window.location.search);
+    if (p === 'yearly') q.set('period', 'yearly');
+    else q.delete('period');
+    const s = q.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${s ? `?${s}` : ''}`);
+  };
   const period = hasMonthly ? chosen : 'yearly';
   const plans = pricing?.plans || [];
   const groups = products.filter((p) => p.status === 'available')
@@ -116,7 +130,7 @@ export default function Pricing() {
                   <Mark product={product} size={32} />
                   <div>
                     <h2 id={`price-${product.slug}`} className="h-3">
-                      CLOR {product.name}
+                      <ProductName name={product.name} />
                     </h2>
                     <p className="small">{product.line}</p>
                   </div>

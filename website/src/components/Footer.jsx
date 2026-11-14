@@ -3,7 +3,7 @@ import { EnvelopeSimple, MapPin } from '@phosphor-icons/react';
 import { Link } from '../router.jsx';
 import { NAV, SITE } from '../site.js';
 import { useProducts } from '../catalogue.js';
-import { Logo, Mark } from './Brand.jsx';
+import { Logo, Mark, ProductName } from './Brand.jsx';
 
 /*
  * The footer (13 Nov 2026): the brand, where we are and how to write to us
@@ -54,7 +54,7 @@ export default function Footer() {
             {PRODUCTS.map((p) => (
               <li key={p.slug}>
                 <Link href={`/products/${p.slug}`} className="ft-product">
-                  <Mark product={p} size={20} /> CLOR&nbsp;{p.name}
+                  <Mark product={p} size={20} /> <ProductName name={p.name} />
                 </Link>
               </li>
             ))}

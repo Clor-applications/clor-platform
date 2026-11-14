@@ -8,7 +8,7 @@ The People work of 28–29 Oct 2026 is merged into `main` (PR #50). Start new wo
 `origin/main` (fetch first); the local `main` checkout may be stale. What is done, what is
 next and how to run the tests: `docs/people/design-v1/TRACKER.md` (latest section at the
 end). The owner's live app runs from `/private/tmp/clor-people-latest-20261028` (web 5186 /
-API 4002); CI runs on the owner's Mac self-hosted runner (`docs/CI-ON-MAC.md`).
+API 4002); CI runs on GitHub's own machines since 14 Nov 2026 (the repository is public; `docs/CI-ON-MAC.md` is the old Mac setup).
 
 ## Design System
 
