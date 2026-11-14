@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-0aa4225 - 2026-11-15
+
+API revision `clor-api-00134-24x`. Previous release `rel-e0df646` (roll back there).
+
+- #276 Books: port the Books developer's 14 Nov build, new palette and split rail, audit fixes
+- #277 Engineering Console: console.clor.in, Phase 1
+
 ## rel-75a7a55 - 2026-11-14
 
 API revision `clor-api-00131-wl6`. Previous release `rel-4483a92` (roll back there).
