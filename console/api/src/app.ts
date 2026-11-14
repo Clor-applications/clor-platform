@@ -333,8 +333,10 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
   }));
 
   r.post('/auth/password/setup', wrap(async (req, res) => {
-    const parsed = z.object({ email: emailField, code: z.string().trim().min(8).max(100), password: z.string().max(500) }).safeParse(req.body);
+    const parsed = z.object({ email: emailField, code: z.string().trim().min(1).max(100), password: z.string().max(500) }).safeParse(req.body);
     if (!pwOn || !parsed.success) return res.status(400).json({ error: 'An email address, your setup code and a new password.' });
+    /* Said before anything is checked or counted: a short code is a mix-up (an authenticator code, a PIN), not a guess. */
+    if (parsed.data.code.replace(/[\s-]/g, '').length < 16) return res.status(400).json({ error: 'That is too short to be a setup code. A setup code is a long one-time code (20 characters or more), not an authenticator code.' });
     if (parsed.data.password.length < MIN_PASSWORD) return res.status(400).json({ error: `Use ${MIN_PASSWORD} characters or more for the password.` });
     const { email } = parsed.data;
     const key = `setup:${email}`;

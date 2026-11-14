@@ -21,6 +21,8 @@ describe('signing in with an email address and password', () => {
     const b = browser(w);
     expect((await b.post('/auth/password/setup', { email: OWNER, code: 'WRONG-CODE-WRONG-CODE', password: GOOD })).status).toBe(401);
     expect((await b.post('/auth/password/setup', { email: OWNER, code: OWNER_SETUP_CODE, password: 'short' })).status).toBe(400);
+    /* A short code is told apart from a wrong one, and does not count towards the lock. */
+    for (let i = 0; i < 6; i += 1) expect((await b.post('/auth/password/setup', { email: OWNER, code: '0807', password: GOOD })).body.error).toMatch(/too short to be a setup code/);
     expect((await b.post('/auth/password/setup', { email: 'someone@else.in', code: OWNER_SETUP_CODE, password: GOOD })).status).toBe(401);
     expect(await w.store.findByEmail(OWNER)).toBeNull();
 

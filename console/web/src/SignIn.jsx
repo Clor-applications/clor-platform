@@ -18,7 +18,18 @@ const NOTE = {
  * in. Whichever is used, the Console's own authenticator code comes next.
  */
 export default function SignIn({ onDone }) {
-  const note = NOTE[new URLSearchParams(window.location.search).get('signin')];
+  /* Read once, then taken off the address: a note about one failed try must not sit there on every later visit. */
+  const [note] = useState(() => {
+    const key = new URLSearchParams(window.location.search).get('signin');
+    if (key) {
+      try {
+        window.history.replaceState(null, '', window.location.pathname);
+      } catch {
+        /* no history */
+      }
+    }
+    return NOTE[key];
+  });
   const [options, setOptions] = useState(null);
   const [mode, setMode] = useState('in');
   const [form, setForm] = useState({ email: '', password: '', code: '' });
@@ -50,7 +61,7 @@ export default function SignIn({ onDone }) {
         <ClorMark size={36} />
         <h1 className="con-title">CLOR Console</h1>
         <p className="con-lede">Releases, pull requests and the state of the platform. For CLOR engineering only.</p>
-        {note ? <Notice tone="bad">{note}</Notice> : null}
+        {note ? <Notice>{note}</Notice> : null}
         {!options && !error ? <Loading /> : null}
         {none ? <Notice>No way to sign in is set up for the Console yet.</Notice> : null}
         {options?.password ? (
@@ -61,13 +72,14 @@ export default function SignIn({ onDone }) {
               <>
                 <label className="con-label" htmlFor="si-code">Setup code</label>
                 <input id="si-code" className="con-input" autoComplete="off" required spellCheck={false} value={form.code} onChange={set('code')} aria-describedby="si-code-help" />
-                <p id="si-code-help" className="con-quiet">The one-time code an owner gave you.</p>
+                <p id="si-code-help" className="con-quiet">The long one-time code you were given (20 characters or more). It is not your authenticator code.</p>
               </>
             ) : null}
             <label className="con-label" htmlFor="si-password">{mode === 'setup' ? 'New password' : 'Password'}</label>
             <input id="si-password" className="con-input" type="password" autoComplete={mode === 'setup' ? 'new-password' : 'current-password'} required minLength={mode === 'setup' ? 12 : 1} value={form.password} onChange={set('password')} aria-describedby={mode === 'setup' ? 'si-password-help' : undefined} />
             {mode === 'setup' ? <p id="si-password-help" className="con-quiet">12 characters or more.</p> : null}
             {error ? <Notice tone="bad">{error}</Notice> : null}
+            {error && mode === 'in' ? <p className="con-quiet">First time here? You have no password yet: choose "I have a setup code" below.</p> : null}
             <button type="submit" className="ui-btn con-btn-primary con-gate-btn" disabled={busy}>{mode === 'setup' ? 'Set password and sign in' : 'Sign in'}</button>
             <button type="button" className="ui-btn ui-btn-ghost con-gate-btn" onClick={() => { setMode(mode === 'in' ? 'setup' : 'in'); setError(''); }}>
               {mode === 'in' ? 'I have a setup code' : 'I already have a password'}
