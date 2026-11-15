@@ -977,6 +977,10 @@
 }
 
 @layer base {
+  /* One icon family, one stroke (redesign §7): every Lucide glyph draws at 1.75
+     with round caps. CSS outranks the svg's own stroke-width attribute, so no
+     call site sets it and none can drift. */
+  svg.lucide { stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   html {
     /* Instrument Sans, one face for the whole product (§5.1). */
     font-family: 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;

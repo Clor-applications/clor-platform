@@ -1,12 +1,10 @@
 import React, { useRef, useState } from 'react';
 import {
-  BookOpenLightbulb20Color, Calendar20Color, CalendarClock20Color, CheckmarkCircle20Color, CoinMultiple20Color, Drafts20Color,
-  Food20Color, Gift20Color, Heart20Color, Laptop20Color, MegaphoneLoud20Color, People20Color, PersonWarning20Color, Savings20Color,
-  ShieldCheckmark20Color, Toolbox20Color,
-} from '@fluentui/react-icons';
+  BookOpen, Calendar, CalendarClock, CheckCheck, Coins, FilePen, Gift, Heart, Laptop, Megaphone, PiggyBank, ShieldCheck,
+  UserRoundX, Users, Utensils, Warehouse,
+} from 'lucide-react';
 import { MoreHorizontal } from '@ui/components/ui/lineIcons';
 import Popover from '@ui/components/ui/Popover';
-import { colorSet } from '@ui/components/ui/colorIcon';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { KpiTiles, Meter } from '../components/Core';
 import { statusName, statusPill } from './workspaceConfig';
@@ -22,12 +20,12 @@ import './registers.css';
  * feed and the dated event list. WorkspaceList keeps the data, the drawer, search, tabs, export and permissions.
  */
 
-const ICON = colorSet({
-  laptop: Laptop20Color, team: People20Color, store: Toolbox20Color, recover: PersonWarning20Color,
-  gift: Gift20Color, heart: Heart20Color, coin: CoinMultiple20Color, life: ShieldCheckmark20Color, food: Food20Color,
-  savings: Savings20Color, learn: BookOpenLightbulb20Color, post: MegaphoneLoud20Color, draft: Drafts20Color,
-  calendar: Calendar20Color, soon: CalendarClock20Color, done: CheckmarkCircle20Color,
-}, 20);
+const ICON = {
+  laptop: Laptop, team: Users, store: Warehouse, recover: UserRoundX,
+  gift: Gift, heart: Heart, coin: Coins, life: ShieldCheck, food: Utensils,
+  savings: PiggyBank, learn: BookOpen, post: Megaphone, draft: FilePen,
+  calendar: Calendar, soon: CalendarClock, done: CheckCheck,
+};
 
 const day = (v) => (v ? formatDate(String(v).slice(0, 10)) : '');
 /** "20 Nov" for a date this year, "4 Jan 2027" otherwise. */
@@ -155,7 +153,7 @@ export function PlanCards({ cfg, plans, rows, working, today, onManage, onEnrol 
           return (
             <article key={plan.id} className="rg-plan" style={{ '--rg-id': `var(--cat-${cat})` }}>
               <header className="rg-plan-head">
-                <span className="rg-plan-icon" aria-hidden="true"><Icon /></span>
+                <span className="rg-plan-icon" aria-hidden="true"><Icon size={18} /></span>
                 <h3 className="rg-plan-title">{plan.title}</h3>
                 {plan.status !== 'ACTIVE' ? <StatusPill cfg={cfg} status={plan.status} /> : null}
               </header>

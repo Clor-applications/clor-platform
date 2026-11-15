@@ -16,14 +16,14 @@ Always read `DESIGN.md` before making any visual or UI decision. Fonts, colors,
 spacing, radii, the type scale, and the five-primitive component contract are
 defined there. Do not deviate without explicit user approval.
 
-**Brand (owner, 14 Nov 2026): the R&D hand-off.** Graphite `#202329` + Blaze
-`#FF5400` (an accent, never a fill behind text), Sora 800 for page titles and
-Inter for everything else, portal themes (Workspace orange ink `#C5450A`, Ops
-forest `#015D47`, People moss `#5A6B1F`, Attendance violet `#5B47C4`), and the
-64px rail / 232px panel / 64px top bar shell. Tokens live in
-`packages/ui/src/rnd.css`. Books (Accounting) is outside it: red in-app palette
-(oxblood/brand ink `#A50D26`), list header rows `#EAF2F8`, split rail (owner, 15 Nov 2026;
-see DESIGN.md).
+**Brand (owner, 15 Nov 2026): the frontend redesign** (`frontend-redesign-2026-11-15.md`,
+all decisions D1–D9 approved, Books included). One orange accent for every app and
+portal (`--act` `#C95000` as a fill, `--act-ink` `#A54000` as text, `--marker`
+`#FF6B00` as a mark), warm paper `#FBFAF7`, Instrument Sans for everything and
+JetBrains Mono for identifiers only, app identity hues inside the app glyph only,
+Lucide icons only (stroke 1.75, sizes 14/16/18). Tokens live in
+`packages/ui/src/rnd.css`. Books (Accounting) keeps its red palette and Inter until
+the redesign's phase 4 moves it in (see DESIGN.md).
 
 Hard rules that come up most often:
 
@@ -36,14 +36,15 @@ Hard rules that come up most often:
 - **Two radii.** 8px on anything clickable, 12px on anything holding content.
   `rounded-full` for pills only.
 - **Money is tabular.** Every displayed amount is in tabular figures
-  (`tabular-nums`, the money/mono utility classes), right-aligned, in Inter.
-  No second family for numbers or codes.
+  (`tabular-nums`, the money/mono utility classes), right-aligned, in Instrument Sans.
+  Identifiers (GSTIN, PAN, invoice numbers) set in JetBrains Mono via `.ui-mono`;
+  never money.
 - **No card-in-card.** A list sits on the page ground under one hairline. A
   document is a discrete object and earns a surface.
 - **One primary action per screen**, top right. Row actions such as Approve
   are secondary buttons; Reject and Decline are text buttons.
-- **Colour has one job.** Portal colour only for the primary button, links and
-  "you are here"; app colours only to identify an app; status colours only for
+- **Colour has one job.** The accent only for the primary button, links and
+  "you are here"; app hues only inside the app glyph; status colours only for
   state, always with a label.
 
 In QA or review, flag any code that does not match `DESIGN.md`.

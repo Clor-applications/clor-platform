@@ -1,82 +1,51 @@
 import React from 'react';
 import { ArrowLeft, ChevronRight } from '@ui/components/ui/lineIcons';
-import { BookOpenRegular, CalendarCheckmarkRegular, FlagRegular, PersonRegular, TimerRegular } from '@fluentui/react-icons';
-import { requestOpenScreen } from '@platform/context';
 import {
-  Bell,
-  BookOpen,
-  Books,
-  Briefcase,
-  BuildingOffice,
-  Buildings,
-  CalendarDots,
-  ChatCircle,
-  Tray,
-  ClockCounterClockwise,
-  CreditCard,
-  Database,
-  EnvelopeSimple,
-  FileText,
-  Fingerprint,
-  GearSix,
-  House,
-  Lightbulb,
-  Lightning,
-  Receipt,
-  Shield,
-  ShieldCheck,
-  SquaresFour,
-  User,
-  UserPlus,
-  UsersFour,
-  UsersThree,
-  Wallet,
-  Warning,
-} from '@phosphor-icons/react';
+  Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
+} from 'lucide-react';
+import { requestOpenScreen } from '@platform/context';
 
 import Drawer from '@ui/components/ui/Drawer';
-import { duoSet } from '@ui/components/ui/duoIcon';
 import './workspace.css';
 
 /**
  * The Workspace's page kit (redesign W-R2): one page head, stat, panel and
  * meter, so every Workspace page is built from the same few pieces. Icons are
- * People's two-tone Phosphor marks (owner, 9 Nov 2026: one icon family in every
- * app but Accounting); line icons stay for small affordances (chevrons).
+ * Lucide, the one family (redesign §7).
  */
-export const ICON = duoSet({
+export const ICON = {
+  /* Products, as clor.in names them, each its own app tile's mark: the same glyphs as the app manifests. */
   home: House,
-  inbox: Tray,
-  company: BuildingOffice,
-  companies: Buildings,
-  people: UsersThree,
-  team: UsersFour,
-  person: User,
+  inbox: Inbox,
+  company: Building,
+  companies: Building2,
+  people: Users,
+  team: UsersRound,
+  person: UserRound,
   invite: UserPlus,
-  mail: EnvelopeSimple,
+  mail: Mail,
   security: Shield,
   secure: ShieldCheck,
-  history: ClockCounterClockwise,
+  history: History,
   plan: Receipt,
   payments: CreditCard,
   data: Database,
-  apps: SquaresFour,
-  settings: GearSix,
+  apps: LayoutGrid,
+  settings: Settings,
   alert: Bell,
-  automation: Lightning,
-  warning: Warning,
+  automation: Zap,
+  warning: TriangleAlert,
   help: Lightbulb,
   guide: FileText,
-  library: Books,
-  chat: ChatCircle,
-  /* Products, as clor.in names them, each its own app tile's mark. */
+  library: Library,
+  chat: MessageCircle,
   accounting: BookOpen,
   payroll: Wallet,
-  people_app: UsersThree,
-  attendance: Fingerprint,
+  people_app: UserRound,
+  attendance: Clock,
   projects: Briefcase,
-  timesheet: CalendarDots,
-}, 20);
+  timesheet: CalendarDays,
+};
 
 /**
  * The Workspace side panel: one width, the Workspace colours and field styles,
@@ -254,12 +223,12 @@ export function ago(d) {
 
 /** Every CLOR app the Workspace speaks of: its name, its identity colour token and its mark. */
 export const APP_INFO = {
-  accounting: { name: 'Accounting', color: '--app-accounting', glyph: BookOpenRegular },
-  people: { name: 'People', color: '--app-people', glyph: PersonRegular },
-  payroll: { name: 'Payroll', color: '--app-payroll', glyph: null, text: '₹' },
-  attendance: { name: 'Attendance', color: '--app-attendance', glyph: CalendarCheckmarkRegular },
-  projects: { name: 'Projects', color: '--app-projects', glyph: FlagRegular },
-  timesheet: { name: 'Timesheet', color: '--app-timesheet', glyph: TimerRegular },
+  accounting: { name: 'Accounting', color: '--app-accounting', glyph: BookOpen },
+  people: { name: 'People', color: '--app-people', glyph: UserRound },
+  payroll: { name: 'Payroll', color: '--app-payroll', glyph: Wallet },
+  attendance: { name: 'Attendance', color: '--app-attendance', glyph: Clock },
+  projects: { name: 'Projects', color: '--app-projects', glyph: Flag },
+  timesheet: { name: 'Timesheet', color: '--app-timesheet', glyph: Timer },
 };
 /* Older ids for the same apps. */
 const APP_ALIAS = { books: 'accounting', hr: 'people', time: 'attendance', clortime: 'attendance' };

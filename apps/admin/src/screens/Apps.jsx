@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { OpenRegular, WarningRegular } from '@fluentui/react-icons';
+import { ExternalLink, TriangleAlert } from 'lucide-react';
 
 import { getAccountMe, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
@@ -89,7 +89,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
                   <div className="ws-appcard-foot">
                     {s.key === 'open' ? (
                       <button type="button" className="ws-btn ws-btn--quiet" onClick={() => openApp?.(a.id)}>
-                        <OpenRegular aria-hidden="true" /> Open {hostLabel(a.id)}
+                        <ExternalLink size={16} aria-hidden="true" /> Open {hostLabel(a.id)}
                       </button>
                     ) : s.key === 'noaccess' ? (
                       <span className="ws-appcard-sub">Ask an administrator for a role.</span>
@@ -124,7 +124,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
         </ul>
 
         <p className="ws-band">
-          <WarningRegular aria-hidden="true" style={{ width: 18, height: 18 }} />
+          <TriangleAlert size={18} aria-hidden="true" />
           Apps share one employee list, one company list and one sign-in. Adding an app never asks you to re-enter people.
         </p>
       </div>

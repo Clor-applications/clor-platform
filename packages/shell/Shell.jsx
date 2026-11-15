@@ -11,7 +11,6 @@ import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
 import { paramsForOpen } from './openParams';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
-import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
 import { useAppCatalogue, listingFor } from './appCatalogue';
 import { APPS, appById, availableApps, catalogueFor, landingApp, landingFor, subscribedApps } from './registry';
@@ -196,18 +195,10 @@ function ScreenState({ title, text, action }) {
   );
 }
 
-/*
- * The platform's own pages (sign-in, company setup, an app's public page) draw in the icon family every app but
- * Accounting uses (owner, 9 Nov 2026): Phosphor two-tone marks and Fluent line icons. Inside, the open app's
- * manifest decides, so Accounting keeps its Lucide line icons exactly as before.
- */
+/* The shell and every app draw one icon family, Lucide (redesign §7). */
 export default function Shell() {
   return (
-    <IconSetContext.Provider value="duo">
-      <LineSetContext.Provider value="fluent">
-        <ShellScreens />
-      </LineSetContext.Provider>
-    </IconSetContext.Provider>
+    <ShellScreens />
   );
 }
 
@@ -993,7 +984,7 @@ function ShellScreens() {
               }
             }}
           >
-            {Icon ? <Icon size={20} aria-hidden="true" /> : null}
+            {Icon ? <Icon size={18} aria-hidden="true" /> : null}
             {/* The rail is narrow: a module may give it a shorter name; the panel and the tooltip keep the full one. */}
             <span>{m.short || m.label}</span>
             {railCounts[m.key] > 0 ? <span className="ui-split-mod-count tabular-nums" aria-label={`${railCounts[m.key]} waiting`}>{railCounts[m.key] > 99 ? '99+' : railCounts[m.key]}</span> : null}
@@ -1011,7 +1002,7 @@ function ShellScreens() {
           title="More apps"
           onClick={() => { setShowMoreApps(true); setNavOpen(false); }}
         >
-          <LayoutGrid size={20} aria-hidden="true" />
+          <LayoutGrid size={18} aria-hidden="true" />
           <span>More apps</span>
         </button>
       ) : null}
@@ -1054,7 +1045,7 @@ function ShellScreens() {
               aria-current={isCurrent(item.key) ? 'page' : undefined}
               onClick={() => goTo(item.key)}
             >
-              {item.icon ? <item.icon size={20} aria-hidden="true" /> : null}
+              {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
               <span className="min-w-0 truncate">{item.label}</span>
               {Number(panelCounts[item.key]) >= 0 && panelCounts[item.key] != null ? <span className="ui-split-item-count">{panelCounts[item.key]}</span> : null}
             </button>
@@ -1065,7 +1056,7 @@ function ShellScreens() {
       {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
           <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
-            <LayoutGrid size={20} aria-hidden="true" />
+            <LayoutGrid size={18} aria-hidden="true" />
             More apps
           </button>
         </div>
@@ -1126,10 +1117,6 @@ function ShellScreens() {
   const inWorkspace = app?.id === ADMIN_APP_ID;
 
   return (
-    /* The open app's icon set (`iconSet` in its manifest): shared marks such as
-       the page-header icon draw in it. No icon set, the line icons as before. */
-    <IconSetContext.Provider value={app ? app.iconSet || 'line' : 'duo'}>
-    <LineSetContext.Provider value={app ? app.lineIcons || 'lucide' : 'fluent'}>
       <div
         className="ui-min-h-viewport"
         /* Which app is open, for styling: People, Attendance and Payroll wear the
@@ -1161,7 +1148,7 @@ function ShellScreens() {
         >
           {phone && app && !Root ? (
             <button type="button" className="ui-icon-btn" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
-              <Menu size={20} aria-hidden="true" />
+              <Menu size={18} aria-hidden="true" />
             </button>
           ) : null}
           <button type="button" className="ui-topbar-logo flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
@@ -1320,7 +1307,7 @@ function ShellScreens() {
           {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
           {inWorkspace && !phone ? (
             <time className="inline-flex items-center gap-1.5 text-sm ui-muted whitespace-nowrap" dateTime={new Date().toISOString().slice(0, 10)}>
-              <CalendarDays size={15} aria-hidden="true" />
+              <CalendarDays size={16} aria-hidden="true" />
               {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
             </time>
           ) : null}
@@ -1649,13 +1636,13 @@ function ShellScreens() {
                       window.scrollTo(0, 0);
                     }}
                   >
-                    {t.icon ? <t.icon size={20} aria-hidden="true" /> : null}
+                    {t.icon ? <t.icon size={18} aria-hidden="true" /> : null}
                     <span>{t.short || t.label}</span>
                   </button>
                 );
               })}
               <button type="button" className="ui-tabbar-item" onClick={() => setNavOpen(true)} aria-expanded={navOpen}>
-                <Menu size={20} aria-hidden="true" />
+                <Menu size={18} aria-hidden="true" />
                 <span>Menu</span>
               </button>
             </nav>
@@ -1702,8 +1689,6 @@ function ShellScreens() {
           />
         ) : null}
       </div>
-    </LineSetContext.Provider>
-    </IconSetContext.Provider>
   );
 }
 

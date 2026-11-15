@@ -83,21 +83,21 @@
   --brand: var(--act); --brand-deep: var(--act-hover); --brand-hover: var(--act-hover); --brand-pressed: var(--act-hover);
   --btn-primary-bg: var(--act); --btn-primary-hover: var(--act-hover);
   --brand-soft: var(--tint); --brand-subtle: var(--panel); --brand-border: var(--panel-border);
-  --brand-ink: var(--act); --brand-panel: var(--graphite); --on-brand: 255 255 255; --on-primary: 255 255 255;
+  --brand-ink: var(--act-ink); --brand-panel: var(--graphite); --on-brand: 255 255 255; --on-primary: 255 255 255;
   --accent-soft: var(--tint);
   --ring: var(--act); --link: var(--act-ink); --link-hover: var(--act-hover);
-  --doc-link: var(--act); --doc-link-wash: var(--tint);
-  --st-all-soft: var(--panel); --st-all-strong: var(--tint); --st-all-key: var(--marker); --st-all-ink: var(--act);
-  --rail-bg: 255 255 255; --rail-border: 228 230 225; --rail-hover: 244 245 242; --rail-active: var(--tint);
+  --doc-link: var(--act-ink); --doc-link-wash: var(--tint);
+  --st-all-soft: var(--panel); --st-all-strong: var(--tint); --st-all-key: var(--marker); --st-all-ink: var(--act-ink);
+  --rail-bg: 255 255 255; --rail-border: 228 225 218; --rail-hover: 244 243 239; --rail-active: var(--tint);
   --ws-nav-selected: var(--tint); --ws-nav-selected-ink: var(--fg); --ws-brand: var(--marker);
-  --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 244 245 242;
+  --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 244 243 239;
   --logo-mark: 255 84 0; --logo-dot: 255 84 0; --logo-mark-orange: 255 84 0; --logo-mark-slate: 32 35 41;
   --hero-hi: var(--marker);
-  --kpi-line: 228 230 225;
+  --kpi-line: 228 225 218;
   --rail-accent: var(--marker);
-  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 244 245 242;
-  --rail-ink: 58 63 71; --rail-ink-strong: 32 35 41;
-  --sky-soft: var(--tint); --sky-ink: var(--act);
+  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 244 243 239;
+  --rail-ink: 92 90 84; --rail-ink-strong: 28 27 24;
+  --sky-soft: var(--tint); --sky-ink: var(--act-ink);
 
   /* Type: one face for everything, a mono face for identifiers only (§5.1) */
   --font-sans: 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
@@ -154,6 +154,12 @@
   --neutral-ink: 165 162 154; --neutral-soft: 30 29 26;
   --info: 123 162 255; --info-soft: 20 28 48;
   --on-brand: 22 21 15;
+  /* The rail and its neighbours sit on the dark ground too. */
+  --rail-bg: 20 20 19; --rail-border: 42 41 37; --rail-hover: 27 26 24;
+  --rail-graphite: 20 20 19; --rail-graphite-top: 20 20 19; --rail-graphite-hover: 27 26 24;
+  --rail-ink: 165 162 154; --rail-ink-strong: 242 241 237;
+  --choice: 242 241 237; --on-choice: 22 21 15; --choice-tray: 27 26 24;
+  --kpi-line: 42 41 37;
 }
 
 /* ---------------------------------------------------------------- type */

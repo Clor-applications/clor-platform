@@ -19,7 +19,7 @@ export function KpiTiles({ items, label }) {
       {shown.map(({ key, label: l, value, note, delta, good = true, tone, cat = 1, Icon, onClick }) => {
         const body = (
           <>
-            <span className="pc-kpi-icon" aria-hidden="true">{Icon ? <Icon /> : <i />}</span>
+            <span className="pc-kpi-icon" aria-hidden="true">{Icon ? <Icon size={16} /> : <i />}</span>
             <span className="pc-kpi-label">{l}</span>
             <span className="pc-kpi-value" data-tone={tone || undefined} data-zero={Number(value) === 0 || undefined}>{value ?? '—'}</span>
             {note || delta ? (

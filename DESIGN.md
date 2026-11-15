@@ -10,15 +10,36 @@ Preview (rendered): https://claude.ai/code/artifact/b5f06c26-a4de-4879-979f-fbb1
 - **Memorable thing:** *Serious software for serious work.* Calm, obviously accurate, never shouts. Trust is the product.
 - **What we say (8 Nov 2026):** accounts, GST, staff and salaries for small businesses in India, in plain words. No slogan or tagline on screens (*Done, daily* and *ticked off before tea* retired: they read as machine-made).
 
-## Brand (R&D hand-off, owner, 14 Nov 2026 — current)
+## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
-The R&D hand-off in `clor-rnd/README.md` (with 77 screens in `clor-rnd/ui-screens/`)
-is the source of truth. Where this file and the hand-off disagree, the hand-off
-wins and this file is the one to fix. Tokens live in `packages/ui/src/rnd.css`,
-loaded after `index.css` and `people.css`; Accounting (`data-palette='indigo'`)
-is outside the hand-off and keeps its own look, described below.
+`frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
+truth; the owner approved every decision D1–D9 on 15 Nov 2026, Books included.
+It replaces the R&D hand-off of 14 Nov (Sora + Inter, per-portal accents). Where
+this file and the redesign disagree, the redesign wins and this file is the one
+to fix. Tokens live in `packages/ui/src/rnd.css`, loaded after `index.css` and
+`people.css`.
 
-### Books (Accounting) — owner, 15 Nov 2026
+- **Thesis:** a precision instrument, not a dashboard. Graphite chrome, one
+  accent, tabular money, no decoration.
+- **One accent, every app and portal:** orange. `--act` `#C95000` is the fill
+  that carries a white label (4.5:1); `--act-ink` `#A54000` is orange as text,
+  a link or an icon on paper (6.0:1); `--marker` `#FF6B00` is the accent as a
+  mark with no text on it (active nav bar, focus). No app or portal has its own
+  accent any more: the Workspace orange ink, Ops forest, People moss and
+  Attendance violet are retired.
+- **App identity lives in the app glyph only** (the switcher tile and the app
+  mark), nowhere else: Accounting `#0F5257` deep teal, Payroll `#4A3A6B`
+  indigo-plum, Attendance `#8A4B2A` clay, People `#6B5A16` brass, Projects
+  `#3A4A2A` moss, Workspace `#202329` graphite. Tokens `--app-*`.
+- **Logo:** the brand pack in `clor-rnd/brand/logos/`, copied verbatim into
+  `packages/ui/src/components/brand/logoPaths.js` and `public/icon.svg`. Never
+  redraw it; its own orange (`--logo-*`) is the pack's, not the UI accent.
+
+### Books (Accounting) — owner, 15 Nov 2026 (until phase 4)
+
+Books keeps the look below until the redesign's phase 4 (object grammar) moves
+it onto the one palette; the owner approved that move on 15 Nov 2026.
+
 
 Books wears the in-app red palette: headings oxblood `#5C0A16`, brand ink
 `#A50D26`, marigold `#F5A623`, blush tint `#FBE8EA`, page ground `#FAF6F4`,
@@ -33,24 +54,6 @@ app's second panel: a pale tint of Books' clor.in blue, `#EFF1FC` (`--nav-panel`
 a Sora 800 title, uppercase group labels, 36px rows, and the open screen a
 white tile with a hairline ring and a 3px Books blue `#3D4FE0` edge; the open
 module in the strip sits on the same tint with a `#3D4FE0` icon and `#232A66` words.
-
-| Token | Hex | Use |
-|---|---|---|
-| Graphite | `#202329` | Primary text, logo C-corner, avatar fills |
-| Blaze Orange | `#FF5400` | Accent only: logo L-corner and fold, Workspace active marker. **Never** a text or button fill |
-| Orange Ink | `#C5450A` | Workspace buttons and links (white on it 4.96:1) |
-| Soft White | `#F7F8F6` | Text on graphite |
-| Forest Green | `#015D47` | Ops portal colour |
-
-- **Logo:** the brand pack in `clor-rnd/brand/logos/`, copied verbatim into
-  `packages/ui/src/components/brand/logoPaths.js` and `public/icon.svg`. The
-  symbol is the open CL frame: a round graphite C-corner and a square orange
-  L-corner, **no dot**. The wordmark is heavy rounded "CLOR" in capitals with an
-  orange L–O fold. Never redraw it.
-- **App colours identify an app only** (tiles, app icons, role tags, seat bars):
-  Accounting `#232A66`, People `#6B7F24` (moss), Payroll `#0079BF`,
-  Attendance `#5B47C4` (violet), Projects `#2E8DA3`, Timesheet `#57534E`.
-  Tokens `--app-accounting` … `--app-timesheet`.
 
 ## Aesthetic Direction
 - **Direction:** Instrument — industrial-utilitarian, refined.
@@ -116,13 +119,20 @@ component, read this one.
 
 ## Typography
 
-- **Sora ExtraBold 800** for the brand and page titles only: H1 30/38, −0.02em
-  (`.ui-t-page`, `.ws-title`, `.ops-title`). H2 is Sora 700 17/24 (`.ui-h2`).
-- **Inter** for everything else, 14/20 body. Minimum text size 12px.
-- **Money and codes:** Inter with `font-variant-numeric: tabular-nums`,
-  right-aligned in tables. No second family for numbers.
-- Both faces self-hosted (`@fontsource-variable/inter`, `@fontsource/sora`),
-  never Google Fonts. Plus Jakarta Sans and Bricolage Grotesque are retired.
+- **Instrument Sans** (variable, self-hosted via `@fontsource-variable/instrument-sans`)
+  for everything: prose, labels, titles and money. Page title 28/36, 700,
+  −0.025em (`.ui-t-page`, `.ws-title`, `.ops-title`).
+- **JetBrains Mono** at 0.94× size, weight 500, for identifiers only: GSTIN,
+  PAN, IFSC, account, invoice and voucher numbers, HSN/SAC, device and
+  correlation IDs, API keys (`.ui-mono`). Never money, never prose.
+- **Money:** Instrument Sans with tabular figures, right-aligned in any column of
+  two or more amounts. True minus (U+2212); zero in a table is `—`, in a
+  balance `₹0.00`; two decimals always; compact `₹1.2L` only in KPI tiles.
+- Scale 12/13/14/16/20/24/28/34 (`--text-xs` … `--text-3xl`); 12px is the floor
+  in chrome (11px only in `.ui-kbd`). Two weights per screen, 400 and 600; 700
+  for titles and totals. No uppercase labels.
+- Accounting keeps Inter until phase 4. Sora, Plus Jakarta Sans and Bricolage
+  Grotesque are retired. Never Google Fonts.
 
 ## Color
 
@@ -130,56 +140,45 @@ Colour has one job per role:
 
 | Role | Rule |
 |---|---|
-| **Portal colour** (`--act`, `--marker`, `--tint`, `--panel`) | Only the primary button, links, the active nav marker, the selected-item tint and the second-panel tint |
-| **App colours** (`--app-*`) | Only for identifying an app |
+| **Accent** (`--act`, `--act-ink`, `--marker`, `--tint`, `--panel`) | Only the primary button, links, the active nav state and focus |
+| **App identity** (`--app-*`) | Only inside the app glyph (`.ui-app-switch-mark`, app marks) |
 | **Status** | Only for state, always with a text label, never decorative |
 | **Neutrals** | Everything else |
 
-### Portal themes
+Orange is a fill, not a text colour: white on `#FF6B00` is 2.9:1. Text, links
+and icons use `--act-ink`.
 
-Set on `<html>`: Workspace is the default; `data-portal="ops"` (OpsConsole),
-`data-app="people"`, `data-app="attendance"`.
+### Neutrals — warm paper, not cool zinc
 
-| Token | Workspace | Ops | People (moss) | Attendance (violet) |
-|---|---|---|---|---|
-| `--act` (button, link) | `#C5450A` | `#015D47` | `#5A6B1F` | `#5B47C4` |
-| `--act-hover` | `#9A3608` | `#014535` | `#465417` | `#4B3AA8` |
-| `--marker` (active bar) | `#FF5400` | `#0B8A68` | `#7A8F2A` | `#7563D9` |
-| `--tint` (active fill) | `#FFF1EB` | `#E3F1EC` | `#EEF1DF` | `#EEEBFA` |
-| `--panel` (second panel) | `#FFF8F3` | `#F2F8F5` | `#F7F8EE` | `#F7F6FD` |
-| `--panel-border` | `#F6E4D8` | `#D6E8E0` | `#E2E6CC` | `#E2DDF6` |
+paper `#FBFAF7` (`--app-bg`) · surface `#FFFFFF` · sunken `#F4F3EF` (table
+header, wells) · soft panel `#F6F5F1` · hairline `#E4E1DA` (`--border`) ·
+field border `#DCD8D0` · strong rule `#CFCBC2` · ink `#1C1B18` (`--fg`, 15.9:1)
+· muted `#5C5A54` (`--fg-muted`, 6.9:1) · subtle `#6E6B64` (`--fg-subtle`).
+`#8A877F` is decoration only (bullets, disabled glyphs), never information.
 
-The older names (`--brand`, `--btn-primary-bg`, `--brand-soft`, `--ring`,
-`--link`…) are pointed at these in `rnd.css`, so existing components follow.
+### Dark
 
-### Neutrals
-
-ink `#202329` (`--fg`) · secondary `#3A3F47` (`--fg-muted`) · muted `#5E636B`
-(`--fg-subtle`) · page and surface `#FFFFFF` · sunken `#F4F5F2` (table header,
-search) · soft panel `#F6F7F4` (charts and grouped content, no border) ·
-hairline `#E4E6E1` (`--border`) · field border `#DCDFD9` (`--border-field`) ·
-strong border `#C9CCC6`.
+Tokens are redefined under `[data-theme='dark']` in `rnd.css`, never
+components: paper `#0C0C0B`, surface `#141413`, ink `#F2F1ED`, accent
+`#FF7A33` with dark ink on it, the rail on the dark ground.
 
 ### Status — pills 24px high with a 6px dot
 
 | State | Text | Background |
 |---|---|---|
-| Good / Active | `#015D47` | `#E6F1EE` |
-| Attention | `#8A5A00` | `#FBF1DC` |
-| Problem | `#B42318` | `#FCEBE9` |
-| Neutral | `#3A3F47` | `#EEEFEC` |
+| Good / paid / approved | `#166534` | `#E6F1E9` |
+| Attention / pending | `#8A5A00` | `#FBF1DC` |
+| Problem / overdue | `#B42318` | `#FCEBE9` |
+| Neutral | `#5C5A54` | `#EEECE7` |
+| Info (banner only) | `#1D4ED8` | `#EBF1FF` |
 
-### Identity colours
+### Charts and categories
 
-Categorical palette in this fixed order (`--cat-1..8`): `#2a78d6` blue,
-`#eb6834` orange, `#1baf7a` aqua, `#eda100` yellow, `#e87ba4` pink, `#008300`
-green, `#6250d6` violet, `#e34948` red. For departments in charts, KPI icon
-chips, settings icons and avatars. Never past 8; fold the rest into "Other".
-Soft fills mix the colour 88% with white (chips) or 82% (avatars), text 42%
-black-mixed. Text never takes a series colour.
-
-Leave types, always with their name: Casual `#2a78d6`, Sick `#eb6834`, Earned
-`#1baf7a`, Comp off `#eda100`, WFH `#6250d6` (`--leave-*`). Charts start at zero.
+Charts are ink and semantics: series differ by shape, dash and direct labels;
+past three series, ink at 100 / 55 / 25% then dashed. The categorical palette
+(`--cat-1..8`) and leave-type colours (`--leave-*`) stay only where a colour
+names a category that is also written out (leave types, departments in a
+legend), never as decoration.
 
 ## Spacing
 - **Base:** 8px.
@@ -217,10 +216,10 @@ numbers refer to are defined once under *Controls → Height*.
 ## Layout
 - **Approach:** grid-disciplined.
 - **Shell (R&D, 14 Nov 2026):** a 64px white rail (CLOR symbol tile 36px,
-  44×44 icon buttons with 24px Fluent colour icons, the active one on `--tint`
+  44×44 icon buttons with 18px Lucide icons, the active one on `--tint`
   with a 3px `--marker` bar on its left edge), then a 232px second panel on
-  `--panel` that scrolls on its own (Sora 800 16px title, 12px uppercase group
-  labels, 36px items with 20px colour icons; the active item white with a
+  `--panel` that scrolls on its own (16/600 title, 12px group
+  labels, 36px items with 16px Lucide icons; the active item white with a
   `--panel-border` ring and a 3px `--marker` inset), then a 64px top bar (36px
   search on sunken with ⌘K, company switcher, bell, avatar). Rail and panel run
   the window's full height; the bar sits beside them. Content: 32px padding,
@@ -340,49 +339,25 @@ Four exceptions, each deliberate:
   counter, used at arm's length.
 - **28px POS steppers** (`!h-7 !w-7`) — quantity ± beside a cart line.
 
-### Icon size — four roles, not ten numbers
+### Icons — one family, three sizes (redesign §7, 15 Nov 2026)
 
-Ten different icon sizes were in use, and the two biggest were 15px (155) and
-16px (145) doing the *same job* — inline and button icons, one pixel apart.
-That is not a scale, it is two people's defaults.
-
-| Role | Size | Where |
-| --- | --- | --- |
-| **XS** | 12px | very compact metadata, tiny supporting marks — only where 12 stays legible |
-| **SM** | 14px | compact table actions, compact buttons, dense inline marks |
-| **MD** | **16px** | **the default.** Buttons, form and entity icons, toolbar controls, menu items, ordinary inline icons |
-| **LG** | 18px | page-heading icons, prominent navigation and context icons; **every rail and menu icon in People and Attendance** (8 Nov 2026) |
-
-In People and Attendance (UI rules, 8 Nov 2026): rail and menu icons are 18px,
-and icons inside buttons and table cells are 16px, compact buttons included.
-
-Reach for MD unless the context is genuinely compact or genuinely a heading.
-
-**Exempt:** illustrations and empty-state artwork (48–104px), which are drawings
-rather than icons and are sized to their composition.
-
-**Exceptions still in the code**, small and deliberate, to inspect before
-changing: 11px (14 uses) and 10px (5) on compact status and supporting marks —
-a status dot enlarged to reach a token is a worse status dot — and 20px (3) on
-deliberately prominent buttons.
-
-### Icon stroke — three different things
-
-- **Which family** (9 Nov 2026): Accounting draws Lucide; every other app, the shell's own pages and the operator console draw Phosphor two-tone for places and content (menus, rails, app tiles, figure marks) and Fluent Regular for actions (buttons, row actions). A screen imports icons from `@ui/components/ui/lineIcons`, never from `lucide-react`, so the open app decides.
-- **UI icons** (Lucide) take the library's own stroke. It is not overridden per
-  call site, and the library default is the product default because a mixed
-  stroke across one toolbar reads as a rendering fault.
-- **Illustrations** (`AuthIllustration`, `ui/Illustration`, the inline SVGs in
-  `AuthGate`) are artwork. They carry their own optical strokes — 1, 1.5, 1.75,
-  2, 2.5 — chosen against their own compositions, and normalising them to an
-  icon rule would flatten the drawing.
-- **Chart graphics** (sparkline paths, axis rules) are data marks. Their stroke
-  belongs to the chart's readability, not to the icon scale.
-
-Two Lucide-side overrides remain and are intentional: `Primitives.jsx`
-(`strokeWidth 2.1`, compensating for empty-state icons drawn much larger than
-interface size) and `DashboardOverview.jsx` (`1.5`, a sparkline, i.e. chart
-artwork).
+- **Lucide only.** The Fluent line set, Phosphor two-tone marks and Fluent
+  colour icons are retired and their packages removed. Import from
+  `lucide-react` or `@ui/components/ui/lineIcons` (plain re-exports).
+- **Stroke 1.75, round caps**, from one rule on `svg.lucide` in `index.css`;
+  never filled, never duotone, never two colours. Illustrations and chart
+  marks keep their own strokes.
+- **Sizes 14 / 16 / 18.** 16 is the default; 14 inline with 13px text or in a
+  28px control; 18 in the rail, the phone tab bar and dialog headers; 20 only
+  in an empty state. 12 and 15 retire.
+- **One concept, one glyph:** invoice `file-text`, bill `receipt`, payment
+  `arrow-up-right` (out) / `arrow-down-left` (in), journal `book-open`, pay
+  run `banknote`, payslip `scroll-text`, employee `user-round`, punch `clock`,
+  leave `calendar-days`, device `fingerprint`, import `upload`, export
+  `download`, approval `check-check`, attention `triangle-alert`.
+- Icon alone only with a tooltip and an `aria-label`; no icon-only destructive
+  action. Never tint an icon with an app hue outside the app mark, and never
+  colour an icon for a status the pill already shows.
 
 ### Layers
 
@@ -543,36 +518,10 @@ actions (`.ui-wizard-actions`, under 640px). Elsewhere it is a target, not yet
 a rule. Radius **8px**. People's brand D draws its buttons as pills
 (2026-10-28); that is the one exception and it stays inside the sky palette.
 
-### Icons in buttons (People)
+### Icons in buttons
 
-Icons inside People's buttons are **marigold** (owner, 2026-10-31). Measured,
-and the rule follows the numbers:
-
-- **Primary** (red fill since 3 Nov 2026): marigold #F5A623 on red is 2.9:1, under the 3:1 a graphic needs, so the primary's icon is a light marigold #FFD68C, 4.3:1
-  (5.7:1 on hover; on the old indigo fill marigold was 6.5:1).
-- **Secondary, soft, ghost with a label** (white surfaces): the bright marigold
-  was 2.0:1 and read washed out, so these take a deeper marigold,
-  `--btn-icon-on-white` **#C98200**: 3.2:1 on white, 2.9:1 on the hover tint,
-  2.7:1 on the soft tint. That clears the 3:1 a meaningful graphic needs (WCAG
-  1.4.11) on white; below it, it is allowed only because the label carries the
-  meaning and the icon is `aria-hidden` decoration.
-- **Icon-only** buttons have no label to lean on, so they keep their ink
-  (indigo, 13:1). People's action icons are Fluent line glyphs with no second
-  layer, so there is no two-tone marigold-and-indigo version to use instead.
-  A `.ui-btn` drawn icon-only is marked `.ui-btn-icon-only` (or
-  `data-icon-only`) so it keeps its ink too.
-- **Danger** keeps its own white. A **disabled** button's icon drops to its
-  label's colour and fades with it. The **done tick** takes the icon's colour.
-  The **loading spinner** is ink on secondary, soft and ghost (a thin amber
-  ring on white was hard to see) and marigold on the primary.
-- **Legacy dark theme** (brand D is light only; People's dark keeps its earlier
-  teal values until a dark brand D is designed): bright marigold on the dark
-  surfaces is 7.6–9.8:1, so secondary, soft and ghost keep it; the legacy dark
-  primary is a light teal fill (marigold on it 1.1:1), so its icon keeps the
-  dark ink.
-
-Payroll, Attendance and Accounting do not change: the rule lives in
-`people.css` under the sky palette.
+An icon in a button takes the button's text colour. The People marigold
+icons (31 Oct 2026) are retired with the per-app palettes.
 
 ### States
 
@@ -718,6 +667,13 @@ because focus, portals and event order cannot be read off the source.
   company name truncates instead of running under the search. Supersedes
   "Accounting keeps its indigo" (2026-11-03).
 
+- **2026-11-15 — Frontend redesign (owner approved D1–D9, Books included):**
+  one orange accent for every app and portal, warm paper `#FBFAF7`,
+  Instrument Sans + JetBrains Mono for identifiers, identity hue in the app
+  glyph only, Lucide only at stroke 1.75 and sizes 14/16/18, one nav model
+  with Accounting moved into the shell, a command palette, design tests in
+  CI, a posting motion. Supersedes the 14 Nov R&D brand below, the per-portal
+  accents and the 9 Nov icon families. Books moves in phase 4.
 - **2026-11-14 — R&D brand (owner):** the `clor-rnd` hand-off replaces the neon
   brand, People coral, Attendance amber and Plus Jakarta Sans. Graphite +
   Blaze, Sora titles + Inter, portal themes (Workspace orange ink, Ops forest,

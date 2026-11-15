@@ -6,8 +6,7 @@ import { orgId as platformOrgId, requestOpenApp } from '@platform/context';
 import { STATUS as CREDENTIAL_STATUS } from './credentialsModel';
 import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
 import { listRoles } from '@platform/admin/admin';
-import { GlobeShieldColor, LockClosedColor, LockShieldColor } from '@fluentui/react-icons';
-import { colorIcon } from '@ui/components/ui/colorIcon';
+import { Globe, Lock, LockKeyhole } from 'lucide-react';
 import { PageHead, StatusPill, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
@@ -33,9 +32,9 @@ const STATUS = {
   CONFIGURED_NOT_ACTIVE: ['Not switched on', 'warn'],
 };
 const CRED_TONE = { 'ui-pill-pos': 'ok', 'ui-pill-neutral': 'neutral', 'ui-pill-warn': 'warn' };
-const GLOBE = colorIcon(GlobeShieldColor, 'GlobeShield', 24);
-const LOCK = colorIcon(LockShieldColor, 'LockShield', 24);
-const KEY = colorIcon(LockClosedColor, 'LockClosed', 24);
+const GLOBE = Globe;
+const LOCK = LockKeyhole;
+const KEY = Lock;
 /* The two providers most companies use, offered as a card until one is set up; Connect opens the form filled in. */
 const SUGGESTED = [
   { match: /google/i, name: 'Google Workspace', line: 'Use if your email is on Google Workspace.', Icon: GLOBE, preset: { kind: 'OIDC', name: 'Google Workspace', discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration' } },
@@ -193,7 +192,7 @@ export default function SsoSettings() {
                 return (
                   <li key={p.id} className="ws-sso-card">
                     <div className="ws-sso-head">
-                      <span className="ws-sso-chip" aria-hidden="true"><Icon /></span>
+                      <span className="ws-sso-chip" aria-hidden="true"><Icon size={18} /></span>
                       <span className="ws-sso-name">{p.name}</span>
                       <StatusPill tone={tone}>{label}</StatusPill>
                       <span className="ws-tag">{p.kind === 'SAML' ? 'SAML 2.0' : 'OpenID Connect'}</span>
@@ -241,7 +240,7 @@ export default function SsoSettings() {
               ))}
               <li className="ws-sso-card">
                 <div className="ws-sso-head">
-                  <span className="ws-sso-chip" aria-hidden="true"><KEY /></span>
+                  <span className="ws-sso-chip" aria-hidden="true"><KEY size={18} /></span>
                   <span className="ws-sso-name">{data.local.name}</span>
                   <StatusPill tone="ok">Active</StatusPill>
                 </div>

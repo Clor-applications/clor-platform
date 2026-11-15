@@ -1,21 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AirplaneTilt,
-  ArrowRight,
-  CalendarDots,
-  CaretRight,
-  Cake,
-  ChatsCircle,
-  PushPin,
-  IconContext,
-  Medal,
-  Megaphone,
-  Hourglass,
-  Plus,
-  SignOut,
-  UsersThree,
-  WarningCircle,
-} from '@phosphor-icons/react';
+import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Hourglass, LogOut, Medal, Megaphone, MessagesSquare, Pin, Plane, Plus, Users } from 'lucide-react';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import { getOverview, getPeopleHome, listEmployees, summaryOpened } from '@ui/personnel/api';
@@ -89,7 +73,7 @@ function CardFailed({ what, onRetry, role = 'status' }) {
   /* Polite by default: several side cards failing at once must not interrupt a screen reader in turn. "Waiting for you" alerts. */
   return (
     <div className="people-empty flex flex-wrap items-center gap-2" role={role}>
-      <WarningCircle size={16} weight="bold" aria-hidden="true" style={{ color: 'rgb(var(--neg))' }} />
+      <CircleAlert size={16} aria-hidden="true" style={{ color: 'rgb(var(--neg))' }} />
       <span className="min-w-0 flex-1">Could not load {what}. It may not be complete.</span>
       <button type="button" className="people-chip" onClick={onRetry}>Retry</button>
     </div>
@@ -132,7 +116,7 @@ export function HomeGlance({ glance, go }) {
       <section key="probation" className="people-glance-block" aria-labelledby="glance-probation">
         <header className="people-glance-head">
           <h2 id="glance-probation" className="people-glance-title">Probation ending</h2>
-          <button type="button" className="people-more" onClick={go('employees', { prob: 'on' })}>All <CaretRight size={14} aria-hidden="true" /></button>
+          <button type="button" className="people-more" onClick={go('employees', { prob: 'on' })}>All <ChevronRight size={14} aria-hidden="true" /></button>
         </header>
         <ul className="people-glance-list">
           {probation.map((p) => (
@@ -348,7 +332,6 @@ export default function PeopleOverview({ openScreen }) {
   const joined = data.joinedThisMonth.length;
 
   return (
-    <IconContext.Provider value={{ weight: 'duotone' }}>
     <div className="people-home">
       <header className="people-home-head">
         <div className="min-w-0">
@@ -361,11 +344,11 @@ export default function PeopleOverview({ openScreen }) {
         </div>
         {/* One primary, top right; the shortcuts beside it are secondary. */}
         <div className="people-home-actions">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={go('leaveRequests')}><CalendarDots size={16} aria-hidden="true" /> Leave requests</button>
-          {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}><ChatsCircle size={16} aria-hidden="true" /> HR cases</button> : null}
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={go('leaveRequests')}><CalendarDays size={16} aria-hidden="true" /> Leave requests</button>
+          {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}><MessagesSquare size={16} aria-hidden="true" /> HR cases</button> : null}
           {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('announcements')}><Megaphone size={16} aria-hidden="true" /> Announce</button> : null}
           {may('PEOPLE::Employees::CREATE') ? (
-            <button type="button" className="ui-btn ui-btn-primary" onClick={go('employeeNew')}><Plus size={16} weight="bold" aria-hidden="true" /> Add an employee</button>
+            <button type="button" className="ui-btn ui-btn-primary" onClick={go('employeeNew')}><Plus size={16} aria-hidden="true" /> Add an employee</button>
           ) : null}
         </div>
       </header>
@@ -382,13 +365,13 @@ export default function PeopleOverview({ openScreen }) {
 
       <div className="people-kpis">
         <button type="button" className="people-kpi" data-tint="sky" onClick={go('employees')}>
-          <span className="people-kpi-icon"><UsersThree size={20} aria-hidden="true" /></span>
+          <span className="people-kpi-icon"><Users size={20} aria-hidden="true" /></span>
           <span className="people-kpi-label">Headcount</span>
           <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(data.headcount) === 0 || undefined}>{data.headcount}</span></span>
           <span className="people-kpi-note">{joined ? <><span className="people-delta">+{joined}</span> joined in {monthName()}</> : `None joined in ${monthName()}`}</span>
         </button>
         <button type="button" className="people-kpi" data-tint="peach" onClick={go('leaveCalendar')}>
-          <span className="people-kpi-icon"><AirplaneTilt size={20} aria-hidden="true" /></span>
+          <span className="people-kpi-icon"><Plane size={20} aria-hidden="true" /></span>
           <span className="people-kpi-label">Out today</span>
           <span className="people-kpi-row">
             <span className="people-kpi-value" data-zero={(leave && outToday.length === 0) || undefined}>{leave ? outToday.length : '–'}</span>
@@ -410,7 +393,7 @@ export default function PeopleOverview({ openScreen }) {
         {/* The company keeps who is leaving from this reader (Company choices): no leaving figures. */}
         {data.leavingsHidden ? null : (
           <button type="button" className="people-kpi" data-tint="butter" onClick={go('employees')}>
-            <span className="people-kpi-icon"><SignOut size={20} aria-hidden="true" /></span>
+            <span className="people-kpi-icon"><LogOut size={20} aria-hidden="true" /></span>
             <span className="people-kpi-label">On notice</span>
             <span className="people-kpi-row"><span className="people-kpi-value" data-zero={Number(onNotice) === 0 || undefined}>{onNotice}</span></span>
             <span className="people-kpi-note">{data.leftThisMonth ? `${plural(data.leftThisMonth, 'person', 'people')} left in ${monthName()}` : `Nobody left in ${monthName()}`}</span>
@@ -435,7 +418,7 @@ export default function PeopleOverview({ openScreen }) {
                         <span className="people-row-title">{requestsWaiting === 1 ? '1 request waits' : `${requestsWaiting} requests wait`} for you</span>
                         <span className="ui-caption block">{pending.length ? `${plural(pending.length, 'leave request')} among them, next starts ${dayDate(pending[0].fromDate)}` : 'Leave, attendance and other requests'}</span>
                       </span>
-                      <span className="people-more">Review <ArrowRight size={14} weight="bold" aria-hidden="true" /></span>
+                      <span className="people-more">Review <ArrowRight size={14} aria-hidden="true" /></span>
                     </button>
                   </li>
                 ) : null}
@@ -447,7 +430,7 @@ export default function PeopleOverview({ openScreen }) {
                         <span className="people-row-title">{myTaskLine.count === 1 ? '1 task is' : `${myTaskLine.count} tasks are`} on your name</span>
                         <span className="ui-caption block">Joining, leaving and other plan steps given to you</span>
                       </span>
-                      <span className="people-more">My tasks <ArrowRight size={14} weight="bold" aria-hidden="true" /></span>
+                      <span className="people-more">My tasks <ArrowRight size={14} aria-hidden="true" /></span>
                     </button>
                   </li>
                 ) : null}
@@ -476,7 +459,7 @@ export default function PeopleOverview({ openScreen }) {
                         </span>
                         <span className="ui-caption block">{t.detail}</span>
                       </span>
-                      <span className="people-more">Open <ArrowRight size={14} weight="bold" aria-hidden="true" /></span>
+                      <span className="people-more">Open <ArrowRight size={14} aria-hidden="true" /></span>
                     </button>
                   </li>
                 ))}
@@ -550,7 +533,7 @@ export default function PeopleOverview({ openScreen }) {
                     <button type="button" className="people-row people-row-action" onClick={openPerson(c.id)}>
                       <span className="people-celebrate-face">
                         <Face person={c} size={36} colour={colourOf(deptOf.get(c.id))} />
-                        <span className="people-celebrate-badge" data-kind={c.kind}>{c.kind === 'birthday' ? <Cake size={10} weight="fill" aria-hidden="true" /> : <Medal size={10} weight="fill" aria-hidden="true" />}</span>
+                        <span className="people-celebrate-badge" data-kind={c.kind}>{c.kind === 'birthday' ? <Cake size={10} aria-hidden="true" /> : <Medal size={10} aria-hidden="true" />}</span>
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="people-row-title truncate">{c.name}</span>
@@ -575,7 +558,7 @@ export default function PeopleOverview({ openScreen }) {
                   <li key={n.id}>
                     <button type="button" className="people-row people-row-action items-start" onClick={go('announcements')}>
                       <span className="people-news-icon" data-tint={newsTint(n)}>
-                        {symbolOf(n.details?.symbol) ? <span aria-hidden="true">{symbolOf(n.details.symbol).emoji}</span> : i === 0 ? <PushPin size={16} aria-hidden="true" /> : <Megaphone size={16} aria-hidden="true" />}
+                        {symbolOf(n.details?.symbol) ? <span aria-hidden="true">{symbolOf(n.details.symbol).emoji}</span> : i === 0 ? <Pin size={16} aria-hidden="true" /> : <Megaphone size={16} aria-hidden="true" />}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="people-row-title">{n.title}</span>
@@ -617,6 +600,5 @@ export default function PeopleOverview({ openScreen }) {
         </aside>
       </div>
     </div>
-    </IconContext.Provider>
   );
 }

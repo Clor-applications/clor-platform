@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { tintOf } from './tints';
 import { Building2, GitBranch, MapPin, Plus, UserMinus, UserX } from '@ui/components/ui/lineIcons';
-import { useContentIcon } from '@ui/components/ui/colorSwap';
 
 import { EmptyState, PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -26,7 +25,6 @@ import { organization } from './api';
 const SCREEN_OF = { departments: 'departments', branches: 'branches', teams: 'teams', jobPositions: 'jobPositions', employees: 'employees' };
 
 export default function OrganizationOverview({ openScreen }) {
-  const mark = useContentIcon();
   const perms = usePermissions();
   const req = useRequest(() => organization(), []);
   const d = req.data;
@@ -49,11 +47,11 @@ export default function OrganizationOverview({ openScreen }) {
   const activeDepts = d.departments.filter((x) => x.isActive !== false);
   const activeBranches = d.branches.filter((b) => b.isActive !== false);
   const strip = [
-    { k: 'departments', label: 'Departments', tint: 'sky', value: activeDepts.length, Icon: mark(Building2), onClick: go('departments') },
-    { k: 'branches', tint: 'sky', label: activeBranches.length === 1 ? 'Branch' : 'Branches', value: activeBranches.length, Icon: mark(GitBranch), onClick: go('branches') },
-    { k: 'noManager', label: 'Without a manager', tint: 'peach', value: d.unplaced.noManager ?? 0, Icon: mark(UserMinus), onClick: go('employees', { mgr: 'none' }) },
-    { k: 'noDept', label: 'Without a department', tint: 'peach', value: d.unplaced.noDepartment, Icon: mark(UserX), onClick: go('employees', { dept: 'none' }) },
-    ...(activeBranches.length > 1 ? [{ k: 'noBranch', label: 'Without a branch', tint: 'peach', value: d.unplaced.noBranch, Icon: mark(MapPin), onClick: go('employees', { branch: 'none' }) }] : []),
+    { k: 'departments', label: 'Departments', tint: 'sky', value: activeDepts.length, Icon: Building2, onClick: go('departments') },
+    { k: 'branches', tint: 'sky', label: activeBranches.length === 1 ? 'Branch' : 'Branches', value: activeBranches.length, Icon: GitBranch, onClick: go('branches') },
+    { k: 'noManager', label: 'Without a manager', tint: 'peach', value: d.unplaced.noManager ?? 0, Icon: UserMinus, onClick: go('employees', { mgr: 'none' }) },
+    { k: 'noDept', label: 'Without a department', tint: 'peach', value: d.unplaced.noDepartment, Icon: UserX, onClick: go('employees', { dept: 'none' }) },
+    ...(activeBranches.length > 1 ? [{ k: 'noBranch', label: 'Without a branch', tint: 'peach', value: d.unplaced.noBranch, Icon: MapPin, onClick: go('employees', { branch: 'none' }) }] : []),
   ];
   /* The departments as an outline: each under its parent, in name order. */
   const childrenOf = (id) => activeDepts.filter((x) => (x.parentId || null) === id && (id || !activeDepts.some((p) => p.id === x.parentId))).sort((a, b) => a.name.localeCompare(b.name));

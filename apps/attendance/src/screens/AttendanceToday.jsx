@@ -1,22 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronRight } from '@ui/components/ui/lineIcons';
-import {
-  CalendarCheck as PCalendarCheck,
-  Cpu as PCpu,
-  ListChecks as PListChecks,
-  NotePencil as PNotePencil,
-} from '@phosphor-icons/react';
-import { duo as duoIcon } from '@ui/components/ui/duoIcon';
+import { CalendarDays, Fingerprint, Inbox, ListChecks } from 'lucide-react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import '../attendance.css';
 
-/* The queue and readers in People's two-tone marks (owner, 9 Nov 2026), the same family as the rail beside them. */
-const duo = (Icon, name) => duoIcon(Icon, name, 20);
-const CalendarCheck = duo(PCalendarCheck, 'CalendarCheck');
-const Cpu = duo(PCpu, 'Cpu');
-const Inbox = duo(PNotePencil, 'Inbox');
-const ListChecks = duo(PListChecks, 'ListChecks');
 import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import GetStarted from '../components/GetStarted';
@@ -146,7 +134,7 @@ export default function AttendanceToday({ openScreen }) {
     ? [
         { n: data.toValidate, label: data.toValidate === 1 ? 'day to validate' : 'days to validate', key: 'records', icon: ListChecks },
         { n: data.pendingRequests, label: data.pendingRequests === 1 ? 'attendance request' : 'attendance requests', key: 'requests', icon: Inbox },
-        { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarCheck },
+        { n: data.pendingLeave, label: data.pendingLeave === 1 ? 'leave request' : 'leave requests', key: 'leaveRequests', icon: CalendarDays },
       ]
     : [];
   const weekRate = week
@@ -277,7 +265,7 @@ export default function AttendanceToday({ openScreen }) {
                       const st = READER[r.status] || READER.ok;
                       return (
                         <li key={r.id} className="flex items-center gap-3 py-2 text-sm">
-                          <Cpu size={16} aria-hidden="true" className="ui-subtle shrink-0" />
+                          <Fingerprint size={16} aria-hidden="true" className="ui-subtle shrink-0" />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate font-medium">{r.name}</span>
                             <span className="ui-caption">Last heard {ago(r.lastSeenAt)}</span>

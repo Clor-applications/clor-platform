@@ -1,29 +1,8 @@
 import {
-  Bank,
-  BookOpenText,
-  CalendarCheck,
-  CalendarDots,
-  ChartBar,
-  EnvelopeSimple,
-  FileText,
-  HandCoins,
-  Handshake,
-  House,
-  Key,
-  ListChecks,
-  PaperPlaneTilt,
-  PlusMinus,
-  Receipt,
-  SealPercent,
-  SlidersHorizontal,
-  Stack,
-  TrendUp,
-  UsersFour,
-  UsersThree,
-  Wallet,
-} from '@phosphor-icons/react';
-
-import { duoSet } from '@ui/components/ui/duoIcon';
+  ArrowUpRight, Banknote, BarChart3, BookOpen, CalendarDays, FileSignature, HandCoins, Handshake, KeyRound, Landmark,
+  Layers, LayoutGrid, ListChecks, Mail, PlusCircle, Receipt, ScrollText, SlidersHorizontal, TrendingUp, Users,
+  UsersRound, Wallet,
+} from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -51,15 +30,15 @@ const TaxDeclarations = screen('TaxDeclarations');
 const RolesAccess = screen('RolesAccess');
 const EmailNotifications = screen('EmailNotifications');
 
-/* Payroll draws in People's icon family (owner, 9 Nov 2026: "use same icons which is used in people everywhere
-   except books"): Phosphor two-tone marks in the menus, Fluent line icons on buttons. Its cyan stays its own. */
-const I = duoSet({
-  app: Wallet, overview: House, runs: CalendarCheck, slips: FileText, payments: PaperPlaneTilt, bank: Bank,
-  adjustments: PlusMinus, assignments: UsersThree, revisions: TrendUp, loans: HandCoins, settlements: Handshake,
-  tax: Receipt, reports: ChartBar, setup: ListChecks, calendar: CalendarDots, groups: UsersFour,
-  components: SlidersHorizontal, structures: Stack, compliance: SealPercent, ledgers: BookOpenText, roles: Key,
-  mail: EnvelopeSimple,
-});
+/* Lucide, one family (redesign §7); the concept map's glyphs where it names one: pay run banknote, payslip
+   scroll-text, payment arrow-up-right, ledger book-open. */
+const I = {
+  app: Wallet, overview: LayoutGrid, runs: Banknote, slips: ScrollText, payments: ArrowUpRight, bank: Landmark,
+  adjustments: PlusCircle, assignments: Users, revisions: TrendingUp, loans: HandCoins, settlements: Handshake,
+  tax: Receipt, reports: BarChart3, setup: ListChecks, calendar: CalendarDays, groups: UsersRound,
+  components: SlidersHorizontal, structures: Layers, compliance: FileSignature, ledgers: BookOpen, roles: KeyRound,
+  mail: Mail,
+};
 
 /**
  * Everything the shell knows about Payroll.
@@ -82,9 +61,6 @@ export const payrollApp = {
   database: 'payroll.db',
   home: 'overview',
   /* No palette: one accent for every app (§6.3). Identity is the glyph hue, --app-payroll. */
-  /* People's icon family: two-tone marks, and Fluent line icons on buttons and actions. */
-  iconSet: 'duo',
-  lineIcons: 'fluent',
 
   /** The phone tab bar: what a payroll admin opens most. */
   mobileTabs: ['overview', 'runs', 'slips', 'payments'],

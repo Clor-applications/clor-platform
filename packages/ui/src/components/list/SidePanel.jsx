@@ -1,6 +1,5 @@
 import React, { Suspense, useLayoutEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2 } from '@ui/components/ui/lineIcons';
-import { useContentIcon } from '@ui/components/ui/colorSwap';
 
 /**
  * The side panel beside a list (owner, 28 Oct 2026): what you want to know
@@ -188,9 +187,8 @@ export function DateTile({ iso }) {
  * opens, never by its place in the list; butter (marigold) only for what waits on you.
  */
 export function SideLinks({ links, navItems = null }) {
-  const mark = useContentIcon();
   const open = Array.isArray(navItems) && navItems.length ? new Set(navItems.map((i) => i.key)) : null;
-  const shown = (links || []).filter((l) => l && (!l.screen || !open || open.has(l.screen))).map((l) => ({ ...l, icon: mark(l.icon) }));
+  const shown = (links || []).filter((l) => l && (!l.screen || !open || open.has(l.screen)));
   if (!shown.length) return null;
   return (
     <section className="ui-side-block">
