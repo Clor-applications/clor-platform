@@ -101,6 +101,19 @@ describe('releases', () => {
   });
 });
 
+describe('after a release', () => {
+  // protects=once main holds only the record of the last release, the Console offers no release step and says nothing is waiting; fails_when=it asks for tests or a stage for a CHANGELOG-only merge; no_claim=none beyond protects
+  it('offers nothing when only the release record is new', async () => {
+    const w = await world();
+    const viewer = await w.as('VIEWER');
+    w.github.waitingSince = async () => ({ commits: 2, pulls: [{ number: 279, title: 'Release record: rel-8a8ed97' }], files: ['CHANGELOG.md'], filesTruncated: false });
+    const rel = (await viewer.agent.get('/api/releases')).body;
+    expect(rel).toMatchObject({ next: 'NOTHING', waiting: { pulls: [] } });
+    const row = (await viewer.agent.get('/api/overview')).body.rows.find((r: any) => r.key === 'waiting');
+    expect(row).toMatchObject({ state: 'Nothing waiting', tone: 'ok' });
+  });
+});
+
 describe('overview', () => {
   // protects=a source that cannot be reached is shown as not checked, with the last good answer and its time, never as a fresh green; fails_when=a row keeps tone ok or loses its last answer; no_claim=last good answers live in memory and are lost on restart
   it('says "Could not check" with the last good answer when a source goes down', async () => {

@@ -69,7 +69,10 @@ if [ "${CONSOLE_ENABLE_CLOR:-}" = "1" ]; then
   ENVS="$ENVS##CONSOLE_OWNER_CLOR_EMAILS=$OWNERS"
 fi
 for PAIR in CONSOLE_GITHUB_PRIVATE_KEY=console-github-private-key CONSOLE_GITHUB_CLIENT_SECRET=console-github-client-secret CONSOLE_CF_READ_TOKEN=console-cf-read-token; do
-  gcloud secrets describe "${PAIR#*=}" --project "$PROJECT" >/dev/null 2>&1 && SECRETS="$SECRETS,${PAIR%%=*}=${PAIR#*=}:latest"
+  if gcloud secrets describe "${PAIR#*=}" --project "$PROJECT" >/dev/null 2>&1; then
+    gcloud secrets add-iam-policy-binding "${PAIR#*=}" --project "$PROJECT" --member "serviceAccount:$SA" --role roles/secretmanager.secretAccessor --quiet >/dev/null
+    SECRETS="$SECRETS,${PAIR%%=*}=${PAIR#*=}:latest"
+  fi
 done
 # ^##^ makes "##" the list separator, so the comma-separated owner list stays one value (and "@" in an address is safe).
 gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --image "$IMAGE" \

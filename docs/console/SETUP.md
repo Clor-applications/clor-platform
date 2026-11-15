@@ -41,6 +41,20 @@ token** the Web app and Website rows say the same.
 
 ## 1. GitHub App (optional: GitHub sign-in, pull requests, releases)
 
+**Done 15 Nov 2026**: the app is `clor-console` (App ID 5766527, installed on
+`Clor-applications`), its private key and client secret are the secrets
+`console-github-private-key` and `console-github-client-secret`, and the
+Console is deployed with them:
+
+```
+CONSOLE_ENABLE_CLOR=1 CONSOLE_OWNER_GITHUB_IDS=<owner's numeric id> CONSOLE_GITHUB_APP_ID=5766527 \
+  CONSOLE_GITHUB_INSTALLATION_ID=182120311 CONSOLE_GITHUB_CLIENT_ID=<the app's client id> \
+  console/api/scripts/deploy.sh <owner address>
+```
+
+Every later deploy of the Console needs the same settings, or GitHub and the
+CLOR login switch off again. How the app was made:
+
 GitHub → the `Clor-applications` organisation → Settings → Developer settings
 → GitHub Apps → New GitHub App.
 
@@ -246,8 +260,10 @@ The Console can also be opened with a CLOR staff login. The customer API makes
 a one-minute pass; the Console checks it with a public key. The private key
 lives only in the customer API, the public key only in the Console.
 
-The key pair was made on 15 Nov 2026 and is already in Secret Manager; neither
-half is attached to a service yet:
+**Done 15 Nov 2026**: the key pair is in Secret Manager, the customer API
+carries the private key (revision `clor-api-00135-fw2`), and the Console
+carries the public key. Sign in with CLOR is live. What follows is how it was
+switched on, and how to do it again:
 
 | Secret | Holds | Goes to |
 |---|---|---|
