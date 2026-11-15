@@ -9,7 +9,7 @@ vi.mock('@platform/admin/admin', () => ({
   deleteBranch: (...a) => api.deleteBranch(...a),
 }));
 vi.mock('@platform/http', () => ({ apiFetch: (...a) => api.apiFetch(...a) }));
-vi.mock('@platform/context', () => ({ orgId: () => 'org1' }));
+vi.mock('@platform/context', () => ({ orgId: () => 'org1', hasApp: () => false, platformContext: () => ({ apps: [] }) }));
 vi.mock('@ui/permissions/ActionGuard', () => ({ PermissionButton: ({ permission: _p, ...props }) => <button type="button" {...props} /> }));
 vi.mock('@ui/components/ui/Drawer', () => ({ default: ({ open, title, actions, children }) => (open ? <div role="dialog" aria-label={title}>{actions}{children}</div> : null) }));
 vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: vi.fn(async () => true) }));

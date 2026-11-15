@@ -7,10 +7,10 @@ export const getFeatures = () =>
 export const getFeatureCatalog = () =>
   apiFetch(`/orgs/${encodeURIComponent(orgId())}/features/catalog`, { skipWarehouseHeader: true });
 
-export const setFeatures = (features) =>
+export const setFeatures = (features, { confirmCodeBackfill = false } = {}) =>
   apiFetch(`/orgs/${encodeURIComponent(orgId())}/features`, {
     method: 'PUT',
-    body: { features },
+    body: { features, confirmCodeBackfill },
     skipWarehouseHeader: true,
   });
 

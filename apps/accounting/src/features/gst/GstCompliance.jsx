@@ -1,5 +1,5 @@
 import { formatMoney, round2 } from '@ui/utils/money';
-import { computeGstForLine } from '@ui/utils/gst';
+import { computeGstForLine, isCompanyGstEnabled } from '@ui/utils/gst';
 import { notify } from '@ui/components/ui/notify';
 import { buildGstr1Json, gstr1Classifier, buildGstr3bJson, downloadJson } from '@ui/utils/gstrExport';
 import { lazy, useCallback, useEffect, useMemo, useState } from 'react';
@@ -684,6 +684,21 @@ export const GstComplianceWorkspace = ({ db, currentCompany, branches = [], init
     downloadJson(`${returnName}_${selectedGstin}_${portalPeriod}.json`, json);
     notify.success(`${returnName} GST Portal JSON downloaded.`);
   };
+
+  if (!isCompanyGstEnabled(currentCompany)) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 border-b bg-[rgb(var(--heading-bg))] px-3 py-2 ui-border-c">
+          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => onBack?.()}><ArrowLeft size={15} /> Back</button>
+          <h1 className="ui-t-page">GST</h1>
+        </div>
+        <div className="ui-card p-6">
+          <div className="ui-t-sec">GST is not enabled</div>
+          <p className="ui-muted mt-2 text-sm">Enable GST in Features, then enter the Head Office GST registration details. GST reports and filing tools will become available after setup.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

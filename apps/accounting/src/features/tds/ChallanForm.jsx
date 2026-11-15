@@ -9,6 +9,7 @@ import { companyTdsProfile } from './engine';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { natureByCode } from './ruleMaster';
 import { allocationsByEvent, isLive, tdsEvents } from './reports';
+import { selectedBranchId } from '@platform/context';
 
 /**
  * Recording a challan, and saying which deductions it paid.
@@ -26,6 +27,7 @@ import { allocationsByEvent, isLive, tdsEvents } from './reports';
  */
 const ChallanForm = ({ db, setDb, currentCompany, onClose }) => {
   const companyId = currentCompany?.id;
+  const branchId = String(selectedBranchId() || '').trim();
   const profile = companyTdsProfile(currentCompany);
 
   const [head, setHead] = useState({
@@ -140,6 +142,7 @@ const ChallanForm = ({ db, setDb, currentCompany, onClose }) => {
   }
 
   const save = async () => {
+    if (!branchId) { notify.error('Select a branch before recording a challan.'); return; }
     if (problems.length) {
       notify.error(problems[0]);
       return;
@@ -181,6 +184,7 @@ const ChallanForm = ({ db, setDb, currentCompany, onClose }) => {
         chartRows: accounts,
         entry: {
           date: String(head.paymentDate).slice(0, 10),
+          branchId,
           narration: `TDS challan ${String(head.number).trim()}`,
           lines: paymentLines,
         },
@@ -194,6 +198,7 @@ const ChallanForm = ({ db, setDb, currentCompany, onClose }) => {
       const challan = {
         id: challanId,
         companyId,
+        branchId,
         number: String(head.number).trim(),
         /* No date yet is a challan CREATED, not paid — status Unpaid until
            the department's money actually moves. */
@@ -230,6 +235,7 @@ const ChallanForm = ({ db, setDb, currentCompany, onClose }) => {
         ? {
             id: journalId,
             companyId,
+            branchId,
             number: `CHL-${challanId}`,
             date: String(head.paymentDate).slice(0, 10),
             narration: `TDS challan ${challan.number}`,

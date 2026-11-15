@@ -139,7 +139,7 @@ export default function BatchStock({ db, currentCompany }) {
       onStatusChange={setFilter}
     >
       <div className="overflow-x-auto ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 11.5rem)' }} data-fill-viewport>
-          <table className={`ui-table ui-table-wide ui-table-sticky ${bsSearchRows.length ? '' : 'cash-bank-empty-table'}`}>
+          <table className={`ui-table ui-table-wide ui-table-sticky inventory-auto-table ${bsSearchRows.length ? '' : 'cash-bank-empty-table'}`}>
             <thead>
               <tr>
                 <th scope="col">Item</th>

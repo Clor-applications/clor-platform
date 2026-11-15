@@ -212,6 +212,7 @@ export async function removeFromCompany(req: Request, targetUserId: string, orgI
       platformPrisma.userRoleProfile.deleteMany({ where }),
       platformPrisma.userPermission.deleteMany({ where }),
       platformPrisma.userWarehouseAccess.deleteMany({ where }),
+      platformPrisma.userWarehouseRoleAssignment.deleteMany({ where }),
       platformPrisma.userBranchMembership.deleteMany({ where }),
       platformPrisma.userOrgMembership.deleteMany({ where }),
     ]);

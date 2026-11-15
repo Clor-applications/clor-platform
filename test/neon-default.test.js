@@ -29,7 +29,7 @@ describe('the neon default', () => {
   });
 
   it('keeps the red block only under sky and indigo', () => {
-    const red = css.slice(css.indexOf('CLOR — the red brand'), css.indexOf('The Indigo palette'));
+    const red = css.slice(css.indexOf('CLOR — the red brand'), css.indexOf("Books (data-palette='indigo') on the red brand"));
     const selectors = red.match(/^:root[^{\n]*\{/gm);
     expect(selectors).toEqual([
       ":root:where([data-palette='sky'], [data-palette='indigo']) {",

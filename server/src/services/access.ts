@@ -45,8 +45,14 @@ type BranchScope = string | typeof COMPANY_WIDE | undefined;
 const branchWhere = (branchId: BranchScope) =>
   branchId === COMPANY_WIDE ? { branchId: null } : branchId ? { OR: [{ branchId: null }, { branchId }] } : {};
 
-/** Role ids from direct assignments plus every role inside assigned profiles. */
-export async function resolveRoleIds(accountId: string, orgId: string, userId: string, branchId?: BranchScope) {
+/**
+ * Role ids from direct assignments plus every role inside assigned profiles.
+ *
+ * With a warehouse named, the roles the user holds at that one warehouse count
+ * too. They add to the branch roles and only while working in that warehouse
+ * of that branch; they are never read for a company-wide question.
+ */
+export async function resolveRoleIds(accountId: string, orgId: string, userId: string, branchId?: BranchScope, warehouseId?: string) {
   const direct = await platformPrisma.userRoleAssignment.findMany({
     where: { accountId, orgId, userId, ...branchWhere(branchId) },
     select: { roleId: true },
@@ -65,21 +71,31 @@ export async function resolveRoleIds(accountId: string, orgId: string, userId: s
     });
   }
 
-  return Array.from(new Set([...direct, ...fromProfiles].map((r) => r.roleId)));
+  const atWarehouse =
+    branchId && branchId !== COMPANY_WIDE && warehouseId
+      ? await platformPrisma.userWarehouseRoleAssignment.findMany({
+          where: { accountId, orgId, userId, branchId, warehouseId },
+          select: { roleId: true },
+        })
+      : [];
+
+  return Array.from(new Set([...direct, ...fromProfiles, ...atWarehouse].map((r) => r.roleId)));
 }
 
 /**
- * Cached per user, org and branch for a few seconds (see utils/accessCache.ts).
- * The result is shared between requests: callers must not mutate it.
+ * Cached per user, org, branch and warehouse for a few seconds (see
+ * utils/accessCache.ts). The result is shared between requests: callers must
+ * not mutate it.
  */
 export function resolveAccess(
   accountId: string,
   orgId: string,
   userId: string,
-  branchId?: BranchScope
+  branchId?: BranchScope,
+  warehouseId?: string
 ): Promise<EffectiveAccess> {
-  return cachedAccess(`access|${accountId}|${orgId}|${userId}|${branchId || ''}`, () =>
-    resolveAccessUncached(accountId, orgId, userId, branchId)
+  return cachedAccess(`access|${accountId}|${orgId}|${userId}|${branchId || ''}|${warehouseId || ''}`, () =>
+    resolveAccessUncached(accountId, orgId, userId, branchId, warehouseId)
   );
 }
 
@@ -101,22 +117,59 @@ export function resolveGrantAccess(accountId: string, orgId: string): Promise<Ef
 /** The caller's own access: their roles, or the grant's when CLOR staff are on one. */
 export function accessForRequest(
   req: { tenant?: { accountId: string; orgId: string; supportGrant?: unknown }; auth?: { userId: string } },
-  branchId?: BranchScope
+  branchId?: BranchScope,
+  warehouseId?: string
 ): Promise<EffectiveAccess> {
   const { accountId, orgId } = req.tenant!;
-  return req.tenant!.supportGrant ? resolveGrantAccess(accountId, orgId) : resolveAccess(accountId, orgId, req.auth!.userId, branchId);
+  return req.tenant!.supportGrant ? resolveGrantAccess(accountId, orgId) : resolveAccess(accountId, orgId, req.auth!.userId, branchId, warehouseId);
 }
 
 async function resolveAccessUncached(
   accountId: string,
   orgId: string,
   userId: string,
-  branchId?: BranchScope
+  branchId?: BranchScope,
+  warehouseId?: string
 ): Promise<EffectiveAccess> {
-  return accessFromRoles(await resolveRoleIds(accountId, orgId, userId, branchId));
+  const branchRoles = await resolveRoleIds(accountId, orgId, userId, branchId);
+  const withWarehouse = warehouseId ? await resolveRoleIds(accountId, orgId, userId, branchId, warehouseId) : branchRoles;
+  const warehouseOnly = withWarehouse.filter((id) => !branchRoles.includes(id));
+  if (!warehouseOnly.length) return accessFromRoles(branchRoles);
+  return accessFromRoles(branchRoles, warehouseOnly);
 }
 
-async function accessFromRoles(roleIds: string[]): Promise<EffectiveAccess> {
+/*
+ * What a role held only at a warehouse may add.
+ *
+ * The warehouse being worked in is chosen by the caller, and nothing narrows
+ * journals, payments, settings or users to one warehouse. So a role given at
+ * a warehouse adds only the stock-moving document families (sales, purchase,
+ * inventory), never administration, and never makes its holder an
+ * administrator: "Accountant at Store W" cannot reach the ledger or settings
+ * through it.
+ */
+const WAREHOUSE_ROLE_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY']);
+
+async function accessFromRoles(roleIds: string[], warehouseRoleIds: string[] = []): Promise<EffectiveAccess> {
+  if (warehouseRoleIds.length) {
+    const base = await accessFromRoles(roleIds);
+    const extra = await platformPrisma.rolePermission.findMany({
+      where: { roleId: { in: warehouseRoleIds }, allowed: true, permission: { module: { in: [...WAREHOUSE_ROLE_MODULES] } } },
+      select: { permLevel: true, permission: { select: { module: true, subModule: true, action: true } } },
+    });
+    const permissions = new Set(base.permissions);
+    const levels = new Map(base.levels);
+    for (const r of extra) {
+      const k = permKey(r.permission.module, r.permission.subModule, r.permission.action);
+      permissions.add(k);
+      if (base.isAdmin) continue;
+      if (r.permLevel > (levels.get(k) ?? -1)) levels.set(k, r.permLevel);
+    }
+    const warehouseRoles = await platformPrisma.role.findMany({ where: { id: { in: warehouseRoleIds } }, select: { ownDocumentsOnly: true } });
+    /* Own-documents-only holds if every role the person holds says so. */
+    const ownDocumentsOnly = !base.isAdmin && (base.roleIds.length ? base.ownDocumentsOnly : true) && warehouseRoles.every((r) => r.ownDocumentsOnly);
+    return { roleIds: [...base.roleIds, ...warehouseRoleIds], isAdmin: base.isAdmin, ownDocumentsOnly, permissions, levels };
+  }
 
   if (!roleIds.length) {
     return { roleIds, isAdmin: false, ownDocumentsOnly: false, permissions: new Set(), levels: new Map() };

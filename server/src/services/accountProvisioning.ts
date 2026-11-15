@@ -16,6 +16,7 @@ import { suggestSlug } from './slug.js';
 import { track } from './productEvents.js';
 import { issuePasswordResetToken, recordAuthEvent } from './auth.js';
 import { sendTemplate } from './mailer.js';
+import { newCompanyAdminTwoFactor } from './policy.js';
 
 /**
  * Making an account: the one code path.
@@ -113,7 +114,7 @@ export async function bootstrapOwnerRole(accountId: string, orgId: string, userI
  * it, and whether the state and GSTIN are valid, is the caller's to check.
  * Throws QuotaBusyError or ProvisionError(COMPANY_LIMIT).
  */
-export async function createCompany(input: { accountId: string; userId: string; companyName: string; state: string; gstin?: string | null; profile?: Record<string, unknown>; apps?: string[] }) {
+export async function createCompany(input: { accountId: string; userId: string; companyName: string; state: string; gstin?: string | null; profile?: Record<string, unknown>; apps?: string[]; adminTwoFactor?: boolean }) {
   const { accountId, userId } = input;
   const name = input.companyName.trim();
   const stateName = input.state.trim();
@@ -124,7 +125,12 @@ export async function createCompany(input: { accountId: string; userId: string; 
    * name. State and GSTIN are stored here as well as on the head-office
    * branch; the branch is where tax is computed from.
    */
-  const profileJson = JSON.stringify({ ...(input.profile && typeof input.profile === 'object' ? input.profile : {}), state: stateName, gstin: gstin || null });
+  const given = input.profile && typeof input.profile === 'object' ? input.profile : {};
+  // GST is read from its switch alone (Books, 15 Nov 2026): a company set up
+  // with a GSTIN starts with the switch on, unless the profile says otherwise.
+  const givenTax = (given as any).taxCompliances && typeof (given as any).taxCompliances === 'object' ? (given as any).taxCompliances : {};
+  const taxCompliances = typeof givenTax.gstEnabled === 'boolean' ? givenTax : { ...givenTax, gstEnabled: Boolean(gstin) };
+  const profileJson = JSON.stringify({ ...given, taxCompliances, state: stateName, gstin: gstin || null });
 
   /* The plan's company allowance, checked and used under the account's quota lock (W-6.1). */
   const releaseQuota = await lockQuota(accountId, 'COMPANIES');
@@ -138,6 +144,14 @@ export async function createCompany(input: { accountId: string; userId: string; 
   }
   await assignOrgCode(accountId, org.id, name);
   await assignUserCode(userId, org.id);
+  /*
+   * Owners and admins of a new company set up an authenticator before they
+   * reach its data (SX-09 gate, packages/shell/TwoFactorGate.jsx). The sample
+   * company has no person who signs in with a password, so it is left off.
+   */
+  if (input.adminTwoFactor ?? newCompanyAdminTwoFactor()) {
+    await platformPrisma.authPolicy.create({ data: { accountId, orgId: org.id, requireAdminTwoFactor: true, updatedByUserId: userId } });
+  }
 
   const branch = await platformPrisma.branch.create({
     data: {

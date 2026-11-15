@@ -119,7 +119,7 @@ describe('movements follow the documents', () => {
     expect(await onHand(id)).toBe(18);
 
     const other = (
-      await request(app).post(`/api/orgs/${owner.orgId}/warehouses`).set(auth(owner)).send({ branchId: owner.branchId, name: `Store ${rnd()}` })
+      await request(app).post(`/api/orgs/${owner.orgId}/warehouses`).set(auth(owner)).send({ branchId: owner.branchId, code: `S${rnd().slice(0, 6)}`.toUpperCase(), name: `Store ${rnd()}` })
     ).body.warehouse?.id;
     expect(other).toBeTruthy();
     const uid = `trf-${rnd()}${rnd()}`;

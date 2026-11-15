@@ -34,6 +34,8 @@ const env = {
   /* Six people sign in at the start of every run, from one address. */
   DISABLE_RATE_LIMIT: 'true',
   BCRYPT_ROUNDS: '4',
+  /* The world's owners and admins have no authenticator app; production keeps this on for new companies (services/policy.ts). */
+  NEW_COMPANY_ADMIN_TWO_FACTOR: 'off',
   /* Sign-ins saved once at the start stay good for the whole run, so parallel tests never race to refresh one session. */
   JWT_EXPIRES_IN: '12h',
   PRISMA_HIDE_UPDATE_MESSAGE: '1',

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { UserPlus } from '@ui/components/ui/lineIcons';
+import { ListChecks, UserPlus } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -13,9 +13,12 @@ import { notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
 import { listInvites, sendHeldToPayroll } from '@ui/personnel/api';
 
-import { pageJoiners } from './api';
-import { NextTask, PersonCell, Progress, can, crumbs } from './shared';
+import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+
+import { pageJoiners, pageTasks } from './api';
+import { NextTask, PersonCell, can, crumbs } from './shared';
 import PlanDrawer from './Plan';
+import { LateNotice, StepsMeter } from './StepsMeter';
 import { istDay } from '@ui/utils/dates';
 
 /**
@@ -68,6 +71,17 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
   const [open, setOpen] = useState(null);
   const counts = { ...(list.data?.counts || {}), forms: forms.length };
   const canAdd = can(perms, 'PEOPLE::Employees::CREATE');
+  /* Joining steps past their date, across every joiner (the task queue's own count); a refusal leaves the tile out. */
+  const lateSteps = useRequest(() => pageTasks({ view: 'late', kind: 'JOINING', limit: 1 }).catch(() => null), []);
+  const lateTotal = lateSteps.data ? Number(lateSteps.data.total || 0) : null;
+  const tab = (k) => () => set({ view: k === 'preparing' ? null : k, page: null }, true);
+  const busy = !list.data && list.loading;
+  const tiles = [
+    { key: 'week', label: 'Joining this week', value: Number(counts.week || 0), sub: `${Number(counts.preparing || 0)} before day one`, accent: 1, Icon: TILE_ICON.people, onClick: tab('week'), busy },
+    { key: 'joined', label: 'Joined, steps open', value: Number(counts.joined || 0), sub: 'Plans still running', accent: 3, Icon: TILE_ICON.team, onClick: tab('joined'), busy },
+    lateTotal == null ? null : { key: 'late', label: 'Steps late', value: lateTotal, tone: lateTotal ? 'warn' : null, accent: lateTotal ? 'warn' : 'neutral', sub: lateTotal ? 'Past their date, still open' : 'Nothing past its date', Icon: TILE_ICON.due, onClick: openScreen ? () => openScreen('checklists', { view: 'late', kind: 'JOINING' }) : null },
+    canForms ? { key: 'forms', label: 'Forms not back', value: forms.length, sub: 'Joining forms sent, not returned', accent: 2, Icon: TILE_ICON.waiting, onClick: tab('forms'), busy: invites.loading && !invites.data } : null,
+  ];
   /* Opened without a view: the first tab that has rows, not an empty "Before day one" beside a tab with forty (People plan 8 Nov 2026, step 2). Once. */
   const steered = useRef(false);
   useEffect(() => {
@@ -83,7 +97,7 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
     { key: 'person', label: 'Person', always: true, render: (r) => <PersonCell person={r} line={[r.code, r.designation, r.department].filter(Boolean).join(' · ')} /> },
     { key: 'joins', label: 'Joins on', render: (r) => <span className="tabular-nums whitespace-nowrap">{formatDate(r.dateOfJoining)}</span> },
     { key: 'stage', label: 'Stage', render: (r) => <span className={`ui-pill ${STAGE_PILL[r.stage] || 'ui-pill-neutral'}`}>{r.stageLabel}</span> },
-    { key: 'steps', label: 'Steps', render: (r) => <Progress done={r.done} total={r.total} late={r.late} /> },
+    { key: 'steps', label: 'Steps', render: (r) => <StepsMeter done={r.done} total={r.total} late={r.late} /> },
     { key: 'next', label: 'Next step', render: (r) => <NextTask next={r.next} /> },
   ];
 
@@ -93,12 +107,15 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
         breadcrumb={crumbs()}
         title="Joining"
         description="Everyone joining or just joined, with their plan's steps and what comes next."
+        secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Steps</button> : null}
         primary={canAdd ? { label: 'Add employee', icon: UserPlus, onClick: () => openScreen?.('employeeNew') } : null}
+        strip={<StatTiles label="Joining figures" items={tiles} />}
         toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search joiners" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
         tab={view}
         onTab={(k) => set({ view: k === 'preparing' ? null : k, page: null }, true)}
       />
+      {view === 'forms' ? null : <LateNotice rows={list.data?.rows} />}
       {canSendHeld ? (
         <Alert tone="info" title={`${held.length === 1 ? 'One joiner’s' : `${held.length} joiners’`} PAN, PF, ESI and bank details are kept in People`} action={<button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={sending} onClick={sendHeld}>{sending ? 'Sending…' : 'Send to Payroll'}</button>}>
           They were approved before Payroll was switched on.

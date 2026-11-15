@@ -30,7 +30,7 @@ export const postJournalToLedger = async ({ chartRows, entry }) => {
       credit: Number(l.credit) || 0,
       // The server calls a line's note `description`; sent under any other
       // key zod strips it and the note is lost without a word.
-      description: l.narration || undefined,
+      description: l.description || l.narration || undefined,
     });
   }
   if (!lines.length) return {};
@@ -41,6 +41,7 @@ export const postJournalToLedger = async ({ chartRows, entry }) => {
       journalCode: 'JV',
       narration: entry.narration || null,
       lines,
+      branchId: entry.branchId,
     });
     const id = posted?.entry?.id;
     return id ? { backendEntryId: String(id) } : {};
@@ -62,7 +63,7 @@ export const reverseJournalOnLedger = async (entry) => {
   const entryId = String(entry?.backendEntryId || '').trim();
   if (!entryId || !hasApiSession()) return { reversed: false };
   try {
-    await reverseJournalEntry(entryId, `Reversal of ${entry.number || 'journal entry'}`);
+    await reverseJournalEntry(entryId, `Reversal of ${entry.number || 'journal entry'}`, ...(entry.branchId ? [entry.branchId] : []));
     return { reversed: true };
   } catch (e) {
     notify.error(`The ledger would not reverse this entry: ${String(e?.message || e)}`);

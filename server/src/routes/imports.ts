@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireTenantContext } from '../middleware/tenantContext.js';
+import { requireTenantContext, userMayUseWarehouse } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { parseCsv, toCsv } from '../services/csv.js';
@@ -17,6 +17,7 @@ import {
   postEntry,
 } from '../services/ledger.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { allocateNumber, ensureDefaultSeries } from '../services/numbering.js';
 
 /**
  * Document import — requirements 15 and 16.
@@ -56,6 +57,17 @@ const money = (v: string) => {
   if (cleaned === '') return 0;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : NaN;
+};
+
+const journalColumn = (header: string) => {
+  const key = String(header || '').trim().toLowerCase().replace(/[\s.-]+/g, '_');
+  return ({ journal_no: 'entry_ref', ledger_name: 'account_name', ledger_code: 'account_code' } as Record<string, string>)[key] || key;
+};
+
+const journalDate = (value: string) => {
+  const text = String(value || '').trim();
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(text);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : text;
 };
 
 const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '').trim());
@@ -119,6 +131,18 @@ importsRouter.get('/orgs/:orgId/imports/specs', VIEW, async (req, res) => {
   });
 });
 
+importsRouter.get('/orgs/:orgId/imports/journal-series', VIEW, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const { accountId, orgId, branchId } = req.tenant!;
+  await ensureDefaultSeries({ accountId, orgId, branchId, docType: 'JOURNAL', userId: req.auth!.userId });
+  const series = await prisma.numberSeries.findMany({
+    where: { accountId, orgId, docType: 'JOURNAL', isActive: true, OR: [{ branchId: null }, { branchId }] },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    select: { id: true, name: true, prefix: true, isDefault: true },
+  });
+  res.json({ series });
+});
+
 /** A downloadable CSV template with one worked sample row. */
 importsRouter.get('/orgs/:orgId/imports/template/:docType', VIEW, async (req, res) => {
   if (!orgOk(req, res)) return;
@@ -128,15 +152,20 @@ importsRouter.get('/orgs/:orgId/imports/template/:docType', VIEW, async (req, re
     return res.status(400).json({ error: reason || 'Unknown document type' });
   }
 
-  const headers = spec.columns.map((c) => c.key);
+  const headers = spec.columns.map((c) => spec.docType === 'JOURNAL' ? c.label : c.key);
   const sample: Record<string, string> = {};
-  for (const c of spec.columns) sample[c.key] = c.sample;
+  for (const c of spec.columns) sample[spec.docType === 'JOURNAL' ? c.label : c.key] = c.sample;
+  if (spec.docType === 'JOURNAL') {
+    const { accountId, orgId, branchId } = req.tenant!;
+    const series = await ensureDefaultSeries({ accountId, orgId, branchId, docType: 'JOURNAL', userId: req.auth!.userId });
+    sample['Transaction series'] = series.name;
+  }
 
   // A journal template with one line would demonstrate an entry that cannot
   // balance, so the sample shows both sides.
   const rows =
     spec.docType === 'JOURNAL'
-      ? [sample, { ...sample, account_code: '4000', debit: '', credit: '5000.00' }]
+      ? [sample, { ...sample, 'Ledger Code': '4000', Debit: '', Credit: '5000.00' }]
       : [sample];
 
   const csv = toCsv(headers, rows);
@@ -170,12 +199,19 @@ importsRouter.post('/orgs/:orgId/imports', CREATE, async (req, res) => {
     return res.status(400).json({ error: reason || `Unknown document type ${docType}` });
   }
 
-  const { headers, rows } = parseCsv(body.csv);
+  const parsed = parseCsv(body.csv);
+  const headers = docType === 'JOURNAL' ? parsed.headers.map(journalColumn) : parsed.headers;
+  const rows = docType === 'JOURNAL'
+    ? parsed.rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [journalColumn(key), journalColumn(key) === 'date' ? journalDate(value) : value])))
+    : parsed.rows;
   if (!rows.length) return res.status(400).json({ error: 'The file has a header row but no data rows' });
 
   // Say which columns are missing up front rather than reporting the same
   // error against every row.
   const missing = spec.columns.filter((c) => c.required && !headers.includes(c.key)).map((c) => c.key);
+  if (docType === 'JOURNAL' && !headers.includes('account_code') && !headers.includes('account_name')) {
+    missing.push('account_code or account_name');
+  }
   if (missing.length) {
     return res.status(400).json({ error: `Missing required column(s): ${missing.join(', ')}` });
   }
@@ -211,6 +247,57 @@ importsRouter.post('/orgs/:orgId/imports', CREATE, async (req, res) => {
 // ---------------------------------------------------------------------------
 
 type Grouped = { key: string; rows: Array<{ id: string; rowNumber: number; data: Record<string, string> }> };
+type LedgerChoice = { id: string; code: string; name: string };
+
+const journalFingerprint = (group: Grouped) => {
+  const clean = (value: unknown) => String(value ?? '').trim().toLowerCase();
+  const lines = group.rows.map(({ data }) => [
+    clean(data.account_code) || clean(data.account_name),
+    Number(money(data.debit)).toFixed(2),
+    Number(money(data.credit)).toFixed(2),
+    clean(data.description),
+  ].join('|')).sort();
+  const first = group.rows[0]?.data || {};
+  return JSON.stringify([clean(group.key), journalDate(first.date), clean(first.transaction_series), clean(first.narration), lines]);
+};
+
+const matchingPostedJournals = async (accountId: string, orgId: string, branchId: string, batchId: string, groups: Grouped[]) => {
+  if (!groups.length) return new Map<string, string>();
+  const keys = groups.map((group) => group.key);
+  const batches = await prisma.importBatch.findMany({
+    where: { accountId, orgId, branchId, docType: 'JOURNAL', id: { not: batchId }, rows: { some: { sourceKey: { in: keys }, status: 'COMMITTED' } } },
+    include: { rows: { where: { sourceKey: { in: keys }, status: 'COMMITTED' } } },
+  });
+  const targets = [...new Set(batches.flatMap((batch) => batch.rows.map((row) => row.targetId).filter(Boolean)))];
+  const posted = await prisma.journalEntry.findMany({ where: { id: { in: targets as string[] }, status: 'POSTED' }, select: { id: true, entryNo: true } });
+  const numbers = new Map(posted.map((entry) => [entry.id, entry.entryNo]));
+  const current = new Map(groups.map((group) => [group.key, journalFingerprint(group)]));
+  const matches = new Map<string, string>();
+  for (const batch of batches) {
+    for (const prior of groupRows(batch.rows, 'entry_ref')) {
+      const number = batch.rows.find((row) => row.sourceKey === prior.key && row.targetId && numbers.has(row.targetId))?.targetId;
+      if (number && current.get(prior.key) === journalFingerprint(prior)) matches.set(prior.key, numbers.get(number)!);
+    }
+  }
+  return matches;
+};
+
+const resolveJournalLedger = (row: Record<string, string>, accounts: LedgerChoice[]) => {
+  const code = String(row.account_code || '').trim();
+  const name = String(row.account_name || '').trim();
+  const byCode = code ? accounts.find((account) => account.code.toLowerCase() === code.toLowerCase()) : null;
+  if (byCode && name && byCode.name.trim().toLowerCase() !== name.toLowerCase()) {
+    return { account: null, error: `Ledger code "${code}" does not match ledger name "${name}"` };
+  }
+  if (byCode) return { account: byCode, error: '' };
+  const byName = name ? accounts.filter((account) => account.name.trim().toLowerCase() === name.toLowerCase()) : [];
+  if (byName.length === 1) return { account: byName[0], error: '' };
+  if (byName.length > 1) return { account: null, error: `Ledger name "${name}" matches more than one account; use its code` };
+  if (code && name) return { account: null, error: `No ledger account with code "${code}" or name "${name}"` };
+  if (code) return { account: null, error: `No ledger account with code "${code}"` };
+  if (name) return { account: null, error: `No ledger account with name "${name}"` };
+  return { account: null, error: 'Ledger code or name is required' };
+};
 
 const groupRows = (rows: any[], groupBy: string): Grouped[] => {
   const map = new Map<string, Grouped>();
@@ -224,11 +311,13 @@ const groupRows = (rows: any[], groupBy: string): Grouped[] => {
 };
 
 /** Per-row problems, plus the group-level ones a single row cannot show. */
-function validateGroups(docType: string, groups: Grouped[], accountCodes: Set<string>) {
-  const errors = new Map<string, string>();
+function validateGroups(docType: string, groups: Grouped[], accounts: LedgerChoice[], journalSeries: Array<{ name: string }> = []) {
+  const errors = new Map<string, string[]>();
 
   const fail = (rowId: string, message: string) => {
-    if (!errors.has(rowId)) errors.set(rowId, message);
+    const messages = errors.get(rowId) || [];
+    if (!messages.includes(message)) messages.push(message);
+    errors.set(rowId, messages);
   };
 
   for (const g of groups) {
@@ -242,6 +331,17 @@ function validateGroups(docType: string, groups: Grouped[], accountCodes: Set<st
     }
 
     if (docType === 'JOURNAL') {
+      const dates = [...new Set(g.rows.map((r) => journalDate(r.data.date).trim()))];
+      if (dates.length > 1) for (const r of g.rows) fail(r.id, `Journal ${g.key} must use one date on every line`);
+      const narrations = [...new Set(g.rows.map((r) => String(r.data.narration || '').trim()))];
+      if (narrations.length > 1) for (const r of g.rows) fail(r.id, `Journal ${g.key} must use one narration on every line`);
+      const seriesNames = [...new Set(g.rows.map((r) => String(r.data.transaction_series || '').trim().toLowerCase()))];
+      if (seriesNames.length > 1) for (const r of g.rows) fail(r.id, `Journal ${g.key} must use one transaction series on every line`);
+      for (const r of g.rows) {
+        const name = String(r.data.transaction_series || '').trim();
+        if (!name) fail(r.id, 'Transaction series is required');
+        else if (!journalSeries.some((series) => series.name.toLowerCase() === name.toLowerCase())) fail(r.id, `No active journal transaction series named "${name}"`);
+      }
       let debit = 0;
       let credit = 0;
       for (const r of g.rows) {
@@ -249,15 +349,14 @@ function validateGroups(docType: string, groups: Grouped[], accountCodes: Set<st
         const c = money(r.data.credit);
         if (Number.isNaN(d) || Number.isNaN(c)) {
           fail(r.id, 'Debit and credit must be numbers');
-          continue;
+        } else {
+          if (d > 0 && c > 0) fail(r.id, 'A line may carry either a debit or a credit, not both');
+          if (d === 0 && c === 0) fail(r.id, 'A line must carry a non-zero debit or credit');
+          debit += d;
+          credit += c;
         }
-        if (d > 0 && c > 0) fail(r.id, 'A line may carry either a debit or a credit, not both');
-        if (d === 0 && c === 0) fail(r.id, 'A line must carry a non-zero debit or credit');
-        if (!accountCodes.has(String(r.data.account_code || '').trim())) {
-          fail(r.id, `No ledger account with code "${r.data.account_code || ''}"`);
-        }
-        debit += d;
-        credit += c;
+        const ledger = resolveJournalLedger(r.data, accounts);
+        if (ledger.error) fail(r.id, ledger.error);
       }
 
       // Balance is a property of the entry, so it is reported on every line of
@@ -275,6 +374,8 @@ function validateGroups(docType: string, groups: Grouped[], accountCodes: Set<st
     if (partyColumn) {
       for (const r of g.rows) {
         if (!String(r.data[partyColumn] || '').trim()) fail(r.id, `${PARTY_LABEL[docType]} is required`);
+        if (docType === 'INVOICE' && !String(r.data.due_date || '').trim()) fail(r.id, 'Due date is required');
+        if (docType === 'INVOICE' && !String(r.data.item || r.data.item_code || '').trim()) fail(r.id, 'Item is required');
         if (!String(r.data.description || '').trim()) fail(r.id, 'Description is required');
         const qty = money(r.data.quantity);
         const rate = money(r.data.rate);
@@ -303,19 +404,33 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/validate', CREATE, async (req,
 
   const accounts = await prisma.ledgerAccount.findMany({
     where: { orgId, isActive: true },
-    select: { code: true },
+    select: { id: true, code: true, name: true },
   });
-  const accountCodes = new Set(accounts.map((a) => a.code));
+
+  if (batch.docType === 'JOURNAL') await ensureDefaultSeries({ accountId, orgId, branchId: batch.branchId, docType: 'JOURNAL', userId: req.auth!.userId });
+  const journalSeries = batch.docType === 'JOURNAL' ? await prisma.numberSeries.findMany({
+    where: { accountId, orgId, docType: 'JOURNAL', isActive: true, OR: [{ branchId: null }, { branchId: batch.branchId }] },
+    select: { name: true },
+  }) : [];
 
   const pending = batch.rows.filter((r) => r.status !== 'COMMITTED');
-  const errors = validateGroups(batch.docType, groupRows(pending, spec.groupBy), accountCodes);
+  const groups = groupRows(pending, spec.groupBy);
+  const errors = validateGroups(batch.docType, groups, accounts, journalSeries);
+  if (batch.docType === 'JOURNAL') {
+    const prior = await matchingPostedJournals(accountId, orgId, batch.branchId, batch.id, groups);
+    for (const group of groups) {
+      const number = prior.get(group.key);
+      if (!number) continue;
+      for (const row of group.rows) errors.set(row.id, [...(errors.get(row.id) || []), `Journal ${group.key} was already posted as ${number}`]);
+    }
+  }
 
   await prisma.$transaction(
     pending.map((r) =>
       prisma.importRow.update({
         where: { id: r.id },
         data: errors.has(r.id)
-          ? { status: 'ERROR', error: errors.get(r.id) }
+          ? { status: 'ERROR', error: errors.get(r.id)?.join('; ') }
           : { status: 'VALID', error: null },
       })
     )
@@ -333,7 +448,7 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/validate', CREATE, async (req,
     batch: saved,
     issues: pending
       .filter((r) => errors.has(r.id))
-      .map((r) => ({ rowNumber: r.rowNumber, error: errors.get(r.id) })),
+      .map((r) => ({ rowNumber: r.rowNumber, error: errors.get(r.id)?.join('; ') })),
   });
 });
 
@@ -370,33 +485,65 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/commit', CREATE, async (req, r
   const ready = batch.rows.filter((r) => r.status === 'VALID');
   const groups = groupRows(ready, spec.groupBy);
 
-  const accounts = await prisma.ledgerAccount.findMany({ where: { orgId }, select: { id: true, code: true } });
-  const byCode = new Map(accounts.map((a) => [a.code, a.id]));
+  const accounts = await prisma.ledgerAccount.findMany({ where: { orgId, isActive: true }, select: { id: true, code: true, name: true } });
+  // bounded: an invoice file may name any item by its code or its name, in any
+  // letter case, so the whole active item list is read once for the batch
+  // rather than once per line. Other document types do not need it.
+  const itemMasters = batch.docType === 'INVOICE' ? await prisma.itemMaster.findMany({ where: { accountId, orgId, isActive: true } }) : [];
+  const itemBySku = new Map<string, (typeof itemMasters)[number]>();
+  for (const item of itemMasters) {
+    for (const key of [item.code, item.name]) {
+      const normalized = String(key || '').trim().toLowerCase();
+      if (normalized) itemBySku.set(normalized, item);
+    }
+  }
+  // Only the batch branch's warehouses that this person may use: a name in the
+  // file must not reach another branch's stock.
+  const branchWarehouses = await prisma.warehouse.findMany({ where: { accountId, orgId, branchId: batch.branchId, isActive: true } });
+  const warehouses = [];
+  for (const warehouse of branchWarehouses) {
+    if (await userMayUseWarehouse(accountId, orgId, userId, warehouse.id)) warehouses.push(warehouse);
+  }
+  const warehouseByName = new Map(warehouses.map((warehouse) => [String(warehouse.name).trim().toLowerCase(), warehouse.id]));
 
   let committed = 0;
   const failures: Array<{ group: string; error: string }> = [];
+  const postedJournals: Array<{ serial: string; number: string; entryId: string }> = [];
 
   for (const g of groups) {
     try {
       if (batch.docType === 'JOURNAL') {
+        const prior = await matchingPostedJournals(accountId, orgId, branchId, batch.id, [g]);
+        if (prior.has(g.key)) throw new Error(`Journal ${g.key} was already posted as ${prior.get(g.key)}`);
         const first = g.rows[0].data;
-        const entry = await postEntry({
+        const seriesName = String(first.transaction_series || '').trim();
+        const availableSeries = await prisma.numberSeries.findMany({ where: {
+          accountId, orgId, docType: 'JOURNAL', isActive: true, OR: [{ branchId: null }, { branchId }],
+        } });
+        const selectedSeries = availableSeries.find((series) => series.name.trim().toLowerCase() === seriesName.toLowerCase() && series.branchId === branchId)
+          || availableSeries.find((series) => series.name.trim().toLowerCase() === seriesName.toLowerCase());
+        if (!selectedSeries) throw new Error(`No active journal transaction series named "${seriesName}"`);
+        const entry = await prisma.$transaction(async (tx) => {
+          const allocated = await allocateNumber(tx, { accountId, orgId, branchId, docType: 'JOURNAL', userId, date: String(first.date).trim(), seriesId: selectedSeries.id });
+          return postEntry({
           accountId,
           orgId,
           branchId,
           userId,
           date: String(first.date).trim(),
           journalCode: 'JV',
+          entryNo: allocated.number,
           narration: String(first.narration || `Imported ${g.key}`).trim(),
           sourceDocType: 'IMPORT_JOURNAL',
           sourceDocId: `${batch.id}:${g.key}`,
           lines: g.rows.map((r) => ({
-            ledgerAccountId: byCode.get(String(r.data.account_code).trim())!,
+            ledgerAccountId: resolveJournalLedger(r.data, accounts).account!.id,
             debit: money(r.data.debit) || undefined,
             credit: money(r.data.credit) || undefined,
-            description: String(r.data.narration || '').trim() || undefined,
+            description: String(r.data.description || r.data.narration || '').trim() || undefined,
           })),
-        });
+          }, tx);
+        }, { timeout: 20_000 });
 
         await prisma.$transaction(
           g.rows.map((r) =>
@@ -407,14 +554,18 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/commit', CREATE, async (req, r
           )
         );
         committed += g.rows.length;
+        postedJournals.push({ serial: g.key, number: String((entry as any)?.entryNo || ''), entryId: String((entry as any)?.id || '') });
       }
 
       if (batch.docType === 'INVOICE') {
         const first = g.rows[0].data;
         const items = g.rows.map((r) => {
           const qty = money(r.data.quantity);
-          const rate = money(r.data.rate);
-          const gstRate = money(r.data.gst_rate) || 0;
+          const importedItem = itemBySku.get(String(r.data.item || r.data.item_code || '').trim().toLowerCase());
+          const rateValue = money(r.data.rate);
+          const rate = Number.isNaN(rateValue) ? Number(importedItem?.salePrice || 0) : rateValue;
+          const gstValue = money(r.data.gst_rate);
+          const gstRate = Number.isNaN(gstValue) ? Number(importedItem?.gstRate || 0) : gstValue;
           // A line discount is a percentage off the line before tax, which is
           // how the creation form applies it — importing without it made every
           // discounted historical line arrive at list price.
@@ -423,8 +574,8 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/commit', CREATE, async (req, r
           const taxable = gross - (gross * discountPct) / 100;
           return {
             description: String(r.data.description || '').trim(),
-            itemCode: String(r.data.item_code || '').trim() || undefined,
-            unit: String(r.data.unit || '').trim() || undefined,
+            itemCode: String(r.data.item || r.data.item_code || '').trim() || undefined,
+            unit: String(r.data.unit || '').trim() || importedItem?.unit || undefined,
             hsnSac: String(r.data.hsn_sac || '').trim() || undefined,
             quantity: qty,
             rate,
@@ -456,6 +607,18 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/commit', CREATE, async (req, r
             placeOfSupplyState: String(first.place_of_supply || '').trim() || null,
             refNo: String(first.ref_no || '').trim() || null,
             refDate: String(first.ref_date || '').trim() || null,
+            warehouseId: warehouseByName.get(String(first.warehouse || first.warehouse_id || '').trim().toLowerCase()) || null,
+            extrasJson: JSON.stringify({
+              shipTo: String(first.ship_to || '').trim() || undefined,
+              customFields: {
+                ...Object.fromEntries(Object.entries(first)
+                  .filter(([key, value]) => key.startsWith('custom_') && String(value || '').trim())
+                  .map(([key, value]) => [key.slice('custom_'.length), String(value).trim()])),
+                customField1: String(first.custom_field1 || '').trim() || undefined,
+                customField2: String(first.custom_field2 || '').trim() || undefined,
+                customField3: String(first.custom_field3 || '').trim() || undefined,
+              },
+            }),
             subtotal: new Prisma.Decimal(subtotal.toFixed(2)),
             cgstTotal: new Prisma.Decimal(tax.cgst.toFixed(2)),
             sgstTotal: new Prisma.Decimal(tax.sgst.toFixed(2)),
@@ -608,7 +771,7 @@ importsRouter.post('/orgs/:orgId/imports/:batchId/commit', CREATE, async (req, r
     },
   });
 
-  res.json({ batch: saved, committed, failures });
+  res.json({ batch: saved, committed, failures, postedJournals });
 });
 
 // ---------------------------------------------------------------------------

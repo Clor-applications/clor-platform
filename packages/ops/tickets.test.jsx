@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const api = vi.hoisted(() => ({ opsTickets: vi.fn(), opsTicket: vi.fn(), opsTicketReply: vi.fn(), opsTicketChange: vi.fn() }));
+const api = vi.hoisted(() => ({ opsTickets: vi.fn(), opsTicket: vi.fn(), opsTicketReply: vi.fn(), opsTicketChange: vi.fn(), opsSavedReplies: vi.fn() }));
 vi.mock('./api', () => ({
   opsTickets: (...a) => api.opsTickets(...a),
   opsTicket: (...a) => api.opsTicket(...a),
   opsTicketReply: (...a) => api.opsTicketReply(...a),
+  opsSavedReplies: (...a) => api.opsSavedReplies(...a),
   opsTicketChange: (...a) => api.opsTicketChange(...a),
 }));
 
@@ -20,7 +21,10 @@ const T = (o = {}) => ({
   ...o,
 });
 
-beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
+beforeEach(() => {
+  Object.values(api).forEach((f) => f.mockReset());
+  api.opsSavedReplies.mockResolvedValue({ replies: [] });
+});
 
 describe('operator console: tickets', () => {
   it('lists active tickets with customer, status and priority, and opens one', async () => {

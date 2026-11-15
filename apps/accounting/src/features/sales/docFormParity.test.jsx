@@ -41,7 +41,7 @@ const COMPANY = {
   state: 'Karnataka',
   /* TDS on: the chooser tests below exercise the compact control, which is
      offered only where the company tracks TDS. */
-  profile: { taxCompliances: { tds: { enabled: true, tan: 'BLRN12345F' } } },
+  profile: { taxCompliances: { gstEnabled: true, tds: { enabled: true, tan: 'BLRN12345F' } } },
 };
 
 const baseDb = (over = {}) => ({

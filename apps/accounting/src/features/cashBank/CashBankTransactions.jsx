@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, Eye, MoreVertical, Pencil, Plus, Trash2, Undo2, Upload } from 'lucide-react';
 
 import DocumentListShell from '@ui/components/list/DocumentListShell';
+import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { LIST_PERIODS, usePeriodFilter } from '@ui/components/ListControls';
 import Popover from '@ui/components/ui/Popover';
 import { EmptyState, StatusPill } from '@ui/components/ui/Primitives';
@@ -19,8 +20,8 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
  * imported rows split into "uncategorised" and "categorised", which is a
  * question about the import rather than about the account's own history.
  *
- * Account first, then period, on one line, and no search: §4. A cash book is
- * read down a column of dates for one account, not hunted through.
+ * Account and period selectors narrow the book; header filters search and sort
+ * the visible transaction columns.
  */
 
 const TYPE_STYLE = {
@@ -50,14 +51,32 @@ export default function CashBankTransactions({
   const companyId = currentCompany?.id;
   const { accounts } = useMemo(() => cashBankIndex(db, companyId), [db, companyId]);
   const period = usePeriodFilter();
+  const columnFilters = useColumnFilters();
 
   const [accountId, setAccountId] = useState('');
+  const periodRef = useRef(null);
+  const [customRangeOpen, setCustomRangeOpen] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
   const newBtnRef = useRef(null);
   const [newOpen, setNewOpen] = useState(false);
   const [openActionId, setOpenActionId] = useState(null);
   /* One row's actions are open at a time, so one ref, attached to that row. It
      used to close only when its own button was pressed again. */
   const actionsRef = useDismissable(Boolean(openActionId), () => setOpenActionId(null));
+
+  const openCustomRange = () => {
+    setRangeFrom(period.period === 'custom' ? period.dateFrom : '');
+    setRangeTo(period.period === 'custom' ? period.dateTo : '');
+    setCustomRangeOpen(true);
+  };
+  const applyCustomRange = () => {
+    if (!rangeFrom || !rangeTo || rangeFrom > rangeTo) return;
+    period.setDateFrom(rangeFrom);
+    period.setDateTo(rangeTo);
+    period.setPeriod('custom');
+    setCustomRangeOpen(false);
+  };
 
   /* An account that has since been deleted reads as "All accounts" rather than
      as a dangling id — the same rule the branch field on a document follows. */
@@ -72,6 +91,15 @@ export default function CashBankTransactions({
       }),
     [db, companyId, accountInList, period.dateFrom, period.dateTo]
   );
+
+  const filteredRows = columnFilters.apply(rows, {
+    date: (row) => row.date,
+    account: (row) => row.accountName,
+    ledger: (row) => row.ledgerName,
+    type: (row) => row.type,
+    amount: (row) => row.amount,
+    status: (row) => row.status,
+  });
 
   const newItems = [
     onNewPayment ? { key: 'payment', label: 'Payment', icon: ArrowUpRight, onSelect: onNewPayment } : null,
@@ -127,18 +155,41 @@ export default function CashBankTransactions({
             {accounts.map((account) => <option key={account.id} value={String(account.id)}>{account.name}</option>)}
           </select>
           <select
+            ref={periodRef}
             className="ui-select ui-ctl-compact w-36"
             aria-label="Period"
             value={period.period}
-            onChange={(event) => period.setPeriod(event.target.value)}
+            onChange={(event) => {
+              if (event.target.value === 'custom') openCustomRange();
+              else {
+                setCustomRangeOpen(false);
+                period.setPeriod(event.target.value);
+              }
+            }}
           >
             {LIST_PERIODS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
           </select>
           {period.period === 'custom' ? (
-            <>
-              <input id="cb-from" aria-label="From date" type="date" className="ui-input ui-ctl-compact w-36" value={period.dateFrom} onChange={(event) => period.setDateFrom(event.target.value)} />
-              <input id="cb-to" aria-label="To date" type="date" className="ui-input ui-ctl-compact w-36" value={period.dateTo} onChange={(event) => period.setDateTo(event.target.value)} />
-            </>
+            <button type="button" className="ui-btn ui-btn-secondary ui-ctl-compact" onClick={openCustomRange} title={`${period.dateFrom} to ${period.dateTo}`}>
+              Edit dates
+            </button>
+          ) : null}
+          {customRangeOpen ? (
+            <Popover anchorRef={periodRef} onClose={() => setCustomRangeOpen(false)} minWidth={280} labelledBy="cash-bank-custom-range-title">
+              <div className="space-y-3 p-3">
+                <div id="cash-bank-custom-range-title" className="font-semibold">Custom range</div>
+                <label className="block text-sm">From
+                  <input aria-label="From date" type="date" className="ui-input mt-1 w-full" value={rangeFrom} onChange={(event) => setRangeFrom(event.target.value)} />
+                </label>
+                <label className="block text-sm">To
+                  <input aria-label="To date" type="date" className="ui-input mt-1 w-full" min={rangeFrom || undefined} value={rangeTo} onChange={(event) => setRangeTo(event.target.value)} />
+                </label>
+                <div className="flex justify-end gap-2">
+                  <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setCustomRangeOpen(false)}>Cancel</button>
+                  <button type="button" className="ui-btn ui-btn-primary" disabled={!rangeFrom || !rangeTo || rangeFrom > rangeTo} onClick={applyCustomRange}>Apply</button>
+                </div>
+              </div>
+            </Popover>
           ) : null}
           {newItems.length ? (
             <>
@@ -173,8 +224,8 @@ export default function CashBankTransactions({
       }
     >
       <div
-        className={`ui-table-scroll cash-bank-transactions-scroll ${rows.length ? '' : 'cash-bank-transactions-empty'}`}
-        {...(rows.length ? { 'data-fill-viewport': '' } : {})}
+        className={`ui-table-scroll cash-bank-transactions-scroll ${filteredRows.length ? '' : 'cash-bank-transactions-empty'}`}
+        data-fill-viewport=""
       >
         <table className="ui-table ui-table-sticky cash-bank-transactions-table">
           <colgroup>
@@ -188,17 +239,17 @@ export default function CashBankTransactions({
           </colgroup>
           <thead>
             <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Account</th>
-              <th scope="col">Ledger name</th>
-              <th scope="col">Type</th>
-              <th scope="col" className="text-end">Amount</th>
-              <th scope="col">Status</th>
+              <ColumnHeader align="center" label="Date" col="date" type="date" state={columnFilters} />
+              <ColumnHeader label="Account" col="account" state={columnFilters} />
+              <ColumnHeader label="Ledger name" col="ledger" state={columnFilters} />
+              <ColumnHeader label="Type" col="type" state={columnFilters} />
+              <ColumnHeader label="Amount" col="amount" type="number" state={columnFilters} className="text-end" align="right" />
+              <ColumnHeader align="center" label="Status" col="status" state={columnFilters} />
               <th scope="col" className="text-end">Action</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {filteredRows.length === 0 ? (
               <tr>
                 <td colSpan={7}>
                   <EmptyState
@@ -208,7 +259,7 @@ export default function CashBankTransactions({
                 </td>
               </tr>
             ) : (
-              rows.map((r) => {
+              filteredRows.map((r) => {
                 const style = TYPE_STYLE[r.type] || TYPE_STYLE.Receipt;
                 return (
                   <tr key={r.id}>

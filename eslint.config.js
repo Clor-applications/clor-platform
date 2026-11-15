@@ -13,6 +13,8 @@ export default defineConfig([
     'dist',
     // The end-to-end run's own build (e2e/scripts/start-web.mjs).
     'dist-e2e',
+    'dist-console',
+    'console/api/dist',
     'e2e/report',
     'e2e/test-results',
     'server/dist',
@@ -35,7 +37,7 @@ export default defineConfig([
     // .ts is deliberately absent: no TypeScript parser is installed, and
     // adding one here would only duplicate what `npm run typecheck` already
     // does against the server's strict tsconfig.
-    files: ['scripts/**/*.{js,mjs,cjs}', 'server/**/*.{js,mjs,cjs}', 'tools/**/*.{js,mjs,cjs}', '*.config.js'],
+    files: ['scripts/**/*.{js,mjs,cjs}', 'server/**/*.{js,mjs,cjs}', 'tools/**/*.{js,mjs,cjs}', '*.config.js', 'console/web/vite.config.js', 'console/*.mjs'],
     languageOptions: {
       globals: globals.node,
       ecmaVersion: 'latest',

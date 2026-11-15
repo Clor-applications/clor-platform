@@ -13,7 +13,8 @@ import CustomerPicker from '../../components/pickers/CustomerPicker';
 import AllocationTable from './AllocationTable';
 import { allocationError, allocationJournalLines, emptyAllocationRow, usableRows } from './allocationLines';
 import { postJournalToLedger } from '@ui/utils/journalSync';
-import { createPayment } from '@ui/api/payments';
+import { createPayment, updateReceipt } from '@ui/api/payments';
+import { allocationLedgerOptions } from './allocationLedgerOptions';
 import usePaymentModes, { modeLabel } from './usePaymentModes';
 import OutstandingBillsModal from './OutstandingBillsModal';
 import { getNextNumericId } from '@ui/utils/ids';
@@ -53,6 +54,10 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
   const formRef = useRef(null);
   const fieldErrors = useFieldErrors('receipt');
   const companyId = currentCompany.id;
+  const editing = Boolean(initialData?.id && initialData?.voucherType === 'receipt');
+  const ownAllocation = (invoiceId) => safeArray(initialData?.allocations)
+    .filter((allocation) => String(allocation.voucherId) === String(invoiceId))
+    .reduce((total, allocation) => total + Number(allocation.amount || 0), 0);
 
   const initial = useMemo(() => {
     const d = initialData && typeof initialData === 'object' ? initialData : null;
@@ -173,6 +178,9 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
    * certainly trying to close.
    */
   const [allocations, setAllocations] = useState(() => {
+    if (editing) return Object.fromEntries(safeArray(initialData.allocations).map((allocation) => [
+      String(allocation.voucherId), { selected: true, amount: round2(allocation.amount) },
+    ]));
     const id = initialData?.allocateInvoiceId;
     const amt = Number(initialData?.amount ?? 0);
     if (!id || !(amt > 0)) return {};
@@ -203,6 +211,9 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
    * the operator was trying to close is not even listed.
    */
   const [ledgerRows, setLedgerRows] = useState(() => {
+    if (editing && safeArray(initialData.ledgerAllocations).length) return initialData.ledgerAllocations.map((row) => ({
+      ...emptyAllocationRow(), ledgerId: String(row.ledgerId || ''), amount: String(row.amount || ''), description: row.description || '',
+    }));
     const seededCustomer = safeArray(db?.customers).find((c) => {
       if (Number(c?.companyId) !== companyId) return false;
       if (initial.customerId !== '' && Number(c.id) === Number(initial.customerId)) return true;
@@ -258,21 +269,15 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
 
     return invoices
       .filter((inv) => Number(inv.customerId) === cid)
-      .filter((inv) => canCollectAgainstInvoice(inv, creditNotes));
-  }, [partyCustomerId, invoices]);
+      .filter((inv) => canCollectAgainstInvoice(inv, creditNotes) || (editing && ownAllocation(inv.id) > 0));
+  }, [partyCustomerId, invoices, editing, initialData]);
+
+  const availableInvoiceBalance = (inv) => round2(getInvoiceBalance(inv, creditNotes) + (editing ? ownAllocation(inv.id) : 0));
 
 
 
   const allocationLedgers = useMemo(() => {
-    const cid = Number(currentCompany?.id);
-    return (db?.chartOfAccounts || [])
-      .filter((a) => Number(a?.companyId) === cid && a?.isActive !== false)
-      .filter((a) => String(a.id) !== String(ledgerAccountId))
-      // LedgerField scopes options by company. Preserve that identity here;
-      // reducing rows to only id/name made a correctly preselected customer
-      // ledger render as an empty field.
-      .map((a) => ({ id: a.id, name: a.name, code: a.code, groupName: a.groupName, companyId: a.companyId, isActive: a.isActive }))
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return allocationLedgerOptions(db?.chartOfAccounts, currentCompany?.id, ledgerAccountId);
   }, [db?.chartOfAccounts, currentCompany?.id, ledgerAccountId]);
 
   /*
@@ -290,7 +295,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
       const row = allocations[String(inv.id)];
       if (!row?.selected) continue;
       const amt = Number(row.amount) || 0;
-      if (amt > 0) t += Math.min(getInvoiceBalance(inv, creditNotes), amt);
+      if (amt > 0) t += Math.min(availableInvoiceBalance(inv), amt);
     }
     return round2(t);
   }, [allocations, outstandingInvoices, creditNotes]);
@@ -342,7 +347,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
       const want = Number(row?.amount ?? 0);
       const amt = Number.isFinite(want) ? Math.max(0, want) : 0;
       if (amt <= 0) continue;
-      const balance = getInvoiceBalance(inv, creditNotes);
+      const balance = availableInvoiceBalance(inv);
       const capped = Math.min(balance, amt);
       if (capped <= 0) continue;
 
@@ -464,7 +469,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
         date: inv.date,
         total: Number(inv.total ?? inv.grandTotal ?? 0),
         tdsExpected: Number(inv.tdsExpectedAmount ?? inv.tdsAmount ?? 0),
-        outstanding: getInvoiceBalance(inv, creditNotes),
+        outstanding: availableInvoiceBalance(inv),
       })),
     [outstandingInvoices, creditNotes]
   );
@@ -508,8 +513,9 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
     const amount = receiptAmountFromRows;
     {
       const closed = blockIfClosed(db, currentCompany.id, formData.date, 'This receipt');
-      if (closed) {
-        notify.error(closed);
+      const originalClosed = initialData?.id ? blockIfClosed(db, currentCompany.id, initialData.date, 'This receipt') : null;
+      if (closed || originalClosed) {
+        notify.error(originalClosed || closed);
         return;
       }
     }
@@ -566,11 +572,11 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
         notify.error('One of the selected invoices was not found. Please refresh and try again.');
         return;
       }
-      if (!canCollectAgainstInvoice(inv, creditNotes)) {
+      if (!canCollectAgainstInvoice(inv, creditNotes) && !(editing && ownAllocation(inv.id) > 0)) {
         notify.error(`Cannot record against invoice ${inv.number || ''} (Draft/Cancelled/No balance).`);
         return;
       }
-      const balance = getInvoiceBalance(inv, creditNotes);
+      const balance = availableInvoiceBalance(inv);
       if (Number(line.amount) > balance + 0.0001) {
         notify.error(`Allocation exceeds outstanding for invoice ${inv.number || ''}.`);
         return;
@@ -598,14 +604,14 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
     }
     const customerName = customer?.name || customer?.displayName || customer?.companyName || customer?.legalName || '';
 
-    const paymentId = getNextNumericId(db.payments);
+    const paymentId = editing ? initialData.id : getNextNumericId(db.payments);
 
     // Post to the server first: it allocates the number and writes the
     // double-entry. Only invoices that exist on the server can be allocated
     // against there; anything created before the API migration is still sent,
     // just unallocated, so the cash is never lost from the books.
     let posted = null;
-    if (String(ledgerAccountId || "").trim()) {
+    if ((!editing || initialData.backendPaymentId) && String(ledgerAccountId || "").trim()) {
       const invoiceById = new Map(safeArray(db.invoices).map((i) => [Number(i.id), i]));
       const serverAllocations = computed.lines
         .map((l) => {
@@ -616,7 +622,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
 
       setSaving(true);
       try {
-        posted = await createPayment({
+        const payload = {
           direction: 'RECEIPT',
           /* The company's own series. The server allocates one only when it is
              given none, so the two can no longer disagree. */
@@ -642,7 +648,10 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
             computed.bankCharges > 0 ? { kind: 'BANK_CHARGES', amount: round2(computed.bankCharges) } : null,
             computed.otherCharges > 0 ? { kind: 'OTHER', amount: round2(computed.otherCharges) } : null,
           ].filter(Boolean),
-        });
+        };
+        posted = editing
+          ? await updateReceipt(String(initialData.backendPaymentId), payload)
+          : await createPayment(payload);
       } catch (err) {
         setSaving(false);
         notify.error(String(err?.message || 'Unable to record the receipt.'));
@@ -654,7 +663,9 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
     // Prefer the server's series number over a browser-minted one, which two
     // tabs can duplicate.
     const receiptNo =
-      String(posted?.number || '').trim() || String(receiptNumberValue || '').trim() || `RCPT-${paymentId}`;
+      String(posted?.number || '').trim() ||
+      (editing ? String(initialData.receiptNo || initialData.number || '').trim() : '') ||
+      String(receiptNumberValue || '').trim() || `RCPT-${paymentId}`;
 
     const receiptRecord = {
       id: paymentId,
@@ -701,12 +712,13 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
       mode: receiptMode,
       // Links the local row to the posted server payment and the ledger the
       // money actually landed in.
-      backendPaymentId: posted?.id ? String(posted.id) : undefined,
+      backendPaymentId: editing ? initialData.backendPaymentId : posted?.id ? String(posted.id) : undefined,
       ledgerAccountId: String(ledgerAccountId || "").trim() || undefined,
       reference: formData.reference,
       narration: String(formData.narration || '').trim() || undefined,
       notes: formData.notes,
-      createdAt: new Date().toISOString(),
+      createdAt: editing ? initialData.createdAt : new Date().toISOString(),
+      ...(editing ? { updatedAt: new Date().toISOString() } : {}),
     };
 
     // Apply allocations to invoices
@@ -714,11 +726,12 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
       if (inv.companyId !== companyId) return inv;
 
       const line = receiptRecord.allocations.find((a) => Number(a.voucherId) === Number(inv.id));
-      if (!line) return inv;
+      const oldAllocated = editing ? ownAllocation(inv.id) : 0;
+      if (!line && !oldAllocated) return inv;
 
       const total = Number(inv.total ?? 0);
       const alreadyPaid = Number(inv.paidAmount ?? 0);
-      const nextPaid = round2(Math.min(total, alreadyPaid + Number(line.amount ?? 0)));
+      const nextPaid = round2(Math.max(0, Math.min(total, alreadyPaid - oldAllocated + Number(line?.amount ?? 0))));
 
       const rawStatus = String(inv.status || '').trim();
       const nextStatus =
@@ -745,7 +758,8 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
      * and an expectation that never arrives would otherwise sit in the books
      * as tax somebody else had paid on our behalf.
      */
-    const tdsEvents = safeArray(db.tdsTransactions);
+    const tdsEvents = safeArray(db.tdsTransactions).filter((event) => !editing ||
+      !(String(event.sourceType) === 'receipt' && String(event.sourceId) === String(initialData.id)));
     const tdsEvent =
       computed.tds > 0 && tdsNatureCode
         ? {
@@ -781,7 +795,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
      */
     let allocationJournal = {};
     const ledgerLines = usableRows(ledgerRows);
-    if (ledgerLines.length && String(ledgerAccountId || '').trim()) {
+    if (!editing && ledgerLines.length && String(ledgerAccountId || '').trim()) {
       const accounts = safeArray(db.chartOfAccounts).filter((a) => Number(a.companyId) === Number(companyId));
       const nameOf = (id) => accounts.find((a) => String(a.id) === String(id))?.name || '';
       try {
@@ -811,10 +825,12 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
       ...allocationJournal,
       tdsTransactions: tdsEvent ? [...tdsEvents, tdsEvent] : db.tdsTransactions,
       invoices: nextInvoices,
-      payments: [...safeArray(db.payments), receiptRecord],
+      payments: editing
+        ? safeArray(db.payments).map((payment) => String(payment.id) === String(initialData.id) && payment.companyId === companyId ? receiptRecord : payment)
+        : [...safeArray(db.payments), receiptRecord],
       /* The series moves past the number this receipt took, so the next one
          does not open on a number already in the book. */
-      companies: bumpCompanyNextNumber({
+      companies: editing ? db.companies : bumpCompanyNextNumber({
         db,
         companyId: currentCompany.id,
         voucherKey: 'receipt',
@@ -825,7 +841,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
 
     onSaved?.(receiptRecord);
 
-    notify.success(computed.advance > 0 ? 'Receipt recorded (with advance)!' : 'Receipt recorded!');
+    notify.success(editing ? 'Receipt updated.' : computed.advance > 0 ? 'Receipt recorded (with advance)!' : 'Receipt recorded!');
     onClose?.();
   };
 
@@ -853,7 +869,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
         subtitle={screenTitle ? 'Record money received into your business' : ''}
         onBack={onBack}
         sticky={Boolean(screenTitle)}
-        primaryLabel={saving ? 'Recording…' : 'Record Receipt'}
+        primaryLabel={saving ? 'Saving…' : editing ? 'Save Receipt' : 'Record Receipt'}
         disabled={saving}
         secondaryLabel="Cancel"
         onSecondary={onClose}
@@ -980,6 +996,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
               }}
               disabled={lockReceiptNumber}
               voucherKey="receipt"
+              seriesInHeader={!initialData?.id}
               title="Receipt numbering"
               sampleLabel="Next receipt will be"
               manualLabel="Typed on each receipt"
@@ -1020,6 +1037,7 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
           documentTotal={0}
           documentLabel="Invoices settled"
           heading="Ledger allocation"
+          showSummary={false}
           noun="receipt"
           money={(v) => formatMoney(v, currentCompany)}
           rowMeta={(i) => {
@@ -1054,6 +1072,14 @@ const RecordReceiptForm = ({ db, setDb, currentCompany, onClose, initialData = n
             };
           }}
         />
+
+        <div className="flex justify-end">
+          <div className="w-full max-w-sm rounded-lg border border-[rgb(var(--warn)/0.45)] bg-[rgb(var(--warn-soft))] px-3 py-2.5">
+            <div className="flex items-center justify-between text-sm"><span>Against documents</span><span className="ui-money">{formatMoney(computed.allocated, currentCompany)}</span></div>
+            <div className="mt-1 flex items-center justify-between text-sm"><span>On account</span><span className="ui-money">{formatMoney(computed.advance, currentCompany)}</span></div>
+            <div className="mt-2 flex items-center justify-between border-t border-[rgb(var(--warn)/0.35)] pt-2"><span className="text-base font-semibold">Total</span><span className="ui-money-lg">{formatMoney(receiptAmountFromRows, currentCompany)}</span></div>
+          </div>
+        </div>
 
         {billsOpen ? (
           <OutstandingBillsModal

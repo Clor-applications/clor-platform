@@ -6,7 +6,6 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { useListSearch } from '@ui/components/ListToolbar';
 import { notify, confirmDialog } from '@ui/components/ui/notify';
 import { formatMoney } from '@ui/utils/money';
-import { branchLabel } from '@ui/utils/branchLabel';
 import { advanceRunDate } from '@ui/hooks/useRecurringInvoices';
 import CustomerPicker from '../../components/pickers/CustomerPicker';
 import ItemPicker from '../../components/pickers/ItemPicker';
@@ -19,6 +18,9 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { DocFormActions, DocFormFootnote } from '@ui/components/DocumentForm';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
+import BranchField from '@ui/components/BranchField';
+import WarehouseField from '@ui/components/WarehouseField';
+import { branchLabel } from '@ui/utils/branchLabel';
 
 /**
  * Recurring invoice schedules — rent, AMC, subscriptions, retainers.
@@ -82,6 +84,11 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
     return new Date(Date.UTC(d.getFullYear(), d.getMonth() + 1, 1)).toISOString().slice(0, 10); // 1st of next month
   });
   const [endDate, setEndDate] = useState('');
+  const scheduleWarehouses = useMemo(() => {
+    const rows = Array.isArray(warehouses) ? warehouses : [];
+    const branchId = String(scheduleBranchId || '').trim();
+    return branchId ? rows.filter((row) => String(row?.branchId || '') === branchId) : rows;
+  }, [warehouses, scheduleBranchId]);
 
   /** Latest generated invoice for a schedule decides its lifecycle stage. */
   const stageOf = (t) => {
@@ -417,6 +424,7 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
       columns: [
         { key: 'name', label: 'Schedule name' },
         { key: 'customerName', label: 'Customer' },
+        { key: 'branch', label: 'Branch', value: (r) => branchLabel(r, branches, warehouses) },
         { key: 'frequency', label: 'Frequency' },
         { key: 'total', label: 'Amount', value: (r) => Number(r.total || 0) },
         { key: 'nextRunDate', label: 'Next invoice date' },
@@ -487,6 +495,7 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
   const filteredTemplates = recFilters.applyFilters(shownTemplates, {
     name: (r) => r.name,
     customer: (r) => r.customerName,
+    branch: (r) => branchLabel(r, branches, warehouses),
     frequency: (r) => FREQ_LABEL[r.frequency] || r.frequency,
     total: (r) => r.total,
     nextRunDate: (r) => r.nextRunDate,
@@ -836,32 +845,10 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
               </select>
             </div>
             <div>
-              <label className="ui-label" htmlFor="rec-branch">Branch</label>
-              <select
-                id="rec-branch"
-                value={scheduleBranchId}
-                onChange={(e) => setScheduleBranchId(e.target.value)}
-                className="ui-select w-full"
-              >
-                <option value="">All branches</option>
-                {(Array.isArray(branches) ? branches : []).map((b) => (
-                  <option key={String(b.id)} value={String(b.id)}>{branchLabel(b)}</option>
-                ))}
-              </select>
+              <BranchField value={scheduleBranchId} onChange={setScheduleBranchId} options={branches} />
             </div>
             <div>
-              <label className="ui-label" htmlFor="rec-warehouse">Warehouse</label>
-              <select
-                id="rec-warehouse"
-                value={scheduleWarehouseId}
-                onChange={(e) => setScheduleWarehouseId(e.target.value)}
-                className="ui-select w-full"
-              >
-                <option value="">Not set</option>
-                {(Array.isArray(warehouses) ? warehouses : []).map((w) => (
-                  <option key={String(w.id)} value={String(w.id)}>{w.name || `Warehouse ${w.id}`}</option>
-                ))}
-              </select>
+              <WarehouseField value={scheduleWarehouseId} onChange={setScheduleWarehouseId} options={scheduleWarehouses} activeWarehouseId="" isEdit />
             </div>
           </div>
 
@@ -888,7 +875,7 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
   return (
     <DocumentListShell
       entity="recurring"
-      className="sales-list-page"
+      className="sales-list-page recurring-list-page"
       title="Recurring Invoices"
       company={currentCompany}
       search={{
@@ -999,13 +986,14 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
         </div>
       }
     >
-      <div className="overflow-x-auto ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}>
-            <table className="ui-table ui-table-wide ui-table-sticky">
+      <div className="overflow-x-auto ui-table-scroll" data-fill-viewport="">
+            <table className="ui-table ui-table-wide ui-table-sticky branch-fill-table recurring-fill-table sales-auto-table">
               <thead>
                 <tr>
                   <th scope="col" className="w-10">#</th>
                   <ColumnHeader label="Schedule name" col="name" state={recFilters} />
-                  <ColumnHeader label="Customer" col="customer" state={recFilters} />
+                  <ColumnHeader label="Customer" col="customer" state={recFilters} className="branch-fill-grow" />
+                  <ColumnHeader label="Branch" col="branch" state={recFilters} />
                   <ColumnHeader label="Frequency" col="frequency" state={recFilters} />
                   <ColumnHeader label="Amount" col="total" state={recFilters} className="ui-num" align="right" />
                   <ColumnHeader label="Next invoice date" col="nextRunDate" state={recFilters} type="date" />
@@ -1016,7 +1004,7 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
               <tbody className="ui-rows">
                 {pagedTemplates.length === 0 ? (
                   <tr>
-                    <td colSpan="8">
+                    <td colSpan="9">
                       <EmptyState
                         icon={RefreshCw}
                         kind="new"
@@ -1056,6 +1044,7 @@ export default function RecurringInvoices({ db, setDb, currentCompany, onNavigat
                         </div>
                       </td>
                       <td className="ui-col-entity">{t.customerName || '—'}</td>
+                      <td className="ui-col-meta truncate" title={branchLabel(t, branches, warehouses)}>{branchLabel(t, branches, warehouses)}</td>
                       <td className="ui-col-meta">{FREQ_LABEL[t.frequency] || 'Monthly'}</td>
                       <td className="ui-col-amount">
                         <MoneyValue value={t.total} company={currentCompany} />

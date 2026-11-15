@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Layers, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 
-import { listRoles, listUsers } from '../../api/admin';
+import { listBranches, listRoles, listUsers } from '../../api/admin';
 import {
   addUserRestriction,
   assignRoleProfiles,
@@ -13,6 +13,7 @@ import {
   getRoleProfiles,
   getUserRestrictions,
   removeUserRestriction,
+  updateApprovalRule,
 } from '../../api/governance';
 import { EmptyState, Spinner, SkeletonCard } from '@ui/components/ui/Primitives';
 import SettingsScreenHeader from '@ui/chrome/SettingsScreenHeader';
@@ -32,16 +33,18 @@ const ENTITY_TYPES = [
 ];
 
 /** Role profiles, approval thresholds and per-user document restrictions. */
-export const GovernanceSettings = () => {
-  const [tab, setTab] = useState('profiles');
+export const GovernanceSettings = ({ initialTab = 'profiles' }) => {
+  const [tab, setTab] = useState(initialTab);
 
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [rules, setRules] = useState([]);
 
   const [newProfile, setNewProfile] = useState({ name: '', roleIds: [] });
-  const [newRule, setNewRule] = useState({ docType: 'INVOICE', name: '', minAmount: 50000, approverRoleId: '' });
+  const [newRule, setNewRule] = useState({ docType: 'INVOICE', name: '', minAmount: 50000, maxAmount: null, approverRoleId: '', sequence: 1, isActive: true });
+  const [editingRuleId, setEditingRuleId] = useState('');
 
   const [restrictUser, setRestrictUser] = useState('');
   const [restrictions, setRestrictions] = useState([]);
@@ -56,10 +59,11 @@ export const GovernanceSettings = () => {
   const orgId = String(platformOrgId() || '');
 
   const reload = () =>
-    Promise.all([listRoles(orgId), listUsers(orgId), getRoleProfiles(), getApprovalRules()]).then(
-      ([r, u, p, ru]) => {
+    Promise.all([listRoles(orgId), listUsers(orgId), listBranches(orgId), getRoleProfiles(), getApprovalRules()]).then(
+      ([r, u, b, p, ru]) => {
         setRoles(r?.roles || []);
         setUsers(u?.users || []);
+        setBranches(b?.branches || []);
         setProfiles(p?.profiles || []);
         setRules(ru?.rules || []);
       }
@@ -294,25 +298,32 @@ export const GovernanceSettings = () => {
                   <div className="ui-title text-sm">{r.name}</div>
                   <div className="ui-muted text-xs mt-0.5">
                     {r.docType.toLowerCase()} from {r.minAmount.toLocaleString('en-IN')}
-                    {r.maxAmount ? ` to ${r.maxAmount.toLocaleString('en-IN')}` : ' upwards'} · approved by{' '}
+                    {r.maxAmount ? ` to ${r.maxAmount.toLocaleString('en-IN')}` : ' upwards'} · level {r.sequence} · approved by{' '}
                     {r.approverRoleName}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="ui-btn ui-btn-ghost"
-                  aria-label="Delete approval rule"
-                  title="Delete approval rule"
-                  onClick={() => run('delr', async () => { await deleteApprovalRule(r.id); await reload(); }, 'Removed')}
-                >
+                <div className="flex items-center gap-2">
+                  <span className={`ui-pill ${r.isActive ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{r.isActive ? 'Active' : 'Inactive'}</span>
+                  <button type="button" className="ui-btn ui-btn-secondary" onClick={() => {
+                    setEditingRuleId(r.id);
+                    setNewRule({ docType: r.docType, name: r.name, minAmount: Number(r.minAmount), maxAmount: r.maxAmount == null ? null : Number(r.maxAmount), approverRoleId: r.approverRoleId, branchId: r.branchId, sequence: r.sequence, blocksPosting: r.blocksPosting, isActive: r.isActive });
+                  }}>Edit</button>
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-ghost"
+                    aria-label={`Delete approval rule ${r.name}`}
+                    title="Delete approval rule"
+                    onClick={() => run('delr', async () => { await deleteApprovalRule(r.id); await reload(); }, 'Removed')}
+                  >
                   <Trash2 size={16} aria-hidden="true" />
                 </button>
+                </div>
               </div>
             ))
           )}
 
           <div className="ui-card p-4 space-y-3">
-            <div className="ui-title text-sm">New rule</div>
+            <div className="ui-title text-sm">{editingRuleId ? 'Edit approval rule' : 'New approval rule'}</div>
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <label className="ui-label" htmlFor="rule-doc">Applies to</label>
@@ -323,9 +334,10 @@ export const GovernanceSettings = () => {
                   onChange={(e) => setNewRule({ ...newRule, docType: e.target.value })}
                 >
                   <option value="INVOICE">Invoices</option>
-                  <option value="BILL">Bills</option>
-                  <option value="PAYMENT">Payments</option>
-                  <option value="JOURNAL">Journals</option>
+                  <option value="BILL">Purchase bills</option>
+                  <option value="EXPENSE">Expenses</option>
+                  <option value="CREDIT_NOTE">Credit notes</option>
+                  <option value="DEBIT_NOTE">Debit notes</option>
                 </select>
               </div>
               <div>
@@ -364,6 +376,26 @@ export const GovernanceSettings = () => {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="ui-label" htmlFor="rule-max">Up to amount (optional)</label>
+                <input id="rule-max" type="number" min="0" className="ui-input" value={newRule.maxAmount ?? ''}
+                  onChange={(e) => setNewRule({ ...newRule, maxAmount: e.target.value === '' ? null : Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="rule-level">Approval level</label>
+                <input id="rule-level" type="number" min="1" className="ui-input" value={newRule.sequence ?? 1}
+                  onChange={(e) => setNewRule({ ...newRule, sequence: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="ui-label" htmlFor="rule-branch">Branch</label>
+                <select id="rule-branch" className="ui-select" value={newRule.branchId || ''}
+                  onChange={(e) => setNewRule({ ...newRule, branchId: e.target.value || null })}>
+                  <option value="">All branches</option>
+                  {branches.map((b) => <option key={b.id} value={b.id}>{b.branchName || b.name}</option>)}
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newRule.isActive !== false}
+                onChange={(e) => setNewRule({ ...newRule, isActive: e.target.checked })} /> Active</label>
             </div>
             <button
               type="button"
@@ -371,14 +403,19 @@ export const GovernanceSettings = () => {
               disabled={!newRule.name || !newRule.approverRoleId || busy === 'rule'}
               onClick={() =>
                 run('rule', async () => {
-                  await createApprovalRule(newRule);
-                  setNewRule({ docType: 'INVOICE', name: '', minAmount: 50000, approverRoleId: '' });
+                  if (editingRuleId) await updateApprovalRule(editingRuleId, newRule);
+                  else await createApprovalRule(newRule);
+                  setEditingRuleId('');
+                  setNewRule({ docType: 'INVOICE', name: '', minAmount: 50000, maxAmount: null, approverRoleId: '', sequence: 1, isActive: true });
                   await reload();
-                }, 'Rule created')
+                }, editingRuleId ? 'Rule updated' : 'Rule created')
               }
             >
-              {busy === 'rule' ? <Spinner /> : <Plus size={16} aria-hidden="true" />} Create rule
+              {busy === 'rule' ? <Spinner /> : <Plus size={16} aria-hidden="true" />} {editingRuleId ? 'Save rule' : 'Create rule'}
             </button>
+            {editingRuleId && <button type="button" className="ui-btn ui-btn-ghost ml-2" onClick={() => {
+              setEditingRuleId(''); setNewRule({ docType: 'INVOICE', name: '', minAmount: 50000, maxAmount: null, approverRoleId: '', sequence: 1, isActive: true });
+            }}>Cancel</button>}
             <p className="ui-subtle text-xs">
               Someone who already holds the approving role is not asked to approve their own document.
             </p>

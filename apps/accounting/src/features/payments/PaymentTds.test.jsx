@@ -10,6 +10,9 @@ vi.mock('./usePaymentModes', () => ({
   modeLabel: (m) => `${m.code} · ${m.name}`,
 }));
 
+/* A payment is booked to the branch the user is working in (Books rule). */
+vi.mock('@platform/context', async (importOriginal) => ({ ...(await importOriginal()), selectedBranchId: () => 'b1' }));
+
 import RecordDisbursementForm from './RecordDisbursementForm';
 
 /**

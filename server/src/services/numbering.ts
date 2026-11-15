@@ -98,6 +98,30 @@ export function formatNumber(
   return `${series.prefix}${period}${String(value).padStart(series.padding, '0')}${series.suffix}`;
 }
 
+const documentNumberStore: Record<string, [string, string]> = {
+  INVOICE: ['invoice', 'number'], POS: ['invoice', 'number'], BILL: ['bill', 'number'], EXPENSE: ['expense', 'number'],
+  RECEIPT: ['payment', 'number'], PAYMENT: ['payment', 'number'], JOURNAL: ['journalEntry', 'entryNo'],
+  ESTIMATE: ['estimate', 'number'], PURCHASE_ORDER: ['purchaseOrderDoc', 'number'],
+  SALES_ORDER: ['salesOrderDoc', 'number'], CREDIT_NOTE: ['creditNote', 'number'],
+  DEBIT_NOTE: ['debitNote', 'number'], TRANSFER: ['interBranchTransfer', 'transferNo'],
+  DELIVERY_CHALLAN: ['deliveryChallan', 'number'],
+};
+
+async function numberAlreadyUsed(client: Prisma.TransactionClient | typeof prisma, orgId: string, docType: string, number: string) {
+  const store = documentNumberStore[docType];
+  if (!store) return false;
+  const [model, field] = store;
+  return Boolean(await (client as any)[model].findFirst({ where: { orgId, [field]: number }, select: { id: true } }));
+}
+
+export async function firstAvailableNumber(client: Prisma.TransactionClient | typeof prisma, orgId: string, docType: string, series: { prefix: string; suffix: string; padding: number; resetPolicy: string }, start: number, period: string) {
+  for (let value = start; value < start + 10000; value += 1) {
+    const number = formatNumber(series, value, period);
+    if (!(await numberAlreadyUsed(client, orgId, docType, number))) return { number, value };
+  }
+  throw new Error(`No unused number is available for ${docType}`);
+}
+
 /**
  * Allocates the next number for a series, atomically.
  *
@@ -110,7 +134,7 @@ export async function allocateNumber(
 ) {
   const series = opts.seriesId
     ? await tx.numberSeries.findFirst({
-        where: { id: opts.seriesId, accountId: opts.accountId, orgId: opts.orgId, isActive: true },
+        where: { id: opts.seriesId, accountId: opts.accountId, orgId: opts.orgId, docType: opts.docType, isActive: true },
       })
     : await tx.numberSeries.findFirst({
         where: {
@@ -143,7 +167,18 @@ export async function allocateNumber(
      RETURNING "nextNumber" - 1 AS value`;
   const value = Number(row.value);
 
-  return { number: formatNumber(series, value, period), seriesId: series.id, value };
+  /*
+   * The counter's number may already be on a document: typed by hand, or
+   * issued by another series with the same format. Skip forward to the first
+   * free one and move the counter past it. The UPDATE above still holds the
+   * row lock, so no other save can take a number from this series meanwhile.
+   */
+  const candidate = await firstAvailableNumber(tx, opts.orgId, opts.docType, series, value, period);
+  if (candidate.value !== value) {
+    await tx.numberSeries.update({ where: { id: series.id }, data: { nextNumber: candidate.value + 1 } });
+  }
+
+  return { number: candidate.number, seriesId: series.id, value: candidate.value };
 }
 
 /** What the next number would be, for showing on a blank form. */
@@ -151,6 +186,6 @@ export async function peekNumber(opts: SeriesInput & { date: string }) {
   const series = await ensureDefaultSeries(opts);
   const period = periodKeyFor(series.resetPolicy, opts.date);
   const startsNewPeriod = series.resetPolicy !== 'NEVER' && series.periodKey !== period;
-  const value = startsNewPeriod ? 1 : series.nextNumber;
-  return { number: formatNumber(series, value, period), seriesId: series.id, allowManual: series.allowManual };
+  const candidate = await firstAvailableNumber(prisma, opts.orgId, opts.docType, series, startsNewPeriod ? 1 : series.nextNumber, period);
+  return { number: candidate.number, seriesId: series.id, allowManual: series.allowManual };
 }

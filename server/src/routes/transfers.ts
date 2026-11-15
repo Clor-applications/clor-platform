@@ -8,6 +8,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction, TransferStatus } from '../constants/enums.js';
 import { userMayUseBranch, userMayUseWarehouse } from '../middleware/tenantContext.js';
+import { assertPeriodUnlocked } from '../services/periodLock.js';
 
 export const transfersRouter = Router();
 transfersRouter.use(requireAuth, requireTenantContext);
@@ -64,6 +65,7 @@ transfersRouter.post('/orgs/:orgId/transfers', requirePermission('INVENTORY', Pe
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
   const body = createTransferSchema.parse(req.body);
+  await assertPeriodUnlocked({ accountId, orgId, userId, module: 'inventory', date: new Date().toISOString().slice(0, 10) });
 
   const ok = await ensureUserHasBranch(accountId, orgId, userId, body.sourceBranchId);
   if (!ok) return res.status(403).json({ error: 'No access to source branch' });
@@ -127,6 +129,7 @@ transfersRouter.post('/orgs/:orgId/transfers/:transferId/send', requirePermissio
   });
   if (!transfer) return res.status(404).json({ error: 'Transfer not found' });
   if (transfer.status !== TransferStatus.DRAFT) return res.status(400).json({ error: 'Only DRAFT can be sent' });
+  await assertPeriodUnlocked({ accountId, orgId, userId, module: 'inventory', date: new Date().toISOString().slice(0, 10) });
 
   // user must have access to source
   const ok = await ensureUserHasBranch(accountId, orgId, userId, transfer.sourceBranchId);
@@ -187,6 +190,7 @@ transfersRouter.post('/orgs/:orgId/transfers/:transferId/receive', requirePermis
   });
   if (!transfer) return res.status(404).json({ error: 'Transfer not found' });
   if (transfer.status !== TransferStatus.SENT) return res.status(400).json({ error: 'Only SENT can be received' });
+  await assertPeriodUnlocked({ accountId, orgId, userId, module: 'inventory', date: new Date().toISOString().slice(0, 10) });
 
   // receiver must have access to target
   const ok = await ensureUserHasBranch(accountId, orgId, userId, transfer.targetBranchId);

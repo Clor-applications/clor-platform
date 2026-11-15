@@ -14,7 +14,7 @@ import { PosCheckoutError, assertPosSaleCancellable } from '../services/posCheck
 import { recalcDocumentSettlement } from '../services/settlement.js';
 import { MutationBlocked, assertInvoiceMutationAllowed } from '../services/invoiceMutation.js';
 import { allowsEntity, filterFieldsByLevel, levelFor, ownDocsWhere, resolveUserPermissions, accessForRequest } from '../services/access.js';
-import { evaluateApproval, isPending } from '../services/approvals.js';
+import { ApprovalError, evaluateApproval, isPending } from '../services/approvals.js';
 import { fieldsFor } from '../constants/permissionCatalog.js';
 import { dueDateFor } from './parties.js';
 import { allocateNumber, ensureDefaultSeries } from '../services/numbering.js';
@@ -23,6 +23,7 @@ import { FxError, baseCurrencyFor, isBase, rateFor, toBase } from '../services/f
 import { SettledDocument, assertInvoiceCancellable } from '../services/settledDocGuard.js';
 import { refuseUnknownLineItems } from '../services/lineItems.js';
 import { InsufficientStock, withStockCheck } from '../services/stockLedger.js';
+import { assertPeriodUnlocked } from '../services/periodLock.js';
 import { reportError } from '../utils/log.js';
 import { sentOnly } from '../utils/sentOnly.js';
 
@@ -356,6 +357,7 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   if (orgId !== req.tenant!.orgId) return res.status(403).json({ error: 'orgId mismatch' });
 
   const parsed = invoiceUpsertSchema.parse(req.body);
+  await assertPeriodUnlocked({ accountId, orgId, userId, module: 'sales', date: parsed.date });
   const branchId = String(parsed.branchId || req.tenant!.branchId || '').trim();
   if (!branchId) return res.status(400).json({ error: 'Missing branchId' });
   if (await refuseUnknownLineItems(res, accountId, orgId, parsed.items)) return;
@@ -476,17 +478,34 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const row = await prisma.invoice.findUnique({ where: { id } });
   if (!row) return res.status(500).json({ error: 'Failed to create invoice' });
 
+  // The currency and rate are fixed on the document before any approval hold,
+  // so an approver's release posts the same translated amounts.
+  const baseCurrency = await baseCurrencyFor(accountId, orgId);
+  const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
+  const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
+  const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
+  if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) {
+    await prisma.invoice.delete({ where: { id } });
+    return res.status(400).json({ error: `Invoice not saved: Enter the conversion rate from ${docCurrency} to ${baseCurrency}` });
+  }
+  await prisma.invoice.update({
+    where: { id },
+    data: { currency: docCurrency, exchangeRate: fxRate, baseTotal: toBase(Number(body.total ?? 0), fxRate) },
+  });
+
   // Approval thresholds are evaluated before anything reaches the ledger: an
   // invoice awaiting sign-off must not appear in the books.
-  const approval = await evaluateApproval({
-    accountId,
-    orgId,
-    branchId,
-    userId,
-    docType: 'INVOICE',
-    docId: id,
-    amount: Number(body.total ?? 0),
-  });
+  let approval;
+  try {
+    approval = await evaluateApproval({
+      accountId, orgId, branchId, userId, docType: 'INVOICE', docId: id,
+      amount: Number(body.total ?? 0),
+    });
+  } catch (e: any) {
+    await prisma.invoice.delete({ where: { id } });
+    if (e instanceof ApprovalError) return res.status(e.status).json({ error: e.message });
+    throw e;
+  }
 
   if (approval.required) {
     await prisma.invoice.update({ where: { id }, data: { status: 'Pending Approval' } });
@@ -508,16 +527,6 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
     // kept in one. Translate every amount at the rate in force on the document
     // date before posting — mixing currencies in one ledger would give a trial
     // balance that foots to zero and means nothing.
-    const baseCurrency = await baseCurrencyFor(accountId, orgId);
-    const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
-    const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
-    const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
-    if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) throw new FxError(`Enter the conversion rate from ${docCurrency} to ${baseCurrency}`);
-
-    await prisma.invoice.update({
-      where: { id },
-      data: { currency: docCurrency, exchangeRate: fxRate, baseTotal: toBase(Number(body.total ?? 0), fxRate) },
-    });
 
     await postEntry({
       accountId,
@@ -599,6 +608,8 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
    */
   const sent = new Set(Object.keys((req.body ?? {}) as Record<string, unknown>));
   const parsedPatch = sentOnly(invoiceUpsertSchema.partial().parse(req.body), req.body);
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'sales', date: existing.date });
+  if (parsedPatch.date && parsedPatch.date !== existing.date) await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'sales', date: parsedPatch.date });
   if (parsedPatch.items !== undefined && (await refuseUnknownLineItems(res, accountId, orgId, parsedPatch.items))) return;
   if (parsedPatch.warehouseId !== undefined && (parsedPatch.warehouseId || null) !== (existing.warehouseId || null)) {
     const warehouseRefused = await warehouseRefusal(req, parsedPatch.warehouseId);
@@ -701,6 +712,7 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
   if (!existing) return res.status(404).json({ error: 'Invoice not found' });
 
   const body = statusSchema.parse(req.body);
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'sales', date: existing.date });
   const nextStatus = String(body.status || existing.status).trim();
   const wasCancelled = String(existing.status || '').toLowerCase() === 'cancelled';
   const nowCancelled = nextStatus.toLowerCase() === 'cancelled';
@@ -804,9 +816,10 @@ invoicesRouter.delete('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVO
 
   const existing = await prisma.invoice.findFirst({
     where: { id: invoiceId, accountId, orgId, branchId: req.tenant!.branchId, ...ownDocsWhere(req) },
-    select: { id: true, number: true, total: true, status: true },
+    select: { id: true, number: true, total: true, status: true, date: true },
   });
   if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+  await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'sales', date: existing.date });
 
   /*
    * An issued invoice is cancelled, never deleted.

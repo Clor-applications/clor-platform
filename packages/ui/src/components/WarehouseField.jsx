@@ -12,7 +12,8 @@ import { useFeatures } from '../permissions/useFeatures';
  * asking again on each form is both noise and a chance to file a bill against
  * the wrong shelf. So this field locks to the header selection and simply says
  * so. With "All warehouses" picked — a supervisor looking across the company —
- * there is nothing to inherit, and the field asks.
+ * there is nothing to inherit, and the field asks, unless there is only one
+ * warehouse, which is then selected automatically.
  *
  * An existing document keeps whatever warehouse it was created in: rewriting
  * that silently because someone opened it from another warehouse would move
@@ -27,7 +28,7 @@ const WarehouseField = ({
   isEdit = false,
   label = 'Warehouse *',
   showSourceHint = true,
-  /* Not the same as `locked` above, which pins the field to the header's
+  /* Not the same as `locked` below, which pins the field to the header's
      warehouse. This is the caller saying the document itself may no longer be
      re-attributed — a posted invoice's stock attribution is part of what was
      posted. */
@@ -46,8 +47,11 @@ const WarehouseField = ({
   const featureLocked = !isEnabled('warehouses');
   const active = String(activeWarehouseId || '').trim();
   const fallback = String(value || active || options[0]?.id || '').trim();
-  const lockedValue = featureLocked ? fallback : active;
-  const locked = featureLocked || (Boolean(active) && !isEdit);
+  /* Pinned to the header's warehouse on a new document, as before; and, from the
+     Books developer's change, pinned when there is only one warehouse to pick. */
+  const pinnedToHeader = Boolean(active) && !isEdit;
+  const locked = featureLocked || pinnedToHeader || options.length <= 1;
+  const lockedValue = !featureLocked && pinnedToHeader ? active : fallback;
 
   // Keep the form's value on the header selection while it is locked.
   useEffect(() => {

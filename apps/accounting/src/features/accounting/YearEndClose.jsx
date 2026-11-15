@@ -4,7 +4,9 @@ import { PageHeader } from '@ui/components/ui/Primitives';
 import { notify, confirmDialog } from '@ui/components/ui/notify';
 import { formatMoney } from '@ui/utils/money';
 import { fyRange } from '@ui/utils/tdsTcs';
-import { setBookLockOnServer } from '@ui/utils/bookLockSync';
+import { fyNameFor, setBookLockOnServer } from '@ui/utils/bookLockSync';
+import { financialYearLockThrough } from '@ui/utils/bookClose';
+import { selectedBranchId } from '@platform/context';
 
 /**
  * Year-end close: the clean cut-over every April.
@@ -21,12 +23,13 @@ const num = (v) => {
 };
 
 export const isDateLocked = (db, companyId, date) => {
-  const lock = (db?.fyLocks || []).find((l) => l.companyId === companyId);
-  return Boolean(lock && String(date || '').slice(0, 10) <= lock.upTo);
+  const through = financialYearLockThrough(db, companyId, date);
+  return Boolean(through && String(date || '').slice(0, 10) <= through);
 };
 
 export default function YearEndClose({ db, setDb, currentCompany }) {
   const companyId = currentCompany.id;
+  const branchId = String(selectedBranchId() || '').trim();
   // The year being closed is the PREVIOUS FY once we're past April, but the
   // operator picks — default to the FY containing "one year ago today".
   const lastYearDate = useMemo(() => {
@@ -59,10 +62,11 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
   const [restartNumbering, setRestartNumbering] = useState(true);
   const net = netOverride === '' ? Math.round((totals.income - totals.expense) * 100) / 100 : Number(netOverride) || 0;
 
-  const lock = (db.fyLocks || []).find((l) => l.companyId === companyId) || null;
+  const lock = (db.fyLocks || []).find((l) => l.companyId === companyId && (l.fyName || fyNameFor(l.upTo)) === fyNameFor(fy.to)) || null;
   const money = (v) => formatMoney(Number(v || 0), currentCompany);
 
   const draftClosingJournal = () => {
+    if (!branchId) { notify.error('Select a branch before drafting a closing journal.'); return; }
     if (!net) {
       notify.error('Net result is zero — nothing to transfer.');
       return;
@@ -81,6 +85,7 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
         {
           id: nextId,
           companyId,
+          branchId,
           number: `JE-CLOSE-${nextId}`,
           date: fy.to,
           narration: `${fy.label} closing: net ${profit ? 'profit' : 'loss'} transferred to Capital Account`,
@@ -112,8 +117,8 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
       const next = {
         ...prev,
         fyLocks: [
-          ...(prev.fyLocks || []).filter((l) => l.companyId !== companyId),
-          { companyId, upTo: fy.to, lockedAt: new Date().toISOString() },
+          ...(prev.fyLocks || []).filter((l) => l.companyId !== companyId || (l.fyName || fyNameFor(l.upTo)) !== fyNameFor(fy.to)),
+          { companyId, fyName: fyNameFor(fy.to), upTo: fy.to, lockedAt: new Date().toISOString() },
         ],
       };
 
@@ -208,8 +213,8 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
     setDb((prev) => ({
       ...prev,
       fyLocks: [
-        ...(prev.fyLocks || []).filter((l) => l.companyId !== companyId),
-        { companyId, upTo, lockedAt: new Date().toISOString() },
+        ...(prev.fyLocks || []).filter((l) => l.companyId !== companyId || (l.fyName || fyNameFor(l.upTo)) !== fyNameFor(upTo)),
+        { companyId, fyName: fyNameFor(upTo), upTo, lockedAt: new Date().toISOString() },
       ],
     }));
     notify.success(`Books closed up to ${upTo}.`);
@@ -223,7 +228,7 @@ export default function YearEndClose({ db, setDb, currentCompany }) {
     // still holds shut is shut whatever this screen says.
     if (!(await setBookLockOnServer({ fyDate: lock.upTo, lockedThrough: null, reason: reopenReason.trim() })).ok) return;
     setReopenReason('');
-    setDb((prev) => ({ ...prev, fyLocks: (prev.fyLocks || []).filter((l) => l.companyId !== companyId) }));
+    setDb((prev) => ({ ...prev, fyLocks: (prev.fyLocks || []).filter((l) => l.companyId !== companyId || (l.fyName || fyNameFor(l.upTo)) !== fyNameFor(lock.upTo)) }));
     notify.success('Books unlocked.');
   };
 

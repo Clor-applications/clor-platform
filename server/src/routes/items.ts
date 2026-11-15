@@ -30,7 +30,7 @@ const itemSchema = z.object({
   code: z.string().max(40).optional().nullable(),
   name: z.string().min(1).max(200),
   description: z.string().max(500).optional().nullable(),
-  itemType: z.enum(['STOCK', 'SERVICE']).optional(),
+  itemType: z.enum(['STOCK', 'SERVICE', 'CAPITAL_ASSET']).optional(),
   unit: z.string().max(20).optional(),
   hsnSac: z.string().max(10).optional().nullable(),
   gstRate: z.number().min(0).max(100).optional(),
@@ -134,8 +134,8 @@ itemsRouter.post('/orgs/:orgId/items', CREATE, async (req, res) => {
   if (!itemCode) return res.status(409).json({ error: 'Could not allot an item code; try again' });
 
   // Batch and serial tracking only makes sense for something that moves.
-  if (body.trackBy && body.trackBy !== 'NONE' && (body.itemType || 'STOCK') === 'SERVICE') {
-    return res.status(400).json({ error: 'A service item cannot be tracked by batch or serial number' });
+  if (body.trackBy && body.trackBy !== 'NONE' && (body.itemType || 'STOCK') !== 'STOCK') {
+    return res.status(400).json({ error: 'Only goods can be tracked by batch or serial number' });
   }
 
   try {
@@ -251,6 +251,11 @@ const seriesSchema = z.object({
   branchId: z.string().optional().nullable(),
 });
 
+const seriesFormatIsTaken = async (orgId: string, docType: string, format: { prefix: string; suffix: string; padding: number; resetPolicy: string }, excludeId?: string) => {
+  const rows = await prisma.numberSeries.findMany({ where: { orgId, docType, ...(excludeId ? { id: { not: excludeId } } : {}) }, select: { prefix: true, suffix: true, padding: true, resetPolicy: true } });
+  return rows.some((row) => row.prefix === format.prefix && row.suffix === format.suffix && row.padding === format.padding && row.resetPolicy === format.resetPolicy);
+};
+
 itemsRouter.get('/orgs/:orgId/number-series', SETTINGS_VIEW, async (req, res) => {
   if (!orgOk(req, res)) return;
   const rows = await prisma.numberSeries.findMany({
@@ -264,6 +269,7 @@ itemsRouter.post('/orgs/:orgId/number-series', SETTINGS_EDIT, async (req, res) =
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const body = seriesSchema.parse(req.body);
+  if (await seriesFormatIsTaken(orgId, body.docType, { prefix: body.prefix ?? '', suffix: body.suffix ?? '', padding: body.padding ?? 5, resetPolicy: body.resetPolicy ?? 'FISCAL_YEAR' })) return res.status(409).json({ error: 'Another series for this document type already uses this format' });
 
   try {
     const created = await prisma.numberSeries.create({
@@ -302,6 +308,7 @@ itemsRouter.patch('/orgs/:orgId/number-series/:seriesId', SETTINGS_EDIT, async (
   if (!existing) return res.status(404).json({ error: 'Series not found' });
 
   const body = sentOnly(seriesSchema.partial().parse(req.body), req.body);
+  if (await seriesFormatIsTaken(orgId, body.docType ?? existing.docType, { prefix: body.prefix ?? existing.prefix, suffix: body.suffix ?? existing.suffix, padding: body.padding ?? existing.padding, resetPolicy: body.resetPolicy ?? existing.resetPolicy }, existing.id)) return res.status(409).json({ error: 'Another series for this document type already uses this format' });
   const updated = await prisma.numberSeries.update({
     where: { id: existing.id },
     data: { ...body, branchId: body.branchId ?? existing.branchId, name: body.name?.trim() ?? existing.name },

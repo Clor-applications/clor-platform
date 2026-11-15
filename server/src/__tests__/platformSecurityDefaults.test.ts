@@ -64,6 +64,21 @@ describe('a single sign-on session', () => {
   });
 });
 
+describe('a single sign-on session and account-wide settings', () => {
+  it('may use them while the account has only that company, and not once it has another (Stage 1)', async () => {
+    const c = await makeOwner();
+    const sso = await createSession({ accountId: c.accountId, userId: c.userId, ssoOrgId: c.orgId });
+    const ssoToken = signAccessToken({ userId: c.userId, accountId: c.accountId, sid: sso.session.id, so: c.orgId });
+    const members = (token: string) => request(app).get('/api/account/members').set(at({ ...c, token }));
+
+    await members(ssoToken).expect(200);
+    await platformPrisma.org.create({ data: { accountId: c.accountId, name: `Second ${rnd()}`, legalName: 'Second', createdByUserId: c.userId } });
+    expect((await members(ssoToken).expect(403)).body.code).toBe('SSO_ACCOUNT_WIDE');
+    /* A password sign-in keeps them. */
+    await members(c.token).expect(200);
+  });
+});
+
 describe('an Idempotency-Key', () => {
   it('still guards a retry sent with a refreshed access token', async () => {
     const c = await makeOwner();

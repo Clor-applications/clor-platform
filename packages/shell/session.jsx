@@ -427,6 +427,12 @@ export function SessionProvider({ children }) {
       /* The company just created, not whichever one sorts first. */
       const made = (data?.orgs || []).find((m) => String(m.org?.name || '') === String(name));
       const next = adopt({ ...data, activeOrgId: made?.orgId || data?.activeOrgId }, true);
+      /*
+       * A new company asks its owner for an authenticator first (launch audit,
+       * Stage 1): until then its routes refuse, and the shell shows the set-up.
+       * The server has already switched on the apps the account owns.
+       */
+      if (data?.twoFactorSetupRequired) return next;
 
       if (next) await loadApps(next.id, next.branchId);
       return next;

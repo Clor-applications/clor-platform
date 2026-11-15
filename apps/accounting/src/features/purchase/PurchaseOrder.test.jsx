@@ -86,6 +86,7 @@ describe('the purchase order wears the bill\'s header', () => {
   ];
   const WAREHOUSES = [
     { id: 'w-blr', companyId: 1, name: 'Bengaluru Store', branchId: 'b-blr' },
+    { id: 'w-blr-2', companyId: 1, name: 'Bengaluru Yard', branchId: 'b-blr' },
     { id: 'w-hyd', companyId: 1, name: 'Hyderabad Store', branchId: 'b-hyd' },
   ];
   const renderWithBranches = () =>
@@ -114,7 +115,7 @@ describe('the purchase order wears the bill\'s header', () => {
     await user.click(screen.getByRole('option', { name: 'Bengaluru' }));
     await user.click(screen.getByRole('combobox', { name: /^Warehouse/ }));
     const panel = screen.getByRole('listbox');
-    expect(within(panel).getAllByRole('option').map((o) => o.textContent.trim())).toEqual(['Bengaluru Store']);
+    expect(within(panel).getAllByRole('option').map((o) => o.textContent.trim())).toEqual(['Bengaluru Store', 'Bengaluru Yard']);
   });
 
   it('keeps the series control on the number field', () => {

@@ -18,6 +18,9 @@ import {
 import { recordAudit } from '../services/auditTrail.js';
 import { recordBankDateChange } from '../services/bankDateAudit.js';
 import { PAYROLL_SOURCES } from '../services/integrity/crossStore.js';
+import { getPeriodLockPolicy, normalisePeriodLockPolicy, PERIOD_LOCK_MODULES } from '../services/periodLock.js';
+import { isFeatureEnabled } from '../services/features.js';
+import { platformPrisma } from '../utils/platformPrisma.js';
 
 export const ledgerRouter = Router();
 ledgerRouter.use(requireAuth, requireTenantContext);
@@ -87,16 +90,47 @@ ledgerRouter.post('/orgs/:orgId/ledger/accounts', requirePermission(MODULE, Perm
   if (sourceKey) {
     const existing = await prisma.ledgerAccount.findFirst({
       where: { orgId, sourceSystem: 'client-chart', sourceKey },
-      select: { id: true },
+      select: { id: true, code: true, accountType: true },
     });
+    /* A ledger that already carries postings keeps its type: retyping it would
+       move every past line to another statement (an asset into expenses). */
+    const postedTo = (ledgerAccountId: string) => prisma.journalLine.count({ where: { orgId, ledgerAccountId } });
     if (existing) {
+      if (body.accountType && body.accountType !== existing.accountType && await postedTo(existing.id)) {
+        return res.status(409).json({ error: `Ledger ${existing.code} has postings, so its type cannot change from ${existing.accountType} to ${body.accountType}` });
+      }
+      const requestedCode = String(body.code || '').trim();
+      const codeOwner = requestedCode && requestedCode !== existing.code
+        ? await prisma.ledgerAccount.findFirst({ where: { orgId, branchId: null, code: requestedCode }, select: { id: true } }) : null;
       const updated = await prisma.ledgerAccount.update({
         where: { id: existing.id },
-        data: { name: body.name, controlKind: body.controlKind ?? undefined, isActive: true },
+        data: { name: body.name, accountType: body.accountType, code: requestedCode && !codeOwner ? requestedCode : existing.code, controlKind: body.controlKind ?? undefined, isActive: true },
         select: { id: true, code: true, name: true, accountType: true, controlKind: true },
       });
       return res.json({ account: updated });
     }
+    const matchingCode = String(body.code || '').trim() ? await prisma.ledgerAccount.findFirst({
+      where: { orgId, branchId: null, code: String(body.code).trim() },
+      select: { id: true, sourceKey: true, accountType: true, controlKind: true },
+    }) : null;
+    /* A control ledger (receivables, tax, stock …) is the system's own and is
+       never taken over by an imported chart row, and a posted ledger keeps
+       its type. */
+    if (matchingCode && !matchingCode.sourceKey && matchingCode.controlKind) {
+      return res.status(409).json({ error: `Ledger code ${body.code} is a system ledger; give this row another code` });
+    }
+    if (matchingCode && !matchingCode.sourceKey && body.accountType && body.accountType !== matchingCode.accountType && await postedTo(matchingCode.id)) {
+      return res.status(409).json({ error: `Ledger code ${body.code} has postings as ${matchingCode.accountType}; give this row another code` });
+    }
+    if (matchingCode && !matchingCode.sourceKey) {
+      const updated = await prisma.ledgerAccount.update({
+        where: { id: matchingCode.id },
+        data: { name: body.name, accountType: body.accountType, sourceSystem: 'client-chart', sourceKey, isActive: true },
+        select: { id: true, code: true, name: true, accountType: true, controlKind: true },
+      });
+      return res.json({ account: updated });
+    }
+    if (matchingCode) return res.status(409).json({ error: `Ledger code ${body.code} belongs to another chart ledger` });
   }
 
   // Allocate the next free code in the account-type's range when none given.
@@ -398,6 +432,44 @@ ledgerRouter.post('/orgs/:orgId/ledger/entries/:entryId/reverse', requirePermiss
 
 // ---- period lock -----------------------------------------------------------
 
+/*
+ * Period lock rules, per kind of document (sales, purchases, cash and bank
+ * and so on): a fixed date, or automatically so many days after month end,
+ * with named people who may still post. Kept as one settings row and enforced
+ * by assertPeriodUnlocked. The fiscal-year lock further down is separate and
+ * still applies to everyone.
+ */
+const moduleRuleSchema = z.object({ enabled: z.boolean(), mode: z.enum(['MANUAL', 'AUTO']), manualThrough: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal('')), autoDays: z.number().int().min(0).max(365), exemptUserIds: z.array(z.string().min(1)).default([]) });
+const periodPolicySchema = z.object({ enabled: z.boolean(), modules: z.object(Object.fromEntries(PERIOD_LOCK_MODULES.map((key) => [key, moduleRuleSchema])) as Record<typeof PERIOD_LOCK_MODULES[number], typeof moduleRuleSchema>), exemptUserIds: z.array(z.string().min(1)) });
+
+ledgerRouter.get('/orgs/:orgId/ledger/period-lock-policy', requirePermission('SETTINGS', PermissionAction.VIEW, 'Company Profile'), async (req, res) => {
+  if (!requireOrgMatch(req, res)) return;
+  res.json({ policy: await getPeriodLockPolicy(req.tenant!.accountId, req.tenant!.orgId) });
+});
+
+ledgerRouter.put('/orgs/:orgId/ledger/period-lock-policy', requirePermission('SETTINGS', PermissionAction.EDIT, 'Company Profile'), async (req, res) => {
+  if (!requireOrgMatch(req, res)) return;
+  if (!(await isFeatureEnabled(req.tenant!.accountId, req.tenant!.orgId, 'periodLock'))) return res.status(409).json({ error: 'Enable Period Lock under Features → Organisation before saving its rules.' });
+  const policy = normalisePeriodLockPolicy(periodPolicySchema.parse(req.body));
+  const { accountId, orgId } = req.tenant!;
+  const exceptionIds = [...new Set([...policy.exemptUserIds, ...PERIOD_LOCK_MODULES.flatMap((key) => policy.modules[key].exemptUserIds)])];
+  const members = await platformPrisma.userOrgMembership.findMany({ where: { accountId, orgId, userId: { in: exceptionIds } }, select: { userId: true } });
+  if (members.length !== exceptionIds.length) return res.status(400).json({ error: 'An exception user is not a member of this organization.' });
+  const row = await prisma.orgMaster.upsert({
+    where: { accountId_orgId_kind_name: { accountId, orgId, kind: 'PERIOD_LOCK', name: 'Organization' } },
+    create: { accountId, orgId, kind: 'PERIOD_LOCK', name: 'Organization', dataJson: JSON.stringify(policy), createdByUserId: req.auth!.userId },
+    update: { dataJson: JSON.stringify(policy) },
+  });
+  await recordAudit(req, {
+    entity: 'PeriodLockPolicy',
+    entityId: row.id,
+    action: 'PERIOD_LOCK_POLICY_SAVED',
+    message: `Period lock rules ${policy.enabled ? 'saved' : 'saved (switched off)'}`,
+    metadata: { policy },
+  });
+  res.json({ policy, updatedAt: row.updatedAt });
+});
+
 const lockSchema = z.object({
   lockedThrough: z.string().min(1).nullable(),
   /* Required to reopen: removing a lock, or moving it to an earlier date. */
@@ -437,6 +509,10 @@ ledgerRouter.post('/orgs/:orgId/ledger/fiscal-years/:name/lock', requirePermissi
         },
       });
     })());
+
+  if (body.lockedThrough && (body.lockedThrough < fy.startDate || body.lockedThrough > fy.endDate)) {
+    return res.status(400).json({ error: 'Lock date must be within the selected financial year.' });
+  }
 
   const previous = fy.lockedThrough ?? null;
   const next = body.lockedThrough ?? null;

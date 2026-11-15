@@ -74,16 +74,35 @@ export async function stepUpRefusal(req: Request, noAuthenticator: string, audie
 }
 
 /**
- * W-5.2's rule for changes that hand out access in bulk — making someone an
- * administrator, single sign-on, directory sync: where the person making the
- * change has an authenticator, it takes a fresh code (the client asks and
- * retries). Someone with none is not stopped, as for an administrator grant;
- * the change is in the audit either way. Null when it may go ahead.
+ * Whether sign-in and directory-sync changes need an authenticator outright.
+ * Read each time; a deployment may set ACCESS_CHANGE_NEEDS_AUTHENTICATOR=off.
+ * Off in the test suite unless a test asks, as for payroll's step-up, because
+ * its people have no authenticators.
+ */
+export function accessChangeNeedsAuthenticator(): boolean {
+  const set = String(process.env.ACCESS_CHANGE_NEEDS_AUTHENTICATOR || '').trim().toLowerCase();
+  if (set) return set !== 'off';
+  return !process.env.VITEST;
+}
+
+/**
+ * W-5.2's rule for changes that hand out access in bulk — single sign-on,
+ * directory sync and its tokens, roles given out automatically: they take a
+ * fresh authenticator code (the client asks and retries). Since the launch
+ * audit (Stage 1) somebody with no authenticator is stopped too, with
+ * TWO_FACTOR_SETUP_REQUIRED: a stolen password alone must not be able to
+ * hand a company's sign-in to someone else's identity provider. Null when it
+ * may go ahead.
  */
 export async function stepUpIfHeld(req: Request, message = 'Enter the code from your authenticator app to change this.') {
-  const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
-  if (user?.totpEnabledAt && !validFor(req)) return { status: 403, body: { error: message, code: 'STEP_UP_REQUIRED' } };
-  return null;
+  if (!accessChangeNeedsAuthenticator()) {
+    const user = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
+    if (user?.totpEnabledAt && !validFor(req)) return { status: 403, body: { error: message, code: 'STEP_UP_REQUIRED' } };
+    return null;
+  }
+  return stepUpRefusal(req, 'Set up an authenticator app first (My profile → Security). Changes to sign-in and directory sync need one.').then((r) =>
+    r?.body.code === 'STEP_UP_REQUIRED' ? { status: 403, body: { error: message, code: 'STEP_UP_REQUIRED' } } : r,
+  );
 }
 
 /** Route guard; on for every company unless it has switched it off in Workspace → Security (services/policy.ts). */

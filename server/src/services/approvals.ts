@@ -4,6 +4,8 @@ import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { resolveRoleIds } from './access.js';
 import { sendTemplate } from './mailer.js';
+import { isFeatureEnabled } from './features.js';
+import { getApprovalPolicy } from './approvalPolicy.js';
 
 /**
  * Amount-based approval thresholds.
@@ -20,8 +22,13 @@ export type ApprovalOutcome = {
   autoApproved?: boolean;
 };
 
-/** The active rule covering this amount, if any. Lowest sequence wins. */
-export async function findMatchingRule(opts: {
+/**
+ * Active levels covering this amount, in approval order.
+ *
+ * One rule per level (sequence): where a branch has its own rule at a level,
+ * it replaces the company-wide one there.
+ */
+export async function findMatchingRules(opts: {
   accountId: string;
   orgId: string;
   branchId: string;
@@ -40,23 +47,33 @@ export async function findMatchingRule(opts: {
   });
 
   const amount = Number(opts.amount || 0);
-  return (
-    rules.find((r) => {
-      const min = Number(r.minAmount ?? 0);
-      const max = r.maxAmount === null || r.maxAmount === undefined ? null : Number(r.maxAmount);
-      if (amount < min) return false;
-      if (max !== null && amount >= max) return false;
-      return true;
-    }) || null
-  );
+  const matching = rules.filter((r) => {
+    const min = Number(r.minAmount ?? 0);
+    const max = r.maxAmount === null || r.maxAmount === undefined ? null : Number(r.maxAmount);
+    if (amount < min) return false;
+    if (max !== null && amount >= max) return false;
+    return true;
+  });
+  const byLevel = new Map<number, (typeof matching)[number]>();
+  for (const rule of matching) {
+    const current = byLevel.get(rule.sequence);
+    if (!current || (rule.branchId === opts.branchId && current.branchId !== opts.branchId)) {
+      byLevel.set(rule.sequence, rule);
+    }
+  }
+  return [...byLevel.values()].sort((a, b) => a.sequence - b.sequence);
+}
+
+/** The first level covering this amount, if any. Lowest sequence wins. */
+export async function findMatchingRule(opts: Parameters<typeof findMatchingRules>[0]) {
+  return (await findMatchingRules(opts))[0] || null;
 }
 
 /**
  * Decide whether a document needs approval, and record the request if so.
  *
- * A user who already holds the approver role approves their own document
- * implicitly — requiring them to approve what they just raised is friction with
- * no control value, since they could approve it a second later anyway.
+ * A requester must never release their own document merely because they also
+ * hold the approver role. The decision endpoint enforces the same separation.
  */
 export async function evaluateApproval(opts: {
   accountId: string;
@@ -67,14 +84,22 @@ export async function evaluateApproval(opts: {
   docId: string;
   amount: number;
 }): Promise<ApprovalOutcome> {
-  const rule = await findMatchingRule(opts);
-  if (!rule) return { required: false };
-
-  const roleIds = await resolveRoleIds(opts.accountId, opts.orgId, opts.userId, opts.branchId);
-  if (roleIds.includes(rule.approverRoleId)) {
-    return { required: false, ruleId: rule.id, ruleName: rule.name, autoApproved: true };
+  if (!(await isFeatureEnabled(opts.accountId, opts.orgId, 'approvals'))) return { required: false };
+  const policy = await getApprovalPolicy(opts.accountId, opts.orgId);
+  const levels = await findMatchingRules(opts);
+  if (!levels.length) return { required: false };
+  for (const level of levels) {
+    const eligible = await eligibleApproverIds(level.approverRoleId, opts, policy.allowSelfApproval);
+    if (!eligible.length) throw new ApprovalError(`No active approver is assigned for ${level.name}. Assign an approver before submitting.`, 409);
   }
+  await createRequestForRule(levels[0], opts);
+  return { required: true, ruleId: levels[0].id, ruleName: levels[0].name };
+}
 
+async function createRequestForRule(
+  rule: { id: string; name: string; sequence: number; approverRoleId: string },
+  opts: { accountId: string; orgId: string; branchId: string; userId: string; docType: string; docId: string; amount: number }
+) {
   await prisma.approvalRequest.create({
     data: {
       accountId: opts.accountId,
@@ -90,9 +115,12 @@ export async function evaluateApproval(opts: {
     },
   });
 
-  await notifyApprovers(rule, opts);
-
-  return { required: true, ruleId: rule.id, ruleName: rule.name };
+  // Telling the approvers must not undo a request that has been recorded.
+  try {
+    await notifyApprovers(rule, opts);
+  } catch (error) {
+    console.error('Approval notification failed', error);
+  }
 }
 
 /** True when the document is waiting on someone. */
@@ -130,30 +158,108 @@ export async function decide(opts: {
   if (!request) throw new ApprovalError('Approval request not found', 404);
   if (request.status !== 'PENDING') throw new ApprovalError('This request has already been decided', 409);
 
-  const roleIds = await resolveRoleIds(opts.accountId, opts.orgId, opts.userId, opts.branchId);
+  if (request.branchId !== opts.branchId) {
+    throw new ApprovalError('Switch to the document branch to decide this request');
+  }
+  const policy = await getApprovalPolicy(opts.accountId, opts.orgId);
+  const roleIds = await resolveRoleIds(opts.accountId, opts.orgId, opts.userId, request.branchId);
   if (!roleIds.includes(request.rule.approverRoleId)) {
     throw new ApprovalError('You do not hold the role required to approve this document');
   }
-  if (request.requestedByUserId === opts.userId) {
+  if (request.requestedByUserId === opts.userId && !policy.allowSelfApproval) {
     throw new ApprovalError('You cannot approve a document you raised');
   }
+  if (opts.approve && policy.requireApprovalRemarks && !opts.comment?.trim()) {
+    throw new ApprovalError('Give a note before approving this document', 400);
+  }
+  if (!opts.approve && !opts.comment?.trim()) {
+    throw new ApprovalError('Give a reason for rejecting this document', 400);
+  }
 
-  /*
-   * A-12: claimed only while still pending. Reading "pending" and then
-   * writing were two steps, so two approvers at the same moment both passed
-   * and both posted the invoice to the journal. Exactly one claim succeeds.
-   */
-  const claimed = await prisma.approvalRequest.updateMany({
-    where: { id: request.id, status: 'PENDING' },
-    data: {
-      status: opts.approve ? 'APPROVED' : 'REJECTED',
-      decidedByUserId: opts.userId,
-      decidedAt: new Date(),
-      comment: opts.comment || null,
-    },
+  // An approval at one level hands the document to the next level, if the
+  // amount is covered by one; only the last level releases it.
+  const levels = opts.approve
+    ? await findMatchingRules({
+        accountId: opts.accountId,
+        orgId: opts.orgId,
+        branchId: request.branchId,
+        docType: request.docType,
+        amount: Number(request.amount),
+      })
+    : [];
+  const nextRule = levels.find((r) => r.sequence > request.sequence);
+
+  const decided = await prisma.$transaction(async (tx) => {
+    /*
+     * A-12: claimed only while still pending. Reading "pending" and then
+     * writing were two steps, so two approvers at the same moment both passed
+     * and both posted the invoice to the journal. Exactly one claim succeeds.
+     */
+    const claimed = await tx.approvalRequest.updateMany({
+      where: { id: request.id, status: 'PENDING' },
+      data: {
+        status: opts.approve ? 'APPROVED' : 'REJECTED',
+        decidedByUserId: opts.userId,
+        decidedAt: new Date(),
+        comment: opts.comment?.trim() || null,
+      },
+    });
+    if (claimed.count !== 1) throw new ApprovalError('This request has already been decided', 409);
+    if (nextRule) {
+      await tx.approvalRequest.create({
+        data: {
+          accountId: request.accountId,
+          orgId: request.orgId,
+          branchId: request.branchId,
+          docType: request.docType,
+          docId: request.docId,
+          ruleId: nextRule.id,
+          sequence: nextRule.sequence,
+          amount: request.amount,
+          status: 'PENDING',
+          requestedByUserId: request.requestedByUserId,
+        },
+      });
+    }
+    return tx.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include: { rule: true } });
   });
-  if (claimed.count !== 1) throw new ApprovalError('This request has already been decided', 409);
-  return prisma.approvalRequest.findUniqueOrThrow({ where: { id: request.id }, include: { rule: true } });
+
+  // The audit trail is in the platform database, so it is written after the
+  // decision rather than with it; a failure here must not undo the decision.
+  try {
+    await platformPrisma.auditLog.create({
+      data: {
+        accountId: request.accountId,
+        orgId: request.orgId,
+        branchId: request.branchId,
+        entity: 'APPROVAL_REQUEST',
+        entityId: request.id,
+        action: opts.approve ? 'APPROVED' : 'REJECTED',
+        message: opts.comment?.trim() || null,
+        metadata: JSON.stringify({ docType: request.docType, docId: request.docId, sequence: request.sequence }),
+        createdByUserId: opts.userId,
+      },
+    });
+  } catch (error) {
+    console.error('Approval decision not written to the audit trail', error);
+  }
+
+  if (nextRule) {
+    try {
+      await notifyApprovers(nextRule, {
+        accountId: request.accountId,
+        orgId: request.orgId,
+        branchId: request.branchId,
+        userId: request.requestedByUserId,
+        docType: request.docType,
+        docId: request.docId,
+        amount: Number(request.amount),
+      });
+    } catch (error) {
+      console.error('Approval notification failed', error);
+    }
+  }
+  return { ...decided, nextLevel: nextRule ? { id: nextRule.id, name: nextRule.name, sequence: nextRule.sequence } : null };
 }
 
 /** Undo a claim whose consequence (the journal posting) could not be made, so the request can be decided again. */
@@ -171,31 +277,10 @@ export async function reopen(requestId: string) {
  */
 async function notifyApprovers(
   rule: { id: string; name: string; approverRoleId: string },
-  opts: { accountId: string; orgId: string; userId: string; docType: string; docId: string; amount: number }
+  opts: { accountId: string; orgId: string; branchId?: string; userId: string; docType: string; docId: string; amount: number }
 ) {
-  const assignments = await platformPrisma.userRoleAssignment.findMany({
-    where: { accountId: opts.accountId, orgId: opts.orgId, roleId: rule.approverRoleId },
-    select: { userId: true },
-  });
-
-  const profileRoles = await platformPrisma.roleProfileRole.findMany({
-    where: { accountId: opts.accountId, orgId: opts.orgId, roleId: rule.approverRoleId },
-    select: { profileId: true },
-  });
-  const viaProfiles = profileRoles.length
-    ? await platformPrisma.userRoleProfile.findMany({
-        where: {
-          accountId: opts.accountId,
-          orgId: opts.orgId,
-          profileId: { in: profileRoles.map((p) => p.profileId) },
-        },
-        select: { userId: true },
-      })
-    : [];
-
-  const userIds = Array.from(new Set([...assignments, ...viaProfiles].map((a) => a.userId))).filter(
-    (id) => id !== opts.userId
-  );
+  const policy = await getApprovalPolicy(opts.accountId, opts.orgId);
+  const userIds = await eligibleApproverIds(rule.approverRoleId, opts, policy.allowSelfApproval);
   if (!userIds.length) return;
 
   const [approvers, requester, org] = await Promise.all([
@@ -231,6 +316,46 @@ async function notifyApprovers(
       },
     });
   }
+}
+
+/**
+ * The active users who may decide at this level: holders of the approver role,
+ * directly or through a role profile, company-wide or in the document's
+ * branch. The requester is left out unless the company allows self-approval.
+ */
+async function eligibleApproverIds(
+  approverRoleId: string,
+  opts: { accountId: string; orgId: string; branchId?: string; userId: string },
+  allowSelfApproval = false
+) {
+  const inBranch = opts.branchId ? { OR: [{ branchId: null }, { branchId: opts.branchId }] } : {};
+  const assignments = await platformPrisma.userRoleAssignment.findMany({
+    where: { accountId: opts.accountId, orgId: opts.orgId, roleId: approverRoleId, ...inBranch },
+    select: { userId: true },
+  });
+
+  const profileRoles = await platformPrisma.roleProfileRole.findMany({
+    where: { accountId: opts.accountId, orgId: opts.orgId, roleId: approverRoleId },
+    select: { profileId: true },
+  });
+  const viaProfiles = profileRoles.length
+    ? await platformPrisma.userRoleProfile.findMany({
+        where: {
+          accountId: opts.accountId,
+          orgId: opts.orgId,
+          profileId: { in: profileRoles.map((p) => p.profileId) },
+          ...inBranch,
+        },
+        select: { userId: true },
+      })
+    : [];
+
+  const candidateIds = Array.from(new Set([...assignments, ...viaProfiles].map((a) => a.userId))).filter(
+    (id) => allowSelfApproval || id !== opts.userId
+  );
+  if (!candidateIds.length) return [];
+  const users = await platformPrisma.user.findMany({ where: { id: { in: candidateIds }, isActive: true }, select: { id: true } });
+  return users.map((u) => u.id);
 }
 
 /** Best-effort human-readable reference for the notification body. */

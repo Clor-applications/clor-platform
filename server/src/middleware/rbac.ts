@@ -132,7 +132,10 @@ export async function authorize(
 
   // Effective access resolves direct role assignments AND role profiles.
   /* CLOR staff on a support grant act with the company's administrator roles, narrowed by supportGrantLimits. */
-  const access = req.tenant?.supportGrant ? await resolveGrantAccess(accountId, orgId) : await resolveAccess(accountId, orgId, userId, branchId);
+  /* A role held at the warehouse being worked in adds to the branch roles (req.tenant.warehouseId is set only for a warehouse the caller may use, in this branch). */
+  const access = req.tenant?.supportGrant
+    ? await resolveGrantAccess(accountId, orgId)
+    : await resolveAccess(accountId, orgId, userId, branchId, req.tenant?.warehouseId);
 
   /*
    * No roles is no access — for the company's creator too.

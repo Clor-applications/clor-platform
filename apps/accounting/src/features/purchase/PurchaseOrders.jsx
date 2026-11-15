@@ -12,6 +12,7 @@ import { getVendorDisplayName } from '@ui/utils/contacts';
 import { useDocumentFormKeys } from '@ui/components/ui/useDocumentFormKeys';
 import { DocFormActions, DocFormFootnote } from '@ui/components/DocumentForm';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
+import BranchField from '@ui/components/BranchField';
 import { Ban, Building2, ClipboardList, FileText, MoreVertical, Package, Pencil, Plus, Printer, Receipt, ShoppingCart, Trash2, Truck, X } from 'lucide-react';
 import WarehouseField from '@ui/components/WarehouseField';
 import VendorPicker from '../../components/pickers/VendorPicker';
@@ -305,7 +306,7 @@ export const PurchaseOrdersList = ({
       }}
     >
         <div className="overflow-x-auto ui-table-scroll purchase-order-table-scroll" data-fill-viewport>
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky purchase-auto-table">
           <thead>
             <tr>
               <ColumnHeader label="PO #" col="number" state={poFilters} />
@@ -836,19 +837,7 @@ export const PurchaseOrderForm = ({
               the vendor across the full width underneath. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div id="po-branch-field">
-              <PopupSelect
-                label="Branch"
-      title="branches"
-                value={String(branchIdInList || '')}
-                onChange={onBranchChange}
-                icon={Building2}
-                options={[
-                  { value: '', label: 'All branches' },
-                  ...branchOptions.map((b) => ({ value: String(b.id), label: branchLabel(b) })),
-                ]}
-                placeholder="Select Branch"
-                showValueSubtext={false}
-              />
+              <BranchField value={branchIdInList} onChange={onBranchChange} options={branchOptions} />
             </div>
 
             <WarehouseField
@@ -895,6 +884,7 @@ export const PurchaseOrderForm = ({
               disabled={lockPoNumber}
               required
               voucherKey="purchaseOrder"
+              seriesInHeader={!isEditPo}
       title="Order numbering"
               sampleLabel="Next order will be"
               manualLabel="Typed on each order"

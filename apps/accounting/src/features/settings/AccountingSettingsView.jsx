@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { GST_STATE_BY_CODE, getCompanyGstProfile, getGstStateFromGstin } from '@ui/utils/gst';
-import { orgId as platformOrgId, selectWarehouse } from '@platform/context';
+import { GST_STATE_BY_CODE, getCompanyGstProfile, getGstStateFromGstin, isCompanyGstEnabled } from '@ui/utils/gst';
+import { orgId as platformOrgId, selectedBranchId, selectWarehouse } from '@platform/context';
+import { apiFetch } from '@platform/http';
+import { rememberCompanyDisplaySettings } from '@ui/utils/money';
+import { CURRENCY_CATALOG } from '@ui/utils/currencyCatalog';
 import { Download, MoreVertical, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import CompanyProfileForm from './CompanyProfileForm';
 import CompanyProfileDetails from './CompanyProfileDetails';
@@ -151,7 +154,7 @@ export const DocTemplateSettings = ({ db, setDb, currentCompany }) => {
 };
 
 export const CompanyProfile = ({ db, setDb, currentCompany }) => {
-  const companyGstEnabled = Boolean(currentCompany?.profile?.taxCompliances?.gstEnabled ?? currentCompany?.gstEnabled ?? currentCompany?.gstin);
+  const companyGstEnabled = isCompanyGstEnabled(currentCompany);
   const stateOptions = [
     'Andaman & Nicobar Islands',
     'Andhra Pradesh',
@@ -340,10 +343,11 @@ export const CompanyProfile = ({ db, setDb, currentCompany }) => {
 export const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
   const profile = currentCompany?.profile && typeof currentCompany.profile === 'object' ? currentCompany.profile : {};
   const tax = profile?.taxCompliances && typeof profile.taxCompliances === 'object' ? profile.taxCompliances : {};
+  const gstEnabled = isCompanyGstEnabled(currentCompany);
   const primarySeed = {
     id: 'primary',
     primary: true,
-    status: 'Active',
+    status: gstEnabled ? 'Active' : 'Inactive',
     registrationType: String(currentCompany?.gstRegistration || '').toLowerCase() === 'unregistered' ? 'Regular' : (currentCompany?.gstRegistration || 'Regular'),
     gstin: currentCompany?.gstin || '',
     state: currentCompany?.state || '',
@@ -353,7 +357,7 @@ export const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
     filingMode: 'Not Applicable',
     eInvoiceApplicable: false,
   };
-  const savedRows = Array.isArray(tax.gstRegistrations) && tax.gstRegistrations.length ? tax.gstRegistrations : [primarySeed];
+  const savedRows = Array.isArray(tax.gstRegistrations) && tax.gstRegistrations.length ? tax.gstRegistrations : (gstEnabled ? [primarySeed] : []);
   const [rows, setRows] = useState(savedRows);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState('');
@@ -381,6 +385,10 @@ export const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
   const closeDrawer = () => { setSelectedId(''); setDraft(null); setEditing(false); };
   const addRegistration = () => {
     const row = { ...primarySeed, id: `gst-${Date.now()}`, primary: false, gstin: '', state: '', registrationType: 'Regular' };
+    setSelectedId(row.id); setDraft(row); setEditing(true);
+  };
+  const enableGst = () => {
+    const row = { ...primarySeed, id: 'primary', primary: true, status: 'Active', gstin: '', state: '', registrationType: 'Regular' };
     setSelectedId(row.id); setDraft(row); setEditing(true);
   };
   const persist = (nextRows) => {
@@ -420,6 +428,14 @@ export const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
 
   return (
     <div className="settings-branches gst-registration-settings space-y-3">
+      {!gstEnabled && !editing ? (
+        <div className="ui-card p-5">
+          <div className="ui-t-sec">GST is not enabled</div>
+          <p className="ui-muted mt-1 text-sm">Enable GST and enter the Head Office registration details. The first registration becomes the default HO GST; additional registrations can be added here later.</p>
+          <button type="button" className="ui-btn ui-btn-primary mt-4" onClick={enableGst}><Plus size={14} /> Enable GST</button>
+        </div>
+      ) : null}
+      {gstEnabled ? <>
       <div className="branch-list-toolbar flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[rgb(var(--heading-bg))] px-3 py-2">
         <div><div className="ui-t-sec">GST Registrations</div><div className="ui-caption">{visibleRows.length} {visibleRows.length === 1 ? 'registration' : 'registrations'}</div></div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
@@ -428,7 +444,6 @@ export const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
           <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" onClick={addRegistration}><Plus size={14} /> Add Other GST</button>
         </div>
       </div>
-
       <div className="branch-table-wrap ui-surface border rounded-lg overflow-hidden">
         <table className="branch-table ui-table w-full table-fixed ui-settled">
           <colgroup><col style={{ width: '24%' }} /><col style={{ width: '19%' }} /><col style={{ width: '20%' }} /><col style={{ width: '17%' }} /><col style={{ width: '14%' }} /><col style={{ width: '6%' }} /></colgroup>
@@ -441,6 +456,7 @@ export const GstRegistrationsSettings = ({ db, setDb, currentCompany }) => {
           </tr>)}</tbody>
         </table>
       </div>
+      </> : null}
 
       {selectedId ? <button type="button" className="settings-drawer-backdrop" aria-label="Close GST details" onClick={closeDrawer} /> : null}
       {selectedId && draft ? <aside className="settings-side-drawer branch-detail-card space-y-3">
@@ -488,7 +504,7 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
   const INDUSTRY_OPTIONS = ['Retail', 'Manufacturing', 'Services'];
   const COUNTRY_OPTIONS = ['India'];
   const TZ_OPTIONS = ['Asia/Kolkata'];
-  const CURRENCY_OPTIONS = ['INR'];
+  const CURRENCY_OPTIONS = CURRENCY_CATALOG.map((currency) => currency.code);
 
   const saved = (currentCompany && typeof currentCompany === 'object' ? currentCompany.profile : null) || {};
   const companySettings = (saved.companySettings && typeof saved.companySettings === 'object') ? saved.companySettings : {};
@@ -520,6 +536,7 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
     pan: companySettings.pan || '',
     gstin: companySettings.gstin || currentCompany?.gstin || '',
     numberFormat: companySettings.numberFormat || '12,34,567.89',
+    decimalPlaces: companySettings.decimalPlaces ?? 2,
     dateFormat: companySettings.dateFormat || 'DD-MM-YYYY',
     logo: companySettings.logo || currentCompany?.logo || '',
   }));
@@ -552,6 +569,7 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
       pan: nextCompanySettings.pan || '',
       gstin: nextCompanySettings.gstin || currentCompany?.gstin || '',
       numberFormat: nextCompanySettings.numberFormat || '12,34,567.89',
+      decimalPlaces: nextCompanySettings.decimalPlaces ?? 2,
       dateFormat: nextCompanySettings.dateFormat || 'DD-MM-YYYY',
       logo: nextCompanySettings.logo || currentCompany?.logo || '',
     });
@@ -613,21 +631,51 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
       pan: String(form.pan || '').trim().toUpperCase(),
       gstin: String(form.gstin || '').trim().toUpperCase(),
       numberFormat: String(form.numberFormat || '12,34,567.89').trim(),
+      decimalPlaces: Number(form.decimalPlaces ?? 2),
       dateFormat: String(form.dateFormat || 'DD-MM-YYYY').trim(),
       logo: String(form.logo || ''),
     };
 
     setSaving(true);
     try {
+      const activeOrg = String(platformOrgId() || '').trim();
+      const orgId = String(currentCompany?.profile?.backendCompanyId || activeOrg || '').trim();
+      if (localStorage.getItem('token') && !orgId) {
+        throw new Error('Company details are still loading. Please try again.');
+      }
+      if (orgId && localStorage.getItem('token')) {
+        const targetContext = await apiFetch('/auth/me', {
+          skipBranchHeader: true,
+          skipWarehouseHeader: true,
+          headers: { 'x-org-id': orgId },
+        });
+        const allowedBranches = targetContext?.allowedBranchIds || [];
+        const currentBranchId = String(selectedBranchId() || '').trim();
+        const targetBranchId = activeOrg === orgId && allowedBranches.some((id) => String(id) === currentBranchId)
+          ? currentBranchId
+          : String(allowedBranches[0] || '').trim();
+        if (!targetBranchId) throw new Error('No accessible branch was found for this company.');
+        await apiFetch(`/orgs/${encodeURIComponent(orgId)}/profile`, {
+          method: 'PATCH',
+          skipWarehouseHeader: true,
+          skipBranchHeader: true,
+          headers: { 'x-org-id': orgId, 'x-branch-id': targetBranchId },
+          body: { companyName, legalName, companySettings: payload },
+        });
+      }
+      if (!orgId || orgId === activeOrg) {
+        rememberCompanyDisplaySettings({ ...currentCompany, currency: payload.baseCurrency, profile: { ...currentCompany.profile, companySettings: payload } });
+      }
       // Save to local DB
       setDb((prev) => {
         const companies = Array.isArray(prev?.companies) ? prev.companies : [];
         const nextCompanies = companies.map((c) => {
-          if (Number(c?.id) !== Number(currentCompany?.id)) return c;
+          if (String(c?.id) !== String(currentCompany?.id)) return c;
           const prevProfile = c?.profile && typeof c.profile === 'object' ? c.profile : {};
           return {
             ...c,
             name: companyName,
+            legalName,
             // Mirror the fields every GST document reads. The profile blob is
             // the source of record for this page, but invoice/bill/note
             // creation checks company.state and company.gstin at the root —
@@ -646,7 +694,13 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
             pincode: regPincode,
             country: regCountry,
             gstin: payload.gstin,
+            pan: payload.pan,
+            cin: payload.cin,
+            phone: payload.phone,
+            email: payload.officialEmail,
+            website: payload.website,
             logo: payload.logo,
+            currency: payload.baseCurrency,
             profile: {
               ...prevProfile,
               companySettings: payload,
@@ -656,10 +710,11 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
         return { ...prev, companies: nextCompanies };
       });
 
-      // Local-only for now — see the note on the tax & compliances save above.
       notify.success('Company settings saved.');
-    } catch {
-      notify.error('Failed to save company settings.');
+      return true;
+    } catch (error) {
+      notify.error(String(error?.message || 'Failed to save company settings.'));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -2124,7 +2179,8 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
         <div className={showSidebar ? 'flex-1 p-6' : 'min-w-0 flex-1'}>
           {activeTab === 'company' ? (
             <div className="company-profile-view relative">
-              <div className="company-profile-actions flex flex-wrap items-center justify-end gap-2">
+              <div className="company-profile-actions flex flex-wrap items-center justify-between gap-2">
+                <h2 className="ui-t-sec">{currentCompany?.name || 'Company Profile'}</h2>
                 {editingCompany ? (
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={() => setEditingCompany(false)} className="ui-btn ui-btn-ghost">
@@ -2134,9 +2190,7 @@ export const SettingsView = ({ db, setDb, currentCompany, initialTab = 'company'
                       type="button"
                       disabled={saving}
                       onClick={async () => {
-                        await saveCompanySettings();
-                        // Saving returns to the record, the same as a branch.
-                        setEditingCompany(false);
+                        if (await saveCompanySettings()) setEditingCompany(false);
                       }}
                       className="ui-btn ui-btn-primary"
                     >

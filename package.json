@@ -10,6 +10,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "console:dev": "concurrently -n web,api -c cyan,magenta \"vite --config console/web/vite.config.js\" \"CONSOLE_DEV_FAKES=1 npm --prefix console/api run dev\"",
+    "console:build": "vite build --config console/web/vite.config.js",
     "setup": "npm install && npm --prefix server install && npm --prefix server run prisma:generate && npm --prefix server run prisma:deploy",
     "api": "npm --prefix server run dev",
     "api:build": "npm --prefix server run build",

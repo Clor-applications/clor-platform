@@ -1,0 +1,10 @@
+# The paths that decide what reaches production and who may sign in. A change
+# to any of them needs the owner's review on GitHub, and the Engineering
+# Console will not merge one (console/api/src/marks.ts). Takes effect once the
+# main branch rule "Require review from Code Owners" is on (docs/console/SETUP.md).
+/.github/            @suresh-3333
+/scripts/release.sh  @suresh-3333
+/scripts/migrate.sh  @suresh-3333
+/deploy/             @suresh-3333
+/cloudbuild*.yaml    @suresh-3333
+/console/api/        @suresh-3333

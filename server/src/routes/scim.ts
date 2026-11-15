@@ -379,6 +379,7 @@ scimRouter.delete(
     /* Profiles too, as the Users route does: a profile left behind is a set of roles waiting to come back on re-add. */
     await platformPrisma.userRoleProfile.deleteMany({ where: { accountId: t.accountId, orgId: t.orgId, userId: u.id } });
     await platformPrisma.userWarehouseAccess.deleteMany({ where: { accountId: t.accountId, orgId: t.orgId, userId: u.id } });
+    await platformPrisma.userWarehouseRoleAssignment.deleteMany({ where: { accountId: t.accountId, orgId: t.orgId, userId: u.id } });
     await platformPrisma.userBranchMembership.deleteMany({ where: { accountId: t.accountId, orgId: t.orgId, userId: u.id } });
     await platformPrisma.userOrgMembership.deleteMany({ where: { orgId: t.orgId, userId: u.id } });
     /* Their own account's person with nowhere left to sign in to is switched off; a person of another company keeps theirs. */

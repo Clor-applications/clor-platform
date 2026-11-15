@@ -62,6 +62,8 @@ export function validateGstinOrThrow(gstin: string, addressState: string): void 
   const g = String(gstin || '').trim().toUpperCase();
   if (!g) return; // optional GSTIN allowed for Unregistered
 
+  if (g.length !== 15) throw badRequest('GSTIN must contain exactly 15 characters');
+  if (g[13] !== 'Z') throw badRequest('The 14th character of a GSTIN must be Z. Check the GST registration certificate.');
   if (!isValidGstinFormat(g)) {
     throw badRequest('Invalid GSTIN format');
   }

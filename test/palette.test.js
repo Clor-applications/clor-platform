@@ -26,6 +26,25 @@ describe('one palette', () => {
     for (const a of APPS) expect(rnd, a.id).toContain(`--app-${a.id}:`);
   });
 
+  it('Indigo (Books) wears the red brand, with its own blue header rows and panel, and leaves the CLOR logo alone', () => {
+    const books = readFileSync('packages/ui/src/index.css', 'utf8');
+    /* Owner, 15 Nov 2026: Books leaves Direction D's indigo/lilac for the
+       in-app red palette; the shared red block paints it. Books keeps the
+       pale blue list header rows and its clor.in blue for the screens panel. */
+    expect(books).toContain(":root:where([data-palette='sky'], [data-palette='indigo']) {");
+    const start = books.indexOf("Books (data-palette='indigo') on the red brand");
+    expect(start).toBeGreaterThan(-1);
+    const block = books.slice(start, books.indexOf('@layer base', start));
+    expect(block).toMatch(/--heading-bg: 234 242 248;/);
+    expect(block).toMatch(/--nav-panel-mark: 61 79 224;/);
+    /* No second brand: the action colour comes from the red block. */
+    expect(block).not.toMatch(/--brand:|--lilac|--cotton/);
+    expect(block).not.toMatch(/--logo-(mark|dot):/);
+    expect(block).not.toMatch(/\[data-app=/);
+    /* The light values must not outrank the dark theme's own tokens. */
+    expect(block).toMatch(/^:root:where\(\[data-palette='indigo'\]\),$/m);
+  });
+
   it('identity hues are the redesign set, not the old per-app brands', () => {
     for (const hue of ['--app-accounting: 15 82 87', '--app-payroll: 74 58 107', '--app-attendance: 138 75 42', '--app-people: 107 90 22']) {
       expect(rnd, hue).toContain(hue);

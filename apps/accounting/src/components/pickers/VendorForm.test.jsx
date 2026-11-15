@@ -41,7 +41,7 @@ const db = {
     { id: 2, companyId: 1, name: 'Sundry Debtors' },
   ],
 };
-const company = { id: 1, name: 'Test Co', state: 'Karnataka' };
+const company = { id: 1, name: 'Test Co', state: 'Karnataka', gstEnabled: true };
 
 const renderVendor = () =>
   render(<VendorForm db={db} setDb={() => {}} currentCompany={company} onClose={() => {}} />);

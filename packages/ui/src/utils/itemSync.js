@@ -6,7 +6,7 @@ import { notify } from '../components/ui/notify';
 export const toServerItem = (item) => ({
   code: String(item?.code || '').trim() || undefined,
   name: String(item?.name || '').trim(),
-  itemType: String(item?.type || 'Goods') === 'Service' ? 'SERVICE' : 'STOCK',
+  itemType: String(item?.type || 'Goods').toLowerCase().replace(/[_\s-]+/g, '') === 'capitalasset' ? 'CAPITAL_ASSET' : String(item?.type || 'Goods').toLowerCase() === 'service' ? 'SERVICE' : 'STOCK',
   unit: String(item?.unit || 'Pcs'),
   hsnSac: String(item?.hsnSac || '').trim() || undefined,
   description: String(item?.description || '').trim() || undefined,
@@ -16,6 +16,8 @@ export const toServerItem = (item) => ({
   openingQty: Number(item?.openingQty) || 0,
   openingWarehouseId: String(item?.openingWarehouseId || '').trim() || undefined,
   reorderLevel: Number(item?.reorderLevel) > 0 ? Number(item.reorderLevel) : undefined,
+  trackBy: String(item?.trackingType || 'NONE') === 'NONE' ? 'NONE' : 'BATCH',
+  isActive: item?.isActive !== false,
 });
 
 

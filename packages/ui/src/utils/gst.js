@@ -49,6 +49,33 @@ export const getGstStateFromGstin = (gstin) => {
 
 export const normalizeState = (value) => String(value || '').trim().toLowerCase();
 
+/** TDS and TCS follow the company's own tax settings, off until switched on. */
+export const isCompanyTaxEnabled = (company, key) =>
+  company?.profile?.taxCompliances?.[key]?.enabled === true;
+
+/** One authoritative GST switch for every screen and calculation. */
+export const isCompanyGstEnabled = (company) => {
+  // GST is on only when someone switches it on (Books developer's rule, owner
+  // 15 Nov 2026): a GSTIN on file no longer turns it on by itself.
+  const configured = company?.profile?.taxCompliances?.gstEnabled;
+  if (typeof configured === 'boolean') return configured;
+  return company?.gstEnabled === true;
+};
+
+/** Whether the GST registration used by a state/GSTIN may charge tax. */
+export const isGstRegistrationActive = (company, { state = '', gstin = '' } = {}) => {
+  if (!isCompanyGstEnabled(company)) return false;
+  const registrations = company?.profile?.taxCompliances?.gstRegistrations;
+  if (!Array.isArray(registrations) || !registrations.length) return true;
+  const wantedGstin = String(gstin || '').trim().toUpperCase();
+  const wantedState = normalizeState(state);
+  const match = registrations.find((row) => {
+    if (wantedGstin && String(row?.gstin || '').trim().toUpperCase() === wantedGstin) return true;
+    return wantedState && normalizeState(row?.state) === wantedState;
+  }) || registrations.find((row) => row?.primary) || registrations[0];
+  return String(match?.status || 'Active').trim().toLowerCase() === 'active';
+};
+
 export const getCompanyGstProfile = (company) => {
   return {
     gstin: String(company?.gstin || '').trim(),

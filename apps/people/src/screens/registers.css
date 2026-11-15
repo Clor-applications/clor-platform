@@ -1,0 +1,94 @@
+/*
+ * The register screens' R&D look (clor-rnd PEOPLE-08 Assets, 10 Benefits, 22 Announcements, 23 Events).
+ * Tokens only; 8px on what is clicked, 12px on what holds content; a status always carries its word.
+ */
+
+.rg-section { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+.rg-h2 { margin: 0; font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: rgb(var(--fg)); }
+.rg-sub { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+.rg-none { white-space: normal; padding-top: 0.25rem; }
+.rg-link {
+  border-radius: 0.5rem; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; white-space: nowrap;
+  color: rgb(var(--act)); text-decoration: underline; text-underline-offset: 3px;
+}
+.rg-link:hover { color: rgb(var(--act-hover)); }
+.rg-link:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: 2px; }
+.rg-tag { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; color: rgb(var(--fg)); }
+.rg-who { display: inline-flex; align-items: center; gap: 0.625rem; min-width: 0; max-width: 16rem; }
+
+/* ------------------------------------------------------------ benefit plans */
+.rg-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.rg-plan {
+  display: flex; flex-direction: column; gap: 1rem; min-width: 0; padding: 1.25rem;
+  border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface));
+}
+.rg-plan-head { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.rg-plan-icon {
+  display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: 0.625rem;
+  background: rgb(var(--rg-id) / 0.12);
+}
+.rg-plan-icon > svg { width: 1.25rem; height: 1.25rem; }
+.rg-plan-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; line-height: 1.375rem; font-weight: 600; color: rgb(var(--fg)); }
+.rg-plan-line { margin: -0.5rem 0 0; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); overflow-wrap: anywhere; }
+.rg-plan-meter { display: flex; flex-direction: column; gap: 0.5rem; margin-top: auto; }
+.rg-plan-count { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+.rg-plan-count > :last-child { color: rgb(var(--fg)); }
+.rg-plan-foot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; }
+.rg-plan-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+.rg-plan-links { display: inline-flex; gap: 1rem; flex: none; }
+
+/* ------------------------------------------------------- announcement feed */
+.rg-feed-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem); gap: 2rem; align-items: start; }
+.rg-feed { display: flex; flex-direction: column; gap: 1rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.rg-post {
+  display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; padding: 1.25rem;
+  border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface));
+}
+.rg-post-head { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.rg-post-sym { display: grid; place-items: center; flex: none; width: 1.25rem; height: 1.25rem; font-size: 1rem; line-height: 1; }
+.rg-post-sym > svg { width: 1.25rem; height: 1.25rem; }
+.rg-post-title, .rg-event-title {
+  flex: 0 1 auto; min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-radius: 0.5rem; text-align: left; font-size: 0.9375rem; line-height: 1.375rem; font-weight: 600; color: rgb(var(--fg));
+}
+.rg-post-title:hover, .rg-event-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.rg-post-title:focus-visible, .rg-event-title:focus-visible { outline: 2px solid rgb(var(--ring, var(--act))); outline-offset: 2px; }
+.rg-post-body { margin: 0; font-size: 0.875rem; line-height: 1.375rem; color: rgb(var(--fg-muted)); white-space: pre-line; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.rg-post-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+
+.rg-side { display: flex; flex-direction: column; gap: 2rem; min-width: 0; }
+.rg-side-block { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+.rg-lines { margin: 0; padding: 0; list-style: none; }
+.rg-line {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3.5rem; padding: 0.5rem 0;
+  border-top: 1px solid rgb(var(--border)); font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg));
+}
+
+/* ------------------------------------------------------------- event list */
+.rg-events { margin: 0; padding: 0; list-style: none; border-bottom: 1px solid rgb(var(--border)); }
+.rg-event {
+  display: flex; align-items: center; gap: 1rem; min-height: 4.5rem; padding: 0.5rem 0;
+  border-top: 1px solid rgb(var(--border));
+}
+.rg-date {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 3.5rem; height: 3.5rem;
+  border: 1px solid rgb(var(--border-field)); border-radius: 0.75rem; background: rgb(var(--surface));
+}
+.rg-date-month { font-size: 0.75rem; line-height: 1rem; font-weight: 700; text-transform: uppercase; color: rgb(var(--act)); }
+.rg-date-day { font-size: 1.25rem; line-height: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.rg-event-text { display: flex; flex-direction: column; gap: 0.125rem; flex: 1 1 auto; min-width: 0; }
+.rg-event-title { margin-right: 0; max-width: 100%; }
+.rg-event-end { display: flex; align-items: center; gap: 0.75rem; flex: none; }
+
+@media (max-width: 1279px) {
+  .rg-plans { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rg-feed-wrap { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 639px) {
+  .rg-plans { grid-template-columns: minmax(0, 1fr); }
+  .rg-event { align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; }
+  .rg-event-text { flex-basis: calc(100% - 4.5rem); }
+  .rg-event-end { width: 100%; justify-content: space-between; padding-left: 4.5rem; }
+  .rg-event .rg-sub { white-space: normal; }
+  .rg-post { padding: 1rem; }
+}

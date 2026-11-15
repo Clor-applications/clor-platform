@@ -95,6 +95,27 @@ describe('the account filter', () => {
   });
 });
 
+describe('the custom period', () => {
+  it('opens a popup and filters transactions only after applying both dates', async () => {
+    const user = userEvent.setup();
+    view();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Period' }), { target: { value: 'custom' } });
+    const picker = screen.getByRole('dialog', { name: 'Custom range' });
+    expect(screen.getByText('ABC Traders')).toBeInTheDocument();
+
+    fireEvent.change(within(picker).getByLabelText('From date'), { target: { value: '2026-09-13' } });
+    fireEvent.change(within(picker).getByLabelText('To date'), { target: { value: '2026-09-14' } });
+    await user.click(within(picker).getByRole('button', { name: 'Apply' }));
+
+    expect(screen.queryByText('ABC Traders')).toBeNull();
+    expect(screen.getByText('ABC Industries')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Period' })).toHaveValue('custom');
+
+    await user.click(screen.getByRole('button', { name: 'Edit dates' }));
+    expect(screen.getByRole('dialog', { name: 'Custom range' })).toBeInTheDocument();
+  });
+});
+
 describe('acting on a row', () => {
   /* A cash-book row is a view of a payment, a journal or an imported line —
      acting on it means going to the document itself. */

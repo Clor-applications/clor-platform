@@ -48,6 +48,7 @@ describe('a newly created branch is usable by its creator', () => {
       .send({
         branchCode: code,
         branchName: 'Mumbai Branch',
+        branchType: 'SERVICE',
         addressLine1: '44 Nariman Point',
         city: 'Mumbai',
         state: 'Maharashtra',
@@ -57,6 +58,7 @@ describe('a newly created branch is usable by its creator', () => {
       .expect(201);
 
     const newBranchId = created.body.branch.id as string;
+    expect(created.body.branch.branchType).toBe('SERVICE');
 
     // The request that used to come back 403.
     await request(app)
@@ -73,6 +75,10 @@ describe('a newly created branch is usable by its creator', () => {
       .send({
         branchCode: code,
         branchName: 'Delhi Branch',
+        /* A service branch holds no stock (Books, 14 Nov 2026), so the branch
+           that is "for" warehouses is a trading one, opened with its first. */
+        branchType: 'TRADING',
+        warehouse: { code: `M${rnd().slice(0, 6)}`.toUpperCase(), name: 'Delhi Main', addressLine1: '9 Connaught Place', state: 'Delhi', country: 'India' },
         addressLine1: '9 Connaught Place',
         city: 'New Delhi',
         state: 'Delhi',
@@ -85,7 +91,7 @@ describe('a newly created branch is usable by its creator', () => {
     const wh = await request(app)
       .post(`/api/orgs/${owner.orgId}/warehouses`)
       .set(auth(owner, branchId))
-      .send({ branchId, name: 'Delhi Store', state: 'Delhi', country: 'India' })
+      .send({ branchId, code: `D${rnd().slice(0, 6)}`.toUpperCase(), name: 'Delhi Store', state: 'Delhi', country: 'India' })
       .expect(201);
 
     expect(wh.body.warehouse.branchId).toBe(branchId);
@@ -95,5 +101,15 @@ describe('a newly created branch is usable by its creator', () => {
       .set(auth(owner, branchId))
       .expect(200);
     expect((list.body.warehouses || []).some((w: any) => w.id === wh.body.warehouse.id)).toBe(true);
+  });
+
+  it('requires user-entered warehouse details for trading branches and saves both together', async () => {
+    const code = `T${rnd().slice(0, 4)}`.toUpperCase();
+    const payload = { branchCode: code, branchName: 'Trading Branch', branchType: 'TRADING', addressLine1: '1 Market Road', state: 'Karnataka', country: 'India', gstRegistrationType: 'UNREGISTERED' };
+    await request(app).post(`/api/orgs/${owner.orgId}/branches`).set(auth(owner)).send(payload).expect(400);
+    const warehouseCode = `H${rnd().slice(0, 6)}`.toUpperCase();
+    const created = await request(app).post(`/api/orgs/${owner.orgId}/branches`).set(auth(owner)).send({ ...payload, warehouse: { code: warehouseCode, name: 'Trading Store', addressLine1: '2 Market Road', state: 'Karnataka', country: 'India' } }).expect(201);
+    const list = await request(app).get(`/api/orgs/${owner.orgId}/warehouses`).set(auth(owner, created.body.branch.id)).expect(200);
+    expect(list.body.warehouses.some((warehouse: any) => warehouse.code === warehouseCode && warehouse.branchId === created.body.branch.id)).toBe(true);
   });
 });

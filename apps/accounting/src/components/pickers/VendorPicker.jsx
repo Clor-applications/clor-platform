@@ -5,8 +5,9 @@ import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import Modal from '@ui/components/ui/Modal';
 import Drawer from '@ui/components/ui/Drawer';
+import PartyBalanceButton from './PartyBalanceButton';
 import Popover from '@ui/components/ui/Popover';
-import { createVendor, listVendors, toServerCustomer } from '@ui/api/masters';
+import { createVendor, updateVendor, listVendors, toServerCustomer } from '@ui/api/masters';
 import { apiFetch } from '@platform/http';
 import { useServerMasters, mirrorServerRows } from '@ui/hooks/useServerMasters';
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
@@ -22,9 +23,12 @@ import { rankedSearch, soleConfidentMatch } from '@ui/utils/rankedSearch';
 import { useListboxKeys, openOnKey, focusNextAfter } from '@ui/components/pickers/useListboxKeys';
 import { useRecentPicks } from '@ui/components/pickers/useRecentPicks';
 import { useRemoteSearch } from '@ui/components/pickers/useRemoteSearch';
-import { nextVendorCode } from '@ui/utils/masterCodes';
+import { nextPartyCode, isValidPartyCode, partyCodeFormat } from '@ui/utils/masterCodes';
+import { useFeatures } from '@ui/permissions/useFeatures';
+import { selectedBranchId } from '@platform/context';
 
 export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seedData = null, onCreated, onClose, onDuplicate = null }) => {
+  const { isEnabled } = useFeatures();
   const isEdit = Boolean(initialData);
   const branchOptions = (Array.isArray(db?.branches) ? db.branches : [])
     .filter((branch) => Number(branch?.companyId ?? currentCompany.id) === Number(currentCompany.id) && branch?.isActive !== false)
@@ -576,9 +580,18 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
 
     const billingStateFinal = String(gstStateAuto || formData.billingAddress.state || '').trim();
 
+    const codeFormat = partyCodeFormat(currentCompany, 'vendor');
+    const activeCodeBranchId = String(selectedBranchId() || '');
+    const codeBranch = (db?.branches || []).find((row) => String(row.backendBranchId || row.id) === activeCodeBranchId && String(row.companyId) === String(currentCompany.id));
+    if (isEnabled('vendorCodes') && codeFormat.includeBranchCode && !codeBranch) { notify.error('The active branch is unavailable for vendor code numbering.'); return; }
+    if (isEnabled('vendorCodes') && codeFormat.mode === 'manual' && !String(formData.code || '').trim()) { notify.error('Enter a vendor code.'); return; }
+    const allottedVendorCode = isEnabled('vendorCodes') ? (String(formData.code || '').trim() || (codeFormat.mode === 'manual' ? '' : nextPartyCode(db?.vendors, currentCompany, 'vendor', codeBranch?.branchCode || codeBranch?.code || ''))) : (isEdit ? String(formData.code || '').trim() : '');
+    if (allottedVendorCode && !isValidPartyCode(allottedVendorCode)) { notify.error('Vendor code may contain letters, numbers, hyphens and underscores, with at most 10 digits.'); return; }
+    if (allottedVendorCode && (db.vendors || []).some((row) => String(row.companyId) === String(currentCompany.id) && String(row.id) !== String(initialData?.id || '') && String(row.code || '').toUpperCase() === allottedVendorCode.toUpperCase())) { notify.error('Vendor code is already in use.'); return; }
     const payloadBase = {
       companyId: currentCompany.id,
       ...formData,
+      code: allottedVendorCode,
       name: formData.displayName.trim(),
       // keep backward-compatible `phone` while using Customer-like `mobile`
       phone: String(formData.mobile || '').trim(),
@@ -635,7 +648,7 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
       const nextCoaId = coa.reduce((m, a) => Math.max(m, Number(a?.id || 0)), 0) + 1;
 
       const ledgerName = getVendorDisplayName(updatedVendor);
-      const ledgerCode = existingLedger?.code || `VEND-${updatedVendor.id}`;
+      const ledgerCode = updatedVendor.code || existingLedger?.code || `VEND-${updatedVendor.id}`;
 
       const upsertLedger = existingLedger
         ? {
@@ -678,6 +691,11 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
         accountId: existingLedger ? existingLedger.id : upsertLedger.id,
       };
 
+      if (existing.backendPartyId) {
+        try { await updateVendor(existing.backendPartyId, toServerCustomer(finalVendor)); }
+        catch (error) { notify.error(`Updated on this device only — the server refused it: ${String(error?.message || error)}`); }
+      }
+
       setDb({
         ...db,
         chartOfAccounts: nextChartOfAccounts,
@@ -714,7 +732,7 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
     const ledger = {
       id: nextCoaId,
       companyId: currentCompany.id,
-      code: `VEND-${newVendor.id}`,
+      code: newVendor.code || `VEND-${newVendor.id}`,
       name: getVendorDisplayName(newVendor),
       ledgerCategory: 'Vendor',
       groupId: effectiveGroupId,
@@ -746,7 +764,7 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
      */
     let serverPatch = {};
     try {
-      const created = await createVendor(toServerCustomer(finalVendor));
+      const created = await createVendor({ ...toServerCustomer(finalVendor), code: codeFormat.mode === 'automatic' ? undefined : (formData.code || undefined) });
       const party = created?.party;
       if (party?.id) serverPatch = { backendPartyId: String(party.id), code: party.code || finalVendor.code || '' };
     } catch (err) {
@@ -755,7 +773,7 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
 
     const storedVendor = { ...finalVendor, ...serverPatch };
 
-    setDb({ ...db, chartOfAccounts: [...coa, ledger], vendors: [...(db.vendors || []), storedVendor] });
+    setDb({ ...db, chartOfAccounts: [...coa, { ...ledger, code: storedVendor.code || ledger.code }], vendors: [...(db.vendors || []), storedVendor] });
 
     if (typeof onCreated === 'function') onCreated(storedVendor);
 
@@ -778,6 +796,8 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
     <>
       <form onSubmit={handleSubmit} className="customer-create-form flex min-h-0 flex-col">
         <PartyFormLayout
+          currentCompany={currentCompany}
+          db={db}
           cfg={VENDOR_CFG}
           formData={formData}
           setFormData={setFormData}
@@ -796,7 +816,8 @@ export const VendorForm = ({ db, setDb, currentCompany, initialData = null, seed
             setGroupCreateOpen(true);
           }}
           codesEnabled={true}
-          automaticCode={isEdit ? String(formData.code || '') : nextVendorCode(db?.vendors)}
+          automaticCode={isEdit ? String(formData.code || '') : nextPartyCode(db?.vendors, currentCompany, 'vendor', (db?.branches || []).find((row) => String(row.backendBranchId || row.id) === String(selectedBranchId() || '') && String(row.companyId) === String(currentCompany.id))?.branchCode || '')}
+          setDb={setDb}
           priceListOptions={priceListOptions}
           branchOptions={branchOptions}
           multiBranchEnabled={multiBranchEnabled}
@@ -902,10 +923,12 @@ const VendorPicker = ({
       setDb,
       collection: 'vendors',
       backendKey: 'backendPartyId',
+      syncFields: ['code'],
       serverRows: serverVendors.rows,
       companyId: currentCompany?.id,
       mapRow: (srv) => ({
         name: srv.name || '',
+        code: srv.code || '',
         gstin: srv.gstin || '',
         gstRegistration: srv.gstRegistration || 'Unregistered',
         state: srv.state || srv.billingState || '',
@@ -1027,7 +1050,7 @@ const VendorPicker = ({
       <div className="flex items-center gap-2">
         {/* The same field the customer and item fields are: typed into, with
             the suggestions hanging off it. */}
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           {LeadingIcon ? (
             <LeadingIcon
               size={16}
@@ -1082,6 +1105,7 @@ const VendorPicker = ({
             className={`ui-input w-full${LeadingIcon ? ' ps-9' : ''}${disabled ? ' opacity-60 cursor-not-allowed' : ''}`}
           />
         </div>
+        <PartyBalanceButton db={db} currentCompany={currentCompany} partyId={value} kind="vendor" />
         {showCreateButton && !disabled ? (
           <button
             type="button"

@@ -6,14 +6,15 @@ const opts = { skipWarehouseHeader: true };
 
 const q = (search) => (search ? `?search=${encodeURIComponent(search)}` : '');
 
-export const listCustomers = (search) => apiFetch(`${base()}/customers${q(search)}`, opts);
+export const listCustomers = (search, { limit = 0, skip = 0 } = {}) => apiFetch(`${base()}/customers${q(search)}${limit ? `${search ? '&' : '?'}limit=${limit}&skip=${skip}` : ''}`, opts);
 export const createCustomer = (party) =>
   apiFetch(`${base()}/customers`, { method: 'POST', body: party, ...opts });
 export const updateCustomer = (partyId, party) =>
   apiFetch(`${base()}/customers/${encodeURIComponent(partyId)}`, { method: 'PATCH', body: party, ...opts });
 
-export const listVendors = (search) => apiFetch(`${base()}/vendors${q(search)}`, opts);
+export const listVendors = (search, { limit = 0, skip = 0 } = {}) => apiFetch(`${base()}/vendors${q(search)}${limit ? `${search ? '&' : '?'}limit=${limit}&skip=${skip}` : ''}`, opts);
 export const createVendor = (party) => apiFetch(`${base()}/vendors`, { method: 'POST', body: party, ...opts });
+export const updateVendor = (partyId, party) => apiFetch(`${base()}/vendors/${encodeURIComponent(partyId)}`, { method: 'PATCH', body: party, ...opts });
 
 export const listItems = (search) => apiFetch(`${base()}/items${q(search)}`, opts);
 export const createItem = (item) => apiFetch(`${base()}/items`, { method: 'POST', body: item, ...opts });

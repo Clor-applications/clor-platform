@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 import Drawer from './ui/Drawer';
-import { formatVoucherNumberPreview } from '../utils/docSettings';
+import { notify } from './ui/notify';
+import { formatVoucherNumberPreview, getVoucherSeries, voucherSeriesFormatKey } from '../utils/docSettings';
 
 /**
  * The series a document is numbered from, changed on the document itself.
@@ -30,11 +31,17 @@ const DocNumberingPopover = ({
   /* What the sample line says — "Next invoice will be", "Next bill will be". */
   sampleLabel = 'Next number will be',
   onClose,
+  onSaved,
   onOpenFullSettings,
 }) => {
   const current = settings && typeof settings === 'object' ? settings : {};
+  const selectedSeries = getVoucherSeries(currentCompany, voucherKey).find((series) => series.id === (current.seriesId || 'default'));
+  const companyBranches = (db?.branches || []).filter((branch) => !branch?.companyId || String(branch.companyId) === String(currentCompany?.id || ''));
+  const selectedBranch = companyBranches.find((branch) => String(branch.id) === String(branchId || '')) || (!branchId && companyBranches.length === 1 ? companyBranches[0] : null);
+  const branchCode = String(selectedBranch?.branchCode || selectedBranch?.code || '').trim();
   const [draft, setDraft] = useState(() => ({
     mode: String(current.mode || 'auto').toLowerCase() === 'manual' ? 'manual' : 'auto',
+    name: selectedSeries?.name || 'Default series',
     enabled: current.enabled !== false,
     prefix: String(current.prefix ?? ''),
     suffix: String(current.suffix ?? ''),
@@ -44,7 +51,7 @@ const DocNumberingPopover = ({
     separator: String(current.separator ?? '-'),
     resetFrequency: String(current.resetFrequency || 'never'),
     includeBranchCode: Boolean(current.includeBranchCode),
-    branchCode: String(current.branchCode || 'BR'),
+    branchCode,
     allowManualOverride: current.allowManualOverride !== false,
   }));
 
@@ -54,28 +61,41 @@ const DocNumberingPopover = ({
 
   const save = () => {
     const scoped = String(branchId || '').trim();
-    setDb({
-      ...db,
-      companies: (db.companies || []).map((c) => {
+    const seriesId = String(current.seriesId || 'default');
+    if (!String(draft.name || '').trim()) { notify.error('Enter a series name.'); return; }
+    if (getVoucherSeries(currentCompany, voucherKey).some((series) => series.id !== seriesId && voucherSeriesFormatKey(series) === voucherSeriesFormatKey(draft))) {
+      notify.error('Use a different prefix, suffix or format so this series cannot duplicate another.');
+      return;
+    }
+    const patch = {
+      mode: draft.mode,
+      ...(seriesId !== 'default' ? { name: String(draft.name).trim() } : {}),
+      enabled: draft.enabled,
+      prefix: draft.prefix,
+      suffix: draft.suffix,
+      nextNumber: Math.max(1, Number(draft.nextNumber) || 1),
+      digits: Math.max(0, Number(draft.digits) || 0),
+      dateFormat: draft.dateFormat,
+      separator: draft.separator,
+      resetFrequency: draft.resetFrequency,
+      includeBranchCode: Boolean(draft.includeBranchCode),
+      branchCode,
+      allowManualOverride: Boolean(draft.allowManualOverride),
+    };
+    setDb((old) => ({
+      ...old,
+      companies: (old.companies || []).map((c) => {
         if (c.id !== currentCompany.id) return c;
         const baseDoc = c?.docSettings && typeof c.docSettings === 'object' ? c.docSettings : {};
-        const patch = {
-          mode: draft.mode,
-          enabled: draft.enabled,
-          prefix: draft.prefix,
-          suffix: draft.suffix,
-          nextNumber: Math.max(1, Number(draft.nextNumber) || 1),
-          digits: Math.max(0, Number(draft.digits) || 0),
-          dateFormat: draft.dateFormat,
-          separator: draft.separator,
-          resetFrequency: draft.resetFrequency,
-          includeBranchCode: Boolean(draft.includeBranchCode),
-          branchCode: draft.branchCode || 'BR',
-          allowManualOverride: Boolean(draft.allowManualOverride),
-        };
-        /* A branch numbers its own documents; without one this is the
-           company-wide series. Either way only this voucher's entry moves. */
-        if (scoped) {
+        if (seriesId !== 'default') {
+          const existing = Array.isArray(baseDoc.numberingSeries?.[voucherKey]) ? baseDoc.numberingSeries[voucherKey] : [];
+          return { ...c, docSettings: { ...baseDoc, numberingSeries: { ...(baseDoc.numberingSeries || {}), [voucherKey]: existing.map((series) => series.id === seriesId ? { ...series, ...patch } : series) } } };
+        }
+        /* Keep the default series visible in Master Data and in the branch
+           currently used by this document. */
+        const prevNum = baseDoc?.numbering && typeof baseDoc.numbering === 'object' ? baseDoc.numbering : {};
+        const nextDoc = { ...baseDoc, numbering: { ...prevNum, [voucherKey]: { ...(prevNum[voucherKey] || {}), ...patch } } };
+        if (scoped && baseDoc.numberingByBranch?.[scoped]?.[voucherKey]) {
           const prevByBranch =
             baseDoc?.numberingByBranch && typeof baseDoc.numberingByBranch === 'object' ? baseDoc.numberingByBranch : {};
           const prevBranch =
@@ -83,7 +103,7 @@ const DocNumberingPopover = ({
           return {
             ...c,
             docSettings: {
-              ...baseDoc,
+              ...nextDoc,
               numberingByBranch: {
                 ...prevByBranch,
                 [scoped]: { ...prevBranch, [voucherKey]: { ...(prevBranch[voucherKey] || {}), ...patch } },
@@ -91,20 +111,14 @@ const DocNumberingPopover = ({
             },
           };
         }
-        const prevNum = baseDoc?.numbering && typeof baseDoc.numbering === 'object' ? baseDoc.numbering : {};
-        return {
-          ...c,
-          docSettings: {
-            ...baseDoc,
-            numbering: { ...prevNum, [voucherKey]: { ...(prevNum[voucherKey] || {}), ...patch } },
-          },
-        };
+        return { ...c, docSettings: nextDoc };
       }),
-    });
+    }));
+    onSaved?.({ ...patch, branchCode });
     onClose?.();
   };
 
-  const sample = formatVoucherNumberPreview(draft);
+  const sample = formatVoucherNumberPreview({ ...draft, branchCode });
 
   return (
     <Drawer
@@ -121,6 +135,11 @@ const DocNumberingPopover = ({
       )}
     >
       <div className="space-y-4">
+
+        <div>
+          <label className="ui-label" htmlFor={id('name')}>Series name</label>
+          <input id={id('name')} className="ui-input" value={draft.name} disabled={(current.seriesId || 'default') === 'default'} onChange={(e) => set({ name: e.target.value })} />
+        </div>
 
         <label className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
           <span className="font-medium">Enable Automatic Numbering</span>
@@ -142,6 +161,10 @@ const DocNumberingPopover = ({
               value={draft.prefix}
               onChange={(e) => set({ prefix: e.target.value })}
             />
+          </div>
+          <div>
+            <label className="ui-label" htmlFor={id('suffix')}>Suffix</label>
+            <input id={id('suffix')} className="ui-input ui-mono" value={draft.suffix} onChange={(e) => set({ suffix: e.target.value })} />
           </div>
           <div>
             <label className="ui-label" htmlFor={id('next')}>Starting Number</label>

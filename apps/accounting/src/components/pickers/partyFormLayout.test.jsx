@@ -37,7 +37,7 @@ const db = {
   ],
   accountTypes: [],
 };
-const company = { id: 1, name: 'Test Co', state: 'Karnataka' };
+const company = { id: 1, name: 'Test Co', state: 'Karnataka', gstEnabled: true };
 
 /* The FormRow a control sits in: the nearest ancestor placed on the card's grid. */
 const rowCell = (el) => {

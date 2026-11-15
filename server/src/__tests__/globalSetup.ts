@@ -272,9 +272,11 @@ export default async function setup() {
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014100000_stock_documents');
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014110000_reconciliation_on_server');
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261014120000_stock_ledger');
+  await applyPolicies(asOwner(accounting), 'prisma/migrations/20261114100200_stock_skips_held_documents');
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261018070100_payment_requests_rls');
   /* The ledger's balance and append-only rules, and the lock history's policy. */
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261106100000_ledger_guards');
+  await applyPolicies(asOwner(accounting), 'prisma/migrations/20261114100100_party_code_numbering_rls');
   /* A-35: fail closed — last, after every policy above exists. */
   await applyPolicies(asOwner(accounting), 'prisma/migrations/20261024100000_rls_fail_closed');
   await applyPolicies(asOwner(payroll), 'prisma/payroll/migrations/20260924120000_row_level_security');
@@ -372,6 +374,7 @@ export default async function setup() {
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261024140100_outside_access_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261026090100_operator_audit_append_only');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261028090000_audit_log_actor_append_only');
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261217090100_warehouse_roles_rls');
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261031090100_product_events_append_only');
   /* Pricing: one published price book, a partial index `db push` cannot build. */
   await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261123090100_price_book_one_published');
@@ -380,6 +383,8 @@ export default async function setup() {
   /* Ops alerts: one open alert per key, a partial index `db push` cannot build.
      The rest of that migration creates the table, which db push already did. */
   await applyStatement(asOwner(platform), 'CREATE UNIQUE INDEX IF NOT EXISTS "OpsAlert_one_open_per_key" ON "OpsAlert"("key") WHERE "resolvedAt" IS NULL');
+  /* Ops portal: customer notes and tags are staff only. */
+  await applyPolicies(asOwner(platform), 'prisma/platform/migrations/20261215090100_ops_notes_rls');
 
   await grantToAppRole(database, schemas);
 

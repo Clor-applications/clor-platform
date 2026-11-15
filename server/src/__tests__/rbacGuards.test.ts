@@ -651,6 +651,14 @@ describe('the approvals inbox', () => {
       .send({ docType: 'INVOICE', name: `Inbox ${uid()}`, minAmount: 50000, approverRoleId: approverRole.body.role.id })
       .expect(201);
 
+    /* A request with nobody to decide it is refused (Books, 14 Nov 2026), so
+       the approver holds the role before anything is raised. */
+    const approver = await makeMember(['SALES::Invoices::VIEW'], 'Approver');
+    await request(app)
+      .put(`/api/orgs/${owner.orgId}/users/${approver.userId}/role`)
+      .set(auth(owner))
+      .send({ roleId: approverRole.body.role.id })
+      .expect(200);
     const raiser = await makeMember(['SALES::Invoices::VIEW', 'SALES::Invoices::CREATE'], 'Raiser');
     const big = await request(app)
       .post(`/api/orgs/${owner.orgId}/invoices`)
@@ -667,12 +675,6 @@ describe('the approvals inbox', () => {
     expect(big.body.approval?.required).toBe(true);
     const docId = big.body.invoice.id;
 
-    const approver = await makeMember(['SALES::Invoices::VIEW'], 'Approver');
-    await request(app)
-      .put(`/api/orgs/${owner.orgId}/users/${approver.userId}/role`)
-      .set(auth(owner))
-      .send({ roleId: approverRole.body.role.id })
-      .expect(200);
     const bystander = await makeMember(['SALES::Invoices::VIEW'], 'Bystander');
 
     const sees = async (c: Ctx) =>

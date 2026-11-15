@@ -57,6 +57,7 @@ const Host = ({ onSaved = () => {} }) => {
         setDb(value);
       }}
       currentCompany={COMPANY}
+      branches={[{ id: 'branch-1', companyId: COMPANY.id, name: 'Head Office' }]}
       openModal={() => {}}
       onClose={() => {}}
     />
@@ -68,8 +69,7 @@ const Host = ({ onSaved = () => {} }) => {
  * `tdsDebit` to write it the other way round, which is a reversal.
  */
 const pickAccount = async (user, index, name) => {
-  const fields = screen.getAllByRole('combobox');
-  await user.click(fields[index]);
+  await user.click(screen.getByRole('combobox', { name: `Ledger, line ${index + 1}` }));
   await user.click(await screen.findByRole('option', { name: new RegExp(name) }));
 };
 
@@ -118,6 +118,7 @@ describe('a journal that touches a TDS ledger', () => {
     await user.click(screen.getByRole('button', { name: /Create Entry/ }));
 
     await waitFor(() => expect((saved?.tdsTransactions || []).length).toBe(1));
+    expect(saved.journalEntries.at(-1).branchId).toBe('branch-1');
     expect(saved.tdsTransactions.at(-1)).toMatchObject({
       sourceType: 'journal',
       side: 'PAYABLE',

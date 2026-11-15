@@ -44,6 +44,7 @@ export const DocFormActions = ({
   children = null,
   title = '',
   subtitle = '',
+  titleAddon = null,
   onBack = null,
   backLabel = 'Back',
   sticky = false,
@@ -96,11 +97,15 @@ export const DocFormActions = ({
   return (
     <div className={shellClass} style={shellStyle}>
       {title ? (
-        <div className="min-w-0">
-          <h3 className="ui-t-doc truncate">{title}</h3>
-          {subtitle ? <div className="text-sm ui-muted truncate">{subtitle}</div> : null}
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="min-w-0">
+            <h3 className="ui-t-doc truncate">{title}</h3>
+            {subtitle ? <div className="text-sm ui-muted truncate">{subtitle}</div> : null}
+          </div>
+          {titleAddon}
+          <span data-doc-series-slot className="contents" />
         </div>
-      ) : null}
+      ) : <span data-doc-series-slot className="contents" />}
 
       <div className="flex items-center gap-2 flex-wrap justify-end">
       {children}

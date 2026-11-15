@@ -1,4 +1,5 @@
 import { ENTITY_ICON } from '@ui/components/ui/entityIdentity';
+import { isCompanyGstEnabled } from '@ui/utils/gst';
 import React from 'react';
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
@@ -9,6 +10,7 @@ import { CUSTOMER_CFG } from './partyFormConfig';
 import { AddressTab, ContactsTab, CURRENCY_OPTIONS, CUSTOMER_TABS, FormRow } from './customerFormParts';
 import Modal from '@ui/components/ui/Modal';
 import Drawer from '@ui/components/ui/Drawer';
+import PartyBalanceButton from './PartyBalanceButton';
 import Popover from '@ui/components/ui/Popover';
 import { createCustomer, listCustomers, lookupGstin, toServerCustomer, updateCustomer } from '@ui/api/masters';
 import { useServerMasters, mirrorServerRows } from '@ui/hooks/useServerMasters';
@@ -21,7 +23,9 @@ import { rankedSearch, soleConfidentMatch } from '@ui/utils/rankedSearch';
 import { useListboxKeys, openOnKey, focusNextAfter } from '@ui/components/pickers/useListboxKeys';
 import { useRecentPicks } from '@ui/components/pickers/useRecentPicks';
 import { useRemoteSearch } from '@ui/components/pickers/useRemoteSearch';
-import { isValidCustomerCode, nextCustomerCode } from '@ui/utils/masterCodes';
+import { isValidPartyCode, nextPartyCode, partyCodeFormat } from '@ui/utils/masterCodes';
+import { useFeatures } from '@ui/permissions/useFeatures';
+import { selectedBranchId } from '@platform/context';
 
 export const CustomerForm = ({
   db,
@@ -36,6 +40,7 @@ export const CustomerForm = ({
   onCreated,
   onClose,
 }) => {
+  const { isEnabled } = useFeatures();
   const isEdit = Boolean(initialData);
   const branchOptions = (Array.isArray(db?.branches) ? db.branches : [])
     .filter((branch) => Number(branch?.companyId ?? currentCompany.id) === Number(currentCompany.id) && branch?.isActive !== false)
@@ -176,7 +181,9 @@ export const CustomerForm = ({
        * customer is the rarer and more deliberate act, so it is the one that
        * takes a click.
        */
-      gstRegistration: 'Registered',
+      /* With GST off for the company the form hides the GST fields, so a new
+         party starts unregistered rather than needing a GSTIN nobody can enter. */
+      gstRegistration: isCompanyGstEnabled(currentCompany) ? 'Registered' : 'Unregistered',
       gstin: '',
       pan: '',
       tdsApplicable: undefined,
@@ -338,11 +345,10 @@ export const CustomerForm = ({
   /* Reserve the previewed code for this form session. Recomputing it on every
      render made an unrelated GSTIN fetch appear to replace the customer code
      whenever the customer list refreshed in the background. */
-  const [reservedCustomerCode, setReservedCustomerCode] = useState(() =>
-    isEdit && isValidCustomerCode(initialData?.code)
-      ? String(initialData.code).trim()
-      : nextCustomerCode((db?.customers || []).filter((customer) => String(customer.id) !== String(initialData?.id || '')))
-  );
+  const codeFormat = partyCodeFormat(currentCompany, 'customer');
+  const activeCodeBranchId = String(selectedBranchId() || '');
+  const codeBranch = (db?.branches || []).find((row) => String(row.backendBranchId || row.id) === activeCodeBranchId && String(row.companyId) === String(currentCompany.id));
+  const automaticCustomerCode = nextPartyCode(db?.customers, currentCompany, 'customer', codeBranch?.branchCode || codeBranch?.code || '');
 
   /* The lists in force today. Same rule as the vendor form, same source. */
   const priceListOptions = useMemo(
@@ -581,9 +587,11 @@ export const CustomerForm = ({
     const billingStateFinal = String(gstStateAuto || formData.billingAddress.state || '').trim();
     const shippingStateFinal = String(formData.shippingSameAsBilling ? billingStateFinal : formData.shippingAddress.state || '').trim();
 
-    const allottedCustomerCode = isEdit && isValidCustomerCode(formData.code)
-      ? String(formData.code).trim()
-      : reservedCustomerCode;
+    if (isEnabled('customerCodes') && codeFormat.includeBranchCode && !codeBranch) { notify.error('The active branch is unavailable for customer code numbering.'); return; }
+    if (isEnabled('customerCodes') && codeFormat.mode === 'manual' && !String(formData.code || '').trim()) { notify.error('Enter a customer code.'); return; }
+    const allottedCustomerCode = isEnabled('customerCodes') ? (String(formData.code || '').trim() || (codeFormat.mode === 'manual' ? '' : automaticCustomerCode)) : (isEdit ? String(formData.code || '').trim() : '');
+    if (allottedCustomerCode && !isValidPartyCode(allottedCustomerCode)) { notify.error('Customer code may contain letters, numbers, hyphens and underscores, with at most 10 digits.'); return; }
+    if (allottedCustomerCode && (db.customers || []).some((row) => String(row.companyId) === String(currentCompany.id) && String(row.id) !== String(initialData?.id || '') && String(row.code || '').toUpperCase() === allottedCustomerCode.toUpperCase())) { notify.error('Customer code is already in use.'); return; }
     const payloadBase = {
       companyId: currentCompany.id,
       ...formData,
@@ -769,7 +777,7 @@ export const CustomerForm = ({
      */
     let serverPatch = {};
     try {
-      const created = await createCustomer(toServerCustomer(finalCustomer));
+      const created = await createCustomer({ ...toServerCustomer(finalCustomer), code: codeFormat.mode === 'automatic' ? undefined : (formData.code || undefined) });
       const party = created?.party;
       if (party?.id) serverPatch = { backendPartyId: String(party.id), code: party.code || finalCustomer.code || '' };
     } catch (e) {
@@ -777,11 +785,10 @@ export const CustomerForm = ({
     }
 
     const storedCustomer = { ...finalCustomer, ...serverPatch };
-    setDb({ ...db, chartOfAccounts: [...coa, ledger], customers: [...(db.customers || []), storedCustomer] });
+    setDb({ ...db, chartOfAccounts: [...coa, { ...ledger, code: storedCustomer.code || ledger.code }], customers: [...(db.customers || []), storedCustomer] });
 
     if (typeof onCreated === 'function') onCreated(storedCustomer);
     if (saveAndNew) {
-      setReservedCustomerCode(nextCustomerCode([...(db.customers || []), storedCustomer]));
       setFormData((p) => ({
         ...p,
         displayName: '', gstin: '', pan: '', code: '', openingBalance: 0, openingBalanceBranchId: '',
@@ -815,6 +822,8 @@ export const CustomerForm = ({
           there moved as you switched between Address and Others.
         */}
         <PartyFormLayout
+          currentCompany={currentCompany}
+          db={db}
           cfg={CUSTOMER_CFG}
           formData={formData}
           setFormData={setFormData}
@@ -840,7 +849,8 @@ export const CustomerForm = ({
             setGroupCreateOpen(true);
           }}
           codesEnabled={true}
-          automaticCode={reservedCustomerCode}
+          automaticCode={isEdit ? String(formData.code || '') : automaticCustomerCode}
+          setDb={setDb}
           priceListOptions={priceListOptions}
           branchOptions={branchOptions}
           multiBranchEnabled={multiBranchEnabled}
@@ -930,6 +940,7 @@ const CustomerPicker = ({ db, setDb, currentCompany, value, onChange, label = 'C
       setDb,
       collection: 'customers',
       backendKey: 'backendPartyId',
+      syncFields: ['code'],
       serverRows: serverCustomers.rows,
       companyId: currentCompany?.id,
       mapRow: (srv) => {
@@ -1124,7 +1135,8 @@ const CustomerPicker = ({ db, setDb, currentCompany, value, onChange, label = 'C
         letters arrive, and a name that matches nothing offers to create it —
         which is the other half of the same motion.
       */}
-      <div className="relative">
+      <div className="flex items-center gap-2">
+      <div className="relative min-w-0 flex-1">
         {LeadingIcon ? (
           <LeadingIcon
             size={16}
@@ -1182,6 +1194,8 @@ const CustomerPicker = ({ db, setDb, currentCompany, value, onChange, label = 'C
           aria-controls={showCustomerPopup ? 'customer-picker-list' : undefined}
           className={`ui-input w-full${LeadingIcon ? ' ps-9' : ''}${disabled ? ' opacity-60 cursor-not-allowed' : ''}`}
         />
+      </div>
+      <PartyBalanceButton db={db} currentCompany={currentCompany} partyId={value} kind="customer" />
       </div>
       {disabled && disabledHint ? <div className="text-xs ui-muted mt-1">{disabledHint}</div> : null}
 

@@ -12,13 +12,17 @@ import {
   CalendarClockColor,
   CalendarPeopleColor,
   ChatMultipleColor,
+  CommentMultipleColor,
   CoinMultipleColor,
+  DataBarVerticalAscendingColor,
   DatabaseColor,
   DocumentEditColor,
   DocumentTextColor,
   DraftsColor,
+  FormColor,
   GaugeColor,
   GiftColor,
+  GlobeColor,
   HistoryColor,
   LinkColor,
   LockShieldColor,
@@ -51,6 +55,10 @@ import { InvoiceSettings } from './InvoiceSettings';
 import { Trials } from './Trials';
 import { Pricing } from './Pricing';
 import { Settings as TaxSettings } from './Settings';
+import { Insights } from './Insights';
+import { SavedReplies } from './SavedReplies';
+import { StatusPage } from './StatusPage';
+import { Switches } from './Switches';
 import { ExploreLinks, SampleCompany } from './Explore';
 import { CustomerPage, Customers } from './Customers';
 import { Home } from './Home';
@@ -71,6 +79,7 @@ import { OpsSearch } from './OpsSearch';
 import { Denials, FeatureSwitches, Organisations, Users } from './Lists';
 import { ROLE } from './kit';
 import { opsEnableTwoFactor, opsMe, opsMySupportGrants, opsOverview, opsStartTwoFactor } from './api';
+import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
 
 /**
  * The CLOR operator console (W-8.2; roadmap items 13 and 14), at ops.clor.in
@@ -90,6 +99,10 @@ import { opsEnableTwoFactor, opsMe, opsMySupportGrants, opsOverview, opsStartTwo
 const NI = colorSet(
   {
     overview: GaugeColor,
+    insights: DataBarVerticalAscendingColor,
+    savedReplies: CommentMultipleColor,
+    status: GlobeColor,
+    forms: FormColor,
     accounts: BuildingPeopleColor,
     orgs: PeopleCommunityColor,
     users: PeopleListColor,
@@ -146,7 +159,7 @@ export const RAIL = [
  * is #/health, Staff audit log is #/audit.
  */
 export const NAV = [
-  { rail: 'overview', items: [['home', 'Overview', NI.overview]] },
+  { rail: 'overview', items: [['home', 'Overview', NI.overview], ['insights', 'Insights', NI.insights]] },
   {
     label: 'Customers',
     rail: 'customers',
@@ -156,6 +169,7 @@ export const NAV = [
       ['users', 'Users', NI.users],
       ['subscriptions', 'Subscriptions', NI.subscriptions],
       ['tickets', 'Tickets', NI.tickets],
+      ['savedReplies', 'Saved replies', NI.savedReplies],
     ],
   },
   {
@@ -175,6 +189,7 @@ export const NAV = [
       ['denials', 'Entitlement denials', NI.denials],
       ['switches', 'Feature switches', NI.switches],
       ['alerts', 'Alerts', NI.alerts],
+      ['status', 'Status page', NI.status],
     ],
   },
   {
@@ -217,6 +232,7 @@ export const NAV = [
     items: [
       ['catalogue', 'App catalogue', NI.catalogue],
       ['sample', 'Sample company', NI.sample],
+      ['forms', 'Forms on clor.in', NI.forms],
     ],
   },
 ];
@@ -241,7 +257,7 @@ export const SCREENS = {
         openOrgs={(account) => go('orgs', { account })}
       />
     ) : (
-      <Customers key={route.params.status || 'all'} initialStatus={route.params.status || 'all'} openCustomer={(id) => go('customers', {}, id)} />
+      <Customers key={`${route.params.status || 'all'}|${route.params.tag || ''}`} initialStatus={route.params.status || 'all'} initialTag={route.params.tag || ''} openCustomer={(id) => go('customers', {}, id)} />
     ),
   demos: ({ route, go, me }) =>
     route.id ? (
@@ -285,6 +301,10 @@ export const SCREENS = {
     ),
   alerts: ({ go, me }) => <Alerts go={go} me={me} />,
   announcements: ({ me }) => <Announcements me={me} />,
+  insights: () => <Insights />,
+  savedReplies: ({ me }) => <SavedReplies me={me} />,
+  status: ({ me }) => <StatusPage me={me} />,
+  forms: ({ me }) => <Switches me={me} />,
   health: ({ route, go }) => <Health key={route.params.request || ''} go={go} request={route.params.request || ''} />,
   audit: ({ go }) => <AuditLog openCustomer={(id) => go('customers', {}, id)} />,
   access: ({ go }) => <AccessRequests openCustomer={(id) => go('customers', {}, id, 'access')} />,
@@ -398,6 +418,7 @@ function Console() {
   const [refused, setRefused] = useState(null);
   const [route, setRoute] = useState(() => parseRoute(typeof window !== 'undefined' ? window.location.hash : ''));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [grantState, setGrantState] = useState(consoleGrantState);
   const [reload, setReload] = useState(0);
   const [counts, setCounts] = useState({});
 
@@ -469,6 +490,8 @@ function Console() {
   }
 
   if (!me) return <p className="ws-card-blurb" style={{ padding: 24 }}>Loading…</p>;
+  /* Arrived from the Engineering Console's "Sign in with CLOR": confirm, then go back there with a pass. */
+  if (grantState) return <ConsoleGrant state={grantState} me={me} onCancel={() => { setGrantState(''); try { window.history.replaceState(null, '', window.location.pathname + window.location.hash); } catch { /* no history */ } }} />;
 
   const allowed = ([key, , , only]) => Boolean(SCREENS[key]) && (!only || me.role === only);
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length);

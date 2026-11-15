@@ -120,6 +120,12 @@ describe('what a person may open', () => {
     expect(keys).toContain('settingsWarehouses');
   });
 
+  it('lists code numbering only under Master Data', () => {
+    const keys = visibleSettings({ can: () => true, isEnabled: () => true }).map((i) => i.key);
+    expect(keys).not.toContain('codeNumbering');
+    expect(SETTINGS_ITEMS.map((i) => i.key)).toContain('codeNumbering');
+  });
+
   it('drops a category once nothing in it is left', () => {
     const can = (p) => !['SETTINGS::Tax Settings::VIEW', 'MASTERS::GST Rates::VIEW'].includes(p);
     const ids = visibleCategories({ can, isEnabled: () => true }).map((c) => c.id);

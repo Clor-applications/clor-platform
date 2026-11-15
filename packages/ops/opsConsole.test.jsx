@@ -90,7 +90,7 @@ describe('the operator console', () => {
     const nav = screen.getByRole('navigation', { name: 'Operator console' });
     expect([...nav.querySelectorAll('.ops-group-label')].map((n) => n.textContent)).toEqual(['Customers', 'Sales', 'Platform', 'Comms', 'Trust', 'Billing', 'Product']);
     expect([...nav.querySelectorAll('.ops-nav-label')].map((b) => b.textContent.trim())).toEqual([
-      'Overview', 'Accounts', 'Organizations', 'Users', 'Subscriptions', 'Tickets', 'Trials', 'Demo requests', 'Explore links', 'Jobs & workers', 'Entitlement denials', 'Feature switches', 'Alerts', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Staff audit log', 'Access requests', 'Approvals', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company',
+      'Overview', 'Insights', 'Accounts', 'Organizations', 'Users', 'Subscriptions', 'Tickets', 'Saved replies', 'Trials', 'Demo requests', 'Explore links', 'Jobs & workers', 'Entitlement denials', 'Feature switches', 'Alerts', 'Status page', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Staff audit log', 'Access requests', 'Approvals', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Forms on clor.in',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
     /* Counts beside Accounts and Access requests (waiting only). */

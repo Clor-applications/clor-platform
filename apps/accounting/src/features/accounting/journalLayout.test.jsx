@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 
 vi.mock('@ui/utils/journalSync', () => ({ reverseJournalOnLedger: vi.fn(async () => ({ reversed: true })) }));
 
@@ -79,14 +80,18 @@ describe('what the journal list says about the book', () => {
     expect(posted.textContent).toMatch(/43,000/);
   });
 
-  it('offers reverse, not delete, for an entry that reached the ledger', () => {
+  // Row actions live in the row's menu (the Books redesign moved them there).
+  it('offers reverse, not delete, for an entry that reached the ledger', async () => {
+    const user = userEvent.setup();
     view();
-    const posted = screen.getByText('JV/2026/001').closest('tr');
-    expect(within(posted).getByRole('button', { name: /Reverse/i })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Actions for JV/2026/001' }));
+    expect(screen.getByRole('menuitem', { name: /Reverse/i })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: /Delete/i })).toBeNull();
+    await user.keyboard('{Escape}');
 
     // One that never posted is only in this browser, so it can simply go.
-    const local = screen.getByText('JV/2026/002').closest('tr');
-    expect(within(local).getByRole('button', { name: /Delete/i })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Actions for JV/2026/002' }));
+    expect(screen.getByRole('menuitem', { name: /Delete/i })).toBeTruthy();
   });
 
   it('gives a reversed entry nothing left to press', () => {

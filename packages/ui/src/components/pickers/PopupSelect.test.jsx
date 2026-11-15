@@ -4,6 +4,26 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import PopupSelect from './PopupSelect';
+import Drawer from '../ui/Drawer';
+
+it('opens ledger groups above a creation drawer and allows selecting an expense group', async () => {
+  const user = userEvent.setup();
+  function LedgerDrawer() {
+    const [group, setGroup] = useState('');
+    return (
+      <Drawer open title="New Ledger" onClose={() => {}}>
+        <PopupSelect ariaLabel="Ledger Group" value={group} onChange={setGroup}
+          options={[{ value: 'cash', label: 'Cash-in-Hand' }, { value: 'expense', label: 'Indirect Expenses' }]} />
+      </Drawer>
+    );
+  }
+  render(<LedgerDrawer />);
+  await user.click(screen.getByRole('combobox', { name: 'Ledger Group' }));
+  const option = await screen.findByRole('option', { name: /Indirect Expenses/ });
+  expect(option.closest('.ui-popover').style.zIndex).toBe('var(--z-drawer-popover)');
+  await user.click(option);
+  expect(screen.getByRole('combobox', { name: 'Ledger Group' })).toHaveTextContent('Indirect Expenses');
+});
 
 /**
  * The head of an invoice, in miniature: three selections in a row, which is

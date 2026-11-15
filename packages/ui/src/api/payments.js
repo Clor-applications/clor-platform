@@ -48,6 +48,15 @@ export async function createPayment(payload) {
   return { ...data.payment, settlements: Array.isArray(data.settlements) ? data.settlements : [] };
 }
 
+/** Replace a posted receipt and its ledger/settlement entries atomically. */
+export async function updateReceipt(paymentId, payload) {
+  const data = await apiFetch(`${base()}/payments/${encodeURIComponent(paymentId)}`, {
+    method: 'PUT', body: { ...payload, direction: 'RECEIPT' }, ...opts,
+  });
+  if (!data?.payment) return null;
+  return { ...data.payment, settlements: Array.isArray(data.settlements) ? data.settlements : [] };
+}
+
 /** Reversal, not deletion: the original stays in the audit trail. */
 export async function reversePayment(paymentId) {
   const data = await apiFetch(`${base()}/payments/${encodeURIComponent(paymentId)}/reverse`, {

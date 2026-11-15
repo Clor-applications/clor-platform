@@ -20,34 +20,6 @@ const warehouses = [
 ];
 const branches = [{ id: 1, companyId: 1, branchCode: 'HO', branchName: 'Head Office' }];
 
-/*
- * Dates are anchored to today, never written down.
- *
- * These fixtures used to carry fixed August and September 2026 dates. The
- * inventory screen opens on "Last 30 days", so the day the window moved past
- * the bill the test started failing for a reason that had nothing to do with
- * what it asserts — it counts documents, not calendars. Anchoring the fixtures
- * keeps every one of them inside whatever window the screen defaults to.
- */
-const daysAgo = (n) => {
-  const d = new Date();
-  d.setHours(12, 0, 0, 0);
-  d.setDate(d.getDate() - n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-/* The same day, written the way this country writes it. */
-const asDisplayed = (iso) => {
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-};
-
-const BILL_DATE = daysAgo(20);
-const INVOICE_DATE = daysAgo(12);
-const ADJ1_DATE = daysAgo(11);
-const ADJ2_DATE = daysAgo(9);
-const TRF1_DATE = daysAgo(12);
-const TRF2_DATE = daysAgo(10);
-
 const db = {
   companies: [COMPANY],
   branches,
@@ -57,18 +29,18 @@ const db = {
     { id: 12, companyId: 1, name: 'Welding Rod 3.2mm', code: 'WR32', type: 'Goods', unit: 'Kg', purchasePrice: 220, reorderLevel: 50, trackInventory: true },
   ],
   bills: [
-    { id: 1, companyId: 1, number: 'BILL-1', vendorId: 9, vendorName: 'Steel Depot', date: BILL_DATE, status: 'Unpaid', warehouseId: 1, items: [{ itemId: 11, quantity: 40, rate: 850 }] },
+    { id: 1, companyId: 1, number: 'BILL-1', vendorId: 9, vendorName: 'Steel Depot', date: '2026-08-20', status: 'Unpaid', warehouseId: 1, items: [{ itemId: 11, quantity: 40, rate: 850 }] },
   ],
   invoices: [
-    { id: 1, companyId: 1, number: 'INV-1', date: INVOICE_DATE, status: 'Unpaid', warehouseId: 1, items: [{ itemId: 11, quantity: 25, rate: 1200 }] },
+    { id: 1, companyId: 1, number: 'INV-1', date: '2026-09-02', status: 'Unpaid', warehouseId: 1, items: [{ itemId: 11, quantity: 25, rate: 1200 }] },
   ],
   stockAdjustments: [
-    { id: 1, companyId: 1, number: 'ADJ-1', date: ADJ1_DATE, warehouseId: 1, branchId: 1, itemId: 11, qtyDelta: -2, valueDelta: -1700, reason: 'Damaged' },
-    { id: 2, companyId: 1, number: 'ADJ-2', date: ADJ2_DATE, warehouseId: 2, branchId: 1, itemId: 12, qtyDelta: 5, valueDelta: 1100, reason: 'Count found extra' },
+    { id: 1, companyId: 1, number: 'ADJ-1', date: '2026-09-03', warehouseId: 1, branchId: 1, itemId: 11, qtyDelta: -2, valueDelta: -1700, reason: 'Damaged' },
+    { id: 2, companyId: 1, number: 'ADJ-2', date: '2026-09-05', warehouseId: 2, branchId: 1, itemId: 12, qtyDelta: 5, valueDelta: 1100, reason: 'Count found extra' },
   ],
   stockTransfers: [
-    { id: 1, companyId: 1, number: 'TRF-1', date: TRF1_DATE, sourceWarehouseId: 1, targetWarehouseId: 2, sourceWarehouseName: 'Main Store', targetWarehouseName: 'Yard', status: 'Transferred Out', lines: [{ itemId: 11, qty: 10 }] },
-    { id: 2, companyId: 1, number: 'TRF-2', date: TRF2_DATE, sourceWarehouseId: 2, targetWarehouseId: 1, sourceWarehouseName: 'Yard', targetWarehouseName: 'Main Store', status: 'Transfer In', lines: [{ itemId: 12, qty: 8, receivedQty: 8 }] },
+    { id: 1, companyId: 1, number: 'TRF-1', date: '2026-09-02', sourceWarehouseId: 1, targetWarehouseId: 2, sourceWarehouseName: 'Main Store', targetWarehouseName: 'Yard', status: 'Transferred Out', lines: [{ itemId: 11, qty: 10 }] },
+    { id: 2, companyId: 1, number: 'TRF-2', date: '2026-09-04', sourceWarehouseId: 2, targetWarehouseId: 1, sourceWarehouseName: 'Yard', targetWarehouseName: 'Main Store', status: 'Transfer In', lines: [{ itemId: 12, qty: 8, receivedQty: 8 }] },
   ],
   vendors: [{ id: 9, companyId: 1, name: 'Steel Depot', displayName: 'Steel Depot' }],
   debitNotes: [], creditNotes: [], purchaseOrders: [], expenses: [], payments: [], customers: [], uoms: [], gstRates: [],
@@ -179,10 +151,47 @@ describe('what the inventory screens count', () => {
     // 40 bought, 25 sold, 10 transferred out, 2 adjusted away — every one of
     // those is a document, and closing is what they add up to.
     render(<InventoryModule db={db} setDb={noop} currentCompany={COMPANY} warehouses={warehouses} />);
+    fireEvent.change(screen.getByLabelText('Period'), { target: { value: 'thisYear' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Warehouse' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Main Store' }));
     const cells = [...screen.getByText('MS Angle 50mm').closest('tr').querySelectorAll('td')].map((td) => td.textContent);
-    expect(cells[2]).toMatch(/40/);
-    expect(cells[3]).toMatch(/25/);
-    expect(cells[6]).toMatch(/\b3\b/);
+    expect(cells[4]).toMatch(/40/);
+    expect(cells[5]).toMatch(/37/);
+    expect(cells[8]).toMatch(/\b3\b/);
+  });
+
+  it('combines selected warehouses and limits them by branch', () => {
+    const otherWarehouse = { id: 3, companyId: 1, name: 'North Store', branchId: 2 };
+    const scopedDb = {
+      ...db,
+      branches: [...branches, { id: 2, companyId: 1, branchName: 'North Branch' }],
+      stockAdjustments: [...db.stockAdjustments, { id: 3, companyId: 1, date: '2026-09-06', warehouseId: 3, itemId: 11, qtyDelta: 7 }],
+    };
+    render(<InventoryModule db={scopedDb} setDb={noop} currentCompany={COMPANY} warehouses={[...warehouses, otherWarehouse]} />);
+    fireEvent.change(screen.getByLabelText('Period'), { target: { value: 'thisYear' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Branch' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Head Office' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Warehouse' }));
+    expect(screen.queryByRole('checkbox', { name: 'North Store' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Branch' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'North Branch' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Branch' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Warehouse' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Main Store' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'North Store' }));
+    expect(screen.getByRole('button', { name: 'Warehouse' })).toHaveTextContent('2 warehouses');
+    const row = screen.getByText('MS Angle 50mm').closest('tr');
+    expect(row.querySelectorAll('td')[8].textContent).toMatch(/\b10\b/);
+  });
+
+  it('shows newly loaded server locations even before local company ids are attached', () => {
+    const serverBranches = branches.map(({ companyId: _companyId, ...branch }) => branch);
+    const serverWarehouses = warehouses.map(({ companyId: _companyId, ...warehouse }) => warehouse);
+    render(<InventoryModule db={{ ...db, branches: serverBranches }} setDb={noop} currentCompany={COMPANY} warehouses={serverWarehouses} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Branch' }));
+    expect(screen.getByRole('checkbox', { name: 'Head Office' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Warehouse' }));
+    expect(screen.getByRole('checkbox', { name: 'Main Store' })).toBeInTheDocument();
   });
 
   it('puts each transfer label over the column it filters', () => {
@@ -192,13 +201,15 @@ describe('what the inventory screens count', () => {
       <StockTransfersList db={db} setDb={noop} currentCompany={COMPANY} openModal={noop} branches={branches} warehouses={warehouses} mode="warehouse" />
     );
     const heads = [...container.querySelectorAll('thead th')].map((th) => th.textContent.trim());
-    expect(heads.slice(0, 5)).toEqual(['Transfer #', 'From', 'To', 'Date', 'Status']);
+    // Column names from the Books redesign of the transfer list.
+    expect(heads.slice(0, 4)).toEqual(['Transfer No.', 'Transfer Date', 'From Branch / Warehouse', 'To Branch / Warehouse']);
+    expect(heads).toContain('Status');
     const row = [...container.querySelectorAll('tbody tr')].find((tr) => tr.textContent.includes('TRF-1'));
     const cells = [...row.querySelectorAll('td')].map((td) => td.textContent);
-    expect(cells[1]).toMatch(/Main Store/);
-    expect(cells[2]).toMatch(/Yard/);
+    expect(cells[2]).toMatch(/Main Store/);
+    expect(cells[3]).toMatch(/Yard/);
     /* Read as this country writes it; the ISO value stays on the element. */
-    expect(cells[3]).toContain(asDisplayed(TRF1_DATE));
+    expect(cells[1]).toMatch(/02\/09\/2026/);
 
     // And the filter behind the label reaches the same column the label names.
     // Reading the header text alone cannot see the mistake: the labels were in
@@ -207,7 +218,7 @@ describe('what the inventory screens count', () => {
     const panel = screen.getAllByLabelText(/Filter From/i).find((el) => el.querySelectorAll('label').length);
     const values = [...panel.querySelectorAll('label')].map((l) => l.textContent.trim());
     expect(values).toContain('Main Store');
-    expect(values.some((v) => /^\d{4}-\d{2}-\d{2}/.test(v))).toBe(false);
+    expect(values.some((v) => /2026-09/.test(v))).toBe(false);
   });
 
   it('counts units in transit, which belong to neither end', () => {
@@ -233,7 +244,7 @@ describe('the inventory filter band', () => {
      * sibling of that group rather than sitting inside it.
      */
     const { container } = render(<InventoryModule db={db} setDb={noop} currentCompany={COMPANY} warehouses={warehouses} />);
-    for (const id of ['inv-view', 'inv-warehouse', 'inv-period']) {
+    for (const id of ['inv-view', 'inv-period']) {
       const group = container.querySelector(`#${id}`).parentElement;
       expect(group.className).toContain('flex items-center');
       expect(group.className).not.toContain('flex-wrap');
@@ -247,7 +258,7 @@ describe('the inventory filter band', () => {
 
     const periodGroup = container.querySelector('#inv-period').parentElement;
     expect(periodGroup.querySelector('input[type="date"]')).toBeNull();
-    expect(screen.getByLabelText(/From date/i)).toBeTruthy();
-    expect(screen.getByLabelText(/To date/i)).toBeTruthy();
+    expect(screen.getByLabelText(/^From$/i)).toBeTruthy();
+    expect(screen.getByLabelText(/^To$/i)).toBeTruthy();
   });
 });

@@ -150,10 +150,10 @@ export const ChartAccountForm = ({
       const g = groups.find((x) => String(x.name || '').trim().toLowerCase() === 'indirect expenses');
       return g ? String(g.id) : '';
     }
-    const cash = groups.find((x) => String(x.name || '').trim().toLowerCase() === 'cash-in-hand');
-    if (cash) return String(cash.id);
-    const g = groups.find((x) => String(x.name || '').trim().toLowerCase() === 'primary');
-    return g ? String(g.id) : '';
+    /* Generic ledgers must not silently become cash or bank ledgers. Start
+       with no classification so the creator explicitly chooses any available
+       chart group; this is especially important from payment allocations. */
+    return '';
   };
 
   const groupCategoryToLedgerCategory = (groupCategory) => {

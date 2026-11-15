@@ -18,6 +18,7 @@ import { getSubscription, inGoodStanding, syncAccountEntitlement } from '../serv
 import { useSecondFactor } from './security.js';
 import { ensureLiveLineIndex, liveLineHealth } from '../services/payroll/liveLineIndex.js';
 import { sendTemplate } from '../services/mailer.js';
+import { consoleGrantUrl } from '../services/consoleGrant.js';
 import { operatorActionLabel } from '../constants/operatorActions.js';
 import { noteDenials } from '../services/ops/denials.js';
 import { opsListsRouter } from './opsLists.js';
@@ -120,6 +121,25 @@ export async function audit(req: Request, action: string, target: { accountId?: 
     });
   }
 }
+
+/**
+ * Open the Engineering Console with this CLOR login (services/consoleGrant.ts).
+ * `state` is the Console's own sign-in attempt; the answer is where to send
+ * the browser, carrying a one-minute pass for that attempt. Any operator may
+ * ask: who gets into the Console is the Console's decision, from its own
+ * member list and its own authenticator. Each pass is on the operator log.
+ */
+opsRouter.get('/ops/console-grant', async (req, res) => {
+  const state = String(req.query.state || '');
+  if (!/^[0-9a-f]{32}$/.test(state)) return res.status(400).json({ error: 'Start again from the Console sign-in page.' });
+  const u = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, fullName: true, email: true } });
+  if (!u?.email) return res.status(403).json({ error: 'This is for CLOR staff only.', code: 'OPERATOR_ONLY' });
+  const redirectTo = consoleGrantUrl({ userId: u.id, email: u.email, name: u.fullName || u.email }, state);
+  if (!redirectTo) return res.status(503).json({ error: 'Sign-in to the Console with a CLOR login is not set up yet. Use GitHub on the Console sign-in page.', code: 'CONSOLE_OFF' });
+  await audit(req, 'CONSOLE_PASS_ISSUED', { userId: u.id }, { role: res.locals.operatorRole });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ redirectTo });
+});
 
 /** Who I am here. */
 opsRouter.get('/ops/me', async (req, res) => {
@@ -245,6 +265,8 @@ const listQuery = z.object({
   q: z.string().trim().max(120).optional(),
   status: z.enum(['all', 'active', 'trialing', 'overdue', 'suspended', 'cancelled', 'no-plan']).optional(),
   page: z.coerce.number().int().min(0).max(10_000).optional(),
+  /* Only customers carrying this staff tag (routes/opsNotes.ts). */
+  tag: z.string().trim().max(40).optional(),
 });
 const PAGE = 25;
 
@@ -253,8 +275,12 @@ opsRouter.get('/ops/accounts', (req, res) =>
   outsideTenant('ops: accounts', async () => {
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
-    const { q = '', status = 'all', page = 0 } = parsed.data;
+    const { q = '', status = 'all', page = 0, tag } = parsed.data;
     const where: any = {};
+    if (tag) {
+      const tagged = await platformPrisma.accountTag.findMany({ where: { tag: { equals: tag, mode: 'insensitive' } }, select: { accountId: true } });
+      where.id = { in: tagged.map((t) => t.accountId) };
+    }
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
@@ -278,11 +304,14 @@ opsRouter.get('/ops/accounts', (req, res) =>
       select: { id: true, name: true, code: true, createdAt: true, suspendedAt: true, legacyUnrestrictedAt: true, orgs: { select: { name: true }, orderBy: { createdAt: 'asc' }, take: 1 }, _count: { select: { orgs: true, users: true } } },
     });
     const ids = accountsAll.map((a) => a.id);
-    const [subs, owners, last] = await Promise.all([
+    const [subs, owners, last, tags] = await Promise.all([
       platformPrisma.subscription.findMany({ where: { accountId: { in: ids } }, select: { accountId: true, status: true, trialEndsAt: true, currentPeriodEnd: true, billingInterval: true, gatewayName: true, items: { select: { appCode: true } } } }),
       platformPrisma.accountMembership.findMany({ where: { accountId: { in: ids }, role: 'OWNER' }, select: { accountId: true, userId: true }, orderBy: { createdAt: 'asc' } }),
       platformPrisma.user.groupBy({ by: ['accountId'], where: { accountId: { in: ids } }, _max: { lastLoginAt: true } }),
+      platformPrisma.accountTag.findMany({ where: { accountId: { in: ids } }, select: { accountId: true, tag: true }, orderBy: { tag: 'asc' } }),
     ]);
+    const tagsBy = new Map<string, string[]>();
+    for (const t of tags) tagsBy.set(t.accountId, [...(tagsBy.get(t.accountId) || []), t.tag]);
     const ownerUsers = await platformPrisma.user.findMany({ where: { id: { in: owners.map((o) => o.userId) } }, select: { id: true, email: true, fullName: true } });
     const userById = new Map(ownerUsers.map((u) => [u.id, u]));
     const ownerBy = new Map<string, { email: string; name: string }>();
@@ -310,6 +339,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
         byHand: s ? !s.gatewayName : false,
         lastActiveAt: lastBy.get(a.id) || null,
         suspended: Boolean(a.suspendedAt),
+        tags: tagsBy.get(a.id) || [],
       };
     });
     if (status === 'active') rows = rows.filter((r) => r.plan === 'active' || r.plan === 'legacy');

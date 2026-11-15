@@ -42,6 +42,8 @@ export const AllocationTable = ({
    * already the whole answer. Returning `{}` is the ordinary case.
    */
   rowMeta = null,
+  showHeading = true,
+  showSummary = true,
 }) => {
   const meta = (i) => (typeof rowMeta === 'function' ? rowMeta(i) || {} : {});
   const summary = allocationSummary({ rows, documentTotal, amount });
@@ -76,7 +78,7 @@ export const AllocationTable = ({
 
   return (
     <section>
-      <div className="mb-3">
+      {showHeading ? <div className="mb-3">
         <div className="ui-sec-head" style={{ marginBottom: '0.125rem' }}>
           <span className="ui-sec-mark" aria-hidden="true"><ListTree size={16} /></span>
           <h3>{heading}</h3>
@@ -85,27 +87,27 @@ export const AllocationTable = ({
           Pick a ledger and enter the amount. Against a customer, the
           outstanding invoices open so the {noun} can be placed on them.
         </p>
-      </div>
+      </div> : null}
 
       <div className="border ui-border-c rounded-xl overflow-hidden">
         <table className="ui-table w-full">
           <thead className="ui-sunken">
             <tr>
-              <th className="ui-th w-8 px-2">#</th>
+              <th className="ui-th px-1 text-center" style={{ width: '5%' }}>Sl no</th>
               {/*
                 The ledger used to take 42% and the amount was pushed to the
                 far right of whatever was left, so a figure sat half a screen
                 from the row it belonged to. Fixed widths, and the bills get a
                 column of their own rather than sharing the amount's cell.
               */}
-              <th className="ui-th" style={{ width: '34%' }}>
+              <th className="ui-th" style={{ width: '55%' }}>
                 Ledger <span className="text-[rgb(var(--neg))]">*</span>
               </th>
-              <th className="ui-th ui-num" style={{ width: '20%' }}>
+              <th className="ui-th ui-num" style={{ width: '14%' }}>
                 Amount <span className="text-[rgb(var(--neg))]">*</span>
               </th>
-              <th className="ui-th" style={{ width: '24%' }}>Outstanding Bills</th>
-              <th className="ui-th w-16 text-center">Action</th>
+              <th className="ui-th" style={{ width: '22%' }}>Bills</th>
+              <th className="ui-th px-1 text-center" style={{ width: '4%' }} aria-label="Delete"></th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -115,7 +117,7 @@ export const AllocationTable = ({
                 data-leaving={leaving === i ? 'true' : undefined}
                 data-entering={entering === i ? 'true' : undefined}
               >
-                <td className="px-2 py-2 ui-muted text-sm">
+                <td className="px-1 py-2 ui-muted text-sm text-center">
                   <div className="ui-row-slot"><div>{i + 1}</div></div>
                 </td>
                 <td className="px-3 py-2">
@@ -197,7 +199,7 @@ export const AllocationTable = ({
                   ) : null}
                   </div></div>
                 </td>
-                <td className="px-2 py-2 text-center">
+                <td className="px-1 py-2 text-center">
                   {!disabled ? (
                     <button
                       type="button"
@@ -214,7 +216,7 @@ export const AllocationTable = ({
           </tbody>
         </table>
 
-        <div className="ui-sunken border-t px-3 py-2 text-sm flex flex-wrap items-center justify-end gap-x-6 gap-y-1">
+        {showSummary ? <div className="ui-sunken border-t px-3 py-2 text-sm flex flex-wrap items-center justify-end gap-x-6 gap-y-1">
           {/* The document side, named, so it is obvious the bills are inside
               this total and not a second one competing with it. */}
           {summary.documentTotal > 0 ? (
@@ -238,7 +240,7 @@ export const AllocationTable = ({
               {summary.balanced ? null : <span className="ui-money ms-1">{money(summary.unallocated)}</span>}
             </span>
           ) : null}
-        </div>
+        </div> : null}
       </div>
 
       {/* Under the rows it adds to, where the next row will appear — it was

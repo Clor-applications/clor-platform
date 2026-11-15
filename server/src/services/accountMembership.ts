@@ -95,6 +95,22 @@ export const requireAccountRole =
   (...roles: AccountRole[]) =>
   async (req: Request, res: Response, next: NextFunction) => {
     const role = await accountRoleOf(accountOf(req), String(req.auth?.userId || ''));
+    /*
+     * A single sign-on session was vouched for by one company's identity
+     * provider (middleware/tenantContext.ts). Account-wide powers reach the
+     * account's other companies too, which never agreed to trust that
+     * provider: where there are any, they need a password sign-in.
+     */
+    const ssoOrgId = String(req.auth?.ssoOrgId || '');
+    if (role && roles.includes(role) && ssoOrgId) {
+      const other = await outsideTenant('account role: sso reach', () => platformPrisma.org.findFirst({ where: { accountId: accountOf(req), id: { not: ssoOrgId } }, select: { id: true } }));
+      if (other) {
+        return res.status(403).json({
+          error: 'You signed in through one company\'s single sign-on. Account-wide settings reach your other companies too: sign out and sign in with your password to change them.',
+          code: 'SSO_ACCOUNT_WIDE',
+        });
+      }
+    }
     if (role && roles.includes(role)) return next();
     /* A refused attempt to change something is a security signal: it goes in the account's audit (reads are not recorded). */
     if (req.method !== 'GET' && req.method !== 'HEAD' && accountOf(req)) {

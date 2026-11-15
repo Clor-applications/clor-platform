@@ -15,6 +15,7 @@ import { saveItemToServer, updateItemOnServer } from '@ui/utils/itemSync';
 import { saveMaster } from '@ui/utils/masterSync';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { selectedBranchId, selectedWarehouseId } from '@platform/context';
+import { isCompanyGstEnabled, isGstRegistrationActive } from '@ui/utils/gst';
 
 /* Item cards place two field rows side by side. Their label gutter is kept
    compact so each control remains inside its own half of the drawer. */
@@ -52,6 +53,9 @@ const ItemForm = ({
   const batchCapable = itemFeatureEnabled('batchExpiry') || itemFeatureEnabled('batchSerial');
   const itemErrors = useFieldErrors('item');
   const isEdit = Boolean(initialData);
+  const defaultUnit = (db.uoms || []).find((u) =>
+    u.companyId === currentCompany.id && ['pcs', 'pieces'].includes(String(u.code || u.name || '').trim().toLowerCase())
+  )?.name || 'Pieces';
 
   const [formData, setFormData] = useState(() => {
     if (initialData) {
@@ -61,7 +65,7 @@ const ItemForm = ({
         description: String(initialData.description || ''),
         category: String(initialData.category || ''),
         type: initialData.type || 'Goods',
-        unit: initialData.unit || 'Pcs',
+        unit: initialData.unit || defaultUnit,
         hsnSac: String(initialData.hsnSac || ''),
         gstRate: Number.isFinite(Number(initialData.gstRate)) ? Number(initialData.gstRate) : 0,
         salePrice: Number.isFinite(Number(initialData.salePrice)) ? Number(initialData.salePrice) : 0,
@@ -98,7 +102,7 @@ const ItemForm = ({
       description: '',
       category: '',
       type: 'Goods',
-      unit: 'Pcs',
+      unit: defaultUnit,
       hsnSac: '',
       gstRate: 0,
       salePrice: 0,
@@ -193,11 +197,15 @@ const ItemForm = ({
 
   const [newUnitOpen, setNewUnitOpen] = useState(false);
   const [newUnitName, setNewUnitName] = useState('');
+  const [newUnitCode, setNewUnitCode] = useState('');
+  const [newUnitCategory, setNewUnitCategory] = useState('Count');
   const [newUnitDescription, setNewUnitDescription] = useState('');
   const [savingUnit, setSavingUnit] = useState(false);
   const closeUnitDrawer = () => {
     setNewUnitOpen(false);
     setNewUnitName('');
+    setNewUnitCode('');
+    setNewUnitCategory('Count');
     setNewUnitDescription('');
   };
   const saveNewUnit = async () => {
@@ -206,8 +214,16 @@ const ItemForm = ({
       notify.error('Unit name is required');
       return;
     }
+    const code = String(newUnitCode || '').trim().toUpperCase();
+    if (!code) {
+      notify.error('Unit code is required');
+      return;
+    }
     const exists = (db.uoms || []).some(
-      (u) => u.companyId === currentCompany.id && String(u.name || '').trim().toLowerCase() === name.toLowerCase()
+      (u) => u.companyId === currentCompany.id && (
+        String(u.name || '').trim().toLowerCase() === name.toLowerCase() ||
+        String(u.code || '').trim().toLowerCase() === code.toLowerCase()
+      )
     );
     if (exists) {
       notify.error('This unit already exists. Select it from the list.');
@@ -216,14 +232,14 @@ const ItemForm = ({
     const description = String(newUnitDescription || '').trim();
     setSavingUnit(true);
     try {
-      const serverPatch = await saveMaster('uoms', name, { description });
+      const serverPatch = await saveMaster('uoms', name, { code, category: newUnitCategory, description });
       setDb((prev) => {
         const nextUomId = Math.max(0, ...(prev.uoms || []).map((u) => Number(u.id) || 0)) + 1;
         return {
           ...prev,
           uoms: [
             ...(prev.uoms || []),
-            { id: nextUomId, companyId: currentCompany.id, name, description, createdAt: new Date().toISOString(), ...serverPatch },
+            { id: nextUomId, companyId: currentCompany.id, name, code, category: newUnitCategory, description, createdAt: new Date().toISOString(), ...serverPatch },
           ],
         };
       });
@@ -237,6 +253,7 @@ const ItemForm = ({
 
   const gstRates = (db.gstRates || [])
     .filter((r) => r.companyId === currentCompany.id)
+    .filter((r) => r.active !== false)
     .slice()
     .sort((a, b) => Number(a.rate) - Number(b.rate));
   const gstRateValue = String(formData.gstRate ?? 0);
@@ -264,6 +281,10 @@ const ItemForm = ({
     itemErrors.require('code', code, 'Item code is required');
     itemErrors.check('code', !code || !clash, 'That code is already used by another item.');
     itemErrors.require('name', name, 'Item name is required');
+    itemErrors.require('unit', String(formData.unit || '').trim(), 'Choose a unit of measurement');
+    if (isCompanyGstEnabled(currentCompany) && String(formData.taxability || 'Taxable') === 'Taxable') {
+      itemErrors.require('hsnSac', String(formData.hsnSac || '').trim(), 'HSN / SAC is required for a taxable item');
+    }
 
     /*
      * Opening stock has to be somewhere.
@@ -410,7 +431,9 @@ const ItemForm = ({
    * cannot tell apart afterwards.
    */
   const isGoods = String(formData.type || '').toLowerCase() === 'goods';
-  const isTaxable = String(formData.taxability || 'Taxable') === 'Taxable';
+  const gstEnabled = isCompanyGstEnabled(currentCompany);
+  const gstRegistrationActive = isGstRegistrationActive(currentCompany, { state: currentCompany?.state, gstin: currentCompany?.gstin });
+  const isTaxable = gstEnabled && String(formData.taxability || 'Taxable') === 'Taxable';
   const tracksStock = isGoods && formData.trackInventory !== false;
 
   /* Warehouses belong to branches: choosing a branch narrows the list, and a
@@ -451,10 +474,12 @@ const ItemForm = ({
               <FieldError error={itemErrors.error('name')} id={itemErrors.errorId('name')} />
             </ItemFormRow>
 
-            <ItemFormRow className="lg:col-start-1 lg:row-start-2" label="Item Type" required hint="Goods are counted and can carry stock; a service is not.">
-              <div className="flex items-center gap-6 pt-1.5">
-                {['Goods', 'Service'].map((t) => (
-                  <label key={t} className="inline-flex cursor-pointer items-center gap-2 text-sm">
+            <ItemFormRow className="lg:col-start-1 lg:row-start-2" label="Item Type" required hint="Goods can carry stock. Services and capital assets do not use inventory quantities.">
+              {/* Three choices do not fit one line in the half-width column, so they wrap
+                  rather than run under the next field's label. */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-1.5">
+                {['Goods', 'Service', 'Capital Asset'].map((t) => (
+                  <label key={t} className="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
                     <input
                       type="radio"
                       name="itemType"
@@ -476,7 +501,7 @@ const ItemForm = ({
               </div>
             </ItemFormRow>
 
-            <ItemFormRow className="lg:col-start-1 lg:row-start-3" label="HSN / SAC" required={isTaxable} htmlFor="item-hsn" hint="The code the rate is filed under.">
+            {gstEnabled ? <ItemFormRow className="lg:col-start-1 lg:row-start-3" label="HSN / SAC" required={isTaxable} htmlFor="item-hsn" hint="The code the rate is filed under.">
               <input
                 id="item-hsn"
                 type="text"
@@ -485,9 +510,10 @@ const ItemForm = ({
                 className="ui-input ui-mono w-full"
                 placeholder="Enter HSN / SAC code"
               />
-            </ItemFormRow>
+              <FieldError error={itemErrors.error('hsnSac')} id={itemErrors.errorId('hsnSac')} />
+            </ItemFormRow> : null}
 
-            <ItemFormRow className="lg:col-start-1 lg:row-start-4"
+            {gstEnabled ? <ItemFormRow className="lg:col-start-1 lg:row-start-4"
               label="Taxability"
               required
               htmlFor="item-taxability"
@@ -503,9 +529,9 @@ const ItemForm = ({
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
-            </ItemFormRow>
+            </ItemFormRow> : null}
 
-            <ItemFormRow className="lg:col-start-1 lg:row-start-5" label="Purchase Price" htmlFor="item-purchase">
+            <ItemFormRow className={`lg:col-start-1 ${gstEnabled ? 'lg:row-start-5' : 'lg:row-start-3'}`} label="Purchase Price" htmlFor="item-purchase">
               <div className="relative">
                 <span className="ui-subtle pointer-events-none absolute inset-y-0 start-3 flex items-center text-sm">₹</span>
                 <input
@@ -520,7 +546,7 @@ const ItemForm = ({
               </div>
             </ItemFormRow>
 
-            <ItemFormRow className="lg:col-start-1 lg:row-start-6" label="MRP" htmlFor="item-mrp">
+            <ItemFormRow className={`lg:col-start-1 ${gstEnabled ? 'lg:row-start-6' : 'lg:row-start-4'}`} label="MRP" htmlFor="item-mrp">
               <div className="relative">
                 <span className="ui-subtle pointer-events-none absolute inset-y-0 start-3 flex items-center text-sm">₹</span>
                 <input
@@ -545,6 +571,7 @@ const ItemForm = ({
                 className="ui-input ui-mono w-full cursor-not-allowed"
                 placeholder="No codes available"
               />
+              <FieldError error={itemErrors.error('code')} id={itemErrors.errorId('code')} />
             </ItemFormRow>
 
             <ItemFormRow className="lg:col-start-2 lg:row-start-2" label="Category / Item Group">
@@ -560,6 +587,7 @@ const ItemForm = ({
                 onAction={() => setNewCategoryOpen(true)}
                 icon={null}
               />
+              <FieldError error={itemErrors.error('unit')} id={itemErrors.errorId('unit')} />
             </ItemFormRow>
 
             <ItemFormRow className="lg:col-start-2 lg:row-start-3" label="Unit of Measurement" required>
@@ -608,7 +636,7 @@ const ItemForm = ({
               </ItemFormRow>
             ) : null}
 
-            <ItemFormRow className="lg:col-start-2 lg:row-start-5" label="Selling Price" htmlFor="item-sale">
+            <ItemFormRow className={`lg:col-start-2 ${gstEnabled ? 'lg:row-start-5' : 'lg:row-start-4'}`} label="Selling Price" htmlFor="item-sale">
               <div className="relative">
                 <span className="ui-subtle pointer-events-none absolute inset-y-0 start-3 flex items-center text-sm">₹</span>
                 <input
@@ -625,7 +653,28 @@ const ItemForm = ({
         </div>
       </FormSection>
 
-      <Drawer open={newCategoryOpen} onClose={closeCategoryDrawer} title="New category" widthClass="w-[min(26rem,92vw)]">
+      {gstEnabled && !gstRegistrationActive ? (
+        <div className="rounded-lg border border-[rgb(var(--warn)/0.45)] bg-[rgb(var(--warn-soft))] px-4 py-3 text-sm">
+          The GST registration for this state is inactive. You can maintain this item’s GST details, but GST will not be applied to entries using the inactive registration.
+        </div>
+      ) : null}
+
+      {!gstEnabled ? (
+        <FormSection
+          icon={Info}
+          title="Taxation"
+          description="GST details for this item"
+          className="item-master-section"
+        >
+          <div className="rounded-lg border bg-[rgb(var(--heading-bg))] p-4 text-sm">
+            <div className="font-semibold">GST is not enabled</div>
+            <p className="ui-muted mt-1">Enable GST in Features and complete the Head Office GST registration before adding HSN/SAC, taxability, and GST rate to this item.</p>
+            {onNavigate ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm mt-3" onClick={() => onNavigate('features')}>Open Features</button> : null}
+          </div>
+        </FormSection>
+      ) : null}
+
+      <Drawer open={newCategoryOpen} onClose={closeCategoryDrawer} title="New category" widthClass="w-[min(26rem,92vw)]" actions={<button type="button" onClick={saveNewCategory} disabled={savingCategory} className="ui-btn ui-btn-primary">{savingCategory ? 'Saving…' : 'Save'}</button>}>
         <div className="space-y-4">
           <div>
             <label className="ui-label" htmlFor="item-new-category">Category name <span className="text-[rgb(var(--neg))]">*</span></label>
@@ -635,26 +684,22 @@ const ItemForm = ({
             <label className="ui-label" htmlFor="item-new-category-description">Description</label>
             <textarea id="item-new-category-description" rows={3} value={newCategoryDescription} onChange={(e) => setNewCategoryDescription(e.target.value)} className="ui-input mt-1 w-full resize-none" placeholder="Optional description" />
           </div>
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <button type="button" onClick={closeCategoryDrawer} className="ui-btn ui-btn-secondary">Close</button>
-            <button type="button" onClick={saveNewCategory} disabled={savingCategory} className="ui-btn ui-btn-primary">{savingCategory ? 'Saving…' : 'Save'}</button>
-          </div>
         </div>
       </Drawer>
 
-      <Drawer open={newUnitOpen} onClose={closeUnitDrawer} title="New unit" widthClass="w-[min(26rem,92vw)]">
+      <Drawer open={newUnitOpen} onClose={closeUnitDrawer} title="New unit" widthClass="w-[min(26rem,92vw)]" actions={<button type="button" onClick={saveNewUnit} disabled={savingUnit} className="ui-btn ui-btn-primary">{savingUnit ? 'Saving…' : 'Save'}</button>}>
         <div className="space-y-4">
           <div>
             <label className="ui-label" htmlFor="item-new-unit">Unit name <span className="text-[rgb(var(--neg))]">*</span></label>
             <input id="item-new-unit" value={newUnitName} onChange={(e) => setNewUnitName(e.target.value)} className="ui-input mt-1 w-full" placeholder="e.g. Pcs, Kg, Hours" autoFocus />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="ui-label" htmlFor="item-new-unit-code">Code *</label><input id="item-new-unit-code" value={newUnitCode} maxLength={8} onChange={(e) => setNewUnitCode(e.target.value.toUpperCase())} className="ui-input ui-mono mt-1 w-full" placeholder="PCS" /></div>
+            <div><label className="ui-label" htmlFor="item-new-unit-type">Type</label><select id="item-new-unit-type" value={newUnitCategory} onChange={(e) => setNewUnitCategory(e.target.value)} className="ui-select mt-1 w-full">{['Count', 'Weight', 'Volume', 'Length', 'Area', 'Time', 'Packaging', 'Service', 'Other'].map((value) => <option key={value}>{value}</option>)}</select></div>
+          </div>
           <div>
             <label className="ui-label" htmlFor="item-new-unit-description">Description</label>
             <textarea id="item-new-unit-description" rows={3} value={newUnitDescription} onChange={(e) => setNewUnitDescription(e.target.value)} className="ui-input mt-1 w-full resize-none" placeholder="Optional description" />
-          </div>
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <button type="button" onClick={closeUnitDrawer} className="ui-btn ui-btn-secondary">Close</button>
-            <button type="button" onClick={saveNewUnit} disabled={savingUnit} className="ui-btn ui-btn-primary">{savingUnit ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
       </Drawer>

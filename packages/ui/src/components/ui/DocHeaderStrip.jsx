@@ -1,7 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { SlidersHorizontal } from '@ui/components/ui/lineIcons';
 
 import DocNumberingPopover from '../DocNumberingPopover';
+import VoucherSeriesSelect from '../VoucherSeriesSelect';
+import { formatVoucherNumberPreview } from '../../utils/docSettings';
 
 /**
  * Compact document header: number and dates on one tight line at the top of an
@@ -39,6 +42,10 @@ export const DocHeaderStrip = ({
   const numberRef = useRef(null);
   const numberingBtnRef = useRef(null);
   const [numberingOpen, setNumberingOpen] = React.useState(false);
+  const [headerSlot, setHeaderSlot] = React.useState(null);
+  const stripRef = useCallback((node) => {
+    if (node) setHeaderSlot(node.closest('form')?.querySelector('[data-doc-series-slot]') || null);
+  }, []);
   const dateRef = useRef(null);
 
   useEffect(() => {
@@ -52,6 +59,7 @@ export const DocHeaderStrip = ({
 
   return (
     <div
+      ref={stripRef}
       className="ui-panel px-3 py-2 flex flex-wrap items-end gap-x-4 gap-y-2"
       style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}
     >
@@ -77,7 +85,7 @@ export const DocHeaderStrip = ({
             <button
               type="button"
               ref={numberingBtnRef}
-              onClick={() => setNumberingOpen((v) => !v)}
+              onClick={() => setNumberingOpen(true)}
               className="absolute end-1 top-1/2 -translate-y-1/2 ui-icon-btn"
               aria-label={`${numbering.title || 'Document'} settings`}
               aria-haspopup="dialog"
@@ -89,6 +97,7 @@ export const DocHeaderStrip = ({
           ) : null}
           {numbering && numberingOpen ? (
             <DocNumberingPopover
+              key={`${numbering.voucherKey}-${numbering.settings?.seriesId || 'default'}`}
               anchorRef={numberingBtnRef}
               db={numbering.db}
               setDb={numbering.setDb}
@@ -99,6 +108,7 @@ export const DocHeaderStrip = ({
               manualLabel={numbering.manualLabel}
               branchId={numbering.branchId ?? null}
               settings={numbering.settings}
+              onSaved={(nextSettings) => onNumberChange?.(nextSettings.mode === 'manual' || nextSettings.enabled === false ? '' : formatVoucherNumberPreview(nextSettings))}
               onClose={() => setNumberingOpen(false)}
               onOpenFullSettings={() => {
                 setNumberingOpen(false);
@@ -113,6 +123,8 @@ export const DocHeaderStrip = ({
           </p>
         ) : null}
       </div>
+
+      {numbering && numbering.seriesInHeader !== false ? (headerSlot ? createPortal(<VoucherSeriesSelect db={numbering.db} setDb={numbering.setDb} currentCompany={numbering.currentCompany} voucherKey={numbering.voucherKey} branchId={numbering.branchId} onNumberChange={onNumberChange} onSelect={() => setNumberingOpen(false)} />, headerSlot) : null) : null}
 
       <div>
         <label className="ui-label !mb-0.5 !text-xs" htmlFor="doc-date">

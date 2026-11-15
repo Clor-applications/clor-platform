@@ -21,7 +21,9 @@ defined there. Do not deviate without explicit user approval.
 Inter for everything else, portal themes (Workspace orange ink `#C5450A`, Ops
 forest `#015D47`, People moss `#5A6B1F`, Attendance violet `#5B47C4`), and the
 64px rail / 232px panel / 64px top bar shell. Tokens live in
-`packages/ui/src/rnd.css`. Accounting keeps its own indigo look.
+`packages/ui/src/rnd.css`. Books (Accounting) is outside it: red in-app palette
+(oxblood/brand ink `#A50D26`), list header rows `#EAF2F8`, split rail (owner, 15 Nov 2026;
+see DESIGN.md).
 
 Hard rules that come up most often:
 

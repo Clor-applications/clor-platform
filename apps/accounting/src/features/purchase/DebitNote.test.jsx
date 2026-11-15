@@ -167,9 +167,8 @@ describe('TDS on a return is evaluated, never blindly reversed', () => {
       );
     };
     render(<Host />);
-    const user = (await import('@testing-library/user-event')).default.setup();
-    await user.click(screen.getByRole('combobox', { name: /^Warehouse/ }));
-    await user.click(await screen.findByRole('option', { name: 'Main Store' }));
+    /* One warehouse: the field locks to it and fills itself (Books rule). */
+    expect(screen.getByRole('textbox', { name: 'Warehouse' }).value).toMatch(/Main Store/);
     /* The original bill prefilled the grid (2 × ₹50,000). Halving the
        quantity returns ₹50,000 of taxable value. */
     const row = document.querySelector('[data-line-row="0"]');

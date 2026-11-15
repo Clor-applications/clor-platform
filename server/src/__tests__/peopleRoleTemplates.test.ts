@@ -349,6 +349,12 @@ describe('the migration brings unchanged roles to the new templates and leaves c
   const OLD = rowsIn(block('old_template (', 'new_template ('));
   const NEW = rowsIn(block('new_template (', 'descriptions ('));
   const PRESET: Record<string, string> = { 'hr user': 'HR_USER', 'hr manager': 'HR_MANAGER', viewer: 'VIEWER', auditor: 'AUDITOR' };
+  /* Report groups added to the catalogue after this migration was written
+     (Books, 14 Nov 2026). The later migration 20261217090200 carries them to
+     existing roles, so this one is compared with the catalogue without them. */
+  const SPLIT_GROUPS = ['Purchase Reports', 'Inventory Reports', 'Expense Reports', 'Receipt Reports', 'Payment Reports', 'Ledger Reports', 'Outstanding Registers', 'GST Reports', 'TDS Reports', 'TCS Reports'];
+  const isSplit = (k: string) => SPLIT_GROUPS.some((g) => k.startsWith(`REPORTS::${g}::`));
+  const templateThen = (preset: string) => keysOf(preset).filter((k) => !isSplit(k));
 
   const run = () => outsideTenant('test: the role template migration', () => platformPrisma.$transaction(async (tx) => {
     for (const st of statements) await tx.$executeRawUnsafe(st);
@@ -369,9 +375,32 @@ describe('the migration brings unchanged roles to the new templates and leaves c
   const setOnScreen = async (c: Ctx, roleId: string, keys: string[]) => api(c).put(`/roles/${roleId}/permissions`, { permissions: keys }).expect(200);
 
   it('reads the old and new templates it carries straight from the catalogue', () => {
-    for (const [name, key] of Object.entries(PRESET)) expect([...(NEW.get(name) || [])].sort(), name).toEqual(keysOf(key).sort());
+    for (const [name, key] of Object.entries(PRESET)) expect([...(NEW.get(name) || [])].sort(), name).toEqual(templateThen(key).sort());
     expect(OLD.get('hr user')).not.toContain('ATTENDANCE::Leave Requests::APPROVE');
     expect(OLD.get('viewer')).toContain('PEOPLE::Confidential Documents::VIEW');
+  });
+
+  it('carries Sales Reports access to every report group split from it, action for action', async () => {
+    const c = await owner();
+    await api(c).get('/roles').expect(200);
+    const viewer = await roleOf(c, 'Viewer');
+    await setGrants(viewer.id, ['REPORTS::Sales Reports::VIEW', 'PEOPLE::Employees::VIEW']);
+    const auditor = await roleOf(c, 'Auditor');
+    await setGrants(auditor.id, ['PEOPLE::Employees::VIEW']);
+    const split = fs.readFileSync(path.resolve('prisma/platform/migrations/20261217090200_report_permissions_split/migration.sql'), 'utf8')
+      .split(/;\s*\n/).map((st) => st.replace(/^\s*--.*$/gm, '').trim()).filter(Boolean);
+    const apply = () => outsideTenant('test: report split migration', () => platformPrisma.$transaction(async (tx) => {
+      for (const st of split) await tx.$executeRawUnsafe(st);
+    }));
+    await apply();
+    await apply(); // runs twice to the same end
+    const got = await held(viewer.id);
+    for (const g of SPLIT_GROUPS) {
+      expect(got, g).toContain(`REPORTS::${g}::VIEW`);
+      expect(got, g).not.toContain(`REPORTS::${g}::EXPORT`);
+    }
+    /* A role that could not see Sales Reports gains nothing. */
+    expect(await held(auditor.id)).toEqual(['PEOPLE::Employees::VIEW']);
   });
 
   it('follows, leaves alone, keeps what others open, notes it, and runs twice to the same end', async () => {
@@ -405,11 +434,11 @@ describe('the migration brings unchanged roles to the new templates and leaves c
 
     await run();
 
-    expect(await held(xViewer.id)).toEqual(keysOf('VIEWER').sort());
+    expect(await held(xViewer.id)).toEqual(templateThen('VIEWER').sort());
     expect((await roleOf(x, 'Viewer')).description).toBe(ROLE_PRESETS.VIEWER.description);
-    expect(await held(xHrManager.id)).toEqual(keysOf('HR_MANAGER').sort());
-    expect(await held(xHrUser.id)).toEqual(keysOf('HR_USER').sort());
-    expect(await held(xAuditor.id)).toEqual(keysOf('AUDITOR').sort());
+    expect(await held(xHrManager.id)).toEqual(templateThen('HR_MANAGER').sort());
+    expect(await held(xHrUser.id)).toEqual(templateThen('HR_USER').sort());
+    expect(await held(xAuditor.id)).toEqual(templateThen('AUDITOR').sort());
 
     /* Left alone, but opening exactly what it opened before: HR-only files and full identifiers come with it. */
     const yHr = await held(yHrManager.id);

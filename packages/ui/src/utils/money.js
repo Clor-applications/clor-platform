@@ -1,3 +1,5 @@
+import { orgId as platformOrgId } from '@platform/context';
+
 /**
  * One rounding rule, in one place.
  *
@@ -86,9 +88,62 @@ export const allocate = (total, weights) => {
   return out.map(fromPaise);
 };
 
-export const getCurrencyCode = (_company) => {
-  return 'INR';
+/*
+ * How this company shows money and dates (currency, digit grouping, decimal
+ * places, date order). Kept per company in the browser so a formatter with no
+ * company object in reach still shows the company's own format.
+ */
+const activeSettingsKey = () => {
+  if (typeof localStorage === 'undefined') return '';
+  const orgId = String(platformOrgId() || '').trim();
+  return orgId ? `companyDisplaySettings:${orgId}` : '';
 };
+
+let cachedDisplayKey = '';
+let cachedDisplayRaw = '';
+let cachedDisplayValue = {};
+
+export const rememberCompanyDisplaySettings = (company) => {
+  const key = activeSettingsKey();
+  if (!key || !company) return;
+  const settings = company?.profile?.companySettings || {};
+  localStorage.setItem(key, JSON.stringify({
+    baseCurrency: settings.baseCurrency || company.currency || 'INR',
+    numberFormat: settings.numberFormat || '12,34,567.89',
+    dateFormat: settings.dateFormat || 'DD-MM-YYYY',
+    decimalPlaces: settings.decimalPlaces ?? 2,
+  }));
+};
+
+export const getCompanyDisplaySettings = (company) => {
+  if (company) return company?.profile?.companySettings || company || {};
+  try {
+    const key = activeSettingsKey();
+    if (!key) return {};
+    const raw = localStorage.getItem(key) || '{}';
+    if (key !== cachedDisplayKey || raw !== cachedDisplayRaw) {
+      cachedDisplayKey = key;
+      cachedDisplayRaw = raw;
+      cachedDisplayValue = JSON.parse(raw);
+    }
+    return cachedDisplayValue;
+  } catch { return {}; }
+};
+
+export const getCurrencyCode = (company) => String(
+  getCompanyDisplaySettings(company).baseCurrency || company?.currency || company?.baseCurrency || 'INR'
+).toUpperCase();
+
+export const getDecimalPlaces = (company) => {
+  const value = Number(getCompanyDisplaySettings(company).decimalPlaces ?? 2);
+  return Number.isInteger(value) && value >= 0 && value <= 4 ? value : 2;
+};
+
+export const getNumberLocale = (company) => ({
+  '12,34,567.89': 'en-IN',
+  '1,234,567.89': 'en-US',
+  '1.234.567,89': 'de-DE',
+})[getCompanyDisplaySettings(company).numberFormat] || 'en-IN';
 
 export const formatMoney = (amount, company) => {
   const value = Number(amount);
@@ -96,14 +151,14 @@ export const formatMoney = (amount, company) => {
   const currency = getCurrencyCode(company);
 
   try {
-    return new Intl.NumberFormat('en-IN', {
+    return new Intl.NumberFormat(getNumberLocale(company), {
       style: 'currency',
       currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: getDecimalPlaces(company),
+      maximumFractionDigits: getDecimalPlaces(company),
     }).format(safe);
   } catch {
-    return `₹${safe.toFixed(2)}`;
+    return `${currency} ${safe.toFixed(getDecimalPlaces(company))}`;
   }
 };
 
@@ -125,7 +180,7 @@ export const formatMoneyCompact = (amount, company) => {
   const symbol = (() => {
     try {
       return (
-        new Intl.NumberFormat('en-IN', { style: 'currency', currency: getCurrencyCode(company) })
+        new Intl.NumberFormat(getNumberLocale(company), { style: 'currency', currency: getCurrencyCode(company) })
           .formatToParts(0)
           .find((p) => p.type === 'currency')?.value || '₹'
       );
@@ -156,28 +211,36 @@ const wordsUnder100 = (n) => (n < 20 ? WORD_ONES[n] : `${WORD_TENS[Math.floor(n 
 const wordsUnder1000 = (n) =>
   `${n > 99 ? `${WORD_ONES[Math.floor(n / 100)]} Hundred${n % 100 ? ' ' : ''}` : ''}${wordsUnder100(n % 100)}`;
 
-export const amountInWordsInr = (value) => {
+export const amountInWordsInr = (value, company) => {
   const total = Number(value);
   if (!Number.isFinite(total)) return '';
   const negative = total < 0;
-  // Work in paise from the start. Deriving them by subtracting the rupees
-  // loses a half-paisa to floating point — 1.005 came out as "One Only".
-  const paiseTotal = Math.round(Math.abs(total) * 100);
-  let rupees = Math.floor(paiseTotal / 100);
-  const paise = paiseTotal % 100;
+  const currency = getCurrencyCode(company);
+  const places = getDecimalPlaces(company);
+  const scale = 10 ** places;
+  const minorTotal = Math.round(Math.abs(total) * scale);
+  let majorAmount = Math.floor(minorTotal / scale);
+  const minorAmount = minorTotal % scale;
 
   const parts = [];
-  [[10000000, 'Crore'], [100000, 'Lakh'], [1000, 'Thousand']].forEach(([size, name]) => {
-    if (rupees >= size) {
-      parts.push(`${wordsUnder1000(Math.floor(rupees / size))} ${name}`);
-      rupees %= size;
+  const groups = currency === 'INR'
+    ? [[10000000, 'Crore'], [100000, 'Lakh'], [1000, 'Thousand']]
+    : [[1000000000, 'Billion'], [1000000, 'Million'], [1000, 'Thousand']];
+  groups.forEach(([size, name]) => {
+    if (majorAmount >= size) {
+      parts.push(`${wordsUnder1000(Math.floor(majorAmount / size))} ${name}`);
+      majorAmount %= size;
     }
   });
-  if (rupees) parts.push(wordsUnder1000(rupees));
+  if (majorAmount) parts.push(wordsUnder1000(majorAmount));
 
   const body = parts.join(' ').replace(/\s+/g, ' ').trim() || 'Zero';
-  const paiseText = paise ? ` and ${wordsUnder100(paise)} Paise` : '';
-  return `${negative ? 'Minus ' : ''}Rupees ${body}${paiseText} Only`;
+  const majorUnit = { INR: 'Rupees', USD: 'Dollars', EUR: 'Euros', GBP: 'Pounds', AED: 'Dirhams' }[currency] || currency;
+  const minorUnit = { INR: 'Paise', USD: 'Cents', EUR: 'Cents', GBP: 'Pence', AED: 'Fils' }[currency] || 'minor units';
+  const minorText = minorAmount
+    ? places <= 2 ? ` and ${wordsUnder100(minorAmount)} ${minorUnit}` : ` and ${minorAmount}/${scale} ${minorUnit}`
+    : '';
+  return `${negative ? 'Minus ' : ''}${majorUnit} ${body}${minorText} Only`;
 };
 
 /*

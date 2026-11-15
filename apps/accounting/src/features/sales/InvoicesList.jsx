@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { branchLabel } from '@ui/utils/branchLabel';
 import { consumeSearchSeed } from '@ui/utils/searchSeed';
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useFeatures } from '@ui/permissions/useFeatures';
@@ -340,6 +341,7 @@ export const InvoicesList = ({
         const wh = warehouseById.get(String(r?.warehouseId || '').trim());
         return wh?.name || r?.warehouseId || '';
       },
+      branch: (r) => branchLabel(r, branches, warehouses),
       date: (r) => r.date,
       due: (r) => r.dueDate,
       total: (r) => r.total,
@@ -438,6 +440,7 @@ export const InvoicesList = ({
     { key: 'number', label: 'Invoice No.' },
     { key: 'date', label: 'Date' },
     { key: 'customerName', label: 'Customer' },
+    { key: 'branch', label: 'Branch', value: (r) => branchLabel(r, branches, warehouses) },
     { key: 'subtotal', label: 'Amount', align: 'right', value: (r) => Number(r.subtotal || 0) },
     { key: 'gstTotal', label: 'GST Amount', align: 'right', value: (r) => Number(r.gstTotal || 0) },
     { key: 'total', label: 'Total Amount', align: 'right', value: (r) => Number(r.total || 0) },
@@ -987,7 +990,7 @@ export const InvoicesList = ({
                       role="menuitem"
                       onClick={() => {
                         setMoreOpen(false);
-                        if (typeof onNavigate === 'function') onNavigate('dataImport');
+                        if (typeof onNavigate === 'function') onNavigate('dataImport', 'INVOICE');
                       }}
                       className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-[rgb(var(--surface-sunken))]"
                     >
@@ -1098,7 +1101,7 @@ export const InvoicesList = ({
           className="overflow-x-auto ui-table-scroll"
           style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}
         >
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky branch-fill-table invoice-fill-table sales-auto-table">
           <thead>
             <tr>
               {gridEnabled ? (
@@ -1127,6 +1130,7 @@ export const InvoicesList = ({
               {col('amount') ? <ColumnHeader label="Taxable" col="amount" state={colFilters} className="ui-num" align="right" /> : null}
               {col('gst') ? <ColumnHeader label="GST" col="gst" state={colFilters} className="ui-num" align="right" /> : null}
               {col('warehouse') ? <ColumnHeader label="Warehouse" col="warehouse" state={colFilters} /> : null}
+              <ColumnHeader label="Branch" col="branch" state={colFilters} />
               <th scope="col" className="ui-action-col"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
@@ -1200,6 +1204,7 @@ export const InvoicesList = ({
                       <td className="ui-col-amount"><MoneyValue value={inv.gstTotal} company={currentCompany} /></td>
                     ) : null}
                     {col('warehouse') ? <td className="ui-col-meta">{whLabel}</td> : null}
+                    <td className="ui-col-meta truncate" title={branchLabel(inv, branches, warehouses)}>{branchLabel(inv, branches, warehouses)}</td>
                     <td
                       className="ui-action-col relative"
                       onMouseDown={(e) => e.stopPropagation()}

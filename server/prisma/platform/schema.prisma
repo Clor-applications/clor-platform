@@ -136,6 +136,8 @@ model Branch {
   contactPerson       String?
   /// Branch status (developer change 9 Oct 2026): inactive branches stay for history but take no new work.
   isActive            Boolean @default(true)
+  /// What the branch does: SERVICE | TRADING | BOTH (Books developer change, 28 Oct 2026). Only trading and mixed branches hold warehouses.
+  branchType          String  @default("BOTH")
 
   parentBranchId          String?
   shareHeadOfficeSettings Boolean @default(false)
@@ -235,6 +237,8 @@ model User {
   /// second identity with the same address. The route already refused a
   /// duplicate; this makes it structural rather than a rule one handler happens
   /// to keep.
+  warehouseRoleAssignments UserWarehouseRoleAssignment[]
+
   @@unique([email])
   @@index([accountId])
 
@@ -287,6 +291,26 @@ model UserWarehouseAccess {
   @@unique([accountId, orgId, branchId, warehouseId, userId])
   @@index([accountId, orgId, branchId, warehouseId])
 }
+/// A role a user holds at one warehouse, on top of their branch role. Warehouse
+/// lives in the accounting schema, so there is no relation to it here.
+model UserWarehouseRoleAssignment {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  branchId        String
+  warehouseId     String
+  userId          String
+  roleId          String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, orgId, warehouseId, userId])
+  @@index([accountId, orgId, branchId, userId])
+}
+
 
 // ----------------------------
 // Roles + permissions
@@ -315,6 +339,7 @@ model Role {
 
   permissions RolePermission[]
   assignments UserRoleAssignment[]
+  warehouseRoleAssignments UserWarehouseRoleAssignment[]
 
   @@unique([orgId, branchId, name])
   @@index([accountId, orgId])
@@ -2009,4 +2034,82 @@ model SupportGrant {
   @@index([accountId, status])
   @@index([orgId, operatorUserId])
   @@index([operatorUserId, status])
+}
+
+/// An internal note about a customer, for CLOR staff only (docs/workspace/OPS_PORTAL_GAPS.md #1).
+/// Never shown to the customer. Pinned notes sit at the top of the customer's page.
+model AccountNote {
+  id           String   @id @default(cuid())
+  accountId    String
+  body         String
+  pinned       Boolean  @default(false)
+  authorUserId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([accountId, createdAt])
+}
+
+/// A label CLOR staff put on a customer, e.g. "CA firm", "pilot". Staff only.
+model AccountTag {
+  id            String   @id @default(cuid())
+  accountId     String
+  tag           String
+  addedByUserId String
+  createdAt     DateTime @default(now())
+
+  @@unique([accountId, tag])
+  @@index([tag])
+}
+
+/// An incident or planned maintenance CLOR staff post on clor.in/status (OPS_PORTAL_GAPS #2).
+/// Platform data, not a customer's.
+model StatusIncident {
+  id              String                 @id @default(cuid())
+  title           String
+  /// INCIDENT | MAINTENANCE
+  kind            String                 @default("INCIDENT")
+  /// Parts of CLOR it touches, as the status page names them: platform | accounting | people | payroll. Empty = all.
+  parts           String[]
+  /// MINOR | MAJOR | OUTAGE
+  impact          String                 @default("MINOR")
+  /// INVESTIGATING | IDENTIFIED | MONITORING | RESOLVED; maintenance: SCHEDULED | IN_PROGRESS | COMPLETED
+  state           String
+  startsAt        DateTime               @default(now())
+  /// Maintenance: when it is planned to end.
+  endsAt          DateTime?
+  resolvedAt      DateTime?
+  createdByUserId String
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  updates         StatusIncidentUpdate[]
+
+  @@index([resolvedAt, startsAt])
+}
+
+/// One posted update on an incident, shown newest first.
+model StatusIncidentUpdate {
+  id           String         @id @default(cuid())
+  incidentId   String
+  incident     StatusIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  state        String
+  body         String
+  authorUserId String
+  createdAt    DateTime       @default(now())
+
+  @@index([incidentId, createdAt])
+}
+
+/// A reply template for support tickets (OPS_PORTAL_GAPS #3). {name} and {ticket} are filled in.
+model SupportSavedReply {
+  id              String   @id @default(cuid())
+  title           String   @unique
+  body            String
+  /// accounting | people | attendance | payroll | workspace, or null for any.
+  app             String?
+  usedCount       Int      @default(0)
+  createdByUserId String
+  updatedByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

@@ -25,6 +25,10 @@ import { securityRouter } from './routes/security.js';
 import { credentialsRouter } from './routes/credentials.js';
 import { outsideAccessRouter } from './routes/outsideAccess.js';
 import { opsSupportGrantsRouter, supportGrantsRouter } from './routes/supportGrants.js';
+import { opsNotesRouter } from './routes/opsNotes.js';
+import { opsStatusRouter } from './routes/opsStatus.js';
+import { opsSavedRepliesRouter } from './routes/opsSavedReplies.js';
+import { opsInsightsRouter } from './routes/opsInsights.js';
 import { itemsRouter } from './routes/items.js';
 import { purchaseDocsRouter } from './routes/purchaseDocs.js';
 import { quoteDocsRouter } from './routes/quoteDocs.js';
@@ -341,6 +345,8 @@ export function buildApp() {
   app.use(['/api/orgs/:orgId/people/my/request-forms', '/api/portal/people/forms'], express.json({ limit: '7mb' }), (err: any, _req: any, res: any, next: any) => (err?.type === 'entity.too.large' ? res.status(413).json({ error: 'The files are too large together: up to 4 MB in one request.', code: 'TOO_LARGE' }) : next(err)));
   /* A referral may carry the friend's résumé (≤ 2 MB, base64). */
   app.use(['/api/orgs/:orgId/people/referrals/me/refer', '/api/portal/people/referrals/refer'], express.json({ limit: '3mb' }));
+  /* Books' company profile may carry the logo (≤ 2 MB, base64). */
+  app.use('/api/orgs/:orgId/profile', express.json({ limit: '3mb' }));
   /* A bill photo or PDF spent for work (≤ 5 MB, base64), from the employee app. */
   app.use('/api/portal/people/money/lines', express.json({ limit: '7mb' }));
   /* The payment gateway's webhook: public, its exact path, the raw body a signature is made over — ahead of the JSON parser and of every router that demands a session (A-16). */
@@ -467,6 +473,10 @@ export function buildApp() {
   app.use('/api', opsHealthRouter);
   app.use('/api', opsTicketsRouter);
   app.use('/api', opsSupportGrantsRouter);
+  app.use('/api', opsNotesRouter);
+  app.use('/api', opsStatusRouter);
+  app.use('/api', opsSavedRepliesRouter);
+  app.use('/api', opsInsightsRouter);
   app.use('/api', supportRouter);
   app.use('/api', opsAnnouncementsRouter);
   app.use('/api', announcementsRouter);

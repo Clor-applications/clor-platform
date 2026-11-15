@@ -70,6 +70,19 @@ export const DEFAULT_POLICY: Policy = {
   makerChecker: 'AUTO',
 };
 
+/**
+ * Whether a company created now starts with "owners and admins need an
+ * authenticator" on (launch audit, Stage 1; owner's decision 14 Nov 2026:
+ * new companies only, existing ones keep their setting). Read each time, so a
+ * deployment can set NEW_COMPANY_ADMIN_TWO_FACTOR=off; off in the test suite
+ * unless a test asks, because its people have no authenticators.
+ */
+export function newCompanyAdminTwoFactor(): boolean {
+  const set = String(process.env.NEW_COMPANY_ADMIN_TWO_FACTOR || '').trim().toLowerCase();
+  if (set) return set !== 'off';
+  return !process.env.VITEST;
+}
+
 /** Whether this company asks for a fresh authenticator code before payroll's money-moving actions. */
 export async function payrollStepUpOn(orgId: string): Promise<boolean> {
   const row = await platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requirePayrollStepUp: true } });

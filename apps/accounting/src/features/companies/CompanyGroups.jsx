@@ -8,6 +8,7 @@ import { notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { createCompany } from '../../api/auth';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
+import { orgId as platformOrgId } from '@platform/context';
 
 /**
  * The company group viewer.
@@ -271,6 +272,12 @@ export default function CompanyGroups({ db, setDb, currentCompany, onSwitched, i
   const viewingCompany = viewingId == null ? null : companies.find((c) => c.id === viewingId) || null;
 
   const setActive = (c) => {
+    const targetOrgId = String(c?.profile?.backendCompanyId || '').trim();
+    const activeOrgId = String(platformOrgId() || '').trim();
+    if (targetOrgId && targetOrgId !== activeOrgId) {
+      onSwitched?.(c);
+      return;
+    }
     setDb((prev) => ({ ...prev, activeCompanyId: c.id }));
     notify.success(`Now working in ${c.name}. Every module reads this company.`);
     onSwitched?.(c);

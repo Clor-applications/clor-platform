@@ -12,7 +12,10 @@ import { entitlementFor, needsAny, upgradeHintFor } from './entitlements.js';
 /** The menus' reading of simple mode: detailed People screens shown. Not a catalog switch; it follows `peopleSimpleMode`. */
 export const DETAILED_KEY = 'peopleDetailed';
 
-export async function getFeatures(accountId: string, orgId: string) {
+/** A Books client to read the company's saved settings through: the shared one, or the transaction the caller is in. */
+type BooksDb = Pick<typeof prisma, 'orgMaster'>;
+
+export async function getFeatures(accountId: string, orgId: string, db: BooksDb = prisma) {
   const rows = await platformPrisma.featureSetting.findMany({
     where: { accountId, orgId },
     select: { key: true, enabled: true },
@@ -20,6 +23,39 @@ export async function getFeatures(accountId: string, orgId: string) {
 
   const overrides: Record<string, boolean> = {};
   for (const r of rows) overrides[r.key] = r.enabled;
+
+  const untouched = (key: string) => !Object.prototype.hasOwnProperty.call(overrides, key);
+
+  // Older companies stored code numbering formats before the separate feature
+  // switches existed. Keep those companies enabled without enabling every org.
+  if (untouched('customerCodes') || untouched('vendorCodes')) {
+    const org = await platformPrisma.org.findFirst({ where: { accountId, id: orgId }, select: { profileJson: true } });
+    let savedFormats: Record<string, unknown> = {};
+    try { savedFormats = JSON.parse(org?.profileJson || '{}')?.partyCodeSettings || {}; } catch { /* no saved formats */ }
+    if (untouched('customerCodes') && savedFormats.customer) overrides.customerCodes = true;
+    if (untouched('vendorCodes') && savedFormats.vendor) overrides.vendorCodes = true;
+  }
+
+  // Existing organizations configured period rules before this became a feature switch.
+  if (untouched('periodLock')) {
+    const saved = await db.orgMaster.findFirst({ where: { accountId, orgId, kind: 'PERIOD_LOCK', name: 'Organization' }, select: { dataJson: true } });
+    if (saved) {
+      try { overrides.periodLock = JSON.parse(saved.dataJson || '{}')?.enabled === true; }
+      catch { overrides.periodLock = false; }
+    }
+    // Period lock used to be on for everyone, and a company may have locked its
+    // books through a date on the fiscal year. Keep the feature on for those,
+    // so the lock they set can still be seen and moved.
+    if (db === prisma && !overrides.periodLock) {
+      const locked = await prisma.fiscalYear.count({ where: { accountId, orgId, lockedThrough: { not: null } } });
+      if (locked > 0) overrides.periodLock = true;
+    }
+  }
+  // Approval rules predate the feature switch. Keep those companies' active
+  // workflows in force until an administrator explicitly manages the feature.
+  if (db === prisma && untouched('approvals')) {
+    overrides.approvals = (await prisma.approvalRule.count({ where: { accountId, orgId, isActive: true } })) > 0;
+  }
 
   const resolved = resolveFeatures(overrides);
 
@@ -44,8 +80,8 @@ export async function getFeatures(accountId: string, orgId: string) {
   return effective;
 }
 
-export async function isFeatureEnabled(accountId: string, orgId: string, key: string) {
-  const features = await getFeatures(accountId, orgId);
+export async function isFeatureEnabled(accountId: string, orgId: string, key: string, db: BooksDb = prisma) {
+  const features = await getFeatures(accountId, orgId, db);
   return Boolean(features[key]);
 }
 

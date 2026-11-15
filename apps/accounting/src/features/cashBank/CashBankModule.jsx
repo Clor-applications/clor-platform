@@ -19,6 +19,7 @@ import { ArrowDownLeft, ArrowUpRight, Landmark, ListTodo } from 'lucide-react';
 import { DocumentNumber, DocDate, MoneyValue } from '@ui/components/docs';
 import { csvSafeValue } from '@ui/utils/csv';
 import { patchBankEntry, removeBankEntry, saveBankEntry } from '@ui/utils/bankBookSync';
+import { blockIfClosed } from '@ui/utils/bookClose';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import {
   inferDirection,
@@ -710,6 +711,11 @@ const CashBankModule = ({ db, setDb, currentCompany, openModal, openLedgerCreate
 
       const save = async (e) => {
         e.preventDefault();
+        const closed = blockIfClosed(db, companyId, form.date, 'This cash or bank entry');
+        if (closed) { notify.error(closed); return; }
+        const prior = isEdit ? safeArray(db.bankTransactions).find((t) => t.companyId === companyId && Number(t.id) === Number(initial?.editTxnId)) : null;
+        const priorClosed = prior ? blockIfClosed(db, companyId, prior.date, 'This cash or bank entry') : null;
+        if (priorClosed) { notify.error(priorClosed); return; }
 
         const cashBankAccountId = String(form.cashBankAccountId || '').trim();
         if (!cashBankAccountId) {
@@ -1508,6 +1514,8 @@ const CashBankModule = ({ db, setDb, currentCompany, openModal, openLedgerCreate
   /** Writes the rows somebody decided to keep. The batch stamp and the
       immutability that follows from `imported: true` live here, once. */
   const commitImport = async (txnsToImport, { unknownAccounts = new Set(), firstImportedAccountId = null, sourceName = '' } = {}) => {
+    const locked = txnsToImport.map((txn) => blockIfClosed(db, companyId, txn.date, 'This cash or bank entry')).find(Boolean);
+    if (locked) { notify.error(locked); return; }
     const newTxns = txnsToImport;
     /*
      * One batch per import, stamped on every row it brought in.
@@ -1788,6 +1796,8 @@ const CashBankModule = ({ db, setDb, currentCompany, openModal, openLedgerCreate
 
   const deleteSelectedTxns = async () => {
     if (!selectedTxnIds.size) return;
+    const locked = safeArray(db.bankTransactions).filter((txn) => selectedTxnIds.has(String(txn.id))).map((txn) => blockIfClosed(db, companyId, txn.date, 'This cash or bank entry')).find(Boolean);
+    if (locked) { notify.error(locked); return; }
     const ok = await confirmDialog({ title: 'Please confirm', message: `Delete ${selectedTxnIds.size} selected transaction(s)?`, confirmLabel: 'Yes, continue' });
     if (!ok) return;
     setDb((prev) => {
@@ -1861,6 +1871,8 @@ const CashBankModule = ({ db, setDb, currentCompany, openModal, openLedgerCreate
 
   const deleteTxn = async (txn) => {
     if (!txn) return;
+    const locked = blockIfClosed(db, companyId, txn.date, 'This cash or bank entry');
+    if (locked) { notify.error(locked); return; }
     const ok = await confirmDialog({ title: 'Please confirm', message: 'Delete this transaction?', confirmLabel: 'Yes, continue' });
     if (!ok) return;
     await removeBankEntry(txn);

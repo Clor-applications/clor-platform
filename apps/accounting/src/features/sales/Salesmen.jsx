@@ -228,7 +228,7 @@ export default function Salesmen({ db, setDb, currentCompany }) {
       }
     >
       <div className="overflow-x-auto ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}>
-          <table className="ui-table ui-table-wide ui-table-sticky">
+          <table className="ui-table ui-table-wide ui-table-sticky sales-auto-table">
             <thead>
               <tr>
                 <th scope="col">Salesman</th>

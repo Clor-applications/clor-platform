@@ -246,7 +246,7 @@ export const DebitNotesList = ({ db, setDb, openModal, currentCompany, onNewDebi
       }}
     >
       <div className="overflow-x-auto ui-table-scroll purchase-return-table-scroll" data-fill-viewport>
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky purchase-auto-table">
           <thead className="ui-sunken border-b">
             <tr>
               <ColumnHeader label="Debit note #" col="number" state={dnFilters} />

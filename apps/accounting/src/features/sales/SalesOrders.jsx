@@ -91,7 +91,7 @@ function SalesOrderRowActions({ order, progress, onEdit, onInvoice, onPrint, onD
         onClick={toggle}
       ><MoreVertical size={16} /></button>
       {position ? createPortal(
-        <div ref={menuRef} className="fixed rounded-lg border bg-[rgb(var(--surface))] p-1 text-start shadow-xl ui-border-c" style={{ ...position, zIndex: 'var(--z-popover)' }} role="menu">
+        <div ref={menuRef} className="fixed z-[var(--z-popover)] rounded-lg border bg-[rgb(var(--surface))] p-1 text-start shadow-xl ui-border-c" style={position} role="menu">
             <button type="button" role="menuitem" className="report-menu-item" onClick={() => choose(onEdit)}><Pencil size={14} /> Edit</button>
             {progress.billed < progress.ordered ? <button type="button" role="menuitem" className="report-menu-item" onClick={() => choose(onInvoice)}><Receipt size={14} /> Convert to Invoice</button> : null}
             <button type="button" role="menuitem" className="report-menu-item" onClick={() => choose(onPrint)} aria-label={`Print sales order ${order.number}`}><Printer size={14} /> Print</button>
@@ -537,6 +537,7 @@ export default function SalesOrders({ db, setDb, currentCompany, onConvertToInvo
                   onChange={() => {}}
                   disabled
                   voucherKey="salesOrder"
+                  seriesInHeader={!editingOrder}
       title="Order numbering"
                   sampleLabel="Next order will be"
                   manualLabel="Typed on each order"
@@ -778,20 +779,16 @@ export default function SalesOrders({ db, setDb, currentCompany, onConvertToInvo
 
 
       <div className="overflow-x-auto ui-table-scroll" style={{ '--table-scroll-h': 'calc(100dvh - 12rem)' }}>
-        <table className="ui-table ui-table-wide ui-table-sticky">
+        <table className="ui-table ui-table-wide ui-table-sticky sales-auto-table">
             <thead>
               <tr>
-                {/* Eight columns, and the row below renders eight cells. The
-                    branch had a seven-column header — SO #, Date, Customer,
-                    Amount, a combined Ordered/Delivered/Billed, Status,
-                    Actions — which no longer describes what the row shows. */}
                 <ColumnHeader label="Sales Order No." col="number" state={soFilters} />
                 <ColumnHeader label="Order Date" col="date" state={soFilters} />
                 <th scope="col">Expected Date</th>
                 <ColumnHeader label="Customer Name" col="customer" state={soFilters} />
                 <th scope="col" className="ui-num">Taxable Amount (₹)</th>
                 <ColumnHeader label="Total Amount (₹)" col="total" state={soFilters} className="ui-num" align="right" />
-                <ColumnHeader label="Status" col="status" state={soFilters} align="center" />
+                <ColumnHeader align="center" label="Status" col="status" state={soFilters} />
                 <th scope="col" className="ui-action-col"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
