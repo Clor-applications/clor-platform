@@ -21,7 +21,9 @@ import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, C
    "coloured icon" rather than a tinted outline. Leaf items stay lucide, tinted
    with their module colour, so the two sets never mix at the same level. */
 /* Module icons: Lucide, the concept map's glyphs (redesign §7): sales file-text, purchases receipt, journal book-open, approvals check-check. */
-import { CheckCheck as NavApprovals, Landmark as NavBank, LayoutGrid as NavDashboard, Wallet as NavExpenses, Package as NavInventory, BookOpen as NavJournal, Database as NavMaster, Receipt as NavPurchases, BarChart3 as NavReports, FileText as NavSales, Settings as NavSettings } from 'lucide-react';
+/* Books' rail modules draw in the platform's navigation emoji (Fluent Emoji flat, owner 15 Nov 2026);
+   the screens inside each module keep their line icons, so Books' panels and lists are unchanged. */
+import { emoji } from '@ui/components/ui/emoji';
 import Modal from '@ui/components/ui/Modal';
 import { getDefaultDocSettings, initEmptyDB, normalizeDB } from './data/db';
 import { addInventoryReportSamples, addSampleScenario } from './data/sampleScenario';
@@ -244,6 +246,20 @@ import { LedgerView } from './features/reports/FinancialStatements';
 import { GstComplianceWorkspace, MsmeComplianceWorkspace } from './features/gst/GstCompliance';
 import { DocTemplateSettings, CompanyProfile, SettingsView } from './features/settings/AccountingSettingsView';
 import { resolveServerOrgId } from './appShared';
+
+const NavDashboard = emoji('house');
+const NavSales = emoji('money-bag');
+const NavPurchases = emoji('shopping-bags');
+const NavExpenses = emoji('purse');
+const NavBank = emoji('bank');
+const NavInventory = emoji('package');
+const NavJournal = emoji('notebook');
+const NavApprovals = emoji('check-mark-button');
+const NavTaxes = emoji('ledger');
+const NavReports = emoji('bar-chart');
+const NavMaster = emoji('card-file-box');
+const NavFeatures = emoji('puzzle-piece');
+const NavSettings = emoji('gear');
 
 // Screens the Reports module lights in the rail while one of them is open.
 const REPORT_SCREENS = new Set(['reports', 'trialBalance', 'profitLoss', 'balanceSheet', 'cashFlow', 'gstr1', 'gstr3b', 'salesReports']);
@@ -1402,7 +1418,7 @@ const AppShell = () => {
         key: 'complianceMenu',
         label: 'Taxes',
         tone: 'reports',
-        icon: NavApprovals,
+        icon: NavTaxes,
         items: [
           { key: 'gstCompliance', label: 'GST', icon: BadgePercent, permAny: ['REPORTS::GSTR-1::VIEW', 'REPORTS::GSTR-3B::VIEW'] },
           { key: 'tds', label: 'TDS', icon: FileText },
@@ -1462,7 +1478,7 @@ const AppShell = () => {
         type: 'item',
         key: 'features',
         label: 'Features',
-        icon: SlidersHorizontal,
+        icon: NavFeatures,
         tone: 'settings',
         perm: 'SETTINGS::Company Profile::VIEW',
       },

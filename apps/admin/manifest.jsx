@@ -30,7 +30,8 @@ import {
   Users,
   UsersRound,
   Workflow,
-} from 'lucide-react';
+} from '@ui/components/ui/navEmoji';
+import { ShieldCheck as AppShieldCheck } from 'lucide-react';
 import { memberDirectory } from '@platform/admin/account';
 import { listBranches } from '@platform/admin/admin';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
@@ -138,7 +139,8 @@ const NAV = {
 export const adminApp = {
   id: 'admin',
   name: 'Workspace',
-  icon: ShieldCheck,
+  /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
+  icon: AppShieldCheck,
   blurb: 'People, roles, sign-in, billing and the audit trail — for every app.',
   available: true,
   platform: true,

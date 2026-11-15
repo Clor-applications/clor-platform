@@ -2,7 +2,8 @@ import {
   ArrowUpRight, Banknote, BarChart3, BookOpen, CalendarDays, FileSignature, HandCoins, Handshake, KeyRound, Landmark,
   Layers, LayoutGrid, ListChecks, Mail, PlusCircle, Receipt, ScrollText, SlidersHorizontal, TrendingUp, Users,
   UsersRound, Wallet,
-} from 'lucide-react';
+} from '@ui/components/ui/navEmoji';
+import { Wallet as AppWallet } from 'lucide-react';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
 
@@ -55,7 +56,8 @@ const I = {
 export const payrollApp = {
   id: 'payroll',
   name: 'Payroll',
-  icon: I.app,
+  /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
+  icon: AppWallet,
   blurb: 'Salaries, statutory deductions, payslips, and the journal they post.',
   available: true,
   database: 'payroll.db',

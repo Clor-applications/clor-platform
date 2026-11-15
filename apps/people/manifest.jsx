@@ -124,7 +124,8 @@ import {
   Wallet,
   Wifi,
   WifiOff,
-} from 'lucide-react';
+} from '@ui/components/ui/navEmoji';
+import { UserRound as AppUserRound } from 'lucide-react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
 import { withSidePanel } from '@ui/components/list/SidePanel';
 import { SETTINGS_GROUPS } from './src/settingsGroups';
@@ -454,7 +455,8 @@ const register = (kind) => {
 export const peopleApp = {
   id: 'people',
   name: 'People',
-  icon: UserRound,
+  /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
+  icon: AppUserRound,
   blurb: 'Every HR job in one place: people, time off, hiring, growth and the workplace.',
   available: true,
   database: 'people.db',

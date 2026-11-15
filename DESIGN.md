@@ -365,11 +365,22 @@ Four exceptions, each deliberate:
   counter, used at arm's length.
 - **28px POS steppers** (`!h-7 !w-7`) — quantity ± beside a cart line.
 
-### Icons — one family, three sizes (redesign §7, 15 Nov 2026)
+### Icons — two roles (owner, 15 Nov 2026)
 
-- **Lucide only.** The Fluent line set, Phosphor two-tone marks and Fluent
-  colour icons are retired and their packages removed. Import from
-  `lucide-react` or `@ui/components/ui/lineIcons` (plain re-exports).
+- **Navigation draws in Fluent Emoji (flat).** Rails, module panels, Settings
+  rows, the command palette and Books' rail modules use full-colour emoji from
+  `@ui/components/ui/navEmoji` (Lucide names kept, so a manifest swaps one
+  import) or `emoji('name')` from `@ui/components/ui/emoji`. The SVGs are local:
+  `node scripts/build-emoji-icons.mjs` writes `fluentEmoji.data.js` from
+  `@iconify-json/fluent-emoji-flat` with only the names in use (no runtime
+  fetch; Microsoft, MIT). Pick a colourful emoji for a rail: the grey ones
+  (page, cart, knobs) read faint on white. Rows in one panel or Settings group
+  never share an emoji.
+- **Everything else stays Lucide line icons:** small controls (chevrons, close,
+  check, sort, filter, more), buttons, in-page actions, and each app's identity
+  mark on its colour tile. An emoji set has no such glyphs. Import from
+  `lucide-react` or `@ui/components/ui/lineIcons`. The Fluent line set,
+  Phosphor two-tone marks and Fluent Color icons stay retired.
 - **Stroke 1.75, round caps**, from one rule on `svg.lucide` in `index.css`;
   never filled, never duotone, never two colours. Illustrations and chart
   marks keep their own strokes.

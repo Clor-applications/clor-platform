@@ -22,9 +22,10 @@ colours** (Workspace graphite `#202329`, People magenta `#A21CAF`, Payroll deepe
 `#006A9E`, Attendance amber `#A85A00`, Books navy `#232A66` with orange `#FF6B00` as its
 second colour, no red), set per `data-app` in `packages/ui/src/rnd.css` (Books in
 `index.css` under `[data-palette='indigo']`). The CLOR logo and gate pages stay Blaze
-orange. **Figtree** for everything (JetBrains Mono for identifiers only). Icons: Lucide
-today; Fluent Emoji (flat) chosen for navigation and feature marks, small controls stay
-line icons. See DESIGN.md.
+orange. **Figtree** for everything (JetBrains Mono for identifiers only). Icons: Fluent
+Emoji (flat) for navigation (`@ui/components/ui/navEmoji`, local SVGs built by
+`scripts/build-emoji-icons.mjs`); Lucide line icons for small controls, buttons and app
+identity marks. See DESIGN.md.
 
 **White and light only (owner, 15 Nov 2026):** every ground is pure white `#FFFFFF`,
 in every app and in Books: no grey, cream or tinted page, panel, rail or header

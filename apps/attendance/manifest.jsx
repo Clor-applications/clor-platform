@@ -67,7 +67,8 @@ import {
   UsersRound,
   Wifi,
   WifiOff,
-} from 'lucide-react';
+} from '@ui/components/ui/navEmoji';
+import { Clock as AppClock } from 'lucide-react';
 
 import { lazy } from 'react';
 import { lazyScreens } from '@ui/utils/lazyScreens';
@@ -259,7 +260,8 @@ const I = {
 export const attendanceApp = {
   id: 'attendance',
   name: 'Attendance',
-  icon: Clock,
+  /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
+  icon: AppClock,
   blurb: 'Biometric readers, shifts, leave, corrections, registers and payable days — on its own or with People and Payroll.',
   available: true,
   database: 'people.db',
