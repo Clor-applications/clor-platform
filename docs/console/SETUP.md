@@ -188,71 +188,62 @@ back answer "GitHub answered 404" until steps 5 to 7 are done.
 
 ## 5. Google Cloud access for GitHub Actions (no stored key)
 
-```bash
-PROJECT=clor-apps-511409; NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
-REPO=Clor-applications/clor-platform
+**Done 15 Nov 2026** with `console/setup/release-access.sh` (safe to run again).
+It makes:
 
-gcloud iam workload-identity-pools create github --project $PROJECT --location global
-gcloud iam workload-identity-pools providers create-oidc clor-platform --project $PROJECT --location global \
-  --workload-identity-pool github --issuer-uri https://token.actions.githubusercontent.com \
-  --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" \
-  --attribute-condition "assertion.repository=='$REPO' && assertion.ref=='refs/heads/main'"
+- A workload identity pool `github` with provider `clor-platform`, which
+  trusts only this repository and only `main`.
+- One service account, `clor-release`, usable only by a job in the GitHub
+  environment `production`. It may: back up Cloud SQL, submit a build as
+  `clor-build`, run the migrate job, deploy and move traffic on Cloud Run as
+  `clor-api-run`, read the image repository and read logs.
 
-gcloud iam service-accounts create clor-release  --project $PROJECT --display-name "Release from GitHub Actions"
-gcloud iam service-accounts create clor-rollback --project $PROJECT --display-name "Roll back from GitHub Actions"
+Two things learned doing it:
 
-# Each account can be used only by a job in its own GitHub environment.
-POOL=principal://iam.googleapis.com/projects/$NUMBER/locations/global/workloadIdentityPools/github/subject
-gcloud iam service-accounts add-iam-policy-binding clor-release@$PROJECT.iam.gserviceaccount.com  --project $PROJECT --role roles/iam.workloadIdentityUser --member "$POOL/repo:$REPO:environment:production"
-gcloud iam service-accounts add-iam-policy-binding clor-rollback@$PROJECT.iam.gserviceaccount.com --project $PROJECT --role roles/iam.workloadIdentityUser --member "$POOL/repo:$REPO:environment:production-rollback"
-```
+- **GitHub's job identity is not the plain repository name here.** With
+  immutable subjects on, it is
+  `repo:Clor-applications@<owner id>/clor-platform@<repository id>:environment:production`.
+  The script asks GitHub for the prefix. A binding under the plain name is
+  refused with "Permission iam.serviceAccounts.getAccessToken denied".
+- **There is no traffic-only account.** A separate rollback account with no
+  approval was tried. Cloud Run refuses a traffic move unless the caller may
+  read the image and may act as the service's runtime account, and the second
+  is the right to start any revision. So rolling back uses `clor-release` and
+  the same approval as a release; the weaker account was deleted.
 
-`clor-release` needs what the release Mac's Google account uses today for
-`scripts/release.sh`: create a Cloud SQL backup, submit a Cloud Build as
-`clor-build`, update and run the `clor-api-migrate` job, deploy and move
-traffic on `clor-api`, act as `clor-api-run`. Grant those and no more; list
-what the Mac's account holds with
-`gcloud projects get-iam-policy $PROJECT --flatten="bindings[].members" --filter="bindings.members:<that account>" --format="value(bindings.role)"`.
+## 6. GitHub environment, variables and secrets
 
-`clor-rollback` needs only to read the service and its revisions and to update
-the service's traffic: `roles/run.developer` on the `clor-api` service alone
-(`gcloud run services add-iam-policy-binding clor-api ...`), and **not**
-"act as" on `clor-api-run`, so it cannot start a new revision. Cloud Run has
-no traffic-only permission; confirm on `clor-api-staging` that this account
-can move traffic and cannot deploy an image before trusting it in production.
-
-## 6. GitHub environments, variables and secrets
-
-Repository → Settings → Environments.
+**Done 15 Nov 2026**, except the Cloudflare secrets.
 
 | Environment | Deployment branches | Required reviewers | Prevent self-review |
 |---|---|---|---|
 | `production` | `main` only | The owner | Off (the owner starts and approves) |
-| `production-rollback` | `main` only | None | n/a |
 
-Repository variables (Settings → Secrets and variables → Actions → Variables):
+Repository variables:
 
 | Variable | Value |
 |---|---|
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/<number>/locations/global/workloadIdentityPools/github/providers/clor-platform` |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/398490688104/locations/global/workloadIdentityPools/github/providers/clor-platform` |
 | `GCP_RELEASE_SERVICE_ACCOUNT` | `clor-release@clor-apps-511409.iam.gserviceaccount.com` |
-| `GCP_ROLLBACK_SERVICE_ACCOUNT` | `clor-rollback@clor-apps-511409.iam.gserviceaccount.com` |
-| `WRANGLER_VERSION` | The exact version on the release Mac: `wrangler --version` |
+| `WRANGLER_VERSION` | `4.149.0`, the version on the release Mac |
 
 Secrets on the `production` environment only (never repository-wide):
 
-| Secret | Value |
-|---|---|
-| `CLOUDFLARE_API_TOKEN` | A token with Account → Cloudflare Pages → Edit |
-| `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account id |
-| `AGENT_SIGNING_KEY` | Optional: the contents of `~/.config/clor/agent-signing.key`. Leave it out and the connector is built unsigned, as on a Mac without the key |
+| Secret | Value | State |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | A token with Account → Cloudflare Pages → Edit | **Not set.** Stage and Roll back work without it; Release (`go`) needs it to publish the web app |
+| `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account id | **Not set** |
+| `AGENT_SIGNING_KEY` | Optional: the contents of `~/.config/clor/agent-signing.key`. Left out, the connector is built unsigned, as on a Mac without the key | Not set, on purpose |
 
-## 7. Branch rule
+## 7. Branch rule: not switched on
 
-Settings → Rules → the rule for `main` → "Require review from Code Owners".
-`.github/CODEOWNERS` then makes every change to `.github/`, the release
-scripts, `deploy/` and `console/api/` need the owner's review. This is what
-stops a pull request from rewriting the release workflow to leak its access.
+`.github/CODEOWNERS` names the owner for `.github/`, the release scripts,
+`deploy/` and `console/api/`. "Require review from Code Owners" is **off**:
+every pull request is opened from the owner's own GitHub account, and GitHub
+does not let an author approve their own pull request, so the rule would make
+those paths unmergeable. Switch it on when a second GitHub account does the
+reviewing or the authoring. Until then the guard is the Console itself, which
+refuses to merge a pull request that touches those paths.
 
 ## 8. Sign-in with a CLOR login (optional; GitHub sign-in works without it)
 
@@ -309,14 +300,15 @@ How it then works:
 
 To switch it off: remove `CONSOLE_CLOR_GRANT_PUBLIC_KEY` from `clor-console`.
 
-## First release from the Console, on staging first
+## Trying it
 
-1. Actions → Release → Run workflow → `stage`, with the head commit of
-   `main`. Approve it. Compare the result with a `scripts/release.sh --stage`
-   from the Mac on the same commit: same revision tag, no traffic.
-2. Roll back on staging: point `scripts/release.sh` at the staging service
-   by hand and confirm the rollback account can move traffic and nothing else.
-3. Only then use Stage and Release in the Console.
+- **Roll back, changing nothing:** start Roll back with the revision that is
+  already serving. It exercises the sign-in to Google Cloud, the approval,
+  the permissions and the ready check, and moves no customer.
+- **Stage:** Actions → Release → Run workflow → `stage`, with the head commit
+  of `main`, after a full test run on it. Approve it. It builds, applies
+  migrations and starts a revision with no traffic, the same as
+  `scripts/release.sh --stage`.
 
 The Mac path (`scripts/release.sh --stage`, `--go`, `--rollback <revision> --go`)
 keeps working and is the way in when GitHub or the Console is down.

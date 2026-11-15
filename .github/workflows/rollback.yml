@@ -5,10 +5,14 @@ name: Roll back
 # published, and no migration is undone.
 #
 # Started from the Engineering Console (Releases, Roll back) or from this
-# page. It runs in its own environment, `production-rollback`, which has no
-# required reviewer, on purpose: during an outage an engineer must not wait
-# for the owner. In exchange its Google Cloud account can do one thing only,
-# move traffic on the clor-api service (docs/console/SETUP.md).
+# page. Like a release, it waits in the `production` environment for an
+# owner's approval and uses the release account.
+#
+# It was first given an account of its own with no approval, meant to do
+# nothing but move traffic. Cloud Run has no such thing: moving traffic needs
+# the right to act as the API's runtime account, which is the right to start
+# any revision (tried 15 Nov 2026). An account that strong does not go
+# without an approval, so there is one account and one gate.
 
 on:
   workflow_dispatch:
@@ -35,7 +39,7 @@ jobs:
   rollback:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production-rollback
+    environment: production
     permissions:
       contents: read
       id-token: write
@@ -58,7 +62,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_ROLLBACK_SERVICE_ACCOUNT }}
+          service_account: ${{ vars.GCP_RELEASE_SERVICE_ACCOUNT }}
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 

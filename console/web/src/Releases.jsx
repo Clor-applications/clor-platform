@@ -160,7 +160,7 @@ export default function Releases({ me }) {
         <ReasonDialog title={`Release ${data.head.short}`} lede={`Customers move from ${data.serving} to ${data.staged.revision}. The web app and the website are published too. An owner approval follows on this page.`} label="What is in this release" confirm="Release" onClose={() => setAsk(null)} onConfirm={(reason) => act.through(() => api.release(reason), 'The release has started. Approve it below to let it run.')} />
       ) : null}
       {ask?.kind === 'rollback' ? (
-        <ReasonDialog title="Roll back the API" lede={`Every customer moves from ${data.serving} to ${ask.revision}. A database change made since then stays as it is.`} label="Why" confirm="Roll back" danger onClose={() => setAsk(null)} onConfirm={(reason) => act.through(() => api.rollback(ask.revision, reason), 'The rollback has started.')} />
+        <ReasonDialog title="Roll back the API" lede={`Every customer moves from ${data.serving} to ${ask.revision}. A database change made since then stays as it is. An owner approves it before it runs.`} label="Why" confirm="Roll back" danger onClose={() => setAsk(null)} onConfirm={(reason) => act.through(() => api.rollback(ask.revision, reason), 'The rollback is waiting for an owner. Approve it under Running now.')} />
       ) : null}
     </>
   );
