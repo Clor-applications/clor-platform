@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import type { Cloud } from './cloud.js';
 import { cloudflareOn, githubOn, passwordOn, type Config } from './config.js';
-import { GitHubError, type GitHub, type Run } from './github.js';
+import { GitHubError, onlyReleaseRecord, type GitHub, type Run } from './github.js';
 import { verifyGrant, type Grant } from './grant.js';
 import { blocksConsoleMerge, marksFor, writtenBy } from './marks.js';
 import { checkPassword, hashPassword, hashSetupCode, MIN_PASSWORD, newSetupCode, sameHash } from './password.js';
@@ -545,6 +545,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
     const nightly = (ci.value || []).find((x) => x.event === 'schedule' && x.status === 'completed') || null;
     const sec = (security.value || []).find((x) => x.status === 'completed') || null;
     const red = (open.value || []).filter((p) => p.checks === 'RED').length;
+    const pending = onlyReleaseRecord(wait.value) ? 0 : wait.value?.pulls.length || 0;
     const stagingRev = staging.value?.revisions.find((x) => x.name === staging.value?.serving[0]?.revision);
     const gcpConsole = `https://console.cloud.google.com/run/detail/${config.gcp.region}/${config.gcp.service}/revisions?project=${config.gcp.project}`;
     const actions = `https://github.com/${config.github.owner}/${config.github.repo}/actions`;
@@ -558,7 +559,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
         { ...row('migration', 'Database changes', migration, migration.value?.ok === false ? 'bad' : 'ok', migration.value?.ok === false ? 'Last run failed' : 'Applied', migration.value ? 'Latest migration run' : 'No run yet'), since: ago(migration.value?.endedAt) },
         notConnected({ ...row('tests', 'Tests', ci.ok ? h : ci, !headRun ? 'warn' : headRun.status !== 'completed' ? 'warn' : headRun.conclusion === 'success' ? 'ok' : 'bad', !headRun ? 'Not run' : headRun.status !== 'completed' ? 'Running' : headRun.conclusion === 'success' ? 'Passing' : 'Failing', `main at ${h.value ? sha7(h.value.sha) : 'unknown'}${nightly ? `; last nightly run ${nightly.conclusion === 'success' ? 'passed' : 'failed'}` : ''}`, headRun?.url || actions), since: ago(headRun?.updatedAt) }, ghOn, 'GitHub'),
         notConnected({ ...row('security', 'Security checks', security, !sec ? 'warn' : sec.conclusion === 'success' ? 'ok' : 'bad', !sec ? 'Not run' : sec.conclusion === 'success' ? 'Passing' : 'Failing', 'Dependency audit and secret scan', sec?.url || actions), since: ago(sec?.updatedAt) }, ghOn, 'GitHub'),
-        notConnected(row('waiting', 'Waiting to release', wait.ok ? t : wait, wait.value?.pulls.length ? 'warn' : 'ok', wait.value?.pulls.length ? `${wait.value.pulls.length} waiting` : 'Nothing waiting', t.value?.[0] ? `Since ${t.value[0].name}` : 'No release recorded yet'), ghOn, 'GitHub'),
+        notConnected(row('waiting', 'Waiting to release', wait.ok ? t : wait, pending ? 'warn' : 'ok', pending ? `${pending} waiting` : 'Nothing waiting', t.value?.[0] ? `Since ${t.value[0].name}` : 'No release recorded yet'), ghOn, 'GitHub'),
         notConnected(row('pulls', 'Open pull requests', open, red ? 'bad' : 'ok', `${open.value?.length ?? 0} open`, red ? `${red} with failing checks` : 'None failing'), ghOn, 'GitHub'),
         { ...row('staging', 'Staging', staging, 'ok', 'Running', staging.value?.serving[0] ? staging.value.serving[0].revision : 'No revision is serving'), since: ago(stagingRev?.createdAt) },
       ],
@@ -574,7 +575,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
     const tag = sha ? `rel-${sha7(sha)}` : '';
     const stagedRev = svc.value?.revisions.find((x) => x.tags.includes(tag)) || null;
     const serving = svc.value?.serving[0]?.revision || null;
-    const released = Boolean(stagedRev && stagedRev.name === serving) || Boolean(t.value?.some((x) => x.sha === sha));
+    const released = Boolean(stagedRev && stagedRev.name === serving) || Boolean(t.value?.some((x) => x.sha === sha)) || onlyReleaseRecord(wait.value);
     const busy = (runs.value || []).find((x) => x.status !== 'completed') || null;
     let pending: Array<{ runId: number; environment: string; canApprove: boolean }> = [];
     if (busy && busy.status === 'waiting' && userToken) {
@@ -600,7 +601,7 @@ export function createApp({ config, store, github, cloud, now = Date.now }: Deps
       tests: s.full ? { status: s.full.status, conclusion: s.full.conclusion, url: s.full.url, at: s.full.updatedAt } : null,
       staged: s.stagedRev ? { revision: s.stagedRev.name, tag: s.tag, createdAt: s.stagedRev.createdAt } : null,
       serving: s.serving,
-      waiting: s.wait.value ? { pulls: s.wait.value.pulls, commits: s.wait.value.commits, marks: marksFor(s.wait.value.files), since: s.t.value?.[0]?.name || null, complete: !s.wait.value.filesTruncated } : null,
+      waiting: s.wait.value ? { pulls: onlyReleaseRecord(s.wait.value) ? [] : s.wait.value.pulls, commits: s.wait.value.commits, marks: marksFor(s.wait.value.files), since: s.t.value?.[0]?.name || null, complete: !s.wait.value.filesTruncated } : null,
       revisions: (s.svc.value?.revisions || []).map((x) => ({ name: x.name, createdAt: x.createdAt, tag: x.tags.find((y) => y.startsWith('rel-')) || null, serving: x.name === s.serving })),
       runs: (s.runs.value || []).slice(0, 12).map((x) => ({ id: x.id, kind: x.workflow === config.workflows.rollback ? 'Roll back' : 'Release', title: x.title, status: x.status, conclusion: x.conclusion, actor: x.actor, at: x.createdAt, url: x.url })),
       pending: s.pending,

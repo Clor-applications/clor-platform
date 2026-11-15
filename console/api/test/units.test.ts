@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { missingSettings, readConfig } from '../src/config.js';
+import { onlyReleaseRecord, sortNewestFirst } from '../src/github.js';
 import { blocksConsoleMerge, marksFor, writtenBy } from '../src/marks.js';
 import { seal, unseal } from '../src/seal.js';
 import { codeAt, verifyCode } from '../src/totp.js';
@@ -51,6 +52,26 @@ describe('sealing and codes', () => {
     expect(verifyCode(secret, '287082', null, 59_000)).toBe(1);
     expect(verifyCode(secret, '287082', 1, 59_000)).toBeNull();
     expect(verifyCode(secret, '28708', null, 59_000)).toBeNull();
+  });
+});
+
+describe('releases as GitHub reports them', () => {
+  // protects=the last release is the tag with the newest date, whatever order GitHub lists them in; fails_when=an older tag is taken as the last release; no_claim=uses the order GitHub really returned on 15 Nov 2026, not a live call
+  it('takes the newest tag as the last release, whatever order they arrive in', () => {
+    const t = (name: string, date: string) => ({ name, sha: name, date, by: '', message: '' });
+    const asReturned = [t('rel-e0df646', '2026-11-15T03:01:50+05:30'), t('rel-9883173', '2026-11-14T14:24:43+05:30'), t('rel-75a7a55', '2026-11-14T16:42:35+05:30'), t('rel-0aa4225', '2026-11-15T04:49:21+05:30'), t('rel-4483a92', '2026-11-14T03:24:35+05:30')];
+    expect(sortNewestFirst(asReturned).map((x) => x.name)).toEqual(['rel-0aa4225', 'rel-e0df646', 'rel-75a7a55', 'rel-9883173', 'rel-4483a92']);
+    expect(asReturned[0].name).toBe('rel-e0df646');
+  });
+
+  // protects=a merge that only records the last release (CHANGELOG.md) is not something waiting to be released; fails_when=it counts as waiting, or a real change beside it is hidden; no_claim=none beyond protects
+  it('does not count the release record itself as waiting', () => {
+    const w = (files: string[], filesTruncated = false) => ({ commits: 2, pulls: [{ number: 279, title: 'Release record' }], files, filesTruncated });
+    expect(onlyReleaseRecord(w(['CHANGELOG.md']))).toBe(true);
+    expect(onlyReleaseRecord(w(['CHANGELOG.md', 'server/src/app.ts']))).toBe(false);
+    expect(onlyReleaseRecord(w([]))).toBe(false);
+    expect(onlyReleaseRecord(w(['CHANGELOG.md'], true))).toBe(false);
+    expect(onlyReleaseRecord(null)).toBe(false);
   });
 });
 

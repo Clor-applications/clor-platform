@@ -95,6 +95,16 @@ export interface GitHub {
   close(userToken: string, pull: number, comment: string): Promise<void>;
 }
 
+/** Newest release first, by the tag's own date. */
+export const sortNewestFirst = (tags: ReleaseTag[]) => [...tags].sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+
+/**
+ * What is merged since the last release is only the record of that release
+ * (its CHANGELOG.md entry, which lands by pull request afterwards): nothing
+ * for customers is waiting.
+ */
+export const onlyReleaseRecord = (w: Waiting | null | undefined) => Boolean(w && !w.filesTruncated && w.files.length > 0 && w.files.every((f) => f === 'CHANGELOG.md'));
+
 export class GitHubError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -112,7 +122,7 @@ const PULLS_QUERY = `query($owner:String!,$repo:String!){repository(owner:$owner
   commits(last:1){nodes{commit{committedDate pushedDate statusCheckRollup{state}}}}
 }}}}`;
 
-const TAGS_QUERY = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){refs(refPrefix:"refs/tags/",query:"rel-",first:20,orderBy:{field:TAG_COMMIT_DATE,direction:DESC}){nodes{
+const TAGS_QUERY = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){refs(refPrefix:"refs/tags/",query:"rel-",first:100,orderBy:{field:TAG_COMMIT_DATE,direction:DESC}){nodes{
   name target{__typename oid ... on Tag{message tagger{name date} target{oid}} ... on Commit{committedDate messageHeadline author{name}}}
 }}}}`;
 
@@ -257,11 +267,12 @@ export function realGitHub(config: Config, fetcher: typeof fetch = fetch): GitHu
 
     async releaseTags() {
       const r = await graph(TAGS_QUERY);
-      return r.refs.nodes.map((n: any): ReleaseTag =>
+      /* GitHub's own order by tag date is not dependable (15 Nov 2026: the newest tag came back fourth), so it is sorted here. */
+      return sortNewestFirst(r.refs.nodes.map((n: any): ReleaseTag =>
         n.target.__typename === 'Tag'
           ? { name: n.name, sha: n.target.target.oid, date: n.target.tagger?.date || '', by: n.target.tagger?.name || '', message: String(n.target.message || '').split('\n')[0] }
           : { name: n.name, sha: n.target.oid, date: n.target.committedDate, by: n.target.author?.name || '', message: n.target.messageHeadline || '' },
-      );
+      )).slice(0, 20);
     },
 
     async waitingSince(tag) {
