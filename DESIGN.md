@@ -20,17 +20,28 @@ to fix. Tokens live in `packages/ui/src/rnd.css`, loaded after `index.css` and
 `people.css`.
 
 - **Thesis:** a precision instrument, not a dashboard. Graphite chrome, one
-  accent, tabular money, no decoration.
-- **One accent, every app and portal:** orange. `--act` `#C95000` is the fill
-  that carries a white label (4.5:1); `--act-ink` `#A54000` is orange as text,
-  a link or an icon on paper (6.0:1); `--marker` `#FF6B00` is the accent as a
-  mark with no text on it (active nav bar, focus). No app or portal has its own
-  accent any more: the Workspace orange ink, Ops forest, People moss and
-  Attendance violet are retired.
-- **App identity lives in the app glyph only** (the switcher tile and the app
-  mark), nowhere else: Accounting `#0F5257` deep teal, Payroll `#4A3A6B`
-  indigo-plum, Attendance `#8A4B2A` clay, People `#6B5A16` brass, Projects
-  `#3A4A2A` moss, Workspace `#202329` graphite. Tokens `--app-*`.
+  colour set per app, tabular money, no decoration.
+- **Each app has its own colours (owner, 15 Nov 2026; supersedes "one accent").**
+  The shell sets `data-app` on `<html>` and the app's block in `rnd.css` sets
+  `--act` (primary fill, white label ≥ 4.5:1), `--act-hover`, `--act-ink`
+  (links, icons, selected text), `--marker` (active bar, focus), `--tint`
+  (selection wash) and `--act-2` (second colour: charts, secondary marks).
+
+  | App | Primary `--act` | Selection `--tint` | Second `--act-2` |
+  |---|---|---|---|
+  | Workspace | graphite `#202329` (marker Blaze `#FF6B00`) | `#F2F2F2` | orange `#C95000` |
+  | People | magenta `#A21CAF` | `#F9F1FA` | teal `#0F766E` |
+  | Payroll | deeper blue `#006A9E` | `#F0F6F9` | amber-brown `#B45309` |
+  | Attendance | amber `#A85A00` | `#FAF5F0` | violet `#5B47C4` |
+  | Books | navy `#232A66` | — | orange `#FF6B00` |
+
+  The CLOR logo, gate pages and the platform default stay Blaze (`--act`
+  `#C95000`, `--marker` `#FF6B00`). Status colours (green done, red error,
+  amber waiting) are shared by every app and always carry a label.
+  `test/palette.test.js` checks each app's contrast.
+- **App identity hues** (`--app-*`, the switcher tile and app mark) match the
+  app's primary: Accounting `#232A66`, Payroll `#006A9E`, Attendance `#A85A00`,
+  People `#A21CAF`, Workspace `#202329`.
 - **Logo:** the brand pack in `clor-rnd/brand/logos/`, copied verbatim into
   `packages/ui/src/components/brand/logoPaths.js` and `public/icon.svg`. Never
   redraw it; its own orange (`--logo-*`) is the pack's, not the UI accent.
@@ -41,11 +52,13 @@ Books keeps the look below until the redesign's phase 4 (object grammar) moves
 it onto the one palette; the owner approved that move on 15 Nov 2026.
 
 
-Books wears the in-app red palette: headings oxblood `#5C0A16`, brand ink
-`#A50D26`, marigold `#F5A623`, blush tint `#FBE8EA`, page ground white (was `#FAF6F4`),
-ink `#1F1A1C`, money in `#107E3E`, overdue / error `#B91C1C`. Indigo `#232A66`
-and bright `#3D4FE0` are Books' identity only (its app tile, mark and clor.in),
-never the chrome. The header row of every list (Invoice #, Customer, Date …)
+Books wears navy and orange (owner, 15 Nov 2026: "no red, make it orange"):
+primary buttons, links, headings and brand ink navy `#232A66` (hover `#1B2050`),
+second colour orange `#FF6B00` for the chosen segment, the open module mark
+and the rail's "you are here"; page ground white, ink `#1F1A1C`, money in
+`#107E3E`, overdue / error `#B91C1C`. The override block is
+`:root[data-palette='indigo']` in `index.css`, after the shared red block it
+repaints. Lists, forms and layout are unchanged; only colour moved. never the chrome. The header row of every list (Invoice #, Customer, Date …)
 and the page heading band are white with a hairline (`--heading-bg`,
 `--page-heading-bg`; hover `#F7F7F7`; were pale blue-grey `#EAF2F8` until the white-only rule). Navigation is the split rail: a 72px
 strip of modules, each an icon over its name, and a panel of the open
@@ -119,13 +132,13 @@ component, read this one.
 
 ## Typography
 
-- **Instrument Sans** (variable, self-hosted via `@fontsource-variable/instrument-sans`)
-  for everything: prose, labels, titles and money. Page title 28/36, 700,
+- **Figtree** (variable, self-hosted via `@fontsource-variable/figtree`; owner,
+  15 Nov 2026, replaces Instrument Sans) for everything, in every app and Books: prose, labels, titles and money. Page title 28/36, 700,
   −0.025em (`.ui-t-page`, `.ws-title`, `.ops-title`).
 - **JetBrains Mono** at 0.94× size, weight 500, for identifiers only: GSTIN,
   PAN, IFSC, account, invoice and voucher numbers, HSN/SAC, device and
   correlation IDs, API keys (`.ui-mono`). Never money, never prose.
-- **Money:** Instrument Sans with tabular figures, right-aligned in any column of
+- **Money:** Figtree with tabular figures, right-aligned in any column of
   two or more amounts. True minus (U+2212); zero in a table is `—`, in a
   balance `₹0.00`; two decimals always; compact `₹1.2L` only in KPI tiles.
 - Scale 12/13/14/16/20/24/28/34 (`--text-xs` … `--text-3xl`); 12px is the floor
@@ -668,6 +681,16 @@ because focus, portals and event order cannot be read off the source.
 7. Build Payroll on the primitives with no new layout code. That build proves the system holds.
 
 ## Decisions Log
+
+- **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
+  emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
+  attendance: amber, books: small change secondary color no red make it
+  orange", and "my choice is Figtree font". Each app gets primary, selection,
+  marker and second colours; the logo stays Blaze. Books goes navy with orange,
+  red removed. Figtree replaces Instrument Sans everywhere. Fluent Emoji (flat)
+  becomes the icon set for navigation and feature marks (next step; small
+  controls such as chevrons and close stay line icons, which emoji sets lack).
+  Supersedes the one-accent rule and Instrument Sans below.
 
 - **2026-11-15 — White and light only; designed gate pages (owner):** "only
   light mode, no grey or any color pure light > white background". Every

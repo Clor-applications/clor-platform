@@ -4,13 +4,14 @@ import { describe, expect, it } from 'vitest';
 import { APPS } from '../packages/shell/registry';
 
 /**
- * One accent, one palette (frontend-redesign-2026-11-15.md §6.3).
+ * Per-app colours (owner, 15 Nov 2026; supersedes the one-accent rule of
+ * frontend-redesign-2026-11-15.md §6.3).
  *
- * An app does not choose colours any more. Every app draws in the platform's
- * palette — graphite chrome, one orange accent — and identifies itself only by
- * the hue inside its glyph. Accounting keeps its indigo until the object
- * grammar lands (phase 4); it is the one hold-out, named here so it cannot
- * quietly become two.
+ * The CLOR logo and gate pages stay Blaze orange. Inside an app the shell sets
+ * data-app and the app's own block paints primary, selection, marker and a
+ * second colour: Workspace graphite, People magenta, Payroll deeper blue,
+ * Attendance amber. Books keeps its palette attribute (indigo) and wears navy
+ * with an orange second colour.
  */
 const rnd = readFileSync('packages/ui/src/rnd.css', 'utf8');
 const people = readFileSync('packages/ui/src/people.css', 'utf8');
@@ -45,8 +46,9 @@ describe('one palette', () => {
     expect(block).toMatch(/^:root:where\(\[data-palette='indigo'\]\),$/m);
   });
 
-  it('identity hues are the redesign set, not the old per-app brands', () => {
-    for (const hue of ['--app-accounting: 15 82 87', '--app-payroll: 74 58 107', '--app-attendance: 138 75 42', '--app-people: 107 90 22']) {
+  /* Owner, 15 Nov 2026: Workspace graphite, People magenta, Payroll deeper blue, Attendance amber, Books navy. */
+  it('identity hues are the per-app set chosen 15 Nov', () => {
+    for (const hue of ['--app-accounting: 35 42 102', '--app-payroll: 0 106 158', '--app-attendance: 168 90 0', '--app-people: 162 28 175']) {
       expect(rnd, hue).toContain(hue);
     }
   });
@@ -59,8 +61,37 @@ describe('one palette', () => {
 
   it('the old per-portal accents are gone: no forest, moss or violet primary', () => {
     expect(rnd).not.toMatch(/data-portal='ops'/);
-    expect(rnd).not.toMatch(/\[data-app='attendance'\]\s*\{[^}]*--act:/);
     expect(rnd).not.toMatch(/--act: 91 71 196|--act: 90 107 31|--act: 1 93 71/);
+  });
+
+  /* Owner, 15 Nov 2026: each app has its own primary and a second colour; the CLOR logo stays Blaze. */
+  const appBlock = (id) => {
+    const m = rnd.match(new RegExp(`\\[data-app='${id}'\\]:not\\(\\[data-palette='indigo'\\]\\)\\s*\\{([^}]*)\\}`));
+    return m ? m[1] : null;
+  };
+  const rgb = (block, name) => {
+    const m = block.match(new RegExp(`--${name}:\\s*(\\d+) (\\d+) (\\d+);`));
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  };
+  for (const [id, act] of [['admin', '32 35 41'], ['people', '162 28 175'], ['payroll', '0 106 158'], ['attendance', '168 90 0']]) {
+    it(`${id} declares its own primary, selection wash and second colour`, () => {
+      const block = appBlock(id);
+      expect(block, id).not.toBeNull();
+      expect(block).toContain(`--act: ${act};`);
+      for (const t of ['act-hover', 'act-ink', 'marker', 'tint', 'act-2']) expect(rgb(block, t), `${id} --${t}`).not.toBeNull();
+    });
+  }
+
+  it('Books wears navy with an orange second colour, and no red', () => {
+    const books = readFileSync('packages/ui/src/index.css', 'utf8');
+    const start = books.indexOf(":root[data-palette='indigo'],");
+    expect(start).toBeGreaterThan(-1);
+    const block = books.slice(start, books.indexOf('}', start));
+    expect(block).toMatch(/--red: 35 42 102;/);
+    expect(block).toMatch(/--brand-ink: 35 42 102;/);
+    expect(block).toMatch(/--choice: 255 107 0;/);
+    expect(block).toMatch(/--nav-panel-mark: 255 107 0;/);
+    expect(block).not.toMatch(/165 13 38|138 11 32/);
   });
 
   it('People is styled by the app it is, not by a palette it wears', () => {
@@ -70,7 +101,7 @@ describe('one palette', () => {
     expect(people).not.toMatch(/\[data-app='(?:accounting|payroll|attendance)'\]/);
   });
 
-  it('the accent is the fill that carries a label, and the mark that does not', () => {
+  it('the platform accent (gates, Workspace marks) stays Blaze', () => {
     expect(rnd).toMatch(/--act: 201 80 0;/);
     expect(rnd).toMatch(/--marker: 255 107 0;/);
     expect(rnd).toMatch(/--on-brand: 255 255 255;/);
@@ -117,6 +148,16 @@ describe('text clears AA on its own ground (§6.2)', () => {
       expect(fg, ink).not.toBeNull();
       expect(bg, ground).not.toBeNull();
       expect(ratio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  for (const id of ['admin', 'people', 'payroll', 'attendance']) {
+    it(`${id}: white on its primary, and its ink on its selection wash, clear 4.5:1`, () => {
+      const m = rnd.match(new RegExp(`\\[data-app='${id}'\\]:not\\(\\[data-palette='indigo'\\]\\)\\s*\\{([^}]*)\\}`));
+      const get = (n) => m[1].match(new RegExp(`--${n}:\\s*(\\d+) (\\d+) (\\d+);`)).slice(1).map(Number);
+      expect(ratio(get('act'), [255, 255, 255])).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(get('act-hover'), [255, 255, 255])).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(get('act-ink'), get('tint'))).toBeGreaterThanOrEqual(4.5);
     });
   }
 

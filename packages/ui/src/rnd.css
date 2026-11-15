@@ -25,13 +25,13 @@
 
   /* App identity hues: the glyph and the switcher tile, nowhere else
      (frontend-redesign-2026-11-15.md §6.3). */
-  --app-accounting: 15 82 87;  /* #0F5257 deep teal */
-  --app-people: 107 90 22;     /* #6B5A16 brass */
-  --app-payroll: 74 58 107;    /* #4A3A6B indigo-plum */
-  --app-attendance: 138 75 42; /* #8A4B2A clay */
+  --app-accounting: 35 42 102; /* #232A66 Books navy */
+  --app-people: 162 28 175;    /* #A21CAF magenta */
+  --app-payroll: 0 106 158;    /* #006A9E deeper blue */
+  --app-attendance: 168 90 0;  /* #A85A00 amber */
   --app-projects: 58 74 42;    /* #3A4A2A moss */
   --app-timesheet: 87 83 78;   /* #57534E */
-  --app-admin: 32 35 41;       /* #202329 graphite — the workspace is not a product */
+  --app-admin: 32 35 41;       /* #202329 graphite */
 
   /* Categorical palette, fixed order, never past 8 */
   --cat-1: 42 120 214;  --cat-2: 235 104 52;  --cat-3: 27 175 122;  --cat-4: 237 161 0;
@@ -47,6 +47,7 @@
   --act-hover: 184 74 0;       /* #B84A00 */
   --act-ink: 165 64 0;         /* #A54000 — the accent as text: 6.0:1 on paper, 6.4:1 on --tint */
   --marker: 255 107 0;         /* #FF6B00 */
+  --act-2: 15 118 110;         /* the second colour; each app sets its own below */
   --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
   --panel: 255 255 255;        /* white */
   --panel-border: 229 229 229; /* #E5E5E5 hairline */
@@ -100,8 +101,8 @@
   --sky-soft: var(--tint); --sky-ink: var(--act-ink);
 
   /* Type: one face for everything, a mono face for identifiers only (§5.1) */
-  --font-sans: 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-brand: 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-brand: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-ident: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
@@ -112,6 +113,37 @@
   --lilac-soft: 236 234 250; --lilac-ink: 57 46 124;
   --peach-soft: 252 237 230; --peach-ink: 136 60 30;
   --butter-soft: 252 241 219; --butter-ink: 138 90 0; --butter: 237 161 0;
+}
+
+/*
+ * Each app's own colours (owner, 15 Nov 2026), replacing the one orange
+ * accent. Each colour has one job:
+ *   --act       main button, links, ticked boxes, switches, "you are here"
+ *   --act-hover the button pressed or hovered
+ *   --act-ink   the main colour as text (every one is 4.5:1 or more on white)
+ *   --marker    the 3px stripe on the open menu item
+ *   --tint      selection: the chosen row, menu choice, open rail item, active
+ *               filter. A pale wash, never a page or panel ground.
+ *   --act-2     the second colour: second chart series, small highlights,
+ *               never a button
+ * Status colours and the chart palette stay shared by every app.
+ * The CLOR logo stays Blaze orange everywhere.
+ */
+:root:not(#rnd)[data-app='admin']:not([data-palette='indigo']) {
+  --act: 32 35 41; --act-hover: 16 18 22; --act-ink: 32 35 41;      /* Graphite #202329, 15.6:1 */
+  --marker: 255 107 0; --tint: 242 242 242; --act-2: 201 80 0;      /* Blaze mark, orange second */
+}
+:root:not(#rnd)[data-app='people']:not([data-palette='indigo']) {
+  --act: 162 28 175; --act-hover: 138 24 150; --act-ink: 162 28 175; /* Magenta #A21CAF, 5.9:1 */
+  --marker: 162 28 175; --tint: 249 241 250; --act-2: 15 118 110;   /* teal second */
+}
+:root:not(#rnd)[data-app='payroll']:not([data-palette='indigo']) {
+  --act: 0 106 158; --act-hover: 0 90 134; --act-ink: 0 106 158;     /* Deeper blue #006A9E, 5.6:1 */
+  --marker: 0 106 158; --tint: 240 246 249; --act-2: 180 83 9;      /* saffron second */
+}
+:root:not(#rnd)[data-app='attendance']:not([data-palette='indigo']) {
+  --act: 168 90 0; --act-hover: 143 77 0; --act-ink: 168 90 0;       /* Amber #A85A00, 5.1:1 */
+  --marker: 168 90 0; --tint: 250 245 240; --act-2: 91 71 196;      /* violet second */
 }
 
 /* Light only (owner, 15 Nov 2026): there is no dark theme. */
@@ -484,7 +516,7 @@
  */
 .ui-gate {
   /* One face whichever app was open last (Books' palette sets no --font-sans). */
-  font-family: var(--font-sans, 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans, 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -538,7 +570,7 @@
   color: rgb(var(--fg-muted));
 }
 .ui-gate .ui-gate-head h1 {
-  font-family: var(--font-brand, 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-brand, 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 1.75rem !important;
   line-height: 2.25rem !important;
   font-weight: 700 !important;
