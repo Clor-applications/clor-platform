@@ -80,13 +80,9 @@ describe('the landing band is one component', () => {
     }
   });
 
-  it('carries the drawing on Home and nowhere else', () => {
-    /* The blank first hour is the day somebody decides what they think of the
-       product. A module landing is not that moment and gets no picture. */
-    expect(read('features/dashboard/DashboardOverview.jsx')).toMatch(/art=\{<HeroArt/);
-    for (const file of LANDINGS.slice(1)) {
-      expect(read(file)).not.toMatch(/HeroArt/);
-    }
+  it('carries no drawing on any landing, Home included', () => {
+    /* Owner, 15 Nov 2026: "remove illustrator from hero card in books"; a new design comes later. */
+    for (const file of LANDINGS) expect(read(file)).not.toMatch(/HeroArt|ui-hero-ground/);
   });
 
   it('keeps the drawing out of the way of the words', () => {

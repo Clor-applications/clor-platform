@@ -34,7 +34,6 @@ import {
 } from './HomeBoard';
 import Illustration from '@ui/components/ui/Illustration';
 import HeroBand from '@ui/components/ui/HeroBand';
-import HeroArt from '@ui/components/ui/HeroArt';
 import ChartCard from '@ui/components/charts/ChartCard';
 import { useTilt } from '@ui/components/ui/useTilt';
 /**
@@ -655,7 +654,6 @@ function DashboardHero({ name, insights, actions, dateLabel = '' }) {
          over "Good morning". */
       eyebrow={name ? `${greetingFor(new Date().getHours())},` : ''}
       title={name || greetingFor(new Date().getHours())}
-      art={<HeroArt className="h-full w-full" />}
       subtitle={
         <>
           <p
@@ -1455,7 +1453,7 @@ export default function DashboardOverview({
 
   return (
     /* The shell gives Home no side padding; on a phone the greeting would touch the glass. */
-    <div className="ui-hero-ground space-y-6 max-md:px-3">
+    <div className="space-y-6 max-md:px-3">
       {/*
         The opening composition, in place of a page header and four cards.
 

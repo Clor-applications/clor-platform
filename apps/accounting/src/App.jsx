@@ -3819,10 +3819,7 @@ const AppShell = () => {
       className="ui-app-shell flex flex-col overflow-hidden"
       style={{ backgroundColor: 'rgb(var(--app-bg))' }}
     >
-      {/* Ambient brand light for the whole shell: fixed so it stays put while
-          content scrolls, quiet so tables stay tables. The background colour
-          itself is untouched — this paints over --app-bg, never replaces it. */}
-      <div className="ui-ambient ui-ambient-quiet ui-ambient-fixed" aria-hidden="true" />
+      {/* No ambient light behind the pages: every ground is pure white (owner, 15 Nov 2026). */}
       <Toaster />
       <ResizableTables />
       <a
