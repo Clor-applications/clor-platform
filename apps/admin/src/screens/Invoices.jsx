@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDownloadRegular } from '@fluentui/react-icons';
+import { Download } from 'lucide-react';
 
 import NotConnected from '@ui/components/ui/NotConnected';
 import { KpiTile, PageHead } from './wsKit';
@@ -63,7 +63,7 @@ export default function Invoices() {
           actions={
             invoices?.length ? (
               <button type="button" className="ws-btn ws-btn--quiet" onClick={() => openInvoice(invoices[0].id)}>
-                <ArrowDownloadRegular aria-hidden="true" /> Latest as PDF
+                <Download size={16} aria-hidden="true" /> Latest as PDF
               </button>
             ) : null
           }

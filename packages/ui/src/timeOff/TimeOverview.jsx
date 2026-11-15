@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { CalendarClock, CalendarDays, Clock3, Hourglass, Plus } from '@ui/components/ui/lineIcons';
-import { useContentIcon } from '@ui/components/ui/colorSwap';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
 import ListHeader from '@ui/components/list/ListHeader';
@@ -54,7 +53,6 @@ function Person({ r }) {
 }
 
 export default function TimeOverview({ openScreen }) {
-  const mark = useContentIcon();
   const perms = usePermissions();
   const req = useRequest(() => getTimeOverview(), []);
   const [adding, setAdding] = useState(false);
@@ -80,10 +78,10 @@ export default function TimeOverview({ openScreen }) {
   /* Working, but not at the office: approved work from home and on duty, their own mark, never leave. */
   const working = d.workingAwayToday || [];
   const strip = [
-    { k: 'away', label: 'Away today', tint: 'mint', value: d.awayToday.length + working.length, Icon: mark(CalendarDays), onClick: () => openScreen?.('leaveCalendar') },
-    { k: 'waiting', label: 'Waiting for a decision', tint: 'butter', attention: true, value: d.waiting.count, Icon: mark(Clock3), onClick: toDecide },
-    { k: 'old', label: 'Waiting over 3 days', tint: 'butter', attention: true, value: d.waiting.olderThan3Days, Icon: mark(Hourglass), onClick: toDecide },
-    { k: 'soon', label: 'Away in the next 7 days', tint: 'lilac', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: mark(CalendarClock), onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'away', label: 'Away today', tint: 'mint', value: d.awayToday.length + working.length, Icon: CalendarDays, onClick: () => openScreen?.('leaveCalendar') },
+    { k: 'waiting', label: 'Waiting for a decision', tint: 'butter', attention: true, value: d.waiting.count, Icon: Clock3, onClick: toDecide },
+    { k: 'old', label: 'Waiting over 3 days', tint: 'butter', attention: true, value: d.waiting.olderThan3Days, Icon: Hourglass, onClick: toDecide },
+    { k: 'soon', label: 'Away in the next 7 days', tint: 'lilac', value: new Set(d.upcoming.map((r) => r.employeeId)).size, Icon: CalendarClock, onClick: () => openScreen?.('leaveCalendar') },
   ];
 
   /* Two or more of a department (of a manager's team, all of it) away on one day, today and the next seven (M4). */

@@ -1,37 +1,37 @@
 import {
-  AppsListColor,
-  ArrowSquareDownColor,
-  ArrowSyncColor,
-  BriefcaseColor,
-  BuildingColor,
-  BuildingMultipleColor,
-  BuildingStoreColor,
-  CheckboxPersonColor,
-  DatabaseColor,
-  DismissCircleColor,
-  DocumentTextColor,
-  HeadsetColor,
-  HistoryColor,
-  HomeColor,
-  LockClosedColor,
-  LockShieldColor,
-  MailAlertColor,
-  MailColor,
-  PeopleListColor,
-  PeopleTeamColor,
-  PersonAddColor,
-  PersonColor,
-  PersonKeyColor,
-  PhoneLaptopColor,
-  PuzzlePieceColor,
-  QuestionCircleColor,
-  ReceiptColor,
-  SettingsColor,
-  ShieldCheckmarkColor,
-  TextBulletListSquareColor,
-} from '@fluentui/react-icons';
-
-import { colorIcon } from '@ui/components/ui/colorIcon';
+  BellRing,
+  Boxes,
+  Briefcase,
+  Building,
+  Building2,
+  CircleHelp,
+  CircleX,
+  Database,
+  Download,
+  FileText,
+  Headset,
+  History,
+  House,
+  Inbox as InboxIcon,
+  KeyRound,
+  LayoutGrid,
+  Lock,
+  LockKeyhole,
+  MonitorSmartphone,
+  Puzzle,
+  Receipt,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Store,
+  UserCheck,
+  UserPlus,
+  UserRound,
+  Users,
+  UsersRound,
+  Workflow,
+} from '@ui/components/ui/navEmoji';
+import { ShieldCheck as AppShieldCheck } from 'lucide-react';
 import { memberDirectory } from '@platform/admin/account';
 import { listBranches } from '@platform/admin/admin';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
@@ -75,46 +75,46 @@ const Integrations = screen('Integrations');
 const Apps = screen('Apps');
 const Invoices = screen('Invoices');
 
-/* README §4: the rail and the panel wear Fluent colour icons; controls keep the line set. */
+/* Lucide, one family (redesign §7): rail and panel icons; the shell sets their size. */
 const RAIL = {
-  home: colorIcon(HomeColor, 'Home', 24),
-  apps: colorIcon(AppsListColor, 'AppsList', 24),
-  access: colorIcon(PeopleTeamColor, 'PeopleTeam', 24),
-  plan: colorIcon(ReceiptColor, 'Receipt', 24),
-  security: colorIcon(ShieldCheckmarkColor, 'ShieldCheckmark', 24),
-  settings: colorIcon(SettingsColor, 'Settings', 24),
+  home: LayoutGrid,
+  apps: Boxes,
+  access: Users,
+  plan: Receipt,
+  security: ShieldCheck,
+  settings: Settings,
 };
 const NAV = {
-  home: colorIcon(HomeColor, 'Home'),
-  activity: colorIcon(HistoryColor, 'History'),
-  inbox: colorIcon(MailColor, 'Mail'),
-  support: colorIcon(QuestionCircleColor, 'QuestionCircle'),
-  companies: colorIcon(BuildingMultipleColor, 'BuildingMultiple'),
-  branches: colorIcon(BuildingStoreColor, 'BuildingStore'),
-  company: colorIcon(BuildingColor, 'Building'),
-  apps: colorIcon(AppsListColor, 'AppsList'),
-  integrations: colorIcon(PuzzlePieceColor, 'PuzzlePiece'),
-  automations: colorIcon(ArrowSyncColor, 'ArrowSync'),
-  notifications: colorIcon(MailAlertColor, 'MailAlert'),
-  members: colorIcon(PeopleTeamColor, 'PeopleTeam'),
-  roles: colorIcon(PersonKeyColor, 'PersonKey'),
-  outsideAccess: colorIcon(BriefcaseColor, 'Briefcase'),
-  users: colorIcon(PersonColor, 'Person'),
-  invitations: colorIcon(PersonAddColor, 'PersonAdd'),
-  permissions: colorIcon(CheckboxPersonColor, 'CheckboxPerson'),
-  supportAccess: colorIcon(HeadsetColor, 'Headset'),
-  accessHome: colorIcon(PeopleListColor, 'PeopleList'),
-  billing: colorIcon(ReceiptColor, 'Receipt'),
-  invoices: colorIcon(DocumentTextColor, 'DocumentText'),
-  sso: colorIcon(LockShieldColor, 'LockShield'),
-  sessions: colorIcon(PhoneLaptopColor, 'PhoneLaptop'),
-  auditLog: colorIcon(TextBulletListSquareColor, 'TextBulletListSquare'),
-  credentials: colorIcon(LockClosedColor, 'LockClosed'),
-  securityHome: colorIcon(ShieldCheckmarkColor, 'ShieldCheckmark'),
-  settings: colorIcon(SettingsColor, 'Settings'),
-  data: colorIcon(DatabaseColor, 'Database'),
-  export: colorIcon(ArrowSquareDownColor, 'ArrowSquareDown'),
-  close: colorIcon(DismissCircleColor, 'DismissCircle'),
+  home: House,
+  activity: History,
+  inbox: InboxIcon,
+  support: CircleHelp,
+  companies: Building2,
+  branches: Store,
+  company: Building,
+  apps: Boxes,
+  integrations: Puzzle,
+  automations: Workflow,
+  notifications: BellRing,
+  members: Users,
+  roles: KeyRound,
+  outsideAccess: Briefcase,
+  users: UserRound,
+  invitations: UserPlus,
+  permissions: UserCheck,
+  supportAccess: Headset,
+  accessHome: UsersRound,
+  billing: Receipt,
+  invoices: FileText,
+  sso: LockKeyhole,
+  sessions: MonitorSmartphone,
+  auditLog: ScrollText,
+  credentials: Lock,
+  securityHome: ShieldCheck,
+  settings: Settings,
+  data: Database,
+  export: Download,
+  close: CircleX,
 };
 
 /**
@@ -139,7 +139,8 @@ const NAV = {
 export const adminApp = {
   id: 'admin',
   name: 'Workspace',
-  icon: colorIcon(ShieldCheckmarkColor, 'ShieldCheckmark'),
+  /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
+  icon: AppShieldCheck,
   blurb: 'People, roles, sign-in, billing and the audit trail — for every app.',
   available: true,
   platform: true,
@@ -152,13 +153,10 @@ export const adminApp = {
   railOpensHome: true,
   /* The rail's foot: how far setup has got (owners and admins, until it is done), then Help, which leaves the bar. */
   railFoot: { Component: SetupGuide, helpIcon: ICON.help },
-  /* People's icon family (owner, 9 Nov 2026): two-tone marks, and Fluent line icons on buttons and actions. */
-  iconSet: 'duo',
-  lineIcons: 'fluent',
 
   /*
    * R&D hand-off (clor-rnd/README.md §1/§4, 14 Nov 2026): six rail stops with
-   * Fluent colour icons, and the panel grouped as the design draws it. Every
+   * Lucide icons (redesign §7), and the panel grouped as the design draws it. Every
    * screen the Workspace had is still here, in the closest group.
    */
   /*
@@ -276,7 +274,7 @@ export const adminApp = {
     export: DataBackup,
     close: CloseCompany,
     support: Support,
-    inbox: Inbox,
+    inbox: InboxIcon,
     integrations: Integrations,
     apps: Apps,
     invoices: Invoices,

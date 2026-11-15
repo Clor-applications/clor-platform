@@ -248,7 +248,7 @@
 .pt-myday-mark.is-warn { color: rgb(var(--warn-ink)); }
 .pt-myday-mark.is-neg { color: rgb(var(--neg)); }
 .pt-myday-time { font-size: 0.75rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg-subtle)); }
-.pt-earlier > summary { cursor: pointer; padding: 0.5rem 0; font-size: 0.875rem; font-weight: 600; color: rgb(var(--act)); }
+.pt-earlier > summary { cursor: pointer; padding: 0.5rem 0; font-size: 0.875rem; font-weight: 600; color: rgb(var(--act-ink)); }
 @media (max-width: 639px) {
   .pt-myday { min-height: 3.25rem; }
   .pt-myday-time { display: none; }

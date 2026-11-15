@@ -97,6 +97,6 @@ describe('button state styles', () => {
   /* Moss (R&D redesign, 14 Nov 2026): no second accent on what you press; the icon takes the button's own colour. */
   it("in People, a labelled button's icon takes the button's own colour", () => {
     expect(people).not.toMatch(/--btn-icon/);
-    expect(people).toMatch(/:root\[data-palette='sky'\] :is\(#main-content, body\) \.ui-btn > svg \{ flex: none; color: currentColor; \}/);
+    expect(people).toMatch(/:root\[data-app='people'\] :is\(#main-content, body\) \.ui-btn > svg \{ flex: none; color: currentColor; \}/);
   });
 });

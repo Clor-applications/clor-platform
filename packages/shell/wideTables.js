@@ -11,8 +11,8 @@
      (a name, a note) share what is left in the same proportion, wrapping, none below FLEX_MIN;
    - when even that does not fit, the table wraps as the browser lays it out.
    Tick boxes and row menus (up to FIXED_MAX) never grow; a width the screen set is kept as that column's least. */
-/* Only the People look (data-palette="sky") styles data-wide and fits columns; in any other app the watcher does no work. */
-const inUse = () => typeof document !== 'undefined' && document.documentElement.getAttribute('data-palette') === 'sky';
+/* Only the People look (data-app="people") styles data-wide and fits columns; in any other app the watcher does no work. */
+const inUse = () => typeof document !== 'undefined' && document.documentElement.getAttribute('data-app') === 'people';
 const FIT_MAX = 200;
 const FLEX_MIN = 160;
 const FIXED_MAX = 56;

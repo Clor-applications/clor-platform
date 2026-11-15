@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen as AppBookOpen } from 'lucide-react';
 
 /* Fetched the first time Accounting opens, not with every other app (WX-03). */
 const AccountingRoot = lazy(() => import('./src/App'));
@@ -26,7 +26,8 @@ const AccountingRoot = lazy(() => import('./src/App'));
 export const accountingApp = {
   id: 'accounting',
   name: 'Books',
-  icon: BookOpen,
+  /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
+  icon: AppBookOpen,
   blurb: 'Invoices, bills, GST, and a double-entry ledger that balances itself.',
   available: true,
   database: 'accounting.db',

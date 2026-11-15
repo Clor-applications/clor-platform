@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Ban, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -11,7 +11,6 @@ import { PermissionProvider } from '@ui/permissions/PermissionContext';
 import { WriteGuard } from '@ui/permissions/WriteGuard';
 import { paramsForOpen } from './openParams';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
-import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 
 import { useAppCatalogue, listingFor } from './appCatalogue';
 import { APPS, appById, availableApps, catalogueFor, landingApp, landingFor, subscribedApps } from './registry';
@@ -37,6 +36,7 @@ import NotificationBell from './NotificationBell';
 import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
+import GatePage from './GatePage';
 import CommandPalette from '@ui/components/ui/CommandPalette';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
@@ -196,18 +196,10 @@ function ScreenState({ title, text, action }) {
   );
 }
 
-/*
- * The platform's own pages (sign-in, company setup, an app's public page) draw in the icon family every app but
- * Accounting uses (owner, 9 Nov 2026): Phosphor two-tone marks and Fluent line icons. Inside, the open app's
- * manifest decides, so Accounting keeps its Lucide line icons exactly as before.
- */
+/* The shell and every app draw one icon family, Lucide (redesign §7). */
 export default function Shell() {
   return (
-    <IconSetContext.Provider value="duo">
-      <LineSetContext.Provider value="fluent">
-        <ShellScreens />
-      </LineSetContext.Provider>
-    </IconSetContext.Provider>
+    <ShellScreens />
   );
 }
 
@@ -885,23 +877,21 @@ function ShellScreens() {
   /* The address names a company this person cannot open (A-26): say so; open nothing else. */
   if (suspended && user) {
     return (
-      <div className="min-h-dvh grid place-items-center p-6" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-        <section className="ui-card p-8 max-w-lg grid gap-4" role="alert" aria-labelledby="suspended-title">
-          <ClorLogo size={24} />
-          <h1 id="suspended-title" className="ui-display text-2xl">This account is suspended</h1>
-          <p className="ui-muted">{suspended}</p>
-          <p className="ui-muted text-sm">Your data is kept as it was. Once CLOR reinstates the account, everything opens again.</p>
-          <div className="flex flex-wrap gap-2">
+      <GatePage icon={Ban} tone="alert" title="This account is suspended" subtitle={suspended} who={user.email || user.fullName} onSignOut={signOut}>
+        <div role="alert" className="grid gap-6">
+          <p className="text-sm ui-muted">Your data is kept as it was. Once CLOR reinstates the account, everything opens again.</p>
+          <div>
             <a className="ui-btn ui-btn-primary" href="mailto:support@clor.in">Contact support</a>
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={signOut}>Sign out</button>
           </div>
-        </section>
-      </div>
+        </div>
+      </GatePage>
     );
   }
   if (deniedCode) return <NoCompanyAccess />;
   /* The new company opens in the app picked on its setup, not the workspace or the first in the list. */
   if (!tenant) return <CompanySetup onLanding={setChosenAppId} />;
+  /* Two-factor required and not set up: the API refuses everything else, so the app is not drawn (SX-09). */
+  if (twoFactorSetupRequired) return <TwoFactorGate />;
 
   const app = appById(activeAppId);
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
@@ -993,7 +983,7 @@ function ShellScreens() {
               }
             }}
           >
-            {Icon ? <Icon size={20} aria-hidden="true" /> : null}
+            {Icon ? <Icon size={18} aria-hidden="true" /> : null}
             {/* The rail is narrow: a module may give it a shorter name; the panel and the tooltip keep the full one. */}
             <span>{m.short || m.label}</span>
             {railCounts[m.key] > 0 ? <span className="ui-split-mod-count tabular-nums" aria-label={`${railCounts[m.key]} waiting`}>{railCounts[m.key] > 99 ? '99+' : railCounts[m.key]}</span> : null}
@@ -1011,7 +1001,7 @@ function ShellScreens() {
           title="More apps"
           onClick={() => { setShowMoreApps(true); setNavOpen(false); }}
         >
-          <LayoutGrid size={20} aria-hidden="true" />
+          <LayoutGrid size={18} aria-hidden="true" />
           <span>More apps</span>
         </button>
       ) : null}
@@ -1054,7 +1044,7 @@ function ShellScreens() {
               aria-current={isCurrent(item.key) ? 'page' : undefined}
               onClick={() => goTo(item.key)}
             >
-              {item.icon ? <item.icon size={20} aria-hidden="true" /> : null}
+              {item.icon ? <item.icon size={16} aria-hidden="true" /> : null}
               <span className="min-w-0 truncate">{item.label}</span>
               {Number(panelCounts[item.key]) >= 0 && panelCounts[item.key] != null ? <span className="ui-split-item-count">{panelCounts[item.key]}</span> : null}
             </button>
@@ -1065,7 +1055,7 @@ function ShellScreens() {
       {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
           <button type="button" className="ui-split-item" onClick={() => { setShowMoreApps(true); setNavOpen(false); }}>
-            <LayoutGrid size={20} aria-hidden="true" />
+            <LayoutGrid size={18} aria-hidden="true" />
             More apps
           </button>
         </div>
@@ -1126,10 +1116,6 @@ function ShellScreens() {
   const inWorkspace = app?.id === ADMIN_APP_ID;
 
   return (
-    /* The open app's icon set (`iconSet` in its manifest): shared marks such as
-       the page-header icon draw in it. No icon set, the line icons as before. */
-    <IconSetContext.Provider value={app ? app.iconSet || 'line' : 'duo'}>
-    <LineSetContext.Provider value={app ? app.lineIcons || 'lucide' : 'fluent'}>
       <div
         className="ui-min-h-viewport"
         /* Which app is open, for styling: People, Attendance and Payroll wear the
@@ -1161,7 +1147,7 @@ function ShellScreens() {
         >
           {phone && app && !Root ? (
             <button type="button" className="ui-icon-btn" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
-              <Menu size={20} aria-hidden="true" />
+              <Menu size={18} aria-hidden="true" />
             </button>
           ) : null}
           <button type="button" className="ui-topbar-logo flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
@@ -1184,7 +1170,7 @@ function ShellScreens() {
                 aria-label={`${app.name}: switch app`}
               >
                 {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
-                <span className="ui-app-switch-mark"><app.icon size={16} aria-hidden="true" /></span>
+                <span className="ui-app-switch-mark" style={{ '--app-color': `var(--app-${app.id})` }}><app.icon size={16} aria-hidden="true" /></span>
                 {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
                 <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
                 <ChevronDown size={14} aria-hidden="true" />
@@ -1215,7 +1201,7 @@ function ShellScreens() {
                       className="w-full flex items-start gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
                       onClick={() => openApp(a.id)}
                     >
-                      <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: `rgb(var(--app-${a.id}))` }} />
                       <span className="min-w-0">
                         <span className="block text-sm">{a.name}</span>
                         <span className="block ui-caption">{a.blurb}</span>
@@ -1320,7 +1306,7 @@ function ShellScreens() {
           {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
           {inWorkspace && !phone ? (
             <time className="inline-flex items-center gap-1.5 text-sm ui-muted whitespace-nowrap" dateTime={new Date().toISOString().slice(0, 10)}>
-              <CalendarDays size={15} aria-hidden="true" />
+              <CalendarDays size={16} aria-hidden="true" />
               {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
             </time>
           ) : null}
@@ -1416,9 +1402,7 @@ function ShellScreens() {
           </div>
         ) : null}
 
-        {twoFactorSetupRequired ? (
-          <TwoFactorGate />
-        ) : Root ? (
+        {Root ? (
           /* The app owns the area under the platform bar. Reached from here by
              the switcher and by More apps, both of which are in the bar above —
              so an app that draws its own rail never has to know they exist. */
@@ -1649,13 +1633,13 @@ function ShellScreens() {
                       window.scrollTo(0, 0);
                     }}
                   >
-                    {t.icon ? <t.icon size={20} aria-hidden="true" /> : null}
+                    {t.icon ? <t.icon size={18} aria-hidden="true" /> : null}
                     <span>{t.short || t.label}</span>
                   </button>
                 );
               })}
               <button type="button" className="ui-tabbar-item" onClick={() => setNavOpen(true)} aria-expanded={navOpen}>
-                <Menu size={20} aria-hidden="true" />
+                <Menu size={18} aria-hidden="true" />
                 <span>Menu</span>
               </button>
             </nav>
@@ -1702,8 +1686,6 @@ function ShellScreens() {
           />
         ) : null}
       </div>
-    </LineSetContext.Provider>
-    </IconSetContext.Provider>
   );
 }
 

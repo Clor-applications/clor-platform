@@ -1,7 +1,7 @@
 import React from 'react';
-import { Building2, LogOut } from '@ui/components/ui/lineIcons';
+import { Building2, ChevronRight, Lock } from '@ui/components/ui/lineIcons';
 
-import { ClorLogo } from '@ui/components/brand';
+import GatePage from './GatePage';
 import { useSession } from './session';
 
 /**
@@ -17,47 +17,32 @@ export default function NoCompanyAccess() {
   const { user, tenants, deniedCode, setTenantId, signOut } = useSession();
 
   return (
-    <div className="min-h-dvh" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-      <header
-        className="flex h-14 items-center gap-3 px-4"
-        style={{ borderBottom: '1px solid rgb(var(--border))', backgroundColor: 'rgb(var(--surface))' }}
-      >
-        <ClorLogo size={20} />
-        <div className="flex-1" />
-        <span className="ui-caption">{user?.email || user?.name}</span>
-        <button type="button" className="ui-icon-btn" onClick={signOut} aria-label="Sign out">
-          <LogOut size={16} aria-hidden="true" />
-        </button>
-      </header>
-
-      <main className="mx-auto px-6 py-12" style={{ maxWidth: '44rem' }}>
-        <h1 className="ui-t-page">You don’t have access to {deniedCode}</h1>
-        <p className="mt-2 text-sm ui-muted">
-          This link is for a company you are not a member of, or one you no longer have access to. Ask its
-          administrator to add you, or open one of your own companies.
-        </p>
-
-        {tenants.length ? (
-          <>
-            <div className="ui-label mt-8 mb-2">Your companies</div>
-            <ul style={{ borderTop: '1px solid rgb(var(--border))' }}>
-              {tenants.map((t) => (
-                <li key={t.id} style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-3 rounded-lg px-2 py-3 text-left ui-hover-sunken"
-                    onClick={() => setTenantId(t.id)}
-                  >
-                    <Building2 size={16} aria-hidden="true" className="ui-muted" />
-                    <span className="flex-1 text-sm">{t.name}</span>
-                    {t.code ? <span className="ui-caption">{t.code}</span> : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : null}
-      </main>
-    </div>
+    <GatePage
+      icon={Lock}
+      title={`You don’t have access to ${deniedCode}`}
+      subtitle="This link is for a company you are not a member of, or one you no longer have access to. Ask its administrator to add you, or open one of your own companies."
+      who={user?.email || user?.name}
+      onSignOut={signOut}
+    >
+      {tenants.length ? (
+        <>
+          <p className="ui-label mb-2">Your companies</p>
+          <ul className="ui-gate-list">
+            {tenants.map((t) => (
+              <li key={t.id}>
+                <button type="button" onClick={() => setTenantId(t.id)}>
+                  <Building2 size={16} aria-hidden="true" className="ui-muted shrink-0" />
+                  <span className="flex-1 font-medium">{t.name}</span>
+                  {t.code ? <span className="ui-caption ui-num">{t.code}</span> : null}
+                  <ChevronRight size={16} aria-hidden="true" className="ui-muted shrink-0" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="text-sm ui-muted">You are not a member of any company yet. When someone adds you, it appears here.</p>
+      )}
+    </GatePage>
   );
 }

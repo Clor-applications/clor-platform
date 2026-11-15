@@ -1,10 +1,8 @@
 import React from 'react';
 import {
-  Beach20Color, Briefcase20Color, CalendarCheckmark20Color, CalendarClock20Color, CheckmarkCircle20Color, Clock20Color,
-  CoinMultiple20Color, PeopleAdd20Color, PersonWarning20Color, ShieldCheckmark20Color, Trophy20Color, BookOpenLightbulb20Color,
-  Gift20Color, ChatBubblesQuestion20Color, People20Color,
-} from '@fluentui/react-icons';
-import { colorSet } from '@ui/components/ui/colorIcon';
+  BookOpen, Briefcase, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, Clock, Coins, Gift, MessagesSquare,
+  ShieldCheck, Trophy, UserPlus, UserRoundX, Users,
+} from 'lucide-react';
 import { swatchOf } from './api';
 /* People's R&D look for time, leave, hiring, growth and the HR checks (clor-rnd PEOPLE-11..27). The CSS is People's
    own file; these parts are shared with Attendance, so the import travels with them and both apps draw the same. */
@@ -22,12 +20,12 @@ import './time-off.css';
  * - Meter: a progress bar with its percentage written out.
  */
 
-/** The tiles' Fluent colour icons, by what they count. */
-export const TILE_ICON = colorSet({
-  waiting: CalendarCheckmark20Color, done: CheckmarkCircle20Color, time: Clock20Color, away: Beach20Color, low: PersonWarning20Color,
-  money: CoinMultiple20Color, job: Briefcase20Color, people: PeopleAdd20Color, award: Trophy20Color, course: BookOpenLightbulb20Color,
-  due: CalendarClock20Color, shield: ShieldCheckmark20Color, gift: Gift20Color, cases: ChatBubblesQuestion20Color, team: People20Color,
-}, 20);
+/** The tiles' line icons, by what they count (Lucide only, §7: leave is calendar-days, approval check-check). */
+export const TILE_ICON = {
+  waiting: CalendarCheck, done: CheckCheck, time: Clock, away: CalendarDays, low: UserRoundX,
+  money: Coins, job: Briefcase, people: UserPlus, award: Trophy, course: BookOpen,
+  due: CalendarClock, shield: ShieldCheck, gift: Gift, cases: MessagesSquare, team: Users,
+};
 
 const ACCENT = { warn: 'var(--warn-ink)', pos: 'var(--pos)', neg: 'var(--neg)', neutral: 'var(--fg-subtle)' };
 const accentVar = (a) => ACCENT[a] || `var(--cat-${Number(a) || 1})`;
@@ -47,7 +45,7 @@ export function StatTile({ label, value, sub = null, accent = 1, tone = null, Ic
   return (
     <Tag type={onClick ? 'button' : undefined} className={`pt-tile ${onClick ? 'is-link' : ''}`} style={{ '--tile': accentVar(accent) }} onClick={onClick || undefined} role={onClick ? undefined : 'listitem'}>
       <span className="pt-tile-head">
-        <span className="pt-tile-icon" aria-hidden="true">{Icon ? <Icon size={20} /> : <span className="pt-tile-dot" />}</span>
+        <span className="pt-tile-icon" aria-hidden="true">{Icon ? <Icon size={16} /> : <span className="pt-tile-dot" />}</span>
         <span className="pt-tile-label">{label}</span>
       </span>
       <span className={`pt-tile-value ${tone ? `is-${tone}` : ''}`}>{busy ? <span className="ui-skel ui-skel-text" style={{ width: '3rem' }} /> : value}</span>

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarClock20Color, DismissCircle20Color, DocumentText20Color, PeopleCommunity20Color } from '@fluentui/react-icons';
+import { CalendarClock, CircleX, FileText, Users } from 'lucide-react';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
 import { KpiTiles } from '../components/Core';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -86,10 +86,10 @@ export default function PeopleDocuments({ openScreen }) {
         description="Every document on people's records, with who may see it and when it runs out."
         strip={req.data && docs.length ? (
           <KpiTiles label="Documents at a glance" items={[
-            { key: 'docs', label: 'Documents', cat: 1, Icon: DocumentText20Color, value: docs.length.toLocaleString('en-IN'), note: `Across ${people} ${people === 1 ? 'person' : 'people'}` },
-            { key: 'soon', label: `Expiring in ${SOON_DAYS} days`, cat: 4, Icon: CalendarClock20Color, value: soon, tone: 'warn', note: soon ? 'Renew before they run out' : 'Nothing runs out soon' },
-            { key: 'expired', label: 'Expired', cat: 8, Icon: DismissCircle20Color, value: counts.expired, tone: 'neg', note: counts.expired ? 'Action needed' : 'None', onClick: counts.expired ? () => setTab('expired') : undefined },
-            { key: 'shared', label: 'Shared with employees', cat: 3, Icon: PeopleCommunity20Color, value: shared, note: 'They see these in the employee app' },
+            { key: 'docs', label: 'Documents', cat: 1, Icon: FileText, value: docs.length.toLocaleString('en-IN'), note: `Across ${people} ${people === 1 ? 'person' : 'people'}` },
+            { key: 'soon', label: `Expiring in ${SOON_DAYS} days`, cat: 4, Icon: CalendarClock, value: soon, tone: 'warn', note: soon ? 'Renew before they run out' : 'Nothing runs out soon' },
+            { key: 'expired', label: 'Expired', cat: 8, Icon: CircleX, value: counts.expired, tone: 'neg', note: counts.expired ? 'Action needed' : 'None', onClick: counts.expired ? () => setTab('expired') : undefined },
+            { key: 'shared', label: 'Shared with employees', cat: 3, Icon: Users, value: shared, note: 'They see these in the employee app' },
           ]} />
         ) : null}
         secondary={<button type="button" className="ui-btn ui-btn-secondary" disabled={!shown.length} onClick={() => runListExport({ format: 'csv', title: 'Documents', fileName: 'document-register', label: 'Documents', rows: shown, columns: EXPORT_COLUMNS })}><Download size={16} aria-hidden="true" /> Export</button>}

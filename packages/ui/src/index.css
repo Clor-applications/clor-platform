@@ -1,9 +1,11 @@
-/* R&D brand (owner, 14 Nov 2026; clor-rnd/README.md): Inter for everything,
-   Sora 700/800 for the brand and page titles only. Both self-hosted
-   (Fontsource, SIL OFL 1.1), never Google — no IP leakage before sign-in. */
+/* One face for the whole platform, Books included: Figtree (owner, 15 Nov
+   2026). JetBrains Mono for identifiers only; Inter stays loaded as the
+   fallback.
+   All self-hosted (Fontsource, SIL OFL 1.1), never Google — no IP leakage
+   before sign-in. */
+@import '@fontsource-variable/figtree';
+@import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/inter';
-@import '@fontsource/sora/700.css';
-@import '@fontsource/sora/800.css';
 
 @tailwind base;
 @tailwind components;
@@ -854,23 +856,24 @@
   /* The Explore notice (shell): Workspace Blaze in every app; no palette sets these, so it reads the same over People, Payroll or Books. Ink 5.4:1 on the soft. */
   --explore-mark: 255 84 0; --explore-ink: 186 57 0; --explore-soft: 255 243 235; --explore-line: 255 212 184;
   /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
-  --app-bg: 250 246 244; --surface: 255 255 255; --surface-raised: 255 255 255;
-  --surface-sunken: 245 239 238; --border: 234 223 225; --border-strong: 206 188 192;
-  --border-field: 214 200 203; --doc-section: 253 251 250;
+  /* Light only, white grounds (owner, 15 Nov 2026): no grey or tinted backgrounds. */
+  --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 255 255 255; --border: 229 229 229; --border-strong: 200 200 200;
+  --border-field: 214 214 214; --doc-section: 255 255 255;
   /* fg 16.0:1, muted 7.3:1, subtle 5.0:1 on the ground; all higher on white. */
   --fg: 31 26 28; --fg-muted: 91 79 83; --fg-subtle: 116 104 108; --fg-heading: var(--oxblood);
   /* White on red 5.9:1; hover 7.8:1; pressed 9.8:1. */
   --brand: var(--red); --brand-deep: var(--oxblood); --brand-hover: 165 13 38; --brand-pressed: 138 11 32;
   --btn-primary-bg: var(--red); --btn-primary-hover: 165 13 38;
-  --brand-soft: var(--blush); --brand-subtle: 253 244 245; --brand-border: 243 211 215;
+  --brand-soft: 255 255 255; --brand-subtle: 255 255 255; --brand-border: 243 211 215;
   /* Red as words: the hover step, 7.8:1 on white and 6.6:1 on blush. */
   --brand-ink: 165 13 38; --brand-panel: var(--oxblood); --on-brand: 255 255 255;
-  --doc-link: 165 13 38; --doc-link-wash: 253 244 245; --accent-soft: var(--brand-soft);
-  --ring: var(--red); --link: 165 13 38; --link-hover: 138 11 32; --info: 91 79 83; --info-soft: 245 239 238;
-  --st-all-soft: 253 244 245; --st-all-strong: var(--blush); --st-all-key: var(--red); --st-all-ink: 165 13 38;
+  --doc-link: 165 13 38; --doc-link-wash: 255 255 255; --accent-soft: var(--brand-soft);
+  --ring: var(--red); --link: 165 13 38; --link-hover: 138 11 32; --info: 91 79 83; --info-soft: 238 236 231;
+  --st-all-soft: 255 255 255; --st-all-strong: 255 255 255; --st-all-key: var(--red); --st-all-ink: 165 13 38;
   --nav-fg: 31 26 28; --nav-fg-muted: 91 79 83; --nav-fg-subtle: 116 104 108;
-  --rail-bg: 255 255 255; --rail-border: 234 223 225; --rail-hover: 245 239 238; --rail-active: var(--blush);
-  --heading-bg: 253 244 245; --heading-hover: var(--blush); --page-heading-bg: 253 244 245; --header-bg: 255 255 255;
+  --rail-bg: 255 255 255; --rail-border: 229 229 229; --rail-hover: 247 247 247; --rail-active: 255 255 255;
+  --heading-bg: 255 255 255; --heading-hover: 247 247 247; --page-heading-bg: 255 255 255; --header-bg: 255 255 255;
   --cursor-bg: 255 255 255; --cursor-fg: 31 26 28;
   --nav-dashboard: var(--oxblood); --nav-sales: var(--oxblood); --nav-crm: var(--oxblood);
   --nav-purchases: var(--oxblood); --nav-cashbank: var(--oxblood); --nav-expenses: var(--oxblood);
@@ -959,12 +962,31 @@
 --------------------------------------------------------------------------- */
 :root:where([data-palette='indigo']),
 :root:not([data-theme='dark']) [data-palette='indigo'] {
-  --heading-bg: 234 242 248; --heading-hover: 220 234 244; --page-heading-bg: 234 242 248;
+  --heading-bg: 255 255 255; --heading-hover: 247 247 247; --page-heading-bg: 255 255 255;
   /* The screens panel wears Books' own blue from clor.in (owner, 15 Nov
      2026): a pale tint of Books bright #3D4FE0 as the ground (#EFF1FC), its
      hairline, #3D4FE0 as the open screen's edge and deep #232A66 for the
      open module's words. Identity colour on "you are here" only. */
-  --nav-panel: 239 241 252; --nav-panel-border: 218 222 249; --nav-panel-mark: 61 79 224; --nav-panel-ink: 35 42 102;
+  --nav-panel: 255 255 255; --nav-panel-border: 229 229 229; --nav-panel-mark: 61 79 224; --nav-panel-ink: 35 42 102;
+}
+
+/* Books colours (owner, 15 Nov 2026): Books' own navy #232A66 is the main
+   colour (buttons, links, headings, "you are here"), orange the second colour
+   (chosen views, highlights) instead of red. Only colours change: Books'
+   lists, forms and layout stay exactly as they are. The error red #B91C1C
+   stays, because it means a problem, not the brand. */
+:root[data-palette='indigo'],
+:root:not([data-theme='dark']) [data-palette='indigo'] {
+  --red: 35 42 102; --oxblood: 35 42 102; --blush: 242 242 246; --marigold: 255 107 0;
+  /* White on navy 13.2:1; hover and pressed darker still. */
+  --brand-hover: 27 32 80; --brand-pressed: 20 24 60; --btn-primary-hover: 27 32 80;
+  --brand-border: 205 209 232; --brand-ink: 35 42 102; --doc-link: 35 42 102;
+  --link: 35 42 102; --link-hover: 27 32 80; --st-all-ink: 35 42 102;
+  --kpi-line: 229 229 229; --kpi-invoices-bg: 255 255 255; --kpi-credit-bg: 255 255 255;
+  /* A chosen view: orange with navy words, 4.8:1. */
+  --choice: 255 107 0; --on-choice: 35 42 102;
+  --nav-panel-mark: 255 107 0; --nav-panel-ink: 35 42 102;
+  --act-2: 201 80 0;
 }
 
 :root[data-theme='dark'][data-palette='indigo'],
@@ -975,9 +997,13 @@
 }
 
 @layer base {
+  /* One icon family, one stroke (redesign §7): every Lucide glyph draws at 1.75
+     with round caps. CSS outranks the svg's own stroke-width attribute, so no
+     call site sets it and none can drift. */
+  svg.lucide { stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   html {
-    /* Inter, matching the reference the module overviews are drawn from. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    /* Figtree, one face for the whole platform, Books included (owner, 15 Nov 2026). */
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
     /* Tabular figures everywhere: money columns must not jitter between rows. */
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
@@ -2236,7 +2262,7 @@
      Inter at display sizes for headline moments — one face, ranked by size
      and weight rather than by switching family. */
   .ui-display {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'ss01', 'cv11';
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -2629,7 +2655,7 @@
     font-size: 0.8125rem;
   }
   .ui-table-totals .fig {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 500, per DESIGN.md. At 600 every figure in every table read as
        emphasised, which means none of them did — a column where each cell
@@ -2712,7 +2738,7 @@
     box-shadow: 0 -2px 10px rgb(28 25 23 / 0.06);
   }
   .ui-entry-summary .fig {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
@@ -3239,7 +3265,7 @@
      doing 200 vouchers a day and an owner reading outstandings.
   --------------------------------------------------------------------------- */
   .ui-t-page {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.75rem;       /* 28px — Graphite's title size */
     line-height: 2.25rem;     /* 36px */
     font-weight: 700;
@@ -3364,7 +3390,7 @@
 
   .ui-money,
   .ui-amount {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 0.8125rem;     /* 13px */
     line-height: 1.125rem;
     font-weight: 400;
@@ -3378,7 +3404,7 @@
      size the scale does not have. One role instead: monospace, tabular, and
      the same 20px everywhere a figure leads a card. */
   .ui-money-lg {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;     /* 28px */
     /* A headline figure earns its emphasis from size, not from weight on top
@@ -3405,7 +3431,7 @@
     font-weight: 500;
   }
   .ui-total-row > :last-child {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-size: 1.25rem;       /* 20px */
     line-height: 1.75rem;
     font-weight: 400;
@@ -3482,7 +3508,7 @@
   /* The scan anchor. Mono so digits align down the column and the eye can run
      it like a list of codes rather than prose. */
   .ui-col-id.ui-col-id {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'calt' 0;
     font-size: 0.8125rem;
     font-weight: 500;
@@ -3547,7 +3573,7 @@
        tabular-nums, weight and alignment but never the family, so every rupee
        figure in every table rendered in the sans face — the one place the rule
        matters most, and the only place it was not applied. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     /* 400. Monospace and right alignment already say "this is money"; a
        weight on top of them made every figure in every table shout, and a
@@ -3566,7 +3592,7 @@
      or a glyph.
   ------------------------------------------------------------------------- */
   .ui-cell-ref {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--doc-link));
     font-weight: 600;
@@ -3623,7 +3649,7 @@
     overflow-wrap: anywhere;
   }
   .ui-detail-value.ui-detail-mono {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
   }
 
@@ -4523,7 +4549,7 @@
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.10);
   }
   .ui-segment-count {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     line-height: 1rem;
@@ -4849,7 +4875,7 @@
      left-aligned, which is why a column of rates did not line up on the
      decimal and had to be read one cell at a time. */
   .ui-grid-dense input[type='number'] {
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
     text-align: right;
@@ -5338,12 +5364,20 @@ label {
    authoritative here so the same heading means the same thing on every page. */
 body, button, input, select, textarea, table,
 .font-sans, .font-serif {
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 }
 /* Numbers outside Accounting: the words' face with tabular figures, so digits line up. */
-.font-mono, .ui-mono, .ui-metric,
+.font-mono, .ui-metric,
 .tabular-nums, [class*='ui-amount'] {
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+/* Identifiers — GSTIN, PAN, IFSC, account and document numbers, HSN/SAC, device
+   and correlation ids — in the mono face, at 0.94× the surrounding size (§5.1).
+   Never money, never prose. Accounting keeps its own face. */
+:root:not([data-palette='indigo']) .ui-mono {
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.94em;
   font-variant-numeric: tabular-nums;
 }
 code, pre { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
@@ -5356,13 +5390,13 @@ code, pre { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monosp
 [data-palette='indigo'] table,
 [data-palette='indigo'],
 [data-palette='indigo'] * {
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 [data-palette='indigo'] .font-mono,
 [data-palette='indigo'] .ui-mono,
 [data-palette='indigo'] code,
 [data-palette='indigo'] pre {
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
 h1, h1[class], .ui-t-page {
@@ -5372,7 +5406,7 @@ h1, h1[class], .ui-t-page {
   letter-spacing: -0.025em;
 }
 h1, .ui-t-page, .ui-wordmark {
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: normal;
 }
 /* The wordmark: always CLOR, ExtraBold, tight, in the theme's logo ink. */
@@ -8669,7 +8703,7 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 }
 .ui-auth-today-title {
   margin-bottom: 12px;
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Figtree Variable', 'Figtree', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -9862,7 +9896,7 @@ button.ui-side-alert { cursor: pointer; }
   gap: 0.5rem;
   padding: 0 0.125rem 0.5rem 0.625rem;
   margin-bottom: 0.25rem;
-  font-family: var(--font-brand, 'Sora', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-brand, 'Figtree Variable', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif);
   font-size: 1rem;
   line-height: 1.5rem;
   font-weight: 800;

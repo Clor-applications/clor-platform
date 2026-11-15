@@ -12,7 +12,7 @@ import { getHrSalaryRevisions } from '../api/choices';
 import PayrollSalaryRevisions from '../../../payroll/src/screens/SalaryRevisions';
 import { wholeRupees as money } from '@ui/utils/money';
 import { Avatar } from '@ui/personnel/Employees';
-import { ArrowTrendingLines20Color, Clock20Color, CoinMultiple20Color, PeopleList20Color } from '@fluentui/react-icons';
+import { Clock, Coins, TrendingUp, Users } from 'lucide-react';
 import { KpiTiles } from '../components/Core';
 
 /**
@@ -40,10 +40,10 @@ export function SalaryRevisionsReadOnly() {
   const waiting = rows.filter((r) => WAITING.has(r.status)).length;
   const strip = rows.length ? (
     <KpiTiles label="Salary revisions at a glance" items={[
-      { key: 'n', label: 'Revisions', cat: 1, Icon: PeopleList20Color, value: live.length, note: `${new Set(live.map((r) => r.employeeId || r.employeeName)).size} people` },
-      { key: 'avg', label: 'Average increase', cat: 2, Icon: ArrowTrendingLines20Color, value: rises.length ? `${(rises.reduce((a, n) => a + n, 0) / rises.length).toFixed(1)}%` : '—', note: 'Across revisions not rejected' },
-      { key: 'cost', label: 'Annual cost added', cat: 3, Icon: CoinMultiple20Color, value: money(added), note: 'New CTC less old, a year' },
-      { key: 'wait', label: 'Awaiting approval', cat: 4, Icon: Clock20Color, value: waiting, tone: 'warn', note: waiting ? 'Approved in Payroll' : 'Nothing waiting' },
+      { key: 'n', label: 'Revisions', cat: 1, Icon: Users, value: live.length, note: `${new Set(live.map((r) => r.employeeId || r.employeeName)).size} people` },
+      { key: 'avg', label: 'Average increase', cat: 2, Icon: TrendingUp, value: rises.length ? `${(rises.reduce((a, n) => a + n, 0) / rises.length).toFixed(1)}%` : '—', note: 'Across revisions not rejected' },
+      { key: 'cost', label: 'Annual cost added', cat: 3, Icon: Coins, value: money(added), note: 'New CTC less old, a year' },
+      { key: 'wait', label: 'Awaiting approval', cat: 4, Icon: Clock, value: waiting, tone: 'warn', note: waiting ? 'Approved in Payroll' : 'Nothing waiting' },
     ]} />
   ) : null;
   const header = <ListHeader section="Pay, benefits & assets" title={title} strip={strip} description="Annual CTC changes, from when, and where each revision stands. Read only: Payroll raises, reviews and approves revisions." />;

@@ -19,17 +19,19 @@
 :root:not(#rnd):not([data-palette='indigo']) {
   /* Brand */
   --graphite: 32 35 41;        /* #202329 */
-  --blaze: 255 84 0;           /* #FF5400 — a mark, never a fill behind text */
-  --soft-white: 247 248 246;   /* #F7F8F6 */
+  --blaze: 255 107 0;          /* #FF6B00 — a mark, never a fill behind text */
+  --soft-white: 255 255 255;   /* #FFFFFF */
   --forest: 1 93 71;           /* #015D47 */
 
-  /* App colours: identity only */
-  --app-accounting: 35 42 102; /* #232A66 */
-  --app-people: 107 127 36;    /* #6B7F24 moss */
-  --app-payroll: 0 121 191;    /* #0079BF */
-  --app-attendance: 91 71 196; /* #5B47C4 violet */
-  --app-projects: 46 141 163;  /* #2E8DA3 */
+  /* App identity hues: the glyph and the switcher tile, nowhere else
+     (frontend-redesign-2026-11-15.md §6.3). */
+  --app-accounting: 35 42 102; /* #232A66 Books navy */
+  --app-people: 162 28 175;    /* #A21CAF magenta */
+  --app-payroll: 0 106 158;    /* #006A9E deeper blue */
+  --app-attendance: 168 90 0;  /* #A85A00 amber */
+  --app-projects: 58 74 42;    /* #3A4A2A moss */
   --app-timesheet: 87 83 78;   /* #57534E */
+  --app-admin: 32 35 41;       /* #202329 graphite */
 
   /* Categorical palette, fixed order, never past 8 */
   --cat-1: 42 120 214;  --cat-2: 235 104 52;  --cat-3: 27 175 122;  --cat-4: 237 161 0;
@@ -39,129 +41,137 @@
   --leave-casual: 42 120 214; --leave-sick: 235 104 52; --leave-earned: 27 175 122;
   --leave-compoff: 237 161 0; --leave-wfh: 98 80 214;
 
-  /* Portal theme: Workspace (default) */
-  --act: 197 69 10;            /* #C5450A — white on it 4.96:1 */
-  --act-hover: 154 54 8;       /* #9A3608 */
-  --marker: 255 84 0;          /* #FF5400 */
-  --tint: 255 241 235;         /* #FFF1EB */
-  --panel: 255 248 243;        /* #FFF8F3 */
-  --panel-border: 246 228 216; /* #F6E4D8 */
+  /* One accent for every portal (§6.1). --act is the fill that carries a white
+     label (4.6:1); --marker is the accent as a mark, where no text sits on it. */
+  --act: 201 80 0;             /* #C95000 — white on it 4.6:1 */
+  --act-hover: 184 74 0;       /* #B84A00 */
+  --act-ink: 165 64 0;         /* #A54000 — the accent as text: 6.0:1 on paper, 6.4:1 on --tint */
+  --marker: 255 107 0;         /* #FF6B00 */
+  --act-2: 15 118 110;         /* the second colour; each app sets its own below */
+  --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
+  --panel: 255 255 255;        /* white */
+  --panel-border: 229 229 229; /* #E5E5E5 hairline */
 
-  /* Neutrals */
-  --fg: 32 35 41;              /* ink #202329 */
-  --fg-heading: 32 35 41;
-  --fg-muted: 58 63 71;        /* secondary #3A3F47 */
-  --fg-subtle: 94 99 107;      /* muted #5E636B — 6.1:1 on white */
-  --app-bg: 255 255 255;
+  /* Neutrals: warm paper, not cool zinc (§6.2) */
+  --fg: 28 27 24;              /* #1C1B18 — 15.9:1 on paper */
+  --fg-heading: 28 27 24;
+  --fg-muted: 92 90 84;        /* #5C5A54 — 6.9:1 */
+  --fg-subtle: 110 107 100;    /* #6E6B64 — 5.1:1; still text, never decoration */
+  --app-bg: 255 255 255;       /* pure white page (owner, 15 Nov 2026: light only, no grey or tinted grounds) */
   --surface: 255 255 255;
   --surface-raised: 255 255 255;
-  --surface-sunken: 244 245 242; /* #F4F5F2 */
-  --soft-panel: 246 247 244;     /* #F6F7F4 — charts and grouped content, no border */
-  --border: 228 230 225;         /* hairline #E4E6E1 */
-  --border-field: 220 223 217;   /* #DCDFD9 */
-  --border-strong: 201 204 198;  /* #C9CCC6 */
-  --doc-section: 246 247 244;
-  --heading-bg: 244 245 242;
-  --heading-hover: 236 238 233;
+  --surface-sunken: 255 255 255; /* white */
+  --soft-panel: 255 255 255;     /* white */
+  --border: 229 229 229;         /* #E5E5E5 hairline */
+  --border-field: 214 214 214;   /* #D6D6D6 */
+  --border-strong: 200 200 200;  /* #C8C8C8 */
+  --doc-section: 255 255 255;
+  --heading-bg: 255 255 255;
+  --heading-hover: 247 247 247; /* hover feedback only */
   --page-heading-bg: 255 255 255;
   --header-bg: 255 255 255;
-  --nav-fg: 32 35 41; --nav-fg-muted: 58 63 71; --nav-fg-subtle: 94 99 107;
+  --nav-fg: 28 27 24; --nav-fg-muted: 92 90 84; --nav-fg-subtle: 138 135 127;
 
   /* Status */
-  --pos: 1 93 71;     --pos-soft: 230 241 238;   /* Good #015D47 on #E6F1EE */
-  --warn: 138 90 0;   --warn-ink: 138 90 0; --warn-soft: 251 241 220; /* Attention #8A5A00 on #FBF1DC */
-  --neg: 180 35 24;   --neg-hover: 150 28 19; --neg-soft: 252 235 233; /* Problem #B42318 on #FCEBE9 */
-  --neutral-ink: 58 63 71; --neutral-soft: 238 239 236; /* Neutral #3A3F47 on #EEEFEC */
-  --info: 58 63 71;   --info-soft: 238 239 236;
+  --pos: 22 101 52;   --pos-soft: 230 241 233;   /* Good #166534 on #E6F1E9 */
+  --warn: 154 103 0;  --warn-ink: 138 90 0; --warn-soft: 251 241 220; /* Attention #9A6700; ink #8A5A00 clears 5.2:1 on the soft */
+  --neg: 180 35 24;   --neg-hover: 150 28 19; --neg-soft: 252 235 233; /* Problem #B42318 */
+  --neutral-ink: 92 90 84; --neutral-soft: 238 236 231; /* Neutral */
+  --info: 29 78 216;  --info-soft: 235 241 255; /* #1D4ED8 — informational banner only */
   --money-out: var(--graphite);
 
   /* The older names, pointed at the portal theme */
   --brand: var(--act); --brand-deep: var(--act-hover); --brand-hover: var(--act-hover); --brand-pressed: var(--act-hover);
   --btn-primary-bg: var(--act); --btn-primary-hover: var(--act-hover);
   --brand-soft: var(--tint); --brand-subtle: var(--panel); --brand-border: var(--panel-border);
-  --brand-ink: var(--act); --brand-panel: var(--graphite); --on-brand: 255 255 255; --on-primary: 255 255 255;
+  --brand-ink: var(--act-ink); --brand-panel: var(--graphite); --on-brand: 255 255 255; --on-primary: 255 255 255;
   --accent-soft: var(--tint);
-  --ring: var(--act); --link: var(--act); --link-hover: var(--act-hover);
-  --doc-link: var(--act); --doc-link-wash: var(--tint);
-  --st-all-soft: var(--panel); --st-all-strong: var(--tint); --st-all-key: var(--marker); --st-all-ink: var(--act);
-  --rail-bg: 255 255 255; --rail-border: 228 230 225; --rail-hover: 244 245 242; --rail-active: var(--tint);
+  --ring: var(--act); --link: var(--act-ink); --link-hover: var(--act-hover);
+  --doc-link: var(--act-ink); --doc-link-wash: var(--tint);
+  --st-all-soft: var(--panel); --st-all-strong: var(--tint); --st-all-key: var(--marker); --st-all-ink: var(--act-ink);
+  --rail-bg: 255 255 255; --rail-border: 229 229 229; --rail-hover: 247 247 247; --rail-active: var(--tint);
   --ws-nav-selected: var(--tint); --ws-nav-selected-ink: var(--fg); --ws-brand: var(--marker);
-  --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 244 245 242;
+  --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 255 255 255;
   --logo-mark: 255 84 0; --logo-dot: 255 84 0; --logo-mark-orange: 255 84 0; --logo-mark-slate: 32 35 41;
   --hero-hi: var(--marker);
-  --kpi-line: 228 230 225;
+  --kpi-line: 229 229 229;
   --rail-accent: var(--marker);
-  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 244 245 242;
-  --rail-ink: 58 63 71; --rail-ink-strong: 32 35 41;
-  --sky-soft: var(--tint); --sky-ink: var(--act);
+  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 247 247 247;
+  --rail-ink: 92 90 84; --rail-ink-strong: 28 27 24;
+  --sky-soft: var(--tint); --sky-ink: var(--act-ink);
 
-  /* Type */
-  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-brand: 'Sora', 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* Type: one face for everything, a mono face for identifiers only (§5.1) */
+  --font-sans: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-brand: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-ident: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
-/* Ops: forest. Set by OpsConsole (data-portal="ops" on <html>). */
-:root:not(#rnd)[data-portal='ops'] {
-  --act: 1 93 71;              /* #015D47 */
-  --act-hover: 1 69 53;        /* #014535 */
-  --marker: 11 138 104;        /* #0B8A68 */
-  --tint: 227 241 236;         /* #E3F1EC */
-  --panel: 242 248 245;        /* #F2F8F5 */
-  --panel-border: 214 232 224; /* #D6E8E0 */
-}
-
-/* People: moss. */
-:root:not(#rnd)[data-palette='sky'],
+/* People's content tags keep their own tints: they label a kind of leave or a
+   workplace fact, which is meaning, not identity (§6.4). */
 :root:not(#rnd)[data-app='people'] {
-  --act: 90 107 31;            /* #5A6B1F */
-  --act-hover: 70 84 23;       /* #465417 */
-  --marker: 122 143 42;        /* #7A8F2A */
-  --tint: 238 241 223;         /* #EEF1DF */
-  --panel: 247 248 238;        /* #F7F8EE */
-  --panel-border: 226 230 204; /* #E2E6CC */
-  /* People's companion tints, now from the categorical palette (88% white mix, 42% black ink). */
   --mint-soft: 225 245 238;  --mint-ink: 16 102 71;
   --lilac-soft: 236 234 250; --lilac-ink: 57 46 124;
   --peach-soft: 252 237 230; --peach-ink: 136 60 30;
   --butter-soft: 252 241 219; --butter-ink: 138 90 0; --butter: 237 161 0;
 }
 
-/* Attendance: violet. */
-:root:not(#rnd)[data-palette='blaze'],
-:root:not(#rnd)[data-app='attendance'] {
-  --act: 91 71 196;            /* #5B47C4 */
-  --act-hover: 75 58 168;      /* #4B3AA8 */
-  --marker: 117 99 217;        /* #7563D9 */
-  --tint: 238 235 250;         /* #EEEBFA */
-  --panel: 247 246 253;        /* #F7F6FD */
-  --panel-border: 226 221 246; /* #E2DDF6 */
-  --rail-blaze-ink: var(--act);
+/*
+ * Each app's own colours (owner, 15 Nov 2026), replacing the one orange
+ * accent. Each colour has one job:
+ *   --act       main button, links, ticked boxes, switches, "you are here"
+ *   --act-hover the button pressed or hovered
+ *   --act-ink   the main colour as text (every one is 4.5:1 or more on white)
+ *   --marker    the 3px stripe on the open menu item
+ *   --tint      selection: the chosen row, menu choice, open rail item, active
+ *               filter. A pale wash, never a page or panel ground.
+ *   --act-2     the second colour: second chart series, small highlights,
+ *               never a button
+ * Status colours and the chart palette stay shared by every app.
+ * The CLOR logo stays Blaze orange everywhere.
+ */
+:root:not(#rnd)[data-app='admin']:not([data-palette='indigo']) {
+  --act: 32 35 41; --act-hover: 16 18 22; --act-ink: 32 35 41;      /* Graphite #202329, 15.6:1 */
+  --marker: 255 107 0; --tint: 242 242 242; --act-2: 201 80 0;      /* Blaze mark, orange second */
 }
+:root:not(#rnd)[data-app='people']:not([data-palette='indigo']) {
+  --act: 162 28 175; --act-hover: 138 24 150; --act-ink: 162 28 175; /* Magenta #A21CAF, 5.9:1 */
+  --marker: 162 28 175; --tint: 249 241 250; --act-2: 15 118 110;   /* teal second */
+}
+:root:not(#rnd)[data-app='payroll']:not([data-palette='indigo']) {
+  --act: 0 106 158; --act-hover: 0 90 134; --act-ink: 0 106 158;     /* Deeper blue #006A9E, 5.6:1 */
+  --marker: 0 106 158; --tint: 240 246 249; --act-2: 180 83 9;      /* saffron second */
+}
+:root:not(#rnd)[data-app='attendance']:not([data-palette='indigo']) {
+  --act: 168 90 0; --act-hover: 143 77 0; --act-ink: 168 90 0;       /* Amber #A85A00, 5.1:1 */
+  --marker: 168 90 0; --tint: 250 245 240; --act-2: 91 71 196;      /* violet second */
+}
+
+/* Light only (owner, 15 Nov 2026): there is no dark theme. */
 
 /* ---------------------------------------------------------------- type */
 
 :root:not(#rnd):not([data-palette='indigo']) body { font-family: var(--font-sans); color: rgb(var(--fg)); }
 
-/* Sora 800 for the brand and page titles only: H1 30/38, −0.02em. */
+/* Page title: 28/36, 700, −0.025em (§5.2). */
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-t-page, .ws-title, .ops-title) {
   font-family: var(--font-brand);
-  font-size: 1.875rem;
-  line-height: 2.375rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   color: rgb(var(--fg));
 }
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-display, .ui-h1) {
   font-family: var(--font-brand);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
-/* H2: Sora 700 17/24. */
+/* Section title: 16/24, 600, −0.01em (§5.2 --text-md). */
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-h2, .ws-h2, .ops-h2) {
   font-family: var(--font-brand);
-  font-size: 1.0625rem;
+  font-size: 1rem;
   line-height: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
@@ -183,7 +193,7 @@
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-btn-primary, .ui-btn-brand) {
   background-color: rgb(var(--act)) !important;
   border-color: rgb(var(--act)) !important;
-  color: rgb(255 255 255) !important;
+  color: rgb(var(--on-brand)) !important;
 }
 :root:not(#rnd):not([data-palette='indigo']) :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
   background-color: rgb(var(--act-hover)) !important;
@@ -252,7 +262,7 @@
 }
 
 /* Links in the portal colour. */
-:root:not(#rnd):not([data-palette='indigo']) .ui-link { color: rgb(var(--act)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-link { color: rgb(var(--act-ink)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-link:hover { color: rgb(var(--act-hover)); }
 
 /* Focus: the portal colour, 2px. */
@@ -336,7 +346,11 @@
   border-radius: 0.5rem;
   font-weight: 600;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-app-switch-mark { color: rgb(var(--app-color, var(--act))); }
+/* The switcher's mark carries the app's identity hue as a filled tile, glyph in --on-brand: §6.3 allows the hue here and nowhere else. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-app-switch-mark {
+  background: rgb(var(--app-color, var(--act)));
+  color: rgb(var(--on-brand));
+}
 :root:not(#rnd):not([data-palette='indigo']) .ui-company-pick .ui-select { height: 2.25rem; font-weight: 600; border-color: rgb(var(--border-field)); }
 
 /* Rail: 64px, white, hairline. Symbol tile 36px. 44 × 44 icon buttons, 8px radius, 24px icons. */
@@ -411,7 +425,7 @@
   padding: 0 0.25rem;
   border-radius: 999px;
   background: rgb(var(--act));
-  color: rgb(255 255 255);
+  color: rgb(var(--on-brand));
   font-size: 0.625rem;
   line-height: 1rem;
   font-weight: 700;
@@ -422,7 +436,7 @@
   border-top-color: rgb(var(--border));
 }
 
-/* Second panel: 232px on --panel, its own scroll. Sora 800 16px title,
+/* Second panel: 232px on --panel, its own scroll. 16px 600 title,
    12px uppercase groups, 36px items with 20px icons, white active item with a
    --panel-border ring and a 3px --marker inset. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel {
@@ -442,7 +456,7 @@
   font-family: var(--font-brand);
   font-size: 1rem;
   line-height: 1.5rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: rgb(var(--fg));
 }
@@ -492,5 +506,160 @@
 }
 
 /* Phone tab bar: the portal marker on the current tab. */
-:root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] { color: rgb(var(--act)); }
-:root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] > svg { color: rgb(var(--act)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] { color: rgb(var(--act-ink)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] > svg { color: rgb(var(--act-ink)); }
+
+/*
+ * Gate pages (GatePage.jsx): the stops between the door and the app. White
+ * ground, the logo in a 64px bar, one centred column, legal links at the foot.
+ * Not scoped to a palette: a gate draws before any app, Books included.
+ */
+.ui-gate {
+  /* One face whichever app was open last (Books' palette sets no --font-sans). */
+  font-family: var(--font-sans, 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: rgb(255 255 255);
+  color: rgb(var(--fg));
+}
+.ui-gate-bar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  border-bottom: 1px solid rgb(229 229 229);
+}
+.ui-gate-who {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted));
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-gate main#main-content.ui-gate-main {
+  flex: 1;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 72px 24px 48px;
+}
+.ui-gate main#main-content.ui-gate-main.is-wide { max-width: 46rem; }
+.ui-gate main#main-content.ui-gate-main > * { max-width: none; }
+.ui-gate-tile {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border: 1px solid rgb(229 229 229);
+  color: rgb(var(--fg));
+  background: rgb(255 255 255);
+  box-shadow: 0 1px 2px rgb(32 35 41 / 0.06);
+}
+.ui-gate-tile.is-alert { color: rgb(var(--neg)); }
+.ui-gate-eyebrow {
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted));
+}
+.ui-gate .ui-gate-head h1 {
+  font-family: var(--font-brand, 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 1.75rem !important;
+  line-height: 2.25rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.ui-gate-sub {
+  margin-top: 8px;
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+  color: rgb(var(--fg-muted));
+  text-wrap: pretty;
+}
+.ui-gate-body { margin-top: 32px; }
+.ui-gate-foot {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 24px;
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+  border-top: 1px solid rgb(229 229 229);
+}
+.ui-gate-foot .legal-links ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
+.ui-gate-foot .legal-links a { color: rgb(var(--fg-muted)); }
+.ui-gate-foot .legal-links a:hover { color: rgb(var(--fg)); text-decoration: underline; }
+
+/* A gate's numbered steps: a hairline joins the numbers; done is a filled ink circle. */
+.ui-gate-steps { list-style: none; margin: 0; padding: 0; }
+.ui-gate-step { position: relative; display: flex; gap: 16px; padding-bottom: 28px; }
+.ui-gate-step.is-last { padding-bottom: 0; }
+.ui-gate-step:not(.is-last)::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 32px;
+  bottom: 4px;
+  width: 1px;
+  background: rgb(229 229 229);
+}
+.ui-gate-step-n {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid rgb(214 214 214);
+  color: rgb(var(--fg-subtle));
+  background: rgb(255 255 255);
+}
+.ui-gate-step.is-current .ui-gate-step-n { border-color: rgb(var(--fg)); color: rgb(var(--fg)); }
+.ui-gate-step.is-done .ui-gate-step-n { border-color: rgb(var(--fg)); background: rgb(var(--fg)); color: rgb(255 255 255); }
+.ui-gate-step-main { min-width: 0; flex: 1; padding-top: 3px; }
+.ui-gate-step-title { font-size: 0.9375rem; font-weight: 600; line-height: 1.375rem; }
+.ui-gate-step.is-next .ui-gate-step-title { font-weight: 500; color: rgb(var(--fg-subtle)); }
+.ui-gate-step-summary { margin-top: 2px; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-gate-step-body { margin-top: 12px; }
+
+/* A list of choices on a gate (companies to open): rows under one hairline. */
+.ui-gate-list { border-top: 1px solid rgb(229 229 229); }
+.ui-gate-list > li { border-bottom: 1px solid rgb(229 229 229); }
+.ui-gate-list button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 8px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.875rem;
+}
+.ui-gate-list button:hover { background: rgb(247 247 247); }
+.ui-gate-list button:focus-visible { outline: 2px solid rgb(var(--fg)); outline-offset: -2px; }
+/* A gate's one action is CLOR's orange, not the palette of whichever app was open last (Books' red). */
+.ui-gate :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(201 80 0) !important;
+  border-color: rgb(201 80 0) !important;
+  color: rgb(255 255 255) !important;
+}
+.ui-gate :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(184 74 0) !important;
+  border-color: rgb(184 74 0) !important;
+}
+.ui-gate :is(.ui-input, .ui-select):focus-visible { outline: 2px solid rgb(201 80 0 / 0.35); outline-offset: 0; border-color: rgb(201 80 0); }
+@media (max-width: 640px) {
+  .ui-gate-bar { padding: 0 16px; }
+  .ui-gate main#main-content.ui-gate-main { padding: 40px 16px 32px; }
+}

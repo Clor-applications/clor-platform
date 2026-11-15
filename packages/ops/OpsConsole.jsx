@@ -2,47 +2,45 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, KeyRound, LogOut, Menu, X } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
 import {
-  AlertUrgentColor,
-  ApprovalsAppColor,
-  AppsColor,
-  ArrowSyncColor,
-  BuildingGovernmentColor,
-  BuildingPeopleColor,
-  BuildingStoreColor,
-  CalendarClockColor,
-  CalendarPeopleColor,
-  ChatMultipleColor,
-  CommentMultipleColor,
-  CoinMultipleColor,
-  DataBarVerticalAscendingColor,
-  DatabaseColor,
-  DocumentEditColor,
-  DocumentTextColor,
-  DraftsColor,
-  FormColor,
-  GaugeColor,
-  GiftColor,
-  GlobeColor,
-  HistoryColor,
-  LinkColor,
-  LockShieldColor,
-  MailClockColor,
-  MailColor,
-  MegaphoneLoudColor,
-  OptionsColor,
-  PeopleCommunityColor,
-  PeopleListColor,
-  PeopleTeamColor,
-  PersonKeyColor,
-  ReceiptColor,
-  SettingsColor,
-  ShieldColor,
-  VaultColor,
-} from '@fluentui/react-icons';
+  BarChart3,
+  BellRing,
+  Building2,
+  CalendarClock,
+  CheckCheck,
+  ClipboardList,
+  Coins,
+  Database,
+  FilePen,
+  FileText,
+  Gauge,
+  Gift,
+  Globe,
+  History,
+  Inbox,
+  Landmark,
+  LayoutGrid,
+  LayoutTemplate,
+  Link2,
+  LockKeyhole,
+  Mail,
+  Megaphone,
+  MessageSquare,
+  MessagesSquare,
+  Network,
+  Presentation,
+  Receipt,
+  RefreshCw,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Store,
+  ToggleRight,
+  Users as UsersIcon,
+  UsersRound,
+  Vault,
+} from 'lucide-react';
 
 import { ClorLogo, ClorMark } from '@ui/components/brand';
-import { colorSet } from '@ui/components/ui/colorIcon';
-import { IconSetContext, LineSetContext } from '@ui/components/ui/iconSet';
 import Toaster from '@ui/components/ui/Toaster';
 import '../../apps/admin/src/screens/workspace.css';
 import './ops.css';
@@ -96,48 +94,46 @@ import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
 
 /* ------------------------------------------------------------- navigation */
 /* Fluent colour icons for the rail and the panel (R&D hand-off §4); controls stay on the line set. */
-const NI = colorSet(
-  {
-    overview: GaugeColor,
-    insights: DataBarVerticalAscendingColor,
-    savedReplies: CommentMultipleColor,
-    status: GlobeColor,
-    forms: FormColor,
-    accounts: BuildingPeopleColor,
-    orgs: PeopleCommunityColor,
-    users: PeopleListColor,
-    denials: ShieldColor,
-    switches: OptionsColor,
-    subscriptions: ReceiptColor,
-    tickets: ChatMultipleColor,
-    trials: CalendarClockColor,
-    demos: CalendarPeopleColor,
-    links: LinkColor,
-    jobs: ArrowSyncColor,
-    alerts: AlertUrgentColor,
-    pricing: CoinMultipleColor,
-    customPlans: DocumentEditColor,
-    offers: GiftColor,
-    invoices: DocumentTextColor,
-    payments: VaultColor,
-    tax: BuildingGovernmentColor,
-    invoicing: SettingsColor,
-    catalogue: AppsColor,
-    sample: BuildingStoreColor,
-    announcements: MegaphoneLoudColor,
-    emailAddresses: MailColor,
-    emailTemplates: DraftsColor,
-    emailLog: MailClockColor,
-    audit: HistoryColor,
-    access: PersonKeyColor,
-    approvals: ApprovalsAppColor,
-    staff: PeopleTeamColor,
-    trust: HistoryColor,
-    data: DatabaseColor,
-    domain: LockShieldColor,
-  },
-  20,
-);
+/* Rail and panel icons: Lucide, like every other icon in the product (redesign §7). */
+const NI = {
+  overview: Gauge,
+  insights: BarChart3,
+  savedReplies: MessagesSquare,
+  status: Globe,
+  forms: ClipboardList,
+  accounts: Building2,
+  orgs: Network,
+  users: UsersIcon,
+  denials: ShieldAlert,
+  switches: ToggleRight,
+  subscriptions: Receipt,
+  tickets: MessageSquare,
+  trials: CalendarClock,
+  demos: Presentation,
+  links: Link2,
+  jobs: RefreshCw,
+  alerts: BellRing,
+  pricing: Coins,
+  customPlans: FilePen,
+  offers: Gift,
+  invoices: FileText,
+  payments: Vault,
+  tax: Landmark,
+  invoicing: Settings,
+  catalogue: LayoutGrid,
+  sample: Store,
+  announcements: Megaphone,
+  emailAddresses: Mail,
+  emailTemplates: LayoutTemplate,
+  emailLog: Inbox,
+  audit: History,
+  access: KeyRound,
+  approvals: CheckCheck,
+  staff: UsersRound,
+  trust: ShieldCheck,
+  data: Database,
+  domain: LockKeyhole,
+};
 
 /*
  * The rail: five sections (Overview · Customers · Platform · Trust · Billing
@@ -516,7 +512,7 @@ function Console() {
           </span>
           {RAIL.filter(([k]) => firstOf(k)).map(([k, label, Icon]) => (
             <button key={k} type="button" className="ops-rail-btn" aria-label={label} title={label} data-current={section === k || undefined} onClick={() => go(firstOf(k))}>
-              <Icon size={24} />
+              <Icon size={18} />
             </button>
           ))}
         </nav>
@@ -531,7 +527,7 @@ function Console() {
                 {g.label ? <span className="ops-group-label">{g.label}</span> : null}
                 {g.items.map(([k, label, Icon]) => (
                   <button key={k} type="button" className="ops-nav-item" aria-current={page === k ? 'page' : undefined} onClick={() => go(k)}>
-                    <Icon size={20} />
+                    <Icon size={16} />
                     <span className="ops-nav-label">{label}</span>
                     {counts[k] ? <span className="ops-nav-count">{counts[k].toLocaleString('en-IN')}</span> : null}
                   </button>
@@ -606,14 +602,10 @@ function Avatar({ name, role, signOut }) {
   );
 }
 
-/* The console draws in the icon family of every app but Accounting (owner, 9 Nov 2026): two-tone marks, Fluent line icons. */
+/* The console draws in the one icon family (Lucide), like every app. */
 export default function OpsConsole() {
   return (
-    <IconSetContext.Provider value="duo">
-      <LineSetContext.Provider value="fluent">
-        <OpsScreens />
-      </LineSetContext.Provider>
-    </IconSetContext.Provider>
+    <OpsScreens />
   );
 }
 

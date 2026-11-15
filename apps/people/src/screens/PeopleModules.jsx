@@ -6,8 +6,7 @@ import { billingFor, setFeature } from '@platform/auth';
 import { branchId, orgId } from '@platform/context';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import { notify } from '@ui/components/ui/notify';
-import { BookOpen16Regular, Briefcase20Color, CalendarCheckmark16Regular, Gift20Color, MegaphoneLoud20Color, People20Color, Trophy20Color } from '@fluentui/react-icons';
-import { colorIcon } from '@ui/components/ui/colorIcon';
+import { BookOpen, Briefcase, Clock, Gift, Megaphone, Trophy, Users } from 'lucide-react';
 import Toggle from '../components/Toggle';
 import '../people-settings.css';
 
@@ -20,18 +19,18 @@ import '../people-settings.css';
 const MODULES = ['peopleHiring', 'peoplePerformance', 'peopleEngage', 'peopleBenefits'];
 const APPS = [
   { key: 'payroll', name: 'Payroll', mark: '₹', note: 'Salaries, PF, ESI, PT and TDS, and payslips; unpaid leave from HR is loss of pay.' },
-  { key: 'attendance', name: 'Attendance', mark: <CalendarCheckmark16Regular />, note: 'Biometric readers, shifts, late marks and overtime; days marked automatically and sent to HR and Payroll.', recommended: true },
-  { key: 'accounting', name: 'Accounting', mark: <BookOpen16Regular />, note: 'Salary journals and cost centres, in Books.' },
+  { key: 'attendance', name: 'Attendance', mark: <Clock size={16} />, note: 'Biometric readers, shifts, late marks and overtime; days marked automatically and sent to HR and Payroll.', recommended: true },
+  { key: 'accounting', name: 'Accounting', mark: <BookOpen size={16} />, note: 'Salary journals and cost centres, in Books.' },
 ];
 /* The apps People switches with it; Accounting is shown for what the subscription carries, and is not switched from here. */
 const TOGGLES = { payroll: true, attendance: true };
 /* Each module's mark and identity colour (--cat-N) on its tile, the same glyphs as the rail. */
 const ICON = {
-  core: colorIcon(People20Color, 'People20Color'),
-  peopleHiring: colorIcon(Briefcase20Color, 'Briefcase20Color'),
-  peoplePerformance: colorIcon(Trophy20Color, 'Trophy20Color'),
-  peopleEngage: colorIcon(MegaphoneLoud20Color, 'MegaphoneLoud20Color'),
-  peopleBenefits: colorIcon(Gift20Color, 'Gift20Color'),
+  core: Users,
+  peopleHiring: Briefcase,
+  peoplePerformance: Trophy,
+  peopleEngage: Megaphone,
+  peopleBenefits: Gift,
 };
 const TONE = { peopleHiring: 2, peoplePerformance: 3, peopleEngage: 5, peopleBenefits: 2 };
 const CORE = 'Employees, organisation, leave and attendance, insights and settings.';
@@ -90,7 +89,7 @@ export default function PeopleModules() {
                 const Icon = ICON[f.key];
                 return (
                   <li key={f.key} className="people-module-tile" style={{ '--set-tone': `var(--cat-${TONE[f.key] || 1})` }}>
-                    <span className="people-module-chip" aria-hidden="true">{Icon ? <Icon size={20} /> : null}</span>
+                    <span className="people-module-chip" aria-hidden="true">{Icon ? <Icon size={18} /> : null}</span>
                     <span className="people-module-switch">
                       <Toggle label={f.label} checked={Boolean(f.enabled)} disabled={busy === f.key || (!f.entitled && !f.enabled)} onChange={(on) => flip(f.key, on)} />
                     </span>

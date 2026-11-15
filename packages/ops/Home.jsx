@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BuildingPeopleColor, CalendarClockColor, ReceiptColor, WarningColor } from '@fluentui/react-icons';
-import { colorSet } from '@ui/components/ui/colorIcon';
+import { Building2, CalendarClock, Receipt, TriangleAlert } from 'lucide-react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
 import { Err, Loading } from './kit';
@@ -14,7 +13,7 @@ import { opsAudit, opsHealth, opsHome, opsOverview } from './api';
  * still gets the rest.
  */
 const n = (count, one, many) => `${count} ${count === 1 ? one : many}`;
-const KI = colorSet({ accounts: BuildingPeopleColor, paying: ReceiptColor, trials: CalendarClockColor, legacy: WarningColor }, 20);
+const KI = { accounts: Building2, paying: Receipt, trials: CalendarClock, legacy: TriangleAlert };
 const WORKER = { ok: ['Healthy', 'ws-pill ws-pill--ok'], late: ['Slow', 'ws-pill ws-pill--warn'], failing: ['Failing', 'ws-pill ws-pill--danger'] };
 const initials = (s) =>
   String(s || '?')
@@ -114,7 +113,7 @@ function Kpis({ d, error, go, has }) {
         return (
           <button key={t.k} type="button" className="ops-kpi" style={{ '--kpi': `var(--cat-${t.tone})` }} onClick={t.open}>
             <span className="ops-kpi-chip" aria-hidden="true">
-              <Icon size={20} />
+              <Icon size={16} />
             </span>
             <span className="ops-kpi-label">{t.label}</span>
             <span className="ops-kpi-value" data-state={t.state || undefined}>

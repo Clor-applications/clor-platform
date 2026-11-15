@@ -2,15 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyRound } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
 
-import { apiFetch } from '@platform/http';
-import { orgId } from '@platform/context';
-
-const base = () => `/orgs/${encodeURIComponent(String(orgId() || ''))}/security`;
-const opts = { skipWarehouseHeader: true };
-const getTwoFactor = () => apiFetch(`${base()}/two-factor`, opts);
-const startTwoFactor = (password) => apiFetch(`${base()}/two-factor/setup`, { method: 'POST', body: { password }, ...opts });
-const enableTwoFactor = (code) => apiFetch(`${base()}/two-factor/enable`, { method: 'POST', body: { code }, ...opts });
-const disableTwoFactor = (password, code) => apiFetch(`${base()}/two-factor/disable`, { method: 'POST', body: { password, code }, ...opts });
+import { disableTwoFactor, enableTwoFactor, getTwoFactor, startTwoFactor } from './twoFactorApi';
 
 /**
  * The signed-in person's authenticator app: set up — after their password, so

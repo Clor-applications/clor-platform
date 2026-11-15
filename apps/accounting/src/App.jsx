@@ -20,7 +20,10 @@ import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, C
 /* Duotone icons for the module rail — the two-tone fill is what reads as a
    "coloured icon" rather than a tinted outline. Leaf items stay lucide, tinted
    with their module colour, so the two sets never mix at the same level. */
-import { Bank as PhBank, ChartBar as PhReports, Database as PhMaster, GearSix as PhSettings, Notebook as PhJournal, Package as PhInventory, Receipt as PhSales, ShieldCheck as PhApprovals, ShoppingCartSimple as PhPurchases, SquaresFour as PhDashboard, Wallet as PhExpenses } from '@phosphor-icons/react';
+/* Module icons: Lucide, the concept map's glyphs (redesign §7): sales file-text, purchases receipt, journal book-open, approvals check-check. */
+/* Books' rail modules draw in the platform's navigation emoji (Fluent Emoji flat, owner 15 Nov 2026);
+   the screens inside each module keep their line icons, so Books' panels and lists are unchanged. */
+import { emoji } from '@ui/components/ui/emoji';
 import Modal from '@ui/components/ui/Modal';
 import { getDefaultDocSettings, initEmptyDB, normalizeDB } from './data/db';
 import { addInventoryReportSamples, addSampleScenario } from './data/sampleScenario';
@@ -243,6 +246,20 @@ import { LedgerView } from './features/reports/FinancialStatements';
 import { GstComplianceWorkspace, MsmeComplianceWorkspace } from './features/gst/GstCompliance';
 import { DocTemplateSettings, CompanyProfile, SettingsView } from './features/settings/AccountingSettingsView';
 import { resolveServerOrgId } from './appShared';
+
+const NavDashboard = emoji('house');
+const NavSales = emoji('money-bag');
+const NavPurchases = emoji('shopping-bags');
+const NavExpenses = emoji('purse');
+const NavBank = emoji('bank');
+const NavInventory = emoji('package');
+const NavJournal = emoji('notebook');
+const NavApprovals = emoji('check-mark-button');
+const NavTaxes = emoji('ledger');
+const NavReports = emoji('bar-chart');
+const NavMaster = emoji('card-file-box');
+const NavFeatures = emoji('puzzle-piece');
+const NavSettings = emoji('gear');
 
 // Screens the Reports module lights in the rail while one of them is open.
 const REPORT_SCREENS = new Set(['reports', 'trialBalance', 'profitLoss', 'balanceSheet', 'cashFlow', 'gstr1', 'gstr3b', 'salesReports']);
@@ -1298,14 +1315,13 @@ const AppShell = () => {
 
   const navModel = useMemo(
     () => [
-      { type: 'item', key: 'dashboard', label: 'Home', icon: PhDashboard, ph: true, tone: 'dashboard' },
+      { type: 'item', key: 'dashboard', label: 'Home', icon: NavDashboard, tone: 'dashboard' },
       {
         type: 'group',
         key: 'salesMenu',
         label: 'Sales',
         tone: 'sales',
-        icon: PhSales,
-        ph: true,
+        icon: NavSales,
         items: [
           { key: 'sales', label: 'Overview', icon: BarChart3, perm: 'SALES::Invoices::VIEW' },
           { key: 'customers', label: 'Customers', icon: Users, perm: 'MASTERS::Customers::VIEW' },
@@ -1325,13 +1341,12 @@ const AppShell = () => {
         key: 'purchasesMenu',
         label: 'Purchases',
         tone: 'purchases',
-        icon: PhPurchases,
-        ph: true,
+        icon: NavPurchases,
         items: [
           { key: 'purchaseOverview', label: 'Overview', icon: BarChart3, perm: 'PURCHASE::Bills::VIEW' },
           { key: 'vendors', label: 'Vendors', icon: Truck, perm: 'MASTERS::Vendors::VIEW' },
           { key: 'bills', label: 'Bills', icon: FileStack, perm: 'PURCHASE::Bills::VIEW' },
-          { key: 'expenses', label: 'Expenses', icon: PhExpenses, perm: 'EXPENSES::Expenses::VIEW', feature: 'expenses' },
+          { key: 'expenses', label: 'Expenses', icon: NavExpenses, perm: 'EXPENSES::Expenses::VIEW', feature: 'expenses' },
           { key: 'payments', label: 'Payments', icon: NotebookPen, perm: 'PURCHASE::Payments::VIEW', feature: 'standaloneReceiptsPayments' },
           { key: 'purchaseOrders', label: 'Purchase Orders', icon: ShoppingCart, perm: 'PURCHASE::Purchase Orders::VIEW', feature: 'purchaseOrders' },
           { key: 'debitNotes', label: 'Purchase Returns', icon: NotebookPen, perm: 'PURCHASE::Debit Notes::VIEW', feature: 'debitNotes' },
@@ -1348,8 +1363,7 @@ const AppShell = () => {
         key: 'cashBankMenu',
         label: 'Cash & Bank',
         tone: 'cashbank',
-        icon: PhBank,
-        ph: true,
+        icon: NavBank,
         items: [
           { key: 'bankCashAccounts', label: 'Bank & Cash Accounts', icon: Landmark, perm: 'CASHBANK::Cash & Bank::VIEW' },
           { key: 'cashBank', label: 'Transactions', icon: ArrowLeftRight, perm: 'CASHBANK::Cash & Bank::VIEW' },
@@ -1367,8 +1381,7 @@ const AppShell = () => {
         key: 'inventoryMenu',
         label: 'Inventory',
         tone: 'inventory',
-        icon: PhInventory,
-        ph: true,
+        icon: NavInventory,
         items: [
           { key: 'inventory', label: 'Inventory', icon: Package, perm: 'INVENTORY::Stock Adjustment::VIEW', feature: 'inventory' },
           { key: 'warehouseTransfers', label: 'Warehouse Transfers', icon: Truck, perm: 'INVENTORY::Stock Transfer::VIEW', features: ['stockTransfers', 'warehouses'] },
@@ -1385,19 +1398,19 @@ const AppShell = () => {
        * components, pay groups, periods and the statutory rates live under
        * Settings → Payroll, so the month-end path is Overview, Pay Runs, done.
        */
-      { type: 'item', key: 'journalEntries', label: 'Journal Entries', icon: PhJournal, ph: true, tone: 'journal', perm: 'ACCOUNTING::Journal Entries::VIEW' },
+      { type: 'item', key: 'journalEntries', label: 'Journal Entries', icon: NavJournal, tone: 'journal', perm: 'ACCOUNTING::Journal Entries::VIEW' },
       {
         /* `approvals` stays the key for the inbox itself: the shell, the
            notification bell and saved links all open it by that name. */
-        type: 'group', key: 'approvalsMenu', label: 'Approvals', icon: PhApprovals, ph: true, tone: 'approvals', feature: 'approvals',
+        type: 'group', key: 'approvalsMenu', label: 'Approvals', icon: NavApprovals, tone: 'approvals', feature: 'approvals',
         items: [
-          { key: 'approvalsOverview', label: 'Overview', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
-          { key: 'approvals', label: 'My Approvals', icon: PhApprovals, ph: true, feature: 'approvals' },
-          { key: 'approvalsRequests', label: 'My Requests', icon: PhApprovals, ph: true, feature: 'approvals' },
-          { key: 'approvalsAll', label: 'All Approvals', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
-          { key: 'settingsGovernance', label: 'Approval Workflows', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW' },
-          { key: 'approvalSettings', label: 'Approval Settings', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
-          { key: 'approvalsHistory', label: 'Approval History', icon: PhApprovals, ph: true, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+          { key: 'approvalsOverview', label: 'Overview', icon: NavApprovals, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+          { key: 'approvals', label: 'My Approvals', icon: NavApprovals, feature: 'approvals' },
+          { key: 'approvalsRequests', label: 'My Requests', icon: NavApprovals, feature: 'approvals' },
+          { key: 'approvalsAll', label: 'All Approvals', icon: NavApprovals, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+          { key: 'settingsGovernance', label: 'Approval Workflows', icon: NavApprovals, perm: 'SETTINGS::Roles::VIEW' },
+          { key: 'approvalSettings', label: 'Approval Settings', icon: NavApprovals, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
+          { key: 'approvalsHistory', label: 'Approval History', icon: NavApprovals, perm: 'SETTINGS::Roles::VIEW', feature: 'approvals' },
         ],
       },
       {
@@ -1405,22 +1418,20 @@ const AppShell = () => {
         key: 'complianceMenu',
         label: 'Taxes',
         tone: 'reports',
-        icon: PhApprovals,
-        ph: true,
+        icon: NavTaxes,
         items: [
           { key: 'gstCompliance', label: 'GST', icon: BadgePercent, permAny: ['REPORTS::GSTR-1::VIEW', 'REPORTS::GSTR-3B::VIEW'] },
           { key: 'tds', label: 'TDS', icon: FileText },
           { key: 'msmeCompliance', label: 'MSME', icon: Building2, perm: 'MASTERS::Vendors::VIEW' },
         ],
       },
-      { type: 'item', key: 'reports', label: 'Reports', icon: PhReports, ph: true, tone: 'reports', permAny: ['REPORTS::Trial Balance::VIEW','REPORTS::Profit & Loss::VIEW','REPORTS::Balance Sheet::VIEW','REPORTS::Cash Flow::VIEW','REPORTS::Sales Reports::VIEW','REPORTS::GSTR-1::VIEW','REPORTS::GSTR-3B::VIEW'] },
+      { type: 'item', key: 'reports', label: 'Reports', icon: NavReports, tone: 'reports', permAny: ['REPORTS::Trial Balance::VIEW','REPORTS::Profit & Loss::VIEW','REPORTS::Balance Sheet::VIEW','REPORTS::Cash Flow::VIEW','REPORTS::Sales Reports::VIEW','REPORTS::GSTR-1::VIEW','REPORTS::GSTR-3B::VIEW'] },
       {
         type: 'item',
         key: 'mdm',
         label: 'Master Data',
         tone: 'masterdata',
-        icon: PhMaster,
-        ph: true,
+        icon: NavMaster,
         items: [
           /*
            * "Companies", not "Company Profile". Two nav entries carried that
@@ -1467,11 +1478,11 @@ const AppShell = () => {
         type: 'item',
         key: 'features',
         label: 'Features',
-        icon: SlidersHorizontal,
+        icon: NavFeatures,
         tone: 'settings',
         perm: 'SETTINGS::Company Profile::VIEW',
       },
-      { type: 'item', key: 'settings', label: 'Settings', icon: PhSettings, tone: 'settings', ph: true, perm: 'SETTINGS::Company Profile::VIEW' },
+      { type: 'item', key: 'settings', label: 'Settings', icon: NavSettings, tone: 'settings', perm: 'SETTINGS::Company Profile::VIEW' },
     ],
     /*
      * `isEnabled` belongs here.
@@ -3808,10 +3819,7 @@ const AppShell = () => {
       className="ui-app-shell flex flex-col overflow-hidden"
       style={{ backgroundColor: 'rgb(var(--app-bg))' }}
     >
-      {/* Ambient brand light for the whole shell: fixed so it stays put while
-          content scrolls, quiet so tables stay tables. The background colour
-          itself is untouched — this paints over --app-bg, never replaces it. */}
-      <div className="ui-ambient ui-ambient-quiet ui-ambient-fixed" aria-hidden="true" />
+      {/* No ambient light behind the pages: every ground is pure white (owner, 15 Nov 2026). */}
       <Toaster />
       <ResizableTables />
       <a
@@ -4174,7 +4182,7 @@ const AppShell = () => {
                         }
                       }}
                     >
-                      <Icon size={18} aria-hidden="true" {...(entry.ph ? { weight: 'fill' } : {})} />
+                      <Icon size={18} aria-hidden="true" />
                       <span>{entry.label}</span>
                     </button>
                   );

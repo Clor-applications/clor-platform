@@ -36,7 +36,7 @@ describe('Features is a module, not a settings page', () => {
     expect(APP).toMatch(/key: 'features',\s*\n\s*label: 'Features'/);
     /* Its own icon: the gear belongs to Settings, and two gears in one rail
        is the ambiguity this whole change removes. */
-    expect(APP).toMatch(/key: 'features'[\s\S]{0,200}icon: SlidersHorizontal/);
+    expect(APP).toMatch(/key: 'features'[\s\S]{0,200}icon: NavFeatures/);
   });
 
   it('keeps the permission the capability screens always had', () => {

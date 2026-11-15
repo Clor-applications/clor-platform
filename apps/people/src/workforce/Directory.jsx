@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarClock20Color, CalendarEdit24Color, People20Color, PeopleAdd20Color, PeopleAdd24Color, PeopleAdd32Color, PersonWarning20Color, PhoneLaptop24Color } from '@fluentui/react-icons';
+import { CalendarClock, CalendarDays, Smartphone, UserPlus, UserRoundX, Users } from 'lucide-react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
 import { Download, Filter, Pencil, Plus, Trash2, Upload, X } from '@ui/components/ui/lineIcons';
@@ -381,10 +381,10 @@ function MetricStrip({ counts, onPick }) {
   /* The owner's picture (PEOPLE-02): who works here now, who is coming, who came this month, who is leaving. The
      company may keep leavings from this reader (Company choices): then no notice tile. */
   const items = [
-    { key: 'total', label: 'Working now', cat: 1, Icon: People20Color, value: n(counts.total), note: `${n(counts.onLeave)} on leave today`, onClick: () => onPick({ working: 'now' }) },
-    { key: 'joining', label: 'Joining', cat: 4, Icon: CalendarClock20Color, value: n(counts.joining), note: 'Joining date still to come', onClick: () => onPick({ from: tomorrowIst() }) },
-    { key: 'joinedMonth', label: 'Joined this month', cat: 3, Icon: PeopleAdd20Color, value: n(counts.joinedThisMonth), note: counts.monthStart ? `Since ${formatDate(counts.monthStart)}` : null, onClick: () => onPick({ status: 'ALL', from: counts.monthStart, to: todayIst() }) },
-    counts.leavingsHidden ? null : { key: 'onNotice', label: 'On notice', cat: 2, Icon: PersonWarning20Color, value: n(counts.onNotice), note: counts.leftThisMonth != null ? `${n(counts.leftThisMonth)} left this month` : null, onClick: () => onPick({ status: 'ON_NOTICE' }) },
+    { key: 'total', label: 'Working now', cat: 1, Icon: Users, value: n(counts.total), note: `${n(counts.onLeave)} on leave today`, onClick: () => onPick({ working: 'now' }) },
+    { key: 'joining', label: 'Joining', cat: 4, Icon: CalendarClock, value: n(counts.joining), note: 'Joining date still to come', onClick: () => onPick({ from: tomorrowIst() }) },
+    { key: 'joinedMonth', label: 'Joined this month', cat: 3, Icon: UserPlus, value: n(counts.joinedThisMonth), note: counts.monthStart ? `Since ${formatDate(counts.monthStart)}` : null, onClick: () => onPick({ status: 'ALL', from: counts.monthStart, to: todayIst() }) },
+    counts.leavingsHidden ? null : { key: 'onNotice', label: 'On notice', cat: 2, Icon: UserRoundX, value: n(counts.onNotice), note: counts.leftThisMonth != null ? `${n(counts.leftThisMonth)} left this month` : null, onClick: () => onPick({ status: 'ON_NOTICE' }) },
   ];
   return <KpiTiles label="Workforce counts" items={items} />;
 }
@@ -769,14 +769,14 @@ function SavedViews({ params, prefs, onApply, canShare }) {
 /* The Employees screen before anyone is added (PEOPLE-52): one way in, then the three steps that make People useful. */
 function FirstRun({ openScreen, mayAdd }) {
   const steps = [
-    { n: 1, Icon: PeopleAdd24Color, title: 'Import employees', note: 'Name, code, joining date, manager, bank and PAN', screen: 'employeeImport' },
-    { n: 2, Icon: CalendarEdit24Color, title: 'Set leave policy', note: 'Start from your state’s leave set', screen: 'leaveTypes' },
-    { n: 3, Icon: PhoneLaptop24Color, title: 'Invite to the app', note: 'Employees get payslips and apply for leave', screen: 'selfService' },
+    { n: 1, Icon: UserPlus, title: 'Import employees', note: 'Name, code, joining date, manager, bank and PAN', screen: 'employeeImport' },
+    { n: 2, Icon: CalendarDays, title: 'Set leave policy', note: 'Start from your state’s leave set', screen: 'leaveTypes' },
+    { n: 3, Icon: Smartphone, title: 'Invite to the app', note: 'Employees get payslips and apply for leave', screen: 'selfService' },
   ];
   return (
     <div className="space-y-6">
       <section className="people-first-run" aria-labelledby="first-run-h">
-        <PeopleAdd32Color aria-hidden="true" />
+        <UserPlus size={20} aria-hidden="true" />
         <h2 id="first-run-h" className="people-first-run-title">Bring your team into CLOR People</h2>
         <p className="people-first-run-text">Most companies import from Excel in a few minutes. You can also add people one by one, or connect your attendance reader and match punches to names.</p>
         {mayAdd ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import from Excel</button> : null}
@@ -785,7 +785,7 @@ function FirstRun({ openScreen, mayAdd }) {
         {steps.map(({ n, Icon, title, note, screen }) => (
           <li key={n}>
             <button type="button" className="people-step" onClick={() => openScreen?.(screen)}>
-              <span className="people-step-icon"><Icon aria-hidden="true" /></span>
+              <span className="people-step-icon"><Icon size={18} aria-hidden="true" /></span>
               <span className="people-step-title">{n}. {title}</span>
               <span className="people-step-note">{note}</span>
             </button>
