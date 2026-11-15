@@ -9,6 +9,15 @@ API revision `clor-api-00134-24x`. Previous release `rel-e0df646` (roll back the
 - #276 Books: port the Books developer's 14 Nov build, new palette and split rail, audit fixes
 - #277 Engineering Console: console.clor.in, Phase 1
 
+## rel-e0df646 - 2026-11-15
+
+API revision `clor-api-00133-vlx`. Customers were on `rel-4483a92` (`clor-api-00129-pg9`) before this release: the 14 Nov releases `rel-9883173` and `rel-75a7a55` had been moved back by hand. Roll back to `rel-75a7a55` (`clor-api-00131-wl6`) or `rel-4483a92`.
+
+- #266 Stage 1 security: authenticator for access changes, new-company admin 2FA, one sign-in answer, SSO account reach
+- #275 People: last R&D screens (07, 08, 10, 16, 22, 23, 26)
+- #270 Ops console: notes and tags, status page posts, saved replies, insights, form switches
+- #274 Release record: rel-75a7a55
+
 ## rel-75a7a55 - 2026-11-14
 
 API revision `clor-api-00131-wl6`. Previous release `rel-4483a92` (roll back there).
