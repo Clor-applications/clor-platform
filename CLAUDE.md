@@ -19,17 +19,23 @@ defined there. Do not deviate without explicit user approval.
 **Brand (owner, 15 Nov 2026): the frontend redesign** (`frontend-redesign-2026-11-15.md`,
 all decisions D1–D9 approved, Books included). One orange accent for every app and
 portal (`--act` `#C95000` as a fill, `--act-ink` `#A54000` as text, `--marker`
-`#FF6B00` as a mark), warm paper `#FBFAF7`, Instrument Sans for everything and
+`#FF6B00` as a mark), pure white grounds, light only, Instrument Sans for everything and
 JetBrains Mono for identifiers only, app identity hues inside the app glyph only,
 Lucide icons only (stroke 1.75, sizes 14/16/18). Tokens live in
 `packages/ui/src/rnd.css`. Books (Accounting) keeps its red palette and Inter until
 the redesign's phase 4 moves it in (see DESIGN.md).
 
+**White and light only (owner, 15 Nov 2026):** every ground is pure white `#FFFFFF`,
+in every app and in Books: no grey, cream or tinted page, panel, rail or header
+band. Grey `#F7F7F7` is hover feedback only; hairlines `#E5E5E5`. There is no dark
+theme. Gate pages (two-factor setup, no access, company setup, suspended, ended
+link) all use `packages/shell/GatePage.jsx`.
+
 Hard rules that come up most often:
 
 - **Tokens only, in app chrome.** No `bg-gray-*`, `text-gray-*`, `border-gray-*`
   or any raw palette class. Every color comes from a CSS variable in
-  `packages/ui/src/index.css` / `rnd.css`, or dark mode silently breaks.
+  `packages/ui/src/index.css` / `rnd.css`, or the palette drifts screen by screen.
   **Exception: printed documents.** `InvoicePreview.jsx`, `ExpenseVoucher.jsx`
   and the invoice template renderer are black on white on purpose — a printed
   invoice does not follow the app theme. Leave their raw classes alone.

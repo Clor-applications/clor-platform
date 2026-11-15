@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Ban, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -36,6 +36,7 @@ import NotificationBell from './NotificationBell';
 import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
+import GatePage from './GatePage';
 import CommandPalette from '@ui/components/ui/CommandPalette';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
@@ -876,23 +877,21 @@ function ShellScreens() {
   /* The address names a company this person cannot open (A-26): say so; open nothing else. */
   if (suspended && user) {
     return (
-      <div className="min-h-dvh grid place-items-center p-6" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-        <section className="ui-card p-8 max-w-lg grid gap-4" role="alert" aria-labelledby="suspended-title">
-          <ClorLogo size={24} />
-          <h1 id="suspended-title" className="ui-display text-2xl">This account is suspended</h1>
-          <p className="ui-muted">{suspended}</p>
-          <p className="ui-muted text-sm">Your data is kept as it was. Once CLOR reinstates the account, everything opens again.</p>
-          <div className="flex flex-wrap gap-2">
+      <GatePage icon={Ban} tone="alert" title="This account is suspended" subtitle={suspended} who={user.email || user.fullName} onSignOut={signOut}>
+        <div role="alert" className="grid gap-6">
+          <p className="text-sm ui-muted">Your data is kept as it was. Once CLOR reinstates the account, everything opens again.</p>
+          <div>
             <a className="ui-btn ui-btn-primary" href="mailto:support@clor.in">Contact support</a>
-            <button type="button" className="ui-btn ui-btn-secondary" onClick={signOut}>Sign out</button>
           </div>
-        </section>
-      </div>
+        </div>
+      </GatePage>
     );
   }
   if (deniedCode) return <NoCompanyAccess />;
   /* The new company opens in the app picked on its setup, not the workspace or the first in the list. */
   if (!tenant) return <CompanySetup onLanding={setChosenAppId} />;
+  /* Two-factor required and not set up: the API refuses everything else, so the app is not drawn (SX-09). */
+  if (twoFactorSetupRequired) return <TwoFactorGate />;
 
   const app = appById(activeAppId);
   /* Items whose `permission` this person lacks go, and those of a module the company switched off (`feature`), then a settings page left with nothing on it, then any section heading left with nothing under it. */
@@ -1403,9 +1402,7 @@ function ShellScreens() {
           </div>
         ) : null}
 
-        {twoFactorSetupRequired ? (
-          <TwoFactorGate />
-        ) : Root ? (
+        {Root ? (
           /* The app owns the area under the platform bar. Reached from here by
              the switcher and by More apps, both of which are in the bar above —
              so an app that draws its own rail never has to know they exist. */

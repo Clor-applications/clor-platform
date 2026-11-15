@@ -20,7 +20,7 @@
   /* Brand */
   --graphite: 32 35 41;        /* #202329 */
   --blaze: 255 107 0;          /* #FF6B00 — a mark, never a fill behind text */
-  --soft-white: 251 250 247;   /* #FBFAF7 */
+  --soft-white: 255 255 255;   /* #FFFFFF */
   --forest: 1 93 71;           /* #015D47 */
 
   /* App identity hues: the glyph and the switcher tile, nowhere else
@@ -47,26 +47,26 @@
   --act-hover: 184 74 0;       /* #B84A00 */
   --act-ink: 165 64 0;         /* #A54000 — the accent as text: 6.0:1 on paper, 6.4:1 on --tint */
   --marker: 255 107 0;         /* #FF6B00 */
-  --tint: 255 245 236;         /* #FFF5EC */
-  --panel: 255 249 245;        /* #FFF9F5 */
-  --panel-border: 255 216 186; /* #FFD8BA */
+  --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
+  --panel: 255 255 255;        /* white */
+  --panel-border: 229 229 229; /* #E5E5E5 hairline */
 
   /* Neutrals: warm paper, not cool zinc (§6.2) */
   --fg: 28 27 24;              /* #1C1B18 — 15.9:1 on paper */
   --fg-heading: 28 27 24;
   --fg-muted: 92 90 84;        /* #5C5A54 — 6.9:1 */
   --fg-subtle: 110 107 100;    /* #6E6B64 — 5.1:1; still text, never decoration */
-  --app-bg: 251 250 247;       /* #FBFAF7 paper */
+  --app-bg: 255 255 255;       /* pure white page (owner, 15 Nov 2026: light only, no grey or tinted grounds) */
   --surface: 255 255 255;
   --surface-raised: 255 255 255;
-  --surface-sunken: 244 243 239; /* #F4F3EF */
-  --soft-panel: 246 245 241;     /* #F6F5F1 */
-  --border: 228 225 218;         /* #E4E1DA hairline */
-  --border-field: 220 216 208;   /* #DCD8D0 */
-  --border-strong: 207 203 194;  /* #CFCBC2 */
-  --doc-section: 246 245 241;
-  --heading-bg: 244 243 239;
-  --heading-hover: 236 234 229;
+  --surface-sunken: 255 255 255; /* white */
+  --soft-panel: 255 255 255;     /* white */
+  --border: 229 229 229;         /* #E5E5E5 hairline */
+  --border-field: 214 214 214;   /* #D6D6D6 */
+  --border-strong: 200 200 200;  /* #C8C8C8 */
+  --doc-section: 255 255 255;
+  --heading-bg: 255 255 255;
+  --heading-hover: 247 247 247; /* hover feedback only */
   --page-heading-bg: 255 255 255;
   --header-bg: 255 255 255;
   --nav-fg: 28 27 24; --nav-fg-muted: 92 90 84; --nav-fg-subtle: 138 135 127;
@@ -88,14 +88,14 @@
   --ring: var(--act); --link: var(--act-ink); --link-hover: var(--act-hover);
   --doc-link: var(--act-ink); --doc-link-wash: var(--tint);
   --st-all-soft: var(--panel); --st-all-strong: var(--tint); --st-all-key: var(--marker); --st-all-ink: var(--act-ink);
-  --rail-bg: 255 255 255; --rail-border: 228 225 218; --rail-hover: 244 243 239; --rail-active: var(--tint);
+  --rail-bg: 255 255 255; --rail-border: 229 229 229; --rail-hover: 247 247 247; --rail-active: var(--tint);
   --ws-nav-selected: var(--tint); --ws-nav-selected-ink: var(--fg); --ws-brand: var(--marker);
-  --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 244 243 239;
+  --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 255 255 255;
   --logo-mark: 255 84 0; --logo-dot: 255 84 0; --logo-mark-orange: 255 84 0; --logo-mark-slate: 32 35 41;
   --hero-hi: var(--marker);
-  --kpi-line: 228 225 218;
+  --kpi-line: 229 229 229;
   --rail-accent: var(--marker);
-  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 244 243 239;
+  --rail-graphite: 255 255 255; --rail-graphite-top: 255 255 255; --rail-graphite-hover: 247 247 247;
   --rail-ink: 92 90 84; --rail-ink-strong: 28 27 24;
   --sky-soft: var(--tint); --sky-ink: var(--act-ink);
 
@@ -114,53 +114,7 @@
   --butter-soft: 252 241 219; --butter-ink: 138 90 0; --butter: 237 161 0;
 }
 
-/* Dark: tokens redefined, never components (§6.2). The extra attribute is
-   what lets this beat the light block above, which carries id weight. */
-:root:not(#rnd):not([data-palette='indigo'])[data-theme='dark'] {
-  --graphite: 32 35 41;
-  --blaze: 255 122 51;
-  --soft-white: 12 12 11;
-
-  --act: 255 122 51;           /* #FF7A33 — the fill in dark; ink on it goes dark */
-  --act-hover: 255 138 77;     /* #FF8A4D */
-  --act-ink: 255 122 51;       /* the fill is already text-safe on the dark ground */
-  --marker: 255 122 51;
-  --tint: 51 29 18;
-  --panel: 24 18 15;
-  --panel-border: 58 37 25;
-
-  --fg: 242 241 237;
-  --fg-heading: 242 241 237;
-  --fg-muted: 165 162 154;
-  --fg-subtle: 126 123 115;
-  --app-bg: 12 12 11;
-  --surface: 20 20 19;
-  --surface-raised: 27 26 24;
-  --surface-sunken: 16 15 14;
-  --soft-panel: 23 22 20;
-  --border: 42 41 37;
-  --border-field: 52 50 45;
-  --border-strong: 58 56 51;
-  --doc-section: 23 22 20;
-  --heading-bg: 16 15 14;
-  --heading-hover: 27 26 24;
-  --page-heading-bg: 12 12 11;
-  --header-bg: 12 12 11;
-  --nav-fg: 242 241 237; --nav-fg-muted: 165 162 154; --nav-fg-subtle: 126 123 115;
-
-  --pos: 79 180 119;  --pos-soft: 20 41 30;
-  --warn: 224 169 59; --warn-ink: 224 169 59; --warn-soft: 42 33 16;
-  --neg: 240 68 56;   --neg-hover: 250 108 98; --neg-soft: 45 21 19;
-  --neutral-ink: 165 162 154; --neutral-soft: 30 29 26;
-  --info: 123 162 255; --info-soft: 20 28 48;
-  --on-brand: 22 21 15;
-  /* The rail and its neighbours sit on the dark ground too. */
-  --rail-bg: 20 20 19; --rail-border: 42 41 37; --rail-hover: 27 26 24;
-  --rail-graphite: 20 20 19; --rail-graphite-top: 20 20 19; --rail-graphite-hover: 27 26 24;
-  --rail-ink: 165 162 154; --rail-ink-strong: 242 241 237;
-  --choice: 242 241 237; --on-choice: 22 21 15; --choice-tray: 27 26 24;
-  --kpi-line: 42 41 37;
-}
+/* Light only (owner, 15 Nov 2026): there is no dark theme. */
 
 /* ---------------------------------------------------------------- type */
 
@@ -522,3 +476,158 @@
 /* Phone tab bar: the portal marker on the current tab. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] { color: rgb(var(--act-ink)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-tabbar-item[aria-current='page'] > svg { color: rgb(var(--act-ink)); }
+
+/*
+ * Gate pages (GatePage.jsx): the stops between the door and the app. White
+ * ground, the logo in a 64px bar, one centred column, legal links at the foot.
+ * Not scoped to a palette: a gate draws before any app, Books included.
+ */
+.ui-gate {
+  /* One face whichever app was open last (Books' palette sets no --font-sans). */
+  font-family: var(--font-sans, 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: rgb(255 255 255);
+  color: rgb(var(--fg));
+}
+.ui-gate-bar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  border-bottom: 1px solid rgb(229 229 229);
+}
+.ui-gate-who {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-muted));
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-gate main#main-content.ui-gate-main {
+  flex: 1;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 72px 24px 48px;
+}
+.ui-gate main#main-content.ui-gate-main.is-wide { max-width: 46rem; }
+.ui-gate main#main-content.ui-gate-main > * { max-width: none; }
+.ui-gate-tile {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border: 1px solid rgb(229 229 229);
+  color: rgb(var(--fg));
+  background: rgb(255 255 255);
+  box-shadow: 0 1px 2px rgb(32 35 41 / 0.06);
+}
+.ui-gate-tile.is-alert { color: rgb(var(--neg)); }
+.ui-gate-eyebrow {
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted));
+}
+.ui-gate .ui-gate-head h1 {
+  font-family: var(--font-brand, 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 1.75rem !important;
+  line-height: 2.25rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.ui-gate-sub {
+  margin-top: 8px;
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+  color: rgb(var(--fg-muted));
+  text-wrap: pretty;
+}
+.ui-gate-body { margin-top: 32px; }
+.ui-gate-foot {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 24px;
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+  border-top: 1px solid rgb(229 229 229);
+}
+.ui-gate-foot .legal-links ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
+.ui-gate-foot .legal-links a { color: rgb(var(--fg-muted)); }
+.ui-gate-foot .legal-links a:hover { color: rgb(var(--fg)); text-decoration: underline; }
+
+/* A gate's numbered steps: a hairline joins the numbers; done is a filled ink circle. */
+.ui-gate-steps { list-style: none; margin: 0; padding: 0; }
+.ui-gate-step { position: relative; display: flex; gap: 16px; padding-bottom: 28px; }
+.ui-gate-step.is-last { padding-bottom: 0; }
+.ui-gate-step:not(.is-last)::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 32px;
+  bottom: 4px;
+  width: 1px;
+  background: rgb(229 229 229);
+}
+.ui-gate-step-n {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid rgb(214 214 214);
+  color: rgb(var(--fg-subtle));
+  background: rgb(255 255 255);
+}
+.ui-gate-step.is-current .ui-gate-step-n { border-color: rgb(var(--fg)); color: rgb(var(--fg)); }
+.ui-gate-step.is-done .ui-gate-step-n { border-color: rgb(var(--fg)); background: rgb(var(--fg)); color: rgb(255 255 255); }
+.ui-gate-step-main { min-width: 0; flex: 1; padding-top: 3px; }
+.ui-gate-step-title { font-size: 0.9375rem; font-weight: 600; line-height: 1.375rem; }
+.ui-gate-step.is-next .ui-gate-step-title { font-weight: 500; color: rgb(var(--fg-subtle)); }
+.ui-gate-step-summary { margin-top: 2px; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-gate-step-body { margin-top: 12px; }
+
+/* A list of choices on a gate (companies to open): rows under one hairline. */
+.ui-gate-list { border-top: 1px solid rgb(229 229 229); }
+.ui-gate-list > li { border-bottom: 1px solid rgb(229 229 229); }
+.ui-gate-list button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 8px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.875rem;
+}
+.ui-gate-list button:hover { background: rgb(247 247 247); }
+.ui-gate-list button:focus-visible { outline: 2px solid rgb(var(--fg)); outline-offset: -2px; }
+/* A gate's one action is CLOR's orange, not the palette of whichever app was open last (Books' red). */
+.ui-gate :is(.ui-btn-primary, .ui-btn-brand) {
+  background-color: rgb(201 80 0) !important;
+  border-color: rgb(201 80 0) !important;
+  color: rgb(255 255 255) !important;
+}
+.ui-gate :is(.ui-btn-primary, .ui-btn-brand):hover:not(:disabled) {
+  background-color: rgb(184 74 0) !important;
+  border-color: rgb(184 74 0) !important;
+}
+.ui-gate :is(.ui-input, .ui-select):focus-visible { outline: 2px solid rgb(201 80 0 / 0.35); outline-offset: 0; border-color: rgb(201 80 0); }
+@media (max-width: 640px) {
+  .ui-gate-bar { padding: 0 16px; }
+  .ui-gate main#main-content.ui-gate-main { padding: 40px 16px 32px; }
+}

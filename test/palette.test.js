@@ -35,7 +35,7 @@ describe('one palette', () => {
     const start = books.indexOf("Books (data-palette='indigo') on the red brand");
     expect(start).toBeGreaterThan(-1);
     const block = books.slice(start, books.indexOf('@layer base', start));
-    expect(block).toMatch(/--heading-bg: 234 242 248;/);
+    expect(block).toMatch(/--heading-bg: 255 255 255;/);
     expect(block).toMatch(/--nav-panel-mark: 61 79 224;/);
     /* No second brand: the action colour comes from the red block. */
     expect(block).not.toMatch(/--brand:|--lilac|--cotton/);
@@ -76,17 +76,20 @@ describe('one palette', () => {
     expect(rnd).toMatch(/--on-brand: 255 255 255;/);
   });
 
-  it('dark mode redefines the tokens rather than restyling components', () => {
-    expect(rnd).toMatch(/:root:not\(#rnd\):not\(\[data-palette='indigo'\]\)\[data-theme='dark'\]/);
-    const dark = rnd.slice(rnd.indexOf(":root:not(#rnd):not([data-palette='indigo'])[data-theme='dark']"));
-    for (const token of ['--app-bg', '--surface', '--fg', '--border', '--act', '--on-brand']) {
-      expect(dark, token).toContain(`${token}:`);
-    }
+  /* Owner, 15 Nov 2026: "only light mode, no grey or any color, pure white background". */
+  it('light only: no dark theme block', () => {
+    expect(rnd).not.toMatch(/\[data-theme='dark'\]/);
   });
 
-  it('the warm paper ground replaced the cool zinc', () => {
-    expect(rnd).toMatch(/--app-bg: 251 250 247;/);
-    expect(rnd).not.toMatch(/--app-bg: 255 255 255;/);
+  it('every ground is pure white, in every app and in Books', () => {
+    const books = readFileSync('packages/ui/src/index.css', 'utf8');
+    const red = books.slice(books.indexOf(":root:where([data-palette='sky'], [data-palette='indigo']) {"));
+    for (const token of ['--app-bg', '--surface-sunken', '--soft-panel', '--doc-section', '--heading-bg', '--tint', '--panel']) {
+      expect(rnd, token).toMatch(new RegExp(`${token}: 255 255 255;`));
+    }
+    for (const token of ['--app-bg', '--surface-sunken', '--doc-section', '--heading-bg', '--page-heading-bg', '--rail-active']) {
+      expect(red.slice(0, red.indexOf('\n}')), `Books ${token}`).toMatch(new RegExp(`${token}: 255 255 255;`));
+    }
   });
 });
 

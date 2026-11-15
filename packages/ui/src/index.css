@@ -856,23 +856,24 @@
   /* The Explore notice (shell): Workspace Blaze in every app; no palette sets these, so it reads the same over People, Payroll or Books. Ink 5.4:1 on the soft. */
   --explore-mark: 255 84 0; --explore-ink: 186 57 0; --explore-soft: 255 243 235; --explore-line: 255 212 184;
   /* The ground is a warm white with a trace of rose, so hairlines and blush belong to it. */
-  --app-bg: 250 246 244; --surface: 255 255 255; --surface-raised: 255 255 255;
-  --surface-sunken: 245 239 238; --border: 234 223 225; --border-strong: 206 188 192;
-  --border-field: 214 200 203; --doc-section: 253 251 250;
+  /* Light only, white grounds (owner, 15 Nov 2026): no grey or tinted backgrounds. */
+  --app-bg: 255 255 255; --surface: 255 255 255; --surface-raised: 255 255 255;
+  --surface-sunken: 255 255 255; --border: 229 229 229; --border-strong: 200 200 200;
+  --border-field: 214 214 214; --doc-section: 255 255 255;
   /* fg 16.0:1, muted 7.3:1, subtle 5.0:1 on the ground; all higher on white. */
   --fg: 31 26 28; --fg-muted: 91 79 83; --fg-subtle: 116 104 108; --fg-heading: var(--oxblood);
   /* White on red 5.9:1; hover 7.8:1; pressed 9.8:1. */
   --brand: var(--red); --brand-deep: var(--oxblood); --brand-hover: 165 13 38; --brand-pressed: 138 11 32;
   --btn-primary-bg: var(--red); --btn-primary-hover: 165 13 38;
-  --brand-soft: var(--blush); --brand-subtle: 253 244 245; --brand-border: 243 211 215;
+  --brand-soft: 255 255 255; --brand-subtle: 255 255 255; --brand-border: 243 211 215;
   /* Red as words: the hover step, 7.8:1 on white and 6.6:1 on blush. */
   --brand-ink: 165 13 38; --brand-panel: var(--oxblood); --on-brand: 255 255 255;
-  --doc-link: 165 13 38; --doc-link-wash: 253 244 245; --accent-soft: var(--brand-soft);
-  --ring: var(--red); --link: 165 13 38; --link-hover: 138 11 32; --info: 91 79 83; --info-soft: 245 239 238;
-  --st-all-soft: 253 244 245; --st-all-strong: var(--blush); --st-all-key: var(--red); --st-all-ink: 165 13 38;
+  --doc-link: 165 13 38; --doc-link-wash: 255 255 255; --accent-soft: var(--brand-soft);
+  --ring: var(--red); --link: 165 13 38; --link-hover: 138 11 32; --info: 91 79 83; --info-soft: 238 236 231;
+  --st-all-soft: 255 255 255; --st-all-strong: 255 255 255; --st-all-key: var(--red); --st-all-ink: 165 13 38;
   --nav-fg: 31 26 28; --nav-fg-muted: 91 79 83; --nav-fg-subtle: 116 104 108;
-  --rail-bg: 255 255 255; --rail-border: 234 223 225; --rail-hover: 245 239 238; --rail-active: var(--blush);
-  --heading-bg: 253 244 245; --heading-hover: var(--blush); --page-heading-bg: 253 244 245; --header-bg: 255 255 255;
+  --rail-bg: 255 255 255; --rail-border: 229 229 229; --rail-hover: 247 247 247; --rail-active: 255 255 255;
+  --heading-bg: 255 255 255; --heading-hover: 247 247 247; --page-heading-bg: 255 255 255; --header-bg: 255 255 255;
   --cursor-bg: 255 255 255; --cursor-fg: 31 26 28;
   --nav-dashboard: var(--oxblood); --nav-sales: var(--oxblood); --nav-crm: var(--oxblood);
   --nav-purchases: var(--oxblood); --nav-cashbank: var(--oxblood); --nav-expenses: var(--oxblood);
@@ -961,12 +962,12 @@
 --------------------------------------------------------------------------- */
 :root:where([data-palette='indigo']),
 :root:not([data-theme='dark']) [data-palette='indigo'] {
-  --heading-bg: 234 242 248; --heading-hover: 220 234 244; --page-heading-bg: 234 242 248;
+  --heading-bg: 255 255 255; --heading-hover: 247 247 247; --page-heading-bg: 255 255 255;
   /* The screens panel wears Books' own blue from clor.in (owner, 15 Nov
      2026): a pale tint of Books bright #3D4FE0 as the ground (#EFF1FC), its
      hairline, #3D4FE0 as the open screen's edge and deep #232A66 for the
      open module's words. Identity colour on "you are here" only. */
-  --nav-panel: 239 241 252; --nav-panel-border: 218 222 249; --nav-panel-mark: 61 79 224; --nav-panel-ink: 35 42 102;
+  --nav-panel: 255 255 255; --nav-panel-border: 229 229 229; --nav-panel-mark: 61 79 224; --nav-panel-ink: 35 42 102;
 }
 
 :root[data-theme='dark'][data-palette='indigo'],

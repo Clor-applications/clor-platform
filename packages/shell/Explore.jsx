@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
-import { ClorLogo, ClorMark } from '@ui/components/brand';
+import { Building2, Clock } from '@ui/components/ui/lineIcons';
+import { ClorMark } from '@ui/components/brand';
+import GatePage from './GatePage';
 
 import { EXPLORE_TEXT, KNOWN_APPS, exchangeOnce, readLinkOnce } from './exploreLink';
 
@@ -76,24 +78,18 @@ export function ExploreLanding({ demoUrl, restoring = false, signedIn = null, si
   if (asking) {
     const company = signedIn.company || 'your company';
     return (
-      <div className="min-h-dvh" style={{ backgroundColor: 'rgb(var(--surface))' }}>
-        <header className="flex h-14 items-center px-4" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-          <ClorLogo size={20} />
-        </header>
-        <main className="mx-auto px-6 py-12 grid gap-4" style={{ maxWidth: '36rem' }}>
-          <h1 className="ui-t-page">Open the sample company instead?</h1>
-          <p className="ui-muted">
-            You’re signed in to {company}
-            {signedIn.name ? ` as ${signedIn.name}` : ''}. Opening the sample company signs you out here first.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="ui-btn ui-btn-primary" onClick={openSample} disabled={leaving}>
-              {leaving ? 'Opening…' : 'Open the sample company'}
-            </button>
-            <a className="ui-btn ui-btn-secondary" href="/">Stay in {company}</a>
-          </div>
-        </main>
-      </div>
+      <GatePage
+        icon={Building2}
+        title="Open the sample company instead?"
+        subtitle={`You’re signed in to ${company}${signedIn.name ? ` as ${signedIn.name}` : ''}. Opening the sample company signs you out here first.`}
+      >
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="ui-btn ui-btn-primary" onClick={openSample} disabled={leaving}>
+            {leaving ? 'Opening…' : 'Open the sample company'}
+          </button>
+          <a className="ui-btn ui-btn-secondary" href="/">Stay in {company}</a>
+        </div>
+      </GatePage>
     );
   }
 
@@ -121,21 +117,12 @@ export function ExploreLanding({ demoUrl, restoring = false, signedIn = null, si
 
 export function ExploreEnded({ demoUrl, title = 'This link has ended', text = 'Links to the sample company work for 14 days. Ask for a demo and we will send you a new one, and show you CLOR with your own kind of work.' }) {
   return (
-    <div className="min-h-dvh" style={{ backgroundColor: 'rgb(var(--surface))' }}>
-      <header className="flex h-14 items-center px-4" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-        <a href={demoUrl.replace(/\/demo$/, '')} aria-label="CLOR, back to clor.in">
-          <ClorLogo size={20} />
-        </a>
-      </header>
-      <main className="mx-auto px-6 py-12 grid gap-4" style={{ maxWidth: '36rem' }}>
-        <h1 className="ui-t-page">{title}</h1>
-        <p className="ui-muted">{text}</p>
-        <div className="flex flex-wrap gap-2">
-          <a className="ui-btn ui-btn-primary" href={demoUrl}>Request a demo</a>
-          <a className="ui-btn ui-btn-secondary" href="/signin">Sign in</a>
-        </div>
-      </main>
-    </div>
+    <GatePage icon={Clock} title={title} subtitle={text} homeHref={demoUrl.replace(/\/demo$/, '')}>
+      <div className="flex flex-wrap gap-2">
+        <a className="ui-btn ui-btn-primary" href={demoUrl}>Request a demo</a>
+        <a className="ui-btn ui-btn-secondary" href="/signin">Sign in</a>
+      </div>
+    </GatePage>
   );
 }
 

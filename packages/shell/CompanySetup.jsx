@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Building2, Check, LogOut } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, ArrowRight, Building2, Check } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 
-import { ClorLogo } from '@ui/components/brand';
+import GatePage from './GatePage';
 import { APPS } from './registry';
 import { appIntent, clearAppIntent, landingAfterSetup } from './appIntent';
 import { useSession } from './session';
@@ -100,53 +100,23 @@ export default function CompanySetup({ onLanding } = {}) {
 
   const gstinLooksTyped = form.gstin.trim().length > 0;
 
+  const steps = [
+    { title: 'Whose books are these?', sub: 'The name goes on every invoice. The state decides how the tax on them splits.' },
+    { title: `What does ${form.name || 'this company'} run?`, sub: 'Each one you switch on gets its own set of records. The others stay out of the way until you add them from More apps.' },
+  ];
+
   return (
-    <div className="min-h-dvh" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
-      <header
-        className="flex h-14 items-center gap-3 px-4"
-        style={{ borderBottom: '1px solid rgb(var(--border))', backgroundColor: 'rgb(var(--surface))' }}
-      >
-        <ClorLogo size={20} />
-        <div className="flex-1" />
-        <span className="ui-caption">{user?.email || user?.name}</span>
-        <button type="button" className="ui-icon-btn" onClick={signOut} aria-label="Sign out">
-          <LogOut size={16} />
-        </button>
-      </header>
-
-      <main className="mx-auto px-6 py-12" style={{ maxWidth: '44rem' }}>
-        {/* Two steps, named. A progress bar with no names tells somebody how
-            far they are and not what is coming. */}
-        <ol className="flex items-center gap-3 text-sm" aria-label="Setup">
-          {['Company', 'Apps'].map((label, i) => (
-            <li key={label} className="flex items-center gap-2">
-              <span
-                className="grid h-6 w-6 place-items-center rounded-full text-xs"
-                style={
-                  i <= step
-                    ? { backgroundColor: 'rgb(var(--brand))', color: 'rgb(var(--on-brand))' }
-                    : { border: '1px solid rgb(var(--border))', color: 'rgb(var(--fg-subtle))' }
-                }
-              >
-                {i < step ? <Check size={12} /> : i + 1}
-              </span>
-              <span style={{ color: i <= step ? 'rgb(var(--fg))' : 'rgb(var(--fg-subtle))' }}>{label}</span>
-              {i === 0 ? <span className="ui-caption" aria-hidden="true">—</span> : null}
-            </li>
-          ))}
-        </ol>
-
+    <GatePage
+      icon={Building2}
+      eyebrow={`Step ${step + 1} of 2 · ${step === 0 ? 'Company' : 'Apps'}`}
+      title={steps[step].title}
+      subtitle={steps[step].sub}
+      who={user?.email || user?.name}
+      onSignOut={signOut}
+      size={step === 1 ? 'wide' : 'narrow'}
+    >
         {step === 0 ? (
-          <form onSubmit={toModules} className="mt-8 space-y-6">
-            <div>
-              <h1 className="ui-display text-2xl flex items-center gap-2">
-                <Building2 size={20} aria-hidden="true" /> Whose books are these?
-              </h1>
-              <p className="ui-muted mt-2 text-sm">
-                The name goes on every invoice. The state decides how the tax on them splits.
-              </p>
-            </div>
-
+          <form onSubmit={toModules} className="space-y-6">
             <div>
               <label className="ui-label" htmlFor="setup-name">Company name</label>
               <input
@@ -204,21 +174,13 @@ export default function CompanySetup({ onLanding } = {}) {
             {error ? <p className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
             <div className="flex justify-end">
-              <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg">
+              <button type="submit" className="ui-btn ui-btn-primary">
                 Continue <ArrowRight size={16} aria-hidden="true" />
               </button>
             </div>
           </form>
         ) : (
-          <div className="mt-8 space-y-6">
-            <div>
-              <h1 className="ui-display text-2xl">What does {form.name || 'this company'} run?</h1>
-              <p className="ui-muted mt-2 text-sm">
-                Each one you switch on gets its own set of records. The others stay out of the way until you
-                add them from <span className="ui-fg">More apps</span>.
-              </p>
-            </div>
-
+          <div className="space-y-6">
             <div className="grid gap-3 sm:grid-cols-2">
               {buildable.map((app) => {
                 const on = chosen.includes(app.id);
@@ -229,29 +191,29 @@ export default function CompanySetup({ onLanding } = {}) {
                     onClick={() => toggle(app.id)}
                     aria-pressed={on}
                     className="ui-panel p-4 text-left"
-                    style={on ? { borderColor: 'rgb(var(--brand))', boxShadow: '0 0 0 1px rgb(var(--brand))' } : undefined}
+                    style={on ? { borderColor: 'rgb(var(--fg))', boxShadow: '0 0 0 1px rgb(var(--fg))' } : undefined}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
-                        style={{ backgroundColor: 'rgb(var(--brand-soft))', color: 'rgb(var(--brand-ink))' }}
+                        style={{ border: '1px solid rgb(229 229 229)', color: 'rgb(var(--fg))' }}
                       >
                         <app.icon size={18} aria-hidden="true" />
                       </span>
                       <span
                         className="grid h-5 w-5 shrink-0 place-items-center rounded-lg"
                         style={{
-                          backgroundColor: on ? 'rgb(var(--brand))' : 'transparent',
+                          backgroundColor: on ? 'rgb(var(--fg))' : 'transparent',
                           border: on ? 'none' : '1px solid rgb(var(--border))',
-                          color: 'rgb(var(--on-brand))',
+                          color: 'rgb(255 255 255)',
                         }}
                         aria-hidden="true"
                       >
                         {on ? <Check size={13} /> : null}
                       </span>
                     </div>
-                    <span className="mt-3 block font-medium">{app.name}</span>
-                    <span className="mt-1 block text-sm ui-muted">{app.blurb}</span>
+                    <span className="mt-3 block" style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'rgb(var(--fg))' }}>{app.name}</span>
+                    <span className="mt-1 block" style={{ fontSize: '0.8125rem', lineHeight: '1.25rem', fontWeight: 400, color: 'rgb(var(--fg-muted))' }}>{app.blurb}</span>
                   </button>
                 );
               })}
@@ -261,32 +223,31 @@ export default function CompanySetup({ onLanding } = {}) {
                   <div className="flex items-start justify-between gap-3">
                     <span
                       className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
-                      style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}
+                      style={{ border: '1px solid rgb(229 229 229)' }}
                     >
                       <app.icon size={18} aria-hidden="true" />
                     </span>
                     <span className="ui-pill ui-pill-neutral">Coming</span>
                   </div>
-                  <span className="mt-3 block font-medium">{app.name}</span>
-                  <span className="mt-1 block text-sm ui-muted">{app.blurb}</span>
+                  <span className="mt-3 block" style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'rgb(var(--fg))' }}>{app.name}</span>
+                  <span className="mt-1 block" style={{ fontSize: '0.8125rem', lineHeight: '1.25rem', fontWeight: 400, color: 'rgb(var(--fg-muted))' }}>{app.blurb}</span>
                 </div>
               ))}
             </div>
 
             {error ? <p className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
-            <div className="flex items-center gap-3">
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setStep(0)} disabled={busy}>
+            <div className="flex items-center justify-between gap-3">
+              <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setStep(0)} disabled={busy}>
                 <ArrowLeft size={16} aria-hidden="true" /> Back
               </button>
-              <button type="button" className="ui-btn ui-btn-brand ui-btn-lg flex-1" onClick={finish} disabled={busy}>
+              <button type="button" className="ui-btn ui-btn-primary" onClick={finish} disabled={busy}>
                 {busy ? 'Setting up…' : `Open ${form.name || 'the books'}`}
                 <ArrowRight size={16} aria-hidden="true" />
               </button>
             </div>
           </div>
         )}
-      </main>
-    </div>
+    </GatePage>
   );
 }

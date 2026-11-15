@@ -42,12 +42,12 @@ it onto the one palette; the owner approved that move on 15 Nov 2026.
 
 
 Books wears the in-app red palette: headings oxblood `#5C0A16`, brand ink
-`#A50D26`, marigold `#F5A623`, blush tint `#FBE8EA`, page ground `#FAF6F4`,
+`#A50D26`, marigold `#F5A623`, blush tint `#FBE8EA`, page ground white (was `#FAF6F4`),
 ink `#1F1A1C`, money in `#107E3E`, overdue / error `#B91C1C`. Indigo `#232A66`
 and bright `#3D4FE0` are Books' identity only (its app tile, mark and clor.in),
 never the chrome. The header row of every list (Invoice #, Customer, Date …)
-and the page heading band are the pale blue-grey `#EAF2F8` (`--heading-bg`,
-`--page-heading-bg`; hover `#DCEAF4`). Navigation is the split rail: a 72px
+and the page heading band are white with a hairline (`--heading-bg`,
+`--page-heading-bg`; hover `#F7F7F7`; were pale blue-grey `#EAF2F8` until the white-only rule). Navigation is the split rail: a 72px
 strip of modules, each an icon over its name, and a panel of the open
 module's screens with an X to close it. The panel is drawn like every other
 app's second panel: a pale tint of Books' clor.in blue, `#EFF1FC` (`--nav-panel`), with its hairline,
@@ -148,19 +148,32 @@ Colour has one job per role:
 Orange is a fill, not a text colour: white on `#FF6B00` is 2.9:1. Text, links
 and icons use `--act-ink`.
 
-### Neutrals — warm paper, not cool zinc
+### Neutrals — white, light only (owner, 15 Nov 2026)
 
-paper `#FBFAF7` (`--app-bg`) · surface `#FFFFFF` · sunken `#F4F3EF` (table
-header, wells) · soft panel `#F6F5F1` · hairline `#E4E1DA` (`--border`) ·
-field border `#DCD8D0` · strong rule `#CFCBC2` · ink `#1C1B18` (`--fg`, 15.9:1)
-· muted `#5C5A54` (`--fg-muted`, 6.9:1) · subtle `#6E6B64` (`--fg-subtle`).
-`#8A877F` is decoration only (bullets, disabled glyphs), never information.
+Every ground is pure white `#FFFFFF`: page (`--app-bg`), surface, sunken,
+soft panel, rail, module panel, top bar, list header row and page heading
+band, in every app and in Books. No grey, cream or tinted ground anywhere.
+`#F7F7F7` is hover feedback only · hairline `#E5E5E5` (`--border`) · field
+border `#D6D6D6` · strong rule `#C8C8C8` · ink `#1C1B18` (`--fg`) · muted
+`#5C5A54` (`--fg-muted`) · subtle `#6E6B64` (`--fg-subtle`). `#8A877F` is
+decoration only, never information. Colour on a screen is the one primary
+button, links, "you are here", status pills, and the app glyph.
 
-### Dark
+### No dark theme
 
-Tokens are redefined under `[data-theme='dark']` in `rnd.css`, never
-components: paper `#0C0C0B`, surface `#141413`, ink `#F2F1ED`, accent
-`#FF7A33` with dark ink on it, the rail on the dark ground.
+Light only. `useTheme` pins `data-theme='light'`; `rnd.css` has no dark block
+and a test (`test/palette.test.js`) fails if one comes back.
+
+### Gate pages
+
+Every stop between the door and the app (two-factor setup, a company you
+cannot open, first company setup, a suspended account, an ended sample link)
+uses `packages/shell/GatePage.jsx`: white ground, a 64px bar with the logo and
+who is signed in with Sign out, one centred column (34rem, 46rem for a choice
+of cards), a 44px icon tile, the title in the brand face, then the content,
+and the legal links at the foot. Steps in a gate are `GateStep`: numbered,
+done in ink, the current one open. The gate's primary is CLOR orange whatever
+app was open last.
 
 ### Status — pills 24px high with a 6px dot
 
@@ -655,6 +668,14 @@ because focus, portals and event order cannot be read off the source.
 7. Build Payroll on the primitives with no new layout code. That build proves the system holds.
 
 ## Decisions Log
+
+- **2026-11-15 — White and light only; designed gate pages (owner):** "only
+  light mode, no grey or any color pure light > white background". Every
+  ground is white in every app and in Books (Books' `#FAF6F4` ground and
+  `#EAF2F8` header rows go white too); the dark theme is removed. Then "design
+  each page..wherever it redirects everything should look good": the
+  two-factor setup, no-access, company setup, suspended and ended-link pages
+  move onto one `GatePage` frame. Supersedes warm paper `#FBFAF7` below.
 
 - **2026-11-15 — Books palette and split rail (owner):** Books leaves
   Direction D's indigo/lilac for the in-app red palette (oxblood, brand ink
