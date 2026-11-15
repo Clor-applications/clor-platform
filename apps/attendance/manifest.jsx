@@ -278,8 +278,7 @@ export const attendanceApp = {
   available: true,
   database: 'people.db',
   home: 'today',
-  /** Violet (R&D, 14 Nov 2026): the palette keeps its old name; tokens in rnd.css, older names in index.css [data-palette='blaze']. */
-  palette: 'blaze',
+  /* No palette: one accent for every app (§6.3). Identity is the glyph hue, --app-attendance. */
   /** Fluent colour icons on the rail and panel (above); content icons a screen draws stay in People's two-tone set; Fluent line icons on buttons. */
   iconSet: 'duo',
   lineIcons: 'fluent',

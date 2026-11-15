@@ -76,7 +76,7 @@ export function spring({ from, to, velocity = 0, damping = 1, response = 0.3, wi
 
 const isPhoneSheet = (panel) => Boolean(
   panel?.classList.contains('ui-drawer-sheet')
-  && document.documentElement.dataset.palette === 'sky'
+  && document.documentElement.dataset.app === 'people'
   && window.matchMedia?.('(max-width: 639px)').matches,
 );
 

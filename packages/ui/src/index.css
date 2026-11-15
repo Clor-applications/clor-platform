@@ -1,9 +1,11 @@
-/* R&D brand (owner, 14 Nov 2026; clor-rnd/README.md): Inter for everything,
-   Sora 700/800 for the brand and page titles only. Both self-hosted
-   (Fontsource, SIL OFL 1.1), never Google — no IP leakage before sign-in. */
+/* The redesign's faces (frontend-redesign-2026-11-15.md §5): Instrument Sans
+   for everything, JetBrains Mono for identifiers only. Inter stays for
+   Accounting, which keeps its own look until the object grammar lands.
+   All self-hosted (Fontsource, SIL OFL 1.1), never Google — no IP leakage
+   before sign-in. */
+@import '@fontsource-variable/instrument-sans';
+@import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/inter';
-@import '@fontsource/sora/700.css';
-@import '@fontsource/sora/800.css';
 
 @tailwind base;
 @tailwind components;
@@ -1045,8 +1047,8 @@
 
 @layer base {
   html {
-    /* Inter, matching the reference the module overviews are drawn from. */
-    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    /* Instrument Sans, one face for the whole product (§5.1). */
+    font-family: 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
     /* Tabular figures everywhere: money columns must not jitter between rows. */
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
@@ -5228,12 +5230,20 @@ label {
    authoritative here so the same heading means the same thing on every page. */
 body, button, input, select, textarea, table,
 .font-sans, .font-serif {
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 }
 /* Numbers outside Accounting: the words' face with tabular figures, so digits line up. */
-.font-mono, .ui-mono, .ui-metric,
+.font-mono, .ui-metric,
 .tabular-nums, [class*='ui-amount'] {
-  font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Instrument Sans Variable', 'Instrument Sans', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+/* Identifiers — GSTIN, PAN, IFSC, account and document numbers, HSN/SAC, device
+   and correlation ids — in the mono face, at 0.94× the surrounding size (§5.1).
+   Never money, never prose. Accounting keeps its own face. */
+:root:not([data-palette='indigo']) .ui-mono {
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.94em;
   font-variant-numeric: tabular-nums;
 }
 code, pre { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }

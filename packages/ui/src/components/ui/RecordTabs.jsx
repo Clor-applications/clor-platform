@@ -29,7 +29,7 @@ export function useTabIndicator(listRef, activeKey) {
   }, [listRef, activeKey]);
   if (!box) return null;
   /* People (Sky): moved and stretched with transform alone, so the slide never asks for layout; a 100px line scaled to the tab's width. */
-  if (typeof document !== 'undefined' && document.documentElement.dataset.palette === 'sky') {
+  if (typeof document !== 'undefined' && document.documentElement.dataset.app === 'people') {
     return <span className="ui-tab-indicator" data-scaled="" aria-hidden="true" style={{ width: 100, transformOrigin: '0 0', transform: `translateX(${box.left}px) scaleX(${box.width / 100})` }} />;
   }
   return <span className="ui-tab-indicator" aria-hidden="true" style={{ transform: `translateX(${box.left}px)`, width: box.width }} />;

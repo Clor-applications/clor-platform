@@ -217,7 +217,7 @@ const Popover = ({
    */
   useLayoutEffect(() => () => {
     const node = panelRef.current;
-    if (!node || document.documentElement.dataset.palette !== 'sky') return;
+    if (!node || document.documentElement.dataset.app !== 'people') return;
     const ghost = node.cloneNode(true);
     ghost.removeAttribute('id');
     for (const el of ghost.querySelectorAll('[id]')) el.removeAttribute('id');

@@ -18,8 +18,8 @@
 
 /* Teams, chart series and leave slots draw from the categorical palette in its fixed order (README: never past 8).
    Declared on the root and on the shell's own palette element, which also carries data-palette. */
-:root[data-palette='sky'],
-:root[data-palette='sky'] [data-palette='sky'] {
+:root[data-app='people'],
+:root[data-app='people'] [data-app='people'] {
   --dept-0: 94 99 107;
   --dept-1: var(--cat-1); --dept-2: var(--cat-2); --dept-3: var(--cat-3); --dept-4: var(--cat-4);
   --dept-5: var(--cat-5); --dept-6: var(--cat-6); --dept-7: var(--cat-7); --dept-8: var(--cat-8);
@@ -30,27 +30,27 @@
 /* A tint names an identity, never a state. Each tint's accent (`--id`) is a categorical colour; the soft wash and
    ink the shared `[data-tint]` rule hands out are rnd.css's categorical derivations (88% white, 42% black). Sky,
    which rnd.css points at the portal tint, is People's first series colour here. */
-:root[data-palette='sky'] [data-tint='sky']    { --id: var(--cat-1); --tint: 229 239 250; --tint-ink: 24 70 124; }
-:root[data-palette='sky'] [data-tint='peach']  { --id: var(--cat-2); }
-:root[data-palette='sky'] [data-tint='mint']   { --id: var(--cat-3); }
-:root[data-palette='sky'] [data-tint='butter'] { --id: var(--cat-4); }
-:root[data-palette='sky'] [data-tint='lilac']  { --id: var(--cat-7); }
+:root[data-app='people'] [data-tint='sky']    { --id: var(--cat-1); --tint: 229 239 250; --tint-ink: 24 70 124; }
+:root[data-app='people'] [data-tint='peach']  { --id: var(--cat-2); }
+:root[data-app='people'] [data-tint='mint']   { --id: var(--cat-3); }
+:root[data-app='people'] [data-tint='butter'] { --id: var(--cat-4); }
+:root[data-app='people'] [data-tint='lilac']  { --id: var(--cat-7); }
 
 /* Faces: initials on a categorical wash picked from the name (data-hue 0–3), the same person always the same colour.
    The avatar draws its wash inline, so the palette answers with the same weight. */
-:root[data-palette='sky'] .ui-avatar-initials[data-hue='0'] { background-color: rgb(229 239 250) !important; color: rgb(24 70 124) !important; }
-:root[data-palette='sky'] .ui-avatar-initials[data-hue='1'] { background-color: rgb(var(--mint-soft)) !important; color: rgb(var(--mint-ink)) !important; }
-:root[data-palette='sky'] .ui-avatar-initials[data-hue='2'] { background-color: rgb(var(--lilac-soft)) !important; color: rgb(var(--lilac-ink)) !important; }
-:root[data-palette='sky'] .ui-avatar-initials[data-hue='3'] { background-color: rgb(var(--peach-soft)) !important; color: rgb(var(--peach-ink)) !important; }
+:root[data-app='people'] .ui-avatar-initials[data-hue='0'] { background-color: rgb(229 239 250) !important; color: rgb(24 70 124) !important; }
+:root[data-app='people'] .ui-avatar-initials[data-hue='1'] { background-color: rgb(var(--mint-soft)) !important; color: rgb(var(--mint-ink)) !important; }
+:root[data-app='people'] .ui-avatar-initials[data-hue='2'] { background-color: rgb(var(--lilac-soft)) !important; color: rgb(var(--lilac-ink)) !important; }
+:root[data-app='people'] .ui-avatar-initials[data-hue='3'] { background-color: rgb(var(--peach-soft)) !important; color: rgb(var(--peach-ink)) !important; }
 
 /* ------------------------------------------------------------------ page */
 
 /* Blocks sit 24px apart on a list or detail page. */
-:root[data-palette='sky'] #main-content > .space-y-6 > :not([hidden]) ~ :not([hidden]),
-:root[data-palette='sky'] #main-content > div > .space-y-6:only-child > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
+:root[data-app='people'] #main-content > .space-y-6 > :not([hidden]) ~ :not([hidden]),
+:root[data-app='people'] #main-content > div > .space-y-6:only-child > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
 
 /* Page header (README §5): an optional 13px back link, the H1, a 14px description, one primary top right. */
-:root[data-palette='sky'] .ui-page-heading {
+:root[data-app='people'] .ui-page-heading {
   align-items: flex-start;
   min-height: 0;
   margin-bottom: 0;
@@ -59,114 +59,114 @@
   border: 0;
   box-shadow: none;
 }
-:root[data-palette='sky'] .ui-page-heading .ui-entity-mark { display: none; }
-:root[data-palette='sky'] .ui-page-heading p.ui-muted.ui-t-body { display: block; margin-top: 0.375rem; font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); max-width: 48rem; }
-:root[data-palette='sky'] .ui-breadcrumb { margin-bottom: 0.25rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
-:root[data-palette='sky'] .ui-breadcrumb [aria-current='page'] { color: rgb(var(--fg)); font-weight: 600; }
-:root[data-palette='sky'] #main-content .ui-list-header .ui-page-heading { margin-bottom: 0; }
-:root[data-palette='sky'] #main-content .ui-list-desc { display: block; margin-top: 0.375rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
-:root[data-palette='sky'] #main-content .ui-list-header .ui-datatable-toolbar { display: none; }
-:root[data-palette='sky'] #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
-:root[data-palette='sky'] #main-content :is(p, .ui-caption, .ui-side-sub, .ui-t-sec) { text-wrap-style: pretty; }
+:root[data-app='people'] .ui-page-heading .ui-entity-mark { display: none; }
+:root[data-app='people'] .ui-page-heading p.ui-muted.ui-t-body { display: block; margin-top: 0.375rem; font-size: 0.875rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); max-width: 48rem; }
+:root[data-app='people'] .ui-breadcrumb { margin-bottom: 0.25rem; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
+:root[data-app='people'] .ui-breadcrumb [aria-current='page'] { color: rgb(var(--fg)); font-weight: 600; }
+:root[data-app='people'] #main-content .ui-list-header .ui-page-heading { margin-bottom: 0; }
+:root[data-app='people'] #main-content .ui-list-desc { display: block; margin-top: 0.375rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+:root[data-app='people'] #main-content .ui-list-header .ui-datatable-toolbar { display: none; }
+:root[data-app='people'] #main-content :is(section > .flex .ui-t-sec, section > h2.ui-t-sec) { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+:root[data-app='people'] #main-content :is(p, .ui-caption, .ui-side-sub, .ui-t-sec) { text-wrap-style: pretty; }
 
 /* An empty list's own button steps down when the page already has its primary: one primary per screen. */
-:root[data-palette='sky'] #main-content:has(.ui-page-heading .ui-btn-primary) .ui-datatable > .ui-in .ui-btn-primary {
+:root[data-app='people'] #main-content:has(.ui-page-heading .ui-btn-primary) .ui-datatable > .ui-in .ui-btn-primary {
   background-color: rgb(var(--surface)) !important;
   border-color: rgb(var(--border-field)) !important;
   color: rgb(var(--fg)) !important;
 }
-:root[data-palette='sky'] #main-content:has(.ui-page-heading .ui-btn-primary) .ui-datatable > .ui-in .ui-btn-primary:hover:not(:disabled) { background-color: rgb(var(--surface-sunken)) !important; }
+:root[data-app='people'] #main-content:has(.ui-page-heading .ui-btn-primary) .ui-datatable > .ui-in .ui-btn-primary:hover:not(:disabled) { background-color: rgb(var(--surface-sunken)) !important; }
 
 /* Icons in labelled buttons take the button's own colour: no second accent on what you press. */
-:root[data-palette='sky'] :is(#main-content, body) .ui-btn > svg { flex: none; color: currentColor; }
+:root[data-app='people'] :is(#main-content, body) .ui-btn > svg { flex: none; color: currentColor; }
 
 /* ------------------------------------------------------------------ tabs and segments */
 
 /* View tabs: an underline row under one hairline, the open tab in ink with a 2px moss marker. */
-:root[data-palette='sky'] #main-content .ui-record-tablist { gap: 1.5rem; max-width: 100%; padding: 0; background: transparent; border-bottom: 1px solid rgb(var(--border)); border-radius: 0; box-shadow: none; }
-:root[data-palette='sky'] #main-content .ui-record-tablist .ui-tab { height: 2.5rem; padding: 0 0.125rem; border-radius: 0; background: transparent; font-size: 0.875rem; font-weight: 500; color: rgb(var(--fg-muted)); box-shadow: none; }
-:root[data-palette='sky'] #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 600; background: transparent; }
-:root[data-palette='sky'] :is(.ui-tab.is-active::after, .ui-tab-indicator) { background-color: rgb(var(--marker)); }
-:root[data-palette='sky'] .ui-tab-indicator[data-scaled] { transition: transform var(--dur-surface) var(--ease-out); }
-:root[data-palette='sky'] #main-content .ui-list-header > .ui-record-tablist { justify-self: stretch; }
+:root[data-app='people'] #main-content .ui-record-tablist { gap: 1.5rem; max-width: 100%; padding: 0; background: transparent; border-bottom: 1px solid rgb(var(--border)); border-radius: 0; box-shadow: none; }
+:root[data-app='people'] #main-content .ui-record-tablist .ui-tab { height: 2.5rem; padding: 0 0.125rem; border-radius: 0; background: transparent; font-size: 0.875rem; font-weight: 500; color: rgb(var(--fg-muted)); box-shadow: none; }
+:root[data-app='people'] #main-content .ui-record-tablist :is(.ui-tab.is-active, [role='tab'][aria-selected='true']) { color: rgb(var(--fg)); font-weight: 600; background: transparent; }
+:root[data-app='people'] :is(.ui-tab.is-active::after, .ui-tab-indicator) { background-color: rgb(var(--marker)); }
+:root[data-app='people'] .ui-tab-indicator[data-scaled] { transition: transform var(--dur-surface) var(--ease-out); }
+:root[data-app='people'] #main-content .ui-list-header > .ui-record-tablist { justify-self: stretch; }
 /* Counts beside a tab or side heading: neutral, unless the screen marks the count as waiting on you. */
-:root[data-palette='sky'] :is(.ui-tab-count, .ui-side-count) { background: rgb(var(--neutral-soft)) !important; color: rgb(var(--neutral-ink)) !important; }
-:root[data-palette='sky'] :is(.ui-tab-count, .ui-side-count)[data-tone='warn'] { background: rgb(var(--warn-soft)) !important; color: rgb(var(--warn-ink)) !important; font-weight: 700; }
+:root[data-app='people'] :is(.ui-tab-count, .ui-side-count) { background: rgb(var(--neutral-soft)) !important; color: rgb(var(--neutral-ink)) !important; }
+:root[data-app='people'] :is(.ui-tab-count, .ui-side-count)[data-tone='warn'] { background: rgb(var(--warn-soft)) !important; color: rgb(var(--warn-ink)) !important; font-weight: 700; }
 
 /* A segmented switch: a neutral tray, the chosen segment in ink (rnd.css's --choice). */
-:root[data-palette='sky'] #main-content .ui-segmented.ui-segmented-solid { gap: 0.25rem; padding: 0.25rem; border: 1px solid rgb(var(--border)); border-radius: 0.5rem; background: rgb(var(--surface-sunken)); box-shadow: none; }
-:root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment { height: 1.75rem; padding: 0 0.75rem; border: 0; border-radius: 0.375rem; background: transparent; box-shadow: none; color: rgb(var(--fg-muted)); font-size: 0.8125rem; font-weight: 500; }
-:root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment[aria-checked='true'] { background: rgb(var(--surface)) !important; color: rgb(var(--fg)) !important; font-weight: 600 !important; box-shadow: 0 0 0 1px rgb(var(--border-field)); }
-:root[data-palette='sky'] #main-content .ui-segmented-solid .ui-segment .ui-segment-count { margin-inline-start: 0.375rem; padding: 0 0.375rem; border-radius: 999px; font-size: 0.75rem; background: rgb(var(--neutral-soft)); color: rgb(var(--neutral-ink)); }
+:root[data-app='people'] #main-content .ui-segmented.ui-segmented-solid { gap: 0.25rem; padding: 0.25rem; border: 1px solid rgb(var(--border)); border-radius: 0.5rem; background: rgb(var(--surface-sunken)); box-shadow: none; }
+:root[data-app='people'] #main-content .ui-segmented-solid .ui-segment { height: 1.75rem; padding: 0 0.75rem; border: 0; border-radius: 0.375rem; background: transparent; box-shadow: none; color: rgb(var(--fg-muted)); font-size: 0.8125rem; font-weight: 500; }
+:root[data-app='people'] #main-content .ui-segmented-solid .ui-segment[aria-checked='true'] { background: rgb(var(--surface)) !important; color: rgb(var(--fg)) !important; font-weight: 600 !important; box-shadow: 0 0 0 1px rgb(var(--border-field)); }
+:root[data-app='people'] #main-content .ui-segmented-solid .ui-segment .ui-segment-count { margin-inline-start: 0.375rem; padding: 0 0.375rem; border-radius: 999px; font-size: 0.75rem; background: rgb(var(--neutral-soft)); color: rgb(var(--neutral-ink)); }
 
 /* ------------------------------------------------------------------ lists and tables */
 
 /* A list sits on the page ground under one hairline (DESIGN.md: no card round a list). rnd.css draws the head and rows. */
-:root[data-palette='sky'] #main-content .ui-datatable-card { border-radius: 0; box-shadow: none; }
-:root[data-palette='sky'] #main-content .ui-datatable-toolbar { margin-bottom: 0.75rem; padding-block: 0; }
-:root[data-palette='sky'] #main-content .ui-table-scroll { height: auto !important; max-height: none !important; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-:root[data-palette='sky'] #main-content .ui-table { width: 100%; table-layout: auto; }
-:root[data-palette='sky'] #main-content .ui-table :is(thead th + th, tbody td + td) { border-left: 0; }
-:root[data-palette='sky'] #main-content .ui-table th { white-space: nowrap; }
-:root[data-palette='sky'] #main-content .ui-table td:not([data-fit]) { white-space: normal; overflow-wrap: break-word; }
-:root[data-palette='sky'] #main-content .ui-table td .whitespace-normal { white-space: nowrap; }
-:root[data-palette='sky'] #main-content .ui-table :is(th, td):is(.w-10, .w-12) { padding-right: 0.75rem; }
-:root[data-palette='sky'] #main-content .ui-table :is(th, td).w-12 { width: 3rem; min-width: 3rem; }
-:root[data-palette='sky'] #main-content .ui-table :is(th, td).w-10 { width: 2.5rem; }
-:root[data-palette='sky'] #main-content .ui-table td { font-feature-settings: 'tnum'; }
-:root[data-palette='sky'] #main-content .ui-table td > .ui-skel-text { display: block; width: 70%; max-width: 8rem; }
+:root[data-app='people'] #main-content .ui-datatable-card { border-radius: 0; box-shadow: none; }
+:root[data-app='people'] #main-content .ui-datatable-toolbar { margin-bottom: 0.75rem; padding-block: 0; }
+:root[data-app='people'] #main-content .ui-table-scroll { height: auto !important; max-height: none !important; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-app='people'] #main-content .ui-table { width: 100%; table-layout: auto; }
+:root[data-app='people'] #main-content .ui-table :is(thead th + th, tbody td + td) { border-left: 0; }
+:root[data-app='people'] #main-content .ui-table th { white-space: nowrap; }
+:root[data-app='people'] #main-content .ui-table td:not([data-fit]) { white-space: normal; overflow-wrap: break-word; }
+:root[data-app='people'] #main-content .ui-table td .whitespace-normal { white-space: nowrap; }
+:root[data-app='people'] #main-content .ui-table :is(th, td):is(.w-10, .w-12) { padding-right: 0.75rem; }
+:root[data-app='people'] #main-content .ui-table :is(th, td).w-12 { width: 3rem; min-width: 3rem; }
+:root[data-app='people'] #main-content .ui-table :is(th, td).w-10 { width: 2.5rem; }
+:root[data-app='people'] #main-content .ui-table td { font-feature-settings: 'tnum'; }
+:root[data-app='people'] #main-content .ui-table td > .ui-skel-text { display: block; width: 70%; max-width: 8rem; }
 /* The head row sticks under the bar while the page scrolls. */
-:root[data-palette='sky'] #main-content .ui-table thead th { position: sticky; top: var(--platform-bar, 4rem); z-index: var(--z-sticky, 20); }
+:root[data-app='people'] #main-content .ui-table thead th { position: sticky; top: var(--platform-bar, 4rem); z-index: var(--z-sticky, 20); }
 /* A row under the pointer or chosen: the moss panel wash; a pressed row the moss tint. */
-:root[data-palette='sky'] #main-content .ui-table tbody tr:is(.ui-row-click:hover, [aria-selected='true']) > td { background: rgb(var(--panel)); }
-:root[data-palette='sky'] #main-content .ui-table tbody tr.ui-row-click:active > td { background-color: rgb(var(--tint)); }
+:root[data-app='people'] #main-content .ui-table tbody tr:is(.ui-row-click:hover, [aria-selected='true']) > td { background: rgb(var(--panel)); }
+:root[data-app='people'] #main-content .ui-table tbody tr.ui-row-click:active > td { background-color: rgb(var(--tint)); }
 /* An empty list: no header row over nothing. */
-:root[data-palette='sky'] #main-content .ui-table-fit .ui-table:has(> tbody:empty) > thead { display: none; }
+:root[data-app='people'] #main-content .ui-table-fit .ui-table:has(> tbody:empty) > thead { display: none; }
 
 /* Fitted columns (wideTables.js): measured on one line at the table's content width; a short column then keeps one line. */
-:root[data-palette='sky'] #main-content .ui-table-scroll > table.ui-measure { width: max-content !important; table-layout: auto; }
-:root[data-palette='sky'] #main-content .ui-table-scroll > table.ui-measure :is(th, td) { white-space: nowrap !important; width: auto !important; }
-html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)[data-fit] { white-space: nowrap; }
+:root[data-app='people'] #main-content .ui-table-scroll > table.ui-measure { width: max-content !important; table-layout: auto; }
+:root[data-app='people'] #main-content .ui-table-scroll > table.ui-measure :is(th, td) { white-space: nowrap !important; width: auto !important; }
+html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[data-fit] { white-space: nowrap; }
 /* A table wider than the page scrolls sideways inside it (Shell marks it data-wide); its head then sticks to the list's top. */
-:root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] { max-height: calc(100dvh - 14rem) !important; overflow: auto; overscroll-behavior-x: contain; }
-:root[data-palette='sky'] #main-content .ui-table-scroll[data-wide] .ui-table thead th { position: sticky; top: 0; }
+:root[data-app='people'] #main-content .ui-table-scroll[data-wide] { max-height: calc(100dvh - 14rem) !important; overflow: auto; overscroll-behavior-x: contain; }
+:root[data-app='people'] #main-content .ui-table-scroll[data-wide] .ui-table thead th { position: sticky; top: 0; }
 
 /* One row for tabs and toolbar: the list's wrapper steps aside (display: contents) so both sit in the page grid. */
-:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 1rem; row-gap: 1rem; align-items: end; }
-:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > * { grid-column: 1 / -1; margin-top: 0 !important; }
-:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-record-tablist { grid-column: 1; justify-self: start; }
-:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable { display: contents; }
-:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > * { grid-column: 1 / -1; }
-:root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > .ui-datatable-toolbar { grid-column: 2; align-self: center; padding: 0; margin: 0; }
+:root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 1rem; row-gap: 1rem; align-items: end; }
+:root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > * { grid-column: 1 / -1; margin-top: 0 !important; }
+:root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-record-tablist { grid-column: 1; justify-self: start; }
+:root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable { display: contents; }
+:root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > * { grid-column: 1 / -1; }
+:root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > .ui-datatable-toolbar { grid-column: 2; align-self: center; padding: 0; margin: 0; }
 @media (min-width: 640px) {
-  :root[data-palette='sky'] #main-content .ui-datatable-toolbar:has(.ui-datatable-tabs) .ui-search-field { flex: 1 1 11rem; width: auto; max-width: 18rem; }
-  :root[data-palette='sky'] #main-content .ui-datatable-toolbar:has(.ui-datatable-tabs) > .flex-1 > div[class*='sm:w-']:not(.ui-search-field) { width: 9.5rem; flex: none; }
+  :root[data-app='people'] #main-content .ui-datatable-toolbar:has(.ui-datatable-tabs) .ui-search-field { flex: 1 1 11rem; width: auto; max-width: 18rem; }
+  :root[data-app='people'] #main-content .ui-datatable-toolbar:has(.ui-datatable-tabs) > .flex-1 > div[class*='sm:w-']:not(.ui-search-field) { width: 9.5rem; flex: none; }
 }
 
 /* Shared list screens People borrows (DocumentListShell: Salary revisions and the like): the same page ground. */
-:root[data-palette='sky'] #main-content .document-list-tight > .ui-card.overflow-hidden { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-:root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
-:root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > .ui-card { border-radius: 0.75rem; border: 1px solid rgb(var(--border-field)); box-shadow: none; }
-:root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] > button.ui-card:hover { background: rgb(var(--surface-sunken)); }
-:root[data-palette='sky'] #main-content section > :is(button, div).ui-card[data-tint] > span:first-child { background: rgb(var(--tint)) !important; color: rgb(var(--tint-ink)) !important; }
-:root[data-palette='sky'] #main-content section > :is(button, div).ui-card .tabular-nums { color: rgb(var(--fg)) !important; font-weight: 700; }
+:root[data-app='people'] #main-content .document-list-tight > .ui-card.overflow-hidden { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-app='people'] #main-content .document-list-tight > section[aria-label='Summary'] { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
+:root[data-app='people'] #main-content .document-list-tight > section[aria-label='Summary'] > .ui-card { border-radius: 0.75rem; border: 1px solid rgb(var(--border-field)); box-shadow: none; }
+:root[data-app='people'] #main-content .document-list-tight > section[aria-label='Summary'] > button.ui-card:hover { background: rgb(var(--surface-sunken)); }
+:root[data-app='people'] #main-content section > :is(button, div).ui-card[data-tint] > span:first-child { background: rgb(var(--tint)) !important; color: rgb(var(--tint-ink)) !important; }
+:root[data-app='people'] #main-content section > :is(button, div).ui-card .tabular-nums { color: rgb(var(--fg)) !important; font-weight: 700; }
 
 /* The outline lists and the structure rows: the page ground under hairlines. */
-:root[data-palette='sky'] #main-content .ui-org-outline { border-radius: 0; background: none; box-shadow: none; border-top: 1px solid rgb(var(--border)); overflow: visible; }
-:root[data-palette='sky'] #main-content .ui-org-outline > li { padding-inline: 0.5rem; border-color: rgb(var(--border)); }
-:root[data-palette='sky'] #main-content .ui-org-outline > li:hover { background: rgb(var(--panel)); }
-:root[data-palette='sky'] #main-content .ui-attention { border-radius: 0; background: transparent; padding: 0.5rem 0; border: 0; border-bottom: 1px solid rgb(var(--border)); }
+:root[data-app='people'] #main-content .ui-org-outline { border-radius: 0; background: none; box-shadow: none; border-top: 1px solid rgb(var(--border)); overflow: visible; }
+:root[data-app='people'] #main-content .ui-org-outline > li { padding-inline: 0.5rem; border-color: rgb(var(--border)); }
+:root[data-app='people'] #main-content .ui-org-outline > li:hover { background: rgb(var(--panel)); }
+:root[data-app='people'] #main-content .ui-attention { border-radius: 0; background: transparent; padding: 0.5rem 0; border: 0; border-bottom: 1px solid rgb(var(--border)); }
 
 /* The line between a list and its side panel runs the page's full height. */
-:root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on'] { position: relative; min-height: calc(100dvh - var(--platform-bar, 4rem) - 4rem); }
-:root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on']::after { content: ''; position: absolute; top: 0; bottom: 0; right: 16rem; border-left: 1px solid rgb(var(--border)); pointer-events: none; }
-:root[data-palette='sky'] #main-content .ui-with-panel[data-panel='on'] > .ui-side-panel { border-left: 0; }
-:root[data-palette='sky'] #main-content .ui-side-block + .ui-side-block { border-top: 0; padding-top: 0; margin-top: 1.5rem; }
-:root[data-palette='sky'] #main-content .ui-side-chip[data-tint] > svg { color: rgb(var(--tint-ink)); }
-:root[data-palette='sky'] .ui-side-bar { background: rgb(var(--surface-sunken)); }
-:root[data-palette='sky'] :is(.org-count-bar, .ui-side-bar) > span { background: rgb(var(--marker)); }
-:root[data-palette='sky'] .ui-side-alert[data-tone='warn'] { box-shadow: inset 3px 0 0 rgb(var(--warn)); }
-:root[data-palette='sky'] .ui-balance-low { color: rgb(var(--warn-ink)); }
+:root[data-app='people'] #main-content .ui-with-panel[data-panel='on'] { position: relative; min-height: calc(100dvh - var(--platform-bar, 4rem) - 4rem); }
+:root[data-app='people'] #main-content .ui-with-panel[data-panel='on']::after { content: ''; position: absolute; top: 0; bottom: 0; right: 16rem; border-left: 1px solid rgb(var(--border)); pointer-events: none; }
+:root[data-app='people'] #main-content .ui-with-panel[data-panel='on'] > .ui-side-panel { border-left: 0; }
+:root[data-app='people'] #main-content .ui-side-block + .ui-side-block { border-top: 0; padding-top: 0; margin-top: 1.5rem; }
+:root[data-app='people'] #main-content .ui-side-chip[data-tint] > svg { color: rgb(var(--tint-ink)); }
+:root[data-app='people'] .ui-side-bar { background: rgb(var(--surface-sunken)); }
+:root[data-app='people'] :is(.org-count-bar, .ui-side-bar) > span { background: rgb(var(--marker)); }
+:root[data-app='people'] .ui-side-alert[data-tone='warn'] { box-shadow: inset 3px 0 0 rgb(var(--warn)); }
+:root[data-app='people'] .ui-balance-low { color: rgb(var(--warn-ink)); }
 
 /* ------------------------------------------------------------------ KPI tiles */
 
@@ -175,7 +175,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
  * identity colour, a 36px tinted icon chip, a 12px uppercase label beside it, and the number under them at 28/36,
  * tabular. A figure with no tint is neutral. Same markup as before (`.ui-metric-strip > [data-tint] > .ui-metric`).
  */
-:root[data-palette='sky'] #main-content .ui-metric-strip {
+:root[data-app='people'] #main-content .ui-metric-strip {
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   gap: 1rem;
   background: transparent;
@@ -184,7 +184,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   box-shadow: none;
   overflow: visible;
 }
-:root[data-palette='sky'] #main-content .ui-metric-strip > * {
+:root[data-app='people'] #main-content .ui-metric-strip > * {
   min-width: 0;
   border: 1px solid rgb(var(--border-field)) !important;
   border-radius: 0.75rem;
@@ -192,8 +192,8 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   box-shadow: inset 0 3px 0 rgb(var(--id));
   overflow: hidden;
 }
-:root[data-palette='sky'] #main-content .ui-metric-strip > :not([data-tint]) { --id: var(--border-strong); --tint: var(--surface-sunken); --tint-ink: var(--fg-muted); }
-:root[data-palette='sky'] #main-content .ui-metric {
+:root[data-app='people'] #main-content .ui-metric-strip > :not([data-tint]) { --id: var(--border-strong); --tint: var(--surface-sunken); --tint-ink: var(--fg-muted); }
+:root[data-app='people'] #main-content .ui-metric {
   display: grid;
   grid-template-columns: 2.25rem minmax(0, 1fr);
   grid-template-areas: 'icon label' 'value value';
@@ -204,8 +204,8 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   padding: 1.25rem 1.25rem 1.125rem;
   border-radius: 0.75rem;
 }
-:root[data-palette='sky'] #main-content .ui-metric > span:not([class]) { display: contents; }
-:root[data-palette='sky'] #main-content .ui-metric-icon {
+:root[data-app='people'] #main-content .ui-metric > span:not([class]) { display: contents; }
+:root[data-app='people'] #main-content .ui-metric-icon {
   grid-area: icon;
   box-sizing: border-box;
   width: 2.25rem;
@@ -215,7 +215,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   background: rgb(var(--tint));
   color: rgb(var(--tint-ink));
 }
-:root[data-palette='sky'] #main-content .ui-metric-label {
+:root[data-app='people'] #main-content .ui-metric-label {
   grid-area: label;
   min-width: 0;
   overflow: hidden;
@@ -228,7 +228,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   text-transform: uppercase;
   color: rgb(var(--fg-muted));
 }
-:root[data-palette='sky'] #main-content .ui-metric-value {
+:root[data-app='people'] #main-content .ui-metric-value {
   grid-area: value;
   font-size: 1.75rem;
   line-height: 2.25rem;
@@ -237,32 +237,32 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   font-variant-numeric: tabular-nums;
   color: rgb(var(--fg));
 }
-:root[data-palette='sky'] #main-content button.ui-metric:hover { background: rgb(var(--surface-sunken)); }
-:root[data-palette='sky'] #main-content .ui-metric[data-zero] .ui-metric-value { color: rgb(var(--fg-subtle)); }
-:root[data-palette='sky'] #main-content .ui-metric[data-attention] .ui-metric-value { color: rgb(var(--warn)); }
+:root[data-app='people'] #main-content button.ui-metric:hover { background: rgb(var(--surface-sunken)); }
+:root[data-app='people'] #main-content .ui-metric[data-zero] .ui-metric-value { color: rgb(var(--fg-subtle)); }
+:root[data-app='people'] #main-content .ui-metric[data-attention] .ui-metric-value { color: rgb(var(--warn)); }
 /* Data health draws its strip as a definition list: the same tile. */
-:root[data-palette='sky'] #main-content dl.ui-metric-strip > * { padding: 1.25rem; }
+:root[data-app='people'] #main-content dl.ui-metric-strip > * { padding: 1.25rem; }
 @media (max-width: 639px) {
-  :root[data-palette='sky'] #main-content .ui-metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
-  :root[data-palette='sky'] #main-content .ui-metric-strip > * { border-right: 1px solid rgb(var(--border-field)); grid-column: auto; }
-  :root[data-palette='sky'] #main-content .ui-metric { padding: 1rem; row-gap: 0.625rem; }
-  :root[data-palette='sky'] #main-content .ui-metric-value { font-size: 1.5rem; line-height: 2rem; }
+  :root[data-app='people'] #main-content .ui-metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  :root[data-app='people'] #main-content .ui-metric-strip > * { border-right: 1px solid rgb(var(--border-field)); grid-column: auto; }
+  :root[data-app='people'] #main-content .ui-metric { padding: 1rem; row-gap: 0.625rem; }
+  :root[data-app='people'] #main-content .ui-metric-value { font-size: 1.5rem; line-height: 2rem; }
 }
 
 /* ------------------------------------------------------------------ Settings */
 
 /* The Settings page (PEOPLE-28): each group a grid of tiles, three across, each tile a 36px icon chip, the name and
    one line on what it holds. Same markup as the rows it replaces (SettingsHub). */
-:root[data-palette='sky'] #main-content .ui-settings-note { display: none; }
-:root[data-palette='sky'] #main-content .ui-settings-rows {
+:root[data-app='people'] #main-content .ui-settings-note { display: none; }
+:root[data-app='people'] #main-content .ui-settings-rows {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   gap: 0.75rem;
   max-width: none;
   border-top: 0;
 }
-:root[data-palette='sky'] #main-content .ui-settings-rows > li { border-bottom: 0; }
-:root[data-palette='sky'] #main-content .ui-settings-row {
+:root[data-app='people'] #main-content .ui-settings-rows > li { border-bottom: 0; }
+:root[data-app='people'] #main-content .ui-settings-row {
   display: grid;
   grid-template-columns: 2.25rem minmax(0, 1fr);
   grid-template-areas: 'icon label' 'icon note';
@@ -278,8 +278,8 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   border-radius: 0.75rem;
   background: rgb(var(--surface));
 }
-:root[data-palette='sky'] #main-content .ui-settings-row:hover { background: rgb(var(--panel)); border-color: rgb(var(--panel-border)); }
-:root[data-palette='sky'] #main-content .ui-settings-row-icon {
+:root[data-app='people'] #main-content .ui-settings-row:hover { background: rgb(var(--panel)); border-color: rgb(var(--panel-border)); }
+:root[data-app='people'] #main-content .ui-settings-row-icon {
   grid-area: icon;
   display: grid;
   place-items: center;
@@ -289,110 +289,110 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   background: rgb(var(--surface-sunken));
   color: rgb(var(--fg-muted));
 }
-:root[data-palette='sky'] #main-content .ui-settings-row-label { grid-area: label; align-self: end; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
-:root[data-palette='sky'] #main-content .ui-settings-row-note { grid-area: note; align-self: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
-:root[data-palette='sky'] #main-content .ui-settings-row-go { display: none; }
+:root[data-app='people'] #main-content .ui-settings-row-label { grid-area: label; align-self: end; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
+:root[data-app='people'] #main-content .ui-settings-row-note { grid-area: note; align-self: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+:root[data-app='people'] #main-content .ui-settings-row-go { display: none; }
 /* A row with no icon (Reports) is a tile of words. */
-:root[data-palette='sky'] #main-content .ui-settings-row-icon:empty { display: none; }
-:root[data-palette='sky'] #main-content .ui-settings-row:has(> .ui-settings-row-icon:empty) { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'note'; }
+:root[data-app='people'] #main-content .ui-settings-row-icon:empty { display: none; }
+:root[data-app='people'] #main-content .ui-settings-row:has(> .ui-settings-row-icon:empty) { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'note'; }
 
 /* The Settings panel: every group but the open screen's folds to its heading; All settings lists them all. */
 /* Out of view and out of the flow, not display: none: a Fluent colour icon paints from gradients found by id, and the
    first copy of an id inside a display: none subtree would blank every later copy of that icon on the page. */
-:root[data-palette='sky'] .ui-split-panel[aria-label='Settings screens'] > div:has(> p.ui-caption):not(:has([aria-current='page'])) > .ui-split-item { position: absolute; visibility: hidden; clip-path: inset(50%); pointer-events: none; }
+:root[data-app='people'] .ui-split-panel[aria-label='Settings screens'] > div:has(> p.ui-caption):not(:has([aria-current='page'])) > .ui-split-item { position: absolute; visibility: hidden; clip-path: inset(50%); pointer-events: none; }
 
 /* ------------------------------------------------------------------ empty, loading, records, forms */
 
 /* An empty state on the page ground (PEOPLE-52): the picture, a 17px heading, one line, then its routes. */
-:root[data-palette='sky'] #main-content .ui-datatable > .ui-in { min-height: 14rem; padding-block: 3rem; }
-:root[data-palette='sky'] #main-content .ui-datatable > .ui-in .ui-t-sec { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; }
-:root[data-palette='sky'] #main-content .ui-datatable > .ui-in :is(p, .ui-muted) { max-width: 30rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
-:root[data-palette='sky'] .people-directory .ui-datatable > .ui-in .ui-card { box-shadow: none; border-color: rgb(var(--border-field)); border-radius: 0.75rem; }
+:root[data-app='people'] #main-content .ui-datatable > .ui-in { min-height: 14rem; padding-block: 3rem; }
+:root[data-app='people'] #main-content .ui-datatable > .ui-in .ui-t-sec { font-family: var(--font-brand); font-size: 1.0625rem; line-height: 1.5rem; font-weight: 700; }
+:root[data-app='people'] #main-content .ui-datatable > .ui-in :is(p, .ui-muted) { max-width: 30rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+:root[data-app='people'] .people-directory .ui-datatable > .ui-in .ui-card { box-shadow: none; border-color: rgb(var(--border-field)); border-radius: 0.75rem; }
 
 /* A screen still loading takes the page's shape (a title, then rows), not a boxed card. */
-:root[data-palette='sky'] [role='status'][aria-label='Loading'] { padding: 0; }
-:root[data-palette='sky'] [role='status'][aria-label='Loading'] > .ui-card { border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: 0; }
-:root[data-palette='sky'] [role='status'][aria-label='Loading'] .ui-skel-title { width: 11rem; height: 1.75rem; }
-:root[data-palette='sky'] [role='status'][aria-label='Loading'] .ui-skel-title + div { margin-top: 1.75rem; }
-:root[data-palette='sky'] [role='status'][aria-label='Loading'] .ui-skel-text + .ui-skel-text { margin-top: 2rem; }
+:root[data-app='people'] [role='status'][aria-label='Loading'] { padding: 0; }
+:root[data-app='people'] [role='status'][aria-label='Loading'] > .ui-card { border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: 0; }
+:root[data-app='people'] [role='status'][aria-label='Loading'] .ui-skel-title { width: 11rem; height: 1.75rem; }
+:root[data-app='people'] [role='status'][aria-label='Loading'] .ui-skel-title + div { margin-top: 1.75rem; }
+:root[data-app='people'] [role='status'][aria-label='Loading'] .ui-skel-text + .ui-skel-text { margin-top: 2rem; }
 
 /* A record's tab and a wizard's step: on the page under a hairline, at the width a name or a phone number needs. */
-:root[data-palette='sky'] #main-content .ui-record-tabpanel { margin-top: 0; padding: 1.5rem 0 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
-:root[data-palette='sky'] #main-content .ui-record-tabpanel form > .ui-form-grid,
-:root[data-palette='sky'] #main-content .ui-record-tabpanel form > .ui-form-grid ~ .flex.justify-end { max-width: 56rem; }
-:root[data-palette='sky'] #main-content .ui-wizard-body { padding: 1.5rem 0 0; background: transparent; border: 0; border-top: 1px solid rgb(var(--border)); border-radius: 0; box-shadow: none; }
-:root[data-palette='sky'] #main-content .ui-wizard .ui-form-grid { max-width: 56rem; }
-:root[data-palette='sky'] #main-content .ui-wizard-actions { max-width: 56rem; margin: 1.5rem 0 0; padding: 0.75rem 0; background: rgb(var(--surface)); }
-:root[data-palette='sky'] #main-content .ui-step-mark { width: 1.625rem; height: 1.625rem; border-radius: 999px; }
-:root[data-palette='sky'] #main-content .ui-stepper { gap: 0.5rem 1.25rem; }
-:root[data-palette='sky'] #main-content .ui-profile .ui-pill:not(.ui-pill-pos, .ui-pill-warn, .ui-pill-neg, .ui-pill-neutral, .ui-pill-info) { background: rgb(var(--tint)); color: rgb(var(--act)); }
-:root[data-palette='sky'] #main-content input[type='checkbox'] { width: 1.125rem; height: 1.125rem; flex: none; accent-color: rgb(var(--act)); }
+:root[data-app='people'] #main-content .ui-record-tabpanel { margin-top: 0; padding: 1.5rem 0 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+:root[data-app='people'] #main-content .ui-record-tabpanel form > .ui-form-grid,
+:root[data-app='people'] #main-content .ui-record-tabpanel form > .ui-form-grid ~ .flex.justify-end { max-width: 56rem; }
+:root[data-app='people'] #main-content .ui-wizard-body { padding: 1.5rem 0 0; background: transparent; border: 0; border-top: 1px solid rgb(var(--border)); border-radius: 0; box-shadow: none; }
+:root[data-app='people'] #main-content .ui-wizard .ui-form-grid { max-width: 56rem; }
+:root[data-app='people'] #main-content .ui-wizard-actions { max-width: 56rem; margin: 1.5rem 0 0; padding: 0.75rem 0; background: rgb(var(--surface)); }
+:root[data-app='people'] #main-content .ui-step-mark { width: 1.625rem; height: 1.625rem; border-radius: 999px; }
+:root[data-app='people'] #main-content .ui-stepper { gap: 0.5rem 1.25rem; }
+:root[data-app='people'] #main-content .ui-profile .ui-pill:not(.ui-pill-pos, .ui-pill-warn, .ui-pill-neg, .ui-pill-neutral, .ui-pill-info) { background: rgb(var(--tint)); color: rgb(var(--act-ink)); }
+:root[data-app='people'] #main-content input[type='checkbox'] { width: 1.125rem; height: 1.125rem; flex: none; accent-color: rgb(var(--act)); }
 
 /* Drawers and dialogs sit outside the page: fields and buttons in the same shapes. */
-:root[data-palette='sky'] .ui-scrim .ui-icon-btn { border-radius: 0.5rem; }
+:root[data-app='people'] .ui-scrim .ui-icon-btn { border-radius: 0.5rem; }
 
 /* ------------------------------------------------------------------ phones */
 
 @media (max-width: 767px) {
-  :root[data-palette='sky'] :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-tab, .ui-input, .ui-select, .ui-search-field) { min-height: 2.75rem; }
-  :root[data-palette='sky'] :is(#main-content, .ui-scrim) :is(input:not([type='checkbox']):not([type='radio']), select, textarea, .ui-input, .ui-select) { font-size: 1rem; }
-  :root[data-palette='sky'] :is(#main-content, .ui-scrim) .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
-  :root[data-palette='sky'] :is(.ui-topbar, header) .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
-  html:root[data-palette='sky'] #main-content :is(.ui-btn.ui-btn.ui-btn, .ui-page-btn.ui-page-btn.ui-page-btn, .oc-zoom-btn.oc-zoom-btn.oc-zoom-btn, .ui-card-open.ui-card-open.ui-card-open),
-  html:root[data-palette='sky'] .ui-scrim .ui-btn.ui-btn.ui-btn { height: auto; min-height: 2.75rem; }
-  html:root[data-palette='sky'] #main-content .oc-zoom-btn.oc-zoom-btn { min-width: 2.75rem; }
-  html:root[data-palette='sky'] #main-content .att-summary li > button { min-height: 2.75rem; }
-  html:root[data-palette='sky'] #main-content :is(.people-more, .people-chip) { min-height: 2.75rem; }
-  :root[data-palette='sky'] #main-content .ui-row-open { min-height: 2.75rem; }
-  :root[data-palette='sky'] #main-content input[type='checkbox'] { width: 1.5rem; height: 1.5rem; }
+  :root[data-app='people'] :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-tab, .ui-input, .ui-select, .ui-search-field) { min-height: 2.75rem; }
+  :root[data-app='people'] :is(#main-content, .ui-scrim) :is(input:not([type='checkbox']):not([type='radio']), select, textarea, .ui-input, .ui-select) { font-size: 1rem; }
+  :root[data-app='people'] :is(#main-content, .ui-scrim) .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
+  :root[data-app='people'] :is(.ui-topbar, header) .ui-icon-btn { min-width: 2.75rem; min-height: 2.75rem; }
+  html:root[data-app='people'] #main-content :is(.ui-btn.ui-btn.ui-btn, .ui-page-btn.ui-page-btn.ui-page-btn, .oc-zoom-btn.oc-zoom-btn.oc-zoom-btn, .ui-card-open.ui-card-open.ui-card-open),
+  html:root[data-app='people'] .ui-scrim .ui-btn.ui-btn.ui-btn { height: auto; min-height: 2.75rem; }
+  html:root[data-app='people'] #main-content .oc-zoom-btn.oc-zoom-btn { min-width: 2.75rem; }
+  html:root[data-app='people'] #main-content .att-summary li > button { min-height: 2.75rem; }
+  html:root[data-app='people'] #main-content :is(.people-more, .people-chip) { min-height: 2.75rem; }
+  :root[data-app='people'] #main-content .ui-row-open { min-height: 2.75rem; }
+  :root[data-app='people'] #main-content input[type='checkbox'] { width: 1.5rem; height: 1.5rem; }
   /* People's tab bar is 57px: the Continue bar sits on it. */
-  :root[data-palette='sky'] #main-content .ui-wizard-actions { bottom: calc(57px + env(safe-area-inset-bottom)); border-top: 1px solid rgb(var(--border)); }
-  :root[data-palette='sky'] #main-content .ui-table-scroll:not([data-wide]) { overflow-x: clip; }
-  html:root[data-palette='sky'] #main-content .ui-table td[colspan] > :only-child { position: sticky; left: 0; max-width: calc(100vw - 3.5rem); }
-  :root[data-palette='sky'] #main-content .ui-record-tabpanel { padding-top: 1rem; }
-  :root[data-palette='sky'] .ui-scrim > .ui-drawer-sheet.ui-out-edge { animation-name: ui-sheet-down !important; }
-  :root[data-palette='sky'] .ui-drawer-sheet .ui-sheet-head { touch-action: none; padding-top: 1.375rem; cursor: grab; }
-  :root[data-palette='sky'] .ui-drawer-sheet .ui-sheet-head:active { cursor: grabbing; }
-  :root[data-palette='sky'] .ui-drawer-sheet .ui-sheet-grabber { display: block; position: absolute; top: 0.5rem; left: 50%; width: 2.25rem; height: 0.3125rem; margin-left: -1.125rem; border-radius: 999px; background: rgb(var(--fg) / 0.2); }
+  :root[data-app='people'] #main-content .ui-wizard-actions { bottom: calc(57px + env(safe-area-inset-bottom)); border-top: 1px solid rgb(var(--border)); }
+  :root[data-app='people'] #main-content .ui-table-scroll:not([data-wide]) { overflow-x: clip; }
+  html:root[data-app='people'] #main-content .ui-table td[colspan] > :only-child { position: sticky; left: 0; max-width: calc(100vw - 3.5rem); }
+  :root[data-app='people'] #main-content .ui-record-tabpanel { padding-top: 1rem; }
+  :root[data-app='people'] .ui-scrim > .ui-drawer-sheet.ui-out-edge { animation-name: ui-sheet-down !important; }
+  :root[data-app='people'] .ui-drawer-sheet .ui-sheet-head { touch-action: none; padding-top: 1.375rem; cursor: grab; }
+  :root[data-app='people'] .ui-drawer-sheet .ui-sheet-head:active { cursor: grabbing; }
+  :root[data-app='people'] .ui-drawer-sheet .ui-sheet-grabber { display: block; position: absolute; top: 0.5rem; left: 50%; width: 2.25rem; height: 0.3125rem; margin-left: -1.125rem; border-radius: 999px; background: rgb(var(--fg) / 0.2); }
 }
 @media (max-width: 639px) {
-  :root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-record-tablist { grid-column: 1 / -1; max-width: 100%; overflow-x: auto; }
-  :root[data-palette='sky'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > .ui-datatable-toolbar { grid-column: 1 / -1; }
-  :root[data-palette='sky'] #main-content .document-list-tight > section[aria-label='Summary'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  :root[data-palette='sky'] #main-content .ui-segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-  :root[data-palette='sky'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field) { width: calc(50% - 0.25rem); }
-  :root[data-palette='sky'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field):only-of-type,
-  :root[data-palette='sky'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field):last-child:nth-child(even) { width: 100%; }
-  :root[data-palette='sky'] #main-content .ui-settings-rows { grid-template-columns: minmax(0, 1fr); }
+  :root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-record-tablist { grid-column: 1 / -1; max-width: 100%; overflow-x: auto; }
+  :root[data-app='people'] #main-content :has(> .ui-record-tablist ~ .ui-datatable) > .ui-datatable > .ui-datatable-toolbar { grid-column: 1 / -1; }
+  :root[data-app='people'] #main-content .document-list-tight > section[aria-label='Summary'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root[data-app='people'] #main-content .ui-segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  :root[data-app='people'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field) { width: calc(50% - 0.25rem); }
+  :root[data-app='people'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field):only-of-type,
+  :root[data-app='people'] #main-content .ui-datatable-toolbar > .flex-1 > div[class*='sm:w-']:not(.ui-search-field):last-child:nth-child(even) { width: 100%; }
+  :root[data-app='people'] #main-content .ui-settings-rows { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ------------------------------------------------------------------ motion */
 
 /* Pressed shows on the press, not after it. Release eases back. */
-:root[data-palette='sky'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip, .ui-settings-row) {
+:root[data-app='people'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip, .ui-settings-row) {
   transition: transform 140ms var(--ease-out), background-color var(--dur-state) ease, color var(--dur-state) ease, box-shadow var(--dur-state) ease;
 }
-:root[data-palette='sky'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip, .ui-settings-row):active:not(:disabled) {
+:root[data-app='people'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-side-alert, .ui-side-more, button.ui-metric, .ui-choice-chip, .ui-settings-row):active:not(:disabled) {
   transform: scale(0.98);
   transition-duration: 70ms;
 }
-:root[data-palette='sky'] .ui-popover[data-side='top'] { animation-name: ui-popover-up; }
-:root[data-palette='sky'] .ui-popover.ui-popover-out { animation: ui-popover-out-down 100ms var(--ease-in) both; }
-:root[data-palette='sky'] .ui-popover.ui-popover-out[data-side='top'] { animation-name: ui-popover-out-up; }
+:root[data-app='people'] .ui-popover[data-side='top'] { animation-name: ui-popover-up; }
+:root[data-app='people'] .ui-popover.ui-popover-out { animation: ui-popover-out-down 100ms var(--ease-in) both; }
+:root[data-app='people'] .ui-popover.ui-popover-out[data-side='top'] { animation-name: ui-popover-out-up; }
 @media (prefers-reduced-motion: no-preference) {
   /* A list is read, not watched: rows arrive as they are. */
-  :root[data-palette='sky'] .ui-rows > tr { animation: none; }
+  :root[data-app='people'] .ui-rows > tr { animation: none; }
 }
 /* Less motion is not no motion: surfaces that slide or pop arrive and leave as a short fade instead. */
 @media (prefers-reduced-motion: reduce) {
-  :root[data-palette='sky'] .ui-scrim > .ui-surface:not(.ui-out-edge),
-  :root[data-palette='sky'] .ui-in-pop { animation: ui-fade 160ms ease-out both !important; }
-  :root[data-palette='sky'] .ui-scrim > .ui-surface.ui-out-edge,
-  :root[data-palette='sky'] .ui-scrim.ui-out-fade { animation: ui-out-fade 120ms linear both !important; }
-  :root[data-palette='sky'] .ui-scrim:not(.ui-out-fade) { animation: ui-fade 120ms linear both !important; }
-  :root[data-palette='sky'] .ui-popover { animation: ui-fade 120ms ease-out both !important; }
-  :root[data-palette='sky'] .ui-popover.ui-popover-out { animation: ui-out-fade 100ms linear both !important; }
-  :root[data-palette='sky'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-metric, .ui-choice-chip, .ui-settings-row):active:not(:disabled) { transform: none; }
+  :root[data-app='people'] .ui-scrim > .ui-surface:not(.ui-out-edge),
+  :root[data-app='people'] .ui-in-pop { animation: ui-fade 160ms ease-out both !important; }
+  :root[data-app='people'] .ui-scrim > .ui-surface.ui-out-edge,
+  :root[data-app='people'] .ui-scrim.ui-out-fade { animation: ui-out-fade 120ms linear both !important; }
+  :root[data-app='people'] .ui-scrim:not(.ui-out-fade) { animation: ui-fade 120ms linear both !important; }
+  :root[data-app='people'] .ui-popover { animation: ui-fade 120ms ease-out both !important; }
+  :root[data-app='people'] .ui-popover.ui-popover-out { animation: ui-out-fade 100ms linear both !important; }
+  :root[data-app='people'] :is(.ui-tab, .ui-segment, .ui-split-item, button.ui-side-line, .ui-side-chip, button.ui-metric, .ui-choice-chip, .ui-settings-row):active:not(:disabled) { transform: none; }
   .people-row-action, .people-out-row { transition: none; }
 }
 
@@ -421,13 +421,12 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   border: 1px solid rgb(var(--border-field));
   border-radius: 0.75rem;
   background: rgb(var(--surface));
-  box-shadow: inset 0 3px 0 rgb(var(--id));
   color: rgb(var(--fg));
   transition: background-color var(--dur-state, 150ms) ease;
 }
 .people-kpi:hover { background: rgb(var(--surface-sunken)); }
 .people-kpi:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
-.people-kpi-icon { grid-area: icon; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; background: rgb(var(--tint)); color: rgb(var(--tint-ink)); }
+.people-kpi-icon { grid-area: icon; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; background: rgb(var(--surface-sunken)); color: rgb(var(--fg-muted)); }
 .people-kpi-label { grid-area: label; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(var(--fg-muted)); }
 .people-kpi-row { grid-area: value; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .people-kpi-value { font-size: 2.25rem; line-height: 2.5rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
@@ -463,7 +462,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
   font-variant-numeric: tabular-nums;
 }
 .people-row-count[data-tone='warn'] { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
-.people-more { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; font-size: 0.875rem; font-weight: 600; color: rgb(var(--act)); text-decoration: underline; text-underline-offset: 3px; border-radius: 0.5rem; }
+.people-more { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; font-size: 0.875rem; font-weight: 600; color: rgb(var(--act-ink)); text-decoration: underline; text-underline-offset: 3px; border-radius: 0.5rem; }
 .people-more:hover { color: rgb(var(--act-hover)); }
 .people-more:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 2px; }
 .people-empty { padding: 1rem 0.25rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
@@ -581,7 +580,7 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
 .att-summary-keys b { font-weight: 700; color: rgb(var(--fg)); font-variant-numeric: tabular-nums; }
 .att-summary-late { margin-left: auto; padding: 0.125rem 0.625rem; border-radius: 999px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-weight: 600; }
 
-.att-face { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--tint)); color: rgb(var(--act)); font-size: 0.75rem; font-weight: 700; }
+.att-face { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--tint)); color: rgb(var(--act-ink)); font-size: 0.75rem; font-weight: 700; }
 .att-line { position: relative; display: block; min-width: 9rem; height: 0.625rem; border-radius: 999px; background: rgb(var(--surface-sunken)); overflow: hidden; }
 .att-line-shift { position: absolute; top: 0; bottom: 0; background: rgb(var(--border-strong) / 0.35); }
 .att-line-span { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: rgb(var(--pos)); }
@@ -642,13 +641,13 @@ html:root[data-palette='sky'] #main-content .ui-table-scroll > table :is(th, td)
 @media (prefers-reduced-motion: reduce) { .org-card { transition: none; } }
 
 /* People's icons in buttons and tables: 16px. */
-:root[data-palette='sky'] :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-icon-btn) > svg,
-:root[data-palette='sky'] :is(#main-content, .ui-scrim) .ui-table tbody td > svg { width: 1rem; height: 1rem; font-size: 1rem; }
+:root[data-app='people'] :is(#main-content, .ui-scrim) :is(.ui-btn, .ui-icon-btn) > svg,
+:root[data-app='people'] :is(#main-content, .ui-scrim) .ui-table tbody td > svg { width: 1rem; height: 1rem; font-size: 1rem; }
 
 /* Nothing under 12px: the org chart's counts, table and org-chart initials. */
-:root[data-palette='sky'] :is(.oc-count, .oc-count span, .att-face) { font-size: 0.75rem; }
-:root[data-palette='sky'] .oc-count { min-height: 1.75rem; min-width: 2.25rem; }
-@media (max-width: 767px) { :root[data-palette='sky'] .oc-count { min-height: 2.75rem; min-width: 2.75rem; } }
+:root[data-app='people'] :is(.oc-count, .oc-count span, .att-face) { font-size: 0.75rem; }
+:root[data-app='people'] .oc-count { min-height: 1.75rem; min-width: 2.25rem; }
+@media (max-width: 767px) { :root[data-app='people'] .oc-count { min-height: 2.75rem; min-width: 2.75rem; } }
 
 /* ------------------------------------------------------------------ Employees, first run (PEOPLE-52) */
 

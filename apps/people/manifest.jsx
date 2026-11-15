@@ -452,9 +452,8 @@ export const peopleApp = {
   available: true,
   database: 'people.db',
   home: 'overview',
-  /* People's own accent, lagoon teal #0E7C7B with Butter highlights (owner, 28 Oct 2026: not blue, unlike the rest of the industry; replaced Burnished Rose of 24 Oct, D-01).
-     The shared palette lives in packages/ui/src/index.css. */
-  palette: 'sky',
+  /* No palette: one accent for every app (frontend-redesign-2026-11-15.md §6.3).
+     People's identity is its glyph hue, --app-people, and nothing else. */
   /* Two-tone brand icons (see `duo` above); content icons that screens draw follow it through colorSwap. */
   iconSet: 'duo',
   /* Buttons and actions in Fluent's line set, the same family as the colour marks (owner, 28 Oct 2026). */

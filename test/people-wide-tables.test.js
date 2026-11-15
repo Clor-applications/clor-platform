@@ -20,7 +20,7 @@ describe('wide table watcher', () => {
   afterEach(() => {
     vi.useRealTimers();
     delete globalThis.ResizeObserver;
-    document.documentElement.removeAttribute('data-palette');
+    document.documentElement.removeAttribute('data-app');
     document.body.innerHTML = '';
   });
 
@@ -31,7 +31,7 @@ describe('wide table watcher', () => {
   });
 
   it('lets go of lists that left the page', async () => {
-    document.documentElement.setAttribute('data-palette', 'sky');
+    document.documentElement.setAttribute('data-app', 'people');
     const stop = watchWideTables(document.body);
     expect(FakeRO.last.els.size).toBe(2);
     document.querySelector('#main-content').innerHTML = '<p>Another screen</p>';
@@ -49,11 +49,11 @@ describe('wide content that is not a table (#80: the Candidates board at 390px)'
   };
   beforeEach(() => {
     globalThis.ResizeObserver = FakeRO;
-    document.documentElement.setAttribute('data-palette', 'sky');
+    document.documentElement.setAttribute('data-app', 'people');
   });
   afterEach(() => {
     delete globalThis.ResizeObserver;
-    document.documentElement.removeAttribute('data-palette');
+    document.documentElement.removeAttribute('data-app');
     document.body.innerHTML = '';
   });
 

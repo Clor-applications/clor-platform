@@ -1184,7 +1184,7 @@ function ShellScreens() {
                 aria-label={`${app.name}: switch app`}
               >
                 {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
-                <span className="ui-app-switch-mark"><app.icon size={16} aria-hidden="true" /></span>
+                <span className="ui-app-switch-mark" style={{ '--app-color': `var(--app-${app.id})` }}><app.icon size={16} aria-hidden="true" /></span>
                 {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
                 <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
                 <ChevronDown size={14} aria-hidden="true" />
@@ -1215,7 +1215,7 @@ function ShellScreens() {
                       className="w-full flex items-start gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
                       onClick={() => openApp(a.id)}
                     >
-                      <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: `rgb(var(--app-${a.id}))` }} />
                       <span className="min-w-0">
                         <span className="block text-sm">{a.name}</span>
                         <span className="block ui-caption">{a.blurb}</span>
