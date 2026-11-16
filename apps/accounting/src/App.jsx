@@ -4031,7 +4031,7 @@ const AppShell = () => {
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
-        className={`ui-input flex items-center gap-1.5 shrink-0 text-start ps-2.5 pe-1.5 ${platformBar ? 'w-[min(520px,36vw)] !h-9 !min-h-9' : 'w-40 lg:w-64 !h-8 !min-h-8'}`}
+        className={`ui-input flex items-center gap-1.5 shrink-0 text-start ps-2.5 pe-1.5 ${platformBar ? 'w-[min(340px,28vw)] !h-9 !min-h-9' : 'w-40 lg:w-64 !h-8 !min-h-8'}`}
         style={{ color: 'rgb(var(--fg-subtle))' }}
         aria-label="Search invoices, customers, items"
       >

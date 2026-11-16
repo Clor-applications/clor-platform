@@ -85,7 +85,7 @@ export function goBack(fallback = 'home') {
  * (Companies, Members, Plan…); every other Workspace page acts on the company
  * chosen in the bar, which the bar names.
  */
-export function PageHead({ crumbs = [], title, description, meta, actions, scope }) {
+export function PageHead({ crumbs = [], title, description, meta, actions, scope, icon: Icon = null }) {
   const section = crumbs[0];
   /* A section's own Overview page is a top: it has nowhere to go back to. */
   const isTop = crumbs.length < 2 || crumbs[crumbs.length - 1] === 'Overview';
@@ -118,6 +118,8 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
           </div>
         ) : null}
         <h1 className="ws-title">
+          {/* The page's own colour icon, the one its menu item wears (owner, 17 Nov 2026). Decoration: the title says it. */}
+          {Icon ? <Icon size={28} className="ws-title-ico" aria-hidden="true" /> : null}
           {title}
           {scope === 'account' ? <span className="ws-scope">All companies</span> : null}
         </h1>

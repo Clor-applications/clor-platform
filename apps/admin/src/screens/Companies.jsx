@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { ArrowDownUp, MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
@@ -8,6 +9,9 @@ import { AppMark, PageHead, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
 import './ws-home.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('classical-building');
 
 /**
  * Workspace → Company → Companies (redesign W-R5).
@@ -78,8 +82,8 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
       <div className="ws-inner">
         <PageHead
           crumbs={['Company', 'Companies']} scope="account"
+          icon={PAGE_ICON}
           title="Companies"
-          description={`Legal entities in ${data?.account?.name || 'your account'}. Each company has its own books, payroll and GST registrations.`}
           actions={
             addCompany ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setAdding(true)} disabled={atLimit} title={atLimit ? 'Your plan’s company allowance is used up.' : undefined}>

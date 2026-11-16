@@ -87,6 +87,16 @@
   line-height: 1.1;
   color: rgb(var(--ws-ink));
 }
+/* The page's colour icon sits on the title's own line. */
+.ws-title:has(> .ws-title-ico) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.ws-title-ico {
+  flex: none;
+}
 .ws-lede {
   margin-top: 6px;
   max-width: 72ch;
@@ -1351,7 +1361,7 @@ button.ws-item:hover {
   display: grid;
   justify-items: center;
   gap: 10px;
-  padding: 40px 16px;
+  padding: 28px 16px;
   border: 1px dashed rgb(var(--ws-line));
   border-radius: 12px;
   color: rgb(var(--ws-muted));
@@ -2726,8 +2736,14 @@ button.ws-stat:hover {
 }
 .ws-filters .ws-search {
   position: relative;
-  flex: 0 1 280px;
-  min-width: 200px;
+  flex: 0 1 240px;
+  min-width: 180px;
+}
+/* Search gives way first, so a search and five filters stay on one row at desktop width. */
+.ws-filters--one-row .ws-search {
+  flex: 1 1 180px;
+  min-width: 160px;
+  max-width: 320px;
 }
 .ws-filters .ws-search > svg {
   position: absolute;

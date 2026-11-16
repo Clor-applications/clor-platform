@@ -9954,6 +9954,8 @@ button.ui-side-alert { cursor: pointer; }
    the full width with the CLOR logo; the rail starts under it, as the split rail does in every
    other app (rnd.css "the shell"; owner, 17 Nov 2026). The rail's own CLOR tile is not drawn. */
 .app-nav-brand { display: none; }
+/* Books' rail takes the same light grey as every app's rail (rnd.css "Rail"). */
+.app-books-rail[data-platform] .app-nav-modules { background: rgb(246 247 249); }
 
 /* Import corrections: one line per section, divided by hairlines rather than a card per line inside the drawer. */
 .import-correction-line { padding-block: .75rem; border-top: 1px solid rgb(var(--border)); }

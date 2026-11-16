@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { ArrowDownUp, Download, MoreHorizontal, Pencil, Plus, Power, Search, Trash2 } from '@ui/components/ui/lineIcons';
 
 import Popover from '@ui/components/ui/Popover';
@@ -12,6 +13,9 @@ import { hasApp, platformContext } from '@platform/context';
 import { PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('convenience-store');
 
 /**
  * Workspace → Company → Branches (redesign W-R5).
@@ -173,8 +177,8 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Company', 'Branches']}
+          icon={PAGE_ICON}
           title="Branches"
-          description={`Offices, plants and sites${company?.name ? ` of ${company.name}` : ''}. A branch in a new state needs its own GSTIN.`}
           actions={
             <>
               <button type="button" className="ws-btn ws-btn--quiet" onClick={exportAll} disabled={!rows.length}>

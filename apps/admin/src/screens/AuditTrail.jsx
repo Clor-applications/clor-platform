@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { Download, RefreshCw, Search } from '@ui/components/ui/lineIcons';
 
 import { exportRows } from '@ui/components/ListToolbar';
@@ -8,6 +9,9 @@ import { AppTag, Avatar, PageHead } from './wsKit';
 import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
 import './ws-security.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('counterclockwise-arrows-button');
 
 /*
  * One trail for the company (ADR-010), with each app's share a tab away: an
@@ -316,8 +320,8 @@ export default function AuditTrail({ tenant } = {}) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Home', 'Activity']}
+          icon={PAGE_ICON}
           title="Activity"
-          description={`What happened in every app${company ? ` at ${company}` : ' in this company'}: who changed what, and when. Read-only; nothing here can be edited or removed.`}
           actions={
             <>
               <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading} aria-label={loading ? 'Loading' : 'Refresh'} title="Refresh">
@@ -330,7 +334,7 @@ export default function AuditTrail({ tenant } = {}) {
           }
         />
 
-        <div className="ws-filters" role="search">
+        <div className="ws-filters ws-filters--one-row" role="search">
           <label className="ws-search">
             <Search size={16} aria-hidden="true" />
             <span className="sr-only">Search activity</span>

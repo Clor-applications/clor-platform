@@ -757,11 +757,12 @@ because focus, portals and event order cannot be read off the source.
   the primary; beside it the Overview has three accent hues and no more (blue
   `--cat-1`, the brand's orange, green `--cat-3`) as soft chips behind icons, the
   members ring, the count badge and the progress bar, never as a whole card.
-  The screens panel (second sidebar) is a light cool grey `#F6F7F9` in every
-  app, to read apart from the white rail and page (a tint of the app's colour
-  was tried and came out orange in the Workspace: "do not add orange
-  background"), and ends in a small help card where a short list left the
-  column empty. No orange wash anywhere: the hero's wash is faint blue and green.
+  The rail (first sidebar) is a light cool grey `#F6F7F9` in every app and
+  the screens panel beside it is white (the grey was on the panel first; owner:
+  "instead of second sidebar, add background color to first sidebar"; a tint
+  of the app's colour was tried and came out orange: "do not add orange
+  background"). The panel ends in one short help row where a short list left
+  the column empty. No orange wash anywhere: the hero's wash is faint blue and green.
   The bar's menus stay white (a dark graphite version was tried and withdrawn);
   the app menu shows each app's mark in its own colour and marks the open app.
   The search and company fields carry a colour icon (Fluent Emoji magnifying
@@ -773,6 +774,11 @@ because focus, portals and event order cannot be read off the source.
   support rows carry the same icon chips as Quick actions. Fluent Emoji icons
   are drawn a step richer everywhere (`saturate(1.35) contrast(1.18)`): the flat
   set's pale greys washed out on white ("increase icons contrast").
+  Workspace → Home's pages (Activity, Inbox, Help and support, Companies,
+  Branches, Company profile) follow the Overview: no caption under the title,
+  the page's own colour icon beside it, Activity's search and filters on one
+  row, shorter empty states with a colour icon. The bar's search field is
+  340px (it opens the palette; it is not typed into).
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
