@@ -9858,7 +9858,7 @@ button.ui-side-alert { cursor: pointer; }
 .app-nav-shell { padding: 0; }
 .app-nav-layout { display: flex; min-width: 0; }
 .app-nav-modules {
-  flex: 0 0 4.5rem;
+  flex: 0 0 5rem;
   padding: 0.375rem 0.3125rem;
   border-inline-end: 1px solid rgb(var(--rail-border));
   scrollbar-width: thin;
@@ -9949,6 +9949,13 @@ button.ui-side-alert { cursor: pointer; }
   color: rgb(var(--nav-panel-ink, var(--nav-fg))) !important;
 }
 .ui-rail .app-nav-modules .app-nav-module[data-active='true'] > svg { color: rgb(var(--nav-panel-mark, var(--brand))) !important; }
+
+/* Books in the platform. Its controls sit in the one platform bar (Shell.jsx slots), which runs
+   the full width with the CLOR logo; the rail starts under it, as the split rail does in every
+   other app (rnd.css "the shell"; owner, 17 Nov 2026). The rail's own CLOR tile is not drawn. */
+.app-nav-brand { display: none; }
+/* Books' rail takes the same light grey as every app's rail (rnd.css "Rail"). */
+.app-books-rail[data-platform] .app-nav-modules { background: rgb(246 247 249); }
 
 /* Import corrections: one line per section, divided by hairlines rather than a card per line inside the drawer. */
 .import-correction-line { padding-block: .75rem; border-top: 1px solid rgb(var(--border)); }

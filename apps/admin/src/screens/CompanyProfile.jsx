@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { Check, Save } from '@ui/components/ui/lineIcons';
 
 import { apiFetch } from '@platform/http';
@@ -6,6 +7,9 @@ import { orgId as platformOrgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
 import { ICON, PageHead, Panel } from './wsKit';
 import './workspace.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('office-building');
 
 /**
  * Workspace → Company → Company profile (redesign W-R5).
@@ -70,6 +74,7 @@ export default function CompanyProfile() {
       <div className="ws-inner">
         <PageHead
           crumbs={['Company', 'Company profile']}
+          icon={PAGE_ICON}
           title={form?.name || 'Company profile'}
           actions={
             form ? (

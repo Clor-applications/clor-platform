@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { Download, RefreshCw, Search } from '@ui/components/ui/lineIcons';
 
 import { exportRows } from '@ui/components/ListToolbar';
@@ -8,6 +9,9 @@ import { AppTag, Avatar, PageHead } from './wsKit';
 import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
 import './ws-security.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('counterclockwise-arrows-button');
 
 /*
  * One trail for the company (ADR-010), with each app's share a tab away: an
@@ -78,20 +82,21 @@ const entityLabel = (entity) => {
   return words ? words[0].toUpperCase() + words.slice(1) : '';
 };
 
-/* An action's pill: made is good news, removed is the one to notice, every other change is plain. Always in words. */
+/*
+ * What kind of change an entry is, as a word in the past tense and plain coloured text: made is
+ * green, removed is red, any other change is blue. Not a pill: "Edit" in a rounded blue tag read as
+ * a button that did nothing (owner, 17 Nov 2026).
+ */
 const ACTION_STYLE = {
-  CREATE: { className: 'ws-pill ws-pill--ok' },
-  DELETE: { className: 'ws-pill ws-pill--danger' },
+  CREATE: { tone: 'ok' },
+  DELETE: { tone: 'danger' },
 };
+const ACTION_DONE = { CREATE: 'Created', EDIT: 'Edited', UPDATE: 'Updated', DELETE: 'Deleted', ARCHIVE: 'Archived', RESTORE: 'Restored', LOGIN: 'Signed in', LOGOUT: 'Signed out', EXPORT: 'Exported', APPROVE: 'Approved', REJECT: 'Rejected' };
 const actionWords = (a) => String(a || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 const ActionPill = ({ action }) => {
-  const look = ACTION_STYLE[action] || { className: 'ws-pill' };
-  return (
-    <span className={look.className} style={look.style} title={action}>
-      {actionWords(action)}
-    </span>
-  );
+  const tone = ACTION_STYLE[action]?.tone || 'info';
+  return <span className={`ws-sec-action ws-sec-action--${tone}`}>{ACTION_DONE[action] || actionWords(action)}</span>;
 };
 
 const when = (iso) => {
@@ -316,8 +321,8 @@ export default function AuditTrail({ tenant } = {}) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Home', 'Activity']}
+          icon={PAGE_ICON}
           title="Activity"
-          description={`What happened in every app${company ? ` at ${company}` : ' in this company'}: who changed what, and when. Read-only; nothing here can be edited or removed.`}
           actions={
             <>
               <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading} aria-label={loading ? 'Loading' : 'Refresh'} title="Refresh">
@@ -330,7 +335,7 @@ export default function AuditTrail({ tenant } = {}) {
           }
         />
 
-        <div className="ws-filters" role="search">
+        <div className="ws-filters ws-filters--one-row" role="search">
           <label className="ws-search">
             <Search size={16} aria-hidden="true" />
             <span className="sr-only">Search activity</span>
@@ -376,11 +381,12 @@ export default function AuditTrail({ tenant } = {}) {
               <table className="ws-table ws-sec-table" aria-label="Activity, newest first">
                 <thead>
                   <tr>
+                    {/* No Company column: the trail is one company's, and the bar above names it. The same
+                        name on every row was the widest thing on the page (owner, 17 Nov 2026). */}
                     <th scope="col">When</th>
                     <th scope="col">Who</th>
-                    <th scope="col">App</th>
                     <th scope="col">What happened</th>
-                    <th scope="col">Company</th>
+                    <th scope="col">App</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -394,24 +400,23 @@ export default function AuditTrail({ tenant } = {}) {
                         </td>
                         <td>
                           <span className="ws-sec-who" title={e.by?.email || undefined}>
-                            <Avatar name={who} />
+                            <Avatar name={who} hue="blue" />
                             <strong>{who}</strong>
                             {e.entity === 'SupportGrant' ? <span className="ws-tag">Staff</span> : null}
                           </span>
                         </td>
-                        <td>
-                          {app === 'workspace' ? <span className="ws-tag">Workspace</span> : <AppTag app={app} />}
-                        </td>
                         <td className="ws-sec-wrap">
                           <span className="ws-sec-what">
-                            <span>{messageWords(e.message, e.entity, e.action)}</span>
+                            <span className="ws-sec-title">{messageWords(e.message, e.entity, e.action)}</span>
                             <ActionPill action={e.action} />
                             {e.entity ? <span className="ws-sec-record">{entityLabel(e.entity)}</span> : null}
                           </span>
                           <FieldChanges changes={e.changes} />
                           <Changes metadata={e.metadata} />
                         </td>
-                        <td>{company || '—'}</td>
+                        <td>
+                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
+                        </td>
                       </tr>
                     );
                   })}
@@ -426,7 +431,7 @@ export default function AuditTrail({ tenant } = {}) {
                   {loading ? 'Loading…' : 'Load older entries'}
                 </button>
               ) : (
-                <span className="ws-head-meta">· the start of the trail</span>
+                <span className="ws-head-meta sr-only">The start of the trail</span>
               )}
             </nav>
           </>

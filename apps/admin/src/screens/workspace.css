@@ -87,6 +87,18 @@
   line-height: 1.1;
   color: rgb(var(--ws-ink));
 }
+/* The page's colour icon sits on the title's own line. */
+.ws-title:has(> .ws-title-ico) {
+  display: flex;
+  /* The icon never drops onto a line of its own above the title. */
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.ws-title-ico {
+  flex: none;
+}
 .ws-lede {
   margin-top: 6px;
   max-width: 72ch;
@@ -1351,7 +1363,7 @@ button.ws-item:hover {
   display: grid;
   justify-items: center;
   gap: 10px;
-  padding: 40px 16px;
+  padding: 28px 16px;
   border: 1px dashed rgb(var(--ws-line));
   border-radius: 12px;
   color: rgb(var(--ws-muted));
@@ -2671,8 +2683,11 @@ button.ws-stat:hover {
   height: 40px;
   padding: 0 16px;
   /* Every list's header row: the Books Invoices pale blue-grey (owner, 16 Nov 2026). */
+  /* Every list's header row reads --list-head. The Workspace sets its own value below: a clearer
+     blue than the shared pale blue-grey (owner, 17 Nov 2026: "this columns color", "change color
+     accent"). Ink captions, so the small caps read. */
   background: rgb(var(--list-head, 234 242 248));
-  color: rgb(var(--fg-muted, 58 63 71));
+  color: rgb(var(--fg, 32 35 41));
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
@@ -2689,8 +2704,9 @@ button.ws-stat:hover {
 }
 .ws-table tbody td {
   box-sizing: border-box;
-  height: 56px;
-  padding: 8px 16px;
+  /* 48px rows (56 before): a one-line row sat in too much air; a two-line row still grows. */
+  height: 48px;
+  padding: 14px 16px;
   border-top: 1px solid rgb(var(--border, 228 230 225));
   border-bottom: 0;
   vertical-align: middle;
@@ -2726,8 +2742,14 @@ button.ws-stat:hover {
 }
 .ws-filters .ws-search {
   position: relative;
-  flex: 0 1 280px;
-  min-width: 200px;
+  flex: 0 1 240px;
+  min-width: 180px;
+}
+/* Search gives way first, so a search and five filters stay on one row at desktop width. */
+.ws-filters--one-row .ws-search {
+  flex: 1 1 180px;
+  min-width: 160px;
+  max-width: 320px;
 }
 .ws-filters .ws-search > svg {
   position: absolute;
@@ -2878,3 +2900,181 @@ button.ws-stat:hover {
     gap: 24px;
   }
 }
+
+/* One frame, not two (owner, 17 Nov 2026: "empty space in all the pages"). The shell's content column
+   already pads every page by 32px; the Workspace's own 32px inside it left the title 64px in from
+   the top and the side. The Overview dropped its copy on 16 Nov; every Workspace page does now. */
+@media (min-width: 768px) {
+  main.ui-content .ws {
+    padding: 0 0 24px;
+  }
+}
+
+/* Tighter page rhythm (owner, 17 Nov 2026: "pages have empty space at the top"): 20px between a
+   page's parts, no rule and no extra pad under the header, and the header's tools (search, count)
+   on the title's own row beside the buttons. */
+.ws .ws-inner {
+  gap: 20px;
+}
+.ws .ws-head {
+  align-items: center;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.ws .ws-title {
+  margin-top: 0;
+}
+.ws-head-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  min-width: 0;
+}
+.ws-head-tools {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+/* The title keeps its width; the tools take what is left and wrap under it when there is no room. */
+.ws .ws-head > div:first-child {
+  flex: none;
+  max-width: 100%;
+}
+.ws .ws-head > .ws-head-side {
+  flex: 1 1 320px;
+}
+.ws-head-tools .ws-search {
+  flex: 0 1 220px;
+  min-width: 160px;
+}
+.ws-head-tools .ws-list-meta {
+  order: -1;
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .ws-head-side,
+  .ws-head-tools {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+/* Activity's colours (owner, 17 Nov 2026). A plain change is blue; the Workspace's own tag wears
+   its graphite, as each app's tag wears that app's colour. */
+.ws-pill--info {
+  background: rgb(var(--cat-1, 42 120 214) / 0.12);
+  color: rgb(26 86 168);
+}
+.ws-tag--workspace {
+  background: rgb(var(--graphite, 32 35 41));
+  color: rgb(255 255 255);
+  font-weight: 600;
+}
+/* Quiet buttons (Refresh, Export, and their like) carry their icon in the page's blue. */
+.ws .ws-btn--quiet > svg {
+  color: rgb(var(--cat-1, 42 120 214));
+}
+
+/* List header colour for the Workspace: a clear soft blue. */
+.ws {
+  --list-head: 217 231 248;
+}
+/* One line across a row (owner, 17 Nov 2026: "headline and data below, proper alignment"). Cells sit
+   at the top, so the first line of every cell is on the same line whether a neighbour runs to two
+   lines or not; a middle-aligned one-line cell floated beside the top of a two-line one. A 28px
+   avatar and a 24px tag give up their extra height, so their middles meet the text's. */
+.ws .ws-table tbody td {
+  vertical-align: top;
+}
+.ws .ws-table tbody td .ws-avatar {
+  margin-block: -4px;
+}
+.ws .ws-table tbody td :is(.ws-tag, .ws-pill) {
+  margin-block: -2px;
+}
+
+/* A list is one sheet (owner, 17 Nov 2026: "still not satisfied with these pages"): the table sits
+   in a white card with a hairline and 12px corners, its header row running edge to edge inside it,
+   and a row answers the cursor in the same soft blue as the sidebars. Before, a rounded header bar
+   floated on the page with loose rows under it. */
+.ws .ws-table-wrap {
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+  overflow: hidden;
+  overflow-x: auto;
+}
+.ws .ws-table {
+  width: 100%;
+}
+.ws .ws-table thead th:first-child,
+.ws .ws-table thead th:last-child {
+  border-radius: 0;
+}
+.ws .ws-table thead th {
+  height: 44px;
+  border-bottom: 1px solid rgb(var(--border, 229 229 229));
+}
+.ws .ws-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+.ws .ws-table tbody tr:hover {
+  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+}
+/* Activity: what happened leads with its action tag, then the words, then the kind of record, quiet. */
+.ws .ws-sec-title {
+  font-weight: 600;
+  color: rgb(var(--fg, 32 35 41));
+}
+
+/* A count (members, people) starts under its heading like every other cell (owner, 17 Nov 2026:
+   "member 1 aligned extreme right"). Right alignment is for money, where the digits must line up. */
+.ws .ws-table .ws-count {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+/* Tags, pills and app marks stand on the text's own line, not on its baseline: a 24px pill hung
+   3px low beside a line of text. */
+.ws .ws-table tbody td :is(.ws-tag, .ws-pill, .ws-appmarks) {
+  vertical-align: top;
+}
+.ws .ws-table tbody td .ws-appmarks {
+  height: 20px;
+}
+
+/* A button in a row gives up its extra height too, so a row of one text line and a button stays
+   one line tall and the button's middle meets the text's. */
+.ws .ws-table tbody td .ws-btn {
+  margin-block: -6px;
+}
+.ws .ws-table tbody td .ws-icon-btn,
+.ws .ws-table tbody td .ui-icon-btn {
+  margin-block: -6px;
+}
+
+/* A column whose heading and data sit in its middle (owner, 17 Nov 2026, Companies: the Apps
+   heading over its marks, the Members count under its heading's middle). */
+.ws .ws-table :is(th, td).ws-mid {
+  text-align: center;
+}
+/* Attention is violet in the Workspace, not amber (owner, 17 Nov 2026: "for warning use different
+   color, no amber"). The words still say what the state is; red stays for a problem, green for
+   good. Ink 6.9:1 on the soft ground. */
+.ws {
+  --warn: 98 80 214;
+  --warn-ink: 72 56 176;
+  --warn-soft: 237 234 252;
+  --ws-warn: 72 56 176;
+  --ws-warn-soft: 237 234 252;
+}
+
+/* Activity: the kind of change, as plain coloured words after the entry (not a pill, not a button). */
+.ws-sec-action {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ws-sec-action--info { color: rgb(26 86 168); }
+.ws-sec-action--ok { color: rgb(var(--pos, 22 101 52)); }
+.ws-sec-action--danger { color: rgb(var(--neg, 180 35 24)); }

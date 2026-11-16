@@ -1,10 +1,9 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Ban, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import { formatDateIn } from '@ui/utils/dates';
-import { BAR_SLOT_END, BAR_SLOT_START } from '@ui/utils/barSlots';
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
 import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
@@ -33,6 +32,13 @@ import { isStartPath } from './startLink';
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
 import HelpCenter from './HelpCenter';
 import { ClorLogo, ClorMark } from '@ui/components/brand';
+import { emoji } from '@ui/components/ui/emoji';
+
+/* The friendly face on the screens panel's help card (Fluent Emoji, local). */
+const HelpFace = emoji('hugging-face');
+/* Colour icons inside the bar's two fields (owner, 17 Nov 2026): search and the company in use. */
+const SearchGlass = emoji('magnifying-glass-tilted-left');
+const CompanyBuilding = emoji('office-building');
 import NotificationBell from './NotificationBell';
 import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
@@ -944,12 +950,7 @@ function ShellScreens() {
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
     <nav className="ui-split-rail" data-app={app?.id || undefined} aria-label={`${app?.name || ''} modules`}>
-      {/* The CLOR symbol tile heads the rail on a desktop (R&D shell, 14 Nov 2026); the bar's logo steps aside. */}
-      {!phone ? (
-        <button type="button" className="ui-split-brand" aria-label="CLOR home" title="CLOR" onClick={() => openApp(mine[0]?.id)}>
-          <ClorMark size={32} />
-        </button>
-      ) : null}
+      {/* No CLOR tile here: the logo is in the bar above, which runs the full width (owner, 17 Nov 2026). */}
       {modules.map((m) => {
         const Icon = m.icon;
         /* Two different facts: which module holds the screen you are on, and
@@ -1010,7 +1011,7 @@ function ShellScreens() {
       {app?.railFoot && !phone ? (
         <div className="ui-split-rail-foot">
           {app.railFoot.Component ? <app.railFoot.Component tenant={tenant} goTo={goTo} screen={screen} /> : null}
-          <HelpMenu variant="rail" icon={app.railFoot.helpIcon} />
+          {app.railFoot.helpIcon ? <HelpMenu variant="rail" icon={app.railFoot.helpIcon} /> : null}
         </div>
       ) : null}
     </nav>
@@ -1052,6 +1053,20 @@ function ShellScreens() {
           ))}
         </div>
       ))}
+      {/* The foot of the panel: help, where a short list used to leave the column empty (owner, 17 Nov 2026). A phone's sheet has its own menu. */}
+      {!phone ? (
+        <button
+          type="button"
+          className="ui-split-panel-foot"
+          onClick={() => { setHelpTopic('welcome'); setPlatformScreen('help'); setShowMoreApps(false); window.scrollTo(0, 0); }}
+        >
+          <HelpFace size={26} aria-hidden="true" />
+          <span className="ui-split-panel-foot-text">
+            <span className="ui-split-panel-foot-title">Need a hand?</span>
+            <span className="ui-split-panel-foot-sub">Open help centre</span>
+          </span>
+        </button>
+      ) : null}
       {/* The Workspace lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
       {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">
@@ -1152,13 +1167,14 @@ function ShellScreens() {
             </button>
           ) : null}
           <button type="button" className="ui-topbar-logo flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-            {phone ? <ClorMark size={24} /> : <ClorLogo size={22} />}
+            {phone ? <ClorMark size={24} /> : <ClorLogo size={17} />}
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the
               question it answers before it is the control it offers. The
-              Workspace leaves it out: its Overview opens the apps. */}
-          {app && !inWorkspace ? (
+              Workspace shows it too on a desktop, so every app's bar reads the same (owner, 16 Nov 2026);
+              a phone's Workspace bar keeps its company button instead. */}
+          {app && (!inWorkspace || !phone) ? (
             <div className="relative" ref={switcherRef}>
               <button
                 type="button"
@@ -1199,38 +1215,43 @@ function ShellScreens() {
                       key={a.id}
                       type="button"
                       role="menuitem"
-                      className="w-full flex items-start gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                      className="ui-app-menu-item w-full flex items-start gap-2.5 rounded-lg px-2 py-2 text-left"
+                      aria-current={a.id === app.id ? 'true' : undefined}
                       onClick={() => openApp(a.id)}
                     >
-                      <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: `rgb(var(--app-${a.id}))` }} />
-                      <span className="min-w-0">
-                        <span className="block text-sm">{a.name}</span>
+                      {/* The app's mark in its own colour, as the bar shows the open one (owner, 17 Nov 2026: "change drop down color"). */}
+                      <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': `var(--app-${a.id})` }}><a.icon size={16} aria-hidden="true" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{a.name}</span>
                         <span className="block ui-caption">{a.blurb}</span>
                       </span>
+                      {a.id === app.id ? <Check size={16} aria-hidden="true" className="mt-1.5 shrink-0" /> : null}
                     </button>
                   ))}
                   <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                    className="ui-app-menu-item w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left"
                     onClick={() => {
                       setShowMoreApps(true);
                       setSwitcherOpen(false);
                     }}
                   >
-                    <LayoutGrid size={16} aria-hidden="true" />
-                    <span className="text-sm">More apps</span>
+                    <span className="ui-app-switch-mark ui-app-menu-quiet shrink-0"><LayoutGrid size={16} aria-hidden="true" /></span>
+                    <span className="text-sm font-semibold">More apps</span>
                   </button>
                   {/* Users, roles, sign-in, billing and the audit trail are the company's, not one app's: one workspace, reachable from every app (ADR-010). */}
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                    className="ui-app-menu-item w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left"
+                    aria-current={inWorkspace ? 'true' : undefined}
                     onClick={() => openApp(ADMIN_APP_ID)}
                   >
-                    <Settings size={16} aria-hidden="true" />
-                    <span className="text-sm">Workspace</span>
+                    <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': 'var(--app-admin, 32 35 41)' }}><Settings size={16} aria-hidden="true" /></span>
+                    <span className="text-sm font-semibold flex-1">Workspace</span>
+                    {inWorkspace ? <Check size={16} aria-hidden="true" className="shrink-0" /> : null}
                   </button>
                 </div>
               ) : null}
@@ -1245,7 +1266,7 @@ function ShellScreens() {
               </button>
             ) : (
               <button type="button" ref={searchRef} className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
-                <Search size={16} aria-hidden="true" />
+                <SearchGlass size={18} aria-hidden="true" />
                 {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
                 <span>{app?.searchRecords ? "Search people and screens" : "Search screens and apps"}</span>
                 <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
@@ -1253,11 +1274,12 @@ function ShellScreens() {
             )
           ) : null}
 
-          {/* An app that draws its own screen (Books) puts its search here on a wide screen: see barSlots.js. */}
-          {Root && !showMoreApps ? <div id={BAR_SLOT_START} className="flex min-w-0 items-center gap-2" /> : null}
+          {/* A Root app (Books) puts its own search and year here, so it reads as every other app's bar
+              rather than drawing a second bar under this one (owner, 16 Nov 2026: "match Books"). */}
+          {Root ? <div id="ui-topbar-app-start" className={phone ? 'contents' : 'flex items-center gap-2 min-w-0'} /> : null}
 
           {/* A phone's search button already takes the free space (ml-auto); a second spacer only adds a gap. */}
-          {!phone ? <div className="flex-1" /> : null}
+          {!phone || Root ? <div className="flex-1" /> : null}
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
@@ -1265,7 +1287,7 @@ function ShellScreens() {
               from a building button: two companies ran the picker under the bell and the profile button at 390px (#80 QA). */}
           {!phone ? (
             <label className="ui-company-pick">
-              <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" />
+              <CompanyBuilding size={18} aria-hidden="true" className="ui-company-pick-icon" />
             <select
               className="ui-select ui-select-sm min-w-0"
               style={{ width: 'auto', minWidth: '10rem' }}
@@ -1307,19 +1329,6 @@ function ShellScreens() {
             </div>
           ) : null}
 
-          {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
-          {inWorkspace && !phone ? (
-            <time className="inline-flex items-center gap-1.5 text-sm ui-muted whitespace-nowrap" dateTime={new Date().toISOString().slice(0, 10)}>
-              <CalendarDays size={16} aria-hidden="true" />
-              {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-            </time>
-          ) : null}
-          {/* A trial says when it ends, quietly, where the Workspace says the date (roadmap item 7). */}
-          {inWorkspace && !phone && tenant?.billing?.status === 'trialing' && tenant.billing.trialEndsAt ? (
-            <span className="text-sm ui-muted whitespace-nowrap" data-testid="trial-ends">
-              Trial ends {new Date(tenant.billing.trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-            </span>
-          ) : null}
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}
@@ -1343,7 +1352,11 @@ function ShellScreens() {
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
-          {!phone && !app?.railFoot ? <HelpMenu /> : null}
+          {/* Help sits in the bar in every app (owner, 16 Nov 2026); a rail foot may still carry its own item (the Workspace's Setup). */}
+          {!phone && !app?.railFoot?.helpIcon ? <HelpMenu /> : null}
+
+          {/* Books' own profile menu (density, its settings) lands here, where every other app has its face. */}
+          {Root ? <div id="ui-topbar-app-end" className="contents" /> : null}
 
           {!Root ? (
             <button
@@ -1367,9 +1380,6 @@ function ShellScreens() {
               )}
               <span className="sr-only">My profile</span>
             </button>
-          ) : !showMoreApps ? (
-            /* Books' own account menu, where every other app has the profile button. */
-            <div id={BAR_SLOT_END} className="flex shrink-0 items-center gap-2" />
           ) : null}
 
           <button

@@ -50,6 +50,8 @@
   --act-2: 15 118 110;         /* the second colour; each app sets its own below */
   --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
   --panel: 255 255 255;        /* white */
+  --hover-blue: 42 120 214;    /* #2A78D6: hover tint in the sidebars and the app menu */
+  --select-green: 27 175 122;  /* #1BAF7A: the open (selected) item's tint, a different hue from hover (owner, 17 Nov 2026) */
   --panel-border: 229 229 229; /* #E5E5E5 hairline */
 
   /* Neutrals: warm paper, not cool zinc (§6.2) */
@@ -104,6 +106,20 @@
   --font-sans: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-brand: 'Figtree Variable', 'Figtree', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-ident: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+
+/* Books (palette 'indigo') sits under the same platform bar, so its app switch,
+   app menu and initials need the same identity hues (owner, 16 Nov 2026). */
+:root[data-palette='indigo'],
+[data-palette='indigo'] {
+  --graphite: 32 35 41;
+  --app-accounting: 35 42 102;
+  --app-people: 162 28 175;
+  --app-payroll: 0 106 158;
+  --app-attendance: 168 90 0;
+  --app-projects: 58 74 42;
+  --app-timesheet: 87 83 78;
+  --app-admin: 32 35 41;
 }
 
 /* People's content tags keep their own tints: they label a kind of leave or a
@@ -272,31 +288,31 @@
 }
 
 /* ---------------------------------------------------------------- the shell
-   Rail 64 white · second panel 232 on --panel · top bar 64 · content 32px
+   Rail 80 white · second panel 200 on --panel · top bar 64 · content 32px
    padding, max 1280. On a desktop the rail and panel run the full height of
    the window and the top bar sits beside them (README §4).
 ------------------------------------------------------------------------ */
 
+/* The bar runs the full width with the CLOR logo at its head; the rail and the screens panel start
+   under it (owner, 17 Nov 2026: "logo and CLOR branding should come, Home should come below the
+   header"). Before that the rail ran the full height with a symbol tile and the bar stepped aside. */
 @media (min-width: 768px) {
   :root:not(#rnd):not([data-palette='indigo']) .ui-split:not([data-overlay]),
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] {
     position: sticky;
-    top: 0;
-    margin-top: -4rem;
-    height: 100vh;
-    height: 100dvh;
-    z-index: calc(var(--z-platform-bar, 40) + 1);
+    top: 4rem;
+    height: calc(100vh - 4rem);
+    height: calc(100dvh - 4rem);
     border-right: 0;
   }
-  /* The top bar steps aside for the rail and, when it is open, the panel. */
-  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split) > .ui-topbar { padding-left: calc(4rem + 2rem); }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split:not([data-overlay]) .ui-split-panel) > .ui-topbar { padding-left: calc(4rem + 14.5rem + 2rem); }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split) > .ui-topbar .ui-topbar-logo { display: none; }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 0 0 0 4rem; }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 4rem; }
+  :root:not(#rnd) .ui-topbar { padding-left: 1.25rem; }
+  /* The logo takes the rail's width and a little more, so the app switch starts clear of the rail's edge. */
+  :root:not(#rnd) .ui-topbar .ui-topbar-logo { min-width: 5.25rem; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }
 
-:root:not(#rnd):not([data-palette='indigo']) .ui-topbar {
+:root:not(#rnd) .ui-topbar {
   height: 4rem;
   padding-right: 2rem;
   gap: 0.75rem;
@@ -304,18 +320,18 @@
   border-bottom: 1px solid rgb(var(--border)) !important;
 }
 @media (max-width: 767px) {
-  :root:not(#rnd):not([data-palette='indigo']) .ui-topbar { height: 3.5rem; padding-right: 0.375rem; gap: 0.5rem; }
+  :root:not(#rnd) .ui-topbar { height: 3.5rem; padding-right: 0.375rem; gap: 0.5rem; }
   /* Seven 44px controls fill a phone's bar: the app switch keeps its coloured mark and drops the name, or the bar runs
      past 390px and the whole page scrolls sideways (e2e screen checks). */
-  :root:not(#rnd):not([data-palette='indigo']) .ui-topbar .ui-app-switch-name { display: none; }
+  :root:not(#rnd) .ui-topbar .ui-app-switch-name { display: none; }
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-topbar .ui-icon-btn {
+:root:not(#rnd) .ui-topbar .ui-icon-btn {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.5rem;
   color: rgb(var(--fg));
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-topbar-initials {
+:root:not(#rnd) .ui-topbar-initials {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 999px;
@@ -324,8 +340,9 @@
   font-size: 0.8125rem;
   font-weight: 600;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-global-search {
-  width: min(520px, 40vw);
+:root:not(#rnd) .ui-global-search {
+  /* Narrower (owner, 17 Nov 2026: "reduce the size of the search field"): it opens the palette, it is not typed into. */
+  width: min(340px, 28vw);
   height: 2.25rem;
   margin-left: 0;
   border: 1px solid rgb(var(--border-field));
@@ -333,81 +350,102 @@
   background: rgb(var(--surface-sunken));
   color: rgb(var(--fg-subtle));
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-global-search kbd {
+:root:not(#rnd) .ui-global-search kbd {
   border-color: rgb(var(--border-strong));
   background: rgb(var(--surface));
   color: rgb(var(--fg-muted));
   font-size: 0.6875rem;
   line-height: 1.125rem;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-app-switch {
+:root:not(#rnd) .ui-app-switch {
   height: 2.25rem;
   border: 1px solid rgb(var(--border-field));
   border-radius: 0.5rem;
   font-weight: 600;
 }
 /* The switcher's mark carries the app's identity hue as a filled tile, glyph in --on-brand: §6.3 allows the hue here and nowhere else. */
-:root:not(#rnd):not([data-palette='indigo']) .ui-app-switch-mark {
+:root:not(#rnd) .ui-app-switch-mark {
   background: rgb(var(--app-color, var(--act)));
   color: rgb(var(--on-brand));
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-company-pick .ui-select { height: 2.25rem; font-weight: 600; border-color: rgb(var(--border-field)); }
+:root:not(#rnd) .ui-company-pick .ui-select { height: 2.25rem; font-weight: 600; border-color: rgb(var(--border-field)); }
+:root:not(#rnd) .ui-company-pick-icon { left: 0.5rem; }
 
-/* Rail: 64px, white, hairline. Symbol tile 36px. 44 × 44 icon buttons, 8px radius, 24px icons. */
+/* The app menu under the switch: each app's mark in its own colour, the open app on a light grey row with a tick. */
+:root:not(#rnd) .ui-app-menu-item { color: rgb(var(--fg)); transition: background-color 0.12s ease; }
+:root:not(#rnd) .ui-app-menu-item:hover { background: rgb(var(--hover-blue) / 0.1); }
+:root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(var(--select-green) / 0.16); }
+:root:not(#rnd) .ui-app-menu-item:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
+:root:not(#rnd) .ui-app-menu-item .ui-caption { color: rgb(var(--fg-muted)); }
+:root:not(#rnd) .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(240 242 245); color: rgb(var(--fg)); }
+
+/* Rail: 80px, white, hairline. Symbol tile 36px. Each module is its icon with its name under it
+   (owner, 16 Nov 2026: "sidebar add module names"), 8px radius, 24px icons, 11px names. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-rail {
-  width: 4rem;
-  padding: 1rem 0;
-  gap: 0.5rem;
+  width: 5rem;
+  padding: 1rem 0.375rem;
+  gap: 0.25rem;
   align-items: center;
-  background: rgb(var(--surface));
+  /* The rail is the tinted one: a light cool grey beside the white screens panel and page (owner,
+     17 Nov 2026: "instead of second sidebar, add background color to first sidebar"). */
+  background: rgb(246 247 249);
   border-right: 1px solid rgb(var(--border));
   box-shadow: none;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  margin-bottom: 0.5rem;
-  border-radius: 0.5rem;
-}
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod {
-  width: 2.75rem;
-  height: 2.75rem;
-  min-height: 2.75rem;
+  width: 100%;
+  min-height: 3.75rem;
+  height: auto;
   flex: none;
-  padding: 0;
+  padding: 0.5rem 0.125rem 0.4375rem;
+  flex-direction: column;
   justify-content: center;
+  gap: 0.3125rem;
   border-radius: 0.5rem;
   background: transparent;
-  color: rgb(var(--fg-muted));
+  color: rgb(var(--fg));
   box-shadow: none;
   overflow: visible;
 }
-/* The label stays for screen readers; the tooltip (title) shows it. */
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod > span:not(.ui-split-mod-count) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
+/* The module's name, under its icon: two lines at most, centred. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod > span:not(.ui-split-mod-count):not(.sr-only) {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: inherit;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current] > span:not(.ui-split-mod-count):not(.sr-only) {
+  font-weight: 700;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod > svg { width: 1.5rem; height: 1.5rem; font-size: 1.5rem; transform: none; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+/* Fluent Emoji icons a step richer everywhere (owner, 17 Nov 2026: "increase icons contrast used in
+   side bars and other places"): the flat set's pale greys and pastels washed out on white. */
+:root:not(#rnd) .ui-emoji { filter: saturate(1.35) contrast(1.18); }
+
+/* Hover and the open item are a soft blue, not grey (owner, 17 Nov 2026: "when cursor moves with any
+   option it's grey now, I want different color"). One blue for every app: a tint of the app's own
+   colour came out grey in the Workspace and orange in Attendance. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod:hover { background: rgb(var(--hover-blue) / 0.1); color: rgb(var(--fg)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current],
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[aria-pressed='true'] {
-  background: rgb(var(--tint));
+  background: rgb(var(--select-green) / 0.16);
   color: rgb(var(--fg));
   box-shadow: none;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current]::before {
   content: '';
   position: absolute;
-  left: -0.625rem;
-  top: 0.625rem;
-  bottom: 0.625rem;
+  left: -0.375rem;
+  top: 0.75rem;
+  bottom: 0.75rem;
   width: 3px;
   height: auto;
   border-radius: 0 3px 3px 0;
@@ -418,8 +456,8 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-rail > .ui-split-mod:last-child:not(:first-child)::after { content: none; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod-count {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 4px;
+  right: 10px;
   min-width: 1rem;
   height: 1rem;
   padding: 0 0.25rem;
@@ -436,14 +474,47 @@
   border-top-color: rgb(var(--border));
 }
 
-/* Second panel: 232px on --panel, its own scroll. 16px 600 title,
+/* Second panel: 200px on --panel (owner, 16 Nov 2026: narrower), its own scroll. 16px 600 title,
    12px uppercase groups, 36px items with 20px icons, white active item with a
    --panel-border ring and a 3px --marker inset. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel {
-  width: 14.5rem;
+  width: 12.5rem;
   padding: 1.25rem 0.75rem;
-  background: rgb(var(--panel));
+  display: flex;
+  flex-direction: column;
+  background: rgb(255 255 255);
   border-right: 1px solid rgb(var(--panel-border));
+}
+/* The foot of the panel: one short help row, held at the bottom (a taller card first; owner, 17 Nov:
+   "decrease height"). The whole row opens the help centre. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot {
+  margin-top: auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid rgb(var(--panel-border));
+  border-radius: 0.75rem;
+  background: rgb(255 255 255);
+  font: inherit;
+  color: rgb(var(--fg));
+  text-align: left;
+  cursor: pointer;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:hover { background: rgb(var(--hover-blue) / 0.1); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: 2px; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div + .ui-split-panel-foot { margin-top: auto; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-text { display: grid; min-width: 0; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-title {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-sub {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: rgb(var(--fg-muted));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head {
   height: auto;
@@ -465,10 +536,10 @@
   padding: 1rem 0.75rem 0.5rem;
   font-size: 0.75rem;
   line-height: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgb(var(--fg-subtle));
+  color: rgb(var(--fg-muted));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div.mt-4 { margin-top: 0; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item {
@@ -478,15 +549,15 @@
   gap: 0.625rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
-  font-weight: 400;
-  color: rgb(var(--fg-muted));
+  font-weight: 500; /* 400 in grey read as washed out (owner, 17 Nov 2026: "fonts are very light in sidebars") */
+  color: rgb(var(--fg));
   background: transparent;
   box-shadow: none;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item > svg { width: 1.25rem; height: 1.25rem; font-size: 1.25rem; color: inherit; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-item:hover { background: rgb(255 255 255 / 0.7); color: rgb(var(--fg)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item:hover { background: rgb(var(--hover-blue) / 0.1); color: rgb(var(--fg)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item[aria-current='page'] {
-  background: rgb(var(--surface));
+  background: rgb(var(--select-green) / 0.14);
   color: rgb(var(--fg));
   font-weight: 600;
   box-shadow: inset 3px 0 0 rgb(var(--marker)), 0 0 0 1px rgb(var(--panel-border));

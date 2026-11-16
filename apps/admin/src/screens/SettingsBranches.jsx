@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { ArrowDownUp, Download, MoreHorizontal, Pencil, Plus, Power, Search, Trash2 } from '@ui/components/ui/lineIcons';
 
 import Popover from '@ui/components/ui/Popover';
@@ -12,6 +13,9 @@ import { hasApp, platformContext } from '@platform/context';
 import { PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('convenience-store');
 
 /**
  * Workspace → Company → Branches (redesign W-R5).
@@ -45,7 +49,6 @@ export function branchRows(branches, { q = '', sort = 'branchCode', dir = 1 }) {
     .filter((b) => !needle || ['branchCode', 'branchName', 'city', 'state', 'addressLine1', 'gstin', 'phone', 'email'].some((k) => String(b?.[k] || '').toLowerCase().includes(needle)))
     .sort((a, b) => String(a[sort] || '').localeCompare(String(b[sort] || '')) * dir);
 }
-
 
 export function SettingsBranches({ orgId, company, onBranchesChanged }) {
   const [branches, setBranches] = useState(null);
@@ -173,8 +176,36 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Company', 'Branches']}
+          icon={PAGE_ICON}
+          /* Search and the count sit on the title's row: a row of their own under it left the page top half empty (owner, 17 Nov 2026). */
+          tools={
+            <div className="ws-filters ws-head-tools" role="search">
+              <label className="ws-search">
+                <span className="sr-only">Search branches</span>
+                <Search size={16} aria-hidden="true" />
+                <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search branches" />
+              </label>
+              {statesHere.length > 1 ? (
+                <label>
+                  <span className="sr-only">State</span>
+                  <select className="ui-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+                    <option value="">State: All</option>
+                    {statesHere.map((st) => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {branches ? (
+                <span className="ws-list-meta">
+                  {rows.length} {rows.length === 1 ? 'branch' : 'branches'}
+                  {all.length - active ? <> · <span>{all.length - active} marked inactive</span></> : null}
+                  {noGstin ? ` · ${noGstin} without a GSTIN${gstEnabled ? ' (GST is on: add each one)' : ''}` : ''}
+                </span>
+              ) : null}
+            </div>
+          }
           title="Branches"
-          description={`Offices, plants and sites${company?.name ? ` of ${company.name}` : ''}. A branch in a new state needs its own GSTIN.`}
           actions={
             <>
               <button type="button" className="ws-btn ws-btn--quiet" onClick={exportAll} disabled={!rows.length}>
@@ -188,32 +219,6 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-
-        <div className="ws-filters" role="search">
-          <label className="ws-search">
-            <span className="sr-only">Search branches</span>
-            <Search size={16} aria-hidden="true" />
-            <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search branches" />
-          </label>
-          {statesHere.length > 1 ? (
-            <label>
-              <span className="sr-only">State</span>
-              <select className="ui-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
-                <option value="">State: All</option>
-                {statesHere.map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {branches ? (
-            <span className="ws-list-meta">
-              {rows.length} {rows.length === 1 ? 'branch' : 'branches'}
-              {all.length - active ? <> · <span>{all.length - active} marked inactive</span></> : null}
-              {noGstin ? ` · ${noGstin} without a GSTIN${gstEnabled ? ' (GST is on: add each one)' : ''}` : ''}
-            </span>
-          ) : null}
-        </div>
 
         {branches === null ? (
           <p className="ws-card-blurb">Loading branches…</p>

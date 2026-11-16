@@ -245,9 +245,9 @@ numbers refer to are defined once under *Controls → Height*.
 
 ## Layout
 - **Approach:** grid-disciplined.
-- **Shell (R&D, 14 Nov 2026):** a 64px white rail (CLOR symbol tile 36px,
-  44×44 icon buttons with 18px Lucide icons, the active one on `--tint`
-  with a 3px `--marker` bar on its left edge), then a 232px second panel on
+- **Shell (R&D, 14 Nov 2026; rail names 16 Nov; full-width bar with the CLOR logo and the rail under it, no symbol tile, 17 Nov — see Decisions Log):** an 80px white rail (CLOR symbol tile 36px until 17 Nov,
+  each module its 24px icon with its name under it in 11px, two lines at most, the active one on `--tint`
+  with a 3px `--marker` bar on its left edge), then a 200px second panel (232px until 16 Nov) on
   `--panel` that scrolls on its own (16/600 title, 12px group
   labels, 36px items with 16px Lucide icons; the active item white with a
   `--panel-border` ring and a 3px `--marker` inset), then a 64px top bar (36px
@@ -697,6 +697,105 @@ because focus, portals and event order cannot be read off the source.
 7. Build Payroll on the primitives with no new layout code. That build proves the system holds.
 
 ## Decisions Log
+
+- **2026-11-16 — Books under the one platform bar (owner: "match Books"):**
+  Books drew a second bar (company, search, year, profile) under the platform bar
+  and a rail that began under both, so the company name showed twice and the
+  bar read unlike every other app. Now Books' search, year and profile menu
+  render into the platform bar (Shell slots `#ui-topbar-app-start` /
+  `#ui-topbar-app-end`), its own company name is dropped unless a company keeps
+  more than one set of books, and its rail runs the full window height at 80px
+  with the CLOR tile on top (280px with a module open), as the split rail does
+  elsewhere. Rendered on its own, Books still draws its own bar.
+- **2026-11-16 — Workspace Overview, decorative and informative (owner):**
+  "background glassy white … sidebar add module names, and hero card … welcome
+  add user name and some smileys … dashboard more decorative and informative
+  with data colours accent, keeping primary graphite". The Overview
+  (`apps/admin/src/screens/AdminHome.jsx`, `ws-overview.css`) gets an edge-to-edge hero
+  band (top bar to both sides, hairline under it, words aligned with the cards) ("Welcome to CLOR Workspace", a greeting by first name, Fluent Emoji faces
+  on glass tiles around a drawn laptop dashboard, motion off under reduced-motion),
+  figure tiles washed in the `--cat-*` palette, a Team and access card (members
+  ring, people in each app; no app tiles, the Apps module owns those), quick actions
+  as a vertical list heading a 320px right column (with activity, security, help), a company card with setup
+  progress, and an activity timeline. Cards there are glassy white (white at
+  78%, blurred) over a faint wash high on the page; the ground stays white and
+  graphite stays the only button colour. The exception is this page only.
+  Every split rail now shows module names under the icons (80px rail).
+  Same day: the Workspace bar matches every app (app switcher, search, company,
+  bell, Help; no date or trial line, the trial is in Needs your attention), and
+  orange on the Overview is kept to small marks.
+  17 Nov: the figure tiles and Quick actions lost their per-tile `--cat-*` hues
+  (six hues that meant nothing, and a red tile with nothing wrong). They take one
+  faint graphite wash; a tile is coloured only for a state: amber or red when
+  something is urgent, green when setup is done. The emoji carry the colour;
+  charts (the members ring, per-app bars) keep theirs.
+  Same day, the shell (every app, Books included): the bar runs the full width
+  with the CLOR logo (mark and wordmark) at its head, and the rail and screens
+  panel start under it; the rail's symbol tile is gone. This replaces the
+  14 Nov full-height rail with the bar stepping aside. On the Overview, a
+  "Your apps" row (each built app, its state, one action) sits under the
+  figures, one compact line per app. The hero's card is "Today": how the
+  business stands today in each app the reader can open, from that app's own
+  overview (who is in, headcount, this month's payroll); it replaced a "Next for
+  you" card that repeated Needs your attention. With no app that reports a day
+  the card is not drawn. Beside it, where the page is wide enough, a picture
+  drawn from the account itself: the CLOR mark with the apps around it, each in
+  its own colour, a solid line when on and a dashed one when off (the laptop
+  drawing is gone). Cards are solid white on the white ground and the page has
+  no wash outside the hero ("cards colors are not matching with background");
+  hover inside a card is a faint orange tint, not the shell's grey. Secondary
+  text on this page is a step darker and weight 500, and the sidebar's module
+  names, captions and items are darker and firmer in every app ("fonts are very
+  light").
+  Later the same day: the picture always shows CLOR's six apps round the mark,
+  a live app sending moving dashes down its line; the Today card and the bar's
+  logo are smaller (wordmark 17px); and graphite leads the page's accents
+  (count badge, progress bars, members ring, hovers), with orange kept for the
+  CLOR mark and the underline under the reader's name ("as primary graphite,
+  many things color accent not adding up with white background").
+  Last word that day on colour: all-graphite accents "look dull". Graphite stays
+  the primary; beside it the Overview has three accent hues and no more (blue
+  `--cat-1`, the brand's orange, green `--cat-3`) as soft chips behind icons, the
+  members ring, the count badge and the progress bar, never as a whole card.
+  The rail (first sidebar) is a light cool grey `#F6F7F9` in every app and
+  the screens panel beside it is white (the grey was on the panel first; owner:
+  "instead of second sidebar, add background color to first sidebar"; a tint
+  of the app's colour was tried and came out orange: "do not add orange
+  background"). The panel ends in one short help row where a short list left
+  the column empty. No orange wash anywhere: the hero's wash is faint blue and green.
+  The bar's menus stay white (a dark graphite version was tried and withdrawn);
+  the app menu shows each app's mark in its own colour and marks the open app.
+  The search and company fields carry a colour icon (Fluent Emoji magnifying
+  glass and office building). Hover and the open item in the rail, the screens
+  panel and the app menu are a soft blue (`--hover-blue` #2A78D6 at 10% and 14%),
+  not grey ("when cursor moves with any option it's grey now, I want different
+  color").
+  On the Overview each card's headline carries a colour icon, and the Help and
+  support rows carry the same icon chips as Quick actions. Fluent Emoji icons
+  are drawn a step richer everywhere (`saturate(1.35) contrast(1.18)`): the flat
+  set's pale greys washed out on white ("increase icons contrast").
+  Workspace → Home's pages (Activity, Inbox, Help and support, Companies,
+  Branches, Company profile) follow the Overview: no caption under the title,
+  the page's own colour icon beside it, Activity's search and filters on one
+  row, shorter empty states with a colour icon. The bar's search field is
+  340px (it opens the palette; it is not typed into).
+  Workspace pages sit in one frame, not two: the shell's 32px content padding
+  only (the Workspace's own 32px inside it is gone from tablet width up).
+  Workspace list tables: the header row reads `--list-head`, which the
+  Workspace sets to a clearer soft blue `217 231 248` (grey was tried: "change
+  color accent"); ink captions; 48px rows; cells top-aligned so the first line
+  of every cell in a row sits on one line ("proper alignment"). Pages keep
+  20px between their parts, no rule under the header, and on Companies and
+  Branches the search and count sit on the title's row beside the buttons.
+  The open (selected) item in the rail, the screens panel and the app menu is a
+  soft green (`--select-green` #1BAF7A at 14–16%), a different hue from the blue
+  hover ("add different color for selection color").
+  The Branches list is the pattern for every Workspace list ("branch data
+  tables are perfect, apply it to other pages"): one bordered white sheet,
+  header row edge to edge, cells top-aligned on one text line, counts
+  left-aligned under their heading, pills, tags, app marks and row buttons level
+  with the text. No Workspace page draws a caption under its title (the
+  one-line purpose is kept for screen readers).
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
