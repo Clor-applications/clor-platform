@@ -819,6 +819,10 @@ because focus, portals and event order cannot be read off the source.
   padding of 96px and more, scroll reveals, double-bezel cards, serif
   headings, no emoji. Violet for attention was weighed against "purple is the
   AI look" and kept.
+  Touch: the compact Workspace sizes (32px fields, buttons and menu rows) are
+  for a mouse. Under 768px or on any touch screen every control is 44px tall
+  and every field is 16px (no iOS zoom on focus); table-row buttons keep their
+  height and the row grows.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

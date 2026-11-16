@@ -749,3 +749,11 @@
   .ui-gate-bar { padding: 0 16px; }
   .ui-gate main#main-content.ui-gate-main { padding: 40px 16px 32px; }
 }
+
+/* Touch (a tablet keeps the rail and the screens panel): menu rows and the app switch are 44px under
+   a finger; the 32px sizes are for a mouse. */
+@media (pointer: coarse) {
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-item { height: 2.75rem; }
+  :root:not(#rnd) .ui-app-switch { height: 2.75rem; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot { min-height: 2.75rem; }
+}

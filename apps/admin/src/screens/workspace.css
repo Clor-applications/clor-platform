@@ -3338,3 +3338,54 @@ button.ws-stat:hover {
     transform: none;
   }
 }
+
+/* Fingers, not cursors (upgrade pass, 17 Nov 2026; DESIGN.md: 44px touch size). On a phone, or any
+   screen worked by touch, what can be pressed is 44px tall and what can be typed into is 16px, so
+   iOS does not zoom the page on focus. The compact desktop sizes above (32px fields and buttons)
+   stay for a mouse. Measured before: 100 of 160 controls on the Workspace's phone pages were under
+   40px, and 33 fields under 16px. */
+@media (max-width: 767px), (pointer: coarse) {
+  .ws .ws-btn,
+  .ws .ws-btn--small {
+    min-height: 44px;
+  }
+  .ws :is(input:not([type='checkbox']):not([type='radio']), select, textarea),
+  .ws .ws-filters :is(input, select) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .ws .ws-filters :is(input, select) {
+    height: 44px;
+  }
+  .ws .ws-autos input[type='number'] {
+    height: 44px;
+    min-height: 44px;
+    width: 4.5rem !important;
+  }
+  /* In a table row the button keeps its full height: the row grows instead of the target shrinking. */
+  .ws .ws-table tbody td :is(.ws-btn, .ws-icon-btn, .ui-icon-btn) {
+    margin-block: 0;
+  }
+  .ws .ws-link,
+  .ws .ws-table th button,
+  .ws .ws-tabs [role='tab'] {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .ws .ws-icon-btn,
+  .ws .ui-icon-btn,
+  .ws .ws-rowmenu,
+  .ws .ws-back {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ws .ui-btn,
+  .ws .ws-name-link {
+    min-height: 44px;
+  }
+  .ws .ws-name-link {
+    display: inline-flex;
+    align-items: center;
+  }
+}

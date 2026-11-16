@@ -1261,3 +1261,16 @@ button.wsh-attn-row:active {
     transform: none;
   }
 }
+
+/* Touch: the Overview's rows and links are 44px tall under a finger. */
+@media (max-width: 767px), (pointer: coarse) {
+  .wsh-quick-btn,
+  button.wsh-app,
+  button.wsh-today-row,
+  .wsh-step-link {
+    min-height: 44px;
+  }
+  .wsh .ws-link {
+    min-height: 44px;
+  }
+}
