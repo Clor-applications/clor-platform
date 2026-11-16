@@ -1197,7 +1197,7 @@ function ShellScreens() {
               {switcherOpen ? (
                 <div
                   role="menu"
-                  className="ui-menu-dark absolute left-0 mt-1 w-64 rounded-xl p-1"
+                  className="absolute left-0 mt-1 w-64 rounded-xl p-1"
                   style={{
                     backgroundColor: 'rgb(var(--surface))',
                     border: '1px solid rgb(var(--border))',

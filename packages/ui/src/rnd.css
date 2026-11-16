@@ -366,8 +366,8 @@
   color: rgb(var(--on-brand));
 }
 :root:not(#rnd) .ui-company-pick .ui-select { height: 2.25rem; font-weight: 600; border-color: rgb(var(--border-field)); }
-/* The bar's menus are dark graphite with white words (owner, 17 Nov 2026): the app menu, the phone's
-   company menu and Help. The tokens are turned over inside the menu, so every row, caption, hairline
+/* Dark graphite with white words (owner, 17 Nov 2026): Help and the phone's company menu. The app
+   menu was tried dark and went back to white the same day ("no app drop down keep previous"). The tokens are turned over inside the menu, so every row, caption, hairline
    and hover in it follows without a rule each. */
 :root:not(#rnd) .ui-menu-dark,
 :root:not(#rnd) .ui-popover:has(> [role='menu'][aria-label='Help and contact']) {

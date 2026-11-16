@@ -762,9 +762,9 @@ because focus, portals and event order cannot be read off the source.
   was tried and came out orange in the Workspace: "do not add orange
   background"), and ends in a small help card where a short list left the
   column empty. No orange wash anywhere: the hero's wash is faint blue and green.
-  The bar's menus (the app menu, the phone's company menu, Help) are dark
-  graphite `#202329` with white words, each app's mark in its own colour and the
-  open app marked; the search and company fields carry a colour icon (Fluent
+  The app menu stays white, each app's mark in its own colour and the open app
+  on a light grey row with a tick (tried dark, owner: "keep previous"); Help and
+  the phone's company menu are dark graphite `#202329` with white words; the search and company fields carry a colour icon (Fluent
   Emoji magnifying glass and office building). The company list on a desktop is
   the browser's own select and takes the dark colour only where the browser
   allows it.
