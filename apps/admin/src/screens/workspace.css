@@ -2681,9 +2681,10 @@ button.ws-stat:hover {
   height: 40px;
   padding: 0 16px;
   /* Every list's header row: the Books Invoices pale blue-grey (owner, 16 Nov 2026). */
-  /* A soft tint of the blue that marks hover and the open item (owner, 17 Nov 2026: "this columns
-     color", then "change color accent" when it went grey). Ink captions, so the small caps read. */
-  background: rgb(var(--hover-blue, 42 120 214) / 0.1);
+  /* Every list's header row reads --list-head. The Workspace sets its own value below: a clearer
+     blue than the shared pale blue-grey (owner, 17 Nov 2026: "this columns color", "change color
+     accent"). Ink captions, so the small caps read. */
+  background: rgb(var(--list-head, 234 242 248));
   color: rgb(var(--fg, 32 35 41));
   font-size: 0.75rem;
   line-height: 1rem;
@@ -2703,7 +2704,7 @@ button.ws-stat:hover {
   box-sizing: border-box;
   /* 48px rows (56 before): a one-line row sat in too much air; a two-line row still grows. */
   height: 48px;
-  padding: 6px 16px;
+  padding: 14px 16px;
   border-top: 1px solid rgb(var(--border, 228 230 225));
   border-bottom: 0;
   vertical-align: middle;
@@ -2963,4 +2964,22 @@ button.ws-stat:hover {
 /* Quiet buttons (Refresh, Export, and their like) carry their icon in the page's blue. */
 .ws .ws-btn--quiet > svg {
   color: rgb(var(--cat-1, 42 120 214));
+}
+
+/* List header colour for the Workspace: a clear soft blue. */
+.ws {
+  --list-head: 217 231 248;
+}
+/* One line across a row (owner, 17 Nov 2026: "headline and data below, proper alignment"). Cells sit
+   at the top, so the first line of every cell is on the same line whether a neighbour runs to two
+   lines or not; a middle-aligned one-line cell floated beside the top of a two-line one. A 28px
+   avatar and a 24px tag give up their extra height, so their middles meet the text's. */
+.ws .ws-table tbody td {
+  vertical-align: top;
+}
+.ws .ws-table tbody td .ws-avatar {
+  margin-block: -4px;
+}
+.ws .ws-table tbody td :is(.ws-tag, .ws-pill) {
+  margin-block: -2px;
 }

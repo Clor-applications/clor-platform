@@ -781,8 +781,10 @@ because focus, portals and event order cannot be read off the source.
   340px (it opens the palette; it is not typed into).
   Workspace pages sit in one frame, not two: the shell's 32px content padding
   only (the Workspace's own 32px inside it is gone from tablet width up).
-  Workspace list tables: a header row in a 10% tint of `--hover-blue` with ink
-  captions (grey was tried: "change color accent") and 48px rows. Pages keep
+  Workspace list tables: the header row reads `--list-head`, which the
+  Workspace sets to a clearer soft blue `217 231 248` (grey was tried: "change
+  color accent"); ink captions; 48px rows; cells top-aligned so the first line
+  of every cell in a row sits on one line ("proper alignment"). Pages keep
   20px between their parts, no rule under the header, and on Companies and
   Branches the search and count sit on the title's row beside the buttons.
   The open (selected) item in the rail, the screens panel and the app menu is a
