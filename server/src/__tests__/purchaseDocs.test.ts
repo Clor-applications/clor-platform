@@ -150,6 +150,67 @@ describe('purchase bills', () => {
   });
 });
 
+describe('a bill changed more than once (audit, 17 Nov 2026)', () => {
+  const bills = () => `/api/orgs/${owner.orgId}/bills`;
+  const amended = (subtotal: number) => docBody({ date: '2026-04-14', subtotal, cgstTotal: subtotal * 0.09, sgstTotal: subtotal * 0.09, gstTotal: subtotal * 0.18, total: subtotal * 1.18, items: [{ description: 'Material', quantity: 1, rate: subtotal, gstRate: 18 }] });
+
+  it('holds the last amount after a second edit, not the first amount again on top of it', async () => {
+    const before = await tb();
+    const created = await request(app).post(bills()).set(auth(owner)).send(amended(1000)).expect(201);
+    const id = created.body.document.id;
+    await request(app).patch(`${bills()}/${id}`).set(auth(owner)).send(amended(1200)).expect(200);
+    /* The second edit found the first edit's reversal as "posted" and reversed that too, bringing the 1,000 back. */
+    await request(app).patch(`${bills()}/${id}`).set(auth(owner)).send(amended(1300)).expect(200);
+    const after = await tb();
+    expect(moved(before, after, 'PURCHASES')).toBe(1300);
+    expect(moved(before, after, 'AP')).toBe(-1534);
+    expect(after.totals.balanced).toBe(true);
+
+    /* And removed after being edited: nothing of it is left. */
+    await request(app).delete(`${bills()}/${id}`).set(auth(owner)).expect(200);
+    const gone = await tb();
+    expect(moved(before, gone, 'PURCHASES')).toBe(0);
+    expect(moved(before, gone, 'AP')).toBe(0);
+    expect(gone.totals.balanced).toBe(true);
+  }, 60_000);
+
+  it('stays out of the books when it is cancelled and then removed', async () => {
+    const before = await tb();
+    const created = await request(app).post(bills()).set(auth(owner)).send(amended(1000)).expect(201);
+    const id = created.body.document.id;
+    await request(app).post(`${bills()}/${id}/cancel`).set(auth(owner)).expect(200);
+    const cancelled = await tb();
+    expect(moved(before, cancelled, 'PURCHASES')).toBe(0);
+    await request(app).delete(`${bills()}/${id}`).set(auth(owner)).expect(200);
+    const gone = await tb();
+    expect(moved(before, gone, 'PURCHASES')).toBe(0);
+    expect(moved(before, gone, 'AP')).toBe(0);
+  }, 60_000);
+});
+
+describe('an invoice cancelled twice (audit, 17 Nov 2026)', () => {
+  it('does not post the sale again when it is cancelled, put back and cancelled again', async () => {
+    const before = await tb();
+    const invoices = `/api/orgs/${owner.orgId}/invoices`;
+    const created = await request(app)
+      .post(invoices)
+      .set(auth(owner))
+      .send({ ...docBody({ date: '2026-04-15', partyName: 'Acme Ltd' }), customerName: 'Acme Ltd', status: 'Unpaid' })
+      .expect(201);
+    const id = created.body.invoice.id;
+    const posted = await tb();
+    expect(moved(before, posted, 'SALES')).toBe(-1000);
+    const status = (next: string) => request(app).patch(`${invoices}/${id}/status`).set(auth(owner)).send({ status: next }).expect(200);
+    await status('Cancelled');
+    await status('Unpaid');
+    await status('Cancelled');
+    const after = await tb();
+    expect(moved(before, after, 'SALES')).toBe(0);
+    expect(moved(before, after, 'AR')).toBe(0);
+    expect(after.totals.balanced).toBe(true);
+  }, 60_000);
+});
+
 describe('credit notes', () => {
   it('reverses revenue and output GST, and credits the customer', async () => {
     const before = await tb();

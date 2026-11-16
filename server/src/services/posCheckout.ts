@@ -194,7 +194,7 @@ async function findCommittedCheckout(
   const entries = await db.journalEntry.findMany({
     where: {
       orgId: ctx.orgId,
-      status: 'POSTED',
+      status: 'POSTED', reversesId: null,
       OR: [
         { sourceDocType: 'INVOICE', sourceDocId: invoice.id },
         ...(payment ? [{ sourceDocType: 'RECEIPT', sourceDocId: payment.id }] : []),

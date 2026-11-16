@@ -506,7 +506,7 @@ function register(kind: DocKind) {
         const updated = await prisma.$transaction(
           async (tx) => {
             const entries = await tx.journalEntry.findMany({
-              where: { accountId, orgId, sourceDocType: kind, sourceDocId: existing.id, status: 'POSTED' },
+              where: { accountId, orgId, sourceDocType: kind, sourceDocId: existing.id, status: 'POSTED', reversesId: null },
               select: { id: true },
             });
             for (const entry of entries) {
@@ -661,7 +661,7 @@ function register(kind: DocKind) {
       try {
         const updated = await prisma.$transaction(async (tx) => {
           const entries = await tx.journalEntry.findMany({
-            where: { accountId, orgId, sourceDocType: kind, sourceDocId: doc.id, status: 'POSTED' },
+            where: { accountId, orgId, sourceDocType: kind, sourceDocId: doc.id, status: 'POSTED', reversesId: null },
             select: { id: true },
           });
           for (const e of entries) {
@@ -704,7 +704,7 @@ function register(kind: DocKind) {
       }
 
       const entries = await prisma.journalEntry.findMany({
-        where: { accountId, orgId, sourceDocType: kind, sourceDocId: doc.id, status: 'POSTED' },
+        where: { accountId, orgId, sourceDocType: kind, sourceDocId: doc.id, status: 'POSTED', reversesId: null },
         select: { id: true },
       });
       for (const e of entries) {
@@ -740,7 +740,7 @@ export async function postApprovedPurchaseDoc(opts: {
   if (doc.status !== 'Pending Approval') throw new Error('Document is not pending approval');
   const existing = await prisma.journalEntry.findFirst({ where: {
     accountId: opts.accountId, orgId: opts.orgId, sourceDocType: opts.kind,
-    sourceDocId: doc.id, status: 'POSTED',
+    sourceDocId: doc.id, status: 'POSTED', reversesId: null,
   } });
   const periodModule = periodLockModuleForSource(opts.kind);
   if (periodModule) await assertPeriodUnlocked({ accountId: opts.accountId, orgId: opts.orgId,
