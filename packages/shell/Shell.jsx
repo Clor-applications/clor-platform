@@ -32,6 +32,10 @@ import { isStartPath } from './startLink';
 const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
 import HelpCenter from './HelpCenter';
 import { ClorLogo, ClorMark } from '@ui/components/brand';
+import { emoji } from '@ui/components/ui/emoji';
+
+/* The friendly face on the screens panel's help card (Fluent Emoji, local). */
+const HelpFace = emoji('hugging-face');
 import NotificationBell from './NotificationBell';
 import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
@@ -1046,6 +1050,21 @@ function ShellScreens() {
           ))}
         </div>
       ))}
+      {/* The foot of the panel: help, where a short list used to leave the column empty (owner, 17 Nov 2026). A phone's sheet has its own menu. */}
+      {!phone ? (
+        <div className="ui-split-panel-foot">
+          <HelpFace size={32} aria-hidden="true" />
+          <p className="ui-split-panel-foot-title">Need a hand?</p>
+          <p className="ui-split-panel-foot-text">Guides for every screen{app?.name ? ` in ${app.name}` : ''}.</p>
+          <button
+            type="button"
+            className="ui-btn ui-btn-secondary ui-btn-sm w-full"
+            onClick={() => { setHelpTopic('welcome'); setPlatformScreen('help'); setShowMoreApps(false); window.scrollTo(0, 0); }}
+          >
+            Open help centre
+          </button>
+        </div>
+      ) : null}
       {/* The Workspace lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
       {app?.id === ADMIN_APP_ID || !phone ? null : (
         <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="mt-4 pt-3">

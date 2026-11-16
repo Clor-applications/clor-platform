@@ -753,6 +753,13 @@ because focus, portals and event order cannot be read off the source.
   (count badge, progress bars, members ring, hovers), with orange kept for the
   CLOR mark and the underline under the reader's name ("as primary graphite,
   many things color accent not adding up with white background").
+  Last word that day on colour: all-graphite accents "look dull". Graphite stays
+  the primary; beside it the Overview has three accent hues and no more (blue
+  `--cat-1`, the brand's orange, green `--cat-3`) as soft chips behind icons, the
+  members ring, the count badge and the progress bar, never as a whole card.
+  The screens panel (second sidebar) takes a 5% tint of the app's own colour in
+  every app, to read apart from the white rail and page, and ends in a small
+  help card where a short list left the column empty.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

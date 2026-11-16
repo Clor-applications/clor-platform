@@ -3,11 +3,12 @@
  *
  * The ground stays white; cards are glassy white (white at 78% over a faint
  * light wash, blurred), so the page reads as layered paper rather than tinted
- * panels. Graphite leads (owner, 17 Nov: with graphite primary, the accents
- * were "not adding up" on white): buttons, links, the count badge, progress
- * bars, the members ring and hovers are graphite. Orange is the brand's mark
- * only: the CLOR symbol and the underline under the reader's name. Status
- * colours mean state, with words; an app's own colour marks that app.
+ * panels. Graphite is the primary (buttons, links, hovers). Beside it, three
+ * accent hues and no more (owner, 17 Nov: all-graphite "looks dull"; six hues
+ * did not add up): blue, the brand's orange and green, as soft chips behind
+ * icons, the members ring, the count badge and the progress bar; never as a
+ * whole card. Status colours mean state, with words; an app's own colour marks
+ * that app.
  *
  * Radii follow DESIGN.md: 12px on anything holding content, 8px on anything
  * clickable inside it, full pills only for pills.
@@ -25,6 +26,11 @@
      see-through card took a different tint from whatever wash sat behind it. */
   --wsh-glass: rgb(255 255 255);
   --wsh-line: rgb(var(--border) / 0.9);
+  /* Three accent hues and no more (17 Nov): blue, the brand's orange, green. Soft chips behind icons,
+     the ring, a badge; never a whole card. */
+  --hue-blue: var(--cat-1);
+  --hue-orange: var(--marker);
+  --hue-green: var(--cat-3);
   /* Hover inside a card: graphite, faint. */
   --wsh-hover: rgb(var(--act) / 0.045);
   --wsh-shadow: 0 1px 2px rgb(16 18 22 / 0.04), 0 12px 32px -18px rgb(16 18 22 / 0.18);
@@ -101,8 +107,9 @@
   padding: 36px calc(var(--wsh-gutter) + max(0px, (100% - 80rem) / 2) + 20px) 32px;
   border-bottom: 1px solid var(--wsh-line);
   background:
-    radial-gradient(60% 120% at 100% 50%, rgb(var(--act) / 0.04), transparent 65%),
-    radial-gradient(40% 80% at 70% 110%, rgb(var(--act) / 0.04), transparent 70%),
+    radial-gradient(60% 120% at 100% 50%, rgb(var(--marker) / 0.09), transparent 65%),
+    radial-gradient(40% 80% at 30% 120%, rgb(var(--cat-1) / 0.07), transparent 70%),
+    radial-gradient(30% 70% at 0% 0%, rgb(var(--cat-3) / 0.06), transparent 70%),
     linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.7));
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
@@ -494,6 +501,12 @@ button.wsh-tile:focus-visible {
   background: rgb(255 255 255 / 0.85);
   box-shadow: 0 6px 14px -10px rgb(var(--tile) / 0.45), inset 0 0 0 1px rgb(var(--tile) / var(--tile-line));
 }
+.wsh-tiles > li[data-hue='blue'] .wsh-tile-ico { background: rgb(var(--hue-blue) / 0.12); box-shadow: inset 0 0 0 1px rgb(var(--hue-blue) / 0.18); }
+.wsh-tiles > li[data-hue='orange'] .wsh-tile-ico { background: rgb(var(--hue-orange) / 0.13); box-shadow: inset 0 0 0 1px rgb(var(--hue-orange) / 0.2); }
+.wsh-tiles > li[data-hue='green'] .wsh-tile-ico { background: rgb(var(--hue-green) / 0.13); box-shadow: inset 0 0 0 1px rgb(var(--hue-green) / 0.2); }
+.wsh-tiles > li[data-tone] .wsh-tile-ico {
+  background: rgb(255 255 255 / 0.85);
+}
 .wsh-tile-text {
   display: grid;
   min-width: 0;
@@ -856,11 +869,13 @@ button.wsh-app:focus-visible {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  /* White with a hairline: the emoji carries the colour, a tint behind it was a second one. */
   background: rgb(255 255 255);
   box-shadow: inset 0 0 0 1px rgb(var(--border));
   transition: transform 0.18s ease;
 }
+.wsh-quick-btn[data-hue='blue'] .wsh-quick-ico { background: rgb(var(--hue-blue) / 0.1); box-shadow: inset 0 0 0 1px rgb(var(--hue-blue) / 0.16); }
+.wsh-quick-btn[data-hue='orange'] .wsh-quick-ico { background: rgb(var(--hue-orange) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-orange) / 0.18); }
+.wsh-quick-btn[data-hue='green'] .wsh-quick-ico { background: rgb(var(--hue-green) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-green) / 0.18); }
 .wsh-quick-btn:hover .wsh-quick-ico {
   transform: rotate(-6deg) scale(1.05);
 }
@@ -898,7 +913,7 @@ button.wsh-app:focus-visible {
   height: 22px;
   padding: 0 6px;
   border-radius: 999px;
-  background: rgb(var(--act));
+  background: rgb(var(--marker));
   color: rgb(255 255 255);
   font-size: 0.75rem;
   font-weight: 700;
@@ -952,7 +967,7 @@ button.wsh-attn-row:hover {
 }
 .wsh-ico--neg { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
 .wsh-ico--warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
-.wsh-ico--brand { background: rgb(var(--act) / 0.07); color: rgb(var(--act)); }
+.wsh-ico--brand { background: rgb(var(--cat-1) / 0.1); color: rgb(var(--cat-1)); }
 .wsh-attn-text {
   display: grid;
   gap: 4px;
@@ -1071,7 +1086,7 @@ button.wsh-attn-row:hover {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: rgb(var(--act));
+  background: linear-gradient(90deg, rgb(var(--marker)), rgb(var(--cat-3)));
   transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .wsh-steps {
@@ -1180,7 +1195,7 @@ button.wsh-attn-row:hover {
   border-radius: 12px;
   border: 1px solid var(--wsh-line);
   background:
-    radial-gradient(70% 120% at 100% 100%, rgb(var(--act) / 0.05), transparent 70%),
+    radial-gradient(70% 120% at 100% 100%, rgb(var(--marker) / 0.1), transparent 70%),
     var(--wsh-glass);
   box-shadow: var(--wsh-shadow);
 }

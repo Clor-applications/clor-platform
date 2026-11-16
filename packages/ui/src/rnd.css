@@ -459,8 +459,37 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel {
   width: 12.5rem;
   padding: 1.25rem 0.75rem;
-  background: rgb(var(--panel));
+  display: flex;
+  flex-direction: column;
+  /* A light tint of the app's own colour, so the screens panel reads apart from the white rail and
+     the white page (owner, 17 Nov 2026: "second side bar to differentiate add light background colour"). */
+  background: color-mix(in srgb, rgb(var(--marker)) 5%, rgb(255 255 255));
   border-right: 1px solid rgb(var(--panel-border));
+}
+/* The foot of the panel: one small help card, held at the bottom. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot {
+  margin-top: auto;
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(var(--panel-border));
+  border-radius: 0.75rem;
+  background: rgb(255 255 255);
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div + .ui-split-panel-foot { margin-top: auto; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-title {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-text {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: rgb(var(--fg-muted));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head {
   height: auto;

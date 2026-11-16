@@ -105,6 +105,9 @@ function greeting(now = new Date()) {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
+/* The page's three accent hues, in the order they take turns. */
+const HUES = ['blue', 'orange', 'green'];
+
 /* Where each app says how today stands (its own overview endpoint). */
 const TODAY_SOURCES = [
   { app: 'attendance', path: 'attendance/overview' },
@@ -445,8 +448,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
 
   /*
    * The figures across the top: each a fact the server gave, each opening the screen that owns it.
-   * One quiet graphite wash for all of them; a tile takes a colour only to show a state (amber or
-   * red when something is urgent, green when setup is done), so colour here always means something.
+   * The tile itself stays white; its icon sits on a soft chip in one of three hues (blue, orange,
+   * green: owner, 17 Nov, "it looks dull" with none). The whole tile takes a colour only to show a
+   * state (amber or red when something is urgent, green when setup is done).
    * The line under each says what the number alone does not ("1 Member" says little; "Only you so
    * far" says what to do next). Each line only from what was read; none is drawn on a guess.
    */
@@ -455,27 +459,27 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const tiles = [
     companyCount != null
       ? {
-          key: 'companies', icon: E.building, value: companyCount, label: companyCount === 1 ? 'Company' : 'Companies', go: go('companies'),
+          key: 'companies', icon: E.building, hue: 'blue', value: companyCount, label: companyCount === 1 ? 'Company' : 'Companies', go: go('companies'),
           hint: !companiesTable ? null : noGstin.length ? (companyCount === 1 ? 'GSTIN not added' : `${noGstin.length} without a GSTIN`) : companyCount === 1 ? here?.state || null : 'Each has a GSTIN',
         }
       : null,
-    { key: 'apps', icon: E.rocket, value: onCount, label: onCount === 1 ? 'Active app' : 'Active apps', note: `of ${built.length}`, hint: appsOnNames.length ? appsOnNames.join(', ') : 'None switched on yet', go: go('apps') },
+    { key: 'apps', icon: E.rocket, hue: 'orange', value: onCount, label: onCount === 1 ? 'Active app' : 'Active apps', note: `of ${built.length}`, hint: appsOnNames.length ? appsOnNames.join(', ') : 'None switched on yet', go: go('apps') },
     memberCount != null
       ? {
-          key: 'members', icon: E.people, value: memberCount, label: memberCount === 1 ? 'Member' : 'Members', go: go('members'),
+          key: 'members', icon: E.people, hue: 'green', value: memberCount, label: memberCount === 1 ? 'Member' : 'Members', go: go('members'),
           hint: pending == null ? null : pending ? `${pending} invited, not joined yet` : memberCount === 1 ? 'Only you so far' : 'Everyone has joined',
         }
       : null,
-    waitingTotal != null ? { key: 'waiting', icon: E.inbox, value: waitingTotal, label: 'Waiting on you', hint: waitingTotal ? `In ${plural(waitingApps, 'app')}` : 'All clear', go: go('inbox') } : null,
-    settled ? { key: 'attention', icon: E.bell, tone: !attention.length ? null : attention.some((a) => a.tone === 'danger') ? 'neg' : urgent ? 'warn' : null, value: attention.length, label: attention.length === 1 ? 'Needs attention' : 'Need attention', hint: !attention.length ? 'All clear' : urgent ? `${urgent} urgent` : 'Nothing urgent', go: attention.length ? scrollToAttention : null } : null,
-    steps ? { key: 'setup', icon: E.clipboard, tone: stepsDone === steps.length ? 'pos' : null, value: `${stepsDone}/${steps.length}`, label: stepsDone === steps.length ? 'Setup done' : 'Setup steps done', hint: nextStep ? `Next: ${nextStep.title.charAt(0).toLowerCase()}${nextStep.title.slice(1)}` : 'Ready to go', go: nextStep && go(nextStep.screen) ? go(nextStep.screen) : null } : null,
+    waitingTotal != null ? { key: 'waiting', icon: E.inbox, hue: 'blue', value: waitingTotal, label: 'Waiting on you', hint: waitingTotal ? `In ${plural(waitingApps, 'app')}` : 'All clear', go: go('inbox') } : null,
+    settled ? { key: 'attention', icon: E.bell, hue: 'orange', tone: !attention.length ? null : attention.some((a) => a.tone === 'danger') ? 'neg' : urgent ? 'warn' : null, value: attention.length, label: attention.length === 1 ? 'Needs attention' : 'Need attention', hint: !attention.length ? 'All clear' : urgent ? `${urgent} urgent` : 'Nothing urgent', go: attention.length ? scrollToAttention : null } : null,
+    steps ? { key: 'setup', icon: E.clipboard, hue: 'green', tone: stepsDone === steps.length ? 'pos' : null, value: `${stepsDone}/${steps.length}`, label: stepsDone === steps.length ? 'Setup done' : 'Setup steps done', hint: nextStep ? `Next: ${nextStep.title.charAt(0).toLowerCase()}${nextStep.title.slice(1)}` : 'Ready to go', go: nextStep && go(nextStep.screen) ? go(nextStep.screen) : null } : null,
   ].filter(Boolean);
 
   /* Team and access: who is in the account, and how many people each app has (seats from the directory). */
   const team = isAdmin && members
     ? (() => {
         const mix = [
-          { key: 'active', label: 'Active', n: members.filter((m) => m.status === 'ACTIVE').length, color: '--act' },
+          { key: 'active', label: 'Active', n: members.filter((m) => m.status === 'ACTIVE').length, color: '--cat-3' },
           { key: 'invited', label: 'Invited', n: pending || 0, color: '--marker' },
           { key: 'suspended', label: 'Suspended', n: members.filter((m) => m.status === 'SUSPENDED').length, color: '--border-strong' },
         ];
@@ -616,7 +620,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 </>
               );
               return (
-                <li key={t.key} data-tone={t.tone || undefined}>
+                <li key={t.key} data-tone={t.tone || undefined} data-hue={t.hue || undefined}>
                   {t.go ? <button type="button" className="wsh-tile" onClick={t.go}>{body}</button> : <div className="wsh-tile">{body}</div>}
                 </li>
               );
@@ -1012,11 +1016,11 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   <h2 id="wsh-quick-title" className="ws-h2">Quick actions</h2>
                 </div>
                 <ul className="wsh-quick">
-                  {quick.map((q) => {
+                  {quick.map((q, qi) => {
                     const Icon = q.icon;
                     return (
                       <li key={q.key}>
-                        <button type="button" className="wsh-quick-btn" onClick={go(q.key)}>
+                        <button type="button" className="wsh-quick-btn" onClick={go(q.key)} data-hue={HUES[qi % HUES.length]}>
                           <span className="wsh-quick-ico" aria-hidden="true"><Icon size={22} /></span>
                           <span className="wsh-quick-text">
                             <span className="wsh-quick-label">{q.label}</span>
