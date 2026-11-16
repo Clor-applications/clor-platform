@@ -130,7 +130,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                   <th>PAN</th>
                   <th className="ws-mid">Apps</th>
                   {th('people', 'Members', true)}
-                  <th>Status</th>
+                  <th className="ws-mid">Status</th>
                   <th className="ws-th-menu"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
@@ -152,7 +152,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                         </span>
                       </td>
                       <td className="ws-count ws-mid">{c.people}</td>
-                      <td>
+                      <td className="ws-mid">
                         {c.archived ? (
                           <span className="ws-pill ws-pill--neutral">Archived</span>
                         ) : c.gstin ? (
