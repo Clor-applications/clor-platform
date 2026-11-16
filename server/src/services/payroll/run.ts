@@ -219,6 +219,28 @@ export function oneOffTaxableOf(ctx: { components: Map<string, any> }, adjustmen
 }
 
 /**
+ * The PF and ESI wages a person's one-off earnings add this period (audit, 17
+ * Nov 2026). Arrears of basic are PF wages and an incentive is ESI wages, by
+ * the same flags on the component that decide it inside a structure; added
+ * after the structure, they were paid with no contribution worked out on them
+ * and the ECR wage came out short. A reimbursement is on a component that
+ * counts for neither.
+ */
+export function oneOffWagesOf(ctx: { components: Map<string, any> }, adjustments: any[]) {
+  let pfWage = 0;
+  let esiWage = 0;
+  for (const adj of adjustments) {
+    const component = ctx.components.get(adj.componentId);
+    const isDeduction = adj.type === 'DEDUCTION' || component?.type === 'DEDUCTION';
+    if (isDeduction || !component) continue;
+    const amount = Number(adj.amount) || 0;
+    if (component.includeInPfWage) pfWage += amount;
+    if (component.includeInEsiWage) esiWage += amount;
+  }
+  return { pfWage: round2(pfWage), esiWage: round2(esiWage) };
+}
+
+/**
  * What each person has already been paid and had deducted as TDS this
  * financial year, from earlier runs that went past review. Tax is projected
  * on pay so far plus this month for the months left, and only what is still
@@ -892,7 +914,9 @@ function calculateWithStatutory(
   profile: any,
   periodsPerYear: number,
   /** Taxable one-off adjustment earnings this period (a bonus), counted in the year once, not for every month left (#15). */
-  oneOffTaxable = 0
+  oneOffTaxable = 0,
+  /** PF and ESI wages those one-off earnings add (oneOffWagesOf). */
+  oneOffWages: { pfWage: number; esiWage: number } = { pfWage: 0, esiWage: 0 }
 ) {
   const engineInput = {
     annualCtc: Number(assignment.annualCtc),
@@ -972,8 +996,10 @@ function calculateWithStatutory(
       /* Income tax: the year the pay is for, so March paid in April takes March's rule (#1). */
       taxDate: ctx.period.endDate,
       wages: {
-        pfWage: pass.pfWage,
-        esiWage: pass.esiWage,
+        pfWage: round2(pass.pfWage + oneOffWages.pfWage),
+        esiWage: round2(pass.esiWage + oneOffWages.esiWage),
+        /* Cover is tested on the pay the structure gives, not on arrears or an incentive that month. */
+        esiCoverageWage: pass.esiWage,
         gross: pass.grossEarnings,
         /* Taxable earnings and employer NPS, never plain gross: a reimbursement is paid but not taxed. */
         annualTaxable: annualTaxable(pass),
@@ -1311,7 +1337,8 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         assignment,
         profile,
         PERIODS_PER_YEAR[structure.frequency] ?? 12,
-        oneOffTaxableOf(ctx, ctx.adjustmentsByEmployee.get(employee.id) || [])
+        oneOffTaxableOf(ctx, ctx.adjustmentsByEmployee.get(employee.id) || []),
+        oneOffWagesOf(ctx, ctx.adjustmentsByEmployee.get(employee.id) || [])
       );
       for (const id of stateRulesThatCount(trialStatutory)) rulesUsed.add(id);
       for (const e of trial.errors) {
@@ -1723,7 +1750,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
       assignment,
       profile,
       periodsPerYear(assignment.structureId),
-      oneOffTaxableOf(ctx, adjustments)
+      oneOffTaxableOf(ctx, adjustments),
+      oneOffWagesOf(ctx, adjustments)
     );
 
     /*

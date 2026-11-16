@@ -241,6 +241,43 @@ describe('a payroll with PF switched on', () => {
   });
 });
 
+describe('arrears and incentives paid on top of the structure (audit, 17 Nov 2026)', () => {
+  it('have PF worked out on them, up to the ceiling, by the component they are paid on', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    /* Basic ₹12,500 each. One gets ₹2,000 of basic arrears, one ₹5,000, one a ₹5,000 bonus that is not PF wages. */
+    const small = await addPerson(c, ids.structureId, 'Small arrears', 300_000);
+    const big = await addPerson(c, ids.structureId, 'Big arrears', 300_000);
+    const bonused = await addPerson(c, ids.structureId, 'Bonus only', 300_000);
+    const arrears = await api.post(c, '/components', { name: 'Basic arrears', code: 'BASIC_ARR', type: 'EARNING', calculationMethod: 'FIXED', isVariable: true, includeInPfWage: true, includeInEsiWage: true, displayOrder: 30 }).expect(201);
+    const bonus = await api.post(c, '/components', { name: 'Bonus', code: 'BONUS', type: 'EARNING', calculationMethod: 'FIXED', isVariable: true, displayOrder: 31 }).expect(201);
+    for (const [employeeId, componentId, amount] of [
+      [small, arrears.body.component.id, 2_000],
+      [big, arrears.body.component.id, 5_000],
+      [bonused, bonus.body.component.id, 5_000],
+    ] as const) {
+      const made = await api.post(c, '/adjustments', { employeeId, componentId, periodId: ids.periodId, amount, reason: 'Paid once' }).expect(201);
+      await api.post(c, `/adjustments/${made.body.adjustment.id}/approve`).expect(200);
+    }
+    const runId = await runPayroll(c, ids.periodId);
+    const slips = (await api.get(c, `/slips?runId=${runId}`).expect(200)).body.slips;
+    const of = (id: string) => slips.find((s: any) => s.employeeId === id);
+    /* 12% of ₹14,500. */
+    expect(of(small).totalDeductions).toBe(1740);
+    /* ₹17,500 of PF wages stops at the ₹15,000 ceiling. */
+    expect(of(big).totalDeductions).toBe(1800);
+    /* A bonus that is not PF wages changes nothing: 12% of ₹12,500. */
+    expect(of(bonused).totalDeductions).toBe(1500);
+    /*
+     * The employer's share on the arrears (₹240) comes out of cost to company
+     * like the rest of it, so the balancing allowance gives way by that much:
+     * ₹12,500 + (₹12,500 − ₹1,740) + ₹2,000.
+     */
+    expect(of(small).grossEarnings).toBe(25_260);
+    expect(of(bonused).grossEarnings).toBe(28_500);
+  }, 60_000);
+});
+
 describe('a rate that changes', () => {
   it('does not reach backwards into a month already paid', async () => {
     /*

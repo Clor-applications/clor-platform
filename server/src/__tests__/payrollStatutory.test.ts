@@ -127,6 +127,17 @@ describe('employee state insurance', () => {
     expect(over.explanation).toMatch(/threshold/i);
   });
 
+  it('contributes on a one-off earning without letting it take the person out of cover (audit, 17 Nov 2026)', async () => {
+    /* ₹18,000 of pay and a ₹4,000 incentive: covered on the pay, contributed on ₹22,000. */
+    const r = computeStatutory(rule('ESI'), { pfWage: 0, esiWage: 22000, esiCoverageWage: 18000, gross: 22000 }, employee(), context);
+    expect(r.exemptReason).toBeFalsy();
+    expect(r.wageApplied).toBe(22000);
+    expect(r.employee).toBe(165);
+    /* Pay over the limit is still out, whatever is paid on top. */
+    const out = computeStatutory(rule('ESI'), { pfWage: 0, esiWage: 26000, esiCoverageWage: 22000, gross: 26000 }, employee(), context);
+    expect(out.exemptReason).toBe('ABOVE_THRESHOLD');
+  });
+
   it('rounds up, as ESI is collected', async () => {
     const r = computeStatutory(rule('ESI'), { pfWage: 0, esiWage: 10001, gross: 10001 }, employee(), context);
     expect(Number.isInteger(r.employee)).toBe(true);
