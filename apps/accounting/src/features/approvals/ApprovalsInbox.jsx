@@ -92,7 +92,7 @@ export const ApprovalsInbox = ({ currentCompany, view = 'approvals' }) => {
       </select>}
     </div>
     <div className="ui-card overflow-x-auto">
-      <table className="w-full text-sm"><thead className="text-left"><tr>
+      <table className="w-full text-sm"><thead className="ui-list-head text-left"><tr>
         <th className="px-3 py-2">Transaction</th><th className="px-3 py-2">Workflow</th><th className="px-3 py-2 text-right">Amount</th>
         <th className="px-3 py-2">Submitted</th><th className="px-3 py-2">Status</th>
       </tr></thead><tbody>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { panelIcon } from '../../navPanelEmoji';
 import { ArrowLeft, ChevronRight, Search } from 'lucide-react';
 
 import { EntityMark } from '@ui/components/ui/Primitives';
@@ -52,7 +53,7 @@ export default function SettingsHub({ can = () => true, isEnabled = () => true, 
 
           <div className="grid overflow-hidden rounded-xl border ui-border-c xl:grid-cols-2">
             {settings.map((item) => {
-              const Icon = item.icon;
+              const Icon = panelIcon(item);
               const itemCategory = categoryFor(item.category);
               return (
                 <button key={item.key} type="button" onClick={() => onOpenSetting(item.key)} className="group flex min-h-[4.25rem] w-full items-center gap-3 border-b ui-border-c px-4 py-3 text-left transition-all hover:bg-[rgb(var(--heading-bg))] focus-visible:z-10 xl:odd:border-e">

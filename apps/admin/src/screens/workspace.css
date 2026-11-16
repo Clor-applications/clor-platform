@@ -2670,7 +2670,8 @@ button.ws-stat:hover {
   box-sizing: border-box;
   height: 40px;
   padding: 0 16px;
-  background: rgb(var(--surface-sunken, 244 245 242));
+  /* Every list's header row: the Books Invoices pale blue-grey (owner, 16 Nov 2026). */
+  background: rgb(var(--list-head, 234 242 248));
   color: rgb(var(--fg-muted, 58 63 71));
   font-size: 0.75rem;
   line-height: 1rem;

@@ -58,9 +58,13 @@ second colour orange `#FF6B00` for the chosen segment, the open module mark
 and the rail's "you are here"; page ground white, ink `#1F1A1C`, money in
 `#107E3E`, overdue / error `#B91C1C`. The override block is
 `:root[data-palette='indigo']` in `index.css`, after the shared red block it
-repaints. Lists, forms and layout are unchanged; only colour moved. never the chrome. The header row of every list (Invoice #, Customer, Date …)
-and the page heading band are white with a hairline (`--heading-bg`,
-`--page-heading-bg`; hover `#F7F7F7`; were pale blue-grey `#EAF2F8` until the white-only rule). Navigation is the split rail: a 72px
+repaints. Lists, forms and layout are unchanged; only colour moved. never the chrome. The header row of every list (Invoice #, Customer, Date …),
+in Books and in every other app (Workspace, Ops, People, Payroll, Attendance), is the pale
+blue-grey `#EAF2F8` of the Books Invoices list (`--list-head`, hover `#DDE9F2`
+`--list-head-hover`; owner, 16 Nov 2026). It is the one exception to the white-only grounds: a
+column header, not a ground. The page heading band stays white with a hairline (`--page-heading-bg`).
+Settings is a rail group like the others: its screens sit in the panel under category headings,
+the Books rail stays beside them, and opening Settings lands on Company Profile (as in the Books build). Navigation is the split rail: a 72px
 strip of modules, each an icon over its name, and a panel of the open
 module's screens with an X to close it. The panel is drawn like every other
 app's second panel: a pale tint of Books' clor.in blue, `#EFF1FC` (`--nav-panel`), with its hairline,
@@ -367,7 +371,8 @@ Four exceptions, each deliberate:
 
 ### Icons — two roles (owner, 15 Nov 2026)
 
-- **Navigation draws in Fluent Emoji (flat).** Rails, module panels, Settings
+- **Navigation draws in Fluent Emoji (flat).** Books' screens panel too: one emoji per
+  screen key in `apps/accounting/src/navPanelEmoji.js` (owner, 16 Nov 2026). Rails, module panels, Settings
   rows, the command palette and Books' rail modules use full-colour emoji from
   `@ui/components/ui/navEmoji` (Lucide names kept, so a manifest swaps one
   import) or `emoji('name')` from `@ui/components/ui/emoji`. The SVGs are local:
