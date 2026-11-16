@@ -50,6 +50,7 @@
   --act-2: 15 118 110;         /* the second colour; each app sets its own below */
   --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
   --panel: 255 255 255;        /* white */
+  --rail-bg: 247 247 247;      /* #F7F7F7: the rail's light grey. Neutral, not blue-grey: the text and graphite are warm-neutral, and a cool grey beside them read as a second palette (audit, 17 Nov 2026) */
   --hover-blue: 42 120 214;    /* #2A78D6: hover tint in the sidebars and the app menu */
   --select-green: 27 175 122;  /* #1BAF7A: the open (selected) item's tint, a different hue from hover (owner, 17 Nov 2026) */
   --panel-border: 229 229 229; /* #E5E5E5 hairline */
@@ -305,9 +306,15 @@
     height: calc(100dvh - 4rem);
     border-right: 0;
   }
-  :root:not(#rnd) .ui-topbar { padding-left: 1.25rem; }
-  /* The logo takes the rail's width and a little more, so the app switch starts clear of the rail's edge. */
-  :root:not(#rnd) .ui-topbar .ui-topbar-logo { min-width: 5.25rem; }
+  /* The bar keeps the columns under it (owner, 17 Nov 2026): the logo sits over the rail (5rem), the app
+     switch over the screens panel (12rem), and the search starts where the page's content does
+     (the panel's edge plus the content's 2rem). The bar's own 0.75rem gap is taken back each time. */
+  :root:not(#rnd) .ui-topbar { padding-left: 0; }
+  :root:not(#rnd) .ui-topbar .ui-topbar-logo { width: 5rem; min-width: 5rem; justify-content: center; margin-right: -0.75rem; }
+  /* The switch starts 1rem into the panel's column and the search 1rem past its edge (owner: "dropdown bit right, search bit left"). */
+  :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 12rem; padding-left: 1rem; margin-right: 0; }
+  :root:not(#rnd) .ui-topbar .ui-app-switch { margin-left: 0; max-width: 100%; }
+  :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) + .ui-global-search { margin-left: 0.25rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }
@@ -358,11 +365,17 @@
   line-height: 1.125rem;
 }
 :root:not(#rnd) .ui-app-switch {
-  height: 2.25rem;
+  /* Smaller (owner, 17 Nov 2026: "reduce size of the app dropdown"): 32px tall, a 22px mark, 14px name. */
+  height: 2rem;
+  gap: 0.375rem;
+  padding: 0 0.5rem 0 0.25rem;
   border: 1px solid rgb(var(--border-field));
   border-radius: 0.5rem;
   font-weight: 600;
 }
+:root:not(#rnd) .ui-topbar .ui-app-switch .ui-app-switch-mark { width: 1.375rem; height: 1.375rem; border-radius: 0.375rem; }
+:root:not(#rnd) .ui-topbar .ui-app-switch .ui-app-switch-mark > svg { width: 0.875rem; height: 0.875rem; }
+:root:not(#rnd) .ui-topbar .ui-app-switch .ui-app-switch-name { font-size: 0.875rem; line-height: 1.25rem; }
 /* The switcher's mark carries the app's identity hue as a filled tile, glyph in --on-brand: §6.3 allows the hue here and nowhere else. */
 :root:not(#rnd) .ui-app-switch-mark {
   background: rgb(var(--app-color, var(--act)));
@@ -377,7 +390,7 @@
 :root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(var(--select-green) / 0.16); }
 :root:not(#rnd) .ui-app-menu-item:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
 :root:not(#rnd) .ui-app-menu-item .ui-caption { color: rgb(var(--fg-muted)); }
-:root:not(#rnd) .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(240 242 245); color: rgb(var(--fg)); }
+:root:not(#rnd) .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(var(--rail-bg)); color: rgb(var(--fg)); }
 
 /* Rail: 80px, white, hairline. Symbol tile 36px. Each module is its icon with its name under it
    (owner, 16 Nov 2026: "sidebar add module names"), 8px radius, 24px icons, 11px names. */
@@ -388,7 +401,7 @@
   align-items: center;
   /* The rail is the tinted one: a light cool grey beside the white screens panel and page (owner,
      17 Nov 2026: "instead of second sidebar, add background color to first sidebar"). */
-  background: rgb(246 247 249);
+  background: rgb(var(--rail-bg));
   border-right: 1px solid rgb(var(--border));
   box-shadow: none;
 }
@@ -474,12 +487,13 @@
   border-top-color: rgb(var(--border));
 }
 
-/* Second panel: 200px on --panel (owner, 16 Nov 2026: narrower), its own scroll. 16px 600 title,
+/* Second panel: 176px (200px on 16 Nov; narrower again 17 Nov) on --panel, its own scroll. 16px 600 title,
    12px uppercase groups, 36px items with 20px icons, white active item with a
    --panel-border ring and a 3px --marker inset. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel {
-  width: 12.5rem;
-  padding: 1.25rem 0.75rem;
+  /* 192px (200 before; owner, 17 Nov 2026: "reduce size of ... second sidebar"). 176px cut "Security overview" short. */
+  width: 12rem;
+  padding: 1rem 0.5rem;
   display: flex;
   flex-direction: column;
   background: rgb(255 255 255);
@@ -519,21 +533,22 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head {
   height: auto;
   margin: 0 0 0.25rem;
-  padding: 0 0.75rem 0.5rem;
+  /* The same inset as the items under it, so the heading starts exactly over their icons. */
+  padding: 0 0.625rem 0.5rem;
   border-bottom: 0;
   background: transparent;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head > .ui-t-sec {
   font-family: var(--font-brand);
-  font-size: 1rem;
+  font-size: 0.9375rem;
   line-height: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: rgb(var(--fg));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head .ui-icon-btn { width: 1.75rem; height: 1.75rem; color: rgb(var(--fg-subtle)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel .ui-caption {
-  padding: 1rem 0.75rem 0.5rem;
+  padding: 0.875rem 0.625rem 0.375rem;
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
@@ -543,12 +558,12 @@
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div.mt-4 { margin-top: 0; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item {
-  height: 2.25rem;
+  height: 2rem;
   margin-bottom: 2px;
-  padding: 0 0.75rem;
-  gap: 0.625rem;
+  padding: 0 0.625rem;
+  gap: 0.5rem;
   border-radius: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500; /* 400 in grey read as washed out (owner, 17 Nov 2026: "fonts are very light in sidebars") */
   color: rgb(var(--fg));
   background: transparent;
@@ -733,4 +748,12 @@
 @media (max-width: 640px) {
   .ui-gate-bar { padding: 0 16px; }
   .ui-gate main#main-content.ui-gate-main { padding: 40px 16px 32px; }
+}
+
+/* Touch (a tablet keeps the rail and the screens panel): menu rows and the app switch are 44px under
+   a finger; the 32px sizes are for a mouse. */
+@media (pointer: coarse) {
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-item { height: 2.75rem; }
+  :root:not(#rnd) .ui-app-switch { height: 2.75rem; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot { min-height: 2.75rem; }
 }

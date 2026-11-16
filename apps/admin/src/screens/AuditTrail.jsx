@@ -5,7 +5,7 @@ import { Download, RefreshCw, Search } from '@ui/components/ui/lineIcons';
 import { exportRows } from '@ui/components/ListToolbar';
 import { listAudit, listAuditFacets } from '@platform/admin/audit';
 import { hasApp } from '@platform/context';
-import { AppTag, Avatar, PageHead } from './wsKit';
+import { AppTag, Avatar, Loading, PageHead } from './wsKit';
 import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
 import './ws-security.css';
@@ -374,7 +374,7 @@ export default function AuditTrail({ tenant } = {}) {
         {!entries.length && !loading ? (
           <p className="ws-card-blurb">Nothing matches these filters.</p>
         ) : !entries.length ? (
-          <p className="ws-card-blurb">Loading activity…</p>
+          <Loading shape="rows" rows={3} label="Loading activity…" />
         ) : (
           <>
             <div className="ws-table-wrap">

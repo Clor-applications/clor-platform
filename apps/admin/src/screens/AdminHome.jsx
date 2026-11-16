@@ -8,7 +8,7 @@ import { getAccountOverview } from '@platform/admin/admin';
 import { operator } from '@platform/operator';
 import { ACTION_WORDS } from './AccountActivity';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
-import { AppMark, Avatar, ICON, Meter, Panel, ago, appInfo, appName, productIcon, seatState } from './wsKit';
+import { AppMark, Avatar, ICON, Meter, Panel, ago, appInfo, appName, colourIcon, productIcon, seatState } from './wsKit';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 import { orgId, requestOpenHelp } from '@platform/context';
 import { apiFetch } from '@platform/http';
@@ -755,7 +755,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 ) : attention.length ? (
                   <ul className="wsh-attn" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
                     {attention.map((a) => {
-                      const Icon = a.icon || ICON.alert;
+                      const Icon = colourIcon(a.icon || ICON.alert);
                       const body = (
                         <>
                           <span className={`wsh-ico ${TONE_CLASS[a.tone] || ''}`} aria-hidden="true"><Icon size={18} /></span>

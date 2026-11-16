@@ -1,15 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+import { emoji } from '@ui/components/ui/emoji';
 import { memberDirectory, renameAccount } from '@platform/admin/account';
 import { formatMoney } from '@ui/utils/money';
 import { formatDateIn, localDateIso } from '@ui/utils/dates';
 import NotConnected from '@ui/components/ui/NotConnected';
 import { getAccountOverview } from '@platform/admin/admin';
 import { requestOpenScreen } from '@platform/context';
-import { ICON, PageHead, Panel, Stat } from './wsKit';
+import { Empty, ICON, Loading, PageHead, Panel, Stat } from './wsKit';
 import { inr } from './InvoiceDocument';
 import './workspace.css';
 import './ws-plan.css';
+
+/* The colour icons the empty lists show. */
+const SYNC_ICON = emoji('link');
+const COMPANY_ICON = emoji('classical-building');
+const PEOPLE_ICON = emoji('busts-in-silhouette');
 
 /**
  * Workspace → Settings → Workspace settings (redesign W-R8, R&D hand-off
@@ -149,7 +155,7 @@ function DataHealth({ health }) {
   if (health.status === 'none') {
     return (
       <Panel title="Data health">
-        <p className="ws-card-blurb">Nothing to sync: no readers, connectors or mail on this account yet.</p>
+        <Empty icon={SYNC_ICON} compact>Nothing to sync: no readers, connectors or mail on this account yet.</Empty>
       </Panel>
     );
   }
@@ -283,7 +289,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
           }
         />
 
-        {loading ? <p className="ws-card-blurb">Loading the account…</p> : null}
+        {loading ? <Loading shape="card" rows={3} label="Loading the account…" /> : null}
         {failed ? (
           <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>
             The account could not be read: {failed}
@@ -317,7 +323,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                   <span className="ws-head-meta">{companies.length}</span>
                 </div>
                 {companies.length === 0 ? (
-                  <p className="ws-card-blurb">No companies yet. The first company is created at signup.</p>
+                  <Empty icon={COMPANY_ICON} compact>No companies yet.</Empty>
                 ) : (
                   <div className="ws-table-wrap">
                     <table className="ws-table">
@@ -378,7 +384,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                   <span className="ws-head-meta">{users.length}</span>
                 </div>
                 {users.length === 0 ? (
-                  <p className="ws-card-blurb">Nobody else yet.</p>
+                  <Empty icon={PEOPLE_ICON} compact>Nobody else yet.</Empty>
                 ) : (
                   <ul className="ws-list ws-flat-list">
                     {users.map((u) => (

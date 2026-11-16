@@ -7,6 +7,14 @@ const entitlement = vi.fn();
 vi.mock('@platform/admin/admin', () => ({ getAccountOverview: (...a) => overview(...a), listRoles: async () => ({ roles: [] }) }));
 vi.mock('@ui/api/features', () => ({ getEntitlement: (...a) => entitlement(...a) }));
 vi.mock('@platform/context', () => ({ orgId: () => 'o1', requestOpenApp: vi.fn() }));
+/* The invoice list answers, empty: a list that cannot be read now says so and is not "No invoices". */
+vi.mock('@platform/http', async (original) => ({
+  ...(await original()),
+  apiFetch: async (path) => {
+    if (path === '/billing/invoices') return { invoices: [] };
+    throw new Error('not mocked');
+  },
+}));
 vi.mock('@platform/admin/security', () => ({
   getProviders: vi.fn(async () => ({
     redirectUri: 'https://app.clor.in/api/auth/sso/callback',

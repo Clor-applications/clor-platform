@@ -15,6 +15,8 @@ import { InvoiceDocument, inr } from './InvoiceDocument';
  */
 export function useInvoices() {
   const [invoices, setInvoices] = useState(null);
+  /* A list that could not be read stays unread (null): an empty list would say "No invoices yet". */
+  const [failed, setFailed] = useState(false);
   const [payOnline, setPayOnline] = useState(false);
   const [open, setOpen] = useState(null);
   const [paying, setPaying] = useState(false);
@@ -26,16 +28,27 @@ export function useInvoices() {
       .catch((e) => setOpen({ error: String(e?.message || e) }));
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const listInvoices = () =>
+  /* A ref, not the effect's own flag: Try again reads the list from outside the effect. */
+  const live = useRef(true);
+  const listInvoices = useCallback(
+    () =>
       apiFetch('/billing/invoices')
         .then((r) => {
-          if (cancelled) return;
+          if (!live.current) return;
           setInvoices(r?.invoices || []);
           setPayOnline(Boolean(r?.payOnline));
         })
-        .catch(() => !cancelled && setInvoices([]));
+        .catch(() => live.current && setFailed(true)),
+    [],
+  );
+  const reload = () => {
+    setFailed(false);
+    listInvoices();
+  };
+
+  useEffect(() => {
+    live.current = true;
+    let cancelled = false;
     /* Back from the payment page: ask whether the invoice is paid, then show it. */
     const back = new URLSearchParams(window.location.search).get('paid');
     if (back) {
@@ -57,8 +70,9 @@ export function useInvoices() {
     } else listInvoices();
     return () => {
       cancelled = true;
+      live.current = false;
     };
-  }, [openInvoice]);
+  }, [openInvoice, listInvoices]);
 
   /* The gateway's page for this invoice; it sends the customer back here with ?paid=<id>. */
   const payNow = async (inv) => {
@@ -74,7 +88,7 @@ export function useInvoices() {
     }
   };
 
-  return { invoices, payOnline, open, openInvoice, close: () => setOpen(null), payNow, paying };
+  return { invoices, failed, reload, payOnline, open, openInvoice, close: () => setOpen(null), payNow, paying };
 }
 
 /** One invoice as the document, with Print or save as PDF and, when CLOR takes payments online, Pay. */

@@ -31,6 +31,7 @@ import {
   UsersRound,
   Workflow,
 } from '@ui/components/ui/navEmoji';
+import { PageIconContext } from './src/screens/pageIcon.js';
 import { ShieldCheck as AppShieldCheck } from 'lucide-react';
 import { memberDirectory } from '@platform/admin/account';
 import { listBranches } from '@platform/admin/admin';
@@ -186,7 +187,8 @@ export const adminApp = {
       { label: 'Companies', items: ['companies', 'branches', 'company'] },
     ] },
     { key: 'apps', label: 'Apps', icon: RAIL.apps, items: ['apps', 'integrations', 'automations', 'notifications'] },
-    { key: 'access', label: 'People & access', short: 'People', icon: RAIL.access, groups: [
+    /* "Users", not "People" (owner, 17 Nov 2026): People is the name of an app, and the two read as one thing. */
+    { key: 'access', label: 'Users & access', short: 'Users', icon: RAIL.access, groups: [
       { label: null, items: ['members', 'roles', 'outsideAccess'] },
       { label: 'More', items: ['users', 'invitations', 'permissions', 'supportAccess', 'accessHome'] },
     ] },
@@ -222,13 +224,14 @@ export const adminApp = {
     { key: 'members', label: 'Members', icon: NAV.members, permission: 'SETTINGS::Users::VIEW' },
     { key: 'roles', label: 'Roles', icon: NAV.roles, permission: 'SETTINGS::Roles::VIEW' },
     /* Accountants and other outside firms let into a company, for a time. */
-    { key: 'outsideAccess', label: 'Accountant access', icon: NAV.outsideAccess, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'users', label: 'Users in this company', short: 'Users', icon: NAV.users, permission: 'SETTINGS::Users::VIEW' },
+    /* Short names, so none is cut off in the 176px screens panel (17 Nov 2026): each page keeps its full title. */
+    { key: 'outsideAccess', label: 'Accountants', icon: NAV.outsideAccess, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'users', label: 'Company users', short: 'Users', icon: NAV.users, permission: 'SETTINGS::Users::VIEW' },
     /* W-3: shown with Users; the server lets only the account's owners and administrators invite. */
     { key: 'invitations', label: 'Invitations', icon: NAV.invitations, permission: 'SETTINGS::Users::VIEW' },
     { key: 'permissions', label: 'Permissions', icon: NAV.permissions, permission: 'SETTINGS::Roles::VIEW' },
     /* CLOR staff asking to look, and the ones let in: approved here, never on the console (docs/workspace/SUPPORT_GRANTS.md). */
-    { key: 'supportAccess', label: 'CLOR support access', icon: NAV.supportAccess, permission: 'SETTINGS::Users::VIEW' },
+    { key: 'supportAccess', label: 'Support access', icon: NAV.supportAccess, permission: 'SETTINGS::Users::VIEW' },
     { key: 'accessHome', label: 'Access overview', short: 'Access', icon: NAV.accessHome, permission: 'SETTINGS::Users::VIEW' },
     { key: 'billing', label: 'Billing & seats', icon: NAV.billing, permission: 'SETTINGS::Company Profile::VIEW' },
     /* CLOR's tax invoices to this account (routes/billing.ts GET /billing/invoices). */
@@ -280,3 +283,20 @@ export const adminApp = {
     invoices: Invoices,
   },
 };
+
+/*
+ * Every Workspace page wears its menu item's colour icon beside its title (owner, 17 Nov 2026:
+ * "icons are missing for headings"). Done once here, so a new screen gets it by being in the menu.
+ */
+for (const item of adminApp.nav) {
+  const Screen = adminApp.screens[item.key];
+  if (!Screen || !item.icon) continue;
+  const Icon = item.icon;
+  const WithPageIcon = (props) => (
+    <PageIconContext.Provider value={Icon}>
+      <Screen {...props} />
+    </PageIconContext.Provider>
+  );
+  WithPageIcon.displayName = `WithPageIcon(${item.key})`;
+  adminApp.screens[item.key] = WithPageIcon;
+}

@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Plus, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 import { requestOpenScreen } from '@platform/context';
 
 import { confirmDialog } from '@ui/components/ui/notify';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
-import { AppMark, AppTag, Avatar, ICON, PageHead, Stat, StatusPill, WsDrawer } from './wsKit';
+import { AppMark, AppTag, Avatar, Empty, ICON, Loading, PageHead, Stat, StatusPill, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
+
+/* The colour icon an empty list shows: the one its menu item wears. */
+const EMPTY_ICON = emoji('busts-in-silhouette');
 
 /**
  * Workspace → Members (W-4): everyone in the account, with what they can
@@ -191,9 +195,11 @@ export default function Members() {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {data === null ? (
-          <p className="ws-card-blurb">Loading members…</p>
+          <Loading shape="rows" rows={3} label="Loading members…" />
         ) : rows.length === 0 ? (
-          <p className="ws-card-blurb">{data.members.length ? 'Nobody matches these filters.' : 'Nobody is in the account yet. Invite people under Invitations.'}</p>
+          <Empty icon={EMPTY_ICON} compact action={data.members.length ? null : { label: 'Invite people', onClick: () => requestOpenScreen('invitations') }}>
+            {data.members.length ? 'Nobody matches these filters.' : 'Nobody is in the account yet.'}
+          </Empty>
         ) : (
           <div className="ws-table-wrap">
             <table className="ws-table ws-members">
@@ -259,7 +265,7 @@ export default function Members() {
 
       <WsDrawer open={Boolean(openId)} onClose={() => { setOpenId(''); setDetail(null); }} title={detail?.name || detail?.email || 'Member'} description={detail?.email || ''}>
         {!detail ? (
-          <p className="ui-caption">Loading…</p>
+          <Loading shape="card" label="Loading…" />
         ) : detail.error ? (
           <p role="alert" className="text-sm">{detail.error}</p>
         ) : (

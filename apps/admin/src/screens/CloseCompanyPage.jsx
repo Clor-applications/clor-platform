@@ -4,7 +4,7 @@ import { Check, Download, Undo2 } from '@ui/components/ui/lineIcons';
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
-import { ICON, PageHead, Panel } from './wsKit';
+import { ICON, Loading, PageHead, Panel } from './wsKit';
 import './workspace.css';
 
 /**
@@ -109,7 +109,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {!state ? (
-          error ? null : <p className="ws-card-blurb">Loading…</p>
+          error ? null : <Loading shape="card" label="Loading…" />
         ) : !canClose ? (
           <Panel title="Only an administrator can close this company">
             <p className="ws-card-blurb">Only an administrator of this company can close it{scheduled ? ' or cancel its closure' : ''}.</p>

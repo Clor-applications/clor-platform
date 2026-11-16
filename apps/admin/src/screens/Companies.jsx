@@ -5,7 +5,7 @@ import { ArrowDownUp, MoreHorizontal, Plus, Search } from '@ui/components/ui/lin
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { isValidGstin } from '@ui/utils/gstin';
 import { archiveCompany, getAccountOverview, reactivateCompany } from '@platform/admin/admin';
-import { AppMark, PageHead, WsDrawer } from './wsKit';
+import { AppMark, Empty, Loading, PageHead, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
 import './ws-home.css';
@@ -114,11 +114,11 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {data === null ? (
-          <p className="ws-card-blurb">Loading companies…</p>
+          <Loading shape="rows" rows={3} label="Loading companies…" />
         ) : list.total === 0 ? (
-          <div className="ws-setup">
-            <p className="ws-card-blurb">{companies.length ? 'No company matches this search.' : 'No company yet. Add the first one.'}</p>
-          </div>
+          <Empty icon={PAGE_ICON} compact action={!companies.length && addCompany && !atLimit ? { label: 'Add company', onClick: () => setAdding(true) } : null}>
+            {companies.length ? 'No company matches this search.' : 'No company yet.'}
+          </Empty>
         ) : (
           <div className="ws-table-wrap">
             <table className="ws-table">
@@ -130,7 +130,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                   <th>PAN</th>
                   <th className="ws-mid">Apps</th>
                   {th('people', 'Members', true)}
-                  <th>Status</th>
+                  <th className="ws-mid">Status</th>
                   <th className="ws-th-menu"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
@@ -152,7 +152,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                         </span>
                       </td>
                       <td className="ws-count ws-mid">{c.people}</td>
-                      <td>
+                      <td className="ws-mid">
                         {c.archived ? (
                           <span className="ws-pill ws-pill--neutral">Archived</span>
                         ) : c.gstin ? (

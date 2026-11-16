@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 
 import NotConnected from '@ui/components/ui/NotConnected';
+import { emoji } from '@ui/components/ui/emoji';
 import { getAccountOverview } from '@platform/admin/admin';
 import { memberDirectory } from '@platform/admin/account';
 import { requestOpenScreen } from '@platform/context';
 import { getEntitlement } from '@ui/api/features';
-import { PageHead, SeatRow, appInfo } from './wsKit';
+import { Empty, LoadError, Loading, PageHead, SeatRow, appInfo } from './wsKit';
 import { inr } from './InvoiceDocument';
 import { InvoiceDrawer, InvoiceTable, invoiceDay, useInvoices } from './InvoiceDrawer';
 import { seatsByApp } from './overviewFigures';
@@ -38,14 +39,19 @@ const SEAT_IS = {
 };
 /** How many invoices Billing & seats lists; the Invoices page has them all. */
 const RECENT = 3;
+/* The colour icon the empty invoice list shows: the one the Invoices menu item wears. */
+const EMPTY_ICON = emoji('page-facing-up');
 
 export default function BillingPreview() {
   const [plan, setPlan] = useState(null);
   const [usage, setUsage] = useState(null);
   const [overview, setOverview] = useState(null);
   const [directory, setDirectory] = useState(null);
+  /* Neither the entitlement nor the account answered: said so, not left as "Reading the plan…". */
+  const [planFailed, setPlanFailed] = useState(false);
+  const [tries, setTries] = useState(0);
   const viewer = useInvoices();
-  const { invoices, payOnline, openInvoice } = viewer;
+  const { invoices, failed: invoicesFailed, reload: reloadInvoices, payOnline, openInvoice } = viewer;
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +61,7 @@ export default function BillingPreview() {
       setPlan(ent?.plan || acct?.plan || null);
       setUsage(acct?.usage || ent?.usage || null);
       setOverview(acct || null);
+      setPlanFailed(!ent && !acct);
     });
     /* The directory counts seats in use; only owners and administrators may read it, so anyone else sees no seats. */
     memberDirectory()
@@ -63,7 +70,7 @@ export default function BillingPreview() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tries]);
 
   const unpaid = (invoices || []).filter((i) => i.status === 'ISSUED');
   const seatApps = (overview?.seats || []).map((s) => s.app).filter((a) => appInfo(a));
@@ -96,12 +103,16 @@ export default function BillingPreview() {
           </NotConnected>
         ) : null}
 
+        {planFailed ? (
+          <LoadError onRetry={() => { setPlanFailed(false); setTries((n) => n + 1); }}>The plan could not be loaded. Try again in a minute.</LoadError>
+        ) : null}
+
         <section className="ws-plan-summary" aria-label="Plan">
           <div>
             <span className="ws-plan-label">Plan</span>
             <span className="ws-plan-value">{plan?.name || '—'}</span>
             <span className="ws-plan-sub">
-              {plan ? (plan.inGoodStanding === false ? `Status: ${plan.status}` : ['Active', planWhen].filter(Boolean).join(' · ')) : 'Reading the plan…'}
+              {plan ? (plan.inGoodStanding === false ? `Status: ${plan.status}` : ['Active', planWhen].filter(Boolean).join(' · ')) : planFailed ? 'Not read' : 'Reading the plan…'}
             </span>
           </div>
           {runRate ? (
@@ -114,7 +125,7 @@ export default function BillingPreview() {
           <div>
             <span className="ws-plan-label">To pay</span>
             <span className="ws-plan-value ws-plan-money">{invoices === null ? '—' : inr(unpaid.reduce((n, i) => n + Number(i.total || 0), 0))}</span>
-            <span className="ws-plan-sub">{invoices === null ? 'Reading invoices…' : unpaid.length ? `${unpaid.length === 1 ? 'One invoice' : `${unpaid.length} invoices`} unpaid` : 'Nothing unpaid'}</span>
+            <span className="ws-plan-sub">{invoices === null ? (invoicesFailed ? 'Not read' : 'Reading invoices…') : unpaid.length ? `${unpaid.length === 1 ? 'One invoice' : `${unpaid.length} invoices`} unpaid` : 'Nothing unpaid'}</span>
           </div>
           <div>
             <span className="ws-plan-label">Usage</span>
@@ -149,10 +160,12 @@ export default function BillingPreview() {
               </button>
             ) : null}
           </div>
-          {invoices === null ? (
-            <p className="ws-card-blurb">Reading invoices…</p>
+          {invoicesFailed ? (
+            <LoadError onRetry={reloadInvoices}>Invoices could not be loaded. Try again in a minute.</LoadError>
+          ) : invoices === null ? (
+            <Loading shape="rows" rows={3} label="Reading invoices…" />
           ) : !invoices.length ? (
-            <p className="ws-card-blurb">No invoices yet.</p>
+            <Empty icon={EMPTY_ICON} compact>No invoices yet.</Empty>
           ) : (
             <InvoiceTable invoices={invoices.slice(0, RECENT)} onOpen={openInvoice} />
           )}

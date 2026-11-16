@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { approveSupportGrant, endSupportGrant, listSupportGrants } from '@platform/admin/supportGrants';
-import { ICON, PageHead, Stat } from './wsKit';
+import { ICON, Loading, PageHead, Stat } from './wsKit';
 import './workspace.css';
 
 /**
@@ -138,7 +138,7 @@ export default function SupportAccess() {
             <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={load}>Try again</button>
           </div>
         ) : !data ? (
-          <p className="ws-card-blurb">Loading…</p>
+          <Loading shape="rows" label="Loading…" />
         ) : (
           <>
             {waiting.length ? (
