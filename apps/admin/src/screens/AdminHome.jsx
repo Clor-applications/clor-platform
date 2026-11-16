@@ -101,6 +101,9 @@ const E = {
   bulb: emoji('light-bulb'),
   chat: emoji('speech-balloon'),
   letter: emoji('envelope'),
+  bolt: emoji('high-voltage'),
+  buoy: emoji('ring-buoy'),
+  clock: emoji('alarm-clock'),
 };
 
 /** Good morning / afternoon / evening, by the reader's own clock. */
@@ -635,7 +638,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         {appCards.length ? (
           <section className="wsh-apps-wrap" aria-labelledby="wsh-apps-title">
             <div className="wsh-card-head">
-              <h2 id="wsh-apps-title" className="ws-h2">Your apps</h2>
+              <h2 id="wsh-apps-title" className="ws-h2"><E.rocket size={20} className="ws-head-ico" aria-hidden="true" />Your apps</h2>
               {go('apps') ? (
                 <button type="button" className="ws-link" onClick={go('apps')}>
                   All apps <ChevronRight size={16} aria-hidden="true" />
@@ -680,7 +683,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             {team ? (
               <section className="wsh-card" aria-labelledby="wsh-team-title">
                 <div className="wsh-card-head">
-                  <h2 id="wsh-team-title" className="ws-h2">Team and access</h2>
+                  <h2 id="wsh-team-title" className="ws-h2"><E.people size={20} className="ws-head-ico" aria-hidden="true" />Team and access</h2>
                   {go('members') ? (
                     <button type="button" className="ws-link" onClick={go('members')}>
                       Members <ChevronRight size={16} aria-hidden="true" />
@@ -734,6 +737,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               <section ref={attentionRef} className="wsh-card" style={{ scrollMarginTop: 16 }} aria-labelledby="ws-attn-title">
                 <div className="wsh-card-head">
                   <h2 id="ws-attn-title" className="ws-h2">
+                    <E.bell size={20} className="ws-head-ico" aria-hidden="true" />
                     Needs your attention
                     {attention.length ? <span className="wsh-count ui-num" aria-hidden="true">{attention.length}</span> : null}
                   </h2>
@@ -779,7 +783,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               {isAdmin && here ? (
                 <section className="wsh-card" aria-labelledby="wsh-co-title">
                   <div className="wsh-card-head">
-                    <h2 id="wsh-co-title" className="ws-h2">Company overview</h2>
+                    <h2 id="wsh-co-title" className="ws-h2"><E.building size={20} className="ws-head-ico" aria-hidden="true" />Company overview</h2>
                     {go('company') ? <button type="button" className="ws-link" onClick={go('company')}>Profile <ChevronRight size={16} aria-hidden="true" /></button> : null}
                   </div>
                   <div className="wsh-co">
@@ -826,7 +830,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             {companiesTable && (companiesTable.length > 1 || !here) ? (
               <section className="wsh-card" aria-labelledby="ws-cos-title">
                 <div className="wsh-card-head">
-                  <h2 id="ws-cos-title" className="ws-h2">Companies</h2>
+                  <h2 id="ws-cos-title" className="ws-h2"><E.building size={20} className="ws-head-ico" aria-hidden="true" />Companies</h2>
                   {go('companies') ? <button type="button" className="ws-link" onClick={go('companies')}>Add company <ChevronRight size={16} aria-hidden="true" /></button> : null}
                 </div>
                 {companiesTable.length ? (
@@ -871,6 +875,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             <div className="wsh-pair">
               {plan ? (
                 <Panel
+                  icon={E.card}
                   title="Subscription"
                   action={
                     go('billing') || go('account') ? (
@@ -932,7 +937,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               {activity ? (
                 <section className="wsh-card" aria-labelledby="ws-activity-title">
                   <div className="wsh-card-head">
-                    <h2 id="ws-activity-title" className="ws-h2">Recent activity</h2>
+                    <h2 id="ws-activity-title" className="ws-h2"><E.clock size={20} className="ws-head-ico" aria-hidden="true" />Recent activity</h2>
                     {go('accountActivity') ? (
                       <button type="button" className="ws-link" onClick={go('accountActivity')}>View all <ChevronRight size={16} aria-hidden="true" /></button>
                     ) : null}
@@ -971,6 +976,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               <div className="wsh-pair">
                 {security ? (
                   <Panel
+                    icon={E.shield}
                     title="Security"
                     action={
                       go('securityHome') ? (
@@ -988,7 +994,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 ) : null}
 
                 {health && health.sources.length ? (
-                  <Panel title="Connections">
+                  <Panel icon={E.link} title="Connections">
                     <ul className="ws-list">
                       {health.sources.map((x) => (
                         <li key={x.key}>
@@ -1017,7 +1023,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             {quick.length ? (
               <section className="wsh-card" aria-labelledby="wsh-quick-title">
                 <div className="wsh-card-head">
-                  <h2 id="wsh-quick-title" className="ws-h2">Quick actions</h2>
+                  <h2 id="wsh-quick-title" className="ws-h2"><E.bolt size={20} className="ws-head-ico" aria-hidden="true" />Quick actions</h2>
                 </div>
                 <ul className="wsh-quick">
                   {quick.map((q, qi) => {
@@ -1039,7 +1045,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               </section>
             ) : null}
 
-            <Panel title="Help and support">
+            <Panel icon={E.buoy} title="Help and support">
               <ul className="ws-list">
                 {[
                   ['welcome', 'Help centre', 'Guides for the Workspace and every app', E.books],

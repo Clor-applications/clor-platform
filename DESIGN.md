@@ -769,6 +769,10 @@ because focus, portals and event order cannot be read off the source.
   panel and the app menu are a soft blue (`--hover-blue` #2A78D6 at 10% and 14%),
   not grey ("when cursor moves with any option it's grey now, I want different
   color").
+  On the Overview each card's headline carries a colour icon, and the Help and
+  support rows carry the same icon chips as Quick actions. Fluent Emoji icons
+  are drawn a step richer everywhere (`saturate(1.35) contrast(1.18)`): the flat
+  set's pale greys washed out on white ("increase icons contrast").
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

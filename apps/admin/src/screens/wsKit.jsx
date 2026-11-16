@@ -156,12 +156,12 @@ export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
 }
 
 /** A titled block; `action` is a small link on the right. */
-export function Panel({ title, action, children, labelledBy }) {
+export function Panel({ title, action, children, labelledBy, icon: Icon = null }) {
   const id = labelledBy || `ws-panel-${String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
     <section className="ws-panel" aria-labelledby={id}>
       <div className="ws-panel-head">
-        <h2 id={id} className="ws-panel-title">{title}</h2>
+        <h2 id={id} className="ws-panel-title">{Icon ? <Icon size={20} className="ws-head-ico" aria-hidden="true" /> : null}{title}</h2>
         {action || null}
       </div>
       {children}

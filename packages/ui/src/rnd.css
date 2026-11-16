@@ -422,6 +422,10 @@
   font-weight: 700;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod > svg { width: 1.5rem; height: 1.5rem; font-size: 1.5rem; transform: none; }
+/* Fluent Emoji icons a step richer everywhere (owner, 17 Nov 2026: "increase icons contrast used in
+   side bars and other places"): the flat set's pale greys and pastels washed out on white. */
+:root:not(#rnd) .ui-emoji { filter: saturate(1.35) contrast(1.18); }
+
 /* Hover and the open item are a soft blue, not grey (owner, 17 Nov 2026: "when cursor moves with any
    option it's grey now, I want different color"). One blue for every app: a tint of the app's own
    colour came out grey in the Workspace and orange in Attendance. */
