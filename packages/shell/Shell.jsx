@@ -1055,18 +1055,17 @@ function ShellScreens() {
       ))}
       {/* The foot of the panel: help, where a short list used to leave the column empty (owner, 17 Nov 2026). A phone's sheet has its own menu. */}
       {!phone ? (
-        <div className="ui-split-panel-foot">
-          <HelpFace size={32} aria-hidden="true" />
-          <p className="ui-split-panel-foot-title">Need a hand?</p>
-          <p className="ui-split-panel-foot-text">Guides for every screen{app?.name ? ` in ${app.name}` : ''}.</p>
-          <button
-            type="button"
-            className="ui-btn ui-btn-secondary ui-btn-sm w-full"
-            onClick={() => { setHelpTopic('welcome'); setPlatformScreen('help'); setShowMoreApps(false); window.scrollTo(0, 0); }}
-          >
-            Open help centre
-          </button>
-        </div>
+        <button
+          type="button"
+          className="ui-split-panel-foot"
+          onClick={() => { setHelpTopic('welcome'); setPlatformScreen('help'); setShowMoreApps(false); window.scrollTo(0, 0); }}
+        >
+          <HelpFace size={26} aria-hidden="true" />
+          <span className="ui-split-panel-foot-text">
+            <span className="ui-split-panel-foot-title">Need a hand?</span>
+            <span className="ui-split-panel-foot-sub">Open help centre</span>
+          </span>
+        </button>
       ) : null}
       {/* The Workspace lists the apps on its Overview and the switcher has More apps; its own panel is administration only. */}
       {app?.id === ADMIN_APP_ID || !phone ? null : (

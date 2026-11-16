@@ -485,27 +485,33 @@
   background: rgb(246 247 249);
   border-right: 1px solid rgb(var(--panel-border));
 }
-/* The foot of the panel: one small help card, held at the bottom. */
+/* The foot of the panel: one short help row, held at the bottom (a taller card first; owner, 17 Nov:
+   "decrease height"). The whole row opens the help centre. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot {
   margin-top: auto;
-  display: grid;
-  justify-items: start;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
   border: 1px solid rgb(var(--panel-border));
   border-radius: 0.75rem;
   background: rgb(255 255 255);
-}
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div + .ui-split-panel-foot { margin-top: auto; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-title {
-  margin: 0.25rem 0 0;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 700;
+  font: inherit;
   color: rgb(var(--fg));
+  text-align: left;
+  cursor: pointer;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-text {
-  margin: 0 0 0.5rem;
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:hover { background: rgb(var(--hover-blue) / 0.1); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: 2px; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div + .ui-split-panel-foot { margin-top: auto; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-text { display: grid; min-width: 0; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-title {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+}
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-sub {
   font-size: 0.75rem;
   line-height: 1rem;
   color: rgb(var(--fg-muted));
