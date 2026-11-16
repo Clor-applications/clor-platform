@@ -306,12 +306,12 @@
     border-right: 0;
   }
   /* The bar keeps the columns under it (owner, 17 Nov 2026): the logo sits over the rail (5rem), the app
-     switch over the screens panel (11rem), and the search starts where the page's content does
+     switch over the screens panel (12rem), and the search starts where the page's content does
      (the panel's edge plus the content's 2rem). The bar's own 0.75rem gap is taken back each time. */
   :root:not(#rnd) .ui-topbar { padding-left: 0; }
   :root:not(#rnd) .ui-topbar .ui-topbar-logo { width: 5rem; min-width: 5rem; justify-content: center; margin-right: -0.75rem; }
   /* The switch starts 1rem into the panel's column and the search 1rem past its edge (owner: "dropdown bit right, search bit left"). */
-  :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 11rem; padding-left: 1rem; margin-right: 0; }
+  :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 12rem; padding-left: 1rem; margin-right: 0; }
   :root:not(#rnd) .ui-topbar .ui-app-switch { margin-left: 0; max-width: 100%; }
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) + .ui-global-search { margin-left: 0.25rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
@@ -490,8 +490,8 @@
    12px uppercase groups, 36px items with 20px icons, white active item with a
    --panel-border ring and a 3px --marker inset. */
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel {
-  /* 176px (200 before; owner, 17 Nov 2026: "reduce size of ... second sidebar"). */
-  width: 11rem;
+  /* 192px (200 before; owner, 17 Nov 2026: "reduce size of ... second sidebar"). 176px cut "Security overview" short. */
+  width: 12rem;
   padding: 1rem 0.5rem;
   display: flex;
   flex-direction: column;
@@ -562,7 +562,7 @@
   padding: 0 0.625rem;
   gap: 0.5rem;
   border-radius: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500; /* 400 in grey read as washed out (owner, 17 Nov 2026: "fonts are very light in sidebars") */
   color: rgb(var(--fg));
   background: transparent;

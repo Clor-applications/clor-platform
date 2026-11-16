@@ -31,6 +31,7 @@ import {
   UsersRound,
   Workflow,
 } from '@ui/components/ui/navEmoji';
+import { PageIconContext } from './src/screens/pageIcon.js';
 import { ShieldCheck as AppShieldCheck } from 'lucide-react';
 import { memberDirectory } from '@platform/admin/account';
 import { listBranches } from '@platform/admin/admin';
@@ -282,3 +283,20 @@ export const adminApp = {
     invoices: Invoices,
   },
 };
+
+/*
+ * Every Workspace page wears its menu item's colour icon beside its title (owner, 17 Nov 2026:
+ * "icons are missing for headings"). Done once here, so a new screen gets it by being in the menu.
+ */
+for (const item of adminApp.nav) {
+  const Screen = adminApp.screens[item.key];
+  if (!Screen || !item.icon) continue;
+  const Icon = item.icon;
+  const WithPageIcon = (props) => (
+    <PageIconContext.Provider value={Icon}>
+      <Screen {...props} />
+    </PageIconContext.Provider>
+  );
+  WithPageIcon.displayName = `WithPageIcon(${item.key})`;
+  adminApp.screens[item.key] = WithPageIcon;
+}

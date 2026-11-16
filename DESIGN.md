@@ -796,6 +796,16 @@ because focus, portals and event order cannot be read off the source.
   left-aligned under their heading, pills, tags, app marks and row buttons level
   with the text. No Workspace page draws a caption under its title (the
   one-line purpose is kept for screen readers).
+  After the 17 Nov release (#288), same day: every Workspace page wears its menu
+  item's colour icon beside its title (set once in the manifest); the
+  Workspace's "People & access" module is "Users & access" (People is an app's
+  name); the bar keeps the columns under it (logo over the 80px rail, app
+  switch over the 192px screens panel, search beside the content's edge), with
+  a smaller logo (13px) and a 32px app switch; figure cards on list pages are
+  one short row with a colour chip (blue, green, violet, orange in turn) and
+  filter fields are 32px; Apps is three compact cards across; in Activity the
+  kind of change is plain past-tense words ("Edited"), never a pill that reads
+  as a button.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
