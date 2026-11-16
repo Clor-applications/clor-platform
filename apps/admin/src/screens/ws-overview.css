@@ -3,11 +3,11 @@
  *
  * The ground stays white; cards are glassy white (white at 78% over a faint
  * light wash, blurred), so the page reads as layered paper rather than tinted
- * panels. Graphite stays the primary (buttons, links); the Blaze orange second
- * colour is the one accent (a progress bar, a count, the name's underline) and
- * the wash behind the glass is the same orange and graphite, faint (17 Nov:
- * blue and violet washes read as a different page from the cards). Status
- * colours mean state, with words; charts keep the categorical palette.
+ * panels. Graphite leads (owner, 17 Nov: with graphite primary, the accents
+ * were "not adding up" on white): buttons, links, the count badge, progress
+ * bars, the members ring and hovers are graphite. Orange is the brand's mark
+ * only: the CLOR symbol and the underline under the reader's name. Status
+ * colours mean state, with words; an app's own colour marks that app.
  *
  * Radii follow DESIGN.md: 12px on anything holding content, 8px on anything
  * clickable inside it, full pills only for pills.
@@ -25,8 +25,8 @@
      see-through card took a different tint from whatever wash sat behind it. */
   --wsh-glass: rgb(255 255 255);
   --wsh-line: rgb(var(--border) / 0.9);
-  /* Hover inside a card: the accent, faint. The shell's grey block read as a second card colour. */
-  --wsh-hover: rgb(var(--marker) / 0.06);
+  /* Hover inside a card: graphite, faint. */
+  --wsh-hover: rgb(var(--act) / 0.045);
   --wsh-shadow: 0 1px 2px rgb(16 18 22 / 0.04), 0 12px 32px -18px rgb(16 18 22 / 0.18);
   /* Secondary text a step darker and a step firmer here (owner, 17 Nov: "fonts are very light"):
      small grey regular type over glass read as washed out. Muted 9.6:1, subtle 6.9:1 on white. */
@@ -101,7 +101,7 @@
   padding: 36px calc(var(--wsh-gutter) + max(0px, (100% - 80rem) / 2) + 20px) 32px;
   border-bottom: 1px solid var(--wsh-line);
   background:
-    radial-gradient(60% 120% at 100% 50%, rgb(var(--marker) / 0.07), transparent 65%),
+    radial-gradient(60% 120% at 100% 50%, rgb(var(--act) / 0.04), transparent 65%),
     radial-gradient(40% 80% at 70% 110%, rgb(var(--act) / 0.04), transparent 70%),
     linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.7));
   -webkit-backdrop-filter: blur(18px);
@@ -134,10 +134,10 @@
   letter-spacing: -0.03em;
   color: rgb(var(--fg));
 }
-/* The name in the app's second colour, underlined by a soft swoosh (data accent, not a link). */
+/* The name in the page's own ink, underlined by an orange swoosh: the one orange stroke outside the CLOR mark. */
 .wsh-name {
   position: relative;
-  color: rgb(var(--act-2));
+  color: rgb(var(--fg));
 }
 .wsh-name::after {
   content: '';
@@ -147,7 +147,7 @@
   bottom: -6px;
   height: 6px;
   border-radius: 999px;
-  background: rgb(var(--marker) / 0.22);
+  background: rgb(var(--marker) / 0.7);
   transform: rotate(-1.2deg);
 }
 .wsh-wave {
@@ -198,20 +198,47 @@
 .wsh-stage {
   display: none;
   position: relative;
-  height: 200px;
+  height: 210px;
   min-width: 0;
 }
 .wsh-hub-art {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 232px;
-  height: 200px;
+  width: 260px;
+  height: 210px;
   transform: translate(-50%, -50%);
 }
 .wsh-hub-art > svg {
   position: absolute;
   inset: 0;
+}
+/* The connections. A live one is dashes running toward the hub; a still one is fainter and does not move. */
+.wsh-hub-link {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 2 7;
+}
+.wsh-hub-link[data-on] {
+  stroke-dasharray: 7 6;
+  animation: wsh-flow 1.3s linear infinite;
+}
+@keyframes wsh-flow {
+  to { stroke-dashoffset: -13; }
+}
+/* A slow ring out from the hub: the workspace is live. */
+.wsh-hub-pulse {
+  fill: none;
+  stroke: rgb(var(--marker) / 0.5);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wsh-pulse 3.2s ease-out infinite;
+}
+@keyframes wsh-pulse {
+  0% { transform: scale(0.85); opacity: 0.7; }
+  100% { transform: scale(1.7); opacity: 0; }
 }
 .wsh-hub,
 .wsh-hub-app {
@@ -221,30 +248,30 @@
   transform: translate(-50%, -50%);
 }
 .wsh-hub {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
   background: rgb(255 255 255);
   border: 1px solid rgb(var(--border));
-  box-shadow: 0 0 0 8px rgb(var(--marker) / 0.07), 0 18px 32px -16px rgb(16 18 22 / 0.3);
+  box-shadow: 0 0 0 7px rgb(var(--marker) / 0.08), 0 18px 32px -16px rgb(16 18 22 / 0.3);
 }
 .wsh-hub-app {
-  padding: 5px;
-  border-radius: 14px;
+  padding: 4px;
+  border-radius: 12px;
   background: rgb(255 255 255);
   border: 1px solid rgb(var(--border));
   box-shadow: 0 10px 22px -12px rgb(16 18 22 / 0.3);
-  animation: wsh-drift 6s ease-in-out infinite;
+  animation: wsh-drift 5.5s ease-in-out infinite;
 }
 @keyframes wsh-drift {
   0%, 100% { transform: translate(-50%, -50%); }
-  50% { transform: translate(-50%, calc(-50% - 5px)); }
+  50% { transform: translate(-50%, calc(-50% - 4px)); }
 }
 /* Words and Today side by side from tablet width; the picture joins where there is room for it.
    With no Today card the picture has the right side to itself. */
 @container wsh (min-width: 760px) {
   .wsh-hero[data-today] {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+    grid-template-columns: minmax(0, 1fr) minmax(264px, 320px);
   }
   .wsh-hero:not([data-today]) {
     grid-template-columns: minmax(0, 1fr) 280px;
@@ -255,15 +282,19 @@
 }
 @container wsh (min-width: 1040px) {
   .wsh-hero[data-today] {
-    grid-template-columns: minmax(0, 1fr) 232px minmax(300px, 400px);
+    grid-template-columns: minmax(0, 1fr) 260px minmax(264px, 320px);
   }
   .wsh-stage {
     display: block;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wsh-hub-app {
+  .wsh-hub-app,
+  .wsh-hub-link[data-on] {
     animation: none;
+  }
+  .wsh-hub-pulse {
+    display: none;
   }
 }
 
@@ -274,10 +305,10 @@
   justify-self: end;
   width: 100%;
   min-width: 0;
-  max-width: 400px;
+  max-width: 320px;
   display: grid;
-  gap: 8px;
-  padding: 14px 16px 10px;
+  gap: 4px;
+  padding: 10px 12px 6px;
   border: 1px solid var(--wsh-line);
   border-radius: 12px;
   background: rgb(255 255 255);
@@ -292,13 +323,13 @@
   padding: 0 4px;
 }
 .wsh-today-label {
-  font-size: 1rem;
-  line-height: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   font-weight: 700;
   color: rgb(var(--fg));
 }
 .wsh-today-date {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   line-height: 1.125rem;
   color: rgb(var(--fg-muted));
 }
@@ -320,8 +351,8 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 4px;
+  gap: 10px;
+  padding: 6px 4px;
   border: 0;
   border-radius: 8px;
   background: none;
@@ -344,22 +375,22 @@ button.wsh-today-row:focus-visible {
   min-width: 0;
 }
 .wsh-today-what {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
   font-weight: 600;
   color: rgb(var(--fg));
 }
 .wsh-today-sub {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: rgb(var(--fg-muted));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .wsh-today-value {
-  font-size: 1.25rem;
-  line-height: 1.75rem;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
@@ -867,7 +898,7 @@ button.wsh-app:focus-visible {
   height: 22px;
   padding: 0 6px;
   border-radius: 999px;
-  background: rgb(var(--marker));
+  background: rgb(var(--act));
   color: rgb(255 255 255);
   font-size: 0.75rem;
   font-weight: 700;
@@ -921,7 +952,7 @@ button.wsh-attn-row:hover {
 }
 .wsh-ico--neg { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
 .wsh-ico--warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
-.wsh-ico--brand { background: rgb(var(--marker) / 0.12); color: rgb(var(--act-2)); }
+.wsh-ico--brand { background: rgb(var(--act) / 0.07); color: rgb(var(--act)); }
 .wsh-attn-text {
   display: grid;
   gap: 4px;
@@ -1040,7 +1071,7 @@ button.wsh-attn-row:hover {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgb(var(--marker)), rgb(var(--act-2)));
+  background: rgb(var(--act));
   transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .wsh-steps {
@@ -1149,7 +1180,7 @@ button.wsh-attn-row:hover {
   border-radius: 12px;
   border: 1px solid var(--wsh-line);
   background:
-    radial-gradient(70% 120% at 100% 100%, rgb(var(--marker) / 0.08), transparent 70%),
+    radial-gradient(70% 120% at 100% 100%, rgb(var(--act) / 0.05), transparent 70%),
     var(--wsh-glass);
   box-shadow: var(--wsh-shadow);
 }

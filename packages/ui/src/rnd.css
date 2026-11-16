@@ -305,7 +305,7 @@
   }
   :root:not(#rnd) .ui-topbar { padding-left: 1.25rem; }
   /* The logo takes the rail's width and a little more, so the app switch starts clear of the rail's edge. */
-  :root:not(#rnd) .ui-topbar .ui-topbar-logo { min-width: 6.5rem; }
+  :root:not(#rnd) .ui-topbar .ui-topbar-logo { min-width: 5.25rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }

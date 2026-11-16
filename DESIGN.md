@@ -747,6 +747,12 @@ because focus, portals and event order cannot be read off the source.
   text on this page is a step darker and weight 500, and the sidebar's module
   names, captions and items are darker and firmer in every app ("fonts are very
   light").
+  Later the same day: the picture always shows CLOR's six apps round the mark,
+  a live app sending moving dashes down its line; the Today card and the bar's
+  logo are smaller (wordmark 17px); and graphite leads the page's accents
+  (count badge, progress bars, members ring, hovers), with orange kept for the
+  CLOR mark and the underline under the reader's name ("as primary graphite,
+  many things color accent not adding up with white background").
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

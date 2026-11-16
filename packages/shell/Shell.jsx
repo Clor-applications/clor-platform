@@ -1146,7 +1146,7 @@ function ShellScreens() {
             </button>
           ) : null}
           <button type="button" className="ui-topbar-logo flex items-center gap-2" onClick={() => openApp(mine[0]?.id)}>
-            {phone ? <ClorMark size={24} /> : <ClorLogo size={22} />}
+            {phone ? <ClorMark size={24} /> : <ClorLogo size={17} />}
           </button>
 
           {/* The app switcher. Named for the app you are in, because that is the

@@ -186,38 +186,44 @@ export function renewalNotice(renewal, planBad = false) {
 
 /**
  * The hero's picture: CLOR at the centre with this account's apps around it, joined to it. Not a
- * stock drawing: every app wears its own colour (owner, 17 Nov: "add color to icons"); one that
- * is switched on is joined by a solid line, one that is not by a dashed line, so the picture is
- * this workspace and changes as apps are added. Decoration all the same
+ * stock drawing: every app CLOR has or plans, up to six, wears its own colour (owner, 17 Nov: "add
+ * color to icons", "add 6 apps"); one that is switched on sends moving dashes down its line to
+ * the hub, one that is not sits on a still, quiet line, so the picture is this workspace and
+ * changes as apps are added. Decoration all the same
  * (the Your apps row says it in words): hidden from screen readers, shown only where the hero has
  * room beside the words and Next for you.
  */
-const HUB = { x: 116, y: 100 };
-const SPOTS = [{ x: 34, y: 36 }, { x: 198, y: 32 }, { x: 30, y: 164 }, { x: 202, y: 168 }];
+/* CLOR's six apps, always all six: the picture is the whole platform, with this company's own apps live in it.
+   (The catalog drops Attendance once People is on, since People carries it; the picture still shows it, live.) */
+const ART_APPS = ['accounting', 'payroll', 'people', 'attendance', 'projects', 'timesheet'];
+const HUB = { x: 130, y: 105 };
+/* Six places round the hub, a flattened hexagon: top and bottom on the centre line, two each side. */
+const SPOTS = [{ x: 43, y: 62 }, { x: 130, y: 25 }, { x: 217, y: 62 }, { x: 217, y: 148 }, { x: 130, y: 185 }, { x: 43, y: 148 }];
 function AppsArt({ apps = [] }) {
   const placed = apps.slice(0, SPOTS.length).map((a, i) => ({ ...a, ...SPOTS[i] }));
   return (
     <span className="wsh-hub-art">
-      <svg viewBox="0 0 232 200" width="232" height="200" focusable="false">
+      <svg viewBox="0 0 260 210" width="260" height="210" focusable="false">
+        {/* Each app's line to CLOR, drawn from the app inward so its dashes run toward the hub. One that is
+            switched on carries its colour and moves; one that is not is a still, quiet dash. */}
         {placed.map((a) => (
-          <path
+          <line
             key={a.id}
-            d={`M${HUB.x} ${HUB.y} Q ${(HUB.x + a.x) / 2} ${a.y}, ${a.x} ${a.y}`}
-            fill="none"
-            stroke={`rgb(var(${appInfo(a.id)?.color || '--border-strong'}) / ${a.on ? 0.75 : 0.45})`}
-            strokeWidth="1.5"
-            strokeDasharray={a.on ? undefined : '3 5'}
-            strokeLinecap="round"
+            x1={a.x}
+            y1={a.y}
+            x2={HUB.x}
+            y2={HUB.y}
+            className="wsh-hub-link"
+            data-on={a.on || undefined}
+            style={{ stroke: `rgb(var(${appInfo(a.id)?.color || '--border-strong'}) / ${a.on ? 0.85 : 0.4})` }}
           />
         ))}
-        {placed.filter((a) => a.on).map((a) => (
-          <circle key={a.id} cx={(HUB.x + a.x) / 2 + (a.x < HUB.x ? -9 : 9)} cy={a.y + (a.y < HUB.y ? 7 : -7)} r="3" fill={`rgb(var(${appInfo(a.id)?.color || '--marker'}))`} />
-        ))}
+        <circle cx={HUB.x} cy={HUB.y} r="40" className="wsh-hub-pulse" />
       </svg>
-      <span className="wsh-hub" style={{ left: HUB.x, top: HUB.y }}><ClorMark size={38} title="" /></span>
+      <span className="wsh-hub" style={{ left: HUB.x, top: HUB.y }}><ClorMark size={34} title="" /></span>
       {placed.map((a, i) => (
-        <span key={a.id} className="wsh-hub-app" data-on={a.on || undefined} style={{ left: a.x, top: a.y, animationDelay: `${-1.3 * i}s` }}>
-          <AppMark app={a.id} size={44} title="" />
+        <span key={a.id} className="wsh-hub-app" data-on={a.on || undefined} style={{ left: a.x, top: a.y, animationDelay: `${-1.1 * i}s` }}>
+          <AppMark app={a.id} size={32} title="" />
         </span>
       ))}
     </span>
@@ -469,8 +475,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const team = isAdmin && members
     ? (() => {
         const mix = [
-          { key: 'active', label: 'Active', n: members.filter((m) => m.status === 'ACTIVE').length, color: '--cat-3' },
-          { key: 'invited', label: 'Invited', n: pending || 0, color: '--cat-4' },
+          { key: 'active', label: 'Active', n: members.filter((m) => m.status === 'ACTIVE').length, color: '--act' },
+          { key: 'invited', label: 'Invited', n: pending || 0, color: '--marker' },
           { key: 'suspended', label: 'Suspended', n: members.filter((m) => m.status === 'SUSPENDED').length, color: '--border-strong' },
         ];
         const total = mix.reduce((n, x) => n + x.n, 0);
@@ -558,7 +564,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           </div>
           {/* Decoration between the words and the card, only where the hero is wide enough for all three. */}
           <div className="wsh-stage" aria-hidden="true">
-            <AppsArt apps={states.map((x) => ({ id: x.app.id, on: x.state.key === 'open' || x.state.key === 'noaccess' }))} />
+            <AppsArt apps={ART_APPS.map((id) => ({ id, on: (tenant?.subscriptions || []).includes(id) }))} />
           </div>
           {lines.length ? (
             <div className="wsh-today" role="group" aria-labelledby="wsh-today-title">
@@ -570,7 +576,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 {lines.map((x) => {
                   const body = (
                     <>
-                      <AppMark app={x.app} size={32} title="" />
+                      <AppMark app={x.app} size={28} title="" />
                       <span className="wsh-today-text">
                         <span className="wsh-today-what">{x.label}</span>
                         {x.sub ? <span className="wsh-today-sub">{x.sub}</span> : null}
