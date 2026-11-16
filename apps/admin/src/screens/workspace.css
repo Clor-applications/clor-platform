@@ -3042,3 +3042,13 @@ button.ws-stat:hover {
 .ws .ws-table tbody td .ws-appmarks {
   height: 20px;
 }
+
+/* A button in a row gives up its extra height too, so a row of one text line and a button stays
+   one line tall and the button's middle meets the text's. */
+.ws .ws-table tbody td .ws-btn {
+  margin-block: -6px;
+}
+.ws .ws-table tbody td .ws-icon-btn,
+.ws .ws-table tbody td .ui-icon-btn {
+  margin-block: -6px;
+}

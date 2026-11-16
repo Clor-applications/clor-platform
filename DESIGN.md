@@ -790,6 +790,12 @@ because focus, portals and event order cannot be read off the source.
   The open (selected) item in the rail, the screens panel and the app menu is a
   soft green (`--select-green` #1BAF7A at 14–16%), a different hue from the blue
   hover ("add different color for selection color").
+  The Branches list is the pattern for every Workspace list ("branch data
+  tables are perfect, apply it to other pages"): one bordered white sheet,
+  header row edge to edge, cells top-aligned on one text line, counts
+  left-aligned under their heading, pills, tags, app marks and row buttons level
+  with the text. No Workspace page draws a caption under its title (the
+  one-line purpose is kept for screen readers).
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

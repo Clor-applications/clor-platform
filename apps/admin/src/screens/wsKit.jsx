@@ -123,7 +123,10 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
           {title}
           {scope === 'account' ? <span className="ws-scope">All companies</span> : null}
         </h1>
-        {description ? <p className="ws-lede">{description}</p> : null}
+        {/* No caption under the title on any Workspace page (owner, 17 Nov 2026: "remove unwanted captions";
+            standing rule since 26 Oct: no page descriptions). Callers may still pass `description`; it is
+            kept for screen readers, where a page's one-line purpose helps and costs no space. */}
+        {description ? <p className="sr-only">{description}</p> : null}
       </div>
       {meta || actions || tools ? (
         <div className="ws-head-side">
