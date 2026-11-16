@@ -757,9 +757,11 @@ because focus, portals and event order cannot be read off the source.
   the primary; beside it the Overview has three accent hues and no more (blue
   `--cat-1`, the brand's orange, green `--cat-3`) as soft chips behind icons, the
   members ring, the count badge and the progress bar, never as a whole card.
-  The screens panel (second sidebar) takes a 5% tint of the app's own colour in
-  every app, to read apart from the white rail and page, and ends in a small
-  help card where a short list left the column empty.
+  The screens panel (second sidebar) is a light cool grey `#F6F7F9` in every
+  app, to read apart from the white rail and page (a tint of the app's colour
+  was tried and came out orange in the Workspace: "do not add orange
+  background"), and ends in a small help card where a short list left the
+  column empty. No orange wash anywhere: the hero's wash is faint blue and green.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

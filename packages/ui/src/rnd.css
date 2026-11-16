@@ -461,9 +461,11 @@
   padding: 1.25rem 0.75rem;
   display: flex;
   flex-direction: column;
-  /* A light tint of the app's own colour, so the screens panel reads apart from the white rail and
-     the white page (owner, 17 Nov 2026: "second side bar to differentiate add light background colour"). */
-  background: color-mix(in srgb, rgb(var(--marker)) 5%, rgb(255 255 255));
+  /* A light cool grey, so the screens panel reads apart from the white rail and the white page
+     (owner, 17 Nov 2026: "second side bar to differentiate add light background colour", then
+     "do not add orange background": a tint of the app's colour came out orange in the Workspace).
+     One neutral for every app. */
+  background: rgb(246 247 249);
   border-right: 1px solid rgb(var(--panel-border));
 }
 /* The foot of the panel: one small help card, held at the bottom. */
