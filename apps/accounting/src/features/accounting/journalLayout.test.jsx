@@ -37,7 +37,7 @@ const view = () => render(<JournalEntriesList db={db} setDb={noop} currentCompan
 describe('Journal Entries, laid out like every other list', () => {
   it('names itself and puts search in the header', () => {
     view();
-    expect(screen.getByRole('heading', { name: /Journal Entries/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Manual Journals/i })).toBeTruthy();
     expect(screen.getByLabelText(/Search journal entries/i)).toBeTruthy();
   });
 

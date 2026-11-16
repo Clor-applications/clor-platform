@@ -219,7 +219,7 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-table thead th {
   height: 2.5rem;
   padding: 0 1rem;
-  background-color: rgb(var(--surface-sunken));
+  background-color: rgb(var(--list-head));
   color: rgb(var(--fg-muted));
   font-size: 0.75rem;
   line-height: 1rem;

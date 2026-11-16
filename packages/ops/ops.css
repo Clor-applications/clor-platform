@@ -633,7 +633,8 @@ html[data-portal='ops'] .ws-table {
 html[data-portal='ops'] .ws-table th {
   height: 40px;
   padding: 0 16px;
-  background: rgb(var(--surface-sunken));
+  /* Every list's header row: the Books Invoices pale blue-grey (owner, 16 Nov 2026). */
+  background: rgb(var(--list-head, 234 242 248));
   border: 0;
   font-size: 0.75rem;
   font-weight: 600;

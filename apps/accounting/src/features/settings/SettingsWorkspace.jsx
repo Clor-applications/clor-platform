@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { panelIcon } from '../../navPanelEmoji';
 import { ArrowLeft } from 'lucide-react';
 
 import { EntityMark } from '@ui/components/ui/Primitives';
@@ -16,7 +17,7 @@ export const SettingsCatalogNav = ({ activeKey = '', can = () => true, isEnabled
             <h2 id={`settings-heading-${category.id}`} className="settings-catalog-heading">{category.title}</h2>
             <div className="settings-catalog-items">
               {category.items.map((item) => {
-                const Icon = item.icon;
+                const Icon = panelIcon(item);
                 const selected = item.key === activeKey;
                 return (
                   <button

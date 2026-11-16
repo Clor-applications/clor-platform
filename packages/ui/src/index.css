@@ -740,6 +740,10 @@
   --nav-fg: 17 24 39; --nav-fg-muted: 75 85 99; --nav-fg-subtle: 107 114 128;
   --rail-bg: 255 255 255; --rail-border: 229 231 235; --rail-hover: 249 250 251; --rail-active: 255 244 236;
   --heading-bg: 249 250 251; --heading-hover: 243 244 246; --page-heading-bg: 255 255 255; --header-bg: 255 255 255;
+  /* The header row of every list, in every app: the pale blue-grey #EAF2F8 of the Books
+     Invoices list (owner, 16 Nov 2026). An exception to the white-only grounds: it is a
+     column header, not a ground. */
+  --list-head: 234 242 248; --list-head-hover: 221 233 242;
   --cursor-bg: 255 255 255; --cursor-fg: 17 24 39;
   --nav-dashboard: 71 85 105; --nav-sales: 71 85 105; --nav-crm: 71 85 105;
   --nav-purchases: 71 85 105; --nav-cashbank: 71 85 105; --nav-expenses: 71 85 105;
@@ -1727,7 +1731,7 @@
     position: sticky;
     top: 0;
     z-index: var(--z-base);
-    background-color: rgb(var(--heading-bg));
+    background-color: rgb(var(--list-head));
     color: rgb(var(--fg));
     /* Matches .ui-th, which this outranks on specificity. The two disagreed,
        so a column heading was 12px here and 11px anywhere a plain .ui-th was
@@ -1744,7 +1748,7 @@
     transition: background-color var(--dur-state) ease, color var(--dur-state) ease;
   }
   .ui-table thead th:hover {
-    background-color: rgb(var(--heading-hover));
+    background-color: rgb(var(--list-head-hover));
   }
 
   .coa-table thead th {
@@ -2638,7 +2642,7 @@
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
-    background-color: rgb(var(--surface));
+    background-color: rgb(var(--list-head));
   }
 
   /* The sum of what is on screen. On a list of money this is the question the
@@ -5596,7 +5600,9 @@ th.ui-th {
   text-transform: none;
   color: rgb(var(--fg));
 }
-.ui-table thead th { background-color: rgb(var(--heading-bg)); }
+.ui-table thead th { background-color: rgb(var(--list-head)); }
+/* A plain table that is still a list (Approvals inbox) opts into the same header row. */
+.ui-list-head th { background-color: rgb(var(--list-head)); }
 
 /* Settings workspace ------------------------------------------------------
    A small, durable catalogue beside one focused editing surface. Category
@@ -6279,7 +6285,7 @@ th.ui-th {
 @media (max-width: 720px) {
   .company-profile-grid { grid-template-columns: minmax(0, 1fr); }
 }
-.ui-table thead th:hover { background-color: rgb(var(--heading-hover)); }
+.ui-table thead th:hover { background-color: rgb(var(--list-head-hover)); }
 
 /* Chart of Accounts is a compact master, with one scroll owner. These live
    after the shared table rules so global comfortable density cannot expand

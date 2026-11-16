@@ -24,12 +24,14 @@ import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, C
 /* Books' rail modules draw in the platform's navigation emoji (Fluent Emoji flat, owner 15 Nov 2026);
    the screens inside each module keep their line icons, so Books' panels and lists are unchanged. */
 import { emoji } from '@ui/components/ui/emoji';
+import ScreenErrorBoundary, { ThrowError } from './components/ScreenErrorBoundary';
+import { panelIcon } from './navPanelEmoji';
 import Modal from '@ui/components/ui/Modal';
 import { getDefaultDocSettings, initEmptyDB, normalizeDB } from './data/db';
 import { addInventoryReportSamples, addSampleScenario } from './data/sampleScenario';
 import InvoiceTemplateDesigner from './features/settings/InvoiceTemplateDesigner';
 import NumberingDesigner from './features/settings/NumberingSeriesDesigner';
-import { formatMoney, rememberCompanyDisplaySettings } from '@ui/utils/money';
+import { formatMoney, rememberCompanyDisplaySettings, round2 } from '@ui/utils/money';
 
 import {
   PaymentsTransactionsList,
@@ -150,10 +152,9 @@ import { WriteGuard } from '@ui/permissions/WriteGuard';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import SettingsHub from './features/settings/SettingsHub';
 import MovedToCompanyAdmin from '@ui/company/OpenInCompanyAdmin';
-import SettingsWorkspace from './features/settings/SettingsWorkspace';
 import MasterDataWorkspace, { MASTER_DATA_KEYS } from './features/masters/MasterDataWorkspace';
 import { TcsRatesMaster } from './features/masters/TaxRateMaster';
-import { isSettingsKey, isSettingsRoute, settingFor, settingsBackTarget, visibleSettings } from './features/settings/settingsRegistry';
+import { isSettingsKey, isSettingsRoute, settingFor, settingsBackTarget, visibleCategories, visibleSettings } from './features/settings/settingsRegistry';
 import FeaturesPage from './features/features/FeaturesPage';
 import FeaturesPanel from './features/features/FeaturesPanel';
 import { featuresPresentationFor } from './features/features/featuresPresentation';
@@ -260,6 +261,91 @@ const NavReports = emoji('bar-chart');
 const NavMaster = emoji('card-file-box');
 const NavFeatures = emoji('puzzle-piece');
 const NavSettings = emoji('gear');
+
+/* Accounts › Trial Balance (`financials`): the account-by-account balance list.
+   The 15 Nov Books port dropped this component but kept the screen, so the
+   screen threw "TrialBalance is not defined". */
+const TrialBalance = ({ db, currentCompany, onOpenLedger }) => {
+  const accounts = db.chartOfAccounts.filter((a) => a.companyId === currentCompany.id);
+  const groups = db.accountGroups.filter((g) => g.companyId === currentCompany.id);
+  const isDebitNature = (type) => ['Asset', 'Expense'].includes(String(type || '').trim());
+
+  const rows = useMemo(() => {
+    const groupById = new Map(groups.map((g) => [String(g.id), g]));
+    return accounts.map((account) => {
+      const bal = Number(account?.balance ?? 0);
+      const debitNature = isDebitNature(account?.type);
+
+      const debit = debitNature ? Math.max(0, bal) : Math.max(0, -bal);
+      const credit = debitNature ? Math.max(0, -bal) : Math.max(0, bal);
+
+      const groupName = account?.groupId ? String(groupById.get(String(account.groupId))?.name || '') : '';
+
+      return {
+        ...account,
+        _group: groupName,
+        _debit: round2(debit),
+        _credit: round2(credit),
+      };
+    });
+  }, [accounts, groups]);
+
+  const totalDebit = rows.reduce((sum, r) => sum + Number(r._debit ?? 0), 0);
+  const totalCredit = rows.reduce((sum, r) => sum + Number(r._credit ?? 0), 0);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="ui-t-sec">Trial Balance</h3>
+
+      <div className="ui-surface rounded-xl shadow-sm overflow-hidden border">
+        <table className="ui-table w-full">
+          <thead className="ui-sunken border-b">
+            <tr>
+              <th className="ui-th">Account</th>
+              <th className="ui-th">Group</th>
+              <th className="ui-th ui-num">Debit</th>
+              <th className="ui-th ui-num">Credit</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {rows.map((account) => (
+              <tr key={account.id} className="ui-hover-sunken">
+                <td className="px-4 py-2.5 ui-col-meta">
+                  <button
+                    type="button"
+                    onClick={() => onOpenLedger && onOpenLedger(account.id)}
+                    className="font-medium text-left hover:underline"
+                  >
+                    {account.name}
+                  </button>
+                </td>
+                <td className="ui-col-meta px-4 py-2.5 ui-muted">{account._group || '-'}</td>
+                <td className="ui-col-amount px-4 py-2.5 text-right">
+                  {account._debit > 0 ? formatMoney(account._debit, currentCompany) : '-'}
+                </td>
+                <td className="ui-col-amount px-4 py-2.5 text-right">
+                  {account._credit > 0 ? formatMoney(account._credit, currentCompany) : '-'}
+                </td>
+              </tr>
+            ))}
+            <tr className="ui-sunken font-bold border-t-2">
+              <td className="px-4 py-2.5 ui-col-meta">TOTAL</td>
+              <td className="ui-col-amount px-4 py-2.5" />
+              <td className="ui-money px-4 py-2.5 text-right">{formatMoney(totalDebit, currentCompany)}</td>
+              <td className="ui-col-amount px-4 py-2.5 text-right">{formatMoney(totalCredit, currentCompany)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className={`p-4 rounded-lg ${Math.abs(totalDebit - totalCredit) < 0.01 ? 'bg-[rgb(var(--pos-soft))]' : 'bg-[rgb(var(--neg-soft))]'}`}>
+        <p className={`font-medium ${Math.abs(totalDebit - totalCredit) < 0.01 ? 'text-[rgb(var(--pos))]' : 'text-[rgb(var(--neg))]'}`}>
+          {Math.abs(totalDebit - totalCredit) < 0.01 ? '✓ Trial Balance is balanced' : '✗ Trial Balance is not balanced'}
+        </p>
+      </div>
+    </div>
+  );
+};
 
 // Screens the Reports module lights in the rail while one of them is open.
 const REPORT_SCREENS = new Set(['reports', 'trialBalance', 'profitLoss', 'balanceSheet', 'cashFlow', 'gstr1', 'gstr3b', 'salesReports']);
@@ -1111,7 +1197,8 @@ const AppShell = () => {
     }
     return 'dashboard';
   });
-  const dedicatedSettingsMode = active === 'settings' || isSettingsKey(active);
+  /* Settings screens open inside the Books shell (rail and screens panel), as in the Books build. */
+  const dedicatedSettingsMode = false;
   const dedicatedReportsMode = active === 'reports';
   const dedicatedMasterDataMode = MASTER_DATA_KEYS.has(active);
   const dedicatedWorkspaceMode = dedicatedSettingsMode || dedicatedReportsMode || dedicatedMasterDataMode;
@@ -1398,7 +1485,7 @@ const AppShell = () => {
        * components, pay groups, periods and the statutory rates live under
        * Settings → Payroll, so the month-end path is Overview, Pay Runs, done.
        */
-      { type: 'item', key: 'journalEntries', label: 'Journal Entries', icon: NavJournal, tone: 'journal', perm: 'ACCOUNTING::Journal Entries::VIEW' },
+      { type: 'item', key: 'journalEntries', label: 'Manual Journals', icon: NavJournal, tone: 'journal', perm: 'ACCOUNTING::Journal Entries::VIEW' },
       {
         /* `approvals` stays the key for the inbox itself: the shell, the
            notification bell and saved links all open it by that name. */
@@ -1482,7 +1569,17 @@ const AppShell = () => {
         tone: 'settings',
         perm: 'SETTINGS::Company Profile::VIEW',
       },
-      { type: 'item', key: 'settings', label: 'Settings', icon: NavSettings, tone: 'settings', perm: 'SETTINGS::Company Profile::VIEW' },
+      /* Settings is a rail group, as in the Books build (zip, 14 Nov 2026): its screens sit in
+         the screens panel under their category headings, the Books rail stays beside them, and
+         opening Settings lands on its first screen instead of a page that only lists them. */
+      {
+        type: 'group', key: 'settings', label: 'Settings', icon: NavSettings, tone: 'settings',
+        perm: 'SETTINGS::Company Profile::VIEW',
+        items: visibleCategories({ can, isEnabled }).flatMap((category) => [
+          { type: 'subgroup', label: category.title },
+          ...category.items.map((item) => ({ key: item.key, label: item.title, icon: item.icon, perm: item.perm, feature: item.feature })),
+        ]),
+      },
     ],
     /*
      * `isEnabled` belongs here.
@@ -1493,7 +1590,7 @@ const AppShell = () => {
      * else happened to invalidate this memo, and switching an application on
      * did nothing visible until the page was reloaded.
      */
-    [branchCountLabel, warehouseCountLabel, featureCountLabel, gstStateLabel, emailStateLabel, isEnabled, currentCompany]
+    [branchCountLabel, warehouseCountLabel, featureCountLabel, gstStateLabel, emailStateLabel, can, isEnabled, currentCompany]
   );
 
   /*
@@ -1792,6 +1889,14 @@ const AppShell = () => {
       .filter(Boolean);
   }, [navModel, can, permsLoading, isEnabled]);
 
+  /* Opening Settings lands on its first screen (Company Profile), as in the Books build. */
+  useEffect(() => {
+    if (active !== 'settings' || permsLoading) return;
+    const group = visibleNav.find((entry) => entry.key === 'settings');
+    const first = group?.items?.find((item) => item.type !== 'subgroup');
+    if (first) setActive(first.key);
+  }, [active, visibleNav, permsLoading]);
+
   useEffect(() => {
     if (featuresLoading || permsLoading) return;
     // A failed permission load (on a cold start it runs before the company is
@@ -1813,7 +1918,7 @@ const AppShell = () => {
       if (entry.type === 'group') {
         for (const item of entry.items) {
           if (item.type === 'subgroup') continue;
-          out.push({ key: item.key, label: item.label, group: entry.label, icon: item.icon });
+          out.push({ key: item.key, label: item.label, group: entry.label, icon: panelIcon(item) });
         }
       } else {
         out.push({ key: entry.key, label: entry.label, group: 'Go to', icon: entry.icon });
@@ -1846,12 +1951,14 @@ const AppShell = () => {
     [dbForUser, currentCompany?.id, reachableScreens]
   );
 
+  /* A screen listed in two groups (Approval Workflows sits in Approvals and in Settings) keeps
+     the group it was opened from, so clicking it under Settings does not swap the panel. */
+  const lastGroupKeyRef = useRef(null);
   const activeGroupKey = useMemo(() => {
-    for (const entry of navModel) {
-      if (entry.type !== 'group') continue;
-      if (entry.items.some((i) => i.key === active)) return entry.key;
-    }
-    return null;
+    const holders = navModel.filter((entry) => entry.type === 'group' && entry.items.some((i) => i.key === active)).map((entry) => entry.key);
+    const key = holders.includes(lastGroupKeyRef.current) ? lastGroupKeyRef.current : holders[0] || null;
+    lastGroupKeyRef.current = key;
+    return key;
   }, [active, navModel]);
 
   /**
@@ -2268,7 +2375,15 @@ const AppShell = () => {
 
   /* The VIEW permission behind the open screen: the write guard turns it into "may you change anything here". */
   const activePerm = useMemo(() => permForActive(navModel, active) || settingFor(active)?.perm || null, [navModel, active]);
+  /* A screen that throws while its element is built (a missing component, a bad
+     field) shows the per-screen error below instead of taking Books down. */
   const page = useMemo(() => {
+    try {
+      return buildPage();
+    } catch (error) {
+      return <ThrowError error={error} />;
+    }
+    function buildPage() {
     /* Workspaceistration moved to its own workspace (ADR-010): an old key leads there, to the same page. */
     const moved = COMPANY_ADMIN_REDIRECTS[active];
     if (moved) return <MovedToCompanyAdmin title={moved[0]} screen={moved[1]} />;
@@ -3779,6 +3894,7 @@ const AppShell = () => {
        Cash Accounts set the state, React re-rendered, and this memo handed
        back the same list element it had built before — the button did nothing
        at all, and so did Edit. Add an editor here, add it to this list. */
+    }
   }, [active, bankAcctForm, billEditor, branchesError, branchesForUser, branchesLoading, companiesIntent, creditNoteEditor, currentCompany, dbForUser, inventoryDbForUser, transferDbForUser, debitNoteEditor, estimateEditor, exitWorkspace, hasBranchRestriction, importKind, invoiceEditor, journalEditor, openLedger, paymentEditor, receiptEditor, ledgerNav, stockTransferEditor, templateVoucherKey, autoSubmitTransfer, warehousesForUser, activeWarehouseId, activeBranchId, poEditor]);
 
 
@@ -4208,7 +4324,7 @@ const AppShell = () => {
                     if (item.type === 'subgroup') {
                       return <div key={`sub-${item.label}`} className="app-nav-section-heading ui-t-label">{item.label}</div>;
                     }
-                    const ItemIcon = item.icon;
+                    const ItemIcon = panelIcon(item);
                     const isActive = active === item.key;
                     // What the screen would tell you if you opened it.
                     const state = typeof item.state === 'function' ? item.state() : item.state;
@@ -4322,7 +4438,7 @@ const AppShell = () => {
               onNavigate={setActive}
               onExit={exitWorkspace}
             >
-              <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
+              <Suspense fallback={<SkeletonStats count={4} />}><ScreenErrorBoundary resetKey={active}><WriteGuard permission={activePerm}>{page}</WriteGuard></ScreenErrorBoundary></Suspense>
             </MasterDataWorkspace>
           ) : reportPageKeys.has(String(active)) && !['reports', 'tds'].includes(String(active)) ? (
             <div className="space-y-4">
@@ -4335,36 +4451,16 @@ const AppShell = () => {
                   Back
                 </button>
               </div>
-              <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
+              <Suspense fallback={<SkeletonStats count={4} />}><ScreenErrorBoundary resetKey={active}><WriteGuard permission={activePerm}>{page}</WriteGuard></ScreenErrorBoundary></Suspense>
             </div>
           ) : isSettingsKey(active) ? (
-            /*
-              A settings screen keeps its own key — every link, the palette and
-              anything that deep-links into one still lands where it did — and
-              is wrapped in the workspace so it arrives with a breadcrumb and
-              the rest of its category beside it.
-            */
-            <SettingsWorkspace
-              activeKey={active}
-              can={can}
-              isEnabled={isEnabled}
-              onExit={exitWorkspace}
-              onNavigate={(target) => {
-                if (target === 'settings') {
-                  setActive('settings');
-                  return;
-                }
-                if (String(target).startsWith('category:')) {
-                  openSettingsCategory(String(target).slice('category:'.length));
-                  return;
-                }
-                setActive(target);
-              }}
-            >
-              <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
-            </SettingsWorkspace>
+            /* A settings screen opens inside the Books shell, beside the Settings
+               group in the screens panel; its own header carries its title. */
+            <div className="embedded-configuration-page">
+              <Suspense fallback={<SkeletonStats count={4} />}><ScreenErrorBoundary resetKey={active}><WriteGuard permission={activePerm}>{page}</WriteGuard></ScreenErrorBoundary></Suspense>
+            </div>
           ) : (
-            <Suspense fallback={<SkeletonStats count={4} />}><WriteGuard permission={activePerm}>{page}</WriteGuard></Suspense>
+            <Suspense fallback={<SkeletonStats count={4} />}><ScreenErrorBoundary resetKey={active}><WriteGuard permission={activePerm}>{page}</WriteGuard></ScreenErrorBoundary></Suspense>
           )}
         </main>
       </div>

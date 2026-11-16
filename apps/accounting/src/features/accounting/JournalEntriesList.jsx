@@ -188,7 +188,7 @@ export default function JournalEntriesList({ db, setDb, currentCompany, onNewJou
   return (
     <DocumentListShell
       entity="journal"
-      title="Journal Entries"
+      title="Manual Journals"
       compact
       tight
       denseCards

@@ -1,4 +1,5 @@
 import { ArrowLeft, BadgePercent, Boxes, Building2, FileText, Settings, Tags } from 'lucide-react';
+import { panelIcon } from '../../navPanelEmoji';
 
 import { EntityMark } from '@ui/components/ui/Primitives';
 import { isCompanyGstEnabled, isCompanyTaxEnabled } from '@ui/utils/gst';
@@ -70,7 +71,7 @@ export default function MasterDataWorkspace({ activeKey, currentCompany = null, 
                 <h2 id={`master-heading-${group.title.replace(/\s+/g, '-').toLowerCase()}`} className="settings-catalog-heading">{group.title}</h2>
                 <div className="settings-catalog-items">
                   {group.items.map((item) => {
-                    const Icon = item.icon;
+                    const Icon = panelIcon(item);
                     const selected = activeKey === item.key;
                     return (
                       <button key={item.key} type="button" className="settings-catalog-link ui-nav-item" data-tone="masterdata" data-active={selected ? 'true' : undefined} aria-current={selected ? 'page' : undefined} onClick={() => onNavigate(item.key)}>
