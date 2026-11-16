@@ -294,7 +294,7 @@ const TrialBalance = ({ db, currentCompany, onOpenLedger }) => {
   const totalCredit = rows.reduce((sum, r) => sum + Number(r._credit ?? 0), 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* A page title like every other screen's, so the heading does not sit against the panel edge. */}
       <PageHeader title="Trial Balance" description="Every account's balance as on today. Open an account to see its ledger." />
 
