@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronRight, KeyRound, LogOut, Save } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 
 import {
   changePassword,
@@ -11,9 +12,12 @@ import {
   savePolicy,
 } from '@platform/admin/security';
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
-import { ICON, PageHead, Panel, StatusPill, ago, device } from './wsKit';
+import { Empty, ICON, Loading, PageHead, Panel, StatusPill, ago, device } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+
+/* The colour icon an empty list shows: the one its menu item wears. */
+const EMPTY_ICON = emoji('desktop-computer');
 
 /**
  * Workspace → Security → Sessions (redesign W-R7; R&D WS-12).
@@ -183,7 +187,7 @@ export const SecuritySettings = ({ openScreen }) => {
             {sessions?.length ? <span className="ws-head-meta">{sessions.length} signed in</span> : null}
           </div>
           {sessions === null ? (
-            <p className="ws-card-blurb">Loading…</p>
+            <Loading shape="rows" rows={3} label="Loading…" />
           ) : sessions.length ? (
             <div className="ws-table-wrap">
               <table className="ws-table ws-sec-table">
@@ -214,7 +218,7 @@ export const SecuritySettings = ({ openScreen }) => {
               </table>
             </div>
           ) : (
-            <p className="ws-card-blurb">No other active sessions.</p>
+            <Empty icon={EMPTY_ICON} compact>No other active sessions.</Empty>
           )}
         </section>
 
@@ -234,7 +238,7 @@ export const SecuritySettings = ({ openScreen }) => {
             {events?.length ? <span className="ws-head-meta">{events.length} recent</span> : null}
           </div>
           {events === null ? (
-            <p className="ws-card-blurb">Loading…</p>
+            <Loading shape="rows" rows={3} label="Loading…" />
           ) : events.length ? (
             <div className="ws-table-wrap">
               <table className="ws-table ws-sec-table">
@@ -262,7 +266,7 @@ export const SecuritySettings = ({ openScreen }) => {
               </table>
             </div>
           ) : (
-            <p className="ws-card-blurb">No sign-ins yet.</p>
+            <Empty icon={EMPTY_ICON} compact>No sign-ins yet.</Empty>
           )}
         </section>
 

@@ -7,7 +7,7 @@ import { STATUS as CREDENTIAL_STATUS } from './credentialsModel';
 import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
 import { listRoles } from '@platform/admin/admin';
 import { Globe, Lock, LockKeyhole } from 'lucide-react';
-import { PageHead, StatusPill, WsDrawer } from './wsKit';
+import { Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 
@@ -181,7 +181,7 @@ export default function SsoSettings() {
         />
 
         {!data ? (
-          <p className="ws-card-blurb">Loading sign-in methods…</p>
+          <Loading shape="rows" rows={3} label="Loading sign-in methods…" />
         ) : (
           <>
             <ul className="ws-sso-grid" aria-label="Sign-in methods">

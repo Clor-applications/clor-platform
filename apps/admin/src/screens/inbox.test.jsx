@@ -44,7 +44,8 @@ describe('Workspace Inbox', () => {
     http.apiFetch.mockResolvedValue({ ...DATA, unanswered: ['payroll'] });
     const openApp = vi.fn();
     render(<Inbox openApp={openApp} />);
-    expect(await screen.findByRole('status')).toHaveTextContent('Could not reach Payroll');
+    /* By its words: the loading skeleton is a status too. */
+    expect(await screen.findByText(/Could not reach Payroll/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /Your tasks/ }));
     const tasks = within(screen.getByRole('table', { name: 'Your tasks' }));

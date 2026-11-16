@@ -11,7 +11,7 @@ import {
 import { APP_LABEL, STATUS, actionsFor, appsText } from './outsideAccessModel';
 import { requestOpenScreen } from '@platform/context';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { Avatar, ICON, PageHead, Stat, StatusPill } from './wsKit';
+import { Avatar, ICON, Loading, PageHead, Stat, StatusPill } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
 
@@ -168,7 +168,7 @@ export default function OutsideAccess() {
             <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={load}>Try again</button>
           </div>
         ) : !data ? (
-          <p className="ws-card-blurb">Loading outside access…</p>
+          <Loading shape="rows" rows={3} label="Loading outside access…" />
         ) : rows.length ? (
           <div className="ws-table-wrap">
             <table className="ws-table">

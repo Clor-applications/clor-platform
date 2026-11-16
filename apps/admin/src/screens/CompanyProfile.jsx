@@ -5,7 +5,7 @@ import { Check, Save } from '@ui/components/ui/lineIcons';
 import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
-import { ICON, PageHead, Panel } from './wsKit';
+import { ICON, Loading, PageHead, Panel } from './wsKit';
 import './workspace.css';
 
 /* This page's colour icon, the one its menu item wears. */
@@ -88,7 +88,7 @@ export default function CompanyProfile() {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {!form ? (
-          error ? null : <p className="ws-card-blurb">Loading the company profile…</p>
+          error ? null : <Loading shape="card" rows={3} label="Loading the company profile…" />
         ) : (
           <div className="ws-layout">
             <form id="company-profile" onSubmit={save} className="grid gap-5 min-w-0" noValidate={false}>

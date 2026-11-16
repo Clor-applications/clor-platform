@@ -354,7 +354,7 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile-fg) 22%, rgb(var(--ws-surface)));
 }
 .ws-card-name {
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -650,7 +650,7 @@ button.ws-stat:active {
 }
 .ws-panel-title {
   white-space: nowrap;
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1220,7 +1220,7 @@ button.ws-item:hover {
   border-radius: 999px;
   background: rgb(var(--ws-accent-soft));
   color: rgb(var(--ws-accent-hover));
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   box-shadow: 0 0 0 4px rgb(var(--ws-surface));
 }
@@ -1234,7 +1234,7 @@ button.ws-item:hover {
   gap: 6px;
 }
 .ws-audit-line {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.45;
   color: rgb(var(--ws-ink));
   overflow-wrap: anywhere;
@@ -1399,7 +1399,7 @@ button.ws-item:hover {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 500;
   color: rgb(var(--ws-hero-muted));
 }
@@ -1426,7 +1426,7 @@ button.ws-item:hover {
 }
 .ws-hero-lede {
   max-width: 46ch;
-  font-size: 1.03125rem;
+  font-size: 1rem;
   line-height: 1.5;
   color: rgb(var(--ws-hero-muted));
 }
@@ -1435,7 +1435,7 @@ button.ws-item:hover {
     font-size: clamp(1.625rem, 1.2rem + 2vw, 1.875rem) !important;
   }
   .ws-hero-lede {
-    font-size: 0.9375rem;
+    font-size: 1rem;
   }
 }
 /* Two lines at most; the rest is in the title on hover. */
@@ -1499,7 +1499,7 @@ button.ws-item:hover {
 }
 .ws-facts dd {
   margin-top: 4px;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 600;
   color: rgb(var(--ws-ink));
   overflow-wrap: anywhere;
@@ -1518,7 +1518,7 @@ button.ws-item:hover {
   }
 }
 .ws .ws-subhead {
-  font-size: 0.9375rem !important;
+  font-size: 1rem !important;
   line-height: 1.4 !important;
   font-weight: 600 !important;
 }
@@ -1566,7 +1566,7 @@ button.ws-item:hover {
   stroke-linecap: round;
 }
 .ws-setup-ring-text {
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 700;
   fill: rgb(var(--ws-ink));
   font-variant-numeric: tabular-nums;
@@ -1932,7 +1932,7 @@ button.ws-item:hover {
   display: grid;
   grid-template-columns: repeat(2, max-content);
   gap: 8px 16px;
-  font-size: 0.9375rem;
+  font-size: 1rem;
 }
 
 /* A customer's subscription actions: ordinary ones on the left, the destructive ones set apart on the right. */
@@ -2215,7 +2215,7 @@ button.ws-item:hover {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.55;
   color: rgb(var(--ws-ink));
 }
@@ -2255,7 +2255,7 @@ button.ws-item:hover {
   gap: 8px;
 }
 .ws-sg-reason {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   max-width: 68ch;
 }
 .ws-sg-choices {
@@ -2419,7 +2419,7 @@ button.ws-item:hover {
 .ws-panel-title,
 .ws-section-title {
   font-family: var(--font-brand);
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   line-height: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -2472,7 +2472,7 @@ button.ws-stat:hover {
   color: rgb(var(--fg-muted, 58 63 71));
 }
 .ws-stat-value {
-  font-size: 1.625rem;
+  font-size: 1.5rem;
   line-height: 2rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -2964,11 +2964,12 @@ button.ws-stat:hover {
    its graphite, as each app's tag wears that app's colour. */
 .ws-pill--info {
   background: rgb(var(--cat-1, 42 120 214) / 0.12);
-  color: rgb(26 86 168);
+  color: rgb(var(--ws-blue-ink));
 }
 .ws-tag--workspace {
-  background: rgb(var(--graphite, 32 35 41));
-  color: rgb(255 255 255);
+  /* A graphite tint, not a solid block: the solid tag was the loudest thing in the row (audit). */
+  background: rgb(var(--graphite, 32 35 41) / 0.09);
+  color: rgb(var(--graphite, 32 35 41));
   font-weight: 600;
 }
 /* Quiet buttons (Refresh, Export, and their like) carry their icon in the page's blue. */
@@ -3062,6 +3063,16 @@ button.ws-stat:hover {
    color, no amber"). The words still say what the state is; red stays for a problem, green for
    good. Ink 6.9:1 on the soft ground. */
 .ws {
+  /* The Workspace's named colours (audit, 17 Nov 2026: 37 hard-coded values became these). Blue is
+     hover, links to "more" and plain changes; green is selected and good; orange is the brand's mark;
+     violet is attention. Violet was weighed against the "purple is the AI look" rule and kept: it
+     is a small status tint, and the one hue left that cannot be read as red (problem), green
+     (good), blue (information) or the brand's orange. */
+  --ws-blue: 42 120 214;
+  --ws-blue-ink: 26 86 168;
+  --ws-green: 27 175 122;
+  --ws-green-ink: 14 122 84;
+  --ws-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --warn: 98 80 214;
   --warn-ink: 72 56 176;
   --warn-soft: 237 234 252;
@@ -3075,6 +3086,306 @@ button.ws-stat:hover {
   font-weight: 600;
   white-space: nowrap;
 }
-.ws-sec-action--info { color: rgb(26 86 168); }
+.ws-sec-action--info { color: rgb(var(--ws-blue-ink)); }
 .ws-sec-action--ok { color: rgb(var(--pos, 22 101 52)); }
 .ws-sec-action--danger { color: rgb(var(--neg, 180 35 24)); }
+
+/* Workspace → Apps: compact cards (owner, 17 Nov 2026). Three across; the mark, name and state on
+   one line; two lines of what it does; a foot with who uses it and one action. A card for an app
+   that is not on is quieter (dashed), its mark still in the app's own colour. */
+.ws .ws-appgrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .ws .ws-appgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .ws .ws-appgrid { grid-template-columns: minmax(0, 1fr); }
+}
+.ws .ws-appcard--row {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  padding: 16px;
+  min-height: 0;
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+}
+.ws .ws-appcard--row:not([data-on]) {
+  border-style: dashed;
+}
+.ws .ws-appcard--row .ws-appcard-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.ws .ws-appcard--row .ws-appcard-name {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+}
+.ws .ws-appcard--row .ws-appcard-sub {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted, 92 90 84));
+}
+.ws .ws-appcard--row .ws-appcard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid rgb(var(--border, 229 229 229));
+}
+.ws .ws-appcard--row .ws-appcard-facts {
+  display: block;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted, 92 90 84));
+}
+
+/* Workspace → Apps → Integrations: the list is one bordered sheet, as tables are. */
+.ws .ws-list--sheet {
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+  overflow: hidden;
+}
+.ws .ws-list--sheet > li > .ws-item {
+  padding: 14px 16px;
+}
+.ws .ws-list--sheet .ws-tile:has(> .ui-emoji) {
+  background: rgb(var(--hover-blue, 42 120 214) / 0.1);
+}
+
+/* Workspace → Apps → Automations. The shared list (packages/ui automations) capped itself at 42rem
+   and its number box, inline in every other app, stretched to the full line here (the Workspace
+   makes .ui-input a block). Each group is one sheet across the page; the number sits in its
+   sentence again. */
+.ws-autos > div {
+  max-width: none;
+}
+.ws-autos section {
+  padding: 4px 16px 6px;
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+}
+.ws-autos section > h2 {
+  margin: 0;
+  padding: 12px 0 10px;
+  border-bottom: 1px solid rgb(var(--border, 229 229 229));
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: rgb(var(--fg, 32 35 41));
+}
+/* !important: the Workspace's own field rules (width 100%, block) are written with more weight than a page can outbid. */
+.ws .ws-autos input[type='number'] {
+  display: inline-block !important;
+  width: 4rem !important;
+  height: 32px;
+  min-height: 32px;
+  margin: 0 6px;
+  padding: 0 6px;
+  vertical-align: baseline;
+  text-align: center;
+}
+.ws-autos li p.text-sm {
+  font-size: 1rem;
+  line-height: 2rem;
+  color: rgb(var(--fg, 32 35 41));
+}
+
+/* Figure cards at the top of a list page (owner, 17 Nov 2026: "empty space, icons, cards size and
+   cards color, below fields size"). One short row each: a colour chip with the icon, the figure,
+   its label beside it. 60px tall instead of 96; the chips take the page's hues in turn (blue,
+   green, violet, orange) unless the card states a tone of its own. */
+.ws .ws-stats {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.ws .ws-stat {
+  /* Chip, then the label over the figure: a figure can be a word ("Required"), so it gets the row. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+  align-items: center;
+  gap: 0 10px;
+  min-height: 0;
+  padding: 10px 14px;
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border, 229 229 229));
+}
+.ws .ws-stat .ws-tile {
+  grid-row: 1 / span 3;
+  grid-column: 1;
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.ws .ws-stat > .ws-stat-label {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(var(--fg-muted, 68 66 61));
+}
+.ws .ws-stat > .ws-stat-value {
+  grid-column: 2 !important;
+  grid-row: 2;
+  font-size: 1.25rem;
+  line-height: 1.625rem;
+  font-weight: 800;
+}
+.ws .ws-stat > .ws-stat-note {
+  grid-column: 2 !important;
+  grid-row: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws .ws-stat > .ws-chev,
+.ws .ws-stat > span:empty {
+  grid-column: 3;
+  grid-row: 1 / span 3;
+}
+.ws .ws-stats > :nth-child(4n + 1) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 1) > .ws-tile:not([class*='ws-tile--']) { --tile-fg: rgb(var(--ws-blue)); background: rgb(var(--ws-blue) / 0.12); color: rgb(var(--ws-blue-ink)); }
+.ws .ws-stats > :nth-child(4n + 2) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 2) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--ws-green) / 0.14); color: rgb(var(--ws-green-ink)); }
+.ws .ws-stats > :nth-child(4n + 3) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 3) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--warn) / 0.13); color: rgb(var(--warn-ink)); }
+.ws .ws-stats > :nth-child(4n + 4) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 4) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--marker, 255 107 0) / 0.13); color: rgb(var(--act-2, 201 80 0)); }
+/* Filters under them: 32px fields, and a search no wider than it needs. */
+.ws .ws-filters :is(input, select) {
+  height: 32px;
+  min-height: 32px;
+  font-size: 0.8125rem;
+}
+.ws .ws-filters .ws-search {
+  flex: 0 1 220px;
+}
+.ws .ws-filters select {
+  width: auto;
+  max-width: 200px;
+}
+
+/* Loading, empty and error parts (wsKit: Loading, Empty, LoadError). */
+.ws-loading {
+  display: grid;
+  gap: 10px;
+}
+.ws-loading--rows {
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+}
+.ws-loading--rows .ws-loading-bar {
+  height: 28px;
+  border-radius: 8px;
+}
+.ws-loading--card .ws-loading-bar,
+.ws-loading--line .ws-loading-bar {
+  height: 12px;
+  border-radius: 6px;
+}
+.ws-loading--line .ws-loading-bar {
+  width: 40%;
+}
+.ws-empty--compact {
+  padding: 16px;
+  border: 0;
+}
+.ws-loaderror {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--neg, 180 35 24) / 0.25);
+  border-radius: 12px;
+  background: rgb(var(--neg-soft, 252 235 233));
+  color: rgb(var(--neg, 180 35 24));
+  font-size: 0.875rem;
+}
+
+/* A press is felt: buttons give a little under the finger. */
+.ws .ws-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.ws .ws-btn {
+  transition: transform 0.12s var(--ws-ease), background-color 0.12s var(--ws-ease), border-color 0.12s var(--ws-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws .ws-btn:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Fingers, not cursors (upgrade pass, 17 Nov 2026; DESIGN.md: 44px touch size). On a phone, or any
+   screen worked by touch, what can be pressed is 44px tall and what can be typed into is 16px, so
+   iOS does not zoom the page on focus. The compact desktop sizes above (32px fields and buttons)
+   stay for a mouse. Measured before: 100 of 160 controls on the Workspace's phone pages were under
+   40px, and 33 fields under 16px. */
+@media (max-width: 767px), (pointer: coarse) {
+  .ws .ws-btn,
+  .ws .ws-btn--small {
+    min-height: 44px;
+  }
+  .ws :is(input:not([type='checkbox']):not([type='radio']), select, textarea),
+  .ws .ws-filters :is(input, select) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .ws .ws-filters :is(input, select) {
+    height: 44px;
+  }
+  .ws .ws-autos input[type='number'] {
+    height: 44px;
+    min-height: 44px;
+    width: 4.5rem !important;
+  }
+  /* In a table row the button keeps its full height: the row grows instead of the target shrinking. */
+  .ws .ws-table tbody td :is(.ws-btn, .ws-icon-btn, .ui-icon-btn) {
+    margin-block: 0;
+  }
+  .ws .ws-link,
+  .ws .ws-table th button,
+  .ws .ws-tabs [role='tab'] {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .ws .ws-icon-btn,
+  .ws .ui-icon-btn,
+  .ws .ws-rowmenu,
+  .ws .ws-back {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ws .ui-btn,
+  .ws .ws-name-link {
+    min-height: 44px;
+  }
+  .ws .ws-name-link {
+    display: inline-flex;
+    align-items: center;
+  }
+}

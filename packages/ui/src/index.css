@@ -9955,7 +9955,7 @@ button.ui-side-alert { cursor: pointer; }
    other app (rnd.css "the shell"; owner, 17 Nov 2026). The rail's own CLOR tile is not drawn. */
 .app-nav-brand { display: none; }
 /* Books' rail takes the same light grey as every app's rail (rnd.css "Rail"). */
-.app-books-rail[data-platform] .app-nav-modules { background: rgb(246 247 249); }
+.app-books-rail[data-platform] .app-nav-modules { background: rgb(var(--rail-bg, 247 247 247)); }
 
 /* Import corrections: one line per section, divided by hairlines rather than a card per line inside the drawer. */
 .import-correction-line { padding-block: .75rem; border-top: 1px solid rgb(var(--border)); }

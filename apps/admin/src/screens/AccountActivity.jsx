@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Search, ShieldAlert } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 
 import { exportRows } from '@ui/components/ListToolbar';
 import { accountAudit } from '@platform/admin/account';
-import { PageHead, StatusPill } from './wsKit';
+import { Empty, Loading, PageHead, StatusPill } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+
+/* The colour icon an empty list shows: the one its menu item wears. */
+const EMPTY_ICON = emoji('scroll');
 
 /**
  * Workspace → Security → Audit log (W-7.2; R&D WS-13): what was done to the
@@ -188,9 +192,9 @@ export default function AccountActivity() {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {shown === null ? (
-          <p className="ws-card-blurb">Loading…</p>
+          <Loading shape="rows" label="Loading…" />
         ) : shown.length === 0 ? (
-          <p className="ws-card-blurb">Nothing here{filtered ? ' for these filters' : ' yet'}.</p>
+          <Empty icon={EMPTY_ICON} compact>Nothing here{filtered ? ' for these filters' : ' yet'}.</Empty>
         ) : (
           <div className="ws-table-wrap">
             <table className="ws-table ws-sec-table" aria-label="Audit log, newest first">

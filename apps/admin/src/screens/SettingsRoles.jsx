@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { listRoles, createRole, updateRole, deleteRole } from '@platform/admin/admin';
 import Popover from '@ui/components/ui/Popover';
@@ -12,9 +13,12 @@ import PermissionMatrix from './PermissionMatrix';
 import { catalogKeys, displayModules, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { PageHead, WsDrawer } from './wsKit';
+import { Empty, Loading, PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
+
+/* The colour icon an empty list shows: the one its menu item wears. */
+const EMPTY_ICON = emoji('key');
 
 function permKey(p) {
   const module = String(p?.module || '').trim();
@@ -314,9 +318,9 @@ export function SettingsRoles({ orgId }) {
         <div className="ws-roles-layout">
           <section className="ws-flat" aria-label={shownRole ? `${shownRole.name} permissions` : 'Role permissions'}>
             {loading && !roles.length ? (
-              <p className="ws-card-blurb">Loading roles…</p>
+              <Loading shape="rows" rows={3} label="Loading roles…" />
             ) : !shownRole ? (
-              <p className="ws-card-blurb">{roles.length ? 'No role matches this search.' : 'No roles yet. Create the first one.'}</p>
+              <Empty icon={EMPTY_ICON} compact>{roles.length ? 'No role matches this search.' : 'No roles yet. Create the first one.'}</Empty>
             ) : (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -368,7 +372,7 @@ export function SettingsRoles({ orgId }) {
                     <PermissionMatrix key={shownRole.id} modules={catalog.modules} granted={shownPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={2} />
                   </fieldset>
                 ) : (
-                  <p className="ws-card-blurb">Loading the permission list…</p>
+                  <Loading shape="card" rows={3} label="Loading the permission list…" />
                 )}
               </>
             )}
@@ -485,7 +489,7 @@ export function SettingsRoles({ orgId }) {
               </div>
             ) : null}
             {catalog.modules.length && !formModules.length ? (
-              <p className="ws-card-blurb">No permissions match your search.</p>
+              <Empty icon={EMPTY_ICON} compact>No permissions match your search.</Empty>
             ) : catalog.modules.length ? (
               <PermissionMatrix
                 key={`${editRole?.id || 'new'}:${permissionQuery}`}
@@ -512,7 +516,7 @@ export function SettingsRoles({ orgId }) {
                 }
               />
             ) : (
-              <p className="ws-card-blurb">Loading the permission list…</p>
+              <Loading shape="card" rows={3} label="Loading the permission list…" />
             )}
           </div>
         </form>

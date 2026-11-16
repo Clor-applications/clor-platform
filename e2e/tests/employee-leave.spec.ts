@@ -37,11 +37,15 @@ test.describe('Priya asks for leave in the employee app', () => {
     const item = rahul.row(`${shortDate(from)} – ${shortDate(to)}`);
     await expect(item).toContainText('Priya Sharma');
     await expect(item).toContainText('Casual leave');
-    /* The bell is sent from the outbox a moment later: open it again until the note is there. */
+    /*
+     * The bell is sent from the outbox a moment later: open it again until the note is there.
+     * Each look waits long enough for the bell to load on a slow machine: a reload drops the
+     * requests still on their way, so a 3 second look never saw an answer that took 4 (CI, 17 Nov 2026).
+     */
     await expect(async () => {
       await rahul.page.reload();
       await rahul.page.getByRole('banner').getByRole('button', { name: /Notifications/ }).click();
-      await expect(rahul.page.getByRole('dialog', { name: 'Notifications' })).toContainText(`Priya Sharma (AT-004) asks for Casual leave, ${shortDate(from)} to ${shortDate(to)}`, { timeout: 3_000 });
+      await expect(rahul.page.getByRole('dialog', { name: 'Notifications' })).toContainText(`Priya Sharma (AT-004) asks for Casual leave, ${shortDate(from)} to ${shortDate(to)}`, { timeout: 15_000 });
     }).toPass({ timeout: 90_000 });
     /* The note's "stop showing" button says what it stops in plain words, not the notice's key (attendance.leave_asked). */
     const bell = rahul.page.getByRole('dialog', { name: 'Notifications' });

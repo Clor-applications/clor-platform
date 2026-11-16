@@ -1,4 +1,6 @@
 import React from 'react';
+import { emoji } from '@ui/components/ui/emoji';
+import { PageIconContext } from './pageIcon';
 import { ArrowLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 import {
   Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
@@ -47,6 +49,34 @@ export const ICON = {
   timesheet: CalendarDays,
 };
 
+/*
+ * One icon style where a figure or a notice is shown (audit, 17 Nov 2026: colour emoji in the menu
+ * and titles sat beside outline icons in the same card). The line icon a screen names is drawn as
+ * its Fluent Emoji twin in figure cards and attention rows; small controls and buttons keep the
+ * line icons, which is what an emoji set has no glyphs for.
+ */
+const COLOUR_ICON = new Map([
+  [ICON.warning, emoji('warning')],
+  [ICON.alert, emoji('bell')],
+  [ICON.secure, emoji('locked')],
+  [ICON.security, emoji('shield')],
+  [ICON.people, emoji('busts-in-silhouette')],
+  [ICON.team, emoji('busts-in-silhouette')],
+  [ICON.person, emoji('bust-in-silhouette')],
+  [ICON.invite, emoji('envelope-with-arrow')],
+  [ICON.mail, emoji('envelope')],
+  [ICON.inbox, emoji('inbox-tray')],
+  [ICON.history, emoji('counterclockwise-arrows-button')],
+  [ICON.settings, emoji('gear')],
+  [ICON.plan, emoji('receipt')],
+  [ICON.companies, emoji('classical-building')],
+  [ICON.company, emoji('office-building')],
+  [ICON.chat, emoji('speech-balloon')],
+  [ICON.data, emoji('puzzle-piece')],
+]);
+/** The colour twin of a line icon, or the icon itself when it has none. */
+export const colourIcon = (Icon) => COLOUR_ICON.get(Icon) || Icon;
+
 /**
  * The Workspace side panel: one width, the Workspace colours and field styles,
  * and the panel's actions in a footer that stays in view under a long form.
@@ -85,7 +115,9 @@ export function goBack(fallback = 'home') {
  * (Companies, Members, Plan…); every other Workspace page acts on the company
  * chosen in the bar, which the bar names.
  */
-export function PageHead({ crumbs = [], title, description, meta, actions, scope, icon: Icon = null, tools = null }) {
+export function PageHead({ crumbs = [], title, description, meta, actions, scope, icon: ownIcon = null, tools = null }) {
+  const menuIcon = React.useContext(PageIconContext);
+  const titleIcon = ownIcon || menuIcon;
   const section = crumbs[0];
   /* A section's own Overview page is a top: it has nowhere to go back to. */
   const isTop = crumbs.length < 2 || crumbs[crumbs.length - 1] === 'Overview';
@@ -119,7 +151,7 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
         ) : null}
         <h1 className="ws-title">
           {/* The page's own colour icon, the one its menu item wears (owner, 17 Nov 2026). Decoration: the title says it. */}
-          {Icon ? <Icon size={28} className="ws-title-ico" aria-hidden="true" /> : null}
+          {titleIcon ? React.createElement(titleIcon, { size: 28, className: 'ws-title-ico', 'aria-hidden': true }) : null}
           {title}
           {scope === 'account' ? <span className="ws-scope">All companies</span> : null}
         </h1>
@@ -139,12 +171,61 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
   );
 }
 
+/**
+ * A page part that is still being read: grey bars the shape of what is coming, not the word
+ * "Loading…" (audit, 17 Nov 2026). `shape="rows"` for a list or table, `"card"` for a block of
+ * facts, `"line"` for one line. The words stay for screen readers.
+ */
+export function Loading({ shape = 'rows', rows = 4, label = 'Loading…' }) {
+  const n = shape === 'line' ? 1 : shape === 'card' ? 3 : rows;
+  return (
+    <div className={`ws-loading ws-loading--${shape}`} role="status" aria-live="polite">
+      <span className="sr-only">{label}</span>
+      {Array.from({ length: n }, (_, i) => (
+        <span key={i} className="ui-skel ws-loading-bar" aria-hidden="true" style={shape === 'card' ? { width: `${[70, 100, 45][i % 3]}%` } : undefined} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Nothing here yet: a colour icon, one plain sentence, and the next step when there is one.
+ * `action` is `{ label, onClick }`. A bare sentence left the reader with nowhere to go.
+ */
+export function Empty({ icon: Icon = null, children, action = null, compact = false }) {
+  return (
+    <div className={`ws-empty${compact ? ' ws-empty--compact' : ''}`}>
+      {Icon ? <Icon size={compact ? 28 : 36} aria-hidden="true" /> : null}
+      <p>{children}</p>
+      {action ? (
+        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={action.onClick}>
+          {action.label}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Something could not be read: said plainly where the content would be, with a way to try again. */
+export function LoadError({ children = 'This could not be loaded. Try again in a minute.', onRetry = null }) {
+  return (
+    <div className="ws-loaderror" role="alert">
+      <span>{children}</span>
+      {onRetry ? (
+        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /** A number that matters, as a way in when it has somewhere to go. */
 export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
   const body = (
     <>
       <span className={`ws-tile${tone ? ` ws-tile--${tone}` : ''}`} aria-hidden="true">
-        {Icon ? <Icon size={20} /> : null}
+        {Icon ? React.createElement(colourIcon(Icon), { size: 22 }) : null}
       </span>
       <span className="ws-stat-label">{label}</span>
       {onOpen ? <ChevronRight size={16} aria-hidden="true" className="ws-chev" style={{ opacity: 1 }} /> : <span />}

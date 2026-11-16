@@ -4,7 +4,7 @@ import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import { orgId } from '@platform/context';
 import { apiFetch } from '@platform/http';
-import { ICON, PageHead, ago, productIcon } from './wsKit';
+import { ICON, Loading, PageHead, ago, productIcon } from './wsKit';
 import './workspace.css';
 
 /* This page's colour icon, the one its menu item wears. */
@@ -100,7 +100,7 @@ export default function Inbox({ openApp, openScreen }) {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
         {all === null && !error ? (
-          <p className="ws-card-blurb">Loading…</p>
+          <Loading shape="rows" label="Loading…" />
         ) : !rows.length && !error ? (
           <div className="ws-empty">
             <PAGE_ICON size={36} aria-hidden="true" />

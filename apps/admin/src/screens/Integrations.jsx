@@ -1,10 +1,14 @@
+import { emoji } from '@ui/components/ui/emoji';
 import React, { useEffect, useState } from 'react';
 import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import { orgId } from '@platform/context';
 import { apiFetch } from '@platform/http';
-import { ICON, PageHead, ago } from './wsKit';
+import { ICON, Loading, PageHead, ago } from './wsKit';
 import './workspace.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('puzzle-piece');
 
 /**
  * Integrations (Workspace plan P2): everything connecting this company to the
@@ -45,6 +49,7 @@ export default function Integrations({ openApp, openScreen }) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Company', 'Integrations']}
+          icon={PAGE_ICON}
           title="Integrations"
           description="What connects this company to machines and systems outside CLOR, and whether it is working. Each one is managed in its own place."
           meta={rows?.length ? (attention ? `${attention} need${attention === 1 ? 's' : ''} a look` : 'All working') : null}
@@ -53,19 +58,19 @@ export default function Integrations({ openApp, openScreen }) {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
         {rows === null && !error ? (
-          <p className="ws-card-blurb">Loading…</p>
+          <Loading shape="rows" label="Loading…" />
         ) : rows && !rows.length ? (
           <div className="ws-empty">
             <span className="ws-tile" aria-hidden="true"><ICON.data size={20} /></span>
             <p>Nothing outside CLOR is connected to this company yet. Readers, connectors, webhooks, single sign-on and API keys show here once they are set up.</p>
           </div>
         ) : rows?.length ? (
-          <ul className="ws-list" aria-label="Integrations">
+          <ul className="ws-list ws-list--sheet" aria-label="Integrations">
             {rows.map((x) => (
               <li key={x.key} aria-labelledby={`int-${x.key}`}>
                 <div className="ws-item" style={{ alignItems: 'flex-start' }}>
                   <span className={`ws-tile${x.status === 'attention' ? ' ws-tile--warn' : ''}`} aria-hidden="true">
-                    {x.status === 'attention' ? <ICON.warning size={18} /> : <ICON.data size={18} />}
+                    {x.status === 'attention' ? <ICON.warning size={18} /> : <PAGE_ICON size={22} />}
                   </span>
                   <span className="ws-item-text">
                     <span id={`int-${x.key}`} className="ws-item-title">{x.label}</span>
