@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { cwd } from 'node:process';
 import { describe, expect, it } from 'vitest';
 
-const read = (p) => readFileSync(resolve(process.cwd(), p), 'utf8');
+const read = (p) => readFileSync(resolve(cwd(), p), 'utf8');
 
 describe("Books' screens panel wears the rail's emoji family (owner, 16 Nov 2026)", () => {
   const app = read('apps/accounting/src/App.jsx');
