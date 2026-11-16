@@ -8,6 +8,8 @@ Both PDFs are on the owner's Desktop.
 Any session can continue from here. Tick a line when it is **merged and live**, and
 write the PR number and date. Last updated: 13 Nov 2026 (every Stage 0 branch below has
 since merged and shipped; checked against `origin/main`, the live API revision and the live app).
+A second audit on 17 Nov 2026 added the section at the end and marked the older lines it
+found changed; those marks come from reading the code, not from the live app.
 
 `[x]` done and live · `[~]` built, waiting (PR open, merged not released, or partly done) · `[ ]` not started
 
@@ -80,10 +82,10 @@ since merged and shipped; checked against `origin/main`, the live API revision a
 - [x] Admin 2FA and payroll step-up on by default (14 Nov): companies created from now ask owners and admins for an authenticator; SSO, directory sync and its tokens need one outright (`stepUpIfHeld`); existing companies keep their setting. A locked account now answers sign-in like an unknown address
 - [x] Enforce CSP on the app and clor.in (enforced since 12 Nov; checked live 14 Nov on app., ops. and clor.in)
 - [x] SSO session bound to its company (11 Nov), and no account-wide Workspace powers once the account has another company (14 Nov, `SSO_ACCOUNT_WIDE`)
-- [ ] Approval emails and Android push (in-app bell only today) — `services/approvals/engine.ts:797`
+- [~] Approval emails and Android push — the People approval engine now emails approvers and the requester (`services/people/approvals/engine.ts:800-838`, read 17 Nov). Leave and attendance requests use their own notices, not traced. No push anywhere
 - [ ] Payroll: EPS exclusions (58+, joined after Sep 2014 above ₹15k) — `statutory/engine.ts:170-176`
 - [ ] Payroll: ESI contribution period (cover holds to end of Apr–Sep / Oct–Mar) — `engine.ts:211-219`
-- [ ] Payroll: full and final notice pay (now ₹0 at `finalSettlement.ts:187`), TDS, s.10(10)/10(10AA), post to Books
+- [~] Payroll: full and final notice pay, TDS, s.10(10)/10(10AA), post to Books — a notice shortfall on resignation is now recovered at gross ÷ 30 (`finalSettlement.ts:211-238`, read 17 Nov). Notice pay owed by the employer is still a ₹0 line to fill by hand (`:218`); tax and posting to Books still not built
 - [ ] Support desk, 20 help articles, onboarding checklist, Excel import templates
 - [ ] Nightly CI green 7 days running
 - [ ] Terms say CLOR "does not currently charge" (`packages/shell/legal/documents.jsx:264`) — update once prices are set; lawyer review
@@ -98,9 +100,9 @@ since merged and shipped; checked against `origin/main`, the live API revision a
 - [ ] Rule 3(1) edit log with before/after values; a failed audit write blocks the change (`middleware/auditMutations.ts`)
 - [ ] Editable roster grid (bulk assign, publish, coverage); OT rates by day type and caps; multiple breaks; comp-off expiry
 - [ ] People reports with filters and charts; letters issued by event
-- [ ] Bigger DB pools or a pooler; payroll run as a background job with `createMany`. Email outbox with retry: [~] built (`services/emailRetry.ts`, migration `20261206090000_email_outbox_retry`), branch `claude/platform-reliability`
+- [ ] Bigger DB pools or a pooler; payroll run as a background job with `createMany`. Email outbox with retry: [~] on main (`services/emailRetry.ts`, started from `server/src/index.ts:129`, read 17 Nov); live not checked
 - [ ] Payroll EDLI and admin charges computed (`defaults.ts:58`); Labour Code 50% wage rule
-- [ ] Mask PAN and bank numbers in payroll lists, reveal one with step-up (`routes/payrollEmployees.ts:148-209`)
+- [~] Mask PAN and bank numbers in payroll lists, reveal one with step-up — masked on the server unless the person holds the field right (`routes/payrollEmployees.ts:148-149`, read 17 Nov); live not checked
 - [ ] Named second person for incidents and releases; sub-processor list
 - [ ] Two case studies and customer logos on clor.in
 
@@ -118,12 +120,12 @@ since merged and shipped; checked against `origin/main`, the live API revision a
 - [x] Cloud Run settings in the repo (`deploy/cloudrun.service.yaml`); `DEPLOY.md` and `BACKUP-AND-RESTORE.md` rewritten for Cloud Run, Cloud SQL and Pages — PR #225, merged. The live service's request timeout is **300s**, checked 13 Nov
 - [x] Migrations run as a pre-deploy step (`scripts/migrate.sh`, called by `scripts/release.sh`), not at container start
 - [x] Alert when a background job fails or goes stale (`JobRun`) — PR #225, live (`services/ops/jobHealth.ts`); the matching alert policy "FAILED: a scheduled job" is on
-- [ ] Idempotency keyed by user and company, not the Authorization header (`middleware/idempotency.ts:23`)
+- [~] Idempotency keyed by user and company, not the Authorization header — in the code on main (`middleware/idempotency.ts:62`, read 17 Nov); live not checked
 - [ ] E-invoice calls: queue, retry, timeout (`services/einvoice.ts:367`)
-- [ ] zod validation on the 47 route files without it, employee portal first
+- [ ] zod validation on the route files without it: 22 of 142 on 17 Nov (was 47). Of those, `payrollTaxDeclarations`, `scim`, `invitations` and `outsideAccess` take a body
 - [x] Readers identified only by printed serial: per-reader IP allow-list (`routes/iclock.ts`) — PR #225, live; set on the reader's page
-- [ ] UPI pay page reflects `?err=` text: use fixed codes (`routes/payRequests.ts:238`)
-- [ ] Separate encryption key, not `JWT_SECRET` fallback (`services/mailer.ts:52`)
+- [~] UPI pay page reflects `?err=` text: use fixed codes — in the code on main (`routes/payRequests.ts:245`, read 17 Nov); live not checked
+- [~] Separate encryption key, not `JWT_SECRET` fallback — new secrets are sealed with `MAIL_SECRET_KEY` and production refuses without it (`services/mailer.ts:59`, read 17 Nov). `JWT_SECRET` is still tried when opening older secrets (`mailer.ts:70`) until they are sealed again
 - [ ] Leave day counts are Float: Decimal(6,2) (`prisma/people/schema.prisma:688-878`)
 - [ ] Keyboard path for clickable rows in Payroll and Attendance (`useListKeys` in the Shell)
 - [ ] Bundle size: charts chunk 1.15 MB, Accounting chunk 1.54 MB, 418 KB CSS
@@ -132,3 +134,116 @@ since merged and shipped; checked against `origin/main`, the live API revision a
 - [ ] Public "See a sample company" per product
 - [ ] People form field names simpler (Launch Review)
 - [ ] Close old PR #129 (off-site backup) — replaced by #216
+
+---
+
+## Audit of 17 Nov 2026
+
+A read-only audit of `origin/main` at `f3fb86c6`, in five parts: security, Books, Payroll and
+People and Attendance, billing and operations, front end and tests. Every line below was found
+by reading the code. Nothing was run, and none of it was reproduced in the live app. The top
+findings in each part were read a second time.
+
+Not covered: bank reconciliation, fixed assets, payslip PDF, onboarding, letters, live Cloud
+Run and Cloud SQL settings, and about 100 of the 142 route files beyond their guards.
+
+Security came out sound: no open route, no leak between companies, no SQL injection, no
+secret in the repository. Its findings are all medium or low.
+
+### Critical: Books ledger and returns
+
+- [ ] **Editing a bill twice posts the first amount again.** A bill of 1,00,000 edited to 1,20,000 and then to 1,30,000 leaves 2,30,000 in the ledger. The same happens on edit then delete, on cancel then delete, and on an invoice cancelled, reinstated and cancelled again. The lookup for entries to reverse also finds the reversals made earlier. Add `reversesId: null`, as `routes/payments.ts:487` already has — `routes/purchaseDocs.ts:508`, `:663`, `:706`; `routes/invoices.ts:761`. No test edits a purchase document twice
+- [ ] **The server stores totals and tax as the browser sends them** (the Stage 1 line above), and it goes further than invoices: bills, expenses, credit notes, debit notes, POS, the TDS amount on a bill, and `status: 'Paid'` with a paid amount. Any gap between the total and its parts is posted to Rounding — `routes/invoices.ts:446-459`, `routes/purchaseDocs.ts:349-354`, `services/posCheckout.ts`, `services/ledger.ts:613`
+- [ ] **GSTR-1, GSTR-3B, Trial Balance, P&L, Balance Sheet and Cash Flow in Reports are worked out in the browser from lists that stop short**: 500 invoices, 200 bills, 100 payments each way, 500 journal entries, one branch only. A larger company gets a short return with no warning. A list that fails to load shows as empty, with no message — `packages/ui/src/hooks/useServerDocSync.js:455-464` (and the empty `catch` blocks at `:475` onward), `apps/accounting/src/features/gst/GstCompliance.jsx:49`, `apps/accounting/src/features/reports/ReportsWorkspace.jsx:1277`. There is no GST return route on the server and no record that a return was filed
+
+### High: Books
+
+- [ ] Freight and other charges are taxed but kept out of the subtotal and the lines, so the ledger credits them to Rounding, GSTR-1 leaves them out and the e-invoice sends their GST as round-off — `packages/ui/src/utils/gst.js:214-230`, `services/ledger.ts:613-635`, `gst/inv01.ts:245-291`
+- [ ] A Draft invoice posts to the ledger when it is made; a recurring invoice is made as Draft and never posts; an invoice moved back from Cancelled keeps its reversal — `routes/invoices.ts:459`, `:531-552`, `:784-794`; `services/recurring.ts:104-139`
+- [ ] CGST and SGST or IGST is chosen from the company's state, not the state of the branch that issues the document — `apps/accounting/src/features/sales/InvoiceForm.jsx:492`, `:515`; `apps/accounting/src/features/purchase/Bills.jsx:270`
+- [ ] TDS yearly limit is wrong both ways: bills under the limit never add up, and once one bill has had TDS the next is taxed on the whole year again — `packages/ui/src/utils/tds.js:171-208`, `apps/accounting/src/features/tds/engine.js:312-321`
+- [ ] A foreign currency invoice reaches the server with no currency or rate and is booked at 1; paying a foreign bill at another rate posts no exchange difference — `apps/accounting/src/features/sales/InvoiceForm.jsx:1205-1250`, `routes/payments.ts:204-226`
+
+### High: Payroll
+
+- [ ] "Days from leave" gives a person who joined or left in the month the whole period less unpaid leave. Joined on the 16th on ₹60,000 with one unpaid day: paid ₹58,000, due ₹28,000. Companies with People and Payroll but no Attendance — `routes/payrollRuns.ts:609-618`, `services/payroll/run.ts:1053`
+- [ ] A salary revision in the middle of a month pays the new salary for the whole month, and a revision dated back into a finished month pays no arrears — `services/payroll/run.ts:1202`, `:1709`; `services/payroll/revision.ts:293-299`
+- [ ] Loan instalments that fall after the pay periods that exist when the loan is approved are saved with no period and never collected — `services/payroll/loan.ts:144-150`, `:236-251`
+- [ ] PF, ESI and professional tax are not worked out on arrears, bonus, incentive or leave encashment added to a run — `services/payroll/run.ts:1719-1727`, `:1785-1788`
+- [ ] Weekly and fortnightly pay is accepted, but tax, the PF ceiling, the ESI limit and professional tax all assume a month. Refuse it or build it — `routes/payrollStructures.ts:59`, `services/payroll/run.ts:938`, `:988`
+
+### High: billing, operations, phones, tests
+
+- [ ] A reopened or re-granted account becomes active with no end date, so it is never invoiced and never lapses. The code does this on purpose; it still needs a date or a flag for staff — `routes/opsCustomers.ts:104-108`, `services/subscriptions.ts:189`
+- [ ] Employees or users bought on a deal are billed but not enforced: buy 20, add 500 — `routes/opsDeals.ts:530`
+- [ ] 9 database connections for each instance against 80 requests at once (the Stage 2 pool line above, now with the numbers) — `server/scripts/cloudrun-start.sh:42-45`, `deploy/cloudrun.service.yaml:51`
+- [ ] One wake call runs about 38 jobs side by side on those connections, and several read every company with no limit — `services/jobRegistry.ts:68-92`, `services/booksDigest.ts:40`, `services/people/weeklySummary.ts:218`
+- [ ] Phone wrappers: the sign-in cookie is not sent from the wrapper's own address, so people are likely signed out every 15 minutes; the Android wrappers ask only for internet, so location and camera fail. Not tried on a phone — `server/src/utils/refreshCookie.ts:43`, `mobile/attendance/capacitor.config.json`, `mobile/attendance/android/app/src/main/AndroidManifest.xml:34`
+- [ ] An ordinary pull request runs only the server tests a script can match by file name or direct import, and a push to main runs none — `scripts/ci/related-server-tests.mjs:44-52`, `.github/workflows/ci.yml`
+
+### Medium: security
+
+- [ ] 3 medium and 8 low findings, none critical or high. This repository is public, so the detail of findings that are not yet fixed is kept out of it and held by the owner. Each gets a line here when its fix is merged and live
+
+### Medium: Payroll, People, Attendance
+
+- [ ] Full and final has no tax, posts nothing to Books and is missing from Form 16 and 24Q (adds to the Stage 1 line above) — `routes/payrollSettlements.ts:309-383`, `services/payroll/form16.ts:59`
+- [ ] Gratuity rounds up only after seven full months, so 5 years 6 months and 15 days is paid for 5 years, not 6 — `services/payroll/finalSettlement.ts:80`
+- [ ] Leave encashment in full and final is always gratuity wage ÷ 26, whatever the leave type says — `services/payroll/finalSettlement.ts:154`
+- [ ] ESI cover is tested on the month's earned wage, not the wage rate, so unpaid leave or overtime moves a person in or out — `services/payroll/run.ts:976`, `statutory/engine.ts:215`
+- [ ] The ECR, ESIC and PT files are built from payslips of a run that is not yet approved; a member with no PF that month is left out — `services/payroll/filings.ts:65-68`, `:112`
+- [ ] A bonus or deduction approved into a month whose run is already final, in a period that is not locked, is never paid — `services/payroll/run.ts:557-571`
+- [ ] Payroll gets raw overtime hours; the company's rates by day type and its caps are not passed (adds to the Stage 2 line above) — `routes/payrollRuns.ts:514`
+- [ ] Entered deductions can take net pay below zero, and the whole deduction is still marked recovered — `services/payroll/run.ts:1786`, `services/payroll/payment.ts:153`
+- [ ] Employee app People routes check sign-in only, so in an Attendance-only company a private case can be filed where HR cannot open it — `routes/peoplePortal.ts:29`, `routes/peopleTimePortal.ts:26`
+
+### Medium: Books
+
+- [ ] Reverse charge is a label: a sale marked reverse charge still bills and posts GST, and bills and expenses have no reverse charge or blocked-credit field — `services/ledger.ts:647-693`, `packages/ui/src/utils/gstrExport.js:499`
+- [ ] Settlement checks the document total only: it ignores TDS taken on the bill and credit notes, and a receipt can be set against a bill — `services/settlement.ts`
+- [ ] The GSTR-3B figures on screen count drafts and cancelled invoices and so disagree with the file made from the same screen — `apps/accounting/src/features/gst/GstCompliance.jsx:439-484`
+- [ ] E-invoice and books are not tied: cancelling an invoice leaves the IRN live, a Draft can get an IRN, credit notes cannot be registered, and a call has no timeout — `routes/einvoice.ts`, `routes/invoices.ts:736-782`
+- [ ] Invoice numbers are taken before the invoice is saved, so a refused invoice leaves a gap — `routes/invoices.ts:402-417`
+- [ ] An imported document whose posting fails stays in the list with no ledger entry — `routes/imports.ts:597-655`
+- [ ] Stock never reaches the ledger: no cost of goods sold or closing stock on the server; stock with no warehouse can be sold from every warehouse — `services/stockLedger.ts:53`
+- [ ] The general reverse route can reverse the entry behind a live invoice or bill; bank book rows are saved without a ledger entry; a row the server refused stays on screen for that session — `routes/ledger.ts:414`, `routes/bankBook.ts:81`
+- [ ] Smaller: 194A limit of 50,000 where a non-bank payer's is 10,000; TCS under 206C(1H) still charged; "This year" in Trial Balance starts on 1 January (`packages/ui/src/utils/tds.js:110`, `apps/accounting/src/features/reports/TrialBalanceReport.jsx:40`)
+
+### Medium: billing and operations
+
+- [ ] A payment event from the gateway makes a subscription active without checking the amount, the invoice or the period — `billing/events.ts:156-164`, `billing/razorpay.ts:155`
+- [ ] `/auth/signup` gives a full trial to an email nobody proved, and ignores the switch that pauses sign-ups — `routes/auth.ts:621-655`
+- [ ] A lapsed People, Payroll or Attendance app refuses reading too, so employees lose their payslips, though the message says everything can still be read — `services/people/guards.ts:43`, `services/payroll/guards.ts:46`
+- [ ] A trial that turns paid keeps its old trial end as the expiry of extras — `services/subscriptions.ts:276`
+- [ ] Nothing moves a subscription to past due when its period ends, so "stop at period end" never stops — `services/subscriptions.ts:107`, `routes/billing.ts:293`
+- [ ] Company export builds one answer from 36 unbounded reads — `routes/dataExport.ts:234`
+- [ ] With no instance kept warm and a wake every 10 minutes, jobs meant for every few seconds or every minute wait up to 10 minutes — `deploy/cloudrun.service.yaml:44`
+- [ ] Migrations for the four databases run one after another with no way back, and no index is built with CONCURRENTLY — `server/package.json:18`
+- [ ] Nobody is told when the nightly off-site copy fails, and the Delhi copy has never been restored — `docs/BACKUP-AND-RESTORE.md:53`, `:205`
+
+### Medium: front end and tests
+
+- [ ] When the session ends, the open form is thrown away — `packages/platform/http.js:86-98`, `packages/shell/Shell.jsx:857`
+- [ ] Bills, expenses, notes, orders, leave and holidays can be saved twice by a double click — `packages/platform/http.js:195`, `apps/accounting/src/features/purchase/Bills.jsx:474`
+- [ ] Pickers stop at 500 people, so in a larger company a manager past the 500th cannot be chosen — `apps/people/src/workforce/AddEmployee.jsx:116`, `server/src/routes/people.ts:612`
+- [ ] 159 places in the front end swallow a failed call and show blanks — `apps/admin/src/screens/AdminHome.jsx:111-127`, `apps/people/src/workforce/Directory.jsx:106`
+- [ ] Each app loads all of its screens at once; People imports 41 files from other apps, and the boundary check named in `.dependency-cruiser.cjs` has no script and no CI step
+- [ ] `tenant-platform-upgrade-2026-10-23/` holds 32 MB of evidence logs in a public repository, some with test tokens. Keep `route-allowlist.json` and the route script, which CI needs, and remove the rest after checking the tokens were signed with a test secret
+- [ ] clor.in says "File GSTR-1 and GSTR-3B"; the product makes a file to download — `website/src/pages/Home.jsx:72`, `:117`
+
+### Design contract, counted 17 Nov
+
+- [ ] Raw palette classes 28 (was 56), none in app chrome; radii off the two sizes 21 in JSX and about 45 in CSS; `shadow-*` classes 85, of which 83 in Books; 35 identifiers not in the mono class; 33 clickable rows with no keyboard path
+- [ ] Money without Indian grouping or two decimals — `apps/accounting/src/features/sales/UpiPayLink.jsx:87`, `:104`, `:128`; `packages/ui/src/utils/money.js:252`
+- [ ] Dark theme code still in the token file — `packages/ui/src/index.css:492` and 20 more selectors; charts set in Inter — `packages/ui/src/components/charts/useChartTheme.js:93`
+- [ ] `DESIGN.md` disagrees with itself on dark mode (lines 89, 179), the tinted list header (61, 170), the Books panel tint (70), Sora and Inter (71, 151) and Fluent icons (259, 387)
+- [ ] The ended sign-up link page uses AuthLayout, not GatePage — `packages/shell/Start.jsx:96`
+
+### For selling to accountants and charging by result
+
+Asked for by the owner on 17 Nov. What the code has today:
+
+- Built: one sign-in for many companies with a switcher; an outside accountant invited to a company with a limited role and an end date; a practice plan of 50 companies and 25 users; CSV and Excel import of invoices, bills, notes and journals
+- Partly built: a firm above its client companies (only when the firm's own account owns them); a view across companies (no due dates, no filing status)
+- [ ] Not built: requests to a client for documents; partner or wholesale prices; the firm's name and logo on reports; import from Tally; bulk import of parties and items
+- [ ] Not built: any count of billable events. For a price per result: an append-only event table in the platform database, a price per outcome beside COMPANY, USER and EMPLOYEE (`services/pricing/engine.ts:27`), a month-end step that adds count × rate lines to the renewal invoice (`billing/renewals.ts:107`), and a server record of "return filed"
