@@ -366,6 +366,13 @@
   color: rgb(var(--on-brand));
 }
 :root:not(#rnd) .ui-company-pick .ui-select { height: 2.25rem; font-weight: 600; border-color: rgb(var(--border-field)); }
+/* The app menu under the switch: each app's mark in its own colour, the open app on a light grey row with a tick. */
+:root:not(#rnd) .ui-app-menu-item { color: rgb(var(--fg)); transition: background-color 0.12s ease; }
+:root:not(#rnd) .ui-app-menu-item:hover { background: rgb(246 247 249); }
+:root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(240 242 245); }
+:root:not(#rnd) .ui-app-menu-item:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
+:root:not(#rnd) .ui-app-menu-item .ui-caption { color: rgb(var(--fg-muted)); }
+:root:not(#rnd) .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(240 242 245); color: rgb(var(--fg)); }
 
 /* Rail: 80px, white, hairline. Symbol tile 36px. Each module is its icon with its name under it
    (owner, 16 Nov 2026: "sidebar add module names"), 8px radius, 24px icons, 11px names. */

@@ -1213,38 +1213,43 @@ function ShellScreens() {
                       key={a.id}
                       type="button"
                       role="menuitem"
-                      className="w-full flex items-start gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                      className="ui-app-menu-item w-full flex items-start gap-2.5 rounded-lg px-2 py-2 text-left"
+                      aria-current={a.id === app.id ? 'true' : undefined}
                       onClick={() => openApp(a.id)}
                     >
-                      <a.icon size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: `rgb(var(--app-${a.id}))` }} />
-                      <span className="min-w-0">
-                        <span className="block text-sm">{a.name}</span>
+                      {/* The app's mark in its own colour, as the bar shows the open one (owner, 17 Nov 2026: "change drop down color"). */}
+                      <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': `var(--app-${a.id})` }}><a.icon size={16} aria-hidden="true" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{a.name}</span>
                         <span className="block ui-caption">{a.blurb}</span>
                       </span>
+                      {a.id === app.id ? <Check size={16} aria-hidden="true" className="mt-1.5 shrink-0" /> : null}
                     </button>
                   ))}
                   <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                    className="ui-app-menu-item w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left"
                     onClick={() => {
                       setShowMoreApps(true);
                       setSwitcherOpen(false);
                     }}
                   >
-                    <LayoutGrid size={16} aria-hidden="true" />
-                    <span className="text-sm">More apps</span>
+                    <span className="ui-app-switch-mark ui-app-menu-quiet shrink-0"><LayoutGrid size={16} aria-hidden="true" /></span>
+                    <span className="text-sm font-semibold">More apps</span>
                   </button>
                   {/* Users, roles, sign-in, billing and the audit trail are the company's, not one app's: one workspace, reachable from every app (ADR-010). */}
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left ui-hover-sunken"
+                    className="ui-app-menu-item w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left"
+                    aria-current={inWorkspace ? 'true' : undefined}
                     onClick={() => openApp(ADMIN_APP_ID)}
                   >
-                    <Settings size={16} aria-hidden="true" />
-                    <span className="text-sm">Workspace</span>
+                    <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': 'var(--app-admin, 32 35 41)' }}><Settings size={16} aria-hidden="true" /></span>
+                    <span className="text-sm font-semibold flex-1">Workspace</span>
+                    {inWorkspace ? <Check size={16} aria-hidden="true" className="shrink-0" /> : null}
                   </button>
                 </div>
               ) : null}
