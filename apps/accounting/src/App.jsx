@@ -295,7 +295,8 @@ const TrialBalance = ({ db, currentCompany, onOpenLedger }) => {
 
   return (
     <div className="space-y-6">
-      <h3 className="ui-t-sec">Trial Balance</h3>
+      {/* A page title like every other screen's, so the heading does not sit against the panel edge. */}
+      <PageHeader title="Trial Balance" description="Every account's balance as on today. Open an account to see its ledger." />
 
       <div className="ui-surface rounded-xl shadow-sm overflow-hidden border">
         <table className="ui-table w-full">
@@ -3972,8 +3973,11 @@ const AppShell = () => {
             >
               <PanelLeftOpen size={18} aria-hidden="true" />
             </button> : null}
-            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain" />
-            <div className="relative min-w-0 flex-1" ref={orgMenuRef}>
+            {/* The company is named once per screen: from tablet width up the platform bar's
+                switcher above names it, so this one shows on phones only, where that switcher
+                is hidden (owner, 16 Nov 2026). */}
+            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain md:hidden" />
+            <div className="relative min-w-0 flex-1 md:hidden" ref={orgMenuRef}>
                 <button
                   type="button"
                   onClick={() => setOrgMenuOpen((v) => !v)}
@@ -4339,7 +4343,8 @@ const AppShell = () => {
                         aria-current={isActive ? 'page' : undefined}
                       >
                         <ItemIcon size={16} aria-hidden="true" />
-                        <span className="min-w-0 truncate">{item.label}</span>
+                        {/* Wraps to a second line rather than cutting a long name ("Users, roles & security"). */}
+                        <span className="min-w-0 flex-1 whitespace-normal py-1.5 text-left leading-tight [overflow-wrap:break-word]">{item.label}</span>
                         {state ? <span className="ml-auto shrink-0 text-xs ui-subtle tabular-nums">{state}</span> : null}
                       </button>
                     );

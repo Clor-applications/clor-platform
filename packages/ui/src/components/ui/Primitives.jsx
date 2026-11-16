@@ -348,7 +348,7 @@ export const EmptyState = ({
                 key={r.label}
                 type="button"
                 onClick={r.onSelect}
-                className="ui-card p-3 hover:border-[rgb(var(--brand))] transition-colors sm:w-[13.5rem]"
+                className="ui-card p-3 whitespace-normal hover:border-[rgb(var(--brand))] transition-colors sm:w-[13.5rem]"
               >
                 <span className="block text-sm font-medium">{r.label}</span>
                 {r.description ? <span className="block ui-muted text-xs mt-0.5 leading-4">{r.description}</span> : null}
