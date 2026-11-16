@@ -50,6 +50,7 @@
   --act-2: 15 118 110;         /* the second colour; each app sets its own below */
   --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
   --panel: 255 255 255;        /* white */
+  --hover-blue: 42 120 214;    /* #2A78D6: hover and open-item tint in the sidebars and the app menu */
   --panel-border: 229 229 229; /* #E5E5E5 hairline */
 
   /* Neutrals: warm paper, not cool zinc (§6.2) */
@@ -366,38 +367,12 @@
   color: rgb(var(--on-brand));
 }
 :root:not(#rnd) .ui-company-pick .ui-select { height: 2.25rem; font-weight: 600; border-color: rgb(var(--border-field)); }
-/* Dark graphite with white words (owner, 17 Nov 2026): Help and the phone's company menu. The app
-   menu was tried dark and went back to white the same day ("no app drop down keep previous"). The tokens are turned over inside the menu, so every row, caption, hairline
-   and hover in it follows without a rule each. */
-:root:not(#rnd) .ui-menu-dark,
-:root:not(#rnd) .ui-popover:has(> [role='menu'][aria-label='Help and contact']) {
-  --surface: 32 35 41;
-  --surface-sunken: 52 56 65;
-  --fg: 255 255 255;
-  --fg-muted: 205 208 214;
-  --fg-subtle: 178 182 190;
-  --border: 62 67 77;
-  background: rgb(32 35 41) !important;
-  border-color: rgb(62 67 77) !important;
-  color: rgb(255 255 255);
-  box-shadow: 0 18px 40px -16px rgb(16 18 22 / 0.55);
-}
-:root:not(#rnd) .ui-menu-dark .ui-caption { color: rgb(178 182 190); }
-:root:not(#rnd) .ui-menu-dark .ui-app-menu-item:hover { background: rgb(255 255 255 / 0.08); }
-:root:not(#rnd) .ui-menu-dark .ui-app-menu-item[aria-current='true'] { background: rgb(255 255 255 / 0.13); }
-:root:not(#rnd) .ui-menu-dark .ui-app-menu-item:focus-visible { outline-color: rgb(255 255 255); }
-/* A dark mark (Books navy, Workspace graphite) needs an edge to stand off the dark menu. */
-:root:not(#rnd) .ui-menu-dark .ui-app-switch-mark { box-shadow: 0 0 0 1px rgb(255 255 255 / 0.28); }
-:root:not(#rnd) .ui-menu-dark .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(255 255 255 / 0.12); color: rgb(255 255 255); }
-/* The company list is the browser's own; where the browser lets a page colour it, it is dark too. */
-:root:not(#rnd) .ui-company-pick .ui-select option,
-:root:not(#rnd) .ui-company-pick .ui-select optgroup { background: rgb(32 35 41); color: rgb(255 255 255); }
 :root:not(#rnd) .ui-company-pick-icon { left: 0.5rem; }
 
 /* The app menu under the switch: each app's mark in its own colour, the open app on a light grey row with a tick. */
 :root:not(#rnd) .ui-app-menu-item { color: rgb(var(--fg)); transition: background-color 0.12s ease; }
-:root:not(#rnd) .ui-app-menu-item:hover { background: rgb(246 247 249); }
-:root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(240 242 245); }
+:root:not(#rnd) .ui-app-menu-item:hover { background: rgb(var(--hover-blue) / 0.1); }
+:root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(var(--hover-blue) / 0.14); }
 :root:not(#rnd) .ui-app-menu-item:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
 :root:not(#rnd) .ui-app-menu-item .ui-caption { color: rgb(var(--fg-muted)); }
 :root:not(#rnd) .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(240 242 245); color: rgb(var(--fg)); }
@@ -447,10 +422,13 @@
   font-weight: 700;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod > svg { width: 1.5rem; height: 1.5rem; font-size: 1.5rem; transform: none; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+/* Hover and the open item are a soft blue, not grey (owner, 17 Nov 2026: "when cursor moves with any
+   option it's grey now, I want different color"). One blue for every app: a tint of the app's own
+   colour came out grey in the Workspace and orange in Attendance. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod:hover { background: rgb(var(--hover-blue) / 0.1); color: rgb(var(--fg)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current],
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[aria-pressed='true'] {
-  background: rgb(var(--tint));
+  background: rgb(var(--hover-blue) / 0.14);
   color: rgb(var(--fg));
   box-shadow: none;
 }
@@ -567,7 +545,7 @@
   box-shadow: none;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item > svg { width: 1.25rem; height: 1.25rem; font-size: 1.25rem; color: inherit; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-item:hover { background: rgb(255 255 255 / 0.7); color: rgb(var(--fg)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item:hover { background: rgb(var(--hover-blue) / 0.1); color: rgb(var(--fg)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item[aria-current='page'] {
   background: rgb(var(--surface));
   color: rgb(var(--fg));

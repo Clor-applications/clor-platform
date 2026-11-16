@@ -1321,7 +1321,7 @@ function ShellScreens() {
               {companyOpen ? (
                 <div
                   role="menu"
-                  className="ui-menu-dark fixed inset-x-4 top-14 mt-1 rounded-xl p-1"
+                  className="fixed inset-x-4 top-14 mt-1 rounded-xl p-1"
                   style={{ backgroundColor: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-lift)', zIndex: 'var(--z-platform-menu)' }}
                 >
                   <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setCompanyOpen(false); pickCompany(t.id); }} />

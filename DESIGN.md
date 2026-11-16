@@ -762,12 +762,13 @@ because focus, portals and event order cannot be read off the source.
   was tried and came out orange in the Workspace: "do not add orange
   background"), and ends in a small help card where a short list left the
   column empty. No orange wash anywhere: the hero's wash is faint blue and green.
-  The app menu stays white, each app's mark in its own colour and the open app
-  on a light grey row with a tick (tried dark, owner: "keep previous"); Help and
-  the phone's company menu are dark graphite `#202329` with white words; the search and company fields carry a colour icon (Fluent
-  Emoji magnifying glass and office building). The company list on a desktop is
-  the browser's own select and takes the dark colour only where the browser
-  allows it.
+  The bar's menus stay white (a dark graphite version was tried and withdrawn);
+  the app menu shows each app's mark in its own colour and marks the open app.
+  The search and company fields carry a colour icon (Fluent Emoji magnifying
+  glass and office building). Hover and the open item in the rail, the screens
+  panel and the app menu are a soft blue (`--hover-blue` #2A78D6 at 10% and 14%),
+  not grey ("when cursor moves with any option it's grey now, I want different
+  color").
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
