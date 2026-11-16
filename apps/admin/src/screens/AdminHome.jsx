@@ -97,6 +97,10 @@ const E = {
   link: emoji('link'),
   locked: emoji('locked'),
   hug: emoji('hugging-face'),
+  books: emoji('books'),
+  bulb: emoji('light-bulb'),
+  chat: emoji('speech-balloon'),
+  letter: emoji('envelope'),
 };
 
 /** Good morning / afternoon / evening, by the reader's own clock. */
@@ -1038,12 +1042,13 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             <Panel title="Help and support">
               <ul className="ws-list">
                 {[
-                  ['welcome', 'Help centre', 'Guides for the Workspace and every app'],
-                  ['setup', 'Set up your workspace', 'The four steps to a ready company'],
-                  ['readers', 'Integrations', 'Readers, Tally, HR tools, single sign-on'],
-                ].map(([topic, title, sub]) => (
+                  ['welcome', 'Help centre', 'Guides for the Workspace and every app', E.books],
+                  ['setup', 'Set up your workspace', 'The four steps to a ready company', E.bulb],
+                  ['readers', 'Integrations', 'Readers, Tally, HR tools, single sign-on', E.link],
+                ].map(([topic, title, sub, Icon], hi) => (
                   <li key={title}>
                     <button type="button" className="ws-item ws-item--button" onClick={() => requestOpenHelp(topic)}>
+                      <span className="wsh-help-ico" data-hue={HUES[hi % HUES.length]} aria-hidden="true"><Icon size={20} /></span>
                       <span className="ws-item-text">
                         <span className="ws-item-title">{title}</span>
                         <span className="ws-item-sub">{sub}</span>
@@ -1055,6 +1060,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 {go('support') ? (
                   <li>
                     <button type="button" className="ws-item ws-item--button" onClick={go('support')}>
+                      <span className="wsh-help-ico" data-hue="blue" aria-hidden="true"><E.chat size={20} /></span>
                       <span className="ws-item-text">
                         <span className="ws-item-title">Ask CLOR support</span>
                         <span className="ws-item-sub">{tickets?.some((t) => t.status === 'OPEN' || t.status === 'WAITING') ? `${tickets.filter((t) => t.status === 'OPEN' || t.status === 'WAITING').length} open · see your tickets` : 'Open a ticket and get the answer by email'}</span>
@@ -1066,6 +1072,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 {operator.contactEmail ? (
                   <li>
                     <a className="ws-item" href={`mailto:${operator.contactEmail}`}>
+                      <span className="wsh-help-ico" data-hue="orange" aria-hidden="true"><E.letter size={20} /></span>
                       <span className="ws-item-text">
                         <span className="ws-item-title">Contact support</span>
                         <span className="ws-item-sub">{operator.contactEmail}</span>
