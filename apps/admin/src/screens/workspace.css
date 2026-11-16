@@ -2948,3 +2948,19 @@ button.ws-stat:hover {
     flex-wrap: wrap;
   }
 }
+
+/* Activity's colours (owner, 17 Nov 2026). A plain change is blue; the Workspace's own tag wears
+   its graphite, as each app's tag wears that app's colour. */
+.ws-pill--info {
+  background: rgb(var(--cat-1, 42 120 214) / 0.12);
+  color: rgb(26 86 168);
+}
+.ws-tag--workspace {
+  background: rgb(var(--graphite, 32 35 41));
+  color: rgb(255 255 255);
+  font-weight: 600;
+}
+/* Quiet buttons (Refresh, Export, and their like) carry their icon in the page's blue. */
+.ws .ws-btn--quiet > svg {
+  color: rgb(var(--cat-1, 42 120 214));
+}

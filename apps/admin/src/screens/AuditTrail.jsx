@@ -82,7 +82,8 @@ const entityLabel = (entity) => {
   return words ? words[0].toUpperCase() + words.slice(1) : '';
 };
 
-/* An action's pill: made is good news, removed is the one to notice, every other change is plain. Always in words. */
+/* An action's pill: made is good news (green), removed is the one to notice (red), every other change is blue
+   (grey before; owner, 17 Nov 2026: "edit color make it change"). Always in words. */
 const ACTION_STYLE = {
   CREATE: { className: 'ws-pill ws-pill--ok' },
   DELETE: { className: 'ws-pill ws-pill--danger' },
@@ -90,7 +91,7 @@ const ACTION_STYLE = {
 const actionWords = (a) => String(a || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 const ActionPill = ({ action }) => {
-  const look = ACTION_STYLE[action] || { className: 'ws-pill' };
+  const look = ACTION_STYLE[action] || { className: 'ws-pill ws-pill--info' };
   return (
     <span className={look.className} style={look.style} title={action}>
       {actionWords(action)}
@@ -398,13 +399,13 @@ export default function AuditTrail({ tenant } = {}) {
                         </td>
                         <td>
                           <span className="ws-sec-who" title={e.by?.email || undefined}>
-                            <Avatar name={who} />
+                            <Avatar name={who} hue="blue" />
                             <strong>{who}</strong>
                             {e.entity === 'SupportGrant' ? <span className="ws-tag">Staff</span> : null}
                           </span>
                         </td>
                         <td>
-                          {app === 'workspace' ? <span className="ws-tag">Workspace</span> : <AppTag app={app} />}
+                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
                         </td>
                         <td className="ws-sec-wrap">
                           <span className="ws-sec-what">

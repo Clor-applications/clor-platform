@@ -284,12 +284,13 @@ export const initials = (name = '') => {
   return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || '?').slice(0, 2)).toUpperCase();
 };
 /** A person's initials on a soft fill, the colour fixed by their name. */
-export function Avatar({ name, size, ink = false }) {
+/* `hue="blue"` holds the circle to the page's blue instead of a colour worked out from the name. */
+export function Avatar({ name, size, ink = false, hue = null }) {
   const key = String(name || '');
   let h = 0;
   for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) >>> 0;
   return (
-    <span className="ws-avatar" data-size={size} data-ink={ink || undefined} style={{ '--av': `var(${CAT[h % CAT.length]})` }} aria-hidden="true">
+    <span className="ws-avatar" data-size={size} data-ink={ink || undefined} style={{ '--av': hue === 'blue' ? 'var(--cat-1)' : `var(${CAT[h % CAT.length]})` }} aria-hidden="true">
       {initials(key)}
     </span>
   );
