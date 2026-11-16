@@ -85,7 +85,7 @@ export function goBack(fallback = 'home') {
  * (Companies, Members, Plan…); every other Workspace page acts on the company
  * chosen in the bar, which the bar names.
  */
-export function PageHead({ crumbs = [], title, description, meta, actions, scope, icon: Icon = null }) {
+export function PageHead({ crumbs = [], title, description, meta, actions, scope, icon: Icon = null, tools = null }) {
   const section = crumbs[0];
   /* A section's own Overview page is a top: it has nowhere to go back to. */
   const isTop = crumbs.length < 2 || crumbs[crumbs.length - 1] === 'Overview';
@@ -125,9 +125,10 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
         </h1>
         {description ? <p className="ws-lede">{description}</p> : null}
       </div>
-      {meta || actions ? (
-        <div className="grid gap-2 justify-items-end">
+      {meta || actions || tools ? (
+        <div className="ws-head-side">
           {meta ? <span className="ws-head-meta">{meta}</span> : null}
+          {tools}
           {actions ? <div className="ws-actions">{actions}</div> : null}
         </div>
       ) : null}

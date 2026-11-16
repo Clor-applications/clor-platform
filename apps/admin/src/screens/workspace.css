@@ -2681,9 +2681,9 @@ button.ws-stat:hover {
   height: 40px;
   padding: 0 16px;
   /* Every list's header row: the Books Invoices pale blue-grey (owner, 16 Nov 2026). */
-  /* The rail's light grey, not the blue list head (owner, 17 Nov 2026: "this columns color"): one
-     neutral for the Workspace's chrome. Ink, so the small caps read. */
-  background: rgb(246 247 249);
+  /* A soft tint of the blue that marks hover and the open item (owner, 17 Nov 2026: "this columns
+     color", then "change color accent" when it went grey). Ink captions, so the small caps read. */
+  background: rgb(var(--hover-blue, 42 120 214) / 0.1);
   color: rgb(var(--fg, 32 35 41));
   font-size: 0.75rem;
   line-height: 1rem;
@@ -2904,5 +2904,47 @@ button.ws-stat:hover {
 @media (min-width: 768px) {
   main.ui-content .ws {
     padding: 0 0 24px;
+  }
+}
+
+/* Tighter page rhythm (owner, 17 Nov 2026: "pages have empty space at the top"): 20px between a
+   page's parts, no rule and no extra pad under the header, and the header's tools (search, count)
+   on the title's own row beside the buttons. */
+.ws .ws-inner {
+  gap: 20px;
+}
+.ws .ws-head {
+  align-items: center;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.ws .ws-title {
+  margin-top: 0;
+}
+.ws-head-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  min-width: 0;
+}
+.ws-head-tools {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+.ws-head-tools .ws-search {
+  flex: 0 1 220px;
+  min-width: 160px;
+}
+.ws-head-tools .ws-list-meta {
+  order: -1;
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .ws-head-side,
+  .ws-head-tools {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }

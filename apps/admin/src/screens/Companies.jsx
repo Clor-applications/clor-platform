@@ -83,6 +83,24 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
         <PageHead
           crumbs={['Company', 'Companies']} scope="account"
           icon={PAGE_ICON}
+          /* Search and the count sit on the title's row: a row of their own under it left the page top half empty (owner, 17 Nov 2026). */
+          tools={
+            <div className="ws-filters ws-head-tools" role="search">
+              <label className="ws-search">
+                <span className="sr-only">Search companies</span>
+                <Search size={16} aria-hidden="true" />
+                <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Search by name, GSTIN or state" />
+              </label>
+              {data ? (
+                <span className="ws-list-meta">
+                  {activeCount} {activeCount === 1 ? 'company' : 'companies'}
+                  {limit != null ? ` · ${limit} allowed on your plan` : ''}
+                  {archivedCount ? ` · ${archivedCount} archived` : ''}
+                  {incomplete ? ` · ${incomplete} without a GSTIN` : ''}
+                </span>
+              ) : null}
+            </div>
+          }
           title="Companies"
           actions={
             addCompany ? (
@@ -94,22 +112,6 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-
-        <div className="ws-filters" role="search">
-          <label className="ws-search">
-            <span className="sr-only">Search companies</span>
-            <Search size={16} aria-hidden="true" />
-            <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Search by name, GSTIN or state" />
-          </label>
-          {data ? (
-            <span className="ws-list-meta">
-              {activeCount} {activeCount === 1 ? 'company' : 'companies'}
-              {limit != null ? ` · ${limit} allowed on your plan` : ''}
-              {archivedCount ? ` · ${archivedCount} archived` : ''}
-              {incomplete ? ` · ${incomplete} without a GSTIN` : ''}
-            </span>
-          ) : null}
-        </div>
 
         {data === null ? (
           <p className="ws-card-blurb">Loading companies…</p>

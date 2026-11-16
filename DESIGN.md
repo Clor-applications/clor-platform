@@ -781,8 +781,13 @@ because focus, portals and event order cannot be read off the source.
   340px (it opens the palette; it is not typed into).
   Workspace pages sit in one frame, not two: the shell's 32px content padding
   only (the Workspace's own 32px inside it is gone from tablet width up).
-  Workspace list tables: a light grey `#F6F7F9` header row with ink captions
-  (the blue `--list-head` stays in the other apps) and 48px rows.
+  Workspace list tables: a header row in a 10% tint of `--hover-blue` with ink
+  captions (grey was tried: "change color accent") and 48px rows. Pages keep
+  20px between their parts, no rule under the header, and on Companies and
+  Branches the search and count sit on the title's row beside the buttons.
+  The open (selected) item in the rail, the screens panel and the app menu is a
+  soft green (`--select-green` #1BAF7A at 14–16%), a different hue from the blue
+  hover ("add different color for selection color").
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

@@ -50,7 +50,6 @@ export function branchRows(branches, { q = '', sort = 'branchCode', dir = 1 }) {
     .sort((a, b) => String(a[sort] || '').localeCompare(String(b[sort] || '')) * dir);
 }
 
-
 export function SettingsBranches({ orgId, company, onBranchesChanged }) {
   const [branches, setBranches] = useState(null);
   const [error, setError] = useState('');
@@ -178,6 +177,34 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         <PageHead
           crumbs={['Company', 'Branches']}
           icon={PAGE_ICON}
+          /* Search and the count sit on the title's row: a row of their own under it left the page top half empty (owner, 17 Nov 2026). */
+          tools={
+            <div className="ws-filters ws-head-tools" role="search">
+              <label className="ws-search">
+                <span className="sr-only">Search branches</span>
+                <Search size={16} aria-hidden="true" />
+                <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search branches" />
+              </label>
+              {statesHere.length > 1 ? (
+                <label>
+                  <span className="sr-only">State</span>
+                  <select className="ui-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+                    <option value="">State: All</option>
+                    {statesHere.map((st) => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {branches ? (
+                <span className="ws-list-meta">
+                  {rows.length} {rows.length === 1 ? 'branch' : 'branches'}
+                  {all.length - active ? <> · <span>{all.length - active} marked inactive</span></> : null}
+                  {noGstin ? ` · ${noGstin} without a GSTIN${gstEnabled ? ' (GST is on: add each one)' : ''}` : ''}
+                </span>
+              ) : null}
+            </div>
+          }
           title="Branches"
           actions={
             <>
@@ -192,32 +219,6 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-
-        <div className="ws-filters" role="search">
-          <label className="ws-search">
-            <span className="sr-only">Search branches</span>
-            <Search size={16} aria-hidden="true" />
-            <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search branches" />
-          </label>
-          {statesHere.length > 1 ? (
-            <label>
-              <span className="sr-only">State</span>
-              <select className="ui-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
-                <option value="">State: All</option>
-                {statesHere.map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {branches ? (
-            <span className="ws-list-meta">
-              {rows.length} {rows.length === 1 ? 'branch' : 'branches'}
-              {all.length - active ? <> · <span>{all.length - active} marked inactive</span></> : null}
-              {noGstin ? ` · ${noGstin} without a GSTIN${gstEnabled ? ' (GST is on: add each one)' : ''}` : ''}
-            </span>
-          ) : null}
-        </div>
 
         {branches === null ? (
           <p className="ws-card-blurb">Loading branches…</p>
