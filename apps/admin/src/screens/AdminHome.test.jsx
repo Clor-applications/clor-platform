@@ -44,7 +44,7 @@ beforeEach(() => {
   api.listTickets.mockResolvedValue({ tickets: [] });
   api.getAccountOverview.mockResolvedValue({ account: { name: 'Neev Group' }, plan: { name: 'Growth', inGoodStanding: true, limits: { maxCompanies: 3, maxUsers: 10 } }, usage: { companies: 1, users: 4 }, companies: [{ orgId: 'c1', name: 'Neev Steels', gstin: '' }],
     entities: { companies: 1, branches: 3, taxProfiles: 2, companiesWithoutGstin: 0, costCentres: 0 },
-    seats: [{ app: 'accounting', bought: null }, { app: 'payroll', bought: 5 }],
+    seats: [{ app: 'accounting', bought: null }, { app: 'payroll', bought: 5 }, { app: 'people', bought: null }],
     runRate: { monthly: 249900, currency: 'INR', interval: 'month', status: 'active', unpriced: [] },
     renewal: { status: 'active', warn: null, endsAt: null, daysLeft: null, renewsAt: '2026-12-01T00:00:00Z', invoices: { unpaid: 0, overdue: 0, due: 0 } },
     dataHealth: { status: 'attention', issues: 1, sources: [{ key: 'readers', label: 'Attendance readers', total: 2, issues: 1 }], alerts: [{ title: 'Gate is offline', severity: 'high' }] },
@@ -86,8 +86,13 @@ describe('the Workspace overview', () => {
     expect(await screen.findByText(/Neev Group · 1 company · 2 of 3 apps · 2 members/)).toBeInTheDocument();
     /* The figures across the top, each opening the screen that owns it. */
     const glance = within(await screen.findByRole('list', { name: 'Workspace at a glance' }));
-    fireEvent.click(glance.getByRole('button', { name: /^2\s*Members$/ }));
+    fireEvent.click(glance.getByRole('button', { name: /^2\s*Members/ }));
     expect(openScreen).toHaveBeenCalledWith('members');
+    /* Under each figure, the line that says what the number alone does not. */
+    expect(await glance.findByText('1 invited, not joined yet')).toBeInTheDocument();
+    expect(glance.getByText('GSTIN not added')).toBeInTheDocument();
+    expect(glance.getByText('Accounting, Payroll')).toBeInTheDocument();
+    expect(await glance.findByText('2 urgent')).toBeInTheDocument();
     /* No Apps screen in this person's menu: the figure is shown, not a way in. */
     expect(glance.getByText('Active apps').closest('button')).toBeNull();
     /* Quick actions: only the screens this person may open. */
@@ -126,6 +131,8 @@ describe('the Workspace overview', () => {
     expect(team.getByRole('figure', { name: '2 active, 1 invited, 1 suspended' })).toBeInTheDocument();
     expect(team.getByText('People in each app')).toBeInTheDocument();
     expect(team.getByText('Payroll')).toBeInTheDocument();
+    /* People is on the plan but switched on in no company: no bar that reads as people working in it. */
+    expect(team.queryByText('People')).toBeNull();
     expect(document.querySelectorAll('.wsh-seats .ws-appmark').length).toBeGreaterThan(0);
   });
 

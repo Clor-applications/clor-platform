@@ -383,6 +383,18 @@ button.wsh-tile:focus-visible {
   font-weight: 500;
   color: rgb(var(--fg-muted));
 }
+/* A short line under the label: two lines at most, so a narrow tile wraps it instead of cutting it. */
+.wsh-tile-hint {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: rgb(var(--fg-subtle));
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
 .wsh-tile-go {
   position: absolute;
   top: 10px;

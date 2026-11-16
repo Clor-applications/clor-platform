@@ -285,8 +285,13 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const bills = renewal?.invoices || null;
   const security = directory ? securityOf(directory) : null;
   const privilegedNo2fa = security?.privilegedNo2fa || 0;
-  /* Seats for the apps that are built and on the account; Workspace itself is not a seat. */
-  const seatApps = built.filter((a) => (tenant?.subscriptions || []).includes(a.id) || (overview?.seats || []).some((x) => x.app === a.id)).map((a) => a.id);
+  /*
+   * Seats for the apps in use: switched on in this company or another of the account's, or with
+   * seats bought in a number. An app the plan merely allows is not listed: a bar for an app
+   * nobody has switched on read as people working in it. Workspace itself is not a seat.
+   */
+  const appsOn = new Set([...(tenant?.subscriptions || []), ...(overview?.companies || []).filter((c) => !c.archived).flatMap((c) => c.apps || [])]);
+  const seatApps = built.filter((a) => appsOn.has(a.id) || (overview?.seats || []).some((x) => x.app === a.id && x.bought != null)).map((a) => a.id);
   const seats = directory ? seatsByApp(directory, overview?.seats, seatApps) : null;
   const planBad = plan && plan.inGoodStanding === false;
   const renewalLine = seesPlan ? renewalNotice(renewal, planBad) : null;
@@ -395,14 +400,30 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const settled = !loading && (!(isAdmin || seesPlan) || overview !== null);
   const scrollToAttention = () => document.getElementById('ws-attn-title')?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  /* The figures across the top: each a fact the server gave, each opening the screen that owns it. */
+  /*
+   * The figures across the top: each a fact the server gave, each opening the screen that owns it.
+   * The line under each says what the number alone does not ("1 Member" says little; "Only you so
+   * far" says what to do next). Each line only from what was read; none is drawn on a guess.
+   */
+  const appsOnNames = states.filter((s) => s.state.key === 'open' || s.state.key === 'noaccess').map((s) => s.app.name);
+  const waitingApps = waiting ? new Set((waiting.sources || []).filter((x) => (!myApps || myApps.includes(x.open.app)) && Number(x.count) > 0).map((x) => x.app)).size : 0;
   const tiles = [
-    companyCount != null ? { key: 'companies', icon: E.building, cat: 1, value: companyCount, label: companyCount === 1 ? 'Company' : 'Companies', go: go('companies') } : null,
-    { key: 'apps', icon: E.rocket, cat: 7, value: onCount, label: onCount === 1 ? 'Active app' : 'Active apps', note: `of ${built.length}`, go: go('apps') },
-    memberCount != null ? { key: 'members', icon: E.people, cat: 5, value: memberCount, label: memberCount === 1 ? 'Member' : 'Members', go: go('members') } : null,
-    waitingTotal != null ? { key: 'waiting', icon: E.inbox, cat: 3, value: waitingTotal, label: 'Waiting on you', go: go('inbox') } : null,
-    settled ? { key: 'attention', icon: E.bell, cat: 8, value: attention.length, label: attention.length === 1 ? 'Needs attention' : 'Need attention', go: attention.length ? scrollToAttention : null } : null,
-    steps ? { key: 'setup', icon: E.clipboard, cat: 6, value: `${stepsDone}/${steps.length}`, label: stepsDone === steps.length ? 'Setup done' : 'Setup steps done', go: nextStep && go(nextStep.screen) ? go(nextStep.screen) : null } : null,
+    companyCount != null
+      ? {
+          key: 'companies', icon: E.building, cat: 1, value: companyCount, label: companyCount === 1 ? 'Company' : 'Companies', go: go('companies'),
+          hint: !companiesTable ? null : noGstin.length ? (companyCount === 1 ? 'GSTIN not added' : `${noGstin.length} without a GSTIN`) : companyCount === 1 ? here?.state || null : 'Each has a GSTIN',
+        }
+      : null,
+    { key: 'apps', icon: E.rocket, cat: 7, value: onCount, label: onCount === 1 ? 'Active app' : 'Active apps', note: `of ${built.length}`, hint: appsOnNames.length ? appsOnNames.join(', ') : 'None switched on yet', go: go('apps') },
+    memberCount != null
+      ? {
+          key: 'members', icon: E.people, cat: 5, value: memberCount, label: memberCount === 1 ? 'Member' : 'Members', go: go('members'),
+          hint: pending == null ? null : pending ? `${pending} invited, not joined yet` : memberCount === 1 ? 'Only you so far' : 'Everyone has joined',
+        }
+      : null,
+    waitingTotal != null ? { key: 'waiting', icon: E.inbox, cat: 3, value: waitingTotal, label: 'Waiting on you', hint: waitingTotal ? `In ${plural(waitingApps, 'app')}` : 'All clear', go: go('inbox') } : null,
+    settled ? { key: 'attention', icon: E.bell, cat: 8, value: attention.length, label: attention.length === 1 ? 'Needs attention' : 'Need attention', hint: !attention.length ? 'All clear' : urgent ? `${urgent} urgent` : 'Nothing urgent', go: attention.length ? scrollToAttention : null } : null,
+    steps ? { key: 'setup', icon: E.clipboard, cat: 6, value: `${stepsDone}/${steps.length}`, label: stepsDone === steps.length ? 'Setup done' : 'Setup steps done', hint: nextStep ? `Next: ${nextStep.title.charAt(0).toLowerCase()}${nextStep.title.slice(1)}` : 'Ready to go', go: nextStep && go(nextStep.screen) ? go(nextStep.screen) : null } : null,
   ].filter(Boolean);
 
   /* Team and access: who is in the account, and how many people each app has (seats from the directory). */
@@ -496,6 +517,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   <span className="wsh-tile-text">
                     <span className="wsh-tile-value ui-num">{t.value}{t.note ? <small> {t.note}</small> : null}</span>
                     <span className="wsh-tile-label">{t.label}</span>
+                    {t.hint ? <span className="wsh-tile-hint">{t.hint}</span> : null}
                   </span>
                   {t.go ? <ChevronRight size={16} className="wsh-tile-go" aria-hidden="true" /> : null}
                 </>
@@ -773,29 +795,88 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 </Panel>
               ) : null}
 
-              {health && health.sources.length ? (
-                <Panel title="Connections">
-                  <ul className="ws-list">
-                    {health.sources.map((x) => (
-                      <li key={x.key}>
-                        <div className="ws-item">
-                          <span className="ws-item-text">
-                            <span className="ws-item-title">{x.label}</span>
-                            <span className="ws-item-sub">
-                              {x.key === 'readers' ? <><N>{x.total}</N> active{x.issues ? <> · <N>{x.issues}</N> open {x.issues === 1 ? 'alert' : 'alerts'}</> : ''}</> : null}
-                              {x.key === 'connectors' ? <><N>{x.total}</N> active{x.lastSeenAt ? ` · last heard ${ago(x.lastSeenAt)}` : ' · not connected yet'}</> : null}
-                              {x.key === 'tally' ? <><N>{x.total}</N> this week{x.failed ? <> · <N>{x.failed}</N> failed</> : ''}{x.waiting ? <> · <N>{x.waiting}</N> waiting over a day</> : ''}</> : null}
-                              {x.key === 'email' ? <><N>{x.total}</N> this week{x.issues ? <> · <N>{x.issues}</N> not delivered</> : ''}</> : null}
+              {activity ? (
+                <section className="wsh-card" aria-labelledby="ws-activity-title">
+                  <div className="wsh-card-head">
+                    <h2 id="ws-activity-title" className="ws-h2">Recent activity</h2>
+                    {go('accountActivity') ? (
+                      <button type="button" className="ws-link" onClick={go('accountActivity')}>View all <ChevronRight size={16} aria-hidden="true" /></button>
+                    ) : null}
+                  </div>
+                  {activity.length ? (
+                    <ol className="wsh-feed">
+                      {activity.map((e) => (
+                        <li key={e.id} data-denied={e.result === 'DENIED' || undefined}>
+                          <Avatar name={e.actor?.name || 'Someone'} />
+                          <span className="wsh-feed-text">
+                            <span>
+                              <strong>{e.actor?.name || 'Someone'}</strong>{' '}
+                              <span className="wsh-feed-what">
+                                {e.result === 'DENIED' ? 'was refused: ' : ''}
+                                {ACTION_WORDS[e.action] || e.action}
+                                {e.targetName ? `: ${e.targetName}` : ''}
+                              </span>
                             </span>
+                            <span className="wsh-feed-when">{ago(e.at)}</span>
                           </span>
-                          <span className={x.issues ? 'ws-pill ws-pill--warn' : 'ws-pill ws-pill--ok'}>{x.issues ? 'Needs a look' : 'Working'}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </Panel>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <div className="wsh-calm">
+                      <E.sparkles size={32} aria-hidden="true" />
+                      <p className="ws-card-blurb">Nothing recorded yet. Invitations, role changes and sign-in settings show here as they happen.</p>
+                    </div>
+                  )}
+                </section>
               ) : null}
             </div>
+
+            {/* How well the account is guarded and how its connections are doing: two short reads, side by side. */}
+            {security || (health && health.sources.length) ? (
+              <div className="wsh-pair">
+                {security ? (
+                  <Panel
+                    title="Security"
+                    action={
+                      go('securityHome') ? (
+                        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={go('securityHome')}>
+                          Open
+                        </button>
+                      ) : null
+                    }
+                  >
+                    <Meter coverage label="Sign in with an authenticator" used={security.withTotp} limit={security.active || null} />
+                    <p className="ws-item-sub" style={{ margin: 0 }}>
+                      {privilegedNo2fa ? <><N>{privilegedNo2fa}</N> {privilegedNo2fa === 1 ? 'administrator has' : 'administrators have'} none yet.</> : 'Every administrator uses one.'}
+                    </p>
+                  </Panel>
+                ) : null}
+
+                {health && health.sources.length ? (
+                  <Panel title="Connections">
+                    <ul className="ws-list">
+                      {health.sources.map((x) => (
+                        <li key={x.key}>
+                          <div className="ws-item">
+                            <span className="ws-item-text">
+                              <span className="ws-item-title">{x.label}</span>
+                              <span className="ws-item-sub">
+                                {x.key === 'readers' ? <><N>{x.total}</N> active{x.issues ? <> · <N>{x.issues}</N> open {x.issues === 1 ? 'alert' : 'alerts'}</> : ''}</> : null}
+                                {x.key === 'connectors' ? <><N>{x.total}</N> active{x.lastSeenAt ? ` · last heard ${ago(x.lastSeenAt)}` : ' · not connected yet'}</> : null}
+                                {x.key === 'tally' ? <><N>{x.total}</N> this week{x.failed ? <> · <N>{x.failed}</N> failed</> : ''}{x.waiting ? <> · <N>{x.waiting}</N> waiting over a day</> : ''}</> : null}
+                                {x.key === 'email' ? <><N>{x.total}</N> this week{x.issues ? <> · <N>{x.issues}</N> not delivered</> : ''}</> : null}
+                              </span>
+                            </span>
+                            <span className={x.issues ? 'ws-pill ws-pill--warn' : 'ws-pill ws-pill--ok'}>{x.issues ? 'Needs a look' : 'Working'}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Panel>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <aside className="wsh-side" aria-label="Workspace side panel">
@@ -822,57 +903,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                   })}
                 </ul>
               </section>
-            ) : null}
-
-            {activity ? (
-              <section className="wsh-card" aria-labelledby="ws-activity-title">
-                <div className="wsh-card-head">
-                  <h2 id="ws-activity-title" className="ws-h2">Recent activity</h2>
-                  {go('accountActivity') ? (
-                    <button type="button" className="ws-link" onClick={go('accountActivity')}>View all <ChevronRight size={16} aria-hidden="true" /></button>
-                  ) : null}
-                </div>
-                {activity.length ? (
-                  <ol className="wsh-feed">
-                    {activity.map((e) => (
-                      <li key={e.id} data-denied={e.result === 'DENIED' || undefined}>
-                        <Avatar name={e.actor?.name || 'Someone'} />
-                        <span className="wsh-feed-text">
-                          <span>
-                            <strong>{e.actor?.name || 'Someone'}</strong>{' '}
-                            <span className="wsh-feed-what">
-                              {e.result === 'DENIED' ? 'was refused: ' : ''}
-                              {ACTION_WORDS[e.action] || e.action}
-                              {e.targetName ? `: ${e.targetName}` : ''}
-                            </span>
-                          </span>
-                          <span className="wsh-feed-when">{ago(e.at)}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="ws-card-blurb">No activity yet.</p>
-                )}
-              </section>
-            ) : null}
-
-            {security ? (
-              <Panel
-                title="Security"
-                action={
-                  go('securityHome') ? (
-                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={go('securityHome')}>
-                      Open
-                    </button>
-                  ) : null
-                }
-              >
-                <Meter coverage label="Sign in with an authenticator" used={security.withTotp} limit={security.active || null} />
-                <p className="ws-item-sub" style={{ margin: 0 }}>
-                  {privilegedNo2fa ? <><N>{privilegedNo2fa}</N> {privilegedNo2fa === 1 ? 'administrator has' : 'administrators have'} none yet.</> : 'Every administrator uses one.'}
-                </p>
-              </Panel>
             ) : null}
 
             <Panel title="Help and support">
