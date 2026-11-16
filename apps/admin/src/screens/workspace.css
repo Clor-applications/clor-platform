@@ -3052,3 +3052,19 @@ button.ws-stat:hover {
 .ws .ws-table tbody td .ui-icon-btn {
   margin-block: -6px;
 }
+
+/* A column whose heading and data sit in its middle (owner, 17 Nov 2026, Companies: the Apps
+   heading over its marks, the Members count under its heading's middle). */
+.ws .ws-table :is(th, td).ws-mid {
+  text-align: center;
+}
+/* Attention is violet in the Workspace, not amber (owner, 17 Nov 2026: "for warning use different
+   color, no amber"). The words still say what the state is; red stays for a problem, green for
+   good. Ink 6.9:1 on the soft ground. */
+.ws {
+  --warn: 98 80 214;
+  --warn-ink: 72 56 176;
+  --warn-soft: 237 234 252;
+  --ws-warn: 72 56 176;
+  --ws-warn-soft: 237 234 252;
+}

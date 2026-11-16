@@ -70,7 +70,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
   const atLimit = limit != null && activeCount >= limit;
   const sortBy = (key) => setView((v) => ({ ...v, sort: key, dir: v.sort === key ? -v.dir : 1, page: 0 }));
   const th = (key, label, num) => (
-    <th className={num ? 'ws-count' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
+    <th className={num ? 'ws-count ws-mid' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
       <button type="button" onClick={() => sortBy(key)}>
         {label} <ArrowDownUp size={12} aria-hidden="true" />
       </button>
@@ -128,7 +128,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                   {th('name', 'Company')}
                   <th>GSTIN</th>
                   <th>PAN</th>
-                  <th>Apps</th>
+                  <th className="ws-mid">Apps</th>
                   {th('people', 'Members', true)}
                   <th>Status</th>
                   <th className="ws-th-menu"><span className="sr-only">Actions</span></th>
@@ -146,12 +146,12 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                       </td>
                       <td className="ws-mono">{c.gstin || <span className="ws-missing">Not added</span>}</td>
                       <td className="ws-mono">{c.pan || '—'}</td>
-                      <td>
+                      <td className="ws-mid">
                         <span className="ws-appmarks">
                           {(c.apps || []).length ? c.apps.map((id) => <AppMark key={id} app={id} size={20} />) : <span className="ws-cell-sub">None</span>}
                         </span>
                       </td>
-                      <td className="ws-count">{c.people}</td>
+                      <td className="ws-count ws-mid">{c.people}</td>
                       <td>
                         {c.archived ? (
                           <span className="ws-pill ws-pill--neutral">Archived</span>
@@ -160,7 +160,8 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                         ) : (
                           <span className="ws-pill ws-pill--warn">Needs GSTIN</span>
                         )}
-                        {current ? <span className="ws-cell-sub">You are here</span> : null}
+                        {/* The company in use is said for screen readers only: on screen its row has no Switch to (owner, 17 Nov 2026). */}
+                        {current ? <span className="sr-only">You are here</span> : null}
                       </td>
                       <td className="ws-td-menu">
                         {!current && switchCompany ? (
