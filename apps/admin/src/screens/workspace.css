@@ -3273,3 +3273,44 @@ button.ws-stat:hover {
   width: auto;
   max-width: 200px;
 }
+
+/* Loading, empty and error parts (wsKit: Loading, Empty, LoadError). */
+.ws-loading {
+  display: grid;
+  gap: 10px;
+}
+.ws-loading--rows {
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+}
+.ws-loading--rows .ws-loading-bar {
+  height: 28px;
+  border-radius: 8px;
+}
+.ws-loading--card .ws-loading-bar,
+.ws-loading--line .ws-loading-bar {
+  height: 12px;
+  border-radius: 6px;
+}
+.ws-loading--line .ws-loading-bar {
+  width: 40%;
+}
+.ws-empty--compact {
+  padding: 16px;
+  border: 0;
+}
+.ws-loaderror {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--neg, 180 35 24) / 0.25);
+  border-radius: 12px;
+  background: rgb(var(--neg-soft, 252 235 233));
+  color: rgb(var(--neg, 180 35 24));
+  font-size: 0.875rem;
+}

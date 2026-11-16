@@ -142,6 +142,55 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
   );
 }
 
+/**
+ * A page part that is still being read: grey bars the shape of what is coming, not the word
+ * "Loading…" (audit, 17 Nov 2026). `shape="rows"` for a list or table, `"card"` for a block of
+ * facts, `"line"` for one line. The words stay for screen readers.
+ */
+export function Loading({ shape = 'rows', rows = 4, label = 'Loading…' }) {
+  const n = shape === 'line' ? 1 : shape === 'card' ? 3 : rows;
+  return (
+    <div className={`ws-loading ws-loading--${shape}`} role="status" aria-live="polite">
+      <span className="sr-only">{label}</span>
+      {Array.from({ length: n }, (_, i) => (
+        <span key={i} className="ui-skel ws-loading-bar" aria-hidden="true" style={shape === 'card' ? { width: `${[70, 100, 45][i % 3]}%` } : undefined} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Nothing here yet: a colour icon, one plain sentence, and the next step when there is one.
+ * `action` is `{ label, onClick }`. A bare sentence left the reader with nowhere to go.
+ */
+export function Empty({ icon: Icon = null, children, action = null, compact = false }) {
+  return (
+    <div className={`ws-empty${compact ? ' ws-empty--compact' : ''}`}>
+      {Icon ? <Icon size={compact ? 28 : 36} aria-hidden="true" /> : null}
+      <p>{children}</p>
+      {action ? (
+        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={action.onClick}>
+          {action.label}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Something could not be read: said plainly where the content would be, with a way to try again. */
+export function LoadError({ children = 'This could not be loaded. Try again in a minute.', onRetry = null }) {
+  return (
+    <div className="ws-loaderror" role="alert">
+      <span>{children}</span>
+      {onRetry ? (
+        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /** A number that matters, as a way in when it has somewhere to go. */
 export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
   const body = (
