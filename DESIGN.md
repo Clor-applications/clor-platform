@@ -779,6 +779,10 @@ because focus, portals and event order cannot be read off the source.
   the page's own colour icon beside it, Activity's search and filters on one
   row, shorter empty states with a colour icon. The bar's search field is
   340px (it opens the palette; it is not typed into).
+  Workspace pages sit in one frame, not two: the shell's 32px content padding
+  only (the Workspace's own 32px inside it is gone from tablet width up).
+  Workspace list tables: a light grey `#F6F7F9` header row with ink captions
+  (the blue `--list-head` stays in the other apps) and 48px rows.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

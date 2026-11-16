@@ -2681,8 +2681,10 @@ button.ws-stat:hover {
   height: 40px;
   padding: 0 16px;
   /* Every list's header row: the Books Invoices pale blue-grey (owner, 16 Nov 2026). */
-  background: rgb(var(--list-head, 234 242 248));
-  color: rgb(var(--fg-muted, 58 63 71));
+  /* The rail's light grey, not the blue list head (owner, 17 Nov 2026: "this columns color"): one
+     neutral for the Workspace's chrome. Ink, so the small caps read. */
+  background: rgb(246 247 249);
+  color: rgb(var(--fg, 32 35 41));
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
@@ -2699,8 +2701,9 @@ button.ws-stat:hover {
 }
 .ws-table tbody td {
   box-sizing: border-box;
-  height: 56px;
-  padding: 8px 16px;
+  /* 48px rows (56 before): a one-line row sat in too much air; a two-line row still grows. */
+  height: 48px;
+  padding: 6px 16px;
   border-top: 1px solid rgb(var(--border, 228 230 225));
   border-bottom: 0;
   vertical-align: middle;
@@ -2892,5 +2895,14 @@ button.ws-stat:hover {
   }
   .ws-inner {
     gap: 24px;
+  }
+}
+
+/* One frame, not two (owner, 17 Nov 2026: "empty space in all the pages"). The shell's content column
+   already pads every page by 32px; the Workspace's own 32px inside it left the title 64px in from
+   the top and the side. The Overview dropped its copy on 16 Nov; every Workspace page does now. */
+@media (min-width: 768px) {
+  main.ui-content .ws {
+    padding: 0 0 24px;
   }
 }
