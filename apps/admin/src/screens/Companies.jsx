@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { ArrowDownUp, MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
@@ -8,6 +9,9 @@ import { AppMark, PageHead, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
 import './ws-home.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('classical-building');
 
 /**
  * Workspace → Company → Companies (redesign W-R5).
@@ -66,7 +70,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
   const atLimit = limit != null && activeCount >= limit;
   const sortBy = (key) => setView((v) => ({ ...v, sort: key, dir: v.sort === key ? -v.dir : 1, page: 0 }));
   const th = (key, label, num) => (
-    <th className={num ? 'num' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
+    <th className={num ? 'ws-count ws-mid' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
       <button type="button" onClick={() => sortBy(key)}>
         {label} <ArrowDownUp size={12} aria-hidden="true" />
       </button>
@@ -78,8 +82,26 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
       <div className="ws-inner">
         <PageHead
           crumbs={['Company', 'Companies']} scope="account"
+          icon={PAGE_ICON}
+          /* Search and the count sit on the title's row: a row of their own under it left the page top half empty (owner, 17 Nov 2026). */
+          tools={
+            <div className="ws-filters ws-head-tools" role="search">
+              <label className="ws-search">
+                <span className="sr-only">Search companies</span>
+                <Search size={16} aria-hidden="true" />
+                <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Search by name, GSTIN or state" />
+              </label>
+              {data ? (
+                <span className="ws-list-meta">
+                  {activeCount} {activeCount === 1 ? 'company' : 'companies'}
+                  {limit != null ? ` · ${limit} allowed on your plan` : ''}
+                  {archivedCount ? ` · ${archivedCount} archived` : ''}
+                  {incomplete ? ` · ${incomplete} without a GSTIN` : ''}
+                </span>
+              ) : null}
+            </div>
+          }
           title="Companies"
-          description={`Legal entities in ${data?.account?.name || 'your account'}. Each company has its own books, payroll and GST registrations.`}
           actions={
             addCompany ? (
               <button type="button" className="ws-btn ws-btn--primary" onClick={() => setAdding(true)} disabled={atLimit} title={atLimit ? 'Your plan’s company allowance is used up.' : undefined}>
@@ -90,22 +112,6 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
         />
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
-
-        <div className="ws-filters" role="search">
-          <label className="ws-search">
-            <span className="sr-only">Search companies</span>
-            <Search size={16} aria-hidden="true" />
-            <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value, page: 0 }))} placeholder="Search by name, GSTIN or state" />
-          </label>
-          {data ? (
-            <span className="ws-list-meta">
-              {activeCount} {activeCount === 1 ? 'company' : 'companies'}
-              {limit != null ? ` · ${limit} allowed on your plan` : ''}
-              {archivedCount ? ` · ${archivedCount} archived` : ''}
-              {incomplete ? ` · ${incomplete} without a GSTIN` : ''}
-            </span>
-          ) : null}
-        </div>
 
         {data === null ? (
           <p className="ws-card-blurb">Loading companies…</p>
@@ -122,7 +128,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                   {th('name', 'Company')}
                   <th>GSTIN</th>
                   <th>PAN</th>
-                  <th>Apps</th>
+                  <th className="ws-mid">Apps</th>
                   {th('people', 'Members', true)}
                   <th>Status</th>
                   <th className="ws-th-menu"><span className="sr-only">Actions</span></th>
@@ -140,12 +146,12 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                       </td>
                       <td className="ws-mono">{c.gstin || <span className="ws-missing">Not added</span>}</td>
                       <td className="ws-mono">{c.pan || '—'}</td>
-                      <td>
+                      <td className="ws-mid">
                         <span className="ws-appmarks">
                           {(c.apps || []).length ? c.apps.map((id) => <AppMark key={id} app={id} size={20} />) : <span className="ws-cell-sub">None</span>}
                         </span>
                       </td>
-                      <td className="num">{c.people}</td>
+                      <td className="ws-count ws-mid">{c.people}</td>
                       <td>
                         {c.archived ? (
                           <span className="ws-pill ws-pill--neutral">Archived</span>
@@ -154,7 +160,8 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                         ) : (
                           <span className="ws-pill ws-pill--warn">Needs GSTIN</span>
                         )}
-                        {current ? <span className="ws-cell-sub">You are here</span> : null}
+                        {/* The company in use is said for screen readers only: on screen its row has no Switch to (owner, 17 Nov 2026). */}
+                        {current ? <span className="sr-only">You are here</span> : null}
                       </td>
                       <td className="ws-td-menu">
                         {!current && switchCompany ? (

@@ -16,6 +16,8 @@ import { reconcilePartyCodes } from '@ui/utils/partyCodeSync';
 import { isCompanyGstEnabled, isCompanyTaxEnabled } from '@ui/utils/gst';
 import { computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ClorMark } from '@ui/components/brand';
 import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, Check, ChevronDown, ClipboardList, FileStack, FileText, Landmark, ListChecks, LogOut, NotebookPen, Package, PanelLeftOpen, Plus, Receipt, RefreshCw, Search, Settings, ShoppingCart, SlidersHorizontal, Tags, Truck, UserRound, Users, X } from 'lucide-react';
 /* Duotone icons for the module rail — the two-tone fill is what reads as a
    "coloured icon" rather than a tinted outline. Leaf items stay lucide, tinted
@@ -527,6 +529,14 @@ const AppShell = () => {
    */
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  /* The platform's bar leaves two places for Books' own controls (Shell.jsx). It is
+     drawn before Books loads, so they are there on the first render or not at all. */
+  const [platformBar] = useState(() => {
+    if (typeof document === 'undefined') return null;
+    const start = document.getElementById('ui-topbar-app-start');
+    const end = document.getElementById('ui-topbar-app-end');
+    return start && end ? { start, end } : null;
+  });
   const accountMenuRef = useDismissable(accountMenuOpen, () => setAccountMenuOpen(false));
   /**
    * Where to draw the account menu.
@@ -3922,6 +3932,282 @@ const AppShell = () => {
     );
   }
 
+  /*
+   * The bar's three parts. Inside the platform (the usual case) they are drawn
+   * into its one bar, beside the app switch and before sign-out, so Books reads
+   * like every other app instead of stacking a second bar under the first
+   * (owner, 16 Nov 2026). Rendered on its own, Books still draws its own bar.
+   */
+  const barCompany = (
+    <div className="flex items-center min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0 w-full">
+      {/* Phone-only: the rail lives in a drawer, opened here. */}
+      {!dedicatedWorkspaceMode ? <button
+        type="button"
+        onClick={() => setMobileNavOpen(true)}
+        className="ui-icon-btn md:hidden"
+        aria-label="Open navigation"
+        aria-expanded={mobileNavOpen}
+      >
+        <PanelLeftOpen size={18} aria-hidden="true" />
+      </button> : null}
+      {!platformBar ? <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain" /> : null}
+      {/* The company is named once per screen (owner, 16 Nov 2026). The platform bar names it:
+          in its picker from tablet width up, in the app menu on a phone, where the bar has no
+          room for a name. The switcher stays only where this company keeps more than one set
+          of books. */}
+      {!platformBar || availableOrgs.length > 1 ? (
+      <div className="relative min-w-0 flex-1" ref={orgMenuRef}>
+          <button
+            type="button"
+            onClick={() => setOrgMenuOpen((v) => !v)}
+            className="ui-btn ui-btn-ghost !h-8 !min-h-8 !px-1.5 w-fit max-w-full min-w-0"
+            aria-haspopup="menu"
+            aria-expanded={orgMenuOpen}
+          >
+            <span className="ui-title text-sm min-w-0 truncate text-left">{activeOrgName}</span>
+            <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
+          </button>
+
+          {orgMenuOpen ? (
+            <div
+              role="menu"
+              className="absolute left-0 mt-2 w-72 rounded-lg overflow-hidden z-50 ui-card ui-in-pop"
+              style={{ boxShadow: 'var(--shadow-pop)', '--pop-origin': 'top left' }}
+            >
+              <div className="px-3 py-2 ui-subtle text-xs uppercase tracking-wide">Switch company</div>
+              {availableOrgs.map((o) => {
+                const isActive = String(o.orgId) === String(activeOrgId);
+                return (
+                  <button
+                    key={o.orgId}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => switchOrg(o.orgId)}
+                    className="w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))] flex items-center justify-between gap-2"
+                    style={isActive ? { color: 'rgb(var(--brand-ink))', fontWeight: 600 } : undefined}
+                  >
+                    <span className="truncate">{o.org?.name || o.orgId}</span>
+                    {isActive ? <Check size={14} aria-hidden="true" /> : null}
+                  </button>
+                );
+              })}
+              <div className="border-t ui-border-c p-1.5">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOrgMenuOpen(false);
+                    setCompaniesIntent('create');
+                    setActive('companies');
+                  }}
+                  className="ui-btn ui-btn-ghost w-full !justify-start"
+                >
+                  <Plus size={14} aria-hidden="true" /> Add company
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      </div>
+    </div>
+  );
+  const barSearch = (
+    <div className="hidden md:flex items-center justify-center gap-2 min-w-0">
+      {/*
+        Search, in the middle of the bar.
+
+        It used to sit in the dashboard's hero card, which meant it was
+        on exactly one screen — and the one screen you are least likely
+        to be on when you want to find an invoice. Command-K already
+        reaches it from anywhere; this is the visible affordance for the
+        people who do not know that yet, so it belongs where it is always
+        in view. The keycap says how to skip the click.
+
+        Centred in the bar with the financial year beside it, as in the
+        Books build the owner signed off (15 Nov 2026).
+      */}
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        className={`ui-input flex items-center gap-1.5 shrink-0 text-start ps-2.5 pe-1.5 ${platformBar ? 'w-[min(340px,28vw)] !h-9 !min-h-9' : 'w-40 lg:w-64 !h-8 !min-h-8'}`}
+        style={{ color: 'rgb(var(--fg-subtle))' }}
+        aria-label="Search invoices, customers, items"
+      >
+        <Search size={16} aria-hidden="true" className="shrink-0" />
+        <span className="truncate">Search invoices, customers, items…</span>
+        <kbd className="ui-kbd ms-auto shrink-0" aria-hidden="true">⌘K</kbd>
+      </button>
+      {financialYearOptions.length ? <label className="flex items-center gap-1.5 text-xs ui-muted whitespace-nowrap">
+        <span>FY</span>
+        <select
+          value={displayedFinancialYear}
+          onChange={(event) => {
+            const value = event.target.value;
+            setActiveFinancialYear(value);
+            localStorage.setItem('activeFinancialYear', value);
+            window.dispatchEvent(new CustomEvent('clor:financial-year-changed', { detail: { financialYear: value } }));
+          }}
+          className="ui-select !h-8 !min-h-8 !py-1 !px-2 w-[6.5rem] text-xs"
+          aria-label="Financial year"
+        >
+          {financialYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+        </select>
+      </label> : null}
+    </div>
+  );
+  const barAccount = (
+    <div className="flex items-center justify-end gap-1.5 min-w-0">
+      {!platformBar ? <span className="ui-pill ui-pill-neutral hidden lg:inline-flex">{activeLabel}</span> : null}
+      {/* The theme belongs to the platform bar above: one control, and
+          one answer for every app a company has open. */}
+
+      {/*
+        Identity, top right, where people reach for it.
+
+        The rail already carries an account menu at the bottom, and it
+        stays — it is where somebody looking at navigation finds their
+        own name. This one is the shortcut: a face in the corner, one
+        click to the profile, and nothing else in it. Two doors to the
+        same room is not duplication when the room is the one people ask
+        for by two different names.
+      */}
+      <div className="relative shrink-0" ref={accountMenuRef}>
+        <button
+          type="button"
+          onClick={() => setAccountMenuOpen((v) => !v)}
+          className={`block shrink-0 rounded-full overflow-hidden ${platformBar ? 'h-9 w-9' : 'h-8 w-8'}`}
+          aria-haspopup="menu"
+          aria-expanded={accountMenuOpen}
+          aria-label="Your profile"
+          title={userEmail}
+        >
+          {userAvatarUrl ? (
+            <img
+              src={userAvatarUrl}
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-full object-cover"
+              style={{ border: '1px solid rgb(var(--border))' }}
+            />
+          ) : (
+            <span
+              className={platformBar ? 'ui-topbar-initials flex items-center justify-center' : 'h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium'}
+              style={platformBar ? undefined : { backgroundColor: 'rgb(var(--accent-soft))', color: 'rgb(var(--brand-ink))' }}
+              aria-hidden="true"
+            >
+              {userInitials}
+            </span>
+          )}
+        </button>
+
+        {accountMenuOpen ? (
+          <div
+            role="menu"
+            className="ui-card ui-in-pop absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden py-1"
+            style={{ boxShadow: 'var(--shadow-pop)', '--pop-origin': 'top right' }}
+          >
+            <div className="flex items-center gap-3 px-3 py-2.5" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
+              {userAvatarUrl ? (
+                <img
+                  src={userAvatarUrl}
+                  alt=""
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <span
+                  className="h-9 w-9 rounded-full inline-flex items-center justify-center text-xs font-medium shrink-0"
+                  style={{ backgroundColor: 'rgb(var(--accent-soft))', color: 'rgb(var(--brand-ink))' }}
+                  aria-hidden="true"
+                >
+                  {userInitials}
+                </span>
+              )}
+              <span className="min-w-0">
+                {userDisplayName ? (
+                  <span className="block text-sm font-medium truncate">{userDisplayName}</span>
+                ) : null}
+                <span className="ui-caption block truncate">{userEmail}</span>
+              </span>
+            </div>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setAccountMenuOpen(false);
+                setActive('settingsProfile');
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))]"
+            >
+              <UserRound size={16} aria-hidden="true" /> My account
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setAccountMenuOpen(false);
+                setActive('settings');
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))]"
+            >
+              <Settings size={16} aria-hidden="true" /> Settings
+            </button>
+
+            {/* Row density had no other home once the rail menu went. */}
+            <div className="px-3 py-2" style={{ borderTop: '1px solid rgb(var(--border))' }}>
+              <span className="ui-t-label block mb-1.5" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                Row density
+              </span>
+              <div
+                className="flex items-center rounded-lg p-0.5"
+                style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}
+                role="group"
+                aria-label="Row density"
+              >
+                {[
+                  { key: 'comfortable', label: 'Comfortable' },
+                  { key: 'compact', label: 'Compact' },
+                ].map((d) => (
+                  <button
+                    key={d.key}
+                    type="button"
+                    onClick={() => setDensity(d.key)}
+                    aria-pressed={density === d.key}
+                    className="flex-1 min-w-0 h-7 rounded-lg text-xs font-medium transition-colors"
+                    style={
+                      density === d.key
+                        ? { backgroundColor: 'rgb(var(--surface))', color: 'rgb(var(--fg))', boxShadow: 'var(--shadow-card)' }
+                        : { color: 'rgb(var(--fg-muted))' }
+                    }
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setAccountMenuOpen(false);
+                logout();
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))]"
+              style={{ borderTop: '1px solid rgb(var(--border))' }}
+            >
+              <LogOut size={16} aria-hidden="true" /> Sign out
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
   return (
     /*
      * The shell is exactly one viewport tall and does not scroll. The header
@@ -3946,6 +4232,12 @@ const AppShell = () => {
         Skip to main content
       </a>
 
+      {platformBar ? (
+        <>
+          {createPortal(<>{barCompany}{barSearch}</>, platformBar.start)}
+          {createPortal(barAccount, platformBar.end)}
+        </>
+      ) : (
       <header
         /* Not inert behind the Features panel. The panel's scrim is measured
            from <main> and stops at the content edge, so the header is lit and
@@ -3961,271 +4253,14 @@ const AppShell = () => {
           {/* Left: the company, over the rail. It takes what the column gives
               and truncates, so a long name can no longer run under the
               search beside it. */}
-          <div className="flex items-center min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0 w-full">
-            {/* Phone-only: the rail lives in a drawer, opened here. */}
-            {!dedicatedWorkspaceMode ? <button
-              type="button"
-              onClick={() => setMobileNavOpen(true)}
-              className="ui-icon-btn md:hidden"
-              aria-label="Open navigation"
-              aria-expanded={mobileNavOpen}
-            >
-              <PanelLeftOpen size={18} aria-hidden="true" />
-            </button> : null}
-            {/* The company is named once per screen: from tablet width up the platform bar's
-                switcher above names it, so this one shows on phones only, where that switcher
-                is hidden (owner, 16 Nov 2026). */}
-            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain md:hidden" />
-            <div className="relative min-w-0 flex-1 md:hidden" ref={orgMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setOrgMenuOpen((v) => !v)}
-                  className="ui-btn ui-btn-ghost !h-8 !min-h-8 !px-1.5 w-fit max-w-full min-w-0"
-                  aria-haspopup="menu"
-                  aria-expanded={orgMenuOpen}
-                >
-                  <span className="ui-title text-sm min-w-0 truncate text-left">{activeOrgName}</span>
-                  <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
-                </button>
+          {barCompany}
 
-                {orgMenuOpen ? (
-                  <div
-                    role="menu"
-                    className="absolute left-0 mt-2 w-72 rounded-lg overflow-hidden z-50 ui-card ui-in-pop"
-                    style={{ boxShadow: 'var(--shadow-pop)', '--pop-origin': 'top left' }}
-                  >
-                    <div className="px-3 py-2 ui-subtle text-xs uppercase tracking-wide">Switch company</div>
-                    {availableOrgs.map((o) => {
-                      const isActive = String(o.orgId) === String(activeOrgId);
-                      return (
-                        <button
-                          key={o.orgId}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => switchOrg(o.orgId)}
-                          className="w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))] flex items-center justify-between gap-2"
-                          style={isActive ? { color: 'rgb(var(--brand-ink))', fontWeight: 600 } : undefined}
-                        >
-                          <span className="truncate">{o.org?.name || o.orgId}</span>
-                          {isActive ? <Check size={14} aria-hidden="true" /> : null}
-                        </button>
-                      );
-                    })}
-                    <div className="border-t ui-border-c p-1.5">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOrgMenuOpen(false);
-                          setCompaniesIntent('create');
-                          setActive('companies');
-                        }}
-                        className="ui-btn ui-btn-ghost w-full !justify-start"
-                      >
-                        <Plus size={14} aria-hidden="true" /> Add company
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
+          {barSearch}
 
-
-          <div className="hidden md:flex items-center justify-center gap-2 min-w-0">
-            {/*
-              Search, in the middle of the bar.
-
-              It used to sit in the dashboard's hero card, which meant it was
-              on exactly one screen — and the one screen you are least likely
-              to be on when you want to find an invoice. Command-K already
-              reaches it from anywhere; this is the visible affordance for the
-              people who do not know that yet, so it belongs where it is always
-              in view. The keycap says how to skip the click.
-
-              Centred in the bar with the financial year beside it, as in the
-              Books build the owner signed off (15 Nov 2026).
-            */}
-            <button
-              type="button"
-              onClick={() => setPaletteOpen(true)}
-              className="ui-input flex items-center gap-1.5 w-40 lg:w-64 shrink-0 text-start ps-2.5 pe-1.5 !h-8 !min-h-8"
-              style={{ color: 'rgb(var(--fg-subtle))' }}
-              aria-label="Search invoices, customers, items"
-            >
-              <Search size={16} aria-hidden="true" className="shrink-0" />
-              <span className="truncate">Search invoices, customers, items…</span>
-              <kbd className="ui-kbd ms-auto shrink-0" aria-hidden="true">⌘K</kbd>
-            </button>
-            {financialYearOptions.length ? <label className="flex items-center gap-1.5 text-xs ui-muted whitespace-nowrap">
-              <span>FY</span>
-              <select
-                value={displayedFinancialYear}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setActiveFinancialYear(value);
-                  localStorage.setItem('activeFinancialYear', value);
-                  window.dispatchEvent(new CustomEvent('clor:financial-year-changed', { detail: { financialYear: value } }));
-                }}
-                className="ui-select !h-8 !min-h-8 !py-1 !px-2 w-[6.5rem] text-xs"
-                aria-label="Financial year"
-              >
-                {financialYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-              </select>
-            </label> : null}
-          </div>
-
-          <div className="flex items-center justify-end gap-1.5 min-w-0">
-            <span className="ui-pill ui-pill-neutral hidden lg:inline-flex">{activeLabel}</span>
-            {/* The theme belongs to the platform bar above: one control, and
-                one answer for every app a company has open. */}
-
-            {/*
-              Identity, top right, where people reach for it.
-
-              The rail already carries an account menu at the bottom, and it
-              stays — it is where somebody looking at navigation finds their
-              own name. This one is the shortcut: a face in the corner, one
-              click to the profile, and nothing else in it. Two doors to the
-              same room is not duplication when the room is the one people ask
-              for by two different names.
-            */}
-            <div className="relative shrink-0" ref={accountMenuRef}>
-              <button
-                type="button"
-                onClick={() => setAccountMenuOpen((v) => !v)}
-                className="block h-8 w-8 shrink-0 rounded-full overflow-hidden"
-                aria-haspopup="menu"
-                aria-expanded={accountMenuOpen}
-                aria-label="Your profile"
-      title={userEmail}
-              >
-                {userAvatarUrl ? (
-                  <img
-                    src={userAvatarUrl}
-                    alt=""
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 rounded-full object-cover"
-                    style={{ border: '1px solid rgb(var(--border))' }}
-                  />
-                ) : (
-                  <span
-                    className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium"
-                    style={{ backgroundColor: 'rgb(var(--accent-soft))', color: 'rgb(var(--brand-ink))' }}
-                    aria-hidden="true"
-                  >
-                    {userInitials}
-                  </span>
-                )}
-              </button>
-
-              {accountMenuOpen ? (
-                <div
-                  role="menu"
-                  className="ui-card ui-in-pop absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden py-1"
-                  style={{ boxShadow: 'var(--shadow-pop)', '--pop-origin': 'top right' }}
-                >
-                  <div className="flex items-center gap-3 px-3 py-2.5" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
-                    {userAvatarUrl ? (
-                      <img
-                        src={userAvatarUrl}
-                        alt=""
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 rounded-full object-cover shrink-0"
-                      />
-                    ) : (
-                      <span
-                        className="h-9 w-9 rounded-full inline-flex items-center justify-center text-xs font-medium shrink-0"
-                        style={{ backgroundColor: 'rgb(var(--accent-soft))', color: 'rgb(var(--brand-ink))' }}
-                        aria-hidden="true"
-                      >
-                        {userInitials}
-                      </span>
-                    )}
-                    <span className="min-w-0">
-                      {userDisplayName ? (
-                        <span className="block text-sm font-medium truncate">{userDisplayName}</span>
-                      ) : null}
-                      <span className="ui-caption block truncate">{userEmail}</span>
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      setActive('settingsProfile');
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))]"
-                  >
-                    <UserRound size={16} aria-hidden="true" /> My account
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      setActive('settings');
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))]"
-                  >
-                    <Settings size={16} aria-hidden="true" /> Settings
-                  </button>
-
-                  {/* Row density had no other home once the rail menu went. */}
-                  <div className="px-3 py-2" style={{ borderTop: '1px solid rgb(var(--border))' }}>
-                    <span className="ui-t-label block mb-1.5" style={{ color: 'rgb(var(--fg-subtle))' }}>
-                      Row density
-                    </span>
-                    <div
-                      className="flex items-center rounded-lg p-0.5"
-                      style={{ backgroundColor: 'rgb(var(--surface-sunken))' }}
-                      role="group"
-                      aria-label="Row density"
-                    >
-                      {[
-                        { key: 'comfortable', label: 'Comfortable' },
-                        { key: 'compact', label: 'Compact' },
-                      ].map((d) => (
-                        <button
-                          key={d.key}
-                          type="button"
-                          onClick={() => setDensity(d.key)}
-                          aria-pressed={density === d.key}
-                          className="flex-1 min-w-0 h-7 rounded-lg text-xs font-medium transition-colors"
-                          style={
-                            density === d.key
-                              ? { backgroundColor: 'rgb(var(--surface))', color: 'rgb(var(--fg))', boxShadow: 'var(--shadow-card)' }
-                              : { color: 'rgb(var(--fg-muted))' }
-                          }
-                        >
-                          {d.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      logout();
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))]"
-                    style={{ borderTop: '1px solid rgb(var(--border))' }}
-                  >
-                    <LogOut size={16} aria-hidden="true" /> Sign out
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
+          {barAccount}
         </div>
       </header>
+      )}
 
       {/*
         The verify-email strip used to sit here, above every screen, for as
@@ -4260,7 +4295,9 @@ const AppShell = () => {
            * is a tool over the content, so clicking any destination puts it
            * away and goes there in one click.
            */
-          className={`shrink-0 transition-[width] duration-200 ${selectedNavGroup ? 'md:w-[16.25rem]' : 'md:w-[4.5rem]'} ${
+          data-platform={platformBar ? '' : undefined}
+          data-open={selectedNavGroup ? '' : undefined}
+          className={`app-books-rail shrink-0 transition-[width] duration-200 ${selectedNavGroup ? 'md:w-[17.5rem]' : 'md:w-[5rem]'} ${
             mobileNavOpen
               ? 'ui-rail-drawer max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:w-72 max-md:overflow-y-auto max-md:ui-in-left'
               : 'max-md:hidden'
@@ -4272,6 +4309,18 @@ const AppShell = () => {
           >
             <div className="app-nav-layout min-h-0 flex-1">
               <div className="app-nav-modules ui-nav-scroll min-h-0 overflow-y-auto" aria-label="Modules">
+                {/* The CLOR tile heads the rail, as in every other app; the platform bar's logo steps aside for it. */}
+                {platformBar ? (
+                  <button
+                    type="button"
+                    className="app-nav-brand"
+                    aria-label="CLOR home"
+                    title="CLOR"
+                    onClick={() => document.querySelector('.ui-topbar-logo')?.click()}
+                  >
+                    <ClorMark size={32} />
+                  </button>
+                ) : null}
                 {visibleNav.map((entry) => {
                   const Icon = entry.icon;
                   const isGroup = entry.type === 'group';

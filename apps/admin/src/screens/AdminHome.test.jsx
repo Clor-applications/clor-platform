@@ -24,7 +24,7 @@ vi.mock('@platform/operator', () => ({ operator: { contactEmail: 'info@clor.in' 
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock('@platform/http', () => ({ apiFetch: (...a) => http.apiFetch(...a) }));
 
-import AdminHome, { appState, renewalNotice } from './AdminHome';
+import AdminHome, { appState, renewalNotice, todayLines } from './AdminHome';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 
 const CATALOG = [
@@ -44,7 +44,7 @@ beforeEach(() => {
   api.listTickets.mockResolvedValue({ tickets: [] });
   api.getAccountOverview.mockResolvedValue({ account: { name: 'Neev Group' }, plan: { name: 'Growth', inGoodStanding: true, limits: { maxCompanies: 3, maxUsers: 10 } }, usage: { companies: 1, users: 4 }, companies: [{ orgId: 'c1', name: 'Neev Steels', gstin: '' }],
     entities: { companies: 1, branches: 3, taxProfiles: 2, companiesWithoutGstin: 0, costCentres: 0 },
-    seats: [{ app: 'accounting', bought: null }, { app: 'payroll', bought: 5 }],
+    seats: [{ app: 'accounting', bought: null }, { app: 'payroll', bought: 5 }, { app: 'people', bought: null }],
     runRate: { monthly: 249900, currency: 'INR', interval: 'month', status: 'active', unpriced: [] },
     renewal: { status: 'active', warn: null, endsAt: null, daysLeft: null, renewsAt: '2026-12-01T00:00:00Z', invoices: { unpaid: 0, overdue: 0, due: 0 } },
     dataHealth: { status: 'attention', issues: 1, sources: [{ key: 'readers', label: 'Attendance readers', total: 2, issues: 1 }], alerts: [{ title: 'Gate is offline', severity: 'high' }] },
@@ -79,18 +79,37 @@ describe('the Workspace overview', () => {
   it('shows an owner the business at a glance, what needs attention first, and the subscription', async () => {
     const openScreen = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
-    /* R&D hand-off (CLOR-01): the page is the Workspace, with the account's facts on one line under it. */
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Workspace');
+    /* Owner, 16 Nov 2026: the hero welcomes the reader by name under "Welcome to CLOR Workspace", the account's facts on one line. */
+    expect(screen.getByText('Welcome to CLOR Workspace')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Good (morning|afternoon|evening), Kavya$/);
     expect(await screen.findByText('Account Owner')).toBeInTheDocument();
     expect(await screen.findByText(/Neev Group · 1 company · 2 of 3 apps · 2 members/)).toBeInTheDocument();
+    /* The figures across the top, each opening the screen that owns it. */
+    const glance = within(await screen.findByRole('list', { name: 'Workspace at a glance' }));
+    fireEvent.click(glance.getByRole('button', { name: /^2\s*Members/ }));
+    expect(openScreen).toHaveBeenCalledWith('members');
+    /* Under each figure, the line that says what the number alone does not. */
+    expect(await glance.findByText('1 invited, not joined yet')).toBeInTheDocument();
+    expect(glance.getByText('GSTIN not added')).toBeInTheDocument();
+    expect(glance.getByText('Accounting, Payroll')).toBeInTheDocument();
+    expect(await glance.findByText('2 urgent')).toBeInTheDocument();
+    /* No Apps screen in this person's menu: the figure is shown, not a way in. */
+    expect(glance.getByText('Active apps').closest('button')).toBeNull();
+    /* No app here reports a day (Books has no summary yet): no Today card, and nothing said twice. */
+    expect(screen.queryByRole('group', { name: 'Today' })).toBeNull();
+    /* Quick actions: only the screens this person may open. */
+    const quick = within(screen.getByRole('region', { name: 'Quick actions' }));
+    fireEvent.click(quick.getByRole('button', { name: /^Add company/ }));
+    expect(openScreen).toHaveBeenCalledWith('companies');
+    expect(quick.queryByRole('button', { name: /^Integrations/ })).toBeNull();
     /* One primary action, top right. */
     fireEvent.click(screen.getByRole('button', { name: /Invite people/ }));
     expect(openScreen).toHaveBeenCalledWith('invitations');
     /* Payroll's seats are bought, Accounting's are not metered: no "of" total that would be wrong. */
     expect(screen.getByRole('list', { name: '2 urgent items' })).toBeInTheDocument();
-    const companies = within(screen.getByRole('region', { name: 'Companies' }));
-    expect(companies.getByText('Not added')).toBeInTheDocument();
-    expect(companies.getByText('Needs GSTIN')).toBeInTheDocument();
+    /* One company: the Company overview card says it once; no Companies table repeating it. */
+    expect(screen.queryByRole('region', { name: 'Companies' })).toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Company overview' })).getByText('Needs GSTIN')).toBeInTheDocument();
     const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
     expect(await attention.findByText('1 pending invitation')).toBeInTheDocument();
     expect(await attention.findByText('1 administrator without an authenticator')).toBeInTheDocument();
@@ -108,9 +127,24 @@ describe('the Workspace overview', () => {
     expect(within(screen.getByRole('region', { name: 'Security' })).getByText('1 / 2')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Connections' })).getByText('Needs a look')).toBeInTheDocument();
     expect(await screen.findByText('Invitation sent')).toBeInTheDocument();
-    /* README §2: each app is marked in its own colour, and opens on its own address. */
-    expect(document.querySelectorAll('.ws-apps .ws-appmark').length).toBe(4);
-    expect(screen.getByRole('button', { name: 'Open books.clor.in' })).toBeInTheDocument();
+    /* The apps live in the Apps module; the Overview shows the team instead: who is in, and how many people each app has. */
+    expect(screen.queryByRole('button', { name: 'Open books.clor.in' })).toBeNull();
+    const team = within(screen.getByRole('region', { name: 'Team and access' }));
+    expect(team.getByRole('figure', { name: '2 active, 1 invited, 1 suspended' })).toBeInTheDocument();
+    expect(team.getByText('People in each app')).toBeInTheDocument();
+    expect(team.getByText('Payroll')).toBeInTheDocument();
+    /* People is on the plan but switched on in no company: no bar that reads as people working in it. */
+    expect(team.queryByText('People')).toBeNull();
+    expect(document.querySelectorAll('.wsh-seats .ws-appmark').length).toBeGreaterThan(0);
+  });
+
+  it('lists the companies in a table only when the account has more than one', async () => {
+    const one = await api.getAccountOverview();
+    api.getAccountOverview.mockResolvedValue({ ...one, companies: [...one.companies, { orgId: 'c2', name: 'Neev Exports', gstin: '29ABCDE1234F1Z5' }] });
+    render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={() => {}} openApp={() => {}} />);
+    const companies = within(await screen.findByRole('region', { name: 'Companies' }));
+    expect(companies.getByText('Not added')).toBeInTheDocument();
+    expect(companies.getByText('Neev Exports')).toBeInTheDocument();
   });
 
   it('puts a trial about to end and an overdue CLOR invoice at the top', async () => {
@@ -146,10 +180,11 @@ describe('the Workspace overview', () => {
     });
     const openApp = vi.fn();
     render(<AdminHome tenant={{ ...tenant, subscriptions: ['people', 'accounting', 'payroll'] }} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={openApp} />);
-    const people = await screen.findByRole('button', { name: /3 requests to approve/ });
+    const waitingList = within(await screen.findByRole('region', { name: 'Needs your attention' }));
+    const people = await waitingList.findByRole('button', { name: /3 requests to approve/ });
     expect(people).toHaveTextContent('In People.');
     expect(http.apiFetch.mock.calls[0][0]).toMatch(/\/workspace\/waiting$/);
-    expect(screen.getByRole('button', { name: /2 documents to approve/ })).toHaveTextContent('In Books.');
+    expect(waitingList.getByRole('button', { name: /2 documents to approve/ })).toHaveTextContent('In Books.');
     expect(screen.queryByText(/payrolls to approve/)).toBeNull();
     fireEvent.click(people);
     expect(openApp).toHaveBeenCalledWith('people', 'approvals', {});
@@ -164,7 +199,9 @@ describe('the Workspace overview', () => {
     expect(screen.queryByText('Companies')).toBeNull();
     expect(screen.queryByText('Team')).toBeNull();
     expect(screen.queryByRole('region', { name: 'Subscription' })).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Shortcuts' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Quick actions' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Company overview' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Team and access' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Invite people/ })).toBeNull();
     expect(screen.getByRole('region', { name: 'Help and support' })).toBeInTheDocument();
     expect(api.getAccountOverview).not.toHaveBeenCalled();
@@ -210,5 +247,22 @@ describe('the overview’s figures', () => {
 
   it('writes the run rate in whole rupees', () => {
     expect(rupees(249950)).toBe('₹2,500');
+  });
+
+  /* The hero's Today card: one line per app that reported a day, in the app's own figures. */
+  it('writes today in each app from its own overview, and nothing for an app that did not answer', () => {
+    expect(todayLines({})).toEqual([]);
+    const lines = todayLines({
+      attendance: { headcount: 50, present: 41, halfDay: 1, absent: 2, onLeave: 3, notMarked: 3, holiday: null },
+      people: { headcount: 52, joinedThisMonth: [{ id: 'e1' }, { id: 'e2' }], upcomingBirthdays: [{ name: 'Asha', days: 1 }] },
+      payroll: { overview: { currentPeriod: { name: 'November 2026' }, currentRun: { net: 1234567.4, stage: 'Approved', employeeCount: 48 } } },
+    });
+    expect(lines.map((x) => x.app)).toEqual(['attendance', 'people', 'payroll']);
+    expect(lines[0]).toMatchObject({ value: '42', note: 'of 50', label: 'In today', sub: '3 on leave · 2 absent · 3 not marked' });
+    expect(lines[1]).toMatchObject({ value: '52', label: 'People', sub: '2 joined this month · Asha’s birthday tomorrow' });
+    expect(lines[2]).toMatchObject({ value: '₹12,34,567', label: 'November 2026 payroll', sub: 'Approved · 48 people' });
+    /* A holiday is said as one, not as an empty office; a period with no run says so. */
+    expect(todayLines({ attendance: { headcount: 50, holiday: 'Diwali' } })[0]).toMatchObject({ value: 'Holiday', label: 'Diwali', sub: null });
+    expect(todayLines({ payroll: { overview: { currentPeriod: { name: 'November 2026' }, currentRun: null } } })[0]).toMatchObject({ value: '—', sub: 'Pay run not started' });
   });
 });

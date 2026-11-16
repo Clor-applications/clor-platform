@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { ArrowLeft, ChevronRight, Plus, Send } from '@ui/components/ui/lineIcons';
 
 import { getTicket, listTickets, openTicket, replyTicket, ticketSolved } from '@platform/admin/account';
@@ -7,6 +8,10 @@ import { hasApp, requestOpenHelp } from '@platform/context';
 import { INCLUDED_IN } from '@platform/includedApps';
 import { ICON, PageHead, WsDrawer, ago } from './wsKit';
 import './workspace.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('red-question-mark');
+const EMPTY_ICON = emoji('speech-balloon');
 
 /**
  * Workspace → Help and support (Ops plan P1, customer tickets).
@@ -74,8 +79,8 @@ export default function Support() {
       <div className="ws-inner">
         <PageHead
           crumbs={['Overview', 'Help and support']}
+          icon={PAGE_ICON}
           title="Help and support"
-          description={whole ? 'Every question your account has asked CLOR, and the answers.' : 'Your questions to CLOR, and the answers.'}
           actions={
             <button type="button" className="ws-btn ws-btn--primary" onClick={() => setAsking(true)}>
               <Plus size={16} aria-hidden="true" /> New ticket
@@ -96,8 +101,8 @@ export default function Support() {
           </div>
         ) : rows && rows.length === 0 ? (
           <div className="ws-empty">
-            <span className="ws-tile" aria-hidden="true"><ICON.chat size={20} /></span>
-            <p>No tickets yet. If something is not working, or you cannot find how to do something, ask here and CLOR will answer by email.</p>
+            <EMPTY_ICON size={36} aria-hidden="true" />
+            <p>No tickets yet. Ask a question and CLOR answers by email.</p>
             <button type="button" className="ws-btn ws-btn--quiet" onClick={() => requestOpenHelp('welcome')}>Try the help centre first</button>
           </div>
         ) : rows ? (

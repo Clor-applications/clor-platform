@@ -1,0 +1,1249 @@
+/*
+ * Workspace → Overview (owner, 16 Nov 2026): a warmer, more informative home.
+ *
+ * The ground stays white; cards are glassy white (white at 78% over a faint
+ * light wash, blurred), so the page reads as layered paper rather than tinted
+ * panels. Graphite is the primary (buttons, links, hovers). Beside it, three
+ * accent hues and no more (owner, 17 Nov: all-graphite "looks dull"; six hues
+ * did not add up): blue, the brand's orange and green, as soft chips behind
+ * icons, the members ring, the count badge and the progress bar; never as a
+ * whole card. Status colours mean state, with words; an app's own colour marks
+ * that app.
+ *
+ * Radii follow DESIGN.md: 12px on anything holding content, 8px on anything
+ * clickable inside it, full pills only for pills.
+ */
+
+.wsh {
+  position: relative;
+  isolation: isolate;
+  /* The hero asks how wide the page is (not the window: the screens panel may be open or shut). */
+  container: wsh / inline-size;
+  /* The page frame (main) already pads the page: no second frame here (owner, 16 Nov). */
+  padding: 0;
+  --wsh-gutter: 2rem;
+  /* Solid white, as the ground is (owner, 17 Nov: "cards colors are not matching with background"): a
+     see-through card took a different tint from whatever wash sat behind it. */
+  --wsh-glass: rgb(255 255 255);
+  --wsh-line: rgb(var(--border) / 0.9);
+  /* Three accent hues and no more (17 Nov): blue, the brand's orange, green. Soft chips behind icons,
+     the ring, a badge; never a whole card. */
+  --hue-blue: var(--cat-1);
+  --hue-orange: var(--marker);
+  --hue-green: var(--cat-3);
+  /* Hover inside a card: graphite, faint. */
+  --wsh-hover: rgb(var(--act) / 0.045);
+  --wsh-shadow: 0 1px 2px rgb(16 18 22 / 0.04), 0 12px 32px -18px rgb(16 18 22 / 0.18);
+  /* Secondary text a step darker and a step firmer here (owner, 17 Nov: "fonts are very light"):
+     small grey regular type over glass read as washed out. Muted 9.6:1, subtle 6.9:1 on white. */
+  --fg-muted: 68 66 61;
+  --fg-subtle: 92 90 84;
+  --ws-muted: 68 70 76;
+  font-weight: 500;
+}
+/* The Overview lifts the shell's 80rem cap so its hero can run edge to edge; everything under the hero keeps the cap, centred. */
+:root:not(#rnd):not([data-palette='indigo']) main#main-content > :has(> .wsh) {
+  max-width: none;
+}
+.wsh .wsh-inner {
+  gap: 20px;
+  max-width: none;
+}
+.wsh-inner > :not(.wsh-hero) {
+  width: 100%;
+  max-width: 80rem;
+  justify-self: center;
+}
+@media (max-width: 767px) {
+  .wsh {
+    --wsh-gutter: 1rem;
+  }
+}
+
+/* ------------------------------------------------------------ glass card */
+.wsh-card,
+.wsh .ws-panel {
+  background: var(--wsh-glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid var(--wsh-line);
+  border-radius: 12px;
+  box-shadow: var(--wsh-shadow);
+}
+.wsh-card {
+  min-width: 0;
+  padding: 18px 20px 20px;
+}
+.wsh-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.wsh-card-head .ws-h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.wsh .ws-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ------------------------------------------------------------------ hero */
+.wsh-hero {
+  position: relative;
+  overflow: hidden;
+  /* Edge to edge (owner, 16 Nov): out through the page frame to the top bar and both sides, a hairline under it. */
+  margin: calc(-1 * var(--wsh-gutter)) calc(-1 * var(--wsh-gutter)) 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  align-items: center;
+  min-height: 248px;
+  /* Its words line up with the cards under it, which stop at 80rem and centre on a wide screen. */
+  padding: 36px calc(var(--wsh-gutter) + max(0px, (100% - 80rem) / 2) + 20px) 32px;
+  border-bottom: 1px solid var(--wsh-line);
+  background:
+    radial-gradient(60% 120% at 100% 50%, rgb(var(--cat-1) / 0.06), transparent 65%),
+    radial-gradient(30% 70% at 0% 0%, rgb(var(--cat-3) / 0.05), transparent 70%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.7));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.wsh-hero-text {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.wsh-eyebrow {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted));
+}
+.wsh-hello {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 10px;
+  font-family: var(--font-brand);
+  font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: rgb(var(--fg));
+}
+/* The name in the page's own ink, underlined by an orange swoosh: the one orange stroke outside the CLOR mark. */
+.wsh-name {
+  position: relative;
+  color: rgb(var(--fg));
+}
+.wsh-name::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(var(--marker) / 0.7);
+  transform: rotate(-1.2deg);
+}
+.wsh-wave {
+  transform-origin: 70% 70%;
+  animation: wsh-wave 2.4s ease-in-out 0.4s 2;
+}
+@keyframes wsh-wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+}
+.wsh-lede {
+  margin: 14px 0 0;
+  max-width: 34rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-facts {
+  margin: 10px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.wsh-btn-glass {
+  background: rgb(255 255 255 / 0.7);
+  border: 1px solid rgb(var(--border-field));
+  color: rgb(var(--fg));
+}
+.wsh-btn-glass:hover {
+  background: rgb(255 255 255);
+}
+
+/* The stage: decoration only, aria-hidden in the markup. */
+/* The picture: off until the page is wide enough for words, picture and card side by side. */
+.wsh-stage {
+  display: none;
+  position: relative;
+  height: 210px;
+  min-width: 0;
+}
+.wsh-hub-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 260px;
+  height: 210px;
+  transform: translate(-50%, -50%);
+}
+.wsh-hub-art > svg {
+  position: absolute;
+  inset: 0;
+}
+/* The connections. A live one is dashes running toward the hub; a still one is fainter and does not move. */
+.wsh-hub-link {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 2 7;
+}
+.wsh-hub-link[data-on] {
+  stroke-dasharray: 7 6;
+  animation: wsh-flow 1.3s linear infinite;
+}
+@keyframes wsh-flow {
+  to { stroke-dashoffset: -13; }
+}
+/* A slow ring out from the hub: the workspace is live. */
+.wsh-hub-pulse {
+  fill: none;
+  stroke: rgb(var(--marker) / 0.5);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wsh-pulse 3.2s ease-out infinite;
+}
+@keyframes wsh-pulse {
+  0% { transform: scale(0.85); opacity: 0.7; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.wsh-hub,
+.wsh-hub-app {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+}
+.wsh-hub {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border));
+  box-shadow: 0 0 0 7px rgb(var(--marker) / 0.08), 0 18px 32px -16px rgb(16 18 22 / 0.3);
+}
+.wsh-hub-app {
+  padding: 4px;
+  border-radius: 12px;
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border));
+  box-shadow: 0 10px 22px -12px rgb(16 18 22 / 0.3);
+  animation: wsh-drift 5.5s ease-in-out infinite;
+}
+@keyframes wsh-drift {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50% { transform: translate(-50%, calc(-50% - 4px)); }
+}
+/* Words and Today side by side from tablet width; the picture joins where there is room for it.
+   With no Today card the picture has the right side to itself. */
+@container wsh (min-width: 760px) {
+  .wsh-hero[data-today] {
+    grid-template-columns: minmax(0, 1fr) minmax(264px, 320px);
+  }
+  .wsh-hero:not([data-today]) {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+  .wsh-hero:not([data-today]) .wsh-stage {
+    display: block;
+  }
+}
+@container wsh (min-width: 1040px) {
+  .wsh-hero[data-today] {
+    grid-template-columns: minmax(0, 1fr) 260px minmax(264px, 320px);
+  }
+  .wsh-stage {
+    display: block;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsh-hub-app,
+  .wsh-hub-link[data-on] {
+    animation: none;
+  }
+  .wsh-hub-pulse {
+    display: none;
+  }
+}
+
+/* Today: the hero's right half. How the business stands today, one line per app that reports it. */
+.wsh-today {
+  position: relative;
+  z-index: 1;
+  justify-self: end;
+  width: 100%;
+  min-width: 0;
+  max-width: 320px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px 6px;
+  border: 1px solid var(--wsh-line);
+  border-radius: 12px;
+  background: rgb(255 255 255);
+  box-shadow: 0 24px 48px -28px rgb(16 18 22 / 0.28);
+}
+.wsh-today-head {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+.wsh-today-label {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.wsh-today-date {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-today-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  min-width: 0;
+}
+.wsh-today-list > li {
+  min-width: 0;
+}
+.wsh-today-list > li + li {
+  border-top: 1px solid rgb(var(--border));
+}
+.wsh-today-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.wsh-today-row {
+  cursor: pointer;
+}
+button.wsh-today-row:hover {
+  background: var(--wsh-hover);
+}
+button.wsh-today-row:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh-today-text {
+  display: grid;
+  min-width: 0;
+}
+.wsh-today-what {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh-today-sub {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: rgb(var(--fg-muted));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsh-today-value {
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: rgb(var(--fg));
+}
+.wsh-today-value small {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgb(var(--fg-muted));
+}
+@keyframes wsh-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsh-wave {
+    animation: none;
+  }
+}
+@media (max-width: 900px) {
+  .wsh-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 24px calc(var(--wsh-gutter) + 4px);
+  }
+  .wsh-today {
+    justify-self: stretch;
+    max-width: none;
+  }
+}
+
+/* ----------------------------------------------------------- figure tiles */
+.wsh-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+/* Even rows only: six, then three and three, then two by three, never one tile alone. */
+@media (max-width: 1360px) {
+  .wsh-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .wsh-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.wsh-tile {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  /* Graphite, barely: the emoji is the colour. A state (data-tone on the li) swaps --tile and its strength. */
+  --tile: var(--act);
+  --tile-wash: 0.035;
+  --tile-line: 0.1;
+  border: 1px solid rgb(var(--tile) / var(--tile-line));
+  background:
+    linear-gradient(135deg, rgb(var(--tile) / var(--tile-wash)), rgb(var(--tile) / 0) 70%),
+    var(--wsh-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+button.wsh-tile {
+  cursor: pointer;
+}
+button.wsh-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgb(var(--tile) / 0.3);
+  box-shadow: 0 14px 28px -18px rgb(var(--tile) / 0.45);
+}
+/* Status colours, for state only (DESIGN.md): something urgent, a problem, or setup finished. */
+.wsh-tiles > li[data-tone='warn'] .wsh-tile { --tile: var(--warn); --tile-wash: 0.12; --tile-line: 0.28; }
+.wsh-tiles > li[data-tone='neg'] .wsh-tile { --tile: var(--neg); --tile-wash: 0.1; --tile-line: 0.28; }
+.wsh-tiles > li[data-tone='pos'] .wsh-tile { --tile: var(--pos); --tile-wash: 0.1; --tile-line: 0.26; }
+button.wsh-tile:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh-tile-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 0 6px 14px -10px rgb(var(--tile) / 0.45), inset 0 0 0 1px rgb(var(--tile) / var(--tile-line));
+}
+.wsh-tiles > li[data-hue='blue'] .wsh-tile-ico { background: rgb(var(--hue-blue) / 0.12); box-shadow: inset 0 0 0 1px rgb(var(--hue-blue) / 0.18); }
+.wsh-tiles > li[data-hue='orange'] .wsh-tile-ico { background: rgb(var(--hue-orange) / 0.13); box-shadow: inset 0 0 0 1px rgb(var(--hue-orange) / 0.2); }
+.wsh-tiles > li[data-hue='green'] .wsh-tile-ico { background: rgb(var(--hue-green) / 0.13); box-shadow: inset 0 0 0 1px rgb(var(--hue-green) / 0.2); }
+.wsh-tiles > li[data-tone] .wsh-tile-ico {
+  background: rgb(255 255 255 / 0.85);
+}
+.wsh-tile-text {
+  display: grid;
+  min-width: 0;
+}
+.wsh-tile-value {
+  text-align: left;
+  font-size: 1.5rem;
+  line-height: 1.875rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg));
+}
+.wsh-tile-value small {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-tile-label {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 500;
+  color: rgb(var(--fg-muted));
+}
+/* A short line under the label: two lines at most, so a narrow tile wraps it instead of cutting it. */
+.wsh-tile-hint {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: rgb(var(--fg-subtle));
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.wsh-tile-go {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: rgb(var(--fg-subtle));
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+button.wsh-tile:hover .wsh-tile-go,
+button.wsh-tile:focus-visible .wsh-tile-go {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* -------------------------------------------------------------- your apps
+   One card per built app, four across. The mark wears the app's own colour; the card itself stays
+   white with a hairline, and an app that is not on is quieter still. */
+.wsh-apps-wrap {
+  display: grid;
+  gap: 12px;
+}
+.wsh-apps-wrap > .wsh-card-head {
+  padding: 0 4px;
+}
+.wsh-apps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1180px) {
+  .wsh-apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .wsh-apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.wsh-app {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  background: var(--wsh-glass);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+button.wsh-app {
+  cursor: pointer;
+}
+button.wsh-app:hover {
+  border-color: rgb(var(--border-strong));
+  box-shadow: 0 10px 22px -18px rgb(var(--act) / 0.45);
+}
+button.wsh-app:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh-app-text {
+  display: grid;
+  min-width: 0;
+}
+.wsh-app-name {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.wsh-app-state {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsh-app-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsh-app {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------- layout
+   Main column and a 320px side column (Quick actions first). Inside the main
+   column, cards pair up two across; a lone card takes the whole width. */
+.wsh-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+.wsh-main,
+.wsh-side {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  align-content: start;
+}
+.wsh-main > *,
+.wsh-side > * {
+  min-width: 0;
+}
+.wsh-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+.wsh-pair > * {
+  min-width: 0;
+}
+/* Two cards side by side share one height, so their edges line up. */
+.wsh-pair > .wsh-card,
+.wsh-pair > .ws-panel {
+  height: 100%;
+  align-content: start;
+}
+@media (max-width: 1180px) {
+  .wsh-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The side column, under the main one, lays its cards out two across. */
+  .wsh-side {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    align-items: start;
+  }
+}
+
+/* -------------------------------------------------------- team and access */
+.wsh-team {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 20px 28px;
+}
+.wsh-ring {
+  position: relative;
+  margin: 0;
+  width: 132px;
+  height: 132px;
+}
+.wsh-ring svg {
+  display: block;
+}
+.wsh-ring-track {
+  fill: none;
+  stroke: rgb(var(--border) / 0.7);
+  stroke-width: 12;
+}
+.wsh-ring-arc {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wsh-ring figcaption {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+.wsh-ring-n {
+  font-size: 1.75rem;
+  line-height: 2rem;
+  font-weight: 800;
+  text-align: center;
+  color: rgb(var(--fg));
+}
+.wsh-ring-l {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.wsh-legend .ui-num {
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.wsh-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+.wsh-seats {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid rgb(var(--border));
+}
+.wsh-seats-title {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-seats ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.wsh-seats li {
+  display: grid;
+  grid-template-columns: 22px 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8125rem;
+}
+.wsh-seat-name {
+  font-weight: 600;
+  color: rgb(var(--fg));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsh-seat-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--border) / 0.7);
+  overflow: hidden;
+}
+.wsh-seat-bar > span {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wsh-seat-n {
+  min-width: 2.5rem;
+  text-align: right;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.wsh-seat-n small {
+  font-weight: 500;
+  color: rgb(var(--fg-subtle));
+}
+@media (max-width: 900px) {
+  .wsh-team {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .wsh-seats {
+    grid-column: 1 / -1;
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: 0;
+    border-top: 1px solid rgb(var(--border));
+  }
+}
+
+/* ---------------------------------------------------------- quick actions
+   A vertical list: a tinted emoji square, the action and one line on what it
+   does, a chevron. Each row is a button, 8px radius, hover in grey. */
+.wsh-quick {
+  list-style: none;
+  margin: 0 -8px;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.wsh-quick-btn {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: rgb(var(--fg));
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.wsh-quick-btn:hover {
+  background: var(--wsh-hover);
+}
+.wsh-quick-btn:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh-quick-ico {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgb(255 255 255);
+  box-shadow: inset 0 0 0 1px rgb(var(--border));
+  transition: transform 0.18s ease;
+}
+.wsh-quick-btn[data-hue='blue'] .wsh-quick-ico { background: rgb(var(--hue-blue) / 0.1); box-shadow: inset 0 0 0 1px rgb(var(--hue-blue) / 0.16); }
+.wsh-quick-btn[data-hue='orange'] .wsh-quick-ico { background: rgb(var(--hue-orange) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-orange) / 0.18); }
+.wsh-quick-btn[data-hue='green'] .wsh-quick-ico { background: rgb(var(--hue-green) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-green) / 0.18); }
+/* A colour icon beside each card's headline (owner, 17 Nov 2026). */
+.wsh .ws-h2,
+.wsh .ws-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-head-ico {
+  flex: none;
+}
+/* Help and support rows carry the same colour chip as Quick actions (owner, 17 Nov 2026). */
+.wsh-help-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-right: 12px;
+  border-radius: 8px;
+  background: rgb(255 255 255);
+  box-shadow: inset 0 0 0 1px rgb(var(--border));
+}
+.wsh-help-ico[data-hue='blue'] { background: rgb(var(--hue-blue) / 0.1); box-shadow: inset 0 0 0 1px rgb(var(--hue-blue) / 0.16); }
+.wsh-help-ico[data-hue='orange'] { background: rgb(var(--hue-orange) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-orange) / 0.18); }
+.wsh-help-ico[data-hue='green'] { background: rgb(var(--hue-green) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-green) / 0.18); }
+.wsh .ws-item:has(> .wsh-help-ico) .ws-item-text { flex: 1 1 auto; min-width: 0; }
+.wsh-quick-btn:hover .wsh-quick-ico {
+  transform: rotate(-6deg) scale(1.05);
+}
+.wsh-quick-text {
+  display: grid;
+  min-width: 0;
+}
+.wsh-quick-label {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+.wsh-quick-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-quick-go {
+  color: rgb(var(--fg-subtle));
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.wsh-quick-btn:hover .wsh-quick-go {
+  color: rgb(var(--fg));
+  transform: translateX(2px);
+}
+
+/* -------------------------------------------------------------- attention */
+.wsh-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(var(--marker));
+  color: rgb(255 255 255);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.wsh-attn {
+  list-style: none;
+  margin: 0 -8px;
+  padding: 0;
+  container-type: inline-size;
+}
+/* A narrow card: the action drops under the words instead of squeezing them. */
+@container (max-width: 440px) {
+  .wsh-attn-row {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+  .wsh-attn-act {
+    grid-column: 2;
+  }
+}
+.wsh-attn > li + li {
+  border-top: 1px solid rgb(var(--border));
+}
+.wsh-attn-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.wsh-attn-row {
+  cursor: pointer;
+}
+button.wsh-attn-row:hover {
+  background: var(--wsh-hover);
+}
+.wsh-ico {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgb(var(--neutral-soft));
+  color: rgb(var(--fg-muted));
+}
+.wsh-ico--neg { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
+.wsh-ico--warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.wsh-ico--brand { background: rgb(var(--cat-1) / 0.1); color: rgb(var(--cat-1)); }
+.wsh-attn-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.wsh-attn-title {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh-attn-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-attn-sub .ws-pill {
+  font-size: 0.6875rem;
+}
+.wsh-attn-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--act-ink));
+  white-space: nowrap;
+}
+.wsh-calm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.wsh-calm .ws-card-blurb {
+  margin: 0;
+}
+
+/* -------------------------------------------------------- company overview */
+.wsh-co {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.wsh-co-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgb(var(--act) / 0.05);
+}
+.wsh-co-text {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 120px;
+}
+.wsh-co-name {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.wsh-co-sub {
+  font-size: 0.8125rem;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-co-figs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0 0;
+  padding: 12px 0;
+  border-top: 1px solid rgb(var(--border));
+  border-bottom: 1px solid rgb(var(--border));
+}
+.wsh-co-figs > div + div {
+  padding-left: 14px;
+  border-left: 1px solid rgb(var(--border));
+}
+.wsh-co-figs dt {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-co-figs dd {
+  margin: 2px 0 0;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg));
+}
+.wsh-setup {
+  margin-top: 16px;
+}
+.wsh-setup-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh-bar {
+  height: 8px;
+  margin: 8px 0 12px;
+  border-radius: 999px;
+  background: rgb(var(--border));
+  overflow: hidden;
+}
+.wsh-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgb(var(--marker)), rgb(var(--cat-3)));
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wsh-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wsh-steps li[data-done] {
+  color: rgb(var(--fg));
+}
+.wsh-step-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1.5px solid rgb(var(--border-strong));
+}
+.wsh-steps li[data-done] .wsh-step-mark {
+  border: 0;
+}
+.wsh-step-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: rgb(var(--fg-muted));
+  text-align: left;
+  cursor: pointer;
+}
+.wsh-step-link:hover {
+  color: rgb(var(--act-ink));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* -------------------------------------------------------------- activity */
+.wsh-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+/* A thin timeline behind the avatars. */
+.wsh-feed::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  border-radius: 2px;
+  background: rgb(var(--border));
+}
+.wsh-feed > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.wsh-feed > li .ws-avatar {
+  box-shadow: 0 0 0 3px rgb(255 255 255);
+}
+.wsh-feed-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wsh-feed-text strong {
+  font-weight: 600;
+}
+.wsh-feed > li[data-denied] .wsh-feed-what {
+  color: rgb(var(--neg));
+}
+.wsh-feed-when {
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle));
+}
+
+/* ------------------------------------------------------------ empty, promo */
+.wsh-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.wsh-promo {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--wsh-line);
+  background:
+    radial-gradient(70% 120% at 100% 100%, rgb(var(--cat-1) / 0.07), transparent 70%),
+    var(--wsh-glass);
+  box-shadow: var(--wsh-shadow);
+}
+.wsh-promo-text {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  min-width: 0;
+}
+.wsh-promo-text p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-promo-face {
+  flex: none;
+  margin-left: auto;
+  filter: drop-shadow(0 10px 12px rgb(16 18 22 / 0.2));
+  animation: wsh-float 6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsh-promo-face {
+    animation: none;
+  }
+}

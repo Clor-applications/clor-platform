@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import { orgId } from '@platform/context';
 import { apiFetch } from '@platform/http';
 import { ICON, PageHead, ago, productIcon } from './wsKit';
 import './workspace.css';
+
+/* This page's colour icon, the one its menu item wears. */
+const PAGE_ICON = emoji('inbox-tray');
 
 /**
  * Inbox (Workspace plan P1): everything waiting on you in every app of this
@@ -69,8 +73,8 @@ export default function Inbox({ openApp, openScreen }) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Overview', 'Inbox']}
+          icon={PAGE_ICON}
           title="Inbox"
-          description="What waits on you in every app, oldest first. Open a row to decide it in its own app."
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -99,7 +103,7 @@ export default function Inbox({ openApp, openScreen }) {
           <p className="ws-card-blurb">Loading…</p>
         ) : !rows.length && !error ? (
           <div className="ws-empty">
-            <span className="ws-tile" aria-hidden="true"><ICON.inbox size={20} /></span>
+            <PAGE_ICON size={36} aria-hidden="true" />
             <p>{empty}</p>
           </div>
         ) : rows.length ? (

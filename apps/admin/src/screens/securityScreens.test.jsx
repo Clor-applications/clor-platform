@@ -72,7 +72,8 @@ describe('audit trail', () => {
     render(<AuditTrail />);
     const row = (await screen.findByText('Invoice INV-7 edited')).closest('tr');
     expect(within(row).getByText('12000')).toBeInTheDocument();
-    expect(within(row).getByText('Update')).toBeInTheDocument();
+    /* The kind of change, in the past tense and as plain words: "Update" in a pill read as a button. */
+    expect(within(row).getByText('Updated')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Load older entries/ }));
     await waitFor(() => expect(api.listAudit).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'c2' })));
     fireEvent.click(screen.getByRole('button', { name: /^Export$/ }));

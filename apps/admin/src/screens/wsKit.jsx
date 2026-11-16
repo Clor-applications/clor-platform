@@ -85,7 +85,7 @@ export function goBack(fallback = 'home') {
  * (Companies, Members, Plan…); every other Workspace page acts on the company
  * chosen in the bar, which the bar names.
  */
-export function PageHead({ crumbs = [], title, description, meta, actions, scope }) {
+export function PageHead({ crumbs = [], title, description, meta, actions, scope, icon: Icon = null, tools = null }) {
   const section = crumbs[0];
   /* A section's own Overview page is a top: it has nowhere to go back to. */
   const isTop = crumbs.length < 2 || crumbs[crumbs.length - 1] === 'Overview';
@@ -118,14 +118,20 @@ export function PageHead({ crumbs = [], title, description, meta, actions, scope
           </div>
         ) : null}
         <h1 className="ws-title">
+          {/* The page's own colour icon, the one its menu item wears (owner, 17 Nov 2026). Decoration: the title says it. */}
+          {Icon ? <Icon size={28} className="ws-title-ico" aria-hidden="true" /> : null}
           {title}
           {scope === 'account' ? <span className="ws-scope">All companies</span> : null}
         </h1>
-        {description ? <p className="ws-lede">{description}</p> : null}
+        {/* No caption under the title on any Workspace page (owner, 17 Nov 2026: "remove unwanted captions";
+            standing rule since 26 Oct: no page descriptions). Callers may still pass `description`; it is
+            kept for screen readers, where a page's one-line purpose helps and costs no space. */}
+        {description ? <p className="sr-only">{description}</p> : null}
       </div>
-      {meta || actions ? (
-        <div className="grid gap-2 justify-items-end">
+      {meta || actions || tools ? (
+        <div className="ws-head-side">
           {meta ? <span className="ws-head-meta">{meta}</span> : null}
+          {tools}
           {actions ? <div className="ws-actions">{actions}</div> : null}
         </div>
       ) : null}
@@ -156,12 +162,12 @@ export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
 }
 
 /** A titled block; `action` is a small link on the right. */
-export function Panel({ title, action, children, labelledBy }) {
+export function Panel({ title, action, children, labelledBy, icon: Icon = null }) {
   const id = labelledBy || `ws-panel-${String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
     <section className="ws-panel" aria-labelledby={id}>
       <div className="ws-panel-head">
-        <h2 id={id} className="ws-panel-title">{title}</h2>
+        <h2 id={id} className="ws-panel-title">{Icon ? <Icon size={20} className="ws-head-ico" aria-hidden="true" /> : null}{title}</h2>
         {action || null}
       </div>
       {children}
@@ -281,12 +287,13 @@ export const initials = (name = '') => {
   return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || '?').slice(0, 2)).toUpperCase();
 };
 /** A person's initials on a soft fill, the colour fixed by their name. */
-export function Avatar({ name, size, ink = false }) {
+/* `hue="blue"` holds the circle to the page's blue instead of a colour worked out from the name. */
+export function Avatar({ name, size, ink = false, hue = null }) {
   const key = String(name || '');
   let h = 0;
   for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) >>> 0;
   return (
-    <span className="ws-avatar" data-size={size} data-ink={ink || undefined} style={{ '--av': `var(${CAT[h % CAT.length]})` }} aria-hidden="true">
+    <span className="ws-avatar" data-size={size} data-ink={ink || undefined} style={{ '--av': hue === 'blue' ? 'var(--cat-1)' : `var(${CAT[h % CAT.length]})` }} aria-hidden="true">
       {initials(key)}
     </span>
   );
