@@ -245,9 +245,9 @@ numbers refer to are defined once under *Controls → Height*.
 
 ## Layout
 - **Approach:** grid-disciplined.
-- **Shell (R&D, 14 Nov 2026):** a 64px white rail (CLOR symbol tile 36px,
-  44×44 icon buttons with 18px Lucide icons, the active one on `--tint`
-  with a 3px `--marker` bar on its left edge), then a 232px second panel on
+- **Shell (R&D, 14 Nov 2026; rail names 16 Nov):** an 80px white rail (CLOR symbol tile 36px,
+  each module its 24px icon with its name under it in 11px, two lines at most, the active one on `--tint`
+  with a 3px `--marker` bar on its left edge), then a 200px second panel (232px until 16 Nov) on
   `--panel` that scrolls on its own (16/600 title, 12px group
   labels, 36px items with 16px Lucide icons; the active item white with a
   `--panel-border` ring and a 3px `--marker` inset), then a 64px top bar (36px
@@ -697,6 +697,33 @@ because focus, portals and event order cannot be read off the source.
 7. Build Payroll on the primitives with no new layout code. That build proves the system holds.
 
 ## Decisions Log
+
+- **2026-11-16 — Books under the one platform bar (owner: "match Books"):**
+  Books drew a second bar (company, search, year, profile) under the platform bar
+  and a rail that began under both, so the company name showed twice and the
+  bar read unlike every other app. Now Books' search, year and profile menu
+  render into the platform bar (Shell slots `#ui-topbar-app-start` /
+  `#ui-topbar-app-end`), its own company name is dropped unless a company keeps
+  more than one set of books, and its rail runs the full window height at 80px
+  with the CLOR tile on top (280px with a module open), as the split rail does
+  elsewhere. Rendered on its own, Books still draws its own bar.
+- **2026-11-16 — Workspace Overview, decorative and informative (owner):**
+  "background glassy white … sidebar add module names, and hero card … welcome
+  add user name and some smileys … dashboard more decorative and informative
+  with data colours accent, keeping primary graphite". The Overview
+  (`apps/admin/src/screens/AdminHome.jsx`, `ws-overview.css`) gets an edge-to-edge hero
+  band (top bar to both sides, hairline under it, words aligned with the cards) ("Welcome to CLOR Workspace", a greeting by first name, Fluent Emoji faces
+  on glass tiles around a drawn laptop dashboard, motion off under reduced-motion),
+  figure tiles washed in the `--cat-*` palette, a Team and access card (members
+  ring, people in each app; no app tiles, the Apps module owns those), quick actions
+  as a vertical list heading a 320px right column (with activity, security, help), a company card with setup
+  progress, and an activity timeline. Cards there are glassy white (white at
+  78%, blurred) over a faint wash high on the page; the ground stays white and
+  graphite stays the only button colour. The exception is this page only.
+  Every split rail now shows module names under the icons (80px rail).
+  Same day: the Workspace bar matches every app (app switcher, search, company,
+  bell, Help; no date or trial line, the trial is in Needs your attention), and
+  orange on the Overview is kept to small marks; tiles use cooler `--cat-*` hues.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

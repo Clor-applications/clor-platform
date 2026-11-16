@@ -37,7 +37,6 @@ import { listBranches } from '@platform/admin/admin';
 import { listOutsideAccess } from '@platform/admin/outsideAccess';
 import { orgId as platformOrgId } from '@platform/context';
 
-import { ICON } from './src/screens/wsKit.jsx';
 import SetupGuide from './src/screens/SetupGuide.jsx';
 
 import { lazyScreens } from '@ui/utils/lazyScreens';
@@ -151,8 +150,8 @@ export const adminApp = {
 
   /* W-R3: a rail tap opens the module's own landing page; the content follows the sidebar, never the Overview left behind. */
   railOpensHome: true,
-  /* The rail's foot: how far setup has got (owners and admins, until it is done), then Help, which leaves the bar. */
-  railFoot: { Component: SetupGuide, helpIcon: ICON.help },
+  /* The rail's foot: how far setup has got (owners and admins, until it is done). Help is in the bar, as in every app. */
+  railFoot: { Component: SetupGuide },
 
   /*
    * R&D hand-off (clor-rnd/README.md §1/§4, 14 Nov 2026): six rail stops with

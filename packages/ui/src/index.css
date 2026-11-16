@@ -9858,7 +9858,7 @@ button.ui-side-alert { cursor: pointer; }
 .app-nav-shell { padding: 0; }
 .app-nav-layout { display: flex; min-width: 0; }
 .app-nav-modules {
-  flex: 0 0 4.5rem;
+  flex: 0 0 5rem;
   padding: 0.375rem 0.3125rem;
   border-inline-end: 1px solid rgb(var(--rail-border));
   scrollbar-width: thin;
@@ -9949,6 +9949,39 @@ button.ui-side-alert { cursor: pointer; }
   color: rgb(var(--nav-panel-ink, var(--nav-fg))) !important;
 }
 .ui-rail .app-nav-modules .app-nav-module[data-active='true'] > svg { color: rgb(var(--nav-panel-mark, var(--brand))) !important; }
+
+/* Books in the platform (owner, 16 Nov 2026: "match Books"). Its controls sit in
+   the one platform bar (Shell.jsx slots), so the rail runs the full height of the
+   window with the CLOR tile at its head and the bar steps aside for it, exactly
+   as the split rail does in every other app (rnd.css "the shell"). */
+.app-nav-brand { display: none; }
+@media (min-width: 768px) {
+  .app-books-rail[data-platform] > .app-nav-shell {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: inherit;
+    z-index: calc(var(--z-platform-bar, 40) + 1);
+    background: rgb(var(--surface));
+    transition: width 200ms;
+  }
+  .app-books-rail[data-platform] .app-nav-layout { height: 100%; }
+  .app-books-rail[data-platform] .app-nav-modules { padding: 1rem 0.375rem; }
+  .app-books-rail[data-platform] .app-nav-sections { padding-top: 1.25rem; }
+  .app-books-rail[data-platform] .app-nav-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 0.5rem;
+  }
+  .ui-min-h-viewport:has(.app-books-rail[data-platform]) > .ui-topbar { padding-left: calc(5rem + 2rem); transition: padding-left 200ms; }
+  .ui-min-h-viewport:has(.app-books-rail[data-platform][data-open]) > .ui-topbar { padding-left: calc(17.5rem + 2rem); }
+  .ui-min-h-viewport:has(.app-books-rail[data-platform]) > .ui-topbar .ui-topbar-logo { display: none; }
+}
 
 /* Import corrections: one line per section, divided by hairlines rather than a card per line inside the drawer. */
 .import-correction-line { padding-block: .75rem; border-top: 1px solid rgb(var(--border)); }

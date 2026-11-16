@@ -79,18 +79,30 @@ describe('the Workspace overview', () => {
   it('shows an owner the business at a glance, what needs attention first, and the subscription', async () => {
     const openScreen = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
-    /* R&D hand-off (CLOR-01): the page is the Workspace, with the account's facts on one line under it. */
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Workspace');
+    /* Owner, 16 Nov 2026: the hero welcomes the reader by name under "Welcome to CLOR Workspace", the account's facts on one line. */
+    expect(screen.getByText('Welcome to CLOR Workspace')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Good (morning|afternoon|evening), Kavya$/);
     expect(await screen.findByText('Account Owner')).toBeInTheDocument();
     expect(await screen.findByText(/Neev Group · 1 company · 2 of 3 apps · 2 members/)).toBeInTheDocument();
+    /* The figures across the top, each opening the screen that owns it. */
+    const glance = within(await screen.findByRole('list', { name: 'Workspace at a glance' }));
+    fireEvent.click(glance.getByRole('button', { name: /^2\s*Members$/ }));
+    expect(openScreen).toHaveBeenCalledWith('members');
+    /* No Apps screen in this person's menu: the figure is shown, not a way in. */
+    expect(glance.getByText('Active apps').closest('button')).toBeNull();
+    /* Quick actions: only the screens this person may open. */
+    const quick = within(screen.getByRole('region', { name: 'Quick actions' }));
+    fireEvent.click(quick.getByRole('button', { name: /^Add company/ }));
+    expect(openScreen).toHaveBeenCalledWith('companies');
+    expect(quick.queryByRole('button', { name: /^Integrations/ })).toBeNull();
     /* One primary action, top right. */
     fireEvent.click(screen.getByRole('button', { name: /Invite people/ }));
     expect(openScreen).toHaveBeenCalledWith('invitations');
     /* Payroll's seats are bought, Accounting's are not metered: no "of" total that would be wrong. */
     expect(screen.getByRole('list', { name: '2 urgent items' })).toBeInTheDocument();
-    const companies = within(screen.getByRole('region', { name: 'Companies' }));
-    expect(companies.getByText('Not added')).toBeInTheDocument();
-    expect(companies.getByText('Needs GSTIN')).toBeInTheDocument();
+    /* One company: the Company overview card says it once; no Companies table repeating it. */
+    expect(screen.queryByRole('region', { name: 'Companies' })).toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Company overview' })).getByText('Needs GSTIN')).toBeInTheDocument();
     const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
     expect(await attention.findByText('1 pending invitation')).toBeInTheDocument();
     expect(await attention.findByText('1 administrator without an authenticator')).toBeInTheDocument();
@@ -108,9 +120,22 @@ describe('the Workspace overview', () => {
     expect(within(screen.getByRole('region', { name: 'Security' })).getByText('1 / 2')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Connections' })).getByText('Needs a look')).toBeInTheDocument();
     expect(await screen.findByText('Invitation sent')).toBeInTheDocument();
-    /* README §2: each app is marked in its own colour, and opens on its own address. */
-    expect(document.querySelectorAll('.ws-apps .ws-appmark').length).toBe(4);
-    expect(screen.getByRole('button', { name: 'Open books.clor.in' })).toBeInTheDocument();
+    /* The apps live in the Apps module; the Overview shows the team instead: who is in, and how many people each app has. */
+    expect(screen.queryByRole('button', { name: 'Open books.clor.in' })).toBeNull();
+    const team = within(screen.getByRole('region', { name: 'Team and access' }));
+    expect(team.getByRole('figure', { name: '2 active, 1 invited, 1 suspended' })).toBeInTheDocument();
+    expect(team.getByText('People in each app')).toBeInTheDocument();
+    expect(team.getByText('Payroll')).toBeInTheDocument();
+    expect(document.querySelectorAll('.wsh-seats .ws-appmark').length).toBeGreaterThan(0);
+  });
+
+  it('lists the companies in a table only when the account has more than one', async () => {
+    const one = await api.getAccountOverview();
+    api.getAccountOverview.mockResolvedValue({ ...one, companies: [...one.companies, { orgId: 'c2', name: 'Neev Exports', gstin: '29ABCDE1234F1Z5' }] });
+    render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={() => {}} openApp={() => {}} />);
+    const companies = within(await screen.findByRole('region', { name: 'Companies' }));
+    expect(companies.getByText('Not added')).toBeInTheDocument();
+    expect(companies.getByText('Neev Exports')).toBeInTheDocument();
   });
 
   it('puts a trial about to end and an overdue CLOR invoice at the top', async () => {
@@ -164,7 +189,9 @@ describe('the Workspace overview', () => {
     expect(screen.queryByText('Companies')).toBeNull();
     expect(screen.queryByText('Team')).toBeNull();
     expect(screen.queryByRole('region', { name: 'Subscription' })).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Shortcuts' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Quick actions' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Company overview' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Team and access' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Invite people/ })).toBeNull();
     expect(screen.getByRole('region', { name: 'Help and support' })).toBeInTheDocument();
     expect(api.getAccountOverview).not.toHaveBeenCalled();

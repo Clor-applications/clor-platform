@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Ban, Building2, CalendarDays, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
@@ -1009,7 +1009,7 @@ function ShellScreens() {
       {app?.railFoot && !phone ? (
         <div className="ui-split-rail-foot">
           {app.railFoot.Component ? <app.railFoot.Component tenant={tenant} goTo={goTo} screen={screen} /> : null}
-          <HelpMenu variant="rail" icon={app.railFoot.helpIcon} />
+          {app.railFoot.helpIcon ? <HelpMenu variant="rail" icon={app.railFoot.helpIcon} /> : null}
         </div>
       ) : null}
     </nav>
@@ -1156,8 +1156,9 @@ function ShellScreens() {
 
           {/* The app switcher. Named for the app you are in, because that is the
               question it answers before it is the control it offers. The
-              Workspace leaves it out: its Overview opens the apps. */}
-          {app && !inWorkspace ? (
+              Workspace shows it too on a desktop, so every app's bar reads the same (owner, 16 Nov 2026);
+              a phone's Workspace bar keeps its company button instead. */}
+          {app && (!inWorkspace || !phone) ? (
             <div className="relative" ref={switcherRef}>
               <button
                 type="button"
@@ -1252,8 +1253,12 @@ function ShellScreens() {
             )
           ) : null}
 
+          {/* A Root app (Books) puts its own search and year here, so it reads as every other app's bar
+              rather than drawing a second bar under this one (owner, 16 Nov 2026: "match Books"). */}
+          {Root ? <div id="ui-topbar-app-start" className={phone ? 'contents' : 'flex items-center gap-2 min-w-0'} /> : null}
+
           {/* A phone's search button already takes the free space (ml-auto); a second spacer only adds a gap. */}
-          {!phone ? <div className="flex-1" /> : null}
+          {!phone || Root ? <div className="flex-1" /> : null}
 
           {/* On a phone the bar holds menu, mark, app, profile and sign-out; one company needs no picker and the theme follows the phone. */}
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
@@ -1303,19 +1308,6 @@ function ShellScreens() {
             </div>
           ) : null}
 
-          {/* The Workspace's date, once, in the bar: the browser's own locale and timezone. */}
-          {inWorkspace && !phone ? (
-            <time className="inline-flex items-center gap-1.5 text-sm ui-muted whitespace-nowrap" dateTime={new Date().toISOString().slice(0, 10)}>
-              <CalendarDays size={16} aria-hidden="true" />
-              {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-            </time>
-          ) : null}
-          {/* A trial says when it ends, quietly, where the Workspace says the date (roadmap item 7). */}
-          {inWorkspace && !phone && tenant?.billing?.status === 'trialing' && tenant.billing.trialEndsAt ? (
-            <span className="text-sm ui-muted whitespace-nowrap" data-testid="trial-ends">
-              Trial ends {new Date(tenant.billing.trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-            </span>
-          ) : null}
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}
           <NotificationBell
             tenantKey={tenantKey}
@@ -1339,7 +1331,11 @@ function ShellScreens() {
             }}
           />
           {/* A phone's bar has no room for it (it pushed the bar past the screen); help is in the phone's Menu. */}
-          {!phone && !app?.railFoot ? <HelpMenu /> : null}
+          {/* Help sits in the bar in every app (owner, 16 Nov 2026); a rail foot may still carry its own item (the Workspace's Setup). */}
+          {!phone && !app?.railFoot?.helpIcon ? <HelpMenu /> : null}
+
+          {/* Books' own profile menu (density, its settings) lands here, where every other app has its face. */}
+          {Root ? <div id="ui-topbar-app-end" className="contents" /> : null}
 
           {!Root ? (
             <button
