@@ -273,7 +273,8 @@ export const adminApp = {
     export: DataBackup,
     close: CloseCompany,
     support: Support,
-    inbox: InboxIcon,
+    /* The screen, not its icon: `InboxIcon` here drew a 16px icon where the Inbox should be. */
+    inbox: Inbox,
     integrations: Integrations,
     apps: Apps,
     invoices: Invoices,
