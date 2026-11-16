@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
+import { ClorMark } from '@ui/components/brand';
 
 import { accountAudit, getAccountMe, listAccountMembers, listInvitations, listTickets, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
@@ -134,74 +135,41 @@ export function renewalNotice(renewal, planBad = false) {
 }
 
 /**
- * The hero's illustration: a laptop showing a small Workspace dashboard. Drawn here in the brand's
- * own colours only (graphite, the Blaze orange and its deeper second, neutral greys), so it sits
- * with the cards and the accent instead of beside them, is never a stock picture and needs no
- * file. Decoration only: hidden from screen readers, and shown only where the hero has room for
- * it beside the words and Next for you.
+ * The hero's picture: CLOR at the centre with this account's apps around it, joined to it. Not a
+ * stock drawing: each app wears its own colour when it is switched on and sits grey when it is
+ * not, so the picture is this workspace and changes as apps are added. Decoration all the same
+ * (the Your apps row says it in words): hidden from screen readers, shown only where the hero has
+ * room beside the words and Next for you.
  */
-function WorkspaceArt() {
-  const c = (v, a = 1) => `rgb(var(${v}) / ${a})`;
+const HUB = { x: 116, y: 100 };
+const SPOTS = [{ x: 34, y: 36 }, { x: 198, y: 32 }, { x: 30, y: 164 }, { x: 202, y: 168 }];
+function AppsArt({ apps = [] }) {
+  const placed = apps.slice(0, SPOTS.length).map((a, i) => ({ ...a, ...SPOTS[i] }));
   return (
-    <svg viewBox="0 0 280 200" width="280" height="200" focusable="false">
-      <defs>
-        <linearGradient id="wsh-art-bar" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="rgb(var(--marker))" />
-          <stop offset="1" stopColor="rgb(var(--act-2))" />
-        </linearGradient>
-        <linearGradient id="wsh-art-base" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3A3F48" />
-          <stop offset="1" stopColor="#202329" />
-        </linearGradient>
-      </defs>
-      {/* Shadow on the desk */}
-      <ellipse cx="140" cy="186" rx="118" ry="8" fill="rgb(16 18 22 / 0.12)" />
-      {/* Screen */}
-      <rect x="36" y="14" width="208" height="140" rx="12" fill="#202329" />
-      <rect x="44" y="22" width="192" height="124" rx="6" fill="#FFFFFF" />
-      {/* Side rail of the little app */}
-      <rect x="44" y="22" width="26" height="124" rx="6" fill={c('--border', 0.6)} />
-      <rect x="51" y="30" width="12" height="12" rx="3" fill="rgb(var(--marker))" />
-      <rect x="52" y="52" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.5)} />
-      <rect x="52" y="64" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.35)} />
-      <rect x="52" y="76" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.35)} />
-      <rect x="52" y="88" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.35)} />
-      {/* Header line and a primary button */}
-      <rect x="80" y="30" width="62" height="7" rx="3.5" fill="#202329" />
-      <rect x="80" y="41" width="40" height="4" rx="2" fill={c('--fg-subtle', 0.45)} />
-      <rect x="196" y="30" width="32" height="12" rx="4" fill="#202329" />
-      {/* Three figure tiles */}
-      <rect x="80" y="52" width="44" height="22" rx="5" fill={c('--marker', 0.14)} />
-      <rect x="130" y="52" width="44" height="22" rx="5" fill={c('--fg-subtle', 0.14)} />
-      <rect x="180" y="52" width="48" height="22" rx="5" fill={c('--marker', 0.1)} />
-      <rect x="86" y="58" width="14" height="5" rx="2.5" fill={c('--marker')} />
-      <rect x="136" y="58" width="18" height="5" rx="2.5" fill={c('--fg-muted')} />
-      <rect x="186" y="58" width="12" height="5" rx="2.5" fill={c('--act-2')} />
-      <rect x="86" y="66" width="26" height="3" rx="1.5" fill={c('--fg-subtle', 0.4)} />
-      <rect x="136" y="66" width="26" height="3" rx="1.5" fill={c('--fg-subtle', 0.4)} />
-      <rect x="186" y="66" width="30" height="3" rx="1.5" fill={c('--fg-subtle', 0.4)} />
-      {/* Bar chart */}
-      <rect x="80" y="80" width="88" height="58" rx="5" fill="none" stroke={c('--border')} />
-      {[[88, 30], [100, 20], [112, 38], [124, 26], [136, 44], [148, 34]].map(([x, h]) => (
-        <rect key={x} x={x} y={132 - h} width="8" height={h} rx="2.5" fill="url(#wsh-art-bar)" className="wsh-art-bar" />
+    <span className="wsh-hub-art">
+      <svg viewBox="0 0 232 200" width="232" height="200" focusable="false">
+        {placed.map((a) => (
+          <path
+            key={a.id}
+            d={`M${HUB.x} ${HUB.y} Q ${(HUB.x + a.x) / 2} ${a.y}, ${a.x} ${a.y}`}
+            fill="none"
+            stroke={a.on ? 'rgb(var(--marker) / 0.7)' : 'rgb(var(--border-strong))'}
+            strokeWidth="1.5"
+            strokeDasharray={a.on ? undefined : '3 5'}
+            strokeLinecap="round"
+          />
+        ))}
+        {placed.filter((a) => a.on).map((a) => (
+          <circle key={a.id} cx={(HUB.x + a.x) / 2 + (a.x < HUB.x ? -9 : 9)} cy={a.y + (a.y < HUB.y ? 7 : -7)} r="3" fill="rgb(var(--marker))" />
+        ))}
+      </svg>
+      <span className="wsh-hub" style={{ left: HUB.x, top: HUB.y }}><ClorMark size={38} title="" /></span>
+      {placed.map((a, i) => (
+        <span key={a.id} className="wsh-hub-app" data-on={a.on || undefined} style={{ left: a.x, top: a.y, animationDelay: `${-1.3 * i}s` }}>
+          <AppMark app={a.id} size={44} off={!a.on} title="" />
+        </span>
       ))}
-      {/* Line chart and team */}
-      <rect x="174" y="80" width="54" height="58" rx="5" fill="none" stroke={c('--border')} />
-      <polyline points="180,118 190,108 200,112 210,96 222,90" fill="none" stroke={c('--fg')} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="222" cy="90" r="3" fill={c('--fg')} />
-      <circle cx="184" cy="129" r="4.5" fill={c('--marker')} />
-      <circle cx="192" cy="129" r="4.5" fill={c('--fg-muted')} />
-      <circle cx="200" cy="129" r="4.5" fill={c('--act-2')} />
-      {/* Camera dot, hinge and base */}
-      <circle cx="140" cy="18" r="1.6" fill="#4A4F58" />
-      <path d="M14 156 H266 L254 176 Q252 180 246 180 H34 Q28 180 26 176 Z" fill="url(#wsh-art-base)" />
-      <rect x="116" y="156" width="48" height="5" rx="2.5" fill="#4A4F58" />
-      {/* The CLOR orange mark on a floating badge */}
-      <g className="wsh-art-badge">
-        <rect x="216" y="2" width="40" height="40" rx="10" fill="#FFFFFF" stroke={c('--border')} />
-        <path d="M228 14 h10 v5 h-5 v11 h-5 Z M244 28 h-10 v-5 h5 v-11 h5 Z" fill="rgb(var(--logo-mark, 255 84 0))" />
-      </g>
-    </svg>
+    </span>
   );
 }
 
@@ -482,8 +450,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     : null;
   const queue = [...urgentItems, setupItem, ...calmItems].filter(Boolean);
   const focus = queue[0] || null;
-  const after = queue.slice(1, 3);
-  const moreAfter = Math.max(0, queue.length - 3);
 
   /* Shortcuts to the jobs an administrator comes here for; each only when this person may open its screen. */
   const quick = [
@@ -529,14 +495,19 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           </div>
           {/* Decoration between the words and the card, only where the hero is wide enough for all three. */}
           <div className="wsh-stage" aria-hidden="true">
-            <span className="wsh-orb" />
-            <span className="wsh-art"><WorkspaceArt /></span>
-            <span className="wsh-chip wsh-chip--1"><E.rocket size={24} /></span>
-            <span className="wsh-chip wsh-chip--2"><E.check size={24} /></span>
+            <AppsArt apps={states.map((x) => ({ id: x.app.id, on: x.state.key === 'open' || x.state.key === 'noaccess' }))} />
           </div>
           {/* Next for you: the one thing to do now, then what follows. */}
           <div className="wsh-next" role="group" aria-labelledby="wsh-next-title">
-            <p id="wsh-next-title" className="wsh-next-label">Next for you</p>
+            <p className="wsh-next-head">
+              <span id="wsh-next-title" className="wsh-next-label">Next for you</span>
+              {steps && stepsDone < steps.length ? (
+                <span className="wsh-next-setup">
+                  <span>Setup <N>{stepsDone}</N> of <N>{steps.length}</N></span>
+                  <span className="wsh-bar" aria-hidden="true"><span style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }} /></span>
+                </span>
+              ) : null}
+            </p>
             {!settled ? (
               <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
                 <span className="ui-skel ui-skel-text" />
@@ -553,42 +524,18 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                     <span className="wsh-next-sub">{focus.sub}</span>
                   </span>
                 </div>
-                {focus.go ? (
-                  <button type="button" className="ws-btn wsh-btn-glass wsh-next-act" onClick={focus.go}>
-                    {focus.action || 'Open'} <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                ) : null}
-                {after.length ? (
-                  <ul className="wsh-next-then" aria-label="After that">
-                    {after.map((a) => (
-                      <li key={a.key}>
-                        {a.go ? (
-                          <button type="button" className="wsh-next-row" onClick={a.go}>
-                            <span>{a.title}</span>
-                            <ChevronRight size={14} aria-hidden="true" />
-                          </button>
-                        ) : (
-                          <div className="wsh-next-row"><span>{a.title}</span></div>
-                        )}
-                      </li>
-                    ))}
-                    {moreAfter ? (
-                      <li>
-                        <button type="button" className="wsh-next-row wsh-next-more" onClick={scrollToAttention}>
-                          <span>{plural(moreAfter, 'more item')}</span>
-                          <ChevronRight size={14} aria-hidden="true" />
-                        </button>
-                      </li>
-                    ) : null}
-                  </ul>
-                ) : null}
-                {steps && stepsDone < steps.length ? (
-                  <div className="wsh-next-setup">
-                    <span>Setup</span>
-                    <span className="wsh-bar" aria-hidden="true"><span style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }} /></span>
-                    <span><N>{stepsDone}</N> of <N>{steps.length}</N> done</span>
-                  </div>
-                ) : null}
+                <div className="wsh-next-foot">
+                  {focus.go ? (
+                    <button type="button" className="ws-btn ws-btn--small wsh-btn-glass" onClick={focus.go}>
+                      {focus.action || 'Open'} <ChevronRight size={14} aria-hidden="true" />
+                    </button>
+                  ) : <span />}
+                  {queue.length > 1 ? (
+                    <button type="button" className="ws-link wsh-next-more" onClick={scrollToAttention}>
+                      {plural(queue.length - 1, 'more item')} <ChevronRight size={14} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
               </>
             ) : (
               <div className="wsh-next-main">

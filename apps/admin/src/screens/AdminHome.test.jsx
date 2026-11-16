@@ -95,10 +95,11 @@ describe('the Workspace overview', () => {
     expect(await glance.findByText('2 urgent')).toBeInTheDocument();
     /* No Apps screen in this person's menu: the figure is shown, not a way in. */
     expect(glance.getByText('Active apps').closest('button')).toBeNull();
-    /* In place of the hero's illustration: the one thing to do now (the urgent item first), then what follows. */
+    /* In place of the hero's illustration: the one thing to do now (the urgent item first), how many follow, and setup progress. */
     const next = within(screen.getByRole('group', { name: 'Next for you' }));
     expect(await next.findByText('1 sync problem')).toBeInTheDocument();
-    expect(next.getByRole('list', { name: 'After that' })).toBeInTheDocument();
+    expect(next.getByRole('button', { name: /more items?$/ })).toBeInTheDocument();
+    expect(next.getByText(/Setup/)).toHaveTextContent(/of 4/);
     /* Quick actions: only the screens this person may open. */
     const quick = within(screen.getByRole('region', { name: 'Quick actions' }));
     fireEvent.click(quick.getByRole('button', { name: /^Add company/ }));

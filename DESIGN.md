@@ -735,8 +735,11 @@ because focus, portals and event order cannot be read off the source.
   14 Nov full-height rail with the bar stepping aside. On the Overview, a
   "Your apps" row (each built app, its state, one action) sits under the
   figures, and the hero gained "Next for you" (the one thing to do now, what
-  follows, setup progress); the laptop illustration stays beside it where the
-  page is wide enough, redrawn in graphite and orange only. The wash behind the
+  how many follow, setup progress), kept short. Beside it, where the page is
+  wide enough, a picture drawn from the account itself: the CLOR mark with the
+  apps around it, each in its own colour when on and grey when off (the laptop
+  drawing is gone). Secondary text on this page is a step darker and weight 500
+  ("fonts are very light"). The wash behind the
   glass is orange and graphite, faint: the blue and violet washes read as a
   different page from the neutral cards and the orange accent.
 

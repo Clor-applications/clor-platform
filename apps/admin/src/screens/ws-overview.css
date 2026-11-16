@@ -24,6 +24,12 @@
   --wsh-glass: rgb(255 255 255 / 0.78);
   --wsh-line: rgb(var(--border) / 0.9);
   --wsh-shadow: 0 1px 2px rgb(16 18 22 / 0.04), 0 12px 32px -18px rgb(16 18 22 / 0.18);
+  /* Secondary text a step darker and a step firmer here (owner, 17 Nov: "fonts are very light"):
+     small grey regular type over glass read as washed out. Muted 9.6:1, subtle 6.9:1 on white. */
+  --fg-muted: 68 66 61;
+  --fg-subtle: 92 90 84;
+  --ws-muted: 68 70 76;
+  font-weight: 500;
 }
 /* A faint wash high on the page, so the glass has something to sit over. The ground itself stays white. */
 .wsh::before {
@@ -197,63 +203,56 @@
 }
 
 /* The stage: decoration only, aria-hidden in the markup. */
-/* The illustration: off until the page is wide enough for words, picture and card side by side. */
+/* The picture: off until the page is wide enough for words, picture and card side by side. */
 .wsh-stage {
   display: none;
   position: relative;
   height: 200px;
   min-width: 0;
 }
-.wsh-orb {
+.wsh-hub-art {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 176px;
-  height: 176px;
-  margin: -88px 0 0 -88px;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.4) 60%),
-    radial-gradient(circle at 70% 80%, rgb(var(--marker) / 0.16), transparent 70%);
-  border: 1px solid rgb(255 255 255 / 0.9);
-  box-shadow: 0 24px 48px -24px rgb(16 18 22 / 0.2), inset 0 -8px 24px rgb(var(--marker) / 0.06);
-}
-.wsh-art {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 216px;
+  width: 232px;
+  height: 200px;
   transform: translate(-50%, -50%);
-  filter: drop-shadow(0 16px 20px rgb(16 18 22 / 0.18));
 }
-.wsh-art svg {
-  display: block;
-  width: 100%;
-  height: auto;
+.wsh-hub-art > svg {
+  position: absolute;
+  inset: 0;
 }
-/* The bars grow in once, from the axis. */
-.wsh-art-bar {
-  transform-box: fill-box;
-  transform-origin: bottom;
-  animation: wsh-grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-@keyframes wsh-grow {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
-}
-.wsh-chip {
+.wsh-hub,
+.wsh-hub-app {
   position: absolute;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgb(255 255 255 / 0.9);
-  border: 1px solid rgb(var(--border));
-  box-shadow: 0 10px 24px -12px rgb(16 18 22 / 0.28);
+  transform: translate(-50%, -50%);
 }
-.wsh-chip--1 { left: 0; top: 4px; }
-.wsh-chip--2 { right: 0; bottom: 8px; }
+.wsh-hub {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border));
+  box-shadow: 0 0 0 8px rgb(var(--marker) / 0.07), 0 18px 32px -16px rgb(16 18 22 / 0.3);
+}
+.wsh-hub-app {
+  padding: 5px;
+  border-radius: 14px;
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border));
+  box-shadow: 0 10px 22px -12px rgb(16 18 22 / 0.3);
+  animation: wsh-drift 6s ease-in-out infinite;
+}
+.wsh-hub-app:not([data-on]) {
+  border-style: dashed;
+  box-shadow: none;
+}
+@keyframes wsh-drift {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50% { transform: translate(-50%, calc(-50% - 5px)); }
+}
 @container wsh (min-width: 1040px) {
   .wsh-hero {
     grid-template-columns: minmax(0, 1fr) 232px minmax(300px, 400px);
@@ -263,7 +262,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wsh-art-bar {
+  .wsh-hub-app {
     animation: none;
   }
 }
@@ -279,8 +278,8 @@
   min-width: 0;
   max-width: 440px;
   display: grid;
-  gap: 14px;
-  padding: 18px 20px;
+  gap: 12px;
+  padding: 14px 18px 16px;
   border: 1px solid var(--wsh-line);
   border-radius: 12px;
   background: rgb(255 255 255 / 0.86);
@@ -296,9 +295,6 @@
   color: rgb(var(--fg-muted));
 }
 .wsh-next > * {
-  min-width: 0;
-}
-.wsh-next-then > li {
   min-width: 0;
 }
 .wsh-next-main {
@@ -317,8 +313,8 @@
   min-width: 0;
 }
 .wsh-next-title {
-  font-size: 1.125rem;
-  line-height: 1.5rem;
+  font-size: 1rem;
+  line-height: 1.375rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: rgb(var(--fg));
@@ -328,66 +324,34 @@
   line-height: 1.25rem;
   color: rgb(var(--fg-muted));
 }
-.wsh-next-act {
-  justify-self: start;
-  margin-left: 52px;
-}
-.wsh-next-then {
-  list-style: none;
-  min-width: 0;
+.wsh-next-head {
   margin: 0;
-  padding: 6px 0 0;
-  border-top: 1px solid rgb(var(--border));
-  display: grid;
-}
-.wsh-next-row {
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  min-height: 2.25rem;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  font: inherit;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: rgb(var(--fg));
-  text-align: left;
+  gap: 12px;
 }
-.wsh-next-row > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wsh-next-row > svg {
-  flex: none;
-  color: rgb(var(--fg-subtle));
-}
-button.wsh-next-row {
-  cursor: pointer;
-}
-button.wsh-next-row:hover {
-  background: rgb(var(--heading-hover));
-}
-button.wsh-next-row:focus-visible {
-  outline: 2px solid rgb(var(--act));
-  outline-offset: 2px;
+.wsh-next-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 52px;
 }
 .wsh-next-more {
-  color: rgb(var(--fg-muted));
+  font-size: 0.8125rem;
 }
 .wsh-next-setup {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 0.8125rem;
   line-height: 1.125rem;
   color: rgb(var(--fg-muted));
+}
+.wsh-next-setup .wsh-bar {
+  width: 64px;
+  height: 6px;
 }
 .wsh-next-setup .wsh-bar {
   margin: 0;
