@@ -3142,3 +3142,56 @@ button.ws-stat:hover {
   line-height: 1.125rem;
   color: rgb(var(--fg-muted, 92 90 84));
 }
+
+/* Workspace → Apps → Integrations: the list is one bordered sheet, as tables are. */
+.ws .ws-list--sheet {
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+  overflow: hidden;
+}
+.ws .ws-list--sheet > li > .ws-item {
+  padding: 14px 16px;
+}
+.ws .ws-list--sheet .ws-tile:has(> .ui-emoji) {
+  background: rgb(var(--hover-blue, 42 120 214) / 0.1);
+}
+
+/* Workspace → Apps → Automations. The shared list (packages/ui automations) capped itself at 42rem
+   and its number box, inline in every other app, stretched to the full line here (the Workspace
+   makes .ui-input a block). Each group is one sheet across the page; the number sits in its
+   sentence again. */
+.ws-autos > div {
+  max-width: none;
+}
+.ws-autos section {
+  padding: 4px 16px 6px;
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+}
+.ws-autos section > h2 {
+  margin: 0;
+  padding: 12px 0 10px;
+  border-bottom: 1px solid rgb(var(--border, 229 229 229));
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: rgb(var(--fg, 32 35 41));
+}
+/* !important: the Workspace's own field rules (width 100%, block) are written with more weight than a page can outbid. */
+.ws .ws-autos input[type='number'] {
+  display: inline-block !important;
+  width: 4rem !important;
+  height: 32px;
+  min-height: 32px;
+  margin: 0 6px;
+  padding: 0 6px;
+  vertical-align: baseline;
+  text-align: center;
+}
+.ws-autos li p.text-sm {
+  font-size: 0.9375rem;
+  line-height: 2rem;
+  color: rgb(var(--fg, 32 35 41));
+}
