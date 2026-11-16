@@ -278,6 +278,25 @@ describe('arrears and incentives paid on top of the structure (audit, 17 Nov 202
   }, 60_000);
 });
 
+describe('a weekly structure with a statutory scheme on (audit, 17 Nov 2026)', () => {
+  it('is refused before it calculates, because every statutory rule is a monthly one', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const monthly = (await api.get(c, `/structures/${ids.structureId}`).expect(200)).body.structure;
+    const weekly = await api
+      .post(c, '/structures', {
+        name: `Weekly ${rnd()}`, frequency: 'WEEKLY', effectiveFrom: '2026-01-01', status: 'ACTIVE',
+        components: monthly.components.map((l: any) => ({ componentId: l.componentId, isBalancing: l.isBalancing, displayOrder: l.displayOrder })),
+      })
+      .expect(201);
+    const employeeId = await addPerson(c, weekly.body.structure.id, 'Paid weekly', 1_040_000);
+    const run = await api.post(c, '/runs', { periodId: ids.periodId }).expect(201);
+    const check = await api.post(c, `/runs/${run.body.run.id}/validate`).expect(200);
+    expect(check.body.canCalculate).toBe(false);
+    expect(check.body.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'FREQUENCY_NOT_MONTHLY', severity: 'ERROR', employeeId })]));
+  }, 60_000);
+});
+
 describe('a rate that changes', () => {
   it('does not reach backwards into a month already paid', async () => {
     /*

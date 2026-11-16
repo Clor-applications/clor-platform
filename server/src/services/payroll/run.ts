@@ -1298,6 +1298,25 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
       add({ severity: 'ERROR', code: 'NO_STRUCTURE', employeeId: employee.id, message: `${who}'s salary structure no longer exists.` });
       continue;
     }
+    /*
+     * Weekly and fortnightly structures, with a statutory scheme on (audit, 17
+     * Nov 2026). Every statutory rule here is a monthly one: the PF ceiling
+     * and the ESI limit are a month's, professional tax slabs are a month's
+     * gross, and income tax is the year's tax over the months left. On a
+     * week's pay the ceiling applied four times over, somebody on ₹80,000 a
+     * month read as under the ESI limit, and a year's tax of ₹1,20,000 came
+     * off at ₹10,000 a week. Refused until those rules are built by the
+     * week; with no scheme on, a weekly structure is only wages and is fine.
+     */
+    if ((structure.frequency || 'MONTHLY') !== 'MONTHLY' && ctx.statutoryRules.size) {
+      add({
+        severity: 'ERROR',
+        code: 'FREQUENCY_NOT_MONTHLY',
+        employeeId: employee.id,
+        message: `${who} is on ${structure.name}, which pays ${structure.frequency === 'WEEKLY' ? 'every week' : 'every two weeks'}. PF, ESI, professional tax and income tax are worked out by the month here, so they would come out wrong on it. Put ${who} on a monthly structure to run this payroll.`,
+      });
+      continue;
+    }
     if (structure.effectiveFrom > ctx.period.endDate) {
       add({
         severity: 'ERROR',
