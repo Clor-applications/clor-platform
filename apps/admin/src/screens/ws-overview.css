@@ -325,9 +325,13 @@
   gap: 12px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgb(var(--tile) / 0.14);
+  /* Graphite, barely: the emoji is the colour. A state (data-tone on the li) swaps --tile and its strength. */
+  --tile: var(--act);
+  --tile-wash: 0.035;
+  --tile-line: 0.1;
+  border: 1px solid rgb(var(--tile) / var(--tile-line));
   background:
-    linear-gradient(135deg, rgb(var(--tile) / 0.08), rgb(var(--tile) / 0.02) 70%),
+    linear-gradient(135deg, rgb(var(--tile) / var(--tile-wash)), rgb(var(--tile) / 0) 70%),
     var(--wsh-glass);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
@@ -341,9 +345,13 @@ button.wsh-tile {
 }
 button.wsh-tile:hover {
   transform: translateY(-2px);
-  border-color: rgb(var(--tile) / 0.35);
-  box-shadow: 0 14px 28px -18px rgb(var(--tile) / 0.6);
+  border-color: rgb(var(--tile) / 0.3);
+  box-shadow: 0 14px 28px -18px rgb(var(--tile) / 0.45);
 }
+/* Status colours, for state only (DESIGN.md): something urgent, a problem, or setup finished. */
+.wsh-tiles > li[data-tone='warn'] .wsh-tile { --tile: var(--warn); --tile-wash: 0.12; --tile-line: 0.28; }
+.wsh-tiles > li[data-tone='neg'] .wsh-tile { --tile: var(--neg); --tile-wash: 0.1; --tile-line: 0.28; }
+.wsh-tiles > li[data-tone='pos'] .wsh-tile { --tile: var(--pos); --tile-wash: 0.1; --tile-line: 0.26; }
 button.wsh-tile:focus-visible {
   outline: 2px solid rgb(var(--act));
   outline-offset: 2px;
@@ -356,7 +364,7 @@ button.wsh-tile:focus-visible {
   height: 42px;
   border-radius: 12px;
   background: rgb(255 255 255 / 0.85);
-  box-shadow: 0 6px 14px -8px rgb(var(--tile) / 0.6), inset 0 0 0 1px rgb(var(--tile) / 0.12);
+  box-shadow: 0 6px 14px -10px rgb(var(--tile) / 0.45), inset 0 0 0 1px rgb(var(--tile) / var(--tile-line));
 }
 .wsh-tile-text {
   display: grid;
@@ -633,8 +641,9 @@ button.wsh-tile:focus-visible .wsh-tile-go {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: rgb(var(--tile) / 0.1);
-  box-shadow: inset 0 0 0 1px rgb(var(--tile) / 0.14);
+  /* White with a hairline: the emoji carries the colour, a tint behind it was a second one. */
+  background: rgb(255 255 255);
+  box-shadow: inset 0 0 0 1px rgb(var(--border));
   transition: transform 0.18s ease;
 }
 .wsh-quick-btn:hover .wsh-quick-ico {

@@ -723,7 +723,12 @@ because focus, portals and event order cannot be read off the source.
   Every split rail now shows module names under the icons (80px rail).
   Same day: the Workspace bar matches every app (app switcher, search, company,
   bell, Help; no date or trial line, the trial is in Needs your attention), and
-  orange on the Overview is kept to small marks; tiles use cooler `--cat-*` hues.
+  orange on the Overview is kept to small marks.
+  17 Nov: the figure tiles and Quick actions lost their per-tile `--cat-*` hues
+  (six hues that meant nothing, and a red tile with nothing wrong). They take one
+  faint graphite wash; a tile is coloured only for a state: amber or red when
+  something is urgent, green when setup is done. The emoji carry the colour;
+  charts (the members ring, per-app bars) keep theirs.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
