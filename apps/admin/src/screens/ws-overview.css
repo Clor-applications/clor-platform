@@ -245,10 +245,6 @@
   box-shadow: 0 10px 22px -12px rgb(16 18 22 / 0.3);
   animation: wsh-drift 6s ease-in-out infinite;
 }
-.wsh-hub-app:not([data-on]) {
-  border-style: dashed;
-  box-shadow: none;
-}
 @keyframes wsh-drift {
   0%, 100% { transform: translate(-50%, -50%); }
   50% { transform: translate(-50%, calc(-50% - 5px)); }

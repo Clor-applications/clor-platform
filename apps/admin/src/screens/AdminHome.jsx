@@ -136,8 +136,9 @@ export function renewalNotice(renewal, planBad = false) {
 
 /**
  * The hero's picture: CLOR at the centre with this account's apps around it, joined to it. Not a
- * stock drawing: each app wears its own colour when it is switched on and sits grey when it is
- * not, so the picture is this workspace and changes as apps are added. Decoration all the same
+ * stock drawing: every app wears its own colour (owner, 17 Nov: "add color to icons"); one that
+ * is switched on is joined by a solid line, one that is not by a dashed line, so the picture is
+ * this workspace and changes as apps are added. Decoration all the same
  * (the Your apps row says it in words): hidden from screen readers, shown only where the hero has
  * room beside the words and Next for you.
  */
@@ -153,20 +154,20 @@ function AppsArt({ apps = [] }) {
             key={a.id}
             d={`M${HUB.x} ${HUB.y} Q ${(HUB.x + a.x) / 2} ${a.y}, ${a.x} ${a.y}`}
             fill="none"
-            stroke={a.on ? 'rgb(var(--marker) / 0.7)' : 'rgb(var(--border-strong))'}
+            stroke={`rgb(var(${appInfo(a.id)?.color || '--border-strong'}) / ${a.on ? 0.75 : 0.45})`}
             strokeWidth="1.5"
             strokeDasharray={a.on ? undefined : '3 5'}
             strokeLinecap="round"
           />
         ))}
         {placed.filter((a) => a.on).map((a) => (
-          <circle key={a.id} cx={(HUB.x + a.x) / 2 + (a.x < HUB.x ? -9 : 9)} cy={a.y + (a.y < HUB.y ? 7 : -7)} r="3" fill="rgb(var(--marker))" />
+          <circle key={a.id} cx={(HUB.x + a.x) / 2 + (a.x < HUB.x ? -9 : 9)} cy={a.y + (a.y < HUB.y ? 7 : -7)} r="3" fill={`rgb(var(${appInfo(a.id)?.color || '--marker'}))`} />
         ))}
       </svg>
       <span className="wsh-hub" style={{ left: HUB.x, top: HUB.y }}><ClorMark size={38} title="" /></span>
       {placed.map((a, i) => (
         <span key={a.id} className="wsh-hub-app" data-on={a.on || undefined} style={{ left: a.x, top: a.y, animationDelay: `${-1.3 * i}s` }}>
-          <AppMark app={a.id} size={44} off={!a.on} title="" />
+          <AppMark app={a.id} size={44} title="" />
         </span>
       ))}
     </span>
