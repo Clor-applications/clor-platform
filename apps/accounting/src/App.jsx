@@ -294,8 +294,9 @@ const TrialBalance = ({ db, currentCompany, onOpenLedger }) => {
   const totalCredit = rows.reduce((sum, r) => sum + Number(r._credit ?? 0), 0);
 
   return (
-    <div className="space-y-6">
-      <h3 className="ui-t-sec">Trial Balance</h3>
+    <div className="space-y-4">
+      {/* A page title like every other screen's, so the heading does not sit against the panel edge. */}
+      <PageHeader title="Trial Balance" description="Every account's balance as on today. Open an account to see its ledger." />
 
       <div className="ui-surface rounded-xl shadow-sm overflow-hidden border">
         <table className="ui-table w-full">
@@ -4339,7 +4340,8 @@ const AppShell = () => {
                         aria-current={isActive ? 'page' : undefined}
                       >
                         <ItemIcon size={16} aria-hidden="true" />
-                        <span className="min-w-0 truncate">{item.label}</span>
+                        {/* Wraps to a second line rather than cutting a long name ("Users, roles & security"). */}
+                        <span className="min-w-0 flex-1 whitespace-normal py-1.5 text-left leading-tight [overflow-wrap:break-word]">{item.label}</span>
                         {state ? <span className="ml-auto shrink-0 text-xs ui-subtle tabular-nums">{state}</span> : null}
                       </button>
                     );
