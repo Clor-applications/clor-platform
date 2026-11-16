@@ -3973,8 +3973,11 @@ const AppShell = () => {
             >
               <PanelLeftOpen size={18} aria-hidden="true" />
             </button> : null}
-            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain" />
-            <div className="relative min-w-0 flex-1" ref={orgMenuRef}>
+            {/* The company is named once per screen: from tablet width up the platform bar's
+                switcher above names it, so this one shows on phones only, where that switcher
+                is hidden (owner, 16 Nov 2026). */}
+            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain md:hidden" />
+            <div className="relative min-w-0 flex-1 md:hidden" ref={orgMenuRef}>
                 <button
                   type="button"
                   onClick={() => setOrgMenuOpen((v) => !v)}
