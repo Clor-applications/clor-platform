@@ -4,6 +4,7 @@ import { ArrowLeft, Ban, Building2, CalendarDays, Check, ChevronDown, CircleHelp
 import { useTheme } from '@ui/components/ui/useTheme';
 import { useDismissable } from '@ui/components/ui/useDismissable';
 import { formatDateIn } from '@ui/utils/dates';
+import { BAR_SLOT_END, BAR_SLOT_START } from '@ui/utils/barSlots';
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
 import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
@@ -1252,6 +1253,9 @@ function ShellScreens() {
             )
           ) : null}
 
+          {/* An app that draws its own screen (Books) puts its search here on a wide screen: see barSlots.js. */}
+          {Root && !showMoreApps ? <div id={BAR_SLOT_START} className="flex min-w-0 items-center gap-2" /> : null}
+
           {/* A phone's search button already takes the free space (ml-auto); a second spacer only adds a gap. */}
           {!phone ? <div className="flex-1" /> : null}
 
@@ -1363,6 +1367,9 @@ function ShellScreens() {
               )}
               <span className="sr-only">My profile</span>
             </button>
+          ) : !showMoreApps ? (
+            /* Books' own account menu, where every other app has the profile button. */
+            <div id={BAR_SLOT_END} className="flex shrink-0 items-center gap-2" />
           ) : null}
 
           <button

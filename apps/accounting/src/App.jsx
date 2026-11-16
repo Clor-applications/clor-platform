@@ -16,6 +16,7 @@ import { reconcilePartyCodes } from '@ui/utils/partyCodeSync';
 import { isCompanyGstEnabled, isCompanyTaxEnabled } from '@ui/utils/gst';
 import { computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowLeftRight, BadgePercent, BarChart3, Boxes, Building2, Check, ChevronDown, ClipboardList, FileStack, FileText, Landmark, ListChecks, LogOut, NotebookPen, Package, PanelLeftOpen, Plus, Receipt, RefreshCw, Search, Settings, ShoppingCart, SlidersHorizontal, Tags, Truck, UserRound, Users, X } from 'lucide-react';
 /* Duotone icons for the module rail — the two-tone fill is what reads as a
    "coloured icon" rather than a tinted outline. Leaf items stay lucide, tinted
@@ -239,6 +240,7 @@ import { onPlatformContextChange, orgId as platformOrgId, requestSwitchCompany, 
 import { logout as platformLogout } from '@platform/auth';
 import { registerLedgerForm } from './components/pickers/ledgerFormRegistry';
 import { useDismissable } from '@ui/components/ui/useDismissable';
+import { BAR_SLOT_END, BAR_SLOT_START, BAR_SLOTS_QUERY } from '@ui/utils/barSlots';
 import ReportsWorkspace from './features/reports/ReportsWorkspace';
 import { ExpensesList, ExpenseForm, JournalEntryForm } from './features/expenses/ExpenseScreens';
 import { normalizeId, ChartAccountForm } from './appShared';
@@ -528,6 +530,22 @@ const AppShell = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useDismissable(accountMenuOpen, () => setAccountMenuOpen(false));
+  /* Inside the shell on a wide screen, search and the account menu go into the
+     platform bar's two slots and Books draws no bar of its own (barSlots.js).
+     The slots are in the shell's bar before Books mounts, so one look finds them. */
+  const [barSlots, setBarSlots] = useState(null);
+  const [barWide, setBarWide] = useState(() => Boolean(window.matchMedia?.(BAR_SLOTS_QUERY).matches));
+  useEffect(() => {
+    const start = document.getElementById(BAR_SLOT_START);
+    const end = document.getElementById(BAR_SLOT_END);
+    if (start && end) setBarSlots({ start, end });
+    const mq = window.matchMedia?.(BAR_SLOTS_QUERY);
+    if (!mq) return undefined;
+    const onChange = (e) => setBarWide(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const barMerged = Boolean(barSlots && barWide);
   /**
    * Where to draw the account menu.
    *
@@ -3922,141 +3940,21 @@ const AppShell = () => {
     );
   }
 
-  return (
-    /*
-     * The shell is exactly one viewport tall and does not scroll. The header
-     * and the navigation rail are therefore fixed by construction, and the
-     * content column is the only thing that moves.
-     *
-     * Sticky was not enough: a sticky rail still travels with the page until
-     * it reaches its offset, so it visibly slid up on every scroll. Owning the
-     * viewport removes the travel rather than compensating for it.
-     */
-    <div
-      className="ui-app-shell flex flex-col overflow-hidden"
-      style={{ backgroundColor: 'rgb(var(--app-bg))' }}
-    >
-      {/* No ambient light behind the pages: every ground is pure white (owner, 15 Nov 2026). */}
-      <Toaster />
-      <ResizableTables />
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 ui-btn ui-btn-primary"
-      >
-        Skip to main content
-      </a>
-
-      <header
-        /* Not inert behind the Features panel. The panel's scrim is measured
-           from <main> and stops at the content edge, so the header is lit and
-           unwashed — blocking it there produced a bar you could see, read and
-           click with nothing happening. */
-        className="shrink-0 z-40 backdrop-blur"
-        style={{
-          backgroundColor: 'rgb(var(--header-bg) / 0.96)',
-          borderBottom: '1px solid rgb(var(--border))',
-        }}
-      >
-        <div className="w-full px-2.5 lg:px-3 h-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-          {/* Left: the company, over the rail. It takes what the column gives
-              and truncates, so a long name can no longer run under the
-              search beside it. */}
-          <div className="flex items-center min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0 w-full">
-            {/* Phone-only: the rail lives in a drawer, opened here. */}
-            {!dedicatedWorkspaceMode ? <button
-              type="button"
-              onClick={() => setMobileNavOpen(true)}
-              className="ui-icon-btn md:hidden"
-              aria-label="Open navigation"
-              aria-expanded={mobileNavOpen}
-            >
-              <PanelLeftOpen size={18} aria-hidden="true" />
-            </button> : null}
-            {/* The company is named once per screen: from tablet width up the platform bar's
-                switcher above names it, so this one shows on phones only, where that switcher
-                is hidden (owner, 16 Nov 2026). */}
-            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain md:hidden" />
-            <div className="relative min-w-0 flex-1 md:hidden" ref={orgMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setOrgMenuOpen((v) => !v)}
-                  className="ui-btn ui-btn-ghost !h-8 !min-h-8 !px-1.5 w-fit max-w-full min-w-0"
-                  aria-haspopup="menu"
-                  aria-expanded={orgMenuOpen}
-                >
-                  <span className="ui-title text-sm min-w-0 truncate text-left">{activeOrgName}</span>
-                  <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
-                </button>
-
-                {orgMenuOpen ? (
-                  <div
-                    role="menu"
-                    className="absolute left-0 mt-2 w-72 rounded-lg overflow-hidden z-50 ui-card ui-in-pop"
-                    style={{ boxShadow: 'var(--shadow-pop)', '--pop-origin': 'top left' }}
-                  >
-                    <div className="px-3 py-2 ui-subtle text-xs uppercase tracking-wide">Switch company</div>
-                    {availableOrgs.map((o) => {
-                      const isActive = String(o.orgId) === String(activeOrgId);
-                      return (
-                        <button
-                          key={o.orgId}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => switchOrg(o.orgId)}
-                          className="w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))] flex items-center justify-between gap-2"
-                          style={isActive ? { color: 'rgb(var(--brand-ink))', fontWeight: 600 } : undefined}
-                        >
-                          <span className="truncate">{o.org?.name || o.orgId}</span>
-                          {isActive ? <Check size={14} aria-hidden="true" /> : null}
-                        </button>
-                      );
-                    })}
-                    <div className="border-t ui-border-c p-1.5">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOrgMenuOpen(false);
-                          setCompaniesIntent('create');
-                          setActive('companies');
-                        }}
-                        className="ui-btn ui-btn-ghost w-full !justify-start"
-                      >
-                        <Plus size={14} aria-hidden="true" /> Add company
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-
-          <div className="hidden md:flex items-center justify-center gap-2 min-w-0">
-            {/*
-              Search, in the middle of the bar.
-
-              It used to sit in the dashboard's hero card, which meant it was
-              on exactly one screen — and the one screen you are least likely
-              to be on when you want to find an invoice. Command-K already
-              reaches it from anywhere; this is the visible affordance for the
-              people who do not know that yet, so it belongs where it is always
-              in view. The keycap says how to skip the click.
-
-              Centred in the bar with the financial year beside it, as in the
-              Books build the owner signed off (15 Nov 2026).
-            */}
+  /* Search and the financial year, and the account menu: drawn once, placed
+     either in the platform bar's slots (a wide screen inside the shell) or in
+     Books' own bar (a narrow screen, or Books on its own). See barSlots.js. */
+  const barSearch = (
+    <>
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
-              className="ui-input flex items-center gap-1.5 w-40 lg:w-64 shrink-0 text-start ps-2.5 pe-1.5 !h-8 !min-h-8"
-              style={{ color: 'rgb(var(--fg-subtle))' }}
+              className={barMerged ? 'ui-global-search' : 'ui-input flex items-center gap-1.5 w-40 lg:w-64 shrink-0 text-start ps-2.5 pe-1.5 !h-8 !min-h-8'}
+              style={barMerged ? undefined : { color: 'rgb(var(--fg-subtle))' }}
               aria-label="Search invoices, customers, items"
             >
               <Search size={16} aria-hidden="true" className="shrink-0" />
               <span className="truncate">Search invoices, customers, items…</span>
-              <kbd className="ui-kbd ms-auto shrink-0" aria-hidden="true">⌘K</kbd>
+              <kbd className={barMerged ? undefined : 'ui-kbd ms-auto shrink-0'} aria-hidden="true">⌘K</kbd>
             </button>
             {financialYearOptions.length ? <label className="flex items-center gap-1.5 text-xs ui-muted whitespace-nowrap">
               <span>FY</span>
@@ -4074,23 +3972,9 @@ const AppShell = () => {
                 {financialYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
               </select>
             </label> : null}
-          </div>
-
-          <div className="flex items-center justify-end gap-1.5 min-w-0">
-            <span className="ui-pill ui-pill-neutral hidden lg:inline-flex">{activeLabel}</span>
-            {/* The theme belongs to the platform bar above: one control, and
-                one answer for every app a company has open. */}
-
-            {/*
-              Identity, top right, where people reach for it.
-
-              The rail already carries an account menu at the bottom, and it
-              stays — it is where somebody looking at navigation finds their
-              own name. This one is the shortcut: a face in the corner, one
-              click to the profile, and nothing else in it. Two doors to the
-              same room is not duplication when the room is the one people ask
-              for by two different names.
-            */}
+    </>
+  );
+  const accountMenu = (
             <div className="relative shrink-0" ref={accountMenuRef}>
               <button
                 type="button"
@@ -4223,9 +4107,162 @@ const AppShell = () => {
                 </div>
               ) : null}
             </div>
+  );
+
+  return (
+    /*
+     * The shell is exactly one viewport tall and does not scroll. The header
+     * and the navigation rail are therefore fixed by construction, and the
+     * content column is the only thing that moves.
+     *
+     * Sticky was not enough: a sticky rail still travels with the page until
+     * it reaches its offset, so it visibly slid up on every scroll. Owning the
+     * viewport removes the travel rather than compensating for it.
+     */
+    <div
+      className="ui-app-shell flex flex-col overflow-hidden"
+      style={{ backgroundColor: 'rgb(var(--app-bg))' }}
+    >
+      {/* No ambient light behind the pages: every ground is pure white (owner, 15 Nov 2026). */}
+      <Toaster />
+      <ResizableTables />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 ui-btn ui-btn-primary"
+      >
+        Skip to main content
+      </a>
+
+      {barMerged ? (
+        <>
+          {createPortal(barSearch, barSlots.start)}
+          {createPortal(accountMenu, barSlots.end)}
+        </>
+      ) : (
+      <header
+        /* Not inert behind the Features panel. The panel's scrim is measured
+           from <main> and stops at the content edge, so the header is lit and
+           unwashed — blocking it there produced a bar you could see, read and
+           click with nothing happening. */
+        className="shrink-0 z-40 backdrop-blur"
+        style={{
+          backgroundColor: 'rgb(var(--header-bg) / 0.96)',
+          borderBottom: '1px solid rgb(var(--border))',
+        }}
+      >
+        <div className="w-full px-2.5 lg:px-3 h-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+          {/* Left: the company, over the rail. It takes what the column gives
+              and truncates, so a long name can no longer run under the
+              search beside it. */}
+          <div className="flex items-center min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 w-full">
+            {/* Phone-only: the rail lives in a drawer, opened here. */}
+            {!dedicatedWorkspaceMode ? <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              className="ui-icon-btn md:hidden"
+              aria-label="Open navigation"
+              aria-expanded={mobileNavOpen}
+            >
+              <PanelLeftOpen size={18} aria-hidden="true" />
+            </button> : null}
+            {/* The company is named once per screen: from tablet width up the platform bar's
+                switcher above names it, so this one shows on phones only, where that switcher
+                is hidden (owner, 16 Nov 2026). */}
+            <img src={currentCompany?.logo || '/icon.svg'} alt={currentCompany?.logo ? `${activeOrgName} logo` : 'CLOR'} className="h-5 w-5 shrink-0 object-contain md:hidden" />
+            <div className="relative min-w-0 flex-1 md:hidden" ref={orgMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setOrgMenuOpen((v) => !v)}
+                  className="ui-btn ui-btn-ghost !h-8 !min-h-8 !px-1.5 w-fit max-w-full min-w-0"
+                  aria-haspopup="menu"
+                  aria-expanded={orgMenuOpen}
+                >
+                  <span className="ui-title text-sm min-w-0 truncate text-left">{activeOrgName}</span>
+                  <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
+                </button>
+
+                {orgMenuOpen ? (
+                  <div
+                    role="menu"
+                    className="absolute left-0 mt-2 w-72 rounded-lg overflow-hidden z-50 ui-card ui-in-pop"
+                    style={{ boxShadow: 'var(--shadow-pop)', '--pop-origin': 'top left' }}
+                  >
+                    <div className="px-3 py-2 ui-subtle text-xs uppercase tracking-wide">Switch company</div>
+                    {availableOrgs.map((o) => {
+                      const isActive = String(o.orgId) === String(activeOrgId);
+                      return (
+                        <button
+                          key={o.orgId}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => switchOrg(o.orgId)}
+                          className="w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-[rgb(var(--surface-sunken))] flex items-center justify-between gap-2"
+                          style={isActive ? { color: 'rgb(var(--brand-ink))', fontWeight: 600 } : undefined}
+                        >
+                          <span className="truncate">{o.org?.name || o.orgId}</span>
+                          {isActive ? <Check size={14} aria-hidden="true" /> : null}
+                        </button>
+                      );
+                    })}
+                    <div className="border-t ui-border-c p-1.5">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOrgMenuOpen(false);
+                          setCompaniesIntent('create');
+                          setActive('companies');
+                        }}
+                        className="ui-btn ui-btn-ghost w-full !justify-start"
+                      >
+                        <Plus size={14} aria-hidden="true" /> Add company
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+
+          <div className="hidden md:flex items-center justify-center gap-2 min-w-0">
+            {/*
+              Search, in the middle of the bar.
+
+              It used to sit in the dashboard's hero card, which meant it was
+              on exactly one screen — and the one screen you are least likely
+              to be on when you want to find an invoice. Command-K already
+              reaches it from anywhere; this is the visible affordance for the
+              people who do not know that yet, so it belongs where it is always
+              in view. The keycap says how to skip the click.
+
+              Centred in the bar with the financial year beside it, as in the
+              Books build the owner signed off (15 Nov 2026).
+            */}
+            {barSearch}
+          </div>
+
+          <div className="flex items-center justify-end gap-1.5 min-w-0">
+            <span className="ui-pill ui-pill-neutral hidden lg:inline-flex">{activeLabel}</span>
+            {/* The theme belongs to the platform bar above: one control, and
+                one answer for every app a company has open. */}
+
+            {/*
+              Identity, top right, where people reach for it.
+
+              The rail already carries an account menu at the bottom, and it
+              stays — it is where somebody looking at navigation finds their
+              own name. This one is the shortcut: a face in the corner, one
+              click to the profile, and nothing else in it. Two doors to the
+              same room is not duplication when the room is the one people ask
+              for by two different names.
+            */}
+            {accountMenu}
           </div>
         </div>
       </header>
+      )}
 
       {/*
         The verify-email strip used to sit here, above every screen, for as
