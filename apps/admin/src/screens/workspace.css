@@ -3195,3 +3195,83 @@ button.ws-stat:hover {
   line-height: 2rem;
   color: rgb(var(--fg, 32 35 41));
 }
+
+/* Figure cards at the top of a list page (owner, 17 Nov 2026: "empty space, icons, cards size and
+   cards color, below fields size"). One short row each: a colour chip with the icon, the figure,
+   its label beside it. 60px tall instead of 96; the chips take the page's hues in turn (blue,
+   green, violet, orange) unless the card states a tone of its own. */
+.ws .ws-stats {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.ws .ws-stat {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+  align-items: center;
+  gap: 2px 10px;
+  min-height: 0;
+  padding: 10px 14px;
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border, 229 229 229));
+}
+.ws .ws-stat .ws-tile {
+  grid-row: 1 / span 2;
+  grid-column: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.ws .ws-stat > .ws-stat-value {
+  grid-column: 2 !important;
+  grid-row: 1 / span 2;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 800;
+}
+.ws .ws-stat > .ws-stat-label {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: end;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(var(--fg, 32 35 41));
+}
+.ws .ws-stat > .ws-stat-note {
+  grid-column: 3 !important;
+  grid-row: 2;
+  align-self: start;
+}
+.ws .ws-stat > .ws-stat-label:only-of-type,
+.ws .ws-stat:not(:has(.ws-stat-note)) > .ws-stat-label {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.ws .ws-stat > .ws-chev,
+.ws .ws-stat > span:empty {
+  grid-column: 4;
+  grid-row: 1 / span 2;
+}
+.ws .ws-stats > :nth-child(4n + 1) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 1) > .ws-tile:not([class*='ws-tile--']) { --tile-fg: rgb(42 120 214); background: rgb(42 120 214 / 0.12); color: rgb(30 96 180); }
+.ws .ws-stats > :nth-child(4n + 2) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 2) > .ws-tile:not([class*='ws-tile--']) { background: rgb(27 175 122 / 0.14); color: rgb(14 122 84); }
+.ws .ws-stats > :nth-child(4n + 3) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 3) > .ws-tile:not([class*='ws-tile--']) { background: rgb(98 80 214 / 0.13); color: rgb(72 56 176); }
+.ws .ws-stats > :nth-child(4n + 4) .ws-tile:not([class*='ws-tile--']),
+.ws .ws-stats > .ws-stat:nth-child(4n + 4) > .ws-tile:not([class*='ws-tile--']) { background: rgb(255 107 0 / 0.13); color: rgb(190 78 0); }
+/* Filters under them: 32px fields, and a search no wider than it needs. */
+.ws .ws-filters :is(input, select) {
+  height: 32px;
+  min-height: 32px;
+  font-size: 0.8125rem;
+}
+.ws .ws-filters .ws-search {
+  flex: 0 1 220px;
+}
+.ws .ws-filters select {
+  width: auto;
+  max-width: 200px;
+}

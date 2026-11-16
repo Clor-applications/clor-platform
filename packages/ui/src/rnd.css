@@ -305,9 +305,15 @@
     height: calc(100dvh - 4rem);
     border-right: 0;
   }
-  :root:not(#rnd) .ui-topbar { padding-left: 1.25rem; }
-  /* The logo takes the rail's width and a little more, so the app switch starts clear of the rail's edge. */
-  :root:not(#rnd) .ui-topbar .ui-topbar-logo { min-width: 5.25rem; }
+  /* The bar keeps the columns under it (owner, 17 Nov 2026): the logo sits over the rail (5rem), the app
+     switch over the screens panel (11rem), and the search starts where the page's content does
+     (the panel's edge plus the content's 2rem). The bar's own 0.75rem gap is taken back each time. */
+  :root:not(#rnd) .ui-topbar { padding-left: 0; }
+  :root:not(#rnd) .ui-topbar .ui-topbar-logo { width: 5rem; min-width: 5rem; justify-content: center; margin-right: -0.75rem; }
+  /* The switch starts 1rem into the panel's column and the search 1rem past its edge (owner: "dropdown bit right, search bit left"). */
+  :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 11rem; padding-left: 1rem; margin-right: 0; }
+  :root:not(#rnd) .ui-topbar .ui-app-switch { margin-left: 0; max-width: 100%; }
+  :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) + .ui-global-search { margin-left: 0.25rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }
