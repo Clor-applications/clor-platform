@@ -292,6 +292,25 @@ describe('the lifecycle', () => {
     expect(refused.body.code).toBe('PERIOD_LOCKED');
   });
 
+  it('will not start a salary inside a month whose payroll is approved, closed by hand or not (audit, 17 Nov 2026)', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const run = await api.post(c, '/runs', { periodId: ids.periodId }).expect(201);
+    await api.post(c, `/runs/${run.body.run.id}/validate`).expect(200);
+    await api.post(c, `/runs/${run.body.run.id}/calculate`).expect(200);
+    await api.post(c, `/runs/${run.body.run.id}/submit-review`).expect(200);
+    await api.post(c, `/runs/${run.body.run.id}/approve`).expect(200);
+
+    const made = await api.post(c, '/revisions', draft(ids, { effectiveFrom: '2026-07-15' })).expect(201);
+    const id = made.body.revision.id;
+    await api.post(c, `/revisions/${id}/submit-review`).expect(200);
+    await api.post(c, `/revisions/${id}/approve`).expect(200);
+    const refused = await api.post(c, `/revisions/${id}/apply`);
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe('PERIOD_PAID');
+    expect(refused.body.error).toContain('arrear');
+  }, 60_000);
+
   it('allows only one open revision per person', async () => {
     const c = await makeOwner();
     const ids = await setUp(c);
@@ -389,5 +408,63 @@ describe('a payroll after a revision', () => {
     /* ₹7,20,000 a year is ₹60,000 a month, less the employer's PF, which is
        part of cost to company rather than of gross. */
     expect(slip.employerCost).toBe(60_000);
+  });
+
+  it('pays each day at the salary in force that day when the rise starts inside the month (audit, 17 Nov 2026)', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    /* ₹6,00,000 to ₹7,20,000 from 16 July: 15 days at ₹50,000 a month and 16 at ₹60,000. */
+    const made = await api.post(c, '/revisions', draft(ids, { effectiveFrom: '2026-07-16' })).expect(201);
+    const id = made.body.revision.id;
+    await api.post(c, `/revisions/${id}/submit-review`).expect(200);
+    await api.post(c, `/revisions/${id}/approve`).expect(200);
+    await api.post(c, `/revisions/${id}/apply`).expect(200);
+
+    const run = await api.post(c, '/runs', { periodId: ids.periodId }).expect(201);
+    const check = await api.post(c, `/runs/${run.body.run.id}/validate`).expect(200);
+    expect(check.body.issues.some((i: any) => i.code === 'SALARY_CHANGED_IN_PERIOD' && i.severity === 'INFO')).toBe(true);
+    await api.post(c, `/runs/${run.body.run.id}/calculate`).expect(200);
+
+    const slip = (await api.get(c, `/slips?runId=${run.body.run.id}`).expect(200)).body.slips[0];
+    /* (50,000 × 15 + 60,000 × 16) ÷ 31, not ₹60,000 for the month. */
+    expect(Math.abs(slip.employerCost - 55_161.29)).toBeLessThan(1.5);
+  }, 60_000);
+
+  it('keeps the last day’s salary and says so when the structure itself changed inside the month', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const made = await api.post(c, '/revisions', draft(ids, { effectiveFrom: '2026-07-16', proposedStructureId: ids.seniorId })).expect(201);
+    const id = made.body.revision.id;
+    await api.post(c, `/revisions/${id}/submit-review`).expect(200);
+    await api.post(c, `/revisions/${id}/approve`).expect(200);
+    await api.post(c, `/revisions/${id}/apply`).expect(200);
+
+    const run = await api.post(c, '/runs', { periodId: ids.periodId }).expect(201);
+    const check = await api.post(c, `/runs/${run.body.run.id}/validate`).expect(200);
+    expect(check.body.issues.some((i: any) => i.code === 'STRUCTURE_CHANGED_IN_PERIOD' && i.severity === 'WARNING')).toBe(true);
+    await api.post(c, `/runs/${run.body.run.id}/calculate`).expect(200);
+    const slip = (await api.get(c, `/slips?runId=${run.body.run.id}`).expect(200)).body.slips[0];
+    expect(slip.employerCost).toBe(60_000);
+  }, 60_000);
+});
+
+describe('the salary across a period', () => {
+  const a = (id: string, annualCtc: number, effectiveFrom: string, effectiveTo: string | null = null, structureId = 's1') => ({ id, structureId, annualCtc, effectiveFrom, effectiveTo });
+  it('is one figure when nothing changed, and the days at each when it did', async () => {
+    const { salaryAcross } = await import('../services/payroll/run.js');
+    expect(salaryAcross([a('one', 600_000, '2026-01-01')], { from: '2026-11-01', to: '2026-11-30' }).annualCtc).toBeNull();
+    /* ₹60,000 to ₹90,000 a month from the 16th of a 30-day month: ₹75,000. */
+    const half = salaryAcross([a('old', 720_000, '2026-01-01', '2026-11-15'), a('new', 1_080_000, '2026-11-16')], { from: '2026-11-01', to: '2026-11-30' });
+    expect(half.annualCtc).toBe(900_000);
+    expect(half.parts.map((x) => x.days)).toEqual([15, 15]);
+    /* Joined on the 11th: only the days employed are weighed, 5 old and 15 new. */
+    const joiner = salaryAcross([a('old', 720_000, '2026-01-01', '2026-11-15'), a('new', 1_080_000, '2026-11-16')], { from: '2026-11-11', to: '2026-11-30' });
+    expect(joiner.annualCtc).toBe(990_000);
+    /* An older salary nobody closed: the later one wins from its own first day, as it does everywhere else. */
+    const open = salaryAcross([a('old', 720_000, '2026-01-01'), a('new', 1_080_000, '2026-11-16')], { from: '2026-11-01', to: '2026-11-30' });
+    expect(open.annualCtc).toBe(900_000);
+    /* Two structures cannot be blended. */
+    const mixed = salaryAcross([a('old', 720_000, '2026-01-01', '2026-11-15'), a('new', 1_080_000, '2026-11-16', null, 's2')], { from: '2026-11-01', to: '2026-11-30' });
+    expect(mixed).toMatchObject({ annualCtc: null, mixed: true });
   });
 });

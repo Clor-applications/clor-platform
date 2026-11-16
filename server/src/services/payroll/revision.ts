@@ -300,6 +300,43 @@ export async function applyRevision(opts: { accountId: string; orgId: string; us
     );
   }
 
+  /*
+   * The same for a month whose payroll is approved or paid but whose period
+   * nobody closed by hand (audit, 17 Nov 2026): the lock above was the only
+   * test, so a salary dated back into it was accepted, the payslip stayed as
+   * it was, and the difference was never paid. Any payslip of theirs that is
+   * final and covers a day from the new salary's start is the same refusal.
+   */
+  /* A payslip keeps the status its calculation gave it; the run says whether it is final. */
+  const theirSlips = await payrollPrisma.salarySlip.findMany({
+    where: { orgId: opts.orgId, employeeId: revision.employeeId, status: { not: 'CANCELLED' } },
+    select: { periodId: true, runId: true },
+  });
+  const finalRuns = theirSlips.length
+    ? new Set(
+        (
+          await payrollPrisma.payrollRun.findMany({
+            where: { orgId: opts.orgId, id: { in: [...new Set(theirSlips.map((x) => x.runId))] }, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } },
+            select: { id: true },
+          })
+        ).map((r) => r.id)
+      )
+    : new Set<string>();
+  const finalSlips = theirSlips.filter((x) => finalRuns.has(x.runId));
+  if (finalSlips.length) {
+    const paid = await payrollPrisma.payrollPeriod.findFirst({
+      where: { orgId: opts.orgId, id: { in: finalSlips.map((x) => x.periodId) }, endDate: { gte: revision.effectiveFrom } },
+      orderBy: { startDate: 'asc' },
+      select: { name: true },
+    });
+    if (paid) {
+      throw new SalaryRevisionError(
+        'PERIOD_PAID',
+        `${employee.name}'s payslip for ${paid.name} is already approved, so a salary cannot start on or before it. Start the revision in a month that has not been paid and pay the difference as an arrear.`
+      );
+    }
+  }
+
   const clash = await payrollPrisma.salaryAssignment.findFirst({
     where: { orgId: opts.orgId, employeeId: revision.employeeId, effectiveFrom: revision.effectiveFrom },
     select: { id: true },

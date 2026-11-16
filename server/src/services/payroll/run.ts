@@ -767,6 +767,62 @@ function assignmentOn(ctx: LoadedRun, employeeId: string, onDate: string) {
 }
 
 /**
+ * The salary a person is paid on for a period in which it changed (audit, 17
+ * Nov 2026).
+ *
+ * A run took the salary in force on the period's last day for the whole of
+ * it, so a raise from ₹60,000 to ₹90,000 on the 16th paid ₹90,000 for the
+ * month. Each day they were employed in the period is paid at the salary in
+ * force that day (the same rule as assignmentOn), which for one structure is
+ * one figure: the salaries weighted by their days.
+ *
+ * Two structures in one period cannot be blended into a figure, because the
+ * components differ. Those keep the last day's salary, and `mixed` says so
+ * for the check before a run.
+ */
+export function salaryAcross(
+  assignments: { id: string; structureId: string; annualCtc: unknown; effectiveFrom: string; effectiveTo?: string | null }[],
+  span: { from: string; to: string }
+): { annualCtc: number | null; mixed: boolean; parts: { assignmentId: string; structureId: string; annualCtc: number; from: string; days: number }[] } {
+  const parts: { assignmentId: string; structureId: string; annualCtc: number; from: string; days: number }[] = [];
+  if (!span.from || !span.to || span.from > span.to) return { annualCtc: null, mixed: false, parts };
+  const latestFirst = [...assignments].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+  const day = new Date(`${span.from}T12:00:00Z`);
+  for (let guard = 0; guard < 400; guard += 1) {
+    const on = day.toISOString().slice(0, 10);
+    if (on > span.to) break;
+    const a = latestFirst.find((x) => x.effectiveFrom <= on && (!x.effectiveTo || x.effectiveTo >= on));
+    if (a) {
+      const last = parts[parts.length - 1];
+      if (last && last.assignmentId === a.id) last.days += 1;
+      else parts.push({ assignmentId: a.id, structureId: a.structureId, annualCtc: Number(a.annualCtc) || 0, from: on, days: 1 });
+    }
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
+  if (parts.length < 2) return { annualCtc: null, mixed: false, parts };
+  if (new Set(parts.map((x) => x.structureId)).size > 1) return { annualCtc: null, mixed: true, parts };
+  const days = parts.reduce((t, x) => t + x.days, 0);
+  return { annualCtc: round2(parts.reduce((t, x) => t + x.annualCtc * x.days, 0) / days), mixed: false, parts };
+}
+
+/** The days of the period a person was employed: from joining, to leaving. */
+function employedSpan(ctx: LoadedRun, employee: { dateOfJoining?: string | null; dateOfLeaving?: string | null } | undefined) {
+  const joined = employee?.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : '';
+  const left = employee?.dateOfLeaving ? String(employee.dateOfLeaving).slice(0, 10) : '';
+  return {
+    from: joined && joined > ctx.period.startDate ? joined : ctx.period.startDate,
+    to: left && left < ctx.period.endDate ? left : ctx.period.endDate,
+  };
+}
+
+/** The assignment a run pays on: the one in force at the end, at the period's own figure where the salary changed inside it. */
+function paidOn<T extends { annualCtc: unknown; monthlyCtc?: unknown; employeeId: string }>(ctx: LoadedRun, employee: { id: string; dateOfJoining?: string | null; dateOfLeaving?: string | null }, assignment: T) {
+  const across = salaryAcross(ctx.assignments.filter((a) => a.employeeId === employee.id), employedSpan(ctx, employee));
+  if (across.annualCtc == null) return { assignment, across };
+  return { assignment: { ...assignment, annualCtc: across.annualCtc, monthlyCtc: round2(across.annualCtc / 12) }, across };
+}
+
+/**
  * What the engine is asked to calculate for one person.
  *
  * Two sources, and they meet here. The salary structure they are assigned to
@@ -1253,6 +1309,23 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
     if (Number(assignment.annualCtc) <= 0) {
       add({ severity: 'ERROR', code: 'NO_CTC', employeeId: employee.id, message: `${who} has no salary figure.` });
     }
+    /* A salary that changed inside the period: said, so the figure on the payslip is not a surprise. */
+    const { assignment: periodPay, across } = paidOn(ctx, employee, assignment);
+    if (across.mixed) {
+      add({
+        severity: 'WARNING',
+        code: 'STRUCTURE_CHANGED_IN_PERIOD',
+        employeeId: employee.id,
+        message: `${who} moved to ${structure.name} on ${across.parts[across.parts.length - 1].from}, inside ${ctx.period.name}. They are paid on it for the whole period; pay or take back the difference for the earlier days as an adjustment.`,
+      });
+    } else if (across.annualCtc != null) {
+      add({
+        severity: 'INFO',
+        code: 'SALARY_CHANGED_IN_PERIOD',
+        employeeId: employee.id,
+        message: `${who}'s salary changed on ${across.parts[across.parts.length - 1].from}, inside ${ctx.period.name}. Each day is paid at the salary in force that day: ${across.parts.map((x) => `${x.days} ${x.days === 1 ? 'day' : 'days'} from ${x.from}`).join(', ')}.`,
+      });
+    }
 
     /*
      * Opening figures that look like a previous employer's (review of #146, 5):
@@ -1334,7 +1407,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         ctx,
         engine,
         input,
-        assignment,
+        periodPay,
         profile,
         PERIODS_PER_YEAR[structure.frequency] ?? 12,
         oneOffTaxableOf(ctx, ctx.adjustmentsByEmployee.get(employee.id) || []),
@@ -1737,6 +1810,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
     const structure = ctx.structures.get(assignment.structureId)!;
     const input = inputFor(ctx, employee.id);
     const adjustments = ctx.adjustmentsByEmployee.get(employee.id) || [];
+    /* The salary changed inside the period: each day at the salary in force that day (salaryAcross). */
+    const { assignment: periodPay, across } = paidOn(ctx, employee, assignment);
 
     const { components: engine } = engineComponentsFor(
       ctx,
@@ -1747,7 +1822,7 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
       ctx,
       engine,
       input,
-      assignment,
+      periodPay,
       profile,
       periodsPerYear(assignment.structureId),
       oneOffTaxableOf(ctx, adjustments),
@@ -1965,6 +2040,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
           annualCtc: Number(assignment.annualCtc),
           monthlyCtc: Number(assignment.monthlyCtc),
           costCenterId: assignment.costCenterId,
+          /* Where the salary changed inside the period: the figure the period was paid on, and the days at each. */
+          ...(across.annualCtc != null ? { paidOnAnnualCtc: across.annualCtc, parts: across.parts } : {}),
         }),
         structureSnapshotJson: JSON.stringify({
           structureId: structure.id,
