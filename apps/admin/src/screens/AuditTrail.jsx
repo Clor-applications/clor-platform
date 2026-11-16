@@ -82,21 +82,21 @@ const entityLabel = (entity) => {
   return words ? words[0].toUpperCase() + words.slice(1) : '';
 };
 
-/* An action's pill: made is good news (green), removed is the one to notice (red), every other change is blue
-   (grey before; owner, 17 Nov 2026: "edit color make it change"). Always in words. */
+/*
+ * What kind of change an entry is, as a word in the past tense and plain coloured text: made is
+ * green, removed is red, any other change is blue. Not a pill: "Edit" in a rounded blue tag read as
+ * a button that did nothing (owner, 17 Nov 2026).
+ */
 const ACTION_STYLE = {
-  CREATE: { className: 'ws-pill ws-pill--ok' },
-  DELETE: { className: 'ws-pill ws-pill--danger' },
+  CREATE: { tone: 'ok' },
+  DELETE: { tone: 'danger' },
 };
+const ACTION_DONE = { CREATE: 'Created', EDIT: 'Edited', UPDATE: 'Updated', DELETE: 'Deleted', ARCHIVE: 'Archived', RESTORE: 'Restored', LOGIN: 'Signed in', LOGOUT: 'Signed out', EXPORT: 'Exported', APPROVE: 'Approved', REJECT: 'Rejected' };
 const actionWords = (a) => String(a || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 const ActionPill = ({ action }) => {
-  const look = ACTION_STYLE[action] || { className: 'ws-pill ws-pill--info' };
-  return (
-    <span className={look.className} style={look.style} title={action}>
-      {actionWords(action)}
-    </span>
-  );
+  const tone = ACTION_STYLE[action]?.tone || 'info';
+  return <span className={`ws-sec-action ws-sec-action--${tone}`}>{ACTION_DONE[action] || actionWords(action)}</span>;
 };
 
 const when = (iso) => {
@@ -407,8 +407,8 @@ export default function AuditTrail({ tenant } = {}) {
                         </td>
                         <td className="ws-sec-wrap">
                           <span className="ws-sec-what">
-                            <ActionPill action={e.action} />
                             <span className="ws-sec-title">{messageWords(e.message, e.entity, e.action)}</span>
+                            <ActionPill action={e.action} />
                             {e.entity ? <span className="ws-sec-record">{entityLabel(e.entity)}</span> : null}
                           </span>
                           <FieldChanges changes={e.changes} />

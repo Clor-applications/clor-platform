@@ -3068,3 +3068,13 @@ button.ws-stat:hover {
   --ws-warn: 72 56 176;
   --ws-warn-soft: 237 234 252;
 }
+
+/* Activity: the kind of change, as plain coloured words after the entry (not a pill, not a button). */
+.ws-sec-action {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ws-sec-action--info { color: rgb(26 86 168); }
+.ws-sec-action--ok { color: rgb(var(--pos, 22 101 52)); }
+.ws-sec-action--danger { color: rgb(var(--neg, 180 35 24)); }
