@@ -90,7 +90,9 @@
 /* The page's colour icon sits on the title's own line. */
 .ws-title:has(> .ws-title-ico) {
   display: flex;
-  flex-wrap: wrap;
+  /* The icon never drops onto a line of its own above the title. */
+  flex-wrap: nowrap;
+  white-space: nowrap;
   align-items: center;
   gap: 8px 12px;
 }
@@ -2934,6 +2936,14 @@ button.ws-stat:hover {
   flex-wrap: nowrap;
   justify-content: flex-end;
 }
+/* The title keeps its width; the tools take what is left and wrap under it when there is no room. */
+.ws .ws-head > div:first-child {
+  flex: none;
+  max-width: 100%;
+}
+.ws .ws-head > .ws-head-side {
+  flex: 1 1 320px;
+}
 .ws-head-tools .ws-search {
   flex: 0 1 220px;
   min-width: 160px;
@@ -2982,4 +2992,38 @@ button.ws-stat:hover {
 }
 .ws .ws-table tbody td :is(.ws-tag, .ws-pill) {
   margin-block: -2px;
+}
+
+/* A list is one sheet (owner, 17 Nov 2026: "still not satisfied with these pages"): the table sits
+   in a white card with a hairline and 12px corners, its header row running edge to edge inside it,
+   and a row answers the cursor in the same soft blue as the sidebars. Before, a rounded header bar
+   floated on the page with loose rows under it. */
+.ws .ws-table-wrap {
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+  overflow: hidden;
+  overflow-x: auto;
+}
+.ws .ws-table {
+  width: 100%;
+}
+.ws .ws-table thead th:first-child,
+.ws .ws-table thead th:last-child {
+  border-radius: 0;
+}
+.ws .ws-table thead th {
+  height: 44px;
+  border-bottom: 1px solid rgb(var(--border, 229 229 229));
+}
+.ws .ws-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+.ws .ws-table tbody tr:hover {
+  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+}
+/* Activity: what happened leads with its action tag, then the words, then the kind of record, quiet. */
+.ws .ws-sec-title {
+  font-weight: 600;
+  color: rgb(var(--fg, 32 35 41));
 }

@@ -381,11 +381,12 @@ export default function AuditTrail({ tenant } = {}) {
               <table className="ws-table ws-sec-table" aria-label="Activity, newest first">
                 <thead>
                   <tr>
+                    {/* No Company column: the trail is one company's, and the bar above names it. The same
+                        name on every row was the widest thing on the page (owner, 17 Nov 2026). */}
                     <th scope="col">When</th>
                     <th scope="col">Who</th>
-                    <th scope="col">App</th>
                     <th scope="col">What happened</th>
-                    <th scope="col">Company</th>
+                    <th scope="col">App</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -404,19 +405,18 @@ export default function AuditTrail({ tenant } = {}) {
                             {e.entity === 'SupportGrant' ? <span className="ws-tag">Staff</span> : null}
                           </span>
                         </td>
-                        <td>
-                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
-                        </td>
                         <td className="ws-sec-wrap">
                           <span className="ws-sec-what">
-                            <span>{messageWords(e.message, e.entity, e.action)}</span>
                             <ActionPill action={e.action} />
+                            <span className="ws-sec-title">{messageWords(e.message, e.entity, e.action)}</span>
                             {e.entity ? <span className="ws-sec-record">{entityLabel(e.entity)}</span> : null}
                           </span>
                           <FieldChanges changes={e.changes} />
                           <Changes metadata={e.metadata} />
                         </td>
-                        <td>{company || '—'}</td>
+                        <td>
+                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
+                        </td>
                       </tr>
                     );
                   })}
@@ -431,7 +431,7 @@ export default function AuditTrail({ tenant } = {}) {
                   {loading ? 'Loading…' : 'Load older entries'}
                 </button>
               ) : (
-                <span className="ws-head-meta">· the start of the trail</span>
+                <span className="ws-head-meta sr-only">The start of the trail</span>
               )}
             </nav>
           </>
