@@ -3027,3 +3027,18 @@ button.ws-stat:hover {
   font-weight: 600;
   color: rgb(var(--fg, 32 35 41));
 }
+
+/* A count (members, people) starts under its heading like every other cell (owner, 17 Nov 2026:
+   "member 1 aligned extreme right"). Right alignment is for money, where the digits must line up. */
+.ws .ws-table .ws-count {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+/* Tags, pills and app marks stand on the text's own line, not on its baseline: a 24px pill hung
+   3px low beside a line of text. */
+.ws .ws-table tbody td :is(.ws-tag, .ws-pill, .ws-appmarks) {
+  vertical-align: top;
+}
+.ws .ws-table tbody td .ws-appmarks {
+  height: 20px;
+}

@@ -70,7 +70,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
   const atLimit = limit != null && activeCount >= limit;
   const sortBy = (key) => setView((v) => ({ ...v, sort: key, dir: v.sort === key ? -v.dir : 1, page: 0 }));
   const th = (key, label, num) => (
-    <th className={num ? 'num' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
+    <th className={num ? 'ws-count' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
       <button type="button" onClick={() => sortBy(key)}>
         {label} <ArrowDownUp size={12} aria-hidden="true" />
       </button>
@@ -151,7 +151,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                           {(c.apps || []).length ? c.apps.map((id) => <AppMark key={id} app={id} size={20} />) : <span className="ws-cell-sub">None</span>}
                         </span>
                       </td>
-                      <td className="num">{c.people}</td>
+                      <td className="ws-count">{c.people}</td>
                       <td>
                         {c.archived ? (
                           <span className="ws-pill ws-pill--neutral">Archived</span>
