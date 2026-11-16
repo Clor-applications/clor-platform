@@ -806,6 +806,19 @@ because focus, portals and event order cannot be read off the source.
   filter fields are 32px; Apps is three compact cards across; in Activity the
   kind of change is plain past-tense words ("Edited"), never a pill that reads
   as a button.
+  Three design audits of the Workspace the same day (soft-skill, minimalist,
+  taste v1), fixed where they agreed with this document: no `backdrop-filter`
+  on scrolling content; one easing curve (`--ws-ease`); a press gives
+  (`scale(0.98)`); the Workspace's blues, greens and the rail grey are named
+  tokens, and the rail grey is neutral `#F7F7F7` beside warm-neutral text;
+  figure cards and attention rows draw the colour emoji twin of a line icon
+  (`colourIcon`), so no card mixes two icon styles; every Workspace screen
+  loads as grey bars (`Loading`), says an empty list with an icon and a next
+  step (`Empty`), and says a failed read where the content would be, with a
+  retry (`LoadError`). Not taken from the audits: floating pill nav, section
+  padding of 96px and more, scroll reveals, double-bezel cards, serif
+  headings, no emoji. Violet for attention was weighed against "purple is the
+  AI look" and kept.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,

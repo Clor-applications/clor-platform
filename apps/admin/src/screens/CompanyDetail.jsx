@@ -4,7 +4,7 @@ import { ArrowRightLeft, Pencil } from '@ui/components/ui/lineIcons';
 import { memberDirectory } from '@platform/admin/account';
 import { getArchiveReasons } from '@platform/admin/admin';
 import { formatMoney } from '@ui/utils/money';
-import { ICON, WsDrawer, productIcon } from './wsKit';
+import { ICON, Loading, WsDrawer, productIcon } from './wsKit';
 
 /**
  * A company at a glance (redesign W-R5): opened from its name in Companies.
@@ -127,7 +127,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
               <section className="grid gap-2" aria-labelledby="cd-access">
                 <h3 id="cd-access" className="ws-subhead">Access</h3>
                 {directory === null && !error ? (
-                  <p className="ws-card-blurb">Loading…</p>
+                  <Loading shape="rows" rows={3} label="Loading…" />
                 ) : (
                   <ul className="ws-list">
                     <li>
@@ -203,7 +203,7 @@ export default function CompanyDetail({ company, current, catalog = [], subscrip
 
           {tab === 'people' ? (
             directory === null && !error ? (
-              <p className="ws-card-blurb">Loading…</p>
+              <Loading shape="rows" rows={3} label="Loading…" />
             ) : people.length ? (
               <div className="ws-table-wrap">
                 <table className="ws-table">

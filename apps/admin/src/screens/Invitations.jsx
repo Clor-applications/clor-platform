@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, RotateCw, Send, XCircle } from '@ui/components/ui/lineIcons';
 
 import { createInvitation, listInvitations, resendInvitation, revokeInvitation } from '@platform/admin/account';
-import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
+import { ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
 /**
@@ -121,7 +121,7 @@ export default function Invitations({ tenant, companies = [] }) {
         {error && !inviting ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
 
         {rows === null ? (
-          <p className="ws-card-blurb">Loading…</p>
+          <Loading shape="rows" label="Loading…" />
         ) : rows.length === 0 ? (
           <div className="ws-empty">
             <span className="ws-tile" aria-hidden="true"><ICON.mail size={20} /></span>

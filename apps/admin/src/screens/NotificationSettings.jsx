@@ -8,7 +8,7 @@ import { emailGroups, switchesBody, toggleEmail } from '@ui/notifications/emailA
 import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { readOnlyFor } from '@ui/permissions/WriteGuard';
-import { PageHead, Panel } from './wsKit';
+import { Empty, Loading, PageHead, Panel } from './wsKit';
 import './workspace.css';
 
 /* This page's colour icon, the one its menu item wears. */
@@ -89,9 +89,9 @@ export default function NotificationSettings({ tenant }) {
         <div className="ws-layout">
           <div className="ws-main">
             {!events ? (
-              <p className="ws-card-blurb">{error ? '' : 'Loading…'}</p>
+              error ? null : <Loading shape="rows" label="Loading…" />
             ) : groups.length === 0 ? (
-              <p className="ws-card-blurb">This company has no apps that send emails you can switch off.</p>
+              <Empty icon={PAGE_ICON} compact>This company has no apps that send emails you can switch off.</Empty>
             ) : (
               groups.map((g) => (
                 <Panel key={g.id} title={g.label} labelledBy={`email-app-${g.id}`}>

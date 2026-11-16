@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronRight } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 
 import { accountAudit, listInvitations, memberDirectory } from '@platform/admin/account';
 import { getMySessions, getPolicy, getProviders } from '@platform/admin/security';
 import { listCredentials } from '@platform/admin/credentials';
 import { ACTION_WORDS } from './AccountActivity';
-import { ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
+import { Empty, ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
 import './workspace.css';
+
+/* The colour icons the empty lists show. */
+const LOG_ICON = emoji('scroll');
+const PEOPLE_ICON = emoji('busts-in-silhouette');
 
 /**
  * The landing pages of the Workspace's modules (redesign W-R3/R6/R7/R9):
@@ -105,7 +110,7 @@ export function AccessHome({ navItems = [], openScreen }) {
                   ))}
                 </ul>
               ) : (
-                <p className="ws-card-blurb">No access changes recorded yet.</p>
+                <Empty icon={LOG_ICON} compact>No access changes recorded yet.</Empty>
               )}
             </Panel>
           </div>
@@ -128,7 +133,7 @@ export function AccessHome({ navItems = [], openScreen }) {
                   ))}
                 </ul>
               ) : (
-                <p className="ws-card-blurb">{dir === null ? 'Only the account’s owners and administrators can see this.' : 'Nobody yet.'}</p>
+                dir === null ? <p className="ws-card-blurb">Only the account’s owners and administrators can see this.</p> : <Empty icon={PEOPLE_ICON} compact>Nobody yet.</Empty>
               )}
             </Panel>
           </aside>
@@ -199,7 +204,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
                   ))}
                 </ul>
               ) : (
-                <p className="ws-card-blurb">{refused === null ? 'Only the account’s owners and administrators can see refusals.' : 'Nothing refused recently.'}</p>
+                refused === null ? <p className="ws-card-blurb">Only the account’s owners and administrators can see refusals.</p> : <Empty icon={LOG_ICON} compact>Nothing refused recently.</Empty>
               )}
             </Panel>
           </div>

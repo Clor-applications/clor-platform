@@ -10,7 +10,7 @@ import { gstinError } from '@ui/utils/gstinValidation';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
 import { hasApp, platformContext } from '@platform/context';
-import { PageHead, WsDrawer } from './wsKit';
+import { Empty, Loading, PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
 
@@ -221,11 +221,9 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
         {branches === null ? (
-          <p className="ws-card-blurb">Loading branches…</p>
+          <Loading shape="rows" rows={3} label="Loading branches…" />
         ) : rows.length === 0 ? (
-          <div className="ws-setup">
-            <p className="ws-card-blurb">{all.length ? 'No branch matches this search.' : 'No branches yet. Add the first one.'}</p>
-          </div>
+          <Empty icon={PAGE_ICON} compact>{all.length ? 'No branch matches this search.' : 'No branches yet. Add the first one.'}</Empty>
         ) : (
           <div className="ws-table-wrap">
             <table className="ws-table">

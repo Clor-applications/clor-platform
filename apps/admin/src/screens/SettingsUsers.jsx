@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
@@ -33,8 +34,13 @@ import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
 import UserLocationAccessTable from './UserLocationAccessTable';
-import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
+import { Empty, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
+
+/* The colour icons the empty lists show: each the one its menu item wears. */
+const EMPTY_ICON = emoji('bust-in-silhouette');
+const COMPANY_ICON = emoji('classical-building');
+const BRANCH_ICON = emoji('convenience-store');
 
 /**
  * Workspace → Access → Users (redesign W-R6).
@@ -560,8 +566,8 @@ export function SettingsUsers({ orgId }) {
       body: (
         <form id="ws-user-companies" onSubmit={submitCompanies} className="grid gap-3">
           {errorNote}
-          {panelLoading ? <p className="ws-card-blurb">Loading companies…</p> : null}
-          {!panelLoading && companyRows.length === 0 ? <p className="ws-card-blurb">No companies in this account yet.</p> : null}
+          {panelLoading ? <Loading shape="rows" rows={3} label="Loading companies…" /> : null}
+          {!panelLoading && companyRows.length === 0 ? <Empty icon={COMPANY_ICON} compact>No companies in this account yet.</Empty> : null}
           <ul className="ws-list">
             {companyRows.map((c) => {
               const id = String(c.orgId);
@@ -582,7 +588,7 @@ export function SettingsUsers({ orgId }) {
       body: (
         <form id="ws-user-branches" onSubmit={submitBranches} className="grid gap-3">
           {errorNote}
-          {panelLoading ? <p className="ws-card-blurb">Loading branches…</p> : null}
+          {panelLoading ? <Loading shape="rows" rows={3} label="Loading branches…" /> : null}
           <ul className="ws-list">
             {checkRow('__all', all, (want) => setBranchIds(want ? allBranchIds : []), 'All branches', 'Access to every branch')}
             {branchesSorted.map((b) => {
@@ -595,7 +601,7 @@ export function SettingsUsers({ orgId }) {
               }), branchLabel(b));
             })}
           </ul>
-          {!panelLoading && branchesSorted.length === 0 ? <p className="ws-card-blurb">No branches yet. Add them under Company → Branches.</p> : null}
+          {!panelLoading && branchesSorted.length === 0 ? <Empty icon={BRANCH_ICON} compact>No branches yet. Add them under Company → Branches.</Empty> : null}
         </form>
       ),
     };
@@ -609,7 +615,7 @@ export function SettingsUsers({ orgId }) {
         <form id="ws-user-access" onSubmit={submitAccess} className="grid gap-3">
           {errorNote}
           {panelLoading ? (
-            <p className="ws-card-blurb">Loading their branches and roles…</p>
+            <Loading shape="card" rows={3} label="Loading their branches and roles…" />
           ) : (
             <UserLocationAccessTable branches={accessBranches} warehouses={warehouses} roles={roles} value={access} onChange={setAccess} />
           )}
@@ -719,11 +725,9 @@ export function SettingsUsers({ orgId }) {
         {error && !panel ? errorNote : null}
 
         {loading && !users.length ? (
-          <p className="ws-card-blurb">Loading users…</p>
+          <Loading shape="rows" rows={3} label="Loading users…" />
         ) : rows.length === 0 ? (
-          <div className="ws-setup">
-            <p className="ws-card-blurb">{users.length ? 'No user matches this search.' : 'No users yet. Add the first one.'}</p>
-          </div>
+          <Empty icon={EMPTY_ICON} compact>{users.length ? 'No user matches this search.' : 'No users yet. Add the first one.'}</Empty>
         ) : (
           <div className="ws-table-wrap">
             <table className="ws-table">

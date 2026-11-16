@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 
 import ShownOnce from '@ui/components/ui/ShownOnce';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
@@ -15,8 +16,11 @@ import {
   suspendCredential,
 } from '@platform/admin/credentials';
 import { KIND, STATUS, actionsFor } from './credentialsModel';
-import { ICON, PageHead, Stat, WsDrawer } from './wsKit';
+import { Empty, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
+
+/* The colour icon an empty list shows: the one its menu item wears. */
+const EMPTY_ICON = emoji('locked');
 
 /**
  * Workspace → Security → Credentials (Batch 5; redesign W-R7).
@@ -264,7 +268,7 @@ export default function Credentials() {
         {failed ? (
           <div className="flex flex-wrap items-center gap-2 text-sm" role="alert"><span>{failed}</span> <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={load}>Try again</button></div>
         ) : !data ? (
-          <p className="ws-card-blurb">Loading credentials…</p>
+          <Loading shape="rows" rows={3} label="Loading credentials…" />
         ) : rows.length ? (
           <div className="ws-table-wrap">
             <table className="ws-table">
@@ -315,9 +319,7 @@ export default function Credentials() {
             </table>
           </div>
         ) : (
-          <div className="ws-setup">
-            <p className="ws-card-blurb">{data.credentials.length ? 'Nothing matches these filters.' : 'No keys or tokens yet.'}</p>
-          </div>
+          <Empty icon={EMPTY_ICON} compact>{data.credentials.length ? 'Nothing matches these filters.' : 'No keys or tokens yet.'}</Empty>
         )}
 
         {data?.links ? (

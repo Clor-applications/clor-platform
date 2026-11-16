@@ -4,7 +4,7 @@ import { emoji } from '@ui/components/ui/emoji';
 
 import { getAccountMe, memberDirectory } from '@platform/admin/account';
 import { getAccountOverview } from '@platform/admin/admin';
-import { AppMark, PageHead } from './wsKit';
+import { AppMark, LoadError, Loading, PageHead } from './wsKit';
 import { appState, hostLabel } from './AdminHome';
 import { seatsByApp } from './overviewFigures';
 import './workspace.css';
@@ -25,6 +25,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
   const [me, setMe] = useState(undefined);
   const [overview, setOverview] = useState(null);
   const [directory, setDirectory] = useState(null);
+  const [tries, setTries] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -40,7 +41,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
     return () => {
       live = false;
     };
-  }, [tenant?.id]);
+  }, [tenant?.id, tries]);
 
   const may = new Set(navItems.map((n) => n.key));
   const toBilling = may.has('billing') ? () => openScreen?.('billing') : null;
@@ -68,7 +69,11 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
           }
         />
 
-        {me === undefined ? <p className="ws-card-blurb">Reading your apps…</p> : null}
+        {me === undefined ? <Loading shape="rows" rows={3} label="Reading your apps…" /> : null}
+        {/* Without it an app this person has no role in would read as open. */}
+        {me === null ? (
+          <LoadError onRetry={() => { setMe(undefined); setTries((n) => n + 1); }}>Your access to these apps could not be read. Try again in a minute.</LoadError>
+        ) : null}
 
         <ul className="ws-appgrid" role="list" aria-label="CLOR apps">
           {built.map((a) => {

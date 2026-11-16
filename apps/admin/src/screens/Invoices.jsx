@@ -1,12 +1,16 @@
 import React from 'react';
 import { Download } from 'lucide-react';
+import { emoji } from '@ui/components/ui/emoji';
 
 import NotConnected from '@ui/components/ui/NotConnected';
-import { KpiTile, PageHead } from './wsKit';
+import { Empty, KpiTile, LoadError, Loading, PageHead } from './wsKit';
 import { inr } from './InvoiceDocument';
 import { InvoiceDrawer, InvoiceTable, invoiceDay, useInvoices } from './InvoiceDrawer';
 import './workspace.css';
 import './ws-plan.css';
+
+/* The colour icon an empty list shows: the one its menu item wears. */
+const EMPTY_ICON = emoji('page-facing-up');
 
 /**
  * Workspace → Plan → Invoices (R&D hand-off WS-10): every tax invoice CLOR
@@ -48,7 +52,7 @@ export function invoiceFigures(invoices, now = new Date()) {
 
 export default function Invoices() {
   const viewer = useInvoices();
-  const { invoices, payOnline, openInvoice } = viewer;
+  const { invoices, failed, reload, payOnline, openInvoice } = viewer;
   const f = invoices ? invoiceFigures(invoices) : null;
   const fy = fyStart();
   const fyName = `FY ${fy.getFullYear()}–${String(fy.getFullYear() + 1).slice(2)}`;
@@ -98,10 +102,12 @@ export default function Invoices() {
         ) : null}
 
         <section className="ws-section" aria-label="Invoices">
-          {invoices === null ? (
-            <p className="ws-card-blurb">Reading invoices…</p>
+          {failed ? (
+            <LoadError onRetry={reload}>Invoices could not be loaded. Try again in a minute.</LoadError>
+          ) : invoices === null ? (
+            <Loading shape="rows" label="Reading invoices…" />
           ) : !invoices.length ? (
-            <p className="ws-card-blurb">No invoices yet.</p>
+            <Empty icon={EMPTY_ICON} compact>No invoices yet.</Empty>
           ) : (
             <InvoiceTable invoices={invoices} onOpen={openInvoice} detail />
           )}

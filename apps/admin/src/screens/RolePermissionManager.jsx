@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, RotateCcw, Save } from '@ui/components/ui/lineIcons';
+import { emoji } from '@ui/components/ui/emoji';
 
 import { listRoles, updateRole } from '@platform/admin/admin';
 import { expandPreset, getPermissionCatalog, getRolePermissions, setRolePermissions } from '@ui/api/permissions';
@@ -9,8 +10,11 @@ import { hasApp, orgId as platformOrgId } from '@platform/context';
 import PermissionMatrix from './PermissionMatrix';
 import TemplateDrift from './TemplateDrift';
 import { PERMISSION_APPS, catalogKeys, moduleKeys, visibleModules } from './permissionKeys';
-import { Meter, PageHead, Panel } from './wsKit';
+import { Empty, Loading, Meter, PageHead, Panel } from './wsKit';
 import './workspace.css';
+
+/* The colour icon an empty list shows: the one its menu item wears. */
+const EMPTY_ICON = emoji('passport-control');
 
 export const RolePermissionManager = () => {
   const { reload: reloadMyPermissions } = usePermissions();
@@ -204,11 +208,9 @@ export const RolePermissionManager = () => {
         ) : null}
 
         {loading ? (
-          <p className="ws-card-blurb">Loading roles and permissions…</p>
+          <Loading shape="card" rows={3} label="Loading roles and permissions…" />
         ) : !roles.length ? (
-          <div className="ws-setup">
-            <p className="ws-card-blurb">No roles yet. Create one under Roles.</p>
-          </div>
+          <Empty icon={EMPTY_ICON} compact>No roles yet. Create one under Roles.</Empty>
         ) : (
           <div className="ws-layout">
             <div className="grid gap-4 min-w-0">
