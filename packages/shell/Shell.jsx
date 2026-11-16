@@ -36,6 +36,9 @@ import { emoji } from '@ui/components/ui/emoji';
 
 /* The friendly face on the screens panel's help card (Fluent Emoji, local). */
 const HelpFace = emoji('hugging-face');
+/* Colour icons inside the bar's two fields (owner, 17 Nov 2026): search and the company in use. */
+const SearchGlass = emoji('magnifying-glass-tilted-left');
+const CompanyBuilding = emoji('office-building');
 import NotificationBell from './NotificationBell';
 import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
@@ -1194,7 +1197,7 @@ function ShellScreens() {
               {switcherOpen ? (
                 <div
                   role="menu"
-                  className="absolute left-0 mt-1 w-64 rounded-xl p-1"
+                  className="ui-menu-dark absolute left-0 mt-1 w-64 rounded-xl p-1"
                   style={{
                     backgroundColor: 'rgb(var(--surface))',
                     border: '1px solid rgb(var(--border))',
@@ -1264,7 +1267,7 @@ function ShellScreens() {
               </button>
             ) : (
               <button type="button" ref={searchRef} className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
-                <Search size={16} aria-hidden="true" />
+                <SearchGlass size={18} aria-hidden="true" />
                 {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
                 <span>{app?.searchRecords ? "Search people and screens" : "Search screens and apps"}</span>
                 <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
@@ -1285,7 +1288,7 @@ function ShellScreens() {
               from a building button: two companies ran the picker under the bell and the profile button at 390px (#80 QA). */}
           {!phone ? (
             <label className="ui-company-pick">
-              <Building2 size={16} aria-hidden="true" className="ui-company-pick-icon" />
+              <CompanyBuilding size={18} aria-hidden="true" className="ui-company-pick-icon" />
             <select
               className="ui-select ui-select-sm min-w-0"
               style={{ width: 'auto', minWidth: '10rem' }}
@@ -1318,7 +1321,7 @@ function ShellScreens() {
               {companyOpen ? (
                 <div
                   role="menu"
-                  className="fixed inset-x-4 top-14 mt-1 rounded-xl p-1"
+                  className="ui-menu-dark fixed inset-x-4 top-14 mt-1 rounded-xl p-1"
                   style={{ backgroundColor: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-lift)', zIndex: 'var(--z-platform-menu)' }}
                 >
                   <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setCompanyOpen(false); pickCompany(t.id); }} />
