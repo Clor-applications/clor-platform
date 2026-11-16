@@ -4,8 +4,10 @@
  * The ground stays white; cards are glassy white (white at 78% over a faint
  * light wash, blurred), so the page reads as layered paper rather than tinted
  * panels. Graphite stays the primary (buttons, links); the Blaze orange second
- * colour and the shared categorical palette (--cat-*) carry data accents only:
- * a tile's wash, a progress bar, a count. Status colours mean state, with words.
+ * colour is the one accent (a progress bar, a count, the name's underline) and
+ * the wash behind the glass is the same orange and graphite, faint (17 Nov:
+ * blue and violet washes read as a different page from the cards). Status
+ * colours mean state, with words; charts keep the categorical palette.
  *
  * Radii follow DESIGN.md: 12px on anything holding content, 8px on anything
  * clickable inside it, full pills only for pills.
@@ -14,6 +16,8 @@
 .wsh {
   position: relative;
   isolation: isolate;
+  /* The hero asks how wide the page is (not the window: the screens panel may be open or shut). */
+  container: wsh / inline-size;
   /* The page frame (main) already pads the page: no second frame here (owner, 16 Nov). */
   padding: 0;
   --wsh-gutter: 2rem;
@@ -30,9 +34,9 @@
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(40% 60% at 92% 0%, rgb(var(--marker) / 0.05), transparent 70%),
-    radial-gradient(36% 50% at 8% 10%, rgb(var(--cat-1) / 0.07), transparent 70%),
-    radial-gradient(30% 40% at 55% 40%, rgb(var(--cat-7) / 0.05), transparent 70%);
+    radial-gradient(40% 60% at 92% 0%, rgb(var(--marker) / 0.06), transparent 70%),
+    radial-gradient(36% 50% at 8% 10%, rgb(var(--act) / 0.035), transparent 70%),
+    radial-gradient(30% 40% at 55% 40%, rgb(var(--marker) / 0.03), transparent 70%);
 }
 /* The Overview lifts the shell's 80rem cap so its hero can run edge to edge; everything under the hero keeps the cap, centred. */
 :root:not(#rnd):not([data-palette='indigo']) main#main-content > :has(> .wsh) {
@@ -101,7 +105,7 @@
   border-bottom: 1px solid var(--wsh-line);
   background:
     radial-gradient(60% 120% at 100% 50%, rgb(var(--marker) / 0.07), transparent 65%),
-    radial-gradient(40% 80% at 70% 110%, rgb(var(--cat-1) / 0.06), transparent 70%),
+    radial-gradient(40% 80% at 70% 110%, rgb(var(--act) / 0.04), transparent 70%),
     linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.7));
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
@@ -193,8 +197,79 @@
 }
 
 /* The stage: decoration only, aria-hidden in the markup. */
+/* The illustration: off until the page is wide enough for words, picture and card side by side. */
+.wsh-stage {
+  display: none;
+  position: relative;
+  height: 200px;
+  min-width: 0;
+}
+.wsh-orb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 176px;
+  height: 176px;
+  margin: -88px 0 0 -88px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.4) 60%),
+    radial-gradient(circle at 70% 80%, rgb(var(--marker) / 0.16), transparent 70%);
+  border: 1px solid rgb(255 255 255 / 0.9);
+  box-shadow: 0 24px 48px -24px rgb(16 18 22 / 0.2), inset 0 -8px 24px rgb(var(--marker) / 0.06);
+}
+.wsh-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 216px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 16px 20px rgb(16 18 22 / 0.18));
+}
+.wsh-art svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* The bars grow in once, from the axis. */
+.wsh-art-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: wsh-grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes wsh-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.wsh-chip {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.9);
+  border: 1px solid rgb(var(--border));
+  box-shadow: 0 10px 24px -12px rgb(16 18 22 / 0.28);
+}
+.wsh-chip--1 { left: 0; top: 4px; }
+.wsh-chip--2 { right: 0; bottom: 8px; }
+@container wsh (min-width: 1040px) {
+  .wsh-hero {
+    grid-template-columns: minmax(0, 1fr) 232px minmax(300px, 400px);
+  }
+  .wsh-stage {
+    display: block;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsh-art-bar {
+    animation: none;
+  }
+}
+
 /* Next for you: the hero's right half. One glass card: what to do now, its action, what follows,
-   and how far setup has come. It takes the place of the laptop illustration (17 Nov 2026). */
+   and how far setup has come (17 Nov 2026). The illustration sits beside it where there is room. */
 .wsh-next {
   position: relative;
   z-index: 1;
@@ -948,7 +1023,7 @@ button.wsh-attn-row:hover {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: rgb(var(--cat-1) / 0.08);
+  background: rgb(var(--act) / 0.05);
 }
 .wsh-co-text {
   display: grid;
@@ -1119,7 +1194,7 @@ button.wsh-attn-row:hover {
   border-radius: 12px;
   border: 1px solid var(--wsh-line);
   background:
-    radial-gradient(70% 120% at 100% 100%, rgb(var(--cat-1) / 0.08), transparent 70%),
+    radial-gradient(70% 120% at 100% 100%, rgb(var(--marker) / 0.08), transparent 70%),
     var(--wsh-glass);
   box-shadow: var(--wsh-shadow);
 }

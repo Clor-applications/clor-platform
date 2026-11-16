@@ -734,8 +734,11 @@ because focus, portals and event order cannot be read off the source.
   panel start under it; the rail's symbol tile is gone. This replaces the
   14 Nov full-height rail with the bar stepping aside. On the Overview, a
   "Your apps" row (each built app, its state, one action) sits under the
-  figures, and the hero's laptop illustration gave way to "Next for you":
-  the one thing to do now, what follows, and setup progress.
+  figures, and the hero gained "Next for you" (the one thing to do now, what
+  follows, setup progress); the laptop illustration stays beside it where the
+  page is wide enough, redrawn in graphite and orange only. The wash behind the
+  glass is orange and graphite, faint: the blue and violet washes read as a
+  different page from the neutral cards and the orange accent.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
