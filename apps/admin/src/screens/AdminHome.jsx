@@ -133,76 +133,6 @@ export function renewalNotice(renewal, planBad = false) {
   return null;
 }
 
-/**
- * The hero's illustration: a laptop showing a small Workspace dashboard. Drawn here, in the
- * app's own colours (graphite frame, Blaze marks, the chart palette), so it is never a stock
- * picture and needs no file. Decoration only; the hero hides it from screen readers.
- */
-function WorkspaceArt() {
-  const c = (v, a = 1) => `rgb(var(${v}) / ${a})`;
-  return (
-    <svg viewBox="0 0 280 200" width="280" height="200" focusable="false">
-      <defs>
-        <linearGradient id="wsh-art-bar" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="rgb(var(--marker))" />
-          <stop offset="1" stopColor="rgb(var(--cat-4))" />
-        </linearGradient>
-        <linearGradient id="wsh-art-base" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3A3F48" />
-          <stop offset="1" stopColor="#202329" />
-        </linearGradient>
-      </defs>
-      {/* Shadow on the desk */}
-      <ellipse cx="140" cy="186" rx="118" ry="8" fill="rgb(16 18 22 / 0.12)" />
-      {/* Screen */}
-      <rect x="36" y="14" width="208" height="140" rx="12" fill="#202329" />
-      <rect x="44" y="22" width="192" height="124" rx="6" fill="#FFFFFF" />
-      {/* Side rail of the little app */}
-      <rect x="44" y="22" width="26" height="124" rx="6" fill={c('--border', 0.6)} />
-      <rect x="51" y="30" width="12" height="12" rx="3" fill="rgb(var(--marker))" />
-      <rect x="52" y="52" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.5)} />
-      <rect x="52" y="64" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.35)} />
-      <rect x="52" y="76" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.35)} />
-      <rect x="52" y="88" width="10" height="4" rx="2" fill={c('--fg-subtle', 0.35)} />
-      {/* Header line and a primary button */}
-      <rect x="80" y="30" width="62" height="7" rx="3.5" fill="#202329" />
-      <rect x="80" y="41" width="40" height="4" rx="2" fill={c('--fg-subtle', 0.45)} />
-      <rect x="196" y="30" width="32" height="12" rx="4" fill="#202329" />
-      {/* Three figure tiles */}
-      <rect x="80" y="52" width="44" height="22" rx="5" fill={c('--cat-2', 0.14)} />
-      <rect x="130" y="52" width="44" height="22" rx="5" fill={c('--cat-1', 0.14)} />
-      <rect x="180" y="52" width="48" height="22" rx="5" fill={c('--cat-3', 0.16)} />
-      <rect x="86" y="58" width="14" height="5" rx="2.5" fill={c('--cat-2')} />
-      <rect x="136" y="58" width="18" height="5" rx="2.5" fill={c('--cat-1')} />
-      <rect x="186" y="58" width="12" height="5" rx="2.5" fill={c('--cat-3')} />
-      <rect x="86" y="66" width="26" height="3" rx="1.5" fill={c('--fg-subtle', 0.4)} />
-      <rect x="136" y="66" width="26" height="3" rx="1.5" fill={c('--fg-subtle', 0.4)} />
-      <rect x="186" y="66" width="30" height="3" rx="1.5" fill={c('--fg-subtle', 0.4)} />
-      {/* Bar chart */}
-      <rect x="80" y="80" width="88" height="58" rx="5" fill="none" stroke={c('--border')} />
-      {[[88, 30], [100, 20], [112, 38], [124, 26], [136, 44], [148, 34]].map(([x, h]) => (
-        <rect key={x} x={x} y={132 - h} width="8" height={h} rx="2.5" fill="url(#wsh-art-bar)" className="wsh-art-bar" />
-      ))}
-      {/* Line chart and team */}
-      <rect x="174" y="80" width="54" height="58" rx="5" fill="none" stroke={c('--border')} />
-      <polyline points="180,118 190,108 200,112 210,96 222,90" fill="none" stroke={c('--cat-7')} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="222" cy="90" r="3" fill={c('--cat-7')} />
-      <circle cx="184" cy="129" r="4.5" fill={c('--cat-5')} />
-      <circle cx="192" cy="129" r="4.5" fill={c('--cat-1')} />
-      <circle cx="200" cy="129" r="4.5" fill={c('--cat-3')} />
-      {/* Camera dot, hinge and base */}
-      <circle cx="140" cy="18" r="1.6" fill="#4A4F58" />
-      <path d="M14 156 H266 L254 176 Q252 180 246 180 H34 Q28 180 26 176 Z" fill="url(#wsh-art-base)" />
-      <rect x="116" y="156" width="48" height="5" rx="2.5" fill="#4A4F58" />
-      {/* The CLOR orange mark on a floating badge */}
-      <g className="wsh-art-badge">
-        <rect x="216" y="2" width="40" height="40" rx="10" fill="#FFFFFF" stroke={c('--border')} />
-        <path d="M228 14 h10 v5 h-5 v11 h-5 Z M244 28 h-10 v-5 h5 v-11 h5 Z" fill="rgb(var(--logo-mark, 255 84 0))" />
-      </g>
-    </svg>
-  );
-}
-
 export default function AdminHome({ user, tenant, catalog = [], navItems = [], openScreen, openApp, openMoreApps, accountName = '' }) {
   const [me, setMe] = useState(undefined);
   const [overview, setOverview] = useState(null);
@@ -451,6 +381,38 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
       })()
     : null;
 
+  /*
+   * Your apps: what a workspace is for. Each built app with what it is to this person right now
+   * (appState) and the one thing they can do about it: open it, switch it on, or see the plan that
+   * has it. The mark wears the app's own colour (identity, DESIGN.md); an app that is not on is grey.
+   */
+  const peopleIn = directory ? new Map(seatsByApp(directory, [], built.map((a) => a.id)).map((x) => [x.app, x.used])) : null;
+  const appCards = states.map(({ app: a, state }) => {
+    const act =
+      state.key === 'open' ? (openApp ? { label: 'Open', run: () => openApp(a.id) } : null)
+      : state.key === 'off' ? (go('apps') ? { label: 'Switch on', run: go('apps') } : null)
+      : state.key === 'plan' ? (go('billing') || go('apps') ? { label: 'See plans', run: go('billing') || go('apps') } : null)
+      : null;
+    const used = state.key === 'open' || state.key === 'noaccess' ? peopleIn?.get(a.id) : null;
+    return { id: a.id, name: APP_NAME[a.id] || a.name, blurb: a.blurb, state, act, used };
+  });
+
+  /*
+   * Next for you (owner, 17 Nov 2026: "something more important in place of the laptop"). The hero
+   * names the one thing to do now and what follows it: what is urgent first, then the next setup
+   * step, then the routine items. The same facts as the lists below, in the order to act on them;
+   * nothing here is new information, so nothing here can disagree with them.
+   */
+  const urgentItems = attention.filter((a) => a.tone === 'danger' || a.tone === 'warn');
+  const calmItems = attention.filter((a) => a.tone !== 'danger' && a.tone !== 'warn');
+  const setupItem = nextStep
+    ? { key: 'setup', setup: true, tone: null, title: nextStep.title, sub: nextStep.text, action: 'Start', go: go(nextStep.screen) }
+    : null;
+  const queue = [...urgentItems, setupItem, ...calmItems].filter(Boolean);
+  const focus = queue[0] || null;
+  const after = queue.slice(1, 3);
+  const moreAfter = Math.max(0, queue.length - 3);
+
   /* Shortcuts to the jobs an administrator comes here for; each only when this person may open its screen. */
   const quick = [
     { key: 'companies', icon: E.building, label: 'Add company', hint: 'Another business in this account' },
@@ -493,18 +455,71 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               </div>
             ) : null}
           </div>
-          {/* Decoration only: a few friendly faces and the things a workspace holds. */}
-          <div className="wsh-stage" aria-hidden="true">
-            <span className="wsh-orb" />
-            <span className="wsh-art"><WorkspaceArt /></span>
-            <span className="wsh-chip wsh-chip--1"><E.people size={30} /></span>
-            <span className="wsh-chip wsh-chip--2"><E.chart size={30} /></span>
-            <span className="wsh-chip wsh-chip--3"><E.calendar size={30} /></span>
-            <span className="wsh-chip wsh-chip--4"><E.check size={30} /></span>
-            <span className="wsh-chip wsh-chip--5"><E.rocket size={26} /></span>
-            <span className="wsh-chip wsh-chip--6"><E.party size={26} /></span>
-            <span className="wsh-deco wsh-deco--coffee"><E.coffee size={34} /></span>
-            <span className="wsh-deco wsh-deco--spark"><E.sparkles size={24} /></span>
+          {/* Next for you: the one thing to do now, then what follows. In place of an illustration. */}
+          <div className="wsh-next" role="group" aria-labelledby="wsh-next-title">
+            <p id="wsh-next-title" className="wsh-next-label">Next for you</p>
+            {!settled ? (
+              <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
+                <span className="ui-skel ui-skel-text" />
+                <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
+              </div>
+            ) : focus ? (
+              <>
+                <div className="wsh-next-main">
+                  <span className={`wsh-ico wsh-next-ico ${TONE_CLASS[focus.tone] || ''}`} aria-hidden="true">
+                    {focus.setup ? <E.clipboard size={22} /> : React.createElement(focus.icon || ICON.alert, { size: 20 })}
+                  </span>
+                  <span className="wsh-next-text">
+                    <span className="wsh-next-title">{focus.title}</span>
+                    <span className="wsh-next-sub">{focus.sub}</span>
+                  </span>
+                </div>
+                {focus.go ? (
+                  <button type="button" className="ws-btn wsh-btn-glass wsh-next-act" onClick={focus.go}>
+                    {focus.action || 'Open'} <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                ) : null}
+                {after.length ? (
+                  <ul className="wsh-next-then" aria-label="After that">
+                    {after.map((a) => (
+                      <li key={a.key}>
+                        {a.go ? (
+                          <button type="button" className="wsh-next-row" onClick={a.go}>
+                            <span>{a.title}</span>
+                            <ChevronRight size={14} aria-hidden="true" />
+                          </button>
+                        ) : (
+                          <div className="wsh-next-row"><span>{a.title}</span></div>
+                        )}
+                      </li>
+                    ))}
+                    {moreAfter ? (
+                      <li>
+                        <button type="button" className="wsh-next-row wsh-next-more" onClick={scrollToAttention}>
+                          <span>{plural(moreAfter, 'more item')}</span>
+                          <ChevronRight size={14} aria-hidden="true" />
+                        </button>
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
+                {steps && stepsDone < steps.length ? (
+                  <div className="wsh-next-setup">
+                    <span>Setup</span>
+                    <span className="wsh-bar" aria-hidden="true"><span style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }} /></span>
+                    <span><N>{stepsDone}</N> of <N>{steps.length}</N> done</span>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="wsh-next-main">
+                <E.cool size={40} aria-hidden="true" />
+                <span className="wsh-next-text">
+                  <span className="wsh-next-title">You are all caught up</span>
+                  <span className="wsh-next-sub">Nothing is waiting on you, and setup is done.</span>
+                </span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -531,6 +546,43 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               );
             })}
           </ul>
+        ) : null}
+
+        {appCards.length ? (
+          <section className="wsh-apps-wrap" aria-labelledby="wsh-apps-title">
+            <div className="wsh-card-head">
+              <h2 id="wsh-apps-title" className="ws-h2">Your apps</h2>
+              {go('apps') ? (
+                <button type="button" className="ws-link" onClick={go('apps')}>
+                  All apps <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            <ul className="wsh-apps">
+              {appCards.map((a) => {
+                const on = a.state.key === 'open' || a.state.key === 'noaccess';
+                const body = (
+                  <>
+                    <span className="wsh-app-top">
+                      <AppMark app={a.id} size={36} off={!on} title="" />
+                      <span className={a.state.pill}>{a.state.label}</span>
+                    </span>
+                    <span className="wsh-app-name">{a.name}</span>
+                    {a.blurb ? <span className="wsh-app-blurb">{a.blurb}</span> : null}
+                    <span className="wsh-app-foot">
+                      <span className="wsh-app-people">{a.used != null ? <><N>{a.used}</N> {a.used === 1 ? 'person' : 'people'}</> : a.state.key === 'noaccess' ? 'Ask an administrator' : ''}</span>
+                      {a.act ? <span className="wsh-app-act">{a.act.label} <ChevronRight size={14} aria-hidden="true" /></span> : null}
+                    </span>
+                  </>
+                );
+                return (
+                  <li key={a.id} data-on={on || undefined}>
+                    {a.act ? <button type="button" className="wsh-app" onClick={a.act.run} aria-label={`${a.act.label} ${a.name}`}>{body}</button> : <div className="wsh-app">{body}</div>}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         ) : null}
 
         {myApps && myApps.length === 0 ? (

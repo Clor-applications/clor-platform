@@ -95,6 +95,10 @@ describe('the Workspace overview', () => {
     expect(await glance.findByText('2 urgent')).toBeInTheDocument();
     /* No Apps screen in this person's menu: the figure is shown, not a way in. */
     expect(glance.getByText('Active apps').closest('button')).toBeNull();
+    /* In place of the hero's illustration: the one thing to do now (the urgent item first), then what follows. */
+    const next = within(screen.getByRole('group', { name: 'Next for you' }));
+    expect(await next.findByText('1 sync problem')).toBeInTheDocument();
+    expect(next.getByRole('list', { name: 'After that' })).toBeInTheDocument();
     /* Quick actions: only the screens this person may open. */
     const quick = within(screen.getByRole('region', { name: 'Quick actions' }));
     fireEvent.click(quick.getByRole('button', { name: /^Add company/ }));
@@ -178,10 +182,12 @@ describe('the Workspace overview', () => {
     });
     const openApp = vi.fn();
     render(<AdminHome tenant={{ ...tenant, subscriptions: ['people', 'accounting', 'payroll'] }} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={openApp} />);
-    const people = await screen.findByRole('button', { name: /3 requests to approve/ });
+    /* The hero's Next for you names the same items; the list that owns them is Needs your attention. */
+    const waitingList = within(await screen.findByRole('region', { name: 'Needs your attention' }));
+    const people = await waitingList.findByRole('button', { name: /3 requests to approve/ });
     expect(people).toHaveTextContent('In People.');
     expect(http.apiFetch.mock.calls[0][0]).toMatch(/\/workspace\/waiting$/);
-    expect(screen.getByRole('button', { name: /2 documents to approve/ })).toHaveTextContent('In Books.');
+    expect(waitingList.getByRole('button', { name: /2 documents to approve/ })).toHaveTextContent('In Books.');
     expect(screen.queryByText(/payrolls to approve/)).toBeNull();
     fireEvent.click(people);
     expect(openApp).toHaveBeenCalledWith('people', 'approvals', {});

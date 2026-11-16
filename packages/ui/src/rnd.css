@@ -291,22 +291,22 @@
    the window and the top bar sits beside them (README §4).
 ------------------------------------------------------------------------ */
 
+/* The bar runs the full width with the CLOR logo at its head; the rail and the screens panel start
+   under it (owner, 17 Nov 2026: "logo and CLOR branding should come, Home should come below the
+   header"). Before that the rail ran the full height with a symbol tile and the bar stepped aside. */
 @media (min-width: 768px) {
   :root:not(#rnd):not([data-palette='indigo']) .ui-split:not([data-overlay]),
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] {
     position: sticky;
-    top: 0;
-    margin-top: -4rem;
-    height: 100vh;
-    height: 100dvh;
-    z-index: calc(var(--z-platform-bar, 40) + 1);
+    top: 4rem;
+    height: calc(100vh - 4rem);
+    height: calc(100dvh - 4rem);
     border-right: 0;
   }
-  /* The top bar steps aside for the rail and, when it is open, the panel. */
-  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split) > .ui-topbar { padding-left: calc(5rem + 2rem); }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split:not([data-overlay]) .ui-split-panel) > .ui-topbar { padding-left: calc(5rem + 12.5rem + 2rem); }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-min-h-viewport:has(.ui-split) > .ui-topbar .ui-topbar-logo { display: none; }
-  :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 0 0 0 5rem; }
+  :root:not(#rnd) .ui-topbar { padding-left: 1.25rem; }
+  /* The logo takes the rail's width and a little more, so the app switch starts clear of the rail's edge. */
+  :root:not(#rnd) .ui-topbar .ui-topbar-logo { min-width: 6.5rem; }
+  :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }
 
@@ -377,15 +377,6 @@
   background: rgb(var(--surface));
   border-right: 1px solid rgb(var(--border));
   box-shadow: none;
-}
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  margin-bottom: 0.75rem;
-  border-radius: 0.5rem;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod {
   width: 100%;

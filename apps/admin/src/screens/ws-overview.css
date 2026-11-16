@@ -92,7 +92,8 @@
   /* Edge to edge (owner, 16 Nov): out through the page frame to the top bar and both sides, a hairline under it. */
   margin: calc(-1 * var(--wsh-gutter)) calc(-1 * var(--wsh-gutter)) 4px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 44%);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 440px);
+  gap: 32px;
   align-items: center;
   min-height: 248px;
   /* Its words line up with the cards under it, which stop at 80rem and centre on a wide screen. */
@@ -192,107 +193,148 @@
 }
 
 /* The stage: decoration only, aria-hidden in the markup. */
-.wsh-stage {
+/* Next for you: the hero's right half. One glass card: what to do now, its action, what follows,
+   and how far setup has come. It takes the place of the laptop illustration (17 Nov 2026). */
+.wsh-next {
   position: relative;
-  height: 220px;
+  z-index: 1;
+  justify-self: end;
+  width: 100%;
+  /* A grid item: without this its one-line rows set its least width and push it past a phone's edge. */
+  min-width: 0;
+  max-width: 440px;
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--wsh-line);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.86);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: 0 24px 48px -28px rgb(16 18 22 / 0.28);
+}
+.wsh-next-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--fg-muted));
+}
+.wsh-next > * {
   min-width: 0;
 }
-.wsh-orb {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 196px;
-  height: 196px;
-  margin: -98px 0 0 -98px;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.4) 60%),
-    radial-gradient(circle at 70% 80%, rgb(var(--cat-1) / 0.14), transparent 70%);
-  border: 1px solid rgb(255 255 255 / 0.9);
-  box-shadow: 0 24px 48px -24px rgb(16 18 22 / 0.2), inset 0 -8px 24px rgb(var(--cat-1) / 0.05);
+.wsh-next-then > li {
+  min-width: 0;
 }
-.wsh-art {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 236px;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 16px 20px rgb(16 18 22 / 0.18));
-  animation: wsh-bob 6s ease-in-out infinite;
-}
-.wsh-art svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-/* The bars grow in once, from the axis. */
-.wsh-art-bar {
-  transform-box: fill-box;
-  transform-origin: bottom;
-  animation: wsh-grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.wsh-art-badge {
-  animation: wsh-float 5s ease-in-out infinite;
-}
-@keyframes wsh-grow {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
-}
-.wsh-chip {
-  position: absolute;
+.wsh-next-main {
   display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: rgb(255 255 255 / 0.82);
-  border: 1px solid rgb(255 255 255);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 10px 24px -12px rgb(16 18 22 / 0.28);
-  animation: wsh-float 6s ease-in-out infinite;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
 }
-.wsh-chip--1 { left: 6%; top: 6%; animation-delay: -1s; }
-.wsh-chip--2 { right: 4%; top: 2%; animation-delay: -2.5s; }
-.wsh-chip--3 { left: 2%; bottom: 8%; animation-delay: -3.5s; }
-.wsh-chip--4 { right: 8%; bottom: 4%; animation-delay: -0.5s; }
-.wsh-chip--5 { left: 28%; top: -4px; width: 44px; height: 44px; animation-delay: -4s; }
-.wsh-chip--6 { right: 28%; bottom: -6px; width: 44px; height: 44px; animation-delay: -2s; }
-.wsh-deco {
-  position: absolute;
-  filter: drop-shadow(0 6px 8px rgb(16 18 22 / 0.12));
+.wsh-next-ico {
+  width: 40px;
+  height: 40px;
 }
-.wsh-deco--coffee { left: 3%; top: 42%; }
-.wsh-deco--spark { left: 70%; top: 70%; animation: wsh-twinkle 3s ease-in-out infinite; }
+.wsh-next-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wsh-next-title {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg));
+}
+.wsh-next-sub {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-next-act {
+  justify-self: start;
+  margin-left: 52px;
+}
+.wsh-next-then {
+  list-style: none;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 0 0;
+  border-top: 1px solid rgb(var(--border));
+  display: grid;
+}
+.wsh-next-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 2.25rem;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: rgb(var(--fg));
+  text-align: left;
+}
+.wsh-next-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsh-next-row > svg {
+  flex: none;
+  color: rgb(var(--fg-subtle));
+}
+button.wsh-next-row {
+  cursor: pointer;
+}
+button.wsh-next-row:hover {
+  background: rgb(var(--heading-hover));
+}
+button.wsh-next-row:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh-next-more {
+  color: rgb(var(--fg-muted));
+}
+.wsh-next-setup {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+}
+.wsh-next-setup .wsh-bar {
+  margin: 0;
+}
 @keyframes wsh-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
-@keyframes wsh-bob {
-  0%, 100% { transform: translate(-50%, -50%); }
-  50% { transform: translate(-50%, -53%); }
-}
-@keyframes wsh-twinkle {
-  0%, 100% { opacity: 0.4; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1.1); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .wsh-wave,
-  .wsh-art,
-  .wsh-art-bar,
-  .wsh-art-badge,
-  .wsh-chip,
-  .wsh-deco--spark {
+  .wsh-wave {
     animation: none;
   }
 }
 @media (max-width: 900px) {
   .wsh-hero {
     grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
     padding: 24px calc(var(--wsh-gutter) + 4px);
   }
-  .wsh-stage {
-    display: none;
+  .wsh-next {
+    justify-self: stretch;
+    max-width: none;
   }
 }
 
@@ -415,6 +457,118 @@ button.wsh-tile:hover .wsh-tile-go,
 button.wsh-tile:focus-visible .wsh-tile-go {
   opacity: 1;
   transform: translateX(2px);
+}
+
+/* -------------------------------------------------------------- your apps
+   One card per built app, four across. The mark wears the app's own colour; the card itself stays
+   white with a hairline, and an app that is not on is quieter still. */
+.wsh-apps-wrap {
+  display: grid;
+  gap: 12px;
+}
+.wsh-apps-wrap > .wsh-card-head {
+  padding: 0 4px;
+}
+.wsh-apps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1180px) {
+  .wsh-apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .wsh-apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.wsh-app {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  background: var(--wsh-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+button.wsh-app {
+  cursor: pointer;
+}
+button.wsh-app:hover {
+  transform: translateY(-2px);
+  border-color: rgb(var(--border-strong));
+  box-shadow: 0 14px 28px -20px rgb(var(--act) / 0.45);
+}
+button.wsh-app:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh-apps > li:not([data-on]) .wsh-app {
+  background: rgb(255 255 255 / 0.5);
+  border-style: dashed;
+}
+.wsh-app-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wsh-app-name {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.wsh-app-blurb {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.wsh-app-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(var(--border));
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-subtle));
+}
+.wsh-app-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsh-app {
+    transition: none;
+  }
+  button.wsh-app:hover {
+    transform: none;
+  }
 }
 
 /* ---------------------------------------------------------------- layout

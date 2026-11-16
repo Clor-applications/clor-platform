@@ -943,12 +943,7 @@ function ShellScreens() {
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
     <nav className="ui-split-rail" data-app={app?.id || undefined} aria-label={`${app?.name || ''} modules`}>
-      {/* The CLOR symbol tile heads the rail on a desktop (R&D shell, 14 Nov 2026); the bar's logo steps aside. */}
-      {!phone ? (
-        <button type="button" className="ui-split-brand" aria-label="CLOR home" title="CLOR" onClick={() => openApp(mine[0]?.id)}>
-          <ClorMark size={32} />
-        </button>
-      ) : null}
+      {/* No CLOR tile here: the logo is in the bar above, which runs the full width (owner, 17 Nov 2026). */}
       {modules.map((m) => {
         const Icon = m.icon;
         /* Two different facts: which module holds the screen you are on, and

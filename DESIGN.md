@@ -245,7 +245,7 @@ numbers refer to are defined once under *Controls → Height*.
 
 ## Layout
 - **Approach:** grid-disciplined.
-- **Shell (R&D, 14 Nov 2026; rail names 16 Nov):** an 80px white rail (CLOR symbol tile 36px,
+- **Shell (R&D, 14 Nov 2026; rail names 16 Nov; full-width bar with the CLOR logo and the rail under it, no symbol tile, 17 Nov — see Decisions Log):** an 80px white rail (CLOR symbol tile 36px until 17 Nov,
   each module its 24px icon with its name under it in 11px, two lines at most, the active one on `--tint`
   with a 3px `--marker` bar on its left edge), then a 200px second panel (232px until 16 Nov) on
   `--panel` that scrolls on its own (16/600 title, 12px group
@@ -729,6 +729,13 @@ because focus, portals and event order cannot be read off the source.
   faint graphite wash; a tile is coloured only for a state: amber or red when
   something is urgent, green when setup is done. The emoji carry the colour;
   charts (the members ring, per-app bars) keep theirs.
+  Same day, the shell (every app, Books included): the bar runs the full width
+  with the CLOR logo (mark and wordmark) at its head, and the rail and screens
+  panel start under it; the rail's symbol tile is gone. This replaces the
+  14 Nov full-height rail with the bar stepping aside. On the Overview, a
+  "Your apps" row (each built app, its state, one action) sits under the
+  figures, and the hero's laptop illustration gave way to "Next for you":
+  the one thing to do now, what follows, and setup progress.
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
