@@ -354,7 +354,7 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile-fg) 22%, rgb(var(--ws-surface)));
 }
 .ws-card-name {
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -650,7 +650,7 @@ button.ws-stat:active {
 }
 .ws-panel-title {
   white-space: nowrap;
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1220,7 +1220,7 @@ button.ws-item:hover {
   border-radius: 999px;
   background: rgb(var(--ws-accent-soft));
   color: rgb(var(--ws-accent-hover));
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   box-shadow: 0 0 0 4px rgb(var(--ws-surface));
 }
@@ -1234,7 +1234,7 @@ button.ws-item:hover {
   gap: 6px;
 }
 .ws-audit-line {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.45;
   color: rgb(var(--ws-ink));
   overflow-wrap: anywhere;
@@ -1399,7 +1399,7 @@ button.ws-item:hover {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 500;
   color: rgb(var(--ws-hero-muted));
 }
@@ -1426,7 +1426,7 @@ button.ws-item:hover {
 }
 .ws-hero-lede {
   max-width: 46ch;
-  font-size: 1.03125rem;
+  font-size: 1rem;
   line-height: 1.5;
   color: rgb(var(--ws-hero-muted));
 }
@@ -1435,7 +1435,7 @@ button.ws-item:hover {
     font-size: clamp(1.625rem, 1.2rem + 2vw, 1.875rem) !important;
   }
   .ws-hero-lede {
-    font-size: 0.9375rem;
+    font-size: 1rem;
   }
 }
 /* Two lines at most; the rest is in the title on hover. */
@@ -1499,7 +1499,7 @@ button.ws-item:hover {
 }
 .ws-facts dd {
   margin-top: 4px;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 600;
   color: rgb(var(--ws-ink));
   overflow-wrap: anywhere;
@@ -1518,7 +1518,7 @@ button.ws-item:hover {
   }
 }
 .ws .ws-subhead {
-  font-size: 0.9375rem !important;
+  font-size: 1rem !important;
   line-height: 1.4 !important;
   font-weight: 600 !important;
 }
@@ -1566,7 +1566,7 @@ button.ws-item:hover {
   stroke-linecap: round;
 }
 .ws-setup-ring-text {
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 700;
   fill: rgb(var(--ws-ink));
   font-variant-numeric: tabular-nums;
@@ -1932,7 +1932,7 @@ button.ws-item:hover {
   display: grid;
   grid-template-columns: repeat(2, max-content);
   gap: 8px 16px;
-  font-size: 0.9375rem;
+  font-size: 1rem;
 }
 
 /* A customer's subscription actions: ordinary ones on the left, the destructive ones set apart on the right. */
@@ -2215,7 +2215,7 @@ button.ws-item:hover {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.55;
   color: rgb(var(--ws-ink));
 }
@@ -2255,7 +2255,7 @@ button.ws-item:hover {
   gap: 8px;
 }
 .ws-sg-reason {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   max-width: 68ch;
 }
 .ws-sg-choices {
@@ -2419,7 +2419,7 @@ button.ws-item:hover {
 .ws-panel-title,
 .ws-section-title {
   font-family: var(--font-brand);
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   line-height: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -2472,7 +2472,7 @@ button.ws-stat:hover {
   color: rgb(var(--fg-muted, 58 63 71));
 }
 .ws-stat-value {
-  font-size: 1.625rem;
+  font-size: 1.5rem;
   line-height: 2rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -2964,11 +2964,12 @@ button.ws-stat:hover {
    its graphite, as each app's tag wears that app's colour. */
 .ws-pill--info {
   background: rgb(var(--cat-1, 42 120 214) / 0.12);
-  color: rgb(26 86 168);
+  color: rgb(var(--ws-blue-ink));
 }
 .ws-tag--workspace {
-  background: rgb(var(--graphite, 32 35 41));
-  color: rgb(255 255 255);
+  /* A graphite tint, not a solid block: the solid tag was the loudest thing in the row (audit). */
+  background: rgb(var(--graphite, 32 35 41) / 0.09);
+  color: rgb(var(--graphite, 32 35 41));
   font-weight: 600;
 }
 /* Quiet buttons (Refresh, Export, and their like) carry their icon in the page's blue. */
@@ -3062,6 +3063,16 @@ button.ws-stat:hover {
    color, no amber"). The words still say what the state is; red stays for a problem, green for
    good. Ink 6.9:1 on the soft ground. */
 .ws {
+  /* The Workspace's named colours (audit, 17 Nov 2026: 37 hard-coded values became these). Blue is
+     hover, links to "more" and plain changes; green is selected and good; orange is the brand's mark;
+     violet is attention. Violet was weighed against the "purple is the AI look" rule and kept: it
+     is a small status tint, and the one hue left that cannot be read as red (problem), green
+     (good), blue (information) or the brand's orange. */
+  --ws-blue: 42 120 214;
+  --ws-blue-ink: 26 86 168;
+  --ws-green: 27 175 122;
+  --ws-green-ink: 14 122 84;
+  --ws-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --warn: 98 80 214;
   --warn-ink: 72 56 176;
   --warn-soft: 237 234 252;
@@ -3075,7 +3086,7 @@ button.ws-stat:hover {
   font-weight: 600;
   white-space: nowrap;
 }
-.ws-sec-action--info { color: rgb(26 86 168); }
+.ws-sec-action--info { color: rgb(var(--ws-blue-ink)); }
 .ws-sec-action--ok { color: rgb(var(--pos, 22 101 52)); }
 .ws-sec-action--danger { color: rgb(var(--neg, 180 35 24)); }
 
@@ -3191,7 +3202,7 @@ button.ws-stat:hover {
   text-align: center;
 }
 .ws-autos li p.text-sm {
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 2rem;
   color: rgb(var(--fg, 32 35 41));
 }
@@ -3253,13 +3264,13 @@ button.ws-stat:hover {
   grid-row: 1 / span 3;
 }
 .ws .ws-stats > :nth-child(4n + 1) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 1) > .ws-tile:not([class*='ws-tile--']) { --tile-fg: rgb(42 120 214); background: rgb(42 120 214 / 0.12); color: rgb(30 96 180); }
+.ws .ws-stats > .ws-stat:nth-child(4n + 1) > .ws-tile:not([class*='ws-tile--']) { --tile-fg: rgb(var(--ws-blue)); background: rgb(var(--ws-blue) / 0.12); color: rgb(var(--ws-blue-ink)); }
 .ws .ws-stats > :nth-child(4n + 2) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 2) > .ws-tile:not([class*='ws-tile--']) { background: rgb(27 175 122 / 0.14); color: rgb(14 122 84); }
+.ws .ws-stats > .ws-stat:nth-child(4n + 2) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--ws-green) / 0.14); color: rgb(var(--ws-green-ink)); }
 .ws .ws-stats > :nth-child(4n + 3) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 3) > .ws-tile:not([class*='ws-tile--']) { background: rgb(98 80 214 / 0.13); color: rgb(72 56 176); }
+.ws .ws-stats > .ws-stat:nth-child(4n + 3) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--warn) / 0.13); color: rgb(var(--warn-ink)); }
 .ws .ws-stats > :nth-child(4n + 4) .ws-tile:not([class*='ws-tile--']),
-.ws .ws-stats > .ws-stat:nth-child(4n + 4) > .ws-tile:not([class*='ws-tile--']) { background: rgb(255 107 0 / 0.13); color: rgb(190 78 0); }
+.ws .ws-stats > .ws-stat:nth-child(4n + 4) > .ws-tile:not([class*='ws-tile--']) { background: rgb(var(--marker, 255 107 0) / 0.13); color: rgb(var(--act-2, 201 80 0)); }
 /* Filters under them: 32px fields, and a search no wider than it needs. */
 .ws .ws-filters :is(input, select) {
   height: 32px;
@@ -3313,4 +3324,17 @@ button.ws-stat:hover {
   background: rgb(var(--neg-soft, 252 235 233));
   color: rgb(var(--neg, 180 35 24));
   font-size: 0.875rem;
+}
+
+/* A press is felt: buttons give a little under the finger. */
+.ws .ws-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.ws .ws-btn {
+  transition: transform 0.12s var(--ws-ease), background-color 0.12s var(--ws-ease), border-color 0.12s var(--ws-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws .ws-btn:active:not(:disabled) {
+    transform: none;
+  }
 }

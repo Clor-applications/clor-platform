@@ -1,4 +1,5 @@
 import React from 'react';
+import { emoji } from '@ui/components/ui/emoji';
 import { PageIconContext } from './pageIcon';
 import { ArrowLeft, ChevronRight } from '@ui/components/ui/lineIcons';
 import {
@@ -47,6 +48,34 @@ export const ICON = {
   projects: Briefcase,
   timesheet: CalendarDays,
 };
+
+/*
+ * One icon style where a figure or a notice is shown (audit, 17 Nov 2026: colour emoji in the menu
+ * and titles sat beside outline icons in the same card). The line icon a screen names is drawn as
+ * its Fluent Emoji twin in figure cards and attention rows; small controls and buttons keep the
+ * line icons, which is what an emoji set has no glyphs for.
+ */
+const COLOUR_ICON = new Map([
+  [ICON.warning, emoji('warning')],
+  [ICON.alert, emoji('bell')],
+  [ICON.secure, emoji('locked')],
+  [ICON.security, emoji('shield')],
+  [ICON.people, emoji('busts-in-silhouette')],
+  [ICON.team, emoji('busts-in-silhouette')],
+  [ICON.person, emoji('bust-in-silhouette')],
+  [ICON.invite, emoji('envelope-with-arrow')],
+  [ICON.mail, emoji('envelope')],
+  [ICON.inbox, emoji('inbox-tray')],
+  [ICON.history, emoji('counterclockwise-arrows-button')],
+  [ICON.settings, emoji('gear')],
+  [ICON.plan, emoji('receipt')],
+  [ICON.companies, emoji('classical-building')],
+  [ICON.company, emoji('office-building')],
+  [ICON.chat, emoji('speech-balloon')],
+  [ICON.data, emoji('puzzle-piece')],
+]);
+/** The colour twin of a line icon, or the icon itself when it has none. */
+export const colourIcon = (Icon) => COLOUR_ICON.get(Icon) || Icon;
 
 /**
  * The Workspace side panel: one width, the Workspace colours and field styles,
@@ -196,7 +225,7 @@ export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
   const body = (
     <>
       <span className={`ws-tile${tone ? ` ws-tile--${tone}` : ''}`} aria-hidden="true">
-        {Icon ? <Icon size={20} /> : null}
+        {Icon ? React.createElement(colourIcon(Icon), { size: 22 }) : null}
       </span>
       <span className="ws-stat-label">{label}</span>
       {onOpen ? <ChevronRight size={16} aria-hidden="true" className="ws-chev" style={{ opacity: 1 }} /> : <span />}
