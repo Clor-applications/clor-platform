@@ -171,6 +171,52 @@ export async function approveLoan(opts: { accountId: string; orgId: string; user
   });
 }
 
+/**
+ * Give the instalments a schedule left without a month the months that now
+ * exist (audit, 17 Nov 2026).
+ *
+ * Approval writes an instalment past the end of the calendar with no period,
+ * "picked up as periods are added", and nothing did the picking up: a
+ * 12-month loan approved with two months in the calendar recovered two
+ * instalments and left ten owed until a full and final. Called when a period
+ * is added and before a run reads what is due, so a loan approved before this
+ * existed is put right the next time its company runs payroll.
+ *
+ * Only the schedule's own rows: what a run carried forward has no period on
+ * purpose (the next run takes it). Each row is set only while it still has
+ * none, so two callers at once write the same thing.
+ */
+export async function placeUnscheduled(orgId: string, employeeIds?: string[]): Promise<number> {
+  const unplaced = { periodId: null, carriedFromId: null, status: { in: ['PENDING', 'SKIPPED'] } };
+  const loans = await payrollPrisma.payrollLoan.findMany({
+    where: {
+      orgId,
+      status: 'ACTIVE',
+      recoveryStartPeriodId: { not: null },
+      ...(employeeIds ? { employeeId: { in: employeeIds } } : {}),
+      installments: { some: unplaced },
+    },
+    select: { id: true, recoveryStartPeriodId: true, installmentCount: true, installments: { where: unplaced, select: { id: true, sequence: true } } },
+  });
+  let placed = 0;
+  for (const loan of loans) {
+    let periodIds: string[];
+    try {
+      periodIds = await periodsFrom(orgId, loan.recoveryStartPeriodId!, loan.installmentCount);
+    } catch {
+      /* The month recovery was to start in is gone: nothing to place them against. */
+      continue;
+    }
+    for (const installment of loan.installments) {
+      const periodId = periodIds[installment.sequence - 1];
+      if (!periodId) continue;
+      const done = await payrollPrisma.payrollLoanInstallment.updateMany({ where: { orgId, id: installment.id, periodId: null, carriedFromId: null }, data: { periodId } });
+      placed += done.count;
+    }
+  }
+  return placed;
+}
+
 export type DueRecovery = {
   loanId: string;
   installmentId: string;
@@ -204,6 +250,8 @@ export async function recoveriesDue(
   opts: { runId?: string; periodStart?: string; ownSlipIds?: string[] } = {}
 ): Promise<DueRecovery[]> {
   if (!employeeIds.length) return [];
+  /* Instalments written before their month existed are given it first, or this run would never see them. */
+  await placeUnscheduled(orgId, employeeIds);
   const own = opts.ownSlipIds || [];
   const takenHere = own.length ? [{ status: 'RECOVERED', slipId: { in: own } }] : [];
   /* Earlier periods, for instalments carried out of them. */

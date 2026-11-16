@@ -600,6 +600,20 @@ payrollRunsRouter.post(
     const unpaid = await leaveLossOfPay(orgId, members, period.startDate, period.endDate);
     const types = new Map((await peoplePrisma.leaveType.findMany({ where: { orgId }, select: { id: true, name: true } })).map((t) => [t.id, t]));
     const existing = new Map((await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } })).map((i) => [i.employeeId, i]));
+    /*
+     * The days each person was employed in the period (audit, 17 Nov 2026).
+     * Somebody who joined on the 16th is owed 15 days less their unpaid leave,
+     * not the whole month less it: the days written here replace the run's own
+     * count, which is the one that knows about joining and leaving.
+     */
+    const spans = await peoplePrisma.employee.findMany({ where: { orgId, id: { in: members } }, select: { id: true, dateOfJoining: true, dateOfLeaving: true } });
+    const employedDays = new Map(
+      spans.map((p) => {
+        const from = p.dateOfJoining ? String(p.dateOfJoining).slice(0, 10) : '';
+        const to = p.dateOfLeaving ? String(p.dateOfLeaving).slice(0, 10) : '';
+        return [p.id, dates.filter((d) => (!from || d >= from) && (!to || d <= to)).length];
+      })
+    );
 
     let saved = 0;
     const keptManual: string[] = [];
@@ -612,8 +626,14 @@ payrollRunsRouter.post(
         continue;
       }
       const lop = u ? Math.round(u.days * 100) / 100 : 0;
-      /* What the person would be paid for before leave: the days already worked out for them, or the whole period. */
-      const base = had && had.source !== 'MANUAL' ? Number(had.payableDays) + Number(had.lwpDays) : workingDays;
+      /*
+       * What the person would be paid for before leave: the days they were
+       * employed in the period. Days another source worked out (Attendance,
+       * before it was switched off) are kept; an earlier pull from leave is
+       * counted again, so one that took the whole period is put right.
+       */
+      const employed = employedDays.get(employeeId) ?? workingDays;
+      const base = had && had.source !== 'MANUAL' && had.source !== 'LEAVE' ? Number(had.payableDays) + Number(had.lwpDays) : employed;
       const notes = lop ? `From leave: loss of pay ${lop} (${[...u!.names].join(', ')}).` : 'From leave: no unpaid leave.';
       const data = { workingDays: had ? Number(had.workingDays) : workingDays, payableDays: Math.max(0, base - lop), lwpDays: lop, source: 'LEAVE', notes, provisionalDays: 0, provisionalDates: Prisma.DbNull };
       await payrollPrisma.payrollInput.upsert({
