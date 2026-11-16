@@ -21,8 +21,12 @@
   /* The page frame (main) already pads the page: no second frame here (owner, 16 Nov). */
   padding: 0;
   --wsh-gutter: 2rem;
-  --wsh-glass: rgb(255 255 255 / 0.78);
+  /* Solid white, as the ground is (owner, 17 Nov: "cards colors are not matching with background"): a
+     see-through card took a different tint from whatever wash sat behind it. */
+  --wsh-glass: rgb(255 255 255);
   --wsh-line: rgb(var(--border) / 0.9);
+  /* Hover inside a card: the accent, faint. The shell's grey block read as a second card colour. */
+  --wsh-hover: rgb(var(--marker) / 0.06);
   --wsh-shadow: 0 1px 2px rgb(16 18 22 / 0.04), 0 12px 32px -18px rgb(16 18 22 / 0.18);
   /* Secondary text a step darker and a step firmer here (owner, 17 Nov: "fonts are very light"):
      small grey regular type over glass read as washed out. Muted 9.6:1, subtle 6.9:1 on white. */
@@ -30,19 +34,6 @@
   --fg-subtle: 92 90 84;
   --ws-muted: 68 70 76;
   font-weight: 500;
-}
-/* A faint wash high on the page, so the glass has something to sit over. The ground itself stays white. */
-.wsh::before {
-  content: '';
-  position: absolute;
-  inset: -24px -24px auto;
-  height: 520px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(40% 60% at 92% 0%, rgb(var(--marker) / 0.06), transparent 70%),
-    radial-gradient(36% 50% at 8% 10%, rgb(var(--act) / 0.035), transparent 70%),
-    radial-gradient(30% 40% at 55% 40%, rgb(var(--marker) / 0.03), transparent 70%);
 }
 /* The Overview lifts the shell's 80rem cap so its hero can run edge to edge; everything under the hero keeps the cap, centred. */
 :root:not(#rnd):not([data-palette='indigo']) main#main-content > :has(> .wsh) {
@@ -102,7 +93,7 @@
   /* Edge to edge (owner, 16 Nov): out through the page frame to the top bar and both sides, a hairline under it. */
   margin: calc(-1 * var(--wsh-gutter)) calc(-1 * var(--wsh-gutter)) 4px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 440px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 32px;
   align-items: center;
   min-height: 248px;
@@ -249,8 +240,21 @@
   0%, 100% { transform: translate(-50%, -50%); }
   50% { transform: translate(-50%, calc(-50% - 5px)); }
 }
+/* Words and Today side by side from tablet width; the picture joins where there is room for it.
+   With no Today card the picture has the right side to itself. */
+@container wsh (min-width: 760px) {
+  .wsh-hero[data-today] {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  }
+  .wsh-hero:not([data-today]) {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+  .wsh-hero:not([data-today]) .wsh-stage {
+    display: block;
+  }
+}
 @container wsh (min-width: 1040px) {
-  .wsh-hero {
+  .wsh-hero[data-today] {
     grid-template-columns: minmax(0, 1fr) 232px minmax(300px, 400px);
   }
   .wsh-stage {
@@ -263,94 +267,110 @@
   }
 }
 
-/* Next for you: the hero's right half. One glass card: what to do now, its action, what follows,
-   and how far setup has come (17 Nov 2026). The illustration sits beside it where there is room. */
-.wsh-next {
+/* Today: the hero's right half. How the business stands today, one line per app that reports it. */
+.wsh-today {
   position: relative;
   z-index: 1;
   justify-self: end;
   width: 100%;
-  /* A grid item: without this its one-line rows set its least width and push it past a phone's edge. */
   min-width: 0;
-  max-width: 440px;
+  max-width: 400px;
   display: grid;
-  gap: 12px;
-  padding: 14px 18px 16px;
+  gap: 8px;
+  padding: 14px 16px 10px;
   border: 1px solid var(--wsh-line);
   border-radius: 12px;
-  background: rgb(255 255 255 / 0.86);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
-  backdrop-filter: blur(16px) saturate(1.3);
+  background: rgb(255 255 255);
   box-shadow: 0 24px 48px -28px rgb(16 18 22 / 0.28);
 }
-.wsh-next-label {
+.wsh-today-head {
   margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  font-weight: 600;
-  color: rgb(var(--fg-muted));
-}
-.wsh-next > * {
-  min-width: 0;
-}
-.wsh-next-main {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 12px;
+  padding: 0 4px;
 }
-.wsh-next-ico {
-  width: 40px;
-  height: 40px;
-}
-.wsh-next-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.wsh-next-title {
+.wsh-today-label {
   font-size: 1rem;
-  line-height: 1.375rem;
+  line-height: 1.5rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
   color: rgb(var(--fg));
 }
-.wsh-next-sub {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: rgb(var(--fg-muted));
-}
-.wsh-next-head {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.wsh-next-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-left: 52px;
-}
-.wsh-next-more {
-  font-size: 0.8125rem;
-}
-.wsh-next-setup {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.wsh-today-date {
   font-size: 0.8125rem;
   line-height: 1.125rem;
   color: rgb(var(--fg-muted));
 }
-.wsh-next-setup .wsh-bar {
-  width: 64px;
-  height: 6px;
-}
-.wsh-next-setup .wsh-bar {
+.wsh-today-list {
+  list-style: none;
   margin: 0;
+  padding: 0;
+  display: grid;
+  min-width: 0;
+}
+.wsh-today-list > li {
+  min-width: 0;
+}
+.wsh-today-list > li + li {
+  border-top: 1px solid rgb(var(--border));
+}
+.wsh-today-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.wsh-today-row {
+  cursor: pointer;
+}
+button.wsh-today-row:hover {
+  background: var(--wsh-hover);
+}
+button.wsh-today-row:focus-visible {
+  outline: 2px solid rgb(var(--act));
+  outline-offset: 2px;
+}
+.wsh-today-text {
+  display: grid;
+  min-width: 0;
+}
+.wsh-today-what {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh-today-sub {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: rgb(var(--fg-muted));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsh-today-value {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: rgb(var(--fg));
+}
+.wsh-today-value small {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgb(var(--fg-muted));
 }
 @keyframes wsh-float {
   0%, 100% { transform: translateY(0); }
@@ -367,7 +387,7 @@
     gap: 20px;
     padding: 24px calc(var(--wsh-gutter) + 4px);
   }
-  .wsh-next {
+  .wsh-today {
     justify-self: stretch;
     max-width: none;
   }
@@ -526,83 +546,58 @@ button.wsh-tile:focus-visible .wsh-tile-go {
   width: 100%;
   height: 100%;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 4px;
-  padding: 16px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   border: 1px solid rgb(var(--border));
   border-radius: 12px;
   background: var(--wsh-glass);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   font: inherit;
   color: inherit;
   text-align: left;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
 }
 button.wsh-app {
   cursor: pointer;
 }
 button.wsh-app:hover {
-  transform: translateY(-2px);
   border-color: rgb(var(--border-strong));
-  box-shadow: 0 14px 28px -20px rgb(var(--act) / 0.45);
+  box-shadow: 0 10px 22px -18px rgb(var(--act) / 0.45);
 }
 button.wsh-app:focus-visible {
   outline: 2px solid rgb(var(--act));
   outline-offset: 2px;
 }
-.wsh-apps > li:not([data-on]) .wsh-app {
-  background: rgb(255 255 255 / 0.5);
-  border-style: dashed;
-}
-.wsh-app-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+.wsh-app-text {
+  display: grid;
+  min-width: 0;
 }
 .wsh-app-name {
-  font-size: 1rem;
-  line-height: 1.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   font-weight: 700;
   color: rgb(var(--fg));
 }
-.wsh-app-blurb {
+.wsh-app-state {
   font-size: 0.8125rem;
   line-height: 1.125rem;
   color: rgb(var(--fg-muted));
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
   overflow: hidden;
-}
-.wsh-app-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgb(var(--border));
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: rgb(var(--fg-subtle));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .wsh-app-act {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: rgb(var(--fg));
 }
 @media (prefers-reduced-motion: reduce) {
   .wsh-app {
     transition: none;
-  }
-  button.wsh-app:hover {
-    transform: none;
   }
 }
 
@@ -818,7 +813,7 @@ button.wsh-app:focus-visible {
   transition: background-color 0.15s ease;
 }
 .wsh-quick-btn:hover {
-  background: rgb(var(--heading-hover));
+  background: var(--wsh-hover);
 }
 .wsh-quick-btn:focus-visible {
   outline: 2px solid rgb(var(--act));
@@ -913,7 +908,7 @@ button.wsh-attn-row {
   cursor: pointer;
 }
 button.wsh-attn-row:hover {
-  background: rgb(var(--heading-hover));
+  background: var(--wsh-hover);
 }
 .wsh-ico {
   display: grid;

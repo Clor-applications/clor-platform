@@ -105,6 +105,56 @@ function greeting(now = new Date()) {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
+/* Where each app says how today stands (its own overview endpoint). */
+const TODAY_SOURCES = [
+  { app: 'attendance', path: 'attendance/overview' },
+  { app: 'people', path: 'people/overview' },
+  { app: 'payroll', path: 'payroll/overview' },
+];
+/* Whole rupees in the Indian grouping; payroll totals arrive in rupees. */
+const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
+
+/** Today's lines, one per app that answered: a figure, what it counts, and one line of detail. Pure, for the tests. */
+export function todayLines(today = {}) {
+  const lines = [];
+  const att = today.attendance;
+  if (att && att.headcount != null) {
+    const out = [att.onLeave ? `${att.onLeave} on leave` : null, att.absent ? `${att.absent} absent` : null, att.notMarked ? `${att.notMarked} not marked` : null].filter(Boolean);
+    lines.push({
+      app: 'attendance',
+      screen: 'overview',
+      value: att.holiday ? 'Holiday' : `${(att.present || 0) + (att.halfDay || 0)}`,
+      note: att.holiday ? null : `of ${att.headcount}`,
+      label: att.holiday ? att.holiday : 'In today',
+      sub: att.holiday ? null : out.length ? out.join(' · ') : att.headcount ? 'Everyone is accounted for' : 'No one is tracked yet',
+    });
+  }
+  const ppl = today.people;
+  if (ppl && ppl.headcount != null) {
+    const joined = (ppl.joinedThisMonth || []).length;
+    const bday = (ppl.upcomingBirthdays || [])[0];
+    lines.push({
+      app: 'people',
+      screen: 'home',
+      value: `${ppl.headcount}`,
+      label: ppl.headcount === 1 ? 'Person' : 'People',
+      sub: [joined ? `${joined} joined this month` : null, bday ? `${bday.name}’s birthday ${bday.days === 0 ? 'today' : bday.days === 1 ? 'tomorrow' : `in ${bday.days} days`}` : null].filter(Boolean).join(' · ') || 'No one joined this month',
+    });
+  }
+  const pay = today.payroll?.overview;
+  if (pay) {
+    const run = pay.currentRun;
+    lines.push({
+      app: 'payroll',
+      screen: 'overview',
+      value: run ? inr(run.net) : '—',
+      label: pay.currentPeriod ? `${pay.currentPeriod.name} payroll` : 'Payroll',
+      sub: run ? `${run.stage} · ${run.employeeCount} ${run.employeeCount === 1 ? 'person' : 'people'}` : pay.currentPeriod ? 'Pay run not started' : 'No open pay period',
+    });
+  }
+  return lines;
+}
+
 /* The members ring: radius and circumference in the 100-unit box. */
 const RING_R = 38;
 const RING_C = 2 * Math.PI * RING_R;
@@ -186,7 +236,10 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const [outside, setOutside] = useState(null);
   const [invites, setInvites] = useState(null);
   const [setupFacts, setSetupFacts] = useState(null);
+  const [today, setToday] = useState({});
   const attentionRef = useRef(null);
+  /* Which apps are on here, as one string: the effect below reads it and must not re-run on a new array of the same apps. */
+  const subsKey = (tenant?.subscriptions || []).join(',');
 
   useEffect(() => {
     let live = true;
@@ -224,13 +277,26 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         listTickets().then((t) => live && setTickets(t?.tickets || [])).catch(() => {});
         /* What waits on this person in each app they can open here. */
         if (Array.isArray(r?.apps) && r.apps.length) Promise.resolve().then(getWaiting).then((w) => live && setWaiting(w || null)).catch(() => {});
+        /*
+         * Today in each app this person can open here: the app's own overview, read as that app's
+         * screen reads it, so the figures and who may see them are the app's (a refusal draws
+         * nothing). Books has no summary on the server yet; it is not guessed at.
+         */
+        const org = tenant?.id;
+        const on = new Set(subsKey.split(',').filter(Boolean));
+        TODAY_SOURCES.filter((x) => org && on.has(x.app) && (r?.apps || []).includes(x.app)).forEach((x) => {
+          Promise.resolve()
+            .then(() => apiFetch(`/orgs/${encodeURIComponent(org)}/${x.path}`, { skipWarehouseHeader: true }))
+            .then((d) => live && d && setToday((t) => ({ ...t, [x.app]: d })))
+            .catch(() => {});
+        });
       })
       /* No answer hides what depends on it; nothing is guessed. */
       .catch(() => live && setMe(null));
     return () => {
       live = false;
     };
-  }, [tenant?.id]);
+  }, [tenant?.id, subsKey]);
 
   const loading = me === undefined;
   const role = me?.role || null;
@@ -439,18 +505,14 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   });
 
   /*
-   * Next for you (owner, 17 Nov 2026: "something more important in place of the laptop"). The hero
-   * names the one thing to do now and what follows it: what is urgent first, then the next setup
-   * step, then the routine items. The same facts as the lists below, in the order to act on them;
-   * nothing here is new information, so nothing here can disagree with them.
+   * Today (owner, 17 Nov 2026: "more important information" in the hero, and nothing the page says
+   * twice). The hero's card is how the business stands today in each app this person can open:
+   * who is in, how many people, where this month's payroll is. What needs doing stays in Needs
+   * your attention, once. With no app that reports a day, the card is not drawn and the picture
+   * has the room.
    */
-  const urgentItems = attention.filter((a) => a.tone === 'danger' || a.tone === 'warn');
-  const calmItems = attention.filter((a) => a.tone !== 'danger' && a.tone !== 'warn');
-  const setupItem = nextStep
-    ? { key: 'setup', setup: true, tone: null, title: nextStep.title, sub: nextStep.text, action: 'Start', go: go(nextStep.screen) }
-    : null;
-  const queue = [...urgentItems, setupItem, ...calmItems].filter(Boolean);
-  const focus = queue[0] || null;
+  const lines = todayLines(today);
+  const dayWords = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
   /* Shortcuts to the jobs an administrator comes here for; each only when this person may open its screen. */
   const quick = [
@@ -468,7 +530,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     <div className="ws wsh">
       <div className="ws-inner wsh-inner">
         {/* Hero: who you are, where you are, and the one primary action. */}
-        <section className="wsh-hero" aria-labelledby="wsh-hello">
+        <section className="wsh-hero" data-today={lines.length ? '' : undefined} aria-labelledby="wsh-hello">
           <div className="wsh-hero-text">
             <p className="wsh-eyebrow">Welcome to CLOR Workspace</p>
             <h1 id="wsh-hello" className="wsh-hello">
@@ -498,56 +560,37 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           <div className="wsh-stage" aria-hidden="true">
             <AppsArt apps={states.map((x) => ({ id: x.app.id, on: x.state.key === 'open' || x.state.key === 'noaccess' }))} />
           </div>
-          {/* Next for you: the one thing to do now, then what follows. */}
-          <div className="wsh-next" role="group" aria-labelledby="wsh-next-title">
-            <p className="wsh-next-head">
-              <span id="wsh-next-title" className="wsh-next-label">Next for you</span>
-              {steps && stepsDone < steps.length ? (
-                <span className="wsh-next-setup">
-                  <span>Setup <N>{stepsDone}</N> of <N>{steps.length}</N></span>
-                  <span className="wsh-bar" aria-hidden="true"><span style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }} /></span>
-                </span>
-              ) : null}
-            </p>
-            {!settled ? (
-              <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
-                <span className="ui-skel ui-skel-text" />
-                <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
-              </div>
-            ) : focus ? (
-              <>
-                <div className="wsh-next-main">
-                  <span className={`wsh-ico wsh-next-ico ${TONE_CLASS[focus.tone] || ''}`} aria-hidden="true">
-                    {focus.setup ? <E.clipboard size={22} /> : React.createElement(focus.icon || ICON.alert, { size: 20 })}
-                  </span>
-                  <span className="wsh-next-text">
-                    <span className="wsh-next-title">{focus.title}</span>
-                    <span className="wsh-next-sub">{focus.sub}</span>
-                  </span>
-                </div>
-                <div className="wsh-next-foot">
-                  {focus.go ? (
-                    <button type="button" className="ws-btn ws-btn--small wsh-btn-glass" onClick={focus.go}>
-                      {focus.action || 'Open'} <ChevronRight size={14} aria-hidden="true" />
-                    </button>
-                  ) : <span />}
-                  {queue.length > 1 ? (
-                    <button type="button" className="ws-link wsh-next-more" onClick={scrollToAttention}>
-                      {plural(queue.length - 1, 'more item')} <ChevronRight size={14} aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              <div className="wsh-next-main">
-                <E.cool size={40} aria-hidden="true" />
-                <span className="wsh-next-text">
-                  <span className="wsh-next-title">You are all caught up</span>
-                  <span className="wsh-next-sub">Nothing is waiting on you, and setup is done.</span>
-                </span>
-              </div>
-            )}
-          </div>
+          {lines.length ? (
+            <div className="wsh-today" role="group" aria-labelledby="wsh-today-title">
+              <p className="wsh-today-head">
+                <span id="wsh-today-title" className="wsh-today-label">Today</span>
+                <span className="wsh-today-date">{dayWords}</span>
+              </p>
+              <ul className="wsh-today-list">
+                {lines.map((x) => {
+                  const body = (
+                    <>
+                      <AppMark app={x.app} size={32} title="" />
+                      <span className="wsh-today-text">
+                        <span className="wsh-today-what">{x.label}</span>
+                        {x.sub ? <span className="wsh-today-sub">{x.sub}</span> : null}
+                      </span>
+                      <span className="wsh-today-value ui-num">{x.value}{x.note ? <small> {x.note}</small> : null}</span>
+                    </>
+                  );
+                  return (
+                    <li key={x.app}>
+                      {openApp ? (
+                        <button type="button" className="wsh-today-row" onClick={() => openApp(x.app, x.screen)} aria-label={`${x.label}: ${x.value}${x.note ? ` ${x.note}` : ''}. Open ${APP_NAME[x.app] || x.app}`}>{body}</button>
+                      ) : (
+                        <div className="wsh-today-row">{body}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
         </section>
 
         {/* The workspace in figures. */}
@@ -590,16 +633,12 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 const on = a.state.key === 'open' || a.state.key === 'noaccess';
                 const body = (
                   <>
-                    <span className="wsh-app-top">
-                      <AppMark app={a.id} size={36} off={!on} title="" />
-                      <span className={a.state.pill}>{a.state.label}</span>
+                    <AppMark app={a.id} size={32} off={!on} title="" />
+                    <span className="wsh-app-text">
+                      <span className="wsh-app-name">{a.name}</span>
+                      <span className="wsh-app-state">{on && a.used != null ? <><N>{a.used}</N> {a.used === 1 ? 'person' : 'people'}</> : a.state.label}</span>
                     </span>
-                    <span className="wsh-app-name">{a.name}</span>
-                    {a.blurb ? <span className="wsh-app-blurb">{a.blurb}</span> : null}
-                    <span className="wsh-app-foot">
-                      <span className="wsh-app-people">{a.used != null ? <><N>{a.used}</N> {a.used === 1 ? 'person' : 'people'}</> : a.state.key === 'noaccess' ? 'Ask an administrator' : ''}</span>
-                      {a.act ? <span className="wsh-app-act">{a.act.label} <ChevronRight size={14} aria-hidden="true" /></span> : null}
-                    </span>
+                    {a.act ? <span className="wsh-app-act">{a.act.label} <ChevronRight size={14} aria-hidden="true" /></span> : null}
                   </>
                 );
                 return (

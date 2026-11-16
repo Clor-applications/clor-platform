@@ -389,7 +389,7 @@
   gap: 0.3125rem;
   border-radius: 0.5rem;
   background: transparent;
-  color: rgb(var(--fg-muted));
+  color: rgb(var(--fg));
   box-shadow: none;
   overflow: visible;
 }
@@ -404,7 +404,7 @@
   text-align: center;
   font-size: 0.6875rem;
   line-height: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0;
   color: inherit;
 }
@@ -482,10 +482,10 @@
   padding: 1rem 0.75rem 0.5rem;
   font-size: 0.75rem;
   line-height: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgb(var(--fg-subtle));
+  color: rgb(var(--fg-muted));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div.mt-4 { margin-top: 0; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item {
@@ -495,8 +495,8 @@
   gap: 0.625rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
-  font-weight: 400;
-  color: rgb(var(--fg-muted));
+  font-weight: 500; /* 400 in grey read as washed out (owner, 17 Nov 2026: "fonts are very light in sidebars") */
+  color: rgb(var(--fg));
   background: transparent;
   box-shadow: none;
 }

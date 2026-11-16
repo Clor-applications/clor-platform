@@ -24,7 +24,7 @@ vi.mock('@platform/operator', () => ({ operator: { contactEmail: 'info@clor.in' 
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock('@platform/http', () => ({ apiFetch: (...a) => http.apiFetch(...a) }));
 
-import AdminHome, { appState, renewalNotice } from './AdminHome';
+import AdminHome, { appState, renewalNotice, todayLines } from './AdminHome';
 import { rupees, seatsByApp, securityOf } from './overviewFigures';
 
 const CATALOG = [
@@ -95,11 +95,8 @@ describe('the Workspace overview', () => {
     expect(await glance.findByText('2 urgent')).toBeInTheDocument();
     /* No Apps screen in this person's menu: the figure is shown, not a way in. */
     expect(glance.getByText('Active apps').closest('button')).toBeNull();
-    /* In place of the hero's illustration: the one thing to do now (the urgent item first), how many follow, and setup progress. */
-    const next = within(screen.getByRole('group', { name: 'Next for you' }));
-    expect(await next.findByText('1 sync problem')).toBeInTheDocument();
-    expect(next.getByRole('button', { name: /more items?$/ })).toBeInTheDocument();
-    expect(next.getByText(/Setup/)).toHaveTextContent(/of 4/);
+    /* No app here reports a day (Books has no summary yet): no Today card, and nothing said twice. */
+    expect(screen.queryByRole('group', { name: 'Today' })).toBeNull();
     /* Quick actions: only the screens this person may open. */
     const quick = within(screen.getByRole('region', { name: 'Quick actions' }));
     fireEvent.click(quick.getByRole('button', { name: /^Add company/ }));
@@ -183,7 +180,6 @@ describe('the Workspace overview', () => {
     });
     const openApp = vi.fn();
     render(<AdminHome tenant={{ ...tenant, subscriptions: ['people', 'accounting', 'payroll'] }} catalog={CATALOG} navItems={[{ key: 'home' }]} openApp={openApp} />);
-    /* The hero's Next for you names the same items; the list that owns them is Needs your attention. */
     const waitingList = within(await screen.findByRole('region', { name: 'Needs your attention' }));
     const people = await waitingList.findByRole('button', { name: /3 requests to approve/ });
     expect(people).toHaveTextContent('In People.');
@@ -251,5 +247,22 @@ describe('the overview’s figures', () => {
 
   it('writes the run rate in whole rupees', () => {
     expect(rupees(249950)).toBe('₹2,500');
+  });
+
+  /* The hero's Today card: one line per app that reported a day, in the app's own figures. */
+  it('writes today in each app from its own overview, and nothing for an app that did not answer', () => {
+    expect(todayLines({})).toEqual([]);
+    const lines = todayLines({
+      attendance: { headcount: 50, present: 41, halfDay: 1, absent: 2, onLeave: 3, notMarked: 3, holiday: null },
+      people: { headcount: 52, joinedThisMonth: [{ id: 'e1' }, { id: 'e2' }], upcomingBirthdays: [{ name: 'Asha', days: 1 }] },
+      payroll: { overview: { currentPeriod: { name: 'November 2026' }, currentRun: { net: 1234567.4, stage: 'Approved', employeeCount: 48 } } },
+    });
+    expect(lines.map((x) => x.app)).toEqual(['attendance', 'people', 'payroll']);
+    expect(lines[0]).toMatchObject({ value: '42', note: 'of 50', label: 'In today', sub: '3 on leave · 2 absent · 3 not marked' });
+    expect(lines[1]).toMatchObject({ value: '52', label: 'People', sub: '2 joined this month · Asha’s birthday tomorrow' });
+    expect(lines[2]).toMatchObject({ value: '₹12,34,567', label: 'November 2026 payroll', sub: 'Approved · 48 people' });
+    /* A holiday is said as one, not as an empty office; a period with no run says so. */
+    expect(todayLines({ attendance: { headcount: 50, holiday: 'Diwali' } })[0]).toMatchObject({ value: 'Holiday', label: 'Diwali', sub: null });
+    expect(todayLines({ payroll: { overview: { currentPeriod: { name: 'November 2026' }, currentRun: null } } })[0]).toMatchObject({ value: '—', sub: 'Pay run not started' });
   });
 });

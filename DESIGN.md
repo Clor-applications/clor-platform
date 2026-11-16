@@ -734,14 +734,19 @@ because focus, portals and event order cannot be read off the source.
   panel start under it; the rail's symbol tile is gone. This replaces the
   14 Nov full-height rail with the bar stepping aside. On the Overview, a
   "Your apps" row (each built app, its state, one action) sits under the
-  figures, and the hero gained "Next for you" (the one thing to do now, what
-  how many follow, setup progress), kept short. Beside it, where the page is
-  wide enough, a picture drawn from the account itself: the CLOR mark with the
-  apps around it, each in its own colour, joined by a solid line when on and
-  a dashed one when off (the laptop drawing is gone). Secondary text on this page is a step darker and weight 500
-  ("fonts are very light"). The wash behind the
-  glass is orange and graphite, faint: the blue and violet washes read as a
-  different page from the neutral cards and the orange accent.
+  figures, one compact line per app. The hero's card is "Today": how the
+  business stands today in each app the reader can open, from that app's own
+  overview (who is in, headcount, this month's payroll); it replaced a "Next for
+  you" card that repeated Needs your attention. With no app that reports a day
+  the card is not drawn. Beside it, where the page is wide enough, a picture
+  drawn from the account itself: the CLOR mark with the apps around it, each in
+  its own colour, a solid line when on and a dashed one when off (the laptop
+  drawing is gone). Cards are solid white on the white ground and the page has
+  no wash outside the hero ("cards colors are not matching with background");
+  hover inside a card is a faint orange tint, not the shell's grey. Secondary
+  text on this page is a step darker and weight 500, and the sidebar's module
+  names, captions and items are darker and firmer in every app ("fonts are very
+  light").
 
 - **2026-11-15 — Per-app colours, Figtree, Fluent Emoji (owner):** "fluent
   emoji flat, workspace: Graphite, people: Magenta, payroll: deeper blue,
