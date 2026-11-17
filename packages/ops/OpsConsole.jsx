@@ -264,7 +264,8 @@ export const SCREENS = {
     ) : (
       <DemoRequests openRequest={(id) => go('demos', {}, id)} />
     ),
-  trials: ({ go, me }) => <Trials role={me.role} openAccount={(id) => go('customers', {}, id)} openSubscription={(id) => go('customers', {}, id, 'subscription')} />,
+  /* `ending`: Overview's "See all" opens the trials ending within that many days, not the whole list. */
+  trials: ({ route, go, me }) => <Trials key={route.params.ending || 'all'} role={me.role} ending={route.params.ending || ''} openAccount={(id) => go('customers', {}, id)} openSubscription={(id) => go('customers', {}, id, 'subscription')} />,
   links: ({ go, me }) => <ExploreLinks role={me.role} openRequest={(id) => go('demos', {}, id)} />,
   pricing: ({ me }) => <Pricing role={me.role} />,
   customPlans: ({ go, me }) => <CustomPlans role={me.role} openCustomer={(id) => go('customers', {}, id)} />,
@@ -294,7 +295,7 @@ export const SCREENS = {
   staff: ({ me }) => <Staff me={me} />,
   tickets: ({ route, go, me }) =>
     route.id ? (
-      <TicketPage key={route.id} id={route.id} me={me} back={() => go('tickets')} openCustomer={(id) => go('customers', {}, id)} lookUp={(request) => go('health', { request })} />
+      <TicketPage key={route.id} id={route.id} me={me} back={() => go('tickets')} openCustomer={(id) => go('customers', {}, id)} openTicket={(id) => go('tickets', {}, id)} lookUp={(request) => go('health', { request })} />
     ) : (
       <Tickets key={route.params.status || 'active'} me={me} initialStatus={route.params.status || 'active'} openTicket={(id) => go('tickets', {}, id)} />
     ),
@@ -447,13 +448,13 @@ function Console() {
   /*
    * The counts in the menu are work waiting, not totals: open tickets, new demo requests, open alerts and
    * access requests not yet answered. Read once when the console opens, not on every page. Either may fail
-   * (a role that cannot see it); the menu simply shows none. Approvals has no count: nothing read here carries it.
+   * (a role that cannot see it); the menu simply shows none.
    */
   useEffect(() => {
     if (!me) return;
     let live = true;
     opsHome()
-      .then((h) => live && setCounts((c) => ({ ...c, tickets: h?.ticketsOpen || 0, demos: h?.newDemos || 0, alerts: h?.alertsOpen || 0 })))
+      .then((h) => live && setCounts((c) => ({ ...c, tickets: h?.ticketsOpen || 0, demos: h?.newDemos || 0, alerts: h?.alertsOpen || 0, approvals: h?.approvalsWaiting || 0 })))
       .catch(() => {});
     opsMySupportGrants()
       .then((r) => live && setCounts((c) => ({ ...c, access: (r?.grants || []).filter((g) => g.state === 'PENDING').length })))

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
+import { Pager } from './kit';
 import { opsAccounts, opsExtendTrial, opsResendSignup, opsSignups } from './api';
 
 /**
@@ -16,6 +17,10 @@ import { opsAccounts, opsExtendTrial, opsResendSignup, opsSignups } from './api'
  *    Nothing is granted from this list: the button used to give the apps
  *    free and call that paid.
  * Support may send a pending link again.
+ *
+ * The accounts come soonest to end first, a page at a time: that is the order
+ * staff work them in. `ending` (a number of days, from Overview's "See all")
+ * opens the list narrowed to the trials that end within that many days.
  */
 const APPS = [
   ['accounting', 'Books'],
@@ -41,31 +46,51 @@ export const daysLeft = (end, now = Date.now()) => {
   return d === -1 ? 'ended yesterday' : `ended ${-d} days ago`;
 };
 
-export function Trials({ role, openAccount, openSubscription = openAccount }) {
+export function Trials({ role, openAccount, openSubscription = openAccount, ending = '' }) {
   const [accounts, setAccounts] = useState(null);
   const [signups, setSignups] = useState(null);
   const [error, setError] = useState('');
   const [action, setAction] = useState(null); // { kind: 'extend', account }
+  const [page, setPage] = useState(0);
+  const [within, setWithin] = useState(() => Number(ending) || 0);
   /* The moment the page opened: the days left are counted from it, not from each render. */
   const [now] = useState(() => Date.now());
-  const load = useCallback(() => {
-    Promise.all([opsAccounts({ status: 'trialing' }), opsSignups({})])
-      .then(([a, s]) => {
-        setAccounts(a);
-        setSignups(s);
-        setError('');
-      })
-      .catch((e) => setError(String(e?.message || e)));
-  }, []);
-  useEffect(load, [load]);
+  const loadAccounts = useCallback(
+    () =>
+      opsAccounts({ status: 'trialing', sort: 'trialEnd', page, endingWithin: within || undefined })
+        .then((a) => {
+          /* The last row of a later page was dealt with: step back rather than show an empty page. */
+          if (page > 0 && !a.accounts.length) setPage(page - 1);
+          else setAccounts(a);
+          setError('');
+        })
+        .catch((e) => setError(String(e?.message || e))),
+    [page, within],
+  );
+  const loadSignups = useCallback(
+    () =>
+      opsSignups({})
+        .then(setSignups)
+        .catch((e) => setError(String(e?.message || e))),
+    [],
+  );
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
+  useEffect(() => {
+    loadSignups();
+  }, [loadSignups]);
   const billing = may(role, 'BILLING');
   const support = may(role, 'SUPPORT', 'BILLING');
   const offer = signups?.offer;
-  const endingSoon = (accounts?.accounts || []).filter((a) => a.trialEndsAt && new Date(a.trialEndsAt).getTime() - now < 7 * DAY).length;
+  /* Both numbers are the server's, over every trial, not over the page shown. */
+  const endingSoon = accounts?.trialsEndingIn7d || 0;
+  const pages = accounts ? Math.ceil(accounts.total / (accounts.pageSize || 25)) : 0;
+  const meta = !accounts ? null : within ? `${accounts.total} ending in the next ${within} days` : `${accounts.total} on trial${endingSoon ? ` · ${endingSoon} ending within a week` : ''}`;
 
   return (
     <>
-      <PageHead crumbs={['Customers and sales']} title="Trials" meta={accounts ? `${accounts.total} on trial${endingSoon ? ` · ${endingSoon} ending within a week` : ''}` : null} />
+      <PageHead crumbs={['Customers and sales']} title="Trials" meta={meta} />
       <Err>{error}</Err>
       {offer ? (
         <p className="ws-card-blurb">
@@ -75,14 +100,20 @@ export function Trials({ role, openAccount, openSubscription = openAccount }) {
       ) : null}
 
       <Panel title="Accounts on trial">
+        {within ? (
+          <p className="ws-card-blurb">
+            Only the trials that end in the next {within} days.{' '}
+            <button type="button" className="ops-link" onClick={() => { setPage(0); setWithin(0); }}>Show every trial</button>
+          </p>
+        ) : null}
         {!accounts ? (
           <p className="ws-card-blurb">Loading…</p>
         ) : accounts.accounts.length === 0 ? (
-          <div className="ws-empty"><p>Nobody is on a trial right now.</p></div>
+          <div className="ws-empty"><p>{within ? `No trial ends in the next ${within} days.` : 'Nobody is on a trial right now.'}</p></div>
         ) : (
           <div className="ws-table-wrap">
             <table className="ws-table">
-              <caption className="sr-only">Accounts on a free trial, newest first</caption>
+              <caption className="sr-only">Accounts on a free trial, soonest to end first</caption>
               <thead>
                 <tr>
                   <th>Account</th>
@@ -124,6 +155,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount }) {
             </table>
           </div>
         )}
+        {accounts ? <Pager page={page} pages={pages} onPage={setPage} /> : null}
       </Panel>
 
       <Panel title="Sign-ups from clor.in">
@@ -169,7 +201,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount }) {
                         {s.status === 'PENDING' ? <div className="ws-item-sub">sent {s.sendCount} time{s.sendCount === 1 ? '' : 's'}</div> : null}
                       </td>
                       <td className="num">
-                        {support && s.status !== 'CONFIRMED' ? <ResendButton id={s.id} onDone={load} /> : null}
+                        {support && s.status !== 'CONFIRMED' ? <ResendButton id={s.id} onDone={loadSignups} /> : null}
                       </td>
                     </tr>
                   );
@@ -180,7 +212,7 @@ export function Trials({ role, openAccount, openSubscription = openAccount }) {
         )}
       </Panel>
 
-      <TrialDrawer action={action} onClose={() => setAction(null)} onDone={() => { setAction(null); load(); }} />
+      <TrialDrawer action={action} onClose={() => setAction(null)} onDone={() => { setAction(null); loadAccounts(); }} />
     </>
   );
 }

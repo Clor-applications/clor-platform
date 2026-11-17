@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Search } from '@ui/components/ui/lineIcons';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
+import { InvoiceStatus } from '../../apps/admin/src/screens/InvoiceDocument';
 import { inr } from './money';
 import { units } from './CustomPlans';
 import { Limits } from './Limits';
@@ -23,6 +24,7 @@ import {
   opsCustomerUsers,
   opsExtendTrial,
   opsGrantPlan,
+  opsInvoices,
   opsReinstate,
   opsReopenSubscription,
   opsResendInvitation,
@@ -208,6 +210,12 @@ const TABS = [
   ['activity', 'Timeline'],
 ];
 
+/** What an account still owes, from its invoice rows: issued and not paid, and how many of those are past due. */
+export const unpaidOf = (invoices = []) => {
+  const open = invoices.filter((r) => r.status === 'ISSUED');
+  return { count: open.length, amount: open.reduce((sum, r) => sum + (r.total || 0), 0), overdue: open.filter((r) => r.overdue).length };
+};
+
 export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, openLink = () => {}, openDenials, openOrgs }) {
   /* An old or mistyped link opens the overview rather than an empty page. */
   const tab = TABS.some(([k]) => k === asked) ? asked : 'overview';
@@ -219,6 +227,19 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
       .catch((e) => setError(String(e?.message || e)));
   }, [id]);
   useEffect(load, [load]);
+  /* The account's invoices, fetched once when the page opens: the line under the name says what is unpaid, and the Invoices and payments tab lists the same rows. */
+  const [got, setInv] = useState(null);
+  useEffect(() => {
+    let live = true;
+    opsInvoices({ accountId: id })
+      .then((r) => live && setInv({ forId: id, invoices: r?.invoices || [], hasMore: Boolean(r?.hasMore) }))
+      .catch((e) => live && setInv({ forId: id, error: String(e?.message || e) }));
+    return () => {
+      live = false;
+    };
+  }, [id]);
+  /* Another account's rows never show while this one's are on their way. */
+  const inv = got?.forId === id ? got : null;
 
   if (!d) return error ? <Err>{error}</Err> : <Loading />;
   const a = d.account;
@@ -230,6 +251,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
   const trialFact = s?.status === 'trialing' && s.trialEndsAt ? `trial ${customerStatus(s.status, s.trialEndsAt) === 'overdue' ? 'ended' : 'ends'} ${day(s.trialEndsAt)}` : null;
   const cancelling = Boolean(s?.cancelAtPeriodEnd) && s.status !== 'cancelled';
   const renewFact = s?.status === 'active' && s.currentPeriodEnd && !cancelling ? `renews ${day(s.currentPeriodEnd)}` : null;
+  const owed = unpaidOf(inv?.invoices);
   return (
     <>
       <div>
@@ -255,6 +277,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {owner?.email ? <span>owner {owner.email}</span> : null}
         {trialFact ? <span className="tabular-nums">{trialFact}</span> : null}
         {renewFact ? <span className="tabular-nums">{renewFact}</span> : null}
+        {owed.amount ? <span className="tabular-nums">{inr(owed.amount)} unpaid</span> : null}
       </div>
       <div className="ops-pills">
         <StatusPill status={plan} />
@@ -272,7 +295,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {tab === 'overview' ? <Overview d={d} plan={plan} setTab={setTab} role={role} openDenials={openDenials} openOrgs={openOrgs} /> : null}
         {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} openInvoice={(invoiceId) => openLink({ page: 'invoices', id: invoiceId })} /> : null}
         {tab === 'limits' ? <Limits id={id} name={name} role={role} /> : null}
-        {tab === 'money' ? <Money id={id} /> : null}
+        {tab === 'money' ? <Money id={id} inv={inv} setInv={setInv} openInvoice={(invoiceId) => openLink({ page: 'invoices', id: invoiceId })} /> : null}
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} openLink={openLink} /> : null}
         {tab === 'users' ? <Users id={id} role={role} /> : null}
         {tab === 'connections' ? <Connections id={id} role={role} /> : null}
@@ -744,35 +767,119 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
 }
 
 /* ------------------------------------------------- invoices and payments */
-function Money({ id }) {
+function Money({ id, inv, setInv, openInvoice }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     opsCustomerPayments(id).then(setD).catch((e) => setError(String(e?.message || e)));
   }, [id]);
-  if (!d) return error ? <Err>{error}</Err> : <Loading />;
-  if (!d.invoices.length && !d.payments.length) {
-    return <Empty>No invoices or payments yet. Once payments are switched on in Billing and setup, Payments, this customer’s invoices and payments show here.</Empty>;
-  }
+  const rows = inv?.invoices || [];
+  const owed = unpaidOf(rows);
+  /* The list comes fifty at a time, newest first; older ones are added under the ones already shown. */
+  const older = async () => {
+    setBusy(true);
+    try {
+      const r = await opsInvoices({ accountId: id, before: rows[rows.length - 1].createdAt });
+      setInv({ forId: id, invoices: [...rows, ...(r?.invoices || [])], hasMore: Boolean(r?.hasMore) });
+    } catch (e) {
+      notify.error(String(e?.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <div className="ws-table-wrap">
-      <table className="ws-table">
-        <caption className="sr-only">Payments</caption>
-        <thead>
-          <tr><th>When</th><th>Through</th><th>What</th><th>Applied</th></tr>
-        </thead>
-        <tbody>
-          {d.payments.map((p) => (
-            <tr key={p.id}>
-              <td className="tabular-nums">{when(p.at)}</td>
-              <td>{p.gateway}</td>
-              <td>{p.type.replace(/[._]/g, ' ')}</td>
-              <td>{p.applied ? <span className="ws-pill ws-pill--ok">Yes</span> : <span className="ws-pill ws-pill--danger">Not applied</span>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <section className="ops-section" aria-labelledby="ops-invoices">
+        <h2 id="ops-invoices" className="ops-h2">Invoices</h2>
+        {!inv ? (
+          <Loading />
+        ) : inv.error ? (
+          <Err>{inv.error}</Err>
+        ) : !rows.length ? (
+          <Empty>No invoices yet. One shows here when a new subscription is set up for this account, or a draft is made for it in Billing and setup, Invoices.</Empty>
+        ) : (
+          <>
+            {owed.count ? (
+              <p className="ws-head-meta tabular-nums">
+                {inr(owed.amount)} unpaid on {owed.count} {owed.count === 1 ? 'invoice' : 'invoices'}
+                {owed.overdue ? `; ${owed.overdue} overdue` : ''}
+                {inv.hasMore ? ', among the invoices shown' : ''}
+              </p>
+            ) : null}
+            <div className="ws-table-wrap">
+              <table className="ws-table">
+                <caption className="sr-only">Invoices</caption>
+                <thead>
+                  <tr>
+                    <th>Number</th>
+                    <th>Issued</th>
+                    <th>Due</th>
+                    <th className="ui-num" style={{ textAlign: 'right' }}>
+                      Amount
+                    </th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id}>
+                      <td>
+                        <button type="button" className={`ws-name-link${r.number ? ' ui-mono' : ''}`} onClick={() => openInvoice(r.id)}>
+                          {r.number || 'Draft'}
+                        </button>
+                      </td>
+                      <td>{day(r.issueDate)}</td>
+                      <td>{day(r.dueDate)}</td>
+                      <td className="ui-num" style={{ textAlign: 'right' }}>
+                        {inr(r.total)}
+                      </td>
+                      <td>
+                        <InvoiceStatus status={r.status} overdue={r.overdue} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {inv.hasMore ? (
+              <div>
+                <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={busy} onClick={older}>
+                  {busy ? 'Loading…' : 'Show older invoices'}
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
+      </section>
+      <section className="ops-section" aria-labelledby="ops-payment-events">
+        <h2 id="ops-payment-events" className="ops-h2">Payment events</h2>
+        {!d ? (
+          error ? <Err>{error}</Err> : <Loading />
+        ) : !d.payments.length ? (
+          <p className="ws-card-blurb">No payment events yet. What a payment gateway tells CLOR about this customer shows here.</p>
+        ) : (
+          <div className="ws-table-wrap">
+            <table className="ws-table">
+              <caption className="sr-only">Payment events</caption>
+              <thead>
+                <tr><th>When</th><th>Through</th><th>What</th><th>Applied</th></tr>
+              </thead>
+              <tbody>
+                {d.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="tabular-nums">{when(p.at)}</td>
+                    <td>{p.gateway}</td>
+                    <td>{p.type.replace(/[._]/g, ' ')}</td>
+                    <td>{p.applied ? <span className="ws-pill ws-pill--ok">Yes</span> : <span className="ws-pill ws-pill--danger">Not applied</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 
