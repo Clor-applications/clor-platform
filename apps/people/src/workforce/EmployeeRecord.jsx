@@ -64,12 +64,17 @@ const tenure = (from) => {
 const shown = (v) => (v === null || v === undefined || v === '' ? null : v);
 /* The open section form says whether it holds unsaved edits, so a tab or another Edit asks before replacing it. */
 const FormDirty = createContext(null);
+/* The section's Edit, so an empty detail can offer "Add" straight to the same form (owner's round 13 pick). */
+const SectionEdit = createContext(null);
 
 function Field({ label, value, mono = false }) {
+  const onEdit = useContext(SectionEdit);
   return (
     <div className="ui-field-row">
       <dt className="ui-caption">{label}</dt>
-      <dd className={`text-sm ${mono ? 'tabular-nums' : ''}`}>{shown(value) ?? <span className="ui-muted">Not provided</span>}</dd>
+      <dd className={`text-sm ${mono ? 'tabular-nums' : ''}`}>{shown(value) ?? (
+        <span className="ui-empty-detail"><span className="ui-muted">Not added yet</span>{onEdit ? <button type="button" className="ui-link" onClick={onEdit} aria-label={`Add ${String(label).toLowerCase()}`}>Add</button> : null}</span>
+      )}</dd>
     </div>
   );
 }
@@ -92,7 +97,7 @@ function Section({ title, count = null, onEdit, children, action = null }) {
           {onEdit ? <button ref={editRef} type="button" className="ui-link text-sm inline-flex items-center gap-1" onClick={onEdit}><Pencil size={14} aria-hidden="true" /> Edit</button> : null}
         </span>
       </header>
-      {children}
+      <SectionEdit.Provider value={onEdit || null}>{children}</SectionEdit.Provider>
     </section>
   );
 }
