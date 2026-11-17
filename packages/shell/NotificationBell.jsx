@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, Check } from '@ui/components/ui/lineIcons';
 
-import { useDismissable } from '@ui/components/ui/useDismissable';
+import { Popover } from '@base-ui/react/popover';
 import { getInbox, getMutes, markAllRead, markRead, setMute } from '@ui/api/notifications';
 
 import { kindLabel } from './notificationKinds';
@@ -29,8 +29,6 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
   const [state, setState] = useState({ key: '', unread: 0, items: [] });
   const [open, setOpen] = useState(false);
   const [mutes, setMutes] = useState([]);
-  const ref = useRef(null);
-  useDismissable(open, () => setOpen(false), ref);
 
   const load = useCallback(() => {
     if (!tenantKey) return;
@@ -66,17 +64,19 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
   const readAll = () => markAllRead().then(load).catch(() => undefined);
 
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" className="ui-icon-btn relative" aria-label={badge ? `Notifications, ${badgeLabel}` : 'Notifications'} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+    /* base-ui places the panel on screen, closes it on Escape or a click elsewhere and returns the keyboard to the bell. */
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger className="ui-icon-btn relative" aria-label={badge ? `Notifications, ${badgeLabel}` : 'Notifications'}>
         <Icon size={Icon === Bell ? 16 : 20} />
         {badge ? (
           <span className="ui-bell-count">
             {badge > 99 ? '99+' : badge}
           </span>
         ) : null}
-      </button>
-      {open ? (
-        <div className="ui-card absolute end-0 z-40 mt-2 w-[min(24rem,92vw)] p-2 shadow-lg max-sm:fixed max-sm:inset-x-4 max-sm:top-14 max-sm:w-auto" role="dialog" aria-label="Notifications">
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="bottom" align="end" sideOffset={8} collisionPadding={16} positionMethod="fixed" style={{ zIndex: 'var(--z-platform-menu)' }}>
+        <Popover.Popup className="ui-menu" style={{ width: 'min(24rem, calc(100vw - 32px))', padding: 8, outline: 'none' }} aria-label="Notifications">
           {onOpenWaiting ? (
             <button type="button" className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken" onClick={() => { setOpen(false); onOpenWaiting(); }}>
               <span>{waitingN ? <><strong className="tabular-nums">{waitingN}</strong> {waitingN === 1 ? 'thing waits' : 'things wait'} for your answer</> : 'Nothing waits for your answer'}</span>
@@ -84,7 +84,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
             </button>
           ) : null}
           <div className="flex items-center justify-between px-2 py-1">
-            <span className="ui-t-sec">Notifications</span>
+            <Popover.Title className="ui-t-sec" render={<span />}>Notifications</Popover.Title>
             {unread ? (
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={readAll}>
                 <Check size={14} aria-hidden="true" /> Mark all read
@@ -123,8 +123,9 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
               </div>
             </div>
           ) : null}
-        </div>
-      ) : null}
-    </div>
+        </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

@@ -703,6 +703,12 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-17 — Bar menus on base-ui:** the app switcher, the company menu and the help menu were a
+  `div role="menu"` that ignored the arrow keys. They are now `@base-ui/react` menus through
+  `@ui/components/ui/Menu` (`.ui-menu`: a 12px sheet of 8px rows, the hover blue under the pointer or
+  the arrow keys, 44px rows on a phone); the notifications panel is a base-ui popover. New menus use
+  this wrapper. `Modal`, `Drawer` and `Popover` stay hand-built for now: a base-ui modal makes the rest
+  of the page inert, so they move together or not at all.
 - **2026-11-17 — Ops console on the platform frame (ui-ux-pro-max audit; not yet
   seen by the owner):** ops.clor.in still wore the 14 Nov frame: a 64px icon-only
   rail with a CLOR tile, no logo bar, a 232px panel scrolling through all 33
