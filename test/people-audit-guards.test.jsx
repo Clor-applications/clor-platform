@@ -38,7 +38,6 @@ describe('A register shows only what the grant allows', () => {
   });
 
   it('with the grants, New and each row action are there', async () => {
-    const user = userEvent.setup();
     render(withPerms(['PEOPLE::Assets::VIEW', 'PEOPLE::Assets::CREATE', 'PEOPLE::Assets::EDIT', 'PEOPLE::Assets::DELETE'], <WorkspaceList kind="assets" />));
     expect(await screen.findByRole('button', { name: /Add asset/ })).toBeInTheDocument();
     /* Up to three row actions show as words in the row (owner's pick, 17 Nov 2026). */
