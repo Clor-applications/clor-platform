@@ -572,3 +572,10 @@
 .ui-date-tile { display: none; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile { display: inline-grid; place-items: center; flex: none; width: 2.75rem; padding: 0.25rem 0; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 1.125rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile > b { font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--act, var(--fg))); }
+
+/* ======================================================================
+   Round 9 (17 Nov 2026). Same rule: everywhere except Books.
+   ====================================================================== */
+
+/* ---- A payment that did not go through: a red strip on every page ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-billing-strip { background-color: rgb(var(--neg-soft)) !important; color: rgb(var(--neg)) !important; font-weight: 500; }

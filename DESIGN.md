@@ -227,6 +227,24 @@ chat; reports as tiles with a small preview; downloads with a file type to pick;
 apps as tiles; sign-ins as a small chart; a big punch button in the middle of the phone's
 bottom bar; the phone payslip with net pay first.
 
+### Round 9 (17 Nov 2026)
+
+Built: a payment that did not go through shows as a red strip under the top bar on every
+page (it was amber).
+
+Picked and already how the app works: inviting someone by email and role; people who use CLOR
+as a list with their role; switching company from a dropdown in the top bar; who approves what
+as a chain of steps ("Manager → HR"); the CLOR staff customer list with a plan tag per company.
+
+Picked, **not built yet** (most need new data or new screens): two-step sign-in by SMS code
+(a security change, held for the owner's say); alerts as a grid of email and phone; job openings
+with place and counts; interview times picked by the candidate in a form; interview feedback as
+stars per skill; the offer letter with a sign button; thanks as monthly medals; surveys with
+faces; a pay rise as two bars; exit interview reasons to tick; imports through CLOR's own Excel
+template with failures fixed in place; plans as three cards; plan use in words; support access
+as a switch that turns itself off; a punch button phone widget; phone sign-in by email and
+password.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.

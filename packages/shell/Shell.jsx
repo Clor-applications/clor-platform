@@ -1847,7 +1847,7 @@ function SubscriptionBanner({ billing }) {
   return (
     <div
       role="status"
-      className="px-6 py-2 text-sm"
+      className="ui-billing-strip px-6 py-2 text-sm"
       style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}
     >
       {/* The server's own sentence when it has one (a trial that ended, routes/billing.ts `reason`); the old line otherwise. */}
