@@ -24,6 +24,10 @@ export const resendVerificationForSignIn = (challenge) =>
 export const loginTwoFactor = ({ challenge, code }) =>
   apiFetch('/auth/login/two-factor', { method: 'POST', body: { challenge, code }, skipAuth: true });
 
+/* Text a sign-in code to the number this person turned on; needs the challenge, so only after a right password. */
+export const loginTwoFactorSms = (challenge) =>
+  apiFetch('/auth/login/two-factor/sms', { method: 'POST', body: { challenge }, skipAuth: true });
+
 /* The server calls it `name`; sending `fullName` was a silent 400. */
 export const signup = ({ email, password, fullName, noticeVersion }) =>
   apiFetch('/auth/signup', {

@@ -203,3 +203,7 @@ export const opsUsers = (params) => apiFetch(`/ops/users${q(params)}`, o);
 export const opsDenials = (params) => apiFetch(`/ops/denials${q(params)}`, o);
 export const opsFeatureSwitches = (params) => apiFetch(`/ops/feature-switches${q(params)}`, o);
 export const opsAccountEntitlements = (id) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/entitlements`, o);
+/* Settings, Text messages: CLOR's SMS sender for sign-in codes (server: routes/pricing.ts). The key is never sent back. */
+export const opsSms = () => apiFetch('/ops/settings/sms', o);
+export const opsSaveSms = (body) => apiFetch('/ops/settings/sms', { ...o, method: 'PUT', body });
+export const opsTestSms = (phone) => apiFetch('/ops/settings/sms/test', { ...o, method: 'POST', body: { phone } });

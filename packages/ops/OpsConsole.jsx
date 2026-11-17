@@ -37,6 +37,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Smartphone,
   Store,
   UserCog,
   Users as UsersIcon,
@@ -65,6 +66,7 @@ import { CustomerPage, Customers } from './Customers';
 import { Home } from './Home';
 import { Staff } from './Staff';
 import { EmailAddresses, EmailLog, EmailTemplates } from './Email';
+import { TextMessages } from './TextMessages';
 import { AppCatalogue } from './AppCatalogue';
 import { AuditLog } from './AuditLog';
 import { Health } from './Health';
@@ -128,6 +130,7 @@ const NI = {
   emailAddresses: Mail,
   emailTemplates: FileCode,
   emailLog: Inbox,
+  textMessages: Smartphone,
   audit: History,
   access: KeyEmoji,
   approvals: BadgeCheck,
@@ -200,6 +203,7 @@ export const NAV = [
       ['emailAddresses', 'Email addresses', NI.emailAddresses],
       ['emailTemplates', 'Email templates', NI.emailTemplates],
       ['emailLog', 'Email log', NI.emailLog],
+      ['textMessages', 'Text messages', NI.textMessages],
     ],
   },
   {
@@ -292,6 +296,7 @@ export const SCREENS = {
   emailAddresses: ({ me }) => <EmailAddresses role={me.role} />,
   emailTemplates: ({ me }) => <EmailTemplates role={me.role} />,
   emailLog: ({ route, go, me }) => <EmailLog key={route.params.status || 'all'} role={me.role} initialStatus={route.params.status || 'all'} openCustomer={(id) => go('customers', {}, id)} />,
+  textMessages: ({ me }) => <TextMessages role={me.role} />,
   staff: ({ me }) => <Staff me={me} />,
   tickets: ({ route, go, me }) =>
     route.id ? (

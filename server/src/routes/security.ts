@@ -25,6 +25,9 @@ import { SESSION_DAYS_CAP, getAuthPolicy, describePasswordRules, payrollStepUpOn
 import { whoRulesKeepOut } from '../services/signInRules.js';
 import { stepUpIfHeld } from '../services/stepUp.js';
 import { automaticRoleRefusal } from '../services/roleGuards.js';
+import { hasSecondFactor } from '../services/twoFactorPolicy.js';
+import { SmsError, indianMobile, maskPhone, smsReady } from '../services/sms.js';
+import { SmsLimitError, issueSmsCode, useSmsCode } from '../services/smsCodes.js';
 
 /**
  * Security administration: the policy an organisation enforces, the sign-in
@@ -87,9 +90,9 @@ securityRouter.put('/orgs/:orgId/security/policy', EDIT, async (req, res) => {
    * request. Ask them to set theirs up first.
    */
   if (body.requireAdminTwoFactor) {
-    const me = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true } });
-    if (!me?.totpEnabledAt) {
-      return res.status(400).json({ error: 'Set up your own authenticator app first (My profile → Security), then require it for owners and admins.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
+    const me = await platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { totpEnabledAt: true, smsTwoFactorEnabledAt: true } });
+    if (!hasSecondFactor(me)) {
+      return res.status(400).json({ error: 'Turn on your own two-step sign-in first (My profile → Security), then require it for owners and admins.', code: 'TWO_FACTOR_SETUP_REQUIRED' });
     }
   }
 
@@ -518,13 +521,21 @@ securityRouter.post('/orgs/:orgId/security/change-password', async (req, res) =>
 // ---------------------------------------------------------------------------
 
 const me2fa = (req: any) =>
-  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, passwordHash: true, totpSecretEnc: true, totpEnabledAt: true, totpLastStep: true, totpRecoveryJson: true } });
+  platformPrisma.user.findUnique({ where: { id: req.auth!.userId }, select: { id: true, email: true, passwordHash: true, totpSecretEnc: true, totpEnabledAt: true, totpLastStep: true, totpRecoveryJson: true, smsPhone: true, smsTwoFactorEnabledAt: true } });
 
 securityRouter.get('/orgs/:orgId/security/two-factor', async (req, res) => {
   if (!orgOk(req, res)) return;
-  const [u, stepUpOn] = await Promise.all([me2fa(req), payrollStepUpOn(req.tenant!.orgId)]);
+  const [u, stepUpOn, smsOffered] = await Promise.all([me2fa(req), payrollStepUpOn(req.tenant!.orgId), smsReady()]);
   const left = u?.totpRecoveryJson ? (JSON.parse(u.totpRecoveryJson) as string[]).length : 0;
-  res.json({ enabled: !!u?.totpEnabledAt, enabledAt: u?.totpEnabledAt || null, recoveryCodesLeft: left, payrollStepUp: stepUpOn, stepUpMinutes: STEP_UP_MINUTES });
+  res.json({
+    enabled: !!u?.totpEnabledAt,
+    enabledAt: u?.totpEnabledAt || null,
+    recoveryCodesLeft: left,
+    payrollStepUp: stepUpOn,
+    stepUpMinutes: STEP_UP_MINUTES,
+    /* Codes by text message: offered only once CLOR's sender is set up (operator console). */
+    sms: { enabled: !!u?.smsTwoFactorEnabledAt, enabledAt: u?.smsTwoFactorEnabledAt || null, phone: u?.smsTwoFactorEnabledAt ? maskPhone(u.smsPhone) : null, available: smsOffered },
+  });
 });
 
 /**
@@ -611,8 +622,88 @@ securityRouter.post('/orgs/:orgId/security/two-factor/disable', ...codeLimiter, 
   if (!(await useSecondFactor(u, String(req.body?.code || '')))) {
     return res.status(400).json({ error: 'Enter a current code from your authenticator app, or one of your recovery codes.', code: 'BAD_CODE' });
   }
-  await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryJson: null } });
+  /* Recovery codes serve SMS codes too: they stay while that is still on. */
+  await platformPrisma.user.update({ where: { id: u.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, ...(u.smsTwoFactorEnabledAt ? {} : { totpRecoveryJson: null }) } });
   await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_DISABLED', ip: clientIp(req) });
+  res.json({ enabled: false });
+});
+
+// ---------------------------------------------------------------------------
+// Codes by text message (SMS), beside the authenticator app — services/sms.ts,
+// services/smsCodes.ts. Offered only when CLOR's sender is set up. Payroll
+// step-up still needs the app.
+// ---------------------------------------------------------------------------
+
+const smsRefusal = (res: any, e: unknown) => {
+  if (e instanceof SmsLimitError) return res.status(429).json({ error: e.message, code: 'SMS_HELD', retryAfter: e.retryAfterS });
+  if (e instanceof SmsError) return res.status(503).json({ error: e.message, code: 'SMS_NOT_SENT' });
+  throw e;
+};
+
+/** Step one: the password (as for the app, #12) and an Indian mobile number; a code goes to it. */
+securityRouter.post('/orgs/:orgId/security/two-factor/sms/start', ...codeLimiter, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u) return res.status(401).json({ error: 'Unauthorized' });
+  if (u.smsTwoFactorEnabledAt) return res.status(409).json({ error: 'Codes by text message are already on. Turn them off first to use another number.', code: 'ALREADY_ENABLED' });
+  if (!(await smsReady())) return res.status(503).json({ error: 'Codes by text message are not available yet. Use an authenticator app.', code: 'SMS_NOT_AVAILABLE' });
+  if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) {
+    await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_SETUP_REFUSED', ip: clientIp(req), detail: 'Wrong password (SMS)' });
+    return res.status(400).json({ error: 'Your password is not correct. If you sign in with single sign-on, set a password first with “Forgot password”.', code: 'BAD_PASSWORD' });
+  }
+  const phone = indianMobile(req.body?.phone);
+  if (!phone) return res.status(400).json({ error: 'Enter a 10-digit Indian mobile number, like 98765 43210.', code: 'BAD_PHONE' });
+  try {
+    const sent = await issueSmsCode(u.id, phone, 'SETUP');
+    res.json({ sent: true, phone: maskPhone(phone), ...sent });
+  } catch (e) {
+    return smsRefusal(res, e);
+  }
+});
+
+/** Step two: the code from that text switches SMS codes on for the number it went to. */
+securityRouter.post('/orgs/:orgId/security/two-factor/sms/enable', ...codeLimiter, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u) return res.status(401).json({ error: 'Unauthorized' });
+  if (u.smsTwoFactorEnabledAt) return res.status(409).json({ error: 'Already on.', code: 'ALREADY_ENABLED' });
+  const phone = await useSmsCode(u.id, 'SETUP', String(req.body?.code || ''));
+  if (!phone) return res.status(400).json({ error: 'That code is not right, or has run out. Ask for a new one.', code: 'BAD_CODE' });
+  /* Recovery codes are shared with the app: new ones only when there are none. */
+  const hasRecovery = u.totpRecoveryJson && (JSON.parse(u.totpRecoveryJson) as string[]).length > 0;
+  const fresh = hasRecovery ? null : recoveryCodes();
+  await platformPrisma.user.update({ where: { id: u.id }, data: { smsPhone: phone, smsTwoFactorEnabledAt: new Date(), ...(fresh ? { totpRecoveryJson: JSON.stringify(fresh.hashes) } : {}) } });
+  await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_ENABLED', ip: clientIp(req), detail: 'Codes by text message' });
+  res.json({ enabled: true, phone: maskPhone(phone), recoveryCodes: fresh ? fresh.codes : null });
+});
+
+/** A code to the number on file, to prove it is still yours before turning SMS codes off. */
+securityRouter.post('/orgs/:orgId/security/two-factor/sms/send', ...codeLimiter, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u?.smsTwoFactorEnabledAt || !u.smsPhone) return res.status(400).json({ error: 'Codes by text message are not on.', code: 'SMS_NOT_ON' });
+  try {
+    const sent = await issueSmsCode(u.id, u.smsPhone, 'DISABLE');
+    res.json({ sent: true, phone: maskPhone(u.smsPhone), ...sent });
+  } catch (e) {
+    return smsRefusal(res, e);
+  }
+});
+
+/**
+ * Turning SMS codes off takes the password and a second step (A-10): a code
+ * just texted, a code from the app, or a recovery code if the phone is lost.
+ */
+securityRouter.post('/orgs/:orgId/security/two-factor/sms/disable', ...codeLimiter, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const u = await me2fa(req);
+  if (!u?.smsTwoFactorEnabledAt) return res.status(400).json({ error: 'Codes by text message are not on.' });
+  if (!(await bcrypt.compare(String(req.body?.password || ''), u.passwordHash))) return res.status(400).json({ error: 'Your password is not correct.', code: 'BAD_PASSWORD' });
+  const code = String(req.body?.code || '');
+  const proved = (await useSmsCode(u.id, 'DISABLE', code)) || (await useSecondFactor(u, code)) || (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code.trim()) && (await spendRecoveryCode(u.id, u.totpRecoveryJson, code.trim())));
+  if (!proved) return res.status(400).json({ error: 'Enter the code we just texted, a code from your authenticator app, or one of your recovery codes.', code: 'BAD_CODE' });
+  await platformPrisma.user.update({ where: { id: u.id }, data: { smsPhone: null, smsTwoFactorEnabledAt: null, ...(u.totpEnabledAt ? {} : { totpRecoveryJson: null }) } });
+  await recordAuthEvent({ accountId: req.tenant!.accountId, userId: u.id, eventType: 'TWO_FACTOR_DISABLED', ip: clientIp(req), detail: 'Codes by text message' });
   res.json({ enabled: false });
 });
 

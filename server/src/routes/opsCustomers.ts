@@ -176,7 +176,7 @@ opsCustomersRouter.get('/ops/accounts/:id/users', (req, res) =>
     const members = await platformPrisma.accountMembership.findMany({ where: { accountId: id }, select: { userId: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: 'asc' } });
     const ids = members.map((m) => m.userId);
     const [users, sessions, invites] = await Promise.all([
-      platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, emailVerifiedAt: true, failedLoginCount: true, lockedUntil: true } }),
+      platformPrisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, smsTwoFactorEnabledAt: true, emailVerifiedAt: true, failedLoginCount: true, lockedUntil: true } }),
       platformPrisma.session.groupBy({ by: ['userId'], where: { userId: { in: ids }, revokedAt: null, expiresAt: { gt: new Date() } }, _count: true }),
       platformPrisma.accountInvitation.findMany({ where: { accountId: id, status: { in: ['PENDING', 'EXPIRED'] } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, accountRole: true, status: true, expiresAt: true, lastSentAt: true, sendCount: true } }),
     ]);
@@ -192,7 +192,7 @@ opsCustomersRouter.get('/ops/accounts/:id/users', (req, res) =>
           role: m.role,
           status: m.status === 'SUSPENDED' || !u?.isActive ? 'off' : 'active',
           lastLoginAt: u?.lastLoginAt || null,
-          authenticator: Boolean(u?.totpEnabledAt),
+          authenticator: Boolean(u?.totpEnabledAt || u?.smsTwoFactorEnabledAt),
           emailConfirmed: Boolean(u?.emailVerifiedAt),
           signedInOn: sessionsBy.get(m.userId) || 0,
           lockedUntil: u?.lockedUntil && u.lockedUntil.getTime() > Date.now() ? u.lockedUntil : null,
@@ -277,9 +277,10 @@ opsCustomersRouter.post('/ops/accounts/:id/users/:userId/reset-authenticator', r
     if (user.id === req.auth?.userId) return res.status(409).json({ error: 'You cannot take your own authenticator off from here.' });
     const staff = await platformPrisma.platformOperator.findUnique({ where: { userId: user.id }, select: { active: true } });
     if (staff?.active) return res.status(409).json({ error: 'This person is CLOR staff. Their authenticator is changed under Staff, not here.' });
-    const u = await platformPrisma.user.findUnique({ where: { id: user.id }, select: { totpEnabledAt: true } });
-    if (!u?.totpEnabledAt) return res.status(409).json({ error: 'This person has no authenticator set up.' });
-    await platformPrisma.user.update({ where: { id: user.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryJson: null } });
+    const u = await platformPrisma.user.findUnique({ where: { id: user.id }, select: { totpEnabledAt: true, smsTwoFactorEnabledAt: true } });
+    if (!u?.totpEnabledAt && !u?.smsTwoFactorEnabledAt) return res.status(409).json({ error: 'This person has no two-step sign-in set up.' });
+    /* Both second steps come off: a lost phone takes the app and the number with it. */
+    await platformPrisma.user.update({ where: { id: user.id }, data: { totpSecretEnc: null, totpEnabledAt: null, totpLastStep: null, totpRecoveryJson: null, smsPhone: null, smsTwoFactorEnabledAt: null } });
     const r = await revokeAllSessions(user.id, 'OPERATOR_AUTHENTICATOR_RESET');
     const sent = await sendTemplate({
       templateKey: 'auth.authenticator_removed',

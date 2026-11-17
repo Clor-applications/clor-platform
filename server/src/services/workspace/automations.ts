@@ -84,7 +84,7 @@ export const adminNoAuthenticator = defineRecipe({
     if (!admins.length) return { count: 0, recipients: [] };
     /* Counted from when they joined this company: a new administrator gets the chosen days to set one up. */
     const longHere = await platformPrisma.userOrgMembership.findMany({ where: { accountId, orgId, userId: { in: admins }, createdAt: { lte: new Date(now.getTime() - days * DAY) } }, select: { userId: true } });
-    const without = longHere.length ? await platformPrisma.user.findMany({ where: { id: { in: longHere.map((m) => m.userId) }, isActive: true, totpEnabledAt: null }, select: { id: true, fullName: true }, orderBy: { id: 'asc' } }) : [];
+    const without = longHere.length ? await platformPrisma.user.findMany({ where: { id: { in: longHere.map((m) => m.userId) }, isActive: true, totpEnabledAt: null, smsTwoFactorEnabledAt: null }, select: { id: true, fullName: true }, orderBy: { id: 'asc' } }) : [];
     if (!without.length) return { count: 0, recipients: [] };
     const ids = await recipientUsers({ accountId, orgId }, to, { fallback: TO_OWNER.default });
     const told = new Set<string>();

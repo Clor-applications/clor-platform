@@ -15,6 +15,7 @@ import { NO_GST_NOTE, PRICEABLE_APPS, PRICE_PERIODS, PRICE_UNITS, PricingError, 
 import { samplePlans } from '../services/pricing/seed.js';
 import { GST_RATES, GST_SETTING_KEY, checkTaxInput, taxSetting, type TaxSetting } from '../services/pricing/settings.js';
 import { audit } from './ops.js';
+import { SmsError, checkSmsInput, indianMobile, maskPhone, saveSmsSetting, sendSmsCode, smsSetting, smsView } from '../services/sms.js';
 import { siteOrigins } from './demoRequests.js';
 
 /**
@@ -322,5 +323,55 @@ opsPricingRouter.put('/ops/settings/tax', requireOperatorRole('BILLING'), requir
     const after = await taxSetting();
     await audit(req, 'TAX_SETTINGS_CHANGED', {}, { from: taxView(before), to: taxView(after) });
     res.json({ tax: taxView(after) });
+  }),
+);
+
+/* ------------------------------------------------- Settings, Text messages */
+
+/** CLOR's SMS sender for two-step sign-in codes (services/sms.ts). The key never leaves the server. */
+opsPricingRouter.get('/ops/settings/sms', (_req, res) =>
+  outsideTenant('ops: sms settings', async () => {
+    res.json({ sms: smsView(await smsSetting()) });
+  }),
+);
+
+const smsBody = z.object({
+  enabled: z.boolean(),
+  templateId: z.string().max(60).optional().nullable(),
+  senderId: z.string().max(12).optional().nullable(),
+  authKey: z.string().max(100).optional().nullable(),
+});
+
+opsPricingRouter.put('/ops/settings/sms', requireOperatorRole('SUPER_ADMIN'), requireOperatorStepUp, (req: Request, res) =>
+  outsideTenant('ops: sms settings', async () => {
+    const parsed = smsBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Check the text-message settings.', code: 'INVALID' });
+    const before = await smsSetting();
+    const { value, problems } = checkSmsInput(parsed.data, before);
+    if (problems.length) return res.status(400).json({ error: problems[0], code: 'INVALID_SMS', problems });
+    await saveSmsSetting(value, req.auth!.userId);
+    const after = smsView(value);
+    await audit(req, 'SMS_SETTINGS_CHANGED', {}, { from: smsView(before), to: after, keyChanged: Boolean(parsed.data.authKey) });
+    res.json({ sms: after });
+  }),
+);
+
+/** Send one test code to a number, to check the key and template work. */
+opsPricingRouter.post('/ops/settings/sms/test', requireOperatorRole('SUPER_ADMIN'), requireOperatorStepUp, (req: Request, res) =>
+  outsideTenant('ops: sms test', async () => {
+    const phone = indianMobile(req.body?.phone);
+    if (!phone) return res.status(400).json({ error: 'Enter a 10-digit Indian mobile number.', code: 'BAD_PHONE' });
+    const s = await smsSetting();
+    let ok = true;
+    let message = `Sent a test code to ${maskPhone(phone)}.`;
+    try {
+      await sendSmsCode(phone, String(Math.floor(100000 + Math.random() * 900000)), s);
+    } catch (e) {
+      ok = false;
+      message = e instanceof SmsError ? e.message : 'The test could not be sent.';
+    }
+    await saveSmsSetting({ ...s, lastTestAt: new Date().toISOString(), lastTestOk: ok, lastTestMessage: message }, req.auth!.userId);
+    await audit(req, 'SMS_TEST_SENT', {}, { ok, to: maskPhone(phone) });
+    res.status(ok ? 200 : 502).json({ ok, message });
   }),
 );

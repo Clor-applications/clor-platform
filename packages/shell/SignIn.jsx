@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import AuthLayout from './AuthLayout';
+import SecondStep from './SecondStep';
 import { useSession } from './session';
 import { API_BASE, apiFetch } from '@platform/http';
 import { resendVerificationForSignIn } from '@platform/auth';
@@ -21,10 +22,9 @@ import PasswordInput from '@ui/components/ui/PasswordInput';
  */
 /* `door` names a door with its own picture and line under the title: 'ops' is the operator console. */
 export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtitle = 'One door into every app this company has.' }) {
-  const { signIn, signInWithCode } = useSession();
-  /* After the password, for someone with an authenticator: the challenge to answer with a code. */
-  const [challenge, setChallenge] = useState('');
-  const [code, setCode] = useState('');
+  const { signIn } = useSession();
+  /* After the password, for someone with two-step sign-in on: the challenge to answer with a code, and the ways they have (app, text message). */
+  const [challenge, setChallenge] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -74,8 +74,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
     try {
       const r = await signIn({ email: email.trim(), password });
       if (r?.twoFactorRequired) {
-        setChallenge(r.challenge);
-        setCode('');
+        setChallenge(r);
       }
     } catch (err) {
       /* The server is deliberately vague about which half was wrong, and so
@@ -102,56 +101,24 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
     }
   };
 
-  const submitCode = async (e) => {
-    e.preventDefault();
-    if (!code.trim()) return setError('Enter the code from your authenticator app.');
-    setBusy(true);
-    setError('');
-    try {
-      await signInWithCode({ challenge, code: code.trim() });
-    } catch (err) {
-      if (err?.code === 'CHALLENGE_EXPIRED' || err?.status === 401) {
-        setChallenge('');
-        setPassword('');
-      }
-      setError(String(err?.message || 'That code did not work.'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   if (challenge) {
     return (
-      <AuthLayout scene={door || 'twoStep'} title="Enter your code" subtitle="Open your authenticator app and type the 6-digit code for CLOR." onHome={onHome} brand={brand}>
-        <form onSubmit={submitCode} className="space-y-5">
-          <div>
-            <label className="ui-label" htmlFor="signin-code">Code</label>
-            <input
-              id="signin-code"
-              className="ui-input ui-mono h-11 w-full text-lg tracking-widest"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              maxLength={9}
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
-                setError('');
-              }}
-            />
-            <p className="ui-caption mt-1.5">Lost your phone? Type one of your recovery codes instead (like ABCD-EFGH).</p>
-          </div>
-          {error ? (
-            <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
-          ) : null}
-          <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy}>
-            {busy ? 'Checking…' : 'Sign in'} <ArrowRight size={16} aria-hidden="true" />
-          </button>
-          <button type="button" className="ui-link text-sm" onClick={() => { setChallenge(''); setPassword(''); setError(''); }}>
-            Use a different account
-          </button>
-        </form>
-      </AuthLayout>
+      <SecondStep
+        challenge={challenge.challenge}
+        methods={challenge.methods}
+        phone={challenge.phone}
+        frame={(p) => <AuthLayout scene={door || 'twoStep'} onHome={onHome} brand={brand} {...p} />}
+        onExpired={(message) => {
+          setChallenge(null);
+          setPassword('');
+          setError(message || 'That sign-in took too long. Enter your password again.');
+        }}
+        onCancel={() => {
+          setChallenge(null);
+          setPassword('');
+          setError('');
+        }}
+      />
     );
   }
 
