@@ -101,7 +101,7 @@ describe('emailing an invoice when it is issued', () => {
     expect(out[0].bodyText).toContain('Pay by UPI to clor@okaxis (CLOR Applications).');
     expect(out[0].bodyText).toContain('bank transfer: CLOR Applications Pvt Ltd, account 50200012345678, IFSC HDFC0001234, HDFC Bank.');
     expect(out[0].bodyText).toContain(`Give ${r.number} as the reference`);
-    expect(out[0].bodyText).toContain(`/?invoice=${d.id}`);
+    expect(out[0].bodyText).toContain(`/?app=admin&open=invoices&invoice=${d.id}`);
     expect(out[0].bodyText).not.toContain('Pay online');
     expect(out[0].bodyText).not.toMatch(/\{\{|undefined|null/);
 

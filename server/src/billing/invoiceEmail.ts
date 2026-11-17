@@ -5,7 +5,7 @@ import { outsideTenant } from '../utils/tenantScope.js';
 import { sendTemplate } from '../services/mailer.js';
 import { rupees } from '../services/pricing/engine.js';
 import { SYSTEM_OPERATOR } from '../routes/ops.js';
-import { getInvoice, isOverdue, type Buyer } from './invoices.js';
+import { getInvoice, type Buyer } from './invoices.js';
 import { onlinePayment, payLinkFor } from './payLinks.js';
 import { PaymentsError } from './providers.js';
 
@@ -171,8 +171,9 @@ export async function sendInvoiceEmail(invoiceId: string, opts: SendOpts): Promi
     /* Read again, last thing: it may have been paid or cancelled since, or found paid while the link was made. */
     const now = await getInvoice(invoiceId);
     if (now.status !== 'ISSUED') refuseStatus(now.status);
-    const overdue = isOverdue(now);
     const dueIso = now.dueDate ? istDay(now.dueDate) : null;
+    /* Overdue from the day after the due date, in India: on the due date itself the mail says it is due, not that it is a day late. */
+    const overdue = Boolean(dueIso && istDay(new Date()) > dueIso);
     const late = dueIso ? Math.max(1, Math.round((Date.parse(istDay(new Date())) - Date.parse(dueIso)) / DAY)) : 1;
     template = kind === 'REMINDER' ? (overdue ? 'billing.invoice_overdue' : 'billing.invoice_reminder') : 'billing.invoice_issued';
     return sendTemplate({
@@ -190,7 +191,8 @@ export async function sendInvoiceEmail(invoiceId: string, opts: SendOpts): Promi
         dueOn: dueIso ? words(dueIso) : '',
         daysLate: overdue ? `${late} day${late === 1 ? '' : 's'}` : '',
         payUrl: payUrl || '',
-        invoiceUrl: `${appUrl()}/?invoice=${now.id}`,
+        /* The Workspace's Invoices screen, then this invoice: the shell opens a screen only when the address names the app and the screen. */
+        invoiceUrl: `${appUrl()}/?app=admin&open=invoices&invoice=${now.id}`,
         payDetails: payDetailsText(now, payUrl),
       },
     });

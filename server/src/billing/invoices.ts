@@ -8,6 +8,7 @@ import { gstOn } from '../services/pricing/engine.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { APP_CATALOG } from '../constants/appCatalog.js';
 import { recordInvoicePayment } from './events.js';
+import { cancelUnsentInvoiceMail } from './invoiceMailCancel.js';
 import { manualProblems, type ManualDetails } from './gateway.js';
 import { PaymentsError } from './providers.js';
 import { INVOICING_KEY, financialYear, formatNumber, invoicing, readInvoicing } from './invoicing.js';
@@ -268,7 +269,10 @@ export async function voidInvoice(id: string, reason: string, userId: string) {
   await outsideTenant('billing: cancel an invoice', () =>
     platformPrisma.billingInvoice.updateMany({ where: { id, status: 'ISSUED' }, data: { status: 'VOID', voidedAt: new Date(), voidReason: reason.slice(0, 300), voidedByUserId: userId } }),
   );
-  return getInvoice(id);
+  const after = await getInvoice(id);
+  /* Cancelled: an email asking for its money that had not gone yet does not go. */
+  if (after.status === 'VOID') await cancelUnsentInvoiceMail(id, 'VOID');
+  return after;
 }
 
 export async function getInvoice(id: string) {

@@ -15,6 +15,7 @@ import { autoSend, booksChoices, sendToBooks, testBooks } from '../billing/books
 import { onlinePayment } from '../billing/payLinks.js';
 import { invoiceSends, lastSends, recipientFor, sendInvoiceEmail, type SendKind, type SendResult } from '../billing/invoiceEmail.js';
 import { dueRenewals, runRenewals } from '../billing/renewals.js';
+import { reminderForecast } from '../billing/invoiceReminders.js';
 import { accountNames } from './opsDeals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { audit } from './ops.js';
@@ -211,6 +212,26 @@ const byHand = (kind: 'RESEND' | 'REMINDER') => (req: Request, res: Response) =>
 opsInvoicesRouter.post('/ops/invoices/:id/send', ...BILLING, byHand('RESEND'));
 opsInvoicesRouter.post('/ops/invoices/:id/remind', ...BILLING, byHand('REMINDER'));
 
+/**
+ * Stop, or start again, the automatic reminders for one invoice (billing/invoiceReminders.ts).
+ * A reminder sent by hand is not stopped by it.
+ */
+const remindersBody = z.object({ off: z.boolean() }).strict();
+opsInvoicesRouter.post('/ops/invoices/:id/reminders', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: an invoice’s automatic reminders', async () => {
+    const parsed = remindersBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Say whether reminders are off for this invoice: yes or no.' });
+    try {
+      const inv = await getInvoice(String(req.params.id));
+      await platformPrisma.billingInvoice.update({ where: { id: inv.id }, data: { remindersOff: parsed.data.off } });
+      await audit(req, parsed.data.off ? 'INVOICE_REMINDERS_STOPPED' : 'INVOICE_REMINDERS_RESUMED', { accountId: inv.accountId }, { invoiceId: inv.id, number: inv.number, off: parsed.data.off });
+      res.json(await full(inv.id));
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
 /** Every email about this invoice, newest first. */
 opsInvoicesRouter.get('/ops/invoices/:id/sends', (req, res) =>
   outsideTenant('ops: an invoice’s emails', async () => {
@@ -300,20 +321,32 @@ opsInvoicesRouter.get('/ops/invoicing', (_req, res) =>
       gst: { registered: gst.registered, gstin: gst.gstin, legalName: gst.legalName, sac: gst.sac, ratePercent: gst.ratePercent },
       manualPayments: Boolean(manual?.enabled),
       renewals: s.renewals,
+      /* Automatic reminders, and how many invoices they would mail today: as saved, and if they were on. */
+      reminders: s.reminders,
+      ...(await reminderForecast(s.reminders)),
       online: await onlinePayment(),
       books: { ...s.books, accountName: booksAccount?.name || null, accountCode: booksAccount?.code || null, companyName: booksOrg?.name || null, branchName: booksBranch?.branchName || null },
     });
   }),
 );
 
-const settingsBody = z.object({ prefix: z.string().max(10).optional(), dueDays: z.number().int().optional(), footer: z.string().max(600).nullish(), address: z.string().max(400).nullish(), nextNumber: z.number().int().nullish(), renewalsOn: z.boolean().optional(), renewalDaysBefore: z.number().int().optional() });
+const settingsBody = z.object({ prefix: z.string().max(10).optional(), dueDays: z.number().int().optional(), footer: z.string().max(600).nullish(), address: z.string().max(400).nullish(), nextNumber: z.number().int().nullish(), renewalsOn: z.boolean().optional(),
+  renewalDaysBefore: z.number().int().optional(),
+  /* The lists and the cap are checked in saveInvoicing, which says what is wrong in a sentence. */
+  remindersOn: z.boolean().optional(),
+  reminderDaysBefore: z.array(z.number()).max(50).optional(),
+  reminderOnDueDate: z.boolean().optional(),
+  reminderDaysAfter: z.array(z.number()).max(50).optional(),
+  reminderCap: z.number().optional(),
+});
 opsInvoicesRouter.put('/ops/invoicing', ...BILLING, (req: Request, res) =>
   outsideTenant('ops: save invoice settings', async () => {
     const parsed = settingsBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Check the invoice settings.' });
     try {
-      await saveInvoicing(parsed.data, req.auth!.userId);
-      await audit(req, 'INVOICE_SETTINGS_CHANGED', {}, { changed: Object.keys(parsed.data) });
+      const saved = await saveInvoicing(parsed.data, req.auth!.userId);
+      /* Switching the automatic reminders on or off is on the log in so many words: it decides whether customers are written to. */
+      await audit(req, 'INVOICE_SETTINGS_CHANGED', {}, { changed: Object.keys(parsed.data), ...(parsed.data.remindersOn !== undefined ? { remindersOn: saved.reminders.on, remindersSince: saved.reminders.since } : {}) });
       res.json({ ok: true });
     } catch (e) {
       return refused(res, e);
