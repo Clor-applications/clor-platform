@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-c3389b8 - 2026-11-17
+
+API revision `clor-api-00140-77z`. Previous release `rel-61e7a5a` (roll back there).
+
+- #311 Invoice numbers without gaps, GSTR-3B without drafts, People routes in the employee app need People
+
 ## rel-61e7a5a - 2026-11-17
 
 API revision `clor-api-00139-4vc`. Previous release `rel-f374dd4` (roll back there).
@@ -17,6 +23,16 @@ API revision `clor-api-00139-4vc`. Previous release `rel-f374dd4` (roll back the
 - #302 Books: a document whose figures disagree with its lines is refused
 - #298 Security: audit findings of 17 Nov closed, with a test for each
 - #299 Trial sign-up: the owner chooses a password on the setup page
+
+## rel-f374dd4 - 2026-11-17
+
+API revision `clor-api-00138-fmj`. Previous release `rel-51fe69e` (roll back there).
+
+- #301 Easy access, batch 2: Ops work list, account invoices, ticket context, trials paging; Workspace role link
+- #300 Payroll: gratuity part-year, encashment rule, net pay below zero, files from approved payslips
+- #297 Easy access, batch 1: Workspace search and invite roles, Ops counts and honest trial convert
+- #295 Ops console on the platform frame, base-ui bar menus, Workspace Home rework
+- #296 Release record: rel-51fe69e
 
 ## rel-51fe69e - 2026-11-17
 

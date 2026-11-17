@@ -17,7 +17,19 @@ import { useEffect } from 'react';
  */
 const inBooks = () => document.documentElement.dataset.palette === 'indigo';
 
+/* Owner's round 12/13 pick: a date box opens its calendar on a click anywhere in it, not only on the small icon. */
+const PICKER_TYPES = new Set(['date', 'month', 'week', 'datetime-local']);
+export function openPickerOnClick(e) {
+  const el = e.target;
+  if (!(el instanceof HTMLInputElement) || !PICKER_TYPES.has(el.type) || el.disabled || el.readOnly || inBooks()) return;
+  try { el.showPicker?.(); } catch { /* a browser that refuses (not a user gesture, cross-origin frame) keeps the plain box */ }
+}
+
 export default function TipLayer() {
+  useEffect(() => {
+    document.addEventListener('click', openPickerOnClick);
+    return () => document.removeEventListener('click', openPickerOnClick);
+  }, []);
   useEffect(() => {
     const tip = document.createElement('div');
     tip.className = 'ui-tip';

@@ -438,10 +438,12 @@ export const Gstr1Report = ({ db, currentCompany, search = '', onSearchChange, o
 };
 
 const Gstr3bReport = ({ db, currentCompany }) => {
-  const invoices = db.invoices.filter((i) => i.companyId === currentCompany.id);
-  const creditNotes = db.creditNotes.filter((c) => c.companyId === currentCompany.id);
-  const bills = db.bills.filter((b) => b.companyId === currentCompany.id);
-  const expenses = db.expenses.filter((e) => e.companyId === currentCompany.id);
+  /* Drafts, documents awaiting approval and cancelled ones are not supplies: the 3B file leaves them out, so the screen does too (audit, 17 Nov 2026). */
+  const inReturn = (row) => row?.companyId === currentCompany.id && !/draft|pending|cancel|reject/i.test(String(row?.status || ''));
+  const invoices = (db.invoices || []).filter(inReturn);
+  const creditNotes = (db.creditNotes || []).filter(inReturn);
+  const bills = (db.bills || []).filter(inReturn);
+  const expenses = (db.expenses || []).filter(inReturn);
 
   const sumDocs = (docs, sign) => {
     return docs.reduce(
