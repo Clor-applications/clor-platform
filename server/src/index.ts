@@ -27,6 +27,7 @@ import { startEmailRetries } from './services/emailRetry.js';
 import { startRenewals } from './billing/renewals.js';
 import { startTrialReminders } from './billing/trialReminders.js';
 import { startInvoiceReminders } from './billing/invoiceReminders.js';
+import { startSeatLapses } from './billing/selfServe.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
@@ -131,6 +132,8 @@ startOpsAlerts();
 startEmailRetries();
 /* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
 startRenewals();
+/* Seats a customer added and did not pay for within the days to pay come off again (billing/selfServe.ts). */
+startSeatLapses();
 startTrialReminders();
 /* Reminders to pay an issued invoice, on the schedule in Invoice settings. Off until staff switch it on. */
 startInvoiceReminders();

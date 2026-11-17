@@ -16,6 +16,7 @@ import { onlinePayment } from '../billing/payLinks.js';
 import { invoiceSends, lastSends, recipientFor, sendInvoiceEmail, type SendKind, type SendResult } from '../billing/invoiceEmail.js';
 import { dueRenewals, runRenewals } from '../billing/renewals.js';
 import { reminderForecast } from '../billing/invoiceReminders.js';
+import { changesFor, saveSelfServe, selfServeSettings, takeBack } from '../billing/selfServe.js';
 import { accountNames } from './opsDeals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { audit } from './ops.js';
@@ -323,6 +324,8 @@ opsInvoicesRouter.get('/ops/invoicing', (_req, res) =>
       renewals: s.renewals,
       /* Automatic reminders, and how many invoices they would mail today: as saved, and if they were on. */
       reminders: s.reminders,
+      /* Seats customers add themselves (billing/selfServe.ts): off until switched on here. */
+      selfServe: await selfServeSettings(),
       ...(await reminderForecast(s.reminders)),
       online: await onlinePayment(),
       books: { ...s.books, accountName: booksAccount?.name || null, accountCode: booksAccount?.code || null, companyName: booksOrg?.name || null, branchName: booksBranch?.branchName || null },
@@ -347,6 +350,51 @@ opsInvoicesRouter.put('/ops/invoicing', ...BILLING, (req: Request, res) =>
       const saved = await saveInvoicing(parsed.data, req.auth!.userId);
       /* Switching the automatic reminders on or off is on the log in so many words: it decides whether customers are written to. */
       await audit(req, 'INVOICE_SETTINGS_CHANGED', {}, { changed: Object.keys(parsed.data), ...(parsed.data.remindersOn !== undefined ? { remindersOn: saved.reminders.on, remindersSince: saved.reminders.since } : {}) });
+      res.json({ ok: true });
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+/* ------------------------------------------- Seats customers add themselves */
+
+const selfServeBody = z.object({ on: z.boolean().optional(), maxPerChange: z.number().int().optional(), payDays: z.number().int().optional() });
+opsInvoicesRouter.put('/ops/self-serve', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: save self-serve seats', async () => {
+    const parsed = selfServeBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Check the settings.' });
+    try {
+      const was = await selfServeSettings();
+      const saved = await saveSelfServe(parsed.data, req.auth!.userId);
+      /* Switching it on lets customers raise invoices to themselves: on the log in so many words. */
+      await audit(req, 'SELF_SERVE_SEATS_CHANGED', {}, { on: saved.on, maxPerChange: saved.maxPerChange, payDays: saved.payDays, ...(was.on !== saved.on ? { switched: saved.on ? 'on' : 'off' } : {}) });
+      res.json({ selfServe: saved });
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+/** The seats this customer added themselves, newest first. */
+opsInvoicesRouter.get('/ops/accounts/:id/seat-changes', (req, res) =>
+  outsideTenant('ops: seat changes', async () => {
+    res.json({ changes: await changesFor(String(req.params.id), 50) });
+  }),
+);
+
+/** Take back seats a customer added and has not paid for: the invoice is cancelled and the count goes back down. */
+opsInvoicesRouter.post('/ops/seat-changes/:id/cancel', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: take seats back', async () => {
+    const reason = String(req.body?.reason ?? '').trim();
+    if (reason.length < 3) return res.status(400).json({ error: 'Say why, for the customer’s record.' });
+    const c = await platformPrisma.subscriptionChange.findUnique({ where: { id: String(req.params.id) } });
+    if (!c) return res.status(404).json({ error: 'No such change.' });
+    if (c.status !== 'OPEN') return res.status(409).json({ error: 'Only seats waiting to be paid can be taken back.' });
+    try {
+      const done = await takeBack(c.id, 'CANCELLED', `Taken back by CLOR: ${reason}`.slice(0, 500), req.auth!.userId);
+      if (!done) return res.status(409).json({ error: 'The invoice was paid a moment ago, so the seats stay.' });
+      await audit(req, 'SEATS_TAKEN_BACK', { accountId: c.accountId }, { seats: c.added, reason });
       res.json({ ok: true });
     } catch (e) {
       return refused(res, e);

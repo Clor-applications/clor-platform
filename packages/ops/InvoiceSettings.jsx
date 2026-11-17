@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel } from '../../apps/admin/src/screens/wsKit';
-import { opsBooksChoices, opsInvoicing, opsRenewals, opsRunRenewals, opsSaveBooksLink, opsSaveInvoicing, opsTestBooks } from './api';
+import { opsBooksChoices, opsInvoicing, opsRenewals, opsRunRenewals, opsSaveBooksLink, opsSaveInvoicing, opsSaveSelfServe, opsTestBooks } from './api';
 import { Err, Loading, day, may } from './kit';
 
 /**
@@ -50,6 +50,7 @@ export function InvoiceSettings({ role, openTax, openPayments, openTemplates }) 
         <Numbering s={s} mayChange={mayChange} onSaved={load} />
         <Renewals s={s} mayChange={mayChange} onSaved={load} />
         <Reminders s={s} mayChange={mayChange} onSaved={load} openTemplates={openTemplates} />
+        <SelfServeSeats s={s} mayChange={mayChange} onSaved={load} />
         <Panel title="Seller and how customers pay">
           <dl className="grid gap-3" style={{ gridTemplateColumns: 'minmax(9rem, auto) 1fr' }}>
             <dt className="ws-item-sub">GST</dt>
@@ -329,6 +330,73 @@ function Reminders({ s: settings, mayChange, onSaved, openTemplates }) {
               {busy ? 'Saving…' : 'Save reminders'}
             </button>
             <span className="ws-card-blurb">Asks for a code from your authenticator app. It runs on its own through the day.</span>
+          </div>
+        ) : null}
+      </form>
+    </Panel>
+  );
+}
+
+/**
+ * Seats customers add themselves (server: billing/selfServe.ts): off until
+ * switched on. On, a customer on an active paid plan priced by the user or
+ * the employee adds seats from Workspace; they work at once and a prorated
+ * invoice is issued, due in the days to pay. Unpaid by then, that invoice is
+ * cancelled and those seats come off by themselves.
+ */
+const NO_SELF_SERVE = { on: false, maxPerChange: 20, payDays: 14 };
+function SelfServeSeats({ s: settings, mayChange, onSaved }) {
+  const saved = { ...NO_SELF_SERVE, ...(settings.selfServe || {}) };
+  const [on, setOn] = useState(saved.on);
+  const [max, setMax] = useState(String(saved.maxPerChange));
+  const [daysToPay, setDaysToPay] = useState(String(saved.payDays));
+  const [busy, setBusy] = useState(false);
+  const [problems, setProblems] = useState([]);
+  const changed = on !== saved.on || Number(max) !== saved.maxPerChange || Number(daysToPay) !== saved.payDays;
+  const save = async (e) => {
+    e.preventDefault();
+    const wrong = [];
+    if (!/^\d{1,3}$/.test(max) || Number(max) < 1 || Number(max) > 500) wrong.push('At most at a time: a number from 1 to 500.');
+    if (!/^\d{1,2}$/.test(daysToPay) || Number(daysToPay) < 3 || Number(daysToPay) > 30) wrong.push('Days to pay: a number from 3 to 30.');
+    setProblems(wrong);
+    if (wrong.length) return;
+    setBusy(true);
+    try {
+      await opsSaveSelfServe({ on, maxPerChange: Number(max), payDays: Number(daysToPay) });
+      notify.success(on ? 'Customers can add seats themselves.' : 'Customers ask CLOR to add seats.');
+      onSaved();
+    } catch (err) {
+      setProblems(err?.data?.problems?.length ? err.data.problems : [String(err?.message || err)]);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const off = !mayChange || !on;
+  return (
+    <Panel title="Seats customers add themselves">
+      <form className="grid gap-5" onSubmit={save}>
+        <p className="ws-card-blurb">
+          A customer on an active paid plan, priced by the user or the employee, with nothing overdue, adds seats from Workspace. They work at once, and an invoice for the rest of the paid period is issued and emailed. If it is not paid within the days to pay, it is cancelled and those seats come off. Removing seats, apps and refunds stay with CLOR.
+        </p>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={on} disabled={!mayChange} onChange={(e) => setOn(e.target.checked)} />
+          Let customers add seats themselves
+        </label>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
+          <Field id="seats-max" label="At most at a time" hint="From 1 to 500. More than this is a request to CLOR.">
+            <input id="seats-max" className="ui-input ui-num" inputMode="numeric" disabled={off} value={max} onChange={(e) => setMax(e.target.value.replace(/\D/g, '').slice(0, 3))} style={{ maxWidth: '8rem' }} />
+          </Field>
+          <Field id="seats-days" label="Days to pay" hint="From 3 to 30. Then the seats come off.">
+            <input id="seats-days" className="ui-input ui-num" inputMode="numeric" disabled={off} value={daysToPay} onChange={(e) => setDaysToPay(e.target.value.replace(/\D/g, '').slice(0, 2))} style={{ maxWidth: '8rem' }} />
+          </Field>
+        </div>
+        <Problems list={problems} />
+        {mayChange ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !changed}>
+              {busy ? 'Saving…' : 'Save seat settings'}
+            </button>
+            <span className="ws-card-blurb">Asks for a code from your authenticator app.</span>
           </div>
         ) : null}
       </form>

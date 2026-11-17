@@ -35,6 +35,8 @@ import {
   opsSignOutEverywhere,
   opsSuspend,
   opsTags,
+  opsSeatChanges,
+  opsTakeBackSeats,
 } from './api';
 
 /**
@@ -701,6 +703,7 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
       ) : (
         <p className="ws-card-blurb">Your role can look at this subscription but not change it.</p>
       )}
+      <SeatChanges accountId={a.id} name={name} role={role} openInvoice={openInvoice} reload={reload} />
       <DealDrawer
         open={dealOpen}
         account={{ id: a.id, name }}
@@ -1318,3 +1321,92 @@ function Timeline({ id, openLink }) {
   );
 }
 
+
+/**
+ * Seats the customer added themselves from Workspace (server:
+ * billing/selfServe.ts): each addition, its invoice, and where it stands.
+ * Seats waiting to be paid can be taken back here; their invoice is cancelled.
+ */
+const SEAT_STATUS = { OPEN: ['Waiting to be paid', 'warn'], PAID: ['Paid', 'ok'], LAPSED: ['Taken off, unpaid', 'off'], CANCELLED: ['Taken back', 'off'] };
+function SeatChanges({ accountId, name, role, openInvoice, reload }) {
+  const [rows, setRows] = useState(null);
+  const [taking, setTaking] = useState(null);
+  const load = useCallback(() => {
+    opsSeatChanges(accountId)
+      .then((r) => setRows(r?.changes || []))
+      .catch(() => setRows([]));
+  }, [accountId]);
+  useEffect(load, [load]);
+  if (!rows?.length) return null;
+  const word = (unit, n) => `${n} ${unit === 'EMPLOYEE' ? (n === 1 ? 'employee' : 'employees') : n === 1 ? 'user' : 'users'}`;
+  return (
+    <section aria-labelledby="ops-seat-changes" className="grid gap-3" style={{ marginTop: 24 }}>
+      <h3 id="ops-seat-changes" className="ops-h2">Seats the customer added</h3>
+      <table className="ws-table">
+        <thead>
+          <tr>
+            <th scope="col">Added</th>
+            <th scope="col">Seats</th>
+            <th scope="col">Invoice</th>
+            <th scope="col" className="text-right">Amount</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span className="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((c) => {
+            const [label, tone] = SEAT_STATUS[c.status] || [c.status, 'off'];
+            return (
+              <tr key={c.id}>
+                <td>{day(c.createdAt)}</td>
+                <td>
+                  {word(c.unit, c.added)} more
+                  <span className="ws-item-sub" style={{ display: 'block' }}>
+                    {c.fromQuantity} to {c.toQuantity}
+                  </span>
+                </td>
+                <td>
+                  {c.invoice ? (
+                    <button type="button" className="ws-name-link ui-mono" onClick={() => openInvoice(c.invoice.id)}>
+                      {c.invoice.number}
+                    </button>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td className="text-right tabular-nums">{inr(c.invoice?.total ?? c.proratedAmount)}</td>
+                <td>
+                  <span className={`ws-pill ws-pill--${tone}`}>{label}</span>
+                  {c.status === 'OPEN' ? <span className="ws-item-sub" style={{ display: 'block' }}>Comes off {day(c.dueAt)} if unpaid</span> : null}
+                  {c.note && c.status !== 'OPEN' ? <span className="ws-item-sub" style={{ display: 'block' }}>{c.note}</span> : null}
+                </td>
+                <td className="text-right">
+                  {c.status === 'OPEN' && may(role, 'BILLING') ? (
+                    <button type="button" className="ws-link" onClick={() => setTaking(c)}>
+                      Take back
+                    </button>
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <ReasonDrawer
+        open={Boolean(taking)}
+        title="Take these seats back"
+        what={taking ? `${word(taking.unit, taking.added)} come off ${name}'s plan now, and invoice ${taking.invoice?.number || ''} is cancelled. The customer sees why in their activity.` : ''}
+        confirmLabel="Take back"
+        tone="danger"
+        onClose={() => setTaking(null)}
+        onConfirm={async (reason) => {
+          await opsTakeBackSeats(taking.id, reason);
+          notify.success('Taken back. The invoice is cancelled.');
+          setTaking(null);
+          load();
+          reload();
+        }}
+      />
+    </section>
+  );
+}

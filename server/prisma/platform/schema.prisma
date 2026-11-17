@@ -1718,7 +1718,8 @@ model BillingInvoice {
   payLinkUrl       String?
   payLinkAmount    Int?
   payLinkAt        DateTime?
-  /// MANUAL (drafted by CLOR staff) | RENEWAL (drafted and issued by the renewal job).
+  /// MANUAL (drafted by CLOR staff) | RENEWAL (drafted and issued by the renewal job) |
+  /// ADDON (seats a customer added themselves, billing/selfServe.ts: pays for the rest of the period, never moves it).
   source           String    @default("MANUAL")
   /// For a renewal, the first day of the period it bills (YYYY-MM-DD): one renewal per account and period.
   renewalFor       String?
@@ -1739,6 +1740,46 @@ model BillingInvoice {
   @@index([accountId])
   @@index([status, createdAt])
   @@index([payLinkId])
+}
+
+/// Seats a customer added to their own plan from Workspace (billing/selfServe.ts).
+/// They work the moment they are added; a prorated invoice for the rest of the
+/// paid period is issued at once and is due in a set number of days. Paid: the
+/// seats stay. Unpaid by then: that invoice is cancelled and these seats alone
+/// come off. One OPEN change per account at a time.
+model SubscriptionChange {
+  id                String    @id @default(cuid())
+  accountId         String
+  /// SEATS (apps later)
+  kind              String    @default("SEATS")
+  /// OPEN (seats on, invoice unpaid) | PAID | LAPSED (unpaid, seats taken off) | CANCELLED (by CLOR staff, or the invoice could not be raised)
+  status            String    @default("OPEN")
+  /// USER | EMPLOYEE, how many were added, and the count before and after.
+  unit              String
+  added             Int
+  fromQuantity      Int
+  toQuantity        Int
+  /// What the subscription's list and charged price per period rose by, in paise; taken off again if it lapses.
+  deltaList         Int
+  deltaPeriod       Int
+  /// Before GST, for the part of the paid period that was left (and any whole periods already paid beyond it).
+  proratedAmount    Int
+  /// YYYY-MM-DD, the days the invoice covers.
+  periodFrom        String
+  periodTo          String
+  invoiceId         String?   @unique
+  /// When it lapses if the invoice is still unpaid.
+  dueAt             DateTime
+  requestedByUserId String
+  settledAt         DateTime?
+  settledByUserId   String?
+  /// Why it was cancelled or lapsed, or what staff should check (a renewal raised while it was open).
+  note              String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([accountId, createdAt])
+  @@index([status, dueAt])
 }
 
 /// One email CLOR sent a customer about one of its invoices

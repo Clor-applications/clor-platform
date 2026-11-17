@@ -142,3 +142,33 @@
 .ws-settings .ws-stats {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
+/* Add users: what it costs, amounts right-aligned in tabular figures. */
+.ws-seat-quote {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+.ws-seat-quote > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+.ws-seat-quote dt {
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-seat-quote dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg, 32 35 41));
+}
+.ws-seat-quote > .ws-seat-quote-total {
+  border-top: 1px solid rgb(var(--border, 229 229 229));
+  padding-top: 0.5rem;
+  font-weight: 600;
+}
+.ws-seat-quote > .ws-seat-quote-total dt {
+  color: rgb(var(--fg, 32 35 41));
+}
