@@ -42,11 +42,19 @@ export const GRANT_CLOSED: RegExp[] = [
   re(String.raw`/attendance/months/[^/]+/payroll-export`),
   /* Letters carry pay (offer, appointment, revision). */
   re(String.raw`/people/employees/[^/]+/letters(/|$)`),
+  /* So do offers, a salary advance and the final-pay board, wherever they are mounted. */
+  re(String.raw`/people/offers(/|$)`),
+  re(String.raw`/people/(money/)?salary-advances(/|$)`),
+  re(String.raw`/people/final-pay(/|$)`),
   /* Employee documents and files: uploaded documents, form attachments, résumés. */
   re(String.raw`/people/documents(/|$)`),
   re(String.raw`/people/employees/[^/]+/documents(/|$)`),
   re(String.raw`/people/(my/)?(request-forms/files|form-files)(/|$)`),
   re(String.raw`/people/talent/(candidates|seats)/[^/]+/resume`),
+  /* The paper sent with a leave request (a medical note), a filing's proof, a punch photo. */
+  re(String.raw`/attendance/leave/requests/[^/]+/document(/|$)`),
+  re(String.raw`/people/compliance/obligations/[^/]+/proofs/[^/]+`),
+  re(String.raw`/attendance/biometrics/photo(/|$)`),
   /* PAN, Aadhaar, UAN and bank account: the statutory record and anything that reveals it. */
   re(String.raw`/people/employees/[^/]+/statutory(/|$)`),
   re(String.raw`/people/invites/[^/]+/statutory(/|$)`),

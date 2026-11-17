@@ -10,6 +10,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { enterTenant, outsideTenant } from '../utils/tenantScope.js';
 import { authorize } from '../middleware/rbac.js';
+import { ownDocsWhere } from '../services/access.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { actorFrom, verifyCredential } from '../services/credentials.js';
 import { hashLegacyLink, linkForInvoice, revokeInvoiceLink, shareKind } from '../services/shareLinks.js';
@@ -38,12 +39,17 @@ shareAdminRouter.use(requireAuth, requireTenantContext);
 const SHARE_VIEW = requirePermission('SALES', PermissionAction.VIEW, 'Invoices');
 const SHARE_EDIT = requirePermission('SALES', PermissionAction.EDIT, 'Invoices');
 
+/** Someone limited to their own documents reaches the link of their own invoices only. */
+const mayOpen = async (req: any, invoiceId: string) =>
+  !req.ownDocumentsOnly || Boolean(await prisma.invoice.findFirst({ where: { id: invoiceId, orgId: req.tenant!.orgId, ...ownDocsWhere(req) }, select: { id: true } }));
+
 shareAdminRouter.post('/orgs/:orgId/invoices/:invoiceId/share', SHARE_VIEW, async (req, res) => {
   if (String(req.params.orgId) !== req.tenant!.orgId) {
     return res.status(403).json({ error: 'orgId mismatch' });
   }
   const { accountId, orgId } = req.tenant!;
   const docId = String(req.params.invoiceId);
+  if (!(await mayOpen(req, docId))) return res.status(404).json({ error: 'Invoice not found' });
   /*
    * One live link per invoice. Re-sending a reminder must produce the same
    * address — a customer who kept the first message and a customer who kept the
@@ -65,6 +71,7 @@ shareAdminRouter.delete('/orgs/:orgId/invoices/:invoiceId/share', SHARE_EDIT, as
   if (String(req.params.orgId) !== req.tenant!.orgId) {
     return res.status(403).json({ error: 'orgId mismatch' });
   }
+  if (!(await mayOpen(req, String(req.params.invoiceId)))) return res.status(404).json({ error: 'No link to revoke' });
   const done = await revokeInvoiceLink(req.tenant!, String(req.params.invoiceId), actorFrom(req), 'revoked by staff');
   if (!done) return res.status(404).json({ error: 'No link to revoke' });
   await recordAudit(req, { entity: 'Invoice', entityId: String(req.params.invoiceId), action: 'SHARE_LINK_REVOKED', message: 'Revoked the link to this invoice' });

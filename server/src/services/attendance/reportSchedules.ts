@@ -68,7 +68,9 @@ export function renderReportHtml(r: { title: string; period: string; columns: Ar
 /** The report as CSV, attached to the mail so it opens in Excel (RFC 4180 quoting). */
 export function reportCsv(r: { columns: Array<{ key: string; label: string }>; rows: any[]; totals?: any }) {
   const cell = (v: unknown) => {
-    const t = String(v ?? '');
+    let t = String(v ?? '');
+    /* A name or note that starts like a formula would run when the file opens in a spreadsheet: shown as text instead. A plain number stays a number. */
+    if (/^[=+\-@\t\r]/.test(t) && !/^[+-]?\d+(\.\d+)?$/.test(t)) t = `'${t}`;
     return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const lines = [r.columns.map((c) => cell(c.label)).join(',')];

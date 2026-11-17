@@ -12,7 +12,8 @@ import { closePayRequest, payKind, registerPayLink } from '../services/shareLink
 type PayRow = NonNullable<Awaited<ReturnType<typeof prisma.paymentRequest.findUnique>>>;
 import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
+import { authorize, requirePermission } from '../middleware/rbac.js';
+import { ownDocsWhere } from '../services/access.js';
 import { PermissionAction } from '../constants/enums.js';
 import { ingestLimiter } from '../middleware/rateLimit.js';
 import { hashToken } from './publicApi.js';
@@ -112,8 +113,18 @@ payRequestsRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
   const p = createSchema.safeParse(req.body || {});
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || 'Check the details.' });
   const b = p.data;
-  const invoice = await prisma.invoice.findFirst({ where: { id: b.docId, orgId }, select: { id: true, number: true, customerName: true, total: true, paidAmount: true, status: true } });
+  /* Someone limited to their own documents makes links for their own invoices only. */
+  const invoice = await prisma.invoice.findFirst({ where: { id: b.docId, orgId, ...ownDocsWhere(req) }, select: { id: true, number: true, customerName: true, total: true, paidAmount: true, status: true } });
   if (!invoice) return res.status(404).json({ error: 'No such invoice.' });
+  /*
+   * Where the customer's money goes. A UPI ID this company has not used on a
+   * link before is a change to where it is paid, so it takes someone who may
+   * edit the company's profile; after that anyone who makes receipts may use it.
+   */
+  const known = await prisma.paymentRequest.findFirst({ where: { orgId, payeeVpa: { equals: b.payeeVpa, mode: 'insensitive' } }, select: { id: true } });
+  if (!known && (await authorize(req, 'SETTINGS', PermissionAction.EDIT, 'Company Profile'))) {
+    return res.status(403).json({ error: 'This UPI ID has not been used for this company before. Someone who can edit the company profile has to make the first link with it.', code: 'NEW_UPI_ID' });
+  }
   if (String(invoice.status) === 'Draft') return res.status(400).json({ error: 'Finalise the invoice first: a draft’s total can still change.' });
   const due = Math.round((Number(invoice.total) - Number(invoice.paidAmount || 0)) * 100);
   const amountPaise = b.amount ? Math.round(b.amount * 100) : due;
@@ -150,7 +161,7 @@ payRequestsRouter.post(base, can(PermissionAction.CREATE), async (req, res) => {
 payRequestsRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
   if (!orgOk(req, res)) return;
   const { orgId } = req.tenant!;
-  const where: any = { orgId };
+  const where: any = { orgId, ...ownDocsWhere(req) };
   if (req.query.docId) where.docId = String(req.query.docId);
   if (req.query.status) where.status = String(req.query.status).toUpperCase();
   const rows = await prisma.paymentRequest.findMany({ where, orderBy: { createdAt: 'desc' }, take: 100 });
@@ -165,7 +176,7 @@ payRequestsRouter.get(base, can(PermissionAction.VIEW), async (req, res) => {
 payRequestsRouter.post(`${base}/:id/confirm`, can(PermissionAction.CREATE), async (req, res) => {
   if (!orgOk(req, res)) return;
   const { orgId } = req.tenant!;
-  const r = await prisma.paymentRequest.findFirst({ where: { id: String(req.params.id), orgId } });
+  const r = await prisma.paymentRequest.findFirst({ where: { id: String(req.params.id), orgId, ...ownDocsWhere(req) } });
   if (!r) return res.status(404).json({ error: 'No such payment request.' });
   if (r.status === 'PAID') return res.json({ request: shape(r), replayed: true });
   if (r.status === 'CANCELLED') return res.status(409).json({ error: 'This request was cancelled.' });
@@ -184,7 +195,7 @@ payRequestsRouter.post(`${base}/:id/confirm`, can(PermissionAction.CREATE), asyn
 payRequestsRouter.post(`${base}/:id/cancel`, can(PermissionAction.EDIT), async (req, res) => {
   if (!orgOk(req, res)) return;
   const { orgId } = req.tenant!;
-  const r = await prisma.paymentRequest.findFirst({ where: { id: String(req.params.id), orgId } });
+  const r = await prisma.paymentRequest.findFirst({ where: { id: String(req.params.id), orgId, ...ownDocsWhere(req) } });
   if (!r) return res.status(404).json({ error: 'No such payment request.' });
   if (r.status === 'PAID') return res.status(409).json({ error: 'It is paid; reverse the receipt instead.' });
   /* Registry first, then the request (KTD4). */

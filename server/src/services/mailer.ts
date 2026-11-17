@@ -1,3 +1,4 @@
+import { assertPublicHost, isBlockedHost } from './outbound.js';
 import { isArchived } from './companyArchive.js';
 import { isSampleOrg } from './sampleIdentity.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
@@ -179,6 +180,16 @@ export async function resolveTransport(accountId?: string | null, orgId?: string
       const from = setting.fromEmail
         ? `${setting.fromName || APP_NAME} <${setting.fromEmail}>`
         : captureFrom();
+      /* A company's own mail server is an address the customer typed: never a private, loopback or
+         metadata one. Refused, the mail fails with that reason like any other delivery failure. */
+      const refused = await assertPublicHost(setting.host).then(
+        () => null,
+        (e) => (isBlockedHost(e) ? (e as Error) : null),
+      );
+      if (refused) {
+        const dead = { sendMail: async () => Promise.reject(refused), verify: async () => Promise.reject(refused) } as unknown as Transporter;
+        return { kind: 'smtp', transporter: dead, from, replyTo: setting.replyTo || undefined, source: 'org' };
+      }
       return {
         kind: 'smtp',
         transporter: buildSmtp({
@@ -487,6 +498,7 @@ export async function verifyTransport(config: {
   username?: string | null;
   password?: string | null;
 }) {
+  await assertPublicHost(config.host);
   const transporter = buildSmtp({
     host: config.host,
     port: config.port,

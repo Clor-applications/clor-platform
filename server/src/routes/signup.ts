@@ -144,7 +144,12 @@ signupRouter.post('/public/signup/start', ...signupStartLimiter, (req, res) =>
     if (app && !offer.apps.some((a) => a.code === app)) return res.status(400).json({ error: `${APP_NAMES[app] || app} cannot be started on its own yet. Ask us for a demo.`, code: 'NOT_SELF_SERVE' });
 
     const taken = await platformPrisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
-    if (taken) return res.status(409).json({ error: 'Somebody already signs in to CLOR with this email. Sign in instead, or use another address.', code: 'EMAIL_TAKEN' });
+    if (taken) {
+      /* The page answers as it does for a new address, and the mail says what happened: asking here must not tell a stranger who is a customer. */
+      await sendTemplate({ templateKey: 'signup.already', to: email, relatedType: 'User', relatedId: taken.id, transactional: true, data: { signInUrl: `${appUrl()}/` } }).catch(() => {});
+      await recordAuthEvent({ email, eventType: 'TRIAL_STARTED', ip: clientIp(req), userAgent: req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : undefined, detail: JSON.stringify({ alreadySignsIn: true }) });
+      return res.status(201).json({ ok: true, email, linkHours: SIGNUP_LINK_HOURS, trialDays: offer.trialDays });
+    }
 
     const ip = clientIp(req);
     const userAgent = req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : null;

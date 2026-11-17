@@ -269,6 +269,23 @@ If you did not ask for this, ignore this mail and nothing is made.`,
     transactional: true,
   },
   {
+    key: 'signup.already',
+    label: 'You already have a CLOR sign-in',
+    description: 'Sent when somebody asks for a free trial with an email that already signs in to CLOR. The page says the same thing either way, so nobody can use it to learn who is a customer.',
+    subject: 'You already sign in to {{appName}} with this email',
+    body: `Hello,
+
+Somebody, probably you, asked to start a free trial on CLOR with this email. It already signs in to CLOR, so no new account was made.
+
+Sign in here:
+
+{{signInUrl}}
+
+If you forgot your password, the sign-in page has "Forgot password?". If this was not you, ignore this mail: nothing has changed.`,
+    fields: ['signInUrl', 'appName'],
+    transactional: true,
+  },
+  {
     key: 'explore.pass',
     label: 'Look around CLOR',
     description: 'Sent to somebody who asked for a demo on clor.in: a 14-day link to a sample company they can look around, read-only.',

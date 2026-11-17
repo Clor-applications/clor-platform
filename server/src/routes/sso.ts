@@ -18,6 +18,7 @@ import { ensureAccountMembership } from '../services/accountMembership.js';
 import { domainRefusalFor, sessionPolicyFor } from '../services/policy.js';
 import { signInEntry } from '../services/signInRules.js';
 import { automaticRoleUsable } from '../services/roleGuards.js';
+import { assertPublicHost } from '../services/outbound.js';
 
 /**
  * Single sign-on, OpenID Connect.
@@ -78,6 +79,8 @@ ssoRouter.get('/lookup', ...ssoLimiter, async (req, res) => {
 
 async function configFor(p: { issuer: string | null; discoveryUrl: string | null; clientId: string | null; clientSecretEnc: string | null }) {
   const issuer = new URL(p.discoveryUrl || p.issuer || '');
+  /* The address is the customer's to set: never a private, loopback or metadata address. */
+  await assertPublicHost(issuer.hostname);
   const secretValue = p.clientSecretEnc ? decryptSecret(p.clientSecretEnc) : undefined;
   const options: Partial<oidc.DiscoveryRequestOptions> = {};
   if (!isProduction()) options.execute = [oidc.allowInsecureRequests];
