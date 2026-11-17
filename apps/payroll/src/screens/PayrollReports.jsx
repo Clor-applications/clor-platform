@@ -245,6 +245,11 @@ export default function PayrollReports() {
           title="No payroll periods yet"
           description="A report covers a month. Add payroll periods under Settings → Payroll → Payroll periods."
         />
+      ) : report === 'filings' && !hasRows && shown?.waiting > 0 ? (
+        <EmptyState
+          title="This month's payroll is not approved yet"
+          description={`${shown.waiting} ${shown.waiting === 1 ? 'payslip is' : 'payslips are'} still being worked on. The files to upload are made from approved payslips only, so the figures filed are the figures signed off. Approve the payroll and they fill in.`}
+        />
       ) : !hasRows ? (
         <EmptyState
           title="Nothing paid in this month"

@@ -63,8 +63,18 @@ export const ecrLine = (r: EcrRow) =>
 export const ESIC_REASONS = { NONE: 0, ON_LEAVE: 1, LEFT_SERVICE: 2 } as const;
 
 export async function buildFilings(orgId: string, period: { id: string; startDate: string; endDate: string }) {
+  /*
+   * Only payslips of a payroll that has been approved. Figures still being
+   * worked on can change before approval, and a file made from them would be
+   * filed with numbers nobody signed off. `waiting` says how many were left
+   * out for that reason, so an empty file is not mistaken for "nothing due".
+   */
+  const approvedRuns = (
+    await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: period.id, status: { in: ['APPROVED', 'LOCKED', 'PAID', 'POSTED'] } }, select: { id: true } })
+  ).map((r) => r.id);
+  const waiting = await payrollPrisma.salarySlip.count({ where: { orgId, periodId: period.id, status: { not: 'CANCELLED' }, runId: { notIn: approvedRuns } } });
   const slips = await payrollPrisma.salarySlip.findMany({
-    where: { orgId, periodId: period.id, status: { not: 'CANCELLED' } },
+    where: { orgId, periodId: period.id, status: { not: 'CANCELLED' }, runId: { in: approvedRuns } },
     select: { id: true, employeeId: true, grossEarnings: true, statutorySnapshotJson: true, inputSnapshotJson: true, employeeSnapshotJson: true },
     orderBy: { number: 'asc' },
   });
@@ -95,7 +105,8 @@ export async function buildFilings(orgId: string, period: { id: string; startDat
     a.ncp += Number(input.lwpDays) || 0;
     a.payable += Number(input.payableDays) || 0;
     for (const r of stat.results || []) {
-      if (r.scheme === 'PF' && (r.employee > 0 || r.employer > 0)) {
+      /* A member with no wages this month (unpaid leave all month) still goes in the ECR, with nil wages and the days not worked. Only someone PF does not apply to is left out. */
+      if (r.scheme === 'PF' && (r.employee > 0 || r.employer > 0 || !r.exemptReason)) {
         const pf = a.pf || { wage: 0, employee: 0, eps: 0, epf: 0, ceiling: Number(r.ceilingApplied) || PENSION_CEILING };
         pf.wage += Number(r.wageApplied) || 0;
         pf.employee += Number(r.employee) || 0;
@@ -175,6 +186,8 @@ export async function buildFilings(orgId: string, period: { id: string; startDat
   const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((t, r) => t + f(r), 0);
   return {
     slips: slips.length,
+    /** Payslips of this period in a payroll not yet approved: left out of every file. */
+    waiting,
     ecr: {
       text: ecr.map(ecrLine).join('\n'),
       rows: ecr,

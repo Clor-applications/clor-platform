@@ -78,6 +78,12 @@ describe('the arithmetic', () => {
   it('counts a final part-year over six months as a year', () => {
     expect(serviceYears('2020-03-01', '2026-10-14').years).toBe(7); // 6 years 7 months
     expect(serviceYears('2020-03-01', '2026-08-14').years).toBe(6); // 6 years 5 months
+    /* "In excess of six months" (audit, 17 Nov 2026): six months and a day counts, six months exactly does not. */
+    expect(serviceYears('2021-01-01', '2026-07-16').years).toBe(6); // 5 years 6 months 15 days
+    expect(serviceYears('2021-01-01', '2026-07-01').years).toBe(5); // 5 years 6 months exactly
+    expect(serviceYears('2021-01-01', '2026-07-02').years).toBe(6); // 5 years 6 months 1 day
+    expect(serviceYears('2021-01-31', '2026-07-30').years).toBe(5); // 5 years 5 months 30 days
+    expect(serviceYears('2021-01-01', '2026-06-30').years).toBe(5); // 5 years 5 months 29 days
   });
   it('owes no gratuity before five years, and caps it', () => {
     expect(gratuityFor(30_000, '2023-01-01', '2026-10-14').amount).toBe(0);
@@ -106,7 +112,9 @@ describe('a settlement', () => {
     expect(loan.label).toMatch(/^Salary advance L-\w+ recovery$/);
     expect(s.lines.filter((l: { code: string }) => l.code.startsWith('LEAVE_')).map((l: { label: string }) => l.label)).toEqual(['Earned encashment']);
     const leave = s.lines.find((l: { code: string }) => l.code.startsWith('LEAVE_'));
-    expect(leave.amount).toBe(Math.round(Number(leave.explanation.match(/^([\d.]+) days/)![1]) * 1153.85 * 100) / 100);
+    /* Days × the month's wages ÷ the leave type's divisor, rounded once on the total (not days × a rounded day's rate, which drifts by paise). */
+    expect(leave.amount).toBe(Math.round(((Number(leave.explanation.match(/^([\d.]+) days/)![1]) * 30_000) / 26) * 100) / 100);
+    expect(leave.explanation).toMatch(/÷ 26/);
     expect(s.netPayable).toBeCloseTo(121_153.85 + leave.amount - 4000, 2);
 
     await api.post(c, '/settlements', { employeeId }).expect(409);

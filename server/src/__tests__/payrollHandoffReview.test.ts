@@ -445,6 +445,23 @@ describe('the share of wages, seen and decided (items 7, 8)', () => {
     expect((await api.post(c, `/runs/${r.runId}/approve`, {}).expect(409)).body.code).toBe('DEDUCTIONS_OVER_LIMIT');
   }, 180_000);
 
+  it('a payslip that comes to less than zero goes no further, reason or not (audit, 17 Nov 2026)', async () => {
+    const c = await makeOwner();
+    await api.put(c, '/settings/deduction-cap', { percent: 10, countsStatutory: true, countsPenalties: true }).expect(200);
+    const r = await oneRun(c);
+    await adjustment(c, { id: `fine-${rnd()}`, employeeId: r.employeeId, componentId: r.fineId, periodId: r.periodId, amount: 60_000, status: 'APPROVED' });
+    const done = await calc(c, r.runId);
+    expect((done.body.issues || []).map((i: { code: string }) => i.code)).toContain('NET_PAY_BELOW_ZERO');
+    const slipId = (await api.get(c, `/slips?runId=${r.runId}`).expect(200)).body.slips[0].id;
+    expect((await api.get(c, `/slips/${slipId}`).expect(200)).body.slip.netPay).toBeLessThan(0);
+    /* Recording why the deduction stands answers the limit, not a net pay below zero. */
+    await api.post(c, `/runs/${r.runId}/over-limit-reason`, { reason: 'Signed damage agreement' }).expect(200);
+    const refused = await api.post(c, `/runs/${r.runId}/submit-review`, {}).expect(409);
+    expect(refused.body.code).toBe('NET_PAY_BELOW_ZERO');
+    await own(c, () => payrollPrisma.payrollRun.update({ where: { id: r.runId }, data: { status: 'REVIEW' } }));
+    expect((await api.post(c, `/runs/${r.runId}/approve`, {}).expect(409)).body.code).toBe('NET_PAY_BELOW_ZERO');
+  }, 180_000);
+
   it('statutory deductions alone past the limit only warn', async () => {
     const c = await makeOwner();
     await api.put(c, '/settings/deduction-cap', { percent: 10, countsStatutory: true, countsPenalties: true }).expect(200);
