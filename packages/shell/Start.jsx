@@ -329,7 +329,9 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
 
         <div>
           {/* The address the password belongs to, for a password manager; not shown. */}
-          <input type="email" className="sr-only" tabIndex={-1} aria-hidden="true" autoComplete="username" value={pending.email} readOnly />
+          <div className="sr-only" aria-hidden="true">
+            <input type="email" className="ui-input" tabIndex={-1} autoComplete="username" value={pending.email} readOnly />
+          </div>
           <label className="ui-label" htmlFor="start-password">Choose a password</label>
           <input id="start-password" type="password" className="ui-input h-11 w-full" value={form.password} onChange={(e) => set({ password: e.target.value })} autoComplete="new-password" aria-describedby="start-password-hint" />
           <p id="start-password-hint" className="ui-caption mt-1">At least 8 characters. You sign in with {pending.email} and this password.</p>
