@@ -8,13 +8,15 @@ import { rupees } from '../services/pricing/engine.js';
 import { SYSTEM_OPERATOR } from '../routes/ops.js';
 import { autoSend } from './booksConnector.js';
 import { createDraft, dealLine, issueInvoice } from './invoices.js';
+import { recipientFor, recordedSend } from './invoiceEmail.js';
 import { invoicing } from './invoicing.js';
 
 /**
  * Renewal invoices. A few days before a paid period ends (Money, Invoice
  * settings, Renewals: on, and how many days), CLOR drafts the next period's
  * invoice from the subscription's deal, issues it with the next number, sends
- * it to CLOR Books when that is on, and emails the account owner. The offer's
+ * it to CLOR Books when that is on, and emails the customer (the email on the
+ * invoice, else the account owner: invoiceEmail.ts). The offer's
  * price is used while the offer lasts, the list price for a period that starts
  * after it ends.
  *
@@ -51,30 +53,36 @@ export async function dueRenewals(now = new Date(), daysBefore = 7, only?: strin
   });
 }
 
-async function tellOwner(accountId: string, inv: { id: string; number: string | null; total: number; dueDate: Date | null; periodStart: string | null; periodEnd: string | null }) {
-  const owner = await platformPrisma.accountMembership.findFirst({ where: { accountId, role: 'OWNER' }, orderBy: { createdAt: 'asc' }, select: { userId: true } });
-  const user = owner ? await platformPrisma.user.findUnique({ where: { id: owner.userId }, select: { email: true, fullName: true, isActive: true } }) : null;
-  if (!user?.email || !user.isActive) return false;
+/**
+ * The renewal email, to whoever a hand-issued invoice would go to
+ * (invoiceEmail.ts recipientFor), and on the invoice's record of emails as
+ * its first one, so a copy or a reminder sent later knows it went.
+ */
+async function tellOwner(accountId: string, inv: { id: string; accountId: string; buyer: unknown; number: string | null; total: number; dueDate: Date | null; periodStart: string | null; periodEnd: string | null }) {
+  const to = await recipientFor(inv);
+  if (!to) return false;
   const app = (process.env.APP_URL || 'https://app.clor.in').replace(/\/$/, '');
-  return sendTemplate({
-    templateKey: 'billing.renewal_invoice',
-    to: user.email,
-    toName: user.fullName ?? undefined,
-    accountId,
-    transactional: true,
-    relatedType: 'BillingInvoice',
-    relatedId: inv.id,
-    data: {
-      userName: user.fullName || user.email,
-      number: inv.number || '',
-      amount: rupees(inv.total),
-      period: inv.periodStart && inv.periodEnd ? `${words(inv.periodStart)} to ${words(inv.periodEnd)}` : 'the next period',
-      renewsOn: inv.periodStart ? words(inv.periodStart) : '',
-      dueOn: inv.dueDate ? words(istDay(inv.dueDate)) : '',
-      billingUrl: `${app}/`,
-    },
-  })
-    .then(() => true)
+  return recordedSend({ invoiceId: inv.id, accountId, kind: 'ISSUED', step: 'renewal', auto: true, toEmail: to.email }, () =>
+    sendTemplate({
+      templateKey: 'billing.renewal_invoice',
+      to: to.email,
+      toName: to.name,
+      accountId,
+      transactional: true,
+      relatedType: 'BillingInvoice',
+      relatedId: inv.id,
+      data: {
+        userName: to.name,
+        number: inv.number || '',
+        amount: rupees(inv.total),
+        period: inv.periodStart && inv.periodEnd ? `${words(inv.periodStart)} to ${words(inv.periodEnd)}` : 'the next period',
+        renewsOn: inv.periodStart ? words(inv.periodStart) : '',
+        dueOn: inv.dueDate ? words(istDay(inv.dueDate)) : '',
+        billingUrl: `${app}/`,
+      },
+    }),
+  )
+    .then((r) => !r.skipped)
     .catch(() => false);
 }
 

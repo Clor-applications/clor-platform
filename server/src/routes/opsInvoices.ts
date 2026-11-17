@@ -13,6 +13,7 @@ import { createDraft, deleteDraft, getInvoice, isOverdue, issueInvoice, listInvo
 import { financialYear, formatNumber, invoicing, saveBooksLink, saveInvoicing } from '../billing/invoicing.js';
 import { autoSend, booksChoices, sendToBooks, testBooks } from '../billing/booksConnector.js';
 import { onlinePayment } from '../billing/payLinks.js';
+import { invoiceSends, lastSends, recipientFor, sendInvoiceEmail, type SendKind, type SendResult } from '../billing/invoiceEmail.js';
 import { dueRenewals, runRenewals } from '../billing/renewals.js';
 import { accountNames } from './opsDeals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
@@ -26,6 +27,11 @@ import { audit } from './ops.js';
  * Reading is for any operator. Every change is for the BILLING role with a
  * fresh authenticator code (step-up), and goes on the operator log. Test
  * connection is BILLING without step-up: it writes nothing.
+ *
+ * Emailing an invoice to the customer (billing/invoiceEmail.ts) is a change
+ * like the others: issuing sends the first email when the console asks for it, and
+ * Send again and Remind are their own routes. Issuing never fails because the
+ * email did: the answer says `emailed: false` and why.
  */
 export const opsInvoicesRouter = Router();
 opsInvoicesRouter.use(['/ops/invoices', '/ops/invoicing'], requireAuth, requireOperator);
@@ -42,13 +48,44 @@ async function full(id: string) {
   const account = await outsideTenant('ops: an invoice’s account', () => platformPrisma.account.findUnique({ where: { id: inv.accountId }, select: { id: true, name: true, code: true } }));
   /* A draft shows the way to pay it would carry, from today's Payments settings. */
   const payTo = inv.status === 'DRAFT' ? await payToFor(inv.total, 'Draft') : inv.payTo;
-  return { ...inv, payTo, account, overdue: isOverdue(inv) };
+  /* Who the last email went to, and who the next one would go to (null: no email on the invoice and no owner to tell). */
+  const last = (await lastSends([inv.id])).get(inv.id);
+  const emailTo = inv.status === 'PAID' || inv.status === 'VOID' ? null : ((await recipientFor(inv))?.email ?? null);
+  return { ...inv, payTo, account, overdue: isOverdue(inv), sentTo: last?.sentTo ?? null, lastSentAt: last?.lastSentAt ?? null, emailTo };
+}
+
+/** What an attempt to email an invoice came to, in the words the console shows. Never throws. */
+async function emailOutcome(req: Request, id: string, kind: SendKind): Promise<{ emailed: boolean; emailedTo: string | null; emailError: string | null; email: SendResult | null }> {
+  try {
+    const r = await sendInvoiceEmail(id, { kind, userId: req.auth!.userId, audit: (action, accountId, detail) => audit(req, action, { accountId }, detail) });
+    if (!r.sent) return { emailed: false, emailedTo: r.to, emailError: r.skipped === 'ALREADY_SENT' ? 'This invoice was emailed already.' : 'Reminders are turned off for this invoice.', email: r };
+    /* The mail server refused it for now: the outbox tries again by itself, so it is not sent a second time here. */
+    if (r.delivery === 'FAILED') return { emailed: false, emailedTo: r.to, emailError: 'The mail server did not take it just now. CLOR tries again by itself; see Email, Log before sending another.', email: r };
+    return { emailed: true, emailedTo: r.to, emailError: null, email: r };
+  } catch (e) {
+    if (e instanceof PaymentsError) return { emailed: false, emailedTo: null, emailError: e.message, email: null };
+    console.error('[ops.invoices] email failed:', e instanceof Error ? e.message : e);
+    return { emailed: false, emailedTo: null, emailError: 'The email could not be sent. Send it again from the invoice.', email: null };
+  }
 }
 
 opsInvoicesRouter.get('/ops/invoices', (req, res) =>
   outsideTenant('ops: invoices', async () => {
     const q = req.query as Record<string, string | undefined>;
-    res.json({ ...(await listInvoices({ status: q.status, accountId: q.accountId, before: q.before })), statuses: INVOICE_STATUSES });
+    const list = await listInvoices({ status: q.status, accountId: q.accountId, before: q.before });
+    /* The emails about each invoice on this page: who the last went to, and where its reminders stand. */
+    const ids = list.invoices.map((i) => i.id);
+    const [last, state] = await Promise.all([lastSends(ids), ids.length ? platformPrisma.billingInvoice.findMany({ where: { id: { in: ids } }, select: { id: true, lastRemindedAt: true, reminderCount: true, remindersOff: true } }) : []]);
+    const stateOf = new Map(state.map((x) => [x.id, x]));
+    const invoices = list.invoices.map((i) => ({
+      ...i,
+      sentTo: last.get(i.id)?.sentTo ?? null,
+      lastSentAt: last.get(i.id)?.lastSentAt ?? null,
+      lastRemindedAt: stateOf.get(i.id)?.lastRemindedAt ?? null,
+      reminderCount: stateOf.get(i.id)?.reminderCount ?? 0,
+      remindersOff: stateOf.get(i.id)?.remindersOff ?? false,
+    }));
+    res.json({ ...list, invoices, statuses: INVOICE_STATUSES });
   }),
 );
 
@@ -129,13 +166,57 @@ opsInvoicesRouter.delete('/ops/invoices/:id', ...BILLING, (req: Request, res) =>
   }),
 );
 
+/**
+ * Issue, and email the customer when `email` is true. Asked for, never assumed: a console that
+ * does not send the field (the one live before the drawer had its box) must not start mailing
+ * customers the day this is deployed. The email failing never undoes or fails the issue.
+ */
+const issueBody = z.object({ email: z.boolean().optional() });
 opsInvoicesRouter.post('/ops/invoices/:id/issue', ...BILLING, (req: Request, res) =>
   outsideTenant('ops: issue an invoice', async () => {
+    const parsed = issueBody.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ error: 'Say whether to email the customer: yes or no.' });
     try {
       const inv = await issueInvoice(String(req.params.id), req.auth!.userId);
       await audit(req, 'INVOICE_ISSUED', { accountId: inv.accountId }, { invoiceId: inv.id, number: inv.number, total: inv.total });
       const books = await autoSend(inv.id);
-      res.json({ ...(await full(inv.id)), books });
+      const mail = parsed.data.email !== true ? { emailed: false, emailedTo: null, emailError: null } : await emailOutcome(req, inv.id, 'ISSUED').then(({ email: _r, ...m }) => m);
+      res.json({ ...(await full(inv.id)), books, ...mail });
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+/** Send the invoice to the customer again (a copy of the first email), or remind them to pay. Only while it is issued and unpaid. */
+const byHand = (kind: 'RESEND' | 'REMINDER') => (req: Request, res: Response) =>
+  outsideTenant('ops: email an invoice', async () => {
+    try {
+      const id = String(req.params.id);
+      const r = await sendInvoiceEmail(id, { kind, userId: req.auth!.userId, audit: (action, accountId, detail) => audit(req, action, { accountId }, detail) });
+      /* By hand, nothing is skipped: it is sent, or refused above with the reason. */
+      if (!r.sent) return res.status(409).json({ error: 'This was sent already.' });
+      const failed = r.delivery === 'FAILED';
+      res.json({
+        ...(await full(id)),
+        emailed: !failed,
+        emailedTo: r.to,
+        emailError: failed ? 'The mail server did not take it just now. CLOR tries again by itself; see Email, Log before sending another.' : null,
+        send: { id: r.sendId, kind: r.kind, template: r.template, outboxId: r.outboxId, delivery: r.delivery },
+      });
+    } catch (e) {
+      return refused(res, e);
+    }
+  });
+opsInvoicesRouter.post('/ops/invoices/:id/send', ...BILLING, byHand('RESEND'));
+opsInvoicesRouter.post('/ops/invoices/:id/remind', ...BILLING, byHand('REMINDER'));
+
+/** Every email about this invoice, newest first. */
+opsInvoicesRouter.get('/ops/invoices/:id/sends', (req, res) =>
+  outsideTenant('ops: an invoice’s emails', async () => {
+    try {
+      const inv = await getInvoice(String(req.params.id));
+      res.json({ sends: await invoiceSends(inv.id), lastRemindedAt: inv.lastRemindedAt, reminderCount: inv.reminderCount, remindersOff: inv.remindersOff });
     } catch (e) {
       return refused(res, e);
     }
