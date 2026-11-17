@@ -197,7 +197,7 @@ export class LocalAccountingClient implements AccountingClient {
 
   async findEntryBySource(companyId: string, sourceDocType: string, sourceDocId: string): Promise<JournalEntryRef | null> {
     const row = await prisma.journalEntry.findFirst({
-      where: { accountId: this.accountId, orgId: companyId, sourceDocType, sourceDocId, status: 'POSTED' },
+      where: { accountId: this.accountId, orgId: companyId, sourceDocType, sourceDocId, status: 'POSTED', reversesId: null },
       select: { id: true, entryNo: true, status: true },
     });
     /* Accounting calls it entryNo; Payroll only ever quotes it, so the

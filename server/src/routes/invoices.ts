@@ -764,7 +764,7 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
         orgId,
         sourceDocType: 'INVOICE',
         sourceDocId: existing.id,
-        status: 'POSTED',
+        status: 'POSTED', reversesId: null,
       },
       select: { id: true },
     });
@@ -857,7 +857,7 @@ invoicesRouter.delete('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVO
       orgId,
       sourceDocType: 'INVOICE',
       sourceDocId: existing.id,
-      status: 'POSTED',
+      status: 'POSTED', reversesId: null,
     },
     select: { id: true },
   });

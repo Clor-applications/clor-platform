@@ -549,7 +549,7 @@ async function releaseApprovedDocument(opts: {
 }) {
   if (opts.docType === 'INVOICE') {
     const existing = await prisma.journalEntry.findFirst({
-      where: { accountId: opts.accountId, orgId: opts.orgId, sourceDocType: opts.docType, sourceDocId: opts.docId, status: 'POSTED' },
+      where: { accountId: opts.accountId, orgId: opts.orgId, sourceDocType: opts.docType, sourceDocId: opts.docId, status: 'POSTED', reversesId: null },
       select: { id: true },
     });
     const inv = await prisma.invoice.findFirst({
