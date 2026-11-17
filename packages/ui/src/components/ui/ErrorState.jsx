@@ -21,6 +21,9 @@ export function errorKind(err) {
   return 'failed';
 }
 
+/** Outside Books the owner picked "Try again" (round 12); Books keeps "Retry". */
+const defaultRetry = () => (typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo' ? 'Retry' : 'Try again');
+
 const COPY = {
   offline: { Icon: WifiOff, title: 'No connection', body: 'Check your connection and try again. Anything you entered is still here.' },
   unavailable: { Icon: AlertCircle, title: 'Something went wrong on our side', body: 'Nothing was changed. Try again in a moment.' },
@@ -33,7 +36,7 @@ const COPY = {
   slow: { Icon: Clock, title: 'Taking longer than usual', body: 'Still working on it. This can take a few more seconds.' },
 };
 
-export default function ErrorState({ kind, error = null, title, body, onRetry = null, retryLabel = 'Retry', onCancel = null, onBack = null, compact = false }) {
+export default function ErrorState({ kind, error = null, title, body, onRetry = null, retryLabel = null, onCancel = null, onBack = null, compact = false }) {
   const k = kind || errorKind(error) || 'failed';
   const c = COPY[k] || COPY.failed;
   const Icon = c.Icon;
@@ -41,14 +44,14 @@ export default function ErrorState({ kind, error = null, title, body, onRetry = 
   const ref = error?.requestId;
   return (
     <div className={`ui-error-state ${compact ? 'is-compact' : ''}`} role={k === 'slow' ? 'status' : 'alert'}>
-      <Icon size={compact ? 20 : 32} aria-hidden="true" className="ui-error-state-icon" />
+      <span className="ui-error-state-pic" aria-hidden="true"><Icon size={compact ? 20 : 32} className="ui-error-state-icon" /></span>
       <p className="ui-error-state-title">{title || c.title}</p>
       {message ? <p className="ui-error-state-body">{message}</p> : null}
       {ref && (k === 'unavailable' || k === 'failed') ? <p className="ui-caption">Reference: <span className="tabular-nums">{ref}</span></p> : null}
       <div className="ui-error-state-actions">
         {onBack && k === 'notFound' ? <button type="button" className="ui-btn ui-btn-secondary" onClick={onBack}>Go back</button> : null}
         {onCancel && k === 'slow' ? <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>Cancel</button> : null}
-        {onRetry && !['forbidden', 'notFound', 'slow'].includes(k) ? <button type="button" className="ui-btn ui-btn-primary" onClick={onRetry}>{k === 'conflict' ? 'Reload' : retryLabel}</button> : null}
+        {onRetry && !['forbidden', 'notFound', 'slow'].includes(k) ? <button type="button" className="ui-btn ui-btn-primary" onClick={onRetry}>{k === 'conflict' ? 'Reload' : retryLabel || defaultRetry()}</button> : null}
       </div>
     </div>
   );

@@ -103,7 +103,7 @@ describe('Alert and ErrorState', () => {
     const retry = vi.fn();
     const { rerender } = render(<ErrorState error={{ status: 500, requestId: 'req-42' }} onRetry={retry} />);
     expect(screen.getByText('req-42')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(retry).toHaveBeenCalled();
     rerender(<ErrorState error={{ status: 409 }} onRetry={retry} />);
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
