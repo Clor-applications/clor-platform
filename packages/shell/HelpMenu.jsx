@@ -49,7 +49,7 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
         </MenuItem>
         <MenuItem disabled>
           <Keyboard size={16} aria-hidden="true" /> Search anywhere
-          <kbd className="ml-auto text-xs">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
+          <kbd className="ui-menu-kbd ml-auto text-xs">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
         </MenuItem>
         {whatsapp || email ? <MenuSeparator /> : null}
         {whatsapp ? (

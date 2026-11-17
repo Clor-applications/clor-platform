@@ -11,6 +11,7 @@ import { createShift, deleteShift, hm, listShifts, updateShift } from '../api/at
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import ShiftBreaks from '../components/ShiftBreaks';
 import { breaksBody, breaksProblem, unpaidTotal } from '../components/shiftBreaksMath';
+import ColorDots from '@ui/components/ui/ColorDots';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -412,7 +413,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
           <span className="ui-caption">For “2nd and 4th Saturday off” — leave Saturday unticked above.</span>
         </fieldset>
         <label className="block"><span className="ui-label">Code</span><input className="ui-input w-full" maxLength={6} value={form.code || ''} onChange={set('code')} placeholder="e.g. G, N1 — for the schedule calendar" /></label>
-        <label className="block"><span className="ui-label">Colour</span><input type="color" className="ui-input h-10 w-full p-1" value={form.color || '#64748b'} onChange={set('color')} /></label>
+        <ColorDots name="shift-colour" value={form.color || '#475569'} onChange={(c) => set('color')({ target: { value: c } })} />
         {/* Read by the schedule calendar's coverage row: a day with fewer people on this shift is marked short. Nothing is refused for it. */}
         <label className="block sm:col-span-2">
           <span className="ui-label">Minimum staffing</span>

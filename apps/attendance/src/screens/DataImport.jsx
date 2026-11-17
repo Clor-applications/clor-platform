@@ -173,8 +173,6 @@ async function readRows(f, kind) {
   return { rows: out, matched: [...mapping].map(([h, key]) => ({ heading: h, key })), missing: kind.columns.filter((c) => !found.has(c.key)).map((c) => c.label.replace(/\s*\(.*\)$/, '')) };
 }
 
-const sameName = (a, b) => String(a).toLowerCase().replace(/[^a-z0-9]/g, '') === String(b).toLowerCase().replace(/[^a-z0-9]/g, '');
-
 /* How a day already recorded was made, in words, for "would replace". */
 const MADE_BY = { DEVICE: 'from a reader', MANUAL: 'entered by hand', IMPORT: 'imported', REQUEST: 'from an approved request', LEAVE: 'from leave', CLOCK: 'from the app' };
 
@@ -284,7 +282,22 @@ export default function DataImport({ params } = {}) {
           {rows && !result && !check ? (
             <>
               <p className="text-sm">{rows.length.toLocaleString('en-IN')} row{rows.length === 1 ? '' : 's'} read. First: <span className="ui-mono text-xs">{JSON.stringify(rows[0]).slice(0, 120)}</span></p>
-              {columnsRead?.matched?.length ? <p className="ui-caption">Columns read: {columnsRead.matched.map((m) => { const label = kind.columns.find((c) => c.key === m.key)?.label.replace(/\s*\(.*\)$/, '') || m.key; return sameName(m.heading, label) || m.heading === m.key ? m.heading : `${m.heading} as ${label}`; }).join(', ')}.{columnsRead.missing.length ? ` Not in the file: ${columnsRead.missing.join(', ')}.` : ''}</p> : null}
+              {columnsRead?.matched?.length ? (
+                <div className="ui-colmatch" role="table" aria-label="How the file's columns were read">
+                  <div role="row" className="ui-colmatch-row ui-colmatch-head"><span role="columnheader">In your file</span><span aria-hidden="true" /><span role="columnheader">Read as</span></div>
+                  {columnsRead.matched.map((m) => {
+                    const label = kind.columns.find((c) => c.key === m.key)?.label.replace(/\s*\(.*\)$/, '') || m.key;
+                    return (
+                      <div role="row" key={m.heading} className="ui-colmatch-row">
+                        <span role="cell" className="ui-mono">{m.heading}</span>
+                        <span aria-hidden="true" className="ui-colmatch-arrow">→</span>
+                        <span role="cell">{label}</span>
+                      </div>
+                    );
+                  })}
+                  {columnsRead.missing.length ? <p className="ui-caption">Not in the file: {columnsRead.missing.join(', ')}.</p> : null}
+                </div>
+              ) : null}
               {dateNote ? <p className="ui-caption">{dateNote}</p> : null}
               <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={checkFile}>{busy ? 'Checking…' : 'Check the file'}</button>
               <p className="ui-caption">Every row is checked the way it would be imported. Nothing is saved until you confirm.</p>

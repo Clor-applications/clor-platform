@@ -1101,7 +1101,7 @@ function Account({ me, guard, onSignOut }) {
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
         <label className="block"><span className="ui-label">Current password</span><PasswordInput className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
-        <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required strength autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
         <label className="block"><span className="ui-label">New password again</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /></label>
         {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
         <button type="submit" className="ui-btn ui-btn-primary w-full">Change password</button>

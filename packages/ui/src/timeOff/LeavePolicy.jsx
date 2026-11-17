@@ -21,6 +21,7 @@ import {
   ACCRUAL_LABEL, MONTH_NAMES, PRIVATE_LABEL, colorOf, createLeaveType, creditText, deleteLeaveType, getLeaveSettings, listLeaveTypes,
   previewLeaveType, saveLeaveSettings, swatchOf, todayIst, updateLeaveType,
 } from './api';
+import ColorDots from '@ui/components/ui/ColorDots';
 
 /**
  * People → Settings → Leave Policy (founder, 22 Oct 2026: the full leave
@@ -538,7 +539,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
           </label>
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <label className="block"><span className="ui-label">Code</span><input className="ui-input w-full" maxLength={10} value={form.code} onChange={(e) => set('code')(e.target.value)} placeholder="e.g. CL" /></label>
-            <label className="block"><span className="ui-label">Colour</span><input type="color" className="ui-input h-9 w-14 p-1" value={form.color || colorOf(form)} onChange={(e) => set('color')(e.target.value)} aria-label="Colour on the leave calendar" /></label>
+            <ColorDots name="leave-colour" label="Colour on the leave calendar" value={form.color || colorOf(form)} onChange={(c) => set('color')(c)} />
           </div>
           <label className="block sm:col-span-2"><span className="ui-label">What it is for</span><input className="ui-input w-full" maxLength={300} value={form.description} onChange={(e) => set('description')(e.target.value)} placeholder="Shown to employees when they choose it" /></label>
           <Check label="Paid leave" hint={paid ? null : 'Each day is loss of pay in payroll.'} checked={paid} onChange={set('isPaid')} />

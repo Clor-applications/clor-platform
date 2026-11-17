@@ -277,6 +277,35 @@ calendar; CLOR bills paid as a list with PDF links; adding another CLOR app offe
 trial; the phone explains before asking for location; a punch with no signal is saved and
 sent later.
 
+### Round 12 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Label colour | A row of dots from a fixed set of nine (`ColorDots`, radios named by colour); shifts and leave types use it, and a colour saved before keeps showing as an extra dot |
+| Shortcut keys in menus | None shown (`.ui-menu-kbd` hidden outside Books) |
+| Something went wrong | The icon in a soft round of the app colour, the line, then "Try again" (`ErrorState`; Books keeps "Retry") |
+| Search results | One list, best match first, each row's kind as a tag (`.ui-palette-kind`) |
+| Board column heading | A tinted band in the app colour with the count (`.pt-lane-head`) |
+| Password | The word "Show" beside the eye, and a strength bar on new passwords (`PasswordInput strength`) |
+| Phone numbers | +91 98765 43210 (`formatPhone`; landlines and foreign numbers left as typed) |
+| Failed to load | A red line down the left edge (`LoadFailed`) |
+| Files | A row with a type badge (PDF, IMG, DOC, XLS) and the size (`FileBadge`; People Documents) |
+| Board column heading | Applied carries a "+" to add a candidate (new candidates always start there) |
+| Choosing a week | A month of week rows, Monday first; the chosen week is lit, the row under the pointer tinted (`WeekPicker`; Attendance roster) |
+| Matching columns on import | The file's columns and what each was read as, side by side with an arrow (Attendance import) |
+| Accepting a policy | A tick box "I have read and accept this policy", then Accept (employee app) |
+
+Picked and already how the app works: numbers with small arrows; notification settings as a
+switch per alert; tags typed in a field with chips below (no tag field exists yet).
+
+Picked, **not built yet**: office location as a small map with a circle (needs a map source
+allowed by the security headers); "Ask CLOR" in a side panel (no helper exists); writing tools
+as an icon bar (no rich editor exists); monthly or yearly as a switch (pricing page); changing
+an import column's match from a dropdown; signing offer letters (candidates accept offers
+outside the app today).
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.

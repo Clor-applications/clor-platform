@@ -50,6 +50,7 @@ export default function ResetPassword({ token, onDone }) {
             <label className="ui-label" htmlFor="reset-password">New password</label>
             <PasswordInput
               id="reset-password"
+              strength
               className="ui-input h-11 w-full"
               value={password}
               onChange={(e) => {

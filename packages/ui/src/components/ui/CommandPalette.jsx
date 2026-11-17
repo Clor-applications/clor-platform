@@ -204,7 +204,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
                     {it.label}
                     {it.detail ? <span className="ui-subtle"> · {it.detail}</span> : null}
                   </span>
-                  <span className="ui-subtle text-xs">{it.group}</span>
+                  <span className="ui-palette-kind ui-subtle text-xs">{it.group}</span>
                   {i === active ? <CornerDownLeft size={14} className="ui-subtle" aria-hidden="true" /> : null}
                 </div>
               );
