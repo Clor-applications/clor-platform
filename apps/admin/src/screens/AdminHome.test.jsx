@@ -83,7 +83,9 @@ describe('the Workspace overview', () => {
     expect(screen.getByText('Welcome to CLOR Workspace')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Good (morning|afternoon|evening), Kavya$/);
     expect(await screen.findByText('Account Owner')).toBeInTheDocument();
-    expect(await screen.findByText(/Neev Group · 1 company · 2 of 3 apps · 2 members/)).toBeInTheDocument();
+    /* The account's name only: the counts are said once, in the figures row below. */
+    expect(await screen.findByText('Neev Group')).toBeInTheDocument();
+    expect(screen.queryByText(/1 company · 2 of 3 apps/)).toBeNull();
     /* The figures across the top, each opening the screen that owns it. */
     const glance = within(await screen.findByRole('list', { name: 'Workspace at a glance' }));
     fireEvent.click(glance.getByRole('button', { name: /^2\s*Members/ }));
@@ -92,7 +94,9 @@ describe('the Workspace overview', () => {
     expect(await glance.findByText('1 invited, not joined yet')).toBeInTheDocument();
     expect(glance.getByText('GSTIN not added')).toBeInTheDocument();
     expect(glance.getByText('Accounting, Payroll')).toBeInTheDocument();
-    expect(await glance.findByText('2 urgent')).toBeInTheDocument();
+    /* What needs attention and the setup steps are the two cards above the figures, so no figure repeats them. */
+    expect(glance.queryByText(/Needs? attention/)).toBeNull();
+    expect(glance.queryByText(/Setup/)).toBeNull();
     /* No Apps screen in this person's menu: the figure is shown, not a way in. */
     expect(glance.getByText('Active apps').closest('button')).toBeNull();
     /* No app here reports a day (Books has no summary yet): no Today card, and nothing said twice. */

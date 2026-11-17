@@ -108,10 +108,11 @@ test.describe('Suresh owns the account', () => {
     const small = await bar.evaluate((b) => Array.from(b.querySelectorAll('.ui-icon-btn')).map((e) => e.getBoundingClientRect()).filter((r) => r.width && (r.width < 44 || r.height < 44)).length);
     expect(small, 'bar buttons under 44px').toBe(0);
     await bar.getByRole('button', { name: /^Company: / }).click();
-    const menu = await bar.getByRole('menu').boundingBox();
+    /* The menu floats over the page (base-ui portal), so it is found on the page, not inside the bar. */
+    const menu = await suresh.page.getByRole('menu').boundingBox();
     expect(menu!.x, 'menu inside the 16px gutter').toBeGreaterThanOrEqual(16);
     expect(menu!.x + menu!.width, 'menu inside the 16px gutter').toBeLessThanOrEqual(374);
-    const rows = await bar.getByRole('menuitemradio').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+    const rows = await suresh.page.getByRole('menuitemradio').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
     expect(Math.min(...rows), 'company rows under 44px').toBeGreaterThanOrEqual(44);
     await suresh.page.keyboard.press('Escape');
     await suresh.switchCompany(w.vels.name);

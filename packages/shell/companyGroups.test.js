@@ -60,7 +60,10 @@ describe("a phone's company menu keeps each account's name (#80 re-review)", () 
     ];
     const accounts = [{ id: 'a1', name: 'Suresh', home: true, role: 'OWNER' }, { id: 'a2', name: 'Kumar & Co', home: false }];
     const picked = [];
-    render(React.createElement(CompanyMenuItems, { groups: companyGroups(tenants, accounts), currentId: 'c1', onPick: (t) => picked.push(t.id) }));
+    /* The rows are a base-ui menu's rows, so they render inside an open menu. */
+    const { Menu, MenuPanel } = await import('@ui/components/ui/Menu');
+    render(React.createElement(Menu, { open: true }, React.createElement(MenuPanel, { 'aria-label': 'Company' },
+      React.createElement(CompanyMenuItems, { groups: companyGroups(tenants, accounts), currentId: 'c1', onPick: (t) => picked.push(t.id) }))));
     const other = screen.getByRole('group', { name: 'Kumar & Co (outside access)' });
     within(other).getByRole('menuitemradio', { name: 'Asha Textiles' }).click();
     expect(picked).toEqual(['c2']);

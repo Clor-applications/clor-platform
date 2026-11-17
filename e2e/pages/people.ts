@@ -237,7 +237,8 @@ export class PeopleWeb {
     const bar = this.page.getByRole('banner');
     if (!this.isPhone) return bar.getByRole('combobox', { name: 'Company' }).selectOption({ label: name });
     await this.companyMenuOpener().click();
-    await bar.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { name, exact: true }).click();
+    /* The menu floats over the page (base-ui portal), so it is found on the page, not inside the bar. */
+    await this.page.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { name, exact: true }).click();
   }
 
   /** On a phone: the app menu ("People ⌄"), or where the bar has none (the Workspace) the "Company: …" button. */
@@ -253,7 +254,7 @@ export class PeopleWeb {
       return select.locator('option:checked').textContent();
     }
     await this.companyMenuOpener().click();
-    const name = await bar.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { checked: true }).textContent();
+    const name = await this.page.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { checked: true }).textContent();
     await this.page.keyboard.press('Escape');
     return name;
   }

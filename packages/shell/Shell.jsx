@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState 
 import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 
 import { useTheme } from '@ui/components/ui/useTheme';
-import { useDismissable } from '@ui/components/ui/useDismissable';
+import { Menu as UiMenu, MenuGroup, MenuGroupLabel, MenuItem, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from '@ui/components/ui/Menu';
 import { formatDateIn } from '@ui/utils/dates';
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
 import Toaster from '@ui/components/ui/Toaster';
@@ -138,32 +138,27 @@ export const companyGroups = (allTenants = [], accounts = []) => {
  * sit under its name, as the desktop picker's groups do, so same-named companies in two accounts can be told apart.
  */
 export function CompanyMenuItems({ groups, currentId, onPick }) {
+  /* Rows of a base-ui menu: render inside a `Menu` panel. One company is in use, so they are radio rows. */
+  const byId = new Map(groups.flatMap((g) => g.items).map((t) => [t.id, t]));
   return (
-    <div role="group" aria-label="Company">
-      <div className="ui-caption px-2 pt-1">Company</div>
+    <MenuRadioGroup aria-label="Company" value={currentId} onValueChange={(id) => { const t = byId.get(id); if (t) onPick(t); }}>
+      <div className="ui-caption px-2 pt-1" aria-hidden="true">Company</div>
       {groups.map((g) => {
         const items = g.items.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="menuitemradio"
-            aria-checked={t.id === currentId}
-            className="w-full flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken"
-            onClick={() => onPick(t)}
-          >
+          <MenuRadioItem key={t.id} value={t.id} className="min-h-11 gap-2 px-2">
             <Building2 size={16} aria-hidden="true" className="shrink-0" />
             <span className="min-w-0 flex-1 truncate">{t.name}</span>
             {t.id === currentId ? <Check size={16} aria-hidden="true" /> : null}
-          </button>
+          </MenuRadioItem>
         ));
         return g.label ? (
-          <div key={g.id} role="group" aria-label={g.label}>
-            <div className="ui-caption px-2 pt-2 font-medium" aria-hidden="true">{g.label}</div>
+          <MenuGroup key={g.id}>
+            <MenuGroupLabel className="px-2 pt-2 font-medium">{g.label}</MenuGroupLabel>
             {items}
-          </div>
+          </MenuGroup>
         ) : <React.Fragment key={g.id}>{items}</React.Fragment>;
       })}
-    </div>
+    </MenuRadioGroup>
   );
 }
 
@@ -441,11 +436,9 @@ function ShellScreens() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   /* Closes on a click anywhere else, and on Escape. It did neither: the only
      way out of the app switcher was to click the app switcher again. */
-  const switcherRef = useDismissable(switcherOpen, () => setSwitcherOpen(false));
   const [showMoreApps, setShowMoreApps] = useState(false);
   /* A phone with no app menu in the bar (the Workspace, a screen outside any app) chooses its company here. */
   const [companyOpen, setCompanyOpen] = useState(false);
-  const companyRef = useDismissable(companyOpen, () => setCompanyOpen(false));
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
   /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
@@ -1175,15 +1168,11 @@ function ShellScreens() {
               Workspace shows it too on a desktop, so every app's bar reads the same (owner, 16 Nov 2026);
               a phone's Workspace bar keeps its company button instead. */}
           {app && (!inWorkspace || !phone) ? (
-            <div className="relative" ref={switcherRef}>
-              <button
-                type="button"
+            <UiMenu open={switcherOpen} onOpenChange={setSwitcherOpen}>
+              <MenuTrigger
                 className="ui-app-switch"
                 /* On a phone the bar's own gap spaces it; the desktop's 1.5rem lead pushed sign-out past a 390 px screen. */
                 style={phone ? { marginLeft: 0, gap: '0.25rem', paddingRight: '0.25rem' } : undefined}
-                onClick={() => setSwitcherOpen((v) => !v)}
-                aria-expanded={switcherOpen}
-                aria-haspopup="menu"
                 aria-label={`${app.name}: switch app`}
               >
                 {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
@@ -1191,31 +1180,19 @@ function ShellScreens() {
                 {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
                 <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
                 <ChevronDown size={14} aria-hidden="true" />
-              </button>
+              </MenuTrigger>
 
-              {switcherOpen ? (
-                <div
-                  role="menu"
-                  className="absolute left-0 mt-1 w-64 rounded-xl p-1"
-                  style={{
-                    backgroundColor: 'rgb(var(--surface))',
-                    border: '1px solid rgb(var(--border))',
-                    boxShadow: 'var(--shadow-lift)',
-                    zIndex: 'var(--z-platform-menu)',
-                  }}
-                >
+              <MenuPanel aria-label="Apps" width="16rem" zIndex="var(--z-platform-menu)" sideOffset={4}>
                   {phone && tenants.length > 1 ? (
                     <>
-                      <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setSwitcherOpen(false); pickCompany(t.id); }} />
-                      <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
+                      <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => pickCompany(t.id)} />
+                      <MenuSeparator />
                     </>
                   ) : null}
                   {mine.filter((a) => !a.platform).map((a) => (
-                    <button
+                    <MenuItem
                       key={a.id}
-                      type="button"
-                      role="menuitem"
-                      className="ui-app-menu-item w-full flex items-start gap-2.5 rounded-lg px-2 py-2 text-left"
+                      className="ui-app-menu-item items-start gap-2.5 px-2"
                       aria-current={a.id === app.id ? 'true' : undefined}
                       onClick={() => openApp(a.id)}
                     >
@@ -1226,36 +1203,25 @@ function ShellScreens() {
                         <span className="block ui-caption">{a.blurb}</span>
                       </span>
                       {a.id === app.id ? <Check size={16} aria-hidden="true" className="mt-1.5 shrink-0" /> : null}
-                    </button>
+                    </MenuItem>
                   ))}
-                  <div style={{ borderTop: '1px solid rgb(var(--border))' }} className="my-1" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="ui-app-menu-item w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left"
-                    onClick={() => {
-                      setShowMoreApps(true);
-                      setSwitcherOpen(false);
-                    }}
-                  >
+                  <MenuSeparator />
+                  <MenuItem className="ui-app-menu-item gap-2.5 px-2" onClick={() => setShowMoreApps(true)}>
                     <span className="ui-app-switch-mark ui-app-menu-quiet shrink-0"><LayoutGrid size={16} aria-hidden="true" /></span>
                     <span className="text-sm font-semibold">More apps</span>
-                  </button>
+                  </MenuItem>
                   {/* Users, roles, sign-in, billing and the audit trail are the company's, not one app's: one workspace, reachable from every app (ADR-010). */}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="ui-app-menu-item w-full flex items-center gap-2.5 rounded-lg px-2 py-2 text-left"
+                  <MenuItem
+                    className="ui-app-menu-item gap-2.5 px-2"
                     aria-current={inWorkspace ? 'true' : undefined}
                     onClick={() => openApp(ADMIN_APP_ID)}
                   >
                     <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': 'var(--app-admin, 32 35 41)' }}><Settings size={16} aria-hidden="true" /></span>
                     <span className="text-sm font-semibold flex-1">Workspace</span>
                     {inWorkspace ? <Check size={16} aria-hidden="true" className="shrink-0" /> : null}
-                  </button>
-                </div>
-              ) : null}
-            </div>
+                  </MenuItem>
+              </MenuPanel>
+            </UiMenu>
           ) : null}
 
           {/* Global search: the command palette (⌘K), as a field anyone can see and click. */}
@@ -1312,21 +1278,15 @@ function ShellScreens() {
             </select>
             </label>
           ) : tenants.length > 1 && !(app && !inWorkspace) ? (
-            <div className="relative" ref={companyRef}>
-              <button type="button" className="ui-icon-btn" aria-label={`Company: ${tenant.name}`} aria-haspopup="menu" aria-expanded={companyOpen} onClick={() => setCompanyOpen((v) => !v)}>
+            <UiMenu open={companyOpen} onOpenChange={setCompanyOpen}>
+              <MenuTrigger className="ui-icon-btn" aria-label={`Company: ${tenant.name}`}>
                 <Building2 size={18} aria-hidden="true" />
-              </button>
-              {/* Pinned to the screen with the 16px gutter, not to the button: hung off a 44px button it ran 16px off the left (#80 retest). */}
-              {companyOpen ? (
-                <div
-                  role="menu"
-                  className="fixed inset-x-4 top-14 mt-1 rounded-xl p-1"
-                  style={{ backgroundColor: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', boxShadow: 'var(--shadow-lift)', zIndex: 'var(--z-platform-menu)' }}
-                >
-                  <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => { setCompanyOpen(false); pickCompany(t.id); }} />
-                </div>
-              ) : null}
-            </div>
+              </MenuTrigger>
+              {/* As wide as the screen less the 16px gutters, and kept inside them: hung off a 44px button it ran off the left (#80 retest). */}
+              <MenuPanel aria-label="Company" width="min(24rem, calc(100vw - 32px))" collisionPadding={16} align="center" zIndex="var(--z-platform-menu)">
+                <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => pickCompany(t.id)} />
+              </MenuPanel>
+            </UiMenu>
           ) : null}
 
           {/* One inbox for every app: an approval, a quiet reader, a bank change, a person the directory added. */}

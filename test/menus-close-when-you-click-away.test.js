@@ -45,7 +45,8 @@ const sourceFiles = () =>
 const FLOATING = /className=(?:"|\{`)absolute[^"`]*\b(?:mt-\d|top-full|bottom-full)\b[^"`]*(?:"|`\})/;
 
 /** Anything that knows how to put a panel away. */
-const DISMISSES = /useDismissable|<Popover\b|<Modal\b|addEventListener\('pointerdown'|addEventListener\('mousedown'/;
+/* A base-ui menu or popover (`@ui/components/ui/Menu`, `Popover.Root`) dismisses itself. */
+const DISMISSES = /useDismissable|<Popover\b|<Popover\.Root\b|<Modal\b|<(?:Ui)?Menu\b|addEventListener\('pointerdown'|addEventListener\('mousedown'/;
 
 describe('a menu closes when you click away from it', () => {
   it('every floating panel sits in a file that dismisses one', () => {
@@ -74,6 +75,8 @@ describe('a menu closes when you click away from it', () => {
       FLOATING.test(readFileSync(resolve(root, file), 'utf8'))
     );
     expect(seen.length).toBeGreaterThan(4);
-    expect(seen).toContain('packages/shell/Shell.jsx');
+    /* The bar's own menus left this list on 17 Nov 2026: they are base-ui menus now, which float and dismiss themselves. */
+    expect(seen).toContain('apps/accounting/src/App.jsx');
+    expect(seen).not.toContain('packages/shell/Shell.jsx');
   });
 });

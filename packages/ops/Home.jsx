@@ -85,11 +85,11 @@ function Kpis({ d, error, go, has }) {
   const paying = d.paying ?? 0;
   const pct = d.accounts ? Math.round((paying / d.accounts) * 100) : 0;
   const tiles = [
-    { k: 'accounts', tone: 1, label: 'Accounts', value: d.accounts, note: d.newThisWeek ? `+${d.newThisWeek} this week` : 'None new this week', open: () => go('customers') },
-    { k: 'paying', tone: 2, label: 'Paying', value: paying, note: `${pct}% of accounts`, open: () => go('customers', { status: 'active' }) },
+    { k: 'accounts', label: 'Accounts', value: d.accounts, note: d.newThisWeek ? `+${d.newThisWeek} this week` : 'None new this week', open: () => go('customers') },
+    { k: 'paying', label: 'Paying', value: paying, note: `${pct}% of accounts`, open: () => go('customers', { status: 'active' }) },
     {
       k: 'trials',
-      tone: 4,
+     
       label: 'Trials ending in 7 days',
       value: d.trialsEndingIn7d,
       note: d.trialsEndingIn7d ? 'Each owner is emailed before it ends' : 'No trial ends this week',
@@ -98,7 +98,7 @@ function Kpis({ d, error, go, has }) {
     },
     {
       k: 'legacy',
-      tone: 8,
+     
       label: 'Legacy all-apps accounts',
       value: d.legacy ?? 0,
       note: d.legacy ? 'Fail-open: must move to a plan' : 'Every account is on a plan',
@@ -111,7 +111,7 @@ function Kpis({ d, error, go, has }) {
       {tiles.map((t) => {
         const Icon = KI[t.k];
         return (
-          <button key={t.k} type="button" className="ops-kpi" style={{ '--kpi': `var(--cat-${t.tone})` }} onClick={t.open}>
+          <button key={t.k} type="button" className="ops-kpi" onClick={t.open}>
             <span className="ops-kpi-chip" aria-hidden="true">
               <Icon size={16} />
             </span>

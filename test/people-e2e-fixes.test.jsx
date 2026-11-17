@@ -228,9 +228,11 @@ describe('#80 manager QA: half days say which half; the bell stays on a phone sc
     render(<NotificationBell tenantKey="t1" onOpen={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: /Notifications/ }));
     const panel = await screen.findByRole('dialog', { name: 'Notifications' });
-    expect(panel.className).toMatch(/max-sm:fixed/);
-    expect(panel.className).toMatch(/max-sm:inset-x-4/);
-    expect(panel.className).toMatch(/max-sm:w-auto/);
+    /* A base-ui popover now: it is placed inside the screen, and its width leaves the 16px gutters. */
+    expect(panel.className).toMatch(/ui-bell-panel/);
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../packages/ui/src/rnd.css'), 'utf8');
+    expect(css).toMatch(/\.ui-bell-panel \{ width: min\(24rem, calc\(100vw - 32px\)\)/);
+    expect(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../packages/shell/NotificationBell.jsx'), 'utf8')).toMatch(/collisionPadding=\{16\}/);
     expect(panel.textContent).toContain('Half a day, first half');
   });
 });
