@@ -286,7 +286,7 @@ export const SCREENS = {
     ) : (
       <Invoices key={route.params.status || 'all'} role={me.role} initialStatus={route.params.status || 'all'} openInvoice={(id) => go('invoices', {}, id)} />
     ),
-  invoicing: ({ go, me }) => <InvoiceSettings role={me.role} openTax={() => go('tax')} openPayments={() => go('payments')} />,
+  invoicing: ({ go, me }) => <InvoiceSettings role={me.role} openTax={() => go('tax')} openPayments={() => go('payments')} openTemplates={() => go('emailTemplates')} />,
   catalogue: ({ me }) => <AppCatalogue role={me.role} />,
   sample: ({ go, me }) => <SampleCompany role={me.role} openLinks={() => go('links')} />,
   emailAddresses: ({ me }) => <EmailAddresses role={me.role} />,

@@ -69,6 +69,19 @@ describe('invoices in Workspace, Billing', () => {
     expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 
+  it('the link in an invoice email opens that invoice once, and leaves the address clean', async () => {
+    window.history.replaceState(null, '', '/?invoice=i1#/billing');
+    fetches.call.mockReset();
+    fetches.call.mockImplementation(async (path) => (path === '/billing/invoices' ? { invoices: [{ ...invoice }] } : invoice));
+    render(<BillingPreview />);
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('50200012345678')).toBeTruthy();
+    expect(window.location.search).toBe('');
+    expect(window.location.hash).toBe('#/billing');
+    expect(fetches.call.mock.calls.filter(([p]) => p === '/billing/invoices/i1')).toHaveLength(1);
+    expect(fetches.call.mock.calls.some(([p]) => p.endsWith('/pay/check'))).toBe(false);
+  });
+
   it('says so when there are none', async () => {
     fetches.call.mockResolvedValue({ invoices: [] });
     render(<BillingPreview />);
