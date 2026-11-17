@@ -63,9 +63,10 @@ export const createLedgerAccount = ({ code, name, accountType, controlKind, sour
     body: { code, name, accountType, controlKind, sourceKey },
   });
 
-export const getJournalEntries = (limit = 50, docType = '') => {
+export const getJournalEntries = (limit = 50, docType = '', offset = 0) => {
   const query = new URLSearchParams({ limit: String(limit) });
   if (docType) query.set('docType', docType);
+  if (offset) query.set('offset', String(offset));
   return apiFetch(`${base()}/entries?${query}`, opts);
 };
 

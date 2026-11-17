@@ -1,3 +1,4 @@
+import SyncProblemsNotice from '@ui/components/SyncProblemsNotice';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { computeGstForLine, isCompanyGstEnabled } from '@ui/utils/gst';
 import { notify } from '@ui/components/ui/notify';
@@ -533,7 +534,15 @@ const GST_REPORT_OPTIONS = [
   ['eway', 'E-Way Bill Register'],
 ];
 
-export const GstComplianceWorkspace = ({ db, currentCompany, branches = [], initialReport = 'gstr1', onBack }) => {
+/** The GST returns, with a warning above when the books here are not whole. */
+export const GstComplianceWorkspace = (props) => (
+  <>
+    <SyncProblemsNotice problems={props.db?.syncProblems} />
+    <GstComplianceInner {...props} />
+  </>
+);
+
+const GstComplianceInner = ({ db, currentCompany, branches = [], initialReport = 'gstr1', onBack }) => {
   const today = new Date();
   const fyStart = today.getMonth() < 3 ? today.getFullYear() - 1 : today.getFullYear();
   const [report, setReport] = useState(initialReport);
