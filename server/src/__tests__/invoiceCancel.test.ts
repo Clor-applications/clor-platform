@@ -51,13 +51,15 @@ beforeAll(async () => {
  * document already marked paid. Issuing one therefore means promoting it
  * through the status route, which is also how the product does it.
  */
-const makeInvoice = async () => {
+const makeInvoice = async (status = 'Unpaid') => {
   const created = await request(app)
     .post(`/api/orgs/${owner.orgId}/invoices`)
     .set(auth(owner))
     .send({
       date: '2026-08-01',
       customerName: 'Buyer Co',
+      /* Issued, so it is in the books: a draft is not (17 Nov 2026). */
+      status,
       subtotal: 1000,
       cgstTotal: 90,
       sgstTotal: 90,
@@ -171,7 +173,7 @@ describe('deleting an invoice', () => {
 
   /* A draft was never issued and holds no number a return has seen. */
   it('still deletes a draft', async () => {
-    const invoice = await makeInvoice();
+    const invoice = await makeInvoice('Draft');
     await request(app).delete(`/api/orgs/${owner.orgId}/invoices/${invoice.id}`).set(auth(owner)).expect(200);
     expect(await prisma.invoice.findUnique({ where: { id: invoice.id } })).toBeNull();
   });

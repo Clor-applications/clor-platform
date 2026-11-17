@@ -10,7 +10,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext, warehouseRefusal } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
-import { ensureLedgerSetup, invoicePostingLines, postEntry, reverseEntry } from '../services/ledger.js';
+import { ensureLedgerSetup, invoicePostingLines, otherChargesFromExtras, postEntry, reverseEntry } from '../services/ledger.js';
 import { PosCheckoutError, assertPosSaleCancellable } from '../services/posCheckout.js';
 import { recalcDocumentSettlement } from '../services/settlement.js';
 import { MutationBlocked, assertInvoiceMutationAllowed } from '../services/invoiceMutation.js';
@@ -176,6 +176,45 @@ const mergedExtras = (currentJson: string | null, body: any, sent: Set<string>) 
   }
   return Object.keys(current).length ? JSON.stringify(current) : null;
 };
+
+/** Draft and Cancelled are not in the books; Pending Approval is posted when it is released (governance.ts). */
+const inBooks = (status: unknown) => !['draft', 'cancelled', 'pending approval'].includes(String(status || '').trim().toLowerCase());
+
+/**
+ * Post an invoice, as it is stored, to the ledger.
+ *
+ * Used when it is raised as issued, when a draft is finalised and when a
+ * cancelled invoice is put back. Until 17 Nov 2026 only raising posted, and it
+ * posted drafts too: a draft's sale and output GST were in the books before
+ * anything was issued, a recurring draft (made by the schedule, not by this
+ * route) never reached them at all, and an invoice put back from Cancelled
+ * kept its reversal and stayed out for good.
+ */
+async function postInvoice(row: any, userId: string) {
+  await ensureLedgerSetup(row.accountId, row.orgId, userId);
+  const fxRate = Number(row.exchangeRate) > 0 ? Number(row.exchangeRate) : 1;
+  await postEntry({
+    accountId: row.accountId,
+    orgId: row.orgId,
+    branchId: row.branchId,
+    userId,
+    date: String(row.date).trim(),
+    journalCode: 'SAL',
+    narration: `Invoice ${row.number} - ${String(row.customerName || '').trim()}` + (fxRate === 1 ? '' : ` (${row.currency} at ${fxRate})`),
+    sourceDocType: 'INVOICE',
+    sourceDocId: row.id,
+    lines: invoicePostingLines({
+      customerId: row.customerId ?? null,
+      customerName: row.customerName,
+      subtotal: toBase(Number(row.subtotal ?? 0), fxRate),
+      cgstTotal: toBase(Number(row.cgstTotal ?? 0), fxRate),
+      sgstTotal: toBase(Number(row.sgstTotal ?? 0), fxRate),
+      igstTotal: toBase(Number(row.igstTotal ?? 0), fxRate),
+      total: toBase(Number(row.total ?? 0), fxRate),
+      otherChargesTotal: toBase(otherChargesFromExtras(row.extrasJson), fxRate),
+    }),
+  });
+}
 
 const statusSchema = z.object({
   status: z.string().min(1),
@@ -526,38 +565,19 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
     });
   }
 
+  /* A draft is not issued, so it is not in the books: it is posted when it is finalised (the status route). */
+  if (!inBooks(row.status)) {
+    await auditInvoiceCreated(req, row);
+    return res.status(201).json({ invoice: normalizeInvoiceResponse(row), strippedFields: stripped });
+  }
+
   // Post the invoice to the general ledger. A failure here is not silent: the
   // invoice row is removed so the books and the document list cannot diverge.
+  // The ledger is kept in one currency: postInvoice translates at the rate
+  // stored on the invoice.
   try {
-    await ensureLedgerSetup(accountId, orgId, userId);
-
-    // Requirement 8: the document may be in any currency, but the ledger is
-    // kept in one. Translate every amount at the rate in force on the document
-    // date before posting — mixing currencies in one ledger would give a trial
-    // balance that foots to zero and means nothing.
-
-    await postEntry({
-      accountId,
-      orgId,
-      branchId,
-      userId,
-      date: String(body.date).trim(),
-      journalCode: 'SAL',
-      narration:
-        `Invoice ${invoiceNumber} - ${String(body.customerName || '').trim()}` +
-        (fxRate === 1 ? '' : ` (${docCurrency} at ${fxRate})`),
-      sourceDocType: 'INVOICE',
-      sourceDocId: id,
-      lines: invoicePostingLines({
-        customerId: body.customerId ?? null,
-        customerName: body.customerName,
-        subtotal: toBase(Number(body.subtotal ?? 0), fxRate),
-        cgstTotal: toBase(Number(body.cgstTotal ?? 0), fxRate),
-        sgstTotal: toBase(Number(body.sgstTotal ?? 0), fxRate),
-        igstTotal: toBase(Number(body.igstTotal ?? 0), fxRate),
-        total: toBase(Number(body.total ?? 0), fxRate),
-      }),
-    });
+    /* Read again: the currency and its rate were saved after `row` was read, and posting from the earlier copy booked a foreign invoice at face value. */
+    await postInvoice((await prisma.invoice.findUnique({ where: { id } })) ?? row, userId);
   } catch (e: any) {
     await prisma.invoice.delete({ where: { id } });
     /*
@@ -832,8 +852,33 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
     if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
     throw e;
   }
-  const row = await prisma.invoice.findUnique({ where: { id: existing.id } });
+  let row = await prisma.invoice.findUnique({ where: { id: existing.id } });
   if (!row) return res.status(500).json({ error: 'Failed to update invoice status' });
+
+  /*
+   * Finalised from a draft, or put back from Cancelled: it enters the books
+   * now. Only when it has no posting standing, so a draft posted under the
+   * old rule is not posted a second time. If the ledger refuses (a closed
+   * period, say), the status goes back to what it was.
+   */
+  const was = String(existing.status || '').trim().toLowerCase();
+  if (inBooks(row.status) && (was === 'draft' || was === 'cancelled')) {
+    const standing = await prisma.journalEntry.findFirst({
+      where: { accountId, orgId, sourceDocType: 'INVOICE', sourceDocId: existing.id, status: 'POSTED', reversesId: null },
+      select: { id: true },
+    });
+    if (!standing) {
+      try {
+        await postInvoice(row, req.auth!.userId);
+      } catch (e: any) {
+        await prisma.invoice.update({ where: { id: existing.id }, data: { status: existing.status, paidAmount: existing.paidAmount } });
+        if (e?.status) return res.status(Number(e.status)).json({ error: `Not changed: ${String(e.message || e)}` });
+        reportError(e, req);
+        return res.status(500).json({ error: 'Not changed. Please try again; if it keeps failing, contact support.', requestId: res.getHeader('X-Request-Id') || undefined });
+      }
+      row = (await prisma.invoice.findUnique({ where: { id: existing.id } })) ?? row;
+    }
+  }
 
   await auditInvoiceChange(req, 'STATUS', existing, row);
   /* A-32 / Batch 5: cancelled, its customer link is paused and an open payment link closed; reinstated, the same link works again. */

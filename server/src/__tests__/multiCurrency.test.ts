@@ -58,6 +58,8 @@ const setFeature = async (key: string, enabled: boolean) => {
 const invoicePayload = (over: Record<string, unknown> = {}) => ({
   date: '2026-05-10',
   customerName: 'Overseas Ltd',
+  /* Issued, so it is in the books: a draft is not (17 Nov 2026). */
+  status: 'Unpaid',
   subtotal: 1000,
   cgstTotal: 0,
   sgstTotal: 0,
