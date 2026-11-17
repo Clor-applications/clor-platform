@@ -410,7 +410,7 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
     ]);
     const users = await platformPrisma.user.findMany({
       where: { id: { in: members.map((m) => m.userId) } },
-      select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true },
+      select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, smsTwoFactorEnabledAt: true },
     });
     const userBy = new Map(users.map((u) => [u.id, u]));
     const peopleBy = new Map(
@@ -428,7 +428,7 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
         : null,
       members: members.map((m) => {
         const u = userBy.get(m.userId);
-        return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt) };
+        return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt || u?.smsTwoFactorEnabledAt) };
       }),
       companies: orgs.map((o) => ({ id: o.id, name: o.name, code: o.code, createdAt: o.createdAt, people: peopleBy.get(o.id) || 0, branches: o.branches.map((b) => ({ id: b.id, name: b.branchName, code: b.branchCode, state: b.state })) })),
       lastActiveAt: users.reduce<Date | null>((m, u) => (u.lastLoginAt && (!m || u.lastLoginAt > m) ? u.lastLoginAt : m), null),

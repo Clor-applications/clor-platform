@@ -29,7 +29,9 @@ import {
 import { decryptSecret, sendTemplate } from '../services/mailer.js';
 import { verifyCode } from '../services/totp.js';
 import { spendRecoveryCode } from './security.js';
-import { adminTwoFactorMissing } from '../services/twoFactorPolicy.js';
+import { adminTwoFactorMissing, hasSecondFactor } from '../services/twoFactorPolicy.js';
+import { SmsError, maskPhone } from '../services/sms.js';
+import { SmsLimitError, issueSmsCode, useSmsCode } from '../services/smsCodes.js';
 import { DEFAULT_POLICY, policyForUser, sessionPolicyFor, validatePassword, getAuthPolicy } from '../services/policy.js';
 import { type EntryRefusal, resendChallengeFor, resendChallengeUser, signInEntry } from '../services/signInRules.js';
 import { validateGstinOrThrow, deriveStateCodeFromInput } from '../utils/gstin.js';
@@ -88,6 +90,8 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
       lockedUntil: true,
       totpEnabledAt: true,
       totpSecretEnc: true,
+      smsPhone: true,
+      smsTwoFactorEnabledAt: true,
       emailVerifiedAt: true,
     },
   });
@@ -131,16 +135,17 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
   /*
    * Two-factor sign-in (SX-09). Someone with an authenticator gets no session
    * for a password alone: a short-lived challenge comes back instead, and
-   * POST /login/two-factor finishes the sign-in with a code from the app (or
-   * a recovery code). The failed-login counter is cleared only then, so codes
+   * POST /login/two-factor finishes the sign-in with a code from the app, a
+   * code sent by text message (POST /login/two-factor/sms sends it), or a
+   * recovery code. `methods` says which of APP and SMS this person has on. The failed-login counter is cleared only then, so codes
    * guessed after a correct password still count towards the lockout.
    */
-  if (user.totpEnabledAt && user.totpSecretEnc) {
+  if (hasSecondFactor(user)) {
     /* #4: refused by every company's rules — said now, before asking for a code that would not help. */
     const entry = await signInEntry(user.id, user);
     if (entry.refusal) return refuseEntry(res, user, entry.refusal, identity, ip, userAgent);
     const challenge = jwt.sign({ typ: 'login2fa', uid: user.id }, getJwtSecret(), { expiresIn: LOGIN_2FA_TTL_S, audience: LOGIN_2FA_AUDIENCE });
-    return res.json({ twoFactorRequired: true, challenge, expiresIn: LOGIN_2FA_TTL_S });
+    return res.json({ twoFactorRequired: true, challenge, expiresIn: LOGIN_2FA_TTL_S, ...secondSteps(user) });
   }
 
   return completeLogin(req, res, user, identity, ip, userAgent);
@@ -148,6 +153,24 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
 const LOGIN_2FA_TTL_S = 5 * 60;
 const LOGIN_2FA_AUDIENCE = 'clor-login-2fa';
+
+/** Which second steps a person has on, and where their texts go (only the last digits). */
+function secondSteps(u: { totpEnabledAt: Date | null; totpSecretEnc: string | null; smsTwoFactorEnabledAt: Date | null; smsPhone: string | null }) {
+  const methods: Array<'APP' | 'SMS'> = [];
+  if (u.totpEnabledAt && u.totpSecretEnc) methods.push('APP');
+  if (u.smsTwoFactorEnabledAt && u.smsPhone) methods.push('SMS');
+  return { methods, phone: methods.includes('SMS') ? maskPhone(u.smsPhone) : null };
+}
+
+/** The challenge from /login, checked; the user id, or null when it is gone or wrong. */
+function challengeUser(raw: unknown): string | null {
+  try {
+    const claims: any = jwt.verify(String(raw || ''), getJwtSecret(), { audience: LOGIN_2FA_AUDIENCE, algorithms: ['HS256'] });
+    return claims?.typ === 'login2fa' && claims.uid ? String(claims.uid) : null;
+  } catch {
+    return null;
+  }
+}
 
 type LoginUser = { id: string; accountId: string; email: string | null; fullName: string | null; emailVerifiedAt: Date | null };
 
@@ -258,26 +281,46 @@ async function completeLogin(req: Request, res: Response, user: LoginUser, ident
 }
 
 /**
+ * Text a sign-in code to the number this person turned on, for the
+ * challenge from /login. It needs the challenge, so only someone who just
+ * typed the right password can make CLOR send a text; services/smsCodes.ts
+ * holds back resends and floods.
+ */
+authRouter.post('/login/two-factor/sms', ...codeLimiter, async (req: Request, res: Response) => {
+  const uid = challengeUser(req.body?.challenge);
+  if (!uid) return res.status(401).json({ error: 'That sign-in took too long. Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+  const user = await platformPrisma.user.findUnique({ where: { id: uid }, select: { id: true, accountId: true, email: true, isActive: true, lockedUntil: true, smsPhone: true, smsTwoFactorEnabledAt: true } });
+  if (!user || !user.isActive) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+  if (!user.smsTwoFactorEnabledAt || !user.smsPhone) return res.status(400).json({ error: 'Codes by text message are not on for you. Use your authenticator app or a recovery code.', code: 'SMS_NOT_ON' });
+  const lockedFor = lockoutRemainingMs(user.lockedUntil);
+  if (lockedFor > 0) return res.status(429).json({ error: `Too many failed attempts. Try again in ${Math.ceil(lockedFor / 60000)} minute(s).` });
+  try {
+    const sent = await issueSmsCode(user.id, user.smsPhone, 'LOGIN');
+    res.json({ sent: true, phone: maskPhone(user.smsPhone), ...sent });
+  } catch (e) {
+    if (e instanceof SmsLimitError) return res.status(429).json({ error: e.message, code: 'SMS_HELD', retryAfter: e.retryAfterS });
+    if (e instanceof SmsError) return res.status(503).json({ error: `${e.message} Use your authenticator app or a recovery code.`, code: 'SMS_NOT_SENT' });
+    throw e;
+  }
+});
+
+/**
  * The second half of a two-factor sign-in: the challenge from /login plus a
- * code from the authenticator app, or one of the recovery codes (each works
- * once). A wrong code counts as a failed sign-in, towards the same lockout.
+ * code from the authenticator app, a code sent by text message, or one of the
+ * recovery codes (each works once). A wrong code counts as a failed sign-in,
+ * towards the same lockout.
  */
 authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: Response) => {
   const ip = clientIp(req);
   const userAgent = req.headers['user-agent'] as string | undefined;
-  let claims: any;
-  try {
-    claims = jwt.verify(String(req.body?.challenge || ''), getJwtSecret(), { audience: LOGIN_2FA_AUDIENCE, algorithms: ['HS256'] });
-  } catch {
-    return res.status(401).json({ error: 'That sign-in took too long. Enter your password again.', code: 'CHALLENGE_EXPIRED' });
-  }
-  if (claims?.typ !== 'login2fa' || !claims.uid) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+  const uid = challengeUser(req.body?.challenge);
+  if (!uid) return res.status(401).json({ error: 'That sign-in took too long. Enter your password again.', code: 'CHALLENGE_EXPIRED' });
 
   const user = await platformPrisma.user.findUnique({
-    where: { id: String(claims.uid) },
-    select: { id: true, accountId: true, email: true, fullName: true, isActive: true, lockedUntil: true, totpEnabledAt: true, totpSecretEnc: true, totpLastStep: true, totpRecoveryJson: true, emailVerifiedAt: true },
+    where: { id: uid },
+    select: { id: true, accountId: true, email: true, fullName: true, isActive: true, lockedUntil: true, totpEnabledAt: true, totpSecretEnc: true, totpLastStep: true, totpRecoveryJson: true, smsPhone: true, smsTwoFactorEnabledAt: true, emailVerifiedAt: true },
   });
-  if (!user || !user.isActive || !user.totpEnabledAt || !user.totpSecretEnc) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
+  if (!user || !user.isActive || !hasSecondFactor(user)) return res.status(401).json({ error: 'Enter your password again.', code: 'CHALLENGE_EXPIRED' });
   const identity = String(user.email || '').toLowerCase();
 
   const lockedFor = lockoutRemainingMs(user.lockedUntil);
@@ -287,12 +330,14 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
   }
 
   const code = String(req.body?.code || '').trim();
-  let used: 'CODE' | 'RECOVERY' | null = null;
-  const step = verifyCode(decryptSecret(user.totpSecretEnc), code, user.totpLastStep);
+  let used: 'CODE' | 'SMS' | 'RECOVERY' | null = null;
+  const step = user.totpEnabledAt && user.totpSecretEnc ? verifyCode(decryptSecret(user.totpSecretEnc), code, user.totpLastStep) : null;
   if (step != null) {
     /* A code works once: only if no other request used this step in the meantime. */
     const won = await platformPrisma.user.updateMany({ where: { id: user.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] }, data: { totpLastStep: step } });
     if (won.count) used = 'CODE';
+  } else if (user.smsTwoFactorEnabledAt && /^\d{6}$/.test(code.replace(/\s/g, '')) && (await useSmsCode(user.id, 'LOGIN', code))) {
+    used = 'SMS';
   } else if (/^[A-Z2-7]{4}-?[A-Z2-7]{4}$/i.test(code)) {
     /* Each recovery code works once, however many sign-ins race with it (compare-and-swap). */
     if (await spendRecoveryCode(user.id, user.totpRecoveryJson, code)) used = 'RECOVERY';
@@ -301,7 +346,7 @@ authRouter.post('/login/two-factor', ...codeLimiter, async (req: Request, res: R
   if (!used) {
     const policy = await policyForUser(user.accountId, user.id);
     const result = await registerFailedLogin(user.id, policy.maxFailedLogins, policy.lockoutMinutes);
-    await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: result.locked ? 'LOCKED_OUT' : 'LOGIN_FAILED', ip, userAgent, detail: 'Wrong authenticator code' });
+    await recordAuthEvent({ accountId: user.accountId, userId: user.id, email: identity, eventType: result.locked ? 'LOCKED_OUT' : 'LOGIN_FAILED', ip, userAgent, detail: 'Wrong second-step code' });
     if (result.locked) return res.status(429).json({ error: `Too many failed attempts. Try again in ${policy.lockoutMinutes} minute(s).` });
     return res.status(400).json({ error: 'That code is not right, or has been used. Wait for the next one.', code: 'BAD_CODE' });
   }

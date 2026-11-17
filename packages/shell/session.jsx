@@ -359,11 +359,11 @@ export function SessionProvider({ children }) {
     [adopt, loadApps]
   );
 
-  /* With an authenticator set up, the password alone returns a challenge, not a session: the caller asks for the code. */
+  /* With two-step sign-in on, the password alone returns a challenge, not a session: the caller asks for the code (`methods`: APP, SMS or both). */
   const signIn = useCallback(
     async ({ email, password }) => {
       const res = await apiLogin({ email, password });
-      if (res?.twoFactorRequired) return { twoFactorRequired: true, challenge: res.challenge };
+      if (res?.twoFactorRequired) return { twoFactorRequired: true, challenge: res.challenge, methods: res.methods?.length ? res.methods : ['APP'], phone: res.phone || null };
       return finishSignIn(res);
     },
     [finishSignIn]

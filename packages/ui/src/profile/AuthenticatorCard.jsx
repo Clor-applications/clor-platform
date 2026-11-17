@@ -3,6 +3,7 @@ import { KeyRound } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
 
 import { disableTwoFactor, enableTwoFactor, getTwoFactor, startTwoFactor } from './twoFactorApi';
+import TextCodesCard from './TextCodesCard';
 
 /**
  * The signed-in person's authenticator app: set up — after their password, so
@@ -10,6 +11,10 @@ import { disableTwoFactor, enableTwoFactor, getTwoFactor, startTwoFactor } from 
  * typing a code from it, shown recovery codes once, turned off with their
  * password and a current code (or a recovery code) — a password alone could
  * otherwise strip the second factor. Where the company asks (Policy), payroll approvals need a code.
+ *
+ * Under it, where CLOR's SMS sender is set up, the other way to do the second
+ * step: a code by text message (TextCodesCard). Either or both can be on; the
+ * recovery codes serve both.
  */
 export default function AuthenticatorCard() {
   const [state, setState] = useState(null);
@@ -72,6 +77,7 @@ export default function AuthenticatorCard() {
 
   if (!state) return null;
   return (
+    <>
     <section className="ui-card p-5 space-y-3" aria-labelledby="totp-heading">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="totp-heading" className="ui-t-sec">Authenticator app</h2>
@@ -95,7 +101,7 @@ export default function AuthenticatorCard() {
 
       {state.enabled ? (
         <form onSubmit={turnOff} className="flex flex-wrap items-end gap-2">
-          <span className="ui-caption w-full">Set up {new Date(state.enabledAt).toLocaleDateString()} · {state.recoveryCodesLeft} recovery codes left.</span>
+          <span className="ui-caption w-full">Set up {new Date(state.enabledAt).toLocaleDateString()} · {state.recoveryCodesLeft} recovery codes left{state.sms?.enabled ? ' (they stay while codes by text message are on)' : ''}.</span>
           <input type="password" className="ui-input" placeholder="Your password" aria-label="Your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <input className="ui-input ui-num w-44 text-center tracking-widest" inputMode="text" autoComplete="one-time-code" maxLength={9} placeholder="Code or recovery code" aria-label="Code from the app, or a recovery code" value={offCode} onChange={(e) => setOffCode(e.target.value)} required />
           <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !password || !offCode.trim()}>Turn off</button>
@@ -125,5 +131,7 @@ export default function AuthenticatorCard() {
       )}
       {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
     </section>
+    <TextCodesCard sms={state.sms} appOn={state.enabled} payrollStepUp={state.payrollStepUp} onChange={load} />
+    </>
   );
 }

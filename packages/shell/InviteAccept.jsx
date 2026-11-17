@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { acceptInvitationNew, acceptInvitationSignedIn, previewInvitation } from '@platform/admin/account';
 import AuthLayout from './AuthLayout';
+import SecondStep from './SecondStep';
 import { useSession } from './session';
 
 /**
@@ -25,6 +26,8 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /* Their login has two-step sign-in on: the code is asked here, then the invitation is accepted. */
+  const [challenge, setChallenge] = useState(null);
 
   useEffect(() => {
     previewInvitation(token)
@@ -81,6 +84,29 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
     );
   }
 
+  if (challenge && !user) {
+    return (
+      <SecondStep
+        challenge={challenge.challenge}
+        methods={challenge.methods}
+        phone={challenge.phone}
+        submitLabel="Sign in and join"
+        frame={(p) => <AuthLayout scene="invite" onHome={onHome} {...p} />}
+        onSignedIn={() => run(async () => { await acceptInvitationSignedIn(token); done(); })}
+        onExpired={(message) => {
+          setChallenge(null);
+          setPassword('');
+          setError(message || 'That took too long. Enter your password again.');
+        }}
+        onCancel={() => {
+          setChallenge(null);
+          setPassword('');
+          setError('');
+        }}
+      />
+    );
+  }
+
   if (signedInAsInvited) {
     return (
       <AuthLayout scene="invite" title="Accept your invitation" subtitle={subtitle} onHome={onHome}>
@@ -102,8 +128,7 @@ export default function InviteAccept({ token, onHome, onSignIn }) {
           run(async () => {
             if (invite.hasLogin) {
               const r = await signIn({ email: invite.email, password });
-              /* An authenticator code is asked on the normal sign-in page; the link still works afterwards. */
-              if (r?.twoFactorRequired) throw new Error('Your login asks for an authenticator code. Sign in first, then open the link again.');
+              if (r?.twoFactorRequired) return setChallenge(r);
               await acceptInvitationSignedIn(token);
             } else {
               await acceptInvitationNew(token, name.trim(), password);
