@@ -80,15 +80,18 @@ describe('the email step', () => {
     expect(logged?.detail).toContain(row.id);
   });
 
-  it('refuses a bad address, thanks a bot and keeps nothing, and turns away an email that already signs in', async () => {
+  it('refuses a bad address, thanks a bot and keeps nothing, and makes nothing for an email that already signs in', async () => {
     expect((await request(app).post('/api/public/signup/start').send({ email: 'not-an-email' }).expect(400)).body.error).toMatch(/email address like/);
     const bot = freshEmail();
     await request(app).post('/api/public/signup/start').send({ email: bot, website: 'http://spam.example' }).expect(202);
     expect(await platformPrisma.trialSignup.count({ where: { email: bot } })).toBe(0);
     const c = await company();
     const owner = await platformPrisma.user.findUniqueOrThrow({ where: { id: c.userId }, select: { email: true } });
-    const r = await request(app).post('/api/public/signup/start').send({ email: owner.email!.toUpperCase() }).expect(409);
-    expect(r.body.code).toBe('EMAIL_TAKEN');
+    /* An email that already signs in gets the same answer as a new one (audit, 17 Nov 2026): the mail, not the page, says so. */
+    const r = await request(app).post('/api/public/signup/start').send({ email: owner.email!.toUpperCase() }).expect(201);
+    expect(r.body).toMatchObject({ ok: true, email: owner.email!.toLowerCase() });
+    expect(r.body.devStartToken).toBeUndefined();
+    expect(r.body.code).toBeUndefined();
     expect(await platformPrisma.trialSignup.count({ where: { email: owner.email!.toLowerCase() } })).toBe(0);
   }, 60_000);
 

@@ -14,6 +14,8 @@
  * Times are the reader's wall clock, IST, as with ADMS.
  */
 
+import { checkUrl, guardedRequest } from '../outbound.js';
+
 export const ETO_DEFAULT_URL = 'https://api.etimeoffice.com/api/';
 
 export type EtoCredentials = { apiUrl?: string | null; corporateId?: string | null; username: string; password: string };
@@ -37,18 +39,35 @@ export const etoPunchTime = (s: unknown) => {
 
 export type EtoResult = { ok: boolean; message: string; punches: Array<{ pin: string; localTime: string; name: string | null }> };
 
-export async function etoFetchPunches(c: EtoCredentials, from: Date, to: Date, fetchImpl: typeof fetch = fetch): Promise<EtoResult> {
+export async function etoFetchPunches(c: EtoCredentials, from: Date, to: Date, fetchImpl?: typeof fetch): Promise<EtoResult> {
   const base = String(c.apiUrl || ETO_DEFAULT_URL).replace(/\/+$/, '') + '/';
   const url = `${base}DownloadPunchData?Empcode=ALL&FromDate=${encodeURIComponent(etoDate(from))}&ToDate=${encodeURIComponent(etoDate(to))}`;
-  let res: Response;
+  const headers = { Authorization: etoAuthHeader(c), Accept: 'application/json' };
+  /* An address the customer set goes out through the guarded agents, like
+     every other reader driver: no private, loopback or metadata address, and
+     no redirect followed. The vendor's own address, when none is set, is
+     CLOR's constant and needs no guard. `fetchImpl` is for tests only. */
+  const direct = fetchImpl || (c.apiUrl ? null : fetch);
+  let res: { ok: boolean; status: number };
+  let text: string;
   try {
-    res = await fetchImpl(url, { headers: { Authorization: etoAuthHeader(c), Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) });
+    if (direct) {
+      const r = await direct(url, { headers, signal: AbortSignal.timeout(20_000) });
+      res = { ok: r.ok, status: r.status };
+      text = await r.text();
+    } else {
+      const bad = checkUrl(url);
+      if (bad) return { ok: false, message: bad, punches: [] };
+      const r = await guardedRequest('GET', url, { headers, timeoutMs: 20_000 });
+      res = { ok: r.status >= 200 && r.status < 300, status: r.status };
+      text = r.text;
+    }
   } catch (e: any) {
     return { ok: false, message: `Could not reach e-Time Office: ${e?.message || e}`, punches: [] };
   }
   let body: any = null;
   try {
-    body = await res.json();
+    body = JSON.parse(text);
   } catch {
     return { ok: false, message: `e-Time Office answered ${res.status} without data.`, punches: [] };
   }

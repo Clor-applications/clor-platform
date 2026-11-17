@@ -89,6 +89,26 @@ class GuardedHttpsAgent extends https.Agent {
 const httpAgent = new GuardedHttpAgent({ lookup: guardedLookup } as any);
 const httpsAgent = new GuardedHttpsAgent({ lookup: guardedLookup, rejectUnauthorized: true } as any);
 
+/**
+ * Refuse a host that is, or resolves to, an address CLOR must not contact.
+ * For clients that open their own connection (the OpenID library, the mail
+ * transport) and so cannot be given the guarded agents. The name is resolved
+ * here and again by the client, so this narrows the door rather than locking
+ * it; the agents above remain the rule wherever they can be used.
+ */
+export async function assertPublicHost(host: string): Promise<void> {
+  const name = String(host || '').replace(/^\[|\]$/g, '').trim();
+  if (!name) throw new Error('That is not a web address.');
+  const addresses = net.isIP(name) ? [{ address: name }] : await dns.promises.lookup(name, { all: true });
+  for (const a of addresses) {
+    const why = blockedReason(a.address);
+    if (why) throw Object.assign(new Error(`That address cannot be used (${why}).`), { code: 'BLOCKED_HOST' });
+  }
+}
+
+/** A refusal from assertPublicHost, as against a name that simply did not resolve. */
+export const isBlockedHost = (e: unknown) => (e as any)?.code === 'BLOCKED_HOST';
+
 /** Only http(s) URLs with a host, no credentials in them. */
 export function checkUrl(raw: string) {
   let u: URL;

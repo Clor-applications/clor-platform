@@ -57,6 +57,25 @@ describe('what a support grant allows', () => {
     expect(run('GET', '/api/orgs/o1/invoices', READ_WRITE).passed).toBe(true);
   });
 
+  it('shuts offers, advances, final pay and personal papers even to a read (audit, 17 Nov 2026)', () => {
+    for (const path of [
+      '/api/orgs/o1/people/offers',
+      '/api/orgs/o1/people/offers/of1',
+      '/api/orgs/o1/people/money/salary-advances',
+      '/api/orgs/o1/people/final-pay',
+      '/api/orgs/o1/attendance/leave/requests/r1/document',
+      '/api/orgs/o1/people/compliance/obligations/ob1/proofs/p1',
+      '/api/orgs/o1/attendance/biometrics/photo',
+    ]) {
+      expect(run('GET', path, READ_ONLY).code, path).toBe('SUPPORT_GRANT_CLOSED');
+      expect(run('GET', path, READ_WRITE).code, path).toBe('SUPPORT_GRANT_CLOSED');
+      expect(run('GET', path).passed, path).toBe(true);
+    }
+    /* The leave request itself, and the list of filings, stay readable. */
+    expect(run('GET', '/api/orgs/o1/attendance/leave/requests/r1', READ_ONLY).passed).toBe(true);
+    expect(run('GET', '/api/orgs/o1/people/compliance/obligations', READ_ONLY).passed).toBe(true);
+  });
+
   it('lets the session go on and end, whatever the scope', () => {
     expect(run('POST', '/api/auth/refresh', READ_ONLY).passed).toBe(true);
     expect(run('POST', '/api/auth/logout', READ_ONLY).passed).toBe(true);

@@ -6,6 +6,7 @@ import { requireTenantContext } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { isFeatureEnabled } from '../services/features.js';
+import { ownDocsWhere } from '../services/access.js';
 import {
   getEInvoiceSetting,
   saveEInvoiceSetting,
@@ -133,6 +134,11 @@ einvoiceRouter.get('/orgs/:orgId/:docs(invoices|credit-notes)/:docId/einvoice/pa
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
   const kind = PAYLOAD_KINDS[String(req.params.docs)];
+  /* Someone limited to their own documents reads the e-invoice details of their own only. */
+  if (req.ownDocumentsOnly) {
+    const own = await (prisma as any)[kind].findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) }, select: { id: true } });
+    if (!own) return res.status(404).json({ error: kind === 'invoice' ? 'Invoice not found' : 'Credit note not found' });
+  }
   const built = await buildEInvoiceFor(kind, String(req.params.docId), { accountId, orgId });
   if (!built.found) return res.status(404).json({ error: kind === 'invoice' ? 'Invoice not found' : 'Credit note not found' });
   if (!built.ok) return refuse(res, built);
@@ -153,7 +159,7 @@ einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/einvoice', INVOICE_EDIT, a
   }
 
   const invoice = await prisma.invoice.findFirst({
-    where: { id: String(req.params.invoiceId), accountId, orgId },
+    where: { id: String(req.params.invoiceId), accountId, orgId, ...ownDocsWhere(req) },
   });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
   if (invoice.irn && invoice.irnStatus === 'REGISTERED') {
@@ -203,7 +209,7 @@ einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/einvoice', INVOICE_EDIT, a
 einvoiceRouter.get('/orgs/:orgId/invoices/:invoiceId/einvoice', INVOICE_EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
-  const invoice = await prisma.invoice.findFirst({ where: { id: String(req.params.invoiceId), accountId, orgId } });
+  const invoice = await prisma.invoice.findFirst({ where: { id: String(req.params.invoiceId), accountId, orgId, ...ownDocsWhere(req) } });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
   res.json({
     irn: invoice.irn,
@@ -236,7 +242,7 @@ einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/einvoice/cancel', INVOICE_
     return res.status(400).json({ error: 'e-Invoicing is switched off for this company (Settings → Features).' });
   }
 
-  const invoice = await prisma.invoice.findFirst({ where: { id: String(req.params.invoiceId), accountId, orgId } });
+  const invoice = await prisma.invoice.findFirst({ where: { id: String(req.params.invoiceId), accountId, orgId, ...ownDocsWhere(req) } });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
   if (!invoice.irn || invoice.irnStatus !== 'REGISTERED') {
     return res.status(400).json({ error: 'This invoice has no active IRN to cancel.' });
@@ -286,7 +292,7 @@ einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/ewaybill', INVOICE_EDIT, a
   }
 
   const invoice = await prisma.invoice.findFirst({
-    where: { id: String(req.params.invoiceId), accountId, orgId },
+    where: { id: String(req.params.invoiceId), accountId, orgId, ...ownDocsWhere(req) },
   });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
   if (!invoice.irn || invoice.irnStatus !== 'REGISTERED') {
