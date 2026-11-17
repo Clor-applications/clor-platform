@@ -355,7 +355,7 @@ const withMeta = async (orgId: string, rows: any[]) => {
 };
 
 const sendError = (res: any, e: any) => {
-  if (e?.status) return res.status(e.status).json({ error: e.message });
+  if (e?.status) return res.status(e.status).json({ error: e.message, ...(e.expose && e.code ? { code: e.code } : {}) });
   if (String(e?.code) === 'P2002') return res.status(409).json({ error: 'That code, name or reader ID is already used in this organisation.' });
   throw e;
 };

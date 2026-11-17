@@ -61,6 +61,8 @@ const invoicePayload = (over: Record<string, unknown> = {}) =>
   number: `INV-${Math.random().toString(36).slice(2, 9).toUpperCase()}`,
   date: '2026-08-16',
   customerName: 'Acme Ltd',
+  /* Issued, so it is in the books: a draft is not (17 Nov 2026). */
+  status: 'Unpaid',
   subtotal: 1000,
   cgstTotal: 90,
   sgstTotal: 90,
@@ -187,6 +189,8 @@ describe('double-entry posting', () => {
       .expect(201);
 
     const invoiceId = created.body.invoice.id;
+    /* A draft made before 17 Nov 2026 was posted when it was made: deleting one still takes its posting out. */
+    await prisma.invoice.update({ where: { id: invoiceId }, data: { status: 'Draft' } });
 
     const beforeDelete = await request(app)
       .get(`/api/orgs/${A.orgId}/ledger/trial-balance`)

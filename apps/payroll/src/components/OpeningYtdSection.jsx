@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { deleteOpeningYtd, getOpeningYtd, saveOpeningYtd } from '../api/payrollTaxDeclarations';
@@ -99,7 +100,7 @@ export default function OpeningYtdSection({ employeeId, fy, onChanged, joinedOn,
         {FIELDS.map(([key, label, hint]) => (
           <div key={key}>
             <label className="ui-label" htmlFor={`op-${key}`}>{label}</label>
-            <input id={`op-${key}`} type="number" min="0" step="1" inputMode="decimal" className="ui-input ui-num w-full" value={form[key]} onChange={(e) => set({ [key]: e.target.value })} />
+            <MoneyInput id={`op-${key}`} type="number" min="0" step="1" inputMode="decimal" className="ui-input ui-num w-full" value={form[key]} onChange={(e) => set({ [key]: e.target.value })} />
             {hint ? <span className="ui-caption">{hint}</span> : null}
           </div>
         ))}

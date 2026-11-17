@@ -38,7 +38,7 @@ test.describe('Suresh owns the account', () => {
     await suresh.main.getByRole('button', { name: /^Users & security/ }).click();
     /* Workspace opens: in place locally (?app=admin), on staging on the front door's own host (app.), where the address carries no app=. */
     await expect(suresh.page.locator('html')).toHaveAttribute('data-app', 'admin');
-    if (suresh.isPhone) await suresh.page.getByRole('banner').getByRole('button', { name: 'Menu' }).click();
+    if (suresh.isPhone) await suresh.page.getByRole('banner').getByRole('button', { name: 'Menu', exact: true }).click();
     /* Workspace's "Users & access" module ("Users" on the rail; "People" until 17 Nov 2026), then its users page. */
     await suresh.page.getByRole('navigation', { name: /modules$/ }).getByRole('button', { name: /^Users(?: |$)/ }).click();
     await suresh.page.getByRole('navigation', { name: 'Users & access screens' }).getByRole('button', { name: /^Company users/ }).click();

@@ -594,6 +594,16 @@ export async function reverseEntry(opts: {
   return tx ? run(tx) : prisma.$transaction((t) => run(t));
 }
 
+/** The other charges an invoice carries, before tax, from the extras stored beside it. */
+export const otherChargesFromExtras = (extrasJson: unknown): number => {
+  try {
+    const n = Number(JSON.parse(String(extrasJson || '{}'))?.otherChargesTotal ?? 0);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+};
+
 /** Journal lines for a sales invoice: AR debit, revenue + tax credits. */
 export function invoicePostingLines(invoice: {
   customerId?: string | null;
@@ -603,14 +613,18 @@ export function invoicePostingLines(invoice: {
   sgstTotal?: number | null;
   igstTotal?: number | null;
   total?: number | null;
+  /** Freight, packing and the like, before tax: part of what was sold, kept beside the lines on the document. */
+  otherChargesTotal?: number | null;
 }): PostingLine[] {
   const subtotal = Number(invoice.subtotal ?? 0);
   const cgst = Number(invoice.cgstTotal ?? 0);
   const sgst = Number(invoice.sgstTotal ?? 0);
   const igst = Number(invoice.igstTotal ?? 0);
   const declaredTotal = Number(invoice.total ?? 0);
+  const charges = Math.max(0, Number(invoice.otherChargesTotal ?? 0) || 0);
 
-  const computed = Math.round((subtotal + cgst + sgst + igst) * 100) / 100;
+  /* Other charges are income, not a rounding difference: left out of this sum they were credited to Rounding (audit, 17 Nov 2026). */
+  const computed = Math.round((subtotal + charges + cgst + sgst + igst) * 100) / 100;
   const total = declaredTotal || computed;
   // Any difference between the document total and the sum of its parts is
   // posted explicitly rather than silently absorbed.
@@ -627,6 +641,7 @@ export function invoicePostingLines(invoice: {
   ];
 
   if (subtotal) lines.push({ controlKind: 'SALES', credit: subtotal, description: 'Sales' });
+  if (charges) lines.push({ controlKind: 'SALES', credit: charges, description: 'Other charges (freight, packing and the like)' });
   if (cgst) lines.push({ controlKind: 'CGST_OUT', credit: cgst, taxCode: 'CGST', description: 'Output CGST' });
   if (sgst) lines.push({ controlKind: 'SGST_OUT', credit: sgst, taxCode: 'SGST', description: 'Output SGST' });
   if (igst) lines.push({ controlKind: 'IGST_OUT', credit: igst, taxCode: 'IGST', description: 'Output IGST' });

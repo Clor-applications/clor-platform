@@ -9960,3 +9960,66 @@ button.ui-side-alert { cursor: pointer; }
 /* Import corrections: one line per section, divided by hairlines rather than a card per line inside the drawer. */
 .import-correction-line { padding-block: .75rem; border-top: 1px solid rgb(var(--border)); }
 .import-correction-line:first-of-type { border-top: 0; }
+
+/* ---------------------------------------------------------------------------
+ * Sign-in picture side laid out in three rows (owner, 17 Nov 2026: "fix login
+ * layout properly"). The title sits above the picture, the whole picture in the
+ * middle, the quote card below it — nothing lies over the drawing, so the card no
+ * longer covers the people and the title no longer sits on the building. The
+ * blurred copy still fills the side behind all three. The side is a fixed share of
+ * the screen rather than the picture's shape at full height, since the picture now
+ * shares the height with the title and the card.
+ */
+@media (min-width: 1024px) {
+  .ui-auth-brand--scene { width: min(58%, calc(100% - 460px)); position: sticky; top: 0; height: 100dvh; align-self: flex-start; }
+  .ui-auth-scene {
+    height: 100%;
+    min-height: 0;
+    background: rgb(var(--surface));
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    row-gap: clamp(12px, 2.5vh, 28px);
+    padding: clamp(24px, 4.5vh, 48px) clamp(24px, 3vw, 44px) clamp(20px, 3.5vh, 36px);
+  }
+  .ui-auth-scene .ui-auth-scene-pic {
+    position: relative;
+    inset: auto;
+    grid-row: 2;
+    min-height: 0;
+    justify-self: start;
+    width: auto;
+    max-width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: 0% 50%;
+    border-radius: 16px;
+    box-shadow: 0 24px 48px -28px rgb(11 21 48 / 0.45);
+  }
+  .ui-auth-scene .ui-auth-scene-title {
+    position: relative;
+    inset: auto;
+    grid-row: 1;
+  }
+  .ui-auth-scene .ui-auth-scene-top {
+    position: relative;
+    inset: auto;
+    grid-row: 3;
+    padding: 0;
+    justify-content: flex-start;
+  }
+  .ui-auth-scene .ui-auth-facts { width: min(560px, 100%); }
+  /* The blurred copy only tints the side; at full strength its dark edges showed as a band. */
+  .ui-auth-scene .ui-auth-scene-fill { opacity: 0.35; }
+  .ui-auth.has-scene .ui-auth-side { min-height: 100dvh; }
+  .ui-auth-scene .ui-auth-fact { min-height: 0; }
+  /* The form column: the logo, title and fields centred as one block. */
+  .ui-auth.has-scene .ui-auth-side > .relative:not(.max-w-3xl) { max-width: 400px; }
+}
+/* A focused field shows one ring, not a border, a halo and an outline at once. */
+.ui-auth :is(.ui-input, .ui-select):focus-visible { outline: none; }
+/* On a phone the picture is a rounded image across the form's width, not a band with blurred sides. */
+@media (max-width: 1023px) {
+  .ui-auth-scene-band { height: auto; margin: 0 0 24px; border-radius: 16px; }
+  .ui-auth-scene-band .ui-auth-scene-fill { display: none; }
+  .ui-auth-scene-band .ui-auth-scene-pic { position: static; display: block; width: 100%; height: auto; max-height: 40vh; object-fit: cover; object-position: 50% 60%; }
+}

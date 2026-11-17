@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import RangePresets from '@ui/components/ui/RangePresets';
 import { Download } from '@ui/components/ui/lineIcons';
 
 import ListHeader from '@ui/components/list/ListHeader';
@@ -83,6 +84,7 @@ export default function HrReport({ params = {}, updateParams, openScreen }) {
     <>
       {dates === 'day' ? <DateField word="As of" value={q.to || d?.to || ''} onChange={(v) => set({ to: v || null })} /> : (
         <>
+          <RangePresets from={q.from || d?.from || ''} to={q.to || d?.to || ''} onPick={(f, t) => set({ from: f, to: t })} />
           <DateField word="From" value={q.from || d?.from || ''} onChange={(v) => set({ from: v || null })} />
           <DateField word="To" value={q.to || d?.to || ''} onChange={(v) => set({ to: v || null })} />
         </>

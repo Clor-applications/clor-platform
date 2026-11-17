@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import RangePresets from '@ui/components/ui/RangePresets';
 import { Ban, Camera, Check, ExternalLink, MapPin, Navigation, Smartphone, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -157,6 +158,7 @@ export default function PhonePunches() {
       tabsLabel="Phone punches"
       tabsExtras={
         <>
+          <RangePresets from={range.from} to={range.to} maxTo={todayIst()} onPick={(f, t) => setRange((r) => ({ ...r, from: f, to: t }))} />
           <input type="date" className="ui-input ui-ctl-compact !w-auto" value={range.from} max={range.to} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} aria-label="From" />
           <input type="date" className="ui-input ui-ctl-compact !w-auto" value={range.to} max={todayIst()} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} aria-label="To" />
           {data ? (

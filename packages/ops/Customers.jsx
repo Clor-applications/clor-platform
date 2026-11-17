@@ -64,6 +64,8 @@ const FILTERS = [
   ['overdue', 'Overdue'],
   ['suspended', 'Suspended'],
   ['cancelled', 'Cancelled'],
+  /* Active with no paid period: not invoiced, never lapses. Staff check each is meant to be so. */
+  ['no-end', 'Active, no end date'],
 ];
 
 /** A trial that has run out is overdue, whatever the subscription row says. */
@@ -285,6 +287,11 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {cancelling ? <span className="ws-pill ws-pill--warn">Cancels at period end{s.currentPeriodEnd ? `, ${day(s.currentPeriodEnd)}` : ''}</span> : null}
         {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">Fail-open: every app</span> : null}
       </div>
+      {s?.status === 'active' && !s.currentPeriodEnd && !a.suspendedAt ? (
+        <p className="ws-notice" role="status">
+          <span className="ws-pill ws-pill--warn">No end date</span> This account is active with no paid period, so it is never invoiced and never lapses. That is right for a free grant. If the customer should pay, set the period under Subscription.
+        </p>
+      ) : null}
       {a.suspendedAt ? (
         <p className="ws-notice" role="status">
           Suspended on {day(a.suspendedAt)}: {a.suspendedReason}. Nobody in this account can open any of its companies until it is resumed.

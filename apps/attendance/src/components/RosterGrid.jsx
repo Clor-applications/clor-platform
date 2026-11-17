@@ -23,7 +23,7 @@ const codeOf = (s) => s.code || (s.name || '').slice(0, 2);
 
 /* A shift's colour is its place among the company's shifts, drawn from the chart series tokens (--dept-1..8), so it follows the theme. */
 const toneIndex = (shifts) => new Map(shifts.map((s, i) => [s.id, (i % 8) + 1]));
-const wash = (n) => ({ backgroundColor: `rgb(var(--dept-${n}) / 0.18)` });
+const wash = (n) => ({ backgroundColor: `rgb(var(--dept-${n}) / 0.18)`, '--tone': `var(--dept-${n})` });
 
 const cellTitle = (c) => {
   if (c.kind === 'OUT') return 'Not employed';
@@ -278,7 +278,7 @@ export default function RosterGrid({ days, rows, shifts, coverage = [], closedMo
                       onDoubleClick={openMenu}
                     >
                       <span
-                        className={`inline-block min-w-[1.6rem] rounded-full px-1 py-0.5 ${tone ? 'font-semibold' : cell.kind === 'WORK' ? '' : 'ui-muted'}`}
+                        className={`inline-block min-w-[1.6rem] rounded-full px-1 py-0.5 ${tone ? 'ui-ros-shift font-semibold' : cell.kind === 'WORK' ? '' : 'ui-muted'}`}
                         style={{ ...(tone ? wash(tone) : {}), ...(cell.draft ? { outline: '1px dashed rgb(var(--fg-muted))' } : {}) }}
                         data-draft={cell.draft ? 'true' : undefined}
                       >

@@ -245,7 +245,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       )}
       {note ? <p className="ui-caption" style={{ color: 'rgb(var(--warn))' }}>{note}</p> : null}
 
-      <button type="button" className="ui-btn ui-btn-primary w-full !h-14 text-base" disabled={!position || busy || !sites.length} onClick={doPunch}>
+      <button type="button" className="ui-btn ui-btn-primary ui-punch-btn w-full !h-14 text-base" disabled={!position || busy || !sites.length} onClick={doPunch}>
         {phone?.next === 'IN' ? <LogIn size={20} aria-hidden="true" /> : <LogOut size={20} aria-hidden="true" />}
         {busy ? 'Saving…' : `${next} now`}
       </button>

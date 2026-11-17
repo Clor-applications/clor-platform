@@ -6,8 +6,11 @@ import './packages/ui/src/index.css';
 import './packages/ui/src/people.css';
 /* R&D brand (14 Nov 2026), last so it wins: clor-rnd/README.md. */
 import './packages/ui/src/rnd.css';
+/* The owner's style picks (17 Nov 2026), after everything; never in Books. */
+import './packages/ui/src/picks.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
+import TipLayer from './packages/ui/src/components/ui/TipLayer';
 
 /*
  * Personal data an earlier version left in this browser.
@@ -101,6 +104,8 @@ createRoot(document.getElementById('root')).render(
           )}
         </SessionProvider>
       )}
+      {/* White tooltips and the letter count on long text, everywhere but Books (owner's picks, 17 Nov 2026). */}
+      {shareToken ? null : <TipLayer />}
     </ErrorBoundary>
   </React.StrictMode>
 );

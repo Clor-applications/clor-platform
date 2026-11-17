@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import PhoneInput from '@ui/components/ui/PhoneInput';
 import SuggestInput from '../components/ui/SuggestInput';
 import { dayWords, rupees } from './words';
 
@@ -191,7 +192,7 @@ function ReferForm({ job, api, run, onCancel, onDone }) {
       {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       {/* The friend's own name and contacts are theirs: nothing is suggested from anyone else's record. */}
       <label className="block"><span className="ui-label">Their name *</span><input className="ui-input w-full" autoFocus maxLength={120} autoComplete="off" value={form.name} onChange={(e) => set({ name: e.target.value })} /></label>
-      <label className="block"><span className="ui-label">Phone</span><input className="ui-input w-full tabular-nums" type="tel" inputMode="tel" maxLength={40} autoComplete="off" value={form.phone} onChange={(e) => set({ phone: e.target.value })} /></label>
+      <div className="block"><label className="ui-label" htmlFor="refer-phone">Phone</label><PhoneInput id="refer-phone" className="ui-input w-full tabular-nums" maxLength={40} autoComplete="off" value={form.phone} onChange={(v) => set({ phone: v })} /></div>
       <label className="block"><span className="ui-label">E-mail</span><input className="ui-input w-full" type="email" inputMode="email" maxLength={200} autoComplete="off" value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
       <label className="block"><span className="ui-label">How you know them</span><SuggestInput className="ui-input w-full" maxLength={120} value={form.relation} onChange={(v) => set({ relation: v })} suggestions={RELATIONS} /></label>
       <label className="block"><span className="ui-label">Why they would be good</span><textarea className="ui-input w-full" rows={3} maxLength={2000} value={form.note} onChange={(e) => set({ note: e.target.value })} /></label>

@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import { SkeletonCard } from '@ui/components/ui/Primitives';
@@ -92,7 +93,7 @@ export default function ReferralSettings({ opening, value, onClose, onSaved }) {
           <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.referralOpen} onChange={(e) => set({ referralOpen: e.target.checked })} />Staff may refer people for this job</label>
           {form.referralOpen ? (
             <>
-              <label className="block"><span className="ui-label">Referral bonus (₹)</span><input className="ui-input w-full tabular-nums" inputMode="decimal" placeholder="No bonus" value={form.bonus} onChange={(e) => set({ bonus: e.target.value.replace(/[^\d.]/g, '').slice(0, 9) })} /></label>
+              <label className="block"><span className="ui-label">Referral bonus (₹)</span><MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" placeholder="No bonus" value={form.bonus} onChange={(e) => set({ bonus: e.target.value.replace(/[^\d.]/g, '').slice(0, 9) })} /></label>
               <fieldset className="block">
                 <legend className="ui-label">Paid when the hire</legend>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">

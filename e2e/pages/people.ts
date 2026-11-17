@@ -95,7 +95,7 @@ export class PeopleWeb {
   private async drawer() {
     if (!this.isPhone) return this.page;
     const dialog = this.page.getByRole('dialog', { name: 'People navigation' });
-    if (!(await dialog.isVisible())) await this.page.getByRole('banner').getByRole('button', { name: 'Menu' }).click();
+    if (!(await dialog.isVisible())) await this.page.getByRole('banner').getByRole('button', { name: 'Menu', exact: true }).click();
     await expect(dialog).toBeVisible();
     return dialog;
   }
@@ -161,7 +161,7 @@ export class PeopleWeb {
 
   /** My leave, My attendance, My requests: under My profile, not the admin menu. */
   async openMine(label: 'My leave' | 'My attendance' | 'My requests') {
-    await this.page.getByRole('banner').getByRole('button', { name: 'My profile' }).click();
+    await (await this.openYourMenu()).getByRole('menuitem', { name: 'My profile' }).click();
     await this.main.getByRole('navigation', { name: 'Your pages' }).getByRole('button', { name: label, exact: true }).click();
     await expect(this.title).toHaveText(label);
     await this.settle();
@@ -231,30 +231,22 @@ export class PeopleWeb {
     await auditScreen(this.page, this.testInfo, { title: false });
   }
 
-  /** The company switcher in the top bar. */
-  /** The company picker in the bar; on a phone it is in the app menu ("People ⌄"), the bar having no room for it. */
+  /** Your name menu in the top bar: your face opens it, and it holds the company in use, My profile and Sign out. */
+  async openYourMenu() {
+    await this.page.getByRole('banner').getByRole('button', { name: /^Your menu: / }).click();
+    return this.page.getByRole('menu', { name: 'Your menu' });
+  }
+
+  /** The company is chosen in your name menu, on a desktop and on a phone. */
   async switchCompany(name: string) {
-    const bar = this.page.getByRole('banner');
-    if (!this.isPhone) return bar.getByRole('combobox', { name: 'Company' }).selectOption({ label: name });
-    await this.companyMenuOpener().click();
-    /* The menu floats over the page (base-ui portal), so it is found on the page, not inside the bar. */
-    await this.page.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { name, exact: true }).click();
+    const menu = await this.openYourMenu();
+    await menu.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { name, exact: true }).click();
   }
 
-  /** On a phone: the app menu ("People ⌄"), or where the bar has none (the Workspace) the "Company: …" button. */
-  private companyMenuOpener() {
-    return this.page.getByRole('banner').getByRole('button', { name: /: switch app$|^Company: / }).first();
-  }
-
-  /** The company in use, as the bar (or a phone's app menu) shows it. */
+  /** The company in use, as your name menu shows it. */
   async companyInUse() {
-    const bar = this.page.getByRole('banner');
-    if (!this.isPhone) {
-      const select = bar.getByRole('combobox', { name: 'Company' });
-      return select.locator('option:checked').textContent();
-    }
-    await this.companyMenuOpener().click();
-    const name = await this.page.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { checked: true }).textContent();
+    const menu = await this.openYourMenu();
+    const name = await menu.getByRole('group', { name: 'Company' }).getByRole('menuitemradio', { checked: true }).textContent();
     await this.page.keyboard.press('Escape');
     return name;
   }

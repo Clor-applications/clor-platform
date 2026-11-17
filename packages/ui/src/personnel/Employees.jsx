@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
@@ -120,7 +121,7 @@ export const identityCat = (name) => ([...String(name || '')].reduce((n, c) => (
 const catColour = (c) => `rgb(var(--cat-${c}, ${CAT_FALLBACK[c - 1]}))`;
 
 export const Avatar = ({ person, size = 40 }) => {
-  if (person?.photoUrl) return <img src={person.photoUrl} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
+  if (person?.photoUrl) return <img src={person.photoUrl} alt="" className="ui-avatar-photo shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
   const cat = identityCat(person?.name);
   return (
     <span
@@ -427,7 +428,7 @@ export default function Employees({ description = '' } = {}) {
                   <span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span>
                   {p.code ? <span className="ui-pill ui-pill-neutral">{p.code}</span> : null}
                   {(p.tags || []).slice(0, 2).map((t) => (
-                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
+                    <span key={t.id} className="ui-tag" style={{ '--tag': t.color }}>{t.name}</span>
                   ))}
                 </span>
               </span>
@@ -723,7 +724,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   </span>
                 ))}
                 {(person.tags || []).map((t) => (
-                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
+                  <span key={t.id} className="ui-tag" style={{ '--tag': t.color }}>{t.name}</span>
                 ))}
               </div>
               <div className="ui-caption mt-1">{person.workEmail || person.email || ''}</div>
@@ -1297,6 +1298,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
       <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
       <dd className={`${embedded ? '' : 'mt-1 '}text-sm flex items-center gap-2`}>
         <span className="tabular-nums">{shown[field] ?? (value || <span className="ui-muted">{embedded ? 'Not provided' : 'Not set'}</span>)}</span>
+        {shown[field] && shown[field] !== '—' ? <CopyWord value={shown[field]} what={label} /> : null}
         {value && !shown[field] && d.canReveal !== false ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
       </dd>
     </div>

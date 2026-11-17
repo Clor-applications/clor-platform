@@ -1,3 +1,4 @@
+import { assertEmployeeSeat } from '../entitlements.js';
 import type { Prisma } from '../../generated/people/index.js';
 import { trackFirst } from '../productEvents.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
@@ -43,6 +44,8 @@ export const employeeSummary = (e: Row) => ({
 });
 
 export async function createEmployee(actor: Actor, data: Prisma.EmployeeUncheckedCreateInput, opts: { afterWrite?: (tx: Prisma.TransactionClient, row: Row) => Promise<void> } = {}): Promise<Row> {
+  /* An account that bought by the employee adds no more than it is paid for. Somebody recorded as already left takes no place. */
+  if (data.status !== 'LEFT') await assertEmployeeSeat(actor.accountId);
   const row = await peoplePrisma.$transaction(async (tx) => {
     const created = await tx.employee.create({ data: { ...data, firstJoiningDate: data.firstJoiningDate ?? data.dateOfJoining ?? null } });
     await ensureFirstEpisode(actor, created, tx);

@@ -25,7 +25,7 @@ export const DocumentCustomFields = ({ fields, values, onChange, where }) => {
           <div key={f.key}>
             <label htmlFor={id} className="ui-label">
               {f.label}
-              {f.required ? <span className="ml-1 text-[rgb(var(--neg-ink))]">*</span> : null}
+              {f.required ? <span className="ui-required ml-1 text-[rgb(var(--neg-ink))]">*</span> : null}
             </label>
             {f.type === 'Yes/No' ? (
               <label className="inline-flex items-center gap-2 text-sm cursor-pointer h-[38px]">

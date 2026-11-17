@@ -38,7 +38,7 @@ describe('rows are named by their own words', () => {
         card={(b) => b.branchName}
       />,
     );
-    expect(screen.getAllByRole('button', { name: 'Actions for Mysuru works' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('group', { name: 'Actions for Mysuru works' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /cmvv8g/ })).toBeNull();
     const boxes = screen.getAllByRole('checkbox', { name: 'Choose Mysuru works' });
     const cardBox = boxes.find((b) => b.classList.contains('ui-card-check'));

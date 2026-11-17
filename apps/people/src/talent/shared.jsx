@@ -45,6 +45,8 @@ export const Pill = ({ map, value }) => {
   if (!entry) return value ? <span className="ui-pill ui-pill-neutral">{value}</span> : null;
   return <span className={`ui-pill ${entry[2] || 'ui-pill-neutral'}`}>{entry[1]}</span>;
 };
+/** A rating as five stars (owner's round 8 pick); the words beside it say the same for screen readers. */
+export const Stars = ({ n }) => (n ? <span className="ui-stars" aria-hidden="true">{'★'.repeat(n)}<span>{'★'.repeat(5 - n)}</span></span> : null);
 export const ratingWord = (n) => (n ? `${n} · ${RATINGS.find((r) => r[0] === n)?.[1] || ''}` : '');
 
 export const day = (d) => (!d ? '' : /^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? formatDate(String(d)) : formatDate(istDay(d)));
