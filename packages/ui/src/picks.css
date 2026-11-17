@@ -720,3 +720,17 @@
 /* Optional holidays: a tick per holiday, at the row's end */
 .ui-holiday-tick { width: 1.125rem; height: 1.125rem; cursor: pointer; }
 .ui-holiday-tick:disabled { cursor: not-allowed; }
+
+/* ---- Round 17 ---- */
+/* My shift: today's shift as a small card */
+.ui-shift-card { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.625rem 0.875rem; border: 1px solid rgb(var(--border)); border-radius: 12px; }
+.ui-shift-card-k { font-size: 0.75rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-shift-card b { font-weight: 600; }
+/* Expense claim status: steps with dates */
+.ui-claim-steps { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; font-size: 0.8125rem; }
+.ui-claim-steps li { display: inline-flex; align-items: center; gap: 0.375rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-claim-steps li[data-done='true'] { color: rgb(var(--fg)); }
+.ui-claim-step-dot { display: inline-grid; place-content: center; width: 1.125rem; height: 1.125rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 700; border: 1px solid rgb(var(--border)); background: #fff; color: #fff; }
+.ui-claim-steps li[data-done='true'] .ui-claim-step-dot { background: rgb(var(--act, var(--fg))); border-color: rgb(var(--act, var(--fg))); }
+.ui-claim-steps li[data-bad='true'] .ui-claim-step-dot { background: rgb(var(--neg)); border-color: rgb(var(--neg)); }
+.ui-claim-step-when { color: rgb(var(--fg-muted, var(--fg))); font-size: 0.75rem; }

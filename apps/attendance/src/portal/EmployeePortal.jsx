@@ -357,8 +357,9 @@ function Today({ me, reload, guard }) {
           <h2 className="ui-t-sec">{new Date(`${me.today}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}</h2>
           {r ? <span className={`ui-pill ${STATUS[r.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[r.status]?.label || r.status}</span> : null}
         </div>
-        <p className="text-sm">
-          {s.holiday ? `Holiday — ${s.holiday}` : s.off ? 'Weekly off' : s.label ? `${s.name} · ${s.label}` : `${s.name} · ${s.startTime}–${s.endTime}`}
+        <p className="ui-shift-card">
+          <span className="ui-shift-card-k">Today’s shift</span>
+          <b>{s.holiday ? `Holiday — ${s.holiday}` : s.off ? 'Weekly off' : s.label ? `${s.name} · ${s.label}` : `${s.name} · ${s.startTime}–${s.endTime}`}</b>
         </p>
         <dl className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">In</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkInTime || '—'}</dd></div>

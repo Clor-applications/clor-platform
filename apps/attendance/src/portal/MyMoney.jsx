@@ -141,6 +141,34 @@ function SpentForWork({ data, guard, reload }) {
   );
 }
 
+/**
+ * Where a claim has got to, as steps with dates (owner's round 17 pick): sent,
+ * decided, paid. A refused claim stops at the second step; a withdrawn or
+ * draft claim shows no steps.
+ */
+export function ClaimSteps({ c }) {
+  if (!c?.submittedAt || ['DRAFT', 'WITHDRAWN'].includes(c.status)) return null;
+  const refused = c.status === 'REJECTED';
+  const decided = Boolean(c.decidedAt) || ['APPROVED', 'WITH_SALARY', 'PAYING', 'PAID', 'SETTLED', 'CLOSED'].includes(c.status);
+  const paid = c.status === 'PAID' || c.status === 'SETTLED' || c.status === 'CLOSED';
+  const steps = [
+    { key: 'sent', label: 'Sent', when: c.submittedAt, done: true },
+    { key: 'decided', label: refused ? 'Not approved' : 'Approved', when: c.decidedAt, done: decided || refused, bad: refused },
+    ...(refused ? [] : [{ key: 'paid', label: c.payMode === 'SALARY' ? 'With salary' : 'Paid', when: c.paidOn, done: paid }]),
+  ];
+  return (
+    <ol className="ui-claim-steps" aria-label="Where this claim is">
+      {steps.map((st) => (
+        <li key={st.key} data-done={st.done ? 'true' : 'false'} data-bad={st.bad ? 'true' : undefined}>
+          <span className="ui-claim-step-dot" aria-hidden="true">{st.done ? (st.bad ? '×' : '✓') : ''}</span>
+          <span className="ui-claim-step-label">{st.label}{st.done ? '' : <span className="sr-only"> (not yet)</span>}</span>
+          {st.done && st.when ? <span className="ui-claim-step-when tabular-nums">{day(String(st.when).slice(0, 10))}</span> : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /** One bill: photo or PDF first, then the amount and what it was. */
 function BillForm({ data, guard, onDone, onCancel }) {
   const [form, setForm] = useState(blankBill);
@@ -282,6 +310,7 @@ function ClaimRow({ claim: c, guard, reload }) {
       </button>
       {open ? (
         <div className="mt-2 space-y-2">
+          <ClaimSteps c={c} />
           <ul className="space-y-1.5">
             {c.lines.map((l) => (
               <li key={l.id} className="flex items-start gap-3">
