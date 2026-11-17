@@ -1,13 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const api = vi.hoisted(() => ({ opsHealth: vi.fn(), opsRequestLookup: vi.fn(), opsSearch: vi.fn() }));
+const api = vi.hoisted(() => ({ opsHealth: vi.fn(), opsBooksCheck: vi.fn(), opsRequestLookup: vi.fn(), opsSearch: vi.fn() }));
 vi.mock('./api', () => api);
 
-import { Health, workerName } from './Health';
+import { BooksCheck, Health, kindsText, workerName } from './Health';
 import { OpsSearch } from './OpsSearch';
 
-beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
+beforeEach(() => {
+  Object.values(api).forEach((f) => f.mockReset());
+  api.opsBooksCheck.mockResolvedValue({ at: '2026-11-17T06:00:00Z', documents: 0, companies: [] });
+});
 
 const health = {
   at: '2026-11-11T06:00:00Z',
@@ -21,6 +24,30 @@ const health = {
     { key: 'readers-offline', label: 'Attendance readers offline', count: 0, screen: null },
   ],
 };
+
+describe('Books to check', () => {
+  it('lists each company with what is affected and opens the customer', async () => {
+    api.opsBooksCheck.mockResolvedValue({
+      at: '2026-11-17T06:00:00Z',
+      documents: 3,
+      companies: [{ accountId: 'acc1', orgId: 'org1', company: 'Asha Traders', customer: 'Asha Group', documents: 3, extra: 3, kinds: { BILL: 2, INVOICE: 1 }, from: '2026-04-10', to: '2026-06-02' }],
+    });
+    const openAccount = vi.fn();
+    render(<BooksCheck openAccount={openAccount} />);
+    expect(await screen.findByText('Asha Traders')).toBeInTheDocument();
+    expect(screen.getByText('Asha Group')).toBeInTheDocument();
+    expect(screen.getByText('2 bills, 1 invoice')).toBeInTheDocument();
+    expect(screen.getByText('10 Apr 2026 to 2 Jun 2026')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open customer' }));
+    expect(openAccount).toHaveBeenCalledWith('acc1');
+  });
+
+  it('says so when there is nothing to check', async () => {
+    render(<BooksCheck openAccount={() => {}} />);
+    expect(await screen.findByText('None found')).toBeInTheDocument();
+    expect(kindsText({ CREDIT_NOTE: 1, EXPENSE: 0, DEBIT_NOTE: 4 })).toBe('1 credit note, 4 debit notes');
+  });
+});
 
 describe('System health', () => {
   it('says plainly what is wrong, lists jobs worst first, and opens failed email', async () => {

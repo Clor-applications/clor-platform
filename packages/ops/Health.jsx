@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, when } from './kit';
-import { opsHealth, opsRequestLookup } from './api';
+import { Err, Loading, day, when } from './kit';
+import { opsBooksCheck, opsHealth, opsRequestLookup } from './api';
 
 /**
  * System health (operator console, Ops P0): whether the background workers
@@ -107,6 +107,7 @@ export function Health({ go, request = '' }) {
           </section>
         </>
       )}
+      <BooksCheck openAccount={(id) => go('customers', {}, id)} />
       <RequestLookup initial={request} />
     </>
   );
@@ -147,6 +148,76 @@ function WorkerList({ workers }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+const DOC_KIND = { BILL: ['bill', 'bills'], EXPENSE: ['expense', 'expenses'], CREDIT_NOTE: ['credit note', 'credit notes'], DEBIT_NOTE: ['debit note', 'debit notes'], INVOICE: ['invoice', 'invoices'] };
+export const kindsText = (kinds = {}) =>
+  Object.entries(kinds)
+    .filter(([, n]) => n)
+    .map(([k, n]) => `${n} ${(DOC_KIND[k] || [k.toLowerCase(), k.toLowerCase()])[n === 1 ? 0 : 1]}`)
+    .join(', ');
+
+/**
+ * Books to check: companies where a bill, expense, note or invoice stands in
+ * the ledger more than once. A fault fixed on 17 Nov 2026 put a document's
+ * first amount back when it was changed a second time. The list says which
+ * company and how many documents, never which document or how much: what to
+ * post to put the books right is for the customer's accountant and engineering.
+ */
+export function BooksCheck({ openAccount }) {
+  const [d, setD] = useState(null);
+  const [error, setError] = useState('');
+  const load = useCallback(() => {
+    opsBooksCheck().then(setD).catch((e) => setError(String(e?.message || e)));
+  }, []);
+  useEffect(load, [load]);
+  return (
+    <section className="ops-section" aria-labelledby="ops-books-check">
+      <h2 id="ops-books-check" className="ops-h2">Books to check</h2>
+      <p className="ws-card-blurb">
+        Until 17 Nov 2026, changing a bill, expense, credit note, debit note or invoice a second time could put its first amount back in the ledger. New changes are safe. These companies still carry such amounts; tell engineering before the customer closes a period or files a return.
+      </p>
+      <Err>{error}</Err>
+      {!d ? (
+        error ? null : <Loading />
+      ) : d.companies.length ? (
+        <div className="ws-table-wrap">
+          <table className="ws-table">
+            <caption className="sr-only">Companies with documents posted more than once</caption>
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Documents</th>
+                <th>Posted between</th>
+                <th><span className="sr-only">Open</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.companies.map((c) => (
+                <tr key={c.orgId}>
+                  <td style={{ whiteSpace: 'normal' }}>
+                    <span className="ops-strong">{c.company}</span>
+                    {c.customer && c.customer !== c.company ? <div className="ws-item-sub">{c.customer}</div> : null}
+                  </td>
+                  <td style={{ whiteSpace: 'normal' }}>{kindsText(c.kinds)}</td>
+                  <td>{c.from === c.to ? day(c.from) : `${day(c.from)} to ${day(c.to)}`}</td>
+                  <td className="num">
+                    <button type="button" className="ops-link" onClick={() => openAccount(c.accountId)}>
+                      Open customer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="ws-notice" role="status">
+          <span className="ws-pill ws-pill--ok">None found</span> No company has a document posted more than once. Checked {when(d.at)}.
+        </p>
+      )}
+    </section>
   );
 }
 

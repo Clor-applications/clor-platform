@@ -12,6 +12,7 @@ import { audit, customerTitle } from './ops.js';
 import { requireOperatorRole } from '../middleware/operator.js';
 import { requireOperatorStepUp } from '../services/stepUp.js';
 import { RULES } from '../services/ops/alerts.js';
+import { doubledDocuments, type DoubledKind } from '../services/integrity/doubledPostings.js';
 
 /**
  * Operator console, Ops P0: system health, one customer's connections, the
@@ -23,6 +24,45 @@ opsHealthRouter.use('/ops', requireAuth, requireOperator);
 
 /** Are the background workers running, and what failed in the last day. */
 opsHealthRouter.get('/ops/health', (_req, res) => outsideTenant('ops: system health', async () => res.json(await systemHealth())));
+
+/**
+ * Books to check: companies where a document's amount stands in the ledger
+ * more often than it should (the reversal-of-a-reversal fault fixed on 17 Nov
+ * 2026). Which company, how many documents of each kind, and between which
+ * dates: never a document's number, party or amount. Read only.
+ */
+opsHealthRouter.get('/ops/books-check', (_req, res) =>
+  outsideTenant('ops: books posted more than once', async () => {
+    const found = await doubledDocuments();
+    type Row = { accountId: string; orgId: string; documents: number; extra: number; kinds: Partial<Record<DoubledKind, number>>; from: string; to: string };
+    const by = new Map<string, Row>();
+    for (const d of found) {
+      const r = by.get(d.orgId) || { accountId: d.accountId, orgId: d.orgId, documents: 0, extra: 0, kinds: {}, from: d.date, to: d.date };
+      r.documents += 1;
+      r.extra += d.extra;
+      r.kinds[d.kind] = (r.kinds[d.kind] || 0) + 1;
+      if (d.date < r.from) r.from = d.date;
+      if (d.date > r.to) r.to = d.date;
+      by.set(d.orgId, r);
+    }
+    const rows = [...by.values()];
+    const [orgs, accounts] = rows.length
+      ? await Promise.all([
+          platformPrisma.org.findMany({ where: { id: { in: rows.map((r) => r.orgId) } }, select: { id: true, name: true } }),
+          platformPrisma.account.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.accountId))] } }, select: { id: true, name: true } }),
+        ])
+      : [[], []];
+    const orgName = new Map(orgs.map((o) => [o.id, o.name]));
+    const accountName = new Map(accounts.map((a) => [a.id, a.name]));
+    res.json({
+      at: new Date().toISOString(),
+      documents: found.length,
+      companies: rows
+        .map((r) => ({ ...r, company: orgName.get(r.orgId) || 'Company', customer: accountName.get(r.accountId) || null }))
+        .sort((a, b) => b.documents - a.documents || a.company.localeCompare(b.company)),
+    });
+  }),
+);
 
 /** One customer's readers, agents, HR and sign-on connections, e-invoice link, and failed mail. */
 opsHealthRouter.get('/ops/accounts/:id/connections', (req, res) =>
