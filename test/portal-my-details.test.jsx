@@ -84,6 +84,8 @@ describe('Company policies in the employee app', () => {
     expect(await screen.findByText('Leave policy')).toBeTruthy();
     const accepts = screen.getAllByRole('button', { name: 'Accept' });
     expect(accepts).toHaveLength(1);
+    expect(accepts[0]).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'I have read and accept this policy' }));
     fireEvent.click(accepts[0]);
     await waitFor(() => expect(api.acceptItem).toHaveBeenCalledWith('a1'));
   });

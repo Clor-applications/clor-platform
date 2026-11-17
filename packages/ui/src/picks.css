@@ -663,3 +663,6 @@
 .ui-colmatch-head { font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted, var(--fg))); }
 .ui-colmatch-arrow { color: rgb(var(--fg-muted, var(--fg))); text-align: center; }
 .ui-colmatch .ui-caption { margin-top: 0.5rem; }
+/* Accepting a policy or letter: a tick box, then the button */
+.ui-accept { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.ui-accept-tick { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
