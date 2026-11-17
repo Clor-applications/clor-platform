@@ -149,6 +149,38 @@ progress as a ring with a count; nothing found offering a close name; team leave
 person across the days; a colour for each shift on rosters; "?" to list keyboard shortcuts
 outside Books.
 
+### Round 6 (17 Nov 2026)
+
+Built in `picks.css`:
+
+| Building block | Pick |
+| --- | --- |
+| Keyboard focus | A thick 3px ring in the app colour on buttons and links; fields show their own border with a soft halo |
+| Pointing at a row | A tint of the app colour |
+| Scroll bars | Thin, seen only while pointing at the box that scrolls |
+| Side panels | Half the screen on a laptop or bigger (sheets keep their own size) |
+| Splitting a long page | Section headings on a tinted band |
+| Movement | Lively: panels arrive with a small overshoot |
+
+Sign-in pages (owner, same day: "fix login layout properly"): the picture side is three rows,
+the title above, the whole picture in the middle with rounded corners, the quote card below,
+all on one left edge, and the side never taller than the screen. Nothing lies over the
+drawing. On a phone or tablet the picture is a rounded image across the form's width. A
+focused field shows one ring.
+
+Picked and already how the app works: a calendar that pops up for dates; search first in long
+dropdowns; small page titles; full-width pages; a split sign-in page with a picture; a side
+panel that opens from the right with the list still there.
+
+Picked, **not built yet**: an icon and a word on every button; "Add" links on details not
+filled in; long text cut with a "more" link; the most used action then ⋯ for the rest; "NEW"
+in coloured letters; percentages as whole numbers with a bar; people shown with face, name,
+code and team; phone numbers as +91 98765 43210; status as the last column; settings as tiles;
+a setup guide as tiles; on/off settings as cards with a note; first visits with a short note
+and a guide link; a "What's new" box on the first sign-in after a change; help as a link to a
+help page; plain emails; a centred header on printed payslips and letters; a red line where
+content failed to load.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.
