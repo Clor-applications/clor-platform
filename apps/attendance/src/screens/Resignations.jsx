@@ -9,7 +9,7 @@ import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPage
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { LEAVING_TYPES, listEmployees, rehireEmployee, resignEmployee } from '@ui/personnel/api';
+import { LEAVING_TYPES, listAllEmployees, rehireEmployee, resignEmployee } from '@ui/personnel/api';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { todayIst } from '@ui/utils/dates';
 
@@ -49,13 +49,13 @@ export default function Resignations() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const load = useCallback(() => {
-    listEmployees({ status: 'LEFT', limit: 500 })
+    listAllEmployees({ status: 'LEFT' })
       .then((r) => {
         setAll((r?.employees || []).sort((a, b) => String(b.dateOfLeaving || '').localeCompare(String(a.dateOfLeaving || ''))));
         setLoadError('');
       })
       .catch((e) => setLoadError(String(e?.message || 'Could not load.')));
-    listEmployees({ status: 'ACTIVE', limit: 500 }).then((r) => setActive(r?.employees || [])).catch(() => setActive([]));
+    listAllEmployees({ status: 'ACTIVE' }).then((r) => setActive(r?.employees || [])).catch(() => setActive([]));
   }, []);
   useEffect(() => {
     load();

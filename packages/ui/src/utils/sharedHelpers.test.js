@@ -76,7 +76,9 @@ describe('PAN and GSTIN', () => {
 
 describe('rupees', () => {
   it('shows Indian grouping, up to two decimals', () => {
-    expect(rupees(123456.5)).toBe('₹1,23,456.5');
+    /* Paise always as two figures (audit, 17 Nov 2026); a whole amount has none. */
+    expect(rupees(123456.5)).toBe('₹1,23,456.50');
+    expect(rupees(123456)).toBe('₹1,23,456');
     expect(rupees(1234.567)).toBe('₹1,234.57');
     expect(rupees(null)).toBe('₹0');
     expect(rupees('')).toBe('₹0');

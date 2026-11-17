@@ -12,7 +12,7 @@ import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
 import { listRules, retireRule, saveRule } from '../api/approvals';
 import { orgUsers } from '../api/desk';
-import { listEmployees, structure } from '../workforce/api';
+import { listAllEmployees, structure } from '../workforce/api';
 import { listLeaveTypes } from '@ui/timeOff/api';
 
 /**
@@ -191,7 +191,7 @@ function RuleDrawer({ rule, users, roles, versions, onClose, onSaved }) {
     if (leave) return { leaveTypes: ((await listLeaveTypes().catch(() => [])) || []).filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name })) };
     const kinds = ['departments', 'job-positions', 'establishments', 'grades', 'employee-types'];
     const rows = await Promise.all(kinds.map((k) => structure(k).catch(() => [])));
-    const people = await listEmployees({ limit: 500, status: 'CURRENT', sort: 'name' }).then((r) => r?.employees || []).catch(() => []);
+    const people = await listAllEmployees({ status: 'CURRENT', sort: 'name' }).then((r) => r?.employees || []).catch(() => []);
     return { ...Object.fromEntries(kinds.map((k, i) => [k, rows[i].map((x) => ({ value: x.id, label: x.name }))])), people: people.map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name })) };
   }, [leave, money]);
   /* Names for the ids a condition names (departments, grades, work sites, people, leave types), from the lists loaded above. */

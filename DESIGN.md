@@ -446,8 +446,8 @@ component, read this one.
 
 ### Do
 
-- **Take every colour from a token** in `src/index.css`. Dark mode is a token
-  redefinition, so a literal colour is a light-mode-only colour.
+- **Take every colour from a token** in `src/index.css`. A literal colour
+  drifts from the palette the next time a token moves.
 - **Set every amount in tabular figures** and align it by what it is, not by
   being a number — see *Value alignment*.
 - **Use the shared control height**: 40px in People and Attendance (44px on a
@@ -474,7 +474,7 @@ component, read this one.
 - **Don't introduce a third radius.** 8px clickable, 12px content, `999px`
   pills. The keycap is the one written-down exception.
 - **Don't add a Tailwind shadow utility.** Three tokens, and they carry meaning
-  — a hard-coded `shadow-sm` does not follow the dark-mode redefinition.
+  — a hard-coded `shadow-sm` does not follow a token change.
   **57 of them are still in app chrome** (37 in `App.jsx`, the rest spread over
   twelve files; none in the print surfaces). Legacy, counted 2026-09-18, not
   yet migrated — do not add a fifty-eighth.
@@ -508,8 +508,8 @@ component, read this one.
 - Scale 12/13/14/16/20/24/28/34 (`--text-xs` … `--text-3xl`); 12px is the floor
   in chrome (11px only in `.ui-kbd`). Two weights per screen, 400 and 600; 700
   for titles and totals. No uppercase labels.
-- Accounting keeps Inter until phase 4. Sora, Plus Jakarta Sans and Bricolage
-  Grotesque are retired. Never Google Fonts.
+- Figtree everywhere, Books included. Inter, Sora, Plus Jakarta Sans and
+  Bricolage Grotesque are retired. Never Google Fonts.
 
 ## Color
 
@@ -621,9 +621,8 @@ numbers refer to are defined once under *Controls → Height*.
   open item; lists are one bordered sheet with 48px rows and sentence-case column
   names; figure tiles carry no coloured bar or per-tile hue. On a phone the panel
   is a sheet (in Ops it lists every page) and a tab bar sits below.
-- **Icons:** `@fluentui/react-icons`. `*Color` icons via `colorIcon()`
-  (`packages/ui/src/components/ui/colorIcon.jsx`) for rails, nav and section
-  icons; `*Regular` for controls (search, bell, chevrons, close, more, add).
+- **Icons:** Fluent Emoji (flat) for navigation (`@ui/components/ui/navEmoji`);
+  Lucide line icons for controls (search, bell, chevrons, close, more, add).
 - **Components:** buttons 36px high, 16px sides, 8px radius, 14/600, 16px icon
   with 8px gap; primary on `--act` with white, secondary white with a
   field-border outline. Table header 40px, sunken, 8px radius, 12px/600
@@ -659,7 +658,7 @@ numbers refer to are defined once under *Controls → Height*.
 ### Elevation — three tiers, and they mean different things
 
 Shadow is not decoration here; it says how far a surface is from the page.
-Three tokens, each redefined for dark mode rather than restyled.
+Three tokens, never restyled per screen.
 
 | Token | Reads as | Applied to |
 | --- | --- | --- |
@@ -675,12 +674,9 @@ Rules that come out of that:
   on a touch screen there is no hover, and a sticky lifted state reads as broken.
 - **Anything popped over a card takes the raised surface, not just a shadow.**
   `.ui-in-pop` (and `[role="menu"].ui-card`) switch to `--surface-raised`.
-  In light both resolve to white so nothing changes; in dark, a menu opened on
-  a card used to sit at exactly the card's colour with only a shadow between
-  them. Shadow alone is not enough separation on a dark ground.
+  Both resolve to white today; the class keeps the intent if a ground moves.
 - **Shadows are token-only.** No `shadow-lg` or any Tailwind shadow utility in
-  app chrome — dark mode redefines these three and a hard-coded shadow does not
-  follow.
+  app chrome — a hard-coded shadow does not follow the tokens.
 
 ### Responsive behaviour — three layout classes
 
@@ -844,9 +840,7 @@ grid rules.
 A select draws its own indicator: `appearance: none`, a chevron as an inline
 SVG background, 36px of trailing room reserved for a 16px mark, and
 `text-overflow: ellipsis` so a long value truncates rather than running under
-it. The dark-theme stroke is a separate rule guarded by
-`@media (prefers-color-scheme: dark)` — an unguarded `:root:not([data-theme='light'])`
-also matches a light page.
+it.
 
 **This belongs to `.ui-select` alone, never to the shared `.ui-input` block.**
 Putting it there once gave every text input in the product a chevron.

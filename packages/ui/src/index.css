@@ -489,215 +489,6 @@
   --dur-exit: 140ms;
 }
 
-:root[data-theme='dark'] {
-  /* A ladder, not two greys.
-     `--surface-raised` and `--surface-sunken` used to hold the same value, so
-     a popover sitting above a card and an input recessed into it were the same
-     colour — there was no elevation language, only "background" and "not
-     background". Five steps now, each one distinguishable from its neighbour.
-
-     They also carry the same 8% pine cast the light ground got, at 168°. The
-     old values were pure zinc, so light mode read as a warm product and dark
-     mode read as a different one with the lights off. */
-  --app-bg: 12 14 13;           /* #0C0E0D — ground */
-  --surface: 21 25 24;          /* #151918 — card, 2.2x the ground */
-  --surface-sunken: 28 33 32;   /* #1C2120 — inputs, table headers */
-  --surface-raised: 38 44 43;   /* #262C2B — menus and popovers, 1.66x sunken */
-  /* Borders stay quiet in dark; separation comes from surface, not outline. */
-  --border: 49 58 56;
-  --border-strong: 70 83 80;
-  --doc-section: 26 31 30;      /* the same whisper against the dark card */
-
-  --fg: 241 245 249;
-  --fg-muted: 148 163 184;
-  --fg-subtle: 161 161 170;   /* 6.5:1 on the dark card — was 3.72:1 */
-
-  /* Same two tiers, warmed, against the dark rail. */
-  --nav-fg: 235 235 230;
-  --nav-fg-muted: 150 150 143;
-  --nav-fg-subtle: 128 128 121;
-
-  /* Orange lifts slightly in dark so it keeps its contrast against a dark
-     surface without turning fluorescent. */
-  --brand: 255 138 51;          /* #FF8A33 — #FF6B00 lifted; 3.1:1 on the dark card */
-  --brand-pressed: 232 95 0;
-  /* Dark keeps its light-orange button with dark ink (8.1:1). */
-  --btn-primary-bg: var(--brand-hover);
-  --btn-primary-hover: var(--brand-pressed);
-  --brand-deep: 253 186 116;    /* orange-300 — reads as the second series on dark, not a duplicate of brand */
-  --brand-hover: 253 186 116;
-  --brand-soft: 43 26 14;
-  --on-brand: 26 12 3;
-  --on-tone: 26 12 3;   /* the tones are light tints here; ink goes dark */
-  --doc-link: 251 146 60;       /* the dark-mode accent itself — 7.9:1 here */
-  --doc-link-wash: 67 40 21;
-  --credit: 196 181 253;
-
-
-  /* The same four roles, inverted: soft and strong become dark tints of the
-     hue and the ink becomes a light one. `key` lifts so it still reads as the
-     colour when it is a 2px ring on a dark ground. */
-  --st-all-soft: 43 26 14;         --st-all-strong: 67 40 21;
-  --st-all-key: 251 146 60;        --st-all-ink: 254 215 170;
-
-  --st-draft-soft: 30 41 59;       --st-draft-strong: 41 56 77;
-  --st-draft-key: 148 163 184;     --st-draft-ink: 203 213 225;
-
-  --st-sent-soft: 23 37 84;        --st-sent-strong: 30 58 138;
-  --st-sent-key: 96 165 250;       --st-sent-ink: 191 219 254;
-
-  --st-partial-soft: 46 16 101;    --st-partial-strong: 76 29 149;
-  --st-partial-key: 167 139 250;   --st-partial-ink: 221 214 254;
-
-  --st-paid-soft: 5 46 22;         --st-paid-strong: 20 83 45;
-  --st-paid-key: 74 222 128;       --st-paid-ink: 187 247 208;
-
-  --st-overdue-soft: 69 10 10;     --st-overdue-strong: 127 29 29;
-  --st-overdue-key: 248 113 113;   --st-overdue-ink: 254 202 202;
-
-  --st-cancelled-soft: 41 37 36;   --st-cancelled-strong: 68 64 60;
-  --st-cancelled-key: 168 162 158; --st-cancelled-ink: 231 229 228;
-
-  --st-outstanding-soft: 69 42 5;      --st-outstanding-strong: 120 74 12;
-  --st-outstanding-key: 251 191 36;    --st-outstanding-ink: 253 230 138;
-
-  --st-refund-soft: 46 16 101;         --st-refund-strong: 76 29 149;
-  --st-refund-key: 167 139 250;        --st-refund-ink: 221 214 254;
-
-  --brand-ink: 254 215 170;
-  --brand-panel: 9 11 17;
-
-  --primary: var(--brand);
-  --on-primary: 26 12 3;
-  --primary-hover: var(--brand-hover);
-
-  --accent: var(--brand);
-  --accent-hover: var(--brand-hover);
-  --accent-soft: 43 26 14;
-  --on-accent: 26 12 3;
-  --ring: var(--brand);
-
-  --info: 147 170 190;          /* the slate blue, lifted */
-  --info-soft: 39 39 42;
-
-  /* Blue at this lightness is unreadable on a dark ground, so links lift. */
-  --link: 140 176 214;          /* #8CB0D6 — 7.6:1 on the dark card */
-  --link-hover: 147 197 253;
-
-  /* The overview palette, dark. The solids lift so they clear the dark ground;
-     the washes and soft tints become dark, low-saturation grounds rather than
-     the pale ones, because a pale card on a dark page is a hole in it. */
-  /* The same twelve, lifted so they clear a dark ground at 16px. */
-  --nav-dashboard: 96 165 250;
-  --nav-sales: 74 222 128;
-  --nav-crm: 167 139 250;
-  --nav-purchases: 251 191 36;
-  --nav-cashbank: 45 212 191;
-  --nav-expenses: 244 114 182;
-  --nav-inventory: 251 146 60;
-  --nav-journal: 129 140 248;
-  --nav-approvals: 56 189 248;
-  --nav-reports: 34 211 238;
-  --nav-masterdata: 148 163 184;
-  --nav-settings: 161 161 170;
-
-  /* On a dark ground the icon hues are already light enough to read as text,
-     so the ink is the same value rather than a deeper one. */
-  --nav-dashboard-ink: 96 165 250;
-  --nav-sales-ink: 74 222 128;
-  --nav-crm-ink: 167 139 250;
-  --nav-purchases-ink: 251 191 36;
-  --nav-cashbank-ink: 45 212 191;
-  --nav-expenses-ink: 244 114 182;
-  --nav-inventory-ink: 251 146 60;
-  --nav-journal-ink: 129 140 248;
-  --nav-approvals-ink: 56 189 248;
-  --nav-reports-ink: 34 211 238;
-  --nav-masterdata-ink: 148 163 184;
-  --nav-settings-ink: 161 161 170;
-
-  --ov-blue: 96 165 250;   --ov-blue-soft: 30 41 74;    --ov-blue-wash: 20 26 40;
-  --ov-green: 74 222 128;  --ov-green-soft: 22 51 34;   --ov-green-wash: 16 30 22;
-  --ov-amber: 251 191 36;  --ov-amber-soft: 56 43 12;   --ov-amber-wash: 33 27 14;
-  --ov-violet: 167 139 250;--ov-violet-soft: 44 34 72;  --ov-violet-wash: 27 23 40;
-  --ov-red: 248 113 113;   --ov-red-soft: 62 26 26;     --ov-red-wash: 36 20 20;
-  --ov-orange: 251 146 60; --ov-orange-soft: 61 34 12;  --ov-orange-wash: 35 24 15;
-
-  /* Graphite on a dark ground: the tints invert to near-black surfaces that
-     still differ from each other, and every ink lifts until it clears 4.5:1 on
-     the surface it actually sits on. Tokens only — no component is restyled
-     inside a theme block. */
-  --graphite: 209 214 211;
-  --mauve: 202 168 183;
-
-  --kpi-line: 49 58 56;
-  --kpi-sales-bg: 26 34 44;        --kpi-sales-ink: 140 176 214;
-  --kpi-invoices-bg: 34 29 46;     --kpi-invoices-ink: 178 154 224;
-  --kpi-received-bg: 21 42 33;     --kpi-received-ink: 90 205 150;
-  --kpi-due-bg: 44 36 18;          --kpi-due-ink: 214 168 74;
-  --kpi-overdue-bg: 41 30 28;      --kpi-overdue-ink: 240 145 134;
-  --kpi-credit-bg: 45 33 25;       --kpi-credit-ink: 219 154 110;
-
-  --cat-organisation: 156 171 191;  --cat-organisation-soft: 30 35 41;
-  --cat-general: 156 171 191;       --cat-general-soft: 30 35 41;
-  --cat-sales: 140 176 214;         --cat-sales-soft: 26 34 44;
-  --cat-crm: 94 200 205;            --cat-crm-soft: 20 40 41;
-  --cat-purchases: 190 160 199;     --cat-purchases-soft: 38 32 41;
-  --cat-expenses: 219 154 110;      --cat-expenses-soft: 45 33 25;
-  --cat-cashbank: 110 195 180;      --cat-cashbank-soft: 21 42 39;
-  --cat-inventory: 214 168 74;      --cat-inventory-soft: 44 36 18;
-  --cat-accounting: 147 170 190;    --cat-accounting-soft: 27 34 40;
-  --cat-taxation: 202 168 183;      --cat-taxation-soft: 40 33 36;
-  --cat-governance: 156 171 191;    --cat-governance-soft: 30 35 41;
-  --cat-communication: 94 200 205;  --cat-communication-soft: 20 40 41;
-  --cat-other: 154 154 147;         --cat-other-soft: 38 38 38;
-
-  --reconciled: 110 195 180;       --reconciled-soft: 24 48 44;
-  --adjustment: 190 160 199;       --adjustment-soft: 41 34 44;
-  --archived: 163 163 163;         --archived-soft: 40 40 38;
-
-  --chart-blue: 140 176 214;
-  --chart-teal: 110 195 180;
-  --chart-mauve: 202 168 183;
-  --chart-purple: 178 154 224;     /* lifts in dark, where #6A4F9E disappears */
-  --chart-gold: 212 179 128;
-  --chart-clay: 226 150 116;
-  --chart-slate: 160 170 185;
-  --chart-muted: 133 141 149;
-
-  --id-sales: 140 176 214;         --id-sales-soft: 26 34 44;
-  --id-crm: 94 200 205;            --id-crm-soft: 20 40 41;
-  --id-purchase: 190 160 199;      --id-purchase-soft: 38 32 41;
-  --id-banking: 110 195 180;       --id-banking-soft: 21 42 39;
-  --id-inventory: 214 168 74;      --id-inventory-soft: 44 36 18;
-  --id-expense: 219 154 110;       --id-expense-soft: 45 33 25;
-  --id-accounting: 147 170 190;    --id-accounting-soft: 27 34 40;
-  --id-tax: 202 168 183;           --id-tax-soft: 40 33 36;
-  --id-org: 156 171 191;           --id-org-soft: 30 35 41;
-  --id-reports: 152 171 206;       --id-reports-soft: 27 32 42;
-  --id-settings: 168 168 176;      --id-settings-soft: 38 38 40;
-
-  --seg-bg: 38 35 32;
-  --seg-line: 67 62 56;
-
-  --col-doc: 214 211 209;   /* stone-300 — an identifier, not a flag */
-  --col-party: 94 234 212;  /* teal-300 ~11:1 */
-
-
-  --pos: 74 222 128;
-  --pos-soft: 5 46 22;
-  --neg: 248 113 113;
-  --neg-hover: 252 140 140;   /* lifts in dark, where a darker red recedes */
-  --neg-soft: 60 12 12;
-  --warn: 251 191 36;
-  --warn-ink: 251 191 36;       /* already 9:1 on the dark soft */
-  --warn-soft: 56 33 6;
-
-  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.5);
-  --shadow-pop: 0 10px 30px -10px rgb(0 0 0 / 0.7);
-  --shadow-lift: 0 12px 32px -12px rgb(0 0 0 / 0.65), 0 2px 8px -2px rgb(0 0 0 / 0.4);
-}
-
 /* ---------------------------------------------------------------------------
    CLOR — the neon brand, platform default (owner, 5–6 Nov 2026, PR #131;
    owner, 9 Nov 2026: "color should be blaze orange nor red").
@@ -778,40 +569,6 @@
 
 /* Dark (inert: useTheme forces light). Neutral near-black, the orange lifted
    to #FF7A33 with slate words on it (6.8:1). No red. */
-:root[data-theme='dark'] {
-  --app-bg: 11 15 23; --surface: 17 24 39; --surface-sunken: 31 41 55; --surface-raised: 39 50 68;
-  --border: 55 65 81; --border-strong: 75 85 99; --border-field: 75 85 99; --doc-section: 24 32 48;
-  --fg: 243 244 246; --fg-muted: 209 213 219; --fg-subtle: 156 163 175; --fg-heading: 243 244 246;
-  --brand: 255 122 51; --brand-deep: 255 154 92; --brand-hover: 255 154 92; --brand-pressed: 234 98 26;
-  --btn-primary-bg: 255 122 51; --btn-primary-hover: 255 154 92;
-  --brand-soft: 58 30 14; --brand-subtle: 36 22 14; --brand-border: 120 56 20; --brand-ink: 255 154 92;
-  --on-brand: 15 23 42; --on-primary: 15 23 42; --on-accent: 15 23 42; --accent-soft: 58 30 14;
-  --ring: 255 122 51; --doc-link: 255 154 92; --doc-link-wash: 58 30 14;
-  --link: 255 154 92; --link-hover: 255 186 140; --info: 209 213 219; --info-soft: 31 41 55;
-  --st-all-soft: 36 22 14; --st-all-strong: 58 30 14; --st-all-key: 255 122 51; --st-all-ink: 255 210 180;
-  --rail-bg: 11 15 23; --rail-border: 31 41 55; --rail-hover: 17 24 39; --rail-active: 58 30 14;
-  --heading-bg: 31 41 55; --heading-hover: 39 50 68; --page-heading-bg: 17 24 39; --header-bg: 17 24 39;
-  --cursor-bg: 31 41 55; --cursor-fg: 243 244 246;
-  --nav-fg: 243 244 246; --nav-fg-muted: 209 213 219; --nav-fg-subtle: 156 163 175;
-  --nav-dashboard: 209 213 219; --nav-sales: 209 213 219; --nav-crm: 209 213 219;
-  --nav-purchases: 209 213 219; --nav-cashbank: 209 213 219; --nav-expenses: 209 213 219;
-  --nav-inventory: 209 213 219; --nav-journal: 209 213 219; --nav-approvals: 209 213 219;
-  --nav-reports: 209 213 219; --nav-masterdata: 209 213 219; --nav-settings: 209 213 219;
-  --nav-dashboard-ink: 31 41 55; --nav-sales-ink: 31 41 55; --nav-crm-ink: 31 41 55;
-  --nav-purchases-ink: 31 41 55; --nav-cashbank-ink: 31 41 55; --nav-expenses-ink: 31 41 55;
-  --nav-inventory-ink: 31 41 55; --nav-journal-ink: 31 41 55; --nav-approvals-ink: 31 41 55;
-  --nav-reports-ink: 31 41 55; --nav-masterdata-ink: 31 41 55; --nav-settings-ink: 31 41 55;
-  --kpi-line: 55 65 81;
-  --kpi-sales-bg: 24 32 48; --kpi-sales-ink: 243 244 246;
-  --kpi-invoices-bg: 36 22 14; --kpi-invoices-ink: 255 210 180;
-  --kpi-received-bg: 5 46 22; --kpi-received-ink: 74 222 128;
-  --kpi-due-bg: 31 41 55; --kpi-due-ink: 209 213 219;
-  --kpi-overdue-bg: 69 10 10; --kpi-overdue-ink: 248 113 113;
-  --kpi-credit-bg: 36 22 14; --kpi-credit-ink: 255 210 180;
-  --money-out: 243 244 246;
-  --choice: 243 244 246; --on-choice: 15 23 42; --choice-tray: 31 41 55;
-  --ws-nav-selected: 58 30 14; --ws-nav-selected-ink: 243 244 246; --ws-brand: 255 122 51;
-}
 
 /* The neon default and Payroll's palette press the deeper button fill. */
 :root:is(:not([data-palette]), [data-palette='payroll']) :is(.ui-btn-primary, .ui-btn-brand) {
@@ -914,41 +671,6 @@
 /* Dark is the red brand's night: an oxblood-black ground, warm white text, and
    marigold taking over the action (red on near-black is too dim to press),
    with oxblood words on it at 6.9:1. */
-:root[data-theme='dark']:where([data-palette='sky'], [data-palette='indigo']) {
-  --logo-mark: 255 255 255; --logo-dot: var(--marigold);
-  --app-bg: 26 12 15; --surface: 36 20 26; --surface-sunken: 46 26 32; --surface-raised: 56 32 40;
-  --border: 62 38 46; --border-strong: 96 64 72; --border-field: 82 52 60; --doc-section: 40 22 28;
-  --fg: 243 233 235; --fg-muted: 201 184 188; --fg-subtle: 170 150 156; --fg-heading: 243 233 235;
-  --brand: var(--marigold); --brand-deep: 250 196 102; --brand-hover: 250 186 74; --brand-pressed: 224 146 20;
-  --btn-primary-bg: var(--marigold); --btn-primary-hover: 250 186 74;
-  --brand-soft: 74 22 34; --brand-subtle: 46 20 28; --brand-border: 120 48 62; --brand-ink: 250 200 110;
-  --on-brand: var(--oxblood); --on-primary: var(--oxblood); --on-accent: var(--oxblood); --accent-soft: 74 22 34;
-  --ring: var(--marigold); --doc-link: 244 160 172; --doc-link-wash: 56 28 36;
-  --link: 244 160 172; --link-hover: var(--blush); --info: 201 184 188; --info-soft: 56 28 36;
-  --st-all-soft: 46 20 28; --st-all-strong: 74 22 34; --st-all-key: var(--marigold); --st-all-ink: 250 230 190;
-  --rail-bg: 20 9 12; --rail-border: 46 26 32; --rail-hover: 36 20 26; --rail-active: 74 22 34;
-  --heading-bg: 56 32 40; --heading-hover: 74 22 34; --page-heading-bg: 36 20 26; --header-bg: 30 15 20;
-  --cursor-bg: 46 26 32; --cursor-fg: 243 233 235;
-  --nav-fg: 243 233 235; --nav-fg-muted: 201 184 188; --nav-fg-subtle: 150 130 136;
-  --nav-dashboard: 244 160 172; --nav-sales: 244 160 172; --nav-crm: 244 160 172;
-  --nav-purchases: 244 160 172; --nav-cashbank: 244 160 172; --nav-expenses: 244 160 172;
-  --nav-inventory: 244 160 172; --nav-journal: 244 160 172; --nav-approvals: 244 160 172;
-  --nav-reports: 244 160 172; --nav-masterdata: 244 160 172; --nav-settings: 244 160 172;
-  --nav-dashboard-ink: 74 22 34; --nav-sales-ink: 74 22 34; --nav-crm-ink: 74 22 34;
-  --nav-purchases-ink: 74 22 34; --nav-cashbank-ink: 74 22 34; --nav-expenses-ink: 74 22 34;
-  --nav-inventory-ink: 74 22 34; --nav-journal-ink: 74 22 34; --nav-approvals-ink: 74 22 34;
-  --nav-reports-ink: 74 22 34; --nav-masterdata-ink: 74 22 34; --nav-settings-ink: 74 22 34;
-  --kpi-line: 62 38 46;
-  --kpi-sales-bg: 40 22 28; --kpi-sales-ink: 243 233 235;
-  --kpi-invoices-bg: 46 20 28; --kpi-invoices-ink: var(--blush);
-  --kpi-received-bg: 5 46 22; --kpi-received-ink: 74 222 128;
-  --kpi-due-bg: 46 20 28; --kpi-due-ink: 201 184 188;
-  --kpi-overdue-bg: 69 10 10; --kpi-overdue-ink: 248 113 113;
-  --kpi-credit-bg: 40 22 28; --kpi-credit-ink: var(--blush);
-  --money-out: 243 233 235;
-  --choice: var(--marigold); --on-choice: var(--oxblood); --choice-tray: 46 26 32;
-  --ws-nav-selected: 74 22 34; --ws-nav-selected-ink: 243 233 235; --ws-brand: var(--marigold);
-}
 
 /* ---------------------------------------------------------------------------
    Books (data-palette='indigo') on the red brand (owner, 15 Nov 2026).
@@ -991,13 +713,6 @@
   --choice: 255 107 0; --on-choice: 35 42 102;
   --nav-panel-mark: 255 107 0; --nav-panel-ink: 35 42 102;
   --act-2: 201 80 0;
-}
-
-:root[data-theme='dark'][data-palette='indigo'],
-:root[data-theme='dark'] [data-palette='indigo'] {
-  /* The same cool tint at night: a slate step off the oxblood ground. */
-  --heading-bg: 40 44 56; --heading-hover: 52 58 74; --page-heading-bg: 34 37 48;
-  --nav-panel: 27 30 58; --nav-panel-border: 48 54 104; --nav-panel-mark: 140 152 245; --nav-panel-ink: 200 206 252;
 }
 
 @layer base {
@@ -1628,9 +1343,6 @@
   }
   /* Dark backgrounds under the pills are deep, so muted ink fell to 3.55:1 on
      green (FE-07); full ink keeps every tone above 4.5:1. */
-  :root[data-theme='dark'] .ui-pill-status {
-    color: rgb(var(--fg));
-  }
 
   .ui-pill-neutral {
     background-color: rgb(var(--surface-sunken));
@@ -4215,9 +3927,6 @@
    * default theme stamps no attribute at all. The media query is what makes
    * it mean "dark".
    */
-  :root[data-theme='dark'] .ui-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239A9A93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) .ui-select {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239A9A93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -4419,9 +4128,6 @@
     position: fixed;
     background-color: rgb(24 24 27 / 0.24);
     animation: ui-fade var(--dur-state) linear both;
-  }
-  :root[data-theme='dark'] .ui-feature-scrim {
-    background-color: rgb(0 0 0 / 0.5);
   }
   .ui-feature-panel {
     position: fixed;
@@ -4986,12 +4692,6 @@
 
   /* Dark mode needs less: the accent already separates from the ground, so
      the fields drop to a trace that only stops the header being a flat plane. */
-  :root[data-theme='dark'] .ui-hero-ground::before {
-    background: radial-gradient(closest-side, rgb(var(--brand) / 0.06), transparent 100%);
-  }
-  :root[data-theme='dark'] .ui-hero-ground::after {
-    background: radial-gradient(closest-side, rgb(var(--brand) / 0.04), transparent 100%);
-  }
 }
 
 /* Slow enough that nobody watching sees movement — they see the page having
@@ -5090,10 +4790,6 @@
   .ui-hero-bar:nth-child(3) { height: 46%; animation-delay: 1.4s; }
   .ui-hero-bar:nth-child(4) { height: 82%; animation-delay: 2.1s; }
   .ui-hero-bar:nth-child(5) { height: 56%; animation-delay: 2.8s; }
-
-  :root[data-theme='dark'] .ui-hero-bar {
-    background: rgb(var(--brand) / 0.3);
-  }
 }
 
 @keyframes ui-hero-breathe {
@@ -7232,9 +6928,6 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   .inventory-register-table-wrap { overflow-x: auto; }
   .inventory-register-grid { min-width: 850px; }
 }
-@media print {
-  
-}
 @media (max-width: 940px) {
   .inventory-register-toolbar,
   .inventory-register-actions { flex-wrap: wrap; }
@@ -8188,16 +7881,6 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   --rail-blaze-ink: var(--act);
   --hero-hi: var(--act);
 }
-:root[data-theme='dark'][data-palette='blaze'],
-:root[data-theme='dark'] [data-palette='blaze'] {
-  --brand: 160 148 236;
-  --brand-ink: 190 181 245;
-  --link: 190 181 245;
-  --link-hover: 214 208 250;
-  --ring: 160 148 236;
-  --rail-blaze: 160 148 236;
-  --rail-blaze-ink: 190 181 245;
-}
 
 /* The dashboard ground is the palette's own (white); cards, tables and forms stay white on it. */
 :root[data-palette='blaze'] main.ui-content {
@@ -8248,31 +7931,6 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   --kpi-invoices-bg: 243 250 254; --kpi-invoices-ink: 0 90 143;
   --kpi-credit-bg: 243 250 254; --kpi-credit-ink: 0 90 143;
   --hero-hi: 0 90 143;
-}
-:root[data-theme='dark'][data-palette='payroll'],
-:root[data-theme='dark'] [data-palette='payroll'] {
-  --brand: 56 189 248;
-  --brand-deep: 125 211 252;
-  --brand-hover: 125 211 252;
-  --brand-pressed: 14 165 233;
-  --btn-primary-bg: 56 189 248;
-  --btn-primary-hover: 125 211 252;
-  --brand-soft: 8 47 73;
-  --brand-subtle: 12 30 46;
-  --brand-border: 7 89 133;
-  --brand-ink: 125 211 252;
-  --on-brand: 15 23 42;
-  --accent-soft: 8 47 73;
-  --ring: 56 189 248;
-  --link: 125 211 252;
-  --link-hover: 186 230 253;
-  --doc-link: 125 211 252;
-  --doc-link-wash: 8 47 73;
-  --st-all-soft: 12 30 46; --st-all-strong: 8 47 73; --st-all-key: 56 189 248; --st-all-ink: 186 230 253;
-  --rail-active: 8 47 73;
-  --kpi-invoices-bg: 12 30 46; --kpi-invoices-ink: 186 230 253;
-  --kpi-credit-bg: 12 30 46; --kpi-credit-ink: 186 230 253;
-  --hero-hi: 125 211 252;
 }
 
 /*
@@ -8339,17 +7997,6 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
   --dept-6: 3 105 161;
   --dept-7: 194 65 12;
   --dept-8: 71 85 105;
-}
-:root[data-theme='dark'] {
-  --dept-0: 161 161 170;
-  --dept-1: 103 200 220;
-  --dept-2: 245 176 90;
-  --dept-3: 251 113 133;
-  --dept-4: 163 207 90;
-  --dept-5: 196 160 250;
-  --dept-6: 125 196 245;
-  --dept-7: 251 146 100;
-  --dept-8: 160 174 192;
 }
 /*
  * Leave types nobody coloured draw from a steady slot (timeOff/api.js swatchOf): these are the hexes the calendar
@@ -9261,13 +8908,6 @@ button.ui-metric:focus-visible { outline: 2px solid rgb(var(--ring)); outline-of
   --soft-ambient: 0 1px 1px rgb(24 24 27 / 0.02), 0 12px 40px -16px rgb(24 24 27 / 0.12);
   --soft-ambient-hi: 0 2px 4px rgb(24 24 27 / 0.03), 0 24px 56px -20px rgb(24 24 27 / 0.2);
   --soft-highlight: inset 0 1px 0 rgb(255 255 255 / 0.9);
-}
-:root[data-theme='dark'] {
-  --soft-tray: 255 255 255 / 0.04;
-  --soft-ring: 255 255 255 / 0.08;
-  --soft-ambient: 0 1px 1px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
-  --soft-ambient-hi: 0 2px 4px rgb(0 0 0 / 0.35), 0 24px 56px -20px rgb(0 0 0 / 0.75);
-  --soft-highlight: inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 @keyframes soft-draw { to { stroke-dashoffset: 0; } }
 

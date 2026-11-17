@@ -11,7 +11,7 @@ import { useTabIndicator } from '@ui/components/ui/RecordTabs';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
-import { listEmployees } from '@ui/personnel/api';
+import { listAllEmployees } from '@ui/personnel/api';
 import {
   deskAssign, deskMessage, deskMoveToCase, deskReopen, deskResolve, deskTemplates, getDeskRequest, listDesk, orgUsers, raiseDeskRequest,
 } from '../api/desk';
@@ -121,7 +121,7 @@ export default function HelpDesk({ params = {} }) {
 }
 
 function RaiseForm({ categories, onClose, onSaved }) {
-  const people = useRequest(() => listEmployees({ limit: 500, status: 'CURRENT' }).then((r) => (r?.employees || r || []).filter((p) => p.status !== 'LEFT')), []);
+  const people = useRequest(() => listAllEmployees({ status: 'CURRENT' }).then((r) => (r?.employees || r || []).filter((p) => p.status !== 'LEFT')), []);
   const active = categories.filter((c) => c.isActive);
   const initial = useMemo(() => ({ employeeId: '', category: active[0]?.key || 'OTHER', subject: '', description: '', urgency: 'NORMAL', replyChannel: 'APP' }), [active]);
   const [form, setForm] = useState(initial);
