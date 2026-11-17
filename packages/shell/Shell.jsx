@@ -1327,7 +1327,8 @@ function ShellScreens() {
             <UiMenu open={meOpen} onOpenChange={setMeOpen}>
               <MenuTrigger
                 className="ui-icon-btn"
-                aria-label={`Your menu: ${user?.fullName || 'profile'}, ${tenant.name}`}
+                /* The initials shown on the button are part of its name, so a voice user can say what they see. */
+                aria-label={`Your menu: ${user?.fullName ? `${initialsOf(user.fullName)}, ${user.fullName}` : 'profile'}, ${tenant.name}`}
                 style={user?.avatarUrl || user?.fullName ? { width: 38, height: 38, padding: 2, borderRadius: 999 } : undefined}
               >
                 {user?.avatarUrl ? (

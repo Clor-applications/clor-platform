@@ -457,12 +457,13 @@ function PhotoControl({ person, canEdit, onSaved }) {
   /* The portrait is the control: with no photo it asks for one; with one, it offers change or remove. */
   return (
     <>
-      <button ref={btn} type="button" className="ui-avatar-edit" disabled={busy} aria-label={person.photoUrl ? 'Photo options' : 'Add a photo'} aria-haspopup={person.photoUrl ? 'menu' : undefined} aria-expanded={person.photoUrl ? menu : undefined}
+      <button ref={btn} type="button" className="ui-avatar-edit" disabled={busy} aria-haspopup={person.photoUrl ? 'menu' : undefined} aria-expanded={person.photoUrl ? menu : undefined}
         onClick={() => (person.photoUrl ? setMenu((o) => !o) : input.current?.click())}>
-        <Avatar person={person} size={64} />
+        <span aria-hidden="true"><Avatar person={person} size={64} /></span>
         <span className="ui-avatar-edit-badge" aria-hidden="true"><Camera size={14} /></span>
         {/* Owner's pick (17 Nov 2026): initials with a link under them; the camera badge shows only in Books' look. */}
-        <span className="ui-avatar-edit-word" aria-hidden="true">{person.photoUrl ? 'Change photo' : 'Add photo'}</span>
+        {/* The words under the face name the button, so what is seen is what is said. */}
+        <span className="ui-avatar-edit-word">{person.photoUrl ? 'Change photo' : 'Add photo'}</span>
       </button>
       {menu ? (
         <Popover anchorRef={btn} onClose={() => setMenu(false)} minWidth={180}>
