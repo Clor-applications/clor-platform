@@ -235,6 +235,23 @@ The link works once and for {{days}} days. If it has run out, use "Forgot passwo
     transactional: true,
   },
   {
+    key: 'account.started',
+    label: 'Your trial has started',
+    description: 'Sent to a new owner who started a trial from clor.in and chose a password on the setup page. Says where to sign in.',
+    subject: 'Your {{appName}} account for {{companyName}} is ready',
+    body: `Hello {{userName}},
+
+Your {{appName}} account for {{companyName}} is ready, with {{apps}}.{{trialNote}}
+
+Sign in here with {{email}} and the password you chose:
+
+{{signInUrl}}
+
+If you forget the password, use "Forgot password" on the sign-in page.`,
+    fields: ['userName', 'companyName', 'apps', 'trialNote', 'signInUrl', 'email', 'appName'],
+    transactional: true,
+  },
+  {
     key: 'signup.confirm',
     label: 'Confirm your email to start your trial',
     description: 'Sent when somebody starts a free trial from clor.in: the link that checks their email and opens the setup page.',

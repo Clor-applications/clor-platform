@@ -234,18 +234,23 @@ export const SET_PASSWORD_DAYS = 7;
  * chosen apps, then an email with a link to set their password — the existing
  * reset link, valid for SET_PASSWORD_DAYS.
  *
+ * `password`: the owner chose one on the setup page (a trial from clor.in).
+ * The login is usable at once, so no set-password link is issued and the mail
+ * says where to sign in. Without it the two-factor set-up, which confirms the
+ * password first, asked a brand-new owner for one they had never chosen.
+ *
  * `profile` lands in the company's profileJson; `requestedApp` there is the
  * app the owner asked for, for the shell to open first (roadmap item 5).
  */
-export async function provisionAccount(input: { ownerName: string; ownerEmail: string; companyName: string; state: string; plan: AccountApps; profile?: Record<string, unknown>; ip?: string; actor?: string }) {
+export async function provisionAccount(input: { ownerName: string; ownerEmail: string; companyName: string; state: string; plan: AccountApps; profile?: Record<string, unknown>; ip?: string; actor?: string; password?: string }) {
   const email = input.ownerEmail.trim().toLowerCase();
   const taken = await platformPrisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
   if (taken) throw new ProvisionError(409, 'Somebody already signs in to CLOR with this email. Ask them to sign in, or use another address.', 'EMAIL_TAKEN');
 
-  const { account, user } = await createAccountWithOwner({ email, name: input.ownerName, accountName: input.companyName, passwordHash: null, plan: input.plan });
+  const { account, user } = await createAccountWithOwner({ email, name: input.ownerName, accountName: input.companyName, passwordHash: input.password ? await bcrypt.hash(input.password, Number(process.env.BCRYPT_ROUNDS || 12)) : null, plan: input.plan });
   const { org, branch } = await createCompany({ accountId: account.id, userId: user.id, companyName: input.companyName, state: input.state, profile: input.profile });
 
-  const token = await issuePasswordResetToken({ id: user.id, accountId: account.id }, input.ip, SET_PASSWORD_DAYS * 86_400_000);
+  const token = input.password ? null : await issuePasswordResetToken({ id: user.id, accountId: account.id }, input.ip, SET_PASSWORD_DAYS * 86_400_000);
   const appUrl = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
   /* Only an app this company has, by the codes the shell knows. */
   const asked = String(input.profile?.requestedApp || '');
@@ -254,7 +259,7 @@ export async function provisionAccount(input: { ownerName: string; ownerEmail: s
   const landing = known === 'attendance' && input.plan.apps.includes('people') ? 'people' : known;
   const apps = APP_CATALOG.filter((a) => input.plan.apps.includes(a.code)).map((a) => a.name);
   await sendTemplate({
-    templateKey: 'account.welcome',
+    templateKey: token ? 'account.welcome' : 'account.started',
     to: email,
     toName: user.fullName,
     accountId: account.id,
@@ -267,7 +272,8 @@ export async function provisionAccount(input: { ownerName: string; ownerEmail: s
       apps: apps.join(', ') || 'CLOR',
       trialNote: input.plan.status === 'trialing' && input.plan.trialEndsAt ? ` Your trial runs until ${input.plan.trialEndsAt.toISOString().slice(0, 10)}.` : '',
       /* ?app= opens the app they asked for once the password is set (shell appIntent.js), then the Workspace is one click away. */
-      setPasswordUrl: `${appUrl}/?reset=${token}${landing ? `&app=${landing}` : ''}`,
+      setPasswordUrl: token ? `${appUrl}/?reset=${token}${landing ? `&app=${landing}` : ''}` : '',
+      signInUrl: `${appUrl}/${landing ? `?app=${landing}` : ''}`,
       email,
       days: String(SET_PASSWORD_DAYS),
     },

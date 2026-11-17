@@ -103,12 +103,17 @@ describe('Start a free trial', () => {
 
       fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Asha Rao' } });
       fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Rao Textiles' } });
+      /* A password is chosen here, so the owner can sign in again and set up the authenticator. */
+      fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Choose a password of at least 8 characters');
+      fireEvent.change(screen.getByLabelText('Choose a password'), { target: { value: 'rao-textiles-2026' } });
       fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
       expect(await screen.findByRole('alert')).toHaveTextContent('Choose the state of your head office');
+      expect(api.confirm).not.toHaveBeenCalled();
       fireEvent.change(screen.getByLabelText('State of your head office'), { target: { value: 'Karnataka' } });
       fireEvent.click(screen.getByRole('button', { name: /Open CLOR/ }));
       await waitFor(() =>
-        expect(api.confirm).toHaveBeenCalledWith({ token: 'mail-token-0123456789abcdef', ownerName: 'Asha Rao', companyName: 'Rao Textiles', apps: ['accounting', 'people', 'attendance'], state: 'Karnataka' }),
+        expect(api.confirm).toHaveBeenCalledWith({ token: 'mail-token-0123456789abcdef', ownerName: 'Asha Rao', companyName: 'Rao Textiles', apps: ['accounting', 'people', 'attendance'], state: 'Karnataka', password: 'rao-textiles-2026' }),
       );
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/?app=accounting'));
       expect(localStorage.getItem('token')).toBe('access-token');
