@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-51fe69e - 2026-11-17
+
+API revision `clor-api-00137-psx`. Previous release `rel-f92d74e` (roll back there).
+
+- #294 Ops: Books to check lists companies still carrying an amount posted twice
+- #293 Release record: rel-f92d74e
+
 ## rel-f92d74e - 2026-11-17
 
 API revision `clor-api-00136-d7j`. Previous release `rel-0aa4225` (roll back there).
