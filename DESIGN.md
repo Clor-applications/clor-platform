@@ -254,8 +254,13 @@ numbers refer to are defined once under *Controls → Height*.
   search on sunken with ⌘K, company switcher, bell, avatar). Rail and panel run
   the window's full height; the bar sits beside them. Content: 32px padding,
   max width 1280, 32px gap. Ops adds a 32px staff bar above everything in
-  `--act` with a white STAFF pill; it cannot be hidden. On a phone the panel
-  is a sheet and a tab bar sits below.
+  `--act` with a white Staff pill; it cannot be hidden. Ops wears the same frame
+  (17 Nov 2026): the bar with the CLOR logo and "Ops" full width under the staff
+  bar, an 80px rail of five sections (emoji icon, name under it), a 200px white
+  panel listing the open section's pages only, the sidebars' blue hover and green
+  open item; lists are one bordered sheet with 48px rows and sentence-case column
+  names; figure tiles carry no coloured bar or per-tile hue. On a phone the panel
+  is a sheet (in Ops it lists every page) and a tab bar sits below.
 - **Icons:** `@fluentui/react-icons`. `*Color` icons via `colorIcon()`
   (`packages/ui/src/components/ui/colorIcon.jsx`) for rails, nav and section
   icons; `*Regular` for controls (search, bell, chevrons, close, more, add).
@@ -698,6 +703,22 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-17 — Ops console on the platform frame (ui-ux-pro-max audit; not yet
+  seen by the owner):** ops.clor.in still wore the 14 Nov frame: a 64px icon-only
+  rail with a CLOR tile, no logo bar, a 232px panel scrolling through all 33
+  pages, small capitals over groups, columns and figures, a coloured bar on each
+  figure tile, list headers floating as rounded bars, and hovers drawn white on
+  white. It now follows the Layout section: staff bar, full-width bar with the
+  CLOR logo and "Ops", 80px rail with section names and Fluent Emoji, 200px panel
+  with the open section's pages only, one-sheet lists with 48px rows, sentence-case
+  labels, neutral figure tiles coloured only by state, 20px page rhythm. The
+  "ops.clor.in" chip and the panel's "Internal" tag are gone (the staff bar
+  already says both). The stop before the console (authenticator setup, not
+  staff) is a `GatePage`. Keyboard: skip link, focus moves to the page on
+  navigation, Escape closes the phone menu, `scroll-padding-top` clears the two
+  sticky bars; phone menu rows are 44px. **Ops colour (owner, 17 Nov 2026):
+  orange stays.** Ops keeps the default accent (`--act` #C95000); the 14 Nov
+  forest does not come back.
 - **2026-11-16 — Books under the one platform bar (owner: "match Books"):**
   Books drew a second bar (company, search, year, profile) under the platform bar
   and a rail that began under both, so the company name showed twice and the

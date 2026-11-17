@@ -3,7 +3,7 @@
  * screens CLOR-05…07 and OPS-04…11). Loaded after workspace.css, so the Ops
  * look lives here and the Workspace's own rules stay untouched. Every colour
  * is a token from rnd.css; OpsConsole sets <html data-portal="ops">, which
- * turns the portal colour (--act, --marker, --tint, --panel) forest.
+ * scopes these rules to the console.
  */
 
 /* ------------------------------------------------------------- tokens */
@@ -30,10 +30,43 @@ html[data-portal='ops'] .ws {
 }
 
 /* -------------------------------------------------------------- shell */
+/*
+ * The platform's frame (DESIGN.md, Layout; owner 16–17 Nov 2026), with the staff
+ * bar on top: staff bar 32px, then the bar with the CLOR logo across the full
+ * width, then an 80px rail (icon and name), a 200px panel with the open
+ * section's pages, and the page. Hover is the sidebars' soft blue and the open
+ * item their soft green, as in every app.
+ */
+html[data-portal='ops'] {
+  /* Two sticky bars (32 + 64): a focused or linked-to element is never under them. */
+  scroll-padding-top: 112px;
+}
 html[data-portal='ops'] .ops {
+  --ops-bars: 96px;
+  --ops-hover: rgb(var(--hover-blue, 42 120 214) / 0.1);
+  --ops-open: rgb(var(--select-green, 27 175 122) / 0.16);
+  --ops-press: rgb(var(--heading-hover, 247 247 247));
   min-height: 100dvh;
   background: rgb(var(--surface));
   color: rgb(var(--fg));
+}
+.ops-skip {
+  position: absolute;
+  left: 8px;
+  top: -64px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: rgb(var(--act));
+  color: rgb(var(--on-brand));
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ops-skip:focus {
+  top: 40px;
 }
 
 /* The staff bar: 32px, full width, always on top. No close button and no state hides it. */
@@ -52,7 +85,6 @@ html[data-portal='ops'] .ops-staffbar {
   color: rgb(var(--on-brand));
   font-size: 0.8125rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -71,185 +103,49 @@ html[data-portal='ops'] .ops-staffbar > span:last-child {
   color: rgb(var(--act));
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
-html[data-portal='ops'] .ops-frame {
-  display: grid;
-  grid-template-columns: 64px 232px minmax(0, 1fr);
-  align-items: start;
-}
-
-/* Rail: 64px, white, a hairline on the right. */
-.ops-rail {
-  position: sticky;
-  top: 32px;
-  z-index: 12;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  height: calc(100dvh - 32px);
-  padding: 14px 0;
-  background: rgb(var(--surface));
-  border-right: 1px solid rgb(var(--border));
-}
-.ops-rail-mark {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  margin-bottom: 18px;
-  border-radius: 8px;
-  background: rgb(var(--graphite));
-  /* The C-corner goes white on the graphite tile; the L-corner keeps its orange. */
-  --logo-mark-slate: var(--on-brand);
-}
-.ops-rail-btn {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  cursor: pointer;
-}
-.ops-rail-btn:hover {
-  background: rgb(var(--surface-sunken));
-}
-.ops-rail-btn[data-current] {
-  background: rgb(var(--tint));
-}
-.ops-rail-btn[data-current]::before {
-  content: '';
-  position: absolute;
-  left: -10px;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: rgb(var(--marker));
-}
-
-/* Second panel: 232px on the portal tint; it scrolls on its own, so a long menu never stretches the page. */
-html[data-portal='ops'] .ops-side {
-  position: sticky;
-  top: 32px;
-  display: block;
-  height: calc(100dvh - 32px);
-  padding: 0;
-  overflow: hidden;
-  background: rgb(var(--panel));
-  border-right: 1px solid rgb(var(--panel-border));
-}
-.ops-side-scroll {
-  position: absolute;
-  inset: 0;
-  overflow-y: auto;
-  display: grid;
-  align-content: start;
-  gap: 16px;
-  padding: 18px 12px 24px;
-}
-.ops-side-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 12px 0;
-}
-.ops-side-title {
-  font-family: var(--font-brand);
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: rgb(var(--fg));
-}
-.ops-side-tag {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(var(--act));
-}
-html[data-portal='ops'] .ops-group {
-  display: grid;
-  gap: 2px;
-}
-html[data-portal='ops'] .ops-group-label {
-  padding: 4px 12px 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-subtle));
-}
-html[data-portal='ops'] .ops-nav-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgb(var(--fg-muted));
-  text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
-}
-html[data-portal='ops'] .ops-nav-item:hover {
-  background: rgb(var(--surface) / 0.7);
-  color: rgb(var(--fg));
-}
-html[data-portal='ops'] .ops-nav-item[aria-current='page'] {
-  background: rgb(var(--surface));
-  color: rgb(var(--fg));
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 rgb(var(--marker)), inset 0 0 0 1px rgb(var(--panel-border));
-}
-/* Icons stay at every width (workspace.css hid them below 1360px for the older nine-section menu). */
-html[data-portal='ops'] .ops-nav-item svg {
-  display: block;
-  flex: none;
-}
-.ops-nav-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ops-nav-count {
-  font-size: 0.75rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: rgb(var(--fg-subtle));
-}
-
-/* The column beside the panel: top bar, then the page. */
-.ops-col {
-  min-width: 0;
-}
+/* The bar: 64px, full width, the CLOR logo at its head. */
 html[data-portal='ops'] .ops-bar-top {
   position: sticky;
   top: 32px;
-  z-index: 10;
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: 12px;
   height: 64px;
-  padding: 0 32px;
+  padding: 0 16px;
   background: rgb(var(--surface));
   border-bottom: 1px solid rgb(var(--border));
 }
+.ops-brand {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+.ops-brand:hover {
+  background: var(--ops-press);
+}
+/* Which console this is, beside the logo: the bar's one place for it. */
+.ops-brand-app {
+  padding-left: 10px;
+  border-left: 1px solid rgb(var(--border-field));
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--fg-muted));
+}
 html[data-portal='ops'] .ops-search {
-  flex: 1 1 auto;
-  max-width: 520px;
+  flex: 0 1 520px;
+  min-width: 0;
+  margin-left: 12px;
   margin-right: auto;
 }
 html[data-portal='ops'] .ops-search-input {
@@ -257,12 +153,9 @@ html[data-portal='ops'] .ops-search-input {
   padding-left: 36px;
   padding-right: 52px;
   border-radius: 8px;
-  border: 1px solid rgb(var(--border));
-  background: rgb(var(--surface-sunken));
-  font-size: 0.875rem;
-}
-html[data-portal='ops'] .ops-search-input:focus {
+  border: 1px solid rgb(var(--border-field));
   background: rgb(var(--surface));
+  font-size: 0.875rem;
 }
 html[data-portal='ops'] .ops-search-icon {
   left: 12px;
@@ -281,19 +174,6 @@ html[data-portal='ops'] .ops-search-icon {
   color: rgb(var(--fg-subtle));
   pointer-events: none;
 }
-.ops-domain {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 8px;
-  background: rgb(var(--tint));
-  color: rgb(var(--act));
-  font-size: 0.875rem;
-  font-weight: 600;
-}
 .ops-round-btn {
   flex: none;
   display: grid;
@@ -305,9 +185,10 @@ html[data-portal='ops'] .ops-search-icon {
   background: rgb(var(--surface));
   color: rgb(var(--fg));
   cursor: pointer;
+  transition: background-color 120ms ease;
 }
 .ops-round-btn:hover {
-  background: rgb(var(--surface-sunken));
+  background: var(--ops-press);
 }
 .ops-avatar-box {
   position: relative;
@@ -366,17 +247,194 @@ html[data-portal='ops'] .ops-search-icon {
   cursor: pointer;
 }
 .ops-avatar-item:hover {
-  background: rgb(var(--surface-sunken));
+  background: var(--ops-hover);
 }
 
-/* The page: 32px padding, max 1280, 32px between sections. */
-html[data-portal='ops'] .ops-main {
-  padding: 32px 32px 48px;
+html[data-portal='ops'] .ops-frame {
+  display: grid;
+  grid-template-columns: 80px 200px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* Rail: 80px under the bar. Each section is its icon with its name under it, two lines at most. */
+.ops-rail {
+  position: sticky;
+  top: var(--ops-bars);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: calc(100dvh - var(--ops-bars));
+  padding: 16px 6px;
+  overflow-y: auto;
+  /* The rail is the one tinted ground, as in every app's shell (owner, 17 Nov 2026). */
+  background: rgb(var(--rail-ground, 246 247 249));
+  border-right: 1px solid rgb(var(--border));
+}
+.ops-rail-btn {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 2px 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(var(--fg));
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.ops-rail-btn > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 100%;
+  text-align: center;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  font-weight: 600;
+}
+.ops-rail-btn:hover {
+  background: var(--ops-hover);
+}
+.ops-rail-btn[data-current] {
+  background: var(--ops-open);
+}
+.ops-rail-btn[data-current] > span {
+  font-weight: 700;
+}
+.ops-rail-btn[data-current]::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: rgb(var(--marker));
+}
+/* Inside a scrolling column an outline outside the box is clipped: draw it inside. */
+.ops-rail-btn:focus-visible,
+html[data-portal='ops'] .ops-nav-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Panel: 200px, white; it scrolls on its own, so a long menu never stretches the page. */
+html[data-portal='ops'] .ops-side {
+  position: sticky;
+  top: var(--ops-bars);
+  display: block;
+  height: calc(100dvh - var(--ops-bars));
+  padding: 0;
+  overflow: hidden;
   background: rgb(var(--surface));
+  border-right: 1px solid rgb(var(--panel-border));
+}
+.ops-side-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px 12px 24px;
+}
+.ops-side-head {
+  padding: 0 12px 4px;
+}
+.ops-side-title {
+  font-family: var(--font-brand);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg));
+}
+html[data-portal='ops'] .ops-group {
+  display: grid;
+  gap: 2px;
+}
+/* Sentence case, no tracking (DESIGN.md: no small capitals over a block). */
+html[data-portal='ops'] .ops-group-label {
+  padding: 4px 12px 6px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgb(var(--fg-subtle));
+}
+html[data-portal='ops'] .ops-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--fg));
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 120ms ease;
+}
+html[data-portal='ops'] .ops-nav-item:hover {
+  background: var(--ops-hover);
+  color: rgb(var(--fg));
+}
+html[data-portal='ops'] .ops-nav-item[aria-current='page'] {
+  background: var(--ops-open);
+  color: rgb(var(--fg));
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 rgb(var(--marker)), 0 0 0 1px rgb(var(--panel-border));
+}
+/* Icons stay at every width (workspace.css hid them below 1360px for the older nine-section menu). */
+html[data-portal='ops'] .ops-nav-item svg {
+  display: block;
+  flex: none;
+}
+.ops-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ops-nav-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-subtle));
+}
+/* Beside the rail the panel lists the open section only. */
+@media (min-width: 901px) {
+  html[data-portal='ops'] .ops-group:not([data-here]) {
+    display: none;
+  }
+}
+
+/* The page: 32px sides, max 1280, 20px between its parts (owner, 17 Nov 2026: no empty space at the top). */
+html[data-portal='ops'] .ops-main {
+  min-width: 0;
+  padding: 24px 32px 48px;
+  background: rgb(var(--surface));
+}
+html[data-portal='ops'] .ops-main:focus {
+  outline: none;
 }
 html[data-portal='ops'] .ops-main > .ws-inner {
   max-width: 1280px;
-  gap: 32px;
+  gap: 20px;
 }
 /* A screen that draws its own .ws frame inside the page does not get a second padding. */
 html[data-portal='ops'] .ops-main .ws {
@@ -385,15 +443,15 @@ html[data-portal='ops'] .ops-main .ws {
   background: none;
 }
 html[data-portal='ops'] .ops-main .ws > .ws-inner {
-  gap: 32px;
+  gap: 20px;
 }
 
-/* Phone and small tablet: no rail; the panel is a sheet from the menu button. */
+/* Phone and small tablet: no rail; the panel is a sheet from the menu button and lists every page. */
 @media (max-width: 900px) {
   html[data-portal='ops'] .ops-frame {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* Hidden but still drawn: Fluent colour icons share gradient ids, and a display:none copy would blank the same icon elsewhere on the page. */
+  /* Hidden but still drawn: two copies of one emoji share its ids, and a display:none first copy would blank the second. */
   .ops-rail {
     position: fixed;
     top: 0;
@@ -407,11 +465,11 @@ html[data-portal='ops'] .ops-main .ws > .ws-inner {
   }
   html[data-portal='ops'] .ops-side {
     position: fixed;
-    top: 32px;
+    top: var(--ops-bars);
     left: 0;
     z-index: 21;
     width: min(280px, 86vw);
-    height: calc(100dvh - 32px);
+    height: calc(100dvh - var(--ops-bars));
     transform: translateX(-100%);
     visibility: hidden;
     transition: transform 200ms var(--ws-ease), visibility 200ms;
@@ -421,29 +479,50 @@ html[data-portal='ops'] .ops-main .ws > .ws-inner {
     visibility: visible;
     box-shadow: 0 12px 32px -12px rgb(var(--fg) / 0.3);
   }
+  .ops-side-head {
+    display: none;
+  }
+  /* A finger needs 44px. */
+  html[data-portal='ops'] .ops-nav-item {
+    height: 44px;
+  }
   html[data-portal='ops'] .ops-scrim {
     display: block;
     position: fixed;
-    inset: 32px 0 0;
+    inset: var(--ops-bars) 0 0;
     z-index: 20;
     border: 0;
     background: rgb(var(--fg) / 0.25);
   }
   html[data-portal='ops'] .ops-menu-btn {
     display: inline-grid;
+    width: 44px;
+    height: 44px;
   }
   html[data-portal='ops'] .ops-bar-top {
-    padding: 0 16px;
+    padding: 0 8px;
     gap: 8px;
   }
+  html[data-portal='ops'] .ops-search {
+    flex: 1 1 0;
+    margin-left: 0;
+  }
   html[data-portal='ops'] .ops-main {
-    padding: 24px 16px 40px;
+    padding: 20px 16px 40px;
+  }
+  .ops-round-btn,
+  .ops-avatar {
+    width: 40px;
+    height: 40px;
   }
 }
 @media (max-width: 640px) {
-  .ops-domain,
-  .ops-search-kbd {
+  .ops-search-kbd,
+  .ops-brand-app {
     display: none;
+  }
+  html[data-portal='ops'] .ops-search-input {
+    padding-right: 12px;
   }
   html[data-portal='ops'] .ops-staffbar {
     justify-content: flex-start;
@@ -451,7 +530,10 @@ html[data-portal='ops'] .ops-main .ws > .ws-inner {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  html[data-portal='ops'] .ops-side {
+  html[data-portal='ops'] .ops-side,
+  .ops-rail-btn,
+  .ops-round-btn,
+  html[data-portal='ops'] .ops-nav-item {
     transition: none;
   }
 }
@@ -484,7 +566,7 @@ html[data-portal='ops'] .ops-main .ws-head-meta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: -16px;
+  margin-bottom: -8px;
   padding: 0;
   border: 0;
   border-radius: 8px;
@@ -501,7 +583,7 @@ html[data-portal='ops'] .ops-main .ws-head-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 0;
-  margin-top: -24px;
+  margin-top: -12px;
   font-size: 0.875rem;
   color: rgb(var(--fg-muted));
 }
@@ -513,7 +595,7 @@ html[data-portal='ops'] .ops-main .ws-head-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: -16px;
+  margin-top: -8px;
 }
 
 /* ------------------------------------------------------------ buttons */
@@ -540,7 +622,7 @@ html[data-portal='ops'] .ws-btn--quiet {
   border-color: rgb(var(--border-field));
 }
 html[data-portal='ops'] .ws-btn--quiet:hover:not(:disabled) {
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--heading-hover, 247 247 247));
   border-color: rgb(var(--border-strong));
 }
 html[data-portal='ops'] .ws-btn--small {
@@ -575,7 +657,7 @@ html[data-portal='ops'] .ws-btn--small {
   text-decoration: none;
 }
 .ops-text-btn:hover {
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--heading-hover, 247 247 247));
 }
 
 /* -------------------------------------------------------------- pills */
@@ -613,44 +695,45 @@ html[data-portal='ops'] .ws-pill--danger {
   color: rgb(var(--neg));
 }
 html[data-portal='ops'] .ws-pill--role {
-  background: rgb(var(--tint));
-  color: rgb(var(--act));
+  background: rgb(var(--neutral-soft));
+  color: rgb(var(--fg));
 }
 
 /* ------------------------------------------------------------- tables */
-/* Lists sit on the page: a 40px sunken head with 8px ends, rows of at least 56px under hairlines. */
+/* A list is one sheet (owner, 17 Nov 2026, as in the Workspace): a hairline box with 12px corners,
+   the header row edge to edge inside it, rows of 48px under hairlines, a soft blue under the cursor.
+   A wide table scrolls inside its sheet. Column names are sentence case. */
 html[data-portal='ops'] .ws-table-wrap {
-  border: 0;
-  border-radius: 0;
-  background: none;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  background: rgb(var(--surface));
+  overflow: hidden;
+  overflow-x: auto;
 }
 html[data-portal='ops'] .ws-table {
+  width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
 html[data-portal='ops'] .ws-table th {
-  height: 40px;
+  height: 44px;
   padding: 0 16px;
-  /* Every list's header row: the Books Invoices pale blue-grey (owner, 16 Nov 2026). */
   background: rgb(var(--list-head, 234 242 248));
   border: 0;
-  font-size: 0.75rem;
+  border-bottom: 1px solid rgb(var(--border));
+  border-radius: 0;
+  font-size: 0.8125rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-muted));
-}
-html[data-portal='ops'] .ws-table th:first-child {
-  border-radius: 8px 0 0 8px;
-}
-html[data-portal='ops'] .ws-table th:last-child {
-  border-radius: 0 8px 8px 0;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  color: rgb(var(--fg));
 }
 html[data-portal='ops'] .ws-table td {
   box-sizing: border-box;
-  height: 56px;
+  height: 48px;
   padding: 8px 16px;
   border-top: 1px solid rgb(var(--border));
   border-bottom: 0;
@@ -658,6 +741,12 @@ html[data-portal='ops'] .ws-table td {
 }
 html[data-portal='ops'] .ws-table tbody tr:first-child td {
   border-top: 0;
+}
+html[data-portal='ops'] .ws-table tbody tr {
+  transition: background-color 120ms ease;
+}
+html[data-portal='ops'] .ws-table tbody tr:hover {
+  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
 }
 html[data-portal='ops'] .ws-table .num {
   text-align: right;
@@ -785,7 +874,7 @@ html[data-portal='ops'] .ws-card-blurb {
   color: rgb(var(--fg-subtle));
 }
 
-/* Stat tiles other screens draw (ws-stat): a 12px content surface. */
+/* Stat tiles other screens draw (ws-stat): a 12px content surface, sentence-case label. */
 html[data-portal='ops'] .ws-stat {
   padding: 16px 20px;
   border-radius: 12px;
@@ -793,10 +882,10 @@ html[data-portal='ops'] .ws-stat {
   background: rgb(var(--surface));
 }
 html[data-portal='ops'] .ws-stat-label {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: rgb(var(--fg-muted));
 }
 html[data-portal='ops'] .ws-stat-value {
@@ -817,7 +906,9 @@ html[data-portal='ops'] .ws-stat-value {
   justify-content: space-between;
   gap: 12px;
 }
-/* KPI tiles: 36px tinted icon chip, 12px uppercase label, 28/36 tabular number, 3px top accent in the tile's identity colour. */
+/* Figure tiles: a quiet icon chip, a sentence-case label, a 28/36 tabular number. No coloured bar and
+   no per-tile hue (DESIGN.md; owner, 17 Nov 2026): a figure is coloured only when its state is, and
+   then the number carries it. */
 .ops-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -831,19 +922,17 @@ html[data-portal='ops'] .ws-stat-value {
   gap: 8px 12px;
   padding: 16px 16px 18px;
   border: 1px solid rgb(var(--border-field));
-  border-top: 3px solid rgb(var(--kpi));
   border-radius: 12px;
   background: rgb(var(--surface));
   text-align: left;
   font: inherit;
   color: inherit;
   cursor: pointer;
-  transition: border-color 160ms var(--ws-ease), box-shadow 160ms var(--ws-ease);
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
 .ops-kpi:hover {
   border-color: rgb(var(--border-strong));
-  border-top-color: rgb(var(--kpi));
-  box-shadow: 0 8px 20px -16px rgb(var(--fg) / 0.4);
+  background: rgb(var(--hover-blue, 42 120 214) / 0.04);
 }
 .ops-kpi-chip {
   grid-area: chip;
@@ -852,14 +941,14 @@ html[data-portal='ops'] .ws-stat-value {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: color-mix(in srgb, rgb(var(--kpi)) 12%, rgb(var(--surface)));
+  background: rgb(var(--neutral-soft));
+  color: rgb(var(--fg-muted));
 }
 .ops-kpi-label {
   grid-area: label;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
   color: rgb(var(--fg-muted));
 }
 .ops-kpi-value {
@@ -881,6 +970,12 @@ html[data-portal='ops'] .ws-stat-value {
   grid-area: note;
   font-size: 0.75rem;
   color: rgb(var(--fg-subtle));
+}
+@media (prefers-reduced-motion: reduce) {
+  .ops-kpi,
+  html[data-portal='ops'] .ws-table tbody tr {
+    transition: none;
+  }
 }
 @media (max-width: 1100px) {
   .ops-kpis {
@@ -951,7 +1046,7 @@ html[data-portal='ops'] .ws-stat-value {
 .ops-initials--sm {
   width: 32px;
   height: 32px;
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--neutral-soft));
   color: rgb(var(--fg-muted));
 }
 
@@ -1027,7 +1122,7 @@ html[data-portal='ops'] .ws-stat-value {
   cursor: pointer;
 }
 .ops-job:hover {
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--heading-hover, 247 247 247));
 }
 .ops-job-hint {
   flex: none;

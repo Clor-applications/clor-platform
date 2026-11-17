@@ -71,7 +71,7 @@ html[data-portal='ops'] .ops-search-field > .ui-input {
   cursor: pointer;
 }
 .ops-chip > button:hover {
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--heading-hover, 247 247 247));
 }
 
 /* A person in a row: 32px initials in their identity colour, name over email. */
@@ -124,8 +124,7 @@ div.ops-kpi {
 }
 div.ops-kpi:hover {
   border-color: rgb(var(--border-field));
-  border-top-color: rgb(var(--kpi));
-  box-shadow: none;
+  background: rgb(var(--surface));
 }
 
 /* ------------------------------------------------- account: entitlements */
@@ -171,14 +170,14 @@ div.ops-kpi:hover {
   place-items: center;
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: 8px;
   background: rgb(var(--app));
   color: rgb(var(--on-brand, 255 255 255));
   font-size: 0.75rem;
   font-weight: 700;
 }
 .ops-app[data-owned='false'] .ops-app-mark {
-  background: rgb(var(--surface-sunken));
+  background: rgb(var(--neutral-soft));
   color: rgb(var(--fg-subtle));
 }
 .ops-app[data-owned='false'] {

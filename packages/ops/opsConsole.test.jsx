@@ -101,6 +101,10 @@ describe('the operator console', () => {
     fireEvent.click(within(rail).getByRole('button', { name: 'Trust' }));
     expect(screen.getByRole('heading', { name: 'Audit screen' })).toBeInTheDocument();
     expect(within(rail).getByRole('button', { name: 'Trust' })).toHaveAttribute('data-current');
+    /* Beside the rail the panel shows the open section's groups only (ops.css hides the rest); the phone sheet shows all. */
+    expect([...nav.querySelectorAll('.ops-group[data-here] .ops-group-label')].map((n) => n.textContent)).toEqual(['Trust']);
+    /* Keyboard users can skip both bars and the menu. */
+    expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute('href', '#ops-main');
     /* Sign out sits in the avatar's menu. */
     fireEvent.click(screen.getByRole('button', { name: 'Asha · Support' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /Sign out/ }));

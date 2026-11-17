@@ -1,51 +1,54 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, KeyRound, LogOut, Menu, X } from '@ui/components/ui/lineIcons';
 import QRCode from 'qrcode';
+import { ShieldCheck as ShieldLine } from 'lucide-react';
 import {
+  Banknote,
+  BadgeCheck,
   BarChart3,
   BellRing,
+  Boxes,
+  Building,
   Building2,
   CalendarClock,
-  CheckCheck,
+  CalendarOff,
   ClipboardList,
   Coins,
-  Database,
+  FileCode,
   FilePen,
+  FileSignature,
   FileText,
-  Gauge,
   Gift,
   Globe,
+  HandCoins,
+  Headset,
   History,
+  House,
   Inbox,
+  KeyRound as KeyEmoji,
   Landmark,
-  LayoutGrid,
-  LayoutTemplate,
   Link2,
-  LockKeyhole,
   Mail,
   Megaphone,
-  MessageSquare,
-  MessagesSquare,
-  Network,
-  Presentation,
+  MonitorSmartphone,
+  Notebook,
   Receipt,
   RefreshCw,
   Settings,
-  ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   Store,
-  ToggleRight,
+  UserCog,
   Users as UsersIcon,
-  UsersRound,
-  Vault,
-} from 'lucide-react';
+} from '@ui/components/ui/navEmoji';
 
-import { ClorLogo, ClorMark } from '@ui/components/brand';
+import { ClorLogo } from '@ui/components/brand';
 import Toaster from '@ui/components/ui/Toaster';
 import '../../apps/admin/src/screens/workspace.css';
 import './ops.css';
 import { useSession } from '../shell/session';
 import SignIn from '../shell/SignIn';
+import GatePage from '../shell/GatePage';
 import { DemoRequestDetail, DemoRequests } from './DemoRequests';
 import { Payments } from './Payments';
 import { InvoicePage, Invoices } from './Invoices';
@@ -93,23 +96,22 @@ import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
  */
 
 /* ------------------------------------------------------------- navigation */
-/* Fluent colour icons for the rail and the panel (R&D hand-off §4); controls stay on the line set. */
-/* Rail and panel icons: Lucide, like every other icon in the product (redesign §7). */
+/* Rail and panel icons: Fluent Emoji (flat), as in every app (owner, 15 Nov 2026). Small controls stay line icons. */
 const NI = {
-  overview: Gauge,
+  overview: House,
   insights: BarChart3,
-  savedReplies: MessagesSquare,
+  savedReplies: Notebook,
   status: Globe,
   forms: ClipboardList,
   accounts: Building2,
-  orgs: Network,
+  orgs: Building,
   users: UsersIcon,
-  denials: ShieldAlert,
-  switches: ToggleRight,
+  denials: CalendarOff,
+  switches: SlidersHorizontal,
   subscriptions: Receipt,
-  tickets: MessageSquare,
+  tickets: Headset,
   trials: CalendarClock,
-  demos: Presentation,
+  demos: MonitorSmartphone,
   links: Link2,
   jobs: RefreshCw,
   alerts: BellRing,
@@ -117,35 +119,37 @@ const NI = {
   customPlans: FilePen,
   offers: Gift,
   invoices: FileText,
-  payments: Vault,
+  payments: Banknote,
   tax: Landmark,
-  invoicing: Settings,
-  catalogue: LayoutGrid,
+  invoicing: FileSignature,
+  catalogue: Boxes,
   sample: Store,
   announcements: Megaphone,
   emailAddresses: Mail,
-  emailTemplates: LayoutTemplate,
+  emailTemplates: FileCode,
   emailLog: Inbox,
   audit: History,
-  access: KeyRound,
-  approvals: CheckCheck,
-  staff: UsersRound,
+  access: KeyEmoji,
+  approvals: BadgeCheck,
+  staff: UserCog,
   trust: ShieldCheck,
-  data: Database,
-  domain: LockKeyhole,
+  platform: Settings,
+  setup: HandCoins,
 };
 
 /*
  * The rail: five sections (Overview · Customers · Platform · Trust · Billing
- * and setup). Each opens its first page and lights up while you are on any of
- * its pages; the panel beside it lists every page, in groups.
+ * and setup), each its icon with its name under it. A section opens its first
+ * page and stays lit while you are on any of its pages; the panel beside it
+ * lists that section's pages only, so the menu is one screen, not a scroll of
+ * thirty-odd. On a phone there is no rail, and the sheet lists every page.
  */
 export const RAIL = [
   ['overview', 'Overview', NI.overview],
   ['customers', 'Customers and sales', NI.accounts],
-  ['platform', 'Platform', NI.jobs],
+  ['platform', 'Platform', NI.platform],
   ['trust', 'Trust', NI.trust],
-  ['setup', 'Billing and setup', NI.data],
+  ['setup', 'Billing and setup', NI.setup],
 ];
 
 /*
@@ -456,6 +460,21 @@ function Console() {
     };
   }, [me]);
 
+  /* A new page puts the keyboard and the screen reader at its top, not back in the menu (WCAG 2.4.3). */
+  const mainRef = useRef(null);
+  const shown = useRef('');
+  useEffect(() => {
+    const at = `${route.page}/${route.id}`;
+    if (shown.current && shown.current !== at) mainRef.current?.focus({ preventScroll: true });
+    shown.current = at;
+  }, [route.page, route.id]);
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setMenuOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
   const go = useCallback((page, params = {}, id = '', tab = '', replace = false) => {
     const next = { page, id, tab, params };
     const hash = routeHash(next);
@@ -468,24 +487,25 @@ function Console() {
 
   if (refused) {
     const needsCode = refused.code === 'TWO_FACTOR_SETUP_REQUIRED';
+    /* A stop before the console is a gate page like every other (owner, 15 Nov 2026): GatePage's frame. */
     return (
-      <div className="ops-refused">
-        <ClorLogo size={28} />
-        <h1 className="ws-title">{needsCode ? 'Set up your authenticator' : 'This page is for CLOR staff'}</h1>
-        {needsCode ? (
-          <EnrolAuthenticator onDone={() => { setRefused(null); setReload((n) => n + 1); }} />
-        ) : (
-          <p className="ws-card-blurb">{refused.message}</p>
-        )}
-        <div className="flex gap-2">
-          <a className="ws-btn ws-btn--quiet" href={WORKSPACE_URL}>Go to your workspace</a>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={signOut}>Sign out</button>
-        </div>
-      </div>
+      <GatePage
+        icon={ShieldLine}
+        tone={needsCode ? undefined : 'alert'}
+        title={needsCode ? 'Set up your authenticator' : 'This page is for CLOR staff'}
+        subtitle={needsCode ? undefined : refused.message}
+        who={user?.email || user?.fullName}
+        onSignOut={signOut}
+      >
+        {needsCode ? <EnrolAuthenticator onDone={() => { setRefused(null); setReload((n) => n + 1); }} /> : null}
+        <p>
+          <a className="ui-link" href={WORKSPACE_URL}>Go to your workspace</a>
+        </p>
+      </GatePage>
     );
   }
 
-  if (!me) return <p className="ws-card-blurb" style={{ padding: 24 }}>Loading…</p>;
+  if (!me) return <p className="ws-card-blurb" role="status" style={{ padding: 24 }}>Loading…</p>;
   /* Arrived from the Engineering Console's "Sign in with CLOR": confirm, then go back there with a pass. */
   if (grantState) return <ConsoleGrant state={grantState} me={me} onCancel={() => { setGrantState(''); try { window.history.replaceState(null, '', window.location.pathname + window.location.hash); } catch { /* no history */ } }} />;
 
@@ -496,38 +516,55 @@ function Console() {
   const Screen = SCREENS[page];
   const section = groups.find((g) => g.items.some(([k]) => k === page))?.rail || 'overview';
   const firstOf = (rail) => groups.find((g) => g.rail === rail)?.items[0]?.[0];
+  const sectionName = RAIL.find(([k]) => k === section)?.[1] || 'Ops';
   const roleName = ROLE[me.role] || me.role;
   const name = me.user?.fullName || me.user?.email || 'You';
   return (
     <div className="ops">
+      <a href="#ops-main" className="ops-skip">Skip to main content</a>
       {/* Always drawn, never closable: whoever is looking knows this is the staff console and that every change is on the record. */}
       <div className="ops-staffbar" role="note" aria-label="Staff console">
         <span className="ops-staffbar-pill">Staff</span>
         <span>CLOR Ops · internal · every action is logged with your name and a reason</span>
       </div>
+      {/* The bar runs the full width with the CLOR logo at its head; the rail and the panel start under it (owner, 17 Nov 2026). */}
+      <header className="ops-bar-top">
+        <button type="button" className="ui-icon-btn ops-menu-btn" aria-label={menuOpen ? 'Close menu' : 'Menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
+          {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+        </button>
+        <button type="button" className="ops-brand" aria-label="CLOR Ops: open Overview" onClick={() => go('home')}>
+          <ClorLogo size={17} title="" />
+          <span className="ops-brand-app">Ops</span>
+        </button>
+        <OpsSearch go={go} />
+        {has('alerts') ? (
+          <button type="button" className="ops-round-btn" aria-label="Alerts" title="Alerts" onClick={() => go('alerts')}>
+            <Bell size={18} aria-hidden="true" />
+          </button>
+        ) : null}
+        <Avatar name={name} role={roleName} signOut={signOut} />
+      </header>
       <div className="ops-frame">
         <nav className="ops-rail" aria-label="Sections">
-          <span className="ops-rail-mark" aria-hidden="true">
-            <ClorMark size={24} title="" />
-          </span>
           {RAIL.filter(([k]) => firstOf(k)).map(([k, label, Icon]) => (
-            <button key={k} type="button" className="ops-rail-btn" aria-label={label} title={label} data-current={section === k || undefined} onClick={() => go(firstOf(k))}>
-              <Icon size={18} />
+            <button key={k} type="button" className="ops-rail-btn" title={label} data-current={section === k || undefined} aria-current={section === k ? 'true' : undefined} onClick={() => go(firstOf(k))}>
+              <Icon size={24} aria-hidden="true" />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
         <nav className="ops-side" data-open={menuOpen || undefined} aria-label="Operator console">
           <div className="ops-side-scroll">
             <div className="ops-side-head">
-              <span className="ops-side-title">Ops</span>
-              <span className="ops-side-tag">Internal</span>
+              <span className="ops-side-title">{sectionName}</span>
             </div>
             {groups.map((g, i) => (
-              <div key={g.label || i} className="ops-group">
+              /* Only the open section's groups show beside the rail; the phone sheet, which has no rail, shows them all (ops.css). */
+              <div key={g.label || i} className="ops-group" data-here={g.rail === section || undefined}>
                 {g.label ? <span className="ops-group-label">{g.label}</span> : null}
                 {g.items.map(([k, label, Icon]) => (
                   <button key={k} type="button" className="ops-nav-item" aria-current={page === k ? 'page' : undefined} onClick={() => go(k)}>
-                    <Icon size={16} />
+                    <Icon size={20} aria-hidden="true" />
                     <span className="ops-nav-label">{label}</span>
                     {counts[k] ? <span className="ops-nav-count">{counts[k].toLocaleString('en-IN')}</span> : null}
                   </button>
@@ -537,29 +574,11 @@ function Console() {
           </div>
         </nav>
         {menuOpen ? <button type="button" className="ops-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} /> : null}
-        <div className="ops-col">
-          <header className="ops-bar-top">
-            <button type="button" className="ui-icon-btn ops-menu-btn" aria-label={menuOpen ? 'Close menu' : 'Menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
-              {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
-            </button>
-            <OpsSearch go={go} />
-            <span className="ops-domain" title="CLOR staff console">
-              <NI.domain size={18} aria-hidden="true" />
-              ops.clor.in
-            </span>
-            {has('alerts') ? (
-              <button type="button" className="ops-round-btn" aria-label="Alerts" title="Alerts" onClick={() => go('alerts')}>
-                <Bell size={18} aria-hidden="true" />
-              </button>
-            ) : null}
-            <Avatar name={name} role={roleName} signOut={signOut} />
-          </header>
-          <main className="ws ops-main">
-            <div className="ws-inner">
-              <Screen key={`${page}/${route.id}`} route={page === route.page ? route : { page, id: '', tab: '', params: {} }} go={go} has={has} me={me} />
-            </div>
-          </main>
-        </div>
+        <main id="ops-main" ref={mainRef} tabIndex={-1} className="ws ops-main">
+          <div className="ws-inner">
+            <Screen key={`${page}/${route.id}`} route={page === route.page ? route : { page, id: '', tab: '', params: {} }} go={go} has={has} me={me} />
+          </div>
+        </main>
       </div>
       <Toaster />
     </div>
@@ -602,7 +621,6 @@ function Avatar({ name, role, signOut }) {
   );
 }
 
-/* The console draws in the one icon family (Lucide), like every app. */
 export default function OpsConsole() {
   return (
     <OpsScreens />
