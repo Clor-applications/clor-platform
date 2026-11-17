@@ -703,6 +703,12 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-17 — Workspace Home says each thing once (owner: "rework Home"):** what needs attention
+  and the setup steps sit directly under the greeting. One row of four figures (companies, apps,
+  members, waiting); the greeting line keeps the account's name and role only, and no card repeats a
+  count. The team ring and bars are drawn from three people up. Quick actions are the three jobs the
+  rail does not name; Help is the help centre and a person to ask, in the same rows. One icon square
+  on the page: 40px, 8px corners, 22px icon in a 56px row. The setup bar is one solid colour.
 - **2026-11-17 — Bar menus on base-ui:** the app switcher, the company menu and the help menu were a
   `div role="menu"` that ignored the arrow keys. They are now `@base-ui/react` menus through
   `@ui/components/ui/Menu` (`.ui-menu`: a 12px sheet of 8px rows, the hover blue under the pointer or

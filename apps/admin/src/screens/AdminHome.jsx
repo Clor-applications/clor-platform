@@ -419,6 +419,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     noGstin.length ? { key: 'gstin', tag: 'Missing', pill: 'danger', action: 'Add GSTIN', icon: ICON.company, tone: null, title: noGstin.length === 1 ? `${noGstin[0].name} has no GSTIN` : `${noGstin.length} companies have no GSTIN`, sub: noGstin.length === 1 ? 'Invoices from this company cannot be e-invoiced until it is added.' : `${noGstin.map((c) => c.name).join(', ')}: invoices cannot be e-invoiced until each is added.`, go: go('companies') } : null,
   ].filter(Boolean);
   const repliedTo = (tickets || []).filter((t) => t.status === 'WAITING');
+  const openTickets = (tickets || []).filter((t) => t.status === 'OPEN' || t.status === 'WAITING').length;
   /* CLOR answered and waits on the customer: after the urgent items, before the routine ones. */
   const firstCalm = attention.findIndex((a) => a.tone !== 'danger' && a.tone !== 'warn');
   if (repliedTo.length) attention.splice(firstCalm < 0 ? attention.length : firstCalm, 0, { key: 'tickets', tag: 'Support', action: 'Reply', icon: ICON.chat, tone: 'brand', title: repliedTo.length === 1 ? `CLOR replied to ${repliedTo[0].code}` : `CLOR replied to ${repliedTo.length} tickets`, sub: repliedTo.length === 1 ? repliedTo[0].subject : 'They are waiting for your answer.', go: go('support') });
@@ -428,13 +429,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const account = accountName || overview?.account?.name || tenant?.name || '';
   const companyCount = entities?.companies ?? (overview ? (overview.companies || []).filter((c) => !c.archived).length : null);
   const memberCount = activeMembers ?? (security ? security.active : null);
-  /* One line of facts under the greeting, each only when it was read. */
-  const facts = [
-    account || null,
-    companyCount != null ? plural(companyCount, 'company', 'companies') : null,
-    `${onCount} of ${built.length} apps`,
-    memberCount != null ? plural(memberCount, 'member') : null,
-  ].filter(Boolean);
+  /* Under the greeting: the account's name and this person's role. The counts are said once, in the figures row. */
+  const facts = [account || null].filter(Boolean);
   const companiesTable = isAdmin && overview ? (overview.companies || []) : null;
 
   /* What waits on this person, in all: the same sources the attention list shows. */
@@ -445,13 +441,10 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     ? setupSteps({ tenantId: tenant?.id, overview, profile: setupFacts.profile, directory: { members: directory }, invitations: invites || [], policy: setupFacts.policy })
     : null;
   const stepsDone = steps ? steps.filter((x) => x.done).length : 0;
-  const nextStep = steps ? steps.find((x) => !x.done) : null;
   const here = (overview?.companies || []).find((c) => c.orgId === tenant?.id) || (overview?.companies || [])[0] || null;
 
-  /* By id, not the ref: the handler is made during render (react-hooks/refs). */
   /* Until the account's figures are in, an owner's attention list is not complete: no "0" and no "nothing needs you" yet. */
   const settled = !loading && (!(isAdmin || seesPlan) || overview !== null);
-  const scrollToAttention = () => document.getElementById('ws-attn-title')?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   /*
    * The figures across the top: each a fact the server gave, each opening the screen that owns it.
@@ -478,8 +471,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         }
       : null,
     waitingTotal != null ? { key: 'waiting', icon: E.inbox, hue: 'blue', value: waitingTotal, label: 'Waiting on you', hint: waitingTotal ? `In ${plural(waitingApps, 'app')}` : 'All clear', go: go('inbox') } : null,
-    settled ? { key: 'attention', icon: E.bell, hue: 'orange', tone: !attention.length ? null : attention.some((a) => a.tone === 'danger') ? 'neg' : urgent ? 'warn' : null, value: attention.length, label: attention.length === 1 ? 'Needs attention' : 'Need attention', hint: !attention.length ? 'All clear' : urgent ? `${urgent} urgent` : 'Nothing urgent', go: attention.length ? scrollToAttention : null } : null,
-    steps ? { key: 'setup', icon: E.clipboard, hue: 'green', tone: stepsDone === steps.length ? 'pos' : null, value: `${stepsDone}/${steps.length}`, label: stepsDone === steps.length ? 'Setup done' : 'Setup steps done', hint: nextStep ? `Next: ${nextStep.title.charAt(0).toLowerCase()}${nextStep.title.slice(1)}` : 'Ready to go', go: nextStep && go(nextStep.screen) ? go(nextStep.screen) : null } : null,
   ].filter(Boolean);
 
   /* Team and access: who is in the account, and how many people each app has (seats from the directory). */
@@ -531,15 +522,11 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const lines = todayLines(today);
   const dayWords = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  /* Shortcuts to the jobs an administrator comes here for; each only when this person may open its screen. */
+  /* Shortcuts to the three jobs the rail does not name; Apps, Billing, Integrations and Security are one click away there. */
   const quick = [
     { key: 'companies', icon: E.building, label: 'Add company', hint: 'Another business in this account' },
     { key: 'invitations', icon: E.mail, label: 'Invite member', hint: 'Send an email invitation' },
     { key: 'roles', icon: E.key, label: 'Manage access', hint: 'Roles and what each may do' },
-    { key: 'apps', icon: E.puzzle, label: 'Apps', hint: 'Switch apps on, see what is coming' },
-    { key: 'billing', icon: E.card, label: 'Billing', hint: 'Plan, seats and invoices' },
-    { key: 'integrations', icon: E.link, label: 'Integrations', hint: 'Readers, Tally, single sign-on' },
-    { key: 'securityHome', icon: E.locked, label: 'Security', hint: 'Sign-in, sessions and two-factor' },
   ].filter((q) => may.has(q.key));
 
 
@@ -610,6 +597,95 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
           ) : null}
         </section>
 
+        {/* First, what needs this person and what is left to set up (owner, 17 Nov 2026: rework Home). */}
+        <div className="wsh-pair">
+          <section ref={attentionRef} className="wsh-card" style={{ scrollMarginTop: 16 }} aria-labelledby="ws-attn-title">
+            <div className="wsh-card-head">
+              <h2 id="ws-attn-title" className="ws-h2">
+                <E.bell size={20} className="ws-head-ico" aria-hidden="true" />
+                Needs your attention
+                {attention.length ? <span className="wsh-count ui-num" aria-hidden="true">{attention.length}</span> : null}
+              </h2>
+              {waitingLines.length && go('inbox') ? (
+                <button type="button" className="ws-link" onClick={go('inbox')}>
+                  Open inbox <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            {!settled ? (
+              <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
+                <span className="ui-skel ui-skel-text" />
+                <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
+              </div>
+            ) : attention.length ? (
+              <ul className="wsh-attn" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
+                {attention.map((a) => {
+                  const Icon = colourIcon(a.icon || ICON.alert);
+                  const body = (
+                    <>
+                      <span className={`wsh-ico ${TONE_CLASS[a.tone] || ''}`} aria-hidden="true"><Icon size={18} /></span>
+                      <span className="wsh-attn-text">
+                        <span className="wsh-attn-title">{a.title}</span>
+                        <span className="wsh-attn-sub">
+                          <span className={`ws-pill ws-pill--${a.pill || (a.tone === 'danger' ? 'danger' : a.tone === 'warn' ? 'warn' : 'neutral')}`}>{a.tag}</span>
+                          <span>{a.sub}</span>
+                        </span>
+                      </span>
+                      {a.go ? <span className="wsh-attn-act">{a.action || 'Open'} <ChevronRight size={14} aria-hidden="true" /></span> : <span />}
+                    </>
+                  );
+                  return <li key={a.key}>{a.go ? <button type="button" className="wsh-attn-row" onClick={a.go}>{body}</button> : <div className="wsh-attn-row">{body}</div>}</li>;
+                })}
+              </ul>
+            ) : (
+              <div className="wsh-calm">
+                <E.cool size={40} aria-hidden="true" />
+                <p className="ws-card-blurb">Nothing needs you right now. Enjoy the quiet.</p>
+              </div>
+            )}
+          </section>
+
+          {isAdmin && here ? (
+            <section className="wsh-card" aria-labelledby="wsh-co-title">
+              <div className="wsh-card-head">
+                <h2 id="wsh-co-title" className="ws-h2"><E.building size={20} className="ws-head-ico" aria-hidden="true" />Company overview</h2>
+                {go('company') ? <button type="button" className="ws-link" onClick={go('company')}>Profile <ChevronRight size={16} aria-hidden="true" /></button> : null}
+              </div>
+              <div className="wsh-co">
+                <span className="wsh-co-ico" aria-hidden="true"><E.building size={30} /></span>
+                <span className="wsh-co-text">
+                  <span className="wsh-co-name">{here.name}</span>
+                  <span className="wsh-co-sub">{here.state || 'State not set'}{here.gstin ? <> · <span className="ui-mono">{here.gstin}</span></> : null}</span>
+                </span>
+                {here.archived ? <span className="ws-pill ws-pill--neutral">Archived</span> : here.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--warn">Needs GSTIN</span>}
+              </div>
+              {steps ? (
+                <div className="wsh-setup">
+                  <div className="wsh-setup-head">
+                    <span>Setup progress</span>
+                    <span className="ui-num">{Math.round((stepsDone / steps.length) * 100)}%</span>
+                  </div>
+                  <div className="wsh-bar" role="meter" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={stepsDone}>
+                    <span style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }} />
+                  </div>
+                  <ul className="wsh-steps">
+                    {steps.map((x) => (
+                      <li key={x.key} data-done={x.done || undefined}>
+                        <span className="wsh-step-mark" aria-hidden="true">{x.done ? <E.check size={18} /> : null}</span>
+                        {!x.done && go(x.screen) ? (
+                          <button type="button" className="wsh-step-link" onClick={go(x.screen)}>{x.title}</button>
+                        ) : (
+                          <span>{x.title}{x.done ? <span className="sr-only"> (done)</span> : null}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+        </div>
+
         {/* The workspace in figures. */}
         {tiles.length ? (
           <ul className="wsh-tiles" aria-label="Workspace at a glance">
@@ -617,7 +693,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               const Icon = t.icon;
               const body = (
                 <>
-                  <span className="wsh-tile-ico" aria-hidden="true"><Icon size={26} /></span>
+                  <span className="wsh-tile-ico" aria-hidden="true"><Icon size={24} /></span>
                   <span className="wsh-tile-text">
                     <span className="wsh-tile-value ui-num">{t.value}{t.note ? <small> {t.note}</small> : null}</span>
                     <span className="wsh-tile-label">{t.label}</span>
@@ -680,7 +756,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
 
         <div className="wsh-layout">
           <div className="wsh-main">
-            {team ? (
+            {/* A ring of one person and a bar of one say nothing: drawn from three people up. */}
+            {team && team.total >= 3 ? (
               <section className="wsh-card" aria-labelledby="wsh-team-title">
                 <div className="wsh-card-head">
                   <h2 id="wsh-team-title" className="ws-h2"><E.people size={20} className="ws-head-ico" aria-hidden="true" />Team and access</h2>
@@ -732,99 +809,6 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                 </div>
               </section>
             ) : null}
-
-            <div className="wsh-pair">
-              <section ref={attentionRef} className="wsh-card" style={{ scrollMarginTop: 16 }} aria-labelledby="ws-attn-title">
-                <div className="wsh-card-head">
-                  <h2 id="ws-attn-title" className="ws-h2">
-                    <E.bell size={20} className="ws-head-ico" aria-hidden="true" />
-                    Needs your attention
-                    {attention.length ? <span className="wsh-count ui-num" aria-hidden="true">{attention.length}</span> : null}
-                  </h2>
-                  {waitingLines.length && go('inbox') ? (
-                    <button type="button" className="ws-link" onClick={go('inbox')}>
-                      Open inbox <ChevronRight size={16} aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
-                {!settled ? (
-                  <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
-                    <span className="ui-skel ui-skel-text" />
-                    <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
-                  </div>
-                ) : attention.length ? (
-                  <ul className="wsh-attn" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
-                    {attention.map((a) => {
-                      const Icon = colourIcon(a.icon || ICON.alert);
-                      const body = (
-                        <>
-                          <span className={`wsh-ico ${TONE_CLASS[a.tone] || ''}`} aria-hidden="true"><Icon size={18} /></span>
-                          <span className="wsh-attn-text">
-                            <span className="wsh-attn-title">{a.title}</span>
-                            <span className="wsh-attn-sub">
-                              <span className={`ws-pill ws-pill--${a.pill || (a.tone === 'danger' ? 'danger' : a.tone === 'warn' ? 'warn' : 'neutral')}`}>{a.tag}</span>
-                              <span>{a.sub}</span>
-                            </span>
-                          </span>
-                          {a.go ? <span className="wsh-attn-act">{a.action || 'Open'} <ChevronRight size={14} aria-hidden="true" /></span> : <span />}
-                        </>
-                      );
-                      return <li key={a.key}>{a.go ? <button type="button" className="wsh-attn-row" onClick={a.go}>{body}</button> : <div className="wsh-attn-row">{body}</div>}</li>;
-                    })}
-                  </ul>
-                ) : (
-                  <div className="wsh-calm">
-                    <E.cool size={40} aria-hidden="true" />
-                    <p className="ws-card-blurb">Nothing needs you right now. Enjoy the quiet.</p>
-                  </div>
-                )}
-              </section>
-
-              {isAdmin && here ? (
-                <section className="wsh-card" aria-labelledby="wsh-co-title">
-                  <div className="wsh-card-head">
-                    <h2 id="wsh-co-title" className="ws-h2"><E.building size={20} className="ws-head-ico" aria-hidden="true" />Company overview</h2>
-                    {go('company') ? <button type="button" className="ws-link" onClick={go('company')}>Profile <ChevronRight size={16} aria-hidden="true" /></button> : null}
-                  </div>
-                  <div className="wsh-co">
-                    <span className="wsh-co-ico" aria-hidden="true"><E.building size={30} /></span>
-                    <span className="wsh-co-text">
-                      <span className="wsh-co-name">{here.name}</span>
-                      <span className="wsh-co-sub">{here.state || 'State not set'}{here.gstin ? <> · <span className="ui-mono">{here.gstin}</span></> : null}</span>
-                    </span>
-                    {here.archived ? <span className="ws-pill ws-pill--neutral">Archived</span> : here.gstin ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--warn">Needs GSTIN</span>}
-                  </div>
-                  <dl className="wsh-co-figs">
-                    <div><dt>Members</dt><dd className="ui-num">{here.people ?? 0}</dd></div>
-                    <div><dt>Apps</dt><dd className="ui-num">{(here.apps || []).length}</dd></div>
-                    {entities?.branches != null ? <div><dt>Branches</dt><dd className="ui-num">{entities.branches}</dd></div> : null}
-                  </dl>
-                  {steps ? (
-                    <div className="wsh-setup">
-                      <div className="wsh-setup-head">
-                        <span>Setup progress</span>
-                        <span className="ui-num">{Math.round((stepsDone / steps.length) * 100)}%</span>
-                      </div>
-                      <div className="wsh-bar" role="meter" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={stepsDone}>
-                        <span style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }} />
-                      </div>
-                      <ul className="wsh-steps">
-                        {steps.map((x) => (
-                          <li key={x.key} data-done={x.done || undefined}>
-                            <span className="wsh-step-mark" aria-hidden="true">{x.done ? <E.check size={18} /> : null}</span>
-                            {!x.done && go(x.screen) ? (
-                              <button type="button" className="wsh-step-link" onClick={go(x.screen)}>{x.title}</button>
-                            ) : (
-                              <span>{x.title}{x.done ? <span className="sr-only"> (done)</span> : null}</span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
-            </div>
 
             {/* One company is already the Company overview card: the table only when there are two or more. */}
             {companiesTable && (companiesTable.length > 1 || !here) ? (
@@ -927,8 +911,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                       </div>
                     ) : null}
                   </dl>
-                  <Meter label="Companies" used={usage?.companies ?? 0} limit={plan.limits?.maxCompanies ?? null} />
-                  <Meter label="Users" used={usage?.users ?? 0} limit={plan.limits?.maxUsers ?? null} />
+                  {/* Only where the plan sets a limit: "1, no limit" repeats the figures row. */}
+                  {plan.limits?.maxCompanies != null ? <Meter label="Companies" used={usage?.companies ?? 0} limit={plan.limits.maxCompanies} /> : null}
+                  {plan.limits?.maxUsers != null ? <Meter label="Users" used={usage?.users ?? 0} limit={plan.limits.maxUsers} /> : null}
                   {/* Only seats that were bought in a number; unmetered ones are on each app tile. */}
                   {seats ? seats.filter((x) => x.bought != null).map((x) => <Meter key={x.app} app={x.app} label={`${APP_NAME[x.app] || x.app} seats`} used={x.used} limit={x.bought} />) : null}
                 </Panel>
@@ -1045,44 +1030,40 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               </section>
             ) : null}
 
+            {/* The same rows as Quick actions: one icon square (40px, 22px icon) and one row height down the whole side column. */}
             <Panel icon={E.buoy} title="Help and support">
-              <ul className="ws-list">
-                {[
-                  ['welcome', 'Help centre', 'Guides for the Workspace and every app', E.books],
-                  ['setup', 'Set up your workspace', 'The four steps to a ready company', E.bulb],
-                  ['readers', 'Integrations', 'Readers, Tally, HR tools, single sign-on', E.link],
-                ].map(([topic, title, sub, Icon], hi) => (
-                  <li key={title}>
-                    <button type="button" className="ws-item ws-item--button" onClick={() => requestOpenHelp(topic)}>
-                      <span className="wsh-help-ico" data-hue={HUES[hi % HUES.length]} aria-hidden="true"><Icon size={20} /></span>
-                      <span className="ws-item-text">
-                        <span className="ws-item-title">{title}</span>
-                        <span className="ws-item-sub">{sub}</span>
-                      </span>
-                      <ChevronRight size={16} aria-hidden="true" />
-                    </button>
-                  </li>
-                ))}
+              <ul className="wsh-quick">
+                <li>
+                  <button type="button" className="wsh-quick-btn" data-hue="blue" onClick={() => requestOpenHelp('welcome')}>
+                    <span className="wsh-quick-ico" aria-hidden="true"><E.books size={22} /></span>
+                    <span className="wsh-quick-text">
+                      <span className="wsh-quick-label">Help centre</span>
+                      <span className="wsh-quick-hint">Guides for every app</span>
+                    </span>
+                    <ChevronRight size={16} className="wsh-quick-go" aria-hidden="true" />
+                  </button>
+                </li>
                 {go('support') ? (
                   <li>
-                    <button type="button" className="ws-item ws-item--button" onClick={go('support')}>
-                      <span className="wsh-help-ico" data-hue="blue" aria-hidden="true"><E.chat size={20} /></span>
-                      <span className="ws-item-text">
-                        <span className="ws-item-title">Ask CLOR support</span>
-                        <span className="ws-item-sub">{tickets?.some((t) => t.status === 'OPEN' || t.status === 'WAITING') ? `${tickets.filter((t) => t.status === 'OPEN' || t.status === 'WAITING').length} open · see your tickets` : 'Open a ticket and get the answer by email'}</span>
+                    <button type="button" className="wsh-quick-btn" data-hue="orange" onClick={go('support')}>
+                      <span className="wsh-quick-ico" aria-hidden="true"><E.chat size={22} /></span>
+                      <span className="wsh-quick-text">
+                        <span className="wsh-quick-label">Ask CLOR support</span>
+                        <span className="wsh-quick-hint">{openTickets ? `${openTickets} open · see your tickets` : 'Open a ticket, answer by email'}</span>
                       </span>
-                      <ChevronRight size={16} aria-hidden="true" />
+                      <ChevronRight size={16} className="wsh-quick-go" aria-hidden="true" />
                     </button>
                   </li>
                 ) : null}
                 {operator.contactEmail ? (
                   <li>
-                    <a className="ws-item" href={`mailto:${operator.contactEmail}`}>
-                      <span className="wsh-help-ico" data-hue="orange" aria-hidden="true"><E.letter size={20} /></span>
-                      <span className="ws-item-text">
-                        <span className="ws-item-title">Contact support</span>
-                        <span className="ws-item-sub">{operator.contactEmail}</span>
+                    <a className="wsh-quick-btn" data-hue="green" href={`mailto:${operator.contactEmail}`}>
+                      <span className="wsh-quick-ico" aria-hidden="true"><E.letter size={22} /></span>
+                      <span className="wsh-quick-text">
+                        <span className="wsh-quick-label">Contact support</span>
+                        <span className="wsh-quick-hint">{operator.contactEmail}</span>
                       </span>
+                      <span />
                     </a>
                   </li>
                 ) : null}
