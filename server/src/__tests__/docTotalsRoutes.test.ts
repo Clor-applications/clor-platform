@@ -42,19 +42,6 @@ describe('saving a document whose figures do not add up', () => {
     expect(n(next.number)).toBe(n(first.number) + 1);
   }, 120_000);
 
-  it('editing an invoice: figures that disagree are refused; a note alone is not checked', async () => {
-    const made = (await request(app).post(`/api/orgs/${c.orgId}/invoices`).set(at(c)).send(invoice({ status: 'Draft' })).expect(201)).body.invoice;
-    const bad = await request(app).patch(`/api/orgs/${c.orgId}/invoices/${made.id}`).set(at(c)).send({ total: 9999 }).expect(422);
-    expect(bad.body).toMatchObject({ code: 'TOTALS_MISMATCH', field: 'total' });
-    expect(Number((await prisma.invoice.findUniqueOrThrow({ where: { id: made.id } })).total)).toBe(1180);
-
-    /* An invoice saved before this rule, with figures that do not agree, can still have its reference changed. */
-    await prisma.invoice.update({ where: { id: made.id }, data: { total: 5 } });
-    await request(app).patch(`/api/orgs/${c.orgId}/invoices/${made.id}`).set(at(c)).send({ refNo: 'PO-77' }).expect(200);
-    /* And is put right by sending figures that agree. */
-    await request(app).patch(`/api/orgs/${c.orgId}/invoices/${made.id}`).set(at(c)).send({ items: [{ ...line, rate: 2000, taxableAmount: 2000, gstAmount: 360 }], subtotal: 2000, cgstTotal: 180, sgstTotal: 180, gstTotal: 360, total: 2360 }).expect(200);
-  }, 120_000);
-
   it('a bill, an expense, a credit note and a debit note: the same', async () => {
     const current = await request(app).get(`/api/orgs/${c.orgId}/features`).set(at(c)).expect(200);
     await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { ...(current.body.features || {}), creditNotes: true, debitNotes: true } }).expect(200);

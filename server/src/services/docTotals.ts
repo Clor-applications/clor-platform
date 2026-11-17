@@ -20,7 +20,8 @@
  *   - taxable total = the lines' taxable values;
  *   - tax total = the lines' and charges' tax;
  *   - CGST + SGST + IGST = tax total, CGST = SGST, and never IGST with CGST;
- *   - total = taxable total + other charges + tax.
+ *   - total = taxable total + other charges + tax, give or take a rupee of
+ *     rounding off (posted to Rounding by the ledger).
  *
  * Rounding: the form rounds each line to the paisa and halves tax per line, so
  * a sum may sit a paisa a line away from the total. That much is allowed and
@@ -131,14 +132,16 @@ export function checkDocTotals(doc: TotalsInput): TotalsProblem | null {
   /* ---- CGST + SGST or IGST. ---- */
   const split = head.cgstTotal + head.sgstTotal + head.igstTotal;
   if (head.gstTotal > 0 || split > 0) {
-    if (Math.abs(split - head.gstTotal) > 1) return problem('gstTotal', head.gstTotal, split, `CGST, SGST and IGST add up to ${words(split)}, not the tax total ${words(head.gstTotal)}.`);
+    /* A paisa a row: the expense form adds tax by line and halves it by line, so the halves can sit above their total. */
+    if (Math.abs(split - head.gstTotal) > slack) return problem('gstTotal', head.gstTotal, split, `CGST, SGST and IGST add up to ${words(split)}, not the tax total ${words(head.gstTotal)}.`);
     if (head.igstTotal > 0 && (head.cgstTotal > 0 || head.sgstTotal > 0)) return problem('igstTotal', head.igstTotal, 0, 'A document carries either CGST and SGST, or IGST, never both.');
     if (Math.abs(head.cgstTotal - head.sgstTotal) > slack) return problem('sgstTotal', head.sgstTotal, head.cgstTotal, `CGST ${words(head.cgstTotal)} and SGST ${words(head.sgstTotal)} must be equal.`);
   }
 
   /* ---- The total. ---- */
   const total = head.subtotal + chargeTaxable + head.gstTotal;
-  if (Math.abs(head.total - total) > 2) return problem('total', head.total, total, `Taxable value, other charges and GST add up to ${words(total)}, not ${words(head.total)}.`);
+  /* Up to a rupee either way is a total rounded off, which the ledger posts to Rounding; more is a disagreement. */
+  if (Math.abs(head.total - total) > 100) return problem('total', head.total, total, `Taxable value, other charges and GST add up to ${words(total)}, not ${words(head.total)}.`);
 
   return null;
 }

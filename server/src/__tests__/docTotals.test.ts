@@ -57,6 +57,33 @@ describe('what the forms send is accepted', () => {
     }
   });
 
+  it('3,000 expenses as the expense form works them out: tax by line, halved by line', () => {
+    const r = rng(77);
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    for (let n = 0; n < 3000; n += 1) {
+      const isIntra = r() < 0.6;
+      const rows = Array.from({ length: 1 + Math.floor(r() * 10) }, () => {
+        const amount = Math.round(r() * 500_000) / 100;
+        const rate = RATES[Math.floor(r() * RATES.length)];
+        const gstAmount = round2((amount * rate) / 100);
+        return { amount, rate, gstAmount, cgstAmount: isIntra ? round2(gstAmount / 2) : 0, sgstAmount: isIntra ? round2(gstAmount / 2) : 0, igstAmount: isIntra ? 0 : gstAmount, lineTotal: round2(amount + gstAmount) };
+      });
+      const subtotal = round2(rows.reduce((s, x) => s + x.amount, 0));
+      const gstTotal = round2(rows.reduce((s, x) => s + x.gstAmount, 0));
+      const doc = {
+        items: rows.map((x) => ({ description: 'Ledger', quantity: 1, rate: x.amount, gstRate: x.rate, taxableAmount: x.amount, gstAmount: x.gstAmount, lineTotal: x.lineTotal })),
+        subtotal,
+        cgstTotal: round2(rows.reduce((s, x) => s + x.cgstAmount, 0)),
+        sgstTotal: round2(rows.reduce((s, x) => s + x.sgstAmount, 0)),
+        igstTotal: round2(rows.reduce((s, x) => s + x.igstAmount, 0)),
+        gstTotal,
+        total: round2(subtotal + gstTotal),
+      };
+      const refused = checkDocTotals(doc);
+      if (refused) throw new Error(`expense ${n} refused: ${refused.message}\n${JSON.stringify(doc).slice(0, 1200)}`);
+    }
+  });
+
   it('the plain shapes the API and the tests send: lines with no worked amounts, and no lines at all', () => {
     expect(checkDocTotals({ items: [{ quantity: 1, rate: 1000, gstRate: 18 }], subtotal: 1000, cgstTotal: 90, sgstTotal: 90, igstTotal: 0, gstTotal: 180, total: 1180 })).toBeNull();
     expect(checkDocTotals({ items: [{ quantity: 2, rate: 500, gstRate: 0 }], subtotal: 1000, gstTotal: 0, total: 1000 })).toBeNull();
@@ -76,8 +103,10 @@ describe('what does not add up is refused, and says which figure', () => {
   it('a total that is not taxable value + charges + tax', () => {
     expect(checkDocTotals(good)).toBeNull();
     expect(field({ total: 118 })).toBe('total');
-    expect(field({ total: 1180.05 })).toBe('total');
-    expect(field({ total: 1180.02 })).toBeUndefined();
+    /* Rounded off to the rupee is not a disagreement; more than a rupee is. */
+    expect(field({ total: 1181 })).toBeUndefined();
+    expect(field({ total: 1179.5 })).toBeUndefined();
+    expect(field({ total: 1181.01 })).toBe('total');
     expect(checkDocTotals({ ...good, total: 100 })?.message).toMatch(/add up to ₹1,180\.00, not ₹100\.00/);
   });
 
@@ -98,6 +127,7 @@ describe('what does not add up is refused, and says which figure', () => {
 
   it('a split that is not the tax, or is both kinds, or uneven', () => {
     expect(field({ cgstTotal: 90, sgstTotal: 0, igstTotal: 0 })).toBe('gstTotal');
+    expect(field({ cgstTotal: 90.01, sgstTotal: 90.01 })).toBeUndefined();
     expect(field({ cgstTotal: 45, sgstTotal: 45, igstTotal: 90 })).toBe('igstTotal');
     expect(field({ cgstTotal: 100, sgstTotal: 80 })).toBe('sgstTotal');
     expect(field({ cgstTotal: 0, sgstTotal: 0, igstTotal: 180 })).toBeUndefined();
