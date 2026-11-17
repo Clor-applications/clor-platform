@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import RangePresets from '@ui/components/ui/RangePresets';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -82,6 +83,7 @@ function AccessReport() {
           card={(v) => <span className="min-w-0 flex-1"><span className="block truncate"><span className="font-medium">{v.user}</span> · {v.label}</span><span className="block truncate ui-caption tabular-nums">{[when(v.at), v.employee].filter(Boolean).join(' · ')}</span></span>}
           empty={<EmptyState title="No views in this period" description="Opening statutory details, confidential files or auditor evidence shows here." />}
           toolbar={<>
+            <div className="w-full"><RangePresets from={from} to={to} onPick={(f, t) => { setFrom(f); setTo(t); }} /></div>
             <div className="w-full sm:w-40"><DatePicker id="acc-from" value={from} max={to} onChange={(v) => setFrom(v || from)} label="From" /></div>
             <div className="w-full sm:w-40"><DatePicker id="acc-to" value={to} min={from} onChange={(v) => setTo(v || to)} label="To" /></div>
             <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="What" value={what} onChange={(v) => setWhat(v || 'all')} options={[{ value: 'all', label: 'Everything' }, ...Object.entries(data?.kinds || {}).map(([value, label]) => ({ value, label }))]} /></div>

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Camera, Check } from '@ui/components/ui/lineIcons';
 
+import PhoneInput from '@ui/components/ui/PhoneInput';
+import HelpTip from '@ui/components/ui/HelpTip';
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
 import Alert from '@ui/components/ui/Alert';
 import ErrorState from '@ui/components/ui/ErrorState';
@@ -437,11 +439,14 @@ function PhotoField({ value, onChange, name }) {
   );
 }
 
+/* A form part with its heading and note on the left of its fields (owner's style pick, 17 Nov 2026; stacks on narrow screens). */
 function Step({ title, hint, children }) {
   return (
-    <div className="ui-panel-in">
-      <h2 className="ui-t-sec">{title}</h2>
-      {hint ? <p className="ui-caption mb-4">{hint}</p> : <div className="mb-4" />}
+    <div className="ui-panel-in ui-form-part">
+      <div className="ui-form-part-head">
+        <h2 className="ui-t-sec">{title}</h2>
+        {hint ? <p className="ui-caption">{hint}</p> : null}
+      </div>
       <div className="ui-form-grid">{children}</div>
     </div>
   );
@@ -452,16 +457,26 @@ function Label({ id, label, required }) {
 }
 
 function Text({ id, label, required, help, error, value, onChange, type = 'text', inputMode, placeholder, max = 160, autoFocus, suggestions }) {
+  if (type === 'tel') {
+    return (
+      <div>
+        <Label id={id} label={label} required={required} />
+        <PhoneInput id={id} name={id} className={`ui-input w-full ${error ? 'is-invalid' : ''}`} placeholder={placeholder} maxLength={max} required={required}
+          aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-err` : undefined} value={value} onChange={onChange} />
+        {error ? <p id={`${id}-err`} className="ui-field-error">{error}</p> : null}
+      </div>
+    );
+  }
   const common = {
     id, name: id, className: `ui-input w-full ${error ? 'is-invalid' : ''}`, type, inputMode, placeholder, maxLength: max, required, autoFocus,
     'aria-invalid': error ? 'true' : undefined, 'aria-describedby': [error ? `${id}-err` : '', help ? `${id}-help` : ''].filter(Boolean).join(' ') || undefined,
   };
   return (
     <div>
-      <Label id={id} label={label} required={required} />
+      <div className="ui-label-row"><Label id={id} label={label} required={required} />{help ? <HelpTip text={help} /> : null}</div>
       {/* What the company already has is offered under the field; typing stays free. */}
       {suggestions ? <SuggestInput {...common} value={value} onChange={onChange} suggestions={suggestions} /> : <input {...common} className={common.className || 'ui-input w-full'} value={value} onChange={(e) => onChange(e.target.value)} />}
-      {error ? <p id={`${id}-err`} className="ui-field-error">{error}</p> : help ? <p id={`${id}-help`} className="ui-caption">{help}</p> : null}
+      {error ? <p id={`${id}-err`} className="ui-field-error">{error}</p> : help ? <span id={`${id}-help`} className="sr-only">{help}</span> : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import PhoneInput from '@ui/components/ui/PhoneInput';
 import {
   BadgeCheck,
   Building2,
@@ -412,16 +413,13 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
                 </div>
                 <div>
                   <label className="ui-label" htmlFor="me-phone">Mobile number</label>
-                  <input
+                  <PhoneInput
                     id="me-phone"
                     className="ui-input"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
                     value={form.phone}
                     maxLength={20}
-                    placeholder="+91 98765 43210"
-                    onChange={setF('phone')}
+                    placeholder="98765 43210"
+                    onChange={(v) => setF('phone')({ target: { value: v } })}
                   />
                 </div>
               </div>

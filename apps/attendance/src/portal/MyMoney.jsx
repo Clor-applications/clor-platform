@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Camera, FileText, X } from '@ui/components/ui/lineIcons';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -200,7 +201,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
       ) : <p className="ui-caption">No bill? Add it anyway and say why in the note.</p>}
       <div className="grid grid-cols-2 gap-3">
         <label className="block"><span className="ui-label">Amount</span>
-          <input className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+          <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
         </label>
         <label className="block"><span className="ui-label">Day</span>
           <input type="date" className="ui-input w-full" required max={todayIst()} value={form.spentOn} onChange={(e) => set({ spentOn: e.target.value })} />
@@ -222,7 +223,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
             <SuggestInput value={form.supplierGstin} onChange={(v) => set({ supplierGstin: v.toUpperCase() })} maxLength={15} placeholder="29ABCDE1234F1ZW" suggestions={[]} />
           </label>
           <label className="block"><span className="ui-label">GST on the bill</span>
-            <input className="ui-input w-full tabular-nums" inputMode="decimal" value={form.taxAmount} onChange={(e) => set({ taxAmount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+            <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" value={form.taxAmount} onChange={(e) => set({ taxAmount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
           </label>
         </div>
       ) : null}
@@ -361,7 +362,7 @@ function Advances({ data, guard, reload }) {
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><span className="ui-label">Amount</span>
-              <input className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+              <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
             </label>
             <label className="block"><span className="ui-label">Needed by</span>
               <input type="date" className="ui-input w-full" min={todayIst()} value={form.neededBy} onChange={(e) => setForm({ ...form, neededBy: e.target.value })} />
@@ -457,7 +458,7 @@ function SalaryAdvance({ info, guard, reload }) {
         <form onSubmit={ask} className="space-y-3" aria-label="Ask for a salary advance">
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><span className="ui-label">Amount</span>
-              <input className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+              <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
             </label>
             <label className="block"><span className="ui-label">Repay over</span>
               <select className="ui-select w-full" value={form.months} onChange={(e) => setForm({ ...form, months: Number(e.target.value) })}>

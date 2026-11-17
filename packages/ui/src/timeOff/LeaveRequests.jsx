@@ -109,11 +109,11 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
     { key: 'asked', label: tab === 'PENDING' ? 'Waiting since' : 'Asked', render: (r) => <span className={`whitespace-nowrap ${tab === 'PENDING' && waitedDays(r.createdAt) > 2 ? 'ui-text-warn' : ''}`}>{tab === 'PENDING' ? waitedText(r.createdAt) : formatDate(istDay(r.createdAt))}</span> },
     { key: 'reason', label: 'Reason', render: (r) => (r.reasonHidden ? <span className="ui-muted">Private</span> : <span className="block max-w-xs truncate" title={r.reason || undefined}>{r.reason || <span className="ui-muted">—</span>}</span>) },
     { key: 'status', label: 'Status', render: (r) => <StatusPill row={r} /> },
-    /* Waiting rows decide in place (R&D PEOPLE-11): Reject is a text button and opens the request for the reason it needs; Approve is secondary. */
-    ...(waitingTab ? [{ key: 'decide', label: '', align: 'right', always: true, render: (r) => (
-      <span className="pt-row-actions">
-        <button type="button" className="pt-text-btn" onClick={() => setOpenId(r.id)}>Reject</button>
-        <button type="button" className="ui-btn ui-btn-secondary" disabled={deciding} onClick={() => approveOne(r)}>Approve</button>
+    /* Waiting rows decide in place with a tick and a cross (owner's style pick, 17 Nov 2026). The cross opens the request for the reason it needs. */
+    ...(waitingTab ? [{ key: 'decide', label: <span className="sr-only">Decide</span>, align: 'right', always: true, render: (r) => (
+      <span className="ui-decide">
+        <button type="button" className="ui-decide-btn is-yes" disabled={deciding} aria-label={`Approve leave for ${r.employeeName}`} title="Approve" onClick={() => approveOne(r)}><Check size={16} aria-hidden="true" /></button>
+        <button type="button" className="ui-decide-btn is-no" aria-label={`Reject leave for ${r.employeeName}`} title="Reject (asks for a reason)" onClick={() => setOpenId(r.id)}><X size={16} aria-hidden="true" /></button>
       </span>
     ) }] : []),
   ];

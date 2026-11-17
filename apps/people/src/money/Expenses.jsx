@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import RangePresets from '@ui/components/ui/RangePresets';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Plus, Receipt } from '@ui/components/ui/lineIcons';
 
 import { StatStrip } from '@ui/components/ui/Primitives';
@@ -295,7 +297,7 @@ function AdvanceDrawer({ advance: a, mayPay, onClose, onDone }) {
         ) : null}
         {open ? (
           <div className="flex flex-wrap items-end gap-2">
-            <label className="block"><span className="ui-label">Given back</span><input className="ui-input w-36 tabular-nums" inputMode="decimal" placeholder={String(a.open)} value={form.back} onChange={(e) => setForm({ ...form, back: e.target.value.replace(/[^\d.]/g, '') })} /></label>
+            <label className="block"><span className="ui-label">Given back</span><MoneyInput className="ui-input w-36 tabular-nums" inputMode="decimal" placeholder={String(a.open)} value={form.back} onChange={(e) => setForm({ ...form, back: e.target.value.replace(/[^\d.]/g, '') })} /></label>
             <button type="button" className="ui-btn ui-btn-secondary" disabled={Boolean(busy)} onClick={() => run('back', () => advanceReturned(a.id, form.back ? Number(form.back) : undefined), (r) => (r.left > 0 ? `Recorded; ${money(r.left)} still open.` : 'Recorded; the advance is settled.'))}>Record</button>
           </div>
         ) : null}
@@ -364,6 +366,7 @@ function Report({ mayExport }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-3">
+        <div className="w-full"><RangePresets from={range.from} to={range.to} maxTo={today()} onPick={(f, t) => setRange({ ...range, from: f, to: t })} /></div>
         <label className="block"><span className="ui-label">From</span><input type="date" className="ui-input" value={range.from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} /></label>
         <label className="block"><span className="ui-label">To</span><input type="date" className="ui-input" value={range.to} min={range.from} max={today()} onChange={(e) => setRange({ ...range, to: e.target.value })} /></label>
         {mayExport ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => downloadCsv('claims', range.from, range.to).catch((e) => notify.error(String(e?.message || 'Not downloaded.')))}>Download bills (CSV)</button> : null}
@@ -432,7 +435,7 @@ function CategoriesDrawer({ onClose }) {
                   {e ? (
                     <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
                       <SuggestInput aria-label="Name" maxLength={60} value={e.name} onChange={(v) => setEdit({ [c.id]: { ...e, name: v } })} suggestions={[]} />
-                      <input className="ui-input tabular-nums" aria-label="Limit per bill" inputMode="decimal" placeholder="No limit" value={e.limitPerBill ?? ''} onChange={(ev) => setEdit({ [c.id]: { ...e, limitPerBill: ev.target.value.replace(/[^\d.]/g, '') } })} />
+                      <MoneyInput className="ui-input tabular-nums" aria-label="Limit per bill" inputMode="decimal" placeholder="No limit" value={e.limitPerBill ?? ''} onChange={(ev) => setEdit({ [c.id]: { ...e, limitPerBill: ev.target.value.replace(/[^\d.]/g, '') } })} />
                       <label className="flex items-center gap-2"><input type="checkbox" checked={e.creditBlocked} onChange={(ev) => setEdit({ [c.id]: { ...e, creditBlocked: ev.target.checked } })} /> GST credit usually not available</label>
                       <label className="flex items-center gap-2"><input type="checkbox" checked={e.active} onChange={(ev) => setEdit({ [c.id]: { ...e, active: ev.target.checked } })} /> In use</label>
                       <span className="flex gap-2 sm:col-span-2"><button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={busy} onClick={() => save({ ...e, id: c.id })}>Save</button><button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setEdit({})}>Cancel</button></span>
@@ -449,7 +452,7 @@ function CategoriesDrawer({ onClose }) {
           </ul>
           <form className="grid gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); save(adding); }}>
             <label className="block"><span className="ui-label">New category</span><SuggestInput value={adding.name} onChange={(v) => setAdding({ ...adding, name: v })} maxLength={60} placeholder="e.g. Site supplies" suggestions={[]} /></label>
-            <label className="block"><span className="ui-label">Limit per bill</span><input className="ui-input w-full tabular-nums" inputMode="decimal" placeholder="No limit" value={adding.limitPerBill} onChange={(e) => setAdding({ ...adding, limitPerBill: e.target.value.replace(/[^\d.]/g, '') })} /></label>
+            <label className="block"><span className="ui-label">Limit per bill</span><MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" placeholder="No limit" value={adding.limitPerBill} onChange={(e) => setAdding({ ...adding, limitPerBill: e.target.value.replace(/[^\d.]/g, '') })} /></label>
             <button type="submit" className="ui-btn ui-btn-secondary" disabled={busy || !adding.name.trim()}>Add</button>
           </form>
           <p className="ui-caption">A bill over its limit can still be sent; the approver sees the warning and decides.</p>

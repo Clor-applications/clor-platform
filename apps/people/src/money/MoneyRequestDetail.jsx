@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import ErrorState from '@ui/components/ui/ErrorState';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import useRequest from '@ui/components/ui/useRequest';
@@ -107,7 +108,7 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
                   {l.cutReason && !cutting ? <span className="ui-caption block">Allowed less: {l.cutReason}</span> : null}
                   {cutting ? (
                     <span className="mt-2 grid gap-2 sm:grid-cols-[8rem_1fr]">
-                      <input className="ui-input tabular-nums" inputMode="decimal" aria-label={`Allow for ${l.merchant}`} placeholder={String(l.amount)} value={cuts[l.id]?.approvedAmount ?? (l.approvedAmount ?? '')} onChange={(e) => setCut(l.id, { approvedAmount: e.target.value.replace(/[^\d.]/g, '') })} />
+                      <MoneyInput className="ui-input tabular-nums" inputMode="decimal" aria-label={`Allow for ${l.merchant}`} placeholder={String(l.amount)} value={cuts[l.id]?.approvedAmount ?? (l.approvedAmount ?? '')} onChange={(e) => setCut(l.id, { approvedAmount: e.target.value.replace(/[^\d.]/g, '') })} />
                       <SuggestInput aria-label={`Why less for ${l.merchant}`} placeholder="Why less (they read this)" maxLength={300} value={cuts[l.id]?.reason ?? (l.cutReason || '')} onChange={(v) => setCut(l.id, { reason: v })} suggestions={['No bill', 'Over the limit for this category', 'Personal part not covered']} />
                     </span>
                   ) : null}

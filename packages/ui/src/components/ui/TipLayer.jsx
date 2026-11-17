@@ -49,10 +49,7 @@ export default function TipLayer() {
       tip.style.top = `${Math.round(top)}px`;
       tip.style.left = `${Math.round(left)}px`;
     };
-    const onOver = (e) => {
-      if (inBooks() || e.pointerType === 'touch') return;
-      const el = e.target instanceof Element ? e.target.closest('[title]') : null;
-      if (!el || el === owner) return;
+    const showFor = (el, delay) => {
       const text = el.getAttribute('title');
       if (!text || !text.trim() || el.closest('svg')) return;
       hideTip();
@@ -69,7 +66,13 @@ export default function TipLayer() {
         tip.textContent = text;
         tip.hidden = false;
         place(el);
-      }, 350);
+      }, delay);
+    };
+    const onOver = (e) => {
+      if (inBooks() || e.pointerType === 'touch') return;
+      const el = e.target instanceof Element ? e.target.closest('[title]') : null;
+      if (!el || el === owner) return;
+      showFor(el, 350);
     };
     const onOut = (e) => {
       if (!owner) return;
@@ -91,12 +94,14 @@ export default function TipLayer() {
     };
     const onFocus = (e) => {
       const el = e.target;
+      /* A help "i" reached with the keyboard shows its words too. */
+      if (!inBooks() && el instanceof Element && el.classList.contains('ui-helptip') && el.hasAttribute('title')) { showFor(el, 0); return; }
       if (inBooks() || !(el instanceof HTMLTextAreaElement) || !(Number(el.getAttribute('maxlength')) > 0)) return;
       field = el;
       showCount();
     };
     const onInput = (e) => { if (e.target === field) showCount(); };
-    const onBlur = (e) => { if (e.target === field) { field = null; count.hidden = true; } };
+    const onBlur = (e) => { if (e.target === owner) hideTip(); if (e.target === field) { field = null; count.hidden = true; } };
     const onMove = () => { if (field) showCount(); if (owner && !tip.hidden) place(owner); };
 
     document.addEventListener('pointerover', onOver, true);

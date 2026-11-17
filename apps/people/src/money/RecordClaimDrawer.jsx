@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Plus, Upload, X } from '@ui/components/ui/lineIcons';
 
 import Drawer from '@ui/components/ui/Drawer';
@@ -74,7 +75,7 @@ export default function RecordClaimDrawer({ person, onClose, onDone }) {
               <div><label className="ui-label" htmlFor={`spent-${l.key}`}>Spent on *</label><DatePicker id={`spent-${l.key}`} value={l.spentOn} max={today()} onChange={(v) => set(l.key, { spentOn: v || '' })} /></div>
               <div><PopupSelect label="For *" showValueSubtext={false} value={l.categoryId} placeholder={cats.loading ? 'Loading…' : 'Choose…'} onChange={(v) => set(l.key, { categoryId: v || '' })} options={options} /></div>
               <label className="block"><span className="ui-label">Where *</span><SuggestInput maxLength={120} value={l.merchant} onChange={(v) => set(l.key, { merchant: v })} placeholder="The shop, cab or hotel" suggestions={[]} /></label>
-              <label className="block"><span className="ui-label">Amount *</span><input className="ui-input w-full tabular-nums" inputMode="decimal" aria-label={`Amount for bill ${i + 1}`} value={l.amount} onChange={(e) => set(l.key, { amount: e.target.value.replace(/[^\d.]/g, '') })} /></label>
+              <label className="block"><span className="ui-label">Amount *</span><MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" aria-label={`Amount for bill ${i + 1}`} value={l.amount} onChange={(e) => set(l.key, { amount: e.target.value.replace(/[^\d.]/g, '') })} /></label>
               <label className="block sm:col-span-2"><span className="ui-label">Note</span><input className="ui-input w-full" maxLength={300} value={l.note} onChange={(e) => set(l.key, { note: e.target.value })} /></label>
               <div className="sm:col-span-2 flex flex-wrap items-center gap-2 text-sm">
                 <input ref={(el) => { fileRefs.current[l.key] = el; }} type="file" className="sr-only" accept="image/jpeg,image/png,image/webp,application/pdf" aria-label={`Bill file ${i + 1}`} onChange={(e) => pick(l.key, e)} />

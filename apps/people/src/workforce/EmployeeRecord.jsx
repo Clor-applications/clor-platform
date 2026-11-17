@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import CopyWord from '@ui/components/ui/CopyWord';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -249,7 +250,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
             <StatusBadge employee={person} />
             {typeName ? <span className="pc-chip">{typeName}</span> : null}
             {person.hours === 'PART_TIME' ? <span className="pc-chip">Part-time</span> : null}
-            {person.code ? <span className="pc-chip">{person.code}</span> : null}
+            {person.code ? <span className="pc-chip"><span>{person.code}</span> <CopyWord value={person.code} what="employee ID" /></span> : null}
           </div>
           {probation === 'ON' || probation === 'OVER' || (person.contractEndDate && person.status !== 'LEFT') ? (
             <p className="pc-summary-alerts">

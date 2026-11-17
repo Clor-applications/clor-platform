@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import TickList from '@ui/components/ui/TickList';
 import { CheckCircle2, Plus, Repeat, Trash2, Users, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -260,13 +261,10 @@ function RotationCrew({ rotation, name, onClose }) {
     <Drawer open onClose={onClose} title={`${rotation.name} — people`} description={rotation.sequence.map(name).join(' → ')} widthClass="w-[min(40rem,96vw)]">
       <div className="space-y-5">
         <form onSubmit={add} className="grid gap-3 sm:grid-cols-2">
-          <label className="block sm:col-span-2">
-            <span className="ui-label">People *</span>
-            <select multiple className="ui-select h-36 w-full" value={form.employeeIds} onChange={(e) => setForm({ ...form, employeeIds: [...e.target.selectedOptions].map((o) => o.value) })}>
-              {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.department ? ` · ${p.department}` : ''}</option>)}
-            </select>
-            <span className="ui-caption">Ctrl/⌘-click to pick several.</span>
-          </label>
+          <div className="sm:col-span-2">
+            <TickList label="People *" scroll columns={2} value={form.employeeIds} onChange={(ids) => setForm({ ...form, employeeIds: ids })}
+              options={people.map((p) => ({ value: p.id, label: `${p.name}${p.department ? ` · ${p.department}` : ''}` }))} />
+          </div>
           <label className="block">
             <span className="ui-label">Start at step</span>
             <select className="ui-select w-full" value={form.slotOffset} onChange={(e) => setForm({ ...form, slotOffset: Number(e.target.value) })}>

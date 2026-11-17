@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import PhoneInput from '@ui/components/ui/PhoneInput';
 import { MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 
@@ -485,10 +486,10 @@ export function SettingsUsers({ orgId, params }) {
             <span className="text-sm font-medium">Email <span className="ui-required" aria-hidden="true">*</span></span>
             <input type="email" className="ui-input w-full" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required autoComplete="off" spellCheck={false} />
           </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">Mobile</span>
-            <input type="tel" inputMode="tel" className="ui-input w-full" value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))} />
-          </label>
+          <div className="grid gap-1">
+            <label className="text-sm font-medium" htmlFor="add-user-mobile">Mobile</label>
+            <PhoneInput id="add-user-mobile" className="ui-input w-full" value={form.mobile} onChange={(v) => setForm((f) => ({ ...f, mobile: v }))} />
+          </div>
           <label className="grid gap-1">
             <span className="text-sm font-medium">Temporary password <span className="ui-required" aria-hidden="true">*</span></span>
             <input type="password" minLength={8} className="ui-input w-full" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} required autoComplete="new-password" />
@@ -556,10 +557,10 @@ export function SettingsUsers({ orgId, params }) {
             <span className="text-sm font-medium">Email <span className="ui-required" aria-hidden="true">*</span></span>
             <input type="email" className="ui-input w-full" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} required spellCheck={false} />
           </label>
-          <label className="grid gap-1 sm:col-span-2">
-            <span className="text-sm font-medium">Mobile</span>
-            <input type="tel" inputMode="tel" className="ui-input w-full" value={editForm.mobile || ''} onChange={(e) => setEditForm((p) => ({ ...p, mobile: e.target.value }))} />
-          </label>
+          <div className="grid gap-1 sm:col-span-2">
+            <label className="text-sm font-medium" htmlFor="edit-user-mobile">Mobile</label>
+            <PhoneInput id="edit-user-mobile" className="ui-input w-full" value={editForm.mobile || ''} onChange={(v) => setEditForm((p) => ({ ...p, mobile: v }))} />
+          </div>
           <div className="grid gap-1">
             <label className="text-sm font-medium" htmlFor="ws-user-edit-role">Role</label>
             <RoleSelect id="ws-user-edit-role" roles={assignableRoles} value={editForm.roleId} onChange={(roleId) => setEditForm((p) => ({ ...p, roleId }))} />

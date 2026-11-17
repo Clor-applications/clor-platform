@@ -85,7 +85,7 @@ export default function Candidates({ params = {}, openScreen }) {
         tabsLabel="Stages"
       />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : board ? (
-        <Board rows={rows} loading={req.loading} canEdit={canEdit} onOpen={(r) => setOpen(r.id)} onMove={move} />
+        <Board rows={rows} openings={openings.data || []} loading={req.loading} canEdit={canEdit} onOpen={(r) => setOpen(r.id)} onMove={move} />
       ) : (
         <DataTable
           label="Candidates" columns={oneStage ? columns.filter((c) => c.key !== 'stage') : columns}
@@ -122,8 +122,10 @@ function ToolbarItems({ q, setQ, opening, setOpening, openings, view, chooseView
 const Toolbar = (props) => <div className="flex flex-wrap items-center gap-2"><ToolbarItems {...props} /></div>;
 
 /** The stages side by side, each card with its own menu to move it; scrolls sideways inside itself on a phone. */
-function Board({ rows, loading, canEdit, onOpen, onMove }) {
+function Board({ rows, openings, loading, canEdit, onOpen, onMove }) {
   const cols = [...OPEN_STAGES, 'HIRED'];
+  /* Each card names who owns it: the opening's hiring manager. */
+  const owner = new Map(openings.map((o) => [o.id, o.hiringManagerName || '']));
   return (
     <div className="pt-board" role="region" aria-label="Candidates by stage" tabIndex={0}>
         {cols.map((s) => {
@@ -138,6 +140,9 @@ function Board({ rows, loading, canEdit, onOpen, onMove }) {
                     <span className="min-w-0"><span className="block truncate font-medium">{r.name}</span><span className="block truncate ui-caption">{r.currentEmployer || r.openingTitle || ''}</span></span>
                   </button>
                   <p className="flex items-center justify-between gap-2 ui-caption"><span className="pt-chip">{word(SOURCES, r.source) || 'No source'}</span><span className="tabular-nums">{day(r.stageAt)}</span></p>
+                  {owner.get(r.openingId) ? (
+                    <p className="pt-cand-owner ui-caption"><Avatar person={{ name: owner.get(r.openingId) }} size={18} /><span className="truncate">{owner.get(r.openingId)}</span></p>
+                  ) : null}
                   {canEdit && OPEN_STAGES.includes(s) ? (
                     <PopupSelect showValueSubtext={false} ariaLabel={`Move ${r.name}`} value="" placeholder="Move to…" onChange={(v) => v && onMove(r, v)} options={OPEN_STAGES.filter((x) => x !== s).map((x) => ({ value: x, label: word(STAGES, x) }))} />
                   ) : null}

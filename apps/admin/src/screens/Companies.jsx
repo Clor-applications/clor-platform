@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import CopyWord from '@ui/components/ui/CopyWord';
 import { emoji } from '@ui/components/ui/emoji';
 import { ArrowDownUp, MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 
@@ -145,7 +146,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                         <button type="button" className="ws-name-link" onClick={() => setOpenId(c.orgId)}>{c.name}</button>
                         {sub ? <span className="ws-cell-sub">{sub}</span> : null}
                       </td>
-                      <td className="ws-mono">{c.gstin || <span className="ws-missing">Not added</span>}</td>
+                      <td className="ws-mono">{c.gstin ? <><span>{c.gstin}</span> <CopyWord value={c.gstin} what="GSTIN" /></> : <span className="ws-missing">Not added</span>}</td>
                       <td className="ws-mono">{c.pan || '—'}</td>
                       <td className="ws-mid">
                         <span className="ws-appmarks">

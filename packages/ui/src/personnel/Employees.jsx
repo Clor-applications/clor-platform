@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
@@ -1297,6 +1298,7 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
       <dt className={embedded ? 'ui-caption' : 'ui-t-label'}>{label}</dt>
       <dd className={`${embedded ? '' : 'mt-1 '}text-sm flex items-center gap-2`}>
         <span className="tabular-nums">{shown[field] ?? (value || <span className="ui-muted">{embedded ? 'Not provided' : 'Not set'}</span>)}</span>
+        {shown[field] && shown[field] !== '—' ? <CopyWord value={shown[field]} what={label} /> : null}
         {value && !shown[field] && d.canReveal !== false ? <button type="button" className="ui-link" onClick={() => show(field)}>Show</button> : null}
       </dd>
     </div>
