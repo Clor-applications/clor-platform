@@ -1,3 +1,4 @@
+import DateNotes from '@ui/timeOff/DateNotes';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 
@@ -302,7 +303,6 @@ function LeavePreview({ preview, checking }) {
   if (!preview) return checking ? <p className="text-sm ui-muted" role="status">Working out the days…</p> : null;
   const parts = preview.parts || [];
   const saved = parts.filter((p) => p.days > 0);
-  const skipped = parts.flatMap((p) => p.dates || []).filter((d) => d.why);
   return (
     <section className="space-y-2 text-sm" aria-live="polite">
       {preview.total ? (
@@ -322,11 +322,7 @@ function LeavePreview({ preview, checking }) {
         </div>
       ) : null}
       <HalfDayNote parts={parts} />
-      {skipped.length ? (
-        <ul className="space-y-0.5 ui-muted" aria-label="Dates not counted">
-          {skipped.map((d) => <li key={d.date}><span className="tabular-nums">{dayLabel(d.date)}</span> — {d.why}</li>)}
-        </ul>
-      ) : null}
+      <DateNotes parts={parts} label={dayLabel} />
       {(preview.problems || []).map((x) => <p key={x.code + x.message} className="ui-text-neg" role="alert">{x.message}</p>)}
     </section>
   );
