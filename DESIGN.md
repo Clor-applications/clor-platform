@@ -391,6 +391,29 @@ answers; the leaving checklist with who does each step; a status tag on each tax
 under a changed day saying who changed it and why; a shift swap on a calendar; overtime hours
 shown with the pay they cost.
 
+### Round 17 (17 Nov 2026)
+
+This round repeated some earlier topics; where a pick differs, the newer one wins.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| My shift | Today's shift as a small card on the employee app's Today page |
+| Expense claim status | Steps with dates: Sent, Approved (or Not approved), Paid (employee app) |
+
+Picked and already how the app works: the employee's month as a calendar of coloured days
+(round 7); the org chart as boxes top to bottom; the directory as a grid of faces; cancelling
+leave from the day; company news as posts.
+
+Picked, **not built yet**: birthdays as a banner across the top (replaces cards); the salary
+structure as a table of monthly and yearly figures (replaces bars); the payslip on screen with
+earnings and deductions side by side (replaces net pay first); profile details missing as a
+list (replaces the percentage bar); notifications in tabs, All and Needs action; end of
+probation as a card with Confirm and Extend; a document to sign as a home card with "Sign
+now"; the next holiday as a card with days to go; team leave as bars per person across the
+days; fixing a missed punch right on the day in my calendar.
+
 ### Round 18 (18 Nov 2026)
 
 Built:

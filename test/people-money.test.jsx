@@ -51,7 +51,7 @@ vi.mock('../packages/ui/src/permissions/usePermissions', () => ({ usePermissions
 vi.mock('@ui/components/ui/notify', () => dialogs);
 vi.mock('../packages/ui/src/components/ui/notify', () => dialogs);
 
-import MyMoney from '../apps/attendance/src/portal/MyMoney';
+import MyMoney, { ClaimSteps } from '../apps/attendance/src/portal/MyMoney';
 import MoneyRequestDetail from '../apps/people/src/money/MoneyRequestDetail';
 import Expenses from '../apps/people/src/money/Expenses';
 
@@ -241,5 +241,19 @@ describe('HR: Expenses', () => {
     await screen.findByText('Asha Nair: Mysuru visit');
     expect(screen.queryByRole('button', { name: 'Pay with salary' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Download for Books' })).toBeNull();
+  });
+});
+
+describe('Claim steps (round 17 pick)', () => {
+  it('shows sent, approved and paid with dates, and stops at a refusal', () => {
+    const { rerender } = render(<ClaimSteps c={{ status: 'PAID', submittedAt: '2026-11-10T05:00:00Z', decidedAt: '2026-11-12T05:00:00Z', paidOn: '2026-11-15' }} />);
+    const steps = screen.getByRole('list', { name: 'Where this claim is' });
+    expect(within(steps).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(steps).getByText('Paid')).toBeTruthy();
+    rerender(<ClaimSteps c={{ status: 'REJECTED', submittedAt: '2026-11-10T05:00:00Z', decidedAt: '2026-11-12T05:00:00Z' }} />);
+    expect(within(screen.getByRole('list', { name: 'Where this claim is' })).getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText('Not approved')).toBeTruthy();
+    rerender(<ClaimSteps c={{ status: 'DRAFT' }} />);
+    expect(screen.queryByRole('list', { name: 'Where this claim is' })).toBeNull();
   });
 });
