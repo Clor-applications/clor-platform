@@ -165,6 +165,18 @@ describe('movements follow the documents', () => {
 });
 
 describe('selling what is not there', () => {
+  it('leaves no gap in the invoice numbers when a sale is refused', async () => {
+    const id = await item('Numbered unit');
+    await bill([line(id, 1)]).expect(201);
+    const first = await invoice([line(id, 1)]).expect(201);
+    await invoice([line(id, 1)]).expect(409);
+    const restock = await bill([line(id, 1)]).expect(201);
+    expect(restock.status).toBe(201);
+    const next = await invoice([line(id, 1)]).expect(201);
+    const seq = (n: string) => Number(String(n).match(/(\d+)\D*$/)![1]);
+    expect(seq(next.body.invoice.number)).toBe(seq(first.body.invoice.number) + 1);
+  });
+
   it('refuses an invoice that would take a warehouse below nothing, and keeps nothing', async () => {
     const id = await item('Last unit');
     await bill([line(id, 2)]).expect(201);

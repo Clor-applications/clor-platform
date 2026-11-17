@@ -59,7 +59,8 @@ const inPeriod = (doc, period) => {
   return d.slice(5, 7) === period.slice(0, 2) && d.slice(0, 4) === period.slice(2);
 };
 
-const issued = (d) => !['draft', 'cancelled'].includes(String(d.status || '').toLowerCase());
+/* Not issued: a draft, one awaiting approval or refused it, and a cancelled one. The GSTR-3B screen uses the same rule. */
+const issued = (d) => !/draft|pending|cancel|reject/i.test(String(d.status || ''));
 const isCancelled = (d) => String(d.status || '').toLowerCase() === 'cancelled';
 
 /**

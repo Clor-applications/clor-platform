@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express';
-import { authenticate } from './portal.js';
+import { authenticate, requirePortalApp } from './portal.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { policiesFor, versionForPerson } from '../services/people/policies.js';
 import { AckError, accept, pendingFor } from '../services/people/acknowledgements.js';
@@ -27,6 +27,14 @@ import { check, id, idParams, jsonObject, list, noBody, q, rawText, text, ymd } 
  */
 export const peoplePortalRouter = Router();
 peoplePortalRouter.use(authenticate);
+/*
+ * Shift swaps, request forms and my own details and requests are Attendance's too (rbac ATTENDANCE_OPENS_PEOPLE:
+ * the employee record and requests). Everything else here is People's alone.
+ */
+const SHARED_WITH_ATTENDANCE = /^\/(swaps|forms|me\/details|me\/change-request|me\/requests)(\/|$)/;
+const peopleOnly = requirePortalApp('people');
+const peopleOrAttendance = requirePortalApp('people', 'attendance');
+peoplePortalRouter.use((req, res, next) => (SHARED_WITH_ATTENDANCE.test(req.path) ? peopleOrAttendance : peopleOnly)(req, res, next));
 
 const me = (req: Request) => ({ accountId: req.portal!.accountId, orgId: req.portal!.orgId, employeeId: req.portal!.employeeId });
 
