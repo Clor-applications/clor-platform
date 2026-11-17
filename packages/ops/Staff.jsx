@@ -6,7 +6,7 @@ import { Err, Loading, ROLE, ROLE_CAN, ROLE_ORDER, ReasonDrawer, day } from './k
 import { opsAddOperator, opsChangeOperator, opsOperators, opsRemoveOperator, opsWithdrawInvite } from './api';
 
 /**
- * Staff and roles (operator console, Team): who at CLOR works on the console,
+ * Staff and roles (operator console, Trust): who at CLOR works on the console,
  * with which role, and whether their authenticator is set up. The owner
  * invites by email, changes roles and removes people. The server enforces the
  * roles; this screen only shows what each one may do.
@@ -50,7 +50,7 @@ export function Staff({ me }) {
   return (
     <>
       <PageHead
-        crumbs={['Team']}
+        crumbs={['Trust']}
         title="Staff and roles"
         meta={d ? `${rows.length} on the console${d.invites.length ? ` · ${d.invites.length} invited` : ''}` : null}
         actions={<button type="button" className="ws-btn ws-btn--primary" onClick={() => setAct({ kind: 'invite' })}>Invite staff</button>}

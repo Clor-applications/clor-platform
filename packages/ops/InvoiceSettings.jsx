@@ -45,7 +45,7 @@ export function InvoiceSettings({ role, openTax, openPayments }) {
   const mayChange = may(role, 'BILLING');
   return (
     <>
-      <PageHead crumbs={['Operator', 'Money']} title="Invoice settings" meta={`Next invoice: ${s.nextNumber}`} />
+      <PageHead crumbs={['Billing and setup', 'Invoice settings']} title="Invoice settings" meta={`Next invoice: ${s.nextNumber}`} />
       <div className="grid gap-6" style={{ maxWidth: 820 }}>
         <Numbering s={s} mayChange={mayChange} onSaved={load} />
         <Renewals s={s} mayChange={mayChange} onSaved={load} />
@@ -55,17 +55,17 @@ export function InvoiceSettings({ role, openTax, openPayments }) {
             <dd>
               {s.gst.registered ? `Registered, GSTIN ${s.gst.gstin}, SAC ${s.gst.sac}, ${s.gst.ratePercent}%. Invoices are tax invoices.` : 'Not registered yet: invoices carry no GST.'}{' '}
               <button type="button" className="ws-name-link" onClick={openTax}>
-                Change under Money, Tax
+                Change under Billing and setup, Tax
               </button>
             </dd>
             <dt className="ws-item-sub">Legal name</dt>
-            <dd>{s.gst.legalName || 'Clor Applications Private Limited (set it under Money, Tax)'}</dd>
+            <dd>{s.gst.legalName || 'Clor Applications Private Limited (set it under Billing and setup, Tax)'}</dd>
             <dt className="ws-item-sub">Way to pay</dt>
             <dd>
               {s.manualPayments ? 'UPI QR and bank account, from Manual: UPI and bank transfer.' : 'Not set up: invoices show no UPI QR or bank account.'}{' '}
               {s.online?.available ? `Customers can also pay online through ${s.online.gateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}: card, UPI or netbanking.` : 'Online payment is off: turn on Razorpay or Cashfree to let customers pay by card.'}{' '}
               <button type="button" className="ws-name-link" onClick={openPayments}>
-                {s.manualPayments ? 'Change under Money, Payments' : 'Set it up under Money, Payments'}
+                {s.manualPayments ? 'Change under Billing and setup, Payments' : 'Set it up under Billing and setup, Payments'}
               </button>
             </dd>
           </dl>

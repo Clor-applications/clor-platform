@@ -102,7 +102,8 @@ describe('operator console: a subscription deal', () => {
     api.opsDealQuote.mockResolvedValue({ deal });
     api.opsSetDeal.mockResolvedValue({ invoiceId: 'inv1' });
     const onDone = vi.fn();
-    render(<DealDrawer open account={{ id: 'acc', name: 'Meridian' }} onClose={() => {}} onDone={onDone} />);
+    const openInvoice = vi.fn();
+    render(<DealDrawer open account={{ id: 'acc', name: 'Meridian' }} onClose={() => {}} onDone={onDone} openInvoice={openInvoice} />);
     expect(await screen.findByRole('combobox', { name: 'Plan' })).toHaveValue('custom:cp1');
     /* An offer for another plan is not offered. */
     expect(screen.queryByRole('option', { name: /GROWTHONLY/ })).toBeNull();
@@ -117,6 +118,8 @@ describe('operator console: a subscription deal', () => {
       expect(api.opsSetDeal).toHaveBeenCalledWith('acc', expect.objectContaining({ source: 'custom', ref: 'cp1', quantity: 30, offerCode: 'TEN', status: 'active', draftInvoice: true, reason: 'Signed the order form' })),
     );
     expect(onDone).toHaveBeenCalled();
+    /* The drafted invoice opens, so nobody hunts for it in Invoices. */
+    expect(openInvoice).toHaveBeenCalledWith('inv1');
   });
 
   it('says a big discount needs a second person, and sends it for approval', async () => {

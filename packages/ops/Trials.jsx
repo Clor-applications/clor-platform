@@ -2,18 +2,19 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { notify } from '@ui/components/ui/notify';
 import { PageHead, Panel, WsDrawer, ago } from '../../apps/admin/src/screens/wsKit';
-import { opsAccounts, opsExtendTrial, opsGrantPlan, opsResendSignup, opsSignups } from './api';
+import { opsAccounts, opsExtendTrial, opsResendSignup, opsSignups } from './api';
 
 /**
  * Trials (roadmap item 7): every account on a free trial, and every trial
  * sign-up from clor.in's pricing page, pending or made.
  *
- * Two things the team does here, both for Billing with a fresh code:
- *  - Extend trial: more days on an account's trial (server: routes/ops.ts).
- *  - Convert: set the subscription by hand, active, with the apps chosen
- *    (server: routes/billing.ts, the one place a subscription is set by
- *    hand, which only CLOR may do). No payment is taken: payments come with
- *    roadmap items 8 and 9.
+ * Two things Billing does here:
+ *  - Extend trial: more days on an account's trial, with a fresh code
+ *    (server: routes/ops.ts).
+ *  - Set up paid plan: opens the account's Subscription tab, where New
+ *    subscription puts it on a plan at a price and drafts the first invoice.
+ *    Nothing is granted from this list: the button used to give the apps
+ *    free and call that paid.
  * Support may send a pending link again.
  */
 const APPS = [
@@ -40,11 +41,11 @@ export const daysLeft = (end, now = Date.now()) => {
   return d === -1 ? 'ended yesterday' : `ended ${-d} days ago`;
 };
 
-export function Trials({ role, openAccount }) {
+export function Trials({ role, openAccount, openSubscription = openAccount }) {
   const [accounts, setAccounts] = useState(null);
   const [signups, setSignups] = useState(null);
   const [error, setError] = useState('');
-  const [action, setAction] = useState(null); // { kind: 'extend' | 'convert', account }
+  const [action, setAction] = useState(null); // { kind: 'extend', account }
   /* The moment the page opened: the days left are counted from it, not from each render. */
   const [now] = useState(() => Date.now());
   const load = useCallback(() => {
@@ -64,7 +65,7 @@ export function Trials({ role, openAccount }) {
 
   return (
     <>
-      <PageHead crumbs={['Operator']} title="Trials" meta={accounts ? `${accounts.total} on trial${endingSoon ? ` · ${endingSoon} ending within a week` : ''}` : null} />
+      <PageHead crumbs={['Customers and sales']} title="Trials" meta={accounts ? `${accounts.total} on trial${endingSoon ? ` · ${endingSoon} ending within a week` : ''}` : null} />
       <Err>{error}</Err>
       {offer ? (
         <p className="ws-card-blurb">
@@ -113,7 +114,7 @@ export function Trials({ role, openAccount }) {
                       {billing ? (
                         <span className="inline-flex gap-2">
                           <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setAction({ kind: 'extend', account: a })}>Extend trial</button>
-                          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setAction({ kind: 'convert', account: a })}>Convert</button>
+                          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => openSubscription(a.id)}>Set up paid plan</button>
                         </span>
                       ) : null}
                     </td>
@@ -203,14 +204,11 @@ function ResendButton({ id, onDone }) {
   );
 }
 
-const TITLES = { extend: 'Extend the trial', convert: 'Convert to a paid plan' };
-
-/** Extend: more days and why. Convert: the subscription set by hand, active, with the apps ticked. */
+/** Extend: more days on the trial, and why. */
 function TrialDrawer({ action, onClose, onDone }) {
   const account = action?.account;
   const [days, setDays] = useState(14);
   const [reason, setReason] = useState('');
-  const [apps, setApps] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -218,22 +216,14 @@ function TrialDrawer({ action, onClose, onDone }) {
     setReason('');
     setError('');
     setDays(14);
-    setApps(new Set(account?.apps || []));
-  }, [action, account]);
+  }, [action]);
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      if (action.kind === 'extend') {
-        const r = await opsExtendTrial(account.id, Number(days), reason.trim());
-        notify.success(`Trial now ends ${day(r.trialEndsAt)}.`);
-      } else {
-        const r = await opsGrantPlan(account.id, { apps: [...apps].map((appCode) => ({ appCode, priceModel: 'free' })), status: 'active', reason: reason.trim() });
-        /* Free for good is over the limit: it waits for a colleague in Approvals (server: services/ops/grants.ts). */
-        if (r?.needsApproval) notify.success(`Sent for approval. ${account.name} stays on the trial until a colleague approves it in Approvals.`);
-        else notify.success(`${account.name} is on a paid plan now. It is on the record.`);
-      }
+      const r = await opsExtendTrial(account.id, Number(days), reason.trim());
+      notify.success(`Trial now ends ${day(r.trialEndsAt)}.`);
       onDone();
     } catch (err) {
       setError(String(err?.message || err));
@@ -241,54 +231,32 @@ function TrialDrawer({ action, onClose, onDone }) {
       setBusy(false);
     }
   };
-  const extend = action?.kind === 'extend';
   return (
     <WsDrawer
       open={Boolean(action)}
       onClose={onClose}
-      title={action ? TITLES[action.kind] : ''}
+      title="Extend the trial"
       description={account ? `${account.name}${account.owner?.email ? `, ${account.owner.email}` : ''}. You will be asked for an authenticator code; the change is recorded and shown to the customer.` : ''}
       actions={
         <>
           <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
-          <button type="submit" form="ops-trial" className="ws-btn ws-btn--primary" disabled={busy || reason.trim().length < 3 || (!extend && !apps.size)}>
-            {busy ? 'Working…' : extend ? 'Extend trial' : 'Convert'}
+          <button type="submit" form="ops-trial" className="ws-btn ws-btn--primary" disabled={busy || reason.trim().length < 3}>
+            {busy ? 'Working…' : 'Extend trial'}
           </button>
         </>
       }
     >
       <form id="ops-trial" className="grid gap-5" onSubmit={submit}>
         <Err>{error}</Err>
-        {extend ? (
-          <>
-            <label className="grid gap-1">
-              <span className="text-sm font-medium">Extra days</span>
-              <input className="ui-input ui-num" style={{ maxWidth: 128 }} type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} />
-            </label>
-            <label className="grid gap-1">
-              <span className="text-sm font-medium">Why</span>
-              <textarea className="ui-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the record" />
-            </label>
-            {account?.trialEndsAt ? <p className="ws-card-blurb">Ends {day(account.trialEndsAt)} now; the days are added from today or from then, whichever is later.</p> : null}
-          </>
-        ) : (
-          <>
-            <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium" style={{ marginBottom: 6 }}>Apps on the plan</legend>
-              {APPS.map(([k, label]) => (
-                <label key={k}>
-                  <input type="checkbox" checked={apps.has(k)} onChange={() => setApps((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; })} /> {label}
-                  {account?.apps?.includes(k) ? <span className="ws-item-sub"> · on the trial</span> : null}
-                </label>
-              ))}
-            </fieldset>
-            <label className="grid gap-1">
-              <span className="text-sm font-medium">Why</span>
-              <textarea className="ui-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the colleague who approves it" />
-            </label>
-            <p className="ws-card-blurb">The trial ends and the plan is active from when it is set, by hand: no payment is taken and nothing is invoiced from here. The apps are free from then on, so a colleague approves it in Approvals first; until then {account?.name || 'the customer'} stays on the trial.</p>
-          </>
-        )}
+        <label className="grid gap-1">
+          <span className="text-sm font-medium">Extra days</span>
+          <input className="ui-input ui-num" style={{ maxWidth: 128 }} type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm font-medium">Why</span>
+          <textarea className="ui-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One sentence, for the record" />
+        </label>
+        {account?.trialEndsAt ? <p className="ws-card-blurb">Ends {day(account.trialEndsAt)} now; the days are added from today or from then, whichever is later.</p> : null}
       </form>
     </WsDrawer>
   );

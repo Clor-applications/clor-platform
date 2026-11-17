@@ -42,7 +42,7 @@ export function Alerts({ go, me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['System', 'Alerts']}
+          crumbs={['Platform', 'Alerts']}
           title="Alerts"
           description="Checked every ten minutes. An alert closes on its own when the problem clears; new ones are emailed to the team they are for."
           meta={d ? `${d.counts.open} open · ${d.counts.critical} urgent · ${d.counts.unacknowledged} not acknowledged` : null}

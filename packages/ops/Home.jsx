@@ -187,7 +187,7 @@ function NeedsAction({ d, error, go, has }) {
   if (d) {
     rows = [
       d.alertsOpen
-        ? { k: 'alerts', tag: 'System', tone: d.alertsCritical ? 'danger' : 'warn', label: 'Alerts', title: n(d.alertsOpen, 'alert is open', 'alerts are open'), note: d.alertsCritical ? `${n(d.alertsCritical, 'is urgent', 'are urgent')}` : 'Nothing urgent', open: () => go('alerts') }
+        ? { k: 'alerts', tag: 'Platform', tone: d.alertsCritical ? 'danger' : 'warn', label: 'Alerts', title: n(d.alertsOpen, 'alert is open', 'alerts are open'), note: d.alertsCritical ? `${n(d.alertsCritical, 'is urgent', 'are urgent')}` : 'Nothing urgent', open: () => go('alerts') }
         : null,
       d.ticketsOpen
         ? { k: 'tickets', tag: 'Support', tone: 'warn', label: 'Tickets', title: n(d.ticketsOpen, 'ticket needs an answer', 'tickets need an answer'), note: `${n(d.ticketsOpen, 'customer waits', 'customers wait')} for an answer`, open: () => go('tickets') }

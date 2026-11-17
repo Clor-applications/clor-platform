@@ -30,7 +30,7 @@ export function Insights() {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Insights']} title="Insights" description="Revenue and customers, from the subscriptions and invoices CLOR holds." meta={`As of ${when(d.asOf)}`} />
+        <PageHead crumbs={['Overview']} title="Insights" description="Revenue and customers, from the subscriptions and invoices CLOR holds." meta={`As of ${when(d.asOf)}`} />
         <div className="ws-stats">
           <Stat icon={ICON.payments} label="Monthly recurring revenue" value={inr(d.mrr)} note={`${inr(d.arr)} a year at this rate`} />
           <Stat icon={ICON.companies} label="Paying customers" value={d.paying} note={d.paying ? `${inr(d.averagePerCustomer)} a month on average` : 'No priced subscription yet'} />

@@ -93,7 +93,7 @@ export function SavedReplies({ me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Customers', 'Saved replies']}
+          crumbs={['Customers and sales', 'Saved replies']}
           title="Saved replies"
           description="Answers Support gives often, picked in a ticket’s reply box and changed there before sending."
           actions={canWrite ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => setEditing('new')}>New saved reply</button> : null}

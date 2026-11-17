@@ -82,7 +82,7 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
   return (
     <>
       <PageHead
-        crumbs={['Operator']}
+        crumbs={['Billing and setup']}
         title="Invoices"
         meta={unpaid?.count ? `${unpaid.count} unpaid, ${inr(unpaid.amount)}${t.OVERDUE?.count ? `; ${t.OVERDUE.count} overdue` : ''}` : 'Nothing unpaid'}
         actions={
@@ -326,7 +326,7 @@ export function InvoiceForm({ invoice = null, onClose, onSaved }) {
                   Before tax <strong>{inr(subtotal)}</strong>
                 </span>
               </div>
-              <span className="ws-card-blurb">{gstOn === false ? 'No GST is added: CLOR is not registered yet (Money, Tax).' : 'GST is added when the draft is saved, by CLOR’s registration and the customer’s state.'}</span>
+              <span className="ws-card-blurb">{gstOn === false ? 'No GST is added: CLOR is not registered yet (Billing and setup, Tax).' : 'GST is added when the draft is saved, by CLOR’s registration and the customer’s state.'}</span>
             </fieldset>
 
             <fieldset className="grid gap-3">
@@ -428,7 +428,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
   return (
     <>
       <PageHead
-        crumbs={['Operator', 'Invoices']}
+        crumbs={['Billing and setup', 'Invoices']}
         title={inv.number || 'Draft invoice'}
         meta={
           <span className="flex items-center gap-2 flex-wrap">
@@ -483,7 +483,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
           </div>
         ) : null}
 
-        {inv.status === 'DRAFT' && !inv.payTo ? <p className="ws-notice">No way to pay is set up yet, so the invoice will show no UPI QR or bank account. Set them in Money, Payments, Manual: UPI and bank transfer.</p> : null}
+        {inv.status === 'DRAFT' && !inv.payTo ? <p className="ws-notice">No way to pay is set up yet, so the invoice will show no UPI QR or bank account. Set them in Billing and setup, Payments, Manual: UPI and bank transfer.</p> : null}
         {inv.status !== 'DRAFT' && inv.booksStatus !== 'NOT_SENT' ? (
           <p className="ws-notice">
             {inv.booksStatus === 'SENT' ? `In CLOR Books as a draft since ${when(inv.booksSentAt)}. A CA checks it there and saves it.` : `Not sent to Books: ${inv.booksError || 'it failed'}. Tried ${inv.booksAttempts} ${inv.booksAttempts === 1 ? 'time' : 'times'}.`}

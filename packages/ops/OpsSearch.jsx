@@ -66,7 +66,7 @@ export function OpsSearch({ go }) {
         ...r.customers.map((c) => ({ key: `c-${c.id}`, group: 'Customers', title: c.title, sub: [c.code, c.suspended ? 'suspended' : ''].filter(Boolean).join(' · '), open: () => go('customers', {}, c.id) })),
         ...r.people.map((p) => ({ key: `p-${p.id}`, group: 'People', title: p.name || p.email, sub: [p.email, p.accountName].filter(Boolean).join(' · '), open: () => go('customers', {}, p.accountId, 'users') })),
         ...r.invoices.map((i) => ({ key: `i-${i.id}`, group: 'Invoices', title: i.number, sub: i.status.toLowerCase(), open: () => go('invoices', {}, i.id) })),
-        ...(r.requestId ? [{ key: 'req', group: 'Request ID', title: `Look up ${r.requestId}`, sub: 'Opens System health with the logs link', open: () => go('health', { request: r.requestId }) }] : []),
+        ...(r.requestId ? [{ key: 'req', group: 'Request ID', title: `Look up ${r.requestId}`, sub: 'Opens Jobs & workers with the logs link', open: () => go('health', { request: r.requestId }) }] : []),
       ];
 
   const pick = (o) => {
@@ -103,7 +103,7 @@ export function OpsSearch({ go }) {
         ref={input}
         type="search"
         className="ui-input ops-search-input"
-        placeholder="Search accounts, companies, people, GSTIN, request IDs"
+        placeholder="Search accounts, people, GSTIN, invoices"
         aria-label="Search the console"
         role="combobox"
         aria-expanded={showList}

@@ -79,7 +79,7 @@ import { AccessRequests } from './AccessRequests';
 import { OpsSearch } from './OpsSearch';
 import { Denials, FeatureSwitches, Organisations, Users } from './Lists';
 import { ROLE } from './kit';
-import { opsEnableTwoFactor, opsMe, opsMySupportGrants, opsOverview, opsStartTwoFactor } from './api';
+import { opsEnableTwoFactor, opsHome, opsMe, opsMySupportGrants, opsStartTwoFactor } from './api';
 import { ConsoleGrant, consoleGrantState } from './ConsoleGrant';
 
 /**
@@ -221,7 +221,6 @@ export const NAV = [
       ['offers', 'Offers', NI.offers],
       ['invoices', 'Invoices', NI.invoices],
       ['payments', 'Payments', NI.payments],
-      ['gateways', 'Gateways', NI.payments],
       ['tax', 'Tax', NI.tax],
       ['invoicing', 'Invoice settings', NI.invoicing],
     ],
@@ -265,7 +264,7 @@ export const SCREENS = {
     ) : (
       <DemoRequests openRequest={(id) => go('demos', {}, id)} />
     ),
-  trials: ({ go, me }) => <Trials role={me.role} openAccount={(id) => go('customers', {}, id)} />,
+  trials: ({ go, me }) => <Trials role={me.role} openAccount={(id) => go('customers', {}, id)} openSubscription={(id) => go('customers', {}, id, 'subscription')} />,
   links: ({ go, me }) => <ExploreLinks role={me.role} openRequest={(id) => go('demos', {}, id)} />,
   pricing: ({ me }) => <Pricing role={me.role} />,
   customPlans: ({ go, me }) => <CustomPlans role={me.role} openCustomer={(id) => go('customers', {}, id)} />,
@@ -277,8 +276,8 @@ export const SCREENS = {
   denials: ({ route, go }) => <Denials account={route.params.account || ''} openAccount={(id) => go('customers', {}, id)} clearAccount={() => go('denials', {}, '', '', true)} />,
   switches: ({ go }) => <FeatureSwitches openAccount={(id) => go('customers', {}, id, 'limits')} />,
   approvals: ({ go }) => <Approvals openCustomer={(id) => go('customers', {}, id, 'subscription')} />,
-  /* Payments holds the gateways too (keys, test and live), so the Gateways place stays empty. */
-  payments: ({ me }) => <Payments role={me.role} />,
+  /* Payments holds the gateways too (keys, test and live) on its Providers tab, so the menu has no Gateways entry of its own. */
+  payments: ({ go, me }) => <Payments role={me.role} openCustomer={(id) => go('customers', {}, id)} />,
   tax: ({ me }) => <TaxSettings role={me.role} />,
   invoices: ({ route, go, me }) =>
     route.id ? (
@@ -445,12 +444,16 @@ function Console() {
       .catch((e) => setRefused({ code: e?.code || e?.data?.code, message: String(e?.message || e) }));
   }, [user, reload]);
 
-  /* The counts beside Accounts, Organizations, Users and Access requests. Either may fail (a role that cannot see it); the menu simply shows none. */
+  /*
+   * The counts in the menu are work waiting, not totals: open tickets, new demo requests, open alerts and
+   * access requests not yet answered. Read once when the console opens, not on every page. Either may fail
+   * (a role that cannot see it); the menu simply shows none. Approvals has no count: nothing read here carries it.
+   */
   useEffect(() => {
     if (!me) return;
     let live = true;
-    opsOverview()
-      .then((o) => live && setCounts((c) => ({ ...c, customers: o?.accounts || 0, orgs: o?.companies || 0, users: o?.users || 0 })))
+    opsHome()
+      .then((h) => live && setCounts((c) => ({ ...c, tickets: h?.ticketsOpen || 0, demos: h?.newDemos || 0, alerts: h?.alertsOpen || 0 })))
       .catch(() => {});
     opsMySupportGrants()
       .then((r) => live && setCounts((c) => ({ ...c, access: (r?.grants || []).filter((g) => g.state === 'PENDING').length })))

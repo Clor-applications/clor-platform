@@ -120,7 +120,7 @@ export function Pricing({ role }) {
   return (
     <>
       <PageHead
-        crumbs={['Operator']}
+        crumbs={['Billing and setup']}
         title="Pricing"
         meta={live ? `Version ${live.version} is on clor.in, since ${day(live.publishedAt)}` : 'Nothing published: clor.in shows Request a demo'}
         actions={
@@ -135,7 +135,7 @@ export function Pricing({ role }) {
           ) : null
         }
       />
-      <p className="ws-notice">{data.tax.registered ? `GST is charged at ${data.tax.ratePercent}%. ` : 'No GST is charged: CLOR is not registered for GST yet. '}Change it under Money, Tax.</p>
+      <p className="ws-notice">{data.tax.registered ? `GST is charged at ${data.tax.ratePercent}%. ` : 'No GST is charged: CLOR is not registered for GST yet. '}Change it under Billing and setup, Tax.</p>
       {data.books.length === 0 ? (
         <div className="ws-empty">
           <p>No price book yet. Make one with New price book: start empty, or load the sample prices and change them.</p>
@@ -262,7 +262,7 @@ function PriceBook({ id, role, catalogue, back, open, live }) {
     <>
       {backButton}
       <PageHead
-        crumbs={['Operator · Pricing']}
+        crumbs={['Billing and setup · Pricing']}
         title={`Version ${book.version}`}
         meta={
           <>
@@ -456,7 +456,7 @@ function DraftEditor({ book, mayChange, catalogue, backButton, reload, back, liv
     <>
       {backButton}
       <PageHead
-        crumbs={['Operator · Pricing']}
+        crumbs={['Billing and setup · Pricing']}
         title={`Version ${book.version}, draft`}
         meta={dirty ? 'Changes not saved' : 'Saved. Not on clor.in yet'}
         actions={

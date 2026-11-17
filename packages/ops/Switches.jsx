@@ -69,7 +69,7 @@ export function Switches({ me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Product', 'Forms on clor.in']}
+          crumbs={['Billing and setup', 'Forms on clor.in']}
           title="Forms on clor.in"
           description={canChange ? 'Pause a form on the website for a while, for example during a big release or when the team is away.' : 'Only the owner pauses or opens these.'}
         />

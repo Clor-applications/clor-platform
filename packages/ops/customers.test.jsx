@@ -99,6 +99,23 @@ describe('a customer’s page', () => {
     expect(screen.getByText('Owner: Asha Rao')).toBeInTheDocument();
   });
 
+  it('says under the name when the trial ends, when the plan renews, and that it cancels at period end', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    const { unmount } = render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByText('trial ends 20 Nov 2099')).toBeInTheDocument();
+    expect(screen.queryByText(/^renews/)).toBeNull();
+    unmount();
+    api.opsAccount.mockResolvedValue(detail({ subscription: { ...detail().subscription, status: 'active', trialEndsAt: null, currentPeriodEnd: '2026-12-15T00:00:00Z', cancelAtPeriodEnd: false } }));
+    const second = render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByText('renews 15 Dec 2026')).toBeInTheDocument();
+    expect(screen.queryByText(/Cancels at period end/)).toBeNull();
+    second.unmount();
+    api.opsAccount.mockResolvedValue(detail({ subscription: { ...detail().subscription, status: 'active', trialEndsAt: null, currentPeriodEnd: '2026-12-15T00:00:00Z', cancelAtPeriodEnd: true } }));
+    render(<CustomerPage id="a1" tab="overview" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByText('Cancels at period end, 15 Dec 2026')).toBeInTheDocument();
+    expect(screen.queryByText(/^renews/)).toBeNull();
+  });
+
   it('ticks and holds Attendance when People is ticked, and sends both', async () => {
     api.opsAccount.mockResolvedValue(detail());
     api.opsChangeApps.mockResolvedValue({ apps: ['accounting', 'attendance', 'people'] });
@@ -267,7 +284,7 @@ describe('a customer’s page', () => {
     fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Their server was down' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(api.opsRetryEmails).toHaveBeenCalledWith('a1', 'Their server was down'));
-    expect(notify.success).toHaveBeenCalledWith('2 of 3 went. 1 still failing; see Email, Log.');
+    expect(notify.success).toHaveBeenCalledWith('2 of 3 went. 1 still failing; see Platform, Email log.');
   });
 
   it('shows the Timeline by day, hides sign-ins until asked, opens links and loads older events', async () => {

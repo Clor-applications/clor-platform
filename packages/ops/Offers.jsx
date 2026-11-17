@@ -7,7 +7,7 @@ import { inr, rupeesText, toPaise } from './money';
 import { opsOfferSave, opsOfferStep, opsOffers } from './api';
 
 /**
- * Offers (operator console, Money; server: routes/opsDeals.ts). A code that
+ * Offers (operator console, Billing and setup; server: routes/opsDeals.ts). A code that
  * takes a percent or an amount off a plan, set on a customer by Billing when
  * they make the subscription. Everyone reads; Billing makes, changes, pauses
  * and archives, each with the authenticator code.
@@ -230,7 +230,7 @@ export function Offers({ role }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Money', 'Offers']}
+          crumbs={['Billing and setup', 'Offers']}
           title="Offers"
           description="Codes that take a percent or an amount off a plan. Finance gives one to a customer when setting their subscription."
           meta={d ? `${n('active')} can be used · ${n('paused')} paused` : null}
