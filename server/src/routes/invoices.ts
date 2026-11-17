@@ -576,7 +576,8 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   // The ledger is kept in one currency: postInvoice translates at the rate
   // stored on the invoice.
   try {
-    await postInvoice(row, userId);
+    /* Read again: the currency and its rate were saved after `row` was read, and posting from the earlier copy booked a foreign invoice at face value. */
+    await postInvoice((await prisma.invoice.findUnique({ where: { id } })) ?? row, userId);
   } catch (e: any) {
     await prisma.invoice.delete({ where: { id } });
     /*
