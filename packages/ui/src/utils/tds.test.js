@@ -99,3 +99,23 @@ describe('thresholds', () => {
     expect(tdsThresholdState('194Q', 500000, 1000000).crossed).toBe(false);
   });
 });
+
+describe('the yearly limit makes the year liable once (audit, 17 Nov 2026)', () => {
+  it('the bill that crosses it is taxed on everything so far; the next on itself alone', () => {
+    /* 194C: four bills of 25,000 stay under 1,00,000; the fifth crosses it. */
+    expect(tdsThresholdState('194C', 25000, 75000, 0)).toMatchObject({ crossed: false, base: 0 });
+    expect(tdsThresholdState('194C', 25000, 100000, 0)).toMatchObject({ crossed: true, base: 125000 });
+    /* The sixth: 1,25,000 already taxed, so only its own 25,000. It used to be 1,50,000. */
+    expect(tdsThresholdState('194C', 25000, 125000, 125000)).toMatchObject({ crossed: true, base: 25000 });
+    /* Part of the year taxed (an old bill taxed on itself alone): what is left, and this one. */
+    expect(tdsThresholdState('194C', 25000, 125000, 25000)).toMatchObject({ crossed: true, base: 125000 });
+  });
+
+  it('never taxes less than the bill itself, whatever it is told was taxed before', () => {
+    expect(tdsThresholdState('194C', 25000, 125000, 999999).base).toBe(25000);
+  });
+
+  it('a single bill over its own limit, with the year not crossed, is liable for itself', () => {
+    expect(tdsThresholdState('194C', 40000, 20000, 0)).toMatchObject({ crossed: true, base: 40000 });
+  });
+});

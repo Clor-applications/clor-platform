@@ -8,11 +8,11 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { plusDaysIso, todayIso } from '@ui/utils/dates';
 import { getLastSelection, setLastSelection } from '@ui/utils/lastSelection';
 import { branchLabel } from '@ui/utils/branchLabel';
-import { computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isCompanyGstEnabled, isGstRegistrationActive, isIntraStateSupply } from '@ui/utils/gst';
+import { computeGstForLine, computeGstForLines, issuingState, getPartyGstProfile, isCompanyGstEnabled, isGstRegistrationActive, isIntraStateSupply } from '@ui/utils/gst';
 import { resolvePurchaseRate } from '@ui/utils/pricing';
 import { tdsGroupSide } from '@ui/utils/tdsLedgers';
 import { natureForSection } from '../tds/ruleMaster';
-import { priorBaseFor, resolveTds, tdsEventFrom, tdsReversalEventFrom } from '../tds/engine';
+import { priorBaseFor, priorTaxedBaseFor, resolveTds, tdsEventFrom, tdsReversalEventFrom } from '../tds/engine';
 import { amountInWordsInr, formatMoney, round2 } from '@ui/utils/money';
 import { getVendorDisplayName } from '@ui/utils/contacts';
 import { blockIfClosed } from '@ui/utils/bookClose';
@@ -267,11 +267,12 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
   const vendors = db.vendors.filter((v) => v.companyId === currentCompany.id);
   const itemsMaster = db.items.filter((i) => i.companyId === currentCompany.id);
 
-  const { state: companyState } = getCompanyGstProfile(currentCompany);
+  /* The state this bill is received at: its branch's, where the branch has one. */
+  const billBranch = companyBranches.find((row) => String(row?.id) === String(branchIdInList || branchIdForNumbering || ''));
+  const companyState = issuingState(currentCompany, billBranch);
   const vendor = formData.vendorId ? vendors.find((v) => v.id === parseInt(formData.vendorId)) : null;
   const { state: vendorState, gstin: vendorGstin } = getPartyGstProfile(vendor);
   const isIntra = isIntraStateSupply({ companyState, partyState: vendorState });
-  const billBranch = companyBranches.find((row) => String(row?.id) === String(branchIdInList || branchIdForNumbering || ''));
   const gstRegistrationActive = isGstRegistrationActive(currentCompany, {
     state: billBranch?.state || companyState,
     gstin: billBranch?.gstin || billBranch?.gstIn || currentCompany?.gstin,
@@ -423,6 +424,16 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
     [db?.bills, currentCompany.id, formData.vendorId, formData.date, tdsNatureCode, initialData?.id]
   );
 
+  /* Of that, what has already had tax deducted: the limit makes the year liable once, not on every bill after. */
+  const tdsPriorTaxed = React.useMemo(
+    () =>
+      priorTaxedBaseFor(
+        (db?.bills || []).filter((b) => b.companyId === currentCompany.id),
+        { partyId: formData.vendorId, natureCode: tdsNatureCode, onDate: formData.date, excludeId: initialData?.id ?? null }
+      ),
+    [db?.bills, currentCompany.id, formData.vendorId, formData.date, tdsNatureCode, initialData?.id]
+  );
+
   const tds = React.useMemo(
     () =>
       resolveTds({
@@ -435,9 +446,10 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
         explicitRate: formData.tdsRateTouched && String(formData.tdsRate ?? '').trim() !== '' ? formData.tdsRate : null,
         side: 'PAYABLE',
         priorBase: tdsPriorValue,
+        priorTaxedBase: tdsPriorTaxed,
         ledgers: tdsLedgerMaster,
       }),
-    [currentCompany, vendor, formData.date, formData.tdsLedgerId, formData.tdsRate, formData.tdsRateTouched, computed.subtotal, tdsNatureCode, tdsPriorValue, tdsLedgerMaster]
+    [currentCompany, vendor, formData.date, formData.tdsLedgerId, formData.tdsRate, formData.tdsRateTouched, computed.subtotal, tdsNatureCode, tdsPriorValue, tdsPriorTaxed, tdsLedgerMaster]
   );
 
   const tdsPayableLedgers = React.useMemo(
@@ -603,7 +615,9 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
            */
           tdsAmount: tdsAmount > 0 ? tdsAmount : undefined,
           tdsLedgerId: tdsAmount > 0 ? String(tds.ledgerId || formData.tdsLedgerId || '') || undefined : undefined,
-          tdsNatureCode: tdsAmount > 0 ? tds.natureCode : undefined,
+          /* The nature rides with every bill it applies to, taxed or not: bills under the limit have to add up towards it. */
+          tdsNatureCode: tds.natureCode || undefined,
+          tdsBaseAmount: tdsAmount > 0 ? tds.baseAmount : undefined,
           tdsSectionCode: tdsAmount > 0 ? tds.sectionCode : undefined,
           tdsRate: tdsAmount > 0 ? tds.rate : undefined,
           tdsRuleVersionId: tdsAmount > 0 ? tds.ruleVersionId : undefined,
@@ -630,7 +644,9 @@ export const BillForm = ({ db, setDb, currentCompany, initialData, onClose, ware
       branchId: String(branchIdInList || branchIdForNumbering || effectiveDefaultBranchId || '').trim(),
       /* customFields ride in on the spread of formData above. */
       tdsLedgerId: tdsAmount > 0 ? String(tds.ledgerId || formData.tdsLedgerId || '') : '',
-      tdsNatureCode: tdsAmount > 0 ? tds.natureCode : '',
+      tdsNatureCode: tds.natureCode || '',
+      /* What this bill's tax was worked on: the next bill is not taxed on it again. */
+      tdsBaseAmount: tdsAmount > 0 ? Number(tds.baseAmount) || 0 : 0,
       /* The rule version this deduction was computed under — a later change to
          the rule master must not restate what was deducted today. */
       tdsRuleVersionId: tdsAmount > 0 ? tds.ruleVersionId : '',
