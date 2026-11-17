@@ -1234,7 +1234,7 @@ function ShellScreens() {
               <button type="button" ref={searchRef} className="ui-global-search" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Meta+K Control+K">
                 <SearchGlass size={18} aria-hidden="true" />
                 {/* Named by its visible words; the shortcut is announced through aria-keyshortcuts, so the keycap is hidden from it. */}
-                <span>{app?.searchRecords ? "Search people and screens" : "Search screens and apps"}</span>
+                <span>{app?.searchLabel || (app?.searchRecords ? "Search people and screens" : "Search screens and apps")}</span>
                 <kbd aria-hidden="true">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             )
@@ -1630,7 +1630,8 @@ function ShellScreens() {
         {paletteOpen && !Root ? (
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
-            placeholder={app?.searchRecords ? `Search people, jobs and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            /* An app names what its own search finds (manifest `searchLabel`); the Workspace finds members and companies, not jobs. */
+            placeholder={app?.searchLabel ? `${app.searchLabel}…` : app?.searchRecords ? `Search people, jobs and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
             /* People by name, code or email (manifest `searchRecords`), as the person types. */
             loadRecords={app?.searchRecords ? (q) => app.searchRecords(q, { apps: mine.map((a) => a.id) }) : undefined}
             items={[

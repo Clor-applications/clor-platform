@@ -66,6 +66,30 @@ describe('Workspace → Members', () => {
     expect(screen.queryByRole('button', { name: /Kavya/ })).toBeNull();
   });
 
+  /* Links arrive with what to show: Home's line about administrators, or one person picked in search. */
+  it('opens filtered to what a link asked for, and opens one person from search', async () => {
+    const { unmount } = render(<Members params={{ risk: 'no2fa' }} />);
+    expect(await screen.findByText('Rohit')).toBeInTheDocument();
+    expect(screen.queryByText('Kavya')).toBeNull();
+    unmount();
+    render(<Members params={{ member: 'u2' }} />);
+    await waitFor(() => expect(api.memberAccess).toHaveBeenCalledWith('u2'));
+  });
+
+  /* The select used to save on change: one slip made somebody an owner. */
+  it('asks before changing an account role, and leaves it alone on No', async () => {
+    const { confirmDialog } = await import('@ui/components/ui/notify');
+    render(<Members />);
+    fireEvent.click(await screen.findByText('Kavya'));
+    const role = await screen.findByLabelText('Account role', { selector: '#ws-member-role' });
+    confirmDialog.mockResolvedValueOnce(false);
+    fireEvent.change(role, { target: { value: 'OWNER' } });
+    await waitFor(() => expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Change Kavya’s account role to Owner?', tone: 'danger' })));
+    expect(api.setAccountRole).not.toHaveBeenCalled();
+    fireEvent.change(role, { target: { value: 'ADMIN' } });
+    await waitFor(() => expect(api.setAccountRole).toHaveBeenCalledWith('u2', 'ADMIN'));
+  });
+
   it('signs a member out everywhere as its own act', async () => {
     render(<Members />);
     fireEvent.click(await screen.findByRole('button', { name: /Kavya/ }));

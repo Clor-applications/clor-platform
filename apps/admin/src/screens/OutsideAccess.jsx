@@ -141,7 +141,7 @@ export default function OutsideAccess() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Access', 'Outside access']}
+          crumbs={['Users & access', 'Accountants']}
           title="Accountant access"
           description="Let your CA firm or auditor work in this company with limited, time-bound access, separate from your staff."
           actions={

@@ -48,7 +48,7 @@ export default function Integrations({ openApp, openScreen }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Company', 'Integrations']}
+          crumbs={['Apps', 'Integrations']}
           icon={PAGE_ICON}
           title="Integrations"
           description="What connects this company to machines and systems outside CLOR, and whether it is working. Each one is managed in its own place."

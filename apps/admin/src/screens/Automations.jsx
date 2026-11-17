@@ -18,7 +18,7 @@ export default function Automations({ openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Company', 'Automations']} icon={PAGE_ICON} title="Automations" description="Reminders Workspace sends for this company. Each starts off; switch on the ones you want." />
+        <PageHead crumbs={['Apps', 'Automations']} icon={PAGE_ICON} title="Automations" description="Reminders Workspace sends for this company. Each starts off; switch on the ones you want." />
         {/* The shared list, dressed for the Workspace: each group one sheet, the page's full width (workspace.css, .ws-autos). */}
         <div className="ws-autos">
           <AutomationsList module="workspace" bare openScreen={openScreen} readOnlyNote="Whoever may change the company profile changes these." />

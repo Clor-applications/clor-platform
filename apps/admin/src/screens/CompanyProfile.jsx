@@ -73,7 +73,7 @@ export default function CompanyProfile() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Company', 'Company profile']}
+          crumbs={['Home', 'Company profile']}
           icon={PAGE_ICON}
           title={form?.name || 'Company profile'}
           actions={

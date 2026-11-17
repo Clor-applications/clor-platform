@@ -101,7 +101,7 @@ export default function CloseCompanyPage({ companyName = '' }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Data', 'Close company']}
+          crumbs={['Settings', 'Close company']}
           title={`Close ${name || 'this company'}`}
           description="Closing stops the company’s apps and, after a notice period, deletes every record. Export first."
         />

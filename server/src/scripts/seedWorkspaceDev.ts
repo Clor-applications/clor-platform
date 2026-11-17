@@ -165,10 +165,10 @@ async function people(c: Ctx, second: Ctx) {
 }
 
 async function role(c: Ctx) {
-  const have = ((await request(app).get(`/api/orgs/${c.orgId}/roles`).set(at(c))).body?.roles || []).some((r: any) => r.name === 'Store keeper');
+  const have = ((await request(app).get(`/api/orgs/${c.orgId}/roles`).set(at(c))).body?.roles || []).some((r: any) => r.name === 'Dispatch clerk');
   if (have) return;
-  const r = await request(app).post(`/api/orgs/${c.orgId}/roles`).set(at(c)).send({ name: 'Store keeper', description: 'Receives and issues stock; sees no prices.', roleType: 'CUSTOM', permissions: [] });
-  note(r.status < 300, 'role Store keeper', r);
+  const r = await request(app).post(`/api/orgs/${c.orgId}/roles`).set(at(c)).send({ name: 'Dispatch clerk', description: 'Packs and sends orders; sees no prices.', roleType: 'CUSTOM', permissions: [] });
+  note(r.status < 300, 'role Dispatch clerk', r);
 }
 
 async function tickets(c: Ctx) {

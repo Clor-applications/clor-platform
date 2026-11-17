@@ -96,7 +96,8 @@ export function WsDrawer({ actions = null, widthClass = 'w-[min(40rem,94vw)]', c
 export const productIcon = (id) => ICON[id === 'people' ? 'people_app' : id] || ICON.apps;
 
 /* Where a breadcrumb's section name leads: each module's own first page. */
-const SECTION_HOME = { Overview: 'home', Company: 'companies', Access: 'accessHome', Security: 'securityHome', Plan: 'account', Data: 'dataHome' };
+/* The names are the rail's own (apps/admin/manifest.jsx modules), so a crumb never names a section the menu does not have. */
+const SECTION_HOME = { Home: 'home', Apps: 'apps', 'Users & access': 'members', Plan: 'billing', Security: 'securityHome', Settings: 'account' };
 const openWorkspace = (screen) => requestOpenScreen(screen);
 
 /**

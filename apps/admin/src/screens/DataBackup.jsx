@@ -134,7 +134,7 @@ export default function DataBackup({ currentCompany }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Data', 'Data export']}
+          crumbs={['Settings', 'Data export']}
           title="Data export"
           description="A copy of this company’s books and set-up, as files you keep."
         />

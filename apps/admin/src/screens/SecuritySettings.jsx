@@ -160,8 +160,8 @@ export const SecuritySettings = ({ openScreen }) => {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Security', 'Sessions']}
-          title="Sessions"
+          crumbs={['Security', 'Sign-in rules']}
+          title="Sign-in rules"
           description="Where you are signed in, and the sign-in rules. Sign out anything you do not recognise."
           meta={dirty ? 'Unsaved changes' : notice || null}
           actions={

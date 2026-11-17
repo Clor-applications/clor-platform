@@ -40,12 +40,13 @@ export function companyRows(companies, { q = '', sort = 'name', dir = 1, page = 
   return { total: rows.length, rows: rows.slice(page * PAGE, page * PAGE + PAGE), pages: Math.max(1, Math.ceil(rows.length / PAGE)) };
 }
 
-export default function Companies({ tenant, addCompany, switchCompany, companies: tenants = [], catalog = [], openScreen }) {
+export default function Companies({ tenant, addCompany, switchCompany, companies: tenants = [], catalog = [], openScreen, params }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [view, setView] = useState({ q: '', sort: 'name', dir: 1, page: 0 });
   const [adding, setAdding] = useState(false);
-  const [openId, setOpenId] = useState('');
+  /* A link to one company (search) opens its page straight away. */
+  const [openId, setOpenId] = useState(() => (typeof params?.open === 'string' ? params.open : ''));
 
   const load = useCallback(() => {
     getAccountOverview()
@@ -81,7 +82,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Company', 'Companies']} scope="account"
+          crumbs={['Home', 'Companies']} scope="account"
           icon={PAGE_ICON}
           /* Search and the count sit on the title's row: a row of their own under it left the page top half empty (owner, 17 Nov 2026). */
           tools={

@@ -70,7 +70,7 @@ export default function NotificationSettings({ tenant }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Company', 'Email notifications']}
+          crumbs={['Apps', 'Email notifications']}
           icon={PAGE_ICON}
           title="Email notifications"
           /* Read-only says so in the head too; the shell's WriteGuard banner gives the reason. */

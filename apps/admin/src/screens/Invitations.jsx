@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, RotateCw, Send, XCircle } from '@ui/components/ui/lineIcons';
 
 import { createInvitation, listInvitations, resendInvitation, revokeInvitation } from '@platform/admin/account';
+import { listRoles } from '@platform/admin/admin';
 import { ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 
@@ -33,9 +34,11 @@ const STATUS = {
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
 /** The sentence the inviter reads before sending — the spec's "access preview". */
-export function accessPreview({ role, companyNames }) {
+export function accessPreview({ role, companyNames, companyRole = null }) {
   const where = companyNames.length ? companyNames.join(', ') : 'no company yet';
-  return `Joins as ${String(ROLE_LABEL[role] || 'Member').toLowerCase()} in ${where}. App access comes from roles.`;
+  const first = `Joins as ${String(ROLE_LABEL[role] || 'Member').toLowerCase()} in ${where}.`;
+  /* With a role chosen the sentence says what they can do on day one; without, that somebody still has to give one. */
+  return companyRole ? `${first} Works as ${companyRole.name} in ${companyRole.company} from the first sign-in.` : `${first} App access comes from roles.`;
 }
 
 export default function Invitations({ tenant, companies = [] }) {
@@ -48,6 +51,20 @@ export default function Invitations({ tenant, companies = [] }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [inviting, setInviting] = useState(false);
+  /*
+   * The role they start with in the company being worked in. Without one the person joined able to
+   * open nothing, and an administrator then had to find them under Company users to finish the job.
+   * Roles belong to a company and are read for the open one only, so the choice is offered for it;
+   * a role in another company is given from that company. null: not read, or not this person's to give.
+   */
+  const [roles, setRoles] = useState(null);
+  const [roleId, setRoleId] = useState('');
+  useEffect(() => {
+    if (!inviting || roles || !tenant?.id) return;
+    listRoles(tenant.id)
+      .then((r) => setRoles(Array.isArray(r?.roles) ? r.roles : []))
+      .catch(() => setRoles([]));
+  }, [inviting, roles, tenant?.id]);
 
   const load = useCallback(() => {
     listInvitations()
@@ -69,9 +86,10 @@ export default function Invitations({ tenant, companies = [] }) {
     setError('');
     setNotice('');
     try {
-      const r = await createInvitation({ email: email.trim(), accountRole: role, grants: [...picked].map((orgId) => ({ orgId })) });
+      const r = await createInvitation({ email: email.trim(), accountRole: role, grants: [...picked].map((orgId) => ({ orgId, ...(orgId === tenant?.id && roleId ? { roleIds: [roleId] } : {}) })) });
       setNotice(r?.seatWarning ? `Invitation sent to ${email.trim()}. Note: ${r.seatWarning}` : `Invitation sent to ${email.trim()}.`);
       setEmail('');
+      setRoleId('');
       setInviting(false);
       load();
     } catch (err) {
@@ -99,7 +117,7 @@ export default function Invitations({ tenant, companies = [] }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Access', 'Invitations']} scope="account"
+          crumbs={['Users & access', 'Invitations']} scope="account"
           title="Invitations"
           description="People invited to this account. They choose their own password; a link lasts 7 days."
           actions={
@@ -126,6 +144,7 @@ export default function Invitations({ tenant, companies = [] }) {
           <div className="ws-empty">
             <span className="ws-tile" aria-hidden="true"><ICON.mail size={20} /></span>
             <p>No invitations yet.</p>
+            <button type="button" className="ws-btn" onClick={() => { setInviting(true); setNotice(''); setError(''); }}>Invite the first person</button>
           </div>
         ) : (
           <div className="ws-table-wrap">
@@ -218,7 +237,22 @@ export default function Invitations({ tenant, companies = [] }) {
               </label>
             ))}
           </fieldset>
-          <p className="ws-notice" aria-live="polite">{accessPreview({ role, companyNames })}</p>
+          {roles?.length && tenant?.id && picked.has(tenant.id) ? (
+            <div className="grid">
+              <label htmlFor="ws-invite-company-role" className="text-sm">Role in {tenant.name}</label>
+              <select id="ws-invite-company-role" className="ui-select" value={roleId} onChange={(e) => setRoleId(e.target.value)} aria-describedby="ws-invite-company-role-help">
+                <option value="">No role yet</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <span id="ws-invite-company-role-help" className="ui-caption">
+                {roleId ? 'The role decides which apps and screens they can open.' : 'Without a role they can sign in but open no app until somebody gives one.'}
+                {picked.size > 1 ? ' A role in another company is given from that company.' : ''}
+              </span>
+            </div>
+          ) : null}
+          <p className="ws-notice" aria-live="polite">{accessPreview({ role, companyNames, companyRole: roleId && picked.has(tenant?.id) ? { name: roles?.find((r) => r.id === roleId)?.name || 'the chosen role', company: tenant?.name || 'this company' } : null })}</p>
         </form>
       </WsDrawer>
     </div>
