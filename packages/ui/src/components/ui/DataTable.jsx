@@ -18,7 +18,8 @@ import { LoadingSpinner, loadsWithSpinner } from './Primitives';
  *   row without a box (a row that cannot be decided with the others).
  * - Row actions: an ellipsis menu (keyboard: arrows, Enter, Escape); row click
  *   opens the record. A click on a control inside a row never opens it.
- * - Below 640px rows become cards: `card(row)` draws one.
+ * - Below 640px rows become cards: `card(row)` draws one. With `tiles`, wider
+ *   screens show the cards as a grid of tiles too (outside Books, picks.css).
  * - Loading: skeleton rows the shape of the table; refreshing keeps the rows
  *   and shows a quiet "Updating" mark (spec §8 background refresh).
  *
@@ -177,7 +178,7 @@ export default function DataTable({
   rowActions = null, onRowClick = null, card = null,
   loading = false, refreshing = false, empty = null,
   total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, tabs = null, defaultPrefs = {},
-  rowLabel = null,
+  rowLabel = null, tiles = false,
 }) {
   /* What a row's menu and tick box are named after: its own words, never a database id (#80 QA: "Actions for cmv…" on Branches). */
   const nameOf = (r, id) => (rowLabel && rowLabel(r)) || r.name || r.employeeName || r.branchName || r.managerName || r.title || r.label || r.code || id;
@@ -202,7 +203,7 @@ export default function DataTable({
   };
 
   return (
-    <div className={`ui-datatable ${compact ? 'is-compact' : ''} ${card ? 'has-cards' : ''}`} aria-busy={loading || refreshing || undefined}>
+    <div className={`ui-datatable ${compact ? 'is-compact' : ''} ${card ? 'has-cards' : ''} ${card && tiles ? 'is-tiles' : ''}`} aria-busy={loading || refreshing || undefined}>
       {toolbar || onPrefs || tabs ? (
         <div className="ui-datatable-toolbar">
           {/* The list's own tabs (status, In use / Retired) start the search row instead of taking a row of their own (owner, 28 Oct 2026). */}

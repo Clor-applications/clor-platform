@@ -245,6 +245,21 @@ template with failures fixed in place; plans as three cards; plan use in words; 
 as a switch that turns itself off; a punch button phone widget; phone sign-in by email and
 password.
 
+### Round 10 (17 Nov 2026)
+
+Built: branches as tiles with the headcount on a laptop or bigger (a `tiles` option on
+`DataTable`; each tile keeps its row menu, phones keep the plain cards).
+
+Picked, **not built yet** (most need new data or new screens): PF and ESI as a year of months;
+held pay as a faded row with the amount struck through; final settlement as steps; a bonus
+with a choice of how it is worked out; payroll cost as six months of bars; a timesheet timer;
+attendance machines as counts; a travel request form; policies with a "to read" tag; end of
+probation with Confirm and Extend on the row; one-to-ones as a list of meetings; training,
+only what is due; expiring documents as a note on home; a referral form with a CV; company
+details as a profile card; taking your data out as monthly copies kept ready; closing the
+account with an offer to talk first; Ops price changes in a table; seeing what a customer sees
+with a "read only, time left" tag; staff actions as a line each.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.
