@@ -88,7 +88,15 @@ describe('statutory files', () => {
     await api.post(c, `/runs/${run}/validate`).expect(200);
     await api.post(c, `/runs/${run}/calculate`).expect(200);
 
+    /* Not approved yet: nothing goes in a file, and the answer says how many payslips are waiting (audit, 17 Nov 2026). */
+    const early = (await api.get(c, `/reports/filings?periodId=${periodId}`).expect(200)).body;
+    expect(early).toMatchObject({ slips: 0, waiting: 3 });
+    expect(early.ecr.rows).toEqual([]);
+    expect(early.esic.rows).toEqual([]);
+    await payrollPrisma.payrollRun.update({ where: { id: run }, data: { status: 'APPROVED' } });
+
     const f = (await api.get(c, `/reports/filings?periodId=${periodId}`).expect(200)).body;
+    expect(f).toMatchObject({ slips: 3, waiting: 0 });
 
     /*
      * Asha's ₹20,000 CTC is gross ₹18,208 + employer PF ₹1,200 + employer ESI ₹592:

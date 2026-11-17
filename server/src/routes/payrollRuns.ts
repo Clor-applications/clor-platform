@@ -883,6 +883,22 @@ const transition = (
       }
 
       /*
+       * A payslip that comes to less than nothing cannot be paid, yet every
+       * deduction on it would be marked recovered. It goes no further until
+       * the entered deductions are reduced and it is calculated again.
+       */
+      if (to === 'REVIEW' || to === 'APPROVED') {
+        const below = await payrollPrisma.salarySlip.findMany({ where: { orgId: run.orgId, runId: run.id, netPay: { lt: 0 }, status: { not: 'CANCELLED' } }, select: { employeeId: true }, take: 20 });
+        if (below.length) {
+          const people = await peoplePrisma.employee.findMany({ where: { orgId: run.orgId, id: { in: below.map((b) => b.employeeId) } }, select: { name: true } });
+          return res.status(409).json({
+            error: `Net pay comes to less than zero for ${below.length} ${below.length === 1 ? 'person' : 'people'}: ${people.map((p) => p.name).join(', ')}. Reduce the deductions entered for them and calculate again.`,
+            code: 'NET_PAY_BELOW_ZERO',
+          });
+        }
+      }
+
+      /*
        * State rules CLOR could not confirm: a run under them is calculated and
        * previewed, never approved, until somebody confirms or corrects each
        * one against the state's notice (Payroll › Compliance).

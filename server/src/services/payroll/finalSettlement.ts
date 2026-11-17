@@ -1,3 +1,4 @@
+import { encashmentValue } from '../attendance/leaveEncashment.js';
 import { payrollPrisma } from '../../utils/payrollPrisma.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { round2 } from '../../utils/money.js';
@@ -69,7 +70,12 @@ export function settlementDueDate(leaving: string) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Completed years of service, a final part-year of more than six months counting as a whole one. */
+/**
+ * Completed years of service, a final part-year of more than six months
+ * counting as a whole one (Payment of Gratuity Act, s. 4(2): "in excess of
+ * six months"). Six months and a day is in excess; it used to take seven full
+ * months, so 5 years 6 months 15 days was paid for 5 years, not 6.
+ */
 export function serviceYears(joined: string, left: string) {
   const a = new Date(`${joined}T00:00:00Z`);
   const b = new Date(`${left}T00:00:00Z`);
@@ -77,7 +83,10 @@ export function serviceYears(joined: string, left: string) {
   if (b.getUTCDate() < a.getUTCDate()) months -= 1;
   months = Math.max(0, months);
   const years = Math.floor(months / 12);
-  return { years: months % 12 > 6 ? years + 1 : years, months };
+  /* Days beyond the whole months: any, unless the two dates fall on the same day of the month. */
+  const extraDays = b.getTime() > a.getTime() && b.getUTCDate() !== a.getUTCDate();
+  const overSix = months % 12 > 6 || (months % 12 === 6 && extraDays);
+  return { years: overSix ? years + 1 : years, months };
 }
 
 export function gratuityFor(lastWage: number, joined: string, left: string, opts = GRATUITY_DEFAULTS) {
@@ -151,7 +160,6 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
   const year = await leaveYearOf(orgId, leaving);
   const { types, balances } = await balancesFor(accountId, orgId, [employeeId], year);
   const mine = balances.get(employeeId);
-  const daily = round2(wage / 26);
   /*
    * Only the types the company's policy pays out (Leave Policy → "Paid out at
    * year end / on leaving"), up to the type's cap. Casual and sick leave are
@@ -164,12 +172,14 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
     const cap = t.maxEncashDays != null ? Number(t.maxEncashDays) : null;
     const left = cap != null ? Math.min(balance, cap) : balance;
     const capped = cap != null && balance > cap ? ` (${balance} left; the policy pays up to ${cap})` : '';
+    /* The leave type's own rule: its wage base (basic and DA, or gross) and its divisor (26 or 30), as a year-end encashment of the same type uses. */
+    const v = await encashmentValue(orgId, employeeId, t as { encashBase?: string | null; encashDivisor?: number | null }, left);
     lines.push({
       code: `LEAVE_${(t.code || t.name).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`.slice(0, 40),
       label: `${t.name} encashment`,
       kind: 'EARNING',
-      amount: round2(left * daily),
-      explanation: !from ? `${left} days${capped}; no approved payslip yet, so enter days × a day's wages.` : `${left} days${capped} × a day's wages ₹${daily.toLocaleString('en-IN')} (₹${wage.toLocaleString('en-IN')} ÷ 26).`,
+      amount: v.amount ?? 0,
+      explanation: `${v.explanation}${capped ? ` ${capped.trim()}` : ''}`,
     });
   }
 

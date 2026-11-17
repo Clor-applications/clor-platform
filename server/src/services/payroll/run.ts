@@ -2016,6 +2016,15 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
       });
     }
 
+    if (netPay < -0.005) {
+      issues.push({
+        severity: 'WARNING',
+        code: 'NET_PAY_BELOW_ZERO',
+        employeeId: employee.id,
+        message: `${employee.name}: deductions come to ₹${Math.abs(netPay).toLocaleString('en-IN')} more than the pay. Reduce what was entered; this payroll cannot be sent for review or approved until then.`,
+      });
+    }
+
     const previousNetPay = previousByEmployee.has(employee.id) ? previousByEmployee.get(employee.id)! : null;
     const variancePercent =
       previousNetPay && previousNetPay !== 0 ? round2(((netPay - previousNetPay) / previousNetPay) * 100) : null;
