@@ -531,7 +531,14 @@ describe('N — an unposted invoice', () => {
     expect(JSON.parse(mid.itemsJson)).toHaveLength(1);
 
     // Nothing is in the books, so the amounts are still the user's to change.
-    expect((await patch(invoice.id, { total: 40000, subtotal: 33898.31 })).status).toBe(200);
+    /* To figures that agree: a total alone, against the lines and tax it has, is refused and changes nothing (audit, 17 Nov 2026). */
+    const lone = await patch(invoice.id, { total: 40000, subtotal: 33898.31 });
+    expect(lone.status).toBe(422);
+    expect(lone.body.code).toBe('TOTALS_MISMATCH');
+    expect(Number((await row(invoice.id)).total)).toBe(118000);
+    /* Figures that agree with the line they come with: 33,898.31 at 18% is 6,101.70, and 40,000 is that rounded off. */
+    const smaller = { items: [{ description: 'Smaller order', quantity: 1, rate: 33898.31, gstRate: 18 }], subtotal: 33898.31, cgstTotal: 3050.85, sgstTotal: 3050.85, gstTotal: 6101.7, total: 40000 };
+    expect((await patch(invoice.id, smaller)).status).toBe(200);
     expect(Number((await row(invoice.id)).total)).toBe(40000);
   });
 });

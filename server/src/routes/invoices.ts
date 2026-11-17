@@ -1,3 +1,4 @@
+import { checkDocTotals, totalsRefusal } from '../services/docTotals.js';
 import { actorFrom } from '../services/credentials.js';
 import { invoiceStatusChanged, revokeInvoiceLink } from '../services/shareLinks.js';
 import { Router, type Request } from 'express';
@@ -139,6 +140,9 @@ const EXTRA_KEYS = [
   'customerMobile',
   'supplyType',
 ] as const;
+
+/** The fields that carry a document's lines and figures: an edit that sends any of them is checked whole. */
+const FIGURE_KEYS = ['items', 'subtotal', 'cgstTotal', 'sgstTotal', 'igstTotal', 'gstTotal', 'total', 'otherCharges', 'otherChargesTotal', 'invoiceDiscountApplied'] as const;
 
 const extrasFrom = (body: any) => {
   const out: Record<string, unknown> = {};
@@ -436,6 +440,10 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
     }
   }
 
+  /* The figures must agree with the lines before anything is kept, and before a number is taken for it. */
+  const totalsProblem = checkDocTotals(body as any);
+  if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
+
   // Requirement 2: the number comes from the configured series, allocated on
   // the server. Two browsers cannot mint the same one.
   let invoiceNumber = String(body.number || '').trim();
@@ -662,6 +670,34 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
 
   const nextWarehouseId = keepText('warehouseId', existing.warehouseId);
   const nextItems = given('items') ? (body as any).items || [] : safeParseLines(existing.itemsJson);
+  /*
+   * An edit that touches the lines or any figure must leave them agreeing.
+   * What was not sent is taken from the invoice as it stands; an edit of a
+   * note or a due date checks nothing, so an old invoice can still be opened
+   * and annotated.
+   */
+  if (FIGURE_KEYS.some((k) => given(k))) {
+    let extras: Record<string, unknown> = {};
+    try {
+      extras = JSON.parse(mergedExtras(existing.extrasJson, body, sent) || '{}') || {};
+    } catch {
+      extras = {};
+    }
+    const totalsProblem = checkDocTotals({
+      items: nextItems,
+      subtotal: keepNumber('subtotal', existing.subtotal),
+      cgstTotal: keepNumber('cgstTotal', existing.cgstTotal),
+      sgstTotal: keepNumber('sgstTotal', existing.sgstTotal),
+      igstTotal: keepNumber('igstTotal', existing.igstTotal),
+      gstTotal: keepNumber('gstTotal', existing.gstTotal),
+      total: keepNumber('total', existing.total),
+      otherCharges: extras.otherCharges as any,
+      otherChargesTotal: extras.otherChargesTotal,
+      invoiceDiscountApplied: extras.invoiceDiscountApplied,
+    });
+    if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
+  }
+
   try {
     await prisma.$transaction((tx) =>
       withStockCheck(tx, { orgId, lines: nextItems, warehouseId: nextWarehouseId }, () =>

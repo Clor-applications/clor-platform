@@ -28,7 +28,7 @@ async function companyWithInvoice(label: string) {
   const signup = await request(app).post('/api/auth/signup').send({ email, password: 'Passw0rd!23', name: `${label} owner` }).expect(200);
   const s = await request(app).post('/api/auth/setup-company').set('Authorization', `Bearer ${signup.body.token}`).send({ companyName: `RLS ${label} ${Date.now()}-${rnd()}`, state: 'Karnataka' }).expect(200);
   const at = { Authorization: `Bearer ${signup.body.token}`, 'x-org-id': s.body.company.orgId, 'x-branch-id': s.body.branch.id };
-  await request(app).post(`/api/orgs/${s.body.company.orgId}/invoices`).set(at).send({ date: '2026-09-09', customerName: 'Acme', subtotal: 100, gstTotal: 18, total: 118, items: [{ description: 'x', quantity: 1, rate: 100, gstRate: 18 }] }).expect(201);
+  await request(app).post(`/api/orgs/${s.body.company.orgId}/invoices`).set(at).send({ date: '2026-09-09', customerName: 'Acme', subtotal: 100, igstTotal: 18, gstTotal: 18, total: 118, items: [{ description: 'x', quantity: 1, rate: 100, gstRate: 18 }] }).expect(201);
   return { orgId: s.body.company.orgId as string };
 }
 

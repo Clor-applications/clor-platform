@@ -52,7 +52,12 @@ const auth = (c: Ctx) => ({
   'x-branch-id': c.branchId,
 });
 
-const invoicePayload = (over: Record<string, unknown> = {}) => ({
+/* A body's one line follows its figures, so an override of the totals still agrees with its lines (the server refuses a document that does not). */
+const agree = (b: any, over: Record<string, unknown>) =>
+  over.items ? b : { ...b, items: [{ ...b.items[0], quantity: 1, rate: b.subtotal, gstRate: b.subtotal ? Math.round((b.gstTotal / b.subtotal) * 10000) / 100 : 0 }] };
+
+const invoicePayload = (over: Record<string, unknown> = {}) =>
+  agree({
   number: `INV-${Math.random().toString(36).slice(2, 9).toUpperCase()}`,
   date: '2026-08-16',
   customerName: 'Acme Ltd',
@@ -66,7 +71,7 @@ const invoicePayload = (over: Record<string, unknown> = {}) => ({
   total: 1180,
   items: [{ description: 'Widget', quantity: 10, rate: 100, gstRate: 18 }],
   ...over,
-});
+  }, over);
 
 beforeAll(async () => {
   A = await makeTenant('tenant-a');
