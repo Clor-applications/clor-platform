@@ -206,6 +206,14 @@ model User {
   totpLastStep     Int?
   totpRecoveryJson String?
 
+  // A code by text message (SMS), the second way to finish a sign-in beside
+  // the authenticator app (owner, 17 Nov 2026). The Indian mobile number in
+  // +91 form; on only once a code sent to it has been typed back. Recovery
+  // codes (totpRecoveryJson) serve either way. Payroll step-up and CLOR staff
+  // still need the authenticator app.
+  smsPhone              String?
+  smsTwoFactorEnabledAt DateTime?
+
   // Lockout state. Cleared on a successful sign-in.
   failedLoginCount Int       @default(0)
   lockedUntil      DateTime?
@@ -2112,4 +2120,24 @@ model SupportSavedReply {
   updatedByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+/// A one-time code sent by text message for two-step sign-in
+/// (services/smsCodes.ts). Only its hash is kept. It works once, for five
+/// minutes, and five wrong tries spend it. purpose: SETUP (checking a new
+/// number), LOGIN (finishing a sign-in) or DISABLE (turning SMS codes off).
+model SmsCode {
+  id        String    @id @default(cuid())
+  userId    String
+  purpose   String
+  /// The number it went to, in +91 form.
+  phone     String
+  codeHash  String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, purpose, createdAt])
+  @@index([phone, createdAt])
 }

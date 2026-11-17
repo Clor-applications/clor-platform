@@ -18,12 +18,16 @@ export async function isOrgAdmin(userId: string, orgId: string): Promise<boolean
   return Boolean(admin);
 }
 
-/** Whether this person must set up an authenticator before using this company. */
+/** Whether a sign-in needs a second step: an authenticator app or SMS codes are on. */
+export const hasSecondFactor = (u: { totpEnabledAt?: Date | null; smsTwoFactorEnabledAt?: Date | null } | null | undefined) =>
+  Boolean(u?.totpEnabledAt || u?.smsTwoFactorEnabledAt);
+
+/** Whether this person must set up a second step (app or SMS) before using this company. */
 export async function adminTwoFactorMissing(userId: string, orgId: string): Promise<boolean> {
   const policy = await platformPrisma.authPolicy.findUnique({ where: { orgId }, select: { requireAdminTwoFactor: true } });
   if (!policy?.requireAdminTwoFactor) return false;
-  const user = await platformPrisma.user.findUnique({ where: { id: userId }, select: { totpEnabledAt: true } });
-  if (user?.totpEnabledAt) return false;
+  const user = await platformPrisma.user.findUnique({ where: { id: userId }, select: { totpEnabledAt: true, smsTwoFactorEnabledAt: true } });
+  if (hasSecondFactor(user)) return false;
   return isOrgAdmin(userId, orgId);
 }
 
