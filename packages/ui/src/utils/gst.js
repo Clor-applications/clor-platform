@@ -84,6 +84,23 @@ export const getCompanyGstProfile = (company) => {
   };
 };
 
+/**
+ * The state a document is issued from: the branch that issues it, where the
+ * branch has one, else the company's.
+ *
+ * CGST + SGST or IGST turns on the supplier's place against the customer's.
+ * A company registered in Karnataka with a branch in Tamil Nadu, billing a
+ * Tamil Nadu customer from that branch, charges CGST + SGST; reading the
+ * company's state alone charged IGST (audit, 17 Nov 2026).
+ */
+export const issuingState = (company, branch) => String(branch?.state || company?.state || '').trim();
+
+/** A document in a currency other than the books', with a rate to translate it by. */
+export const isForeignDocument = (doc, baseCurrency) => {
+  const currency = String(doc?.currency || '').trim().toUpperCase();
+  return currency.length === 3 && currency !== String(baseCurrency || 'INR').trim().toUpperCase() && Number(doc?.exchangeRate) > 0;
+};
+
 export const getPartyGstProfile = (party) => {
   return {
     gstin: String(party?.gstin || '').trim(),

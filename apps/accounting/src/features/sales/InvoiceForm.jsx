@@ -13,7 +13,7 @@ import { bumpCompanyNextNumber, formatVoucherNumberPreview, getDocSettings, getV
 import { branchLabel } from '@ui/utils/branchLabel';
 import BranchField from '@ui/components/BranchField';
 import { useFieldErrors } from '@ui/components/ui/useFieldErrors';
-import { canDetermineSupplyType, computeGstForLine, computeGstForLines, getCompanyGstProfile, getPartyGstProfile, isCompanyGstEnabled, isGstRegistrationActive, isIntraStateSupply } from '@ui/utils/gst';
+import { canDetermineSupplyType, computeGstForLine, computeGstForLines, isForeignDocument, issuingState, getPartyGstProfile, isCompanyGstEnabled, isGstRegistrationActive, isIntraStateSupply } from '@ui/utils/gst';
 import { computeInventorySummaryByItemId, isStockItem } from '@ui/utils/inventory';
 import { useServerOnHand } from '@ui/hooks/useServerOnHand';
 import { resolveSaleRate } from '@ui/utils/pricing';
@@ -489,7 +489,9 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
 
   const items = db.items.filter((i) => i.companyId === currentCompany.id);
 
-  const { state: companyState } = getCompanyGstProfile(currentCompany);
+  /* The state this invoice is issued from: its branch's, where the branch has one. */
+  const invoiceBranch = (branches || []).find((row) => String(row?.id) === String(branchIdInList || branchIdForNumbering || ''));
+  const companyState = issuingState(currentCompany, invoiceBranch);
   const selectedCustomer = formData.customerId
     ? customers.find((c) => String(c.id) === String(formData.customerId))
     : null;
@@ -513,7 +515,6 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
       .join(', ');
   const { state: customerState, gstin: customerGstin } = getPartyGstProfile(selectedCustomer);
   const isIntra = isIntraStateSupply({ companyState, partyState: customerState });
-  const invoiceBranch = (branches || []).find((row) => String(row?.id) === String(branchIdInList || branchIdForNumbering || ''));
   const gstRegistrationActive = isGstRegistrationActive(currentCompany, {
     state: invoiceBranch?.state || companyState,
     gstin: invoiceBranch?.gstin || invoiceBranch?.gstIn || currentCompany?.gstin,
@@ -1222,6 +1223,13 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
         igstTotal: Number(newInvoice.igstTotal ?? 0),
         gstTotal: Number(newInvoice.gstTotal ?? 0),
         total: Number(newInvoice.total ?? 0),
+        /* The currency it is raised in and the rate to the books' currency.
+           These stopped at the browser, so the server booked a foreign
+           invoice as though it were in rupees, at 1 (audit, 17 Nov 2026).
+           Left out for the books' own currency: the server then uses 1. */
+        ...(isForeignDocument(newInvoice, invoiceBaseCurrency)
+          ? { currency: String(newInvoice.currency).toUpperCase(), exchangeRate: Number(newInvoice.exchangeRate) }
+          : {}),
         paidAmount: Number(newInvoice.paidAmount ?? 0),
         status: String(newInvoice.status || 'Draft').trim(),
         sourceEstimateId: newInvoice.sourceEstimateId ? String(newInvoice.sourceEstimateId) : '',
