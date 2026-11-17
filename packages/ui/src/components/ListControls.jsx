@@ -135,7 +135,7 @@ export const ListControls = ({
 
       <div className="md:col-span-12 flex items-center justify-end gap-2">
         <button type="button" onClick={onClear} className="ui-btn ui-btn-ghost">
-          Clear filters
+          {typeof document !== 'undefined' && document.documentElement.dataset.palette !== 'indigo' ? 'Reset' : 'Clear filters'}
         </button>
 
         <div className="relative">

@@ -703,3 +703,8 @@
 .ui-today-ring-inner::before { z-index: -1; }
 .ui-today-ring-note { font-size: 0.875rem; color: rgb(var(--fg-muted, var(--fg))); }
 .ui-today-ring-note b { color: rgb(var(--fg)); }
+
+/* ---- Round 15 ---- */
+/* Wide tables: the first column stays put while scrolling sideways */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datatable :is(th, td):first-child { position: sticky; left: 0; z-index: 1; background: rgb(var(--surface, 255 255 255)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datatable thead :is(th):first-child { z-index: 3; }
