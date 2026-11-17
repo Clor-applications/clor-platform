@@ -212,11 +212,11 @@ secret in the repository. Its findings are all medium or low.
 ### Medium: billing and operations
 
 - [ ] A payment event from the gateway makes a subscription active without checking the amount, the invoice or the period — `billing/events.ts:156-164`, `billing/razorpay.ts:155`
-- [ ] `/auth/signup` gives a full trial to an email nobody proved, and ignores the switch that pauses sign-ups — `routes/auth.ts:621-655`
-- [ ] A lapsed People, Payroll or Attendance app refuses reading too, so employees lose their payslips, though the message says everything can still be read — `services/people/guards.ts:43`, `services/payroll/guards.ts:46`
+- [~] `/auth/signup` gives a full trial to an email nobody proved, and ignores the switch that pauses sign-ups — `routes/auth.ts:621-655` (pause switch honoured; proving the email still open, fix/ops-medium)
+- [x] A lapsed People, Payroll or Attendance app refuses reading too, so employees lose their payslips, though the message says everything can still be read — `services/people/guards.ts:43`, `services/payroll/guards.ts:46` (fixed: appGate reads on lapse, fix/ops-medium)
 - [ ] A trial that turns paid keeps its old trial end as the expiry of extras — `services/subscriptions.ts:276`
 - [ ] Nothing moves a subscription to past due when its period ends, so "stop at period end" never stops — `services/subscriptions.ts:107`, `routes/billing.ts:293`
-- [ ] Company export builds one answer from 36 unbounded reads — `routes/dataExport.ts:234`
+- [~] Company export builds one answer from 36 unbounded reads — `routes/dataExport.ts:234` (tables read one at a time, 5,000 rows a query; still one answer in memory, fix/ops-medium)
 - [ ] With no instance kept warm and a wake every 10 minutes, jobs meant for every few seconds or every minute wait up to 10 minutes — `deploy/cloudrun.service.yaml:44`
 - [ ] Migrations for the four databases run one after another with no way back, and no index is built with CONCURRENTLY — `server/package.json:18`
 - [ ] Nobody is told when the nightly off-site copy fails, and the Delhi copy has never been restored — `docs/BACKUP-AND-RESTORE.md:53`, `:205`

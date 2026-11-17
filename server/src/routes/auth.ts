@@ -1,3 +1,4 @@
+import { pausedRefusal } from '../services/platformSwitches.js';
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
@@ -664,6 +665,9 @@ authRouter.get('/me', requireLiveAuth, async (req: Request, res: Response) => {
 });
 
 authRouter.post('/signup', signupLimiter, async (req: Request, res: Response) => {
+  /* Staff paused new trials (Settings in the operator console): this door too, not only clor.in's (audit, 17 Nov 2026). */
+  const paused = await pausedRefusal('signups');
+  if (paused) return res.status(paused.status).json(paused.body);
   const body = z
     .object({
       email: z.string().email(),

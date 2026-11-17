@@ -7,7 +7,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
  * decide, and did not make, is counted.
  */
 const state = vi.hoisted(() => ({ entitled: new Set(['people', 'accounting', 'payroll']), mayApprove: true, peopleFails: false, payrollWhere: [] as any[] }));
-vi.mock('../services/subscriptions.js', () => ({ isAppEntitled: async (_a: string, app: string) => state.entitled.has(app) }));
+vi.mock('../services/subscriptions.js', () => ({ isAppEntitled: async (_a: string, app: string) => state.entitled.has(app), appStanding: async (_a: string, app: string) => ({ state: state.entitled.has(app) ? 'entitled' : 'none' }) }));
 vi.mock('../services/features.js', () => ({ isFeatureEnabled: async () => true }));
 vi.mock('../services/access.js', () => ({ resolveRoleIds: async () => ['role-ws'] }));
 vi.mock('../middleware/rbac.js', () => ({ authorize: async () => (state.mayApprove ? null : { status: 403, body: {} }) }));

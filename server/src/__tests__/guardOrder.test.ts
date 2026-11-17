@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * an unowned app read as a company setting rather than as not bought.
  */
 const state = { entitled: false, enabled: false };
-vi.mock('../services/subscriptions.js', () => ({ isAppEntitled: async () => state.entitled }));
+vi.mock('../services/subscriptions.js', () => ({ isAppEntitled: async () => state.entitled, appStanding: async () => ({ state: state.entitled ? 'entitled' : 'none' }) }));
 vi.mock('../services/features.js', () => ({ isFeatureEnabled: async () => state.enabled }));
 
 const { attendanceRouteOk } = await import('../services/attendance/guards.js');

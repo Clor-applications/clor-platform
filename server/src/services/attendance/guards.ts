@@ -1,4 +1,4 @@
-import { isAppEntitled } from '../subscriptions.js';
+import { appGate } from '../appGate.js';
 import type { Request, Response } from 'express';
 
 import { isFeatureEnabled } from '../features.js';
@@ -9,8 +9,10 @@ export const attendanceRouteOk = async (req: Request, res: Response): Promise<bo
   if (!orgMatches(req, res)) return false;
   const { accountId, orgId } = req.tenant!;
   /* A-15: one order for every app — not bought (402) before switched off (403), so an unowned app says so instead of reading as a setting. */
-  if (!(await isAppEntitled(accountId, 'attendance'))) {
-    res.status(402).json({ error: 'Attendance is not on this account’s subscription.', app: 'attendance', code: 'APP_NOT_SUBSCRIBED' });
+  /* People includes Attendance; lapsed, reading goes on and changes are refused. */
+  const refused = await appGate(accountId, ['attendance', 'people'], req.method, { name: 'Attendance', app: 'attendance' });
+  if (refused) {
+    res.status(refused.status).json(refused.body);
     return false;
   }
   if (!(await isFeatureEnabled(accountId, orgId, 'attendance'))) {

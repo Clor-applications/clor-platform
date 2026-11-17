@@ -8,7 +8,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * either app; everything else under /people stays People's.
  */
 const state = { apps: new Set<string>(), features: new Set<string>() };
-vi.mock('../services/subscriptions.js', () => ({ isAppEntitled: async (_a: string, code: string) => state.apps.has(code) }));
+vi.mock('../services/subscriptions.js', () => ({
+  isAppEntitled: async (_a: string, code: string) => state.apps.has(code),
+  appStanding: async (_a: string, code: string) => ({ state: state.apps.has(code) ? 'entitled' : 'none' }),
+}));
 vi.mock('../services/features.js', () => ({ isFeatureEnabled: async (_a: string, _o: string, key: string) => state.features.has(key) }));
 
 const { peopleRouteOk, isSharedDirectoryRoute } = await import('../services/people/guards.js');
