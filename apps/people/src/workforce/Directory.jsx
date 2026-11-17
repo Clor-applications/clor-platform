@@ -26,6 +26,7 @@ import { listBranches } from '../organization/api';
 import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
 import AppAccessSend from './AppAccessSend';
+import DeptTag from '@ui/components/ui/DeptTag';
 import { plusDaysIso, todayIst } from '@ui/utils/dates';
 
 /**
@@ -117,9 +118,9 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       </span>
     ) },
     { key: 'code', label: 'Employee ID', sortable: true, render: (r) => <span className="tabular-nums">{r.code || '—'}</span> },
-    { key: 'department', label: 'Department', sortable: true, render: (r) => r.department || '—' },
+    { key: 'department', label: 'Department', sortable: true, render: (r) => (r.department ? <DeptTag name={r.department} /> : '—') },
     /* The department sits under the designation (PEOPLE-02), so the separate column starts hidden. */
-    { key: 'designation', label: 'Designation', sortable: true, render: (r) => (r.designation || r.department ? <span className="pc-two"><span>{r.designation || '—'}</span>{r.department ? <span>{r.department}</span> : null}</span> : '—') },
+    { key: 'designation', label: 'Designation', sortable: true, render: (r) => (r.designation || r.department ? <span className="pc-two"><span>{r.designation || '—'}</span>{r.department ? <span><DeptTag name={r.department} /></span> : null}</span> : '—') },
     { key: 'manager', label: 'Manager', render: (r) => r.reportingManagerName || '—' },
     { key: 'branch', label: 'Works at', render: (r) => <span className="whitespace-nowrap">{r.branchName || '—'}</span> },
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },

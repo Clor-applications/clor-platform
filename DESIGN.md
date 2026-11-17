@@ -260,6 +260,23 @@ details as a profile card; taking your data out as monthly copies kept ready; cl
 account with an offer to talk first; Ops price changes in a table; seeing what a customer sees
 with a "read only, time left" tag; staff actions as a line each.
 
+### Round 11 (17 Nov 2026)
+
+Built: a department in a list is a coloured tag (`DeptTag`, colour from the department's name,
+one of `--cat-1..8`, name always written out); used in the People directory.
+
+Picked, **not built yet** (each needs new behaviour, data or a screen): a page that does not
+exist offers suggested pages; a warning before being signed out; a status page link while CLOR
+is being updated; print as a preview, then PDF; the first-time tour as a short video; confetti
+and a cheer on a big moment; an employee's own change to their details goes to HR to check;
+bank details typed, with the bank name filled from the IFSC; a red prompt when the emergency
+contact is missing; the company directory as face cards; the shared gate tablet shows a QR to
+scan with your phone; a week of attendance as a grid of letters; the payslip email carries the
+amount and a link; earnings and deductions set up as a list with Add; unpaid days marked on a
+calendar; CLOR bills paid as a list with PDF links; adding another CLOR app offers a free
+trial; the phone explains before asking for location; a punch with no signal is saved and
+sent later.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.
