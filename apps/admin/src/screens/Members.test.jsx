@@ -37,6 +37,9 @@ describe('Workspace → Members', () => {
     expect(f({ app: 'payroll' })).toEqual(['u1', 'u2']);
     expect(f({ companyId: 'c1', app: 'payroll' })).toEqual(['u1']);
     expect(f({ role: 'OWNER' })).toEqual(['u1']);
+    /* Everyone without an authenticator, whatever their role. */
+    expect(f({ auth: 'none' })).toEqual(['u1', 'u2', 'u3']);
+    expect(f({ auth: 'on' })).toEqual([]);
   });
 
   it('opens a person’s access: roles with who gave them, apps, sensitive reach', async () => {
