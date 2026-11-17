@@ -208,7 +208,7 @@ export function FiltersButton({ period, onPeriodChange, dateFrom, dateTo, onDate
               }}
               className="ui-btn ui-btn-ghost ui-btn-sm w-full"
             >
-              Clear all filters
+              {typeof document !== 'undefined' && document.documentElement.dataset.palette !== 'indigo' ? 'Reset' : 'Clear all filters'}
             </button>
           </div>
         </Popover>

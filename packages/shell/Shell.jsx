@@ -1,5 +1,7 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
+import { Rows3 } from 'lucide-react';
+import { useDensity } from '@ui/components/ui/useDensity';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { Menu as UiMenu, MenuGroup, MenuGroupLabel, MenuItem, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from '@ui/components/ui/Menu';
@@ -207,6 +209,8 @@ export default function Shell() {
 }
 
 function ShellScreens() {
+  /* Owner's round 15 pick: roomy or compact rows, a personal choice in the name menu (not in Books, which has its own). */
+  const { density, toggle: toggleDensity } = useDensity();
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
   const [navOpen, setNavOpen] = useState(false);
@@ -1360,6 +1364,11 @@ function ShellScreens() {
                 <MenuItem className="min-h-11 gap-2 px-2" onClick={() => { setPlatformScreen('profile'); setShowMoreApps(false); }}>
                   <UserRound size={16} aria-hidden="true" /> My profile
                 </MenuItem>
+                {document.documentElement.dataset.palette === 'indigo' ? null : (
+                  <MenuItem className="min-h-11 gap-2 px-2" onClick={toggleDensity}>
+                    <Rows3 size={16} aria-hidden="true" /> {density === 'compact' ? 'Roomy rows' : 'Compact rows'}
+                  </MenuItem>
+                )}
                 <MenuItem className="min-h-11 gap-2 px-2" onClick={() => { setPublicPage('signin'); signOut(); }}>
                   <LogOut size={16} aria-hidden="true" /> Sign out
                 </MenuItem>

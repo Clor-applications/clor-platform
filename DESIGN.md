@@ -350,6 +350,26 @@ Rules these picks relax outside Books: *white only* (fields are grey), *two radi
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.
 
+### Round 15 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Row density | A "Compact rows" / "Roomy rows" switch in the name menu (`useDensity`) |
+| Wide tables | The first (name) column stays put when the table scrolls sideways |
+| Clearing filters | The button reads "Reset" |
+
+Picked and already how the app works: a spinner inside a busy button (`Button loading`); a
+green note on the same form after sending (`SuccessNote`); units written in the label.
+
+Picked, **not built yet**: search this app first, then others (the palette searches all apps
+alike); saved views as a dropdown by the title (no saved views yet); a row opening its detail
+below itself; an approval step line with times (approvals keep no step history yet); a thin
+setup bar across the top; a short guided tour for what is new; an anniversary card with face
+and years; payslip PDF with net pay big at the top (the PDF is drawn on the server); sort from
+the heading and a dropdown both; starring a screen so it shows at the top of the menu.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
