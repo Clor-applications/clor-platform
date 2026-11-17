@@ -734,3 +734,16 @@
 .ui-claim-steps li[data-done='true'] .ui-claim-step-dot { background: rgb(var(--act, var(--fg))); border-color: rgb(var(--act, var(--fg))); }
 .ui-claim-steps li[data-bad='true'] .ui-claim-step-dot { background: rgb(var(--neg)); border-color: rgb(var(--neg)); }
 .ui-claim-step-when { color: rgb(var(--fg-muted, var(--fg))); font-size: 0.75rem; }
+
+/* ---- Round 19 ---- */
+/* Text size: Small, Medium, Large from the name menu (useTextSize) */
+:root:not(#pk):not(#pk2):not([data-palette='indigo'])[data-text-size='small'] { font-size: 93.75%; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo'])[data-text-size='large'] { font-size: 112.5%; }
+.ui-textsize { display: flex; align-items: center; gap: 0.25rem; min-height: 2.75rem; padding: 0 0.5rem; }
+.ui-textsize-k { flex: 1; font-size: 0.875rem; }
+.ui-textsize-btn { display: inline-grid; place-content: center; width: 2rem; height: 2rem; border-radius: 8px; border: 1px solid transparent; background: transparent; color: rgb(var(--fg)); font-weight: 600; cursor: pointer; }
+.ui-textsize-btn[data-size='small'] { font-size: 12px; }
+.ui-textsize-btn[data-size='medium'] { font-size: 15px; }
+.ui-textsize-btn[data-size='large'] { font-size: 19px; }
+.ui-textsize-btn:hover { background: rgb(var(--fg) / 0.04); }
+.ui-textsize-btn[aria-pressed='true'] { border-color: rgb(var(--act, var(--fg))); color: rgb(var(--act-ink, var(--act, var(--fg)))); }

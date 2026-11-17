@@ -433,6 +433,23 @@ scheme; family as faces with relation and age; past jobs and education as two li
 chips; leave carried to next year as one sentence ("10 carried, 4 lapse"). Most need records
 CLOR does not keep yet.
 
+### Round 19 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Bigger text | Small, Medium, Large in the name menu (`useTextSize`, scales the root font; Books ignores it) |
+
+Picked, **not built yet** (each needs new data or a screen): salary bands as a table of job,
+min, mid, max; a bank account shown verified with the holder's name; background checks with a
+tag each; the buddy's face on a new joiner's home; a complaint form that asks who to tell
+first; consent as one "I agree" with a link; contract staff ending as a card with Renew and
+End; your own fields as a list with Add; a gratuity estimate with how it is worked out; PAN and
+Aadhaar with a small green tick once checked; a list of everyone paid below minimum wage; open
+shifts marked on my week; open positions as filled out of planned per team; a page listing
+scheduled report emails; incentives typed into a table for the month.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
