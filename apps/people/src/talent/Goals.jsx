@@ -11,7 +11,7 @@ import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { Meter, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import { Avatar } from '@ui/personnel/Employees';
 import { checkIn, createGoal, getGoal, listGoals, updateGoal } from '../api/talent';
 import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, todayIst, useParamState, usedValues, useStaff, when } from './shared';
@@ -24,8 +24,19 @@ import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, to
 const TABS = [['ACTIVE', 'Active'], ['DONE', 'Done'], ['DROPPED', 'Dropped'], ['all', 'All']];
 const STATUS = { ACTIVE: ['Active', 'ui-pill-info'], DONE: ['Done', 'ui-pill-pos'], DROPPED: ['Dropped', 'ui-pill-neutral'] };
 
-/* Progress as a bar (R&D PEOPLE-20): the first categorical colour, the good-state colour once done; the figure is always written. */
-export const Progress = ({ value }) => <Meter value={value || 0} tone={Number(value) >= 100 ? 'pos' : null} />;
+/* Progress as a ring per goal (owner's round 8 pick): the app colour, the good-state colour once done; the figure is always written. */
+export const Progress = ({ value }) => {
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <span className="ui-goal-ring">
+      <svg viewBox="0 0 36 36" width="22" height="22" aria-hidden="true">
+        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" stroke="rgb(var(--border))" />
+        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="5" strokeLinecap="round" stroke={v >= 100 ? 'rgb(var(--pos))' : 'rgb(var(--act, var(--fg)))'} strokeDasharray={`${v * 0.94} 94`} transform="rotate(-90 18 18)" />
+      </svg>
+      <span className="tabular-nums">{Math.round(v)}%</span>
+    </span>
+  );
+};
 
 export default function Goals({ params = {} }) {
   const [status, setStatus] = useState('ACTIVE');

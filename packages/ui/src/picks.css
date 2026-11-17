@@ -550,3 +550,25 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-run-steps > li.is-current > span { border-color: rgb(var(--act, var(--fg))); color: rgb(var(--act, var(--fg))); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-run-steps > li.is-done + li::before,
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-run-steps > li.is-done + li.is-current::before { background: rgb(var(--act, var(--fg))); }
+
+/* ======================================================================
+   Round 8 (17 Nov 2026). Same rule: everywhere except Books.
+   ====================================================================== */
+
+/* ---- Roster: each shift a solid block in its colour ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ros-shift { background-color: rgb(var(--tone)) !important; color: #fff; border-radius: 4px; }
+
+/* ---- Overtime: a tag on the day ---- */
+.ui-ot-tag { display: inline-flex; padding: 0.0625rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+
+/* ---- Goals: a ring per goal ---- */
+.ui-goal-ring { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.8125rem; }
+
+/* ---- Review ratings: stars ---- */
+.ui-stars { color: rgb(var(--act, var(--fg))); letter-spacing: 1px; white-space: nowrap; }
+.ui-stars > span { color: rgb(var(--border-strong)); }
+
+/* ---- Holiday list: a date tile before each holiday ---- */
+.ui-date-tile { display: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile { display: inline-grid; place-items: center; flex: none; width: 2.75rem; padding: 0.25rem 0; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 1.125rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-date-tile > b { font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: rgb(var(--act, var(--fg))); }

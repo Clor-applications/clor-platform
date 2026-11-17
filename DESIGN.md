@@ -205,6 +205,28 @@ details on tap; pull down to refresh; who can do what as a grid of ticks; seats 
 seats free; faces of who else is away on a leave clash; change since last month as a tag with
 the percentage; Workspace apps as icons in a row.
 
+### Round 8 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Shift on the roster | A solid block in the shift's colour with white letters |
+| Overtime | An amber tag on the day ("+2h 05m OT") in the employee app |
+| Holiday list | A date tile (month over day) before each holiday in the employee app |
+| Goals | A ring per goal with the percent beside it; green once done |
+| Review rating | Five stars in the app colour, with the words kept beside them |
+
+Picked, **not built yet**: a short form to fix a missed punch; "Use where I am now" to set the
+office punch area; one form for a leave type; the team leave calendar day by day with faces;
+old and new tax regimes side by side on the declaration; Form 16 as a list of files; the
+advance's repayment plan; back pay as a tag with details on tap; expense claims gathered and
+sent together; joiner checklist as progress and the next step; letters made in one step and
+sent to sign; company things as icons; company news as posts with reactions; asking HR as a
+chat; reports as tiles with a small preview; downloads with a file type to pick; connecting
+apps as tiles; sign-ins as a small chart; a big punch button in the middle of the phone's
+bottom bar; the phone payslip with net pay first.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.

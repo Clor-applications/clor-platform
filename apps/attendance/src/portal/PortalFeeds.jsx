@@ -158,7 +158,8 @@ export function HolidaysYear({ guard }) {
             <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
               {shown.holidays.map((h) => (
                 <li key={`${h.date}|${h.name}`} className="flex items-center justify-between gap-2 py-2 text-sm" style={h.past ? { color: 'rgb(var(--fg-muted))' } : undefined}>
-                  <span className="min-w-0">
+                  <span className="ui-date-tile" aria-hidden="true"><b>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(h.date.slice(5, 7)) - 1]}</b>{Number(h.date.slice(8, 10))}</span>
+                  <span className="min-w-0 flex-1">
                     <span className="block">{h.name}</span>
                     <span className="ui-caption">{dayLabel(h.date)}{h.restricted ? (h.picked ? ' · Optional · Picked' : ' · Optional') : ''}</span>
                   </span>
