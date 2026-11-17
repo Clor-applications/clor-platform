@@ -478,6 +478,22 @@ async function attempt(row: OutboxRow, accountId?: string | null, orgId?: string
   }
 }
 
+/**
+ * Call off the messages about one thing that have not gone yet (waiting, or
+ * failed and due to be tried again), because what they say is no longer true:
+ * a reminder to pay an invoice that has since been paid. They are kept as
+ * SUPPRESSED with the reason, and neither the retry job nor `deliver` sends a
+ * suppressed message. A message that has gone is not touched. One a sender has
+ * in hand at this very moment may still go: that try is already under way.
+ */
+export async function cancelUnsent(about: { relatedType: string; relatedId: string; templateKeys: string[] }, reason: string) {
+  const r = await platformPrisma.emailOutbox.updateMany({
+    where: { relatedType: about.relatedType, relatedId: about.relatedId, templateKey: { in: about.templateKeys }, status: { in: ['QUEUED', 'FAILED'] } },
+    data: { status: 'SUPPRESSED', nextAttemptAt: null, lastError: reason.slice(0, 500) },
+  });
+  return r.count;
+}
+
 /** Retries failed messages, newest first. Safe to call repeatedly. */
 export async function retryFailed(accountId: string, orgId: string, limit = 25) {
   const rows = await platformPrisma.emailOutbox.findMany({

@@ -26,6 +26,7 @@ import { startOpsAlerts } from './services/ops/alerts.js';
 import { startEmailRetries } from './services/emailRetry.js';
 import { startRenewals } from './billing/renewals.js';
 import { startTrialReminders } from './billing/trialReminders.js';
+import { startInvoiceReminders } from './billing/invoiceReminders.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
@@ -131,6 +132,8 @@ startEmailRetries();
 /* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
 startRenewals();
 startTrialReminders();
+/* Reminders to pay an issued invoice, on the schedule in Invoice settings. Off until staff switch it on. */
+startInvoiceReminders();
 startBooksDigest();
 startWeeklySummary();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */

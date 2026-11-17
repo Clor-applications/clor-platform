@@ -11,7 +11,8 @@ import { InvoiceDocument, inr } from './InvoiceDocument';
  * shared by Billing & seats and Invoices: the list, one invoice opened as the
  * document, paying it online on the active gateway's page, and the way back
  * from that page (?paid=<invoice>), where the server is asked whether it was
- * paid before the invoice is shown again.
+ * paid before the invoice is shown again. The link in CLOR's invoice emails
+ * (?invoice=<invoice>) opens that invoice the same way, once.
  */
 export function useInvoices() {
   const [invoices, setInvoices] = useState(null);
@@ -67,7 +68,18 @@ export function useInvoices() {
           listInvoices();
           openInvoice(back);
         });
-    } else listInvoices();
+    } else {
+      /* From the link in an invoice email: open that invoice, and take the name out of the address so a reload does not open it again. */
+      const asked = new URLSearchParams(window.location.search).get('invoice');
+      if (asked) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('invoice');
+        window.history.replaceState(null, '', url.toString());
+      }
+      listInvoices().finally(() => {
+        if (asked && !cancelled) openInvoice(asked);
+      });
+    }
     return () => {
       cancelled = true;
       live.current = false;

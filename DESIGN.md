@@ -1003,6 +1003,14 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-17 — CLOR's invoices are emailed and reminded (owner: send, resend, remind, and automatic
+  reminders):** issuing an invoice in Ops offers "Email it to …", ticked; the invoice page has Send
+  again and Send reminder, each naming the recipient before it goes, and lists every email sent; the
+  Overdue view shows days late and last reminded. Invoice settings has Reminders, **off until a person
+  switches it on**, saying how many invoices would be reminded today first. Rule: **nothing is mailed
+  to a customer without a person having asked for it, either on that invoice or by switching the
+  schedule on.** Members also shows who signs in with an authenticator and when they last did; the
+  rule itself stays owners and administrators only (owner, same day).
 - **2026-11-17 — Easy access, batch 2:** *Ops:* Overview opens on "Needs you today", a list of the
   things themselves (trials ending in 7 days, overdue invoices, tickets urgent or not taken, approvals
   waiting, failed payments), five a group, each row opening the thing and "See all" opening its list

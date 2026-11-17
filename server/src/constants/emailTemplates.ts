@@ -123,6 +123,57 @@ Thank you for using CLOR.`,
     transactional: true,
   },
   {
+    key: 'billing.invoice_issued',
+    label: 'Invoice (to the customer)',
+    description: 'Sent to the email on the invoice, or the account owner, when CLOR staff issue an invoice or send it again (Money, Invoices; billing/invoiceEmail.ts). {{payDetails}} is the whole of how to pay: the online link when a gateway is on, then UPI and the bank account.',
+    subject: 'CLOR invoice {{number}} for {{amount}}',
+    body: `Hello {{userName}},
+
+CLOR invoice {{number}} for {{amount}} is due by {{dueOn}}.
+
+{{payDetails}}
+
+See the invoice: {{invoiceUrl}}
+
+Thank you for using CLOR.`,
+    fields: ['userName', 'number', 'amount', 'dueOn', 'daysLate', 'payUrl', 'invoiceUrl', 'payDetails'],
+    transactional: true,
+  },
+  {
+    key: 'billing.invoice_reminder',
+    label: 'Invoice reminder, before it is due (to the customer)',
+    description: 'Sent when CLOR staff remind a customer of an invoice that is not yet past its due date (Money, Invoices; billing/invoiceEmail.ts).',
+    subject: 'Reminder: CLOR invoice {{number}} is due by {{dueOn}}',
+    body: `Hello {{userName}},
+
+A reminder that CLOR invoice {{number}} for {{amount}} is due by {{dueOn}}.
+
+{{payDetails}}
+
+See the invoice: {{invoiceUrl}}
+
+Already paid? Reply with the payment reference and we will mark it paid.`,
+    fields: ['userName', 'number', 'amount', 'dueOn', 'daysLate', 'payUrl', 'invoiceUrl', 'payDetails'],
+    transactional: true,
+  },
+  {
+    key: 'billing.invoice_overdue',
+    label: 'Invoice overdue (to the customer)',
+    description: 'Sent when CLOR staff remind a customer of an invoice that is past its due date (Money, Invoices; billing/invoiceEmail.ts).',
+    subject: 'CLOR invoice {{number}} is overdue',
+    body: `Hello {{userName}},
+
+CLOR invoice {{number}} for {{amount}} was due on {{dueOn}} and is {{daysLate}} overdue.
+
+{{payDetails}}
+
+See the invoice: {{invoiceUrl}}
+
+Already paid? Reply with the payment reference and we will mark it paid.`,
+    fields: ['userName', 'number', 'amount', 'dueOn', 'daysLate', 'payUrl', 'invoiceUrl', 'payDetails'],
+    transactional: true,
+  },
+  {
     key: 'ops.approval_asked',
     label: 'A discount waits for approval (to CLOR staff)',
     description: 'Sent to Billing staff and the owner when a colleague sets a deal whose discount is over the limit on the Approvals page. Someone other than the person who asked must approve it.',

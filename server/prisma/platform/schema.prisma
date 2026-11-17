@@ -1718,6 +1718,12 @@ model BillingInvoice {
   issuedByUserId   String?
   paidByUserId     String?
   voidedByUserId   String?
+  /// Emails about this invoice (billing/invoiceEmail.ts): staff can stop the
+  /// automatic reminders for one invoice; the count and last time are of
+  /// reminders only, not of the first email or a copy sent again.
+  remindersOff     Boolean   @default(false)
+  lastRemindedAt   DateTime?
+  reminderCount    Int       @default(0)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -1725,6 +1731,33 @@ model BillingInvoice {
   @@index([accountId])
   @@index([status, createdAt])
   @@index([payLinkId])
+}
+
+/// One email CLOR sent a customer about one of its invoices
+/// (billing/invoiceEmail.ts): the first one when it is issued, a copy sent
+/// again by staff, or a reminder to pay. The row is written before the mail
+/// goes, and `dedupeKey` is unique, so the same email is never sent twice:
+/// `<invoiceId>:issued` for the first, `<invoiceId>:auto:<step>` for an
+/// automatic one, the row's own id for one staff sent by hand. Platform data
+/// with no tenant policy, like BillingInvoice.
+model BillingInvoiceSend {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  accountId    String
+  /// ISSUED | RESEND | REMINDER
+  kind         String
+  /// manual | renewal | before:3 | due | after:7
+  step         String   @default("manual")
+  /// Sent by a job, not by a person pressing a button.
+  auto         Boolean  @default(false)
+  toEmail      String
+  /// The EmailOutbox row that carries it, once the mailer has taken it.
+  outboxId     String?
+  sentByUserId String?
+  dedupeKey    String   @unique
+  createdAt    DateTime @default(now())
+
+  @@index([invoiceId, createdAt])
 }
 
 /// A customer's question or problem for CLOR support (Ops plan P1, customer

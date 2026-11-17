@@ -1,19 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 import { PageHead, WsDrawer } from '../../apps/admin/src/screens/wsKit';
 import { InvoiceDocument, InvoiceStatus } from '../../apps/admin/src/screens/InvoiceDocument';
 import {
   opsDiscardInvoice,
   opsInvoice,
+  opsInvoiceReminders,
+  opsInvoiceSends,
   opsInvoiceStart,
   opsInvoices,
   opsIssueInvoice,
   opsMarkInvoicePaid,
   opsNewInvoice,
   opsPaymentAccounts,
+  opsRemindInvoice,
   opsSaveInvoice,
+  opsSendInvoiceAgain,
   opsSendInvoiceToBooks,
   opsVoidInvoice,
 } from './api';
@@ -28,6 +32,10 @@ import { inr, rupeesText, toPaise } from './money';
  * Workspace with a UPI QR and CLOR's bank account. Mark paid takes the UTR
  * and moves the subscription on. Each issued invoice can go to CLOR's own
  * Books as a draft (the CLOR Books connector, item 10).
+ *
+ * An invoice is emailed to the customer when it is issued (staff choose),
+ * again by hand, and as a reminder to pay (server: billing/invoiceEmail.ts).
+ * Every email is listed under the document.
  */
 const STATES = Object.entries(GST_STATE_BY_CODE)
   .filter(([, n]) => !/\(Old\)/.test(n))
@@ -42,6 +50,38 @@ const FILTERS = [
   ['VOID', 'Cancelled'],
 ];
 const BOOKS_WORD = { SENT: 'In Books', FAILED: 'Not sent: retry', NOT_SENT: '—' };
+const times = (n) => (n === 1 ? 'once' : `${n} times`);
+/** Whole days past the due date, by the Indian calendar; 0 when not late. */
+export const daysLate = (dueDate, now = Date.now()) => {
+  if (!dueDate) return 0;
+  const istDay = (t) => Math.floor((new Date(t).getTime() + 330 * 60000) / 86400000);
+  return Math.max(0, istDay(now) - istDay(dueDate));
+};
+
+/**
+ * Ask, naming who gets it, then send. Shared by the invoice page and the
+ * Overdue list so both say the same thing. Answers the server's reply, or
+ * null when the person said no or it was refused (the refusal is shown).
+ */
+async function emailInvoice(inv, kind, to) {
+  const reminder = kind === 'remind';
+  const ok = await confirmDialog({
+    title: reminder ? 'Send a reminder?' : 'Send the invoice again?',
+    message: reminder ? `A reminder to pay ${inv.number} (${inr(inv.total)}) goes to ${to}.` : `${inv.number} goes to ${to} again, with how to pay ${inr(inv.total)}.`,
+    confirmLabel: reminder ? 'Send reminder' : 'Send again',
+    tone: 'primary',
+  });
+  if (!ok) return null;
+  try {
+    const r = await (reminder ? opsRemindInvoice : opsSendInvoiceAgain)(inv.id);
+    if (r.emailed) notify.success(reminder ? `Reminder sent to ${r.emailedTo}.` : `Sent again to ${r.emailedTo}.`);
+    else notify.error(`The email did not go: ${r.emailError || 'try again in a minute.'}`);
+    return r;
+  } catch (e) {
+    notify.error(String(e?.message || e));
+    return null;
+  }
+}
 
 function Field({ id, label, hint, children }) {
   return (
@@ -70,13 +110,23 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
   const [pages, setPages] = useState([null]);
   const [error, setError] = useState('');
   const [making, setMaking] = useState(false);
+  const [reminding, setReminding] = useState('');
+  const [again, setAgain] = useState(0);
   const before = pages[pages.length - 1];
   useEffect(() => {
     opsInvoices({ status: status === 'all' ? '' : status, before })
       .then((r) => (setData(r), setError('')))
       .catch((e) => setError(String(e?.message || e)));
-  }, [status, before]);
+  }, [status, before, again]);
   const mayChange = may(role, 'BILLING');
+  /* Chasing is the Overdue view's job, so only it shows how late each one is and when it was last reminded. */
+  const chasing = status === 'OVERDUE';
+  const remind = async (r) => {
+    setReminding(r.id);
+    const sent = await emailInvoice(r, 'remind', r.sentTo || r.buyerName || r.account?.name || 'the customer');
+    setReminding('');
+    if (sent) setAgain((n) => n + 1);
+  };
   const t = data?.totals || {};
   const unpaid = t.ISSUED;
   return (
@@ -122,7 +172,20 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
                   Amount
                 </th>
                 <th>Status</th>
+                {chasing ? (
+                  <>
+                    <th className="ui-num" style={{ textAlign: 'right' }}>
+                      Days late
+                    </th>
+                    <th>Last reminded</th>
+                  </>
+                ) : null}
                 <th>Books</th>
+                {chasing && mayChange ? (
+                  <th>
+                    <span className="sr-only">Remind</span>
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -142,7 +205,25 @@ export function Invoices({ role, openInvoice, initialStatus = 'all' }) {
                   <td>
                     <InvoiceStatus status={r.status} overdue={r.overdue} />
                   </td>
+                  {chasing ? (
+                    <>
+                      <td className="ui-num" style={{ textAlign: 'right' }}>
+                        {daysLate(r.dueDate)}
+                      </td>
+                      <td style={{ whiteSpace: 'normal' }}>
+                        {r.lastRemindedAt ? `${day(r.lastRemindedAt)}${r.reminderCount > 1 ? `, ${times(r.reminderCount)} in all` : ''}` : 'Never'}
+                        {r.remindersOff ? <span className="ws-item-sub" style={{ display: 'block' }}>Automatic reminders stopped</span> : null}
+                      </td>
+                    </>
+                  ) : null}
                   <td className="ws-item-sub">{r.status === 'DRAFT' ? '—' : BOOKS_WORD[r.booksStatus] || '—'}</td>
+                  {chasing && mayChange ? (
+                    <td style={{ textAlign: 'right' }}>
+                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" aria-label={`Send reminder for ${r.number}`} disabled={reminding === r.id} onClick={() => remind(r)}>
+                        Send reminder
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -391,14 +472,46 @@ export function InvoicePage({ id, role, back, openCustomer }) {
   const [inv, setInv] = useState(null);
   const [error, setError] = useState('');
   const [doing, setDoing] = useState(null);
+  const [emailIt, setEmailIt] = useState(true);
+  const [sends, setSends] = useState(null);
   const load = useCallback(() => {
     opsInvoice(id)
       .then((r) => (setInv(r), setError('')))
       .catch((e) => setError(String(e?.message || e)));
   }, [id]);
   useEffect(load, [load]);
+  const loadSends = useCallback(() => {
+    opsInvoiceSends(id)
+      .then((r) => setSends(r?.sends || []))
+      .catch(() => setSends([]));
+  }, [id]);
+  /* A draft has never been emailed, so its list is not asked for. */
+  const numbered = Boolean(inv && inv.status !== 'DRAFT');
+  useEffect(() => {
+    if (numbered) loadSends();
+  }, [numbered, loadSends]);
   if (!inv) return error ? <Err>{error}</Err> : <Loading />;
   const mayChange = may(role, 'BILLING');
+  const mayEmail = mayChange && inv.status === 'ISSUED' && Boolean(inv.emailTo);
+  const email = async (kind) => {
+    setDoing(kind);
+    const r = await emailInvoice(inv, kind, inv.emailTo);
+    setDoing(null);
+    if (!r) return;
+    setInv(r);
+    loadSends();
+  };
+  const setReminders = async (off) => {
+    setDoing('reminders');
+    try {
+      setInv(await opsInvoiceReminders(inv.id, off));
+      notify.success(off ? 'Automatic reminders are stopped for this invoice. Send reminder still works.' : 'Automatic reminders are allowed again for this invoice.');
+    } catch (e) {
+      notify.error(String(e?.message || e));
+    } finally {
+      setDoing(null);
+    }
+  };
   const done = (r, message) => {
     if (r) setInv(r);
     setDoing(null);
@@ -449,7 +562,7 @@ export function InvoicePage({ id, role, back, openCustomer }) {
               All invoices
             </button>
             {primary ? (
-              <button type="button" className="ws-btn ws-btn--primary" onClick={() => setDoing(primary[0])}>
+              <button type="button" className="ws-btn ws-btn--primary" onClick={() => (setEmailIt(true), setDoing(primary[0]))}>
                 {primary[1]}
               </button>
             ) : null}
@@ -458,6 +571,22 @@ export function InvoicePage({ id, role, back, openCustomer }) {
       />
 
       <div className="grid gap-6" style={{ gridTemplateColumns: 'minmax(0, 1fr)', maxWidth: 960 }}>
+        {numbered ? (
+          <p className="ws-item-sub" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 12px' }}>
+            <span>{inv.sentTo ? `Emailed to ${inv.sentTo} on ${day(inv.lastSentAt)}` : 'Not emailed yet'}</span>
+            {inv.reminderCount ? (
+              <span>
+                Reminded {times(inv.reminderCount)}, last on {day(inv.lastRemindedAt)}
+              </span>
+            ) : null}
+            {inv.status === 'ISSUED' && inv.remindersOff ? <span>Automatic reminders are stopped for this invoice</span> : null}
+            {mayChange && inv.status === 'ISSUED' ? (
+              <button type="button" className="ws-link" disabled={doing === 'reminders'} onClick={() => setReminders(!inv.remindersOff)}>
+                {inv.remindersOff ? 'Allow automatic reminders again' : 'Stop automatic reminders for this invoice'}
+              </button>
+            ) : null}
+          </p>
+        ) : null}
         {mayChange && inv.status !== 'VOID' ? (
           <div className="flex flex-wrap gap-2">
             {inv.status === 'DRAFT' ? (
@@ -467,6 +596,16 @@ export function InvoicePage({ id, role, back, openCustomer }) {
                 </button>
                 <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => setDoing('discard')}>
                   Discard the draft
+                </button>
+              </>
+            ) : null}
+            {mayEmail ? (
+              <>
+                <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={doing === 'send'} onClick={() => email('send')}>
+                  Send again
+                </button>
+                <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" disabled={doing === 'remind'} onClick={() => email('remind')}>
+                  Send reminder
                 </button>
               </>
             ) : null}
@@ -490,22 +629,44 @@ export function InvoicePage({ id, role, back, openCustomer }) {
           </p>
         ) : null}
 
+        {inv.status === 'ISSUED' && !inv.emailTo ? <p className="ws-item-sub">No email on this invoice and no owner to send to, so it cannot be emailed or reminded.</p> : null}
+
         <InvoiceDocument invoice={inv} />
+
+        {numbered ? <EmailsSent sends={sends} /> : null}
       </div>
 
       {doing === 'edit' ? <InvoiceForm invoice={inv} onClose={() => setDoing(null)} onSaved={(r) => done(r)} /> : null}
       <ReasonDrawer
         open={doing === 'issue'}
         title="Issue this invoice"
-        what={`It gets the next number of this year’s series and today’s date, and nothing on it can change after. ${inv.account?.name || 'The customer'} sees it in Workspace, Billing, with how to pay ${inr(inv.total)}.`}
+        what="It gets the next number of this year’s series and today’s date, and nothing on it can change after."
         confirmLabel="Issue invoice"
         reasonOptional
         onClose={() => setDoing(null)}
         onConfirm={async () => {
-          const r = await opsIssueInvoice(inv.id);
-          done(r, `Issued as ${r.number}.${r.books?.ok ? ' Sent to Books.' : ''}`);
+          /* Always true or false, never left out: the server emails only on an explicit yes. */
+          const r = await opsIssueInvoice(inv.id, Boolean(inv.emailTo) && emailIt);
+          const books = r.books?.ok ? ' Sent to Books.' : '';
+          if (r.emailed) done(r, `Issued and emailed to ${r.emailedTo}.${books}`);
+          else if (r.emailError) {
+            done(r);
+            notify.error(`Issued. The email did not go: ${r.emailError}`);
+          } else done(r, `Issued. Not emailed.${books}`);
         }}
-      />
+      >
+        <label className="flex items-start gap-3">
+          <input type="checkbox" checked={Boolean(inv.emailTo) && emailIt} disabled={!inv.emailTo} onChange={(e) => setEmailIt(e.target.checked)} aria-describedby="issue-email-note" />
+          <span>
+            <span className="font-medium">{inv.emailTo ? `Email it to ${inv.emailTo}` : 'Email it to the customer'}</span>
+            <span id="issue-email-note" className="ws-card-blurb" style={{ display: 'block' }}>
+              {inv.emailTo
+                ? `The email carries the invoice and how to pay ${inr(inv.total)}. Either way, ${inv.account?.name || 'the customer'} sees it in Workspace, Billing.`
+                : 'No email on this invoice and no owner to send to. Add the customer’s email to the draft first.'}
+            </span>
+          </span>
+        </label>
+      </ReasonDrawer>
       <ReasonDrawer
         open={doing === 'discard'}
         title="Discard this draft"
@@ -531,6 +692,49 @@ export function InvoicePage({ id, role, back, openCustomer }) {
       />
       {doing === 'paid' ? <MarkPaid inv={inv} onClose={() => setDoing(null)} onDone={(r) => done(r, r.paidUntil ? `Paid. ${inv.account?.name || 'The account'} is paid until ${day(r.paidUntil)}.` : 'Paid.')} /> : null}
     </>
+  );
+}
+
+/* What one email was, in words. A reminder's step is how the schedule names it ("before:3", "due", "after:7"); one sent by hand says so. */
+export function sendWords(s) {
+  if (s.kind === 'ISSUED') return 'Invoice';
+  if (s.kind === 'RESEND') return 'Sent again';
+  const step = String(s.step || '').toLowerCase();
+  if (!s.auto || step === 'manual') return 'Reminder: by hand';
+  const n = Number((step.match(/\d+/) || [])[0] || 0);
+  const days = `${n} ${n === 1 ? 'day' : 'days'}`;
+  if (!n) return /due|^0$/.test(step) ? 'Reminder: on the due date' : 'Reminder';
+  return /before|^-/.test(step) ? `Reminder: ${days} before due` : `Reminder: ${days} overdue`;
+}
+
+function EmailsSent({ sends }) {
+  return (
+    <section aria-labelledby="inv-emails" className="grid gap-2">
+      <h2 id="inv-emails" className="ws-panel-title">
+        Emails sent
+      </h2>
+      {sends === null ? (
+        <Loading />
+      ) : !sends.length ? (
+        <p className="ws-card-blurb">Nothing sent yet.</p>
+      ) : (
+        <ul className="ws-list">
+          {sends.map((s) => (
+            <li key={s.id} className="ws-item" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+              <span className="ws-item-text">
+                <span className="ws-item-title">{sendWords(s)}</span>
+                <span className="ws-item-sub">
+                  To {s.toEmail}
+                  {s.auto ? ' · automatic' : s.sentByName ? ` · ${s.sentByName}` : ''}
+                  {s.delivery === 'FAILED' ? ` · not delivered${s.deliveryError ? `: ${s.deliveryError}` : ''}` : ''}
+                </span>
+              </span>
+              <span className="ws-item-sub">{when(s.createdAt)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
