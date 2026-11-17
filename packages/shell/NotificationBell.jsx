@@ -76,7 +76,7 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8} collisionPadding={16} positionMethod="fixed" style={{ zIndex: 'var(--z-platform-menu)' }}>
-        <Popover.Popup className="ui-menu" style={{ width: 'min(24rem, calc(100vw - 32px))', padding: 8, outline: 'none' }} aria-label="Notifications">
+        <Popover.Popup className="ui-menu ui-bell-panel" style={{ outline: 'none' }} aria-label="Notifications">
           {onOpenWaiting ? (
             <button type="button" className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm ui-hover-sunken" onClick={() => { setOpen(false); onOpenWaiting(); }}>
               <span>{waitingN ? <><strong className="tabular-nums">{waitingN}</strong> {waitingN === 1 ? 'thing waits' : 'things wait'} for your answer</> : 'Nothing waits for your answer'}</span>
