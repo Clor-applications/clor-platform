@@ -150,7 +150,7 @@ export function HolidaysYear({ guard }) {
         <>
           {restricted.length ? (
             <p className="ui-caption tabular-nums">
-              {shown.quota > 0 ? `Optional holidays: ${shown.picked} of ${shown.quota} picked. An optional day is a working day unless you pick it.` : 'Optional holidays are listed, but your company has not set how many you may pick. Ask HR.'}
+              {shown.quota > 0 ? `Optional holidays: ${shown.picked} of ${shown.quota} chosen. An optional day is a working day unless you tick it.` : 'Optional holidays are listed, but your company has not set how many you may pick. Ask HR.'}
             </p>
           ) : null}
           {note ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{note}</p> : null}
@@ -161,10 +161,10 @@ export function HolidaysYear({ guard }) {
                   <span className="ui-date-tile" aria-hidden="true"><b>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(h.date.slice(5, 7)) - 1]}</b>{Number(h.date.slice(8, 10))}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block">{h.name}</span>
-                    <span className="ui-caption">{dayLabel(h.date)}{h.restricted ? (h.picked ? ' · Optional · Picked' : ' · Optional') : ''}</span>
+                    <span className="ui-caption">{dayLabel(h.date)}{h.restricted ? (h.picked ? ' · Optional · Chosen' : ' · Optional') : ''}</span>
                   </span>
                   {h.restricted && shown.quota > 0 && !h.past ? (
-                    <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm shrink-0" disabled={busy === h.id || (!h.picked && shown.left <= 0)} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
+                    <input type="checkbox" className="ui-checkbox ui-holiday-tick shrink-0" aria-label={`Take ${h.name} off`} checked={Boolean(h.picked)} disabled={busy === h.id || (!h.picked && shown.left <= 0)} onChange={() => pick(h)} />
                   ) : null}
                 </li>
               ))}

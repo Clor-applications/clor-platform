@@ -708,3 +708,15 @@
 /* Wide tables: the first column stays put while scrolling sideways */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datatable :is(th, td):first-child { position: sticky; left: 0; z-index: 1; background: rgb(var(--surface, 255 255 255)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datatable thead :is(th):first-child { z-index: 3; }
+
+/* ---- Round 16 ---- */
+/* Where a punch was made: the place name after a small pin */
+.ui-punch-place { display: inline-flex; align-items: flex-start; gap: 0.3rem; }
+.ui-punch-pin { flex: none; margin-top: 0.2rem; color: rgb(var(--act-ink, var(--act, var(--fg)))); }
+/* Locked payroll month: a small tag beside the month's name */
+.ui-lock-tag { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; vertical-align: middle; color: rgb(var(--fg)); background: rgb(var(--fg) / 0.07); }
+/* Things given to an employee: an icon before each */
+.ui-asset-icon { color: rgb(var(--act-ink, var(--act, var(--fg)))); }
+/* Optional holidays: a tick per holiday, at the row's end */
+.ui-holiday-tick { width: 1.125rem; height: 1.125rem; cursor: pointer; }
+.ui-holiday-tick:disabled { cursor: not-allowed; }

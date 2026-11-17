@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Armchair, Car, CreditCard, Headphones, IdCard, KeyRound, Laptop, Monitor, Package, Smartphone } from 'lucide-react';
 
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
@@ -184,6 +185,17 @@ export function PersonPolicies({ employeeId, openScreen }) {
 
 /* ------------------------------------------------------------------ Assets they hold (gap 22) */
 
+/** An icon for a register item, from its category or name; a plain box when nothing matches. */
+const ASSET_ICONS = [
+  [/laptop|notebook|macbook|computer/i, Laptop], [/monitor|screen|display/i, Monitor], [/phone|mobile|sim/i, Smartphone],
+  [/id ?card|badge|access card/i, IdCard], [/card|fuel/i, CreditCard], [/key/i, KeyRound], [/car|bike|vehicle/i, Car],
+  [/headset|headphone/i, Headphones], [/chair|desk|furniture/i, Armchair],
+];
+export function assetIcon(a) {
+  const text = `${a?.details?.category || ''} ${a?.title || ''}`;
+  return (ASSET_ICONS.find(([re]) => re.test(text)) || [null, Package])[1];
+}
+
 const ASSET_WORD = { ASSIGNED: 'With them', RETURNED: 'Returned', REPAIR: 'In repair', AVAILABLE: 'Available', RETIRED: 'Retired' };
 
 /** Shown only when the company keeps an assets register (Pay, benefits & assets on) and the viewer may read it. */
@@ -208,6 +220,7 @@ export function PersonAssets({ employeeId, openScreen }) {
         <ul className="divide-y border-t text-sm" aria-label="Assets">
           {[...held, ...earlier].map((a) => (
             <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+              {React.createElement(assetIcon(a), { size: 16, 'aria-hidden': true, className: 'ui-asset-icon shrink-0' })}
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{a.title}</span>
                 <span className="block ui-caption">{[a.details?.assetTag, a.details?.category, a.details?.issuedOn ? `issued ${day(a.details.issuedOn)}` : null].filter(Boolean).join(' · ')}</span>

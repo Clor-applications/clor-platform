@@ -192,7 +192,7 @@ export default function PhonePunches() {
                   <td className="ui-col-date whitespace-nowrap tabular-nums">{p.time}</td>
                   <td className="ui-col-entity">{p.name}</td>
                   <td>{kindLabel(p)}</td>
-                  <td className="ui-col-grow whitespace-normal min-w-[12rem]"><span className="block" title={p.address || ''}>{p.address || <span className="ui-caption">Address not found</span>}</span><span className="ui-caption">{p.accuracy != null ? `±${metres(p.accuracy)}` : ''}</span></td>
+                  <td className="ui-col-grow whitespace-normal min-w-[12rem]"><span className="ui-punch-place" title={p.address || ''}>{p.address ? <><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{p.address}</> : <span className="ui-caption">Address not found</span>}</span><span className="ui-caption">{p.accuracy != null ? `±${metres(p.accuracy)}` : ''}</span></td>
                   <td>{p.nearest ? <span>{p.nearest.name}<span className="ui-caption"> · {metres(p.nearest.distance)} away</span></span> : <span className="ui-caption">—</span>}</td>
                   <td className="ui-col-h-center"><span className={`ui-pill ${p.review === 'PENDING' ? 'ui-pill-warn' : p.review === 'REJECTED' ? 'ui-pill-neg' : 'ui-pill-pos'}`}>{reviewLabel(p)}</span></td>
                   <td className="ui-col-meta">
@@ -231,7 +231,7 @@ export default function PhonePunches() {
                   <td className="ui-col-date whitespace-nowrap tabular-nums">{p.time}</td>
                   <td className="ui-col-entity">{p.name}</td>
                   <td>{kindLabel(p)}</td>
-                  <td>{p.site || <span className="ui-caption">—</span>}</td>
+                  <td>{p.site ? <span className="ui-punch-place"><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{p.site}</span> : <span className="ui-caption">—</span>}</td>
                   <td className="ui-num">{metres(p.distance)}{p.radius ? <span className="ui-caption"> / {metres(p.radius)}</span> : null}</td>
                   <td className="ui-num">{p.accuracy != null ? `±${metres(p.accuracy)}` : '—'}</td>
                   <td className="ui-col-meta"><span className="flex items-center justify-end gap-1">{tools(p)}</span></td>

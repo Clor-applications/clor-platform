@@ -370,6 +370,27 @@ setup bar across the top; a short guided tour for what is new; an anniversary ca
 and years; payslip PDF with net pay big at the top (the PDF is drawn on the server); sort from
 the heading and a dropdown both; starring a screen so it shows at the top of the menu.
 
+### Round 16 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Optional holidays | A tick per holiday with "2 of 2 chosen" (employee app and My leave) |
+| Where a punch was made | The place name after a small pin (phone punches) |
+| Locked payroll month | A "Locked" tag beside the month's name (payroll periods) |
+| Things given to an employee | An icon before each asset on the record |
+
+Picked and already how the app works: leave left shown beside each leave type when asking;
+training progress as a bar with the percent.
+
+Picked, **not built yet**: a small photo beside the punch time (photos load one at a time
+today); a manager's team as face cards with today's status; the expense bill as a file row
+(the server does not send the bill's type yet); ratings as faces; help pages as questions and
+answers; the leaving checklist with who does each step; a status tag on each tax proof; a line
+under a changed day saying who changed it and why; a shift swap on a calendar; overtime hours
+shown with the pay they cost.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
