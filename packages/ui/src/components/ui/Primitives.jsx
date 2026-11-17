@@ -370,8 +370,19 @@ export const EmptyState = ({
    reader hearing twenty shimmering boxes learns nothing.
 --------------------------------------------------------------------------- */
 
+/**
+ * Owner's pick (17 Nov 2026, round 5): while something loads, a spinner with "Loading…", not grey
+ * shapes. Books keeps its grey shapes.
+ */
+export const loadsWithSpinner = () => typeof document === 'undefined' || document.documentElement.dataset.palette !== 'indigo';
+export const LoadingSpinner = ({ label = 'Loading…' }) => (
+  <span className="ui-loading"><span className="ui-spinner" aria-hidden="true" />{label}</span>
+);
+
 /** Skeleton row for tables — reserves height so loading does not shift layout. */
-export const SkeletonRows = ({ rows = 5, cols = 4 }) => (
+export const SkeletonRows = ({ rows = 5, cols = 4 }) => (loadsWithSpinner() ? (
+  <tr aria-hidden="true"><td colSpan={cols} className="ui-loading-cell"><LoadingSpinner /></td></tr>
+) : (
   <>
     {Array.from({ length: rows }).map((_, r) => (
       <tr key={r} aria-hidden="true">
@@ -383,7 +394,7 @@ export const SkeletonRows = ({ rows = 5, cols = 4 }) => (
       </tr>
     ))}
   </>
-);
+));
 
 /**
  * Drop-in replacement for a centred "Loading…" line above a table: rows the
@@ -401,7 +412,7 @@ export const TableSkeleton = ({ rows = 6, cols = 4 }) => (
 );
 
 /** Placeholder for a metric tile, matching StatTile's height exactly. */
-export const SkeletonStats = ({ count = 4 }) => (
+export const SkeletonStats = ({ count = 4 }) => (loadsWithSpinner() ? <div className="ui-loading-block" aria-hidden="true"><LoadingSpinner /></div> : (
   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-hidden="true">
     {Array.from({ length: count }).map((_, i) => (
       <div key={i} className="ui-card p-4">
@@ -411,10 +422,10 @@ export const SkeletonStats = ({ count = 4 }) => (
       </div>
     ))}
   </div>
-);
+));
 
 /** Placeholder for a card of prose or form fields. */
-export const SkeletonCard = ({ lines = 3 }) => (
+export const SkeletonCard = ({ lines = 3 }) => (loadsWithSpinner() ? <div className="ui-loading-block" aria-hidden="true"><LoadingSpinner /></div> : (
   <div className="ui-card p-4" aria-hidden="true">
     <div className="ui-skel ui-skel-title" />
     <div className="mt-4 space-y-2.5">
@@ -427,7 +438,7 @@ export const SkeletonCard = ({ lines = 3 }) => (
       ))}
     </div>
   </div>
-);
+));
 
 /**
  * Wraps a loading region so the wait is announced once, politely, instead of

@@ -36,6 +36,7 @@ import { emoji } from '@ui/components/ui/emoji';
 
 /* The friendly face on the screens panel's help card (Fluent Emoji, local). */
 const HelpFace = emoji('hugging-face');
+const initialsOf = (name = '') => String(name).trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 /* Colour icons inside the bar's two fields (owner, 17 Nov 2026): search and the company in use. */
 const SearchGlass = emoji('magnifying-glass-tilted-left');
 const CompanyBuilding = emoji('office-building');
@@ -439,6 +440,7 @@ function ShellScreens() {
   const [showMoreApps, setShowMoreApps] = useState(false);
   /* A phone with no app menu in the bar (the Workspace, a screen outside any app) chooses its company here. */
   const [companyOpen, setCompanyOpen] = useState(false);
+  const [meOpen, setMeOpen] = useState(false);
 
   /* `open` names a screen inside the app (Accounting's settings): carried in the address so it survives the hop to the app's own host. */
   /* `params` travel with it in the address too (Workspace's permissions opened for one app: ?for=payroll). */
@@ -1251,7 +1253,8 @@ function ShellScreens() {
           {/* The company in use. The Workspace shows it too: half its pages change only this company. */}
           {/* On a phone the company is chosen in the app menu ("People ⌄"), or, where the bar has no app menu (the Workspace),
               from a building button: two companies ran the picker under the bell and the profile button at 390px (#80 QA). */}
-          {!phone ? (
+          {/* Outside Books the company is chosen in your name menu (owner's pick, 17 Nov 2026). */}
+          {!phone && Root ? (
             <label className="ui-company-pick">
               <CompanyBuilding size={18} aria-hidden="true" className="ui-company-pick-icon" />
             <select
@@ -1277,7 +1280,7 @@ function ShellScreens() {
               )}
             </select>
             </label>
-          ) : tenants.length > 1 && !(app && !inWorkspace) ? (
+          ) : Root && tenants.length > 1 && !(app && !inWorkspace) ? (
             <UiMenu open={companyOpen} onOpenChange={setCompanyOpen}>
               <MenuTrigger className="ui-icon-btn" aria-label={`Company: ${tenant.name}`}>
                 <Building2 size={18} aria-hidden="true" />
@@ -1318,41 +1321,63 @@ function ShellScreens() {
           {/* Books' own profile menu (density, its settings) lands here, where every other app has its face. */}
           {Root ? <div id="ui-topbar-app-end" className="contents" /> : null}
 
+          {/* Your name menu (owner's pick, 17 Nov 2026): your face opens a menu with who you are, the company in use and
+              sign-out, so the bar holds no separate company picker or sign-out button. Books keeps its own (Root). */}
           {!Root ? (
+            <UiMenu open={meOpen} onOpenChange={setMeOpen}>
+              <MenuTrigger
+                className="ui-icon-btn"
+                /* The initials shown on the button are part of its name, so a voice user can say what they see. */
+                aria-label={`Your menu: ${user?.fullName ? `${initialsOf(user.fullName)}, ${user.fullName}` : 'profile'}, ${tenant.name}`}
+                style={user?.avatarUrl || user?.fullName ? { width: 38, height: 38, padding: 2, borderRadius: 999 } : undefined}
+              >
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" width="34" height="34" className="rounded-full object-cover" style={{ width: 34, height: 34, boxShadow: '0 0 0 2px rgb(var(--surface)), 0 0 0 3px rgb(var(--border))' }} />
+                ) : user?.fullName ? (
+                  <span className="ui-topbar-initials" aria-hidden="true">{initialsOf(user.fullName)}</span>
+                ) : (
+                  <UserRound size={18} aria-hidden="true" />
+                )}
+              </MenuTrigger>
+              <MenuPanel aria-label="Your menu" width="min(20rem, calc(100vw - 32px))" collisionPadding={16} align="end" zIndex="var(--z-platform-menu)">
+                <div className="ui-me-head" aria-hidden="true">
+                  {user?.avatarUrl ? <img src={user.avatarUrl} alt="" width="36" height="36" className="rounded-full object-cover" style={{ width: 36, height: 36 }} /> : <span className="ui-topbar-initials">{initialsOf(user?.fullName || '')}</span>}
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{user?.fullName || 'You'}</span>
+                    {user?.email ? <span className="block truncate ui-caption">{user.email}</span> : null}
+                  </span>
+                </div>
+                <MenuSeparator />
+                {tenants.length > 1 ? (
+                  <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => pickCompany(t.id)} />
+                ) : (
+                  <div className="px-2 py-1">
+                    <span className="block ui-caption">Company</span>
+                    <span className="flex items-center gap-2 text-sm font-semibold"><Building2 size={16} aria-hidden="true" />{tenant.name}</span>
+                  </div>
+                )}
+                <MenuSeparator />
+                <MenuItem className="min-h-11 gap-2 px-2" onClick={() => { setPlatformScreen('profile'); setShowMoreApps(false); }}>
+                  <UserRound size={16} aria-hidden="true" /> My profile
+                </MenuItem>
+                <MenuItem className="min-h-11 gap-2 px-2" onClick={() => { setPublicPage('signin'); signOut(); }}>
+                  <LogOut size={16} aria-hidden="true" /> Sign out
+                </MenuItem>
+              </MenuPanel>
+            </UiMenu>
+          ) : (
             <button
               type="button"
               className="ui-icon-btn"
               onClick={() => {
-                setPlatformScreen('profile');
-                setShowMoreApps(false);
+                setPublicPage('signin');
+                signOut();
               }}
-              title="My profile"
-              style={user?.avatarUrl || user?.fullName ? { width: 38, height: 38, padding: 2, borderRadius: 999 } : undefined}
+              aria-label="Sign out"
             >
-              {/* A person's own photo, larger and round, when they have one; otherwise the app's profile icon. */}
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt="" width="34" height="34" className="rounded-full object-cover" style={{ width: 34, height: 34, boxShadow: '0 0 0 2px rgb(var(--surface)), 0 0 0 3px rgb(var(--border))' }} />
-              ) : user?.fullName ? (
-                /* No photo yet: the person's initials, so the button is theirs at a glance (in the colour set too: a stock figure is nobody's). */
-                <span className="ui-topbar-initials" aria-hidden="true">{String(user.fullName).trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
-              ) : (
-                <UserRound size={18} aria-hidden="true" />
-              )}
-              <span className="sr-only">My profile</span>
+              <LogOut size={16} />
             </button>
-          ) : null}
-
-          <button
-            type="button"
-            className="ui-icon-btn"
-            onClick={() => {
-              setPublicPage('signin');
-              signOut();
-            }}
-            aria-label="Sign out"
-          >
-            <LogOut size={16} />
-          </button>
+          )}
         </header>
 
         <ExploreNotice explore={explore} demoUrl={DEMO_URL} />
@@ -1823,7 +1848,7 @@ function SubscriptionBanner({ billing }) {
   return (
     <div
       role="status"
-      className="px-6 py-2 text-sm"
+      className="ui-billing-strip px-6 py-2 text-sm"
       style={{ backgroundColor: 'rgb(var(--warn-soft))', color: 'rgb(var(--warn-ink))', borderBottom: '1px solid rgb(var(--border))' }}
     >
       {/* The server's own sentence when it has one (a trial that ended, routes/billing.ts `reason`); the old line otherwise. */}

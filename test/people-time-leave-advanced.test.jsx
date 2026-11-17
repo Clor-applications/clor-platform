@@ -213,7 +213,7 @@ describe('Delegates (stand-ins)', () => {
     const table = await screen.findByRole('table', { name: 'Delegates' });
     await waitFor(() => expect(within(table).getByText('Leave and attendance')).toBeInTheDocument());
     expect(within(table).getByText('All approvals')).toBeInTheDocument();
-    expect(within(table).getAllByRole('button', { name: /^Actions for/ })).toHaveLength(1);
+    expect(within(table).getAllByRole('group', { name: /^Actions for/ })).toHaveLength(1);
   });
 
   it('a team role names one for themselves only', async () => {

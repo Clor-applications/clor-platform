@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Columns3, MoreVertical, RefreshCw } from '@ui/components/ui/lineIcons';
 
 import Popover from './Popover';
+import { LoadingSpinner, loadsWithSpinner } from './Primitives';
 
 /**
  * DataTable (People design spec v1 §5, §4.2): one table for server-driven
@@ -17,7 +18,8 @@ import Popover from './Popover';
  *   row without a box (a row that cannot be decided with the others).
  * - Row actions: an ellipsis menu (keyboard: arrows, Enter, Escape); row click
  *   opens the record. A click on a control inside a row never opens it.
- * - Below 640px rows become cards: `card(row)` draws one.
+ * - Below 640px rows become cards: `card(row)` draws one. With `tiles`, wider
+ *   screens show the cards as a grid of tiles too (outside Books, picks.css).
  * - Loading: skeleton rows the shape of the table; refreshing keeps the rows
  *   and shows a quiet "Updating" mark (spec §8 background refresh).
  *
@@ -33,7 +35,29 @@ export function visibleColumns(columns, prefs) {
   return ordered.map((k) => byKey.get(k)).filter((c) => c.always || !hidden.has(c.key));
 }
 
+/*
+ * Row actions as words in the row (owner's pick, 17 Nov 2026): up to three actions show as text buttons,
+ * so each row says what can be done to it. More than three, and in Books, they stay behind the ⋮ menu.
+ */
+const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
+
 function RowMenu({ label, items }) {
+  if (items.length <= 3 && !inBooks()) {
+    return (
+      <span className="ui-row-words" role="group" aria-label={label}>
+        {items.map((it) => (
+          <button key={it.key} type="button" disabled={it.disabled} className={`ui-row-word ${it.danger ? 'is-danger' : ''}`}
+            onClick={(e) => { e.stopPropagation(); it.onSelect(); }}>
+            {it.label}
+          </button>
+        ))}
+      </span>
+    );
+  }
+  return <RowMenuButton label={label} items={items} />;
+}
+
+function RowMenuButton({ label, items }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
   const list = useRef(null);
@@ -154,7 +178,7 @@ export default function DataTable({
   rowActions = null, onRowClick = null, card = null,
   loading = false, refreshing = false, empty = null,
   total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, tabs = null, defaultPrefs = {},
-  rowLabel = null,
+  rowLabel = null, tiles = false,
 }) {
   /* What a row's menu and tick box are named after: its own words, never a database id (#80 QA: "Actions for cmv…" on Branches). */
   const nameOf = (r, id) => (rowLabel && rowLabel(r)) || r.name || r.employeeName || r.branchName || r.managerName || r.title || r.label || r.code || id;
@@ -179,7 +203,7 @@ export default function DataTable({
   };
 
   return (
-    <div className={`ui-datatable ${compact ? 'is-compact' : ''} ${card ? 'has-cards' : ''}`} aria-busy={loading || refreshing || undefined}>
+    <div className={`ui-datatable ${compact ? 'is-compact' : ''} ${card ? 'has-cards' : ''} ${card && tiles ? 'is-tiles' : ''}`} aria-busy={loading || refreshing || undefined}>
       {toolbar || onPrefs || tabs ? (
         <div className="ui-datatable-toolbar">
           {/* The list's own tabs (status, In use / Retired) start the search row instead of taking a row of their own (owner, 28 Oct 2026). */}
@@ -206,11 +230,13 @@ export default function DataTable({
                   ) : c.label}
                 </th>
               ))}
-              {rowActions ? <th scope="col" className="w-12"><span className="sr-only">Actions</span></th> : null}
+              {rowActions ? <th scope="col" className="ui-row-actions-col"><span className="sr-only">Actions</span></th> : null}
             </tr>
           </thead>
           <tbody className="ui-rows">
-            {loading ? Array.from({ length: 6 }, (_, i) => (
+            {loading && loadsWithSpinner() ? (
+              <tr aria-hidden="true"><td colSpan={cols.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="ui-loading-cell"><LoadingSpinner /></td></tr>
+            ) : loading ? Array.from({ length: 6 }, (_, i) => (
               <tr key={`sk${i}`} aria-hidden="true">
                 {selectable ? <td /> : null}
                 {cols.map((c) => <td key={c.key}><span className="ui-skel ui-skel-text" /></td>)}
@@ -228,7 +254,7 @@ export default function DataTable({
                       ) : c.render ? c.render(r) : (r[c.key] ?? '—')}
                     </td>
                   ))}
-                  {rowActions ? <td className="w-12 text-right">{(() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })()}</td> : null}
+                  {rowActions ? <td className="ui-row-actions-col text-right">{(() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })()}</td> : null}
                 </tr>
               );
             })}
@@ -237,7 +263,7 @@ export default function DataTable({
       </div>
       {card ? (
         <ul className="ui-datatable-cards" aria-label={label}>
-          {loading ? Array.from({ length: 4 }, (_, i) => <li key={`sk${i}`} className="ui-datatable-card" aria-hidden="true"><span className="ui-skel ui-skel-text" /></li>) : rows.map((r) => {
+          {loading && loadsWithSpinner() ? <li className="ui-datatable-card" aria-hidden="true"><LoadingSpinner /></li> : loading ? Array.from({ length: 4 }, (_, i) => <li key={`sk${i}`} className="ui-datatable-card" aria-hidden="true"><span className="ui-skel ui-skel-text" /></li>) : rows.map((r) => {
             const id = rowKey(r);
             return (
               <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''}`}>

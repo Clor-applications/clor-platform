@@ -11,6 +11,9 @@ const normalizeText = (v) => String(v || '').trim().toLowerCase();
 
 /** Below this many options there is nothing to search — the list is the search. */
 const SEARCH_THRESHOLD = 8;
+/** Outside Books the owner picked the search-on-top dropdown (17 Nov 2026): search from five options up. */
+const SEARCH_THRESHOLD_PICKED = 5;
+const searchThreshold = () => (typeof document !== 'undefined' && document.documentElement.dataset.palette !== 'indigo' ? SEARCH_THRESHOLD_PICKED : SEARCH_THRESHOLD);
 
 /**
  * Pick one value from a list.
@@ -85,7 +88,7 @@ const PopupSelect = ({
     });
   }, [normalizedQuery, options]);
 
-  const showSearch = alwaysSearch || (options || []).length >= SEARCH_THRESHOLD;
+  const showSearch = alwaysSearch || (options || []).length >= searchThreshold();
 
   const normalizedValue = String(value || '').trim();
   const displayLabel = useMemo(() => {

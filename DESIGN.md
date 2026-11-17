@@ -10,6 +10,277 @@ Preview (rendered): https://claude.ai/code/artifact/b5f06c26-a4de-4879-979f-fbb1
 - **Memorable thing:** *Serious software for serious work.* Calm, obviously accurate, never shouts. Trust is the product.
 - **What we say (8 Nov 2026):** accounts, GST, staff and salaries for small businesses in India, in plain words. No slogan or tagline on screens (*Done, daily* and *ticked off before tea* retired: they read as machine-made).
 
+## Owner's style picks (17 Nov 2026 — current, everywhere except Books)
+
+The owner chose one style for each building block on a picker page. The picks apply in
+Workspace, People, Payroll, Attendance, Ops and the Console. **Books is untouched** and keeps
+every rule below as written. All of it lives in `packages/ui/src/picks.css`, loaded last
+(`main.jsx`, `console/web/main.jsx`) and scoped away from `[data-palette='indigo']`. Where a
+pick and a rule further down this file disagree, the pick wins outside Books.
+
+| Building block | Pick | What it replaces outside Books |
+| --- | --- | --- |
+| Buttons | Square and compact: 3px corners, 36px, second button has an ink border | 8px button radius |
+| Text fields | Soft grey fill (`--field-fill` `#F1F1F1`), no border until focus; error is a red fill and border | White field with a `#D6D6D6` border; "grey is hover only" |
+| Dropdown | Search box on top (from 5 options up in `PopupSelect`) | Search from 8 options |
+| Tick boxes, switches | Sharp corners (1px box, 3px switch track) | Rounded |
+| Data table | Bold 2px ink rule under the header, white header, no lines between rows | `--list-head` header row, row hairlines |
+| Card | Glassy wash: app colour at 7% fading to white, white edge, soft shadow, 16px corners | Hairline border, 12px, no shadow; "two radii" |
+| Tabs | Pills; the open tab takes the app colour at 10% | Underline tabs |
+| List filters | Quick chips with counts (`.ui-filter-chips`, the `FilterTabs` row) | Underline status tabs |
+| Status | Solid tag: filled in the status colour, white text, 4px corners, no dot | Soft pill with a 6px dot |
+| Page header | Slim toolbar: 16px/600 title, hairline below, 32px buttons | 28px page title |
+| Side menu | Narrow rail, icon over name; the current item takes the app colour at 10% | Green selection wash |
+| Confirm dialog | Centred text, buttons stacked full width, action on top | Buttons on the right |
+| Toast | White with a green tick | — |
+| Empty screen | Centred with a picture | — |
+| Date picker | Rounded-square day (8px) | Square day |
+| Page controls | "Show more" button — **picked, not built yet**: lists still page from the server | Numbered pages (still in place) |
+
+Not built yet, each needs screen-by-screen work: show-more paging; search inside the plain
+`.ui-select` dropdowns; chips in place of dropdown filters; the Console side menu as a narrow
+rail. Dialogs that hold a form keep their buttons on the right.
+
+### Round 3 (17 Nov 2026)
+
+Built in `picks.css`:
+
+| Building block | Pick | What it replaces outside Books |
+| --- | --- | --- |
+| Links | Bold, app colour, underline on hover; an arrow after links that go to another page (`a.ui-link`) | Ink text with a quiet underline |
+| Counts | Pill in the app colour, white figure (`.ui-tab-count`, `.ui-side-count`, `.ui-segment-count`, `.ui-split-item-count`, `.ws-count`) | Grey figure |
+| Must-fill fields | A small "Required" tag in place of the star (`.ui-required` on the star) | Red star |
+
+Built later the same day (component work):
+
+| Building block | How it is built |
+| --- | --- |
+| Your name menu | Your face in the top bar opens a menu: who you are, the company in use (switch here), My profile, Sign out. The bar's separate company picker and sign-out button are gone outside Books (`Shell.jsx`) |
+| Notifications | Each notice shows its app's mark in the app's colour; the unread dot sits on the right (`NotificationBell.jsx`). Notices do not record who sent them, so the mark is the app, not a face |
+| Tooltips | White with a soft shadow, drawn by `TipLayer` from any element's `title` (mounted at the app root and in the Console) |
+| Long text | A text box with a `maxlength` shows "74 / 500" under it while typing (`TipLayer`) |
+| Folding sections | Every `<details>` sits in its own box (dropdown-style ones excluded) |
+| Comments | Chat bubbles in a record's activity (`.ui-activity-item.is-comments`) |
+| Row actions | `DataTable` shows up to three row actions as words in the row; more than three stay behind ⋮ |
+| Record header | The employee record's summary sits under a band of the app's colour (`.pc-summary`) |
+
+Picked and already how the app works: white top bar with a hairline, app switcher as a list
+with a line about each app, search everything as a command box with grouped results, "Help"
+in the top bar, soft colour notice strip, details as label above value in two columns, minus
+sign for money below zero, an arrow on the sorted column only, a bold totals row at the end,
+files as list rows.
+
+Built in the second batch (17 Nov 2026):
+
+| Building block | How it is built |
+| --- | --- |
+| Form sections | Heading and note on the left, fields on the right from 1024px (`.ui-form-part`; Add employee) |
+| Help text | Behind an "i" beside the label (`HelpTip`); keyboard focus shows it too |
+| Money fields | "INR" after the amount (`MoneyInput`; drawn by CSS so it never joins a label's text) |
+| Phone | Country code picker before the number (`PhoneInput`) |
+| Choosing many | A tick list (`TickList`; rotations, data protection) |
+| Date range | Quick periods first: this month, last month, last 3 months, this financial year (`RangePresets`) |
+| Copy | The word "Copy" beside masked numbers, GSTIN and employee codes (`CopyWord`) |
+| Approvals | Tick and cross buttons (`.ui-decide`; Approvals, Leave requests). Outside Books this replaces "Approve secondary, Reject as text"; the cross still asks for a reason |
+| Board cards | Soft shadow; the opening's hiring manager under the date; lane counts are pills |
+| Leave on calendars | Solid block in the app colour; waiting leave keeps its dashed outline |
+| Save | Top right in the page header (Attendance rules moved; other settings pages already were). Step-by-step wizards keep Continue at the bottom |
+| Success after a big task | A green note on the page (`SuccessNote`; payroll approved, payroll locked). Small saves keep the toast |
+
+Still **not built**: opening a record as list left, record right (needs each list screen
+reworked). Bar charts as square bars in the app colour: there are no bar charts outside Books
+yet, so this is the rule for the first one.
+
+### Round 4 (17 Nov 2026)
+
+Built in `picks.css` and small component changes:
+
+| Building block | Pick |
+| --- | --- |
+| Row height | Roomy rows |
+| Long lists | The header stays while rows scroll (`DataTable`'s scroll box) |
+| Ticking rows | Tick boxes show on hover, on a ticked row, or once any row is ticked; always on touch screens |
+| Dialogs on a phone | Full screen (sheets marked as sheets still rise from the bottom) |
+| Labels on a record | Coloured dot and the word (`.ui-tag`) |
+| Profile photo | Initials with "Add photo" / "Change photo" under them; no camera badge |
+| Person in the org chart | Face over name (stacked cards keep the face beside the name) |
+
+Picked and already how the app works: save feedback as a white toast with a tick; lists on a
+phone as two-line rows; no access as a page with a lock (the "Ask" button is still to add).
+
+Picked, **not built yet** (component or screen work): tabs along the bottom on a phone; trial
+and plan strip across the top; no internet as a box with Try again; large home greeting; quick
+actions as tiles with pictures; who is away with the reason; birthdays as cards; to-dos grouped
+by app; choosing a person with face, name, team and ID; big choices as round buttons in a list;
+yes or no as a tick box; small numbers as a slider; time as hour and minute columns; SMS code
+as six boxes; password with "Show" and a strength bar; fields you cannot change as plain text
+with "Ask HR"; unsaved changes as a strip that stays; editing a cell in a list by clicking it;
+address as separate fields, PIN last; grouped rows as separate small lists; choosing columns
+as a tick list you can reorder; nothing matches showing close matches; activity grouped by
+day; payslip as one list; profile completeness as a bar with a percentage; long jobs as a list
+of steps; a round add button bottom right on a phone.
+
+### Round 5 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| While something loads | A spinner with "Loading…" (`SkeletonCard`, `SkeletonRows`, `SkeletonStats`, `TableSkeleton` and `DataTable` draw it outside Books; Books keeps grey shapes) |
+| Faces | Circle with a ring in the app's colour (`.ui-avatar-initials`, `.ui-avatar-photo`) |
+| Money owed back | Red figure (`.ui-amount-neg`), with its minus sign |
+| After ticking rows | The bar turns the app's colour with white words, and stays at the top while scrolling (`.ui-bulkbar`) |
+| Steps in a long form | Dots; the current step is long and named (`.pc-steps`) |
+| Holidays on calendars | An orange line under the day |
+| Search box | "/" jumps to the page's search box; the key is drawn in the box until you type (`TipLayer`) |
+
+Picked and already how the app works: big amounts in Indian grouping (12,45,600); dates as
+17 Nov 2026; files as list rows; nothing between table rows.
+
+Picked, **not built yet**: one back link instead of a full path; previous and next names at
+the bottom of a record; times with how long ago; a key number with a small trend line; trend
+charts with a soft fill; parts of a whole as a bar for each part; company news as a coloured
+banner on home; camera first when adding a file on a phone; a list of mistakes at the top of a
+form plus the line under each field (`FieldErrorSummary` exists but no form uses it yet);
+joined buttons for two or three choices; a row of filter buttons; overlapping faces for
+several people; job history as a line with dots; where a request is, as a sentence; a soft
+amber warning box with the way to fix it; delete first and offer Undo for big deletes; upload
+progress as a ring with a count; nothing found offering a close name; team leave as a row per
+person across the days; a colour for each shift on rosters; "?" to list keyboard shortcuts
+outside Books.
+
+### Round 6 (17 Nov 2026)
+
+Built in `picks.css`:
+
+| Building block | Pick |
+| --- | --- |
+| Keyboard focus | A thick 3px ring in the app colour on buttons and links; fields show their own border with a soft halo |
+| Pointing at a row | A tint of the app colour |
+| Scroll bars | Thin, seen only while pointing at the box that scrolls |
+| Side panels | Half the screen on a laptop or bigger (sheets keep their own size) |
+| Splitting a long page | Section headings on a tinted band |
+| Movement | Lively: panels arrive with a small overshoot |
+
+Sign-in pages (owner, same day: "fix login layout properly"): the picture side is three rows,
+the title above, the whole picture in the middle with rounded corners, the quote card below,
+all on one left edge, and the side never taller than the screen. Nothing lies over the
+drawing. On a phone or tablet the picture is a rounded image across the form's width. A
+focused field shows one ring.
+
+Picked and already how the app works: a calendar that pops up for dates; search first in long
+dropdowns; small page titles; full-width pages; a split sign-in page with a picture; a side
+panel that opens from the right with the list still there.
+
+Picked, **not built yet**: an icon and a word on every button; "Add" links on details not
+filled in; long text cut with a "more" link; the most used action then ⋯ for the rest; "NEW"
+in coloured letters; percentages as whole numbers with a bar; people shown with face, name,
+code and team; phone numbers as +91 98765 43210; status as the last column; settings as tiles;
+a setup guide as tiles; on/off settings as cards with a note; first visits with a short note
+and a guide link; a "What's new" box on the first sign-in after a change; help as a link to a
+help page; plain emails; a centred header on printed payslips and letters; a red line where
+content failed to load.
+
+### Round 7 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Punch in button | A big round button in the app colour on the phone punch page |
+| A day on the attendance calendar | A solid coloured box with a white letter: green present, deep amber half day, red absent, slate on leave |
+| Leave balance | The number with a bar under it in the app colour (employee portal and leave balances) |
+| Late marks | An amber tag with the minutes ("Late 12m") on attendance records and the employee portal |
+| Payroll run progress | Steps across the top of a run: Draft, Calculated, In review, Approved, Locked, done steps ticked |
+
+Picked and already how the app works: English only.
+
+Picked, **not built yet**: tapping days on a calendar to ask for leave; change history as a
+sentence with a face; paying salaries in one tap from CLOR (needs a bank link); a birthday card
+with a message box; salary structure as bars with percentages; document requests as a note on
+the home page; employee cards with a coloured band behind the face; dates ahead when someone
+leaves; hours worked as a timeline of punches; the next CLOR bill first; cards about today on
+the phone home; phone notifications with Approve on them; payslip with net pay first and
+details on tap; pull down to refresh; who can do what as a grid of ticks; seats as a ring with
+seats free; faces of who else is away on a leave clash; change since last month as a tag with
+the percentage; Workspace apps as icons in a row.
+
+### Round 8 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Shift on the roster | A solid block in the shift's colour with white letters |
+| Overtime | An amber tag on the day ("+2h 05m OT") in the employee app |
+| Holiday list | A date tile (month over day) before each holiday in the employee app |
+| Goals | A ring per goal with the percent beside it; green once done |
+| Review rating | Five stars in the app colour, with the words kept beside them |
+
+Picked, **not built yet**: a short form to fix a missed punch; "Use where I am now" to set the
+office punch area; one form for a leave type; the team leave calendar day by day with faces;
+old and new tax regimes side by side on the declaration; Form 16 as a list of files; the
+advance's repayment plan; back pay as a tag with details on tap; expense claims gathered and
+sent together; joiner checklist as progress and the next step; letters made in one step and
+sent to sign; company things as icons; company news as posts with reactions; asking HR as a
+chat; reports as tiles with a small preview; downloads with a file type to pick; connecting
+apps as tiles; sign-ins as a small chart; a big punch button in the middle of the phone's
+bottom bar; the phone payslip with net pay first.
+
+### Round 9 (17 Nov 2026)
+
+Built: a payment that did not go through shows as a red strip under the top bar on every
+page (it was amber).
+
+Picked and already how the app works: inviting someone by email and role; people who use CLOR
+as a list with their role; switching company from a dropdown in the top bar; who approves what
+as a chain of steps ("Manager → HR"); the CLOR staff customer list with a plan tag per company.
+
+Picked, **not built yet** (most need new data or new screens): two-step sign-in by SMS code
+(a security change, held for the owner's say); alerts as a grid of email and phone; job openings
+with place and counts; interview times picked by the candidate in a form; interview feedback as
+stars per skill; the offer letter with a sign button; thanks as monthly medals; surveys with
+faces; a pay rise as two bars; exit interview reasons to tick; imports through CLOR's own Excel
+template with failures fixed in place; plans as three cards; plan use in words; support access
+as a switch that turns itself off; a punch button phone widget; phone sign-in by email and
+password.
+
+### Round 10 (17 Nov 2026)
+
+Built: branches as tiles with the headcount on a laptop or bigger (a `tiles` option on
+`DataTable`; each tile keeps its row menu, phones keep the plain cards).
+
+Picked, **not built yet** (most need new data or new screens): PF and ESI as a year of months;
+held pay as a faded row with the amount struck through; final settlement as steps; a bonus
+with a choice of how it is worked out; payroll cost as six months of bars; a timesheet timer;
+attendance machines as counts; a travel request form; policies with a "to read" tag; end of
+probation with Confirm and Extend on the row; one-to-ones as a list of meetings; training,
+only what is due; expiring documents as a note on home; a referral form with a CV; company
+details as a profile card; taking your data out as monthly copies kept ready; closing the
+account with an offer to talk first; Ops price changes in a table; seeing what a customer sees
+with a "read only, time left" tag; staff actions as a line each.
+
+### Round 11 (17 Nov 2026)
+
+Built: a department in a list is a coloured tag (`DeptTag`, colour from the department's name,
+one of `--cat-1..8`, name always written out); used in the People directory.
+
+Picked, **not built yet** (each needs new behaviour, data or a screen): a page that does not
+exist offers suggested pages; a warning before being signed out; a status page link while CLOR
+is being updated; print as a preview, then PDF; the first-time tour as a short video; confetti
+and a cheer on a big moment; an employee's own change to their details goes to HR to check;
+bank details typed, with the bank name filled from the IFSC; a red prompt when the emergency
+contact is missing; the company directory as face cards; the shared gate tablet shows a QR to
+scan with your phone; a week of attendance as a grid of letters; the payslip email carries the
+amount and a link; earnings and deductions set up as a list with Add; unpaid days marked on a
+calendar; CLOR bills paid as a list with PDF links; adding another CLOR app offers a free
+trial; the phone explains before asking for location; a punch with no signal is saved and
+sent later.
+
+Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
+and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
+screen and colour-has-one-job all still hold.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

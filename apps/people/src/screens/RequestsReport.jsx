@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import RangePresets from '@ui/components/ui/RangePresets';
 import { Download } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
@@ -89,6 +90,7 @@ export default function RequestsReport({ params = {}, updateParams }) {
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Request type" value={q.formId} onChange={(v) => set({ formId: v || null, page: null })} options={formOptions} placeholder="Every request type" /></div>
         <div className="w-full sm:w-44"><PopupSelect showValueSubtext={false} ariaLabel="Status" value={q.status} onChange={(v) => set({ status: v || null, page: null })} options={statusOptions} placeholder="Any status" /></div>
+        <div className="w-full"><RangePresets from={q.from || ''} to={q.to || ''} onPick={(f, t) => set({ from: f, to: t, page: null })} /></div>
         <div className="w-[calc(50%-0.375rem)] sm:w-40"><span className="ui-label" id="rr-from">From</span><DatePicker label="From" describedBy="rr-from" value={q.from} onChange={(v) => set({ from: v || null, page: null })} /></div>
         <div className="w-[calc(50%-0.375rem)] sm:w-40"><span className="ui-label" id="rr-to">To</span><DatePicker label="To" describedBy="rr-to" value={q.to} onChange={(v) => set({ to: v || null, page: null })} /></div>
       </div>

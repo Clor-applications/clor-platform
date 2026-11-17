@@ -99,6 +99,7 @@ export default function LeaveBalances({ openScreen }) {
           <span className={`tabular-nums whitespace-nowrap ${b.available < 0 ? 'ui-text-neg' : low ? 'ui-balance-low' : ''}`}>
             <span className="font-medium">{b.available ?? '—'}</span>
             {b.locked ? <span className="ui-caption block">{`locked until ${b.lockedUntil ? formatDate(b.lockedUntil) : 'confirmed'}`}</span> : <span className="pt-of"> of {b.allocated ?? '—'}</span>}
+            {!b.locked && b.allocated > 0 ? <span className="ui-bal-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, ((b.available ?? 0) / b.allocated) * 100))}%` }} /></span> : null}
           </span>
         );
       },

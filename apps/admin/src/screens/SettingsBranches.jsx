@@ -545,7 +545,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
         {field('addressLine2', 'Address line 2', { wide: true })}
         {field('city', 'City')}
         <label className="grid gap-1">
-          <span className="text-sm font-medium">State <span aria-hidden="true">*</span></span>
+          <span className="text-sm font-medium">State <span className="ui-required" aria-hidden="true">*</span></span>
           <select className="ui-select" value={f.state} onChange={set('state')} required>
             <option value="">Choose…</option>
             {f.state && !STATES.includes(f.state) ? <option value={f.state}>{f.state}</option> : null}
@@ -598,7 +598,7 @@ function BranchForm({ initial, editing = false, gstEnabled, showType = false, sa
           </div>
           {warehouseField('city', 'City')}
           <label className="grid gap-1">
-            <span className="text-sm font-medium">State <span aria-hidden="true">*</span></span>
+            <span className="text-sm font-medium">State <span className="ui-required" aria-hidden="true">*</span></span>
             <select className="ui-select" value={w.state} onChange={setWarehouse('state')} required>
               <option value="">Choose…</option>
               {w.state && !STATES.includes(w.state) ? <option value={w.state}>{w.state}</option> : null}

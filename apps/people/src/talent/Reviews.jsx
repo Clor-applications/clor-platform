@@ -12,7 +12,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { structure } from '../workforce/api';
 import { calibration, createCycle, getCycle, listCycles, moveCycle, setFinal, writeManager, writeSelf } from '../api/talent';
-import { CYCLE_STATUS, FormError, Footer, Pill, RATINGS, SHEET, Tabs, WIDE_SHEET, day, ratingWord, useParamState, usedValues } from './shared';
+import { CYCLE_STATUS, FormError, Footer, Pill, RATINGS, SHEET, Stars, Tabs, WIDE_SHEET, day, ratingWord, useParamState, usedValues } from './shared';
 
 /**
  * Reviews (TALENT-DECISIONS.md, Growth): a review cycle for a period; opening it makes one review
@@ -146,7 +146,7 @@ function Calibration({ id }) {
         <h3 className="ui-label">Spread</h3>
         <table className="ui-table w-full">
           <thead><tr><th scope="col">Rating</th><th scope="col" className="text-right">Manager</th><th scope="col" className="text-right">Final</th></tr></thead>
-          <tbody>{spread.map((s) => <tr key={s.rating}><td>{ratingWord(s.rating)}</td><td className="text-right tabular-nums">{s.manager}</td><td className="text-right tabular-nums">{s.final}</td></tr>)}</tbody>
+          <tbody>{spread.map((s) => <tr key={s.rating}><td><Stars n={s.rating} /> {ratingWord(s.rating)}</td><td className="text-right tabular-nums">{s.manager}</td><td className="text-right tabular-nums">{s.final}</td></tr>)}</tbody>
         </table>
       </section>
       <section aria-label="By department and manager" className="space-y-2">
@@ -181,7 +181,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
   const block = (title, rating, text, at) => (
     <section className="space-y-1">
       <h3 className="ui-label">{title}</h3>
-      {at ? <><p className="text-sm">{ratingWord(rating)}</p>{text ? <p className="text-sm whitespace-pre-wrap">{text}</p> : null}<p className="ui-caption tabular-nums">{day(at)}</p></> : <p className="text-sm ui-muted">Not written yet.</p>}
+      {at ? <><p className="text-sm"><Stars n={rating} /> {ratingWord(rating)}</p>{text ? <p className="text-sm whitespace-pre-wrap">{text}</p> : null}<p className="ui-caption tabular-nums">{day(at)}</p></> : <p className="text-sm ui-muted">Not written yet.</p>}
     </section>
   );
   return (

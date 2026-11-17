@@ -160,8 +160,12 @@ export default function AttendanceRules({ openScreen }) {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader title="Attendance rules" />
-      <form className="ui-record-section ui-wizard-body" aria-label="Attendance rules" onSubmit={save}>
+      {/* Save sits top right, the one place on every page (owner's pick, 17 Nov 2026). */}
+      <PageHeader title="Attendance rules" actions={canEdit ? <>
+        {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDraft(null); setError(null); setPreview(null); setMarksFrom('NEXT_MONTH'); }}>Undo changes</button> : null}
+        <Button type="submit" form="attendance-rules" variant="primary" loading={saving} disabled={!dirty && !saving}>Save</Button>
+      </> : null} />
+      <form id="attendance-rules" className="ui-record-section ui-wizard-body" aria-label="Attendance rules" onSubmit={save}>
         {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
         <fieldset disabled={!canEdit} className="divide-y min-w-0" style={{ borderColor: 'rgb(var(--border))' }}>
             <Block id="ar-marks" title="Late marks and early exits" footer={marksWhen} on={form.marksOn} onToggle={(v) => set({ marksOn: v, ...(v && !form.lateOn && !form.earlyOn ? { lateOn: true } : {}) })}>
@@ -274,14 +278,6 @@ export default function AttendanceRules({ openScreen }) {
             </Block>
         </fieldset>
 
-        {canEdit ? (
-          <div className="ui-wizard-actions">
-            <span className="flex flex-wrap gap-2 ml-auto">
-              {dirty ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setDraft(null); setError(null); setPreview(null); setMarksFrom('NEXT_MONTH'); }}>Undo changes</button> : null}
-              <Button type="submit" variant="primary" loading={saving} disabled={!dirty && !saving}>Save</Button>
-            </span>
-          </div>
-        ) : null}
       </form>
     </div>
   );

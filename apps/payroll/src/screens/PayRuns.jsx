@@ -34,6 +34,7 @@ import {
   postPayrollRun,
 } from "../api/payrollRuns";
 import LoadFailed from "@ui/components/ui/LoadFailed";
+import SuccessNote from "@ui/components/ui/SuccessNote";
 import { LopCheckPanel, ProvisionalNotice } from "../components/RunGuards";
 import { ProvisionalDaysNotice } from "../components/ProvisionalDaysSetting";
 import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSetting";
@@ -56,6 +57,28 @@ import { wholeRupees as money } from "@ui/utils/money";
  * screen shows what it is told — a second copy of "can this be approved" living
  * here is a copy that can disagree with the one that actually decides.
  */
+
+const RUN_STEPS = ["DRAFT", "CALCULATED", "REVIEW", "APPROVED", "LOCKED"];
+
+/** Where this payroll run stands, as steps across the top (owner's round 7 pick). */
+function RunSteps({ status }) {
+  const at = RUN_STEPS.indexOf(status === "PAID" || status === "POSTED" ? "LOCKED" : status);
+  if (at < 0) return null;
+  return (
+    <ol className="ui-run-steps" aria-label="Payroll progress">
+      {RUN_STEPS.map((s, i) => (
+        <li
+          key={s}
+          className={i < at ? "is-done" : i === at ? "is-current" : undefined}
+          aria-current={i === at ? "step" : undefined}
+        >
+          <span aria-hidden="true">{i < at ? "✓" : i + 1}</span>
+          {STATUS_LABEL[s]}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 const STATUS_LABEL = {
   DRAFT: "Draft",
@@ -370,6 +393,8 @@ const RunWorkflow = ({ runId, onBack }) => {
   const [issues, setIssues] = useState(null);
   const [busy, setBusy] = useState("");
   const [stage, setStage] = useState("people");
+  /* A big step done (locked, approved): a green note on the page, not a toast. */
+  const [doneNote, setDoneNote] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -433,12 +458,14 @@ const RunWorkflow = ({ runId, onBack }) => {
               runId={runId}
               setIssues={setIssues}
               onLopMismatch={() => setStage("review")}
+              onDone={setDoneNote}
             />
           </>
         }
       />
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
+      {doneNote ? <SuccessNote title={doneNote.title} onClose={() => setDoneNote(null)}>{doneNote.next}</SuccessNote> : null}
       {data.statutoryChecks?.length && ["CALCULATED", "REVIEW"].includes(run.status) ? (
         <StatutoryChecksBlocker checks={data.statutoryChecks} />
       ) : null}
@@ -477,6 +504,8 @@ const RunWorkflow = ({ runId, onBack }) => {
           ) : null}
         </div>
       ) : null}
+
+      <RunSteps status={run.status} />
 
       <div className="ui-segmented" role="tablist" aria-label="Payroll stage">
         {[
@@ -559,7 +588,9 @@ const RunWorkflow = ({ runId, onBack }) => {
  * The status is the server's, so the button follows it rather than the screen
  * keeping its own idea of where the run has got to.
  */
-export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch }) => {
+export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismatch, onDone }) => {
+  /* The run screen shows a green note; anywhere else falls back to the toast. */
+  const done = (title, next) => (onDone ? onDone({ title, next }) : notify.success(`${title} ${next}`.trim()));
   if (
     run.status === "DRAFT" ||
     (run.status === "CALCULATED" && run.errorCount > 0)
@@ -652,7 +683,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                   throw e;
                 }
               },
-              () => notify.success("Payroll locked."),
+              () => done("Payroll locked.", "Nothing in it can change now."),
             )
           }
         >
@@ -728,7 +759,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                   }
                 },
                 (out) => {
-                  if (out) notify.success("Payroll approved.");
+                  if (out) done("Payroll approved.", "Next: post it to accounts, or lock it.");
                 },
               );
           }}

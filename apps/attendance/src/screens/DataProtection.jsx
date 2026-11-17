@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import TickList from '@ui/components/ui/TickList';
 import { Plus, ShieldCheck, X } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, StatTile } from '@ui/components/ui/Primitives';
@@ -279,9 +280,8 @@ function BreachForm({ onClose, onSaved }) {
         <fieldset><legend className="ui-label">Who is affected</legend>
           <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={f.everyone} onChange={(e) => setF({ ...f, everyone: e.target.checked })} /> Everyone ({people.length})</label>
           {!f.everyone ? (
-            <select multiple className="ui-select mt-1 h-40 w-full" value={f.employeeIds} onChange={(e) => setF({ ...f, employeeIds: [...e.target.selectedOptions].map((o) => o.value) })} aria-label="Affected employees">
-              {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.code ? ` · ${p.code}` : ''}</option>)}
-            </select>
+            <div className="mt-1"><TickList ariaLabel="Affected employees" scroll value={f.employeeIds} onChange={(ids) => setF({ ...f, employeeIds: ids })}
+              options={people.map((p) => ({ value: p.id, label: `${p.name}${p.code ? ` · ${p.code}` : ''}` }))} /></div>
           ) : null}
         </fieldset>
         <label className="block"><span className="ui-label">What it may mean for them *</span><textarea className="ui-input w-full" rows={2} required value={f.consequences} onChange={set('consequences')} /></label>

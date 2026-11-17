@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import Drawer from '@ui/components/ui/Drawer';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
@@ -182,7 +183,7 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
           {direction !== 'NONE' ? (
             <label className="block">
               <span className="ui-label">Amount (₹) *</span>
-              <input type="number" min="0" step="0.01" inputMode="decimal" className="ui-input w-full tabular-nums text-right" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} aria-invalid={Boolean(error) || undefined} />
+              <MoneyInput type="number" min="0" step="0.01" inputMode="decimal" className="ui-input w-full tabular-nums text-right" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} aria-invalid={Boolean(error) || undefined} />
             </label>
           ) : null}
         </fieldset> : null}

@@ -89,7 +89,7 @@ describe('Candidates', () => {
     render(withPerms(['PEOPLE::Recruitment::VIEW'], <Candidates />));
     expect(await screen.findAllByText('Meera K')).not.toHaveLength(0);
     expect(screen.queryByRole('button', { name: /Add candidate/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Actions for/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /Actions for/ })).not.toBeInTheDocument();
   });
 
   it('with Edit, a row moves to another stage from its menu', async () => {
@@ -99,8 +99,7 @@ describe('Candidates', () => {
     talent.moveCandidate.mockResolvedValue({ ok: true });
     render(withPerms(['PEOPLE::Recruitment::VIEW', 'PEOPLE::Recruitment::CREATE', 'PEOPLE::Recruitment::EDIT'], <Candidates />));
     expect(await screen.findByRole('button', { name: /Add candidate/ })).toBeInTheDocument();
-    await user.click(screen.getAllByRole('button', { name: /Actions for/ })[0]);
-    await user.click(screen.getByRole('menuitem', { name: 'Move to offer' }));
+    await user.click(within(screen.getAllByRole('group', { name: /Actions for/ })[0]).getByRole('button', { name: 'Move to offer' }));
     await waitFor(() => expect(talent.moveCandidate).toHaveBeenCalledWith('c1', 'OFFER'));
   });
 
