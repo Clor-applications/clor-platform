@@ -180,7 +180,7 @@ export function Announcements({ me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Product', 'Announcements']}
+          crumbs={['Platform', 'Announcements']}
           title="Announcements"
           description="Notices from CLOR at the top of customers’ apps: news, planned maintenance, or a problem being fixed."
           meta={d ? `${c.live} showing now · ${c.scheduled} starting later · ${c.draft} ${c.draft === 1 ? 'draft' : 'drafts'}` : null}

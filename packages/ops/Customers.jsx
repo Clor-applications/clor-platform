@@ -226,6 +226,10 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
   const name = a.title || a.name;
   const plan = a.suspendedAt ? 'suspended' : s ? customerStatus(s.status, s.trialEndsAt) : a.legacyUnrestrictedAt ? 'legacy' : 'no-plan';
   const owner = d.members.find((m) => m.role === 'OWNER');
+  /* The next date that matters, read without opening the Subscription tab. Open tickets are not here: the account payload carries no count. */
+  const trialFact = s?.status === 'trialing' && s.trialEndsAt ? `trial ${customerStatus(s.status, s.trialEndsAt) === 'overdue' ? 'ended' : 'ends'} ${day(s.trialEndsAt)}` : null;
+  const cancelling = Boolean(s?.cancelAtPeriodEnd) && s.status !== 'cancelled';
+  const renewFact = s?.status === 'active' && s.currentPeriodEnd && !cancelling ? `renews ${day(s.currentPeriodEnd)}` : null;
   return (
     <>
       <div>
@@ -249,10 +253,13 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         <span>{d.companies.length} {d.companies.length === 1 ? 'company' : 'companies'}</span>
         <span>{d.members.length} {d.members.length === 1 ? 'user' : 'users'}</span>
         {owner?.email ? <span>owner {owner.email}</span> : null}
+        {trialFact ? <span className="tabular-nums">{trialFact}</span> : null}
+        {renewFact ? <span className="tabular-nums">{renewFact}</span> : null}
       </div>
       <div className="ops-pills">
         <StatusPill status={plan} />
         {s?.apps?.length ? <span className="ws-pill">{appsText(s.apps)}</span> : null}
+        {cancelling ? <span className="ws-pill ws-pill--warn">Cancels at period end{s.currentPeriodEnd ? `, ${day(s.currentPeriodEnd)}` : ''}</span> : null}
         {a.legacyUnrestrictedAt && !s ? <span className="ws-pill ws-pill--warn">Fail-open: every app</span> : null}
       </div>
       {a.suspendedAt ? (
@@ -263,7 +270,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
       <Tabs label={name} tabs={TABS} value={tab} onChange={setTab} />
       <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-8">
         {tab === 'overview' ? <Overview d={d} plan={plan} setTab={setTab} role={role} openDenials={openDenials} openOrgs={openOrgs} /> : null}
-        {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} /> : null}
+        {tab === 'subscription' ? <Subscription d={d} name={name} plan={plan} role={role} reload={load} openInvoice={(invoiceId) => openLink({ page: 'invoices', id: invoiceId })} /> : null}
         {tab === 'limits' ? <Limits id={id} name={name} role={role} /> : null}
         {tab === 'money' ? <Money id={id} /> : null}
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} openLink={openLink} /> : null}
@@ -553,7 +560,7 @@ const ACTIONS = {
   reopen: { label: 'Reopen', title: 'Reopen the subscription', confirm: 'Reopen', roles: ['BILLING'] },
 };
 
-function Subscription({ d, name, plan, role, reload }) {
+function Subscription({ d, name, plan, role, reload, openInvoice }) {
   const a = d.account;
   const s = d.subscription;
   const [action, setAction] = useState(null);
@@ -667,6 +674,7 @@ function Subscription({ d, name, plan, role, reload }) {
       <DealDrawer
         open={dealOpen}
         account={{ id: a.id, name }}
+        openInvoice={openInvoice}
         onClose={() => setDealOpen(false)}
         onDone={() => {
           setDealOpen(false);
@@ -744,7 +752,7 @@ function Money({ id }) {
   }, [id]);
   if (!d) return error ? <Err>{error}</Err> : <Loading />;
   if (!d.invoices.length && !d.payments.length) {
-    return <Empty>No invoices or payments yet. Once payments are switched on in Money, this customer’s invoices and payments show here.</Empty>;
+    return <Empty>No invoices or payments yet. Once payments are switched on in Billing and setup, Payments, this customer’s invoices and payments show here.</Empty>;
   }
   return (
     <div className="ws-table-wrap">
@@ -857,7 +865,7 @@ function Users({ id, role }) {
   const run = async (reason) => {
     if (act.kind === 'reset') {
       const r = await opsSendResetLink(id, act.user.userId, reason);
-      notify.success(r.sent ? `Reset link sent to ${r.email}. It works for 30 minutes.` : `The reset link to ${r.email} did not go. See Email, Log.`);
+      notify.success(r.sent ? `Reset link sent to ${r.email}. It works for 30 minutes.` : `The reset link to ${r.email} did not go. See Platform, Email log.`);
     }
     if (act.kind === 'signout') {
       const r = await opsSignOutEverywhere(id, act.user.userId, reason);
@@ -1049,7 +1057,7 @@ function Connections({ id, role }) {
         onClose={() => setRetry(false)}
         onConfirm={async (reason) => {
           const r = await opsRetryEmails(id, reason);
-          notify.success(r.tried ? `${r.sent} of ${r.tried} went. ${r.stillFailing ? `${r.stillFailing} still failing; see Email, Log.` : ''}` : 'Nothing was waiting.');
+          notify.success(r.tried ? `${r.sent} of ${r.tried} went. ${r.stillFailing ? `${r.stillFailing} still failing; see Platform, Email log.` : ''}` : 'Nothing was waiting.');
           setRetry(false);
           load();
         }}

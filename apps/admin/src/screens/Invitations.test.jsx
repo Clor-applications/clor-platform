@@ -9,6 +9,9 @@ vi.mock('@platform/admin/account', () => ({
   revokeInvitation: (...a) => api.revokeInvitation(...a),
 }));
 
+const roles = { listRoles: vi.fn() };
+vi.mock('@platform/admin/admin', () => ({ listRoles: (...a) => roles.listRoles(...a) }));
+
 import Invitations, { accessPreview } from './Invitations';
 
 const tenant = { id: 'c1', name: 'Anand Traders', accountId: 'A' };
@@ -18,6 +21,8 @@ beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.listInvitations.mockResolvedValue({ invitations: [] });
   api.createInvitation.mockResolvedValue({ invitation: { id: 'i1' }, seatWarning: null });
+  roles.listRoles.mockReset();
+  roles.listRoles.mockResolvedValue({ roles: [{ id: 'r1', name: 'Accountant' }, { id: 'r2', name: 'Store keeper' }] });
 });
 
 /* W-3: the inviter reads what the person will get before sending (the spec's access preview). */
@@ -39,6 +44,20 @@ describe('Workspace → Invitations', () => {
       expect(api.createInvitation).toHaveBeenCalledWith({ email: 'priya@x.in', accountRole: 'ADMIN', grants: [{ orgId: 'c1' }, { orgId: 'c2' }] })
     );
     expect(await screen.findByText('Invitation sent to priya@x.in.')).toBeInTheDocument();
+  });
+
+  /* The person can work from the first sign-in: the role in the open company goes with the invitation. */
+  it('sends a starting role for the open company, and says so before sending', async () => {
+    render(<Invitations tenant={tenant} companies={companies} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Invite people/ }));
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ravi@x.in' } });
+    const role = await screen.findByLabelText('Role in Anand Traders');
+    expect(screen.getByText(/open no app until somebody gives one/)).toBeInTheDocument();
+    fireEvent.change(role, { target: { value: 'r1' } });
+    expect(screen.getByText(/Works as Accountant in Anand Traders from the first sign-in/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Send invitation/ }));
+    await waitFor(() => expect(api.createInvitation).toHaveBeenCalledWith({ email: 'ravi@x.in', accountRole: 'MEMBER', grants: [{ orgId: 'c1', roleIds: ['r1'] }] }));
+    expect(roles.listRoles).toHaveBeenCalledWith('c1');
   });
 
   it('offers resend and withdraw only while an invitation is open', async () => {

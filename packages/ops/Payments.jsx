@@ -83,7 +83,7 @@ function LastTest({ t }) {
 }
 
 /* --------------------------------------------------------------- the page */
-export function Payments({ role }) {
+export function Payments({ role, openCustomer }) {
   const [tab, setTab] = useState('providers');
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -104,7 +104,7 @@ export function Payments({ role }) {
   return (
     <>
       <PageHead
-        crumbs={['Operator']}
+        crumbs={['Billing and setup']}
         title="Payments"
         meta={active ? `Customers pay through ${active.name}${active.mode === 'LIVE' ? ', live' : active.code === 'manual' ? '' : ', in test mode'}` : 'No provider is active: subscriptions are set by hand'}
         actions={
@@ -170,7 +170,7 @@ export function Payments({ role }) {
           </div>
         </>
       ) : (
-        <PaymentsLog key={logKey} mayChange={mayChange} />
+        <PaymentsLog key={logKey} mayChange={mayChange} openCustomer={openCustomer} />
       )}
       {open ? <ProviderDrawer key={open.code} p={open} mayChange={mayChange} onClose={() => setEditing(null)} onChanged={(r) => (r?.providers ? setData((d) => ({ ...d, providers: r.providers })) : load())} /> : null}
       {recording ? (
@@ -521,7 +521,7 @@ const EVENT_STATUS = {
 };
 const GATEWAY = { cashfree: 'Cashfree', razorpay: 'Razorpay', manual: 'By hand' };
 
-function PaymentsLog({ mayChange }) {
+function PaymentsLog({ mayChange, openCustomer }) {
   const [status, setStatus] = useState('');
   const [rows, setRows] = useState(null);
   const [next, setNext] = useState(null);
@@ -607,7 +607,12 @@ function PaymentsLog({ mayChange }) {
                     </div>
                   </td>
                   <td className="hidden sm:table-cell" style={{ whiteSpace: 'normal' }}>
-                    {e.accountName || (e.accountId ? <span className="ui-mono">{e.accountId}</span> : '—')}
+                    {/* An event tied to an account opens that account, as every other list does; one the provider could not match stays plain text. */}
+                    {e.accountId && openCustomer ? (
+                      <button type="button" className="ws-name-link" onClick={() => openCustomer(e.accountId)}>{e.accountName || <span className="ui-mono">{e.accountId}</span>}</button>
+                    ) : (
+                      e.accountName || (e.accountId ? <span className="ui-mono">{e.accountId}</span> : '—')
+                    )}
                   </td>
                   <td className="num hidden sm:table-cell">{e.amount != null ? inr(e.amount) : '—'}</td>
                   <td className="hidden sm:table-cell">

@@ -703,6 +703,18 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-17 — Easy access, batch 1 (owner: "info should be available right away instead of searching"):**
+  from an audit of Workspace and Ops. *Workspace:* search finds members, companies and settings by the
+  words people use (`searchRecords`, `searchActions`, `searchLabel` in the manifest); an invitation
+  carries a starting role in the open company; a link opens a list already filtered (Home's line about
+  administrators opens Members on those people) or one record; an account role change asks first; the
+  Security rail opens its overview; "Sessions" is "Sign-in rules"; Permissions has no menu line (it is
+  the Roles grid); breadcrumbs name the rail's own sections. *Ops:* menu counts are work waiting
+  (tickets, demo requests, alerts), not totals; crumbs and copy use the rail's section names; "Convert"
+  on Trials is "Set up paid plan" and opens the account's Subscription tab instead of granting a free
+  plan; the account header says when the trial ends or the plan renews; a payment row opens its account.
+  Rule from now on: **a count in a menu is something to do; a link from a summary opens the list
+  filtered to what the summary said.**
 - **2026-11-17 — Workspace Home says each thing once (owner: "rework Home"):** what needs attention
   and the setup steps sit directly under the greeting. One row of four figures (companies, apps,
   members, waiting); the greeting line keeps the account's name and role only, and no card repeats a

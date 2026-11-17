@@ -6,7 +6,7 @@ import { Empty, Err, Loading, ReasonDrawer, Tabs, when } from './kit';
 import { opsApprovalLimit, opsApprovalStep, opsApprovals } from './api';
 
 /**
- * Approvals (operator console, Money; server: routes/opsApprovals.ts). A deal
+ * Approvals (operator console, Trust; server: routes/opsApprovals.ts). A deal
  * whose discount is over the limit, or apps given free or cheaper by hand
  * (a grant, services/ops/grants.ts), waits here until someone other than the
  * person who asked approves it, with their authenticator code. Only then is
@@ -69,7 +69,7 @@ export function Approvals({ openCustomer }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Money', 'Approvals']}
+          crumbs={['Trust', 'Approvals']}
           title="Approvals"
           description={d ? `Deals over ${d.limit}% off, and apps given free or cheaper by hand, wait here until someone other than the person who asked approves them.` : 'Deals over the limit, and apps given free by hand, wait here for a second person.'}
           meta={d ? `${d.waiting} waiting · requests expire after ${d.expiresHours} hours` : null}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Plus, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 import { requestOpenScreen } from '@platform/context';
@@ -51,10 +51,21 @@ export function filterMembers(members, { q = '', status = '', companyId = '', ap
   });
 }
 
-export default function Members() {
+/* What a link may ask this page to show: Home's "Review members" opens the admins without an authenticator, search opens one person. */
+const RISKS = ['privileged', 'no2fa'];
+const STATUSES = ['ACTIVE', 'SUSPENDED'];
+
+export default function Members({ params }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState({ q: '', status: '', companyId: '', app: '', role: '', risk: '' });
+  const [filters, setFilters] = useState(() => ({
+    q: typeof params?.q === 'string' ? params.q : '',
+    status: STATUSES.includes(params?.status) ? params.status : '',
+    companyId: '',
+    app: '',
+    role: '',
+    risk: RISKS.includes(params?.risk) ? params.risk : '',
+  }));
   const [openId, setOpenId] = useState('');
   const [detail, setDetail] = useState(null);
   const [detailCompany, setDetailCompany] = useState('');
@@ -82,6 +93,17 @@ export default function Members() {
       .then(setDetail)
       .catch((e) => setDetail({ error: String(e?.message || 'Could not load this person’s access.') }));
   };
+
+  /* A link to one person (search, or another page) opens their access once the list is in. */
+  const wanted = typeof params?.member === 'string' ? params.member : '';
+  const openedFromLink = useRef(false);
+  useEffect(() => {
+    if (!wanted || openedFromLink.current || !data?.members?.some((m) => m.userId === wanted)) return;
+    openedFromLink.current = true;
+    openMember(wanted);
+    // Once, when the list arrives: openMember is made anew each render and must not re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wanted, data]);
 
   const rows = useMemo(() => (data ? filterMembers(data.members, filters) : []), [data, filters]);
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
@@ -127,7 +149,7 @@ export default function Members() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Access', 'Members']}
+          crumbs={['Users & access', 'Members']}
           scope="account"
           title="Members"
           description="Everyone who can sign in to this account: staff, your accountant and devices."
@@ -276,8 +298,17 @@ export default function Members() {
                 id="ws-member-role"
                 className="ui-select"
                 value={detail.accountRole}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const next = e.target.value;
+                  /* The select saved on change, so one slip of the mouse made somebody an owner. Asked first, in words. */
+                  const up = next === 'OWNER' || next === 'ADMIN';
+                  const ok = await confirmDialog({
+                    title: `Change ${detail.name || detail.email || 'this person'}’s account role to ${ROLE_LABEL[next] || next}?`,
+                    message: up ? 'They will be able to change who has access to this account.' : 'Their access to account settings changes at once.',
+                    confirmLabel: 'Change role',
+                    tone: next === 'OWNER' ? 'danger' : undefined,
+                  });
+                  if (!ok) return;
                   act(() => setAccountRole(detail.userId, next), `Account role changed to ${ROLE_LABEL[next]}.`);
                 }}
               >

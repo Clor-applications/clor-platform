@@ -117,6 +117,9 @@ describe('the Workspace overview', () => {
     const attention = within(screen.getByRole('region', { name: 'Needs your attention' }));
     expect(await attention.findByText('1 pending invitation')).toBeInTheDocument();
     expect(await attention.findByText('1 administrator without an authenticator')).toBeInTheDocument();
+    /* The line opens Members already showing those administrators, not the whole list. */
+    fireEvent.click(attention.getByRole('button', { name: /administrator without an authenticator/ }));
+    expect(openScreen).toHaveBeenCalledWith('members', { risk: 'no2fa' });
     expect(attention.getByText('Neev Steels has no GSTIN')).toBeInTheDocument();
     expect(attention.getByText('Gate is offline')).toBeInTheDocument();
     /* Urgent first: the sync problem sits above the invitation. */

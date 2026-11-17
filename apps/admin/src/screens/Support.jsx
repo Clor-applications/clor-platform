@@ -78,7 +78,7 @@ export default function Support() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Overview', 'Help and support']}
+          crumbs={['Home', 'Help and support']}
           icon={PAGE_ICON}
           title="Help and support"
           actions={

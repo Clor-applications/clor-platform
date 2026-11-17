@@ -5,7 +5,7 @@ import { Err, Loading, day, when } from './kit';
 import { opsBooksCheck, opsHealth, opsRequestLookup } from './api';
 
 /**
- * System health (operator console, Ops P0): whether the background workers
+ * Jobs & workers (operator console, Platform; Ops P0): whether the background workers
  * are running, what failed in the last day, and the request-ID lookup — the
  * code a customer reads off an error page, turned into a link to the logs.
  * Read only. Fixing a stopped worker or a deploy stays with engineering.

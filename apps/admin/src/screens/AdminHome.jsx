@@ -320,7 +320,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
   const isAdmin = role === 'OWNER' || role === 'ADMIN';
   const seesPlan = role === 'OWNER' || role === 'BILLING_ADMIN';
   const may = new Set(navItems.map((n) => n.key));
-  const go = (key) => (may.has(key) ? () => openScreen?.(key) : null);
+  /* `params` opens the page already filtered to what the line is about, so nobody searches twice. */
+  const go = (key, params) => (may.has(key) ? () => (params ? openScreen?.(key, params) : openScreen?.(key)) : null);
 
   const products = catalog.filter((a) => !a.platform);
   const built = products.filter((a) => a.available);
@@ -412,7 +413,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
     ...endingLines,
     ...waitingLines,
     health?.status === 'attention' ? { key: 'sync', tag: 'Sync', icon: ICON.data, tone: 'warn', title: `${plural(health.issues, 'sync problem')}`, sub: health.alerts?.[0]?.title || health.sources.filter((x) => x.issues).map((x) => x.label).join(', '), go: null } : null,
-    privilegedNo2fa ? { key: '2fa', tag: 'Security', action: 'Review members', icon: ICON.warning, tone: 'warn', title: `${privilegedNo2fa} administrator${privilegedNo2fa === 1 ? '' : 's'} without an authenticator`, sub: 'They can change who has access; ask them to switch it on.', go: go('members') } : null,
+    privilegedNo2fa ? { key: '2fa', tag: 'Security', action: 'Review members', icon: ICON.warning, tone: 'warn', title: `${privilegedNo2fa} administrator${privilegedNo2fa === 1 ? '' : 's'} without an authenticator`, sub: 'They can change who has access; ask them to switch it on.', go: go('members', { risk: 'no2fa' }) } : null,
     seesPlan && bills?.unpaid && !bills.overdue ? { key: 'unpaid', tag: 'Invoice', action: 'Pay', icon: ICON.plan, tone: null, title: `${plural(bills.unpaid, 'CLOR invoice')} to pay`, sub: <><N>{rupees(bills.due)}</N> due. Not overdue yet.</>, go: go('billing') } : null,
     pending ? { key: 'inv', tag: 'Invited', action: 'View invitations', icon: ICON.invite, tone: null, title: `${pending} pending invitation${pending === 1 ? '' : 's'}`, sub: 'Waiting for people to accept.', go: go('invitations') } : null,
     notAssigned.length ? { key: 'na', tag: 'Access', icon: ICON.person, tone: null, title: `You can’t open ${notAssigned.map((s) => s.app.name).join(', ')} yet`, sub: 'An administrator gives access with a role.', go: null } : null,

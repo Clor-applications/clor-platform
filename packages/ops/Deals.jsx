@@ -15,13 +15,13 @@ import { opsDealOptions, opsDealQuote, opsSetDeal, opsSubscriptions } from './ap
  * monthly or yearly, how many, maybe an offer, priced live to the paisa;
  * set from a start date, with the first invoice drafted if asked.
  *
- * Subscriptions, under Money: every customer with a plan, what they pay and
+ * Subscriptions, under Customers and sales: every customer with a plan, what they pay and
  * when it renews, and the monthly total of what active ones pay.
  */
 const PER = { MONTHLY: 'month', YEARLY: 'year' };
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-export function DealDrawer({ open, account, onClose, onDone }) {
+export function DealDrawer({ open, account, onClose, onDone, openInvoice }) {
   const [opts, setOpts] = useState(null);
   const [error, setError] = useState('');
   const [pick, setPick] = useState('');
@@ -86,8 +86,10 @@ export function DealDrawer({ open, account, onClose, onDone }) {
     const r = await opsSetDeal(account.id, { ...body, status, trialDays: status === 'trialing' ? Number(trialDays) : null, startsOn, draftInvoice: status === 'active' && draftInvoice, reason });
     if (r?.needsApproval) notify.success(`Sent for approval. ${account.name} moves to ${quote.plan.name} when a colleague approves it in Approvals.`);
     else if (r?.invoiceProblem) notify.info(`${account.name} is on ${quote.plan.name}. ${r.invoiceProblem}`);
-    else notify.success(r.invoiceId ? `${account.name} is on ${quote.plan.name}. The first invoice is drafted in Invoices.` : `${account.name} is on ${quote.plan.name}.`);
+    else notify.success(r.invoiceId ? `${account.name} is on ${quote.plan.name}. ${openInvoice ? 'Its first invoice is a draft, open now.' : 'The first invoice is drafted in Invoices.'}` : `${account.name} is on ${quote.plan.name}.`);
     onDone(r);
+    /* The draft is the next thing to check and send, so staff land on it (toasts here carry no button). */
+    if (r?.invoiceId && !r.needsApproval && !r.invoiceProblem && openInvoice) openInvoice(r.invoiceId);
   };
 
   const book = opts?.plans.filter((p) => p.source === 'book') || [];

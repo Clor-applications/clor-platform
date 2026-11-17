@@ -118,7 +118,7 @@ export default function SupportAccess() {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Access', 'CLOR support access']} title="CLOR support access" description="CLOR staff can look at your data only when you let them, for a time, and every view is in your audit log." />
+        <PageHead crumbs={['Users & access', 'Support access']} title="CLOR support access" description="CLOR staff can look at your data only when you let them, for a time, and every view is in your audit log." />
 
         <p className="ws-card-blurb ws-sg-rule">
           CLOR staff see this company only when somebody here lets them in, for the hours chosen. Salary and payslips, employee

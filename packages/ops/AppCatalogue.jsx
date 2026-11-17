@@ -45,7 +45,7 @@ export function AppCatalogue({ role }) {
 
   return (
     <>
-      <PageHead crumbs={['Product']} title="App catalogue" />
+      <PageHead crumbs={['Billing and setup']} title="App catalogue" />
       <Err>{error}</Err>
       {!d ? (
         error ? null : <Loading />

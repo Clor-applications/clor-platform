@@ -101,7 +101,7 @@ export const opsUnlockUser = (id, userId, reason) => apiFetch(`${acct(id)}/users
 export const opsResetAuthenticator = (id, userId, reason) => apiFetch(`${acct(id)}/users/${encodeURIComponent(userId)}/reset-authenticator`, { ...o, method: 'POST', body: { reason } });
 export const opsRetryEmails = (id, reason) => apiFetch(`${acct(id)}/emails/retry`, { ...o, method: 'POST', body: { reason } });
 export const opsCustomerConnections = (id) => apiFetch(`${acct(id)}/connections`, o);
-/* System health, the search box and the request-ID lookup (server: routes/opsHealth.ts). */
+/* Jobs & workers, the search box and the request-ID lookup (server: routes/opsHealth.ts). */
 export const opsHealth = () => apiFetch('/ops/health', o);
 export const opsBooksCheck = () => apiFetch('/ops/books-check', o);
 export const opsSearch = (q) => apiFetch(`/ops/search?q=${encodeURIComponent(q)}`, o);

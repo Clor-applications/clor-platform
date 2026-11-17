@@ -153,7 +153,7 @@ export function SampleCompany({ role, openLinks }) {
   return (
     <>
       <PageHead
-        crumbs={['Operator']}
+        crumbs={['Billing and setup']}
         title="Sample company"
         description="The made-up company that Explore links open, read-only, for people who asked for a demo."
         actions={primary}
@@ -266,7 +266,7 @@ export function ExploreLinks({ role, openRequest }) {
 
   return (
     <>
-      <PageHead crumbs={['Operator']} title="Explore links" meta={data ? `${data.active} open` : null} />
+      <PageHead crumbs={['Customers and sales']} title="Explore links" meta={data ? `${data.active} open` : null} />
       <div className="flex flex-wrap gap-2 items-center">
         <select className="ui-select" style={{ width: 'auto' }} aria-label="Which links" value={view.state} onChange={(e) => setView({ state: e.target.value, page: 0 })}>
           {VIEWS.map(([k, label]) => (

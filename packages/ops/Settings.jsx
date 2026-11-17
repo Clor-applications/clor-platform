@@ -62,7 +62,7 @@ export function Settings({ role }) {
   return (
     <>
       <PageHead
-        crumbs={['Operator']}
+        crumbs={['Billing and setup']}
         title="Tax"
         meta={tax.registered ? `GST registered · ${tax.gstin}` : 'Not GST registered'}
         actions={

@@ -72,7 +72,7 @@ export default function Inbox({ openApp, openScreen }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Overview', 'Inbox']}
+          crumbs={['Home', 'Inbox']}
           icon={PAGE_ICON}
           title="Inbox"
         />

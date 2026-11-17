@@ -1,10 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ opsMe: vi.fn(), opsStartTwoFactor: vi.fn(), opsEnableTwoFactor: vi.fn() }));
 vi.mock('./api', () => ({
   opsMe: () => api.opsMe(),
-  opsOverview: async () => ({ accounts: 412 }),
+  opsHome: async () => ({ ticketsOpen: 7, newDemos: 3, alertsOpen: 0, trialsEnding: 5 }),
   opsMySupportGrants: async () => ({ grants: [{ id: 'g1', state: 'PENDING' }, { id: 'g2', state: 'ACTIVE' }] }),
   opsStartTwoFactor: (p) => api.opsStartTwoFactor(p),
   opsEnableTwoFactor: (code) => api.opsEnableTwoFactor(code),
@@ -19,9 +19,9 @@ vi.mock('./AuditLog', () => ({ AuditLog: () => <h1>Audit screen</h1> }));
 vi.mock('./AccessRequests', () => ({ AccessRequests: () => <h1>Access requests screen</h1> }));
 vi.mock('./DemoRequests', () => ({ DemoRequests: () => <h1>Demo screen</h1>, DemoRequestDetail: () => <h1>Demo detail</h1> }));
 vi.mock('./Explore', () => ({ ExploreLinks: () => <h1>Links screen</h1>, SampleCompany: () => <h1>Sample screen</h1> }));
-vi.mock('./Trials', () => ({ Trials: () => <h1>Trials screen</h1> }));
+vi.mock('./Trials', () => ({ Trials: ({ openSubscription }) => <div><h1>Trials screen</h1><button type="button" onClick={() => openSubscription('a9')}>Paid plan stand-in</button></div> }));
 vi.mock('./Pricing', () => ({ Pricing: () => <h1>Pricing screen</h1> }));
-vi.mock('./Payments', () => ({ Payments: () => <h1>Payments screen</h1> }));
+vi.mock('./Payments', () => ({ Payments: ({ openCustomer }) => <div><h1>Payments screen</h1><button type="button" onClick={() => openCustomer('a7')}>Payer stand-in</button></div> }));
 vi.mock('./Settings', () => ({ Settings: () => <h1>Tax screen</h1> }));
 vi.mock('./Invoices', () => ({ Invoices: () => <h1>Invoices screen</h1>, InvoicePage: ({ id }) => <h1>Invoice {id}</h1> }));
 vi.mock('./InvoiceSettings', () => ({ InvoiceSettings: () => <h1>Invoice settings screen</h1> }));
@@ -93,9 +93,15 @@ describe('the operator console', () => {
       'Overview', 'Insights', 'Accounts', 'Organizations', 'Users', 'Subscriptions', 'Tickets', 'Saved replies', 'Trials', 'Demo requests', 'Explore links', 'Jobs & workers', 'Entitlement denials', 'Feature switches', 'Alerts', 'Status page', 'Announcements', 'Email addresses', 'Email templates', 'Email log', 'Staff audit log', 'Access requests', 'Approvals', 'Pricing', 'Custom plans', 'Offers', 'Invoices', 'Payments', 'Tax', 'Invoice settings', 'App catalogue', 'Sample company', 'Forms on clor.in',
     ]);
     expect(screen.queryByRole('button', { name: /Staff and roles/ })).toBeNull();
-    /* Counts beside Accounts and Access requests (waiting only). */
-    expect(await screen.findByText('412')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Access requests/ })).toHaveTextContent('Access requests1');
+    /* There is no Gateways entry: the gateways are the Providers tab of Payments. */
+    expect(within(nav).queryByRole('button', { name: /Gateways/ })).toBeNull();
+    /* Counts sit on work that is waiting (open tickets, new demo requests, access requests), never on totals. */
+    await waitFor(() => expect(within(nav).getByRole('button', { name: /Tickets/ })).toHaveTextContent('Tickets7'));
+    expect(within(nav).getByRole('button', { name: /Demo requests/ })).toHaveTextContent('Demo requests3');
+    expect(within(nav).getByRole('button', { name: /Access requests/ })).toHaveTextContent('Access requests1');
+    /* Nothing open shows no count, and the lists of everything show none either. */
+    expect(within(nav).getByRole('button', { name: /^Alerts/ })).toHaveTextContent(/^Alerts$/);
+    for (const name of [/^Accounts/, /^Organizations/, /^Users/, /^Trials/]) expect(within(nav).getByRole('button', { name }).querySelector('.ops-nav-count')).toBeNull();
     /* The rail opens a section's first page and marks where you are. */
     const rail = screen.getByRole('navigation', { name: 'Sections' });
     fireEvent.click(within(rail).getByRole('button', { name: 'Trust' }));
@@ -131,6 +137,18 @@ describe('the operator console', () => {
     window.history.replaceState(null, '', '/ops#/staff');
     render(<OpsConsole />);
     expect(await screen.findByRole('heading', { name: 'Home screen' })).toBeInTheDocument();
+  });
+
+  it('opens an account on its Subscription tab from Trials, and an account from a payment', async () => {
+    api.opsMe.mockResolvedValue({ user: { id: 'u1', fullName: 'Ravi' }, role: 'BILLING' });
+    window.history.replaceState(null, '', '/ops#/trials');
+    render(<OpsConsole />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Paid plan stand-in' }));
+    expect(screen.getByRole('heading', { name: 'Customer a9 subscription' })).toBeInTheDocument();
+    expect(window.location.hash).toBe('#/customers/a9/subscription');
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Operator console' })).getByRole('button', { name: /^Payments/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Payer stand-in' }));
+    expect(screen.getByRole('heading', { name: 'Customer a7 overview' })).toBeInTheDocument();
   });
 
   it('reads and writes addresses', () => {

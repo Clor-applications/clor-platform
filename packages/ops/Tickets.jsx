@@ -42,7 +42,7 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Customers', 'Tickets']}
+          crumbs={['Customers and sales', 'Tickets']}
           title="Tickets"
           description="Questions and problems customers sent from their Workspace. The one waiting longest is at the top."
           meta={d ? `${d.counts.open} need an answer · ${d.counts.waiting} waiting on customers` : null}
@@ -151,7 +151,7 @@ export function TicketPage({ id, back, openCustomer, lookUp, me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Customers', 'Tickets', t.code]}
+          crumbs={['Customers and sales', 'Tickets', t.code]}
           title={t.subject}
           description={`${CATEGORY[t.category]}${t.app ? ` · ${appName(t.app)}` : ''} · opened ${when(t.createdAt)}`}
           actions={

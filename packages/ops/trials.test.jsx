@@ -6,6 +6,7 @@ vi.mock('./api', () => ({
   opsAccounts: (p) => api.accounts(p),
   opsSignups: (p) => api.signups(p),
   opsExtendTrial: (id, days, reason) => api.extend(id, days, reason),
+  /* Trials no longer imports this; the mock stays so a test can prove nothing is granted. */
   opsGrantPlan: (id, body) => api.grant(id, body),
   opsResendSignup: (id) => api.resend(id),
 }));
@@ -55,15 +56,14 @@ describe('Trials in the operator console', () => {
     expect(screen.getByText('Account made')).toBeInTheDocument();
     /* Support sends a link again, but neither extends nor converts. */
     expect(screen.queryByRole('button', { name: 'Extend trial' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Convert' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Set up paid plan' })).not.toBeInTheDocument();
     api.resend.mockResolvedValue({});
     fireEvent.click(screen.getByRole('button', { name: 'Send link again' }));
     await waitFor(() => expect(api.resend).toHaveBeenCalledWith('s1'));
   });
 
-  it('lets Billing extend a trial with a reason, and convert it to an active plan set by hand', async () => {
+  it('lets Billing extend a trial with a reason', async () => {
     api.extend.mockResolvedValue({ trialEndsAt: new Date(Date.now() + 17 * DAY).toISOString() });
-    api.grant.mockResolvedValue({ needsApproval: true, approval: { id: 'r1', status: 'PENDING' } });
     render(<Trials role="BILLING" openAccount={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Extend trial' }));
     expect(await screen.findByRole('heading', { name: 'Extend the trial' })).toBeInTheDocument();
@@ -72,22 +72,18 @@ describe('Trials in the operator console', () => {
     fireEvent.change(screen.getByLabelText('Why'), { target: { value: 'Asked for a week more' } });
     fireEvent.click(extend);
     await waitFor(() => expect(api.extend).toHaveBeenCalledWith('a1', 14, 'Asked for a week more'));
+  });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Convert' }));
-    expect(await screen.findByRole('heading', { name: 'Convert to a paid plan' })).toBeInTheDocument();
-    expect(screen.getByText(/a colleague approves it in Approvals first/)).toBeInTheDocument();
-    /* The trial's apps are ticked already; Payroll is added. */
-    fireEvent.click(screen.getByLabelText(/Payroll/));
-    /* A colleague reads why before approving it. */
-    expect(screen.getAllByRole('button', { name: 'Convert' }).pop()).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Why'), { target: { value: 'Paid by bank transfer' } });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Convert' }).pop());
-    await waitFor(() =>
-      expect(api.grant).toHaveBeenCalledWith('a1', {
-        apps: [{ appCode: 'accounting', priceModel: 'free' }, { appCode: 'people', priceModel: 'free' }, { appCode: 'attendance', priceModel: 'free' }, { appCode: 'payroll', priceModel: 'free' }],
-        status: 'active',
-        reason: 'Paid by bank transfer',
-      }),
-    );
+  it('sends Billing to the account’s Subscription tab for a paid plan, and grants nothing from the list', async () => {
+    const openAccount = vi.fn();
+    const openSubscription = vi.fn();
+    render(<Trials role="BILLING" openAccount={openAccount} openSubscription={openSubscription} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Set up paid plan' }));
+    expect(openSubscription).toHaveBeenCalledWith('a1');
+    expect(openAccount).not.toHaveBeenCalled();
+    /* No drawer, no free grant, and no button that calls a free plan paid. */
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Convert' })).not.toBeInTheDocument();
+    expect(api.grant).not.toHaveBeenCalled();
   });
 });

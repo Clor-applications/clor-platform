@@ -98,15 +98,20 @@ describe('Payments', () => {
     api.retry.mockResolvedValue({ status: 'APPLIED', detail: 'The subscription is now active.' });
     api.accounts.mockResolvedValue({ accounts: [{ id: 'a1', name: 'Kave Traders', code: '4831920657', subscription: { status: 'trialing', currentPeriodEnd: null } }] });
     api.record.mockResolvedValue({ status: 'APPLIED', paidUntil: '2026-12-09T00:00:00Z' });
-    render(<Payments role="BILLING" />);
+    const openCustomer = vi.fn();
+    render(<Payments role="BILLING" openCustomer={openCustomer} />);
     fireEvent.click(await screen.findByRole('tab', { name: 'Payments log' }));
     expect((await screen.findAllByText('₹1,062')).length).toBeGreaterThan(0);
+    /* The account in a row opens that account's page. */
+    fireEvent.click(screen.getByRole('button', { name: 'Kave Traders' }));
+    expect(openCustomer).toHaveBeenCalledWith('a1');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith('e1'));
     expect((await screen.findAllByText('Applied', { selector: '.ws-pill' })).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: 'Record a payment' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Kave Traders' }));
+    /* The log row behind the drawer names the same account, so pick inside the drawer. */
+    fireEvent.click(await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Kave Traders' }));
     fireEvent.change(screen.getByLabelText('Amount received, ₹'), { target: { value: '1,062' } });
     fireEvent.change(screen.getByLabelText('UTR or bank reference'), { target: { value: '412345678901' } });
     fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));

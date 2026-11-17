@@ -77,7 +77,7 @@ export function AccessHome({ navItems = [], openScreen }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Access', 'Overview']}
+          crumbs={['Users & access', 'Access overview']}
           title="Access"
           description="Who is in the account, who is waiting to join, and who can administer it."
           actions={may.has('invitations') ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => openScreen('invitations')}><ICON.invite size={18} /> Invite people</button> : null}
@@ -162,7 +162,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Security', 'Overview']} title="Security overview" description="How people sign in, who can change access, and the keys other systems hold, at a glance." />
+        <PageHead crumbs={['Security', 'Security overview']} title="Security overview" description="How people sign in, who can change access, and the keys other systems hold, at a glance." />
         <div className="ws-stats">
           {p ? (
             <Stat icon={ICON.secure} label="Authenticator for admins" value={p.requireAdminTwoFactor ? 'Required' : 'Optional'} note={p.requirePayrollStepUp ? 'Payroll actions ask for a code' : 'Payroll actions do not ask for a code'} onOpen={may.has('security') ? () => openScreen('security') : null} />
@@ -241,7 +241,7 @@ export function DataHome({ tenant, navItems = [], openScreen }) {
   return (
     <div className="ws">
       <div className="ws-inner">
-        <PageHead crumbs={['Data', 'Overview']} title="Data" description="Export this company’s records, and close it when it is done with." />
+        <PageHead crumbs={['Settings', 'Data']} title="Data" description="Export this company’s records, and close it when it is done with." />
         <div className="ws-layout">
           <div className="ws-main">
             <Panel title="Export">

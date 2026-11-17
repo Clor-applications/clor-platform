@@ -84,7 +84,7 @@ export default function BillingPreview() {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Plan', 'Billing']} scope="account"
+          crumbs={['Plan', 'Billing & seats']} scope="account"
           title="Billing & seats"
           description="What you pay for, what you use, and what counts as a seat in each app."
           actions={

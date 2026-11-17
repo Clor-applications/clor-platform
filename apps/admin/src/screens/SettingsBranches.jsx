@@ -175,7 +175,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Company', 'Branches']}
+          crumbs={['Home', 'Branches']}
           icon={PAGE_ICON}
           /* Search and the count sit on the title's row: a row of their own under it left the page top half empty (owner, 17 Nov 2026). */
           tools={

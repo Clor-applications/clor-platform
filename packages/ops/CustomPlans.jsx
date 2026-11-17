@@ -7,7 +7,7 @@ import { inr, rupeesText, toPaise } from './money';
 import { opsAccounts, opsCustomPlanArchive, opsCustomPlanSave, opsCustomPlans } from './api';
 
 /**
- * Custom plans (operator console, Money; server: routes/opsDeals.ts): a deal's
+ * Custom plans (operator console, Billing and setup; server: routes/opsDeals.ts): a deal's
  * own apps, unit and prices, never shown on clor.in. Made for one customer or
  * for any. A subscription copies the price when it is set, so a change here
  * reaches only deals made after it.
@@ -228,7 +228,7 @@ export function CustomPlans({ role, openCustomer = () => {} }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Money', 'Custom plans']}
+          crumbs={['Billing and setup', 'Custom plans']}
           title="Custom plans"
           description="Plans made for a deal: their own apps and prices, never shown on clor.in. For one customer, or for staff to use with any."
           meta={d ? `${open} in use or ready` : null}

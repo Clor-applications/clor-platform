@@ -183,7 +183,7 @@ export const RolePermissionManager = () => {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['Access', 'Permissions']}
+          crumbs={['Users & access', 'Permissions']}
           title="Permissions"
           meta={dirty ? 'Unsaved changes' : savedAt ? 'Saved' : null}
           actions={

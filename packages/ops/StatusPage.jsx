@@ -236,7 +236,7 @@ export function StatusPage({ me }) {
     <div className="ws">
       <div className="ws-inner">
         <PageHead
-          crumbs={['System', 'Status page']}
+          crumbs={['Platform', 'Status page']}
           title="Status page"
           description="Posts on clor.in/status, next to the automatic checks: problems CLOR is fixing, and planned maintenance."
           actions={

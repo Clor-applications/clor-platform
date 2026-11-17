@@ -181,6 +181,24 @@ export const adminApp = {
     if (Array.isArray(outside?.outsideAccess)) counts.outsideAccess = outside.outsideAccess.length;
     return counts;
   },
+  /* Search: people and companies by name, and jobs by the words an administrator uses for them (src/search.js). */
+  searchRecords: (q) => import('./src/search.js').then((m) => m.findInWorkspace(q)),
+  searchLabel: 'Search people, companies and settings',
+  searchActions: [
+    { label: 'Invite a person', screen: 'invitations', keywords: ['invite', 'add user', 'add member', 'new user', 'add person'] },
+    { label: 'Add a company', screen: 'companies', keywords: ['add company', 'new company', 'second company', 'gstin'] },
+    { label: 'Add a branch', screen: 'branches', keywords: ['branch', 'location', 'office', 'warehouse'] },
+    { label: 'Change someone’s role', screen: 'users', keywords: ['change role', 'role', 'permission', 'access', 'make admin'] },
+    { label: 'Remove or suspend a person', screen: 'members', keywords: ['remove user', 'suspend', 'offboard', 'left the company', 'deactivate', 'sign out'] },
+    { label: 'Admins without an authenticator', screen: 'members', params: { risk: 'no2fa' }, keywords: ['two-factor', '2fa', 'authenticator', 'no 2fa'] },
+    { label: 'Password and lockout rules', screen: 'security', keywords: ['password', 'password policy', 'lockout', 'two-factor', '2fa', 'session'] },
+    { label: 'Create an API key', screen: 'credentials', keywords: ['api key', 'token', 'key', 'webhook secret'] },
+    { label: 'Let an accountant in', screen: 'outsideAccess', keywords: ['accountant', 'ca', 'auditor', 'outside access', 'chartered'] },
+    { label: 'Download CLOR invoices', screen: 'invoices', keywords: ['invoice', 'bill', 'receipt', 'download invoice', 'payment'] },
+    { label: 'Change plan or seats', screen: 'billing', keywords: ['plan', 'upgrade', 'seats', 'subscription', 'renew', 'pricing'] },
+    { label: 'Export data', screen: 'export', keywords: ['export', 'backup', 'download data'] },
+    { label: 'Ask CLOR support', screen: 'support', keywords: ['support', 'ticket', 'help', 'contact'] },
+  ],
   modules: [
     { key: 'home', label: 'Home', icon: RAIL.home, groups: [
       { label: null, items: ['home', 'audit', 'inbox', 'support'] },
@@ -190,10 +208,12 @@ export const adminApp = {
     /* "Users", not "People" (owner, 17 Nov 2026): People is the name of an app, and the two read as one thing. */
     { key: 'access', label: 'Users & access', short: 'Users', icon: RAIL.access, groups: [
       { label: null, items: ['members', 'roles', 'outsideAccess'] },
-      { label: 'More', items: ['users', 'invitations', 'permissions', 'supportAccess', 'accessHome'] },
+      /* Permissions is the same grid as Roles and is opened from a role, so it has no line of its own here (17 Nov 2026). */
+      { label: 'More', items: ['users', 'invitations', 'supportAccess', 'accessHome'] },
     ] },
     { key: 'plan', label: 'Plan', icon: RAIL.plan, items: ['billing', 'invoices'] },
-    { key: 'security', label: 'Security', icon: RAIL.security, items: ['sso', 'security', 'accountActivity', 'credentials', 'securityHome'] },
+    { key: 'security', label: 'Security', icon: RAIL.security, /* The overview first: a tap on Security opens the summary, not single sign-on (17 Nov 2026). */
+      items: ['securityHome', 'security', 'sso', 'accountActivity', 'credentials'] },
     { key: 'settings', label: 'Settings', icon: RAIL.settings, groups: [
       { label: null, items: ['account', 'dataHome', 'export'] },
       /* Closing a company is not an ordinary destination beside an export: it sits apart, under its own heading. */
@@ -237,7 +257,8 @@ export const adminApp = {
     /* CLOR's tax invoices to this account (routes/billing.ts GET /billing/invoices). */
     { key: 'invoices', label: 'Invoices', icon: NAV.invoices, permission: 'SETTINGS::Company Profile::VIEW' },
     { key: 'sso', label: 'Single sign-on', icon: NAV.sso, permission: 'SETTINGS::Users::VIEW' },
-    { key: 'security', label: 'Sessions', icon: NAV.sessions, permission: 'SETTINGS::Users::VIEW' },
+    /* The page holds the password, lockout and two-factor rules as well as devices; "Sessions" hid them (17 Nov 2026). */
+    { key: 'security', label: 'Sign-in rules', icon: NAV.sessions, permission: 'SETTINGS::Users::VIEW', keywords: ['sessions', 'devices', 'password', 'password policy', 'lockout', 'two-factor', '2fa', 'authenticator', 'otp', 'allowed domains', 'sign-in activity', 'login'] },
     /* W-7.2: the account's own audit — members, roles, plan, security; the server shows it to the account's owners and administrators. */
     { key: 'accountActivity', label: 'Audit log', icon: NAV.auditLog, permission: 'SETTINGS::Audit trail::VIEW' },
     { key: 'credentials', label: 'Credentials', icon: NAV.credentials, permission: 'SETTINGS::Credentials::VIEW' },
