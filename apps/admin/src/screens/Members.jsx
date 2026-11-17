@@ -55,7 +55,7 @@ export function filterMembers(members, { q = '', status = '', companyId = '', ap
 const RISKS = ['privileged', 'no2fa'];
 const STATUSES = ['ACTIVE', 'SUSPENDED'];
 
-export default function Members({ params }) {
+export default function Members({ params, tenant, openScreen, switchCompany }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState(() => ({
@@ -361,6 +361,27 @@ export default function Members({ params }) {
                   ))}
                   {shown.roles.length === 0 ? <li className="ui-caption">No role here.</li> : null}
                 </ul>
+                {/*
+                  Roles are changed in the company they belong to. This page showed them and stopped: the
+                  administrator then went looking for the same person again under Company users.
+                */}
+                {tenant?.id && shown.orgId === tenant.id && openScreen ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="ws-btn ws-btn--small" onClick={() => openScreen('users', { user: detail.userId })}>
+                      Change role here
+                    </button>
+                    {detail.status !== 'SUSPENDED' ? (
+                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => openScreen('users', { user: detail.userId, do: 'leave' })}>
+                        Mark as left
+                      </button>
+                    ) : null}
+                  </div>
+                ) : tenant?.id && shown.orgId !== tenant.id ? (
+                  <p className="ui-caption">
+                    Roles in {shown.name} are changed from that company.{' '}
+                    {switchCompany ? <button type="button" className="ws-link" onClick={() => switchCompany(shown.orgId)}>Switch to {shown.name}</button> : null}
+                  </p>
+                ) : null}
                 {shown.sensitive.length ? (
                   <p className="ui-caption flex items-start gap-1">
                     <ShieldAlert size={14} aria-hidden="true" className="mt-0.5 shrink-0" /> Can reach sensitive data: {shown.sensitive.length} permission{shown.sensitive.length === 1 ? '' : 's'} on payroll, people, salary, bank or documents.

@@ -87,7 +87,7 @@ const leftLine = (left) => [LEFT_REASON[left?.reason] || 'Left', left?.lastWorki
 const statusPill = (u) =>
   u.left ? <span className="ws-pill ws-pill--neutral">Left</span> : u.isActive !== false ? <span className="ws-pill ws-pill--ok">Active</span> : <span className="ws-pill ws-pill--neutral">Inactive</span>;
 
-export function SettingsUsers({ orgId }) {
+export function SettingsUsers({ orgId, params }) {
   const { isEnabled } = useFeatures();
   const branchesEnabled = isEnabled('branches');
   const [users, setUsers] = useState([]);
@@ -159,6 +159,22 @@ export function SettingsUsers({ orgId }) {
   useEffect(() => {
     loadData();
   }, [orgId, branchesEnabled]);
+
+  /*
+   * Arriving for one person (Members' "Change role here" or "Mark as left"): their panel opens once
+   * the list is in, so nobody finds the same person a second time. Once only; after that the page is its own.
+   */
+  const linked = useRef(false);
+  useEffect(() => {
+    if (linked.current || !params?.user || !users.length) return;
+    const u = users.find((x) => x.id === params.user);
+    if (!u) return;
+    linked.current = true;
+    if (params.do === 'leave' && u.isActive !== false) openLeave(u);
+    else openEdit(u);
+    // openEdit and openLeave are made anew each render; this runs when the list arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users, params?.user, params?.do]);
 
   const open = (kind, user = null) => {
     setMenuFor(null);
@@ -689,7 +705,7 @@ export function SettingsUsers({ orgId }) {
         <PageHead
           crumbs={['Users & access', 'Company users']}
           title="Users"
-          description="Everyone who signs in to this company, their role here and whether they can sign in."
+          description="Everyone who signs in to this company, their role here and whether they can sign in. For every company at once, open Members."
           actions={
             <>
               <MoreButton items={[exportMenuItem('Export users')]} onSelect={exportUsers} />

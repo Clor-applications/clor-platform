@@ -47,6 +47,7 @@ export const CloseCompany = ({ tenant }) => <CloseCompanyPage companyName={tenan
 export const BillingPreview = ({ tenant }) => <BillingPreviewScreen currentCompany={companyOf(tenant)} />;
 export const DataBackup = ({ tenant }) => <DataBackupScreen currentCompany={companyOf(tenant)} />;
 export const AccountOverview = ({ tenant }) => <AccountOverviewScreen currentCompany={companyOf(tenant)} />;
-export const SettingsUsers = () => <SettingsUsersScreen orgId={platformOrgId()} />;
+/* `params`: a link from Members opens one person here, on their role or on "Mark as left". */
+export const SettingsUsers = ({ params }) => <SettingsUsersScreen orgId={platformOrgId()} params={params} />;
 export const SettingsRoles = () => <SettingsRolesScreen orgId={platformOrgId()} />;
 export const SettingsBranches = ({ tenant }) => <SettingsBranchesScreen orgId={platformOrgId()} company={companyOf(tenant)} />;

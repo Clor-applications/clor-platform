@@ -76,6 +76,25 @@ describe('Workspace → Members', () => {
     await waitFor(() => expect(api.memberAccess).toHaveBeenCalledWith('u2'));
   });
 
+  /* Roles are shown here and changed in the company: the link carries the person, so nobody is looked up twice. */
+  it('opens the person in Company users to change a role or mark them as left; another company offers the switch', async () => {
+    const openScreen = vi.fn();
+    const switchCompany = vi.fn();
+    const { unmount } = render(<Members tenant={{ id: 'c2', name: 'Anand Exports' }} openScreen={openScreen} switchCompany={switchCompany} />);
+    fireEvent.click(await screen.findByText('Kavya'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Change role here' }));
+    expect(openScreen).toHaveBeenCalledWith('users', { user: 'u2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Mark as left' }));
+    expect(openScreen).toHaveBeenCalledWith('users', { user: 'u2', do: 'leave' });
+    unmount();
+    render(<Members tenant={{ id: 'c1', name: 'Anand Traders' }} openScreen={openScreen} switchCompany={switchCompany} />);
+    fireEvent.click(await screen.findByText('Kavya'));
+    expect(await screen.findByText(/Roles in Anand Exports are changed from that company/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Change role here' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Anand Exports' }));
+    expect(switchCompany).toHaveBeenCalledWith('c2');
+  });
+
   /* The select used to save on change: one slip made somebody an owner. */
   it('asks before changing an account role, and leaves it alone on No', async () => {
     const { confirmDialog } = await import('@ui/components/ui/notify');
