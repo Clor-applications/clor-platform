@@ -60,36 +60,62 @@ export const knownWorkers = () => [...workers].map(([worker, w]) => ({ worker, .
 
 export type JobRun = { name: string; ok: boolean; ms: number; error?: string; timedOut?: boolean; skipped?: boolean };
 
+/** How many ticks run at once in one wake. JOBS_CONCURRENCY overrides (1 to 16). */
+export const jobsAtOnce = () => {
+  const n = Math.floor(Number(process.env.JOBS_CONCURRENCY));
+  return Number.isFinite(n) && n >= 1 ? Math.min(16, n) : 4;
+};
+
 /**
- * Run every registered tick once, side by side, and wait for them. A tick
- * that outlives `budgetMs` is reported as timed out; it keeps running under
- * its lease (its heartbeat keeps the lease), and the next wake skips it.
+ * Run every registered tick that is due, a few at a time, and wait for them.
+ *
+ * They used to start all together: about forty jobs side by side on the nine
+ * database connections an instance has, several of them reading every
+ * company, while customers' requests waited for a connection (audit, 17 Nov
+ * 2026). Now at most `jobsAtOnce()` run at once; the rest wait their turn.
+ *
+ * `budgetMs` is for the whole wake. A tick still running when it ends is
+ * reported as timed out; it keeps running under its lease (its heartbeat keeps
+ * the lease), and the next wake skips it. A tick whose turn had not come when
+ * the budget ended is not started and not marked as run, so the next wake
+ * takes it first-come like any other due job.
  */
-export async function runRegisteredJobs({ budgetMs = 240_000, only, now = Date.now }: { budgetMs?: number; only?: string[]; now?: () => number } = {}): Promise<JobRun[]> {
+export async function runRegisteredJobs({ budgetMs = 240_000, only, now = Date.now, atOnce = jobsAtOnce() }: { budgetMs?: number; only?: string[]; now?: () => number; atOnce?: number } = {}): Promise<JobRun[]> {
   const chosen = [...jobs].filter(([name]) => !only?.length || only.includes(name));
-  return Promise.all(
-    chosen.map(async ([name, { tick, everyMs }]) => {
-      const last = lastWoken.get(name);
-      /* 5% slack: a scheduler firing every 15 minutes still wakes a 15-minute job each time. */
-      if (last !== undefined && now() - last < everyMs * 0.95) return { name, ok: true, ms: 0, skipped: true };
-      lastWoken.set(name, now());
-      const start = Date.now();
-      let timer: NodeJS.Timeout | undefined;
-      const timeout = new Promise<'timeout'>((resolve) => {
-        timer = setTimeout(() => resolve('timeout'), budgetMs);
-      });
-      try {
-        const out = await Promise.race([Promise.resolve().then(() => waking.run(name, tick)), timeout]);
-        return out === 'timeout' ? { name, ok: false, timedOut: true, ms: Date.now() - start } : { name, ok: true, ms: Date.now() - start };
-      } catch (e) {
-        /* A failed run may be retried at the next wake, not a period later. */
-        lastWoken.delete(name);
-        return { name, ok: false, ms: Date.now() - start, error: e instanceof Error ? e.message : String(e) };
-      } finally {
-        clearTimeout(timer);
-      }
-    }),
-  );
+  const deadline = Date.now() + budgetMs;
+  const results: JobRun[] = new Array(chosen.length);
+
+  const runOne = async ([name, { tick, everyMs }]: (typeof chosen)[number]): Promise<JobRun> => {
+    const last = lastWoken.get(name);
+    /* 5% slack: a scheduler firing every 15 minutes still wakes a 15-minute job each time. */
+    if (last !== undefined && now() - last < everyMs * 0.95) return { name, ok: true, ms: 0, skipped: true };
+    const left = deadline - Date.now();
+    /* Its turn came too late: left for the next wake, which will find it due. */
+    if (left <= 0) return { name, ok: true, ms: 0, skipped: true };
+    lastWoken.set(name, now());
+    const start = Date.now();
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), left);
+    });
+    try {
+      const out = await Promise.race([Promise.resolve().then(() => waking.run(name, tick)), timeout]);
+      return out === 'timeout' ? { name, ok: false, timedOut: true, ms: Date.now() - start } : { name, ok: true, ms: Date.now() - start };
+    } catch (e) {
+      /* A failed run may be retried at the next wake, not a period later. */
+      lastWoken.delete(name);
+      return { name, ok: false, ms: Date.now() - start, error: e instanceof Error ? e.message : String(e) };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  let next = 0;
+  const worker = async () => {
+    for (let i = next++; i < chosen.length; i = next++) results[i] = await runOne(chosen[i]);
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(atOnce, chosen.length)) }, worker));
+  return results;
 }
 
 /** Tests only. */
