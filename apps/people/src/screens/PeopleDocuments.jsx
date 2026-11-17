@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarClock, CircleX, FileText, Users } from 'lucide-react';
+import FileBadge, { fileSize } from '@ui/components/ui/FileBadge';
 import { Download, Plus } from '@ui/components/ui/lineIcons';
 import { KpiTiles } from '../components/Core';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -67,7 +68,7 @@ export default function PeopleDocuments({ openScreen }) {
   /* PEOPLE-06: the person first, then the document, its category, when it was added, when it runs out and where it stands. */
   const columns = [
     { key: 'employee', label: 'Employee', render: (r) => (r.employeeName ? <span className="pc-who"><Avatar person={{ name: r.employeeName }} size={32} /><span className="pc-who-text"><span className="pc-who-name">{r.employeeName}</span>{r.employeeCode ? <span className="pc-who-sub">{r.employeeCode}</span> : null}</span></span> : '—') },
-    { key: 'title', label: 'Document', always: true, render: (r) => <span className="font-semibold">{r.title}</span> },
+    { key: 'title', label: 'Document', always: true, render: (r) => <span className="ui-file-row"><FileBadge mime={r.mime} name={r.title} /><span className="min-w-0"><span className="block font-semibold">{r.title}</span>{fileSize(r.size) ? <span className="block ui-caption tabular-nums">{fileSize(r.size)}</span> : null}</span></span> },
     { key: 'kind', label: 'Category', render: (r) => kindWord(r.kind) },
     { key: 'added', label: 'Added', align: 'right', render: (r) => <span className="tabular-nums whitespace-nowrap">{r.createdAt ? formatDate(String(r.createdAt).slice(0, 10)) : '—'}</span> },
     { key: 'expires', label: 'Expires', align: 'right', render: (r) => <span className="tabular-nums whitespace-nowrap">{r.expiresOn ? formatDate(r.expiresOn) : '—'}</span> },

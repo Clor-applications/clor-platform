@@ -637,3 +637,11 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-palette-kind { display: inline-flex; align-items: center; height: 1.375rem; padding: 0 0.5rem; border-radius: 999px; background: rgb(var(--act, var(--fg)) / 0.08); color: rgb(var(--act, var(--fg))); font-weight: 600; }
 /* Board columns: heading on a tinted band */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .pt-lane-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 8px; background: rgb(var(--act, var(--fg)) / 0.08); color: rgb(var(--act, var(--fg))); }
+/* Files as a row with a type badge (FileBadge) */
+.ui-file-row { display: inline-flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.ui-file-badge { display: inline-grid; place-content: center; flex: none; min-width: 2.25rem; height: 1.5rem; padding: 0 0.25rem; border-radius: 4px; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.02em; color: #fff; background: #475569; }
+.ui-file-badge[data-kind='PDF'] { background: #B42318; }
+.ui-file-badge[data-kind='IMG'] { background: #6D28D9; }
+.ui-file-badge[data-kind='DOC'] { background: #1D4ED8; }
+.ui-file-badge[data-kind='XLS'] { background: #15803D; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .pt-lane-add { width: 1.75rem; height: 1.75rem; color: inherit; }
