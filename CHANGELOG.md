@@ -8,6 +8,16 @@ API revision `clor-api-00140-77z`. Previous release `rel-61e7a5a` (roll back the
 
 - #311 Invoice numbers without gaps, GSTR-3B without drafts, People routes in the employee app need People
 
+## rel-f374dd4 - 2026-11-17
+
+API revision `clor-api-00138-fmj`. Previous release `rel-51fe69e` (roll back there).
+
+- #301 Easy access, batch 2: Ops work list, account invoices, ticket context, trials paging; Workspace role link
+- #300 Payroll: gratuity part-year, encashment rule, net pay below zero, files from approved payslips
+- #297 Easy access, batch 1: Workspace search and invite roles, Ops counts and honest trial convert
+- #295 Ops console on the platform frame, base-ui bar menus, Workspace Home rework
+- #296 Release record: rel-51fe69e
+
 ## rel-51fe69e - 2026-11-17
 
 API revision `clor-api-00137-psx`. Previous release `rel-f92d74e` (roll back there).
