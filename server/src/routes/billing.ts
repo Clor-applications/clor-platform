@@ -24,6 +24,7 @@ import { invoiceForAccount, invoicesForAccount } from '../billing/invoices.js';
 import { checkPayLink, onlinePayment, payLinkFor } from '../billing/payLinks.js';
 import { PaymentsError } from '../billing/providers.js';
 import { DealError } from '../services/pricing/deals.js';
+import { addSeats, changesFor, eligibility, quoteSeats } from '../billing/selfServe.js';
 import { applyGrant, askForGrant, recordGrant, type PlanGrant } from '../services/ops/grants.js';
 
 export const billingRouter = Router();
@@ -293,6 +294,62 @@ billingRouter.post('/billing/plan-change', async (req, res) => {
   } catch (e) {
     if (e instanceof TicketError) return res.status(e.status).json({ error: e.message });
     throw e;
+  }
+});
+
+/*
+ * Seats the customer adds themselves (billing/selfServe.ts): on at once, a
+ * prorated invoice due in the days to pay. Whoever may pay the account's
+ * invoices may add them. Off until CLOR staff switch it on.
+ */
+const seatsFail = (res: Response, e: unknown) => {
+  if (e instanceof PaymentsError) return res.status(e.status).json({ error: e.message, problems: e.problems });
+  throw e;
+};
+
+billingRouter.get('/billing/seats', async (req, res) => {
+  if (!(await mayChangePlan(req))) return res.status(403).json({ error: 'Only the people who may change this account’s settings add seats.' });
+  const accountId = req.tenant!.accountId;
+  const [e, changes] = await Promise.all([eligibility(accountId), changesFor(accountId, 5)]);
+  const sub = e.ok ? e.sub : null;
+  res.json({
+    open: e.settings.on,
+    eligible: e.ok,
+    reason: e.ok ? null : e.refusal.reason,
+    code: e.ok ? null : e.refusal.code,
+    invoiceId: e.ok ? null : (e.refusal.invoiceId ?? null),
+    unit: sub?.planUnit ?? null,
+    quantity: sub?.quantity ?? null,
+    maxPerChange: e.settings.maxPerChange,
+    payDays: e.settings.payDays,
+    changes,
+  });
+});
+
+billingRouter.get('/billing/seats/quote', async (req, res) => {
+  if (!(await mayChangePlan(req))) return res.status(403).json({ error: 'Only the people who may change this account’s settings add seats.' });
+  try {
+    const { line: _l, deltaList: _d, deltaPeriod: _p, ...q } = await quoteSeats(req.tenant!.accountId, Number(req.query.add));
+    res.json({ quote: q });
+  } catch (e) {
+    seatsFail(res, e);
+  }
+});
+
+const seatsSchema = z.object({ add: z.number().int().min(1).max(10000), total: z.number().int().min(0).optional().nullable() });
+
+billingRouter.post('/billing/seats', async (req, res) => {
+  if (!(await mayChangePlan(req))) return res.status(403).json({ error: 'Only the people who may change this account’s settings add seats.' });
+  const p = seatsSchema.safeParse(req.body ?? {});
+  if (!p.success) return res.status(400).json({ error: 'Say how many to add.' });
+  try {
+    const r = await addSeats(req.tenant!.accountId, p.data.add, req.auth!.userId, p.data.total ?? null);
+    res.status(201).json({
+      change: { id: r.change.id, status: r.change.status, added: r.change.added, toQuantity: r.change.toQuantity, dueAt: r.change.dueAt },
+      invoice: r.invoice ? { id: r.invoice.id, number: r.invoice.number, total: r.invoice.total, dueDate: r.invoice.dueDate } : null,
+    });
+  } catch (e) {
+    seatsFail(res, e);
   }
 });
 

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => Object.fromEntries(
-  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsAccountEntitlements', 'opsTags', 'opsInvoices'].map((k) => [k, vi.fn()]),
+  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsAccountEntitlements', 'opsTags', 'opsInvoices', 'opsSeatChanges', 'opsTakeBackSeats'].map((k) => [k, vi.fn()]),
 ));
 vi.mock('./api', () => api);
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -29,6 +29,7 @@ beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.opsTags.mockResolvedValue({ tags: [] });
   api.opsInvoices.mockResolvedValue({ invoices: [], hasMore: false, totals: {} });
+  api.opsSeatChanges.mockResolvedValue({ changes: [] });
   notify.success.mockReset();
 });
 
@@ -181,6 +182,32 @@ describe('a customer’s page', () => {
     await waitFor(() => expect(api.opsSuspend).toHaveBeenCalledWith('a1', 'Unpaid'));
     expect(await screen.findByText(/Suspended on .*: Unpaid/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Resume' })).toBeInTheDocument();
+  });
+
+  it('lists seats the customer added, and Finance takes back ones waiting to be paid', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    const seat = (o) => ({ id: 'c1', status: 'OPEN', unit: 'USER', added: 2, fromQuantity: 3, toQuantity: 5, proratedAmount: 73333, dueAt: '2026-12-02T00:00:00Z', createdAt: '2026-11-18T05:00:00Z', note: null, invoice: { id: 'i9', number: 'CLOR/26-27/0042', status: 'ISSUED', total: 86533 }, ...o });
+    api.opsSeatChanges.mockResolvedValue({ changes: [seat({}), seat({ id: 'c0', status: 'LAPSED', note: 'Not paid within the days to pay.', invoice: { id: 'i8', number: 'CLOR/26-27/0040', status: 'VOID', total: 43266 } })] });
+    api.opsTakeBackSeats.mockResolvedValue({ ok: true });
+    render(<CustomerPage id="a1" tab="subscription" role="BILLING" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByRole('heading', { name: 'Seats the customer added' })).toBeInTheDocument();
+    expect(api.opsSeatChanges).toHaveBeenCalledWith('a1');
+    expect(screen.getByText('Waiting to be paid')).toBeInTheDocument();
+    expect(screen.getByText('Taken off, unpaid')).toBeInTheDocument();
+    expect(screen.getByText('₹865.33')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Take back' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Take back' }));
+    fireEvent.change(screen.getByPlaceholderText('One sentence, for the audit log'), { target: { value: 'Added by mistake' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Take back' }).at(-1));
+    await waitFor(() => expect(api.opsTakeBackSeats).toHaveBeenCalledWith('c1', 'Added by mistake'));
+  });
+
+  it('offers no Take back to a role that is not Finance', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsSeatChanges.mockResolvedValue({ changes: [{ id: 'c1', status: 'OPEN', unit: 'EMPLOYEE', added: 1, fromQuantity: 9, toQuantity: 10, proratedAmount: 100, dueAt: '2026-12-02T00:00:00Z', createdAt: '2026-11-18T05:00:00Z', note: null, invoice: null }] });
+    render(<CustomerPage id="a1" tab="subscription" role="SUPPORT" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByText('1 employee more')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take back' })).toBeNull();
   });
 
   it('shows an empty Invoices and payments tab in plain words', async () => {

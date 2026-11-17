@@ -137,7 +137,7 @@ function cleanPeriod(input: DraftInput, problems: string[]) {
   return { periodStart, periodEnd, months };
 }
 
-export async function createDraft(input: DraftInput, userId: string | null, origin: { source?: 'MANUAL' | 'RENEWAL'; renewalFor?: string | null } = {}) {
+export async function createDraft(input: DraftInput, userId: string | null, origin: { source?: 'MANUAL' | 'RENEWAL' | 'ADDON'; renewalFor?: string | null } = {}) {
   const accountId = String(input.accountId || '');
   const known = await buyerFor(accountId);
   const { lines, problems } = cleanLines(input.lines);
@@ -204,7 +204,7 @@ export async function payToFor(total: number, number: string) {
 }
 
 /** Issue a draft: the next number of this financial year's series, today's date, and everything on it frozen. */
-export async function issueInvoice(id: string, userId: string | null) {
+export async function issueInvoice(id: string, userId: string | null, opts: { dueDays?: number } = {}) {
   const inv = await getInvoice(id);
   if (inv.status !== 'DRAFT') throw new PaymentsError('This invoice is already issued.', 409);
   if (inv.total <= 0) throw new PaymentsError('An invoice for ₹0 cannot be issued. Put a price on the lines.', 400);
@@ -230,7 +230,7 @@ export async function issueInvoice(id: string, userId: string | null) {
           status: 'ISSUED',
           number,
           issueDate: now,
-          dueDate: new Date(now.getTime() + cur.dueDays * 86400000),
+          dueDate: new Date(now.getTime() + (opts.dueDays ?? cur.dueDays) * 86400000),
           subtotal: t.subtotal,
           tax: t.tax as any,
           taxTotal: t.taxTotal,

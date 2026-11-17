@@ -11,7 +11,7 @@ import { getSubscription, setSubscription } from '../services/subscriptions.js';
 import { publishedBook } from '../services/pricing/books.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { PRICE_PERIODS, PRICE_UNITS, PRICEABLE_APPS, appName, rupees, type PricePeriod } from '../services/pricing/engine.js';
-import { DealError, fromBookPlan, offerProblem, offerWords, periodEnd, priceDeal, unitWord, type DealOffer, type DealPlan } from '../services/pricing/deals.js';
+import { DealError, fromBookPlan, fromCustom, offerProblem, offerWords, periodEnd, priceDeal, unitWord, type DealOffer, type DealPlan } from '../services/pricing/deals.js';
 import { ALREADY_WAITING, approvalSettings, askApproval, waitingFor } from '../services/ops/approvals.js';
 import { expectPlanUnchanged, planVersion } from '../services/ops/grants.js';
 import { buyerFor, createDraft } from '../billing/invoices.js';
@@ -285,18 +285,6 @@ export const accountNames = async (ids: Array<string | null>) => {
   return new Map(rows.map((r) => [r.id, customerTitle(r.name, owner.get(r.id), r.orgs[0]?.name)]));
 };
 
-const fromCustom = (p: any): DealPlan => ({
-  source: 'custom',
-  ref: p.id,
-  name: p.name,
-  apps: p.apps,
-  unit: p.unit,
-  includedUnits: p.includedUnits,
-  gstApplies: p.gstApplies,
-  monthly: p.monthlyPrice != null ? { basePrice: p.monthlyPrice, extraUnitPrice: p.monthlyExtra } : null,
-  yearly: p.yearlyPrice != null ? { basePrice: p.yearlyPrice, extraUnitPrice: p.yearlyExtra } : null,
-});
-
 opsDealsRouter.get('/ops/custom-plans', (req, res) =>
   outsideTenant('ops: custom plans', async () => {
     const accountId = typeof req.query.accountId === 'string' ? req.query.accountId : undefined;
@@ -511,6 +499,9 @@ export async function applyDeal(id: string, v: DealBody, operatorUserId: string,
   await platformPrisma.$transaction(
     async (tx) => {
       if (opts.basedOn !== undefined) await expectPlanUnchanged(tx, id, opts.basedOn);
+      /* Seats the customer added and has not paid for yet sit on the count: a new deal would bury them. */
+      const open = await tx.subscriptionChange.findFirst({ where: { accountId: id, status: 'OPEN' }, select: { added: true } });
+      if (open) throw new DealError(`The customer added ${open.added} seats that are waiting to be paid. Wait for the payment, or take them back on the Subscription tab, then set the deal.`, 409);
       const before = await getSubscription(id, tx);
 
       /* Count the customer on the offer first, conditionally, so the last place cannot be taken twice. */

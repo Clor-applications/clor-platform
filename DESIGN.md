@@ -1143,6 +1143,19 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-18 — Customers add seats themselves (owner, 17 Nov: on at once, like Claude Team and
+  Microsoft 365; 14 days to pay):** Workspace, Billing & seats, Change plan shows "This plan is paid
+  for N users" and **Add users** (or employees) when CLOR has it switched on and the plan is active,
+  priced by the head, nothing overdue and no other addition waiting. The drawer takes a number (up to
+  the cap, 20 by default), prices it live as rows of label and right-aligned tabular amount (the days
+  left of this period, GST, **to pay by** the due date, and what each period costs more from the next
+  renewal), and one primary button named by the count, "Add 3 users". Added, the seats work at once
+  and the invoice opens to pay. While it is unpaid the panel says so with **Open the invoice**. Unpaid
+  after the days to pay, that invoice is cancelled and those seats alone come off. Ops: a switch in
+  Invoice settings, **off until a person turns it on**, and "Seats the customer added" on the
+  Subscription tab with **Take back** (Finance, with a reason). Removing seats, apps and refunds stay
+  with CLOR.
+
 - **2026-11-17 — CLOR's invoices are emailed and reminded (owner: send, resend, remind, and automatic
   reminders):** issuing an invoice in Ops offers "Email it to …", ticked; the invoice page has Send
   again and Send reminder, each naming the recipient before it goes, and lists every email sent; the

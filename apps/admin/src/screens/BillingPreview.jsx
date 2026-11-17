@@ -92,7 +92,13 @@ export default function BillingPreview() {
               <button type="button" className="ws-btn ws-btn--quiet" onClick={() => requestOpenScreen('invoices')}>
                 Download invoices
               </button>
-              <PlanChange asButton />
+              <PlanChange
+                asButton
+                onInvoice={(id) => {
+                  reloadInvoices();
+                  openInvoice(id);
+                }}
+              />
             </>
           }
         />

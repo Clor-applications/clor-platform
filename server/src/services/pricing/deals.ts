@@ -83,6 +83,19 @@ export function fromBookPlan(p: PlanData): DealPlan {
   };
 }
 
+/** A custom plan (CustomPlan row) as a deal plan. */
+export const fromCustom = (p: { id: string; name: string; apps: string[]; unit: string; includedUnits: number; gstApplies: boolean; monthlyPrice: number | null; monthlyExtra: number; yearlyPrice: number | null; yearlyExtra: number }): DealPlan => ({
+  source: 'custom',
+  ref: p.id,
+  name: p.name,
+  apps: p.apps,
+  unit: p.unit as PriceUnit,
+  includedUnits: p.includedUnits,
+  gstApplies: p.gstApplies,
+  monthly: p.monthlyPrice != null ? { basePrice: p.monthlyPrice, extraUnitPrice: p.monthlyExtra } : null,
+  yearly: p.yearlyPrice != null ? { basePrice: p.yearlyPrice, extraUnitPrice: p.yearlyExtra } : null,
+});
+
 /** Why an offer cannot be used on this plan and period now, or null when it can. */
 export function offerProblem(o: DealOffer, plan: Pick<DealPlan, 'source' | 'ref'>, period: PricePeriod, now = new Date()): string | null {
   if (o.archivedAt) return `${o.code} is archived.`;

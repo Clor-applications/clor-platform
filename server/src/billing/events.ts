@@ -67,8 +67,10 @@ async function payInvoice(ev: NormalizedEvent, rowId: string): Promise<{ status:
   if (p.amountPaid != null && p.amountPaid < inv.total)
     return { status: 'RECORDED', detail: `The customer paid ₹${(p.amountPaid / 100).toFixed(2)}, less than invoice ${inv.number}’s ₹${(inv.total / 100).toFixed(2)}, so it stays unpaid. Settle the difference with them.` };
   const sub = await getSubscription(inv.accountId);
+  /* Seats the customer added themselves (billing/selfServe.ts): paying for them keeps them, and moves nothing else. */
+  const addon = inv.source === 'ADDON';
   /* A cancelled or paused subscription is not started again by a late payment: a person decides. */
-  const moves = Boolean(sub && LIVE.includes(sub.status));
+  const moves = !addon && Boolean(sub && LIVE.includes(sub.status));
   const until = paidUntil(sub?.currentPeriodEnd ?? null, inv.months, inv.periodStart);
   const paid = await platformPrisma.$transaction(async (tx) => {
     const done = await tx.billingInvoice.updateMany({
@@ -76,12 +78,14 @@ async function payInvoice(ev: NormalizedEvent, rowId: string): Promise<{ status:
       data: { status: 'PAID', paidAt: new Date(), paidAmount: p.amountPaid ?? inv.total, paymentReference: ev.reference ? String(ev.reference).slice(0, 60) : p.linkId, paymentEventId: rowId },
     });
     if (!done.count) return false;
+    if (addon) await tx.subscriptionChange.updateMany({ where: { invoiceId: inv.id, status: 'OPEN' }, data: { status: 'PAID', settledAt: new Date() } });
     if (moves) await tx.subscription.updateMany({ where: { accountId: inv.accountId }, data: { status: 'active', currentPeriodEnd: until, gatewayName: ev.gateway } });
     return true;
   });
   if (!paid) return { status: 'RECORDED', detail: `Invoice ${inv.number} changed a moment ago, so nothing changed. Open it to check.` };
   /* A reminder the mail server had refused is not tried again now that the money is in. */
   await cancelUnsentInvoiceMail(inv.id, 'PAID');
+  if (addon) return { status: 'APPLIED', detail: `Invoice ${inv.number} paid online. The seats added with it stay on the plan.` };
   if (!sub) return { status: 'APPLIED', detail: `Invoice ${inv.number} is paid. The account has no subscription, so nothing else changed.` };
   if (!moves)
     return { status: 'RECORDED', detail: `Invoice ${inv.number} is paid, but the subscription is ${STATUS_WORD[sub.status] || sub.status}, so it was not started again. Restart it or refund the customer.` };
@@ -315,6 +319,14 @@ export async function recordInvoicePayment(input: { invoiceId: string; number: s
         data: { status: 'PAID', paidAt: input.paidOn, paidAmount: input.amount, paymentReference: reference, paymentEventId: row.id, paidByUserId: input.userId },
       });
       if (!claimed.count) throw new PaymentsError('This invoice changed a moment ago. Open it again.', 409);
+      /* Seats the customer added themselves (billing/selfServe.ts): paid, they stay; the paid period does not move. */
+      const paidFor = await tx.billingInvoice.findUnique({ where: { id: input.invoiceId }, select: { source: true } });
+      if (paidFor?.source === 'ADDON') {
+        await tx.subscriptionChange.updateMany({ where: { invoiceId: input.invoiceId, status: 'OPEN' }, data: { status: 'PAID', settledAt: new Date(), settledByUserId: input.userId } });
+        const detail = `${label} paid by hand. The seats added with it stay on the plan.`;
+        await tx.paymentEvent.update({ where: { id: row.id }, data: { status: 'APPLIED', detail, processed: true, processedAt: new Date(), attempts: 1 } });
+        return { eventId: row.id, moved: false, paidUntil: null, detail };
+      }
       await tx.$queryRaw`SELECT id FROM "Subscription" WHERE "accountId" = ${input.accountId} FOR UPDATE`;
       const sub = await tx.subscription.findUnique({ where: { accountId: input.accountId }, select: { status: true, currentPeriodEnd: true } });
       const moved = Boolean(sub && LIVE.includes(sub.status));

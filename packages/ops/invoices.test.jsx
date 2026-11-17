@@ -23,9 +23,11 @@ const api = vi.hoisted(() => ({
   sends: vi.fn(),
   reminders: vi.fn(),
   confirm: vi.fn(),
+  saveSeats: vi.fn(),
 }));
 vi.mock('./api', () => ({
   opsInvoices: (p) => api.list(p),
+  opsSaveSelfServe: (b) => api.saveSeats(b),
   opsInvoice: (id) => api.one(id),
   opsInvoiceStart: (a) => api.start(a),
   opsNewInvoice: (b) => api.create(b),
@@ -359,6 +361,19 @@ describe('Invoice settings', () => {
     fireEvent.click(box);
     fireEvent.click(screen.getByRole('button', { name: 'Save renewals' }));
     await waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith({ renewalsOn: false, renewalDaysBefore: 10 }));
+  });
+  it('keeps customer-added seats off until Finance switches them on, with the cap and days to pay', async () => {
+    api.settings.mockResolvedValue({ ...settings, selfServe: { on: false, maxPerChange: 20, payDays: 14 } });
+    api.saveSeats.mockResolvedValue({ selfServe: { on: true, maxPerChange: 10, payDays: 14 } });
+    render(<InvoiceSettings role="BILLING" openTax={() => {}} openPayments={() => {}} />);
+    const box = await screen.findByLabelText('Let customers add seats themselves');
+    expect(box.checked).toBe(false);
+    expect(screen.getByLabelText('At most at a time').disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Save seat settings' }).disabled).toBe(true);
+    fireEvent.click(box);
+    fireEvent.change(screen.getByLabelText('At most at a time'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save seat settings' }));
+    await waitFor(() => expect(api.saveSeats).toHaveBeenCalledWith({ on: true, maxPerChange: 10, payDays: 14 }));
   });
   describe('reminders', () => {
     const reminders = { on: false, daysBefore: [3], onDueDate: true, daysAfter: [3, 7], cap: 4, since: null };
