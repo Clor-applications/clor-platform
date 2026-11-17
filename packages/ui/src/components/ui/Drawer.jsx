@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, X } from '@ui/components/ui/lineIcons';
 
 import { OverlayLayerContext } from './overlayLayer';
 import { confirmDialog } from './notify';
@@ -41,6 +41,8 @@ export default function Drawer({ open, onClose, title, description = '', actions
   const panelRef = useRef(null);
   const dirtyRef = useRef(dirty);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
+  /* Owner's round 14 pick: outside Books a panel closes from a Back arrow at the top left. */
+  const backClose = typeof document !== 'undefined' && document.documentElement.dataset.palette !== 'indigo';
   const beginClose = useCallback(async () => {
     if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', tone: 'danger' }))) return;
     setClosing(true);
@@ -149,15 +151,22 @@ export default function Drawer({ open, onClose, title, description = '', actions
           {...drag}
         >
           <span className="ui-sheet-grabber" aria-hidden="true" />
+          {backClose ? (
+            <button type="button" onClick={beginClose} className="ui-icon-btn ui-sheet-back shrink-0" aria-label="Close">
+              <ArrowLeft size={18} aria-hidden="true" />
+            </button>
+          ) : null}
           <div className="min-w-0 flex-1 basis-48">
             <h2 className="ui-t-sec truncate">{title}</h2>
             {description ? <p className="text-sm ui-muted mt-0.5">{description}</p> : null}
           </div>
           <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
             {actions}
-            <button type="button" onClick={beginClose} className="ui-icon-btn shrink-0" aria-label="Close">
-              <X size={18} />
-            </button>
+            {backClose ? null : (
+              <button type="button" onClick={beginClose} className="ui-icon-btn shrink-0" aria-label="Close">
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 

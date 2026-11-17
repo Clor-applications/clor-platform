@@ -326,6 +326,26 @@ comments on company news; time worked as start and end; a small card when pointi
 overlapping faces for many people (no screen shows a group yet); a toast with Download when an
 export is ready; pull down to refresh on a phone.
 
+### Round 14 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Closing a side panel | A Back arrow at the top left (`Drawer`; Books keeps the ✕ on the right) |
+| Long names | Wrap to two lines instead of being cut (`.pc-who-name`) |
+| Today's attendance | A ring of present out of headcount with the percentage (Attendance home) |
+
+Picked and already how the app works: the employee code as a grey line under the name; salary
+shown in full; a reason needed to reject; ticking this page first, then "Select all N
+matching"; a plain confirm for big deletes; solid blocks on calendars; a green or red arrow on
+a figure that moved; leave asked on one short page.
+
+Picked, **not built yet**: "Keep me signed in" on the sign-in page (changes how long a
+session lasts); times written as 9:42 AM (no shared time format yet, each screen writes its
+own); no paise in lists (needs a pass over every money column); an example in the box plus a
+hint line under it; the company's own logo beside CLOR (no logo is stored yet).
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.
