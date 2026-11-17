@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { formatPhone } from '@ui/utils/phone';
 import CopyWord from '@ui/components/ui/CopyWord';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
@@ -538,7 +539,7 @@ function Overview({ person, data, lists, allowed, openScreen, goTo, go }) {
             <Field label="Full name" value={person.name} />
             <Field label="Preferred name" value={person.preferredName} />
             <Field label="Work email" value={person.workEmail} />
-            <Field label="Phone" value={person.phone} />
+            <Field label="Phone" value={formatPhone(person.phone)} />
           </dl>
         </Section>
         <Section title="Job details" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('employment')}>Open</button>}>
