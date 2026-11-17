@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Columns3, MoreVertical, RefreshCw } from '@ui/components/ui/lineIcons';
 
 import Popover from './Popover';
+import { LoadingSpinner, loadsWithSpinner } from './Primitives';
 
 /**
  * DataTable (People design spec v1 §5, §4.2): one table for server-driven
@@ -232,7 +233,9 @@ export default function DataTable({
             </tr>
           </thead>
           <tbody className="ui-rows">
-            {loading ? Array.from({ length: 6 }, (_, i) => (
+            {loading && loadsWithSpinner() ? (
+              <tr aria-hidden="true"><td colSpan={cols.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="ui-loading-cell"><LoadingSpinner /></td></tr>
+            ) : loading ? Array.from({ length: 6 }, (_, i) => (
               <tr key={`sk${i}`} aria-hidden="true">
                 {selectable ? <td /> : null}
                 {cols.map((c) => <td key={c.key}><span className="ui-skel ui-skel-text" /></td>)}
@@ -259,7 +262,7 @@ export default function DataTable({
       </div>
       {card ? (
         <ul className="ui-datatable-cards" aria-label={label}>
-          {loading ? Array.from({ length: 4 }, (_, i) => <li key={`sk${i}`} className="ui-datatable-card" aria-hidden="true"><span className="ui-skel ui-skel-text" /></li>) : rows.map((r) => {
+          {loading && loadsWithSpinner() ? <li className="ui-datatable-card" aria-hidden="true"><LoadingSpinner /></li> : loading ? Array.from({ length: 4 }, (_, i) => <li key={`sk${i}`} className="ui-datatable-card" aria-hidden="true"><span className="ui-skel ui-skel-text" /></li>) : rows.map((r) => {
             const id = rowKey(r);
             return (
               <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''}`}>

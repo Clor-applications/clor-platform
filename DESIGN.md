@@ -120,6 +120,35 @@ as a tick list you can reorder; nothing matches showing close matches; activity 
 day; payslip as one list; profile completeness as a bar with a percentage; long jobs as a list
 of steps; a round add button bottom right on a phone.
 
+### Round 5 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| While something loads | A spinner with "Loading…" (`SkeletonCard`, `SkeletonRows`, `SkeletonStats`, `TableSkeleton` and `DataTable` draw it outside Books; Books keeps grey shapes) |
+| Faces | Circle with a ring in the app's colour (`.ui-avatar-initials`, `.ui-avatar-photo`) |
+| Money owed back | Red figure (`.ui-amount-neg`), with its minus sign |
+| After ticking rows | The bar turns the app's colour with white words, and stays at the top while scrolling (`.ui-bulkbar`) |
+| Steps in a long form | Dots; the current step is long and named (`.pc-steps`) |
+| Holidays on calendars | An orange line under the day |
+| Search box | "/" jumps to the page's search box; the key is drawn in the box until you type (`TipLayer`) |
+
+Picked and already how the app works: big amounts in Indian grouping (12,45,600); dates as
+17 Nov 2026; files as list rows; nothing between table rows.
+
+Picked, **not built yet**: one back link instead of a full path; previous and next names at
+the bottom of a record; times with how long ago; a key number with a small trend line; trend
+charts with a soft fill; parts of a whole as a bar for each part; company news as a coloured
+banner on home; camera first when adding a file on a phone; a list of mistakes at the top of a
+form plus the line under each field (`FieldErrorSummary` exists but no form uses it yet);
+joined buttons for two or three choices; a row of filter buttons; overlapping faces for
+several people; job history as a line with dots; where a request is, as a sentence; a soft
+amber warning box with the way to fix it; delete first and offer Undo for big deletes; upload
+progress as a ring with a count; nothing found offering a close name; team leave as a row per
+person across the days; a colour for each shift on rosters; "?" to list keyboard shortcuts
+outside Books.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.

@@ -121,7 +121,7 @@ export const identityCat = (name) => ([...String(name || '')].reduce((n, c) => (
 const catColour = (c) => `rgb(var(--cat-${c}, ${CAT_FALLBACK[c - 1]}))`;
 
 export const Avatar = ({ person, size = 40 }) => {
-  if (person?.photoUrl) return <img src={person.photoUrl} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
+  if (person?.photoUrl) return <img src={person.photoUrl} alt="" className="ui-avatar-photo shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
   const cat = identityCat(person?.name);
   return (
     <span

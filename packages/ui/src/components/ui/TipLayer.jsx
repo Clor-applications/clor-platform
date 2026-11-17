@@ -10,6 +10,8 @@ import { useEffect } from 'react';
  * - Long text shows a letter count. A text box with a `maxlength` shows "74 / 500" under its
  *   bottom-right corner while it has focus.
  *
+ * - "/" moves to the page's search box (round 5).
+ *
  * Both are drawn in one layer on `document.body`, never inside a screen's own markup, so React's
  * view of each screen is untouched. Books (`data-palette='indigo'`) and touch screens are left alone.
  */
@@ -101,6 +103,18 @@ export default function TipLayer() {
       showCount();
     };
     const onInput = (e) => { if (e.target === field) showCount(); };
+    /* Owner's pick (round 5): "/" jumps to the page's search box, the key drawn inside it (picks.css). */
+    const SEARCH = 'main input[type="search"], main input[aria-label^="Search"], main input[placeholder^="Search"]';
+    const onSlash = (e) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || inBooks()) return;
+      const t = e.target;
+      if (t instanceof Element && (t.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]'))) return;
+      const box = [...document.querySelectorAll(SEARCH)].find((el) => el.offsetParent !== null && !el.disabled);
+      if (!box) return;
+      e.preventDefault();
+      box.focus();
+      box.select?.();
+    };
     const onBlur = (e) => { if (e.target === owner) hideTip(); if (e.target === field) { field = null; count.hidden = true; } };
     const onMove = () => { if (field) showCount(); if (owner && !tip.hidden) place(owner); };
 
@@ -108,6 +122,7 @@ export default function TipLayer() {
     document.addEventListener('pointerout', onOut, true);
     document.addEventListener('pointerdown', hideTip, true);
     document.addEventListener('keydown', hideTip, true);
+    document.addEventListener('keydown', onSlash);
     document.addEventListener('focusin', onFocus, true);
     document.addEventListener('input', onInput, true);
     document.addEventListener('focusout', onBlur, true);
@@ -119,6 +134,7 @@ export default function TipLayer() {
       document.removeEventListener('pointerout', onOut, true);
       document.removeEventListener('pointerdown', hideTip, true);
       document.removeEventListener('keydown', hideTip, true);
+      document.removeEventListener('keydown', onSlash);
       document.removeEventListener('focusin', onFocus, true);
       document.removeEventListener('input', onInput, true);
       document.removeEventListener('focusout', onBlur, true);
