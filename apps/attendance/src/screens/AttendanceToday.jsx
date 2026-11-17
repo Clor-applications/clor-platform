@@ -169,8 +169,9 @@ export default function AttendanceToday({ openScreen }) {
               <h2 id="hello-h" className="ui-today-hero-greet">{longDate(date)}</h2>
               <p className="ui-today-hero-line">{daySentence(data, date === todayIst())}</p>
               {data.headcount ? (
-                <div className="ui-today-hero-meter" role="img" aria-label={`${data.present + data.halfDay} of ${data.headcount} in`}>
-                  <span style={{ width: `${Math.min(100, ((data.present + data.halfDay) / data.headcount) * 100)}%` }} />
+                <div className="ui-today-ring" role="img" aria-label={`${data.present + data.halfDay} of ${data.headcount} in`} style={{ '--pct': `${Math.min(100, Math.round(((data.present + data.halfDay) / data.headcount) * 100))}%` }}>
+                  <span className="ui-today-ring-inner tabular-nums" aria-hidden="true">{Math.min(100, Math.round(((data.present + data.halfDay) / data.headcount) * 100))}%</span>
+                  <span className="ui-today-ring-note" aria-hidden="true"><b className="tabular-nums">{data.present + data.halfDay} of {data.headcount}</b> in</span>
                 </div>
               ) : null}
               </div>
