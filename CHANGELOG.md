@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-f92d74e - 2026-11-17
+
+API revision `clor-api-00136-d7j`. Previous release `rel-0aa4225` (roll back there).
+
+- #289 Launch checklist: add the 17 Nov audit findings
+- #292 Ledger: a second reversal of a document no longer brings the first amount back
+- #291 Payroll: fix the five high findings of the 17 Nov audit
+- #290 Workspace: Apps, Users, Plan, Security and Settings pages in the Overview's style
+- #288 Workspace Overview redesign; Books under the one platform bar
+- #286 Books: wrap long panel names, empty-state text, Trial Balance header
+- #285 Books audit against the 14 Nov build: Trial Balance, Settings, panel emoji, list headers
+- #282 Redesign phase 1: one accent, warm paper, Instrument Sans, Lucide only
+- #280 Console: GitHub connected; two fixes from the first run against real GitHub
+- #279 Release record: rel-0aa4225
+- #278 Release record: rel-e0df646
+
 ## rel-0aa4225 - 2026-11-15
 
 API revision `clor-api-00134-24x`. Previous release `rel-e0df646` (roll back there).
