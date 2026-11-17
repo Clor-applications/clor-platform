@@ -309,7 +309,9 @@ ledgerRouter.get('/orgs/:orgId/ledger/accounts/:ledgerAccountId/lines', requireP
 
 ledgerRouter.get('/orgs/:orgId/ledger/entries', requirePermission(MODULE, PermissionAction.VIEW, SUB), async (req, res) => {
   if (!requireOrgMatch(req, res)) return;
-  const take = Math.min(200, Math.max(1, Number(req.query.limit || 50)));
+  /* ?limit (default 50, most 500) and ?offset page through every entry. */
+  const take = Math.min(500, Math.max(1, Number(req.query.limit || 50)));
+  const skip = Math.max(0, Number(req.query.offset) || 0);
   const entries = await prisma.journalEntry.findMany({
     where: {
       accountId: req.tenant!.accountId,
@@ -318,8 +320,9 @@ ledgerRouter.get('/orgs/:orgId/ledger/entries', requirePermission(MODULE, Permis
       ...(req.query.docType ? { sourceDocType: String(req.query.docType) } : {}),
       ...(req.query.docId ? { sourceDocId: String(req.query.docId) } : {}),
     },
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
     take,
+    skip,
     include: {
       lines: {
         select: {

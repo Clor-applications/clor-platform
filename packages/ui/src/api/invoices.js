@@ -1,9 +1,12 @@
 import { apiFetch } from '@platform/http';
 import { requireOrgId } from '@platform/context';
 
-export async function listInvoicesApi() {
+export async function listInvoicesApi({ limit, offset } = {}) {
   const orgId = requireOrgId();
-  const data = await apiFetch(`/orgs/${orgId}/invoices`);
+  const query = new URLSearchParams();
+  if (limit) query.set('limit', String(limit));
+  if (offset) query.set('offset', String(offset));
+  const data = await apiFetch(`/orgs/${orgId}/invoices${query.size ? `?${query}` : ''}`);
   return Array.isArray(data?.invoices) ? data.invoices : [];
 }
 

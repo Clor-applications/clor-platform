@@ -346,7 +346,7 @@ invoicesRouter.get('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, Pe
   const offset = Math.max(0, Number(req.query.offset) || 0);
   const rows = await prisma.invoice.findMany({
     where: { accountId, orgId, branchId, ...ownDocsWhere(req) },
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
     take: limit,
     skip: offset,
   });

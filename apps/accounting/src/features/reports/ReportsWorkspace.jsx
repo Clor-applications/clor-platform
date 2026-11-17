@@ -1,3 +1,4 @@
+import SyncProblemsNotice from '@ui/components/SyncProblemsNotice';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -1368,5 +1369,13 @@ const ReportSidebar = ({ selectedKey, setSelectedKey, openGroups, setOpenGroups,
   );
 };
 
-export default ReportsWorkspace;
+/** Reports, with a warning above when the books here are not whole. */
+const ReportsWorkspaceWithNotice = (props) => (
+  <>
+    <SyncProblemsNotice problems={props.db?.syncProblems} />
+    <ReportsWorkspace {...props} />
+  </>
+);
+
+export default ReportsWorkspaceWithNotice;
 

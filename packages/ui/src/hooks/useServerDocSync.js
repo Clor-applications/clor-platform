@@ -1,3 +1,4 @@
+import { listAllPages } from '../api/paging';
 import { useEffect, useRef } from 'react';
 
 import { hasApiSession, listDocsApi } from '../api/purchaseDocs';
@@ -406,6 +407,9 @@ const KINDS = [
   ['debitNote', 'debitNotes', 'backendDocId', 'vendorName', (d) => ({ originalBillNumber: d.refNo || '', vendorGstin: d.partyGstin || '' })],
 ];
 
+/** The lists by the names people know them by, for the warning on the report screens. */
+const LIST_WORDS = { bills: 'bills', expenses: 'expenses', estimates: 'estimates', purchaseOrders: 'purchase orders', salesOrders: 'sales orders', creditNotes: 'credit notes', debitNotes: 'debit notes' };
+
 export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
   // One sync per session per company: hydration is a boot concern, not a poll.
   const syncedFor = useRef('');
@@ -452,16 +456,33 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
         p.catch(() => {});
         return p;
       };
-      const docsPending = KINDS.map(([kind]) => start(() => listDocsApi(kind)));
+      /*
+       * Every page, not the first: Reports and the GST returns are worked out
+       * from what lands here, so a list cut short is a return filed short.
+       * What could not be read whole is named in `problems` and shown on those
+       * screens, instead of passing as a quiet, smaller figure.
+       */
+      const problems = [];
+      const whole = async (what, fetchPage) => {
+        const { rows, complete } = await listAllPages(fetchPage);
+        if (!complete) problems.push({ what, kind: 'short' });
+        return rows;
+      };
+      /* Switched off, or not this person's to see: expected, and not a fault. Anything else is. */
+      const failed = (what, e) => {
+        const status = Number(e?.status || 0);
+        if (![400, 401, 403, 404].includes(status)) problems.push({ what, kind: 'failed' });
+      };
+      const docsPending = KINDS.map(([kind, collection]) => start(() => whole(LIST_WORDS[collection] || collection, (page) => listDocsApi(kind, page))));
       const mastersPending = [...MASTER_KINDS, ...WRITE_THROUGH_KINDS].map(([, , fetcher]) => start(fetcher));
       const closesPending = start(listPosDayCloses);
       const yearsPending = start(getFiscalYears);
-      const journalPending = start(() => getJournalEntries(500));
+      const journalPending = start(() => whole('journal entries', ({ limit, offset }) => getJournalEntries(limit, 'MANUAL', offset).then((r) => r?.entries || [])));
       const bankPending = start(listBankBook);
-      const receiptsPending = start(() => listPayments({ direction: 'RECEIPT' }));
-      const paidPending = start(() => listPayments({ direction: 'PAYMENT' }));
+      const receiptsPending = start(() => whole('receipts', (page) => listPayments({ direction: 'RECEIPT', ...page })));
+      const paidPending = start(() => whole('payments made', (page) => listPayments({ direction: 'PAYMENT', ...page })));
       const orgMastersPending = start(listOrgMasters);
-      const invoicesPending = start(listInvoicesApi);
+      const invoicesPending = start(() => whole('invoices', (page) => listInvoicesApi(page)));
 
       for (const [i, [, collection, idKey, partyField, extra]] of KINDS.entries()) {
         try {
@@ -472,9 +493,10 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
             partyGstin: d.partyGstin || '',
             ...(extra ? extra(d) : {}),
           }));
-        } catch {
+        } catch (e) {
           // A kind that fails (permissions, feature off) hydrates nothing;
-          // the rest still land.
+          // the rest still land. A fault is said on the report screens.
+          failed(LIST_WORDS[collection] || collection, e);
         }
       }
 
@@ -547,12 +569,13 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
          * Copying it in would also put an entry this app did not write behind
          * this app's edit and delete buttons.
          */
-        const journal = (await journalPending)?.entries || [];
+        const journal = (await journalPending) || [];
         collected.journalEntries = journal
           .filter((e) => String(e.sourceDocType || '') === 'MANUAL')
           .map((e) => mapJournalEntry(e, currentCompanyId));
-      } catch {
+      } catch (e) {
         /* same rule: what does not arrive hydrates nothing */
+        failed('journal entries', e);
       }
 
       try {
@@ -569,8 +592,8 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
          * money going out.
          */
         const [receipts, paid] = await Promise.all([
-          receiptsPending.catch(() => []),
-          paidPending.catch(() => []),
+          receiptsPending.catch((e) => (failed('receipts', e), [])),
+          paidPending.catch((e) => (failed('payments made', e), [])),
         ]);
         collected.payments = [...receipts, ...paid].map((p) => mapPayment(p, currentCompanyId));
       } catch {
@@ -609,14 +632,15 @@ export function useServerDocSync({ enabled, currentCompanyId, setDb }) {
           supplyType: d.supplyType || '',
           reverseCharge: Boolean(d.reverseCharge),
         }));
-      } catch {
+      } catch (e) {
         /* same: partial hydration beats none */
+        failed('invoices', e);
       }
 
       if (cancelled) return;
 
       setDb((prev) => {
-        const next = { ...prev };
+        const next = { ...prev, syncProblems: problems };
 
         /*
          * Settlement converges into documents the browser already holds.

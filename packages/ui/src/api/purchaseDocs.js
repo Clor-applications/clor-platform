@@ -28,8 +28,11 @@ const pathFor = (kind) => {
   return p;
 };
 
-export async function listDocsApi(kind) {
-  const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}`);
+export async function listDocsApi(kind, { limit, offset } = {}) {
+  const query = new URLSearchParams();
+  if (limit) query.set('limit', String(limit));
+  if (offset) query.set('offset', String(offset));
+  const data = await apiFetch(`/orgs/${requireOrgId()}/${pathFor(kind)}${query.size ? `?${query}` : ''}`);
   return Array.isArray(data?.documents) ? data.documents : [];
 }
 
