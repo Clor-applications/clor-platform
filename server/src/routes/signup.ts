@@ -18,6 +18,7 @@ import { requireOperatorStepUp } from '../services/stepUp.js';
 import { ProvisionError, provisionAccount } from '../services/accountProvisioning.js';
 import { QuotaBusyError } from '../services/quotaLock.js';
 import { APP_OF, trialOffer } from '../services/trialPlan.js';
+import { DEFAULT_POLICY, validatePassword } from '../services/policy.js';
 import { audit } from './ops.js';
 
 /**
@@ -37,8 +38,10 @@ import { audit } from './ops.js';
  *     account-making path (services/accountProvisioning.ts provisionAccount),
  *     the same one the console's Create account uses: owner, subscription on
  *     a trial with dates from the plan, company with the apps switched on,
- *     and the set-password mail. The email is marked confirmed, because the
- *     link proved it, and the answer is a session so the page can open CLOR.
+ *     and a mail saying where to sign in. The owner chooses a password here,
+ *     so the login works from the first minute (the two-factor set-up asks
+ *     for it). The email is marked confirmed, because the link proved it,
+ *     and the answer is a session so the page can open CLOR.
  *
  * People includes Attendance: picking People turns Attendance on too.
  *
@@ -141,7 +144,12 @@ signupRouter.post('/public/signup/start', ...signupStartLimiter, (req, res) =>
     if (app && !offer.apps.some((a) => a.code === app)) return res.status(400).json({ error: `${APP_NAMES[app] || app} cannot be started on its own yet. Ask us for a demo.`, code: 'NOT_SELF_SERVE' });
 
     const taken = await platformPrisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
-    if (taken) return res.status(409).json({ error: 'Somebody already signs in to CLOR with this email. Sign in instead, or use another address.', code: 'EMAIL_TAKEN' });
+    if (taken) {
+      /* The page answers as it does for a new address, and the mail says what happened: asking here must not tell a stranger who is a customer. */
+      await sendTemplate({ templateKey: 'signup.already', to: email, relatedType: 'User', relatedId: taken.id, transactional: true, data: { signInUrl: `${appUrl()}/` } }).catch(() => {});
+      await recordAuthEvent({ email, eventType: 'TRIAL_STARTED', ip: clientIp(req), userAgent: req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : undefined, detail: JSON.stringify({ alreadySignsIn: true }) });
+      return res.status(201).json({ ok: true, email, linkHours: SIGNUP_LINK_HOURS, trialDays: offer.trialDays });
+    }
 
     const ip = clientIp(req);
     const userAgent = req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 300) : null;
@@ -187,6 +195,8 @@ const confirmBody = z.object({
   apps: z.array(z.string()).default([]),
   /* The head office's state: asked only when Books is chosen (it decides CGST + SGST or IGST). */
   state: z.string().trim().max(60).optional().nullable(),
+  /* Chosen on the setup page. Optional only for a page opened before this field existed: that owner gets the set-password mail. */
+  password: z.string().max(200).optional(),
 });
 
 signupRouter.post('/public/signup/confirm', ...signupLinkLimiter, (req: Request, res: Response) =>
@@ -194,6 +204,8 @@ signupRouter.post('/public/signup/confirm', ...signupLinkLimiter, (req: Request,
     const parsed = confirmBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the form.', code: 'INVALID' });
     const d = parsed.data;
+    const weak = d.password == null ? null : validatePassword(d.password, DEFAULT_POLICY);
+    if (weak) return res.status(400).json({ error: weak, code: 'WEAK_PASSWORD' });
     let row;
     try {
       row = await pendingFor(d.token);
@@ -237,6 +249,7 @@ signupRouter.post('/public/signup/confirm', ...signupLinkLimiter, (req: Request,
         profile: { requestedApp: first, source: 'self-serve', planCode: trial.planCode, trialDays: trial.trialDays },
         ip,
         actor: 'the owner, from clor.in',
+        password: d.password,
       });
     } catch (e) {
       await platformPrisma.trialSignup.update({ where: { id: row.id }, data: { provisioningAt: null } });
@@ -250,7 +263,7 @@ signupRouter.post('/public/signup/confirm', ...signupLinkLimiter, (req: Request,
       data: { status: 'CONFIRMED', confirmedAt: new Date(), provisioningAt: null, accountId: made.account.id, ownerUserId: made.user.id, companyName: d.companyName.trim(), apps, state: state || null, trialDays: trial.trialDays },
     });
 
-    /* Signed in at once, as a sign-in would: the refresh token only in the cookie. The set-password mail is their way back in later. */
+    /* Signed in at once, as a sign-in would: the refresh token only in the cookie. Their password is the way back in later. */
     const { session, refreshToken } = await createSession({ accountId: made.account.id, userId: made.user.id, ip, userAgent });
     await recordAuthEvent({ accountId: made.account.id, userId: made.user.id, email: row.email, eventType: 'LOGIN_SUCCESS', ip, userAgent, detail: 'Trial confirmed' });
     setRefreshCookie(res, refreshToken, session.expiresAt);

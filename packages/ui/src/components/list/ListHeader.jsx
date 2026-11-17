@@ -71,7 +71,7 @@ export function FilterTabs({ tabs, value, onChange, label }) {
   const ref = useRef(null);
   const indicator = useTabIndicator(ref, value);
   return (
-    <div ref={ref} role="tablist" aria-label={label} className={`ui-record-tablist ${indicator ? 'has-indicator' : ''}`}>
+    <div ref={ref} role="tablist" aria-label={label} className={`ui-record-tablist ui-filter-chips ${indicator ? 'has-indicator' : ''}`}>
       {tabs.filter(Boolean).map((t) => (
         <button key={t.key} type="button" role="tab" aria-selected={value === t.key} className={`ui-tab ${value === t.key ? 'is-active' : ''}`} onClick={() => onChange?.(t.key)}>
           {t.label}

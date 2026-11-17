@@ -26,6 +26,7 @@ import { startOpsAlerts } from './services/ops/alerts.js';
 import { startEmailRetries } from './services/emailRetry.js';
 import { startRenewals } from './billing/renewals.js';
 import { startTrialReminders } from './billing/trialReminders.js';
+import { startInvoiceReminders } from './billing/invoiceReminders.js';
 import { startBooksDigest } from './services/booksDigest.js';
 import { startWeeklySummary } from './services/people/weeklySummary.js';
 import { build as buildReport } from './routes/attendanceReports.js';
@@ -36,6 +37,7 @@ import { startCredentialBackfill } from './services/credentialBackfill.js';
 import { startOwnerPermissionSync } from './services/ownerPermissions.js';
 import { startCredentialChecks } from './services/credentialReview.js';
 import { startIntegrityChecks } from './services/integrity/checks.js';
+import { checkDatabaseRole } from './services/databaseRoleCheck.js';
 import { startOrgDetailBackfill } from './services/people/organization.js';
 import { startStatutoryCatalogueBackfill } from './services/payroll/statutory/resolve.js';
 import { startFullDayFix } from './services/attendance/fullDayFix.js';
@@ -130,6 +132,8 @@ startEmailRetries();
 /* Renewal invoices, a few days before a paid period ends (billing/renewals.ts). */
 startRenewals();
 startTrialReminders();
+/* Reminders to pay an issued invoice, on the schedule in Invoice settings. Off until staff switch it on. */
+startInvoiceReminders();
 startBooksDigest();
 startWeeklySummary();
 /* Reports that go out by e-mail on their own — every 15 minutes the due ones are sent. */
@@ -142,6 +146,7 @@ startOwnerPermissionSync();
 startCredentialChecks();
 /* GAP-010: links between the databases, checked nightly; safe ones repaired, the rest logged. */
 startIntegrityChecks();
+void checkDatabaseRole();
 /* Organization: "Detailed structure" on, once, for every company already using those lists. */
 startOrgDetailBackfill();
 /* Payroll: every company that took the standard statutory rates gets CLOR's newer PT and LWF figures, once per catalogue. */

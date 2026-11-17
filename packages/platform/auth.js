@@ -24,6 +24,10 @@ export const resendVerificationForSignIn = (challenge) =>
 export const loginTwoFactor = ({ challenge, code }) =>
   apiFetch('/auth/login/two-factor', { method: 'POST', body: { challenge, code }, skipAuth: true });
 
+/* Text a sign-in code to the number this person turned on; needs the challenge, so only after a right password. */
+export const loginTwoFactorSms = (challenge) =>
+  apiFetch('/auth/login/two-factor/sms', { method: 'POST', body: { challenge }, skipAuth: true });
+
 /* The server calls it `name`; sending `fullName` was a silent 400. */
 export const signup = ({ email, password, fullName, noticeVersion }) =>
   apiFetch('/auth/signup', {
@@ -66,8 +70,8 @@ export const signupOptions = (app) => apiFetch(`/public/signup/options${app ? `?
 export const signupStart = ({ email, app, plan, website }) =>
   apiFetch('/public/signup/start', { method: 'POST', body: { email, ...(app ? { app } : {}), ...(plan ? { plan } : {}), ...(website ? { website } : {}) }, skipAuth: true });
 export const signupPending = (token) => apiFetch(`/public/signup/pending?t=${encodeURIComponent(token)}`, { skipAuth: true });
-export const signupConfirm = ({ token, ownerName, companyName, apps, state }) =>
-  apiFetch('/public/signup/confirm', { method: 'POST', body: { token, ownerName, companyName, apps, ...(state ? { state } : {}) }, skipAuth: true });
+export const signupConfirm = ({ token, ownerName, companyName, apps, state, password }) =>
+  apiFetch('/public/signup/confirm', { method: 'POST', body: { token, ownerName, companyName, apps, ...(state ? { state } : {}), ...(password ? { password } : {}) }, skipAuth: true });
 
 /* The signed-in person's own profile. Platform data, so every app shows the
    same page: Accounting in its settings, the shell for apps that use its menu. */

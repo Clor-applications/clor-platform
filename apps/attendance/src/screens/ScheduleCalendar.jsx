@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import WeekPicker from '@ui/components/ui/WeekPicker';
 import { CalendarRange, ChevronLeft, ChevronRight, Copy, Trash2 } from '@ui/components/ui/lineIcons';
 
 import DocumentListShell from '@ui/components/list/DocumentListShell';
@@ -190,7 +191,7 @@ export default function ScheduleCalendar() {
             </div>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" aria-label={view === 'week' ? 'Previous week' : 'Previous month'} onClick={() => step(-1)}><ChevronLeft size={16} aria-hidden="true" /></button>
             {view === 'week' ? (
-              <input type="date" className="ui-input ui-ctl-compact !w-auto" value={day} onChange={(e) => { if (e.target.value) { setDay(e.target.value); setPage(1); } }} aria-label="A day in the week" />
+              <WeekPicker value={day} onChange={(d) => { setDay(d); setPage(1); }} />
             ) : (
               <input type="month" className="ui-input ui-ctl-compact !w-auto" value={day.slice(0, 7)} onChange={(e) => { if (e.target.value) { setDay(`${e.target.value}-01`); setPage(1); } }} aria-label="Month" />
             )}

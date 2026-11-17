@@ -32,7 +32,7 @@ const Problems = ({ list }) =>
     </ul>
   ) : null;
 
-export function InvoiceSettings({ role, openTax, openPayments }) {
+export function InvoiceSettings({ role, openTax, openPayments, openTemplates }) {
   const [s, setS] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(() => {
@@ -49,6 +49,7 @@ export function InvoiceSettings({ role, openTax, openPayments }) {
       <div className="grid gap-6" style={{ maxWidth: 820 }}>
         <Numbering s={s} mayChange={mayChange} onSaved={load} />
         <Renewals s={s} mayChange={mayChange} onSaved={load} />
+        <Reminders s={s} mayChange={mayChange} onSaved={load} openTemplates={openTemplates} />
         <Panel title="Seller and how customers pay">
           <dl className="grid gap-3" style={{ gridTemplateColumns: 'minmax(9rem, auto) 1fr' }}>
             <dt className="ws-item-sub">GST</dt>
@@ -228,6 +229,106 @@ function Renewals({ s: settings, mayChange, onSaved }) {
               </button>
             ) : null}
             <span className="ws-card-blurb">Asks for a code from your authenticator app. It also runs on its own every six hours.</span>
+          </div>
+        ) : null}
+      </form>
+    </Panel>
+  );
+}
+
+/**
+ * Payment reminders (server: the reminder schedule in billing): off until
+ * someone turns it on, which days around the due date a reminder goes, and
+ * after how many CLOR stops. What turning it on would do today is said before
+ * saving, because it emails customers.
+ */
+const NO_REMINDERS = { on: false, daysBefore: [3], onDueDate: true, daysAfter: [3, 7, 14], cap: 4, since: null };
+const daysText = (list) => (list || []).join(', ');
+const sameDays = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+/* "7, 3" as numbers; null when something in it is not a whole number. */
+const daysIn = (text) => {
+  const parts = text.split(/[\s,]+/).filter(Boolean);
+  return parts.every((p) => /^\d{1,3}$/.test(p)) ? parts.map(Number) : null;
+};
+
+function Reminders({ s: settings, mayChange, onSaved, openTemplates }) {
+  const saved = { ...NO_REMINDERS, ...(settings.reminders || {}) };
+  const [on, setOn] = useState(saved.on);
+  const [before, setBefore] = useState(daysText(saved.daysBefore));
+  const [onDue, setOnDue] = useState(saved.onDueDate);
+  const [after, setAfter] = useState(daysText(saved.daysAfter));
+  const [cap, setCap] = useState(String(saved.cap));
+  const [busy, setBusy] = useState(false);
+  const [problems, setProblems] = useState([]);
+  const b = daysIn(before);
+  const a = daysIn(after);
+  const changed = on !== saved.on || onDue !== saved.onDueDate || Number(cap) !== saved.cap || !b || !a || !sameDays(b, saved.daysBefore) || !sameDays(a, saved.daysAfter);
+  /* While reminders are off the server's wouldRemindToday is 0; wouldRemindIfOn is the count turning them on would mail. */
+  const would = settings.wouldRemindIfOn ?? settings.wouldRemindToday ?? 0;
+  const save = async (e) => {
+    e.preventDefault();
+    const wrong = [];
+    if (!b || b.length > 3 || b.some((d) => d < 1 || d > 30)) wrong.push('Days before the due date: up to three numbers, each from 1 to 30.');
+    if (!a || a.length > 4 || a.some((d) => d < 1 || d > 60)) wrong.push('Days after the due date: up to four numbers, each from 1 to 60.');
+    if (!/^[1-6]$/.test(cap)) wrong.push('Stop after this many reminders: a number from 1 to 6.');
+    setProblems(wrong);
+    if (wrong.length) return;
+    setBusy(true);
+    try {
+      await opsSaveInvoicing({ remindersOn: on, reminderDaysBefore: b, reminderOnDueDate: onDue, reminderDaysAfter: a, reminderCap: Number(cap) });
+      notify.success(on ? 'Reminders go out by themselves on the days you chose.' : 'Automatic reminders are off. Send reminder on an invoice still works.');
+      onSaved();
+    } catch (err) {
+      setProblems(err?.data?.problems?.length ? err.data.problems : [String(err?.message || err)]);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const off = !mayChange || !on;
+  return (
+    <Panel title="Reminders">
+      <form className="grid gap-5" onSubmit={save}>
+        <p className="ws-card-blurb">
+          CLOR can email a customer about an unpaid invoice before it is due, on the day, and after. A paid or cancelled invoice is never reminded, and reminders can be stopped for one invoice on its page.{' '}
+          {openTemplates ? (
+            <button type="button" className="ws-link" onClick={openTemplates}>
+              See the wording
+            </button>
+          ) : null}
+        </p>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={on} disabled={!mayChange} onChange={(e) => setOn(e.target.checked)} />
+          Remind customers automatically
+        </label>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))' }}>
+          <Field id="remind-before" label="Days before the due date" hint="Up to three, with commas: 7, 3. Leave empty for none.">
+            <input id="remind-before" className="ui-input ui-num" inputMode="numeric" disabled={off} value={before} onChange={(e) => setBefore(e.target.value)} />
+          </Field>
+          <Field id="remind-after" label="Days after the due date" hint="Up to four, with commas: 3, 7, 14. Leave empty for none.">
+            <input id="remind-after" className="ui-input ui-num" inputMode="numeric" disabled={off} value={after} onChange={(e) => setAfter(e.target.value)} />
+          </Field>
+          <Field id="remind-cap" label="Stop after this many reminders" hint="From 1 to 6 for one invoice.">
+            <input id="remind-cap" className="ui-input ui-num" inputMode="numeric" disabled={off} value={cap} onChange={(e) => setCap(e.target.value.replace(/\D/g, '').slice(0, 1))} style={{ maxWidth: '8rem' }} />
+          </Field>
+        </div>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={onDue} disabled={off} onChange={(e) => setOnDue(e.target.checked)} />
+          On the due date
+        </label>
+        {saved.on ? (
+          <p className="ws-card-blurb">{saved.since ? `On since ${day(saved.since)}.` : 'On.'} Invoices issued before that day are never reminded automatically.</p>
+        ) : on ? (
+          <p className="ws-notice" role="status">
+            {would === 1 ? '1 invoice would be reminded today.' : `${would} invoices would be reminded today.`} Invoices issued before today are never reminded automatically.
+          </p>
+        ) : null}
+        <Problems list={problems} />
+        {mayChange ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !changed}>
+              {busy ? 'Saving…' : 'Save reminders'}
+            </button>
+            <span className="ws-card-blurb">Asks for a code from your authenticator app. It runs on its own through the day.</span>
           </div>
         ) : null}
       </form>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import CopyWord from '@ui/components/ui/CopyWord';
 import { emoji } from '@ui/components/ui/emoji';
 import { ArrowDownUp, MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 
@@ -145,7 +146,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                         <button type="button" className="ws-name-link" onClick={() => setOpenId(c.orgId)}>{c.name}</button>
                         {sub ? <span className="ws-cell-sub">{sub}</span> : null}
                       </td>
-                      <td className="ws-mono">{c.gstin || <span className="ws-missing">Not added</span>}</td>
+                      <td className="ws-mono">{c.gstin ? <><span>{c.gstin}</span> <CopyWord value={c.gstin} what="GSTIN" /></> : <span className="ws-missing">Not added</span>}</td>
                       <td className="ws-mono">{c.pan || '—'}</td>
                       <td className="ws-mid">
                         <span className="ws-appmarks">
@@ -252,7 +253,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
     >
       {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       <div className="grid gap-1">
-        <label htmlFor="co-name" className="text-sm font-medium">Company name <span aria-hidden="true">*</span></label>
+        <label htmlFor="co-name" className="text-sm font-medium">Company name <span className="ui-required" aria-hidden="true">*</span></label>
         <input id="co-name" className="ui-input" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="organization" />
       </div>
       <div className="grid gap-1">
@@ -262,7 +263,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
       </div>
       {gstinState ? null : (
         <div className="grid gap-1">
-          <label htmlFor="co-state" className="text-sm font-medium">State <span aria-hidden="true">*</span></label>
+          <label htmlFor="co-state" className="text-sm font-medium">State <span className="ui-required" aria-hidden="true">*</span></label>
           <select id="co-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required>
             <option value="">Choose…</option>
             {STATES.map((s) => (

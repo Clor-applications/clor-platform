@@ -1,3 +1,4 @@
+import { employeeLimitReason } from '../services/entitlements.js';
 import { employeeStatusChanged } from '../services/portalSessions.js';
 import { trackFirst } from '../services/productEvents.js';
 import { actorFrom } from '../services/credentials.js';
@@ -282,6 +283,9 @@ payrollEmployeesRouter.post(
       const clash = await peoplePrisma.employee.findFirst({ where: { orgId, code }, select: { id: true } });
       if (clash) return res.status(409).json({ error: `An employee with the code ${code} already exists.` });
     }
+
+    const seatsFull = body.status === 'LEFT' ? null : await employeeLimitReason(accountId);
+    if (seatsFull) return res.status(409).json({ error: seatsFull, code: 'SEATS_FULL' });
 
     const row = await peoplePrisma.employee.create({
       data: {

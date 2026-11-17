@@ -37,17 +37,20 @@ const item = async (name: string, over: Record<string, unknown> = {}) =>
 
 const line = (itemId: string, quantity: number) => ({ itemId, description: 'x', quantity, rate: 10, amount: 10 * quantity, gstRate: 0 });
 
+/* The figures a document carries agree with its lines (the server refuses one that does not). */
+const worth = (items: any[]) => items.reduce((t, i) => t + Number(i.quantity) * Number(i.rate), 0);
+
 const invoice = (items: any[], over: Record<string, unknown> = {}) =>
   request(app)
     .post(`/api/orgs/${owner.orgId}/invoices`)
     .set(auth(owner))
-    .send({ date: '2026-09-10', customerName: 'Walk-in', subtotal: 10, gstTotal: 0, total: 10, status: 'Unpaid', warehouseId: wh, items, ...over });
+    .send({ date: '2026-09-10', customerName: 'Walk-in', subtotal: worth(items), gstTotal: 0, total: worth(items), status: 'Unpaid', warehouseId: wh, items, ...over });
 
 const bill = (items: any[], over: Record<string, unknown> = {}) =>
   request(app)
     .post(`/api/orgs/${owner.orgId}/bills`)
     .set(auth(owner))
-    .send({ date: '2026-09-05', partyName: 'Supplier', total: 10, status: 'Unpaid', warehouseId: wh, items, ...over });
+    .send({ date: '2026-09-05', partyName: 'Supplier', subtotal: worth(items), total: worth(items), status: 'Unpaid', warehouseId: wh, items, ...over });
 
 const onHand = async (itemId: string, warehouseId = wh) => {
   const res = await request(app)
@@ -162,6 +165,18 @@ describe('movements follow the documents', () => {
 });
 
 describe('selling what is not there', () => {
+  it('leaves no gap in the invoice numbers when a sale is refused', async () => {
+    const id = await item('Numbered unit');
+    await bill([line(id, 1)]).expect(201);
+    const first = await invoice([line(id, 1)]).expect(201);
+    await invoice([line(id, 1)]).expect(409);
+    const restock = await bill([line(id, 1)]).expect(201);
+    expect(restock.status).toBe(201);
+    const next = await invoice([line(id, 1)]).expect(201);
+    const seq = (n: string) => Number(String(n).match(/(\d+)\D*$/)![1]);
+    expect(seq(next.body.invoice.number)).toBe(seq(first.body.invoice.number) + 1);
+  });
+
   it('refuses an invoice that would take a warehouse below nothing, and keeps nothing', async () => {
     const id = await item('Last unit');
     await bill([line(id, 2)]).expect(201);
@@ -240,7 +255,7 @@ describe('selling what is not there', () => {
     const dn = await request(app)
       .post(`/api/orgs/${owner.orgId}/debit-notes`)
       .set(auth(owner))
-      .send({ date: '2026-09-10', partyName: 'Supplier', total: 20, warehouseId: wh, items: [line(id, 2)] });
+      .send({ date: '2026-09-10', partyName: 'Supplier', subtotal: 20, total: 20, warehouseId: wh, items: [line(id, 2)] });
     expect(dn.status).toBe(409);
     expect(dn.body.code).toBe('insufficient_stock');
   });

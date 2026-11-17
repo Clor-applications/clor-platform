@@ -46,6 +46,7 @@ const raiseInvoice = async (c: Ctx, customerName: string) => {
       date: '2026-09-09',
       customerName,
       subtotal: 1000,
+      igstTotal: 180,
       gstTotal: 180,
       total: 1180,
       status: 'Unpaid',

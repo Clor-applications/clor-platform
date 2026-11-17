@@ -134,7 +134,12 @@ export const opsInvoiceStart = (accountId) => apiFetch(`/ops/invoices/start${q({
 export const opsNewInvoice = (body) => apiFetch('/ops/invoices', { ...o, method: 'POST', body });
 export const opsSaveInvoice = (id, body) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}`, { ...o, method: 'PATCH', body });
 export const opsDiscardInvoice = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}`, { ...o, method: 'DELETE' });
-export const opsIssueInvoice = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/issue`, { ...o, method: 'POST', body: {} });
+/* `email` is always sent, true or false: the server emails the customer only when it is exactly true. */
+export const opsIssueInvoice = (id, email) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/issue`, { ...o, method: 'POST', body: { email: email === true } });
+export const opsSendInvoiceAgain = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/send`, { ...o, method: 'POST', body: {} });
+export const opsRemindInvoice = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/remind`, { ...o, method: 'POST', body: {} });
+export const opsInvoiceSends = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/sends`, o);
+export const opsInvoiceReminders = (id, off) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/reminders`, { ...o, method: 'POST', body: { off: off === true } });
 export const opsMarkInvoicePaid = (id, body) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/mark-paid`, { ...o, method: 'POST', body });
 export const opsVoidInvoice = (id, reason) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/void`, { ...o, method: 'POST', body: { reason } });
 export const opsSendInvoiceToBooks = (id) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/books`, { ...o, method: 'POST', body: {} });
@@ -198,3 +203,7 @@ export const opsUsers = (params) => apiFetch(`/ops/users${q(params)}`, o);
 export const opsDenials = (params) => apiFetch(`/ops/denials${q(params)}`, o);
 export const opsFeatureSwitches = (params) => apiFetch(`/ops/feature-switches${q(params)}`, o);
 export const opsAccountEntitlements = (id) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}/entitlements`, o);
+/* Settings, Text messages: CLOR's SMS sender for sign-in codes (server: routes/pricing.ts). The key is never sent back. */
+export const opsSms = () => apiFetch('/ops/settings/sms', o);
+export const opsSaveSms = (body) => apiFetch('/ops/settings/sms', { ...o, method: 'PUT', body });
+export const opsTestSms = (phone) => apiFetch('/ops/settings/sms/test', { ...o, method: 'POST', body: { phone } });

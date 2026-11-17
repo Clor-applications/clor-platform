@@ -365,7 +365,7 @@ function Today({ me, reload, guard }) {
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Out</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOutTime || '—'}</dd></div>
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Worked</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOut ? hm(r.workedMinutes) : '—'}</dd></div>
         </dl>
-        {r?.lateMinutes ? <p className="ui-caption">Late by {r.lateMinutes} min.</p> : null}
+        {r?.lateMinutes ? <p><span className="ui-late-tag">Late {r.lateMinutes} min</span></p> : null}
       </section>
 
       {me.phone.allowed ? (
@@ -466,7 +466,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
                           ) : (
                             <span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || d.status}</span>
                           )}
-                          {d.lateMinutes ? <span className="ui-caption block">late {d.lateMinutes} min</span> : null}
+                          {d.lateMinutes ? <span className="block"><span className="ui-late-tag">Late {d.lateMinutes} min</span></span> : null}
                         </td>
                         <td className="whitespace-nowrap text-end tabular-nums">
                           {d.checkIn ? `${d.checkIn} – ${d.checkOut || ''}`.trim() : '—'}
@@ -973,6 +973,8 @@ function MyLeave({ guard }) {
                   <div className="text-2xl font-semibold tabular-nums">{amountFigure(t.available, t)}</div>
                   {/* An hourly type's balance is in hours (gap 23). */}
                   <div className="ui-caption">{isHourly(t) ? 'hours ' : ''}left of {amountFigure(t.allocated, t)}{t.pending ? ` · ${amountFigure(t.pending, t)} waiting` : ''}</div>
+                  {/* Owner's pick (17 Nov 2026, round 7): the number with a bar of what is left. */}
+                  {t.allocated > 0 ? <span className="ui-bal-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, (t.available / t.allocated) * 100))}%` }} /></span> : null}
                   {/* Comp-off under a validity: the days that go first, and when. */}
                   {t.expiring?.length ? <div className="ui-caption tabular-nums">{expiringWords(t.expiring, fmtDayYear)}</div> : null}
                   <button type="button" className="ui-link text-xs mt-1" onClick={() => setExplaining(t.id)}>How is this worked out?</button>
@@ -1099,7 +1101,7 @@ function Account({ me, guard, onSignOut }) {
       <form onSubmit={save} className="ui-card space-y-3 p-5" aria-labelledby="pw-h">
         <h2 id="pw-h" className="ui-t-sec">Change password</h2>
         <label className="block"><span className="ui-label">Current password</span><PasswordInput className="ui-input w-full" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} /></label>
-        <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">New password</span><PasswordInput className="ui-input w-full" required strength autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} /></label>
         <label className="block"><span className="ui-label">New password again</span><PasswordInput className="ui-input w-full" required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} /></label>
         {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
         <button type="submit" className="ui-btn ui-btn-primary w-full">Change password</button>

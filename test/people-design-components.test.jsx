@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import SearchField from '../packages/ui/src/components/ui/SearchField';
@@ -103,7 +103,7 @@ describe('Alert and ErrorState', () => {
     const retry = vi.fn();
     const { rerender } = render(<ErrorState error={{ status: 500, requestId: 'req-42' }} onRetry={retry} />);
     expect(screen.getByText('req-42')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(retry).toHaveBeenCalled();
     rerender(<ErrorState error={{ status: 409 }} onRetry={retry} />);
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
@@ -299,9 +299,10 @@ describe('DataTable (spec v1 §4.2, §5)', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Choose Isha Kapoor' }));
     expect(onSelect.mock.calls[0][0].has('b')).toBe(true);
     expect(onRowClick).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole('button', { name: 'Actions for Isha Kapoor' }));
-    expect(screen.getByRole('menuitem', { name: 'View' })).toHaveFocus();
-    await user.keyboard('{ArrowDown}{Enter}');
+    /* Up to three row actions show as words in the row (owner's pick, 17 Nov 2026); each is a button reached by Tab. */
+    const actions = screen.getByRole('group', { name: 'Actions for Isha Kapoor' });
+    within(actions).getByRole('button', { name: 'Edit' }).focus();
+    await user.keyboard('{Enter}');
     expect(edit).toHaveBeenCalledWith('b');
     expect(onRowClick).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('menu')).toBeNull();

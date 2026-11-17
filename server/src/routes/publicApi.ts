@@ -1,3 +1,4 @@
+import { assertEmployeeSeat } from '../services/entitlements.js';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { anyAppLive, closing } from '../services/principalAllowed.js';
 import rateLimit from 'express-rate-limit';
@@ -197,6 +198,7 @@ async function writeEmployee(req: Request, existing: any | null, b: z.infer<type
   if (joined && left && left < joined) throw Object.assign(new Error('Somebody cannot leave before they joined.'), { status: 400 });
   if (!existing) {
     if (!b.name) throw Object.assign(new Error('A new employee needs a name.'), { status: 400 });
+    if (((data.status as string) || 'ACTIVE') !== 'LEFT') await assertEmployeeSeat(accountId);
     const row = await peoplePrisma.employee.create({ data: { accountId, orgId, code: b.code, ...data, status: (data.status as string) || 'ACTIVE', createdByUserId: by } as any });
     await pushEmployeeToReaders(orgId, row, by);
     emitWebhook(orgId, 'employee.created', employeeEvent(row));

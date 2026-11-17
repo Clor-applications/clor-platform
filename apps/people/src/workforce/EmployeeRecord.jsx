@@ -1,4 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { formatPhone } from '@ui/utils/phone';
+import CopyWord from '@ui/components/ui/CopyWord';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -249,7 +251,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
             <StatusBadge employee={person} />
             {typeName ? <span className="pc-chip">{typeName}</span> : null}
             {person.hours === 'PART_TIME' ? <span className="pc-chip">Part-time</span> : null}
-            {person.code ? <span className="pc-chip">{person.code}</span> : null}
+            {person.code ? <span className="pc-chip"><span>{person.code}</span> <CopyWord value={person.code} what="employee ID" /></span> : null}
           </div>
           {probation === 'ON' || probation === 'OVER' || (person.contractEndDate && person.status !== 'LEFT') ? (
             <p className="pc-summary-alerts">
@@ -456,10 +458,13 @@ function PhotoControl({ person, canEdit, onSaved }) {
   /* The portrait is the control: with no photo it asks for one; with one, it offers change or remove. */
   return (
     <>
-      <button ref={btn} type="button" className="ui-avatar-edit" disabled={busy} aria-label={person.photoUrl ? 'Photo options' : 'Add a photo'} aria-haspopup={person.photoUrl ? 'menu' : undefined} aria-expanded={person.photoUrl ? menu : undefined}
+      <button ref={btn} type="button" className="ui-avatar-edit" disabled={busy} aria-haspopup={person.photoUrl ? 'menu' : undefined} aria-expanded={person.photoUrl ? menu : undefined}
         onClick={() => (person.photoUrl ? setMenu((o) => !o) : input.current?.click())}>
-        <Avatar person={person} size={64} />
+        <span aria-hidden="true"><Avatar person={person} size={64} /></span>
         <span className="ui-avatar-edit-badge" aria-hidden="true"><Camera size={14} /></span>
+        {/* Owner's pick (17 Nov 2026): initials with a link under them; the camera badge shows only in Books' look. */}
+        {/* The words under the face name the button, so what is seen is what is said. */}
+        <span className="ui-avatar-edit-word">{person.photoUrl ? 'Change photo' : 'Add photo'}</span>
       </button>
       {menu ? (
         <Popover anchorRef={btn} onClose={() => setMenu(false)} minWidth={180}>
@@ -499,7 +504,7 @@ function TagLine({ person, tags, canEdit, onSaved }) {
   if (!mine.length && (!canEdit || !tags.length)) return null;
   return (
     <span className="mt-2 flex flex-wrap items-center gap-1.5 font-normal">
-      {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>)}
+      {(person.tags || []).map((t) => <span key={t.id} className="ui-tag" style={{ '--tag': t.color }}>{t.name}</span>)}
       {canEdit && tags.length ? (
         <>
           <button ref={btn} type="button" className="ui-tag-add" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? <><Pencil size={12} aria-hidden="true" /> Tags</> : <><Plus size={12} aria-hidden="true" /> Add tag</>}</button>
@@ -534,7 +539,7 @@ function Overview({ person, data, lists, allowed, openScreen, goTo, go }) {
             <Field label="Full name" value={person.name} />
             <Field label="Preferred name" value={person.preferredName} />
             <Field label="Work email" value={person.workEmail} />
-            <Field label="Phone" value={person.phone} />
+            <Field label="Phone" value={formatPhone(person.phone)} />
           </dl>
         </Section>
         <Section title="Job details" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('employment')}>Open</button>}>

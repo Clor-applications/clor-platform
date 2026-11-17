@@ -124,7 +124,7 @@ const CART = {
   igstTotal: 0,
   gstTotal: 180,
   total: 1180,
-  items: [{ description: 'Filter coffee 250g', quantity: 1, rate: 1000, lineTotal: 1000 }],
+  items: [{ description: 'Filter coffee 250g', quantity: 1, rate: 1000, gstRate: 18, lineTotal: 1180 }],
 };
 
 const checkout = (c: Ctx, body: Record<string, unknown>, branchId?: string) =>
@@ -489,7 +489,7 @@ describe('a settled POS sale', () => {
         gstTotal: 180,
         total: 1180,
         status: 'Unpaid',
-        items: [{ description: 'Widget', quantity: 1, rate: 1000 }],
+        items: [{ description: 'Widget', quantity: 1, rate: 1000, gstRate: 18 }],
       })
       .expect(201);
 
@@ -518,7 +518,7 @@ describe('ordinary accounting is untouched', () => {
         gstTotal: 180,
         total: 1180,
         status: 'Unpaid',
-        items: [{ description: 'Widget', quantity: 1, rate: 1000 }],
+        items: [{ description: 'Widget', quantity: 1, rate: 1000, gstRate: 18 }],
       })
       .expect(201);
 

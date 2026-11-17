@@ -40,7 +40,12 @@ const auth = (c: Ctx) => ({
   'x-branch-id': c.branchId,
 });
 
-const expensePayload = (over: Record<string, unknown> = {}) => ({
+/* A body's one line follows its figures, so an override of the totals still agrees with its lines (the server refuses a document that does not). */
+const agree = (b: any, over: Record<string, unknown>) =>
+  over.items ? b : { ...b, items: [{ ...b.items[0], quantity: 1, rate: b.subtotal, gstRate: b.subtotal ? Math.round((b.gstTotal / b.subtotal) * 10000) / 100 : 0 }] };
+
+const expensePayload = (over: Record<string, unknown> = {}) =>
+  agree({
   date: '2026-08-18',
   partyName: 'City Landlord',
   category: 'Rent',
@@ -53,7 +58,7 @@ const expensePayload = (over: Record<string, unknown> = {}) => ({
   total: 11800,
   items: [{ description: 'Office rent', quantity: 1, rate: 10000, gstRate: 18 }],
   ...over,
-});
+  }, over);
 
 beforeAll(async () => {
   A = await makeTenant('tenant-exp');

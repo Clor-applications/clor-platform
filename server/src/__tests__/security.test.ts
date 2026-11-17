@@ -353,6 +353,14 @@ async function fakeIssuer(email: string, name: string) {
 }
 
 describe('signing in with OpenID Connect', () => {
+  /* The provider here is a stub on this machine. A real private address is refused (auditSecurity.test.ts); the test says so explicitly to reach its stub. */
+  const privateWas = process.env.INTEGRATIONS_ALLOW_PRIVATE;
+  beforeAll(() => {
+    process.env.INTEGRATIONS_ALLOW_PRIVATE = 'true';
+  });
+  afterAll(() => {
+    process.env.INTEGRATIONS_ALLOW_PRIVATE = privateWas;
+  });
   it('offers the provider for its domain, walks the code flow, and makes the person a member', async () => {
     const domain = `sso-${rnd()}.example`;
     const issuer = await fakeIssuer(`asha@${domain}`, 'Asha Rao');

@@ -438,7 +438,7 @@ export function SettingsRoles({ orgId }) {
         <form id="role-settings-form" onSubmit={onSubmit} className="grid gap-4">
           {errorNote}
           <label className="grid gap-1" htmlFor="settingsroles-role-name">
-            <span className="text-sm font-medium">Role name <span aria-hidden="true">*</span></span>
+            <span className="text-sm font-medium">Role name <span className="ui-required" aria-hidden="true">*</span></span>
             <input id="settingsroles-role-name" className="ui-input w-full" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
           </label>
           <label className="grid gap-1" htmlFor="settingsroles-role-description">

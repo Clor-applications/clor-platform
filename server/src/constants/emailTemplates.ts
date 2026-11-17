@@ -123,6 +123,57 @@ Thank you for using CLOR.`,
     transactional: true,
   },
   {
+    key: 'billing.invoice_issued',
+    label: 'Invoice (to the customer)',
+    description: 'Sent to the email on the invoice, or the account owner, when CLOR staff issue an invoice or send it again (Money, Invoices; billing/invoiceEmail.ts). {{payDetails}} is the whole of how to pay: the online link when a gateway is on, then UPI and the bank account.',
+    subject: 'CLOR invoice {{number}} for {{amount}}',
+    body: `Hello {{userName}},
+
+CLOR invoice {{number}} for {{amount}} is due by {{dueOn}}.
+
+{{payDetails}}
+
+See the invoice: {{invoiceUrl}}
+
+Thank you for using CLOR.`,
+    fields: ['userName', 'number', 'amount', 'dueOn', 'daysLate', 'payUrl', 'invoiceUrl', 'payDetails'],
+    transactional: true,
+  },
+  {
+    key: 'billing.invoice_reminder',
+    label: 'Invoice reminder, before it is due (to the customer)',
+    description: 'Sent when CLOR staff remind a customer of an invoice that is not yet past its due date (Money, Invoices; billing/invoiceEmail.ts).',
+    subject: 'Reminder: CLOR invoice {{number}} is due by {{dueOn}}',
+    body: `Hello {{userName}},
+
+A reminder that CLOR invoice {{number}} for {{amount}} is due by {{dueOn}}.
+
+{{payDetails}}
+
+See the invoice: {{invoiceUrl}}
+
+Already paid? Reply with the payment reference and we will mark it paid.`,
+    fields: ['userName', 'number', 'amount', 'dueOn', 'daysLate', 'payUrl', 'invoiceUrl', 'payDetails'],
+    transactional: true,
+  },
+  {
+    key: 'billing.invoice_overdue',
+    label: 'Invoice overdue (to the customer)',
+    description: 'Sent when CLOR staff remind a customer of an invoice that is past its due date (Money, Invoices; billing/invoiceEmail.ts).',
+    subject: 'CLOR invoice {{number}} is overdue',
+    body: `Hello {{userName}},
+
+CLOR invoice {{number}} for {{amount}} was due on {{dueOn}} and is {{daysLate}} overdue.
+
+{{payDetails}}
+
+See the invoice: {{invoiceUrl}}
+
+Already paid? Reply with the payment reference and we will mark it paid.`,
+    fields: ['userName', 'number', 'amount', 'dueOn', 'daysLate', 'payUrl', 'invoiceUrl', 'payDetails'],
+    transactional: true,
+  },
+  {
     key: 'ops.approval_asked',
     label: 'A discount waits for approval (to CLOR staff)',
     description: 'Sent to Billing staff and the owner when a colleague sets a deal whose discount is over the limit on the Approvals page. Someone other than the person who asked must approve it.',
@@ -235,6 +286,23 @@ The link works once and for {{days}} days. If it has run out, use "Forgot passwo
     transactional: true,
   },
   {
+    key: 'account.started',
+    label: 'Your trial has started',
+    description: 'Sent to a new owner who started a trial from clor.in and chose a password on the setup page. Says where to sign in.',
+    subject: 'Your {{appName}} account for {{companyName}} is ready',
+    body: `Hello {{userName}},
+
+Your {{appName}} account for {{companyName}} is ready, with {{apps}}.{{trialNote}}
+
+Sign in here with {{email}} and the password you chose:
+
+{{signInUrl}}
+
+If you forget the password, use "Forgot password" on the sign-in page.`,
+    fields: ['userName', 'companyName', 'apps', 'trialNote', 'signInUrl', 'email', 'appName'],
+    transactional: true,
+  },
+  {
     key: 'signup.confirm',
     label: 'Confirm your email to start your trial',
     description: 'Sent when somebody starts a free trial from clor.in: the link that checks their email and opens the setup page.',
@@ -249,6 +317,23 @@ The link works for {{hours}} hours. No card is needed; the trial runs for {{days
 
 If you did not ask for this, ignore this mail and nothing is made.`,
     fields: ['apps', 'startUrl', 'hours', 'days', 'appName'],
+    transactional: true,
+  },
+  {
+    key: 'signup.already',
+    label: 'You already have a CLOR sign-in',
+    description: 'Sent when somebody asks for a free trial with an email that already signs in to CLOR. The page says the same thing either way, so nobody can use it to learn who is a customer.',
+    subject: 'You already sign in to {{appName}} with this email',
+    body: `Hello,
+
+Somebody, probably you, asked to start a free trial on CLOR with this email. It already signs in to CLOR, so no new account was made.
+
+Sign in here:
+
+{{signInUrl}}
+
+If you forgot your password, the sign-in page has "Forgot password?". If this was not you, ignore this mail: nothing has changed.`,
+    fields: ['signInUrl', 'appName'],
     transactional: true,
   },
   {

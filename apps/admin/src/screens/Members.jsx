@@ -37,13 +37,16 @@ const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric'
 /** W-7.1: who holds power here — an account owner or administrator, or an administrator of a company. */
 export const isPrivileged = (m) => m.accountRole === 'OWNER' || m.accountRole === 'ADMIN' || m.companies.some((c) => c.isAdmin);
 
-export function filterMembers(members, { q = '', status = '', companyId = '', app = '', role = '', risk = '' }) {
+export function filterMembers(members, { q = '', status = '', companyId = '', app = '', role = '', risk = '', auth = '' }) {
   const needle = q.trim().toLowerCase();
   return members.filter((m) => {
     if (risk === 'privileged' && !isPrivileged(m)) return false;
     if (risk === 'no2fa' && !(isPrivileged(m) && !m.authenticator && m.status === 'ACTIVE')) return false;
     if (needle && !`${m.name || ''} ${m.email || ''}`.toLowerCase().includes(needle)) return false;
     if (status && m.status !== status) return false;
+    /* Anybody without an authenticator, not only administrators: the company's rule asks it of admins, but an owner wants to see everyone. */
+    if (auth === 'none' && m.authenticator) return false;
+    if (auth === 'on' && !m.authenticator) return false;
     if (role && m.accountRole !== role) return false;
     if (companyId && !m.companies.some((c) => c.orgId === companyId)) return false;
     if (app && !m.companies.some((c) => (companyId ? c.orgId === companyId : true) && c.apps.includes(app))) return false;
@@ -65,6 +68,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
     app: '',
     role: '',
     risk: RISKS.includes(params?.risk) ? params.risk : '',
+    auth: '',
   }));
   const [openId, setOpenId] = useState('');
   const [detail, setDetail] = useState(null);
@@ -211,6 +215,11 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
             <option value="ACTIVE">Active</option>
             <option value="SUSPENDED">Suspended</option>
           </select>
+          <select className="ui-select" aria-label="Authenticator" value={filters.auth} onChange={set('auth')}>
+            <option value="">Authenticator: All</option>
+            <option value="none">No authenticator</option>
+            <option value="on">Has authenticator</option>
+          </select>
         </div>
 
         {notice ? <p role="status" className="text-sm">{notice}</p> : null}
@@ -231,6 +240,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                   <th>Person</th>
                   <th>Access</th>
                   <th>Roles</th>
+                  <th>Sign-in</th>
                   <th>Status</th>
                   <th><span className="sr-only">Open</span></th>
                 </tr>
@@ -273,6 +283,11 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                         ) : (
                           <span className="ws-cell-sub">No role</span>
                         )}
+                      </td>
+                      {/* Who signs in with an authenticator and when they last did: it was only inside each person's panel. */}
+                      <td>
+                        <span className="ws-cell-main">{m.authenticator ? 'Authenticator on' : 'No authenticator'}</span>
+                        <span className="ws-cell-sub">{m.lastSignInAt ? `Last ${day(m.lastSignInAt)}` : 'Never signed in'}</span>
                       </td>
                       <td><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
                       <td className="num"><ChevronRight size={16} aria-hidden="true" className="ws-chev" /></td>

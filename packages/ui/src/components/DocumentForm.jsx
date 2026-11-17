@@ -201,7 +201,7 @@ export const Field = ({ label, htmlFor, required = false, hint = '', children, c
   <div className={`${span > 1 ? `lg:col-span-${span}` : ''} ${className}`}>
     <label htmlFor={htmlFor} className="ui-label">
       {label}
-      {required ? <span className="ml-1 text-[rgb(var(--neg-ink))]">*</span> : null}
+      {required ? <span className="ui-required ml-1 text-[rgb(var(--neg-ink))]">*</span> : null}
     </label>
     {children}
     {hint ? <p className="mt-1 text-xs ui-muted">{hint}</p> : null}

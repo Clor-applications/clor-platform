@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import MoneyInput from '@ui/components/ui/MoneyInput';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 import Drawer from '@ui/components/ui/Drawer';
 import DatePicker from '@ui/components/ui/DatePicker';
@@ -99,7 +100,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
           <div><label className="ui-label" htmlFor="offer-accept-by">Open until *</label><DatePicker id="offer-accept-by" required min={todayIst()} value={form.acceptBy} onChange={(v) => set({ acceptBy: v || '' })} /></div>
           <label className="block">
             <span className="ui-label">Annual CTC (₹) *</span>
-            <input className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.annualCtc} onChange={(e) => set({ annualCtc: e.target.value })} placeholder="600000" />
+            <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.annualCtc} onChange={(e) => set({ annualCtc: e.target.value })} placeholder="600000" />
           </label>
         </div>
 
@@ -113,7 +114,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
             {form.lines.map((l, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input className="ui-input flex-1" aria-label={`Line ${i + 1} name`} placeholder="Basic" value={l.label} maxLength={80} onChange={(e) => setLine(i, { label: e.target.value })} />
-                <input className="ui-input w-36 tabular-nums text-right" aria-label={`Line ${i + 1} a month`} inputMode="decimal" placeholder="a month" value={l.monthly} onChange={(e) => setLine(i, { monthly: e.target.value })} />
+                <MoneyInput className="ui-input w-36 tabular-nums text-right" aria-label={`Line ${i + 1} a month`} inputMode="decimal" placeholder="a month" value={l.monthly} onChange={(e) => setLine(i, { monthly: e.target.value })} />
                 <button type="button" className="ui-icon-btn" aria-label={`Remove line ${i + 1}`} onClick={() => set({ lines: form.lines.filter((_, j) => j !== i) })}><Trash2 size={16} aria-hidden="true" /></button>
               </div>
             ))}

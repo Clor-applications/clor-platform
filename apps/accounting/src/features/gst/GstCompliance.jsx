@@ -1,3 +1,4 @@
+import SyncProblemsNotice from '@ui/components/SyncProblemsNotice';
 import { formatMoney, round2 } from '@ui/utils/money';
 import { computeGstForLine, isCompanyGstEnabled } from '@ui/utils/gst';
 import { notify } from '@ui/components/ui/notify';
@@ -437,10 +438,12 @@ export const Gstr1Report = ({ db, currentCompany, search = '', onSearchChange, o
 };
 
 const Gstr3bReport = ({ db, currentCompany }) => {
-  const invoices = db.invoices.filter((i) => i.companyId === currentCompany.id);
-  const creditNotes = db.creditNotes.filter((c) => c.companyId === currentCompany.id);
-  const bills = db.bills.filter((b) => b.companyId === currentCompany.id);
-  const expenses = db.expenses.filter((e) => e.companyId === currentCompany.id);
+  /* Drafts, documents awaiting approval and cancelled ones are not supplies: the 3B file leaves them out, so the screen does too (audit, 17 Nov 2026). */
+  const inReturn = (row) => row?.companyId === currentCompany.id && !/draft|pending|cancel|reject/i.test(String(row?.status || ''));
+  const invoices = (db.invoices || []).filter(inReturn);
+  const creditNotes = (db.creditNotes || []).filter(inReturn);
+  const bills = (db.bills || []).filter(inReturn);
+  const expenses = (db.expenses || []).filter(inReturn);
 
   const sumDocs = (docs, sign) => {
     return docs.reduce(
@@ -533,7 +536,15 @@ const GST_REPORT_OPTIONS = [
   ['eway', 'E-Way Bill Register'],
 ];
 
-export const GstComplianceWorkspace = ({ db, currentCompany, branches = [], initialReport = 'gstr1', onBack }) => {
+/** The GST returns, with a warning above when the books here are not whole. */
+export const GstComplianceWorkspace = (props) => (
+  <>
+    <SyncProblemsNotice problems={props.db?.syncProblems} />
+    <GstComplianceInner {...props} />
+  </>
+);
+
+const GstComplianceInner = ({ db, currentCompany, branches = [], initialReport = 'gstr1', onBack }) => {
   const today = new Date();
   const fyStart = today.getMonth() < 3 ? today.getFullYear() - 1 : today.getFullYear();
   const [report, setReport] = useState(initialReport);

@@ -43,7 +43,7 @@ const PASSWORD_RULES = [
 ];
 const GATES = [
   { key: 'requireVerifiedEmail', label: 'Require a confirmed email address' },
-  { key: 'requireAdminTwoFactor', label: 'Owners and admins need an authenticator app' },
+  { key: 'requireAdminTwoFactor', label: 'Owners and admins need two-step sign-in' },
   { key: 'requirePayrollStepUp', label: 'Ask for an authenticator code before approving payments and pay runs' },
 ];
 const EMPTY_PW = { current: '', next: '', confirm: '' };

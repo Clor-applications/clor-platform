@@ -126,6 +126,8 @@ export const resolveTds = ({
   explicitRate = null,
   side = 'PAYABLE',
   priorBase = 0,
+  /* How much of `priorBase` has already had tax deducted (priorTaxedBaseFor). */
+  priorTaxedBase = 0,
   ledgers = [],
   existingEventFor = null,
 }) => {
@@ -179,7 +181,7 @@ export const resolveTds = ({
   }
 
   const base = Math.max(0, r2(taxableBase));
-  const statutoryThreshold = tdsThresholdState(rule.sectionCode, base, Math.max(0, Number(priorBase) || 0));
+  const statutoryThreshold = tdsThresholdState(rule.sectionCode, base, Math.max(0, Number(priorBase) || 0), Math.max(0, Number(priorTaxedBase) || 0));
   const threshold = profile.thresholdHandling === 'ALWAYS_DEDUCT'
     ? { crossed: base > 0, base, reason: 'Company setting: deduct without applying the statutory threshold.' }
     : statutoryThreshold;
@@ -319,6 +321,32 @@ export const priorBaseFor = (documents, { partyId, natureCode, onDate, excludeId
     .filter((d) => String(d?.id ?? '') !== String(excludeId ?? ''))
     .filter((d) => day(d?.date) >= fy.from && day(d?.date) <= fy.to)
     .reduce((t, d) => t + (Number(d?.taxableValue) || Number(d?.subtotal) || 0), 0);
+};
+
+/**
+ * How much of that has already had tax deducted this year.
+ *
+ * Once the limit is crossed the whole year's billing is liable, once. The bill
+ * that crossed it paid for the bills before it, so the next bill is liable for
+ * itself alone. A bill records the base it was taxed on; one saved before that
+ * was kept is worked back from its tax and rate.
+ */
+export const priorTaxedBaseFor = (documents, { partyId, natureCode, onDate, excludeId = null }) => {
+  const fy = fyRange(day(onDate));
+  const want = String(natureCode || '').trim().toUpperCase();
+  return (Array.isArray(documents) ? documents : [])
+    .filter((d) => String(d?.partyId ?? d?.vendorId ?? d?.customerId ?? '') === String(partyId ?? ''))
+    .filter((d) => String(d?.tdsNatureCode || '').toUpperCase() === want)
+    .filter((d) => lower(d?.status) !== 'cancelled')
+    .filter((d) => String(d?.id ?? '') !== String(excludeId ?? ''))
+    .filter((d) => day(d?.date) >= fy.from && day(d?.date) <= fy.to)
+    .filter((d) => Number(d?.tdsAmount) > 0)
+    .reduce((t, d) => {
+      const kept = Number(d?.tdsBaseAmount) || 0;
+      const rate = Number(d?.tdsRate) || 0;
+      const worked = rate > 0 ? (Number(d.tdsAmount) * 100) / rate : 0;
+      return t + (kept || worked || Number(d?.taxableValue) || Number(d?.subtotal) || 0);
+    }, 0);
 };
 
 /**

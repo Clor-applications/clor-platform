@@ -266,7 +266,7 @@ opsRouter.post('/ops/data-health/payroll-payments/build-index', requireOperatorR
 
 const listQuery = z.object({
   q: z.string().trim().max(120).optional(),
-  status: z.enum(['all', 'active', 'trialing', 'overdue', 'suspended', 'cancelled', 'no-plan']).optional(),
+  status: z.enum(['all', 'active', 'trialing', 'overdue', 'suspended', 'cancelled', 'no-plan', 'no-end']).optional(),
   page: z.coerce.number().int().min(0).max(10_000).optional(),
   /* Only customers carrying this staff tag (routes/opsNotes.ts). */
   tag: z.string().trim().max(40).optional(),
@@ -345,6 +345,8 @@ opsRouter.get('/ops/accounts', (req, res) =>
         renewsAt: s?.currentPeriodEnd || null,
         interval: s?.billingInterval || null,
         byHand: s ? !s.gatewayName : false,
+        /* Active with no paid period: never invoiced and never lapses. Meant for a grant; a reopened account lands here too (audit, 17 Nov 2026). */
+        noEnd: Boolean(s && s.status === 'active' && !s.currentPeriodEnd),
         lastActiveAt: lastBy.get(a.id) || null,
         suspended: Boolean(a.suspendedAt),
         tags: tagsBy.get(a.id) || [],
@@ -356,6 +358,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
     /* Overdue: payment is late, or a trial ran out without a plan. */
     if (status === 'overdue') rows = rows.filter((r) => r.plan === 'past_due' || (r.plan === 'trialing' && r.trialEndsAt && new Date(r.trialEndsAt).getTime() < Date.now()));
     if (status === 'cancelled') rows = rows.filter((r) => r.plan === 'cancelled');
+    if (status === 'no-end') rows = rows.filter((r) => r.noEnd && !r.suspended);
     /* Counted over the whole list, not the page shown: the same week Overview counts (ends from now to seven days on). */
     const now = Date.now();
     const endsWithin = (r: (typeof rows)[number], days: number) => {
@@ -410,7 +413,7 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
     ]);
     const users = await platformPrisma.user.findMany({
       where: { id: { in: members.map((m) => m.userId) } },
-      select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true },
+      select: { id: true, email: true, fullName: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, smsTwoFactorEnabledAt: true },
     });
     const userBy = new Map(users.map((u) => [u.id, u]));
     const peopleBy = new Map(
@@ -428,7 +431,7 @@ opsRouter.get('/ops/accounts/:id', (req, res) =>
         : null,
       members: members.map((m) => {
         const u = userBy.get(m.userId);
-        return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt) };
+        return { userId: m.userId, role: m.role, status: m.status, since: m.createdAt, name: u?.fullName || null, email: u?.email || null, active: u?.isActive ?? false, lastLoginAt: u?.lastLoginAt || null, authenticator: Boolean(u?.totpEnabledAt || u?.smsTwoFactorEnabledAt) };
       }),
       companies: orgs.map((o) => ({ id: o.id, name: o.name, code: o.code, createdAt: o.createdAt, people: peopleBy.get(o.id) || 0, branches: o.branches.map((b) => ({ id: b.id, name: b.branchName, code: b.branchCode, state: b.state })) })),
       lastActiveAt: users.reduce<Date | null>((m, u) => (u.lastLoginAt && (!m || u.lastLoginAt > m) ? u.lastLoginAt : m), null),

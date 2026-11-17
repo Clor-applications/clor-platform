@@ -16,8 +16,9 @@ import { readStartLinkOnce } from './startLink';
  *  - sent: check your mail, with a way to send it again.
  *  - setup: the link from the mail lands here (/start?t=<token>). The email
  *    is confirmed by the click, so the page asks only what the account needs:
- *    who, the company's name, which apps first, and the state when Books is
- *    among them (GST's place of supply). Then "Open CLOR" makes the account
+ *    who, the company's name, a password to sign in with from then on, which
+ *    apps first, and the state when Books is among them (GST's place of
+ *    supply). Then "Open CLOR" makes the account
  *    (server: routes/signup.ts, the same account-making code the operator
  *    console uses) and opens it, signed in.
  *  - ended: the link ran out or was used.
@@ -255,7 +256,7 @@ function ResendLine({ email, app, plan }) {
 }
 
 function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHome, onEnded }) {
-  const [form, setForm] = useState({ ownerName: '', companyName: '', state: '' });
+  const [form, setForm] = useState({ ownerName: '', companyName: '', password: '', state: '' });
   /* The app the pricing button named (kept with the link) is ticked first. */
   const [chosen, setChosen] = useState(() => new Set([pending.app || link.app].filter(Boolean)));
   const [busy, setBusy] = useState(false);
@@ -282,6 +283,7 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
     e.preventDefault();
     if (form.ownerName.trim().length < 2) return setError('Tell us your name.');
     if (form.companyName.trim().length < 2) return setError('Give your company a name.');
+    if (form.password.length < 8) return setError('Choose a password of at least 8 characters.');
     if (!picked.length) return setError('Tick at least one app.');
     if (withBooks && !form.state) return setError('Choose the state of your head office. It decides CGST and SGST or IGST on every invoice.');
     setBusy(true);
@@ -289,7 +291,7 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
     try {
       /* Signed out of the other company first, so the sign-out cannot end the new session. */
       if (signedIn && signOut) await signOut();
-      const r = await signupConfirm({ token: link.token, ownerName: form.ownerName.trim(), companyName: form.companyName.trim(), apps: picked, state: withBooks ? form.state : undefined });
+      const r = await signupConfirm({ token: link.token, ownerName: form.ownerName.trim(), companyName: form.companyName.trim(), apps: picked, state: withBooks ? form.state : undefined, password: form.password });
       try {
         localStorage.setItem('token', r.token);
         for (const store of [localStorage, sessionStorage]) for (const key of Object.keys(store)) if (key.startsWith('clor.sel.')) store.removeItem(key);
@@ -323,6 +325,16 @@ function SetupStep({ link, pending, apps, appName, days, signedIn, signOut, onHo
             <label className="ui-label" htmlFor="start-company">Company name</label>
             <input id="start-company" className="ui-input h-11 w-full" value={form.companyName} onChange={(e) => set({ companyName: e.target.value })} autoComplete="organization" />
           </div>
+        </div>
+
+        <div>
+          {/* The address the password belongs to, for a password manager; not shown. */}
+          <div className="sr-only" aria-hidden="true">
+            <input type="email" className="ui-input" tabIndex={-1} autoComplete="username" value={pending.email} readOnly />
+          </div>
+          <label className="ui-label" htmlFor="start-password">Choose a password</label>
+          <input id="start-password" type="password" className="ui-input h-11 w-full" value={form.password} onChange={(e) => set({ password: e.target.value })} autoComplete="new-password" aria-describedby="start-password-hint" />
+          <p id="start-password-hint" className="ui-caption mt-1">At least 8 characters. You sign in with {pending.email} and this password.</p>
         </div>
 
         <fieldset>

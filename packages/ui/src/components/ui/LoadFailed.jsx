@@ -9,7 +9,7 @@ import React from 'react';
 export default function LoadFailed({ message, onRetry }) {
   if (!message) return null;
   return (
-    <div className="ui-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="alert">
+    <div className="ui-card ui-load-failed flex flex-wrap items-center justify-between gap-3 p-4 text-sm" role="alert">
       <span style={{ color: 'rgb(var(--neg))' }}>{message}</span>
       {onRetry ? (
         <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={onRetry}>

@@ -1,3 +1,4 @@
+import { checkDocTotals } from './docTotals.js';
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '../utils/prisma.js';
@@ -298,6 +299,10 @@ export async function checkoutPosSale(
   // succeeded is not refused because an admin has since cleared the mapping.
   const already = await findCommittedCheckout(prisma, ctx, checkoutId);
   if (already) return already;
+
+  /* The figures must agree with the lines before the sale is kept or posted (a sale already rung up is handed back above, whatever it holds). */
+  const totalsProblem = checkDocTotals(input as any);
+  if (totalsProblem) throw new PosCheckoutError('POS_INVALID_SALE', `The figures do not add up. ${totalsProblem.message}`, 422);
 
   const tenderAccount = await resolveTenderAccount(prisma, {
     orgId: ctx.orgId,

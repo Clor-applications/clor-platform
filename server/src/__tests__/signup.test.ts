@@ -80,15 +80,18 @@ describe('the email step', () => {
     expect(logged?.detail).toContain(row.id);
   });
 
-  it('refuses a bad address, thanks a bot and keeps nothing, and turns away an email that already signs in', async () => {
+  it('refuses a bad address, thanks a bot and keeps nothing, and makes nothing for an email that already signs in', async () => {
     expect((await request(app).post('/api/public/signup/start').send({ email: 'not-an-email' }).expect(400)).body.error).toMatch(/email address like/);
     const bot = freshEmail();
     await request(app).post('/api/public/signup/start').send({ email: bot, website: 'http://spam.example' }).expect(202);
     expect(await platformPrisma.trialSignup.count({ where: { email: bot } })).toBe(0);
     const c = await company();
     const owner = await platformPrisma.user.findUniqueOrThrow({ where: { id: c.userId }, select: { email: true } });
-    const r = await request(app).post('/api/public/signup/start').send({ email: owner.email!.toUpperCase() }).expect(409);
-    expect(r.body.code).toBe('EMAIL_TAKEN');
+    /* An email that already signs in gets the same answer as a new one (audit, 17 Nov 2026): the mail, not the page, says so. */
+    const r = await request(app).post('/api/public/signup/start').send({ email: owner.email!.toUpperCase() }).expect(201);
+    expect(r.body).toMatchObject({ ok: true, email: owner.email!.toLowerCase() });
+    expect(r.body.devStartToken).toBeUndefined();
+    expect(r.body.code).toBeUndefined();
     expect(await platformPrisma.trialSignup.count({ where: { email: owner.email!.toLowerCase() } })).toBe(0);
   }, 60_000);
 
@@ -182,6 +185,34 @@ describe('the link and the setup step', () => {
     /* The link is spent: a second confirm makes nothing. */
     expect((await setup(token).expect(410)).body.code).toBe('LINK_ENDED');
     expect(await platformPrisma.user.count({ where: { email } })).toBe(1);
+  }, 60_000);
+
+  it('takes the password chosen on the setup page: the owner signs in with it and sets up the authenticator at once, and the mail carries no set-password link', async () => {
+    const weak = await started();
+    expect((await setup(weak.token, { password: 'short' }).expect(400)).body).toMatchObject({ code: 'WEAK_PASSWORD', error: expect.stringMatching(/at least 8 characters/) });
+    /* A refused password spends nothing. */
+    await request(app).get('/api/public/signup/pending').query({ t: weak.token }).expect(200);
+
+    const { email, token } = await started();
+    const password = `Trial-${rnd()}-pass`;
+    const r = await setup(token, { password }).expect(201);
+    const branch = await platformPrisma.branch.findFirstOrThrow({ where: { orgId: r.body.activeOrgId } });
+    const h = { ...bearer(r.body.token), 'x-org-id': r.body.activeOrgId, 'x-branch-id': branch.id };
+
+    /* The two-factor set-up confirms the password first: the one just chosen, and no other. */
+    expect((await request(app).post(`/api/orgs/${r.body.activeOrgId}/security/two-factor/setup`).set(h).send({ password: 'not-the-one' }).expect(400)).body.code).toBe('BAD_PASSWORD');
+    const made = await request(app).post(`/api/orgs/${r.body.activeOrgId}/security/two-factor/setup`).set(h).send({ password }).expect(200);
+    expect(made.body.secret).toBeTruthy();
+
+    /* The mail says where to sign in; there is no reset link to leak, and none was issued. */
+    expect(await platformPrisma.emailOutbox.count({ where: { templateKey: 'account.welcome', toEmail: email } })).toBe(0);
+    const mail = await platformPrisma.emailOutbox.findMany({ where: { templateKey: 'account.started', toEmail: email } });
+    expect(mail).toHaveLength(1);
+    expect(mail[0].bodyText).toMatch(/\/\?app=accounting/);
+    expect(mail[0].bodyText).not.toMatch(/reset=/);
+    expect(mail[0].bodyText).not.toContain(password);
+    const claims = jwt.decode(r.body.token) as { userId: string };
+    expect(await platformPrisma.passwordResetToken.count({ where: { userId: claims.userId } })).toBe(0);
   }, 60_000);
 
   it('People includes Attendance, and a company without Books needs no state', async () => {

@@ -1,3 +1,4 @@
+import { ACCOUNT_BILLING, accountRoleOf } from '../services/accountMembership.js';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
@@ -29,7 +30,9 @@ export const billingRouter = Router();
 /** CLOR operators acting on an account from outside it. See app.ts for where it is mounted. */
 export const billingOperatorRouter = Router();
 /* A CLOR operator acts on a customer's account, not inside one of its companies (A-35). */
-billingOperatorRouter.use(acrossCompanies('billing operator: a customer account, across its companies'));
+/* On its own paths only. Mounted bare, this ran for every later request under
+   /api and switched the fail-closed company scope off for all of them. */
+billingOperatorRouter.use('/billing/accounts', acrossCompanies('billing operator: a customer account, across its companies'));
 
 /**
  * The payment gateway's webhook (A-16).
@@ -181,17 +184,28 @@ billingRouter.post('/billing/subscription', (_req, res) => {
  * with the amount and invoice number, and CLOR's bank account. For whoever
  * may see the plan.
  */
+/**
+ * CLOR's invoices are to the account, not to one of its companies. Seeing the
+ * company profile of one company is not enough: it takes an owner,
+ * administrator or billing administrator of the account as well.
+ */
+const seesAccountInvoices = async (req: Parameters<typeof authorize>[0]) => {
+  if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return false;
+  const role = await accountRoleOf(req.tenant!.accountId, req.auth!.userId);
+  return Boolean(role && ACCOUNT_BILLING.includes(role));
+};
+
 /** Paying makes a payment link, so it needs the right to change the account's settings, not only to see them. */
 const mayPayInvoices = async (req: Parameters<typeof authorize>[0]) => !(await authorize(req, 'SETTINGS', PermissionAction.EDIT, 'Company Profile'));
 
 billingRouter.get('/billing/invoices', async (req, res) => {
-  if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
   const [invoices, online, mayPay] = await Promise.all([invoicesForAccount(req.tenant!.accountId), onlinePayment(), mayPayInvoices(req)]);
   res.json({ invoices, payOnline: online.available && mayPay });
 });
 
 billingRouter.get('/billing/invoices/:id', async (req, res) => {
-  if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
   try {
     const [inv, online, mayPay] = await Promise.all([invoiceForAccount(req.tenant!.accountId, String(req.params.id)), onlinePayment(), mayPayInvoices(req)]);
     res.json({ ...inv, payOnline: online.available && mayPay && inv.status === 'ISSUED' });
@@ -218,7 +232,7 @@ billingRouter.post('/billing/invoices/:id/pay', async (req, res) => {
 
 /** Back from the payment page: whether the invoice is paid now (asks the provider, so it does not wait for the webhook). */
 billingRouter.post('/billing/invoices/:id/pay/check', async (req, res) => {
-  if (await authorize(req, 'SETTINGS', PermissionAction.VIEW, 'Company Profile')) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: 'Only the people who look after this account see its invoices.' });
   try {
     res.json(await checkPayLink(req.tenant!.accountId, String(req.params.id)));
   } catch (e) {

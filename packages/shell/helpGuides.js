@@ -195,7 +195,7 @@ export const GUIDES = [
       {
         heading: 'Make it required',
         points: [
-          'In Workspace › Security › Sign-in and sessions, tick Owners and admins need an authenticator app, then Save rules.',
+          'In Workspace › Security › Sign-in and sessions, tick Owners and admins need two-step sign-in, then Save rules.',
           'An owner or admin without one is asked to set it up the next time they sign in.',
         ],
       },

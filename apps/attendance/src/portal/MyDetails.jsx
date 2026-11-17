@@ -225,6 +225,7 @@ export function Policies({ guard }) {
   const [reading, setReading] = useState({});
   const [failed, setFailed] = useState('');
   const [loadFailed, setLoadFailed] = useState('');
+  const [ticked, setTicked] = useState({});
   const load = useCallback(() => {
     guard(getPolicies())
       .then((r) => { setRows(r?.policies || []); setLoadFailed(''); })
@@ -260,8 +261,13 @@ export function Policies({ guard }) {
               </div>
               <div className="flex gap-2">
                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => read(p)}>{full ? 'Close' : 'Read'}</button>
-                {waiting ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => accept(p)}>Accept</button> : null}
               </div>
+              {waiting ? (
+                <div className="ui-accept">
+                  <label className="ui-accept-tick"><input type="checkbox" checked={Boolean(ticked[p.versionId])} onChange={(e) => setTicked((t) => ({ ...t, [p.versionId]: e.target.checked }))} /> I have read and accept this policy</label>
+                  <button type="button" className="ui-btn ui-btn-primary ui-btn-sm" disabled={!ticked[p.versionId]} onClick={() => accept(p)}>Accept</button>
+                </div>
+              ) : null}
               {full ? (
                 <div className="space-y-2">
                   {full.body ? <p className="whitespace-pre-wrap">{full.body}</p> : null}

@@ -1,3 +1,4 @@
+import { checkDocTotals, totalsRefusal } from '../services/docTotals.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
@@ -273,8 +274,10 @@ function register(kind: DocKind) {
 
       const rows = await table().findMany({
         where: { accountId, orgId, branchId, ...ownDocsWhere(req) },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-        take: Math.min(500, Number(req.query.limit || 200)),
+        /* ?limit (default 200, most 500) and ?offset page through every document; `id` settles the order of two made in the same instant, so no row is skipped or repeated between pages. */
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+        take: Math.min(500, Math.max(1, Number(req.query.limit) || 200)),
+        skip: Math.max(0, Number(req.query.offset) || 0),
       });
 
       res.json({ [cfg.path.replace(/-/g, '_')]: rows.map(normalize), documents: rows.map(normalize) });
@@ -293,6 +296,9 @@ function register(kind: DocKind) {
       const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
       if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);
       if (await refuseUnknownLineItems(res, req.tenant!.accountId, req.tenant!.orgId, body.items)) return;
+      /* The figures must agree with the lines before anything is kept or posted. */
+      const totalsProblem = checkDocTotals({ ...body, otherCharges: req.body?.otherCharges, otherChargesTotal: req.body?.otherChargesTotal, invoiceDiscountApplied: req.body?.invoiceDiscountApplied });
+      if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
 
       const createPeriodModule = periodLockModuleForSource(kind);
       if (createPeriodModule) await assertPeriodUnlocked({ accountId, orgId, userId, module: createPeriodModule, date: body.date });
@@ -456,6 +462,9 @@ function register(kind: DocKind) {
 
       const body = docSchema.parse(req.body);
       if (await refuseUnknownLineItems(res, accountId, orgId, body.items)) return;
+      /* The figures must agree with the lines before anything is kept or posted. */
+      const totalsProblem = checkDocTotals({ ...body, otherCharges: req.body?.otherCharges, otherChargesTotal: req.body?.otherChargesTotal, invoiceDiscountApplied: req.body?.invoiceDiscountApplied });
+      if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
       if (body.warehouseId !== undefined && (body.warehouseId || null) !== (existing.warehouseId || null)) {
         const warehouseRefused = await warehouseRefusal(req, body.warehouseId);
         if (warehouseRefused) return res.status(warehouseRefused.status).json(warehouseRefused.body);

@@ -159,8 +159,8 @@ opsListsRouter.get('/ops/users', (req, res) =>
     if (status === 'locked') and.push({ lockedUntil: { gt: now } });
     if (status === 'deactivated') and.push({ isActive: false });
     if (status === 'never') and.push({ lastLoginAt: null });
-    if (signIn === 'twofactor') and.push({ totpEnabledAt: { not: null } });
-    if (signIn === 'password') and.push({ totpEnabledAt: null });
+    if (signIn === 'twofactor') and.push({ OR: [{ totpEnabledAt: { not: null } }, { smsTwoFactorEnabledAt: { not: null } }] });
+    if (signIn === 'password') and.push({ totpEnabledAt: null, smsTwoFactorEnabledAt: null });
     if (signIn === 'sso') {
       const sso = await platformPrisma.authEvent.findMany({ where: { eventType: 'LOGIN_SUCCESS', detail: { startsWith: 'SSO ' } }, distinct: ['userId'], select: { userId: true }, take: 5000 });
       and.push({ id: { in: sso.map((e) => e.userId).filter(Boolean) as string[] } });
@@ -174,7 +174,7 @@ opsListsRouter.get('/ops/users', (req, res) =>
         orderBy: [{ lastLoginAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
         skip: p * PAGE,
         take: PAGE,
-        select: { id: true, fullName: true, email: true, code: true, accountId: true, isActive: true, leftAt: true, lockedUntil: true, lastLoginAt: true, totpEnabledAt: true, emailVerifiedAt: true, createdAt: true, platformOperator: { select: { role: true } } },
+        select: { id: true, fullName: true, email: true, code: true, accountId: true, isActive: true, leftAt: true, lockedUntil: true, lastLoginAt: true, totpEnabledAt: true, smsTwoFactorEnabledAt: true, emailVerifiedAt: true, createdAt: true, platformOperator: { select: { role: true } } },
       }),
     ]);
     const ids = users.map((u) => u.id);
@@ -218,7 +218,7 @@ opsListsRouter.get('/ops/users', (req, res) =>
           accounts: (mine.length ? mine.map((m) => m.accountId) : [u.accountId]).map((a) => ({ id: a, name: titles.get(a)?.name || 'A customer' })),
           companies: companiesBy.get(u.id) || 0,
           role: highest,
-          signIn: { method, provider: method === 'sso' ? last.slice(4).trim() || null : null, twoFactor: Boolean(u.totpEnabledAt) },
+          signIn: { method, provider: method === 'sso' ? last.slice(4).trim() || null : null, twoFactor: Boolean(u.totpEnabledAt || u.smsTwoFactorEnabledAt) },
           lastLoginAt: u.lastLoginAt,
           createdAt: u.createdAt,
           staff: u.platformOperator?.role || null,

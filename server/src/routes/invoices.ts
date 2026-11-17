@@ -1,3 +1,4 @@
+import { checkDocTotals, totalsRefusal } from '../services/docTotals.js';
 import { actorFrom } from '../services/credentials.js';
 import { invoiceStatusChanged, revokeInvoiceLink } from '../services/shareLinks.js';
 import { Router, type Request } from 'express';
@@ -9,7 +10,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireTenantContext, warehouseRefusal } from '../middleware/tenantContext.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
-import { ensureLedgerSetup, invoicePostingLines, postEntry, reverseEntry } from '../services/ledger.js';
+import { ensureLedgerSetup, invoicePostingLines, otherChargesFromExtras, postEntry, reverseEntry } from '../services/ledger.js';
 import { PosCheckoutError, assertPosSaleCancellable } from '../services/posCheckout.js';
 import { recalcDocumentSettlement } from '../services/settlement.js';
 import { MutationBlocked, assertInvoiceMutationAllowed } from '../services/invoiceMutation.js';
@@ -140,6 +141,9 @@ const EXTRA_KEYS = [
   'supplyType',
 ] as const;
 
+/** The fields that carry a document's lines and figures: an edit that sends any of them is checked whole. */
+const FIGURE_KEYS = ['items', 'subtotal', 'cgstTotal', 'sgstTotal', 'igstTotal', 'gstTotal', 'total', 'otherCharges', 'otherChargesTotal', 'invoiceDiscountApplied'] as const;
+
 const extrasFrom = (body: any) => {
   const out: Record<string, unknown> = {};
   for (const k of EXTRA_KEYS) {
@@ -172,6 +176,45 @@ const mergedExtras = (currentJson: string | null, body: any, sent: Set<string>) 
   }
   return Object.keys(current).length ? JSON.stringify(current) : null;
 };
+
+/** Draft and Cancelled are not in the books; Pending Approval is posted when it is released (governance.ts). */
+const inBooks = (status: unknown) => !['draft', 'cancelled', 'pending approval'].includes(String(status || '').trim().toLowerCase());
+
+/**
+ * Post an invoice, as it is stored, to the ledger.
+ *
+ * Used when it is raised as issued, when a draft is finalised and when a
+ * cancelled invoice is put back. Until 17 Nov 2026 only raising posted, and it
+ * posted drafts too: a draft's sale and output GST were in the books before
+ * anything was issued, a recurring draft (made by the schedule, not by this
+ * route) never reached them at all, and an invoice put back from Cancelled
+ * kept its reversal and stayed out for good.
+ */
+async function postInvoice(row: any, userId: string) {
+  await ensureLedgerSetup(row.accountId, row.orgId, userId);
+  const fxRate = Number(row.exchangeRate) > 0 ? Number(row.exchangeRate) : 1;
+  await postEntry({
+    accountId: row.accountId,
+    orgId: row.orgId,
+    branchId: row.branchId,
+    userId,
+    date: String(row.date).trim(),
+    journalCode: 'SAL',
+    narration: `Invoice ${row.number} - ${String(row.customerName || '').trim()}` + (fxRate === 1 ? '' : ` (${row.currency} at ${fxRate})`),
+    sourceDocType: 'INVOICE',
+    sourceDocId: row.id,
+    lines: invoicePostingLines({
+      customerId: row.customerId ?? null,
+      customerName: row.customerName,
+      subtotal: toBase(Number(row.subtotal ?? 0), fxRate),
+      cgstTotal: toBase(Number(row.cgstTotal ?? 0), fxRate),
+      sgstTotal: toBase(Number(row.sgstTotal ?? 0), fxRate),
+      igstTotal: toBase(Number(row.igstTotal ?? 0), fxRate),
+      total: toBase(Number(row.total ?? 0), fxRate),
+      otherChargesTotal: toBase(otherChargesFromExtras(row.extrasJson), fxRate),
+    }),
+  });
+}
 
 const statusSchema = z.object({
   status: z.string().min(1),
@@ -342,7 +385,7 @@ invoicesRouter.get('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, Pe
   const offset = Math.max(0, Number(req.query.offset) || 0);
   const rows = await prisma.invoice.findMany({
     where: { accountId, orgId, branchId, ...ownDocsWhere(req) },
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
     take: limit,
     skip: offset,
   });
@@ -397,24 +440,26 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
     }
   }
 
-  // Requirement 2: the number comes from the configured series, allocated on
-  // the server. Two browsers cannot mint the same one.
-  let invoiceNumber = String(body.number || '').trim();
-  if (!invoiceNumber) {
-    await ensureDefaultSeries({ accountId, orgId, branchId, docType: 'INVOICE', userId });
-    const allocated = await prisma.$transaction((tx) =>
-      allocateNumber(tx, {
-        accountId,
-        orgId,
-        branchId,
-        docType: 'INVOICE',
-        userId,
-        date: String(body.date).trim(),
-        seriesId: body.seriesId || null,
-      })
-    );
-    invoiceNumber = allocated.number;
+  /* The figures must agree with the lines before anything is kept, and before a number is taken for it. */
+  const totalsProblem = checkDocTotals(body as any);
+  if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
+
+  /* The currency and rate are checked before a number is taken, so a refusal here leaves no gap in the series. */
+  const baseCurrency = await baseCurrencyFor(accountId, orgId);
+  const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
+  const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
+  const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
+  if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) {
+    return res.status(400).json({ error: `Invoice not saved: Enter the conversion rate from ${docCurrency} to ${baseCurrency}` });
   }
+
+  // Requirement 2: the number comes from the configured series, allocated on
+  // the server. Two browsers cannot mint the same one. It is taken in the same
+  // transaction as the invoice is kept (audit, 17 Nov 2026): a save refused for
+  // stock or anything else rolls the series back too, so no number goes missing.
+  let invoiceNumber = String(body.number || '').trim();
+  const typedNumber = Boolean(invoiceNumber);
+  if (!typedNumber) await ensureDefaultSeries({ accountId, orgId, branchId, docType: 'INVOICE', userId });
 
   const id = randomUUID();
   try {
@@ -429,8 +474,13 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
      */
     /* Under the stock check: the items are held, and a sale that would take
        a warehouse below nothing is refused before it is kept. */
-    await prisma.$transaction((tx) =>
-      withStockCheck(tx, { orgId, lines: body.items, warehouseId: body.warehouseId }, () =>
+    await prisma.$transaction(async (tx) => {
+      if (!typedNumber) {
+        invoiceNumber = (
+          await allocateNumber(tx, { accountId, orgId, branchId, docType: 'INVOICE', userId, date: String(body.date).trim(), seriesId: body.seriesId || null })
+        ).number;
+      }
+      return withStockCheck(tx, { orgId, lines: body.items, warehouseId: body.warehouseId }, () =>
         tx.invoice.create({
       data: {
         id,
@@ -461,10 +511,13 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
         itemsJson: JSON.stringify(body.items || []),
         extrasJson: extrasFrom(body),
         createdByUserId: userId,
+        currency: docCurrency,
+        exchangeRate: fxRate,
+        baseTotal: toBase(Number(body.total ?? 0), fxRate),
       },
         })
-      )
-    );
+      );
+    });
   } catch (e: any) {
     if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
     // P2002 is Prisma's duplicate, whatever the database calls it. The string
@@ -478,20 +531,8 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const row = await prisma.invoice.findUnique({ where: { id } });
   if (!row) return res.status(500).json({ error: 'Failed to create invoice' });
 
-  // The currency and rate are fixed on the document before any approval hold,
+  // The currency and rate were fixed on the document as it was kept, before any approval hold,
   // so an approver's release posts the same translated amounts.
-  const baseCurrency = await baseCurrencyFor(accountId, orgId);
-  const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
-  const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
-  const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
-  if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) {
-    await prisma.invoice.delete({ where: { id } });
-    return res.status(400).json({ error: `Invoice not saved: Enter the conversion rate from ${docCurrency} to ${baseCurrency}` });
-  }
-  await prisma.invoice.update({
-    where: { id },
-    data: { currency: docCurrency, exchangeRate: fxRate, baseTotal: toBase(Number(body.total ?? 0), fxRate) },
-  });
 
   // Approval thresholds are evaluated before anything reaches the ledger: an
   // invoice awaiting sign-off must not appear in the books.
@@ -518,38 +559,19 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
     });
   }
 
+  /* A draft is not issued, so it is not in the books: it is posted when it is finalised (the status route). */
+  if (!inBooks(row.status)) {
+    await auditInvoiceCreated(req, row);
+    return res.status(201).json({ invoice: normalizeInvoiceResponse(row), strippedFields: stripped });
+  }
+
   // Post the invoice to the general ledger. A failure here is not silent: the
   // invoice row is removed so the books and the document list cannot diverge.
+  // The ledger is kept in one currency: postInvoice translates at the rate
+  // stored on the invoice.
   try {
-    await ensureLedgerSetup(accountId, orgId, userId);
-
-    // Requirement 8: the document may be in any currency, but the ledger is
-    // kept in one. Translate every amount at the rate in force on the document
-    // date before posting — mixing currencies in one ledger would give a trial
-    // balance that foots to zero and means nothing.
-
-    await postEntry({
-      accountId,
-      orgId,
-      branchId,
-      userId,
-      date: String(body.date).trim(),
-      journalCode: 'SAL',
-      narration:
-        `Invoice ${invoiceNumber} - ${String(body.customerName || '').trim()}` +
-        (fxRate === 1 ? '' : ` (${docCurrency} at ${fxRate})`),
-      sourceDocType: 'INVOICE',
-      sourceDocId: id,
-      lines: invoicePostingLines({
-        customerId: body.customerId ?? null,
-        customerName: body.customerName,
-        subtotal: toBase(Number(body.subtotal ?? 0), fxRate),
-        cgstTotal: toBase(Number(body.cgstTotal ?? 0), fxRate),
-        sgstTotal: toBase(Number(body.sgstTotal ?? 0), fxRate),
-        igstTotal: toBase(Number(body.igstTotal ?? 0), fxRate),
-        total: toBase(Number(body.total ?? 0), fxRate),
-      }),
-    });
+    /* Read again: the currency and its rate were saved after `row` was read, and posting from the earlier copy booked a foreign invoice at face value. */
+    await postInvoice((await prisma.invoice.findUnique({ where: { id } })) ?? row, userId);
   } catch (e: any) {
     await prisma.invoice.delete({ where: { id } });
     /*
@@ -643,6 +665,34 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
 
   const nextWarehouseId = keepText('warehouseId', existing.warehouseId);
   const nextItems = given('items') ? (body as any).items || [] : safeParseLines(existing.itemsJson);
+  /*
+   * An edit that touches the lines or any figure must leave them agreeing.
+   * What was not sent is taken from the invoice as it stands; an edit of a
+   * note or a due date checks nothing, so an old invoice can still be opened
+   * and annotated.
+   */
+  if (FIGURE_KEYS.some((k) => given(k))) {
+    let extras: Record<string, unknown> = {};
+    try {
+      extras = JSON.parse(mergedExtras(existing.extrasJson, body, sent) || '{}') || {};
+    } catch {
+      extras = {};
+    }
+    const totalsProblem = checkDocTotals({
+      items: nextItems,
+      subtotal: keepNumber('subtotal', existing.subtotal),
+      cgstTotal: keepNumber('cgstTotal', existing.cgstTotal),
+      sgstTotal: keepNumber('sgstTotal', existing.sgstTotal),
+      igstTotal: keepNumber('igstTotal', existing.igstTotal),
+      gstTotal: keepNumber('gstTotal', existing.gstTotal),
+      total: keepNumber('total', existing.total),
+      otherCharges: extras.otherCharges as any,
+      otherChargesTotal: extras.otherChargesTotal,
+      invoiceDiscountApplied: extras.invoiceDiscountApplied,
+    });
+    if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
+  }
+
   try {
     await prisma.$transaction((tx) =>
       withStockCheck(tx, { orgId, lines: nextItems, warehouseId: nextWarehouseId }, () =>
@@ -796,8 +846,33 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
     if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
     throw e;
   }
-  const row = await prisma.invoice.findUnique({ where: { id: existing.id } });
+  let row = await prisma.invoice.findUnique({ where: { id: existing.id } });
   if (!row) return res.status(500).json({ error: 'Failed to update invoice status' });
+
+  /*
+   * Finalised from a draft, or put back from Cancelled: it enters the books
+   * now. Only when it has no posting standing, so a draft posted under the
+   * old rule is not posted a second time. If the ledger refuses (a closed
+   * period, say), the status goes back to what it was.
+   */
+  const was = String(existing.status || '').trim().toLowerCase();
+  if (inBooks(row.status) && (was === 'draft' || was === 'cancelled')) {
+    const standing = await prisma.journalEntry.findFirst({
+      where: { accountId, orgId, sourceDocType: 'INVOICE', sourceDocId: existing.id, status: 'POSTED', reversesId: null },
+      select: { id: true },
+    });
+    if (!standing) {
+      try {
+        await postInvoice(row, req.auth!.userId);
+      } catch (e: any) {
+        await prisma.invoice.update({ where: { id: existing.id }, data: { status: existing.status, paidAmount: existing.paidAmount } });
+        if (e?.status) return res.status(Number(e.status)).json({ error: `Not changed: ${String(e.message || e)}` });
+        reportError(e, req);
+        return res.status(500).json({ error: 'Not changed. Please try again; if it keeps failing, contact support.', requestId: res.getHeader('X-Request-Id') || undefined });
+      }
+      row = (await prisma.invoice.findUnique({ where: { id: existing.id } })) ?? row;
+    }
+  }
 
   await auditInvoiceChange(req, 'STATUS', existing, row);
   /* A-32 / Batch 5: cancelled, its customer link is paused and an open payment link closed; reinstated, the same link works again. */

@@ -1,5 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
+import { peoplePrisma } from '../utils/peoplePrisma.js';
+import { outsideTenant } from '../utils/tenantScope.js';
 import { FEATURE_CATALOG } from '../constants/featureCatalog.js';
 import { DEFAULT_PLAN_KEY, lowestPlanWith, planFor } from '../constants/planCatalog.js';
 import { appByCode, appForFeature, tierAllows } from '../constants/appCatalog.js';
@@ -181,9 +183,61 @@ export async function companyLimitReason(accountId: string): Promise<string | nu
   return e.limitsSetByClor ? `This account may have ${n}, and it has ${count}.` : `The ${e.planName} plan includes ${n}, and this account has ${count}.`;
 }
 
+/**
+ * What the account bought on a deal that is priced by the head: so many users,
+ * or so many employees. Null for a plan sold flat or by the company.
+ *
+ * A deal recorded the number and billed for it, and nothing held the account
+ * to it: buy 20, add 500 (audit, 17 Nov 2026).
+ */
+export async function boughtSeats(accountId: string): Promise<{ unit: 'USER' | 'EMPLOYEE'; quantity: number } | null> {
+  const sub = await outsideTenant('entitlements: what the account bought', () =>
+    platformPrisma.subscription.findUnique({ where: { accountId }, select: { planUnit: true, quantity: true } }),
+  );
+  const unit = String(sub?.planUnit || '').toUpperCase();
+  const quantity = Number(sub?.quantity || 0);
+  return (unit === 'USER' || unit === 'EMPLOYEE') && quantity > 0 ? { unit, quantity } : null;
+}
+
+/**
+ * Whether the account may add another employee.
+ *
+ * Only an account that bought by the employee has a number to keep to. People
+ * who have left do not count. Null when it may, or the reason it may not.
+ */
+/** Thrown where an employee is added past what the account is paid for. */
+export class SeatsFull extends Error {
+  status = 409;
+  code = 'SEATS_FULL';
+  /** A sentence written for the person, with its code. */
+  expose = true;
+}
+
+/** Refuse, with the reason, when the account may not add another employee. */
+export async function assertEmployeeSeat(accountId: string): Promise<void> {
+  const reason = await employeeLimitReason(accountId);
+  if (reason) throw new SeatsFull(reason);
+}
+
+export async function employeeLimitReason(accountId: string): Promise<string | null> {
+  const bought = await boughtSeats(accountId);
+  if (!bought || bought.unit !== 'EMPLOYEE') return null;
+  const count = await outsideTenant('entitlements: employees across the account', () => peoplePrisma.employee.count({ where: { accountId, status: { not: 'LEFT' } } }));
+  if (count < bought.quantity) return null;
+  return `This account is paid for ${bought.quantity} ${bought.quantity === 1 ? 'employee' : 'employees'}, and it has ${count}. Ask the account's owner to add more to the plan, or mark people who have left as left.`;
+}
+
 /** Same question for users. */
 export async function userLimitReason(accountId: string): Promise<string | null> {
   const e = await entitlementFor(accountId);
+  /* A number CLOR set for this account wins; else what was bought by the user; else the plan's own. */
+  if (!e.limitsSetByClor || e.limits.maxUsers == null) {
+    const bought = await boughtSeats(accountId);
+    if (bought?.unit === 'USER') {
+      const users = await platformPrisma.user.count({ where: { accountId, isActive: true } });
+      return users < bought.quantity ? null : `This account is paid for ${bought.quantity} ${bought.quantity === 1 ? 'user' : 'users'}, and it has ${users}. Ask the account's owner to add more to the plan.`;
+    }
+  }
   if (e.limits.maxUsers == null) return null;
   const count = await platformPrisma.user.count({ where: { accountId, isActive: true } });
   if (count < e.limits.maxUsers) return null;

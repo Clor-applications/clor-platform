@@ -132,10 +132,10 @@ export default function Toaster() {
             onClick={() => settle(false)}
             aria-hidden="true"
           />
-          <div className="ui-card ui-in-pop relative w-full max-w-sm p-5" style={{ boxShadow: 'var(--shadow-pop)' }}>
+          <div className="ui-card ui-confirm ui-in-pop relative w-full max-w-sm p-5" style={{ boxShadow: 'var(--shadow-pop)' }}>
             <h2 id="confirm-title" className="ui-t-sec">{confirm.title}</h2>
             {confirm.message ? <p className="ui-muted mt-2 text-sm leading-relaxed">{confirm.message}</p> : null}
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
               <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-secondary">
                 Cancel
               </button>
@@ -156,7 +156,7 @@ export default function Toaster() {
         <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 'var(--z-toast)' }} role="dialog" aria-modal="true" aria-labelledby="code-title">
           <div className="absolute inset-0" style={{ backgroundColor: 'rgb(0 0 0 / 0.45)' }} onClick={() => answer(null)} aria-hidden="true" />
           <form
-            className="ui-card ui-in-pop relative w-full max-w-sm p-5"
+            className="ui-card ui-confirm ui-in-pop relative w-full max-w-sm p-5"
             style={{ boxShadow: 'var(--shadow-pop)' }}
             onSubmit={(e) => {
               e.preventDefault();
@@ -180,7 +180,7 @@ export default function Toaster() {
               onChange={(e) => setCode(e.target.value)}
             />
             <p className="ui-caption mt-2">Lost your phone? A recovery code works once instead.</p>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => answer(null)} className="ui-btn ui-btn-secondary">Cancel</button>
               <button type="submit" className="ui-btn ui-btn-primary" disabled={!code.trim()}>Continue</button>
             </div>

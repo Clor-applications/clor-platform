@@ -147,8 +147,10 @@ paymentsRouter.get('/orgs/:orgId/payments', async (req, res) => {
       ...ownDocsWhere(req),
       ...(String(req.query.unreconciled || '') === 'true' ? { reconciled: false } : {}),
     },
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-    take: Math.min(200, Number(req.query.limit || 100)),
+    /* ?limit (default 100, most 500) and ?offset page through every payment; `id` keeps the pages from overlapping. */
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+    take: Math.min(500, Math.max(1, Number(req.query.limit) || 100)),
+    skip: Math.max(0, Number(req.query.offset) || 0),
     include: { allocations: true },
   });
 

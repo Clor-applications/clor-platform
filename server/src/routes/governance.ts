@@ -24,7 +24,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { permKey } from '../constants/permissionCatalog.js';
 import { ApprovalError, decide, notifyDecision, reopen } from '../services/approvals.js';
 import { isAppEntitled } from '../services/subscriptions.js';
-import { ensureLedgerSetup, invoicePostingLines, postEntry } from '../services/ledger.js';
+import { ensureLedgerSetup, invoicePostingLines, otherChargesFromExtras, postEntry } from '../services/ledger.js';
 import { toBase } from '../services/fx.js';
 import { entityExists } from '../services/integrity/crossStore.js';
 import { postApprovedPurchaseDoc } from './purchaseDocs.js';
@@ -579,6 +579,7 @@ async function releaseApprovedDocument(opts: {
           sgstTotal: toBase(Number(inv.sgstTotal), fxRate),
           igstTotal: toBase(Number(inv.igstTotal), fxRate),
           total: toBase(Number(inv.total), fxRate),
+          otherChargesTotal: toBase(otherChargesFromExtras(inv.extrasJson), fxRate),
         }),
       });
     }

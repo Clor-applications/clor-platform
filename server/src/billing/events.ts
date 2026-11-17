@@ -5,6 +5,7 @@ import { getSubscription, syncAccountEntitlement } from '../services/subscriptio
 import type { NormalizedEvent } from './gateway.js';
 import { PaymentsError } from './providers.js';
 import { periodEnd } from '../services/pricing/deals.js';
+import { cancelUnsentInvoiceMail } from './invoiceMailCancel.js';
 
 /**
  * Every payment event CLOR hears of, kept in PaymentEvent for the Payments
@@ -79,6 +80,8 @@ async function payInvoice(ev: NormalizedEvent, rowId: string): Promise<{ status:
     return true;
   });
   if (!paid) return { status: 'RECORDED', detail: `Invoice ${inv.number} changed a moment ago, so nothing changed. Open it to check.` };
+  /* A reminder the mail server had refused is not tried again now that the money is in. */
+  await cancelUnsentInvoiceMail(inv.id, 'PAID');
   if (!sub) return { status: 'APPLIED', detail: `Invoice ${inv.number} is paid. The account has no subscription, so nothing else changed.` };
   if (!moves)
     return { status: 'RECORDED', detail: `Invoice ${inv.number} is paid, but the subscription is ${STATUS_WORD[sub.status] || sub.status}, so it was not started again. Restart it or refund the customer.` };
@@ -329,6 +332,7 @@ export async function recordInvoicePayment(input: { invoiceId: string; number: s
     if (isUnique(e)) throw new PaymentsError(`A payment with reference ${reference} is already recorded.`, 409);
     throw e;
   }
+  await cancelUnsentInvoiceMail(input.invoiceId, 'PAID');
   if (out.moved) await syncAccountEntitlement(input.accountId);
   return out;
 }

@@ -147,8 +147,7 @@ describe('Offers (gap 7)', () => {
     expect(within(table).getByText('₹6,00,000')).toBeInTheDocument();
     expect(within(table).getByText('Accept by 5 Nov 2026')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Waiting/ })).toHaveTextContent('1');
-    fireEvent.click(within(table).getByRole('button', { name: /actions/i }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Withdraw' }));
+    fireEvent.click(within(within(table).getByRole('group', { name: /actions/i })).getByRole('button', { name: 'Withdraw' }));
     await waitFor(() => expect(wf.withdrawOffer).toHaveBeenCalledWith('o1'));
     expect(dialogs.confirmDialog).toHaveBeenCalled();
   });

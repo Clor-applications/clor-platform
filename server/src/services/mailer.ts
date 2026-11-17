@@ -1,3 +1,4 @@
+import { assertPublicHost, isBlockedHost } from './outbound.js';
 import { isArchived } from './companyArchive.js';
 import { isSampleOrg } from './sampleIdentity.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
@@ -179,6 +180,16 @@ export async function resolveTransport(accountId?: string | null, orgId?: string
       const from = setting.fromEmail
         ? `${setting.fromName || APP_NAME} <${setting.fromEmail}>`
         : captureFrom();
+      /* A company's own mail server is an address the customer typed: never a private, loopback or
+         metadata one. Refused, the mail fails with that reason like any other delivery failure. */
+      const refused = await assertPublicHost(setting.host).then(
+        () => null,
+        (e) => (isBlockedHost(e) ? (e as Error) : null),
+      );
+      if (refused) {
+        const dead = { sendMail: async () => Promise.reject(refused), verify: async () => Promise.reject(refused) } as unknown as Transporter;
+        return { kind: 'smtp', transporter: dead, from, replyTo: setting.replyTo || undefined, source: 'org' };
+      }
       return {
         kind: 'smtp',
         transporter: buildSmtp({
@@ -467,6 +478,22 @@ async function attempt(row: OutboxRow, accountId?: string | null, orgId?: string
   }
 }
 
+/**
+ * Call off the messages about one thing that have not gone yet (waiting, or
+ * failed and due to be tried again), because what they say is no longer true:
+ * a reminder to pay an invoice that has since been paid. They are kept as
+ * SUPPRESSED with the reason, and neither the retry job nor `deliver` sends a
+ * suppressed message. A message that has gone is not touched. One a sender has
+ * in hand at this very moment may still go: that try is already under way.
+ */
+export async function cancelUnsent(about: { relatedType: string; relatedId: string; templateKeys: string[] }, reason: string) {
+  const r = await platformPrisma.emailOutbox.updateMany({
+    where: { relatedType: about.relatedType, relatedId: about.relatedId, templateKey: { in: about.templateKeys }, status: { in: ['QUEUED', 'FAILED'] } },
+    data: { status: 'SUPPRESSED', nextAttemptAt: null, lastError: reason.slice(0, 500) },
+  });
+  return r.count;
+}
+
 /** Retries failed messages, newest first. Safe to call repeatedly. */
 export async function retryFailed(accountId: string, orgId: string, limit = 25) {
   const rows = await platformPrisma.emailOutbox.findMany({
@@ -487,6 +514,7 @@ export async function verifyTransport(config: {
   username?: string | null;
   password?: string | null;
 }) {
+  await assertPublicHost(config.host);
   const transporter = buildSmtp({
     host: config.host,
     port: config.port,

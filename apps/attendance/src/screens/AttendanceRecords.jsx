@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import RangePresets from '@ui/components/ui/RangePresets';
 import { AlarmClock, CalendarCheck, CheckCheck, FileSearch, FileSpreadsheet, HelpCircle, Plus, Timer, UserX, Upload, Wand2, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -190,6 +191,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
               {onlyPerson.name} <X size={14} aria-hidden="true" />
             </button>
           ) : null}
+          <RangePresets from={filters.from} to={filters.to} maxTo={todayIst()} onPick={(f, t) => setFilters((x) => ({ ...x, from: f, to: t }))} />
           <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.from} max={filters.to} onChange={set('from')} aria-label="From" />
           <input type="date" className="ui-input ui-ctl-compact !w-auto" value={filters.to} max={todayIst()} onChange={set('to')} aria-label="To" />
           <label className="flex items-center gap-1.5 text-sm">
@@ -278,7 +280,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                       <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
                       <td className="ui-num hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
-                      <td className="ui-num hidden md:table-cell">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
+                      <td className="ui-num hidden md:table-cell">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes}m</span> : '—'}</td>
                       <td className="ui-num hidden 2xl:table-cell">{r.earlyOutMinutes ? `${r.earlyOutMinutes}m` : '—'}</td>
                       <td className="ui-num hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         {r.overtimeMinutes ? (

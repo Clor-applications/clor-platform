@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-c3389b8 - 2026-11-17
+
+API revision `clor-api-00140-77z`. Previous release `rel-61e7a5a` (roll back there).
+
+- #311 Invoice numbers without gaps, GSTR-3B without drafts, People routes in the employee app need People
+
 ## rel-f374dd4 - 2026-11-17
 
 API revision `clor-api-00138-fmj`. Previous release `rel-51fe69e` (roll back there).

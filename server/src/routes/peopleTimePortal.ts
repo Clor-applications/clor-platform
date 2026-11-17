@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 
-import { authenticate } from './portal.js';
+import { authenticate, requirePortalApp } from './portal.js';
 import { decodeDocument } from '../services/people/documentFiles.js';
 import { today } from '../services/attendance/days.js';
 import { timeRulesFor, nightWords } from '../services/attendance/timeRules.js';
@@ -24,6 +24,8 @@ import { check, q, rawText, text } from '../middleware/validate.js';
  */
 export const peopleTimePortalRouter = Router();
 peopleTimePortalRouter.use(authenticate);
+/* The attendance rules: Attendance's, and People's, which includes it. */
+peopleTimePortalRouter.use(requirePortalApp('people', 'attendance'));
 
 const me = (req: Request) => req.portal!.employee as { id: string; accountId: string; orgId: string; gender: string | null; userId: string | null };
 const fail = (res: Response, e: any) => {
