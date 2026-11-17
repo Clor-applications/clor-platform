@@ -151,3 +151,49 @@
 /* ---- Date picker: rounded-square days ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datepicker-pop { border-radius: 0.75rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datepicker-day { border-radius: 0.5rem; }
+
+/* ===== Round 3 picks (17 Nov 2026). Still never Books. ===== */
+
+/* ---- Links: bold, in the app colour, an arrow on links that go somewhere ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-link {
+  color: rgb(var(--act-ink, var(--fg)));
+  font-weight: 600;
+  text-decoration: none;
+  background-image: none;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a.ui-link:not([target='_blank'])::after { content: '\00a0→'; }
+
+/* ---- Counts: a pill in the app colour ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-tab-count, .ui-side-count, .ui-segment-count, .ui-split-item-count, .ws-count) {
+  display: inline-grid;
+  place-content: center;
+  min-width: 1.25rem;
+  height: 1.125rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: rgb(var(--act, var(--fg)));
+  color: rgb(255 255 255);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Must-fill fields: a "Required" tag in place of the star ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-required {
+  font-size: 0;
+  margin-left: 0.375rem;
+  vertical-align: 1px;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-required::after {
+  content: 'Required';
+  display: inline-block;
+  padding: 0 0.3125rem;
+  border: 1px solid rgb(var(--border-strong));
+  border-radius: 4px;
+  color: rgb(var(--fg-muted, var(--fg)));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+}

@@ -41,6 +41,34 @@ Not built yet, each needs screen-by-screen work: show-more paging; search inside
 `.ui-select` dropdowns; chips in place of dropdown filters; the Console side menu as a narrow
 rail. Dialogs that hold a form keep their buttons on the right.
 
+### Round 3 (17 Nov 2026)
+
+Built in `picks.css`:
+
+| Building block | Pick | What it replaces outside Books |
+| --- | --- | --- |
+| Links | Bold, app colour, underline on hover; an arrow after links that go to another page (`a.ui-link`) | Ink text with a quiet underline |
+| Counts | Pill in the app colour, white figure (`.ui-tab-count`, `.ui-side-count`, `.ui-segment-count`, `.ui-split-item-count`, `.ws-count`) | Grey figure |
+| Must-fill fields | A small "Required" tag in place of the star (`.ui-required` on the star) | Red star |
+
+Picked and already how the app works: white top bar with a hairline, soft colour notice
+strip, details as label above value in two columns, minus sign for money below zero, an arrow
+on the sorted column only, a bold totals row at the end, files as list rows.
+
+Picked, **not built yet** (each needs component or screen work): app switcher as a list with a
+line about each app; search everything as a command box with grouped results; notifications
+with a number, faces and an unread dot; the name menu with the company switch inside;
+record header on a colour band; folding sections each in a box; form sections with the heading
+and note on the left; help text behind an "i" tooltip; money fields with INR after the amount;
+phone with a country picker; choosing many as a tick list; date range with quick periods
+first; long text with a letter count; tooltips white with a shadow (today they are the
+browser's own `title`); "Copy" as a word beside numbers; row actions as words in the row;
+opening a record as list left, record right; comments as chat bubbles; approvals as tick and
+cross buttons (this replaces "Approve secondary, Reject as text" outside Books once built);
+board cards with owner and date; leave on calendars as solid blocks; bar charts as square bars
+in the app colour; Save at the top right only; success as a green note on the page; "Help" in
+the top bar. Menu sections: not picked yet.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.

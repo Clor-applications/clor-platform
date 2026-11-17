@@ -252,7 +252,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
     >
       {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       <div className="grid gap-1">
-        <label htmlFor="co-name" className="text-sm font-medium">Company name <span aria-hidden="true">*</span></label>
+        <label htmlFor="co-name" className="text-sm font-medium">Company name <span className="ui-required" aria-hidden="true">*</span></label>
         <input id="co-name" className="ui-input" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="organization" />
       </div>
       <div className="grid gap-1">
@@ -262,7 +262,7 @@ export function AddCompanyForm({ onAdd, onCancel }) {
       </div>
       {gstinState ? null : (
         <div className="grid gap-1">
-          <label htmlFor="co-state" className="text-sm font-medium">State <span aria-hidden="true">*</span></label>
+          <label htmlFor="co-state" className="text-sm font-medium">State <span className="ui-required" aria-hidden="true">*</span></label>
           <select id="co-state" className="ui-select" value={state} onChange={(e) => setState(e.target.value)} required>
             <option value="">Choose…</option>
             {STATES.map((s) => (
