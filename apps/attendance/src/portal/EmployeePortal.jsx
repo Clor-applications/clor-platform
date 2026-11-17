@@ -648,13 +648,17 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
               </div>
             ) : null}
             {kind === 'MISSED_PUNCH' ? (
-              <label className="block">
-                <span className="ui-label">What happened</span>
-                <select className="ui-select w-full" value={form.reasonCode} onChange={(e) => set({ reasonCode: e.target.value })}>
-                  <option value="">Choose…</option>
-                  {REASON_CODES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </label>
+              <fieldset className="ui-reason-chips">
+                <legend className="ui-label">What happened</legend>
+                <div className="ui-reason-chips-row">
+                  {REASON_CODES.map((c) => (
+                    <label key={c.value} className="ui-reason-chip">
+                      <input type="radio" name="missed-reason" value={c.value} checked={form.reasonCode === c.value} onChange={() => set({ reasonCode: c.value, reason: form.reason || c.label })} />
+                      <span>{c.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             ) : null}
             <label className="block"><span className="ui-label">Why</span><input className="ui-input w-full" required minLength={3} maxLength={500} value={form.reason} onChange={(e) => set({ reason: e.target.value })} /></label>
             {usage ? <p className="ui-caption tabular-nums">{usage.unit === 'hours' ? 'Permission hours' : usage.unit === 'requests' ? 'Missed-punch requests' : `${kind === 'WFH' ? 'Work-from-home' : 'On-duty'} days`} this month: {usageLine(usage)}{usage.quota != null ? `, ${usage.left} left` : ''}.</p> : null}

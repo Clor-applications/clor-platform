@@ -306,6 +306,26 @@ as an icon bar (no rich editor exists); monthly or yearly as a switch (pricing p
 an import column's match from a dropdown; signing offer letters (candidates accept offers
 outside the app today).
 
+### Round 13 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Typing a date | The calendar opens on a click anywhere in a date box, not only its icon (`TipLayer`, `openPickerOnClick`) |
+| Giving a reason | Quick chips (radios), then the note; the chip fills the note if it is empty (missed punch, employee app) |
+| A section with nothing in it | "Not added yet" with Add, which opens that section's form (employee record) |
+| Too many tabs | Seven or more tabs become a list down the side on a laptop or wider (`RecordTabs`) |
+
+Picked and already how the app works: "Edit" on each section of a record; the copy button
+saying "Copied"; 25 / 50 / 100 rows per page; side menu counts as a number in a pill; Save at
+the top only.
+
+Picked, **not built yet**: notifications page as one list marked by app colour; one Like and
+comments on company news; time worked as start and end; a small card when pointing at a name;
+overlapping faces for many people (no screen shows a group yet); a toast with Download when an
+export is ready; pull down to refresh on a phone.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.
