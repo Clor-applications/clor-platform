@@ -350,6 +350,8 @@ describe('profit & loss and the balance sheet', () => {
         number: `INV-${rnd()}`,
         date: '2026-08-16',
         customerName: 'Acme Ltd',
+        /* Issued, so it is in the books: a draft is not (17 Nov 2026). */
+        status: 'Unpaid',
         subtotal: 1000,
         cgstTotal: 90,
         sgstTotal: 90,
