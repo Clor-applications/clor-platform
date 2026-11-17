@@ -1245,6 +1245,31 @@
       "method": "POST",
       "path": "/api/announcements/:id/dismiss",
       "reason": "Close a CLOR announcement for yourself (announcements.ts): requireAuth; only an announcement live and showing to that person (their account’s apps and role) can be closed, never a problem notice; writes one AnnouncementDismissal row keyed to the signed-in user; no business records read or changed."
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login/two-factor/sms",
+      "reason": "Texts a sign-in code: needs the first step's short-lived challenge; codeLimiter; smsCodes holds back resends (30 s) and caps texts per person and number."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/two-factor/sms/disable",
+      "reason": "Self-service: needs the caller's password and a texted, app or recovery code (A-10)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/two-factor/sms/enable",
+      "reason": "Self-service: confirms the caller's own number with the code texted to it."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/two-factor/sms/send",
+      "reason": "Self-service: texts the caller's own number on file a code for turning SMS codes off; codeLimiter and smsCodes limits."
+    },
+    {
+      "method": "POST",
+      "path": "/api/orgs/:orgId/security/two-factor/sms/start",
+      "reason": "Self-service: needs the caller's password; texts a code to the number they give; codeLimiter and smsCodes limits."
     }
   ]
 }
