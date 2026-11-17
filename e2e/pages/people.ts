@@ -95,7 +95,7 @@ export class PeopleWeb {
   private async drawer() {
     if (!this.isPhone) return this.page;
     const dialog = this.page.getByRole('dialog', { name: 'People navigation' });
-    if (!(await dialog.isVisible())) await this.page.getByRole('banner').getByRole('button', { name: 'Menu' }).click();
+    if (!(await dialog.isVisible())) await this.page.getByRole('banner').getByRole('button', { name: 'Menu', exact: true }).click();
     await expect(dialog).toBeVisible();
     return dialog;
   }
