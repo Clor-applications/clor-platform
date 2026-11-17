@@ -891,7 +891,7 @@ function MyLeave({ guard }) {
     const span = r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`;
     const ok = await confirmDialog({
       title: approved ? 'Cancel this leave?' : 'Withdraw this request?',
-      message: `${r.leaveTypeName}, ${span}. ${approved ? 'It was approved; the days go back to your balance and you are expected at work.' : 'It will not be decided.'}`,
+      message: `${r.leaveTypeName}, ${span}. ${approved ? 'It was approved; the days go back to your balance, you are expected at work, and whoever approved it is told.' : 'It will not be decided.'}`,
       confirmLabel: approved ? 'Cancel leave' : 'Withdraw',
     });
     if (!ok) return;
