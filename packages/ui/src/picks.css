@@ -657,3 +657,9 @@
 .ui-week-row:not([aria-pressed='true']) .is-other { color: rgb(var(--fg-muted, var(--fg))); }
 .ui-week-row .is-today { text-decoration: underline; text-underline-offset: 3px; }
 .ui-week-now { margin-top: 0.375rem; align-self: flex-start; }
+/* Import: the file's columns and what each was read as, side by side with an arrow */
+.ui-colmatch { display: flex; flex-direction: column; gap: 0; max-width: 32rem; font-size: 0.8125rem; }
+.ui-colmatch-row { display: grid; grid-template-columns: minmax(0, 1fr) 1.5rem minmax(0, 1fr); align-items: center; gap: 0.5rem; padding: 0.375rem 0; border-bottom: 1px solid #E5E5E5; }
+.ui-colmatch-head { font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-colmatch-arrow { color: rgb(var(--fg-muted, var(--fg))); text-align: center; }
+.ui-colmatch .ui-caption { margin-top: 0.5rem; }
