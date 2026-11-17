@@ -450,6 +450,25 @@ Aadhaar with a small green tick once checked; a list of everyone paid below mini
 shifts marked on my week; open positions as filled out of planned per team; a page listing
 scheduled report emails; incentives typed into a table for the month.
 
+### Round 20 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Weekend between leave days | The leave form says which days off in between count, and why ("2 days off in between count, by your company's leave rule"), apart from the dates not counted (`DateNotes`, My leave and the employee app). They used to be listed under "Dates not counted". |
+
+Picked and already how the app works: field staff as a list with place names (phone punches,
+with the pin from round 16); a fixed break taken off the day automatically (shifts).
+
+Picked, **not built yet**: two employees compared in two columns; rotating shifts built as a
+repeating strip; leave building up shown month by month; a countdown card before attendance
+closes; mileage typed in kilometres with the rate applied; monthly tax worked out in steps;
+payroll going to Books by itself when it locks; an edit clash showing both versions to pick
+from; dragging a column's edge to resize it; a profile photo centred on the face; next year's
+holidays suggested for the state to tick; a top list of who is absent most; Approve and
+Reject buttons inside the email.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
