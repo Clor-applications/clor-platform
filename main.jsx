@@ -6,6 +6,8 @@ import './packages/ui/src/index.css';
 import './packages/ui/src/people.css';
 /* R&D brand (14 Nov 2026), last so it wins: clor-rnd/README.md. */
 import './packages/ui/src/rnd.css';
+/* The owner's style picks (17 Nov 2026), after everything; never in Books. */
+import './packages/ui/src/picks.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 

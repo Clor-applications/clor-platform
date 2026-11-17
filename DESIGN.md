@@ -10,6 +10,41 @@ Preview (rendered): https://claude.ai/code/artifact/b5f06c26-a4de-4879-979f-fbb1
 - **Memorable thing:** *Serious software for serious work.* Calm, obviously accurate, never shouts. Trust is the product.
 - **What we say (8 Nov 2026):** accounts, GST, staff and salaries for small businesses in India, in plain words. No slogan or tagline on screens (*Done, daily* and *ticked off before tea* retired: they read as machine-made).
 
+## Owner's style picks (17 Nov 2026 — current, everywhere except Books)
+
+The owner chose one style for each building block on a picker page. The picks apply in
+Workspace, People, Payroll, Attendance, Ops and the Console. **Books is untouched** and keeps
+every rule below as written. All of it lives in `packages/ui/src/picks.css`, loaded last
+(`main.jsx`, `console/web/main.jsx`) and scoped away from `[data-palette='indigo']`. Where a
+pick and a rule further down this file disagree, the pick wins outside Books.
+
+| Building block | Pick | What it replaces outside Books |
+| --- | --- | --- |
+| Buttons | Square and compact: 3px corners, 36px, second button has an ink border | 8px button radius |
+| Text fields | Soft grey fill (`--field-fill` `#F1F1F1`), no border until focus; error is a red fill and border | White field with a `#D6D6D6` border; "grey is hover only" |
+| Dropdown | Search box on top (from 5 options up in `PopupSelect`) | Search from 8 options |
+| Tick boxes, switches | Sharp corners (1px box, 3px switch track) | Rounded |
+| Data table | Bold 2px ink rule under the header, white header, no lines between rows | `--list-head` header row, row hairlines |
+| Card | Glassy wash: app colour at 7% fading to white, white edge, soft shadow, 16px corners | Hairline border, 12px, no shadow; "two radii" |
+| Tabs | Pills; the open tab takes the app colour at 10% | Underline tabs |
+| List filters | Quick chips with counts (`.ui-filter-chips`, the `FilterTabs` row) | Underline status tabs |
+| Status | Solid tag: filled in the status colour, white text, 4px corners, no dot | Soft pill with a 6px dot |
+| Page header | Slim toolbar: 16px/600 title, hairline below, 32px buttons | 28px page title |
+| Side menu | Narrow rail, icon over name; the current item takes the app colour at 10% | Green selection wash |
+| Confirm dialog | Centred text, buttons stacked full width, action on top | Buttons on the right |
+| Toast | White with a green tick | — |
+| Empty screen | Centred with a picture | — |
+| Date picker | Rounded-square day (8px) | Square day |
+| Page controls | "Show more" button — **picked, not built yet**: lists still page from the server | Numbered pages (still in place) |
+
+Not built yet, each needs screen-by-screen work: show-more paging; search inside the plain
+`.ui-select` dropdowns; chips in place of dropdown filters; the Console side menu as a narrow
+rail. Dialogs that hold a form keep their buttons on the right.
+
+Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
+and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
+screen and colour-has-one-job all still hold.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

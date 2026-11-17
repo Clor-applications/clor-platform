@@ -1,0 +1,153 @@
+/*
+ * The owner's style picks (17 Nov 2026), one per building block, chosen on the style picker page.
+ * They apply in every app, Ops and the Console, and never in Books: every rule is scoped away from
+ * [data-palette='indigo']. Loaded last. The two :not(#id) steps only raise specificity above
+ * rnd.css and the People overrides, so nothing here depends on file order.
+ */
+:root {
+  --field-fill: 241 241 241;
+  --field-fill-hover: 233 233 233;
+}
+
+/* ---- Buttons: square and compact ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn, .ws-btn, .ui-page-btn) { border-radius: 3px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-icon-btn { border-radius: 3px !important; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn-secondary, .ws-btn--quiet) { border-color: rgb(var(--fg)); }
+
+/* ---- Text fields: soft fill, the border arrives with focus ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])) { background-color: rgb(var(--field-fill)); border-color: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])):hover:not(:focus):not(:focus-within) { background-color: rgb(var(--field-fill-hover)) !important; border-color: transparent !important; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])):is(:focus, :focus-within) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--act, var(--fg))) !important; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is([data-invalid='true'], [aria-invalid='true'], .is-invalid):is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])),
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) [data-invalid-within='true'] :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])) { background-color: rgb(var(--neg-soft)) !important; border-color: rgb(var(--neg)) !important; }
+
+/* ---- Tick boxes, radios and switches: sharp corners ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only) {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 1.5px solid rgb(var(--fg));
+  border-radius: 1px;
+  background: rgb(var(--surface)) center / 0.75rem no-repeat;
+  vertical-align: middle;
+  cursor: pointer;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only):checked {
+  border-color: rgb(var(--act, var(--fg)));
+  background-color: rgb(var(--act, var(--fg)));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 6.5l2.8 2.8L10 3.5'/%3E%3C/svg%3E");
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only):indeterminate {
+  border-color: rgb(var(--act, var(--fg)));
+  background-color: rgb(var(--act, var(--fg)));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' stroke='white' stroke-width='2'%3E%3Cpath d='M2.5 6h7'/%3E%3C/svg%3E");
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only):disabled { opacity: 0.4; cursor: not-allowed; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only):focus-visible { outline: 2px solid rgb(var(--act, var(--fg))); outline-offset: 2px; }
+@media (max-width: 767px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) input[type='checkbox']:not([role='switch']):not(.sr-only) { width: 1.5rem; height: 1.5rem; }
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-radio { border-color: rgb(var(--fg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-switch-track { border-radius: 3px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-switch-thumb { border-radius: 2px; }
+
+/* ---- Tables: a bold rule under the header, no lines between rows ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) thead th {
+  background-color: rgb(var(--surface));
+  color: rgb(var(--fg));
+  font-weight: 700;
+  border-bottom: 2px solid rgb(var(--fg));
+  border-radius: 0;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody td { border-top: 0; border-bottom: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-table :is(thead th + th, tbody td + td) { border-left: 0; }
+
+/* ---- Cards: a wash of the app's colour, white edge, soft lift ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-card, .ui-panel, .ui-stat, .ws-card, .ws-panel, .ops-card):not(.ui-sonner):not(.ui-confirm):not([role='menu']):not(.ui-popover) {
+  border: 1px solid rgb(255 255 255);
+  border-radius: 1rem !important;
+  background: linear-gradient(135deg, rgb(var(--act, 201 80 0) / 0.07), rgb(var(--surface)) 70%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 8px 28px rgb(0 0 0 / 0.09);
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-card-head { background-color: transparent !important; }
+
+/* ---- Tabs: pills ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-record-tablist, .ws-tabs) { border-bottom: 0; gap: 0.25rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-tab, .ws-tab) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4375rem 0.875rem;
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 999px !important;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-tab::after { content: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-tab-indicator { display: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-tab.is-active, .ui-tab[aria-selected='true'], .ws-tab[aria-selected='true']) {
+  background-color: rgb(var(--act, var(--fg)) / 0.1);
+  color: rgb(var(--act-ink, var(--fg)));
+  font-weight: 600;
+}
+
+/* ---- List filters: quick chips with their counts ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-filter-chips .ui-tab { box-shadow: inset 0 0 0 1px rgb(var(--border-field, var(--border-strong))); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-filter-chips :is(.ui-tab.is-active, .ui-tab[aria-selected='true']) { box-shadow: inset 0 0 0 1px rgb(var(--act, var(--fg))); }
+
+/* ---- Status: a solid tag ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-pill, .ws-pill, .con-pill) { border-radius: 4px; border-color: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-pill, .ws-pill)::before { content: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-pill-pos, .ws-pill--ok, .con-pill--ok) { background-color: rgb(var(--pos)); color: rgb(255 255 255); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-pill-warn, .ws-pill--warn, .con-pill--warn) { background-color: rgb(var(--warn-ink)); color: rgb(255 255 255); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-pill-neg, .ws-pill--danger, .con-pill--bad) { background-color: rgb(var(--neg)); color: rgb(255 255 255); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-pill-neutral, .ui-pill-info, .ws-pill--off, .ws-pill--neutral) { background-color: rgb(var(--neutral-ink, 92 90 84)); color: rgb(255 255 255); }
+
+/* ---- Page header: a slim toolbar ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-page-heading {
+  align-items: center;
+  min-height: 0;
+  padding: 0.5rem 0 !important;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgb(var(--border)) !important;
+  border-radius: 0 !important;
+  box-shadow: none;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ws .ws-head, .con-head) { padding-block: 0.5rem; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-page-heading h1, .ws-head .ws-title, .con-head .con-title) {
+  font-size: 1rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+}
+@media (min-width: 768px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-page-heading, .ws-head, .con-head) :is(.ui-btn, .ws-btn) { min-height: 2rem; height: 2rem; padding-inline: 0.75rem; }
+}
+
+/* ---- Side menu: the current item takes the app's tint ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-split-mod, .ops-rail-btn):is([data-current], [aria-pressed='true'], [aria-current]) {
+  background-color: rgb(var(--act, var(--fg)) / 0.1);
+  color: rgb(var(--act-ink, var(--fg)));
+}
+
+/* ---- Confirm dialog: centred, buttons stacked ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-confirm { text-align: center; border-radius: 0.75rem !important; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-confirm-actions, .con-dialog-foot) { flex-direction: column-reverse; align-items: stretch; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-confirm-actions, .con-dialog-foot) .ui-btn { width: 100%; min-height: 2.5rem; justify-content: center; }
+
+/* ---- Toast: white, with a green tick ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) [data-sonner-toast].ui-sonner {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border));
+  border-radius: 0.5rem !important;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) [data-sonner-toast][data-type='success'] [data-icon] { color: rgb(var(--pos)); }
+
+/* ---- Date picker: rounded-square days ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datepicker-pop { border-radius: 0.75rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-datepicker-day { border-radius: 0.5rem; }
