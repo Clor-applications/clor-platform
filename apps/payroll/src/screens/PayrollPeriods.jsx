@@ -243,7 +243,7 @@ export default function PayrollPeriods() {
               ) : (
                 rows.map((p) => (
                   <tr key={p.id} className={p.isLocked ? '' : 'ui-row-click'} onClick={p.isLocked ? undefined : () => setEditing(p)}>
-                    <td className="ui-col-entity">{p.name}</td>
+                    <td className="ui-col-entity">{p.name}{p.isLocked ? <span className="ui-lock-tag"><Lock size={11} aria-hidden="true" />Locked</span> : null}</td>
                     <td className="ui-col-meta">{labelFor(p.frequency)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.startDate)}</td>
                     <td className="ui-col-date ui-col-h-center">{shown(p.endDate)}</td>

@@ -269,16 +269,15 @@ export default function MyLeave() {
               <section aria-labelledby="rh-h">
                 <header className="ml-side-head">
                   <h2 id="rh-h" className="ml-h2">Restricted holidays {restricted.year}</h2>
-                  <span className="ml-of">{restricted.picked} of {restricted.quota} picked</span>
+                  <span className="ml-of">{restricted.picked} of {restricted.quota} chosen</span>
                 </header>
                 <ul className="ml-list">
                   {restricted.holidays.length ? restricted.holidays.map((h) => (
                     <li key={h.id}>
                       <span className="min-w-0"><span className="ml-list-name">{h.name}</span><span className="ml-list-sub">{formatDate(h.date)}</span></span>
                       <span className="ml-list-end">
-                        {h.picked ? <span className="ui-pill ui-pill-pos">Picked</span> : null}
-                        {h.past ? <span className="ui-caption">Past</span> : !canAct ? null : (
-                          <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!h.picked && restricted.left <= 0} onClick={() => pick(h)}>{h.picked ? 'Drop' : 'Pick'}</button>
+                        {h.past ? <span className="ui-caption">{h.picked ? 'Taken' : 'Past'}</span> : !canAct ? (h.picked ? <span className="ui-pill ui-pill-pos">Chosen</span> : null) : (
+                          <input type="checkbox" className="ui-checkbox ui-holiday-tick" aria-label={`Take ${h.name} off`} checked={Boolean(h.picked)} disabled={!h.picked && restricted.left <= 0} onChange={() => pick(h)} />
                         )}
                       </span>
                     </li>

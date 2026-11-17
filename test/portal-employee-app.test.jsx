@@ -244,9 +244,9 @@ describe('Holidays for the year', () => {
     render(<HolidaysYear guard={guard} />);
     expect(await screen.findByText('Holidays 2026')).toBeInTheDocument();
     expect(screen.getByText('Independence Day')).toBeInTheDocument();
-    expect(screen.getByText(/Optional holidays: 0 of 2 picked/)).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Pick' })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    expect(screen.getByText(/Optional holidays: 0 of 2 chosen/)).toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Take Diwali (2nd day) off' }));
     await waitFor(() => expect(api.pickRestrictedHoliday).toHaveBeenCalledWith('h2', true));
     fireEvent.click(screen.getByRole('button', { name: 'Next year' }));
     await waitFor(() => expect(api.getHolidays).toHaveBeenCalledWith(2027));

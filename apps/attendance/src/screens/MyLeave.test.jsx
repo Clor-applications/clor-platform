@@ -25,18 +25,18 @@ vi.mock('../api/attendance', () => ({
 const perms = (keys, extra = {}) => ({ loading: false, error: '', isAdmin: false, permissions: new Set(keys), ...extra });
 const mount = (value) => render(<PermissionContext.Provider value={value}><MyLeave /></PermissionContext.Provider>);
 
-it('view only: the leave and the holidays show, with no Ask for leave, Pick or row actions', async () => {
+it('view only: the leave and the holidays show, with no Ask for leave, holiday ticks or row actions', async () => {
   mount(perms(['ATTENDANCE::My Attendance::VIEW']));
   await waitFor(() => expect(screen.getByText('Christmas Eve')).toBeTruthy());
   expect(screen.getAllByText(/Casual leave/).length).toBeGreaterThan(0);
   expect(screen.queryByRole('button', { name: /ask for leave/i })).toBeNull();
-  expect(screen.queryByRole('button', { name: /^pick$/i })).toBeNull();
+  expect(screen.queryByRole('checkbox', { name: /^take .* off$/i })).toBeNull();
   expect(screen.queryByRole('button', { name: /actions/i })).toBeNull();
 });
 
-it('with My attendance CREATE: Ask for leave and Pick are there', async () => {
+it('with My attendance CREATE: Ask for leave and the holiday ticks are there', async () => {
   mount(perms(['ATTENDANCE::My Attendance::VIEW', 'ATTENDANCE::My Attendance::CREATE']));
   await waitFor(() => expect(screen.getByText('Christmas Eve')).toBeTruthy());
   expect(screen.getByRole('button', { name: /ask for leave/i })).toBeTruthy();
-  expect(screen.getByRole('button', { name: /^pick$/i })).toBeTruthy();
+  expect(screen.getAllByRole('checkbox', { name: /^take .* off$/i }).length).toBeGreaterThan(0);
 });
