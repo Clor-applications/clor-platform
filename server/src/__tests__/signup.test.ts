@@ -184,6 +184,34 @@ describe('the link and the setup step', () => {
     expect(await platformPrisma.user.count({ where: { email } })).toBe(1);
   }, 60_000);
 
+  it('takes the password chosen on the setup page: the owner signs in with it and sets up the authenticator at once, and the mail carries no set-password link', async () => {
+    const weak = await started();
+    expect((await setup(weak.token, { password: 'short' }).expect(400)).body).toMatchObject({ code: 'WEAK_PASSWORD', error: expect.stringMatching(/at least 8 characters/) });
+    /* A refused password spends nothing. */
+    await request(app).get('/api/public/signup/pending').query({ t: weak.token }).expect(200);
+
+    const { email, token } = await started();
+    const password = `Trial-${rnd()}-pass`;
+    const r = await setup(token, { password }).expect(201);
+    const branch = await platformPrisma.branch.findFirstOrThrow({ where: { orgId: r.body.activeOrgId } });
+    const h = { ...bearer(r.body.token), 'x-org-id': r.body.activeOrgId, 'x-branch-id': branch.id };
+
+    /* The two-factor set-up confirms the password first: the one just chosen, and no other. */
+    expect((await request(app).post(`/api/orgs/${r.body.activeOrgId}/security/two-factor/setup`).set(h).send({ password: 'not-the-one' }).expect(400)).body.code).toBe('BAD_PASSWORD');
+    const made = await request(app).post(`/api/orgs/${r.body.activeOrgId}/security/two-factor/setup`).set(h).send({ password }).expect(200);
+    expect(made.body.secret).toBeTruthy();
+
+    /* The mail says where to sign in; there is no reset link to leak, and none was issued. */
+    expect(await platformPrisma.emailOutbox.count({ where: { templateKey: 'account.welcome', toEmail: email } })).toBe(0);
+    const mail = await platformPrisma.emailOutbox.findMany({ where: { templateKey: 'account.started', toEmail: email } });
+    expect(mail).toHaveLength(1);
+    expect(mail[0].bodyText).toMatch(/\/\?app=accounting/);
+    expect(mail[0].bodyText).not.toMatch(/reset=/);
+    expect(mail[0].bodyText).not.toContain(password);
+    const claims = jwt.decode(r.body.token) as { userId: string };
+    expect(await platformPrisma.passwordResetToken.count({ where: { userId: claims.userId } })).toBe(0);
+  }, 60_000);
+
   it('People includes Attendance, and a company without Books needs no state', async () => {
     expect(withImplied(['people'])).toEqual(['people', 'attendance']);
     expect(withImplied(['attendance', 'payroll'])).toEqual(['attendance', 'payroll']);
