@@ -51,23 +51,35 @@ Built in `picks.css`:
 | Counts | Pill in the app colour, white figure (`.ui-tab-count`, `.ui-side-count`, `.ui-segment-count`, `.ui-split-item-count`, `.ws-count`) | Grey figure |
 | Must-fill fields | A small "Required" tag in place of the star (`.ui-required` on the star) | Red star |
 
-Picked and already how the app works: white top bar with a hairline, soft colour notice
-strip, details as label above value in two columns, minus sign for money below zero, an arrow
-on the sorted column only, a bold totals row at the end, files as list rows.
+Built later the same day (component work):
 
-Picked, **not built yet** (each needs component or screen work): app switcher as a list with a
-line about each app; search everything as a command box with grouped results; notifications
-with a number, faces and an unread dot; the name menu with the company switch inside;
-record header on a colour band; folding sections each in a box; form sections with the heading
-and note on the left; help text behind an "i" tooltip; money fields with INR after the amount;
-phone with a country picker; choosing many as a tick list; date range with quick periods
-first; long text with a letter count; tooltips white with a shadow (today they are the
-browser's own `title`); "Copy" as a word beside numbers; row actions as words in the row;
-opening a record as list left, record right; comments as chat bubbles; approvals as tick and
-cross buttons (this replaces "Approve secondary, Reject as text" outside Books once built);
-board cards with owner and date; leave on calendars as solid blocks; bar charts as square bars
-in the app colour; Save at the top right only; success as a green note on the page; "Help" in
-the top bar. Menu sections: not picked yet.
+| Building block | How it is built |
+| --- | --- |
+| Your name menu | Your face in the top bar opens a menu: who you are, the company in use (switch here), My profile, Sign out. The bar's separate company picker and sign-out button are gone outside Books (`Shell.jsx`) |
+| Notifications | Each notice shows its app's mark in the app's colour; the unread dot sits on the right (`NotificationBell.jsx`). Notices do not record who sent them, so the mark is the app, not a face |
+| Tooltips | White with a soft shadow, drawn by `TipLayer` from any element's `title` (mounted at the app root and in the Console) |
+| Long text | A text box with a `maxlength` shows "74 / 500" under it while typing (`TipLayer`) |
+| Folding sections | Every `<details>` sits in its own box (dropdown-style ones excluded) |
+| Comments | Chat bubbles in a record's activity (`.ui-activity-item.is-comments`) |
+| Row actions | `DataTable` shows up to three row actions as words in the row; more than three stay behind ⋮ |
+| Record header | The employee record's summary sits under a band of the app's colour (`.pc-summary`) |
+
+Picked and already how the app works: white top bar with a hairline, app switcher as a list
+with a line about each app, search everything as a command box with grouped results, "Help"
+in the top bar, soft colour notice strip, details as label above value in two columns, minus
+sign for money below zero, an arrow on the sorted column only, a bold totals row at the end,
+files as list rows.
+
+Picked, **not built yet** (each needs a screen or a new component): form sections with the
+heading and note on the left; help text behind an "i" (needs a shared field component; today
+each form writes its own hint line); money fields with INR after the amount; phone with a
+country picker; choosing many as a tick list; date range with quick periods first; "Copy" as a
+word beside numbers; opening a record as list left, record right; approvals as tick and cross
+buttons (this replaces "Approve secondary, Reject as text" outside Books once built); board
+cards with owner and date; leave on calendars as solid blocks; Save at the top right only;
+success as a green note on the page. Bar charts as square bars in the app colour: there are no
+bar charts outside Books yet, so this is the rule for the first one. Menu sections: not picked
+yet (in round 4).
 
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per

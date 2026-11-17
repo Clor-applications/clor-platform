@@ -12,6 +12,13 @@ import { kindLabel } from './notificationKinds';
  * about through `onOpen(link)`, which the shell resolves across apps.
  */
 
+/* The app a notice belongs to, from the first part of its kind. Platform notices (approvals, readers, connectors, directory sync) are the Workspace's. */
+const kindApp = (kind = '') => {
+  const head = String(kind).split('.')[0];
+  return ['people', 'payroll', 'attendance'].includes(head) ? head : 'admin';
+};
+const KIND_MARK = { people: 'Pe', payroll: 'Pa', attendance: 'At', admin: 'Wo' };
+
 const ago = (iso) => {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return 'just now';
@@ -96,10 +103,14 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
               {items.map((n) => (
                 <li key={n.id}>
                   <div className="flex items-start gap-1">
-                    <button type="button" className="min-w-0 flex-1 rounded-lg px-2 py-2 text-left ui-hover-sunken" onClick={() => openOne(n)}>
-                      <div className={`text-sm ${n.readAt ? '' : 'font-semibold'}`}>{n.readAt ? null : <span className="ui-bell-unread" aria-hidden="true" />}{n.title}</div>
-                      {n.body ? <div className="ui-caption">{n.body}</div> : null}
-                      <div className="ui-caption">{ago(n.createdAt)}</div>
+                    <button type="button" className="ui-bell-item min-w-0 flex-1 rounded-lg px-2 py-2 text-left ui-hover-sunken" onClick={() => openOne(n)}>
+                      {/* Which app the notice comes from, in that app's colour (owner's pick, 17 Nov 2026). Hidden in Books. */}
+                      <span className="ui-bell-mark" aria-hidden="true" style={{ '--app-color': `var(--app-${kindApp(n.kind)})` }}>{KIND_MARK[kindApp(n.kind)]}</span>
+                      <span className="ui-bell-text">
+                        <span className={`block text-sm ${n.readAt ? '' : 'font-semibold'}`}>{n.readAt ? null : <span className="ui-bell-unread" aria-hidden="true" />}{n.title}</span>
+                        {n.body ? <span className="block ui-caption">{n.body}</span> : null}
+                        <span className="block ui-caption">{ago(n.createdAt)}</span>
+                      </span>
                     </button>
                     <button type="button" className="ui-icon-btn mt-1" aria-label={`Stop showing ${kindLabel(n.kind).toLowerCase()}`} title={`Stop showing ${kindLabel(n.kind).toLowerCase()}`} onClick={() => toggleMute(n.kind, true)}>
                       <BellOff size={14} aria-hidden="true" />

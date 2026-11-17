@@ -64,7 +64,8 @@ test.describe('What each person can and cannot reach', () => {
     await kavya.open('Employees');
     await expect(kavya.main).toContainText('Priya Sharma');
 
-    await page.getByRole('banner').getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('banner').getByRole('button', { name: /^Your menu: / }).click();
+    await page.getByRole('menu', { name: 'Your menu' }).getByRole('menuitem', { name: 'Sign out' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
     await page.goBack();
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();

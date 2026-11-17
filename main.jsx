@@ -10,6 +10,7 @@ import './packages/ui/src/rnd.css';
 import './packages/ui/src/picks.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
+import TipLayer from './packages/ui/src/components/ui/TipLayer';
 
 /*
  * Personal data an earlier version left in this browser.
@@ -103,6 +104,8 @@ createRoot(document.getElementById('root')).render(
           )}
         </SessionProvider>
       )}
+      {/* White tooltips and the letter count on long text, everywhere but Books (owner's picks, 17 Nov 2026). */}
+      {shareToken ? null : <TipLayer />}
     </ErrorBoundary>
   </React.StrictMode>
 );

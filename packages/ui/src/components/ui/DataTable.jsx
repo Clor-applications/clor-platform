@@ -33,7 +33,29 @@ export function visibleColumns(columns, prefs) {
   return ordered.map((k) => byKey.get(k)).filter((c) => c.always || !hidden.has(c.key));
 }
 
+/*
+ * Row actions as words in the row (owner's pick, 17 Nov 2026): up to three actions show as text buttons,
+ * so each row says what can be done to it. More than three, and in Books, they stay behind the ⋮ menu.
+ */
+const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
+
 function RowMenu({ label, items }) {
+  if (items.length <= 3 && !inBooks()) {
+    return (
+      <span className="ui-row-words" role="group" aria-label={label}>
+        {items.map((it) => (
+          <button key={it.key} type="button" disabled={it.disabled} className={`ui-row-word ${it.danger ? 'is-danger' : ''}`}
+            onClick={(e) => { e.stopPropagation(); it.onSelect(); }}>
+            {it.label}
+          </button>
+        ))}
+      </span>
+    );
+  }
+  return <RowMenuButton label={label} items={items} />;
+}
+
+function RowMenuButton({ label, items }) {
   const [open, setOpen] = useState(false);
   const btn = useRef(null);
   const list = useRef(null);
@@ -206,7 +228,7 @@ export default function DataTable({
                   ) : c.label}
                 </th>
               ))}
-              {rowActions ? <th scope="col" className="w-12"><span className="sr-only">Actions</span></th> : null}
+              {rowActions ? <th scope="col" className="ui-row-actions-col"><span className="sr-only">Actions</span></th> : null}
             </tr>
           </thead>
           <tbody className="ui-rows">
@@ -228,7 +250,7 @@ export default function DataTable({
                       ) : c.render ? c.render(r) : (r[c.key] ?? '—')}
                     </td>
                   ))}
-                  {rowActions ? <td className="w-12 text-right">{(() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })()}</td> : null}
+                  {rowActions ? <td className="ui-row-actions-col text-right">{(() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })()}</td> : null}
                 </tr>
               );
             })}
