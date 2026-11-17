@@ -7,9 +7,9 @@ describe('PasswordInput', () => {
   it('names the button with its visible word', () => {
     render(<PasswordInput aria-label="Password" value="" onChange={() => {}} />);
     const btn = screen.getByRole('button', { name: 'Show password' });
-    expect(btn.textContent).toContain('Show');
+    expect(btn.querySelector('.ui-pw-word').dataset.word).toBe('Show');
     fireEvent.click(btn);
-    expect(screen.getByRole('button', { name: 'Hide password' }).textContent).toContain('Hide');
+    expect(screen.getByRole('button', { name: 'Hide password' }).querySelector('.ui-pw-word').dataset.word).toBe('Hide');
   });
   it('rates a new password only when asked', () => {
     const { rerender, container } = render(<PasswordInput aria-label="P" value="abc" onChange={() => {}} />);
@@ -30,5 +30,6 @@ describe('PasswordInput inside its label', () => {
   it('keeps the field named by the label alone', () => {
     render(<label><span>Password</span><PasswordInput value="" onChange={() => {}} /></label>);
     expect(screen.getByLabelText('Password', { exact: true })).toBeInTheDocument();
+    expect(document.querySelector('label').textContent).toBe('Password');
   });
 });

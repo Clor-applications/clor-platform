@@ -41,7 +41,7 @@ export default function PasswordInput({ className = '', wrapperClassName = '', s
           disabled={props.disabled}
         >
           {shown ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-          <span className="ui-pw-word" aria-hidden="true">{shown ? 'Hide' : 'Show'}</span>
+          <span className="ui-pw-word" aria-hidden="true" data-word={shown ? 'Hide' : 'Show'} />
         </button>
       </span>
       {strength && score > 0 ? (
