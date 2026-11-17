@@ -680,3 +680,12 @@
 /* An empty detail on a record: one line, with Add opening that section's form */
 .ui-empty-detail { display: inline-flex; align-items: baseline; gap: 0.5rem; }
 .ui-empty-detail .ui-link { font-weight: 600; }
+/* Too many tabs: a list down the side on a wide screen (RecordTabs with seven or more) */
+@media (min-width: 1024px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-record-tabs.is-many { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-record-tabs.is-many > .ui-record-tablist { flex-direction: column; align-items: stretch; gap: 2px; border-bottom: 0; overflow: visible; position: sticky; top: 1rem; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-record-tabs.is-many > .ui-record-tablist .ui-tab-indicator { display: none; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-record-tabs.is-many .ui-tab { justify-content: space-between; text-align: left; height: 2.25rem; padding: 0 0.75rem; border-radius: 8px; border-bottom: 0; box-shadow: none; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-record-tabs.is-many .ui-tab.is-active { background: rgb(var(--act, var(--fg)) / 0.1); color: rgb(var(--act-ink, var(--fg))); font-weight: 600; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-record-tabs.is-many .ui-tab:not(.is-active):hover { background: #F7F7F7; }
+}

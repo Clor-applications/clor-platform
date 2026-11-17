@@ -41,6 +41,8 @@ export default function RecordTabs({ tabs, value, onChange, label = 'Sections', 
   const keys = tabs.map((t) => t.key);
   const current = keys.includes(value) ? value : keys[0];
   const listRef = useRef(null);
+  /* Owner's round 13 pick: too many tabs to fit become a list down the side on a wide screen (CSS decides the width). */
+  const many = tabs.length >= 7;
   const indicator = useTabIndicator(listRef, current);
   const move = (to) => {
     const key = keys[(to + keys.length) % keys.length];
@@ -49,13 +51,13 @@ export default function RecordTabs({ tabs, value, onChange, label = 'Sections', 
   };
   const onKey = (e) => {
     const i = keys.indexOf(current);
-    if (e.key === 'ArrowRight') { e.preventDefault(); move(i + 1); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); move(i - 1); }
+    if (e.key === 'ArrowRight' || (many && e.key === 'ArrowDown')) { e.preventDefault(); move(i + 1); }
+    else if (e.key === 'ArrowLeft' || (many && e.key === 'ArrowUp')) { e.preventDefault(); move(i - 1); }
     else if (e.key === 'Home') { e.preventDefault(); move(0); }
     else if (e.key === 'End') { e.preventDefault(); move(keys.length - 1); }
   };
   return (
-    <div className="ui-record-tabs">
+    <div className={`ui-record-tabs ${many ? 'is-many' : ''}`}>
       <div ref={listRef} role="tablist" aria-label={label} className={`ui-record-tablist ${indicator ? 'has-indicator' : ''}`} onKeyDown={onKey}>
         {tabs.map((t) => (
           <button
