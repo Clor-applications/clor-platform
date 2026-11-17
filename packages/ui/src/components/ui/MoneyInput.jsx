@@ -7,7 +7,7 @@
 export default function MoneyInput({ className = '', wrapClassName = '', ...props }) {
   return (
     <span className={`ui-money-field ${wrapClassName}`}>
-      <input inputMode="decimal" {...props} className={`${className} ui-money-input`} />
+      <input inputMode="decimal" {...props} className={`ui-input ${className} ui-money-input`} />
     </span>
   );
 }

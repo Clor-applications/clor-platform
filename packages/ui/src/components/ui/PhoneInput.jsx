@@ -50,7 +50,7 @@ export default function PhoneInput({ id, value = '', onChange, className = '', .
       >
         {COUNTRIES.map(([cc, c, name]) => <option key={cc} value={c}>{FLAG(cc)} {c} {name}</option>)}
       </select>
-      <input id={id} type="tel" inputMode="tel" autoComplete="tel-national" {...props} className={`${className} ui-phone-number`} value={rest} onChange={(e) => onChange?.(join(code, e.target.value))} />
+      <input id={id} type="tel" inputMode="tel" autoComplete="tel-national" {...props} className={`ui-input ${className} ui-phone-number`} value={rest} onChange={(e) => onChange?.(join(code, e.target.value))} />
     </span>
   );
 }
