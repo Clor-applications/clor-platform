@@ -280,7 +280,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
                       <td className="ui-col-h-center">{r.checkInTime || '—'}</td>
                       <td className="ui-col-h-center">{r.checkOutTime || '—'}</td>
                       <td className="ui-num hidden md:table-cell">{r.checkOut ? hm(r.workedMinutes) : '—'}</td>
-                      <td className="ui-num hidden md:table-cell">{r.lateMinutes ? `${r.lateMinutes}m` : '—'}</td>
+                      <td className="ui-num hidden md:table-cell">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes}m</span> : '—'}</td>
                       <td className="ui-num hidden 2xl:table-cell">{r.earlyOutMinutes ? `${r.earlyOutMinutes}m` : '—'}</td>
                       <td className="ui-num hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         {r.overtimeMinutes ? (

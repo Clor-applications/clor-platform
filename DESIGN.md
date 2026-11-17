@@ -181,6 +181,30 @@ and a guide link; a "What's new" box on the first sign-in after a change; help a
 help page; plain emails; a centred header on printed payslips and letters; a red line where
 content failed to load.
 
+### Round 7 (17 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Punch in button | A big round button in the app colour on the phone punch page |
+| A day on the attendance calendar | A solid coloured box with a white letter: green present, deep amber half day, red absent, slate on leave |
+| Leave balance | The number with a bar under it in the app colour (employee portal and leave balances) |
+| Late marks | An amber tag with the minutes ("Late 12m") on attendance records and the employee portal |
+| Payroll run progress | Steps across the top of a run: Draft, Calculated, In review, Approved, Locked, done steps ticked |
+
+Picked and already how the app works: English only.
+
+Picked, **not built yet**: tapping days on a calendar to ask for leave; change history as a
+sentence with a face; paying salaries in one tap from CLOR (needs a bank link); a birthday card
+with a message box; salary structure as bars with percentages; document requests as a note on
+the home page; employee cards with a coloured band behind the face; dates ahead when someone
+leaves; hours worked as a timeline of punches; the next CLOR bill first; cards about today on
+the phone home; phone notifications with Approve on them; payslip with net pay first and
+details on tap; pull down to refresh; who can do what as a grid of ticks; seats as a ring with
+seats free; faces of who else is away on a leave clash; change since last month as a tag with
+the percentage; Workspace apps as icons in a row.
+
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per
 screen and colour-has-one-job all still hold.

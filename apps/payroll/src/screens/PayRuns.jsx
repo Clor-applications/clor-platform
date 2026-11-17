@@ -58,6 +58,28 @@ import { wholeRupees as money } from "@ui/utils/money";
  * here is a copy that can disagree with the one that actually decides.
  */
 
+const RUN_STEPS = ["DRAFT", "CALCULATED", "REVIEW", "APPROVED", "LOCKED"];
+
+/** Where this payroll run stands, as steps across the top (owner's round 7 pick). */
+function RunSteps({ status }) {
+  const at = RUN_STEPS.indexOf(status === "PAID" || status === "POSTED" ? "LOCKED" : status);
+  if (at < 0) return null;
+  return (
+    <ol className="ui-run-steps" aria-label="Payroll progress">
+      {RUN_STEPS.map((s, i) => (
+        <li
+          key={s}
+          className={i < at ? "is-done" : i === at ? "is-current" : undefined}
+          aria-current={i === at ? "step" : undefined}
+        >
+          <span aria-hidden="true">{i < at ? "✓" : i + 1}</span>
+          {STATUS_LABEL[s]}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 const STATUS_LABEL = {
   DRAFT: "Draft",
   CALCULATED: "Calculated",
@@ -482,6 +504,8 @@ const RunWorkflow = ({ runId, onBack }) => {
           ) : null}
         </div>
       ) : null}
+
+      <RunSteps status={run.status} />
 
       <div className="ui-segmented" role="tablist" aria-label="Payroll stage">
         {[
