@@ -744,7 +744,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
     }));
   };
 
-  const computed = computeGstForLines({
+  const computedWithTax = computeGstForLines({
     lines: gstEnabled && gstRegistrationActive ? formData.items : formData.items.map((line) => ({ ...line, gstRate: 0 })),
     isIntra,
     invoiceDiscount:
@@ -753,6 +753,15 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
         : null,
     otherCharges: gstEnabled && gstRegistrationActive ? formData.otherCharges : (formData.otherCharges || []).map((charge) => ({ ...charge, gstRate: 0 })),
   });
+  /*
+   * Reverse charge: the buyer pays the GST to the government, so the invoice is for the value without it
+   * (audit, 17 Nov 2026: the tax was billed and posted as output GST anyway). The tax is still stated on the
+   * invoice and in GSTR-1, marked as payable by the recipient.
+   */
+  const rcmTax = formData.reverseCharge
+    ? Math.round((Number(computedWithTax.cgstTotal || 0) + Number(computedWithTax.sgstTotal || 0) + Number(computedWithTax.igstTotal || 0)) * 100) / 100
+    : 0;
+  const computed = rcmTax ? { ...computedWithTax, total: Math.round((Number(computedWithTax.total || 0) - rcmTax) * 100) / 100 } : computedWithTax;
 
   /*
    * The taxable value, and what the customer will withhold from it.
@@ -2470,6 +2479,7 @@ export const InvoiceForm = ({ db, setDb, currentCompany, initialData = null, onC
               <span>Total:</span>
               <span className="ui-money">{formatMoney(computed.total, currentCompany)}</span>
             </div>
+            {rcmTax > 0 ? <p className="ui-caption">GST of {formatMoney(rcmTax, currentCompany)} is payable by the recipient under reverse charge, and is not part of the total.</p> : null}
             {/* Below the total, not inside it: the invoice is for the total,
                 and this is what will actually arrive. */}
             {/*

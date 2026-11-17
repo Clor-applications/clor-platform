@@ -403,7 +403,7 @@ const KINDS = [
   ['estimate', 'estimates', 'backendDocId', 'customerName', (d) => ({ validUntil: d.validUntil || '' })],
   ['purchaseOrder', 'purchaseOrders', 'backendDocId', 'vendorName', (d) => ({ expectedDate: d.expectedDate || '', warehouseId: d.warehouseId || '' })],
   ['salesOrder', 'salesOrders', 'backendDocId', 'customerName', (d) => ({ expectedDate: d.expectedDate || '', warehouseId: d.warehouseId || '' })],
-  ['creditNote', 'creditNotes', 'backendDocId', 'customerName', (d) => ({ originalInvoiceNumber: d.refNo || '', customerGstin: d.partyGstin || '' })],
+  ['creditNote', 'creditNotes', 'backendDocId', 'customerName', (d) => ({ originalInvoiceNumber: d.refNo || '', customerGstin: d.partyGstin || '', irn: d.irn || null, irnStatus: d.irnStatus || null })],
   ['debitNote', 'debitNotes', 'backendDocId', 'vendorName', (d) => ({ originalBillNumber: d.refNo || '', vendorGstin: d.partyGstin || '' })],
 ];
 

@@ -29,6 +29,11 @@ export async function registerEInvoiceApi(backendInvoiceId) {
   });
 }
 
+/** Registers one credit note on the IRP as type CRN; a 422 carries `err.data.issues`. */
+export async function registerCreditNoteEInvoiceApi(backendDocId) {
+  return apiFetch(`/orgs/${requireOrgId()}/credit-notes/${encodeURIComponent(backendDocId)}/einvoice`, { method: 'POST', body: {} });
+}
+
 /**
  * The INV-01 JSON the server would register, for preview and the NIC bulk
  * tool. `docs` is 'invoices' or 'credit-notes'. When the document cannot be

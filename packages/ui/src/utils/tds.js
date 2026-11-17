@@ -110,7 +110,9 @@ export const TDS_SECTIONS = [
     code: '194A',
     label: 'Interest other than on securities',
     rate: 10,
-    annual: 50000,
+    /* 10,000 a year where the payer is not a bank, a co-operative bank or the post office (Finance Act, 2025, from
+       1 April 2025); the 50,000 limit is a bank's. A business paying interest on a loan is not a bank. */
+    annual: 10000,
     wholeOnceCrossed: true,
     newAct: '393(1) Table 5(ii)',
   },

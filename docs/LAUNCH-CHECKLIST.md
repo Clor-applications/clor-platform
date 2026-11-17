@@ -199,15 +199,15 @@ secret in the repository. Its findings are all medium or low.
 
 ### Medium: Books
 
-- [ ] Reverse charge is a label: a sale marked reverse charge still bills and posts GST, and bills and expenses have no reverse charge or blocked-credit field — `services/ledger.ts:647-693`, `packages/ui/src/utils/gstrExport.js:499`
-- [ ] Settlement checks the document total only: it ignores TDS taken on the bill and credit notes, and a receipt can be set against a bill — `services/settlement.ts`
+- [~] Reverse charge is a label: a sale marked reverse charge still bills and posts GST, and bills and expenses have no reverse charge or blocked-credit field — `services/ledger.ts:647-693`, `packages/ui/src/utils/gstrExport.js:499` (sales fixed: total without tax, no output GST; bills/expenses RCM and blocked-credit fields still open, fix/books-medium-2)
+- [x] Settlement checks the document total only: it ignores TDS taken on the bill and credit notes, and a receipt can be set against a bill — `services/settlement.ts` (fixed: TDS, notes, direction, fix/books-medium-2)
 - [x] The GSTR-3B figures on screen count drafts and cancelled invoices and so disagree with the file made from the same screen — `apps/accounting/src/features/gst/GstCompliance.jsx:439-484` (fixed: screen and file share one rule, fix/books-medium)
-- [ ] E-invoice and books are not tied: cancelling an invoice leaves the IRN live, a Draft can get an IRN, credit notes cannot be registered, and a call has no timeout — `routes/einvoice.ts`, `routes/invoices.ts:736-782`
+- [x] E-invoice and books are not tied: cancelling an invoice leaves the IRN live, a Draft can get an IRN, credit notes cannot be registered, and a call has no timeout — `routes/einvoice.ts`, `routes/invoices.ts:736-782` (fixed: drafts refused, cancel/delete blocked while IRN live, credit notes register, 30 s timeout, fix/books-medium-2)
 - [x] Invoice numbers are taken before the invoice is saved, so a refused invoice leaves a gap — `routes/invoices.ts:402-417` (fixed: number taken inside the save, fix/books-medium)
 - [ ] An imported document whose posting fails stays in the list with no ledger entry — `routes/imports.ts:597-655`
 - [ ] Stock never reaches the ledger: no cost of goods sold or closing stock on the server; stock with no warehouse can be sold from every warehouse — `services/stockLedger.ts:53`
 - [ ] The general reverse route can reverse the entry behind a live invoice or bill; bank book rows are saved without a ledger entry; a row the server refused stays on screen for that session — `routes/ledger.ts:414`, `routes/bankBook.ts:81`
-- [ ] Smaller: 194A limit of 50,000 where a non-bank payer's is 10,000; TCS under 206C(1H) still charged; "This year" in Trial Balance starts on 1 January (`packages/ui/src/utils/tds.js:110`, `apps/accounting/src/features/reports/TrialBalanceReport.jsx:40`)
+- [x] Smaller: 194A limit of 50,000 where a non-bank payer's is 10,000; TCS under 206C(1H) still charged; "This year" in Trial Balance starts on 1 January (`packages/ui/src/utils/tds.js:110`, `apps/accounting/src/features/reports/TrialBalanceReport.jsx:40`) (fixed: 194A 10,000, 206C(1H) ends 1 Apr 2025, TB year from 1 April, fix/books-medium-2)
 
 ### Medium: billing and operations
 

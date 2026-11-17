@@ -232,6 +232,28 @@ describe('IRP registration', () => {
       .send({ payload: {} })
       .expect(409);
     expect(String(again.body.error)).toContain('irn-for-row');
+
+    /* Audit, 17 Nov 2026: with the IRN live, the invoice cannot be cancelled or deleted in the books alone. */
+    const cancel = await request(app).patch(`/api/orgs/${owner.orgId}/invoices/${invoiceId}/status`).set(auth(owner)).send({ status: 'Cancelled' }).expect(409);
+    expect(cancel.body.code).toBe('IRN_LIVE');
+    const del = await request(app).delete(`/api/orgs/${owner.orgId}/invoices/${invoiceId}`).set(auth(owner)).expect(409);
+    expect(del.body.code).toBe('IRN_LIVE');
+  });
+
+  it('does not register a draft', async () => {
+    await setFeature('einvoice', true);
+    const buyer = await eInvoiceable(owner);
+    const draft = await request(app)
+      .post(`/api/orgs/${owner.orgId}/invoices`)
+      .set(auth(owner))
+      .send({
+        date: '2026-08-02', customerId: buyer.customerId, customerName: buyer.customerName, customerGstin: buyer.customerGstin,
+        placeOfSupplyState: buyer.placeOfSupplyState, subtotal: 1000, cgstTotal: 90, sgstTotal: 90, gstTotal: 180, total: 1180, status: 'Draft',
+        items: [{ itemId: buyer.lineItemId, description: 'Widget', quantity: 1, rate: 1000, gstRate: 18 }],
+      })
+      .expect(201);
+    const res = await request(app).post(`/api/orgs/${owner.orgId}/invoices/${draft.body.invoice.id}/einvoice`).set(auth(owner)).send({}).expect(409);
+    expect(res.body.code).toBe('NOT_ISSUED');
   });
 
   it('refuses a B2C invoice with the reasons, without calling the gateway', async () => {
@@ -323,6 +345,24 @@ describe('IRP registration', () => {
     expect(res.body.payload.DocDtls).toMatchObject({ Typ: 'CRN', No: note.number, Dt: '05/08/2026' });
     expect(res.body.payload.RefDtls.PrecDocDtls[0]).toEqual({ InvNo: inv.body.invoice.number, InvDt: '04/08/2026' });
     expect(res.body.payload.ValDtls).toMatchObject({ AssVal: 500, TotInvVal: 590 });
+
+    /* And it can be registered (audit, 17 Nov 2026: only invoices could be). */
+    await setFeature('einvoice', true);
+    const origFetch = globalThis.fetch;
+    let sent: any = null;
+    globalThis.fetch = (async (_url: string, init: any) => {
+      sent = JSON.parse(init.body);
+      return { status: 200, json: async () => ({ Irn: 'irn-for-note', AckNo: '10', AckDt: '2026-08-20', SignedQRCode: 'qr' }), text: async () => '' };
+    }) as any;
+    try {
+      const reg = await request(app).post(`/api/orgs/${owner.orgId}/credit-notes/${note.id}/einvoice`).set(auth(owner)).send({}).expect(200);
+      expect(reg.body.irn).toBe('irn-for-note');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+    expect(sent.DocDtls.Typ).toBe('CRN');
+    const row = await prisma.creditNote.findUnique({ where: { id: note.id } });
+    expect(row?.irnStatus).toBe('REGISTERED');
   });
 
   it('refuses when the feature flag is off', async () => {

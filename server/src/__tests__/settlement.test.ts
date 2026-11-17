@@ -342,3 +342,53 @@ describe('cancelling a part-paid invoice', () => {
     expect(after.paid).toBe(50000);
   });
 });
+
+describe('what else takes a document down (audit, 17 Nov 2026)', () => {
+  it('counts a credit note raised against the invoice', async () => {
+    const invoice = await makeInvoice(10000);
+    const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+    await prisma.creditNote.create({
+      data: {
+        accountId: inv.accountId, orgId: owner.orgId, branchId: owner.branchId, number: `CN-${rnd()}`, date: '2026-06-11',
+        againstDocId: invoice.id, partyName: 'Bengaluru Industrial Supplies', subtotal: 1000, cgstTotal: 90, sgstTotal: 90, gstTotal: 180, total: 1180,
+        status: 'Open', itemsJson: '[]', createdByUserId: inv.createdByUserId,
+      },
+    });
+    /* ₹11,800 less the ₹1,180 note leaves ₹10,620: more is refused, that much settles it. */
+    const over = await receipt(11800, [{ docId: invoice.id, amount: 11800 }]);
+    expect(over.status).toBe(400);
+    await receipt(10620, [{ docId: invoice.id, amount: 10620 }]).then((r) => expect(r.status).toBe(201));
+    expect((await stored(invoice.id)).status).toBe('Paid');
+  });
+
+  it('settles a bill at its total less the TDS it deducted', async () => {
+    const bill = await request(app)
+      .post(`/api/orgs/${owner.orgId}/bills`)
+      .set(auth(owner))
+      .send({ date: '2026-06-10', partyName: 'Contractor', subtotal: 10000, total: 10000, tdsAmount: 200, status: 'Unpaid', items: [{ description: 'Work', quantity: 1, rate: 10000, gstRate: 0 }] })
+      .expect(201);
+    const id = bill.body.document.id;
+    const pay = (amount: number) =>
+      request(app).post(`/api/orgs/${owner.orgId}/payments`).set(auth(owner)).send({
+        direction: 'PAYMENT', number: `PAY-${rnd()}`, date: '2026-06-15', partyType: 'VENDOR', partyName: 'Contractor', ledgerAccountId: bankAccountId, amount,
+        allocations: [{ docType: 'BILL', docId: id, amount }],
+      });
+    expect((await pay(10000)).status).toBe(400);
+    expect((await pay(9800)).status).toBe(201);
+    expect((await prisma.bill.findUniqueOrThrow({ where: { id } })).status).toBe('Paid');
+  });
+
+  it('refuses a receipt set against a bill', async () => {
+    const bill = await request(app)
+      .post(`/api/orgs/${owner.orgId}/bills`)
+      .set(auth(owner))
+      .send({ date: '2026-06-10', partyName: 'Supplier', subtotal: 500, total: 500, status: 'Unpaid', items: [{ description: 'Paper', quantity: 1, rate: 500, gstRate: 0 }] })
+      .expect(201);
+    const res = await request(app).post(`/api/orgs/${owner.orgId}/payments`).set(auth(owner)).send({
+      direction: 'RECEIPT', number: `RCPT-${rnd()}`, date: '2026-06-15', partyType: 'CUSTOMER', partyName: 'Supplier', ledgerAccountId: bankAccountId, amount: 500,
+      allocations: [{ docType: 'BILL', docId: bill.body.document.id, amount: 500 }],
+    });
+    expect(res.status).toBe(400);
+    expect(String(res.body.error)).toMatch(/settles invoices/);
+  });
+});

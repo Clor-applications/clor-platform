@@ -44,6 +44,8 @@ export type TotalsInput = {
   igstTotal?: unknown;
   gstTotal?: unknown;
   total?: unknown;
+  /** A sale under reverse charge: the tax is stated, but the buyer pays it, so the total leaves it out. */
+  reverseCharge?: unknown;
 };
 
 const paise = (v: unknown) => {
@@ -139,9 +141,12 @@ export function checkDocTotals(doc: TotalsInput): TotalsProblem | null {
   }
 
   /* ---- The total. ---- */
-  const total = head.subtotal + chargeTaxable + head.gstTotal;
+  const total = head.subtotal + chargeTaxable + (doc.reverseCharge === true ? 0 : head.gstTotal);
   /* Up to a rupee either way is a total rounded off, which the ledger posts to Rounding; more is a disagreement. */
-  if (Math.abs(head.total - total) > 100) return problem('total', head.total, total, `Taxable value, other charges and GST add up to ${words(total)}, not ${words(head.total)}.`);
+  if (Math.abs(head.total - total) > 100) {
+    if (doc.reverseCharge === true) return problem('total', head.total, total, `Under reverse charge the buyer pays the GST, so the total is the taxable value and other charges, ${words(total)}, not ${words(head.total)}.`);
+    return problem('total', head.total, total, `Taxable value, other charges and GST add up to ${words(total)}, not ${words(head.total)}.`);
+  }
 
   return null;
 }
