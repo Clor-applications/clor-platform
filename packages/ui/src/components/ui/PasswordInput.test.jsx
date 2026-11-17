@@ -25,3 +25,10 @@ describe('PasswordInput', () => {
     expect(passwordScore('Abcdefgh1!xy')).toBe(4);
   });
 });
+
+describe('PasswordInput inside its label', () => {
+  it('keeps the field named by the label alone', () => {
+    render(<label><span>Password</span><PasswordInput value="" onChange={() => {}} /></label>);
+    expect(screen.getByLabelText('Password', { exact: true })).toBeInTheDocument();
+  });
+});
