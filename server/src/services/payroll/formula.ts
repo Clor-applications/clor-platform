@@ -40,6 +40,7 @@ export const FORMULA_VARIABLES: { name: string; description: string }[] = [
   { name: 'VARIABLE_PAY', description: 'Variable pay entered for this period' },
   { name: 'OVERTIME', description: 'Overtime amount entered for this period' },
   { name: 'OVERTIME_HOURS', description: 'Approved overtime hours for this period (from Attendance, or entered)' },
+  { name: 'OVERTIME_HOURS_AT_RATE', description: "The same hours, each at its day's rate from the company's overtime policy (working day, weekly off, holiday). Times the hourly wage gives the overtime pay" },
   { name: 'PF_WAGE', description: 'Wages that count towards provident fund' },
   { name: 'ESI_WAGE', description: 'Wages that count towards ESI' },
 ];
@@ -354,7 +355,7 @@ export function validateFormula(
     const compiled = compileFormula(source, extraVariables);
     const values = sample || {
       BASIC: 40000, GROSS: 80000, CTC: 1200000, MONTHLY_CTC: 100000, ANNUAL_CTC: 1200000,
-      WORKING_DAYS: 30, PAYABLE_DAYS: 30, LWP_DAYS: 0, VARIABLE_PAY: 0, OVERTIME: 0, OVERTIME_HOURS: 0,
+      WORKING_DAYS: 30, PAYABLE_DAYS: 30, LWP_DAYS: 0, VARIABLE_PAY: 0, OVERTIME: 0, OVERTIME_HOURS: 0, OVERTIME_HOURS_AT_RATE: 0,
       PF_WAGE: 15000, ESI_WAGE: 21000,
     };
     return { ok: true, variables: compiled.variables, sample: compiled.evaluate(values) };

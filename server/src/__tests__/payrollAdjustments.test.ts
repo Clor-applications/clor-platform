@@ -267,6 +267,44 @@ describe('a payroll that pays one', () => {
   });
 });
 
+describe('approved after its month was final', () => {
+  /*
+   * Audit, 17 Nov 2026: a bonus approved into a month whose run was already final, in a period not locked, was
+   * never paid. The next run pays it.
+   */
+  it('is paid by the next run', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const marchRun = await runPayroll(c, ids.marchId);
+    await payrollPrisma.payrollRun.update({ where: { id: marchRun }, data: { status: 'APPROVED' } });
+
+    const late = await api
+      .post(c, '/adjustments', { employeeId: ids.employeeId, componentId: ids.bonusId, periodId: ids.marchId, amount: 7_000 })
+      .expect(201);
+    await api.post(c, `/adjustments/${late.body.adjustment.id}/approve`).expect(200);
+
+    const aprilRun = await runPayroll(c, ids.aprilId);
+    const april = (await api.get(c, `/slips?runId=${aprilRun}`).expect(200)).body.slips[0];
+    expect(april.grossEarnings).toBe(57_000);
+    const after = await payrollPrisma.payrollAdjustment.findUniqueOrThrow({ where: { id: late.body.adjustment.id } });
+    expect(after.status).toBe('CONSUMED');
+    expect(after.consumedByRunId).toBe(aprilRun);
+  });
+
+  it('stays with its own month while that run is still open', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    await runPayroll(c, ids.marchId);
+    const late = await api
+      .post(c, '/adjustments', { employeeId: ids.employeeId, componentId: ids.bonusId, periodId: ids.marchId, amount: 7_000 })
+      .expect(201);
+    await api.post(c, `/adjustments/${late.body.adjustment.id}/approve`).expect(200);
+    const aprilRun = await runPayroll(c, ids.aprilId);
+    const april = (await api.get(c, `/slips?runId=${aprilRun}`).expect(200)).body.slips[0];
+    expect(april.grossEarnings).toBe(50_000);
+  });
+});
+
 describe('once a payroll has paid it', () => {
   const paid = async (c: Ctx, ids: Awaited<ReturnType<typeof setUp>>) => {
     const bonus = await api
