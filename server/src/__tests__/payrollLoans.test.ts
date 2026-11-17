@@ -193,6 +193,33 @@ describe('approving a loan', () => {
     expect(body.loan.installments.filter((i: any) => i.periodId).length).toBe(3);
   });
 
+  it('gives the instalments past the calendar their month when it is added, and a payroll takes them (audit, 17 Nov 2026)', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const made = await api.post(c, '/loans', loanBody(ids)).expect(201);
+    await api.post(c, `/loans/${made.body.loan.id}/approve`).expect(200);
+
+    /* The fourth month is added after approval: the fourth instalment is now September's. */
+    const september = await api.post(c, '/periods', { name: `September ${rnd()}`, startDate: '2026-09-01', endDate: '2026-09-30', paymentDate: '2026-09-30' }).expect(201);
+    let loan = (await api.get(c, `/loans/${made.body.loan.id}`).expect(200)).body.loan;
+    expect(loan.installments.filter((i: any) => i.periodId).length).toBe(4);
+    expect(loan.installments[3].periodId).toBe(september.body.period.id);
+
+    /* A month added behind the server's back (a loan approved before this existed): the run that needs it places it. */
+    const october = await payrollPrisma.payrollPeriod.create({
+      data: { accountId: (await payrollPrisma.payrollLoan.findFirstOrThrow({ where: { id: made.body.loan.id } })).accountId, orgId: c.orgId, name: `October ${rnd()}`, startDate: '2026-10-01', endDate: '2026-10-31', paymentDate: '2026-10-31', createdByUserId: 'test' },
+    });
+    const runId = await runPayroll(c, october.id);
+    const slip = await slipOf(c, runId);
+    expect(slip.totalDeductions).toBe(10_000);
+    expect(slip.netPay).toBe(40_000);
+    loan = (await api.get(c, `/loans/${made.body.loan.id}`).expect(200)).body.loan;
+    expect(loan.installments[4].periodId).toBe(october.id);
+    expect(loan.installments[4].status).toBe('RECOVERED');
+    /* The sixth still waits for November. */
+    expect(loan.installments[5].periodId).toBeFalsy();
+  }, 60_000);
+
   it('refuses a recovery against something that is not a deduction', async () => {
     const c = await makeOwner();
     const ids = await setUp(c);

@@ -50,6 +50,12 @@ export type StatutoryWages = {
   pfWage: number;
   /** Wages that count for ESI — very nearly gross. */
   esiWage: number;
+  /**
+   * The wage ESI cover is tested on, where it is not the wage the contribution
+   * is worked out on: a one-off earning (arrears, an incentive) is contributed
+   * on, but does not take somebody out of cover for the month it is paid in.
+   */
+  esiCoverageWage?: number;
   /** Gross pay for the period, which is what PT slabs read. */
   gross: number;
   /** The year's taxable pay from this employer: taxable earnings only, employer NPS included. */
@@ -213,12 +219,13 @@ function computeEsi(rule: StatutoryRuleInput, wages: StatutoryWages, employee: S
   }
 
   const threshold = rule.eligibilityThreshold;
-  if (threshold != null && wages.esiWage > threshold) {
+  const coverageWage = wages.esiCoverageWage ?? wages.esiWage;
+  if (threshold != null && coverageWage > threshold) {
     return {
       ...base,
       employee: 0,
       employer: 0,
-      explanation: `ESI wages of ${money(wages.esiWage)} are above the ${money(threshold)} threshold, so ESI does not apply.`,
+      explanation: `ESI wages of ${money(coverageWage)} are above the ${money(threshold)} threshold, so ESI does not apply.`,
       exemptReason: 'ABOVE_THRESHOLD',
     };
   }

@@ -10,6 +10,7 @@ import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { PAY_FREQUENCIES } from './payrollPayGroups.js';
+import { placeUnscheduled } from '../services/payroll/loan.js';
 
 /**
  * The pay cycles a run belongs to.
@@ -148,6 +149,8 @@ payrollPeriodsRouter.post(
     const row = await payrollPrisma.payrollPeriod.create({
       data: { ...body, accountId, orgId, createdByUserId: req.auth!.userId },
     });
+    /* A loan whose schedule ran past the calendar gets this month for its next instalment (loan.ts). Never the reason a period is refused. */
+    await placeUnscheduled(orgId).catch(() => 0);
     res.status(201).json({ period: { ...shape(row), usage: { runs: 0, slips: 0, adjustments: 0, total: 0 } } });
   }
 );

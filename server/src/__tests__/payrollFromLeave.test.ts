@@ -98,6 +98,33 @@ describe('days from leave, without Attendance', () => {
     expect(Number(input!.payableDays)).toBe(29.5);
   }, 60_000);
 
+  it('somebody who joined or left in the month is paid for the days employed less the leave, not the whole month less it (audit, 17 Nov 2026)', async () => {
+    const c = await makeOwner({ payroll: true, people: true, attendance: false });
+    const { employeeId, runId } = await setUp(c);
+    const { peoplePrisma } = await import('../utils/peoplePrisma.js');
+    /* Joined on the 16th: 15 days of September. */
+    await peoplePrisma.employee.update({ where: { id: employeeId }, data: { dateOfJoining: '2026-09-16' } });
+    const lop = (await att(c, '/leave/types', { name: 'Loss of pay', isPaid: false }).expect(201)).body.type;
+    const unpaid = (await att(c, '/leave/requests', { employeeId, leaveTypeId: lop.id, fromDate: '2026-09-21', toDate: '2026-09-21', reason: 'Personal' }).expect(201)).body.request;
+    await att(c, `/leave/requests/${unpaid.id}/approve`).expect(200);
+    await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200);
+    let input = await inputOf(runId, employeeId);
+    expect(Number(input!.workingDays)).toBe(30);
+    expect(Number(input!.lwpDays)).toBe(1);
+    expect(Number(input!.payableDays)).toBe(14);
+
+    /* Taken again: the same, not the days already written plus the leave. */
+    await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200);
+    input = await inputOf(runId, employeeId);
+    expect(Number(input!.payableDays)).toBe(14);
+
+    /* And leaving on the 25th as well: the 16th to the 25th is 10 days, less the one. */
+    await peoplePrisma.employee.update({ where: { id: employeeId }, data: { dateOfLeaving: '2026-09-25' } });
+    await pay(c, `/runs/${runId}/inputs/from-leave`).expect(200);
+    input = await inputOf(runId, employeeId);
+    expect(Number(input!.payableDays)).toBe(9);
+  }, 60_000);
+
   it('sends a company with Attendance to Attendance, which already counts leave', async () => {
     const c = await makeOwner({ payroll: true, people: true, attendance: true });
     const { runId } = await setUp(c);
