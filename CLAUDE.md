@@ -49,8 +49,9 @@ Hard rules that come up most often:
   never money.
 - **No card-in-card.** A list sits on the page ground under one hairline. A
   document is a discrete object and earns a surface.
-- **One primary action per screen**, top right. Row actions such as Approve
-  are secondary buttons; Reject and Decline are text buttons.
+- **One primary action per screen**, top right. In Books, row actions such as
+  Approve are secondary buttons and Reject is a text button; everywhere else
+  approvals are tick and cross buttons (owner's style pick, DESIGN.md).
 - **Colour has one job.** The app's primary only for the primary button, links and
   "you are here"; its second colour for charts and secondary marks; status colours only for
   state, always with a label.

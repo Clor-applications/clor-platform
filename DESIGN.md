@@ -70,16 +70,55 @@ in the top bar, soft colour notice strip, details as label above value in two co
 sign for money below zero, an arrow on the sorted column only, a bold totals row at the end,
 files as list rows.
 
-Picked, **not built yet** (each needs a screen or a new component): form sections with the
-heading and note on the left; help text behind an "i" (needs a shared field component; today
-each form writes its own hint line); money fields with INR after the amount; phone with a
-country picker; choosing many as a tick list; date range with quick periods first; "Copy" as a
-word beside numbers; opening a record as list left, record right; approvals as tick and cross
-buttons (this replaces "Approve secondary, Reject as text" outside Books once built); board
-cards with owner and date; leave on calendars as solid blocks; Save at the top right only;
-success as a green note on the page. Bar charts as square bars in the app colour: there are no
-bar charts outside Books yet, so this is the rule for the first one. Menu sections: not picked
-yet (in round 4).
+Built in the second batch (17 Nov 2026):
+
+| Building block | How it is built |
+| --- | --- |
+| Form sections | Heading and note on the left, fields on the right from 1024px (`.ui-form-part`; Add employee) |
+| Help text | Behind an "i" beside the label (`HelpTip`); keyboard focus shows it too |
+| Money fields | "INR" after the amount (`MoneyInput`; drawn by CSS so it never joins a label's text) |
+| Phone | Country code picker before the number (`PhoneInput`) |
+| Choosing many | A tick list (`TickList`; rotations, data protection) |
+| Date range | Quick periods first: this month, last month, last 3 months, this financial year (`RangePresets`) |
+| Copy | The word "Copy" beside masked numbers, GSTIN and employee codes (`CopyWord`) |
+| Approvals | Tick and cross buttons (`.ui-decide`; Approvals, Leave requests). Outside Books this replaces "Approve secondary, Reject as text"; the cross still asks for a reason |
+| Board cards | Soft shadow; the opening's hiring manager under the date; lane counts are pills |
+| Leave on calendars | Solid block in the app colour; waiting leave keeps its dashed outline |
+| Save | Top right in the page header (Attendance rules moved; other settings pages already were). Step-by-step wizards keep Continue at the bottom |
+| Success after a big task | A green note on the page (`SuccessNote`; payroll approved, payroll locked). Small saves keep the toast |
+
+Still **not built**: opening a record as list left, record right (needs each list screen
+reworked). Bar charts as square bars in the app colour: there are no bar charts outside Books
+yet, so this is the rule for the first one.
+
+### Round 4 (17 Nov 2026)
+
+Built in `picks.css` and small component changes:
+
+| Building block | Pick |
+| --- | --- |
+| Row height | Roomy rows |
+| Long lists | The header stays while rows scroll (`DataTable`'s scroll box) |
+| Ticking rows | Tick boxes show on hover, on a ticked row, or once any row is ticked; always on touch screens |
+| Dialogs on a phone | Full screen (sheets marked as sheets still rise from the bottom) |
+| Labels on a record | Coloured dot and the word (`.ui-tag`) |
+| Profile photo | Initials with "Add photo" / "Change photo" under them; no camera badge |
+| Person in the org chart | Face over name (stacked cards keep the face beside the name) |
+
+Picked and already how the app works: save feedback as a white toast with a tick; lists on a
+phone as two-line rows; no access as a page with a lock (the "Ask" button is still to add).
+
+Picked, **not built yet** (component or screen work): tabs along the bottom on a phone; trial
+and plan strip across the top; no internet as a box with Try again; large home greeting; quick
+actions as tiles with pictures; who is away with the reason; birthdays as cards; to-dos grouped
+by app; choosing a person with face, name, team and ID; big choices as round buttons in a list;
+yes or no as a tick box; small numbers as a slider; time as hour and minute columns; SMS code
+as six boxes; password with "Show" and a strength bar; fields you cannot change as plain text
+with "Ask HR"; unsaved changes as a strip that stays; editing a cell in a list by clicking it;
+address as separate fields, PIN last; grouped rows as separate small lists; choosing columns
+as a tick list you can reorder; nothing matches showing close matches; activity grouped by
+day; payslip as one list; profile completeness as a bar with a percentage; long jobs as a list
+of steps; a round add button bottom right on a phone.
 
 Rules these picks relax outside Books: *white only* (fields are grey), *two radii* (3px, 4px
 and 16px now exist), *no card shadow*. Tokens only, tabular money, one primary action per

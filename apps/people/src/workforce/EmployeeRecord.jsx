@@ -461,6 +461,8 @@ function PhotoControl({ person, canEdit, onSaved }) {
         onClick={() => (person.photoUrl ? setMenu((o) => !o) : input.current?.click())}>
         <Avatar person={person} size={64} />
         <span className="ui-avatar-edit-badge" aria-hidden="true"><Camera size={14} /></span>
+        {/* Owner's pick (17 Nov 2026): initials with a link under them; the camera badge shows only in Books' look. */}
+        <span className="ui-avatar-edit-word" aria-hidden="true">{person.photoUrl ? 'Change photo' : 'Add photo'}</span>
       </button>
       {menu ? (
         <Popover anchorRef={btn} onClose={() => setMenu(false)} minWidth={180}>
@@ -500,7 +502,7 @@ function TagLine({ person, tags, canEdit, onSaved }) {
   if (!mine.length && (!canEdit || !tags.length)) return null;
   return (
     <span className="mt-2 flex flex-wrap items-center gap-1.5 font-normal">
-      {(person.tags || []).map((t) => <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>)}
+      {(person.tags || []).map((t) => <span key={t.id} className="ui-tag" style={{ '--tag': t.color }}>{t.name}</span>)}
       {canEdit && tags.length ? (
         <>
           <button ref={btn} type="button" className="ui-tag-add" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{mine.length ? <><Pencil size={12} aria-hidden="true" /> Tags</> : <><Plus size={12} aria-hidden="true" /> Add tag</>}</button>

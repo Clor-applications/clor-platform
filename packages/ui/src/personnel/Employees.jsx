@@ -428,7 +428,7 @@ export default function Employees({ description = '' } = {}) {
                   <span className={`ui-pill ${statusOf(p.status).pill}`}>{statusOf(p.status).label}</span>
                   {p.code ? <span className="ui-pill ui-pill-neutral">{p.code}</span> : null}
                   {(p.tags || []).slice(0, 2).map((t) => (
-                    <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
+                    <span key={t.id} className="ui-tag" style={{ '--tag': t.color }}>{t.name}</span>
                   ))}
                 </span>
               </span>
@@ -724,7 +724,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   </span>
                 ))}
                 {(person.tags || []).map((t) => (
-                  <span key={t.id} className="ui-pill" style={{ backgroundColor: `${t.color}22`, color: `color-mix(in srgb, ${t.color} 55%, rgb(var(--fg)))` }}>{t.name}</span>
+                  <span key={t.id} className="ui-tag" style={{ '--tag': t.color }}>{t.name}</span>
                 ))}
               </div>
               <div className="ui-caption mt-1">{person.workEmail || person.email || ''}</div>
