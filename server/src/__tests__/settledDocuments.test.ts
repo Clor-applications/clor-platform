@@ -52,7 +52,12 @@ const invoiceBody = () => ({
   items: [{ description: 'Service', quantity: 1, rate: 1000, gstRate: 0 }],
 });
 
-const docBody = (over: Record<string, unknown> = {}) => ({
+/* A body's one line follows its figures, so an override of the totals still agrees with its lines (the server refuses a document that does not). */
+const agree = (b: any, over: Record<string, unknown>) =>
+  over.items ? b : { ...b, items: [{ ...b.items[0], quantity: 1, rate: b.subtotal, gstRate: b.subtotal ? Math.round((b.gstTotal / b.subtotal) * 10000) / 100 : 0 }] };
+
+const docBody = (over: Record<string, unknown> = {}) =>
+  agree({
   date: '2026-07-12',
   partyName: 'Supplier Co',
   subtotal: 1000,
@@ -63,7 +68,7 @@ const docBody = (over: Record<string, unknown> = {}) => ({
   total: 1000,
   items: [{ description: 'Material', quantity: 1, rate: 1000, gstRate: 0 }],
   ...over,
-});
+  }, over);
 
 const pay = (direction: 'RECEIPT' | 'PAYMENT', docType: 'INVOICE' | 'BILL', docId: string, amount: number) =>
   request(app)
