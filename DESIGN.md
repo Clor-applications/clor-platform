@@ -703,6 +703,15 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-17 — Easy access, batch 2:** *Ops:* Overview opens on "Needs you today", a list of the
+  things themselves (trials ending in 7 days, overdue invoices, tickets urgent or not taken, approvals
+  waiting, failed payments), five a group, each row opening the thing and "See all" opening its list
+  filtered; it sits above the services table. An account's Invoices and payments tab lists its
+  invoices, and its header says what is unpaid. A ticket shows the customer beside the reply: plan,
+  apps, unpaid invoices, other open tickets. Trials are sorted soonest to end and paged. Approvals has
+  a menu count. *Workspace:* a person's panel on Members opens them in Company users to change a role
+  or mark them as left. Rule: **on a summary page, what needs a person comes before how the system is
+  doing.**
 - **2026-11-17 — Easy access, batch 1 (owner: "info should be available right away instead of searching"):**
   from an audit of Workspace and Ops. *Workspace:* search finds members, companies and settings by the
   words people use (`searchRecords`, `searchActions`, `searchLabel` in the manifest); an invitation

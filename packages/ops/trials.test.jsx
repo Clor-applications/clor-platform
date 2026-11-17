@@ -30,7 +30,7 @@ const signups = {
 
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
-  api.accounts.mockResolvedValue({ total: 1, page: 0, pageSize: 25, accounts: [rao] });
+  api.accounts.mockResolvedValue({ total: 1, page: 0, pageSize: 25, trialsEndingIn7d: 1, accounts: [rao] });
   api.signups.mockResolvedValue(signups);
 });
 
@@ -46,7 +46,8 @@ describe('Trials in the operator console', () => {
   it('lists accounts on trial with the days left, and the sign-ups from clor.in with what the offer is', async () => {
     render(<Trials role="SUPPORT" openAccount={() => {}} />);
     expect((await screen.findAllByRole('button', { name: 'Rao Textiles' })).length).toBe(2);
-    expect(api.accounts).toHaveBeenCalledWith({ status: 'trialing' });
+    /* Soonest to end first is the order asked for, from the first page. */
+    expect(api.accounts).toHaveBeenCalledWith({ status: 'trialing', sort: 'trialEnd', page: 0, endingWithin: undefined });
     expect(screen.getByText('1 on trial · 1 ending within a week')).toBeInTheDocument();
     expect(screen.getByText('3 days left')).toBeInTheDocument();
     expect(screen.getByText('Books, People, Attendance')).toBeInTheDocument();
@@ -60,6 +61,39 @@ describe('Trials in the operator console', () => {
     api.resend.mockResolvedValue({});
     fireEvent.click(screen.getByRole('button', { name: 'Send link again' }));
     await waitFor(() => expect(api.resend).toHaveBeenCalledWith('s1'));
+  });
+
+  it('pages through every trial, and takes both counts from the server, not from the page shown', async () => {
+    const row = (i) => ({ ...rao, id: `a${i}`, name: `Trial ${i}`, trialEndsAt: new Date(Date.now() + 20 * DAY).toISOString() });
+    api.accounts.mockImplementation(({ page }) => Promise.resolve({ total: 60, page, pageSize: 25, trialsEndingIn7d: 9, accounts: [row(page * 25 + 1)] }));
+    render(<Trials role="SUPPORT" openAccount={() => {}} />);
+    expect(await screen.findByRole('button', { name: 'Trial 1' })).toBeInTheDocument();
+    /* Nothing on this page ends within a week; nine trials do. */
+    expect(screen.getByText('60 on trial · 9 ending within a week')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByRole('button', { name: 'Trial 26' })).toBeInTheDocument();
+    expect(api.accounts).toHaveBeenLastCalledWith({ status: 'trialing', sort: 'trialEnd', page: 1, endingWithin: undefined });
+    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+    /* The sign-ups are not read again for a new page of accounts. */
+    expect(api.signups).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no pager when every trial fits on one page', async () => {
+    render(<Trials role="SUPPORT" openAccount={() => {}} />);
+    await screen.findAllByRole('button', { name: 'Rao Textiles' });
+    expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
+  });
+
+  it('opens narrowed to the trials ending this week when Overview sends it, and widens on request', async () => {
+    render(<Trials role="SUPPORT" openAccount={() => {}} ending="7" />);
+    await screen.findAllByRole('button', { name: 'Rao Textiles' });
+    expect(api.accounts).toHaveBeenCalledWith({ status: 'trialing', sort: 'trialEnd', page: 0, endingWithin: 7 });
+    expect(screen.getByText('1 ending in the next 7 days')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show every trial' }));
+    await waitFor(() => expect(api.accounts).toHaveBeenLastCalledWith({ status: 'trialing', sort: 'trialEnd', page: 0, endingWithin: undefined }));
+    expect(await screen.findByText('1 on trial · 1 ending within a week')).toBeInTheDocument();
   });
 
   it('lets Billing extend a trial with a reason', async () => {

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => Object.fromEntries(
-  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsAccountEntitlements', 'opsTags'].map((k) => [k, vi.fn()]),
+  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsAccountEntitlements', 'opsTags', 'opsInvoices'].map((k) => [k, vi.fn()]),
 ));
 vi.mock('./api', () => api);
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -28,6 +28,7 @@ const detail = (over = {}) => ({
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.opsTags.mockResolvedValue({ tags: [] });
+  api.opsInvoices.mockResolvedValue({ invoices: [], hasMore: false, totals: {} });
   notify.success.mockReset();
 });
 
@@ -186,7 +187,55 @@ describe('a customer’s page', () => {
     api.opsAccount.mockResolvedValue(detail());
     api.opsCustomerPayments.mockResolvedValue({ invoices: [], payments: [] });
     render(<CustomerPage id="a1" tab="money" role="BILLING" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
-    expect(await screen.findByText(/No invoices or payments yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/No invoices yet\. One shows here when/)).toBeInTheDocument();
+    expect(await screen.findByText(/No payment events yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/unpaid/)).toBeNull();
+  });
+
+  it('lists the account’s invoices from the filtered call, says what is unpaid, and opens one', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsCustomerPayments.mockResolvedValue({ invoices: [], payments: [{ id: 'p1', gateway: 'razorpay', type: 'payment.captured', applied: true, at: '2026-11-10T05:00:00Z' }] });
+    const inv = (o) => ({ id: 'i1', number: 'CLOR/26-27/0042', accountId: 'a1', status: 'ISSUED', overdue: false, issueDate: '2026-11-01T00:00:00Z', dueDate: '2026-11-15T00:00:00Z', total: 118000, createdAt: '2026-11-01T00:00:00Z', ...o });
+    api.opsInvoices.mockResolvedValue({
+      invoices: [inv({ id: 'i3', number: null, status: 'DRAFT', issueDate: null, dueDate: null, total: 50000 }), inv({ id: 'i2', number: 'CLOR/26-27/0043', overdue: true, total: 236000 }), inv({}), inv({ id: 'i0', number: 'CLOR/26-27/0007', status: 'PAID', total: 99900 })],
+      hasMore: false,
+      /* The server's totals cover every account, so the page must not read them. */
+      totals: { ISSUED: { count: 40, amount: 9999900 } },
+    });
+    const openLink = vi.fn();
+    render(<CustomerPage id="a1" tab="money" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} openLink={openLink} />);
+    const table = await screen.findByRole('table', { name: 'Invoices' });
+    expect(api.opsInvoices).toHaveBeenCalledTimes(1);
+    expect(api.opsInvoices).toHaveBeenCalledWith({ accountId: 'a1' });
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows.map((r) => r.cells[0].textContent)).toEqual(['Draft', 'CLOR/26-27/0043', 'CLOR/26-27/0042', 'CLOR/26-27/0007']);
+    expect(rows[1]).toHaveTextContent('1 Nov 2026');
+    expect(rows[1]).toHaveTextContent('15 Nov 2026');
+    expect(rows[1]).toHaveTextContent('₹2,360');
+    expect(within(rows[1]).getByText('Overdue')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Unpaid')).toBeInTheDocument();
+    expect(within(rows[3]).getByText('Paid')).toBeInTheDocument();
+    expect(screen.getByText('₹3,540 unpaid on 2 invoices; 1 overdue')).toBeInTheDocument();
+    /* The same fetch feeds the line under the name. */
+    expect(screen.getByText('₹3,540 unpaid')).toBeInTheDocument();
+    /* The events come from their own request: waited for, not assumed to be in already. */
+    expect(within(await screen.findByRole('table', { name: 'Payment events' })).getByText('payment captured')).toBeInTheDocument();
+    fireEvent.click(within(table).getByRole('button', { name: 'CLOR/26-27/0043' }));
+    expect(openLink).toHaveBeenCalledWith({ page: 'invoices', id: 'i2' });
+  });
+
+  it('says nothing about unpaid money when every invoice is paid, and keeps the page when invoices cannot be read', async () => {
+    api.opsAccount.mockResolvedValue(detail());
+    api.opsCustomerPayments.mockResolvedValue({ invoices: [], payments: [] });
+    api.opsInvoices.mockResolvedValue({ invoices: [{ id: 'i0', number: 'CLOR/26-27/0007', status: 'PAID', overdue: false, issueDate: '2026-11-01T00:00:00Z', dueDate: null, total: 99900, createdAt: '2026-11-01T00:00:00Z' }], hasMore: false });
+    const { unmount } = render(<CustomerPage id="a1" tab="money" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByRole('table', { name: 'Invoices' })).toBeInTheDocument();
+    expect(screen.queryByText(/unpaid/)).toBeNull();
+    unmount();
+    api.opsInvoices.mockRejectedValue(new Error('Could not read invoices.'));
+    render(<CustomerPage id="a1" tab="money" role="READ_ONLY" back={() => {}} setTab={() => {}} openDemo={() => {}} />);
+    expect(await screen.findByText('Could not read invoices.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Rao Textiles' })).toBeInTheDocument();
   });
 
   it('lists the demo request on Requests and opens it', async () => {

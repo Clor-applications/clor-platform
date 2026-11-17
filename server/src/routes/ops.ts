@@ -22,6 +22,9 @@ import { consoleGrantUrl } from '../services/consoleGrant.js';
 import { operatorActionLabel } from '../constants/operatorActions.js';
 import { noteDenials } from '../services/ops/denials.js';
 import { opsListsRouter } from './opsLists.js';
+import { KIND_WORDS } from '../services/ops/approvals.js';
+import { ticketCode } from '../services/support/tickets.js';
+import { describe as paymentEventWords } from '../billing/events.js';
 
 /**
  * The Clor operator console (W-8.2): Clor's own staff, looking across every
@@ -267,6 +270,11 @@ const listQuery = z.object({
   page: z.coerce.number().int().min(0).max(10_000).optional(),
   /* Only customers carrying this staff tag (routes/opsNotes.ts). */
   tag: z.string().trim().max(40).optional(),
+  /* Trials works its list by the date each trial ends, soonest first; every other caller keeps newest first. */
+  sort: z.enum(['created', 'trialEnd']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  /* Only trials that end in the next so many days: where Overview's "See all" lands. */
+  endingWithin: z.coerce.number().int().min(1).max(90).optional(),
 });
 const PAGE = 25;
 
@@ -275,7 +283,7 @@ opsRouter.get('/ops/accounts', (req, res) =>
   outsideTenant('ops: accounts', async () => {
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: 'Invalid query' });
-    const { q = '', status = 'all', page = 0, tag } = parsed.data;
+    const { q = '', status = 'all', page = 0, tag, sort = 'created', limit = PAGE, endingWithin } = parsed.data;
     const where: any = {};
     if (tag) {
       const tagged = await platformPrisma.accountTag.findMany({ where: { tag: { equals: tag, mode: 'insensitive' } }, select: { accountId: true } });
@@ -348,7 +356,20 @@ opsRouter.get('/ops/accounts', (req, res) =>
     /* Overdue: payment is late, or a trial ran out without a plan. */
     if (status === 'overdue') rows = rows.filter((r) => r.plan === 'past_due' || (r.plan === 'trialing' && r.trialEndsAt && new Date(r.trialEndsAt).getTime() < Date.now()));
     if (status === 'cancelled') rows = rows.filter((r) => r.plan === 'cancelled');
-    res.json({ total: rows.length, page, pageSize: PAGE, accounts: rows.slice(page * PAGE, page * PAGE + PAGE) });
+    /* Counted over the whole list, not the page shown: the same week Overview counts (ends from now to seven days on). */
+    const now = Date.now();
+    const endsWithin = (r: (typeof rows)[number], days: number) => {
+      if (r.plan !== 'trialing' || !r.trialEndsAt) return false;
+      const t = new Date(r.trialEndsAt).getTime();
+      return t >= now && t <= now + days * DAY;
+    };
+    const trialsEndingIn7d = rows.filter((r) => endsWithin(r, 7)).length;
+    if (endingWithin) rows = rows.filter((r) => endsWithin(r, endingWithin));
+    if (sort === 'trialEnd') {
+      const ends = (r: (typeof rows)[number]) => (r.trialEndsAt ? new Date(r.trialEndsAt).getTime() : Number.POSITIVE_INFINITY);
+      rows = [...rows].sort((a, b) => ends(a) - ends(b));
+    }
+    res.json({ total: rows.length, page, pageSize: limit, trialsEndingIn7d, accounts: rows.slice(page * limit, page * limit + limit) });
   }),
 );
 
@@ -634,7 +655,34 @@ opsRouter.get('/ops/audit/export', (req, res) =>
 
 /* ------------------------------------------------------------------ home */
 
-/** Today's numbers, each a way into its list. */
+/** What each customer is called (customerTitle), by account id: one read for every list on Home. */
+async function customerTitles(ids: Array<string | null>) {
+  const list = [...new Set(ids.filter(Boolean))] as string[];
+  if (!list.length) return new Map<string, string>();
+  const [accounts, owners] = await Promise.all([
+    platformPrisma.account.findMany({ where: { id: { in: list } }, select: { id: true, name: true, orgs: { select: { name: true }, orderBy: { createdAt: 'asc' }, take: 1 } } }),
+    platformPrisma.accountMembership.findMany({ where: { accountId: { in: list }, role: 'OWNER' }, select: { accountId: true, userId: true }, orderBy: { createdAt: 'asc' } }),
+  ]);
+  const users = owners.length ? await platformPrisma.user.findMany({ where: { id: { in: owners.map((o) => o.userId) } }, select: { id: true, fullName: true } }) : [];
+  const fullName = new Map(users.map((u) => [u.id, u.fullName]));
+  const owner = new Map<string, string | null | undefined>();
+  for (const o of owners) if (!owner.has(o.accountId)) owner.set(o.accountId, fullName.get(o.userId));
+  return new Map(accounts.map((a) => [a.id, customerTitle(a.name, owner.get(a.id), a.orgs[0]?.name)]));
+}
+
+/** How many of each kind of work Home lists; the rest is behind "See all". */
+const HOME_ITEMS = 5;
+
+/**
+ * Today's numbers, each a way into its list, and under `work` the first few
+ * things themselves, most pressing first, so staff open the account, invoice
+ * or ticket from Home instead of finding it again in a list.
+ *
+ * Every operator role gets every list: the routes these come from (accounts
+ * here, routes/opsInvoices.ts, opsTickets.ts, opsApprovals.ts, opsPayments.ts)
+ * let any operator read and narrow only the changes. If one of them ever
+ * narrows who may read, narrow its list here too.
+ */
 opsRouter.get('/ops/home', (_req, res) =>
   outsideTenant('ops: home', async () => {
     const now = Date.now();
@@ -656,7 +704,53 @@ opsRouter.get('/ops/home', (_req, res) =>
       platformPrisma.opsAlert.count({ where: { resolvedAt: null, severity: 'critical' } }),
       platformPrisma.supportTicket.count({ where: { status: 'OPEN' } }),
     ]);
-    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen });
+    const at = new Date(now);
+    const trialsWhere = { status: 'trialing', trialEndsAt: { gte: at, lte: new Date(now + 7 * DAY) } };
+    const invoicesWhere = { status: 'ISSUED', dueDate: { lt: at } };
+    /* A ticket with CLOR that is urgent, or that nobody has taken. */
+    const ticketsWhere = { status: 'OPEN', OR: [{ priority: 'URGENT' }, { assignedOperatorId: null }] };
+    const approvalsWhere = { status: 'PENDING', expiresAt: { gt: at } };
+    /* FAILED is a payment that could not be applied and can be tried again (billing/events.ts). */
+    const paymentsWhere = { status: 'FAILED', receivedAt: { gte: weekAgo } };
+    const [trialRows, invoiceRows, invoicesOverdue, urgentTickets, unassignedTickets, ticketsWaiting, approvalRows, approvalsWaiting, paymentRows, paymentsFailed] = await Promise.all([
+      platformPrisma.subscription.findMany({ where: trialsWhere, orderBy: { trialEndsAt: 'asc' }, take: HOME_ITEMS, select: { accountId: true, trialEndsAt: true } }),
+      /* Longest overdue first. */
+      platformPrisma.billingInvoice.findMany({ where: invoicesWhere, orderBy: { dueDate: 'asc' }, take: HOME_ITEMS, select: { id: true, number: true, accountId: true, total: true, dueDate: true } }),
+      platformPrisma.billingInvoice.count({ where: invoicesWhere }),
+      /* Urgent ones first, then the unassigned, each longest waiting first (the Tickets list's own order). */
+      platformPrisma.supportTicket.findMany({ where: { status: 'OPEN', priority: 'URGENT' }, orderBy: { updatedAt: 'asc' }, take: HOME_ITEMS }),
+      platformPrisma.supportTicket.findMany({ where: { status: 'OPEN', assignedOperatorId: null, priority: { not: 'URGENT' } }, orderBy: { updatedAt: 'asc' }, take: HOME_ITEMS }),
+      platformPrisma.supportTicket.count({ where: ticketsWhere }),
+      /* The one that runs out soonest first. */
+      platformPrisma.opsApproval.findMany({ where: approvalsWhere, orderBy: { expiresAt: 'asc' }, take: HOME_ITEMS, select: { id: true, kind: true, accountId: true, summary: true, requestedBy: true, createdAt: true, expiresAt: true } }),
+      platformPrisma.opsApproval.count({ where: approvalsWhere }),
+      platformPrisma.paymentEvent.findMany({ where: paymentsWhere, orderBy: { receivedAt: 'desc' }, take: HOME_ITEMS, select: { id: true, type: true, accountId: true, amount: true, detail: true, receivedAt: true } }),
+      platformPrisma.paymentEvent.count({ where: paymentsWhere }),
+    ]);
+    const ticketRows = [...urgentTickets, ...unassignedTickets].slice(0, HOME_ITEMS);
+    const [titles, askers] = await Promise.all([
+      customerTitles([...trialRows, ...invoiceRows, ...ticketRows, ...approvalRows, ...paymentRows].map((r) => r.accountId)),
+      approvalRows.length ? platformPrisma.user.findMany({ where: { id: { in: [...new Set(approvalRows.map((a) => a.requestedBy))] } }, select: { id: true, fullName: true, email: true } }) : [],
+    ]);
+    const asker = new Map(askers.map((u) => [u.id, u.fullName || u.email]));
+    const customer = (accountId: string | null) => (accountId ? titles.get(accountId) || 'A customer' : null);
+    const work = {
+      trials: { total: trialsEnding, items: trialRows.map((s) => ({ accountId: s.accountId, customer: customer(s.accountId), trialEndsAt: s.trialEndsAt })) },
+      invoices: { total: invoicesOverdue, items: invoiceRows.map((i) => ({ id: i.id, number: i.number, accountId: i.accountId, customer: customer(i.accountId), total: i.total, dueDate: i.dueDate })) },
+      tickets: {
+        total: ticketsWaiting,
+        items: ticketRows.map((t) => ({ id: t.id, code: ticketCode(t.number), subject: t.subject, accountId: t.accountId, customer: customer(t.accountId), priority: t.priority, assigned: Boolean(t.assignedOperatorId), createdAt: t.createdAt })),
+      },
+      approvals: {
+        total: approvalsWaiting,
+        items: approvalRows.map((a) => ({ id: a.id, kindWord: KIND_WORDS[a.kind] || a.kind, summary: a.summary, accountId: a.accountId, customer: customer(a.accountId), askedBy: asker.get(a.requestedBy) || 'A colleague', createdAt: a.createdAt, expiresAt: a.expiresAt })),
+      },
+      payments: {
+        total: paymentsFailed,
+        items: paymentRows.map((p) => ({ id: p.id, what: paymentEventWords(p.type), accountId: p.accountId, customer: customer(p.accountId), amount: p.amount, detail: p.detail, at: p.receivedAt })),
+      },
+    };
+    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen, approvalsWaiting, invoicesOverdue, work });
   }),
 );
 

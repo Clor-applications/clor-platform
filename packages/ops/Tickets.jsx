@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHead, Panel, ago } from '../../apps/admin/src/screens/wsKit';
-import { APP_NAMES, Err, Loading, Tabs, may, when } from './kit';
-import { opsTicket, opsTicketChange, opsTicketReply, opsTickets } from './api';
+import { APP_NAMES, Err, Loading, Tabs, appsText, day, may, when } from './kit';
+import { opsAccount, opsInvoices, opsTicket, opsTicketChange, opsTicketReply, opsTickets } from './api';
+import { StatusPill, customerStatus, unpaidOf } from './Customers';
+import { inr } from './money';
 import { SavedReplyPicker } from './SavedReplies';
 
 /**
@@ -108,7 +110,29 @@ export function Tickets({ initialStatus = 'active', openTicket, me }) {
   );
 }
 
-export function TicketPage({ id, back, openCustomer, lookUp, me }) {
+/**
+ * Who is asking, for the person answering: the account's plan, what it has
+ * not paid and what else it is waiting on. Each part is fetched on its own
+ * and a part that fails is left out, because the reply must never wait on it.
+ */
+function useCustomerContext(accountId, ticketId) {
+  const [c, setC] = useState({});
+  useEffect(() => {
+    if (!accountId) return undefined;
+    let live = true;
+    const put = (k) => (v) => live && setC((cur) => ({ ...cur, [k]: v }));
+    const quiet = () => {};
+    opsAccount(accountId).then(put('account')).catch(quiet);
+    opsInvoices({ accountId, status: 'ISSUED' }).then((r) => put('owed')(unpaidOf(r?.invoices))).catch(quiet);
+    opsTickets({ accountId, status: 'active' }).then((r) => put('others')((r?.tickets || []).filter((x) => x.id !== ticketId).slice(0, 5))).catch(quiet);
+    return () => {
+      live = false;
+    };
+  }, [accountId, ticketId]);
+  return c;
+}
+
+export function TicketPage({ id, back, openCustomer, openTicket, lookUp, me }) {
   const [t, setT] = useState(null);
   const [error, setError] = useState('');
   const [body, setBody] = useState('');
@@ -121,6 +145,7 @@ export function TicketPage({ id, back, openCustomer, lookUp, me }) {
   useEffect(() => {
     opsTicket(id).then(setT).catch((e) => setError(String(e?.message || e)));
   }, [id]);
+  const about = useCustomerContext(t?.account?.id, id);
 
   const run = async (fn, said) => {
     setBusy(true);
@@ -146,6 +171,9 @@ export function TicketPage({ id, back, openCustomer, lookUp, me }) {
 
   if (!t) return <div className="ws"><div className="ws-inner">{error ? <Err>{error}</Err> : <Loading />}</div></div>;
   const mineNow = t.assignedTo?.id === me?.user?.id;
+  const acct = about.account?.account ? about.account : null;
+  const sub = acct?.subscription;
+  const planStatus = !acct ? null : acct.account.suspendedAt ? 'suspended' : sub ? customerStatus(sub.status, sub.trialEndsAt) : acct.account.legacyUnrestrictedAt ? 'legacy' : 'no-plan';
 
   return (
     <div className="ws">
@@ -239,11 +267,51 @@ export function TicketPage({ id, back, openCustomer, lookUp, me }) {
             </Panel>
             <Panel title="Customer">
               <dl className="ws-rows">
-                <div><dt>Account</dt><dd><button type="button" className="ws-link" onClick={() => openCustomer(t.account.id)}>{t.account.name}</button></dd></div>
+                <div><dt>Account</dt><dd>{t.account.name}</dd></div>
                 <div><dt>Asked by</dt><dd>{t.openedBy.name}</dd></div>
                 {t.openedBy.email ? <div><dt>Email</dt><dd style={{ overflowWrap: 'anywhere' }}>{t.openedBy.email}</dd></div> : null}
                 {t.openedBy.phone ? <div><dt>Phone</dt><dd className="ui-num">{t.openedBy.phone}</dd></div> : null}
+                {acct ? (
+                  <>
+                    <div>
+                      <dt>Status</dt>
+                      <dd>
+                        <StatusPill status={planStatus} />
+                        {sub?.status === 'trialing' && sub.trialEndsAt ? <div className="ws-item-sub tabular-nums">trial {planStatus === 'overdue' ? 'ended' : 'ends'} {day(sub.trialEndsAt)}</div> : null}
+                      </dd>
+                    </div>
+                    {sub?.deal?.planName ? <div><dt>Plan</dt><dd>{sub.deal.planName}</dd></div> : null}
+                    <div><dt>Apps on</dt><dd>{sub ? appsText(sub.apps) : acct.account.legacyUnrestrictedAt ? 'Every app (older account)' : 'None'}</dd></div>
+                    <div><dt>Users</dt><dd className="ui-num">{acct.members.length}</dd></div>
+                    <div><dt>Companies</dt><dd className="ui-num">{acct.companies.length}</dd></div>
+                  </>
+                ) : null}
+                {about.owed?.count ? (
+                  <div>
+                    <dt>Unpaid</dt>
+                    <dd className="ui-num">
+                      {inr(about.owed.amount)}
+                      <div className="ws-item-sub">{about.owed.count} {about.owed.count === 1 ? 'invoice' : 'invoices'}{about.owed.overdue ? `, ${about.owed.overdue} overdue` : ''}</div>
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
+              {about.others?.length ? (
+                <div className="grid gap-1" style={{ marginTop: 8 }}>
+                  <h3 id="tk-others" className="text-sm font-medium">Other open tickets</h3>
+                  <ul className="grid gap-1" aria-labelledby="tk-others">
+                    {about.others.map((x) => (
+                      <li key={x.id}>
+                        <button type="button" className="ws-link" style={{ textAlign: 'left' }} onClick={() => openTicket?.(x.id)}>
+                          <span className="ui-num">{x.code}</span> {x.subject}
+                        </button>
+                        <div className="ws-item-sub">{STATUS[x.status]?.[0] || x.status}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <button type="button" className="ws-link" style={{ marginTop: 8 }} onClick={() => openCustomer(t.account.id)}>Open account</button>
             </Panel>
           </aside>
         </div>

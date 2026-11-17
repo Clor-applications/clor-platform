@@ -31,6 +31,45 @@ describe('a customer’s page in the operator console', () => {
     expect(one.subscription).toMatchObject({ status: 'trialing', apps: ['accounting'] });
   }, 90_000);
 
+  it('lists trials by the day they end, soonest first, a page at a time, and counts the week’s over the whole list', async () => {
+    const reader = await staff('READ_ONLY');
+    const DAY = 86_400_000;
+    const tag = `trial-${Date.now()}`;
+    const days = [20, 2, 9, 5, -1];
+    const made: string[] = [];
+    for (const d of days) {
+      const c = await company('trial');
+      await setSubscription(c.accountId, { apps: [{ appCode: 'accounting' }], status: 'trialing', trialDays: 14 });
+      await platformPrisma.subscription.update({ where: { accountId: c.accountId }, data: { trialEndsAt: new Date(Date.now() + d * DAY) } });
+      await platformPrisma.accountTag.create({ data: { accountId: c.accountId, tag, addedByUserId: reader.userId } });
+      made.push(c.accountId);
+    }
+    const [in20, in2, in9, in5, ended] = made;
+    const get = async (query: Record<string, unknown>) => (await request(app).get('/api/ops/accounts').query({ tag, status: 'trialing', ...query }).set(reader.h).expect(200)).body;
+
+    /* Unasked, the list is as it always was: newest account first, 25 to a page. */
+    const plain = await get({});
+    expect(plain).toMatchObject({ total: 5, page: 0, pageSize: 25, trialsEndingIn7d: 2 });
+    expect(plain.accounts.map((a: any) => a.id)).toEqual([...made].reverse());
+
+    const first = await get({ sort: 'trialEnd', limit: 2 });
+    expect(first).toMatchObject({ total: 5, page: 0, pageSize: 2, trialsEndingIn7d: 2 });
+    expect(first.accounts.map((a: any) => a.id)).toEqual([ended, in2]);
+    expect((await get({ sort: 'trialEnd', limit: 2, page: 1 })).accounts.map((a: any) => a.id)).toEqual([in5, in9]);
+    const last = await get({ sort: 'trialEnd', limit: 2, page: 2 });
+    expect(last.accounts.map((a: any) => a.id)).toEqual([in20]);
+    /* The week's count is of every trial, whichever page is shown. */
+    expect(last.trialsEndingIn7d).toBe(2);
+
+    /* Where Overview's "See all" lands: only the trials that end in the next seven days. */
+    const week = await get({ sort: 'trialEnd', endingWithin: 7 });
+    expect(week.total).toBe(2);
+    expect(week.accounts.map((a: any) => a.id)).toEqual([in2, in5]);
+
+    await request(app).get('/api/ops/accounts').query({ sort: 'name' }).set(reader.h).expect(400);
+    await request(app).get('/api/ops/accounts').query({ limit: 1000 }).set(reader.h).expect(400);
+  }, 120_000);
+
   it('lets Finance change apps, cancel and reopen; not Support, Sales or Read-only; each with a reason on the record', async () => {
     const fin = await staff('BILLING');
     const sup = await staff('SUPPORT');

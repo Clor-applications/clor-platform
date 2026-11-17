@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Building2, CalendarClock, Receipt, TriangleAlert } from 'lucide-react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading } from './kit';
+import { Err, Loading, day } from './kit';
 import { workerName } from './Health';
+import { daysLeft } from './Trials';
+import { inr } from './money';
 import { opsAudit, opsHealth, opsHome, opsOverview } from './api';
 
 /**
  * Overview (operator console; R&D CLOR-05): four numbers about the customer
- * base, the background services, what needs a staff member today, and what
- * staff did last. Each part loads on its own, so a role that cannot see one
+ * base, the background services, the work that needs a staff member today
+ * (the things themselves, not a count of them), and what staff did last. Each part loads on its own, so a role that cannot see one
  * still gets the rest.
  */
 const n = (count, one, many) => `${count} ${count === 1 ? one : many}`;
@@ -69,11 +71,12 @@ export function Home({ go, has }) {
         }
       />
       <Kpis d={ov.d} error={ov.error} go={go} has={has} />
-      <Services d={health.d} error={health.error} go={go} has={has} />
+      {/* What needs somebody comes before how the machinery is doing: it was under the services table, below the fold (owner, 17 Nov 2026: "info should be available right away"). */}
       <div className="ops-split">
         <NeedsAction d={today.d} error={today.error} go={go} has={has} />
         <RecentActions d={audit.d} error={audit.error} go={go} has={has} />
       </div>
+      <Services d={health.d} error={health.error} go={go} has={has} />
     </>
   );
 }
@@ -181,77 +184,217 @@ function Services({ d, error, go, has }) {
   );
 }
 
-/* ---------------------------------------------------------- needs action */
+/* ------------------------------------------------------- needs you today */
+const DAY = 86_400_000;
+const daysOverdue = (due, now) => {
+  const d = Math.floor((now - new Date(due).getTime()) / DAY);
+  return d < 1 ? 'due today' : n(d, 'day overdue', 'days overdue');
+};
+
+/**
+ * The work itself, in groups, most pressing first (server: /ops/home `work`).
+ * Each row opens the thing: the account's Subscription tab, the invoice, the
+ * ticket. A group shows five; "See all" opens its list already filtered to the
+ * same rows, and is left out where the list has no such filter yet.
+ */
+function workGroups(d, go, has, now) {
+  const w = d.work || {};
+  const items = (k) => w[k]?.items || [];
+  const total = (k) => Math.max(w[k]?.total || 0, items(k).length);
+  const seeAll = (k, open) => (total(k) > items(k).length ? { label: `See all ${total(k)}`, open } : null);
+  return [
+    {
+      k: 'trials',
+      title: 'Trials ending this week',
+      more: seeAll('trials', () => (has('trials') ? go('trials', { ending: '7' }) : go('customers', { status: 'trialing' }))),
+      rows: items('trials').map((t) => ({
+        id: t.accountId,
+        pill: [daysLeft(t.trialEndsAt, now).replace(/^./, (c) => c.toUpperCase()), 'warn'],
+        title: t.customer || 'A customer',
+        sub: `Trial ends ${day(t.trialEndsAt)}`,
+        open: () => go('customers', {}, t.accountId, 'subscription'),
+      })),
+    },
+    {
+      k: 'invoices',
+      title: 'Overdue invoices',
+      more: seeAll('invoices', () => go('invoices', { status: 'OVERDUE' })),
+      rows: items('invoices').map((i) => ({
+        id: i.id,
+        pill: ['Overdue', 'danger'],
+        title: i.customer || 'A customer',
+        sub: (
+          <>
+            <span className="ui-mono">{i.number || 'No number'}</span> · {daysOverdue(i.dueDate, now)}
+          </>
+        ),
+        money: i.total,
+        open: () => go('invoices', {}, i.id),
+      })),
+    },
+    {
+      k: 'tickets',
+      title: 'Tickets: urgent or not taken',
+      /* Tickets has no filter for these yet, so the link says what it opens and carries no number. */
+      more: total('tickets') > items('tickets').length ? { label: 'All tickets', open: () => go('tickets') } : null,
+      rows: items('tickets').map((t) => ({
+        id: t.id,
+        pill: t.priority === 'URGENT' ? ['Urgent', 'danger'] : ['Not taken', 'warn'],
+        title: t.subject,
+        sub: (
+          <>
+            <span className="ui-mono">{t.code}</span> · {t.customer || 'A customer'}
+            {t.priority === 'URGENT' && !t.assigned ? ' · not taken' : ''}
+          </>
+        ),
+        end: `Opened ${ago(t.createdAt)}`,
+        open: () => go('tickets', {}, t.id),
+      })),
+    },
+    {
+      k: 'approvals',
+      title: 'Approvals waiting',
+      more: seeAll('approvals', () => go('approvals')),
+      rows: items('approvals').map((a) => ({
+        id: a.id,
+        pill: ['Waiting', 'warn'],
+        title: a.summary,
+        sub: [a.kindWord, a.customer, `asked by ${a.askedBy}`].filter(Boolean).join(' · '),
+        end: ago(a.createdAt),
+        open: () => go('approvals'),
+      })),
+    },
+    {
+      k: 'payments',
+      title: 'Failed payments',
+      more: has('payments') && total('payments') > items('payments').length ? { label: 'Open Payments', open: () => go('payments') } : null,
+      rows: items('payments').map((p) => ({
+        id: p.id,
+        pill: ['Failed', 'danger'],
+        title: p.customer || p.what || 'A payment',
+        sub: p.detail || p.what,
+        money: p.amount,
+        /* A payment nobody could match to a customer has only the Payments log to open. */
+        open: () => (p.accountId ? go('customers', {}, p.accountId) : go('payments')),
+      })),
+    },
+  ].filter((g) => g.rows.length);
+}
+
+/** What Home still knows only as a number: each opens its list. */
+function countRows(d, go, has) {
+  const listed = (k) => Boolean(d.work?.[k]?.items?.length);
+  return [
+    d.alertsOpen
+      ? { k: 'alerts', tag: 'Platform', tone: d.alertsCritical ? 'danger' : 'warn', label: 'Alerts', title: n(d.alertsOpen, 'alert is open', 'alerts are open'), note: d.alertsCritical ? `${n(d.alertsCritical, 'is urgent', 'are urgent')}` : 'Nothing urgent', open: () => go('alerts') }
+      : null,
+    /* Open tickets that are all taken and none urgent are not listed above, but customers still wait. */
+    d.ticketsOpen && !listed('tickets')
+      ? { k: 'tickets', tag: 'Support', tone: 'warn', label: 'Tickets', title: n(d.ticketsOpen, 'ticket needs an answer', 'tickets need an answer'), note: `${n(d.ticketsOpen, 'customer waits', 'customers wait')} for an answer`, open: () => go('tickets') }
+      : null,
+    d.newDemos || d.followUpsDue
+      ? {
+          k: 'demos',
+          tag: 'Sales',
+          tone: 'warn',
+          label: 'Demo requests',
+          title: d.newDemos ? n(d.newDemos, 'new demo request', 'new demo requests') : n(d.followUpsDue, 'follow-up due', 'follow-ups due'),
+          note: [
+            d.newDemos ? `${n(d.newDemos, 'new request waits', 'new requests wait')} for a call` : null,
+            d.followUpsDue ? n(d.followUpsDue, 'follow-up due today', 'follow-ups due today') : null,
+            d.demosToday ? `${d.demosToday} came in today` : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          open: () => go('demos'),
+        }
+      : null,
+    d.trialsEnding && !listed('trials')
+      ? { k: 'trials', tag: 'Trials', tone: 'warn', label: 'Trials ending this week', title: n(d.trialsEnding, 'trial ends this week', 'trials end this week'), note: `${n(d.trialsEnding, 'trial ends', 'trials end')} in the next 7 days`, open: () => (has('trials') ? go('trials', { ending: '7' }) : go('customers', { status: 'trialing' })) }
+      : null,
+    d.failedPayments && !listed('payments')
+      ? { k: 'payments', tag: 'Billing', tone: 'danger', label: 'Failed payments', title: n(d.failedPayments, 'payment failed', 'payments failed'), note: `${n(d.failedPayments, 'payment', 'payments')} this week could not be applied`, open: () => (has('payments') ? go('payments') : go('customers', { status: 'overdue' })) }
+      : null,
+    d.failedEmails
+      ? { k: 'emails', tag: 'Email', tone: 'warn', label: 'Failed emails', title: n(d.failedEmails, 'email failed', 'emails failed'), note: `${n(d.failedEmails, 'email', 'emails')} this week did not go`, open: () => go('emailLog', { status: 'FAILED' }) }
+      : null,
+    d.overdue
+      ? { k: 'overdue', tag: 'Billing', tone: 'danger', label: 'Overdue', title: n(d.overdue, 'account is overdue', 'accounts are overdue'), note: `${n(d.overdue, 'customer is', 'customers are')} past their trial or payment`, open: () => go('customers', { status: 'overdue' }) }
+      : null,
+    d.suspended
+      ? { k: 'suspended', tag: 'Access', tone: 'off', label: 'Suspended', title: n(d.suspended, 'account is suspended', 'accounts are suspended'), note: `${n(d.suspended, 'customer is', 'customers are')} shut out until resumed`, open: () => go('customers', { status: 'suspended' }) }
+      : null,
+  ].filter(Boolean);
+}
+
 function NeedsAction({ d, error, go, has }) {
-  let rows = [];
-  if (d) {
-    rows = [
-      d.alertsOpen
-        ? { k: 'alerts', tag: 'Platform', tone: d.alertsCritical ? 'danger' : 'warn', label: 'Alerts', title: n(d.alertsOpen, 'alert is open', 'alerts are open'), note: d.alertsCritical ? `${n(d.alertsCritical, 'is urgent', 'are urgent')}` : 'Nothing urgent', open: () => go('alerts') }
-        : null,
-      d.ticketsOpen
-        ? { k: 'tickets', tag: 'Support', tone: 'warn', label: 'Tickets', title: n(d.ticketsOpen, 'ticket needs an answer', 'tickets need an answer'), note: `${n(d.ticketsOpen, 'customer waits', 'customers wait')} for an answer`, open: () => go('tickets') }
-        : null,
-      d.newDemos || d.followUpsDue
-        ? {
-            k: 'demos',
-            tag: 'Sales',
-            tone: 'warn',
-            label: 'Demo requests',
-            title: d.newDemos ? n(d.newDemos, 'new demo request', 'new demo requests') : n(d.followUpsDue, 'follow-up due', 'follow-ups due'),
-            note: [
-              d.newDemos ? `${n(d.newDemos, 'new request waits', 'new requests wait')} for a call` : null,
-              d.followUpsDue ? n(d.followUpsDue, 'follow-up due today', 'follow-ups due today') : null,
-              d.demosToday ? `${d.demosToday} came in today` : null,
-            ]
-              .filter(Boolean)
-              .join(' · '),
-            open: () => go('demos'),
-          }
-        : null,
-      d.trialsEnding
-        ? { k: 'trials', tag: 'Trials', tone: 'warn', label: 'Trials ending this week', title: n(d.trialsEnding, 'trial ends this week', 'trials end this week'), note: `${n(d.trialsEnding, 'trial ends', 'trials end')} in the next 7 days`, open: () => (has('trials') ? go('trials') : go('customers', { status: 'trialing' })) }
-        : null,
-      d.failedPayments
-        ? { k: 'payments', tag: 'Billing', tone: 'danger', label: 'Failed payments', title: n(d.failedPayments, 'payment failed', 'payments failed'), note: `${n(d.failedPayments, 'payment', 'payments')} this week could not be applied`, open: () => (has('payments') ? go('payments') : go('customers', { status: 'overdue' })) }
-        : null,
-      d.failedEmails
-        ? { k: 'emails', tag: 'Email', tone: 'warn', label: 'Failed emails', title: n(d.failedEmails, 'email failed', 'emails failed'), note: `${n(d.failedEmails, 'email', 'emails')} this week did not go`, open: () => go('emailLog', { status: 'FAILED' }) }
-        : null,
-      d.overdue
-        ? { k: 'overdue', tag: 'Billing', tone: 'danger', label: 'Overdue', title: n(d.overdue, 'account is overdue', 'accounts are overdue'), note: `${n(d.overdue, 'customer is', 'customers are')} past their trial or payment`, open: () => go('customers', { status: 'overdue' }) }
-        : null,
-      d.suspended
-        ? { k: 'suspended', tag: 'Access', tone: 'off', label: 'Suspended', title: n(d.suspended, 'account is suspended', 'accounts are suspended'), note: `${n(d.suspended, 'customer is', 'customers are')} shut out until resumed`, open: () => go('customers', { status: 'suspended' }) }
-        : null,
-    ].filter(Boolean);
-  }
+  /* The moment the page opened: days left and days overdue are counted from it, not from each render. */
+  const [now] = useState(() => Date.now());
+  const groups = d ? workGroups(d, go, has, now) : [];
+  const counts = d ? countRows(d, go, has) : [];
   return (
     <section className="ops-section" aria-labelledby="ops-needs">
-      <h2 id="ops-needs" className="ops-h2">Needs action</h2>
+      <h2 id="ops-needs" className="ops-h2">Needs you today</h2>
       {error ? (
         <Err>{error}</Err>
       ) : !d ? (
         <Loading />
-      ) : !rows.length ? (
-        <p className="ops-quiet-line">Nothing needs a staff member right now.</p>
+      ) : !groups.length && !counts.length ? (
+        <p className="ops-quiet-line">Nothing needs you today.</p>
       ) : (
-        <ul className="ws-list ws-list--ground" aria-label="Needs action">
-          {rows.map((r) => (
-            <li key={r.k}>
-              <div className="ops-need">
-                <span className={`ws-pill ws-pill--${r.tone}`}>{r.tag}</span>
-                <span className="ws-item-text">
-                  <span className="ws-item-title">{r.title}</span>
-                  <span className="ws-item-sub">{r.note}</span>
-                </span>
-                <button type="button" className="ops-link" aria-label={`Open ${r.label}`} onClick={r.open}>
-                  Open →
-                </button>
+        <>
+          {groups.map((g) => (
+            <div key={g.k} className="ops-section">
+              <div className="ops-section-head">
+                <h3 id={`ops-needs-${g.k}`} className="ws-item-title">{g.title}</h3>
+                {g.more ? (
+                  <button type="button" className="ops-link" aria-label={`${g.more.label}: ${g.title}`} onClick={g.more.open}>
+                    {g.more.label} →
+                  </button>
+                ) : null}
               </div>
-            </li>
+              <ul className="ws-list ws-list--ground" aria-labelledby={`ops-needs-${g.k}`}>
+                {g.rows.map((r) => (
+                  <li key={r.id}>
+                    <div className="ops-need">
+                      <span className={`ws-pill ws-pill--${r.pill[1]}`}>{r.pill[0]}</span>
+                      <span className="ws-item-text">
+                        <button type="button" className="ws-name-link justify-self-start text-left" onClick={r.open}>{r.title}</button>
+                        <span className="ws-item-sub">{r.sub}</span>
+                      </span>
+                      {r.money != null ? (
+                        <span className="ops-ink text-right tabular-nums">{inr(r.money)}</span>
+                      ) : r.end ? (
+                        <span className="ws-item-end">{r.end}</span>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+          {counts.length ? (
+            <div className="ops-section">
+              {groups.length ? <h3 id="ops-needs-also" className="ws-item-title">Also waiting</h3> : null}
+              <ul className="ws-list ws-list--ground" aria-label="Also waiting">
+                {counts.map((r) => (
+                  <li key={r.k}>
+                    <div className="ops-need">
+                      <span className={`ws-pill ws-pill--${r.tone}`}>{r.tag}</span>
+                      <span className="ws-item-text">
+                        <span className="ws-item-title">{r.title}</span>
+                        <span className="ws-item-sub">{r.note}</span>
+                      </span>
+                      <button type="button" className="ops-link" aria-label={`Open ${r.label}`} onClick={r.open}>
+                        Open →
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </>
       )}
     </section>
   );
