@@ -241,6 +241,16 @@ function BillForm({ data, guard, onDone, onCancel }) {
           {data.categories.map((c) => <option key={c.id} value={c.id}>{c.name}{c.limitPerBill ? ` (up to ${money(c.limitPerBill)})` : ''}</option>)}
         </select>
       </label>
+      {(() => {
+        /* Round 18 pick: the limit shows while typing, before the bill is added. */
+        const cat = data.categories.find((c) => c.id === form.categoryId);
+        const amt = Number(form.amount);
+        if (!cat?.limitPerBill || !(amt > 0)) return null;
+        const over = amt - Number(cat.limitPerBill);
+        return over > 0
+          ? <p className="ui-caption ui-text-warn ui-limit-line" role="status">{cat.name} limit is {money(cat.limitPerBill)} a bill · {money(over)} over. Your approver decides.</p>
+          : <p className="ui-caption ui-limit-line">{cat.name} limit is {money(cat.limitPerBill)} a bill · {money(-over)} left.</p>;
+      })()}
       <label className="block"><span className="ui-label">Where</span>
         <SuggestInput value={form.merchant} onChange={(v) => set({ merchant: v })} maxLength={120} required placeholder="Shop, cab, hotel" suggestions={data.merchants} />
       </label>

@@ -391,6 +391,25 @@ answers; the leaving checklist with who does each step; a status tag on each tax
 under a changed day saying who changed it and why; a shift swap on a calendar; overtime hours
 shown with the pay they cost.
 
+### Round 18 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Limits on expenses | The category's limit shows under the form while the amount is typed, with how much is left or over (employee app, Add a bill) |
+| Cancelling approved leave | "Cancel leave" on the leave; the confirm now says whoever approved it is told (the server already tells them) |
+
+Picked, **not built yet**: approvals going up to the next manager while one is away (today a
+stand-in is set by hand); an ID card sideways with a QR code (no ID cards yet); statutory due
+dates as a home card when one is near; work from home as a request type beside leave (it sits
+with attendance requests today); a branch move shown as From → To with a date; resigning from
+the app with the last day worked out; late-mark rules written as a sentence you fill in; weekly
+offs as a grid of weeks and days; a "Remind" button on my own request; nominees as a table per
+scheme; family as faces with relation and age; past jobs and education as two lists; skills as
+chips; leave carried to next year as one sentence ("10 carried, 4 lapse"). Most need records
+CLOR does not keep yet.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
