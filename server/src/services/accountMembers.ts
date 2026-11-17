@@ -70,7 +70,7 @@ export async function memberDirectory(accountId: string) {
     ]);
     const people = await platformPrisma.user.findMany({
       where: { id: { in: rows.map((r) => r.userId) } },
-      select: { id: true, fullName: true, email: true, isActive: true, lastLoginAt: true, totpEnabledAt: true },
+      select: { id: true, fullName: true, email: true, isActive: true, lastLoginAt: true, totpEnabledAt: true, smsTwoFactorEnabledAt: true },
     });
     const byId = new Map(people.map((p) => [p.id, p]));
     const members = [];
@@ -84,8 +84,8 @@ export async function memberDirectory(accountId: string) {
         lastSignInAt: p?.lastLoginAt || null,
         accountRole: r.role,
         status: r.status,
-        /* W-7.1: whether they sign in with an authenticator — the security centre's first question about privileged people. */
-        authenticator: Boolean(p?.totpEnabledAt),
+        /* W-7.1: whether they sign in with a second step (app or SMS code) — the security centre's first question about privileged people. */
+        authenticator: Boolean(p?.totpEnabledAt || p?.smsTwoFactorEnabledAt),
         companies: await footprint(accountId, r.userId, orgs),
       });
     }
@@ -102,7 +102,7 @@ export async function memberAccess(accountId: string, userId: string) {
   return outsideTenant('account members: one person’s access', async () => {
     const m = await platformPrisma.accountMembership.findUnique({ where: { accountId_userId: { accountId, userId } } });
     if (!m) throw new AccountMembershipError(404, 'This person does not belong to this account.', 'NOT_A_MEMBER');
-    const user = await platformPrisma.user.findUnique({ where: { id: userId }, select: { fullName: true, email: true, lastLoginAt: true, totpEnabledAt: true } });
+    const user = await platformPrisma.user.findUnique({ where: { id: userId }, select: { fullName: true, email: true, lastLoginAt: true, totpEnabledAt: true, smsTwoFactorEnabledAt: true } });
     const orgs = await companiesOf(accountId);
     const memberOf = new Set((await platformPrisma.userOrgMembership.findMany({ where: { accountId, userId }, select: { orgId: true } })).map((x) => x.orgId));
     const companies = [];
@@ -148,7 +148,7 @@ export async function memberAccess(accountId: string, userId: string) {
       name: user?.fullName || null,
       email: user?.email || null,
       lastSignInAt: user?.lastLoginAt || null,
-      authenticator: Boolean(user?.totpEnabledAt),
+      authenticator: Boolean(user?.totpEnabledAt || user?.smsTwoFactorEnabledAt),
       accountRole: m.role,
       status: m.status,
       memberSince: m.createdAt,
