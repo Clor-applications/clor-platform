@@ -70,12 +70,8 @@ describe('the select draws its own indicator', () => {
     expect(rule('.ui-input,')).not.toContain('background-image');
   });
 
-  it('gives the dark theme its own stroke, guarded by the media query', () => {
-    /* The stroke is baked into the data URI, so dark needs its own — and a
-       bare `:root:not([data-theme='light'])` matches a LIGHT page too, since
-       the default theme stamps no attribute at all. */
-    expect(CSS).toContain("@media (prefers-color-scheme: dark) {\n    :root:not([data-theme='light']) .ui-select");
-    expect(CSS).toContain(":root[data-theme='dark'] .ui-select");
+  it('has no dark-theme stroke: the app is light only (15 Nov 2026)', () => {
+    expect(CSS).not.toContain(":root[data-theme='dark'] .ui-select");
   });
 });
 
