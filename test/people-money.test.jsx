@@ -92,6 +92,18 @@ describe('the employee app: spent for work', () => {
     expect(portal.addBill.mock.calls[1][0]).toMatchObject({ notDuplicate: true });
   });
 
+  it('shows the category limit while typing, and how far over it is', async () => {
+    portal.getMoney.mockResolvedValue(base());
+    render(<MyMoney guard={guard} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Add a bill/ }));
+    const form = screen.getByRole('form', { name: 'Add a bill' });
+    fireEvent.change(within(form).getByRole('combobox', { name: /What it was for/ }), { target: { value: 'c2' } });
+    fireEvent.change(within(form).getByPlaceholderText('₹'), { target: { value: '800' } });
+    expect(within(form).getByText(/Food and meals limit is ₹1,000 a bill · ₹200 left/)).toBeTruthy();
+    fireEvent.change(within(form).getByPlaceholderText('₹'), { target: { value: '1250' } });
+    expect(within(form).getByText(/₹250 over/)).toBeTruthy();
+  });
+
   it('a draft shows its bills and total, and is sent against an open advance', async () => {
     portal.getMoney.mockResolvedValue(base({
       draft: { id: 'k1', claimed: 1650, lines: [line(), line({ id: 'l2', merchant: 'Hotel Saravana', category: 'Food and meals', amount: 1200, overLimit: 1000 })] },
