@@ -95,6 +95,7 @@ export default function SignUp({ onHome, onSignIn }) {
           <label className="ui-label" htmlFor="signup-password">Password</label>
           <PasswordInput
             id="signup-password"
+            strength
             className="ui-input h-11 w-full"
             value={form.password}
             onChange={(e) => set({ password: e.target.value })}

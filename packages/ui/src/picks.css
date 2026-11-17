@@ -601,3 +601,20 @@
 /* ---- Round 11: a department in a list is a coloured tag (DeptTag.jsx). Ink text on a wash of the colour, so it reads at any hue. ---- */
 .ui-dept-tag { display: inline-flex; align-items: center; gap: 0.375rem; max-width: 100%; height: 1.375rem; padding: 0 0.5rem; border-radius: 4px; background: rgb(var(--tag, var(--fg-muted)) / 0.14); color: rgb(var(--fg)); font-size: 0.75rem; line-height: 1rem; font-weight: 600; white-space: nowrap; }
 .ui-dept-tag::before { content: ''; flex: none; width: 0.4375rem; height: 0.4375rem; border-radius: 2px; background: rgb(var(--tag, var(--fg-muted))); }
+
+/* ---- Password: the word "Show" beside the eye; a strength bar on new passwords ---- */
+.ui-pw-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ui-pw-strength { display: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw .ui-input { padding-inline-end: 5rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-toggle { width: auto; gap: 0.375rem; padding-inline: 0.5rem; font-size: 0.8125rem; font-weight: 600; color: rgb(var(--fg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-word { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-strength { display: flex; align-items: center; gap: 0.625rem; margin-top: 0.5rem; font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted, var(--fg))); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.25rem; flex: 1; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-bar > span { height: 4px; border-radius: 2px; background: #E5E5E5; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-strength[data-score='1'] .is-on { background: rgb(var(--neg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-strength[data-score='2'] .is-on { background: rgb(var(--warn, 168 90 0)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-strength[data-score='3'] .is-on,
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-pw-strength[data-score='4'] .is-on { background: rgb(var(--pos)); }
+
+/* ---- Content that failed to load: a red line down its left edge ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-load-failed { border-left: 3px solid rgb(var(--neg)); border-radius: 4px; }
