@@ -10,6 +10,7 @@ import {
 import {
   companyTdsProfile,
   priorBaseFor,
+  priorTaxedBaseFor,
   resolveTds,
   returnQuarter,
   tdsEventFrom,
@@ -380,5 +381,27 @@ describe('the natures themselves', () => {
   it('carry a stable code that does not move with the Act', () => {
     expect(TDS_NATURES.every((n) => /^[A-Z0-9_]+$/.test(n.code))).toBe(true);
     expect(natureForSection('194C').code).toBe(CONTRACTOR);
+  });
+});
+
+describe('what has already been taxed this year (audit, 17 Nov 2026)', () => {
+  const CONTRACTOR_CODE = '194C_CONTRACTOR';
+  const bills = [
+    /* Under the limit: tagged with the nature, no tax. */
+    { id: 1, vendorId: 9, date: '2026-05-01', tdsNatureCode: CONTRACTOR_CODE, subtotal: 75000, tdsAmount: 0 },
+    /* Crossed it: taxed on the whole 1,25,000, and says so. */
+    { id: 2, vendorId: 9, date: '2026-06-01', tdsNatureCode: CONTRACTOR_CODE, subtotal: 50000, tdsAmount: 2500, tdsBaseAmount: 125000, tdsRate: 2 },
+    /* Saved before the base was kept: worked back from the tax and the rate. */
+    { id: 3, vendorId: 9, date: '2026-07-01', tdsNatureCode: CONTRACTOR_CODE, subtotal: 20000, tdsAmount: 400, tdsRate: 2 },
+    { id: 4, vendorId: 9, date: '2026-07-05', tdsNatureCode: CONTRACTOR_CODE, subtotal: 10000, tdsAmount: 200, tdsBaseAmount: 10000, status: 'Cancelled' },
+    { id: 5, vendorId: 8, date: '2026-07-05', tdsNatureCode: CONTRACTOR_CODE, subtotal: 10000, tdsAmount: 200, tdsBaseAmount: 10000 },
+  ];
+  const ask = { partyId: 9, natureCode: CONTRACTOR_CODE, onDate: '2026-09-12' };
+
+  it('adds the base each taxed bill was taxed on, for this party, nature and year', () => {
+    expect(priorTaxedBaseFor(bills, ask)).toBe(145000);
+    expect(priorBaseFor(bills, ask)).toBe(145000);
+    expect(priorTaxedBaseFor(bills, { ...ask, excludeId: 2 })).toBe(20000);
+    expect(priorTaxedBaseFor([], ask)).toBe(0);
   });
 });

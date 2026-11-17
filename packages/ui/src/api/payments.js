@@ -23,10 +23,11 @@ export async function listPaymentModes() {
   return Array.isArray(data?.modes) ? data.modes : [];
 }
 
-export async function listPayments({ direction = 'RECEIPT', unreconciled = false, limit } = {}) {
+export async function listPayments({ direction = 'RECEIPT', unreconciled = false, limit, offset } = {}) {
   const params = new URLSearchParams({ direction });
   if (unreconciled) params.set('unreconciled', 'true');
   if (limit) params.set('limit', String(limit));
+  if (offset) params.set('offset', String(offset));
   const data = await apiFetch(`${base()}/payments?${params.toString()}`, opts);
   return Array.isArray(data?.payments) ? data.payments : [];
 }

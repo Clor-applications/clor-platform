@@ -161,7 +161,11 @@ export const tdsVariesByDeductee = (code) => tdsSection(code)?.rateIndividual !=
  * Whether the threshold has been passed, given what this party has already been
  * paid under this section in the financial year.
  *
- * `paidSoFar` excludes the document being entered. A section with a single-bill
+ * `paidSoFar` excludes the document being entered. `taxedSoFar` is how much of
+ * it has already had tax deducted: once the limit is crossed the whole
+ * aggregate is liable, but only once. Without it, every bill after the one
+ * that crossed the limit was taxed on the whole year again (audit, 17 Nov
+ * 2026). A section with a single-bill
  * limit is crossed by either test: one bill above `single`, or an aggregate
  * above `annual`.
  *
@@ -169,10 +173,11 @@ export const tdsVariesByDeductee = (code) => tdsSection(code)?.rateIndividual !=
  *   `base` is the amount TDS is actually charged on, which is the whole
  *   aggregate for most sections and only the excess for 194Q.
  */
-export const tdsThresholdState = (code, thisDocValue, paidSoFar = 0) => {
+export const tdsThresholdState = (code, thisDocValue, paidSoFar = 0, taxedSoFar = 0) => {
   const s = tdsSection(code);
   const value = Number(thisDocValue) || 0;
   const prior = Number(paidSoFar) || 0;
+  const taxed = Math.min(prior, Math.max(0, Number(taxedSoFar) || 0));
   if (!s) return { crossed: false, base: 0, reason: 'Unknown section' };
 
   const aggregate = round2(prior + value);
@@ -201,9 +206,11 @@ export const tdsThresholdState = (code, thisDocValue, paidSoFar = 0) => {
    * the document that crosses it, that means deducting on this value plus
    * everything already paid without deduction.
    */
+  /* A single bill over its own limit, with the year's limit not reached, is liable for itself alone. */
+  const base = byAggregate ? Math.max(value, round2(aggregate - taxed)) : value;
   return {
     crossed: true,
-    base: prior > 0 ? aggregate : value,
+    base,
     reason: bySingle && !byAggregate ? `${s.code} — single bill above the limit` : `${s.code} — annual limit crossed`,
   };
 };

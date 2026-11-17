@@ -166,8 +166,9 @@ function register(kind: QuoteKind) {
       const { accountId, orgId, branchId } = req.tenant!;
       const rows = await table().findMany({
         where: { accountId, orgId, branchId, ...ownDocsWhere(req) },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-        take: Math.min(500, Number(req.query.limit || 200)),
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+        take: Math.min(500, Math.max(1, Number(req.query.limit) || 200)),
+        skip: Math.max(0, Number(req.query.offset) || 0),
       });
       res.json({ documents: rows.map(normalize) });
     }
