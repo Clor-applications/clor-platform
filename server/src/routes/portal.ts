@@ -1,4 +1,4 @@
-import { isAppEntitled } from '../services/subscriptions.js';
+import { appStanding, isAppEntitled } from '../services/subscriptions.js';
 import { checkPortalSession, endPortalSession, endPortalSessions, legacyCutoff, listPortalSessions, startPortalSession } from '../services/portalSessions.js';
 import { trackFirst } from '../services/productEvents.js';
 import { orgByCode } from '../services/displayCodes.js';
@@ -250,6 +250,29 @@ portalRouter.post('/activate', ...portalLimiter, check({ body: SIGN_IN }), async
 });
 
 /** Exported so People's own employee-facing routes (routes/peoplePortal.ts) sit behind the same sign-in. */
+/**
+ * The employee app's routes for an app the company must have (audit, 17 Nov
+ * 2026). They checked sign-in only, so in a company with Attendance alone a
+ * person could file a private case or raise a desk request that nobody there
+ * could open. Any one of `apps` will do. A lapsed subscription still reads;
+ * a change is refused, as on the company side (middleware/rbac.ts).
+ */
+export const requirePortalApp = (...apps: string[]) => async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    let lapsed: string | null = null;
+    for (const app of apps) {
+      const standing = await appStanding(req.portal!.accountId, app);
+      if (standing.state === 'entitled') return next();
+      if (standing.state === 'lapsed') lapsed = standing.reason;
+    }
+    if (lapsed && req.method === 'GET') return next();
+    if (lapsed) return res.status(402).json({ error: lapsed, code: 'SUBSCRIPTION_LAPSED' });
+    return res.status(404).json({ error: 'Your company does not use this part of the app.', code: 'APP_NOT_SUBSCRIBED' });
+  } catch (e) {
+    next(e);
+  }
+};
+
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const h = String(req.get('authorization') || '');
   const token = /^bearer /i.test(h) ? h.slice(7).trim() : '';

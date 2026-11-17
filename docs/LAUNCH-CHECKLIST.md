@@ -195,15 +195,15 @@ secret in the repository. Its findings are all medium or low.
 - [ ] A bonus or deduction approved into a month whose run is already final, in a period that is not locked, is never paid — `services/payroll/run.ts:557-571`
 - [ ] Payroll gets raw overtime hours; the company's rates by day type and its caps are not passed (adds to the Stage 2 line above) — `routes/payrollRuns.ts:514`
 - [ ] Entered deductions can take net pay below zero, and the whole deduction is still marked recovered — `services/payroll/run.ts:1786`, `services/payroll/payment.ts:153`
-- [ ] Employee app People routes check sign-in only, so in an Attendance-only company a private case can be filed where HR cannot open it — `routes/peoplePortal.ts:29`, `routes/peopleTimePortal.ts:26`
+- [x] Employee app People routes check sign-in only, so in an Attendance-only company a private case can be filed where HR cannot open it — `routes/peoplePortal.ts:29`, `routes/peopleTimePortal.ts:26` (fixed: requirePortalApp, fix/books-medium)
 
 ### Medium: Books
 
 - [ ] Reverse charge is a label: a sale marked reverse charge still bills and posts GST, and bills and expenses have no reverse charge or blocked-credit field — `services/ledger.ts:647-693`, `packages/ui/src/utils/gstrExport.js:499`
 - [ ] Settlement checks the document total only: it ignores TDS taken on the bill and credit notes, and a receipt can be set against a bill — `services/settlement.ts`
-- [ ] The GSTR-3B figures on screen count drafts and cancelled invoices and so disagree with the file made from the same screen — `apps/accounting/src/features/gst/GstCompliance.jsx:439-484`
+- [x] The GSTR-3B figures on screen count drafts and cancelled invoices and so disagree with the file made from the same screen — `apps/accounting/src/features/gst/GstCompliance.jsx:439-484` (fixed: screen and file share one rule, fix/books-medium)
 - [ ] E-invoice and books are not tied: cancelling an invoice leaves the IRN live, a Draft can get an IRN, credit notes cannot be registered, and a call has no timeout — `routes/einvoice.ts`, `routes/invoices.ts:736-782`
-- [ ] Invoice numbers are taken before the invoice is saved, so a refused invoice leaves a gap — `routes/invoices.ts:402-417`
+- [x] Invoice numbers are taken before the invoice is saved, so a refused invoice leaves a gap — `routes/invoices.ts:402-417` (fixed: number taken inside the save, fix/books-medium)
 - [ ] An imported document whose posting fails stays in the list with no ledger entry — `routes/imports.ts:597-655`
 - [ ] Stock never reaches the ledger: no cost of goods sold or closing stock on the server; stock with no warehouse can be sold from every warehouse — `services/stockLedger.ts:53`
 - [ ] The general reverse route can reverse the entry behind a live invoice or bill; bank book rows are saved without a ledger entry; a row the server refused stays on screen for that session — `routes/ledger.ts:414`, `routes/bankBook.ts:81`

@@ -405,24 +405,22 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const totalsProblem = checkDocTotals(body as any);
   if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
 
-  // Requirement 2: the number comes from the configured series, allocated on
-  // the server. Two browsers cannot mint the same one.
-  let invoiceNumber = String(body.number || '').trim();
-  if (!invoiceNumber) {
-    await ensureDefaultSeries({ accountId, orgId, branchId, docType: 'INVOICE', userId });
-    const allocated = await prisma.$transaction((tx) =>
-      allocateNumber(tx, {
-        accountId,
-        orgId,
-        branchId,
-        docType: 'INVOICE',
-        userId,
-        date: String(body.date).trim(),
-        seriesId: body.seriesId || null,
-      })
-    );
-    invoiceNumber = allocated.number;
+  /* The currency and rate are checked before a number is taken, so a refusal here leaves no gap in the series. */
+  const baseCurrency = await baseCurrencyFor(accountId, orgId);
+  const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
+  const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
+  const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
+  if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) {
+    return res.status(400).json({ error: `Invoice not saved: Enter the conversion rate from ${docCurrency} to ${baseCurrency}` });
   }
+
+  // Requirement 2: the number comes from the configured series, allocated on
+  // the server. Two browsers cannot mint the same one. It is taken in the same
+  // transaction as the invoice is kept (audit, 17 Nov 2026): a save refused for
+  // stock or anything else rolls the series back too, so no number goes missing.
+  let invoiceNumber = String(body.number || '').trim();
+  const typedNumber = Boolean(invoiceNumber);
+  if (!typedNumber) await ensureDefaultSeries({ accountId, orgId, branchId, docType: 'INVOICE', userId });
 
   const id = randomUUID();
   try {
@@ -437,8 +435,13 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
      */
     /* Under the stock check: the items are held, and a sale that would take
        a warehouse below nothing is refused before it is kept. */
-    await prisma.$transaction((tx) =>
-      withStockCheck(tx, { orgId, lines: body.items, warehouseId: body.warehouseId }, () =>
+    await prisma.$transaction(async (tx) => {
+      if (!typedNumber) {
+        invoiceNumber = (
+          await allocateNumber(tx, { accountId, orgId, branchId, docType: 'INVOICE', userId, date: String(body.date).trim(), seriesId: body.seriesId || null })
+        ).number;
+      }
+      return withStockCheck(tx, { orgId, lines: body.items, warehouseId: body.warehouseId }, () =>
         tx.invoice.create({
       data: {
         id,
@@ -469,10 +472,13 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
         itemsJson: JSON.stringify(body.items || []),
         extrasJson: extrasFrom(body),
         createdByUserId: userId,
+        currency: docCurrency,
+        exchangeRate: fxRate,
+        baseTotal: toBase(Number(body.total ?? 0), fxRate),
       },
         })
-      )
-    );
+      );
+    });
   } catch (e: any) {
     if (e instanceof InsufficientStock) return res.status(e.status).json({ error: e.message, code: e.code, shortages: e.shortages });
     // P2002 is Prisma's duplicate, whatever the database calls it. The string
@@ -486,20 +492,8 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   const row = await prisma.invoice.findUnique({ where: { id } });
   if (!row) return res.status(500).json({ error: 'Failed to create invoice' });
 
-  // The currency and rate are fixed on the document before any approval hold,
+  // The currency and rate were fixed on the document as it was kept, before any approval hold,
   // so an approver's release posts the same translated amounts.
-  const baseCurrency = await baseCurrencyFor(accountId, orgId);
-  const multiCurrencyOn = await isFeatureEnabled(accountId, orgId, 'multiCurrency');
-  const docCurrency = multiCurrencyOn ? String(body.currency || baseCurrency).toUpperCase() : baseCurrency;
-  const fxRate = isBase(docCurrency, baseCurrency) ? 1 : Number(body.exchangeRate || 0);
-  if (!isBase(docCurrency, baseCurrency) && !(fxRate > 0)) {
-    await prisma.invoice.delete({ where: { id } });
-    return res.status(400).json({ error: `Invoice not saved: Enter the conversion rate from ${docCurrency} to ${baseCurrency}` });
-  }
-  await prisma.invoice.update({
-    where: { id },
-    data: { currency: docCurrency, exchangeRate: fxRate, baseTotal: toBase(Number(body.total ?? 0), fxRate) },
-  });
 
   // Approval thresholds are evaluated before anything reaches the ledger: an
   // invoice awaiting sign-off must not appear in the books.
