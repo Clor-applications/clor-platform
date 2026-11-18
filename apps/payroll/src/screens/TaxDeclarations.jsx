@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { fyLabel } from '@ui/picks/round34';
 import { Check, Clock, Download, FileText, Printer, Receipt, RotateCcw } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -114,7 +115,7 @@ export default function TaxDeclarations() {
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (!format) return;
-        runListExport({ format, title: 'Tax declarations', subtitle: `FY ${fy}`, fileName: `Tax declarations FY ${fy}`, label: 'person/people', columns: EXPORT_COLUMNS, rows });
+        runListExport({ format, title: 'Tax declarations', subtitle: fyLabel(fy), fileName: `Tax declarations FY ${fy}`, label: 'person/people', columns: EXPORT_COLUMNS, rows });
       }}
       cards={[
         { label: 'To verify', value: counts.SUBMITTED || 0, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('SUBMITTED') },
@@ -129,8 +130,8 @@ export default function TaxDeclarations() {
       tabsLabel="Declaration status"
       tabsExtras={
         <select className="ui-select ui-btn-sm !w-auto" value={fy} onChange={(e) => setFy(e.target.value)} aria-label="Financial year">
-          <option value={thisYear}>FY {thisYear}</option>
-          <option value={lastYear}>FY {lastYear}</option>
+          <option value={thisYear}>{fyLabel(thisYear)}</option>
+          <option value={lastYear}>{fyLabel(lastYear)}</option>
         </select>
       }
     >
@@ -278,7 +279,7 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
       open
       onClose={onClose}
       widthClass="w-[min(48rem,96vw)]"
-      title={d ? `${d.employeeName} · FY ${fy}` : 'Tax declaration'}
+      title={d ? `${d.employeeName} · ${fyLabel(fy)}` : 'Tax declaration'}
       description={d ? `${STATUS[d.status]?.label || d.status}${d.submittedAt ? ` · declared ${formatDateIn(String(d.submittedAt).slice(0, 10))}` : ''}` : ''}
       actions={
         !form ? null : verified ? (
