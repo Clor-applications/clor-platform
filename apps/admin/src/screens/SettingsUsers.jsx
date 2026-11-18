@@ -767,7 +767,7 @@ export function SettingsUsers({ orgId, params }) {
                     </td>
                     <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{row.code || '—'}</td>
                     <td>{row.email}</td>
-                    <td>{roleName(row.roleId) ? <span className="ws-pill ws-pill--role">{roleName(row.roleId)}</span> : <span className="ws-head-meta">No role</span>}</td>
+                    <td>{roleName(row.roleId) ? <span className="ws-tag ws-tag--workspace">{roleName(row.roleId)}</span> : <span className="ws-state" data-tone="warn">No role</span>}</td>
                     <td>{statusPill(row)}</td>
                     <td className="num">
                       <button
