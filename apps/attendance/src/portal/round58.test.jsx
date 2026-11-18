@@ -144,11 +144,8 @@ describe('round 58: punching (outsidearea A, punchdone A)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Punch in now/ }));
     expect(await screen.findByText('In at 9:42 AM')).toBeTruthy();
     expect(screen.getByText('Chennai office · Shift 9:30 AM')).toBeTruthy();
-    /* The close timer starts in an effect after the screen draws; on a busy machine that can land after one jump, so keep moving the clock until it closes. */
-    await waitFor(async () => {
-      await act(async () => { vi.advanceTimersByTime(3100); });
-      expect(screen.queryByText('In at 9:42 AM')).toBeNull();
-    });
+    await act(async () => { vi.advanceTimersByTime(3100); });
+    expect(screen.queryByText('In at 9:42 AM')).toBeNull();
     vi.useRealTimers();
   });
 });
