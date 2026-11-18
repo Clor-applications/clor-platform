@@ -469,6 +469,28 @@ from; dragging a column's edge to resize it; a profile photo centred on the face
 holidays suggested for the state to tick; a top list of who is absent most; Approve and
 Reject buttons inside the email.
 
+### Round 21 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| My hours this week | One bar per day, Monday to Sunday, with the week's total, above My days in the employee app (`WeekBars`, current month only). Days still to come show as an empty dashed bar. |
+| Telling the manager someone is late | The Today page's list is called "Not in yet", with the time it was read, as a morning look at who has not come. |
+
+Picked and already how the app works: signed-in devices listed with Sign out on each (employee
+app, Security settings); Rehire on the old record, history kept; a warning while adding someone
+with the same PAN or phone, with a link to the other record; delete only while payroll has never
+used the record, everyone else is marked as having left.
+
+Picked, **not built yet**: leave cashed in shown as days and amount together; the morning
+"not in yet" list sent as an alert; health insurance as a list of who is covered and how much;
+flexible pay parts with amounts and the total left; a handover list with who takes each item;
+an "Add to my calendar" link for approved leave; WhatsApp requests with Approve and Reject;
+changing one field for many people with a preview of who changes; night allowance as its own
+payslip line; a phone reminder at shift end to punch out; private HR notes with a lock and who
+wrote them.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

@@ -25,6 +25,7 @@ import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
 import AskLetter from './AskLetter';
 import { FixNotices, MyMarks, NightConsent } from './TimeRules';
+import WeekBars from './WeekBars';
 import { Celebrations, ExitInterview, TodayPosts } from './Engagement';
 import {
   SignedOut,
@@ -443,6 +444,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
               <div key={k} className="ui-card p-2"><div className="text-base font-semibold tabular-nums">{v}</div><div className="ui-caption">{k}</div></div>
             ))}
           </div>
+          {month === todayIst().slice(0, 7) ? <WeekBars days={data.days} today={todayIst()} /> : null}
           <section className="ui-card overflow-hidden">
             {data.days.length ? (
               <div className="overflow-x-auto ui-table-scroll ui-table-fit">

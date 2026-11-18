@@ -747,3 +747,13 @@
 .ui-textsize-btn[data-size='large'] { font-size: 19px; }
 .ui-textsize-btn:hover { background: rgb(var(--fg) / 0.04); }
 .ui-textsize-btn[aria-pressed='true'] { border-color: rgb(var(--act, var(--fg))); color: rgb(var(--act-ink, var(--act, var(--fg)))); }
+
+/* ---- Round 21 ---- */
+/* My hours this week: a bar per day, so a short day stands out */
+.ui-week-bars { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0.875rem; border: 1px solid rgb(var(--border)); border-radius: 12px; }
+.ui-week-bars-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.375rem; margin: 0; padding: 0; list-style: none; }
+.ui-week-bars-row li { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.ui-week-bar { position: relative; display: block; width: 100%; max-width: 1.75rem; height: 3rem; border-radius: 4px; background: rgb(var(--fg) / 0.06); overflow: hidden; }
+.ui-week-bar > span { position: absolute; left: 0; right: 0; bottom: 0; background: rgb(var(--act, var(--fg))); border-radius: 4px; }
+.ui-week-bar[data-future] { background: transparent; border: 1px dashed rgb(var(--border)); }
+.ui-week-bars-row li[data-today] .ui-caption { color: rgb(var(--fg)); font-weight: 600; }
