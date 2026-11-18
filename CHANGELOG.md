@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-644865e - 2026-11-18
+
+API revision `clor-api-00144-zdv`. Previous release `rel-f16a2ae` (roll back there).
+
+- #343 Server picks batches 1-2 and picks rounds 51-65 (one release)
+- #342 Picks rounds 56-60: forms, lists, phone app, daily HR and payroll, clear words
+- #340 Rounds 46–50 picks (outside Books): documents, approvals, shifts, imports, accessibility and dues
+- #338 Rounds 41–45 picks (outside Books): field staff, leave kinds, employee record, staff money, people reports
+- #336 Rounds 26–40 picks (outside Books): 15 rounds combined
+
 ## rel-f16a2ae - 2026-11-18
 
 API revision `clor-api-00143-x2z`. Previous release `rel-c2ab508` (roll back there).
@@ -13,16 +23,6 @@ API revision `clor-api-00143-x2z`. Previous release `rel-c2ab508` (roll back the
 - #333 Round 23 picks: tenure chart, upload limits, half-day sentence
 - #332 Release record: rel-c2ab508
 - #331 Round 22 picks: joined-and-left chart, Copy link, maternity return date
-
-## rel-644865e - 2026-11-18
-
-API revision `clor-api-00144-zdv`. Previous release `rel-f16a2ae` (roll back there).
-
-- #343 Server picks batches 1-2 and picks rounds 51-65 (one release)
-- #342 Picks rounds 56-60: forms, lists, phone app, daily HR and payroll, clear words
-- #340 Rounds 46–50 picks (outside Books): documents, approvals, shifts, imports, accessibility and dues
-- #338 Rounds 41–45 picks (outside Books): field staff, leave kinds, employee record, staff money, people reports
-- #336 Rounds 26–40 picks (outside Books): 15 rounds combined
 
 ## rel-c2ab508 - 2026-11-18
 
