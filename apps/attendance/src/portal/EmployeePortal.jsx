@@ -80,6 +80,8 @@ import PasswordInput from '@ui/components/ui/PasswordInput';
 import EarlyGoTag from '@ui/timeOff/EarlyGoTag';
 import { wholeRupees as rupees } from '@ui/utils/money';
 import TaxCompare from './TaxCompare';
+import { AddToHome, LeaveCalendar } from './round58';
+import { sentWords, useBackClose } from '@ui/picks/round58';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -169,7 +171,7 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} /><NextHoliday guard={guard} today={todayIst()} />{me?.people !== false ? <TrainingsDue guard={guard} /> : null}<TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
+        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><AddToHome /><Today me={me} reload={loadMe} guard={guard} onAskInstead={(f) => { setFix(f); setTab('days'); }} /><NextHoliday guard={guard} today={todayIst()} />{me?.people !== false ? <TrainingsDue guard={guard} /> : null}<TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} fix={fix} onFixUsed={() => setFix(null)} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
@@ -181,7 +183,7 @@ export default function EmployeePortal() {
             <MySteps guard={guard} refreshKey={leavingSent} />
             <ExitInterview guard={guard} refreshKey={leavingSent} />
             {me?.people !== false ? <><MyJobs guard={guard} /><MyGrowth guard={guard} /></> : null}
-            <Payslips guard={guard} />
+            <Payslips guard={guard} onAsk={deskOn ? setAskPreset : null} />
             {me?.people !== false ? <MyMoney guard={guard} /> : null}
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <MyForms guard={guard} />
@@ -351,7 +353,7 @@ export function PortalSignIn({ onDone }) {
 // Today
 // ---------------------------------------------------------------------------
 
-function Today({ me, reload, guard }) {
+function Today({ me, reload, guard, onAskInstead }) {
   if (!me) return <div className="ui-card p-6 ui-caption">Loading…</div>;
   const r = me.record;
   const s = me.shift;
@@ -377,7 +379,18 @@ function Today({ me, reload, guard }) {
       </section>
 
       {me.phone.allowed ? (
-        <PhonePunch phone={me.phone} punches={me.punches} onPunch={(body) => guard(punch(body))} onDone={reload} />
+        <PhonePunch
+          phone={me.phone}
+          punches={me.punches}
+          onPunch={(body) => guard(punch(body))}
+          onDone={reload}
+          shiftStart={s.off || s.holiday ? '' : s.startTime}
+          /* Round 58 "outsidearea" A: outside the site, the punch goes to the manager as a request with a reason. */
+          onAskInstead={({ kind, site, distance }) => {
+            const now = new Date(Date.now() + 330 * 60_000).toISOString().slice(11, 16);
+            onAskInstead?.({ date: me.today, ...(kind === 'IN' ? { checkIn: now } : { suggestedOut: now }), reasonCode: 'ON_DUTY', reason: `Punching from outside${site ? ` ${site}` : ' the work site'}${distance ? ` (${distance} away)` : ''}: ` });
+          }}
+        />
       ) : (
         <p className="ui-caption px-1">{me.phone.why || 'Punch at the reader at work. Punching from your phone is not switched on for you.'}</p>
       )}
@@ -415,6 +428,8 @@ function MyDays({ guard, fix = null, onFixUsed }) {
   const [error, setError] = useState('');
   const [explaining, setExplaining] = useState(null);
   const explainLoad = useCallback(() => guard(portalExplainDay(explaining)), [explaining, guard]);
+  const closeExplain = useCallback(() => setExplaining(null), []);
+  useBackClose(Boolean(explaining), closeExplain);
   /* Only the latest request may fill the screen: a slow earlier month must not overwrite the one picked since. */
   const latest = useRef(0);
   const load = useCallback(() => {
@@ -501,7 +516,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
 
       <MyMarks guard={guard} month={month} />
       <Requests guard={guard} month={month} onChanged={load} preset={fix} onPresetUsed={onFixUsed} />
-      <DayExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} title="Why my day says this" />
+      <DayExplain open={Boolean(explaining)} onClose={closeExplain} load={explainLoad} title="Why my day says this" />
     </>
   );
 }
@@ -556,7 +571,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
   useEffect(() => {
     if (!preset) return;
     setEditing(null);
-    setForm({ ...EMPTY_ASK, kind: 'MISSED_PUNCH', date: preset.date, checkIn: preset.checkIn || preset.suggestedIn || '', checkOut: preset.suggestedOut || '', reasonCode: 'FORGOT_PUNCH', reason: preset.what === 'NO_OUT' ? 'Forgot to punch out' : 'Forgot to punch' });
+    setForm({ ...EMPTY_ASK, kind: 'MISSED_PUNCH', date: preset.date, checkIn: preset.checkIn || preset.suggestedIn || '', checkOut: preset.suggestedOut || '', reasonCode: preset.reasonCode || 'FORGOT_PUNCH', reason: preset.reason || (preset.what === 'NO_OUT' ? 'Forgot to punch out' : 'Forgot to punch') });
     formRef.current?.scrollIntoView?.({ block: 'start' });
     onPresetUsed?.();
   }, [preset, onPresetUsed]);
@@ -863,6 +878,10 @@ function MyLeave({ guard }) {
   const [error, setError] = useState('');
   const [explaining, setExplaining] = useState(null);
   const explainLoad = useCallback(() => guard(portalExplainLeave(explaining)), [explaining, guard]);
+  const closeExplain = useCallback(() => setExplaining(null), []);
+  useBackClose(Boolean(explaining), closeExplain);
+  const loadMonth = useCallback((ym) => guard(getSchedule(ym)), [guard]);
+
   const load = useCallback(() => {
     guard(getLeave())
       .then((d) => (setData(d), setError('')))
@@ -891,7 +910,7 @@ function MyLeave({ guard }) {
       setDoc(null);
       const sent = r.requests || [r.request];
       const days = Math.round(sent.reduce((a, x) => a + (Number(x.days) || 0), 0) * 100) / 100;
-      setNote({ ok: true, text: `Asked for ${isHourly(listed) ? amountWords(days, listed) : daysText(days)} of ${r.request.leaveTypeName}${preview?.split && sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.` });
+      setNote({ ok: true, text: `Asked for ${isHourly(listed) ? amountWords(days, listed) : daysText(days)} of ${r.request.leaveTypeName}${preview?.split && sent.length > 1 ? `, as ${NUMBER_WORD[sent.length] || sent.length} requests` : ''}.`, sentId: r.request?.id || null });
       setForm(BLANK_LEAVE);
       load();
     } catch (err) {
@@ -975,6 +994,8 @@ function MyLeave({ guard }) {
       setSending(false);
     }
   };
+  /* Round 58 "aftersend" A: once the list reloads, the request just sent says who has it and what happens next. */
+  const sentRow = note?.sentId ? (data?.requests || []).find((x) => x.id === note.sentId) : null;
   const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && !r.fromTime && r.fromDate <= data?.today && r.toDate > data?.today;
   const dayBefore = (iso) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
   if (!data) return error ? <LoadFailed message={error} onRetry={load} /> : <div className="ui-card p-6 ui-caption">Loading…</div>;
@@ -988,7 +1009,8 @@ function MyLeave({ guard }) {
               <div className="text-sm font-medium">{t.name}</div>
               {t.isPaid ? (
                 <>
-                  <div className="text-2xl font-semibold tabular-nums">{amountFigure(t.available, t)}</div>
+                  {/* Round 58 "balancewhy" A: the number itself opens how it is worked out. */}
+                  <button type="button" className="ui-bal-why text-2xl font-semibold tabular-nums" onClick={() => setExplaining(t.id)} aria-label={`${amountFigure(t.available, t)} ${isHourly(t) ? 'hours' : 'days'} of ${t.name} left: how is this worked out?`}>{amountFigure(t.available, t)}</button>
                   {/* An hourly type's balance is in hours (gap 23). */}
                   <div className="ui-caption">{isHourly(t) ? 'hours ' : ''}left of {amountFigure(t.allocated, t)}{t.pending ? ` · ${amountFigure(t.pending, t)} waiting` : ''}</div>
                   {/* Owner's pick (17 Nov 2026, round 7): the number with a bar of what is left. */}
@@ -1009,7 +1031,11 @@ function MyLeave({ guard }) {
 
       {data.types.length ? (
         <form ref={formRef} onSubmit={editing ? change : ask} className="ui-card space-y-3 p-5" aria-labelledby="ask-leave-h">
-          <h2 id="ask-leave-h" className="ui-t-sec">{editing ? 'Change leave' : 'Ask for leave'}</h2>
+          {/* Round 58 "stickysubmit" C: Send sits top right and stays in reach while the form scrolls. */}
+          <div className="ui-form-top">
+            <h2 id="ask-leave-h" className="ui-t-sec">{editing ? 'Change leave' : 'Ask for leave'}</h2>
+            <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm" disabled={held || sending}>{sending ? (editing ? 'Saving…' : 'Sending…') : editing ? 'Save' : 'Send'}</button>
+          </div>
           <label className="block">
             <span className="ui-label">Leave type *</span>
             <select className="ui-select w-full" required value={form.leaveTypeId} onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value, halfDay: '', fromTime: '', toTime: '' })}>
@@ -1017,6 +1043,14 @@ function MyLeave({ guard }) {
               {data.types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
+          <LeaveCalendar
+            from={form.fromDate}
+            to={form.toDate}
+            single={hourly}
+            today={data.today}
+            loadMonth={loadMonth}
+            onChange={({ from, to }) => setForm({ ...form, fromDate: from, toDate: to, halfDay: to && to !== from ? '' : form.halfDay })}
+          />
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><span className="ui-label">{hourly ? 'Day *' : 'First day *'}</span><input type="date" className="ui-input w-full" required value={form.fromDate} onChange={(e) => setForm({ ...form, fromDate: e.target.value, toDate: form.toDate && form.toDate < e.target.value ? e.target.value : form.toDate })} /></label>
             {hourly ? null : <label className="block"><span className="ui-label">Last day</span><input type="date" className="ui-input w-full" min={form.fromDate} value={form.toDate} onChange={(e) => setForm({ ...form, toDate: e.target.value, halfDay: e.target.value && e.target.value !== form.fromDate ? '' : form.halfDay })} /></label>}
@@ -1031,8 +1065,7 @@ function MyLeave({ guard }) {
           {shown?.documentNeeded || doc ? <LeaveDocumentField typeName={type?.name} afterDays={shown?.documentAfterDays} value={doc} onChange={setDoc} required={!editing} note={editing ? 'The one already sent stays unless you choose another.' : ''} /> : null}
           <LeavePreview preview={shown} checking={checking} />
           <PreviewNotes preview={shown} />
-          {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}</p> : null}
-          <button type="submit" className="ui-btn ui-btn-primary w-full" disabled={held || sending}>{sending ? (editing ? 'Saving…' : 'Sending…') : editing ? 'Save' : 'Send'}</button>
+          {note ? <p className="text-sm" role={note.ok ? 'status' : 'alert'}>{note.text}{note.ok && sentRow?.status === 'PENDING' ? <> {sentWords(sentRow.withWhom)} <button type="button" className="ui-link" onClick={() => document.getElementById(`leave-req-${sentRow.id}`)?.scrollIntoView?.({ block: 'center' })}>View request</button></> : null}</p> : null}
           {editing ? <button type="button" className="ui-btn ui-btn-secondary w-full" onClick={stopChange}>Keep it as it was</button> : null}
         </form>
       ) : null}
@@ -1042,7 +1075,7 @@ function MyLeave({ guard }) {
           <h2 id="leave-list-h" className="ui-t-sec mb-2">My requests</h2>
           <ul className="space-y-3 text-sm">
             {data.requests.map((r) => (
-              <li key={r.id} className="flex items-start justify-between gap-2">
+              <li key={r.id} id={`leave-req-${r.id}`} className="flex items-start justify-between gap-2" data-just-sent={r.id === note?.sentId || undefined}>
                 <span>
                   {r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : r.days === 0.5 ? 'half a day' : `${r.days} day${r.days === 1 ? '' : 's'}`}
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : halfWords(r.halfDay) ? `, ${halfWords(r.halfDay)}` : ''}{!leaveHours(r) && r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
@@ -1076,7 +1109,7 @@ function MyLeave({ guard }) {
       ) : null}
 
       <HolidaysYear guard={guard} />
-      <LeaveExplain open={Boolean(explaining)} onClose={() => setExplaining(null)} load={explainLoad} />
+      <LeaveExplain open={Boolean(explaining)} onClose={closeExplain} load={explainLoad} />
     </>
   );
 }

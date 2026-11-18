@@ -1128,6 +1128,36 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 58 (18 Nov 2026)
+
+The employee app on a phone. Built (employee app only, never Books):
+
+| Building block | Pick |
+| --- | --- |
+| Send on a phone form | On the leave form, Send (Save while changing) sits top right beside the title and stays in reach while the form scrolls (`.ui-form-top`, sticky under the app's header). |
+| Picking dates | CLOR's own month calendar above the date boxes: holidays (amber dot, name below the month) and weekly offs (grey) marked from the person's own schedule, today ringed (`LeaveCalendar`). |
+| Choosing a span | Tap the first day, then the last; the days between light up. A tap before the first day, or a third tap, starts again; hourly leave takes one tap. The date boxes stay for typing. |
+| Home screen | From the second visit, a strip on Today: "Add CLOR to your home screen". Android Chrome opens its own install sheet from Add; iPhone says to tap Share, then "Add to Home Screen". Not now hides it for good on that phone; it never shows once installed (`AddToHome`). |
+| Punching outside the area | Where punching is only at a site: "You are 320 m from Chennai office (allowed 200 m)", with Try again and Punch with a reason. The reason goes to the manager as a missed-punch request for today at the current time, filled in on My days ("On duty elsewhere"). Field workers see no box. |
+| After a punch | A full tick screen: "In at 9:42 AM", "Chennai office · Shift 9:30 AM"; it goes by itself in 3 seconds, or on Done or Back (shared phone punch card, so People's My attendance has it too). |
+| After sending | Leave sent: "Asked for 2 days of Casual leave. Sent to Ravi (your manager). You will get a notice when it is decided." with View request, which brings the request into view. |
+| Leave balance | The balance number itself opens how it is worked out (the "How is this worked out?" link stays). |
+| A payslip question | "Ask about this payslip" under an open payslip: pick the line (or the whole payslip, or "Something missing"), say what looks wrong, and Ask HR opens with the month and line filled in. Shown only where Ask HR is on. |
+| Payslips for a bank | Under the payslip list: Last 3, Last 6 or Last 12 (as far as there are payslips), then "Save as one PDF": one payslip a page, black on white, named "Payslips Apr 2026 to Sep 2026". |
+| The phone's Back | Back closes an open panel first (the day and leave-balance explanations, an open payslip, the tick screen), then goes back a page (`useBackClose`). |
+
+Picked and already how the app works: changing a waiting request (Change on it, saved over the
+same request); "Came back early" on leave being taken, which ends it on an earlier day and gives
+the unused days back.
+
+Picked "Full keyboard" for numbers: no new number keypads are added; the ones already on the
+company code and amount fields stay until the owner says otherwise.
+
+Picked, **not built yet**: forgot password by a code to the mobile number on file (needs the
+server to send the code); fixing several missed days in one request with one time and reason
+(needs one request across chosen days); the approver seeing "Changed by" on a changed request
+(needs the server to record it). All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

@@ -1015,3 +1015,48 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 58 */
+/* stickysubmit C: on the employee app's leave form, Send sits top right and stays in reach while the form scrolls. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-form-top { position: sticky; top: 3.5rem; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -8px -4px 0; padding: 8px 4px; background: rgb(var(--surface)); }
+/* phonedate A + rangetap A: CLOR's own month calendar, holidays and weekly offs marked, the span lit between two taps. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal { display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-head { display: flex; align-items: center; justify-content: space-between; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid { width: 100%; border-collapse: separate; border-spacing: 0 2px; table-layout: fixed; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid th { font-weight: 500; padding: 2px 0; text-align: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid td { padding: 0; text-align: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day { position: relative; width: 100%; height: 40px; border-radius: 8px; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); background: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day:hover { background: rgb(var(--rail-bg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='off'] { color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='holiday'] { color: rgb(var(--warn-ink)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark]::after,
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key i { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 9999px; background: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark]::after { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='holiday']::after,
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key i[data-mark='holiday'] { background: rgb(var(--warn)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-today] { box-shadow: inset 0 0 0 1px rgb(var(--border-strong)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-picked] { background: rgb(var(--act) / 0.12); border-radius: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-end] { background: rgb(var(--act)); color: rgb(var(--on-primary)); border-radius: 8px; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-end]::after { background: rgb(var(--on-primary)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key span { display: inline-flex; align-items: center; gap: 6px; }
+/* balancewhy A: the balance number is itself the way into how it is worked out. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bal-why { display: block; padding: 0; background: none; text-align: left; text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 6px; text-decoration-thickness: 1px; }
+/* installapp A: the home-screen strip, from the second visit, on the page ground under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-install-strip { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgb(var(--border)); }
+/* outsidearea A: how far, the allowed distance, and two ways on. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-outside-box { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+/* punchdone A: a full tick screen after a saved punch; it goes by itself in 3 seconds. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; background: rgb(var(--surface)); animation: ui-punch-done-in 160ms ease-out; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-tick { color: rgb(var(--pos)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-first { font-size: 1.75rem; line-height: 2.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-second { color: rgb(var(--fg-muted)); margin-bottom: 16px; }
+@keyframes ui-punch-done-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { animation: none; } }
+/* payslipbundle A: last 3, 6 or 12 as a segmented choice, then one PDF. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slip-bundle { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid rgb(var(--border)); border-radius: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg-btn { min-height: 36px; padding: 0 12px; border-radius: 6px; font-size: 0.875rem; color: rgb(var(--fg-muted)); background: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg-btn[data-on] { background: rgb(var(--act)); color: rgb(var(--on-primary)); font-weight: 600; }
+/* payslipquery A: the question form sits under the payslip, under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slip-ask { padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
