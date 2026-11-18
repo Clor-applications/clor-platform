@@ -1014,6 +1014,120 @@ highest pay per job; a weeks × days grid shaded by people present; planned agai
 shift today; sick days next to weekends or holidays; probations confirmed, extended or let go; who is
 off in the coming weeks, names by week. All need report figures worked out on the server.
 
+### Round 46 (18 Nov 2026)
+
+Documents and letters, outside Books.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| How a person's documents are arranged | A person's Documents sit in folders: Identity (ID, address proof, permits), Joining (contract, education, certificates), Letters, Payroll, Other, each with its count; empty folders are left out. Books keeps one plain list (`docFolders`, `EmployeeDocuments`). |
+| Certificates that expire | People → Documents has an "Expiring in December" tab: everything whose valid-until date falls in the next calendar month, to renew together. The month names itself (`nextMonthRange`, `expiresNextMonth`). |
+| Filling a letter template | Under the letter's text, "How it reads" shows the letter with each field as a grey chip in plain words ("Date of joining", "Effective date") instead of `{{codes}}`; fields still go in with a click from the list beside it (`LetterFieldsPreview`). |
+
+Picked and already how the app works: a replaced document shows the new one with the earlier
+versions kept under "Earlier versions"; one Documents screen across people, filtered by type,
+with an export; who sees a document is set per document (the person and HR by default, managers
+none).
+
+Picked, **not built yet**: "Ask for it" on the record giving the person an upload task; one
+letter to many people with a preview of each and a PDF per person; a faint "Downloaded from CLOR ·
+date" across downloaded pages; the relieving and experience letter ready in the employee app on
+the last day after clearance; "Opened 19 Nov, 10:12" beside a letter; a camera scan that crops
+pages into one PDF; the NDA signed in the app as a joining step; automatic letter reference
+numbers per letter type (KAVE/HR/2026/014); the manager copied on a letter; letters delivered in
+the employee app with email only for those not on the app; a branch and date filter and "download
+all" on Documents. All need server work.
+
+### Round 47 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Showing the steps of an approval | A leave request's Approval section says only the step it is at, as a small chip: "With HR", "Yours to decide" or "Decided", with the due date. The full trail folds under "All steps" (`stepChipText`, Leave requests drawer). |
+| What the approver sees about balance | The Balance line reads "Leaves 4 days after this", then "· 12 days without this request" in grey; a balance below zero is in red (`BalanceAfter`). |
+| A request nobody acts on | On the Waiting tab, HR gets a "Waiting too long (n)" button that lists only the requests waiting more than three days (`isWaitingTooLong`, `?long=1`). It counts the requests on the page already loaded. |
+| Seeing the attached proof | Open on the document sent with a request shows it inside the request: a picture as a picture, a PDF in a frame, anything else with a download link (`InlineDocument`). |
+
+Picked and already how the app works: who approves is fixed by the reporting line (no choice
+for the person asking); approving part of a request is approve all, then edit.
+
+Picked, **not built yet**: a stand-in with dates while a manager is away; longer leave (over 5
+days) going on to the department head; "Send back with a question" that returns once answered;
+claims over ₹10,000 going to finance after the manager; two approvers at once, either one
+deciding; HR asked to choose a new approver when one leaves; HR deciding anything, marked
+"Decided by HR"; cancelling approved leave needing the manager's OK again; requests after the
+payroll cut-off allowed with payroll told to rerun; a request still waiting when its day passes
+closed as not approved and the day marked absent. All need server work.
+
+### Round 48 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| The next holiday on home | The employee app's Today tab shows "Next holiday · Pongal, Wed 14 Jan" under today's card: the first holiday from today that the person gets off (an optional one only once chosen), looking into next year when this year has none left (`NextHoliday`, `nextHoliday`). |
+| My shifts on the phone | My schedule opens on the next 14 days as a list, today on top, across a month end when needed; "Whole month" brings back the month picker (`useNextDays`, `nextDays`). |
+
+Picked and already how the app works: a shift's own grace minutes decide when a punch is late; the
+real punch time is shown and the day is counted from the shift start; hours called in on call are
+paid as overtime; working days are set per shift; Saturdays are working days unless a weekly-off rule
+says otherwise; the roster carries no hour totals.
+
+Picked, **not built yet**: one company holiday list with each holiday marked for some branches;
+"Publish" for a draft roster, with staff told; asking for a shift as a request approved like leave;
+a weekly choice of start time from fixed options; a repeating roster pattern set once; a warning
+for two shifts back to back (the roster holds one shift a person a day); a short-notice change the
+person must accept; a punch on a day with no shift sent to the manager to confirm as an extra day.
+All need server work.
+
+### Round 49 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Moving from another HR tool | Import employees recognises an employee export from Keka, greytHR, Zoho People or Darwinbox by its column names, says "This looks like an export from greytHR; its columns are matched below", and matches those columns (employee number, joining date, reporting manager's number, work email, phone). Our own column names still win, and no two columns go to one field (`sheetFromTool`, `guessImportColumns`). |
+| Dates in an uploaded sheet | The mapping step reads dates day first, as the server does, and shows one from the file: "Dates are read day first: 03/04/2025 in DOJ is 3 Apr 2025". A date that cannot be read is named with the format to use (`readSheetDate`, `ImportReadNotes`). |
+| A big import running | While rows go in, a moving bar in the app's colour and "Importing 140 rows. Stay on this page until it finishes." (`ImportProgress`). |
+
+Picked and already how the app works: mistakes in a sheet are listed row by row, with the rest
+imported and a file of the rows to fix; a "Manager (employee ID)" column brings in who reports to
+whom; the template and any sheet with column matching both exist (sample sheet first); Export
+writes the list as it is on screen, with the columns chosen. The owner picked "support restores
+it" for undoing an import; the existing 24-hour "Undo this import" stays, since it removes only
+that import's rows.
+
+Picked, **not built yet**: "Invite everyone" by SMS and email; staff adding their own photo from
+the phone app; all of one person's documents as one ZIP in folders; a start date from which leave
+and attendance count, with balances carried in; a CLOR person checking the first payroll with
+you; a full data takeout through support; a salary sheet with CTC split by the salary structure;
+a "Came from import" filter on Employees. All need server work.
+
+### Round 50 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Stronger contrast | "Stronger text" in the name menu darkens the greys and firms up the hairlines (`data-contrast="strong"`, `useStrongText`); kept in this browser, beside Text size and row density. Not in Books. |
+| Tap size on phones | On a touch screen every button and form field is at least 48px tall (`pointer: coarse` in picks.css). |
+| Statutory due dates | Payroll home ends with "Next dues": the next five of TDS deposit (7th; March's by 30 April), PF return and payment and ESI (15th), the quarterly TDS return (24Q) and Form 16 (15 June), each with its date and "In N days" (`StatutoryDues`). Professional tax is left out because its dates differ by state. |
+
+Picked and already how the app works: the phone or computer's "reduce motion" setting is followed
+everywhere (the global reduced-motion rule); a 2px ring in the app's colour marks the focused
+control; form mistakes show in red under each field; a payslip opens as a screen with earnings and
+deductions, PDF if wanted; every People report chart has a table of its figures under it; a screen
+reader re-reads the page after Save (nothing extra announced); labour law notices are not in CLOR.
+
+Picked, **not built yet**: the phone app keeping the last payslip, balances and shifts offline
+with "as of 9:40"; a fingerprint or PIN to open the phone app; a home-screen widget with today's
+shift and Punch in; CLOR suggesting a statutory rate change for the payroll admin to accept; an
+in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
+need the phone app or server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
