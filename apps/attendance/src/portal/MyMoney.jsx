@@ -11,6 +11,7 @@ import {
 } from './moneyApi';
 import { rupees as money } from '@ui/utils/money';
 import PfWithdrawSteps from './PfWithdrawSteps';
+import { RUPEE_HINT, billTooOld, oldestBillDay, tooOldText } from './round51';
 
 /**
  * Money in the employee app's Me tab (WORKFLOW-GAP-RESEARCH 4.1, 4.2):
@@ -195,6 +196,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
   const save = async (e, notDuplicate = false) => {
     e?.preventDefault?.();
     if (busy) return;
+    if (billTooOld(form.spentOn, todayIst())) { notify.error(tooOldText()); return; }
     setBusy(true);
     try {
       const bill = file ? await billData(file) : undefined;
@@ -234,9 +236,10 @@ function BillForm({ data, guard, onDone, onCancel }) {
           <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
         </label>
         <label className="block"><span className="ui-label">Day</span>
-          <input type="date" className="ui-input w-full" required max={todayIst()} value={form.spentOn} onChange={(e) => set({ spentOn: e.target.value })} />
+          <input type="date" className="ui-input w-full" required min={oldestBillDay(todayIst())} max={todayIst()} value={form.spentOn} onChange={(e) => set({ spentOn: e.target.value })} />
         </label>
       </div>
+      <p className="ui-caption ui-r51-hint">{RUPEE_HINT} {tooOldText()}</p>
       <label className="block"><span className="ui-label">What it was for</span>
         <select className="ui-select w-full" required value={form.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>
           <option value="">Choose</option>
@@ -258,14 +261,10 @@ function BillForm({ data, guard, onDone, onCancel }) {
       </label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.companyGstin} onChange={(e) => set({ companyGstin: e.target.checked })} /> The bill is in the company’s name, with our GSTIN</label>
       {form.companyGstin ? (
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block"><span className="ui-label">Their GSTIN</span>
-            <SuggestInput value={form.supplierGstin} onChange={(v) => set({ supplierGstin: v.toUpperCase() })} maxLength={15} placeholder="29ABCDE1234F1ZW" suggestions={[]} />
-          </label>
-          <label className="block"><span className="ui-label">GST on the bill</span>
-            <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" value={form.taxAmount} onChange={(e) => set({ taxAmount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
-          </label>
-        </div>
+        /* Round 51 pick (gstbill B): only the GST amount on the bill is asked. */
+        <label className="block"><span className="ui-label">GST on the bill</span>
+          <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" value={form.taxAmount} onChange={(e) => set({ taxAmount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+        </label>
       ) : null}
       {form.companyGstin && category?.creditBlocked ? <p className="ui-caption">GST credit is usually not available on {category.name.toLowerCase()}. Keep the bill anyway.</p> : null}
       <label className="block"><span className="ui-label">Note</span>
