@@ -24,6 +24,7 @@ import { Avatar } from '@ui/personnel/Employees';
 
 import { can, homeCrumbs, istDay } from './shared';
 import { lateText } from './round33';
+import { BalanceAfter, InlineDocument, LONG_WAIT_DAYS, isWaitingTooLong, stepChipText } from './round47';
 import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
@@ -80,7 +81,11 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   const year = p.year ? Number(p.year) : settings.data?.current?.year;
   const query = { status: tab === 'all' ? undefined : tab, q: p.q, leaveTypeId: p.type, year, limit: size, offset: (page - 1) * size };
   const list = useRequest(() => (year ? pageLeaveRequests(query) : Promise.resolve(null)), [JSON.stringify(query)]);
-  const rows = list.data?.requests || [];
+  const allRows = list.data?.requests || [];
+  /* Round 47 escalate B: a "Waiting too long" list of requests waiting more than three days. */
+  const longWaiting = tab === 'PENDING' ? allRows.filter((r) => isWaitingTooLong(r.createdAt)) : [];
+  const onlyLong = tab === 'PENDING' && p.long === '1';
+  const rows = onlyLong ? longWaiting : allRows;
   const counts = list.data?.counts || {};
   const [adding, setAdding] = useState(false);
   /* Today's figures for the tiles and the clash notice: the same overview Who's away reads; a refusal leaves them out. */
@@ -196,6 +201,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         toolbar={<>
           <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search leave requests" className="w-full sm:w-72" />
           <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder="Every type" /></div>
+          {tab === 'PENDING' && (longWaiting.length || onlyLong) ? <button type="button" className={`ui-btn ui-btn-sm ${onlyLong ? 'ui-btn-primary' : 'ui-btn-secondary'} ui-long-wait`} aria-pressed={onlyLong} title={`Waiting more than ${LONG_WAIT_DAYS} days`} onClick={() => set({ long: onlyLong ? null : '1', page: null })}>Waiting too long <span className="tabular-nums">({longWaiting.length})</span></button> : null}
           {periodOptions.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => set({ year: v && Number(v) !== settings.data?.current?.year ? v : null, page: null })} options={periodOptions} /></div> : null}
         </>}
         tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: counts[k], tone: k === 'PENDING' ? 'warn' : undefined }))}
@@ -207,7 +213,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         label="Leave requests"
         columns={shownColumns}
         rows={rows}
-        total={Number(list.data?.total || 0)}
+        total={onlyLong ? rows.length : Number(list.data?.total || 0)}
         page={page}
         pageSize={size}
         noun="requests"
@@ -294,6 +300,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const [shortening, setShortening] = useState(false);
   const [shortTo, setShortTo] = useState('');
   const [shortDays, setShortDays] = useState(null);
+  const [shownDoc, setShownDoc] = useState(null);
   useEffect(() => {
     if (!shortening || !shortTo || !r) { setShortDays(null); return undefined; }
     let live = true;
@@ -323,8 +330,8 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     try {
       const doc = await getLeaveDocument(r.id);
       if (!doc?.dataUrl) return;
-      const blob = await (await fetch(doc.dataUrl)).blob();
-      window.open(URL.createObjectURL(blob), '_blank', 'noopener');
+      /* Round 47 approvalattach A: it opens inside the request, no download. */
+      setShownDoc(doc.dataUrl);
     } catch (e) {
       notify.error(String(e?.message || 'The document did not open.'));
     }
@@ -388,26 +395,32 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
           {d.step ? (
             <section aria-labelledby="lr-step" className="space-y-1">
               <h3 id="lr-step" className="ui-t-sec">Approval</h3>
-              {d.step.engine && d.step.timeline?.length ? (d.step.current && d.step.yours ? <p className="text-sm"><strong>Yours to decide</strong></p> : null) : <p className="text-sm">
-                {d.step.current ? <>Step <span className="tabular-nums">{d.step.current}</span>{d.step.of ? <> of <span className="tabular-nums">{d.step.of}</span></> : null}: {d.step.yours ? <strong>yours to decide</strong> : <>waiting for {d.step.waitingFor.join(', ') || 'someone else'}</>}</> : 'Decided'}
+              {/* Round 47 approvalchain B: only the step it is at, "With HR"; the full trail folds away. */}
+              <p className="text-sm">
+                <span className={`ui-step-chip${d.step.current && d.step.yours ? ' is-yours' : ''}`}>{stepChipText(d.step)}</span>
                 {d.step.current && d.step.dueAt ? <span className="ui-muted tabular-nums"> · due {formatDate(new Date(new Date(d.step.dueAt).getTime() + 330 * 60_000).toISOString().slice(0, 10))}</span> : null}
-              </p>}
+              </p>
               {d.step.timeline?.length ? (
-                <ol className="text-sm space-y-1" aria-label="Steps">
-                  {d.step.timeline.map((t, i) => (
-                    <li key={`${t.order}-${i}`} className="flex flex-wrap gap-x-2">
-                      <span className={t.status === 'WAITING' ? 'font-medium' : ''}>{t.text}</span>
-                      {t.on ? <span className="ui-muted tabular-nums">{t.status === 'WAITING' ? 'due ' : ''}{formatDate(t.on)}</span> : null}
-                    </li>
-                  ))}
-                </ol>
+                <details className="text-sm">
+                  <summary className="ui-link">All steps</summary>
+                  <ol className="space-y-1 mt-1" aria-label="Steps">
+                    {d.step.timeline.map((t, i) => (
+                      <li key={`${t.order}-${i}`} className="flex flex-wrap gap-x-2">
+                        <span className={t.status === 'WAITING' ? 'font-medium' : ''}>{t.text}</span>
+                        {t.on ? <span className="ui-muted tabular-nums">{t.status === 'WAITING' ? 'due ' : ''}{formatDate(t.on)}</span> : null}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
               ) : null}
               <p className="ui-caption">{d.step.rule}</p>
             </section>
           ) : null}
           {d.document ? (
-            <p className="text-sm flex flex-wrap items-center gap-2"><span className="ui-label m-0">Document</span><span>{d.document.title}</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={openDocument}>Open</button></p>
-          ) : d.documentNeeded && !r.reasonHidden ? <p className="text-sm ui-muted">No document sent with it, though this type asks for one at this length.</p> : null}
+            <p className="text-sm flex flex-wrap items-center gap-2"><span className="ui-label m-0">Document</span><span>{d.document.title}</span>{shownDoc ? null : <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={openDocument}>Open</button>}</p>
+          ) : null}
+          {d.document && shownDoc ? <InlineDocument dataUrl={shownDoc} title={d.document.title} onClose={() => setShownDoc(null)} /> : null}
+          {d.document ? null : d.documentNeeded && !r.reasonHidden ? <p className="text-sm ui-muted">No document sent with it, though this type asks for one at this length.</p> : null}
           {d.ownRequest && r.status === 'PENDING' ? <p className="text-sm ui-muted">This is your own request. Somebody else decides it, unless nobody else in the company can.</p> : null}
 
           {shortening ? (
@@ -426,7 +439,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
               <h3 id="lr-balance" className="ui-t-sec">Balance</h3>
               <p className="text-sm tabular-nums">
                 {OPEN_STATUSES.includes(r.status)
-                  ? <>{d.balance.without} {d.balance.without === 1 ? 'day' : 'days'} without this request, <strong>{d.balance.with}</strong> with it</>
+                  ? <BalanceAfter withIt={d.balance.with} without={d.balance.without} />
                   : <>{d.balance.available} {d.balance.available === 1 ? 'day' : 'days'} left</>}
                 <span className="ui-muted"> · {d.balance.label}</span>
               </p>
