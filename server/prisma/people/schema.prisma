@@ -192,6 +192,8 @@ model Employee {
   /// When every portal sign-in was last ended (suspended, left, "sign out
   /// everywhere"): a token from before the session registry issued earlier is refused (A-33).
   portalSessionsRevokedAt DateTime?
+  /// The employee app's language, chosen on Me ("en", "hi"); empty is English.
+  portalLanguage          String?
   /// May punch from a phone (inside a geofence). Off unless HR allows it.
   mobilePunch             Boolean   @default(false)
   /// Only this site counts for their phone punches; null = any active site.

@@ -147,6 +147,7 @@ const PORTAL_FIELDS = {
   portalSetupHash: true,
   portalSetupExpires: true,
   portalSessionsRevokedAt: true,
+  portalLanguage: true,
   mobilePunch: true,
   geofenceId: true,
   dateOfBirth: true,
@@ -360,7 +361,19 @@ portalRouter.get('/me', async (req, res) => {
     privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
     /* Money, growth, jobs and engagement are People's: hidden when the company has Attendance alone. */
     people: await isAppEntitled(req.portal!.accountId, 'people'),
+    /* The language chosen on Me, so a new phone opens in it too. */
+    language: e.portalLanguage || 'en',
   });
+});
+
+/** The employee app's language (English or Hindi), kept on the person so every phone follows it. */
+const PORTAL_LANGUAGES = ['en', 'hi'] as const;
+portalRouter.put('/me/language', check({ body: z.object({ language: choice(PORTAL_LANGUAGES, 'Choose English or Hindi.') }) }), async (req, res) => {
+  const e = req.portal!.employee;
+  const language = req.body?.language;
+  if (!language) return res.status(400).json({ error: 'Choose English or Hindi.' });
+  await peoplePrisma.employee.update({ where: { id: e.id }, data: { portalLanguage: language === 'en' ? null : language } });
+  res.json({ language });
 });
 
 /**
