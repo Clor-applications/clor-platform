@@ -1128,6 +1128,25 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 51 (18 Nov 2026)
+
+Expense claims and company assets. **Built** (employee app bill form, `apps/attendance/src/portal/round51.js`):
+a bill paid in another currency is typed as the rupee amount from the card statement, said under
+the amount; a bill older than 60 days is refused (the day picker stops at 60 days back and the form
+refuses it; the server does not check this yet); a bill in the company's GSTIN asks only for the GST
+amount on the bill, no supplier GSTIN.
+
+**Already matching**: a repeat bill is flagged to the approver ("Same amount, day and place as another
+bill"); no hotel limit, the approver decides; a lost bill is added with a note and the approver decides
+each time; people book their own travel and claim it; a shared bill is claimed by each person for their
+part with a copy of the bill; a team meal is one amount and a note.
+
+Picked, **not built yet**: an advance with later claims set against it; company card spends claimed
+like a bill marked "paid by company"; asset condition as Good / Fair / Damaged only; each person
+confirming "I still have this" for their assets; "Report a problem" on an asset; asking for an asset
+as a free text request; a director naming a helper who files claims for them; the employee no longer
+asked "Is this a different bill?" (the repeat goes to the approver only). All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
