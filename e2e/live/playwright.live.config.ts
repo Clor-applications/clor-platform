@@ -30,8 +30,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'auth', testMatch: /auth\.setup\.ts/, fullyParallel: false },
+    { name: 'auth', testMatch: /auth\.setup\.ts/, fullyParallel: false, use: { trace: 'off' } },
     { name: 'public', testMatch: /public\.live\.ts/ },
-    { name: 'signed-in', testMatch: /(apps|scenarios|forms)\.live\.ts/, dependencies: ['auth'] },
+    { name: 'signed-in', testMatch: /(apps|scenarios|forms)\.live\.ts/ },
   ],
 });
