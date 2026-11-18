@@ -1,0 +1,68 @@
+/*
+ * Legibility (owner, 19 Nov 2026: "visibility of words text is concern, whether sidebars or pages").
+ * Scope approved: the shell (rail, second sidebar, top bar) in every app, and the Workspace pages.
+ * People, Attendance and Payroll pages follow app by app; Books is not touched.
+ *
+ * Figtree's lowercase is small, so 13px Figtree reads like 12px in most faces, and grey on white thinned
+ * it further. The fix: 14px body, sidebar items in ink, secondary text one step darker, rail labels 12px,
+ * page titles 20px, and macOS's own text weighting instead of the thinner "antialiased" rendering.
+ *
+ * Loaded after picks.css (main.jsx). The three-id prefix outranks rnd.css (one) and picks.css (two)
+ * without !important.
+ */
+
+/* macOS draws text heavier with its default rendering; "antialiased" thinned every stroke. Not in Books. */
+:root:not([data-app='accounting']) { -webkit-font-smoothing: auto; -moz-osx-font-smoothing: auto; }
+
+/* ---- Rail (first sidebar) ---- */
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-rail .ui-split-mod > span {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+
+/* ---- Second sidebar ---- */
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item {
+  height: 2.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--fg));
+}
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item[aria-current='page'] { font-weight: 600; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel-head > .ui-t-sec { font-size: 1rem; }
+/* Group headings (COMPANIES, MORE): small capitals stay, in near-ink rather than grey. */
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-caption { color: rgb(74 72 66); font-weight: 700; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel-foot-title { font-size: 0.875rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel-foot-sub { font-size: 0.8125rem; color: rgb(74 72 66); }
+
+/* ---- Top bar ---- */
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-topbar .ui-global-search { font-size: 0.875rem; }
+
+/* ---- Workspace pages ---- */
+/* Secondary text one step darker: #5C5A54 to #4A4842, and the faintest grey #6E6B64 to #5C5A54. */
+:root:not(#lg1):not(#lg2):not(#lg3) .ws {
+  --fg-muted: 74 72 66;
+  --fg-subtle: 92 90 84;
+  --ws-muted: 74 72 66;
+  font-size: 0.875rem;
+}
+/* picks.css pins the slim toolbar's title at 16px with !important (style pick, 17 Nov); 20px here, approved 19 Nov. */
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-head .ws-title { font-size: 1.25rem !important; line-height: 1.75rem !important; font-weight: 700 !important; letter-spacing: -0.01em; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-table td { font-size: 0.875rem; color: rgb(var(--fg)); }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-cell-sub, .ws-card-blurb, .ws-item-sub, .ws-list-meta, .ws-head-meta, .ws-stat-note) {
+  font-size: 0.8125rem;
+  color: rgb(74 72 66);
+}
+:root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-activity-sub, .ws-side-note) { font-size: 0.8125rem; color: rgb(74 72 66); }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-box-title { color: rgb(74 72 66); }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-activity-bars li, .ws-activity-person, .ws-activity-list li) { font-size: 0.875rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-tab { font-size: 0.9375rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-row-link { font-size: 0.875rem; }
+/* Tags keep their size but lose the faint end: 12px is their floor. */
+:root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-state, .ws-tag) { font-size: 0.75rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-sec-record { font-size: 0.8125rem; color: rgb(74 72 66); }
+/* Bar labels at 14px need room: "Departments" ran into its bar at 4.5rem. */
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-bars li { grid-template-columns: 6.5rem minmax(0, 1fr) 1.75rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-bars--wide li { grid-template-columns: 7.5rem minmax(0, 1fr) 1.75rem; }
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

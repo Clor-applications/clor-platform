@@ -8,6 +8,8 @@ import './packages/ui/src/people.css';
 import './packages/ui/src/rnd.css';
 /* The owner's style picks (17 Nov 2026), after everything; never in Books. */
 import './packages/ui/src/picks.css';
+/* Legibility (19 Nov 2026): shell and Workspace text sizes and weights, after the picks so it wins. */
+import './packages/ui/src/legibility.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 import TipLayer from './packages/ui/src/components/ui/TipLayer';
