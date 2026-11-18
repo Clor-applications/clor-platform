@@ -911,6 +911,109 @@ of names, accounts and amounts; a phone notice with the amount when salary is se
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
+### Round 41 (18 Nov 2026)
+
+Field and site staff. Built:
+
+| Building block | Pick |
+| --- | --- |
+| Where the field team is now | Attendance → Mobile punches has a "Where now" tab: each person who punched from a phone in the chosen days, once, with the place (street address for a field punch, else the work site) and time of their last punch, and the map and selfie buttons. A list, no map (`latestPlaces`). |
+| When location is followed | The phone punch notice now says it plainly: "Only the place at the moment you punch is kept; CLOR does not follow you between punches." That is how it works: the location is saved with each punch and nowhere else. |
+
+Picked and already how the app works: a field day can start from home, because people set to Field under Portal access punch from anywhere (their punches show with the address, waiting for approval if the company wants); a fixed fuel amount a month is a fixed earning on the salary structure, with no card to check.
+
+Picked, **not built yet**: "Check in here" at the customer's shop found from his location; Ravi's own visit plan for the day, seen by his manager; outcome chips and a note after a visit; a gallery photo as proof at a site; one customer and site list kept by the office, with new shops suggested from the field; a fixed night-halt amount from the tour dates; daily allowance by city group (metro, other city, town); "28 of 40 visits this week" on his home; a punch kept on the phone with no signal and sent later with its real time (the server stamps the time today); the site in-charge's daily crew count by trade; HR marking a site closed for the day as a paid day for everyone there; an area on each salesperson's record with its shops. All need server work.
+
+### Round 42 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Leave when a child is ill | Sick leave on the leave form asks "Who is ill": Me or My child. My child takes it from the person's own sick leave (one balance) and starts the reason with "For my child:" so the approver sees it (`ForWhom`, `reasonFor`). |
+| Asking for leave without pay | Unpaid leave already shows as a type on the form, marked unpaid; under the day count it now says "Without pay: your pay for the month is cut for these 3 days" (`UnpaidNote`). The rupee figure needs the salary from the server. |
+| Leave after adopting a child | An adoption leave type on the form says "For a child under 3 months: 12 weeks from the day the child comes home" and offers "Fill 12 weeks", with the back-at-work day, as maternity does with 26 weeks (`LongLeaveSpan`). |
+
+Picked and already how the app works: paternity leave (10 days within 3 months of the birth) and
+marriage leave (5 days, once) are leave types a company sets up with its own days and rules in
+Leave settings.
+
+Picked, **not built yet**: period days worked from home; a yearly number of study days; extra paid
+days the company gives for emergencies; a monthly work-from-home limit with days left on the form;
+the leave form warning when two of the team are already away; adding a newborn to cover from the
+phone with the birth date; children's education allowance per child, up to two, in salary; a
+greeting card post on the news feed for a wedding; weeks of work from home to care for a parent;
+moving days off plus a one-time moving allowance; a long-service gift with a news feed post. All
+need server work. The employee app's own leave form keeps its current fields for now.
+
+### Round 43 (18 Nov 2026)
+
+The employee record. Picks: bloodgroup B, twoaddress A, passport B, drivinglicence B,
+disability A, maritalchange A, spokenlang A, dietpref A, medicalnote A, signaturespec A,
+aadhaarmask A, linkedin A, hidebirthday B, selfedit B, workphone A, joinsource A.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Showing Aadhaar numbers | Statutory details show Aadhaar as "XXXX XXXX 1234" in JetBrains Mono, so it reads as a masked number (`maskedAadhaar`). |
+| Change in marital status | When someone changes their marital status in the employee app, the confirmation adds what to update next: after marrying, the nominee and the health cover; after a divorce or a death, a check of both (`maritalNextStep`, My details). |
+
+Picked and already how the app works: CLOR keeps only Aadhaar's last four digits, never the full
+number, and passport and work permit numbers show in full only with an authenticator code, logged
+(safer than "Show with a reason"); birthdays reach colleagues as a day and month (This week panel,
+Overview, Today), never the year; which details save at once and which go to HR is the company's
+self-service setting, so "every change goes to HR" is that setting turned to all.
+
+Picked, **not built yet**: blood group on the record for HR only; present and permanent address
+with "Same as present"; a passport section only for people who travel; a driving licence file; an
+optional disability field with certificate, HR only; languages spoken as chips searchable in the
+directory; Veg / Non-veg / Jain with counts for events; a short health note for HR and first-aid
+staff; the signer's uploaded signature on letters after approval; a work profile link on the
+directory card; an office extension beside the mobile; how someone was hired, carried from
+hiring. All need new fields on the server.
+
+### Round 44 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Payroll dates for the month | Payroll's overview opens with a strip of the month's steps: Inputs close (the period's last day), Run and review, Approve, Pay (the period's pay date), the step the month is at marked, and "Pay in 12 days", "Pay today" or, in amber, "Pay was due 2 days ago" (`PayCalendarStrip`, `payCalendar`). |
+| Working out take-home from a salary offer | Typing the yearly CTC on an offer shows "In hand, about ₹46,200 a month" under it, with pay, PF, ₹200 professional tax and income tax spelt out. An estimate on the new tax regime (half the pay as basic, PF on basic up to ₹15,000, surcharge left out); the payslip works out the exact figure (`TakeHomeEstimate`, `takeHome`). |
+| Help with PF withdrawal | The employee app's money page ends with "Taking money out of your PF": four steps (UAN linked, sign in, Claim, confirm with the Aadhaar code) and a link to the EPFO member page (`PfWithdrawSteps`). |
+
+Picked and already how the app works: loans with interest worked out (Payroll → Loans takes the
+rate a year and shows the EMI schedule before saving); a salary advance request instead of
+earned-wage access (employee app → money); the joiner brings any bank account (bank details on
+the record); a deduction is told, not agreed (it shows on the payslip).
+
+Picked, **not built yet**: a meal card amount chosen by staff and taken out of taxable pay; the
+ESI monthly file in the ESIC upload format with a check list first; a full-attendance bonus that
+allows one late mark; a stay bonus on the record with its due date, paid by itself; extra health
+cover chosen in the app with the premium taken over 12 months; the ESI card downloaded from the
+phone app; the month's service charge split by days worked; the pension (EPS) share shown on the
+payslip under PF; family members marked "Covered by ESI". All need server work.
+
+### Round 45 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Age mix of the staff | Headcount & attrition adds "Age mix": bars by age band (under 25, 25–35, 35–45, 45–55, 55+) for everyone working today, with how many have no date of birth left out. Counts only; nobody's date of birth is shown (`ageBands`, `AgePanel`). |
+| How many people each manager has | Headcount & attrition adds "Team size per manager": managers with how many report to them today, largest team first, ten shown and "and N more" after, with how many have no manager set (`managerSpans`, `SpanPanel`). |
+
+Picked and already how the app works: none this round.
+
+Picked, **not built yet**: absence as percent of working days lost, by month, as a line; overtime
+hours (not money) over time; the late-comers list with average minutes late; days taken per leave
+type this year; cost per hire by channel; days to fill a job by job type; training hours against
+the yearly target; a branch table of headcount, attrition, absence and pay cost; lowest, middle and
+highest pay per job; a weeks × days grid shaded by people present; planned against present for each
+shift today; sick days next to weekends or holidays; probations confirmed, extended or let go; who is
+off in the coming weeks, names by week. All need report figures worked out on the server.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
