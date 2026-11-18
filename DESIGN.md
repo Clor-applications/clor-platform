@@ -558,6 +558,8 @@ list (branch, team, type); "Preview pay" on one person. All need server or phone
 
 ### Round 26 (18 Nov 2026)
 
+### Round 27 (18 Nov 2026)
+
 Built:
 
 | Building block | Pick |
@@ -577,6 +579,22 @@ year; a punch from a phone faking its location blocked with a plain reason; susp
 turned off with a note only HR sees; "Continue with Google / Microsoft" on the sign-in page; a
 credit note raised from the invoice in Ops; daily or monthly pay type on the record. All need
 server or phone-app work.
+
+| Two punches a minute apart | Attendance → Transactions greys a punch made within 60 seconds of the same person's previous one, with "Repeat · the day counts the first" under its time. Nothing is removed; the day already reads first in and last out (`repeatPunchIds`). |
+| Marking a draft payslip | A payslip whose payroll is not approved yet (slip or run still draft, calculated or in review) opens with a coloured strip, "DRAFT Payroll is not approved yet, so these figures can still change." It prints too (`DraftStrip`). |
+| An old browser | A browser older than the build's line (late 2022: Chrome or Edge 107, Firefox 104, Safari 16) gets one page naming the browsers that work, with links, instead of broken screens. Not on Books' host or a shared invoice link (`OldBrowserPage`). |
+| Giving a customer more trial days | Ops → a customer → Extend trial has +7, +14 and +30 days beside the days box; one click fills it. |
+
+Picked and already how the app works: a day at a client's office is an "On duty" request with the
+place, counted as present once approved (employee app → Requests).
+
+Picked, **not built yet**: a row per month with "Add challan" for TDS; a no-pay leave type for a
+long break; an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
+side; sharing a payslip from the phone's share list (needs a payslip PDF file from the server);
+"Take back" on an approval until the leave starts; payslips by sign-in link with no PDF
+password; leaving steps that start on their own at retirement age; a list of leavers due for
+clearing with one button; a payslip line showing pieces × rate. All need server work. Chart
+names at the end of each line wait for a chart with several lines; none has more than one yet.
 
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 

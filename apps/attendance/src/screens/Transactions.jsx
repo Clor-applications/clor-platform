@@ -11,6 +11,7 @@ import { notify } from '@ui/components/ui/notify';
 import Modal from '@ui/components/ui/Modal';
 import { getPunchPhoto, listDevices, listEmployees, listTransactions, matchPunches, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { repeatPunchIds } from '../components/repeatPunches';
 
 const TABS = [
   { value: '', label: 'All', tone: 'all' },
@@ -95,6 +96,8 @@ export default function Transactions({ title = 'Punch transactions' }) {
   const anyWorkCode = Boolean(data?.transactions?.some((t) => t.workCode));
 
   const all = useMemo(() => data?.transactions || [], [data]);
+  /* A second punch within a minute of the same person's last one: shown, greyed, never counted twice (round 27). */
+  const repeats = useMemo(() => repeatPunchIds(all), [all]);
   const counts = useMemo(() => {
     const c = { '': all.length };
     for (const t of all) c[directionOf(t)] = (c[directionOf(t)] || 0) + 1;
@@ -195,8 +198,11 @@ export default function Transactions({ title = 'Punch transactions' }) {
                   </tr>
                 ) : (
                   pageRows.map((t) => (
-                    <tr key={t.id}>
-                      <td className="ui-col-date whitespace-nowrap tabular-nums">{t.localTime}</td>
+                    <tr key={t.id} className={repeats.has(t.id) ? 'ui-punch-repeat' : undefined}>
+                      <td className="ui-col-date whitespace-nowrap tabular-nums">
+                        {t.localTime}
+                        {repeats.has(t.id) ? <span className="ui-caption block">Repeat · the day counts the first</span> : null}
+                      </td>
                       <td className="ui-col-entity">
                         {t.employeeName || (
                           <span className="flex flex-col gap-1">

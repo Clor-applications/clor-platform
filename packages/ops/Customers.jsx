@@ -727,7 +727,14 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
         {action === 'trial' ? (
           <label className="grid gap-1">
             <span className="text-sm font-medium">Extra days</span>
-            <input className="ui-input tabular-nums" type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 140 }} />
+            <span className="flex flex-wrap items-center gap-2">
+              <input className="ui-input tabular-nums" type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 140 }} />
+              <span className="ui-quick-days" role="group" aria-label="Quick picks">
+                {[7, 14, 30].map((n) => (
+                  <button key={n} type="button" className="ui-quick-day" aria-pressed={Number(days) === n} onClick={() => setDays(n)}>+{n} days</button>
+                ))}
+              </span>
+            </span>
           </label>
         ) : null}
         {action === 'apps' || action === 'plan' ? (

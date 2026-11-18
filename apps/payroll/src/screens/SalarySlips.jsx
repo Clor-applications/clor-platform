@@ -10,6 +10,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { listSalarySlips, getSalarySlip, getSlipYearToDate } from '../api/payrollSlips';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import DraftStrip from '../components/DraftStrip';
 
 /**
  * Payslips.
@@ -216,6 +217,7 @@ const SlipDocument = ({ slipId }) => {
 
   return (
     <div className="space-y-4">
+      <DraftStrip slip={slip} />
       {/* Who, and for when. A payslip is identified by the person and the
           period before it is read as a set of numbers. */}
       <section className="space-y-1">
