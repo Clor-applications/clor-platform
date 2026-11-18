@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-785a0dc - 2026-11-19
+
+API revision `clor-api-00145-twx`. Previous release `rel-644865e` (roll back there).
+
+- #345 Picks rounds 66-67: labour code pay rules, billing documents, breaches, What's new
+- #329 Release record: rel-128629a
+- #346 Release record: rel-644865e
+
 ## rel-644865e - 2026-11-18
 
 API revision `clor-api-00144-zdv`. Previous release `rel-f16a2ae` (roll back there).
