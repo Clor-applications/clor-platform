@@ -556,6 +556,29 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 37 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Writing your own review | The self-review asks what the manager is asked (a rating and what went well and what to work on); once neither can still be edited, a review opens with the two side by side, the person's words on the left and the manager's on the right, one above the other on a phone (`showSideBySide`, `.ui-review-pair`). |
+| Review cycle dates | A new cycle asks for one "Reviews due by" date, used for self-reviews and manager reviews alike; a cycle shows "Reviews due by" when its two dates match, and an older cycle with two dates keeps both (`oneDueDate`, `withOneDueDate`). |
+| Making a course compulsory | A training someone is put down for stays on the employee app's Today tab, "A training to finish", until HR marks it completed or missed (`TrainingsDue`, `trainingsDue`). There is no separate "compulsory" flag: being put down for it is the ask. |
+
+Picked and already how the app works: an improvement plan with what is expected, dates and notes
+along the way, seen by HR and the manager (and the person in the employee app); updating a goal is
+On track / At risk / Behind with a note (the check-in); the person ticks "I have read it" on a
+shared review; ratings stay as managers give them, with HR's final rating needing a reason when it
+differs and the calibration view only showing the spread (no suggested share); open jobs inside
+the company show under Me with "Apply" where HR allows it.
+
+Picked, **not built yet**: a "★ Nov star" badge on the profile with no post; HR adds colleagues as
+reviewers; one-tap mood face once a week at punch-in; answers shown after a course test with no
+pass mark; a mentor the person asks, who accepts, with monthly meetings logged; named successors
+for a key role, ready now or in a year; staff rating their manager by name in the review; the
+promotion letter made and sent with the job change. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

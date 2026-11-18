@@ -12,6 +12,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { structure } from '../workforce/api';
 import { calibration, createCycle, getCycle, listCycles, moveCycle, setFinal, writeManager, writeSelf } from '../api/talent';
+import { oneDueDate, showSideBySide, withOneDueDate } from './round37';
 import { CYCLE_STATUS, FormError, Footer, Pill, RATINGS, SHEET, Stars, Tabs, WIDE_SHEET, day, ratingWord, useParamState, usedValues } from './shared';
 
 /**
@@ -105,8 +106,14 @@ function Cycle({ id, hr, onBack }) {
           <dl className="ui-field-grid">
             <div><dt className="ui-label">Status</dt><dd><Pill map={CYCLE_STATUS} value={c.status} /></dd></div>
             <div><dt className="ui-label">Period</dt><dd className="text-sm tabular-nums">{day(c.periodFrom)} – {day(c.periodTo)}</dd></div>
-            <div><dt className="ui-label">Self-reviews by</dt><dd className="text-sm tabular-nums">{day(c.selfDue) || '—'}</dd></div>
-            <div><dt className="ui-label">Manager reviews by</dt><dd className="text-sm tabular-nums">{day(c.managerDue) || '—'}</dd></div>
+            {oneDueDate(c) !== null ? (
+              <div><dt className="ui-label">Reviews due by</dt><dd className="text-sm tabular-nums">{day(oneDueDate(c)) || '—'}</dd></div>
+            ) : (
+              <>
+                <div><dt className="ui-label">Self-reviews by</dt><dd className="text-sm tabular-nums">{day(c.selfDue) || '—'}</dd></div>
+                <div><dt className="ui-label">Manager reviews by</dt><dd className="text-sm tabular-nums">{day(c.managerDue) || '—'}</dd></div>
+              </>
+            )}
           </dl>
           {mine ? <p className="ui-alert ui-alert-warn text-sm" role="status">{mine === 1 ? 'One review is yours to write.' : `${mine} reviews are yours to write.`}</p> : null}
           {c.status === 'DRAFT' ? <p className="text-sm ui-muted">{hr ? 'Open the cycle to make a review for everyone in it.' : 'HR has not opened this cycle yet.'}</p> : tab === 'calibration' ? (
@@ -188,7 +195,13 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
     <Drawer open onClose={onClose} title={`${r.employee?.name || 'Review'}: ${cycle.name}`} widthClass={WIDE_SHEET}>
       <div className="space-y-5">
         <FormError error={error} />
-        {canSelf ? (
+        {showSideBySide({ canSelf, canManager }) ? (
+          <div className="ui-review-pair">
+            {block('Self-review', r.selfRating, r.selfText, r.selfAt)}
+            {block(`Manager review${r.manager ? ` by ${r.manager.name}` : ''}`, r.managerRating, r.managerText, r.managerAt)}
+          </div>
+        ) : null}
+        {showSideBySide({ canSelf, canManager }) ? null : canSelf ? (
           <form className="ui-form-grid" onSubmit={(e) => { e.preventDefault(); if (busy) return; run('self', () => writeSelf(r.id, { selfRating: form.selfRating, selfText: form.selfText }), 'Self-review saved.'); }}>
             <p className="ui-label sm:col-span-2">Your self-review</p>
             <RatingPick label="How did the period go? *" value={form.selfRating} onChange={(v) => set({ selfRating: v })} />
@@ -196,7 +209,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
             <div className="sm:col-span-2 flex justify-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={Boolean(busy)}>{busy === 'self' ? 'Saving…' : 'Save self-review'}</button></div>
           </form>
         ) : block('Self-review', r.selfRating, r.selfText, r.selfAt)}
-        {canManager ? (
+        {showSideBySide({ canSelf, canManager }) ? null : canManager ? (
           <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); if (busy) return; run('manager', () => writeManager(r.id, { managerRating: form.managerRating, managerText: form.managerText }), 'Manager review saved.'); }}>
             <p className="ui-label sm:col-span-2">{r.manager ? 'Your review as their manager' : 'Manager review (they have no manager)'}</p>
             <RatingPick label="Rating *" value={form.managerRating} onChange={(v) => set({ managerRating: v })} />
@@ -225,7 +238,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
 function CycleForm({ cycles, onClose, onSaved }) {
   const depts = useRequest(() => structure('departments').catch(() => []), []);
   const year = new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1;
-  const initial = useMemo(() => ({ name: `${year}–${String(year + 1).slice(2)} annual review`, periodFrom: `${year}-04-01`, periodTo: `${year + 1}-03-31`, selfDue: '', managerDue: '', departmentIds: [] }), [year]);
+  const initial = useMemo(() => ({ name: `${year}–${String(year + 1).slice(2)} annual review`, periodFrom: `${year}-04-01`, periodTo: `${year + 1}-03-31`, dueBy: '', departmentIds: [] }), [year]);
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -234,7 +247,7 @@ function CycleForm({ cycles, onClose, onSaved }) {
     if (!form.name.trim()) { setError({ message: 'Name the cycle.' }); return; }
     setBusy(true);
     setError(null);
-    try { const c = await createCycle({ ...form, name: form.name.trim(), selfDue: form.selfDue || null, managerDue: form.managerDue || null }); notify.success('Cycle saved as a draft. Open it when ready.'); onSaved(c); } catch (e) { setError(e); setBusy(false); }
+    try { const c = await createCycle(withOneDueDate({ ...form, name: form.name.trim() })); notify.success('Cycle saved as a draft. Open it when ready.'); onSaved(c); } catch (e) { setError(e); setBusy(false); }
   };
   const list = (depts.data || []).filter((d) => d.isActive !== false);
   const toggle = (did) => set({ departmentIds: form.departmentIds.includes(did) ? form.departmentIds.filter((x) => x !== did) : [...form.departmentIds, did] });
@@ -246,8 +259,7 @@ function CycleForm({ cycles, onClose, onSaved }) {
         <label className="block sm:col-span-2"><span className="ui-label">Name *</span><SuggestInput autoFocus maxLength={120} value={form.name} onChange={(v) => set({ name: v })} suggestions={usedValues(cycles, (c) => c.name)} /></label>
         <div><label className="ui-label" htmlFor="cycle-from">Period from *</label><DatePicker id="cycle-from" value={form.periodFrom} onChange={(d) => set({ periodFrom: d || '' })} /></div>
         <div><label className="ui-label" htmlFor="cycle-to">Period to *</label><DatePicker id="cycle-to" value={form.periodTo} onChange={(d) => set({ periodTo: d || '' })} /></div>
-        <div><label className="ui-label" htmlFor="cycle-self">Self-reviews by</label><DatePicker id="cycle-self" value={form.selfDue} onChange={(d) => set({ selfDue: d || '' })} /></div>
-        <div><label className="ui-label" htmlFor="cycle-mgr">Manager reviews by</label><DatePicker id="cycle-mgr" value={form.managerDue} onChange={(d) => set({ managerDue: d || '' })} /></div>
+        <div className="sm:col-span-2"><label className="ui-label" htmlFor="cycle-due">Reviews due by</label><DatePicker id="cycle-due" value={form.dueBy} onChange={(d) => set({ dueBy: d || '' })} /><p className="ui-caption">One date for self-reviews and manager reviews.</p></div>
         <fieldset className="sm:col-span-2 space-y-1.5">
           <legend className="ui-label">Who is in it</legend>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={!form.departmentIds.length} onChange={() => set({ departmentIds: [] })} />Everyone working in the period</label>

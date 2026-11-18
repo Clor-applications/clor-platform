@@ -787,3 +787,13 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 37 */
+/* selfreview A: the self-review and the manager's review side by side once both are read-only. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair { display: grid; gap: 1.25rem; }
+@media (min-width: 640px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair { grid-template-columns: 1fr 1fr; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair > section + section { border-left: 1px solid rgb(var(--border)); padding-left: 1.25rem; }
+}
+/* courseassign B: trainings to finish on the employee app's Today tab. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-training-due h2 { color: rgb(var(--act-ink)); }

@@ -18,6 +18,7 @@ import AskHr from './AskHr';
 import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './MeExtras';
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
+import TrainingsDue from './TrainingsDue';
 import MyJobs from './MyJobs';
 import MyMoney from './MyMoney';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
@@ -164,7 +165,7 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} /><TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
+        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} />{me?.people !== false ? <TrainingsDue guard={guard} /> : null}<TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} fix={fix} onFixUsed={() => setFix(null)} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
