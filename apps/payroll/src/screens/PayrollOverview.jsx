@@ -5,6 +5,7 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { getPayrollOverview } from '../api/payrollOverview';
 import { getPayrollSetup } from '../api/payrollSetup';
 import { wholeRupees as money } from '@ui/utils/money';
+import PayCalendarStrip from '../components/PayCalendarStrip';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -112,6 +113,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
         }
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4">
+      {currentPeriod ? <PayCalendarStrip period={currentPeriod} run={currentRun} /> : null}
 
       {/*
         * Setup comes before anything else while it is unfinished.
