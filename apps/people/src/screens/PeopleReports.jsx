@@ -12,6 +12,7 @@ import { orgId } from '@platform/context';
 import { leavingReasons } from '../api/engagement';
 import { listAllEmployees } from '../workforce/api';
 import { todayIst } from '@ui/utils/dates';
+import { AgePanel, SpanPanel } from './round45';
 
 /**
  * People report (People audit gap 21): headcount, joiners, leavers and
@@ -119,13 +120,19 @@ function TenurePanel() {
   const r = req.data;
   if (!r || !Array.isArray(r.employees)) return null;
   const { rows, noDate } = tenureBands(r.employees);
-  if (!rows.some((x) => x.value)) return null;
   const total = Number(r.total || r.employees.length);
   const notes = [noDate ? `${noDate} without a joining date left out` : null, total > r.employees.length ? `counted from the first ${r.employees.length} people` : null].filter(Boolean);
   return (
-    <ChartPanel title="How long people have stayed" note={notes.length ? `Working today · ${notes.join(' · ')}` : 'Working today'}>
-      <BarList one label="People working today by years since joining" rows={rows} />
-    </ChartPanel>
+    <>
+      {rows.some((x) => x.value) ? (
+        <ChartPanel title="How long people have stayed" note={notes.length ? `Working today · ${notes.join(' · ')}` : 'Working today'}>
+          <BarList one label="People working today by years since joining" rows={rows} />
+        </ChartPanel>
+      ) : null}
+      {/* Round 45 picks: age mix and team size per manager, from the same list. */}
+      <AgePanel employees={r.employees} />
+      <SpanPanel employees={r.employees} />
+    </>
   );
 }
 

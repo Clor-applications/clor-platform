@@ -577,6 +577,25 @@ number of days' absence without word; the company's year start with what each ch
 file space as a bar by kind; "Copy from" another branch with ticks; payslips by SMS with a short
 link; pay groups with their own pay day. All need server work.
 
+### Round 45 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Age mix of the staff | Headcount & attrition adds "Age mix": bars by age band (under 25, 25–35, 35–45, 45–55, 55+) for everyone working today, with how many have no date of birth left out. Counts only; nobody's date of birth is shown (`ageBands`, `AgePanel`). |
+| How many people each manager has | Headcount & attrition adds "Team size per manager": managers with how many report to them today, largest team first, ten shown and "and N more" after, with how many have no manager set (`managerSpans`, `SpanPanel`). |
+
+Picked and already how the app works: none this round.
+
+Picked, **not built yet**: absence as percent of working days lost, by month, as a line; overtime
+hours (not money) over time; the late-comers list with average minutes late; days taken per leave
+type this year; cost per hire by channel; days to fill a job by job type; training hours against
+the yearly target; a branch table of headcount, attrition, absence and pay cost; lowest, middle and
+highest pay per job; a weeks × days grid shaded by people present; planned against present for each
+shift today; sick days next to weekends or holidays; probations confirmed, extended or let go; who is
+off in the coming weeks, names by week. All need report figures worked out on the server.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

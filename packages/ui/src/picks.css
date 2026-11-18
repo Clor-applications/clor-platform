@@ -787,3 +787,7 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 45 */
+/* Team size per manager: a compact two-column table inside its chart panel. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-span-table th, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-span-table td { padding-block: 6px; }
