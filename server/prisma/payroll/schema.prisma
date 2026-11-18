@@ -94,6 +94,11 @@ model EmployeePayrollProfile {
   /// Two-letter or full state name, matching how the rest of the schema writes state.
   professionalTaxState String?
 
+  /// Minimum wage skill level: UNSKILLED | SEMI_SKILLED | SKILLED | HIGHLY_SKILLED.
+  skillLevel      String  @default("UNSKILLED")
+  /// Minimum wage zone where a state notifies rates by zone ("Zone I"); empty for the whole state.
+  minimumWageZone String?
+
   pfApplicable  Boolean @default(false)
   esiApplicable Boolean @default(false)
   ptApplicable  Boolean @default(false)
@@ -1463,4 +1468,34 @@ model PayrollSetting {
   updatedAt       DateTime @updatedAt
 
   @@index([accountId, orgId])
+}
+
+/// Minimum rates of wages, per state, zone and skill level, from the state's
+/// notification. HR enters or imports them; CLOR ships none, so no rate here
+/// was ever guessed. States revise the dearness part in April and October,
+/// so a new row with a later `effectiveFrom` replaces the one before.
+model PayrollMinimumWage {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  /// Canonical state name (canonicalState), e.g. KARNATAKA.
+  state         String
+  /// Zone as the notification names it; empty for the whole state.
+  zone          String  @default("")
+  /// UNSKILLED | SEMI_SKILLED | SKILLED | HIGHLY_SKILLED
+  skill         String
+  /// ISO date the rate applies from.
+  effectiveFrom String
+  /// A month's minimum wage (basic and dearness allowance together).
+  monthlyRate   Decimal
+  /// Where the figure came from: the notification number or a link.
+  note          String?
+
+  deletedAt       DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, state])
 }

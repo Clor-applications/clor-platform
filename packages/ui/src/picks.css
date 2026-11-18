@@ -1359,3 +1359,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-hits { border-top: 0; gap: 4px; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-chip-x { margin-left: 6px; border: 0; background: none; padding: 0 2px; font: inherit; cursor: pointer; border-radius: 8px; color: rgb(var(--fg-muted)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-tds { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+/* Round 66 "minwage": the add-a-rate form on Compliance, a wrapping grid; note and buttons take a full row. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-minwage-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 12px; align-items: end; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-minwage-form .ui-minwage-note { grid-column: 1 / -1; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-minwage-form .ui-minwage-actions { grid-column: 1 / -1; justify-content: flex-end; }

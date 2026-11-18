@@ -9,6 +9,7 @@ import PayCalendarStrip from '../components/PayCalendarStrip';
 import { todayIst } from '@ui/utils/dates';
 import StatutoryDues from '../components/StatutoryDues';
 import { MonthTodo } from '../components/round59';
+import { MinimumWageReminder } from '../components/MinimumWagesSection';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -117,6 +118,8 @@ export default function PayrollOverview({ onOpen = () => {} }) {
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4">
       {currentPeriod ? <PayCalendarStrip period={currentPeriod} run={currentRun} /> : null}
+      {/* Round 66: minimum wage rates due for their April or October revision. */}
+      <MinimumWageReminder />
 
       {/*
         * Setup comes before anything else while it is unfinished.

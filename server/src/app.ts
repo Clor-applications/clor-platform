@@ -100,6 +100,7 @@ import { payrollRunsRouter } from './routes/payrollRuns.js';
 import { payrollPostingRouter } from './routes/payrollPosting.js';
 import { payrollSlipsRouter } from './routes/payrollSlips.js';
 import { payrollStatutoryRouter } from './routes/payrollStatutory.js';
+import { payrollMinimumWagesRouter } from './routes/payrollMinimumWages.js';
 import { payrollPaymentsRouter } from './routes/payrollPayments.js';
 import { payrollAdjustmentsRouter } from './routes/payrollAdjustments.js';
 import { payrollLoansRouter } from './routes/payrollLoans.js';
@@ -564,6 +565,7 @@ export function buildApp() {
   app.use('/api', payrollPostingRouter);
   app.use('/api', payrollSlipsRouter);
   app.use('/api', payrollStatutoryRouter);
+  app.use('/api', payrollMinimumWagesRouter);
   app.use('/api', payrollPaymentsRouter);
   app.use('/api', payrollAdjustmentsRouter);
   app.use('/api', payrollLoansRouter);

@@ -16,6 +16,7 @@ import { componentApplies, monthsOfService, type EligibilityFacts } from './elig
 import { isCorrection, isLatePenalty } from './provisionalDays.js';
 import { daysBetween } from '../../utils/istDate.js';
 import { canonicalState, stateLabel } from '../../constants/stateLevies.js';
+import { minimumWageCheck } from './minimumWage.js';
 import { checksSentence, parseConfig, ruleNeedsCheck, stateRulesThatCount } from './statutory/resolve.js';
 
 /**
@@ -1245,6 +1246,8 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
   });
   const bankChanges = new Map(recentBank.filter((c) => c.status === 'APPROVED' && c.decidedAt).map((c) => [c.employeeId, c.decidedAt!]));
   const pendingBank = new Set(recentBank.filter((c) => c.status === 'PENDING').map((c) => c.employeeId));
+  /* Minimum wages HR has entered (round 66); none on file, nothing is checked. */
+  const minimumWages = await payrollPrisma.payrollMinimumWage.findMany({ where: { orgId, deletedAt: null } });
 
   const add = (issue: RunIssue) => {
     issues.push(issue);
@@ -1522,6 +1525,33 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
       }
       for (const w of trial.warnings) {
         add({ severity: 'WARNING', code: w.code, employeeId: employee.id, message: `${who}: ${w.message}` });
+      }
+      /*
+       * Minimum wage (round 66): a full month's wages at this salary, against
+       * the rate for the person's state, zone and skill level on the last day
+       * of the period. A full month, so unpaid leave is not read as underpay.
+       */
+      if (minimumWages.length && canonicalState(profile.professionalTaxState)) {
+        const month = calculateStructure(engine, {
+          annualCtc: Number(periodPay.annualCtc),
+          periodsPerYear: PERIODS_PER_YEAR[structure.frequency] ?? 12,
+          workingDays: input.workingDays,
+          payableDays: input.workingDays,
+          lwpDays: 0,
+          variableAmounts: { VARIABLE_PAY: 0, OVERTIME: 0, OVERTIME_HOURS: 0, OVERTIME_HOURS_AT_RATE: 0 },
+        });
+        const mw = minimumWageCheck({
+          rows: minimumWages,
+          state: profile.professionalTaxState,
+          zone: profile.minimumWageZone,
+          skill: profile.skillLevel,
+          onDate: ctx.period.endDate,
+          wages: month.gratuityWage,
+          gross: month.grossEarnings,
+        });
+        if (mw?.below) {
+          add({ severity: 'WARNING', code: 'BELOW_MINIMUM_WAGE', employeeId: employee.id, message: `${who}: ${mw.message}. Raise their salary, or check their skill level and state on their payroll details.` });
+        }
       }
     }
 

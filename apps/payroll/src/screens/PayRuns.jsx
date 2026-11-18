@@ -1205,6 +1205,12 @@ const ChecksStage = ({ issues, byEmployee, data }) => {
                   Confirm or correct
                 </button>
               ) : null}
+              {/* Round 66: below minimum wage opens the person's salary (raise it) or details (skill level, state). */}
+              {i.code === "BELOW_MINIMUM_WAGE" && i.employeeId ? (
+                <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm ml-1" onClick={() => requestOpenScreen("assignments", { employeeId: i.employeeId, tab: "salary" })}>
+                  Fix
+                </button>
+              ) : null}
               {i.employeeId && byEmployee.get(i.employeeId)?.employee?.name ? (
                 <span className="ui-caption block">
                   {byEmployee.get(i.employeeId).employee.name}

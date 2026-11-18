@@ -1610,12 +1610,12 @@ Built:
 | ESI after a raise | Someone who paid ESI earlier in the contribution period (April–September, October–March) keeps paying after wages pass the threshold, until the period ends; the slip explains "ESI continues until the contribution period ends on 30 Sep 2026, then stops". |
 | Paying on time | A pay group whose paid-on day is after the 7th shows a warning under the field and "After the 7th" on its row; a run whose payroll date falls after the 7th of the next month says it is late under the Payment of Wages Act (`LatePayNote`). |
 | Wages at least half | The salary structure preview warns when basic plus DA (the gratuity wage components) is under half of gross, and says how much would be counted back as wages under the labour codes (`wagesCheck`). |
+| Minimum wage per state | Compliance has a "Minimum wages" section: a table of state, zone ("Whole state" when blank), skill level (unskilled, semi-skilled, skilled, highly skilled), from date, a month's rate (tabular, right-aligned) and In force / Earlier / Upcoming, with "Add a rate" (inline form) and "Import CSV" (columns state, zone, skill, effective_from, monthly_rate, note; all or nothing, every bad line listed by number; a CSV template link). CLOR ships no rates: the empty table says to take them from the state labour department's notification. Each person's payroll details carry a skill level (default unskilled) and an optional zone; the state is the one on their payroll details, shown as "State they work in" when professional tax is off. Saving a salary below the rate asks first ("Below minimum wage for Karnataka, semi-skilled: ₹X a month, pays ₹Y", Change the salary / Save anyway); a pay run's check warns per person with Fix (opens their salary). Wages compared are basic plus DA for a full month, never less than half of pay. From 1 April and 1 October, a state in use with rates on file but none from that date gets an "Update minimum wages" card on the Payroll overview and a note on the section (`PayrollMinimumWage`, `minimumWage.ts`, `MinimumWagesSection`). |
 
 Picked and already how the app works: an appointment letter for every worker (sent on hire, ticked
 in the joining plan); notice shortfall recovered in the final settlement.
 
-Picked, **not built yet**: a statutory bonus run (a new payroll flow); minimum wage revisions
-(needs each state's rate data); Budget slab updates (CLOR keeps the tax tables); a filled Form 11;
+Picked, **not built yet**: a statutory bonus run (a new payroll flow); Budget slab updates (CLOR keeps the tax tables); a filled Form 11;
 an inspection pack download; weekly wages (runs are monthly); state leave minimums and the earned
 leave default of 180 days and 30 carried (need state law data); a yearly health check for staff 40
 and over (needs a new People record and its own flow); using the counted-back wages in PF and

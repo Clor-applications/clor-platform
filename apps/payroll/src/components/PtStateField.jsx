@@ -11,7 +11,7 @@ import { getEmployee } from '../api/payrollPeople';
  */
 const STATES = [...new Set(Object.values(GST_STATE_BY_CODE).filter((s) => !/\(Old\)/.test(s)))].sort((a, b) => a.localeCompare(b));
 
-export default function PtStateField({ employeeId, value, onChange, id = 'employee-pt-state' }) {
+export default function PtStateField({ employeeId, value, onChange, id = 'employee-pt-state', label = 'Professional tax state', showSlab = true }) {
   const [site, setSite] = useState(null);
   useEffect(() => {
     if (!employeeId) return undefined;
@@ -30,7 +30,7 @@ export default function PtStateField({ employeeId, value, onChange, id = 'employ
 
   return (
     <div>
-      <label className="ui-label" htmlFor={id}>Professional tax state</label>
+      <label className="ui-label" htmlFor={id}>{label}</label>
       <select id={id} className="ui-select w-full" value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={`${id}-hint`}>
         <option value="">{site ? `From the work site (${site.state})` : 'Choose a state'}</option>
         {options.map((s) => (
@@ -39,7 +39,7 @@ export default function PtStateField({ employeeId, value, onChange, id = 'employ
       </select>
       <p id={`${id}-hint`} className="ui-caption mt-1">
         {site && !value ? `Follows ${site.site}, in ${site.state}. ` : site && value && value !== site.state ? `Their work site ${site.site} is in ${site.state}. ` : ''}
-        {state ? (
+        {state && showSlab ? (
           <button type="button" className="ui-link" onClick={() => requestOpenScreen('compliance', { scheme: 'PT', state })}>
             See {state}’s slab
           </button>

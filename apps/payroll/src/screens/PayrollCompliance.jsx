@@ -17,6 +17,7 @@ import {
 } from '../api/payrollStatutory';
 import { getStatutoryRegistrations, saveStatutoryRegistrations } from '../api/payrollSetup';
 import { PtRegistrationFields } from '../components/StatutoryRegistrationsStep';
+import MinimumWagesSection from '../components/MinimumWagesSection';
 
 /**
  * Provident fund, ESI, professional tax, Labour Welfare Fund and income tax.
@@ -544,6 +545,9 @@ export default function PayrollCompliance({ params } = {}) {
           })}
         </div>
       )}
+
+      {/* Round 66 "minwage": minimum wages per state, entered or imported by HR. */}
+      <MinimumWagesSection />
 
       <Drawer
         open={Boolean(adding)}
