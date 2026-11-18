@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => Object.fromEntries(
-  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsAccountEntitlements', 'opsTags', 'opsInvoices', 'opsSeatChanges', 'opsTakeBackSeats'].map((k) => [k, vi.fn()]),
+  ['opsAccounts', 'opsAccount', 'opsCancelSubscription', 'opsChangeApps', 'opsCustomerActivity', 'opsCustomerPayments', 'opsCustomerRequests', 'opsCustomerUsers', 'opsExtendTrial', 'opsGrantPlan', 'opsReinstate', 'opsReopenSubscription', 'opsResendInvitation', 'opsSendResetLink', 'opsSignOutEverywhere', 'opsSuspend', 'opsUnlockUser', 'opsResetAuthenticator', 'opsRetryEmails', 'opsCustomerConnections', 'opsAccountEntitlements', 'opsTags', 'opsInvoices', 'opsSeatChanges', 'opsTakeBackSeats', 'opsNotes'].map((k) => [k, vi.fn()]),
 ));
 vi.mock('./api', () => api);
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));

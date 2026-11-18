@@ -10,6 +10,7 @@ import { getPermissionCatalog } from '@ui/api/permissions';
 import { rbacErrorMessage } from '@ui/permissions/rbacErrors';
 import TemplateDrift from './TemplateDrift';
 import PermissionMatrix from './PermissionMatrix';
+import { RoleAccessList } from './round38';
 import { catalogKeys, displayModules, permissionLabel } from './permissionKeys';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -304,7 +305,7 @@ export function SettingsRoles({ orgId }) {
             <>
               <MoreButton items={[exportMenuItem('Export roles')]} onSelect={exportRoles} />
               <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={() => openDuplicate(shownRole)} className="ws-btn ws-btn--quiet" disabled={!shownRole}>
-                Duplicate role
+                Copy role
               </PermissionButton>
               <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ws-btn ws-btn--primary">
                 <Plus size={16} aria-hidden="true" /> New role
@@ -350,7 +351,7 @@ export function SettingsRoles({ orgId }) {
                     {openMenuForRoleId === shownRole.id ? (
                       <Popover anchorRef={menuAnchorRef} onClose={() => setOpenMenuForRoleId(null)} minWidth={160} maxWidth={220}>
                         <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openEdit(shownRole); }}>Edit</button>
-                        <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openDuplicate(shownRole); }}>Duplicate</button>
+                        <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openDuplicate(shownRole); }}>Copy</button>
                         <PermissionButton
                           permission="SETTINGS::Roles::DELETE"
                           type="button"
@@ -366,11 +367,17 @@ export function SettingsRoles({ orgId }) {
                 </div>
                 {shownRole.ownDocumentsOnly ? <p><span className="ws-pill ws-pill--neutral">Own documents only</span></p> : null}
                 <TemplateDrift template={shownRole.template} modules={catalog.modules} />
-                {/* The same matrix as Edit, from the server catalogue, read-only. */}
+                {/* Round 38: a plain list of what the role can see and change, by screen; the full grid stays one click away. */}
                 {catalog.modules.length ? (
-                  <fieldset disabled aria-label="Permissions (read only)">
-                    <PermissionMatrix key={shownRole.id} modules={catalog.modules} granted={shownPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={2} />
-                  </fieldset>
+                  <>
+                    <RoleAccessList modules={catalog.modules} granted={shownPermissions} roleName={shownRole.name} />
+                    <details className="ui-role-grid">
+                      <summary>Every permission, as a grid</summary>
+                      <fieldset disabled aria-label="Permissions (read only)">
+                        <PermissionMatrix key={shownRole.id} modules={catalog.modules} granted={shownPermissions} onToggle={() => {}} onSetMany={() => {}} initiallyOpen={2} />
+                      </fieldset>
+                    </details>
+                  </>
                 ) : (
                   <Loading shape="card" rows={3} label="Loading the permission list…" />
                 )}

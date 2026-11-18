@@ -99,16 +99,16 @@ export default function AttendanceCalendar() {
                     {d.holiday ? <span className="ui-calendar-tag">{d.holiday}</span> : d.off ? <span className="ui-calendar-tag">Weekly off</span> : null}
                     {!quiet ? (
                       <span className="ui-calendar-counts">
-                        <span style={{ color: 'rgb(var(--pos))' }}>{d.present + d.halfDay}</span>
-                        <span style={{ color: 'rgb(var(--neg))' }}>{d.absent}</span>
-                        <span className="ui-muted">{d.leave}</span>
+                        <span className="ui-count-in">{d.present + d.halfDay}<span className="ui-count-k"> in</span></span>
+                        <span className="ui-count-absent">{d.absent}<span className="ui-count-k"> absent</span></span>
+                        <span className="ui-muted">{d.leave}<span className="ui-count-k"> leave</span></span>
                       </span>
                     ) : d.future && d.leave ? <span className="ui-calendar-counts"><span className="ui-muted">{d.leave} on leave</span></span> : null}
                   </button>
                 );
               })}
             </div>
-            <p className="ui-caption px-1 pt-3"><span style={{ color: 'rgb(var(--pos))' }}>in</span> · <span style={{ color: 'rgb(var(--neg))' }}>absent</span> · <span className="ui-muted">leave</span>. Days to come show approved leave only.</p>
+            <p className="ui-caption px-1 pt-3">Each day shows who was in, absent and on leave. Days to come show approved leave only.</p>
           </div>
           <aside className="ui-card p-4 space-y-3" aria-live="polite">
             {!picked ? <p className="ui-caption">Tap a day to see who was in.</p> : (

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { formatPhone } from '@ui/utils/phone';
 import CopyWord from '@ui/components/ui/CopyWord';
+import CallButtons from '@ui/components/ui/CallButtons';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -215,7 +215,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       <div className="pc-head">
         <BackLink label="Employees" onClick={backToDirectory} />
         <PageHeader
-          title={<>{person.name}{person.preferredName ? <span className="ui-profile-aka"> “{person.preferredName}”</span> : null}</>}
+          title={person.name /* round 29 "callname" C: full legal name only; the preferred name stays on the Personal tab */}
         actions={<>
           {moreItems.length ? (
             <>
@@ -544,7 +544,7 @@ function Overview({ person, data, lists, allowed, openScreen, goTo, go }) {
             <Field label="Full name" value={person.name} />
             <Field label="Preferred name" value={person.preferredName} />
             <Field label="Work email" value={person.workEmail} />
-            <Field label="Phone" value={formatPhone(person.phone)} />
+            <Field label="Phone" value={person.phone ? <CallButtons phone={person.phone} name={person.name} /> : null} />
           </dl>
         </Section>
         <Section title="Job details" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('employment')}>Open</button>}>

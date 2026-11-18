@@ -12,6 +12,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import useUnsavedChanges from '@ui/components/ui/useUnsavedChanges';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar, GENDER_WORDS, shrinkPhoto } from '@ui/personnel/Employees';
+import UnderEighteen from '@ui/personnel/UnderEighteen';
 import { HOURS_WORDS, datesFor, kindOf, probationEndFor } from '@ui/personnel/employmentKinds';
 import { hasApp } from '@platform/context';
 import { clearUnsaved } from '@platform/unsaved';
@@ -283,6 +284,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <Text id="email" label="Personal email" optional type="email" inputMode="email" {...field('email')} error={errors.email} />
             <Text id="workPhone" label="Work phone" optional type="tel" inputMode="tel" {...field('workPhone')} />
             <DateField id="dateOfBirth" label="Date of birth" optional max={todayIst()} {...field('dateOfBirth')} error={errors.dateOfBirth} />
+            <UnderEighteen dob={form.dateOfBirth} on={form.dateOfJoining || todayIst()} className="sm:col-span-2" />
             <SelectField id="gender" label="Gender" optional options={[{ value: '', label: 'Not set' }, ...Object.entries(GENDER_WORDS).map(([value, label]) => ({ value, label }))]} {...field('gender')} />
             <Text id="guardianName" label="Father / husband name" optional {...field('guardianName')} />
             <PhotoField value={form.photoUrl} onChange={(v) => field('photoUrl').onChange(v)} name={[form.firstName, form.lastName].filter(Boolean).join(' ')} />

@@ -57,6 +57,16 @@ describe('the code step of a sign-in', () => {
     expect(api.sms).toHaveBeenCalledTimes(1);
   });
 
+  it('after too many wrong codes, shows the wait with the time left and holds the button (round 26)', async () => {
+    await password(['APP']);
+    api.signInWithCode.mockRejectedValue(refusal(undefined, 'Too many failed attempts. Try again in 5 minute(s).', 429));
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Sign in/ }));
+    expect(await screen.findByText('Too many tries')).toBeInTheDocument();
+    expect(screen.getByText('5:00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Sign in/ })).toBeDisabled();
+  });
+
   it('texts a code as the page opens when text messages are the only way', async () => {
     await password(['SMS'], PHONE);
     await waitFor(() => expect(api.sms).toHaveBeenCalledTimes(1));

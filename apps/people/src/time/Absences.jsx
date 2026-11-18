@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { formatPhone } from '@ui/utils/phone';
+import CallButtons from '@ui/components/ui/CallButtons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -143,7 +143,7 @@ function CaseDrawer({ row, rules, canAct, onClose, onChanged }) {
           <div><dt className="ui-t-label">Absent since</dt><dd className="tabular-nums">{dayText(row.fromDate)}</dd></div>
           <div><dt className="ui-t-label">Working days</dt><dd className="tabular-nums">{row.days}</dd></div>
           {row.backSince ? <div className="col-span-2"><dt className="ui-t-label">Back at work since</dt><dd className="tabular-nums">{dayText(row.backSince)}</dd></div> : null}
-          {row.phone ? <div><dt className="ui-t-label">Phone</dt><dd><a className="ui-link tabular-nums" href={`tel:${row.phone}`}>{formatPhone(row.phone)}</a></dd></div> : null}
+          {row.phone ? <div className="col-span-2"><dt className="ui-t-label">Phone</dt><dd><CallButtons phone={row.phone} name={row.name} /></dd></div> : null}
           <div><dt className="ui-t-label">E-mail</dt><dd className="truncate">{row.email || 'None on file'}</dd></div>
         </dl>
         <ol className="space-y-3" aria-label="What has happened">

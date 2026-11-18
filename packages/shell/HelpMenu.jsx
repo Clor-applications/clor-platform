@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { BookOpen, CircleHelp, Cpu, Keyboard, ListChecks, Mail, MessageCircle } from '@ui/components/ui/lineIcons';
+import { BookOpen, CircleHelp, Cpu, Keyboard, LifeBuoy, ListChecks, Mail, MessageCircle, Send } from '@ui/components/ui/lineIcons';
 import { requestOpenHelp } from '@platform/context';
 
 import { Menu, MenuItem, MenuLink, MenuPanel, MenuSeparator, MenuTrigger } from '@ui/components/ui/Menu';
 import { operator } from '@platform/operator';
+import AskSupport, { STATUS_URL } from './AskSupport';
+
+/* Round 38 picks live outside Books, which keeps its own Help menu. */
+const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
 
 /**
  * Help and contact, from the bar every app shares.
@@ -22,9 +26,12 @@ const digits = (s) => String(s || '').replace(/\D/g, '');
  */
 export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
   const [open, setOpen] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const picks = !inBooks();
   const whatsapp = digits(operator.supportWhatsapp);
   const email = operator.contactEmail;
   return (
+    <>
     <Menu open={open} onOpenChange={setOpen}>
       {variant === 'rail' ? (
         <MenuTrigger className="ui-split-mod" aria-label="Help and support" title="Help and support">
@@ -51,6 +58,17 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
           <Keyboard size={16} aria-hidden="true" /> Search anywhere
           <kbd className="ui-menu-kbd ml-auto text-xs">{/Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd>
         </MenuItem>
+        {picks ? (
+          <>
+            <MenuSeparator />
+            <MenuItem onClick={() => { setOpen(false); setAsking(true); }}>
+              <Send size={16} aria-hidden="true" /> Ask CLOR support
+            </MenuItem>
+            <MenuLink href={STATUS_URL} target="_blank" rel="noopener">
+              <LifeBuoy size={16} aria-hidden="true" /> CLOR service status
+            </MenuLink>
+          </>
+        ) : null}
         {whatsapp || email ? <MenuSeparator /> : null}
         {whatsapp ? (
           <MenuLink href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener">
@@ -64,5 +82,7 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
         ) : null}
       </MenuPanel>
     </Menu>
+    {asking ? <AskSupport onClose={() => setAsking(false)} /> : null}
+    </>
   );
 }

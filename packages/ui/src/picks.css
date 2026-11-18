@@ -787,3 +787,136 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 26 */
+/* Printed pages end with who printed them, from CLOR, and when (shell PrintFooter). */
+.ui-print-footer { display: none; }
+@media print {
+  :root:not([data-palette='indigo']) .ui-print-footer {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0;
+    padding-top: 4px; border-top: 1px solid #ccc; background: #fff;
+    color: #555; font-size: 9px; line-height: 1.4;
+  }
+}
+/* Too many wrong sign-in codes: the wait, counting down. */
+.ui-code-wait { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+/* J / K / A hint under the Inbox list. */
+.ui-kbd-hint .ui-kbd { font-size: 11px; }
+
+/* Round 27 */
+/* Ops, extend a trial: quick picks beside the days box */
+.ui-quick-days { display: inline-flex; flex-wrap: wrap; gap: 0.375rem; }
+.ui-quick-day { height: 2rem; padding: 0 0.75rem; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #FFFFFF; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.ui-quick-day:hover { background: #F7F7F7; }
+.ui-quick-day[aria-pressed='true'] { border-color: rgb(var(--act)); color: rgb(var(--act-ink)); }
+/* A second punch within a minute: greyed, still listed */
+.ui-punch-repeat td { color: rgb(var(--fg-subtle)); }
+/* A payslip printed before payroll is approved */
+.ui-draft-strip { margin: 0; padding: 0.5rem 0.75rem; border-radius: 8px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-size: 0.875rem; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.ui-draft-strip b { margin-right: 0.375rem; text-transform: uppercase; letter-spacing: 0.04em; }
+/* A browser too old for CLOR: one page naming the browsers that work */
+.ui-old-browser { max-width: 35rem; margin: 4rem auto; padding: 0 1rem; color: rgb(var(--fg)); background: #FFFFFF; line-height: 1.5; }
+.ui-old-browser-h { margin: 0 0 0.5rem; font-size: 1.5rem; font-weight: 700; }
+.ui-old-browser-list { list-style: none; margin: 1.25rem 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.ui-old-browser-list li { display: flex; flex-direction: column; padding: 0.75rem 0; border-bottom: 1px solid rgb(var(--border)); }
+
+/* Round 30 */
+/* Call and WhatsApp on a colleague's card (callcolleague A). */
+.ui-call-buttons { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ui-call-buttons .ui-btn { gap: 0.375rem; }
+/* This year against last year (yoy A): this period solid in the app colour, a year before faint and dashed behind. */
+.ui-yoy { margin: 0; }
+.ui-yoy-chart { display: block; width: 100%; height: 8rem; overflow: visible; }
+.ui-yoy-chart polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.ui-yoy-now { stroke: rgb(var(--act, var(--fg))); }
+.ui-yoy-before { stroke: rgb(var(--fg-muted, var(--fg))); stroke-opacity: 0.45; stroke-dasharray: 4 3; }
+.ui-yoy-axis { display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.75rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-yoy-key { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5rem; font-size: 0.8125rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-yoy-key span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.ui-yoy-swatch-now, .ui-yoy-swatch-before { display: inline-block; width: 1rem; height: 0; border-top: 2px solid rgb(var(--act, var(--fg))); }
+.ui-yoy-swatch-before { border-top: 2px dashed rgb(var(--fg-muted, var(--fg))); opacity: 0.6; }
+
+/* Round 31 */
+/* A joiner under 18: warned beside the date of birth, never blocked */
+.ui-under18 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-under18-tag { display: inline-flex; align-items: center; padding: 0.0625rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+
+/* Round 32 */
+/* Who is paid differently from last period, on a payroll run's Review step. */
+.ui-pay-changes ul { list-style: none; margin: 0.5rem 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.ui-pay-changes li { display: grid; grid-template-columns: minmax(8rem, 1fr) auto minmax(10rem, 2fr); gap: 0.75rem; align-items: baseline; padding: 0.5rem 0; border-bottom: 1px solid rgb(var(--border)); }
+.ui-pay-changes-amt { text-align: right; }
+.ui-pay-changes-why { color: rgb(var(--fg-muted)); }
+
+/* Round 33 */
+/* Half a day: first half or second half in one tap */
+.ui-half-choice { display: inline-flex; border: 1px solid rgb(var(--border-field, var(--border))); border-radius: 0.5rem; overflow: hidden; }
+.ui-half-choice-btn { min-height: 2.5rem; padding: 0 0.875rem; font-size: 0.875rem; color: rgb(var(--fg)); background: #FFFFFF; border: 0; cursor: pointer; }
+.ui-half-choice-btn + .ui-half-choice-btn { border-left: 1px solid rgb(var(--border-field, var(--border))); }
+.ui-half-choice-btn:hover { background: #F7F7F7; }
+.ui-half-choice-btn.is-on { background: rgb(var(--act)); color: rgb(var(--act-ink)); font-weight: 600; }
+.ui-half-choice-btn:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
+/* Leave asked for days already gone */
+.ui-late-tag { display: inline-block; margin-top: 0.125rem; padding: 0 0.5rem; border-radius: 9999px; font-size: 0.75rem; line-height: 1.25rem; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+
+/* Round 34 */
+/* cbchart A: the calendar's day counts never lean on red against green. Blue for in, orange for absent
+   (a pair that stays apart for every common kind of colour blindness), grey for leave, each with its word. */
+.ui-calendar-counts { flex-wrap: wrap; column-gap: 0.5rem; row-gap: 0; }
+.ui-count-in { color: rgb(var(--chart-blue)); }
+.ui-count-absent { color: rgb(var(--chart-clay)); }
+.ui-count-k { font-weight: 500; color: rgb(var(--fg-muted)); }
+
+/* Round 35 */
+/* Ops customer page: pinned notes above the tabs */
+.ops-pinned { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.75rem 1rem; border: 1px solid rgb(var(--border)); border-radius: 12px; background: #FFFFFF; }
+.ops-pinned ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; flex: 1 1 20rem; }
+.ops-pinned li { display: flex; gap: 0.5rem; align-items: flex-start; }
+.ops-pinned-ico { flex-shrink: 0; margin-top: 0.1875rem; color: rgb(var(--fg-muted)); }
+.ops-pinned-text { display: grid; gap: 0.125rem; }
+.ops-pinned-body { white-space: pre-wrap; color: rgb(var(--fg)); }
+.ops-pinned-by { font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ops-pinned-all { flex-shrink: 0; font-size: 0.875rem; }
+/* Workspace home: "Call me" under the setup steps */
+.ws-call-me { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem 0.75rem; margin-top: 0.75rem; }
+.ws-call-me .ui-input { width: 11rem; }
+.ws-call-me-err { flex-basis: 100%; margin: 0; color: rgb(var(--neg)); }
+.ws-call-me-done { margin: 0.75rem 0 0; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+
+/* Round 36 */
+/* A sent offer past its answer date reads as overdue, not merely waiting. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-answer-by.is-late { background-color: rgb(var(--neg)); color: rgb(255 255 255); }
+
+/* Round 37 */
+/* selfreview A: the self-review and the manager's review side by side once both are read-only. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair { display: grid; gap: 1.25rem; }
+@media (min-width: 640px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair { grid-template-columns: 1fr 1fr; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair > section + section { border-left: 1px solid rgb(var(--border)); padding-left: 1.25rem; }
+}
+/* courseassign B: trainings to finish on the employee app's Today tab. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-training-due h2 { color: rgb(var(--act-ink)); }
+
+/* Round 38 */
+/* Seeing what a role can see: a plain list by screen, one hairline per row, no card. */
+.ui-role-access { display: grid; gap: 1.25rem; }
+.ui-role-access-head { margin: 0 0 0.375rem; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
+.ui-role-access-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.ui-role-access-table th { text-align: left; font-weight: 500; color: rgb(var(--fg-muted)); padding: 0.375rem 0.5rem; border-bottom: 1px solid rgb(var(--border)); }
+.ui-role-access-table td { padding: 0.5rem; border-bottom: 1px solid rgb(var(--border)); vertical-align: top; }
+.ui-role-access-table th:first-child, .ui-role-access-table td:first-child { padding-left: 0; width: 45%; }
+.ui-role-grid { margin-top: 0.5rem; }
+.ui-role-grid > summary { cursor: pointer; font-size: 0.875rem; color: rgb(var(--act-ink)); padding: 0.375rem 0; }
+.ui-role-grid[open] > summary { margin-bottom: 0.75rem; }
+
+/* Round 39 */
+.ui-tax-compare { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+.ui-tax-compare-rows { display: flex; flex-direction: column; gap: 0.25rem; }
+.ui-tax-compare-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.875rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-tax-compare-row.is-lower { color: rgb(var(--fg)); font-weight: 600; }
+
+/* Round 40 */
+/* earlygo A: the early-go tag sits beside the late mark, same shape, a calmer tint. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-early-tag { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
+/* rowcount B: the matching count in the list title, quieter than the title itself. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-title-count { color: rgb(var(--fg-muted)); font-weight: 500; }

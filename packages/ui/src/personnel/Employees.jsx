@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import UnderEighteen from './UnderEighteen.jsx';
 import { nextEmployeeCode } from './nextCode';
 import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
@@ -2015,6 +2016,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           <h3 className="ui-t-sec sm:col-span-2">Personal Details</h3>
           {input('email', 'Personal email', { type: 'email' })}
           {input('dateOfBirth', 'Date of birth', { type: 'date' })}
+          <UnderEighteen dob={form.dateOfBirth} on={form.dateOfJoining || new Date().toISOString().slice(0, 10)} className="sm:col-span-2" />
           {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'NON_BINARY', label: 'Non-binary' }, { id: 'OTHER', label: 'Other' }, { id: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' }])}
           {select('maritalStatus', 'Marital status', [
             { id: 'SINGLE', label: 'Single' },

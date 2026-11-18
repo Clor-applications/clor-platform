@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { fyLabel } from '@ui/picks/round34';
 import { History, Upload } from '@ui/components/ui/lineIcons';
 import Drawer from '@ui/components/ui/Drawer';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -111,7 +112,7 @@ function Panel({ fy, onClose, onOpenPerson }) {
       open
       onClose={onClose}
       widthClass="w-[min(44rem,96vw)]"
-      title={`Earlier this year · FY ${fy}`}
+      title={`Earlier this year · ${fyLabel(fy)}`}
       description="What this company paid from April, or from joining, until payroll moved to CLOR, so income tax for the rest of the year starts from the right place."
       actions={
         <>

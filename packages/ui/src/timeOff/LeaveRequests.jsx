@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { waitingSaid } from '../picks/round34';
 import LeaveDocumentField from './LeaveDocumentField';
 import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from './HalfDayChoice';
 import { HoursChoice, PreviewNotes } from './LeaveShape';
@@ -22,6 +23,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
 import { can, homeCrumbs, istDay } from './shared';
+import { lateText } from './round33';
 import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
@@ -54,7 +56,7 @@ export function TypeDot({ row }) {
 export function StatusPill({ row }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>
+      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>{row.status === 'PENDING' && row.createdAt ? <span className="sr-only">{`, ${waitingSaid(row.createdAt)}`}</span> : null}
       {row.status === 'PENDING' && row.managerApprovedAt ? <span className="ui-caption">{row.managerApprovedById ? 'Manager approved' : 'Handed on to HR'}</span> : null}
       {row.status === 'PENDING' && row.ruleStep > 1 ? <span className="ui-caption">Step {row.ruleStep}</span> : null}
     </span>
@@ -104,7 +106,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       </span>
     ) },
     { key: 'type', label: 'Leave', render: (r) => (r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL ? <span className="inline-flex items-center gap-2 whitespace-nowrap"><TypeDot row={r} />{r.leaveTypeName}</span> : <LeavePill type={r} />) },
-    { key: 'dates', label: 'Dates', render: (r) => <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}{hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{half(r.halfDay)}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : r.groupId ? <span className="ui-caption block">Part of a longer leave</span> : null}</span> },
+    { key: 'dates', label: 'Dates', render: (r) => <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}{hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{half(r.halfDay)}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : r.groupId ? <span className="ui-caption block">Part of a longer leave</span> : null}{r.createdAt && lateText(r.fromDate, istDay(r.createdAt)) ? <span className="ui-late-tag">{lateText(r.fromDate, istDay(r.createdAt))}</span> : null}</span> },
     { key: 'days', label: 'Days', align: 'right', render: (r) => <span className="tabular-nums">{r.days}</span> },
     { key: 'asked', label: tab === 'PENDING' ? 'Waiting since' : 'Asked', render: (r) => <span className={`whitespace-nowrap ${tab === 'PENDING' && waitedDays(r.createdAt) > 2 ? 'ui-text-warn' : ''}`}>{tab === 'PENDING' ? waitedText(r.createdAt) : formatDate(istDay(r.createdAt))}</span> },
     { key: 'reason', label: 'Reason', render: (r) => (r.reasonHidden ? <span className="ui-muted">Private</span> : <span className="block max-w-xs truncate" title={r.reason || undefined}>{r.reason || <span className="ui-muted">—</span>}</span>) },

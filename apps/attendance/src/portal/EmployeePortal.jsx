@@ -1,4 +1,5 @@
 import { expiringWords } from '@ui/timeOff/expiring';
+import { fyLabel } from '@ui/picks/round34';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import DateNotes from '@ui/timeOff/DateNotes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,6 +19,7 @@ import AskHr from './AskHr';
 import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './MeExtras';
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
+import TrainingsDue from './TrainingsDue';
 import MyJobs from './MyJobs';
 import MyMoney from './MyMoney';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
@@ -74,7 +76,9 @@ import {
   todayIst,
 } from './portalApi';
 import PasswordInput from '@ui/components/ui/PasswordInput';
+import EarlyGoTag from '@ui/timeOff/EarlyGoTag';
 import { wholeRupees as rupees } from '@ui/utils/money';
+import TaxCompare from './TaxCompare';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -164,7 +168,7 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} /><TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
+        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} />{me?.people !== false ? <TrainingsDue guard={guard} /> : null}<TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} fix={fix} onFixUsed={() => setFix(null)} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
@@ -368,7 +372,7 @@ function Today({ me, reload, guard }) {
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Out</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOutTime || '—'}</dd></div>
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Worked</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOut ? hm(r.workedMinutes) : '—'}</dd></div>
         </dl>
-        {r?.lateMinutes ? <p><span className="ui-late-tag">Late {r.lateMinutes} min</span></p> : null}
+        {r?.lateMinutes || r?.earlyOutMinutes ? <p className="flex flex-wrap gap-1.5">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes} min</span> : null}<EarlyGoTag minutes={r.earlyOutMinutes} /></p> : null}
       </section>
 
       {me.phone.allowed ? (
@@ -471,6 +475,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
                             <span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || d.status}</span>
                           )}
                           {d.lateMinutes ? <span className="block"><span className="ui-late-tag">Late {d.lateMinutes} min</span></span> : null}
+                          <EarlyGoTag minutes={d.earlyOutMinutes} block />
                         </td>
                         <td className="whitespace-nowrap text-end tabular-nums">
                           {d.checkIn ? `${d.checkIn} – ${d.checkOut || ''}`.trim() : '—'}
@@ -1240,7 +1245,7 @@ function MyTax({ guard }) {
 
   return (
     <form onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="tax-h">
-      <h2 id="tax-h" className="ui-t-sec">Income tax · FY {d.financialYear}</h2>
+      <h2 id="tax-h" className="ui-t-sec">Income tax · {fyLabel(d.financialYear)}</h2>
       <p className="ui-caption">
         {locked ? 'HR has checked your proofs. Ask HR if something needs changing.' : d.status === 'SUBMITTED' ? 'Sent to HR. You can still change it until your proofs are checked.' : 'Choose your regime. Under the old one, tell us what you will invest so less tax is taken each month.'}
       </p>
@@ -1259,6 +1264,15 @@ function MyTax({ guard }) {
             </label>
           ))}
         </div>
+        <TaxCompare
+          guard={guard}
+          items={d.items}
+          declared={form.items}
+          senior={form.seniorSelf}
+          regime={form.regime}
+          onPick={(regime) => set({ regime })}
+          disabled={locked || busy}
+        />
         {form.regime === 'OLD' ? (
           <>
             {d.items.map((i) => (

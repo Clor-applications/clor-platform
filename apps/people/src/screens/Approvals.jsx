@@ -4,6 +4,7 @@ import { Check, X } from '@ui/components/ui/lineIcons';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
+import useJkList from '@ui/components/list/useJkList';
 import Drawer from '@ui/components/ui/Drawer';
 import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
@@ -146,6 +147,8 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
      block approving Ravi's while the first is still on its way. */
   const [rowBusy, setRowBusy] = useState(() => new Set());
   const rowBusyRef = useRef(new Set());
+  const jkRef = useRef(null);
+  useJkList(jkRef, { enabled: tab === 'waiting' });
   const approveOne = async (i) => {
     const fn = BULK[i.kind];
     if (!fn || rowBusyRef.current.has(i.key)) return;
@@ -281,8 +284,9 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
         </div>
       ) : null}
 
+      <div ref={jkRef}>
       <DataTable
-        label={tab === 'waiting' ? 'To approve' : tab === 'tasks' ? 'My tasks' : 'Asked by me'}
+        label={tab === 'waiting' ? 'To approve': tab === 'tasks' ? 'My tasks' : 'Asked by me'}
         columns={tab === 'waiting' ? waitingColumns : tab === 'tasks' ? taskColumns : mineColumns}
         rows={pageRows}
         rowKey={tab === 'waiting' ? (i) => i.key : (r) => r.id}
@@ -334,6 +338,10 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
           <EmptyState title="You have not asked for anything yet" description="A change you send for approval shows here with each step." />
         )}
       />
+      {tab === 'waiting' && pageRows.length ? (
+        <p className="ui-caption ui-kbd-hint mt-2" aria-hidden="true"><kbd className="ui-kbd">J</kbd> <kbd className="ui-kbd">K</kbd> move · <kbd className="ui-kbd">Enter</kbd> open · <kbd className="ui-kbd">A</kbd> approve</p>
+      ) : null}
+      </div>
 
       {open?.kind === 'LEAVE' ? <LeaveDrawer id={open.id} allowed={allowed} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
       {open?.kind === 'ATTENDANCE' ? <AttendanceDrawer id={open.id} allowed={allowed} onClose={() => setOpen(null)} onDone={() => { setOpen(null); inbox.reload(); }} /> : null}
