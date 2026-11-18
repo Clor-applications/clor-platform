@@ -1128,6 +1128,33 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 61 (18 Nov 2026)
+
+Built (getting around the apps; never in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Where you are | A page under a hub shows a short trail above its title, "Settings › Departments", the hub a link (`nav aria-label="Breadcrumb"` in the shell). A page opened from elsewhere keeps its "← where you came from". |
+| Browser tab names | Page first, then the app: "Employees · People · CLOR"; an employee's record names the person ("Ravi Kumar · People · CLOR", `usePageTitle`). |
+| Leaving with unsaved changes | "Leave without saving? You have unsaved changes on this page." with **Stay** as the main button and the focus on it; Leave is the quiet one. Drawers and dialogs ask "Discard your changes?" the same way, with Keep editing as the main button (`confirmDialog({ cancelLabel, stayFirst })`). |
+| Long pages | Attendance policy lists its sections on the right on a wide screen (1280px and up), following the scroll and jumping on click (`SectionJump`). |
+| Back to the top | "Top ↑" at the bottom right after two screens of scrolling (above the phone's tab bar). |
+| Help for this screen | "How this works ›" at the right of the row above a screen that has a how-to article; it opens the article in a side panel, with "Open in the Help centre" (`ScreenHelp`, same text as the Help centre). |
+| Links that leave CLOR | Marked ↗ and opened in a new tab, so CLOR stays open (another CLOR app is not "leaving"). |
+| Cursor in the first field | A drawer or dialog that opens puts the cursor in its first empty field, ready to type; `data-autofocus` still wins; not on a touch phone, where it would throw the keyboard up. |
+| Copying numbers | The copy control beside employee ID, PAN, UAN, IFSC and other numbers is now a small copy icon, "Copied" for a moment after (replaces the "Copy" word of 17 Nov). IFSC got one. |
+| Ctrl+S | Ctrl+S (⌘S) saves the form the cursor is in, else the open drawer's or the page's only Save, instead of saving the web page. It only ever presses a button that says Save: a form whose button is Send or Approve is left alone, with "Use “Send” to finish this form." |
+
+Picked and already how the app works: the app switcher top left lists only your apps with the
+current one marked; the left menu's screens panel closes to the icon rail, remembered on this
+computer, with names on hover; waiting counts show only beside menu items that need you; grey
+shapes stand in for rows while a list loads; a page that has moved or that your role can't open
+says which, with a way back to the app.
+
+Picked, **not built yet**: naming the company's administrator to ask on a page your role can't
+open (needs the admins list from the server); every person's name a link to their record outside
+the Employees list (Employees list names are links from round 57).
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

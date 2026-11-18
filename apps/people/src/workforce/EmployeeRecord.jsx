@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import CopyWord from '@ui/components/ui/CopyWord';
+import { usePageTitle } from '@ui/picks/round61';
 import CallButtons from '@ui/components/ui/CallButtons';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
@@ -114,6 +115,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const tab = tabsAllowed.some((t) => t.key === params.tab) ? params.tab : 'overview';
   const rec = useRequest(() => (id ? getEmployee(id) : Promise.reject(Object.assign(new Error('No employee chosen.'), { status: 404 }))), [id]);
   const person = rec.data?.employee || null;
+  /* Round 61 "tabtitle" A: the browser tab names the person: "Ravi Kumar · People · CLOR". */
+  usePageTitle(person?.name || '');
   const setPerson = (patch) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...patch } }));
   const [lists, setLists] = useState(null);
   useEffect(() => {
