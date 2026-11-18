@@ -556,6 +556,26 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 39 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Choosing old or new tax regime | The employee app's tax form works out both regimes side by side on a year's salary (started from the latest payslip's earnings times twelve, changeable) and what is declared, marks the lower one with "New saves you about ₹8,300 this year", and offers "Use the new regime". An estimate: standard deduction, slabs, rebate and cess; payroll still works out the exact tax (`TaxCompare`, `regimeTax`). |
+
+Picked and already how the app works: a name change keeps the legal name for PF and tax while
+the preferred name shows elsewhere (round 29's legal name in lists, preferred name on the
+Personal tab).
+
+Picked, **not built yet**: a signed salary certificate downloaded by the employee; a bank account
+change approved by HR before payroll uses it; two emergency contacts seen by HR only; Form 16 in
+the employee app with a six-step filing guide; IT as a topic on the same Ask HR desk, sent to IT staff; visitor QR passes on WhatsApp; a desk given for a
+booked day; booking a room from the calendar; live poll bars in company news; events posted as
+news; a line in company news on a leaver's last day; a Friday reminder to hand over before
+leave; shoe and uniform size on the profile; PF saved so far from CLOR's payroll records. All need
+server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

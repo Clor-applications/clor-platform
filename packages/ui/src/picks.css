@@ -787,3 +787,9 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 39 */
+.ui-tax-compare { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+.ui-tax-compare-rows { display: flex; flex-direction: column; gap: 0.25rem; }
+.ui-tax-compare-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.875rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-tax-compare-row.is-lower { color: rgb(var(--fg)); font-weight: 600; }

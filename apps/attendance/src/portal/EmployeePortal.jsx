@@ -75,6 +75,7 @@ import {
 } from './portalApi';
 import PasswordInput from '@ui/components/ui/PasswordInput';
 import { wholeRupees as rupees } from '@ui/utils/money';
+import TaxCompare from './TaxCompare';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -1259,6 +1260,15 @@ function MyTax({ guard }) {
             </label>
           ))}
         </div>
+        <TaxCompare
+          guard={guard}
+          items={d.items}
+          declared={form.items}
+          senior={form.seniorSelf}
+          regime={form.regime}
+          onPick={(regime) => set({ regime })}
+          disabled={locked || busy}
+        />
         {form.regime === 'OLD' ? (
           <>
             {d.items.map((i) => (
