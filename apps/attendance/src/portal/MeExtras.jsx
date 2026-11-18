@@ -6,6 +6,8 @@ import { confirmDialog } from '@ui/components/ui/notify';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 import { addDaysIso as addDays } from '@ui/utils/dates';
+import { useBackClose } from '@ui/picks/round58';
+import { PayslipAsk, PayslipBundle } from './round58';
 
 /**
  * The Me tab's pay and leaving pieces (EMPLOYEE-VIEW gaps 1, 3, 7, 8):
@@ -31,7 +33,7 @@ const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFract
  * browser's "Save as PDF"). Says nothing where the company does not run
  * payroll in CLOR.
  */
-export function Payslips({ guard }) {
+export function Payslips({ guard, onAsk = null }) {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState('');
   const [open, setOpen] = useState(null);
@@ -50,18 +52,22 @@ export function Payslips({ guard }) {
       .catch((e) => setSlipFailed(errText(e, 'Could not open this payslip.')));
   }, [open, guard]);
   useEffect(() => { loadSlip(); }, [loadSlip]);
+  /* Round 58 "androidback" A: the phone's Back returns from one payslip to the list. */
+  const closeSlip = useCallback(() => { setOpen(null); setSlip(null); setSlipFailed(''); }, []);
+  useBackClose(Boolean(open), closeSlip);
+  const loadOne = useCallback((id) => guard(getPayslip(id)), [guard]);
 
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
   if (!data?.available) return null;
   if (open) {
     return (
       <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="slip-h">
-        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setOpen(null); setSlip(null); setSlipFailed(''); }}>
+        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={closeSlip}>
           <ChevronLeft size={16} aria-hidden="true" /> All payslips
         </button>
         <LoadFailed message={slipFailed} onRetry={loadSlip} />
         {!slip && !slipFailed ? <p className="ui-caption">Loading…</p> : null}
-        {slip ? <PayslipView slip={slip} /> : null}
+        {slip ? <PayslipView slip={slip} onAsk={onAsk} /> : null}
       </section>
     );
   }
@@ -85,12 +91,13 @@ export function Payslips({ guard }) {
       ) : (
         <p className="ui-caption">No payslips yet. They appear here once HR closes a month’s payroll.</p>
       )}
+      {data.slips.length > 1 ? <PayslipBundle slips={data.slips} load={loadOne} /> : null}
     </section>
   );
 }
 
 /** One payslip on screen, with Save as PDF. */
-function PayslipView({ slip: s }) {
+function PayslipView({ slip: s, onAsk = null }) {
   const save = () => {
     const was = document.title;
     /* The browser names the PDF after the page title. */
@@ -137,6 +144,7 @@ function PayslipView({ slip: s }) {
       <MovedOn note={s.deductionNote} leaving={s.leaving} />
       <button type="button" className="ui-btn ui-btn-primary w-full" onClick={save}>Save as PDF</button>
       <p className="ui-caption">Choose “Save as PDF” as the printer. PAN and bank account show only their last digits.</p>
+      <PayslipAsk slip={s} onAsk={onAsk} />
       <PayslipPrint slip={s} />
     </>
   );
