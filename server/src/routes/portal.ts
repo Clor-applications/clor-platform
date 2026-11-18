@@ -15,6 +15,7 @@ import { notifyPermission } from '../services/notifications.js';
 import { privacyNoticeFor } from '../services/attendance/privacyNotice.js';
 import { clearBiometricPolicy } from '../services/attendance/biometrics.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
+import { pfSaved, schemeComponents, sinceApril, slipParts } from '../services/payroll/payslipYear.js';
 import { DeclarationError, financialYearOf, regimeInForce, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { anotherApproverExists } from '../services/makerChecker.js';
 import { resolveAccess } from '../services/access.js';
@@ -40,14 +41,14 @@ import { REASON_CODES } from '../services/attendance/corrections.js';
 import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, shiftChoices, usage as requestUsage } from '../services/attendance/requests.js';
 import { managerStepBy, teamDecidedBy } from '../services/attendance/standIns.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { actorNames, cancelOwnLeave, createLeave, dayWords, decideRuleLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
+import { actorNames, answerLeaveQuestion, cancelOwnLeave, createLeave, openQuestionOf, reminderState, remindLeave, dayWords, decideRuleLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { compOffExpiringFor, lapseFor } from '../services/attendance/leaveJobs.js';
 import { compOffGrants, expiringOf } from '../services/attendance/compOff.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
-import { readableLines } from '../services/payroll/slipLines.js';
+import { countOf, readableLines, splitOf } from '../services/payroll/slipLines.js';
 import { addDays as plusDaysIso, addDays as plusDays } from '../utils/istDate.js';
 import { reportError } from '../utils/log.js';
 import { safeUrl } from '../utils/safeUrl.js';
@@ -817,6 +818,13 @@ portalRouter.get('/schedule', check({ query: z.object({ month: q(ym()), from: q(
   });
 });
 
+/** A waiting request's open question from the approver (round 27) and whether "Remind" works today (round 18/47). */
+const questionAndReminder = (r: any) => {
+  if (r.status !== 'PENDING') return {};
+  const q = openQuestionOf(r.history);
+  return { question: q ? { note: q.note, at: q.at } : null, ...reminderState(r) };
+};
+
 portalRouter.get('/leave', check({ query: YEAR_QUERY }), async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
   const y = Number(req.query.year);
@@ -836,7 +844,7 @@ portalRouter.get('/leave', check({ query: YEAR_QUERY }), async (req, res) => {
     today: today(),
     types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...mine.get(t.id), expiring: expiringOf(grants?.get(t.id), mine.get(t.id)?.available, today()) })),
     /* Waiting on the approval engine: who it is with now, "With Ravi (your manager)" (SPEC 5.7). */
-    requests: await Promise.all((await withTypes(orgId, requests)).map(async (r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null, withWhom: r.status === 'PENDING' ? await withWhom(orgId, r) : null }))),
+    requests: await Promise.all((await withTypes(orgId, requests)).map(async (r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null, withWhom: r.status === 'PENDING' ? await withWhom(orgId, r) : null, ...questionAndReminder(r) }))),
   });
 });
 
@@ -939,6 +947,34 @@ portalRouter.post('/leave/:id/cancel', check({ params: idParams, body: noBody })
   const e = req.portal!.employee;
   if (out.status === 200) await leaveAudit({ accountId, orgId, userId: e.userId || `portal:${e.id}` }, { entityId: String(req.params.id), action: 'CANCEL', message: `${e.name} cancelled their own leave in the employee app`, metadata: { employeeId } });
   res.status(out.status).json(out.body);
+});
+
+/** "Remind" on my own waiting request: whoever it waits on is told again, once a day. */
+portalRouter.post('/leave/:id/remind', check({ params: idParams, body: noBody }), async (req, res) => {
+  const { accountId, orgId, employeeId } = req.portal!;
+  const e = req.portal!.employee;
+  try {
+    const out = await remindLeave(accountId, orgId, employeeId, String(req.params.id), e.userId || `portal:${e.id}`);
+    if (out.status === 200) await leaveAudit({ accountId, orgId, userId: e.userId || `portal:${e.id}` }, { entityId: String(req.params.id), action: 'REMIND', message: `${e.name} reminded the approvers of their leave in the employee app`, metadata: { employeeId } });
+    res.status(out.status).json(out.body);
+  } catch (err) {
+    return sendError(res, err);
+  }
+});
+
+/** My answer to the question an approver sent back: it waits on them again. */
+portalRouter.post('/leave/:id/answer', check({ params: idParams, body: NOTE_BODY }), async (req, res) => {
+  const { accountId, orgId, employeeId } = req.portal!;
+  const e = req.portal!.employee;
+  const answer = String(req.body?.note || '').trim().slice(0, 500);
+  if (!answer) return res.status(400).json({ error: 'Write your answer.' });
+  try {
+    const out = await answerLeaveQuestion(accountId, orgId, employeeId, String(req.params.id), answer, e.userId || `portal:${e.id}`);
+    if (out.status === 200) await leaveAudit({ accountId, orgId, userId: e.userId || `portal:${e.id}` }, { entityId: String(req.params.id), action: 'ANSWER', message: `${e.name} answered the question about their leave in the employee app`, metadata: { employeeId } });
+    res.status(out.status).json(out.body);
+  } catch (err) {
+    return sendError(res, err);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -1507,6 +1543,8 @@ portalRouter.get('/payslips', async (req, res) => {
   const byId = new Map(periods.map((p) => [p.id, p]));
   res.json({
     available: true,
+    /* PF put by in CLOR's payroll records, read from the payslips themselves. */
+    pfSaved: slips.length ? await pfSaved(e.orgId, e.id) : null,
     slips: slips.map((s) => ({
       id: s.id,
       number: s.number,
@@ -1530,10 +1568,12 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
     payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId: e.orgId, employeeId: e.id }, select: { pan: true, uan: true, bankName: true, bankAccountNumber: true } }),
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true } }),
   ]);
+  const [year, schemes] = await Promise.all([sinceApril(e.orgId, e.id, slip.payrollDate), schemeComponents(e.orgId)]);
+  const parts = slipParts(slip, schemes);
   const parse = (j: string) => { try { return JSON.parse(j || '{}'); } catch { return {}; } };
   const person = parse(slip.employeeSnapshotJson);
   const input = parse(slip.inputSnapshotJson);
-  const line = (l: any) => ({ name: l.componentName, amount: Number(l.amount) });
+  const line = (l: any) => ({ name: l.componentName, amount: Number(l.amount), ...countOf(l) });
   res.json({
     slip: {
       id: slip.id,
@@ -1554,6 +1594,8 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
         account: maskEnd(profile?.bankAccountNumber),
       },
       days: { working: Number(input.workingDays ?? 0), payable: Number(input.payableDays ?? 0), lossOfPay: Number(input.lwpDays ?? 0) },
+      /* The salary changed inside the month: the days at each salary (splitOf). */
+      split: splitOf(parse(slip.assignmentSnapshotJson)),
       earnings: readableLines(slip.lines.filter((l: any) => l.type === 'EARNING'), slip.adjustmentSnapshotJson).map(line),
       deductions: readableLines(slip.lines.filter((l: any) => l.type === 'DEDUCTION'), slip.adjustmentSnapshotJson).map(line),
       gross: Number(slip.grossEarnings),
@@ -1564,6 +1606,10 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
       deductionNote: slip.deductionNote ?? null,
       /* Somebody whose last day falls in this period has no next payslip: the rest goes to the full and final. */
       leaving: Boolean(person.dateOfLeaving && period?.endDate && String(person.dateOfLeaving).slice(0, 10) <= period.endDate),
+      /* The company's PF this month, as the payslip recorded it: the pension (EPS) share and the fund (EPF) share. */
+      pf: parts.pfEmployee || parts.pension || parts.pfEmployer ? { employee: parts.pfEmployee, pension: parts.pension, employer: parts.pfEmployer } : null,
+      /* This financial year so far, up to and including this payslip. */
+      sinceApril: year,
     },
   });
 });

@@ -19,6 +19,7 @@ import { EXPLORE_READ_ONLY_TEXT, subscribeConfirms, subscribeToasts } from './no
 
 export default function Toaster() {
 
+  const books = typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
   const [confirm, setConfirm] = useState(null);
   const cancelRef = useRef(null);
   /* An authenticator code asked for by @platform/http (step-up). */
@@ -94,7 +95,14 @@ export default function Toaster() {
         position="bottom-right"
         offset={16}
         gap={8}
-        visibleToasts={5}
+        /*
+         * Round 29 pick "toaststack" A: outside Books, several quick messages
+         * (approving five requests) stand open one above the other, newest
+         * in front, three at most, so each one is read. Books keeps its
+         * collapsed pile of five.
+         */
+        visibleToasts={books ? 5 : 3}
+        expand={!books}
         /*
          * Sonner injects its own stylesheet with `z-index: 999999999` on
          * `[data-sonner-toaster]`, which is outside this product's layer scale
@@ -136,16 +144,30 @@ export default function Toaster() {
             <h2 id="confirm-title" className="ui-t-sec">{confirm.title}</h2>
             {confirm.message ? <p className="ui-muted mt-2 text-sm leading-relaxed">{confirm.message}</p> : null}
             <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
-              <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-secondary">
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => settle(true)}
-                className={`ui-btn ${confirm.tone === 'danger' ? 'ui-btn-danger' : 'ui-btn-primary'}`}
-              >
-                {confirm.confirmLabel}
-              </button>
+              {confirm.stayFirst ? (
+                <>
+                  {/* Staying is the main button; leaving is the quiet one beside it. Focus starts on Stay. */}
+                  <button type="button" onClick={() => settle(true)} className="ui-btn ui-btn-secondary">
+                    {confirm.confirmLabel}
+                  </button>
+                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-primary">
+                    {confirm.cancelLabel || 'Cancel'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-secondary">
+                    {confirm.cancelLabel || 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => settle(true)}
+                    className={`ui-btn ${confirm.tone === 'danger' ? 'ui-btn-danger' : 'ui-btn-primary'}`}
+                  >
+                    {confirm.confirmLabel}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

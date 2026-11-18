@@ -5,6 +5,7 @@ import { portalNeedsPeople } from '../services/people/guards.js';
 import { correlationOf } from '../services/people/employees.js';
 import { MoneyError, addLine, answerMine, askAdvance, billFile, claimFor, myMoney, removeLine, reopenClaim, submitClaim, withdrawMine, type Me } from '../services/people/money/expenses.js';
 import { askSalaryAdvance, mySalaryAdvance, previewAsk } from '../services/people/money/salaryAdvance.js';
+import { SkipAskError, askSkip } from '../services/payroll/skipAsk.js';
 import { z } from 'zod';
 import { check, flag, id, idParams, noBody, rawText, text } from '../middleware/validate.js';
 
@@ -44,7 +45,7 @@ const LINE_BODY = z.object({
   spentOn: DAY, categoryId: text(80).nullish(), amount: NUMBERISH, merchant: text(2000).nullish(), note: text(5000).nullish(),
   companyGstin: flag.nullish(), supplierGstin: text(200).nullish(), taxAmount: NUMBERISH,
   /* The bill as a data URL: the route's body may be 7 MB (app.ts). */
-  bill: rawText(7_400_000).nullish(), billName: text(2000).nullish(), notDuplicate: flag.nullish(),
+  bill: rawText(7_400_000).nullish(), billName: text(2000).nullish(), notDuplicate: flag.nullish(), paidByCompany: flag.nullish(),
 });
 const ASK_BODY = z.object({ amount: NUMBERISH, months: NUMBERISH, reason: text(5000).nullish() });
 /* claims, advances or salary-advance; any other word is the handler's 404. */
@@ -87,6 +88,17 @@ peopleMoneyPortalRouter.post('/salary-advance/preview', check({ body: ASK_BODY }
 peopleMoneyPortalRouter.post('/salary-advance', check({ body: ASK_BODY }), run(async (req, res) => {
   res.status(201).json({ ask: await askSalaryAdvance(me(req), req.body || {}) });
 }));
+
+/** Ask to skip my next loan or salary advance instalment; HR decides on Payroll › Loans (picks round 54). */
+peopleMoneyPortalRouter.post('/instalments/:id/skip', check({ params: idParams, body: z.object({ reason: text(2000).nullish() }) }), async (req, res) => {
+  try {
+    res.json({ instalment: await askSkip({ orgId: req.portal!.orgId, employeeId: req.portal!.employeeId }, String(req.params.id), req.body?.reason) });
+  } catch (e) {
+    if (e instanceof SkipAskError) return res.status(e.status).json({ error: e.message, ...(e.code ? { code: e.code } : {}) });
+    console.error('[people-money portal]', e instanceof Error ? e.message : e); // eslint-disable-line no-console
+    res.status(500).json({ error: 'Something went wrong. Try again.' });
+  }
+});
 
 /** Withdraw, or answer a question about, one of my own: a claim, an advance or a salary advance. */
 peopleMoneyPortalRouter.post('/:kind/:id/withdraw', check({ params: KIND_PARAMS, body: noBody }), run(async (req, res) => {

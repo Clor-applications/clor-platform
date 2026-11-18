@@ -377,13 +377,14 @@ Open it in the operator console: {{opsUrl}}`,
     key: 'people.approval_waiting',
     label: 'People: a request waits for your decision',
     description: 'Sent to each approver when a People request (job change, resignation, probation, request form, and others) reaches their step, and again if it is handed on to them or goes overdue.',
-    subject: '{{headline}}: {{title}}',
+    /* Round 55: the subject starts with what to do ("Approve: Selvi's leave · due 20 Nov"). */
+    subject: '{{subjectLine}}',
     body: `Hello {{userName}},
 
 {{headline}}: {{title}}, in {{orgName}}. {{dueLine}}
 
 Open Approvals in People to decide: {{appUrl}}`,
-    fields: ['userName', 'headline', 'title', 'orgName', 'dueLine', 'appUrl'],
+    fields: ['userName', 'subjectLine', 'headline', 'title', 'orgName', 'dueLine', 'appUrl'],
   },
   {
     key: 'people.approval_decided',
@@ -600,6 +601,20 @@ We will not be taking your application further this time. We were glad to meet y
 
 {{orgName}}`,
     fields: ['name', 'jobTitle', 'orgName'],
+  },
+  {
+    key: 'people.candidate_stage',
+    label: 'Candidate application moved on',
+    description: 'Sent to a candidate when HR moves their application a step forward (being looked at, to interview, to offer) or opens it again. Interviews and offers also send their own e-mail with the details.',
+    subject: 'Your application to {{orgName}}',
+    body: `Hello {{name}},
+
+An update on your application for the {{jobTitle}} position at {{orgName}}.
+
+{{stageLine}}
+
+{{orgName}}`,
+    fields: ['name', 'jobTitle', 'orgName', 'stageLine'],
   },
   {
     key: 'people.task_assigned',

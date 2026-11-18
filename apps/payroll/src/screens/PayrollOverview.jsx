@@ -5,6 +5,10 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { getPayrollOverview } from '../api/payrollOverview';
 import { getPayrollSetup } from '../api/payrollSetup';
 import { wholeRupees as money } from '@ui/utils/money';
+import PayCalendarStrip from '../components/PayCalendarStrip';
+import { todayIst } from '@ui/utils/dates';
+import StatutoryDues from '../components/StatutoryDues';
+import { MonthTodo } from '../components/round59';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -112,6 +116,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
         }
       />
       <div className="px-5 lg:px-7 pb-8 space-y-4">
+      {currentPeriod ? <PayCalendarStrip period={currentPeriod} run={currentRun} /> : null}
 
       {/*
         * Setup comes before anything else while it is unfinished.
@@ -161,7 +166,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x" style={{ borderColor: 'rgb(var(--border))' }}>
             <Cell label="People" value={String(currentRun.employeeCount)} />
             <Cell label="Gross" value={money(currentRun.gross)} />
-            <Cell label="Take-home" value={money(currentRun.net)} />
+            <Cell label="Net pay" value={money(currentRun.net)} />
             <Cell label="Company pays" value={money(currentRun.employerCost)} />
           </div>
         </div>
@@ -186,6 +191,9 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           </button>
         </div>
       ) : null}
+
+      {/* Round 59 monthflow C: the month as a short to-do list. */}
+      <MonthTodo period={currentPeriod} run={currentRun} onOpen={onOpen} />
 
       {/* What is in the way, in the order somebody would act on it. */}
       {blockers.length ? (
@@ -234,7 +242,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
                   <th scope="col" className="ui-col-h-center">Paid on</th>
                   <th scope="col" className="ui-col-h-right">People</th>
                   <th scope="col" className="ui-col-h-right">Gross</th>
-                  <th scope="col" className="ui-col-h-right">Take-home</th>
+                  <th scope="col" className="ui-col-h-right">Net pay</th>
                   <th scope="col" className="ui-col-h-right">Company pays</th>
                 </tr>
               </thead>
@@ -255,6 +263,9 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           </div>
         </div>
       ) : null}
+
+      {/* Round 50 pick "duecalendar" B: the next five statutory dues, under the month's work. */}
+      <StatutoryDues today={todayIst()} />
       </div>
     </div>
   );

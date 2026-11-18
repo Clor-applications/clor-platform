@@ -41,7 +41,11 @@ import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSe
 import StatutoryGapsPanel from "../components/StatutoryGapsPanel";
 import { RegistrationNotice } from "../components/StatutoryRegistrationsStep";
 import { openMonthsOf } from "../components/runGuardText";
+import { PaidCount, PayChanges } from "../components/round32";
+import { lockWords } from "../components/round59";
 import { wholeRupees as money } from "@ui/utils/money";
+import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
+import { EarlierNote, NextMonthNote } from "../components/RunNotes";
 
 /**
  * Running payroll.
@@ -466,6 +470,8 @@ const RunWorkflow = ({ runId, onBack }) => {
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
       {doneNote ? <SuccessNote title={doneNote.title} onClose={() => setDoneNote(null)}>{doneNote.next}</SuccessNote> : null}
+      {/* What last month's payroll left for this one (picks round 32). */}
+      <EarlierNote note={run.earlierNote} />
       {data.statutoryChecks?.length && ["CALCULATED", "REVIEW"].includes(run.status) ? (
         <StatutoryChecksBlocker checks={data.statutoryChecks} />
       ) : null}
@@ -479,6 +485,8 @@ const RunWorkflow = ({ runId, onBack }) => {
         <Tile label="Deductions" value={money(run.deductionTotal)} />
         <Tile label="Net pay" value={money(run.netTotal)} strong />
       </div>
+      {/* Round 32: how many payslips the bank has paid. */}
+      <PaidCount slips={data.slips} status={run.status} />
 
       {/* Days after the company's cut-off paid as present before they happened (O-11). */}
       <ProvisionalDaysNotice run={run} />
@@ -487,6 +495,7 @@ const RunWorkflow = ({ runId, onBack }) => {
       {/* Entered deductions past the limit: the payroll waits for them to be reduced or a reason. */}
       <OverLimitPanel run={run} onSaved={load} />
       {run.stale && run.status === "CALCULATED" ? <p role="status" className="ui-caption ui-text-warn">{run.stale}</p> : null}
+      <NextMonthNote run={run} onSaved={load} />
 
       {errorCount > 0 || warningCount > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -671,7 +680,9 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
           type="button"
           className="ui-btn ui-btn-secondary"
           disabled={Boolean(busy)}
-          onClick={() =>
+          onClick={async () => {
+            /* Round 59 lockexplain A: what locking does, in plain words, before it happens. */
+            if (!(await confirmDialog(lockWords(run)))) return;
             act(
               "lock",
               async () => {
@@ -684,8 +695,8 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                 }
               },
               () => done("Payroll locked.", "Nothing in it can change now."),
-            )
-          }
+            );
+          }}
         >
           Lock
         </button>
@@ -736,7 +747,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
           onClick={async () => {
             const ok = await confirmDialog({
               title: `Approve ${run.number}?`,
-              message: `Approving fixes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. Nothing can be changed afterwards.`,
+              message: `Approving fixes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. Nothing can be changed afterwards.${afterBankCutoff() ? ` ${BANK_CUTOFF_NOTE}` : ""}`,
               confirmLabel: "Yes, approve",
             });
             if (ok)
@@ -759,7 +770,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                   }
                 },
                 (out) => {
-                  if (out) done("Payroll approved.", "Next: post it to accounts, or lock it.");
+                  if (out) done("Payroll approved.", afterBankCutoff() ? `${BANK_CUTOFF_NOTE} Next: post it to accounts, or lock it.` : "Next: post it to accounts, or lock it.");
                 },
               );
           }}
@@ -1034,7 +1045,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                   Payable days
                 </th>
                 <th scope="col" className="ui-col-h-right">
-                  Loss of pay
+                  Unpaid days (LOP)
                 </th>
                 <th
                   scope="col"
@@ -1074,7 +1085,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                           type="number"
                           min="0"
                           className="ui-input ui-num w-full min-w-0 px-2 py-1"
-                          aria-label={`${field === "workingDays" ? "Working days" : field === "payableDays" ? "Payable days" : field === "lwpDays" ? "Loss of pay days" : field === "overtimeHours" ? "Overtime hours" : "Variable pay"} for ${r.name}`}
+                          aria-label={`${field === "workingDays" ? "Working days" : field === "payableDays" ? "Payable days" : field === "lwpDays" ? "Unpaid days" : field === "overtimeHours" ? "Overtime hours" : "Variable pay"} for ${r.name}`}
                           value={r[field]}
                           onChange={(e) =>
                             patch(idx, { [field]: e.target.value })
@@ -1215,6 +1226,9 @@ const ReviewStage = ({ data, byEmployee }) => {
     );
   }
   return (
+    <div className="space-y-3">
+    {/* Round 32: who is paid differently from last period, and why. */}
+    <PayChanges slips={data.slips} byEmployee={byEmployee} />
     <div className="ui-card overflow-hidden">
       <div className="ui-table-scroll">
         <table className="ui-table ui-table-sticky w-full">
@@ -1276,6 +1290,7 @@ const ReviewStage = ({ data, byEmployee }) => {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 };

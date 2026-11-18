@@ -422,13 +422,14 @@ Built:
 | --- | --- |
 | Limits on expenses | The category's limit shows under the form while the amount is typed, with how much is left or over (employee app, Add a bill) |
 | Cancelling approved leave | "Cancel leave" on the leave; the confirm now says whoever approved it is told (the server already tells them) |
+| A "Remind" button on my own request | "Remind" on my waiting leave (employee app, and My leave's row menu) tells whoever it waits on again, through the leave notice; once a day, then "Reminded" until tomorrow (`remindLeave`, history "Reminded the approvers") |
 
 Picked, **not built yet**: approvals going up to the next manager while one is away (today a
 stand-in is set by hand); an ID card sideways with a QR code (no ID cards yet); statutory due
 dates as a home card when one is near; work from home as a request type beside leave (it sits
 with attendance requests today); a branch move shown as From → To with a date; resigning from
 the app with the last day worked out; late-mark rules written as a sentence you fill in; weekly
-offs as a grid of weeks and days; a "Remind" button on my own request; nominees as a table per
+offs as a grid of weeks and days; nominees as a table per
 scheme; family as faces with relation and age; past jobs and education as two lists; skills as
 chips; leave carried to next year as one sentence ("10 carried, 4 lapse"). Most need records
 CLOR does not keep yet.
@@ -487,9 +488,12 @@ Picked, **not built yet**: leave cashed in shown as days and amount together; th
 "not in yet" list sent as an alert; health insurance as a list of who is covered and how much;
 flexible pay parts with amounts and the total left; a handover list with who takes each item;
 an "Add to my calendar" link for approved leave; WhatsApp requests with Approve and Reject;
-changing one field for many people with a preview of who changes; night allowance as its own
-payslip line; a phone reminder at shift end to punch out; private HR notes with a lock and who
+changing one field for many people with a preview of who changes; a phone reminder at shift end to punch out; private HR notes with a lock and who
 wrote them.
+
+Built later (server picks batch 2): night allowance as its own payslip line, entered as an
+adjustment worked out as count × rate ("6 nights × ₹150"), the count and rate kept on the
+adjustment and on the payslip line (`countWords`, `@ui/picks/payLines`).
 
 ### Round 22 (18 Nov 2026)
 
@@ -505,8 +509,12 @@ Picked and already how the app works: two hours off taken with a from and to tim
 form, with the hours left this month (hourly leave types); a mid-month joiner's payslip shows the
 days paid with the amount ("13 of 30 days").
 
-Picked, **not built yet**: the professional tax state picked from the branch with a link to its
-slab; a holiday on a weekly off moved to the Monday; a written warning letter from a template
+Built later (server picks, batch 2): the professional tax state picked from the work site. Payroll →
+a person's details asks "Professional tax state" once PT is ticked; left blank it reads "From the
+work site (Maharashtra)" and the save fills in the site's state, as a transfer does; a state chosen
+stays; "See Maharashtra's slab" opens Compliance at the PT bands (`PtStateField`, `ptFromSite`).
+
+Picked, **not built yet**: a holiday on a weekly off moved to the Monday; a written warning letter from a template
 sent to sign; Ops list of customers who may stop using CLOR, with the reason; a switch letting
 anyone with the company email join without an invite; a locked feature offered as a 14-day free
 try; "Report a problem" in Help with a screenshot added; comp off added by itself from punches on
@@ -548,7 +556,11 @@ Built:
 
 Picked and already how the app works: none this round.
 
-Picked, **not built yet**: canteen charges with count and rate on the payslip line; arrivals by
+Built later (server picks batch 2): canteen charges with count and rate on the payslip line: an
+adjustment worked out as count × rate, the amount their product to the paisa, shown under the line
+on Payroll's payslip, the employee app's payslip and its print ("Canteen (22 meals × ₹30)").
+
+Picked, **not built yet**: arrivals by
 15 minutes with the shift start marked; sign-up to paying as narrowing bars in Ops; handing over
 the owner role with the new owner accepting by email; company-wide quiet hours for notices; a
 new manager picked before a manager with a team leaves; fingerprint offered once in the phone
@@ -576,6 +588,1014 @@ with blanks; a team's pay-rise budget bar; a time zone on the person (B); a flag
 number of days' absence without word; the company's year start with what each choice changes;
 file space as a bar by kind; "Copy from" another branch with ticks; payslips by SMS with a short
 link; pay groups with their own pay day. All need server work.
+
+### Round 26 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Footer on printed pages | Every printed screen outside Books ends with "Printed by Anita Rao from CLOR · 18 Nov 2026, 4:12 PM", at the foot of each page; the time is taken as printing starts. Hidden on screen. Printed documents with their own frame (invoices, vouchers) are untouched (`PrintFooter`). |
+| Men and women in each team | The Gender mix report adds a "% women" column worked out from the counts, per group and for everyone. Where the counts are masked ("Fewer than 5") the percent stays blank, and a fully masked table gets no column (`withWomenShare`). |
+| Moving down a list with the keyboard | In the Inbox's To approve list, J moves to the next request, K to the one before, Enter opens it and A approves it, with a hint line under the list. Keys are ignored while typing, with a dialog open, or in Books (`useJkList`). |
+| Too many wrong codes | After too many wrong sign-in codes the code step shows "Too many tries · Try again in 4:58", counting down, and holds the Sign in button until the time is up (`lockoutSeconds`, `clockText`). |
+
+Picked and already how the app works: none this round.
+
+Built later (server picks, batch 2): a check list before "Download ECR". Reports → Returns to file
+says "82 ready · 2 without a UAN" over the people left out, each with "Fix", which opens their
+payroll details (`checklistLine`, the server's `ecr.checklist`).
+
+Picked, **not built yet**: a table of punch-machine numbers beside a name picker; "New date" or "Cancel joining" for a joiner
+who did not turn up; a role given "for" one branch; an outage timeline in Ops, newest on top;
+swipe right to approve, left to reject in the phone app; previous employer's pay, tax and PF this
+year; a punch from a phone faking its location blocked with a plain reason; suspension as sign-in
+turned off with a note only HR sees; "Continue with Google / Microsoft" on the sign-in page; a
+credit note raised from the invoice in Ops; daily or monthly pay type on the record. All need
+server or phone-app work.
+
+### Round 27 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Two punches a minute apart | Attendance → Transactions greys a punch made within 60 seconds of the same person's previous one, with "Repeat · the day counts the first" under its time. Nothing is removed; the day already reads first in and last out (`repeatPunchIds`). |
+| Marking a draft payslip | A payslip whose payroll is not approved yet (slip or run still draft, calculated or in review) opens with a coloured strip, "DRAFT Payroll is not approved yet, so these figures can still change." It prints too (`DraftStrip`). |
+| An old browser | A browser older than the build's line (late 2022: Chrome or Edge 107, Firefox 104, Safari 16) gets one page naming the browsers that work, with links, instead of broken screens. Not on Books' host or a shared invoice link (`OldBrowserPage`). |
+| Giving a customer more trial days | Ops → a customer → Extend trial has +7, +14 and +30 days beside the days box; one click fills it. |
+| "Take back" on an approval until the leave starts | Leave requests drawer → "Take back approval" for whoever approved it, or HR for the whole company, before the first day: it waits again, its days come off the attendance record and the person is told (`takeBackLeave`). Leave decided by the approval rule or steps is cancelled instead. |
+
+Picked and already how the app works: a day at a client's office is an "On duty" request with the
+place, counted as present once approved (employee app → Requests). A no-pay leave type for a long
+break (a sabbatical): Leave settings → a type with "Paid leave" unticked; its days go to payroll as loss of pay,
+as every unpaid type's do, and the form says "Without pay" (round 42).
+
+Built later (server picks, batch 2): a row per month with "Add challan" for TDS. Tax declarations →
+TDS deposits lists April to March with the tax deducted, deposited and left, the due date (the 7th;
+March's 30 April) and "Late"; "Add challan" takes the BSR code, serial, date and amount (the balance
+filled in). The 24Q download carries each month's BSR code, serial and date, and names any month with
+no challan (`TdsDepositsPanel`, `PayrollTdsChallan`).
+
+Picked, **not built yet**: an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
+side; sharing a payslip from the phone's share list (needs a payslip PDF file from the server);
+payslips by sign-in link with no PDF password; leaving steps that start on their own at retirement age; a list of leavers due for
+clearing with one button. All need server work. Built later (server picks batch 2): a payslip
+line showing pieces × rate, from an adjustment worked out as count × rate ("340 pieces × ₹4.5"). Chart
+names at the end of each line wait for a chart with several lines; none has more than one yet.
+
+### Round 28 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| A buzz when you punch | A punch saved from the phone buzzes twice for in and once for out, where the browser can buzz (`buzzForPunch`, `PhonePunch`). Nothing else changes where it cannot. |
+| Overtime close to the legal limit | Approving overtime that runs past the company's cap asks first: "Approving this takes Babu past the company’s overtime limit: 4:00 over the cap of 50:00 a quarter", with Approve anyway (`overCapQuestion`, Overtime requests). |
+| Removing a department that still has people | A department with people in it keeps Delete… in its menu; it says "14 people are in Field Sales. Move them to another department first, or retire it" and offers "See the 14 people", which opens Employees filtered to it (`blockedDelete`, Organisation → Departments). |
+
+Picked and already how the app works: the punch uses CLOR's own time, not the phone's (the
+server stamps it); pointing at a chart bar shows a small white box with the month and amount
+(the shared chart tooltip); pinning rows is left to saved views until pins can follow a person
+across pages.
+
+Picked, **not built yet**: perks picked with the taxed value worked out by the rule; family
+members hidden from the directory under a locked tab for admins; keys for your own software with
+last used and Remove; deleted items restored one at a time from Ops; letter checks by a digital
+signature in the PDF; PF capped at ₹15,000 by default with a choice per person; phone punch
+allowed for one person whose fingerprint will not read; a small sign-in for former staff to get
+their papers; ideas counted from tags on support tickets; salary split between two bank accounts.
+All need server work. Pinning a person to the top of People needs pins kept on the server.
+
+### Round 29 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Several messages at once | Outside Books, quick messages stand open one above the other, newest in front, three at most, so each is read (Sonner `expand`, `visibleToasts` 3 in `Toaster`). Books keeps its collapsed pile of five. |
+| A chart with nothing to show yet | A chart with no figures is not drawn: a People report's chart with every value at nought, and "Joined and left" when nobody joined or left, are left out; the table or empty state under them says it in words (`ReportChart`, `JoinLeaveBars`). |
+| The name someone likes to be called | Lists and the record's title show the full legal name only, as on papers; the preferred name stays on the Personal tab and in friendly sentences (`Directory`, `EmployeeRecord`). |
+
+Picked and already how the app works: right-click on a row opens the browser's own menu (no
+custom menu anywhere); the roster has no dragging, a shift is moved by choosing the day; Ops
+staff roles are fixed (Support, Billing, Sales, Admin).
+
+Picked, **not built yet**: salary paid by mistake taken back from next month's pay; a roster
+warning when night-shift consent is not on file; the manager told when someone applies for a
+job inside the company; a CA's client list with this month's status; monthly revenue in Ops as
+a big number with a 12-month line; joining the company in the phone app by phone number and
+OTP; a joiner asked for their PAN before the first payroll; a billing email separate from the
+owner; a joining bonus line with its "returnable until" date. All need server or phone-app work.
+
+Picked and already how the app works: voting-day leave is a leave type a company adds in Leave
+settings (one day a year, paid); it is asked for and approved on its own like any type.
+
+### Round 30 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Calling a colleague from the app | Call and WhatsApp buttons beside the number on the employee record's overview and on an absence case: Call opens the phone, WhatsApp opens a chat with that number (only for a ten-digit Indian mobile; a landline gets Call only) (`CallButtons`). |
+| This year against last year in a chart | Headcount & attrition shows "This year against last year": the period's month-end headcount as a solid line in the app colour, the same months a year earlier faint and dashed behind, and "+18 on a year before" under it. Drawn only when the year before has people (`YearOnYearLine`). |
+| Landlord’s PAN for rent above ₹1 lakh | Payroll's tax declaration form now asks for the landlord's PAN only once rent passes ₹1,00,000 a year (or one is already on file); below that it says when it will be asked. |
+| Since April on the payslip | The employee app's payslip (and its printed copy) ends with "Since 1 Apr 2026": pay, income tax, your PF and take-home over this financial year up to that payslip, from final payslips only; read from the payslips, nothing worked out again (`SinceApril`, `sinceApril` in `payslipYear.ts`). |
+
+Picked and already how the app works: the employee app's tax form already shows the landlord's
+PAN field only above ₹1 lakh of rent a year, and makes it required there; vehicle numbers are
+not stored (a custom field can hold one).
+
+Picked, **not built yet**: moving this week's off day with "work on" and "off on" dates; a month's attendance taken as
+agreed unless raised by the 28th; a punch on a leave day asking to cancel the leave or ignore the
+punch; either of two managers approving; the health check before joining locking the joining
+date; a code to the owner's phone to release salaries; PF and ESI codes on each branch page; a
+split column in the cost report; injury logged on the record; "Stop" on an app card ending at the
+bill date; resetting two-step sign-in after a code to the old email. All need server work.
+
+### Round 31 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| A joiner under 18 | Typing a date of birth that makes the person under 18 on the joining day (today if no joining day yet) shows an amber "Under 18" tag under the field, in both add forms (People's Add employee and the Employees form): "Night work and some jobs are not allowed. You can still add them." The save is never blocked (`UnderEighteen`). The reason HR goes on with is not kept yet. |
+
+Picked and already how the app works: leave for part-time staff stays a leave type of its own for
+the part-time employee type (a leave type can be limited to employee types); pay by gender is not
+shown anywhere, only diversity counts.
+
+Picked, **not built yet**: the supplying agency's name as a tag on a contract worker's record;
+a reminder email to an agency on the 16th for its PF and ESI challans; a "Freelancer" type paid by
+bill with TDS and no payslip; a monthly list of NAPS apprentice shares to claim; an internship
+certificate made on the last day and sent to sign; an intern's same record taking a new job from a
+date; the skill category asked only when pay is near the state minimum; a "Works in" state apart
+from the branch; the ESI dispensary typed at joining; the POSH committee's faces and phones on a
+help page; a weekly list of days whose spread passed 10½ hours; festival temporaries as joiners
+marked "Temporary till"; a creche request form approved by HR. All need server work.
+
+### Round 32 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Who is paid differently from last month | A payroll run's Review step lists the people whose take-home moved from last period above the payslip table, biggest move first, each with the change and the reason this month's inputs give: days unpaid, overtime, variable pay, days paid ahead, or "First payslip"; otherwise "Salary or deductions changed" (`PayChanges`). |
+| Checking money sent matches payroll | Once a run is approved, one answer under its totals: "All 140 paid", "139 of 140 paid" or "Not paid yet", and "1 came back from the bank" when a payment failed, from each payslip's payment status (`PaidCount`). |
+| Pay due to family after a death | A normal leaving with the reason "Passed away": the reason now reads "Passed away" everywhere, the record and the attrition report included (it read "Deceased" and "Died"). |
+
+Picked and already how the app works: a missed amount after the month is locked goes in as an
+adjustment in the next month (Payroll → Adjustments, arrear); approved expenses paid with the
+next salary on their own payslip line ("With salary"); what the company also pays, NPS included,
+listed under its own heading on the payslip; pay so far this year brought in from one file per
+company ("Earlier this year").
+
+Picked, **not built yet**: a salary the bank sent back with the employee asked to update his bank
+on the phone (the employee app is told only paid or not); a fine split over months on its own;
+pay stopping at zero with the rest carried to next month; a small extra run for a bonus between
+payroll months; pay divided by the days in the month as the company's chosen rule; extra PF set
+by the employee on the phone; the leave travel claim with "trips left 1 of 2"; a "Revised" tag
+with what changed on a reissued payslip (payslips keep no record of being reissued yet). All need server work.
+
+Built later (server picks batch 2): notes shown at the top of next month's run. A payroll has a
+"Note for next month" box, saved at any stage but cancelled; the next payroll for the same pay
+group and branch shows it at the top, "From June's payroll (PR-0006)" (`RunNotes.jsx`).
+
+### Round 33 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| First half or second half of the day | One day of leave on the HR and My leave forms is chosen with three buttons side by side, Whole day, First half, Second half, one tap each (`HalfDayChoice`, `.ui-half-choice`). The employee app keeps its own select. |
+| Asking leave for a day already gone | The approver's leave list tags a request asked after its first day: "Asked 2 days late" under the dates (`lateText`, `.ui-late-tag`). How far back it may go stays the leave type's rule on the server. |
+| Week starting Monday or Sunday | Monday. Weekly off on a shift and the Weekly off policy table list Mon … Sun; the days a shift has off read Monday first. Stored day numbers are unchanged (`mondayFirst`). |
+
+Picked and already how the app works: leave that crosses into a new leave year is split on the
+form, "saved as two requests, one per leave period", with each part's days and balance; hours
+are written 7h 30m. A bereavement leave type with no proof asked: a type whose "Document needed
+when longer than" is left at Never. On probation only casual and sick leave: every other type set
+to "Builds up, usable when confirmed" under During probation; the server refuses a locked type while the
+person is on probation. No leave during notice: "While serving notice" set to Not allowed on the
+type; the person is stopped, HR entering it is told.
+
+Picked, **not built yet**: a busy period needing a second approver (approvals); the leave balance
+paid out at notice (final settlement); "1 of 3 left" on the punch fix form; uploading the paper register for a
+day the machine was down; a guessed shift a supervisor confirms; asking staff to volunteer for a
+holiday; attendance kept to the calendar month with late days carried to next pay; calling
+someone back from leave with the days returned; a day off owed added after six days in a row.
+All need server work.
+
+### Round 34 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| How the financial year is written | "FY 2026–27", with an en dash, wherever a year is shown: Payroll's tax declarations (year picker, export subtitle, a person's declaration), the earlier-this-year figures panel and the employee app's Income tax page (`fyLabel`). File names keep their plain hyphen. |
+| What a screen reader says for a status | A waiting leave or attendance request is read as the word and how long, "Waiting, 2 days" (hidden text beside the pill; the screen still shows only "Waiting") (`waitingSaid`). |
+| Opening a notice after being signed out | A sign-in through the company's own provider now comes back to the page that was being opened, not Home (`returnPath`; the API already accepted a safe return path). Password sign-in already stayed on the same address. |
+| Chart colours for colour-blind users | The Attendance calendar's day counts no longer lean on green against red: blue for in, orange for absent, grey for leave, and each count carries its word ("12 in · 2 absent · 1 leave"). |
+| Languages someone speaks | Chips on the Personal tab (Enter adds, × removes, one spelling each); the directory finds people by a language in its search, a "Speaks" filter and a Languages column (hidden at first) (server picks theme A). |
+| Initials | An Initials field under Name on the Personal tab (server picks theme A). |
+
+Picked and already how the app works: "Skip to main content" on the first Tab (the shell and Ops
+have it); figures only on letters (no amount in words outside Books' printed documents); a
+People report's chart always has its table of the same figures with it; the shared tablet is for
+punching only, leave is not looked up there; amounts outside Books are never shortened (when one
+is, it reads "₹18.42 lakh", not "₹18.4 L").
+
+Picked, **not built yet**: a new phone allowed only after HR approves it; punching blocked on a
+tampered phone while payslips still open; asking to turn notices back on after a missed
+approval; asking the worker to let the app track when battery saver stops it; the phone app
+read only (payslips open, punching paused) when the company's plan stops; initials shown before
+the name in lists. All need server or phone-app work.
+
+### Round 35 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Private notes on a customer in Ops | Pinned notes sit at the top of the customer page, above the tabs, with who wrote them and when, and "All notes" opens the Notes tab. Nothing shows when there is no pinned note (`PinnedNotes`). |
+| Checking a caller is really the customer | No changes by phone: the customer's Users tab in Ops says staff do not change an account over the phone, and the owner makes the change signed in or opens a ticket (`PhoneRule`). |
+| Booking a setup call with CLOR | "Call me" under the setup steps on Workspace home while setup is not finished: a mobile number, then "Ask for a call" opens a support ticket CLOR sees in Ops, "CLOR will call you within one working day" (`CallMe`). |
+
+Picked and already how the app works: opening leave balances by uploading a sheet (person, leave
+type, days) is Attendance → Import, Leave balances; each company in a group is kept apart, with
+no group-wide headcount.
+
+Picked, **not built yet**: a duplicate charge kept as credit for the next bill unless the customer
+asks for the money back; a data deletion request sent from a form on clor.in to the person's old
+company; the customer editing the name or GSTIN on bills from the next bill on; a smaller plan
+right away with credit for unused days; sample data removed on its own when the first real person
+is added; a discount to the client instead of a CA partner's share; emails from the customer's own
+address after they add DNS records; 90 days before a closed account is wiped, with a copy of the
+data emailed on day 1; a record in each group company, linked, for one person paid by two; the
+customer's own letterhead PDF as the page background; the signer signing each letter online. All
+need server work.
+
+### Round 36 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| An offer with no answer yet | A sent offer on the candidate shows an amber chip, "Answer by 25 Nov · 7 days left" (or "Answer by today"); once the date passes it turns red, "Answer date passed". The offer form already asks "Open until", a week ahead by default (`OfferAnswerBy`, Candidates → a candidate → Offers). |
+
+Picked and already how the app works: "Move to screening", "Set an interview", "Send an offer",
+one button for the next stage; HR sets the interview time; a job's apply link made and copied to
+share on job sites; closed candidates stay searchable by name, e-mail or phone.
+
+Built later with the server (round 53 batch): skills rated 1–5 on the interviewer's form, as the
+company's interview questions (see round 53).
+
+Picked, **not built yet**: a reminder two days before the answer date; a welcome email with time, place and who to meet; a first-week task list for
+the joiner; one upload box for joining documents; HR ticking laptop and SIM on the joiner record;
+the work email created on joining; a director approving a new job with the yearly budget shown;
+the agency and its fee worked out on joining; a kind not-chosen email to the rest when the job is
+filled; a careers page in the company's colours; the joiner asking for a new joining date in the
+app. All need server work.
+
+### Round 37 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Writing your own review | The self-review asks what the manager is asked (a rating and what went well and what to work on); once neither can still be edited, a review opens with the two side by side, the person's words on the left and the manager's on the right, one above the other on a phone (`showSideBySide`, `.ui-review-pair`). |
+| Review cycle dates | A new cycle asks for one "Reviews due by" date, used for self-reviews and manager reviews alike; a cycle shows "Reviews due by" when its two dates match, and an older cycle with two dates keeps both (`oneDueDate`, `withOneDueDate`). |
+| Making a course compulsory | A training someone is put down for stays on the employee app's Today tab, "A training to finish", until HR marks it completed or missed (`TrainingsDue`, `trainingsDue`). There is no separate "compulsory" flag: being put down for it is the ask. |
+
+Picked and already how the app works: an improvement plan with what is expected, dates and notes
+along the way, seen by HR and the manager (and the person in the employee app); updating a goal is
+On track / At risk / Behind with a note (the check-in); the person ticks "I have read it" on a
+shared review; ratings stay as managers give them, with HR's final rating needing a reason when it
+differs and the calibration view only showing the spread (no suggested share); open jobs inside
+the company show under Me with "Apply" where HR allows it.
+
+Picked, **not built yet**: a "★ Nov star" badge on the profile with no post; HR adds colleagues as
+reviewers; one-tap mood face once a week at punch-in; answers shown after a course test with no
+pass mark; a mentor the person asks, who accepts, with monthly meetings logged; named successors
+for a key role, ready now or in a year; staff rating their manager by name in the review; the
+promotion letter made and sent with the job change. All need server work.
+
+### Round 38 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Seeing what a role can see | Workspace → Roles shows the chosen role as a plain list by screen: Screen, Can see, Can change ("Yes: add, edit and approve"), read from the same server catalogue as the grid; only screens the role reaches are listed. The full permission grid stays under "Every permission, as a grid" (`RoleAccessList`). |
+| Copying a role to make a new one | The role's button and menu say "Copy role" / "Copy"; it opens the new-role form with every permission ticked, named "… (copy)", to untick what to remove. |
+| Chatting with CLOR support | The Help menu in every app but Books has "Ask CLOR support": a short ticket form (subject, what happened, urgent) sent as a support ticket for the app you are in; the answer comes by email and the ticket shows in Workspace → Help and support (`AskSupport`). |
+| CLOR service status | The same Help menu has "CLOR service status", opening clor.in/status, which shows each check green or not. |
+
+Picked and already how the app works: a History tab on each record (the employee record's History
+and Activity tabs, with every change and why); planned maintenance shown as a strip in the app
+(Ops → Status posts it and the in-app announcement strip shows "Planned maintenance" until closed).
+
+Picked, **not built yet**: staying signed in until the browser closes (a session cookie, server);
+the account owner becoming admin when the last HR admin is removed; a failing connection shown
+in an error log; a security page on clor.in naming where data is kept (the website is the
+owner's); an email to the person and the company admin on a sign-in from a new place; editing
+each email CLOR sends with fill-in names and a preview; small requests approved when nobody
+answers in 3 days; ticking CLOR bills and downloading one zip (needs invoice PDFs from the
+server); the card CLOR charges on the Billing page with "Change" (needs the payment gateway);
+active staff only as paid seats, with the Billing page listing who counts. All need server work.
+
+### Round 39 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Two emergency contacts, HR only | A "Second emergency contact" section on the Personal tab; the server sends it only to whoever may edit records and to the person (server picks theme A). |
+| Shoe and uniform size | On the Personal tab under "Food and uniform", with the personal details (server picks theme A). |
+| Choosing old or new tax regime | The employee app's tax form works out both regimes side by side on a year's salary (started from the latest payslip's earnings times twelve, changeable) and what is declared, marks the lower one with "New saves you about ₹8,300 this year", and offers "Use the new regime". An estimate: standard deduction, slabs, rebate and cess; payroll still works out the exact tax (`TaxCompare`, `regimeTax`). |
+| PF saved so far | The employee app's Payslips opens with "PF saved so far": from your pay, from the company, and the pension (EPS) kept separately, summed from final payslips made in CLOR, with "Your PF account's balance on the EPFO site also counts interest and any earlier job" (`PfSaved`, `pfSaved` in `payslipYear.ts`). |
+
+Picked and already how the app works: a name change keeps the legal name for PF and tax while
+the preferred name shows elsewhere (round 29's legal name in lists, preferred name on the
+Personal tab).
+
+Picked, **not built yet**: a signed salary certificate downloaded by the employee; a bank account
+change approved by HR before payroll uses it; Form 16 in
+the employee app with a six-step filing guide; IT as a topic on the same Ask HR desk, sent to IT staff; visitor QR passes on WhatsApp; a desk given for a
+booked day; booking a room from the calendar; live poll bars in company news; events posted as
+news; a line in company news on a leaver's last day; a Friday reminder to hand over before
+leave. All need server work.
+
+### Round 40 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Going home early | A day where someone left before the shift ended gets its own tag beside the late mark, "Left 2h early" or "Left 40 min early", in the employee app's Today card and day list and in Attendance → Records. It uses the `earlyOutMinutes` the server already works out (`EarlyGoTag`). |
+| Showing how many rows match | The Employees list title carries the matching count, "Employees (6)", once the list has loaded; any list on `ListHeader` can pass `count`. Not in Books (`titleWithCount`). |
+| Short salary register | Payroll's Salary register opens short: Employee, Gross, Deductions, Take-home; a name opens that person's earnings and deductions under the row, and "Show every part" lays out the full table with a column per component (`Register`, `FullRegister`). |
+
+Picked and already how the app works: a "Columns" button with ticks and an order per column on
+data tables (moved with arrows rather than dragged); grouping is a filter on one branch at a
+time; leave left is shown as days, not money; a plain bank sheet of names, accounts and amounts
+is Payments' bank advice download (full account numbers, so it needs the payroll export
+permission).
+
+Built later (server picks, 18 Nov 2026): exit-interview reasons read one by one, People → Reports →
+"Reasons for leaving": each leaver's main reason and "could have been kept", and the reasons counted
+in the chart; only for readers who see every leaver's reason (`exitReasonsReport`).
+
+Picked, **not built yet**: absence pay given back next month with a line saying why; attendance
+uploaded from any sheet with its columns matched; holiday work paid or taken as a day off, chosen
+each time; your own reports from fields, filters and groups; a phone notice with the amount when salary is sent; planned
+headcount as one number on home; a PDF of a list to print; a download with every field. All
+need server work, or a per-list field set that does not exist yet.
+
+### Round 41 (18 Nov 2026)
+
+Field and site staff. Built:
+
+| Building block | Pick |
+| --- | --- |
+| Where the field team is now | Attendance → Mobile punches has a "Where now" tab: each person who punched from a phone in the chosen days, once, with the place (street address for a field punch, else the work site) and time of their last punch, and the map and selfie buttons. A list, no map (`latestPlaces`). |
+| When location is followed | The phone punch notice now says it plainly: "Only the place at the moment you punch is kept; CLOR does not follow you between punches." That is how it works: the location is saved with each punch and nowhere else. |
+
+Picked and already how the app works: a field day can start from home, because people set to Field under Portal access punch from anywhere (their punches show with the address, waiting for approval if the company wants); a fixed fuel amount a month is a fixed earning on the salary structure, with no card to check.
+
+Picked, **not built yet**: "Check in here" at the customer's shop found from his location; Ravi's own visit plan for the day, seen by his manager; outcome chips and a note after a visit; a gallery photo as proof at a site; one customer and site list kept by the office, with new shops suggested from the field; a fixed night-halt amount from the tour dates; daily allowance by city group (metro, other city, town); "28 of 40 visits this week" on his home; a punch kept on the phone with no signal and sent later with its real time (the server stamps the time today); the site in-charge's daily crew count by trade; HR marking a site closed for the day as a paid day for everyone there; an area on each salesperson's record with its shops. All need server work.
+
+### Round 42 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Leave when a child is ill | Sick leave on the leave form asks "Who is ill": Me or My child. My child takes it from the person's own sick leave (one balance) and starts the reason with "For my child:" so the approver sees it (`ForWhom`, `reasonFor`). |
+| Asking for leave without pay | Unpaid leave already shows as a type on the form, marked unpaid; under the day count it now says "Without pay: your pay for the month is cut for these 3 days" (`UnpaidNote`). The rupee figure needs the salary from the server. |
+| Leave after adopting a child | An adoption leave type on the form says "For a child under 3 months: 12 weeks from the day the child comes home" and offers "Fill 12 weeks", with the back-at-work day, as maternity does with 26 weeks (`LongLeaveSpan`). |
+| A monthly work-from-home limit | Leave settings → a type → "Most days in a month" (blank = no limit, halves allowed). The server counts waiting and approved days of the type in each calendar month the request touches; past the limit the person is refused ("Work from home is at most 4 days a month. November has 1 day left; this asks 2 days."), HR entering it is warned. Every leave form (HR, My leave, employee app) shows "November: 1 day of 4 left after this" (`maxDaysPerMonth`, `monthlyUse`, `PreviewNotes`). |
+| Team already away | Leave settings → a type → "Warn when this many of the team are away" (blank = never). The form warns "2 of the team are already away on some of these days" when that many of the person's department (else people with the same manager) have waiting or approved leave overlapping; a warning only, the request still goes (`teamAwayWarnAt`, `teamAway`). |
+
+Picked and already how the app works: paternity leave (10 days within 3 months of the birth) and
+marriage leave (5 days, once) are leave types a company sets up with its own days and rules in
+Leave settings.
+
+Picked, **not built yet**: period days worked from home; a yearly number of study days; extra paid
+days the company gives for emergencies; adding a newborn to cover from the
+phone with the birth date; children's education allowance per child, up to two, in salary; a
+greeting card post on the news feed for a wedding; weeks of work from home to care for a parent;
+moving days off plus a one-time moving allowance; a long-service gift with a news feed post. All
+need server work. The employee app's own leave form keeps its current fields for now.
+
+### Round 43 (18 Nov 2026)
+
+The employee record. Picks: bloodgroup B, twoaddress A, passport B, drivinglicence B,
+disability A, maritalchange A, spokenlang A, dietpref A, medicalnote A, signaturespec A,
+aadhaarmask A, linkedin A, hidebirthday B, selfedit B, workphone A, joinsource A.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Showing Aadhaar numbers | Statutory details show Aadhaar as "XXXX XXXX 1234" in JetBrains Mono, so it reads as a masked number (`maskedAadhaar`). |
+| Record extras (server picks theme A) | Personal tab: blood group, disability and a short health note under "Health", and the second emergency contact, sent only to whoever may edit records and to the person (not Viewer or Auditor, nor its history lines); "Permanent address" with "Same as the address above", which hides its fields; food (Veg, Non-veg, Eggetarian, Jain) with counts under By employee type on Employees, for those who see personal details; languages as chips; office extension beside the phone in the header ("Ext. 204") and in Contact; Employment shows "How they were hired", filled from the candidate's source on hire. |
+| Change in marital status | When someone changes their marital status in the employee app, the confirmation adds what to update next: after marrying, the nominee and the health cover; after a divorce or a death, a check of both (`maritalNextStep`, My details). |
+
+Picked and already how the app works: CLOR keeps only Aadhaar's last four digits, never the full
+number, and passport and work permit numbers show in full only with an authenticator code, logged
+(safer than "Show with a reason"); birthdays reach colleagues as a day and month (This week panel,
+Overview, Today), never the year; which details save at once and which go to HR is the company's
+self-service setting, so "every change goes to HR" is that setting turned to all.
+
+Also already how the app works: passport number and expiry sit in IDs and statutory, and a driving
+licence or disability certificate is a file in Documents (marked HR only for the certificate).
+There is no first-aid role, so the health note is HR's to read out.
+
+Picked, **not built yet**: the passport section shown only for people who travel; the signer's
+uploaded signature on letters after approval; a work profile link on the directory card. All need
+new fields on the server.
+
+### Round 44 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Payroll dates for the month | Payroll's overview opens with a strip of the month's steps: Inputs close (the period's last day), Run and review, Approve, Pay (the period's pay date), the step the month is at marked, and "Pay in 12 days", "Pay today" or, in amber, "Pay was due 2 days ago" (`PayCalendarStrip`, `payCalendar`). |
+| Working out take-home from a salary offer | Typing the yearly CTC on an offer shows "In hand, about ₹46,200 a month" under it, with pay, PF, ₹200 professional tax and income tax spelt out. An estimate on the new tax regime (half the pay as basic, PF on basic up to ₹15,000, surcharge left out); the payslip works out the exact figure (`TakeHomeEstimate`, `takeHome`). |
+| Help with PF withdrawal | The employee app's money page ends with "Taking money out of your PF": four steps (UAN linked, sign in, Claim, confirm with the Aadhaar code) and a link to the EPFO member page (`PfWithdrawSteps`). |
+| Pension share on the payslip | Under Deductions, the employee app's payslip shows "Company's PF this month": to your PF account (EPF) and to your pension (EPS), as the payslip recorded it, "paid by the company on top of your pay"; the printed copy says the same (`CompanyPf`). |
+
+Picked and already how the app works: loans with interest worked out (Payroll → Loans takes the
+rate a year and shows the EMI schedule before saving); a salary advance request instead of
+earned-wage access (employee app → money); the joiner brings any bank account (bank details on
+the record); a deduction is told, not agreed (it shows on the payslip).
+
+Built later (server picks, batch 2): the ESI monthly file in the ESIC upload format with a check list
+first. Reports → Returns to file → "Download ESIC file" gives an Excel sheet with only the ESIC
+template's six columns and rows (IP number, name, days, wages, reason code, last working day), under
+"1 ready · 1 without an ESI IP number" with "Fix" on each person left out (`esicRow`).
+
+Picked, **not built yet**: a meal card amount chosen by staff and taken out of taxable pay; a
+full-attendance bonus that allows one late mark; a stay bonus on the record with its due date, paid by itself; extra health
+cover chosen in the app with the premium taken over 12 months; the ESI card downloaded from the
+phone app; the month's service charge split by days worked; family members marked "Covered by ESI". All need server work.
+
+### Round 45 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Age mix of the staff | Headcount & attrition adds "Age mix": bars by age band (under 25, 25–35, 35–45, 45–55, 55+) for everyone working today, with how many have no date of birth left out. Counts only; nobody's date of birth is shown (`ageBands`, `AgePanel`). |
+| How many people each manager has | Headcount & attrition adds "Team size per manager": managers with how many report to them today, largest team first, ten shown and "and N more" after, with how many have no manager set (`managerSpans`, `SpanPanel`). |
+| Absence over time | People → Reports → "Absence rate": days lost to absence and leave (a half day counts half) over working days, month by month, drawn as one line; weekly offs and holidays are not working days (`absenceReport`, `ReportChart` kind `line`). |
+| Overtime | "Overtime hours": hours (not money) worked past the shift each month, approved and not yet approved, stacked (`overtimeReport`). |
+| Late comers | "Late comers": one line a person with days late, average and most minutes late, last 30 days by default, most late first (`lateReport`). |
+| Leave by type | "Leave taken by type": approved days, requests and people per kind of leave, this year by default; a private kind reads "Private leave" for anyone but whole-company HR (`leaveTypesReport`). |
+| Branches side by side | "Branches side by side": headcount, leavers, attrition and absence rate per branch; pay cost (employer cost on approved and paid slips) only for readers with Payroll's salary slip right (`branchesReport`, `payCost`). |
+| Planned and present per shift | "Shifts: planned and present": for each shift on the day, who was due in (less full-day leave, weekly offs and holidays), present, not in, on leave (`shiftsReport`). |
+| Sick days by weekends | "Sick days next to weekends": per person, sick spells and how many start right after or end right before their weekly off or a holiday (`sickSpellsReport`). |
+| Probation outcomes | "Probation outcomes": confirmed, extended (a decided review) and let go, month by month; kept from whoever the company keeps leavings from (`probationOutcomesReport`). |
+| Who is off soon | "Who is off soon": approved leave in the next four weeks, names under the week the leave starts, people off per week in the chart; a private kind reads "Away" (`offSoonReport`). |
+
+Picked and already how the app works: none this round.
+
+Picked, **not built yet**: cost per hire by channel; days to fill a job by job type; training hours
+against the yearly target (CLOR keeps no hiring channel cost, job opening dates or training hours
+yet); lowest, middle and highest pay per job; a weeks × days grid shaded by people present.
+
+### Round 46 (18 Nov 2026)
+
+Documents and letters, outside Books.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| How a person's documents are arranged | A person's Documents sit in folders: Identity (ID, address proof, permits), Joining (contract, education, certificates), Letters, Payroll, Other, each with its count; empty folders are left out. Books keeps one plain list (`docFolders`, `EmployeeDocuments`). |
+| Certificates that expire | People → Documents has an "Expiring in December" tab: everything whose valid-until date falls in the next calendar month, to renew together. The month names itself (`nextMonthRange`, `expiresNextMonth`). |
+| Filling a letter template | Under the letter's text, "How it reads" shows the letter with each field as a grey chip in plain words ("Date of joining", "Effective date") instead of `{{codes}}`; fields still go in with a click from the list beside it (`LetterFieldsPreview`). |
+
+Picked and already how the app works: a replaced document shows the new one with the earlier
+versions kept under "Earlier versions"; one Documents screen across people, filtered by type,
+with an export; who sees a document is set per document (the person and HR by default, managers
+none).
+
+Picked, **not built yet**: "Ask for it" on the record giving the person an upload task; one
+letter to many people with a preview of each and a PDF per person; a faint "Downloaded from CLOR ·
+date" across downloaded pages; the relieving and experience letter ready in the employee app on
+the last day after clearance; "Opened 19 Nov, 10:12" beside a letter; a camera scan that crops
+pages into one PDF; the NDA signed in the app as a joining step; automatic letter reference
+numbers per letter type (KAVE/HR/2026/014); the manager copied on a letter; letters delivered in
+the employee app with email only for those not on the app; a branch and date filter and "download
+all" on Documents. All need server work.
+
+### Round 47 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Showing the steps of an approval | A leave request's Approval section says only the step it is at, as a small chip: "With HR", "Yours to decide" or "Decided", with the due date. The full trail folds under "All steps" (`stepChipText`, Leave requests drawer). |
+| What the approver sees about balance | The Balance line reads "Leaves 4 days after this", then "· 12 days without this request" in grey; a balance below zero is in red (`BalanceAfter`). |
+| A request nobody acts on | On the Waiting tab, HR gets a "Waiting too long (n)" button that lists only the requests waiting more than three days (`isWaitingTooLong`, `?long=1`). It counts the requests on the page already loaded. |
+| Seeing the attached proof | Open on the document sent with a request shows it inside the request: a picture as a picture, a PDF in a frame, anything else with a download link (`InlineDocument`). |
+| "Send back with a question" that returns once answered | "Ask a question" in the Leave requests drawer sends the note as a question; the request stays waiting on the same approver, the person answers in the employee app or on My leave, and whoever asked is told the answer (`sendBackLeave`, `answerLeaveQuestion`). |
+| HR deciding anything, marked "Decided by HR" | While it is still the manager's turn, HR for the whole company gets "Approve as HR" (Reject as before); the request's Status says "Decided by HR" and its history and audit line say so. Leave on the approval rule or steps keeps its own steps. |
+| A request still waiting when its day passes | Company choices → Approvals: "Leave still waiting when its first day has passed is closed as not approved", **off by default**. When on, the hourly leave job closes it with the reason and the person is told (`closePassedLeave`). The day itself reads as the attendance record has it; nothing marks it absent by hand. |
+
+Picked and already how the app works: who approves is fixed by the reporting line (no choice
+for the person asking); approving part of a request is approve all, then edit; a stand-in with
+dates while a manager is away (a stand-in has from and to dates; requests go to the
+stand-in in that window).
+
+Picked, **not built yet**: longer leave (over 5 days) going on to the department head; claims
+over ₹10,000 going to finance after the manager; two approvers at once, either one deciding; HR
+asked to choose a new approver when one leaves; cancelling approved leave needing the manager's
+OK again; requests after the payroll cut-off allowed with payroll told to rerun. All need server
+work.
+
+### Round 48 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| The next holiday on home | The employee app's Today tab shows "Next holiday · Pongal, Wed 14 Jan" under today's card: the first holiday from today that the person gets off (an optional one only once chosen), looking into next year when this year has none left (`NextHoliday`, `nextHoliday`). |
+| My shifts on the phone | My schedule opens on the next 14 days as a list, today on top, across a month end when needed; "Whole month" brings back the month picker (`useNextDays`, `nextDays`). |
+
+Picked and already how the app works: a shift's own grace minutes decide when a punch is late; the
+real punch time is shown and the day is counted from the shift start; hours called in on call are
+paid as overtime; working days are set per shift; Saturdays are working days unless a weekly-off rule
+says otherwise; the roster carries no hour totals.
+
+Picked, **not built yet**: one company holiday list with each holiday marked for some branches;
+"Publish" for a draft roster, with staff told; asking for a shift as a request approved like leave;
+a weekly choice of start time from fixed options; a repeating roster pattern set once; a warning
+for two shifts back to back (the roster holds one shift a person a day); a short-notice change the
+person must accept; a punch on a day with no shift sent to the manager to confirm as an extra day.
+All need server work.
+
+### Round 49 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Moving from another HR tool | Import employees recognises an employee export from Keka, greytHR, Zoho People or Darwinbox by its column names, says "This looks like an export from greytHR; its columns are matched below", and matches those columns (employee number, joining date, reporting manager's number, work email, phone). Our own column names still win, and no two columns go to one field (`sheetFromTool`, `guessImportColumns`). |
+| Dates in an uploaded sheet | The mapping step reads dates day first, as the server does, and shows one from the file: "Dates are read day first: 03/04/2025 in DOJ is 3 Apr 2025". A date that cannot be read is named with the format to use (`readSheetDate`, `ImportReadNotes`). |
+| A big import running | While rows go in, a moving bar in the app's colour and "Importing 140 rows. Stay on this page until it finishes." (`ImportProgress`). |
+
+Picked and already how the app works: mistakes in a sheet are listed row by row, with the rest
+imported and a file of the rows to fix; a "Manager (employee ID)" column brings in who reports to
+whom; the template and any sheet with column matching both exist (sample sheet first); Export
+writes the list as it is on screen, with the columns chosen. The owner picked "support restores
+it" for undoing an import; the existing 24-hour "Undo this import" stays, since it removes only
+that import's rows.
+
+Picked, **not built yet**: "Invite everyone" by SMS and email; staff adding their own photo from
+the phone app; all of one person's documents as one ZIP in folders; a start date from which leave
+and attendance count, with balances carried in; a CLOR person checking the first payroll with
+you; a full data takeout through support; a salary sheet with CTC split by the salary structure;
+a "Came from import" filter on Employees. All need server work.
+
+### Round 50 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Stronger contrast | "Stronger text" in the name menu darkens the greys and firms up the hairlines (`data-contrast="strong"`, `useStrongText`); kept in this browser, beside Text size and row density. Not in Books. |
+| Tap size on phones | On a touch screen every button and form field is at least 48px tall (`pointer: coarse` in picks.css). |
+| Statutory due dates | Payroll home ends with "Next dues": the next five of TDS deposit (7th; March's by 30 April), PF return and payment and ESI (15th), the quarterly TDS return (24Q) and Form 16 (15 June), each with its date and "In N days" (`StatutoryDues`). Professional tax is left out because its dates differ by state. |
+
+Picked and already how the app works: the phone or computer's "reduce motion" setting is followed
+everywhere (the global reduced-motion rule); a 2px ring in the app's colour marks the focused
+control; form mistakes show in red under each field; a payslip opens as a screen with earnings and
+deductions, PDF if wanted; every People report chart has a table of its figures under it; a screen
+reader re-reads the page after Save (nothing extra announced); labour law notices are not in CLOR.
+
+Picked, **not built yet**: the phone app keeping the last payslip, balances and shifts offline
+with "as of 9:40"; a fingerprint or PIN to open the phone app; a home-screen widget with today's
+shift and Punch in; CLOR suggesting a statutory rate change for the payroll admin to accept; an
+in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
+need the phone app or server work.
+
+### Round 51 (18 Nov 2026)
+
+Expense claims and company assets. **Built** (employee app bill form, `apps/attendance/src/portal/round51.js`):
+a bill paid in another currency is typed as the rupee amount from the card statement, said under
+the amount; a bill older than 60 days is refused (the day picker stops at 60 days back and the form
+refuses it, and since server batch 2 the server refuses it too, code `TOO_OLD`; HR can still
+record an older bill for someone); a bill in the company's GSTIN asks only for the GST amount on the
+bill, no supplier GSTIN.
+
+**Built in server batch 2**:
+
+| Building block | Pick |
+| --- | --- |
+| Company card | "Paid with the company card" on a bill (`ExpenseLine.paidByCompany`): it stays on the claim and in the Books export ("Paid with company card" column), counts nothing towards what is claimed back or paid, and the approver reads "Paid with the company card: kept for the accounts, not paid back". |
+| Repeat bill to the approver only | The person is never asked "Is this a different bill?"; a bill with the same amount, day and place goes in and the approver reads "Same amount, day and place as another bill. Check it is not the same one". The same photo twice is still refused. |
+| Asset condition | The Assets register's Condition is Good, Fair or Damaged (`state`); the old free text is now "Return notes". |
+| Company things with you | A card on the employee app's Me tab (`MyAssets`) lists what the register says the person holds, with tag and condition, never its value. "I still have this" puts today's date on the asset; "Report a problem" marks the asset ("Problem reported" in the register) and opens an Ask HR case in the IT queue; "Ask for something you need" is a free-text Ask HR case in the same queue. What the holder wrote is kept when HR saves the asset, and cleared when it moves to someone else or another status. |
+
+**Already matching**: a repeat bill is flagged to the approver ("Same amount, day and place as another
+bill"); no hotel limit, the approver decides; a lost bill is added with a note and the approver decides
+each time; people book their own travel and claim it; a shared bill is claimed by each person for their
+part with a copy of the bill; a team meal is one amount and a note.
+
+An advance with later claims set against it was already how the app works (Advances, and "Set
+against" when sending a claim).
+
+Picked, **not built yet**: a director naming a helper who files claims for them (needs its own
+permission model).
+
+### Round 52 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Case waiting time | The Help desk list has a Waiting column: how long each open or reopened case has waited on HR ("1 day", "3 hours"), from the reopen if there was one (`deskWaiting.js`). The employee sees no promise. |
+| Did this solve it? | Under HR's answer in Ask HR, "Did this solve it?" Yes / No, reopen. No reopens through the existing seven-day reopen; Yes is remembered on that device (`CaseRating`). |
+| Settlement countdown | Each unpaid, not-yet-overdue full and final shows "Due in 2 working days" (or "Due today") under its due date; Sundays are not counted (`settlementClock.js`). |
+| Net first | The settlement drawer opens with the net, in words ("To pay …" / "… owes this"), above the one list of lines, and it follows edits as they are made. |
+
+Picked and already how the app works: each Help desk category sends its case to its own queue
+(set in Help desk settings); HR's internal note never reaches the employee; questions are named,
+never anonymous; the employee sees only "Waiting for HR", not a person; a question about a
+settlement is an ordinary Ask HR question; HR decides each early-release request.
+
+**Built in server batch 2**:
+
+| Building block | Pick |
+| --- | --- |
+| Ask to stay | Someone on notice after resigning sees "Changed your mind? Ask to stay" under Leaving the company in the employee app. It is a request of its own (`LEAVING_WITHDRAW`, "Taking back a resignation" in Approval rules; default rule: the manager, handed to HR when it waits three days). Accepted, the leaving is withdrawn as HR's Withdraw leaving does it; turned down, the app says the manager kept the last day. A leaving HR recorded another way (a termination) is HR's to undo. A resignation not yet decided is still withdrawn from My requests. |
+| Unreturned asset line | An asset not handed back is its own final settlement line at the value the Assets register gives it ("valued there at ₹42,000"); without a value the line stays at ₹0 for Payroll to price. |
+
+Picked and already how the app works: a resignation goes to the manager first and HR confirms
+(the default rule for resignations is the manager, then HR).
+
+Picked, **not built yet**: the last salary paid on the normal pay day with dues settled later;
+work apps stopping at the end of the last day while payslips stay open six months; a "Garden
+leave" status (paid, no work access, not absent). All need Payroll or sign-in work.
+
+### Round 53 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Duplicate candidate | A new application from someone who applied before, matched on e-mail or the last ten phone digits, shows "Applied before for Sales Executive in Mar 2026" (and how many more times) in the candidate drawer. HR only, since only HR sees e-mail and phone (`AppliedBefore`, `round53.js`). |
+| Goal weights | Under the goal form's Weight field: "Their active goals add to 70% with this one; 30% is still to give", in red once over 100% (`WeightTotal`). |
+| Copy last year's goals | With one person chosen on Goals, the secondary "Copy last year's goals" copies their finished goals due last year, a year on, with measure and weight, after asking; a title already set again is skipped and a date already past is left empty. Edit after (`CopyLastYear`). |
+
+Picked and already how the app works: a CV is attached and HR types the details; each interview
+names its interviewers and they see it in their own Interviews list; HR can send any offer; "Put
+on hold" keeps the candidates and turns the apply link off; people type their own goal progress
+in a check-in; feedback is asked only inside a review cycle.
+
+Built later with the server (server picks, hiring and goals; migration `20261224090000_talent_picks`, additive):
+
+| Building block | Pick |
+| --- | --- |
+| Interview questions | One list for every job (Interviews → "Interview questions", HR with Recruitment edit, up to 12, one a line). Each interviewer rates every question 1 to 5 as joined buttons beside the recommendation; HR reads "Communication 4 · Problem solving —" under each feedback (`PeopleSetting.interviewQuestions`, `InterviewFeedback.answers`, `round53Server.jsx`). |
+| Stage e-mails | Moving a candidate to Screening, Interview or Offer, or opening their application again, sends "Candidate application moved on" (`people.candidate_stage`, can be switched off like other notices); interviews and offers still send their own e-mail with the details; Not taken forward keeps its own. |
+| Saved job descriptions | Picking a designation on a new opening fills an empty "About the job" with that designation's saved text; "Save as the description for …" keeps a typed one for next time (`JobPosition.jobDescription`). |
+| Screening questions | Up to five questions per opening ("Questions on the apply page", one a line); the public apply page asks each in its own box, and the candidate shows "Answers on the apply page". Referral links do not ask them yet. |
+| Pause reason | "Put on hold" asks why (Budget review, Team is changing, Waiting for approval); the opening shows "Why it is on hold" until it opens again (`JobOpening.heldReason`). |
+| Company goals | HR adds a few company goals; they sit over the Goals list under one hairline with "2 goals linked, 45% on average" and a thin bar; a person's goal picks the company goal it serves; the employee app lists them over "My goals" (`CompanyGoal`). |
+| Score from goals | On a review's manager and final rating: "Goals say 3.8 (70% done across 2 goals, by weight)", from the person's goals due in the period (or undated), dropped ones and team goals left out, 0% = 1 and 100% = 5. A suggestion only; the rating stays the manager's. |
+| Who sees a goal | Goals are open to the team by default: people who share the person's manager see them (marked "Teammate", read only); "Only me and my manager (HR too)" on the goal keeps it to the person, their direct manager and HR. The employee app lists "My team's goals". |
+| Team goals | A manager's own goal ticked "A goal for my whole team" is kept once, on the manager's list, marked "Team goal", and seen by everyone reporting to them; it is left out of the manager's own review score. |
+
+Still **not built**: nothing from this round's hiring and goal picks.
+
+### Round 54 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Bank cut-off | Approving a payroll run after 3 PM India time adds "Approved after 3 PM; the bank will credit tomorrow." to the confirm and to the note after approval (`afterBankCutoff`, `@ui/picks/round54`). |
+| Arrears tax | An adjustment whose reason says arrears or back pay shows that arrears are taxed in the year paid and the person can claim section 89 relief in their own return (Form 10E). |
+| Closed months | A closed payroll period has no Reopen button; the Payroll periods page says closed months stay closed and a mistake is fixed in next month's run. |
+
+Picked and already how the app works: an arrear is one line on the payslip (an adjustment);
+group reports are run for each company separately.
+
+Built later (server picks batch 2): a mid-month pay change split by days on the payslip, "10 days
+from 1 Jun at ₹50,000 a month", on Payroll's payslip and the employee app's, from the days the
+calculation paid at each salary (`splitLines`); an EMI skip asked in the app and decided by HR:
+the employee app shows each loan's next instalment with "Ask to skip this month" and a reason,
+once; Payroll › Loans marks the loan "Asked to skip" and the instalment carries a tick (skipped,
+still owed) and a cross (declined, stays due).
+
+Picked, **not built yet**: a "Companies" page to pick a company from; a small extra
+payroll for a late joiner; HR choosing what carries
+over on a transfer between group companies; one bill to the head company with a line per company;
+and the CA picks (one list of every client's dues, CA invited with payroll-only access and an end
+date, a client list with Run and status, "Ask client" for inputs, "Prepared by" the CA firm at the
+foot). All need server work.
+
+### Round 55 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Recent searches | The search box (⌘K) opens on the last five searches; choosing one types it back in (`recents.js`, `CommandPalette` `remember`). A search is remembered once it leads somewhere. Kept in this browser and cleared at sign-out. Not in Books. |
+| Recently opened | Under the module that holds Employees, "Recently opened" lists the last five people whose record was opened (`RecentPeople`); only the id and name are kept, in this browser, cleared at sign-out. |
+| Search finds pages and people | The search box no longer offers jobs as rows ("Ask for leave", "Fix a punch"); the words of those jobs still find the screen they belong to. Placeholder reads "Search people and screens…". |
+| Search by PAN or UAN | The people search (directory and ⌘K) also finds a person by a whole PAN or UAN, for a reader who may see statutory details; part of one never matches (`employeesByIdentifier`). Phone was already matched. |
+| Remind me tomorrow | An alarm-clock button on each bell notice takes it off the list and the badge until 9 AM tomorrow, India time, when it comes back unread at the top (`Notification.snoozedUntil`, `POST …/notifications/inbox/snooze`). Mark all read leaves it alone. |
+| Your team this week | A manager's People Home starts with their own team (solid or dotted line) for the next seven days: requests waiting for them, who is away on approved leave, and birthdays (the day only, never someone who opted out) (`teamWeekOf`, `/people/home` `teamWeek`). |
+| Subject lines | People approval emails start with the action: "Approve: Selvi's leave · due 20 Nov"; "Overdue, approve: …"; "Approve (handed on to you): …" (`approvalSubject`). |
+| Stop these emails | Every optional email ends with a signed "Stop these emails" link that turns off that kind for that address only; opening it changes nothing, a Stop button does, and the page after offers "Start them again" (`/api/public/email/stop/:token`, `EmailOptOut`). Sign-in, invitations and invoices are transactional and have no link. |
+| Ops handover note | Ops Overview has a Handover section under the numbers: the newest note, who wrote it and when; staff other than Read-only write the next one (`OpsHandoverNote`, `/ops/handover`). |
+| Saved reply help page | A saved reply may carry a help page link (https only); it is added under the reply as "Read more: <link>" when picked in a ticket. |
+| Renewals in 30 days | Ops Overview's "Needs you today" lists paid plans renewing in the next 30 days (not stopping), soonest first, with the next period's amount, monthly or yearly, and when the customer last signed in; each opens the Subscription tab. |
+
+Picked and already how the app works: free tags on each customer as list filters (Ops Customers
+has tags and a tag filter).
+
+Picked, **not built yet**: a notification summary every two hours; one company-wide digest
+time; the "Payment failed · Pay now" strip with days before apps lock (needs a grace period the
+billing rules do not have yet); card or UPI autopay with the bill emailed first (needs a payment
+gateway mandate).
+
+### Round 56 (18 Nov 2026)
+
+Forms that are easy to fill. Built (none in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Adding several in a row | Add employee's Review has "Create and add another" beside Create employee: the person is created, the form clears for the next joiner and keeps their branch, department, employment type, hours, work mode, joining date and manager, with the next employee ID suggested. Holidays clears after Add holiday, keeps where it applies and puts the cursor back on the date. |
+| When a mistake is shown | In Add employee a wrong value shows in red under the field as soon as the field is left (an email without its domain, a phone short of 10 digits); an empty field is not nagged until Continue. |
+| Dates already filled in | A new attendance fix or request, in the employee app and in HR's form, starts on today; a bill already did. The joining date stays empty. |
+| Typing a big amount | Every money field (`MoneyInput`) takes Indian commas as it is typed, 12,50,000, with the caret kept after the digit just typed; the screen still receives plain digits, and letters are refused. |
+| A long form left halfway | Add employee's server draft (private, 30 days) shows in Employees' waiting list as "Finish adding Ravi Kumar", "Draft · step 2 of 4". |
+| Fields most people skip | Add employee asks first name, last name, work email and phone first; personal email, date of birth, gender, photo, guardian and emergency contact wait under "More details", and so do the rarer organisation fields after works at, department, designation and manager. It opens by itself when anything in it is filled in or needs fixing. |
+| Choices repeated many times | The next person added starts at the branch, department, employment type, work mode and hours of the last one added in this browser, when those still exist (`clor.addPerson.last`, ids only, cleared at sign-in and sign-out); Organisation says so. |
+| Names typed in capitals | Under Add employee's name fields "Use Ravi Kumar" is offered for a name typed in capitals; one tap takes it, nothing is forced (`properName`). |
+| The choice is not in the list | Add employee's Department list ends with "+ Add “Field Sales”" when what is typed is not there; it is made on the spot for whoever may add departments, and chosen. |
+| Pressing Enter in a form | Enter moves to the next field on every form outside Books; only Save sends. A form of one or two fields (sign-in, a reason, a search) still sends from its last field, and an open list or suggestion keeps Enter for itself (`installFormRules`). |
+| Checking before sending something big | The leaving drawer reads itself back above Record leaving: the last day and what follows ("works until 31 Dec, stays paid until then"), why, the resignation date and notice short, the note, each with Change (`LeavingReadBack`). |
+| PAN, IFSC and GSTIN in small letters | A field for a PAN, IFSC, GSTIN or TAN turns what is typed to capitals as it is typed, on every form outside Books; the screen hears the capitals. |
+
+Picked and already how the app works: after adding a person their record opens with a green
+"Ravi Kumar added"; Add employee already ends on a Review page with Edit links; address fields are
+typed one by one (pincodefill B).
+
+Picked, **not built yet**: a button that works and points to what is missing instead of being
+greyed (the duplicate-reason Create button stays greyed, which the hiring tests check; other forms
+already let the browser point to the empty field on Save); several files on one bill or proof,
+each with Remove (each bill, proof and request keeps one file on the server, so this needs server
+work).
+
+### Round 57 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Coming back to a list | Filters and search already ride in the address; now the scroll place does too. Leaving a screen notes where it was scrolled, and going back to it (the browser's Back, the "← Employees" link, or the record's own way back) puts the page back there once the rows have drawn, for half an hour (`packages/shell/scrollMemory.js`). Any wheel, touch or key press stops it. |
+| The row just added | It sits on top of the list with a soft highlight that fades in six seconds (`freshKey` on DataTable, `useFreshRow`; Holidays wired). Reduced motion keeps the tint without the fade. |
+| After acting on many rows | Approvals, Leave requests and Attendance requests say "12 approved · 2 could not be" and list each one that could not be, by name, with the reason, until closed (`BulkOutcome`). A clean run stays a short toast. |
+| Order of requests | Approvals › Asked by me: still waiting first, the oldest on top; then the rest, newest first (`waitingFirst`). |
+| A list with nothing yet | Employees with nobody in it shows "Import from Excel" and "Add one person" side by side. |
+| Opening a record in a new tab | An employee's name in the list is a real link: Ctrl-click, middle-click or a long press opens the record in a new tab; a plain click opens it here as before (`rowHref` on DataTable, `screenHref`). |
+| When the list changes while open | Approvals checks once a minute while in view; new requests wait behind "2 new · Show" and the list does not jump. |
+| An empty box in a table | Every empty DataTable box is a grey dash, read out as "Not added". |
+| Today in dated lists | Today's row carries a thin line in the app colour and a "Today" mark (`rowDate` on DataTable; Holidays and One-on-ones wired). |
+
+Picked and already how the app works: searches narrow as you type (300 ms quiet, Enter at once);
+Employees opens on working people with joining and left a click away; request lists open on
+what is waiting, of any date; the waiting inbox is oldest first; Employees shows each filter in
+force as a chip with Clear all; pickers for a manager never offer someone who has left.
+
+Picked, **not built yet**: ticking several branches or departments in one filter (the server
+takes one value per filter); a "Try sample people" start for an empty company (no sample data
+yet); an amber "No PAN" or "No bank" mark on employee rows with a chip to filter them (the list
+does not carry those details); "Show people who left" at the bottom of a person picker. All need
+server work.
+
+### Round 58 (18 Nov 2026)
+
+The employee app on a phone. Built (employee app only, never Books):
+
+| Building block | Pick |
+| --- | --- |
+| Send on a phone form | On the leave form, Send (Save while changing) sits top right beside the title and stays in reach while the form scrolls (`.ui-form-top`, sticky under the app's header). |
+| Picking dates | CLOR's own month calendar above the date boxes: holidays (amber dot, name below the month) and weekly offs (grey) marked from the person's own schedule, today ringed (`LeaveCalendar`). |
+| Choosing a span | Tap the first day, then the last; the days between light up. A tap before the first day, or a third tap, starts again; hourly leave takes one tap. The date boxes stay for typing. |
+| Home screen | From the second visit, a strip on Today: "Add CLOR to your home screen". Android Chrome opens its own install sheet from Add; iPhone says to tap Share, then "Add to Home Screen". Not now hides it for good on that phone; it never shows once installed (`AddToHome`). |
+| Punching outside the area | Where punching is only at a site: "You are 320 m from Chennai office (allowed 200 m)", with Try again and Punch with a reason. The reason goes to the manager as a missed-punch request for today at the current time, filled in on My days ("On duty elsewhere"). Field workers see no box. |
+| After a punch | A full tick screen: "In at 9:42 AM", "Chennai office · Shift 9:30 AM"; it goes by itself in 3 seconds, or on Done or Back (shared phone punch card, so People's My attendance has it too). |
+| After sending | Leave sent: "Asked for 2 days of Casual leave. Sent to Ravi (your manager). You will get a notice when it is decided." with View request, which brings the request into view. |
+| Leave balance | The balance number itself opens how it is worked out (the "How is this worked out?" link stays). |
+| A payslip question | "Ask about this payslip" under an open payslip: pick the line (or the whole payslip, or "Something missing"), say what looks wrong, and Ask HR opens with the month and line filled in. Shown only where Ask HR is on. |
+| Payslips for a bank | Under the payslip list: Last 3, Last 6 or Last 12 (as far as there are payslips), then "Save as one PDF": one payslip a page, black on white, named "Payslips Apr 2026 to Sep 2026". |
+| The phone's Back | Back closes an open panel first (the day and leave-balance explanations, an open payslip, the tick screen), then goes back a page (`useBackClose`). |
+
+Picked and already how the app works: changing a waiting request (Change on it, saved over the
+same request); "Came back early" on leave being taken, which ends it on an earlier day and gives
+the unused days back.
+
+Picked "Full keyboard" for numbers: no new number keypads are added; the ones already on the
+company code and amount fields stay until the owner says otherwise.
+
+Picked, **not built yet**: forgot password by a code to the mobile number on file (needs the
+server to send the code); fixing several missed days in one request with one time and reason
+(needs one request across chosen days); the approver seeing "Changed by" on a changed request
+(needs the server to record it). All need server work.
+
+### Round 59 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Adding a person quickly | The add form still creates someone with just a name, an employee ID and a joining date. Their record now shows "N details to finish" under its summary (phone, email, date of birth, gender, emergency contact, department, designation, manager), each opening the place it is filled in (`ToFinish`, `detailsToFinish`). "After you save" says anything left out is listed on the record. |
+| End of probation date | Worked out from the joining date and the employment type's months (already); the field now says "6 months from joining, from the employment type. Change it if needed." while it is that date (`probationHint`). |
+| Setting a salary | Typing the yearly CTC on Record a salary shows each month's parts from the chosen structure, worked out by the payroll engine's preview, with Gross and Net pay (`CtcSplit`). |
+| Words for salary | CTC, Gross, Net: "Take-home" became "Net pay" on Payroll home, reports, revisions, the offer estimate and the employee app's payslips. |
+| The word for unpaid days | "Unpaid days (LOP)" for loss of pay on attendance summaries, month close, team attendance, the employee app's month and the payroll days table; the LOP check says "Unpaid days (LOP) agree for all …". |
+| Days that need a decision | A working day with no attendance gets Present and Unpaid buttons right in the list; the day is marked as Records marks it by hand and the item is settled (`DayQuickFix`). A missing check-out still opens Records for its time. |
+| Before locking a payroll month | Lock asks first: "After locking, nobody can change this payroll and its payslips are final. A mistake found later is put right in November's payroll as an adjustment." (`lockWords`). |
+| The payroll month | Payroll home has "October to-do": start, check days and calculate, review and approve, lock, pay, post, ticked from the run's status, the next one a link (`MonthTodo`). |
+| Leave rules staff can read | "My leave rules" under the balances in the employee app: each type in one line, e.g. "12 days a year · earned through the year · up to 6 carry over · half days allowed" (`LeaveRules`). |
+
+Picked and already how the app works: PF, ESI, professional tax and TDS setup asks whether each
+applies and for its number, saying where the number is found (the registrations step).
+
+Picked, **not built yet**: "Send app invite now" on the add form, sent on the joining day; the
+branch's usual shift and weekly off filled in for a new joiner; a notice to someone made a manager
+for the first time; the PF/ESI setup also asking from which month and who is covered; HR opening
+tax declarations with a last date and a reminder 3 days before; "260 paid · 3 joined · 2 left ·
+1 on hold" above the run (the run does not carry joining and leaving dates yet); staff seeing
+payslips only after HR presses "Send payslips". All need server work.
+
+### Round 60 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Done messages that name it | After a decision on leave or an attendance request the message names whose, what and which days: "Ravi Kumar’s casual leave, 4–6 Dec, approved", "Ravi’s missed punch, 4 Dec, not approved" (`decidedLine`). |
+| Same status words | Requests read Waiting, Approved, Not approved, Cancelled, Paid in every app: "Rejected" became "Not approved" on leave, attendance requests, overtime, approvals, salary revisions, bank detail changes and the employee app. A bank refusing a payment, an offer the candidate declined and a colleague declining a swap keep their own words. |
+| Short forms explained | PF, ESI, PT, TDS, UAN, HRA, LOP and other short forms on the employee app's payslip carry a dotted underline; a tap shows the full name and one line ("PF · Provident Fund, savings for retirement…"). `Abbr` is ready for other screens. |
+| Save on a weak connection | A save that does not reach the server says "Not saved, the connection dropped. Everything you typed is still here; try again." The form keeps what was typed. Not in Books. |
+| Slow reports | After 5 seconds a People or Payroll report says "Still working. Big reports take up to a minute." Payroll reports add Cancel, which stops waiting and ignores a late answer (`SlowNote`). |
+| Zero lines on a payslip | Lines of ₹0 (no overtime, no bonus) are left off the payslip in the employee app, its print and Payroll's payslip view (`shownLines`). |
+| Who has not joined | Invitations has a "Not joined yet N" filter and "Send again to all N"; each waiting invitation shows when it was sent and when it expires. |
+| Last signed in | The users list says "Signed in today", "Signed in 3 days ago" or "Never signed in" (`lastSignedInLine`). |
+| Finding a customer in Ops | The Ops search box says what it takes: company, GSTIN, phone, email, ID or invoice. |
+
+Picked and already how the app works: a confirm that asks the short question ("Delete this
+shift?"); error messages that say what went wrong and the way out, in the server's words; "My
+requests to CLOR" is Help and support, with each ticket's status and the replies; the Ops search
+already finds a customer by company name, GSTIN, phone, email or the 10-digit ID.
+
+Picked, **not built yet**: signing in again in a box over the page so a long form is kept when
+the session runs out; "Your HR: Anita Rao" with Ask on the employee app's Me page (nobody is
+named as a person's HR yet); "Send me a new link" on an invite that ran out; each Ops customer's
+"4 of 7 setup steps" with a filter for stuck ones; an error that links to the record it clashes
+with ("This PAN is on Ravi Kumar’s record. Open it"). All need server work.
+
+### Round 61 (18 Nov 2026)
+
+Built (getting around the apps; never in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Where you are | A page under a hub shows a short trail above its title, "Settings › Departments", the hub a link (`nav aria-label="Breadcrumb"` in the shell). A page opened from elsewhere keeps its "← where you came from". |
+| Browser tab names | Page first, then the app: "Employees · People · CLOR"; an employee's record names the person ("Ravi Kumar · People · CLOR", `usePageTitle`). |
+| Leaving with unsaved changes | "Leave without saving? You have unsaved changes on this page." with **Stay** as the main button and the focus on it; Leave is the quiet one. Drawers and dialogs ask "Discard your changes?" the same way, with Keep editing as the main button (`confirmDialog({ cancelLabel, stayFirst })`). |
+| Long pages | Attendance policy lists its sections on the right on a wide screen (1280px and up), following the scroll and jumping on click (`SectionJump`). |
+| Back to the top | "Top ↑" at the bottom right after two screens of scrolling (above the phone's tab bar). |
+| Help for this screen | "How this works ›" at the right of the row above a screen that has a how-to article; it opens the article in a side panel, with "Open in the Help centre" (`ScreenHelp`, same text as the Help centre). |
+| Links that leave CLOR | Marked ↗ and opened in a new tab, so CLOR stays open (another CLOR app is not "leaving"). |
+| Cursor in the first field | A drawer or dialog that opens puts the cursor in its first empty field, ready to type; `data-autofocus` still wins; not on a touch phone, where it would throw the keyboard up. |
+| Copying numbers | The copy control beside employee ID, PAN, UAN, IFSC and other numbers is now a small copy icon, "Copied" for a moment after (replaces the "Copy" word of 17 Nov). IFSC got one. |
+| Ctrl+S | Ctrl+S (⌘S) saves the form the cursor is in, else the open drawer's or the page's only Save, instead of saving the web page. It only ever presses a button that says Save: a form whose button is Send or Approve is left alone, with "Use “Send” to finish this form." |
+
+Picked and already how the app works: the app switcher top left lists only your apps with the
+current one marked; the left menu's screens panel closes to the icon rail, remembered on this
+computer, with names on hover; waiting counts show only beside menu items that need you; grey
+shapes stand in for rows while a list loads; a page that has moved or that your role can't open
+says which, with a way back to the app.
+
+Picked, **not built yet**: naming the company's administrator to ask on a page your role can't
+open (needs the admins list from the server); every person's name a link to their record outside
+the Employees list (Employees list names are links from round 57).
+
+### Round 62 (18 Nov 2026)
+
+An employee's record. Chosen by Claude on the owner's instruction ("choose what is best for platform"), all option A.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Tap to call or mail | The record header's phone is a call link and its e-mail a mail link, each with Copy beside it (`PhoneFact`, `EmailLink`). |
+| Status with small notes | "On leave today · Sick leave · back after 20 Nov" beside the status, from approved leave covering today (`OnLeaveToday`; only for readers of leave requests). |
+| Tabs | Pay and Time join the record's tabs. Employment keeps its name (it is the Job tab) because notices and tasks tell people to open "their Employment tab". |
+| Time tab | This month so far in one line ("18 present · 1 on leave · 2 late days") with Open attendance, leave balances, and leave coming up in the next 90 days with Approved or Waiting (`TimeTab`). Shown to readers of leave requests or attendance records. |
+| Salary hidden until Show | The Pay tab shows yearly and monthly CTC as dots until Show (Hide puts them back), with since when and the structure, and links to Payslips and Salary revisions in Payroll (`PayTab`). Only with Payroll and the right to read salary assignments. |
+| Print a profile | Actions → Print profile: the header and overview alone on paper, buttons and tabs left off; "Include salary" (for readers of salary) adds the CTC line (`PrintProfile`, `data-print-profile`). |
+| Someone who left | A grey band under the header: "Left on 31 Oct 2026 · Resigned · reason", with Final settlement (Payroll) and the Leaving list (`LeftBand`). |
+| ‹ › through the list | Beside "← Employees", "3 of 25" with ‹ › to the people either side on the list the record was opened from (the Employees page keeps its order for this tab, `people.workforce.lastIds`). |
+| Search lands on the field | A search by phone, e-mail or PAN opens the person's record on the Personal tab (`tabForQuery` in `findPeople`). |
+
+Picked and already how the app works: one header band with photo, name, role, team, manager,
+status and joining date; a pencil per section that edits just that section; one Actions menu by
+role; the dated career story on History; manager above and direct reports below in the Team
+block; empty fields say "Not added yet · Add".
+
+Picked, **not built yet**: admins seeing who opened a person's pay and ID details (needs the
+server to record each view).
+
+### Round 63 (18 Nov 2026)
+
+Reports. Built (`@ui/picks/round63`, People reports; not in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Period chips | The quick periods read This month, Last month, This quarter (the financial quarter: Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar), This financial year; the two date boxes stay for any other period. "Last 3 months" is gone. Every screen with `RangePresets` gets it. |
+| What a column means | A column name with a known meaning (Attrition, At start, Average headcount, Days left, Gross, Net pay, Payable days…) has a dotted underline; hover or tap shows one line on how it is worked out (`ColumnName`, `COLUMN_HELP`). A report column may also carry its own `help`. |
+| Totals row | The report table scrolls inside its box (70% of the screen): headings stay on top, the totals row stays at the bottom. The download already ends with the same totals. |
+| Before downloading | The first 20 rows show with "20 of 412 shown · Show all 412", then Export. |
+| Rows that are all zero | Rows whose every figure is zero wait behind "Show 96 people with none" (unless every row is zero). A "Days left" countdown never counts: 0 days left is due today. |
+| Minus figures | "−3", the minus sign before the figure, in red (`ui-neg-figure`); a percentage too. |
+| Top of a download | The CSV starts with the company, the report, the period, the filters used, and "Made on 18 Nov 2026 by Priya", then a blank line and the table. |
+| Reports as PDF | Print (secondary, beside Export) lays the report out on A4 landscape: headings repeat on every page, "Page 2 of 6" at the foot, the totals once at the end, every row (Ctrl+P too). |
+| Opening a person from a row | In a report of people, the name opens the People list searched by their employee ID (the report carries the ID, not the record). |
+| Used recently | The reports page starts with the last four reports opened in this browser, each with the period last picked ("Oct 2026", "FY 2026–27"); report ids and dates only. |
+
+Picked and already how the app works: the reports page is grouped by job (Workforce, Joining and
+leaving, Time and attendance, Leave, Documents and compliance, Requests) with a purpose line under
+every report; its search also matches words in the purpose line.
+
+Picked, **not built yet**: clicking a number to see the people behind it (the server sends counts,
+not the people); a big download made in the background with a bell notice when it is ready; managers
+seeing only their team's rows with "Showing your team (8 people)" (People reports are HR-only on the
+server today); the minus figure in red inside the downloaded file (the server writes the file);
+opening the person's record itself from a row (needs the record's id in the report). The Payroll and
+Attendance report screens keep their own tables for now.
+
+### Round 64 (18 Nov 2026)
+
+Settings. Built (shared pieces in `packages/ui/src/picks/round64.jsx`, styles in the Round 64 block of picks.css; never Books):
+
+| Building block | Pick |
+| --- | --- |
+| Finding one setting | Settings search also finds a word inside a setting and says where it lives: typing "grace" lists "grace → Time off › Attendance rules" under the search, and a tap opens it. The words are in `apps/people/src/settingWords.js`; each nav item's own `keywords` count too. |
+| Explaining a setting | A small ⓘ beside a setting opens its how-to in the Help centre (`SettingHelp`): the sandwich rule in Leave policy, late grace on a shift, and the tax numbers on Company details. It sits outside the field's label, so a tap never ticks or focuses the field. |
+| Locked settings | Once leave is recorded, Leave policy shows the leave period with a lock, the reason and the way round ("the balances move first: ask CLOR support"), and no Change link. A refusal from the server (`LEAVE_PERIOD_IN_USE`) shows the same words. |
+| Going back to the usual | Who decides & who sees: a choice moved off CLOR's usual one has "Use the usual (…)" beside it; Save keeps it. |
+| Company details | Grouped as Identity, Address and Tax numbers; each field says where it is used ("Used: on Form 16 and the 24Q return"). |
+| Departments and sub-teams | Departments read as an indented tree, each sub-department under its parent with its people count; "Add a sub-department" on any row's menu opens the form with the parent set. |
+| Who can do what | Roles lists roles first; the role shown now says who holds it, by name ("Who has it"), from the users list. |
+| Plan and billing | Billing & seats has a "Next bill" figure at the top: the amount at today's seats and the date. |
+| Setting up a leave type | A new blank leave type starts as plain questions, one at a time: name, paid, days a year, who gets it, carry forward, proof. "See the full form" or "Show every setting" opens the whole form. A usual type, a copy or an edit opens the full form as before. |
+| Creating a shift | The shift form draws the shift on a 24-hour bar, unpaid named breaks lighter, with "22:00 to 06:00 · ends next day · 8 h". |
+
+Picked and already how the app works: People's Settings page is tiles with icons (settingshome C);
+settings pages have Save at the top right (settingssave C); Ops email templates already have "Send
+test", which mails the saved wording to your own inbox (testemail A).
+
+Picked, **not built yet**: "From when?" with a dated list for a setting change (needs dated settings
+on the server); a company logo on Company details (no logo field yet); free-text job titles typed on
+each person (designations are a list on the server today); closing the company only through support
+(Ops has no way to close a company for a customer yet, so the typed confirm stays); dragging a
+department to move it (Edit › Under does it).
+
+### Round 65 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Team size | Workforce › My team opens on one line: "8 people · 2 joining · 1 leaving". People is everyone already here; joining is anyone whose joining date is still ahead; leaving is anyone on notice. Each number sets the list's filter (`MyTeamPanel`, `teamCounts`). Open places are not counted (openings are not tied to a manager yet). |
+| Things due for my team | "Due this month" under it: probation ends (until confirmed), contract ends and work anniversaries from today to the month's end, earliest first, each with its date. A probation end says "Give your view" and opens the record; the others say "Open" (`teamDue`). |
+| Team leave balances | "Leave left": person × leave type with days left, from the leave balances the manager may already read, limited to the team; a type's heading sorts most-left first, Name sorts back. Below zero in red. Left out when the manager may not read balances (`teamBalanceRows`). |
+| Downloading my team | "Download team" saves a CSV that opens in Excel: name, employee ID, role, department, phone, work email and each leave type's days left (`teamCsv`). Shift is not in it (the list does not carry it yet). |
+
+Picked and already how the app works: My team lists each person with name and role; who is in
+today is the full day table on Attendance; a resignation in the team is accepted or declined by
+the manager (the default rule), HR doing the rest; managers ask HR through the one Ask HR; asking
+a team member to update their details is left to HR; managers do not see team pay unless the owner
+gives that manager a role that reads Payroll.
+
+Picked, **not built yet**: "Direct" and "Whole team" on My team (people under your reports); a
+missing-punch list with "Remind" that sends a notice; a joining checklist for the manager (desk,
+laptop request, first week, buddy); a short team-only set of reports (attendance, leave taken,
+late marks, overtime); private dated notes only the manager sees; work documents only
+(certificates, appraisal letters) for managers, ID and pay papers staying with HR; open places in
+the team count. All need server work.
 
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 

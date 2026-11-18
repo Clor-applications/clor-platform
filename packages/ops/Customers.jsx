@@ -9,6 +9,7 @@ import { units } from './CustomPlans';
 import { Limits } from './Limits';
 import { SupportAccess } from './SupportAccess';
 import { CustomerNotes } from './CustomerNotes';
+import { PhoneRule, PinnedNotes } from './PinnedNotes';
 import { DealDrawer } from './Deals';
 import { APP_NAMES, Empty, Err, Loading, Pager, REASON, ReasonDrawer, SELLABLE, Tabs, appsText, day, may, when } from './kit';
 import {
@@ -299,6 +300,7 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
           Suspended on {day(a.suspendedAt)}: {a.suspendedReason}. Nobody in this account can open any of its companies until it is resumed.
         </p>
       ) : null}
+      {tab !== 'notes' ? <PinnedNotes id={id} onOpen={() => setTab('notes')} /> : null}
       <Tabs label={name} tabs={TABS} value={tab} onChange={setTab} />
       <div role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-8">
         {tab === 'overview' ? <Overview d={d} plan={plan} setTab={setTab} role={role} openDenials={openDenials} openOrgs={openOrgs} /> : null}
@@ -306,7 +308,12 @@ export function CustomerPage({ id, tab: asked, role, back, setTab, openDemo, ope
         {tab === 'limits' ? <Limits id={id} name={name} role={role} /> : null}
         {tab === 'money' ? <Money id={id} inv={inv} setInv={setInv} openInvoice={(invoiceId) => openLink({ page: 'invoices', id: invoiceId })} /> : null}
         {tab === 'requests' ? <Requests id={id} openDemo={openDemo} openLink={openLink} /> : null}
-        {tab === 'users' ? <Users id={id} role={role} /> : null}
+        {tab === 'users' ? (
+          <>
+            <PhoneRule />
+            <Users id={id} role={role} />
+          </>
+        ) : null}
         {tab === 'connections' ? <Connections id={id} role={role} /> : null}
         {tab === 'access' ? <SupportAccess id={id} companies={d.companies} role={role} /> : null}
         {tab === 'notes' ? <CustomerNotes id={id} role={role} /> : null}
@@ -727,7 +734,14 @@ function Subscription({ d, name, plan, role, reload, openInvoice }) {
         {action === 'trial' ? (
           <label className="grid gap-1">
             <span className="text-sm font-medium">Extra days</span>
-            <input className="ui-input tabular-nums" type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 140 }} />
+            <span className="flex flex-wrap items-center gap-2">
+              <input className="ui-input tabular-nums" type="number" min={1} max={90} value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 140 }} />
+              <span className="ui-quick-days" role="group" aria-label="Quick picks">
+                {[7, 14, 30].map((n) => (
+                  <button key={n} type="button" className="ui-quick-day" aria-pressed={Number(days) === n} onClick={() => setDays(n)}>+{n} days</button>
+                ))}
+              </span>
+            </span>
           </label>
         ) : null}
         {action === 'apps' || action === 'plan' ? (

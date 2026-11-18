@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Clock3, LogIn, LogOut, MapPin, X } from '@ui/components/ui/lineIcons';
+import { Camera, CheckCircle2, Clock3, LogIn, LogOut, MapPin, RotateCw, X } from '@ui/components/ui/lineIcons';
 
+import { buzzForPunch } from '../picks/round28';
+import { punchDoneLines, useBackClose } from '../picks/round58';
 import { shrinkPhoto } from './shrinkPhoto';
 
 /** Metres between two points, close enough for a work-site radius. */
@@ -31,7 +33,7 @@ const metres = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round
  * photo is optional throughout: a camera that fails must not cost anyone
  * their attendance.
  */
-export default function PhonePunch({ phone, punches = [], onPunch, onDone, privacyHref = '#/legal/privacy' }) {
+export default function PhonePunch({ phone, punches = [], onPunch, onDone, privacyHref = '#/legal/privacy', onAskInstead = null, shiftStart = '' }) {
   const sites = useMemo(() => phone?.sites || [], [phone]);
   const [position, setPosition] = useState(null);
   const [asked, setAsked] = useState(false);
@@ -42,6 +44,17 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
   const [note, setNote] = useState('');
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
+  /* Round 58 "punchdone" A: a full tick screen after a saved punch, gone by itself in 3 seconds. */
+  const [done, setDone] = useState(null);
+  const closeDone = useCallback(() => setDone(null), []);
+  useBackClose(Boolean(done), closeDone);
+  useEffect(() => {
+    if (!done) return undefined;
+    const t = setTimeout(closeDone, 3000);
+    return () => clearTimeout(t);
+  }, [done, closeDone]);
+  /* Round 58 "outsidearea" A: the server's own refusal, kept to show the same box when the phone's fix said inside. */
+  const [refusedOutside, setRefusedOutside] = useState('');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const watchRef = useRef(null);
@@ -158,17 +171,27 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
     setBusy(true);
     try {
       const res = await onPunch({ ...position, ...(photo ? { photo } : {}) });
-      setMessage({ ok: true, text: `${res.kind === 'IN' ? 'In' : 'Out'} at ${res.time} · ${res.site}${photo && !res.photo ? ' · the selfie was not saved' : ''}` });
+      buzzForPunch(res.kind);
+      setMessage({ ok: true, text: `${res.kind === 'IN' ? 'In' : 'Out'} at ${res.time} · ${res.site || res.address || 'Outside the work sites'}${photo && !res.photo ? ' · the selfie was not saved' : ''}` });
+      setRefusedOutside('');
+      setDone(punchDoneLines(res, shiftStart));
       setPhoto(null);
       onDone?.();
     } catch (err) {
-      if (err?.name !== 'SignedOut' && !(err && err.constructor && err.constructor.name === 'SignedOut')) setMessage({ ok: false, text: String(err?.message || 'Not punched.') });
+      if (err?.name !== 'SignedOut' && !(err && err.constructor && err.constructor.name === 'SignedOut')) {
+        if (err?.code === 'OUTSIDE' || err?.body?.code === 'OUTSIDE') setRefusedOutside(String(err?.message || ''));
+        else setMessage({ ok: false, text: String(err?.message || 'Not punched.') });
+      }
     } finally {
       setBusy(false);
     }
   };
 
   const days = phone?.photoRetentionDays;
+  /* Outside every site where the company punches only at a site: say how far, and give two ways on. */
+  const outsideBox = phone?.mode !== 'FIELD' && ((position && nearest && !nearest.inside) || refusedOutside);
+  const tryAgain = () => { setRefusedOutside(''); setMessage(null); startLocation(); };
+  const askInstead = () => onAskInstead?.({ kind: phone?.next === 'OUT' ? 'OUT' : 'IN', site: nearest?.site?.name || '', distance: nearest ? metres(nearest.distance) : '' });
   const next = phone?.next === 'IN' ? 'Punch in' : 'Punch out';
 
   return (
@@ -181,6 +204,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       {/* The notice, before anything is collected. */}
       <p className="ui-caption">
         To punch here, your location is used to check you are at a work site and is saved with the punch.
+        Only the place at the moment you punch is kept; CLOR does not follow you between punches.
         A selfie is optional{days ? ` and is deleted after ${days} days` : ''}.{' '}
         <a className="ui-link" href={privacyHref}>Privacy notice</a>
       </p>
@@ -209,11 +233,26 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
             {nearest?.inside
               ? <>At <strong>{nearest.site.name}</strong> · {metres(nearest.distance)} from its centre</>
               : nearest
-                ? <>{metres(nearest.distance)} from <strong>{nearest.site.name}</strong> — punch within {metres(nearest.site.radiusMeters)} of it</>
+                ? <>You are {metres(nearest.distance)} from <strong>{nearest.site.name}</strong> (allowed {metres(nearest.site.radiusMeters)})</>
                 : 'Location found'}
             <span className="ui-caption block">Accurate to about {metres(position.accuracy)}{locating ? ', improving…' : ''}</span>
           </span>
         </p>
+      ) : null}
+
+      {outsideBox ? (
+        <div className="ui-outside-box" role="alert">
+          <p className="text-sm">
+            {nearest && !nearest.inside
+              ? <>You are <strong>{metres(nearest.distance)}</strong> from {nearest.site.name} (allowed {metres(nearest.site.radiusMeters)}).</>
+              : refusedOutside || 'You are outside the work site.'}
+            {' '}Move closer and try again{onAskInstead ? ', or punch with a reason for your manager' : ''}.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={tryAgain}><RotateCw size={16} aria-hidden="true" /> Try again</button>
+            {onAskInstead ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={askInstead}>Punch with a reason</button> : null}
+          </div>
+        </div>
       ) : null}
 
       {/* The selfie: quieter than the punch itself. */}
@@ -253,6 +292,14 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
         <p className="text-sm font-medium" role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
           {message.text}
         </p>
+      ) : null}
+      {done ? (
+        <div className="ui-punch-done" role="status" aria-live="polite" onClick={closeDone}>
+          <CheckCircle2 size={72} aria-hidden="true" className="ui-punch-done-tick" />
+          <p className="ui-punch-done-first">{done.first}</p>
+          {done.second ? <p className="ui-punch-done-second">{done.second}</p> : null}
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={closeDone}>Done</button>
+        </div>
       ) : null}
     </section>
   );

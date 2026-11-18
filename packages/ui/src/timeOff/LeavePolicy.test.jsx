@@ -65,8 +65,18 @@ it('a usual type sends the statutory options off, so nothing changes for it', as
   await user.click(await screen.findByRole('button', { name: /Casual Leave/ }));
   await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(createLeaveType).toHaveBeenCalledWith(expect.objectContaining({
-    name: 'Casual Leave', annualDays: 12, accrualBasis: 'CALENDAR', perDaysWorked: null, minDaysWorked: null, oshCarry: false, countsCalendarDays: false, availableAfterBasis: 'JOINING',
+    name: 'Casual Leave', annualDays: 12, accrualBasis: 'CALENDAR', perDaysWorked: null, minDaysWorked: null, oshCarry: false, countsCalendarDays: false, availableAfterBasis: 'JOINING', maxDaysPerMonth: null, teamAwayWarnAt: null,
   })));
+});
+
+it('a monthly limit and the team away warning are sent when set (round 42)', async () => {
+  const user = userEvent.setup();
+  render(<LeavePolicy />);
+  await user.click(await screen.findByRole('button', { name: /Casual Leave/ }));
+  await user.type(screen.getByLabelText('Most days in a month'), '4');
+  await user.type(screen.getByLabelText('Warn when this many of the team are away'), '3');
+  await user.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(createLeaveType).toHaveBeenCalledWith(expect.objectContaining({ maxDaysPerMonth: 4, teamAwayWarnAt: 3 })));
 });
 
 it('a state set says which figure to check against the state’s rules', async () => {

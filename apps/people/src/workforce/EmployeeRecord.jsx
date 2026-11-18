@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { formatPhone } from '@ui/utils/phone';
+import { rememberPerson } from '@ui/components/ui/recents';
 import CopyWord from '@ui/components/ui/CopyWord';
+import { usePageTitle } from '@ui/picks/round61';
+import CallButtons from '@ui/components/ui/CallButtons';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -36,6 +38,8 @@ import { BackLink } from '../components/Core';
 import { getLeaveBalances, swatchOf } from '@ui/timeOff/api';
 import { AppAccessHistory, PersonAssets, PersonCelebrations, PersonPolicies, ProbationSection } from './RecordExtras';
 import { todayIst } from '@ui/utils/dates';
+import ToFinish from './ToFinish';
+import { EmailLink, LeftBand, OnLeaveToday, PayTab, PhoneFact, PrintProfile, PrintSalaryLine, RecordStepper, TimeTab, printProfile } from './round62';
 
 /**
  * Workforce → Employee (People design spec v1 EMP-03..09; Workforce package
@@ -48,7 +52,8 @@ import { todayIst } from '@ui/utils/dates';
  * the server answers 409: the edits stay in the form, the newer record is
  * shown, and the person decides (spec §8, WF-04 conflict).
  */
-const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
+/* Round 62 "recordtabs" A: Pay and Time join the record (Employment keeps its name: notices send people to it). */
+const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['pay', 'Pay'], ['time', 'Time'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
 const LAST_DIRECTORY = 'people.workforce.lastDirectory';
 /* "7 yrs 5 mos" since a date (India's calendar day), or null before it. */
 const tenure = (from) => {
@@ -110,10 +115,15 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   /* A team lead's own record is changed through the employee app (the server says so as ownRecordLocked), so its edit actions are not offered. */
   const allowed = (k) => can(perms, k) && !(k === 'PEOPLE::Employees::EDIT' && rec.data?.employee?.ownRecordLocked);
   const id = params.id;
-  const tabsAllowed = TABS.filter(([k]) => k !== 'documents' || allowed('PEOPLE::Documents::VIEW')).map(([key, label]) => ({ key, label }));
+  const canLeaveRead = can(perms, 'ATTENDANCE::Leave Requests::VIEW');
+  const canRecordsRead = can(perms, 'ATTENDANCE::Attendance Records::VIEW');
+  const canPay = hasApp('payroll') && can(perms, 'PAYROLL::Salary Assignments::VIEW');
+  const tabsAllowed = TABS.filter(([k]) => (k !== 'documents' || allowed('PEOPLE::Documents::VIEW')) && (k !== 'pay' || canPay) && (k !== 'time' || canLeaveRead || canRecordsRead)).map(([key, label]) => ({ key, label }));
   const tab = tabsAllowed.some((t) => t.key === params.tab) ? params.tab : 'overview';
   const rec = useRequest(() => (id ? getEmployee(id) : Promise.reject(Object.assign(new Error('No employee chosen.'), { status: 404 }))), [id]);
   const person = rec.data?.employee || null;
+  /* Round 61 "tabtitle" A: the browser tab names the person: "Ravi Kumar · People · CLOR". */
+  usePageTitle(person?.name || '');
   const setPerson = (patch) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...patch } }));
   const [lists, setLists] = useState(null);
   useEffect(() => {
@@ -122,6 +132,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   }, []);
   /* Opened at a section (People Home's Probation ending: focus=probation): scrolled to it once the record is drawn. */
   const loadedId = person?.id;
+  /* Round 55 (recentrecords A): the menu's "Recently opened" keeps the last five people; only the id and name are kept, in this browser. */
+  const loadedName = person ? person.name || [person.firstName, person.lastName].filter(Boolean).join(' ') : '';
+  useEffect(() => { if (loadedId && loadedName) rememberPerson({ id: loadedId, name: loadedName }); }, [loadedId, loadedName]);
   useEffect(() => {
     if (!loadedId || !params.focus) return undefined;
     const t = setTimeout(() => document.getElementById(params.focus)?.scrollIntoView({ block: 'start' }), 150);
@@ -134,6 +147,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const [offering, setOffering] = useState(false);
   const [lettering, setLettering] = useState(false);
   const [givingAccess, setGivingAccess] = useState(false);
+  const [printing, setPrinting] = useState(null);
+  const [printAsk, setPrintAsk] = useState(false);
   /* The record's list of access sent reloads after a send. */
   const [accessKey, setAccessKey] = useState(0);
   const set = (patch, push = false) => updateParams?.(patch, { push });
@@ -204,6 +219,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Change leaving details'] : null,
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['stay', 'Withdraw leaving'] : null,
     person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['rehire', 'Rehire'] : null,
+    ['print', 'Print profile'],
     allowed('PEOPLE::Employees::DELETE') ? ['delete', 'Delete'] : null,
   ].filter(Boolean);
   const headerDates = datesFor(kindOf(lists?.types, person.employeeTypeId));
@@ -211,11 +227,11 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const probation = probationState(person, todayIst());
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 r62-print-area">
       <div className="pc-head">
-        <BackLink label="Employees" onClick={backToDirectory} />
+        <div className="r62-back-row"><BackLink label="Employees" onClick={backToDirectory} /><RecordStepper id={person.id} openScreen={openScreen} /></div>
         <PageHeader
-          title={<>{person.name}{person.preferredName ? <span className="ui-profile-aka"> “{person.preferredName}”</span> : null}</>}
+          title={person.name /* round 29 "callname" C: full legal name only; the preferred name stays on the Personal tab */}
         actions={<>
           {moreItems.length ? (
             <>
@@ -224,6 +240,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                 <Popover anchorRef={moreRef} onClose={() => setMoreOpen(false)} minWidth={220}>
                   <MenuList items={moreItems} onPick={(k) => {
                     if (k === 'delete') return remove();
+                    if (k === 'print') { setMoreOpen(false); return setPrintAsk(true); }
                     if (k === 'invite') { setMoreOpen(false); return setInviting(true); }
                     if (k === 'offer') { setMoreOpen(false); return setOffering(true); }
                     if (k === 'letter') { setMoreOpen(false); return setLettering(true); }
@@ -251,9 +268,10 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         <PhotoControl person={person} canEdit={editable} onSaved={(emp) => setPerson(emp)} />
         <div className="min-w-0">
           <p className="pc-summary-role">{person.designation || 'No designation yet'}</p>
-          <p className="pc-summary-line">{[person.department, person.branchName || person.areaName || person.workLocation, person.workEmail || person.email].filter(Boolean).join(' · ') || 'No department or place of work yet'}</p>
+          <p className="pc-summary-line">{[person.department, person.branchName || person.areaName || person.workLocation].filter(Boolean).join(' · ') || 'No department or place of work yet'}{person.workEmail || person.email ? <> · <EmailLink email={person.workEmail || person.email} name={person.name} /></> : null}</p>
           <div className="pc-summary-pills">
             <StatusBadge employee={person} />
+            {person.status !== 'LEFT' ? <OnLeaveToday employeeId={person.id} canRead={canLeaveRead} /> : null}
             {typeName ? <span className="pc-chip">{typeName}</span> : null}
             {person.hours === 'PART_TIME' ? <span className="pc-chip">Part-time</span> : null}
             {person.code ? <span className="pc-chip"><span>{person.code}</span> <CopyWord value={person.code} what="employee ID" /></span> : null}
@@ -275,10 +293,14 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
           <div><dt>Reports to</dt><dd>{person.reportingManagerName ? (person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button>) : <span className="ui-muted">No manager</span>}</dd></div>
           <div><dt>Joined</dt><dd>{person.dateOfJoining ? <>{formatDate(String(person.dateOfJoining).slice(0, 10))}{tenure(person.dateOfJoining) ? ` · ${tenure(person.dateOfJoining)}` : ''}</> : <span className="ui-muted">Not set</span>}</dd></div>
           <div><dt>Location</dt><dd>{person.branchName || person.areaName || person.workLocation || <span className="ui-muted">Not set</span>}</dd></div>
-          <div><dt>Phone</dt><dd>{person.phone || person.workPhone || <span className="ui-muted">Not given</span>}</dd></div>
+          <div><dt>Phone</dt><dd><PhoneFact phone={person.phone || person.workPhone} name={person.name} />{person.officeExtension ? <span className="tabular-nums"> · Ext. {person.officeExtension}</span> : null}</dd></div>
         </dl>
       </section>
+      {/* Round 59 quickadd A: what is still missing on a record added in a hurry. */}
+      <ToFinish person={person} canEdit={editable} go={(patch) => leaveTo(patch, true)} />
 
+      <LeftBand person={person} leavingWord={person.leavingType ? LEAVING_TYPES[person.leavingType] || person.leavingType : ''} payrollOn={hasApp('payroll')} openScreen={openScreen} />
+      {printing?.salary ? <PrintSalaryLine person={person} /> : null}
       {(rec.data.permits || []).filter((p) => p.daysLeft <= 30).map((p, i) => (
         <Alert key={p.id || `hidden-${i}`} tone={p.expired ? 'neg' : 'warn'} title={p.expired ? `${p.title} expired on ${formatDate(p.expiresOn)}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}>{p.restrictsWork ? `Until renewed: ${p.restrictsWork}.` : 'Add the renewed copy on Documents.'}</Alert>
       ))}
@@ -293,6 +315,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         {tab === 'personal' ? <Personal key={person.id} person={person} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
         {tab === 'employment' ? <Employment key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} openScreen={openScreen} /> : null}
         {tab === 'organization' ? <Organization key={person.id} person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onSendAccess={() => setGivingAccess(true)} accessKey={accessKey} /> : null}
+        {tab === 'pay' ? <PayTab key={person.id} person={person} canChange={can(perms, 'PAYROLL::Salary Assignments::CREATE')} /> : null}
+        {tab === 'time' ? <TimeTab key={person.id} person={person} canLeave={canLeaveRead} canRecords={canRecordsRead} openScreen={openScreen} /> : null}
         {tab === 'documents' ? <div className="space-y-6"><EmployeeDocuments key={person.id} employeeId={person.id} personName={person.preferredName || person.firstName || person.name} />{allowed('PEOPLE::Policies::VIEW') ? <PersonPolicies key={`p-${person.id}`} employeeId={person.id} openScreen={openScreen} /> : null}</div> : null}
         {tab === 'history' ? <div className="space-y-6"><HistoryCompare key={person.id} person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory key={person.id} employeeId={person.id} /></Section><Section title="Every change and why"><Journey key={person.id} employeeId={person.id} /></Section></div> : null}
         {tab === 'activity' ? <Activity key={person.id} person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
@@ -307,6 +331,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       {inviting ? <InviteForm person={person} onClose={() => setInviting(false)} onDone={() => setInviting(false)} /> : null}
       {lettering ? <IssueLetter employeeId={person.id} onClose={() => setLettering(false)} onIssued={() => { setLettering(false); rec.reload(); }} /> : null}
       {offering || params.action === 'offer' ? <OfferDrawer employee={person} onClose={() => { setOffering(false); if (params.action === 'offer') set({ action: null }); }} onSent={() => { setOffering(false); if (params.action === 'offer') set({ action: null }); rec.reload(); }} /> : null}
+      {printAsk ? <PrintProfile person={person} salaryAllowed={canPay} onClose={() => setPrintAsk(false)} onPrint={(o) => { setPrintAsk(false); setPrinting(o); if (tab !== 'overview') set({ tab: null, edit: null }, false); printProfile(o, () => setPrinting(null)); }} /> : null}
       {givingAccess ? <AppAccessSend people={[{ id: person.id, name: person.name }]} onClose={() => { setGivingAccess(false); setAccessKey((k) => k + 1); }} /> : null}
     </div>
   );
@@ -544,7 +569,7 @@ function Overview({ person, data, lists, allowed, openScreen, goTo, go }) {
             <Field label="Full name" value={person.name} />
             <Field label="Preferred name" value={person.preferredName} />
             <Field label="Work email" value={person.workEmail} />
-            <Field label="Phone" value={formatPhone(person.phone)} />
+            <Field label="Phone" value={person.phone ? <CallButtons phone={person.phone} name={person.name} /> : null} />
           </dl>
         </Section>
         <Section title="Job details" action={<button type="button" className="ui-link text-sm" onClick={() => goTo('employment')}>Open</button>}>
@@ -731,7 +756,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
       ) : null}
       {error ? <ErrorState error={error} compact onRetry={save} retryLabel="Try again" body={error?.network ? 'Your changes have not been saved. They are still in this form.' : undefined} /> : null}
       <div className="ui-form-grid">
-        {fields.map((f) => {
+        {fields.filter((f) => !(f.unlessSame && form.permSameAsPresent)).map((f) => {
           const id = `${formId}-${f.key}`;
           const help = f.help ? `${id}-help` : undefined;
           return (
@@ -745,8 +770,10 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
                 <span className="flex items-center gap-2 text-sm"><input id={id} type="checkbox" className="ui-checkbox" aria-describedby={help} checked={form[f.key] !== false} onChange={(e) => setForm({ ...form, [f.key]: e.target.checked })} />{f.checkLabel}</span>
               ) : f.kind === 'date' ? (
                 <DatePicker id={id} describedBy={help} value={form[f.key] ? String(form[f.key]).slice(0, 10) : ''} onChange={(v) => setForm({ ...form, [f.key]: v })} />
+              ) : f.kind === 'chips' ? (
+                <ChipsInput id={id} help={help} label={f.label} value={Array.isArray(form[f.key]) ? form[f.key] : []} onChange={(v) => setForm({ ...form, [f.key]: v })} />
               ) : f.kind === 'textarea' ? (
-                <textarea id={id} className="ui-input w-full" rows={3} aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+                <textarea id={id} className="ui-input w-full" rows={3} aria-describedby={help} maxLength={f.max} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
               ) : f.suggest ? (
                 <SuggestedText field={f} id={id} help={help} value={form[f.key] ?? ''} onChange={(v) => setForm({ ...form, [f.key]: v })} person={person} />
               ) : (
@@ -765,20 +792,60 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   );
 }
 
+/* Record extras (server picks, theme A): the lists the server takes (services/people/recordExtras.ts). */
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const FOOD_WORDS = { VEG: 'Veg', NON_VEG: 'Non-veg', EGG: 'Eggetarian', JAIN: 'Jain' };
+const HIRE_WORDS = { REFERRAL: 'Referral', JOB_SITE: 'Job site', AGENCY: 'Agency', CAMPUS: 'Campus', WALK_IN: 'Walk-in', CAREERS_PAGE: 'Careers page', INTERNAL: 'Moved from within', OTHER: 'Other' };
+/* Health and the second emergency contact: the server leaves them out for anyone who cannot edit records (hrOnlyHidden). */
+const HR_ONLY_KEYS = new Set(['bloodGroup', 'disability', 'healthNote', 'emergencyContact2Name', 'emergencyContact2Phone', 'emergencyContact2Relation']);
+
+/* Languages as chips: Enter or a comma adds one, × takes it off. */
+function ChipsInput({ id, help, label, value, onChange }) {
+  const [draft, setDraft] = useState('');
+  const add = () => {
+    const w = draft.trim().replace(/\s+/g, ' ');
+    if (!w) return;
+    const word = w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    if (!value.includes(word) && value.length < 20) onChange([...value, word]);
+    setDraft('');
+  };
+  return (
+    <div>
+      {value.length ? (
+        <ul className="flex flex-wrap gap-1 mb-2" aria-label={label}>
+          {value.map((l) => (
+            <li key={l} className="ui-chip">{l}<button type="button" className="ui-chip-x" aria-label={`Remove ${l}`} onClick={() => onChange(value.filter((x) => x !== l))}>×</button></li>
+          ))}
+        </ul>
+      ) : null}
+      <input id={id} className="ui-input w-full" aria-describedby={help} value={draft} maxLength={40} placeholder="Add a language"
+        onChange={(e) => setDraft(e.target.value.replace(',', ''))}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } }}
+        onBlur={add} />
+    </div>
+  );
+}
+
 const GENDERS = Object.entries(GENDER_WORDS);
 const MARITAL = [['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Divorced'], ['WIDOWED', 'Widowed']];
 const PERSONAL_SECTIONS = {
-  name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name' }] },
+  name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name' }, { key: 'initials', label: 'Initials', max: 10, help: 'For sign-offs and initialled pages.' }] },
   /* `email` is the personal address the employee form has always saved; `personalEmail` is what a joiner gives on their invite. */
-  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email', suggest: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', hideEmpty: true }] },
+  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email', suggest: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'officeExtension', label: 'Extension', inputMode: 'numeric', max: 10, mono: true }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', hideEmpty: true }] },
   personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father / husband name' }] },
   address: { title: 'Address', fields: [{ key: 'addressLine', label: 'Address', wide: true }, { key: 'city', label: 'City', suggest: 'city' }, { key: 'state', label: 'State', suggest: 'state' }, { key: 'pincode', label: 'PIN code', inputMode: 'numeric', max: 10 }, { key: 'country', label: 'Country', suggest: 'country' }] },
+  permanent: { title: 'Permanent address', fields: [{ key: 'permSameAsPresent', label: 'Same as present', kind: 'checkbox', checkLabel: 'Same as the address above' }, { key: 'permAddressLine', label: 'Address', wide: true, unlessSame: true }, { key: 'permCity', label: 'City', suggest: 'city', unlessSame: true }, { key: 'permState', label: 'State', suggest: 'state', unlessSame: true }, { key: 'permPincode', label: 'PIN code', inputMode: 'numeric', max: 10, unlessSame: true }, { key: 'permCountry', label: 'Country', suggest: 'country', unlessSame: true }] },
   emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship', suggest: 'relation' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
+  emergency2: { title: 'Second emergency contact', note: 'Seen by HR and this person only.', fields: [{ key: 'emergencyContact2Name', label: 'Name' }, { key: 'emergencyContact2Relation', label: 'Relationship', suggest: 'relation' }, { key: 'emergencyContact2Phone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
+  health: { title: 'Health', note: 'Seen by HR and this person only.', fields: [{ key: 'bloodGroup', label: 'Blood group', kind: 'select', options: BLOOD_GROUPS.map((b) => [b, b]) }, { key: 'disability', label: 'Disability', max: 200, help: 'Only if they want it noted. The certificate goes in Documents as HR only.' }, { key: 'healthNote', label: 'Health note', kind: 'textarea', wide: true, max: 300, help: 'Short: what someone giving first aid should know.' }] },
+  everyday: { title: 'Food and uniform', fields: [{ key: 'foodPreference', label: 'Food', kind: 'select', options: Object.entries(FOOD_WORDS) }, { key: 'shoeSize', label: 'Shoe size', max: 10 }, { key: 'uniformSize', label: 'Uniform size', max: 10 }] },
+  languages: { title: 'Languages', fields: [{ key: 'languages', label: 'Languages spoken', kind: 'chips', wide: true, help: 'Type one and press Enter. Colleagues can find them by it in the directory.' }] },
 };
 
 /* Personal details the server leaves out for a read-only role (routes/people.ts seesPersonal): their fields are not drawn, rather than shown as "Not provided". */
-const PERSONAL_KEYS = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
-const shownFields = (person, fields) => (person.personalHidden ? fields.filter((f) => !PERSONAL_KEYS.has(f.key)) : fields);
+const PERSONAL_KEYS = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber',
+  'permSameAsPresent', 'permAddressLine', 'permCity', 'permState', 'permCountry', 'permPincode', 'foodPreference', 'shoeSize', 'uniformSize', ...HR_ONLY_KEYS]);
+const shownFields = (person, fields) => fields.filter((f) => !(person.personalHidden && PERSONAL_KEYS.has(f.key)) && !(person.hrOnlyHidden && HR_ONLY_KEYS.has(f.key)) && !(f.unlessSame && person.permSameAsPresent));
 
 function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
   /* Personal and contact details stay correctable after someone leaves: a settlement, a certificate or a reference still needs them right. */
@@ -786,6 +853,9 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
   const value = (s, f) => {
     if (f.key === 'gender') return GENDER_WORDS[person.gender] || person.gender;
     if (f.key === 'maritalStatus') return MARITAL.find(([k]) => k === person.maritalStatus)?.[1] || person.maritalStatus;
+    if (f.key === 'permSameAsPresent') return person.permSameAsPresent ? 'Yes, same as present' : 'No';
+    if (f.key === 'foodPreference') return FOOD_WORDS[person.foodPreference] || person.foodPreference;
+    if (f.kind === 'chips') return (person[f.key] || []).length ? <span className="flex flex-wrap gap-1">{person[f.key].map((l) => <span key={l} className="ui-chip">{l}</span>)}</span> : null;
     if (f.kind === 'date') return person[f.key] ? formatDate(String(person[f.key]).slice(0, 10)) : null;
     return person[f.key];
   };
@@ -796,8 +866,9 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
           {editing === k ? (
             <SectionForm person={person} fields={s.fields} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
           ) : (
-            <dl className="ui-field-grid">{shownFields(person, s.fields).filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} />)}</dl>
+            <dl className="ui-field-grid">{shownFields(person, s.fields).filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} mono={f.mono} />)}</dl>
           )}
+          {s.note ? <p className="ui-caption mt-2">{s.note}</p> : null}
         </Section>
       ))}
       {person.personalHidden ? <p className="ui-caption">Date of birth, home address and family details are kept with HR.</p> : null}
@@ -864,6 +935,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
     { key: 'hours', label: 'Hours', kind: 'select', options: Object.entries(HOURS_WORDS), noBlank: true, fallback: 'FULL_TIME' },
     dates.probation && { key: 'probationEndDate', label: 'Probation ends', kind: 'date' },
     dates.contract && { key: 'contractEndDate', label: dates.contractLabel, kind: 'date' },
+    { key: 'hireSource', label: 'How they were hired', kind: 'select', options: Object.entries(HIRE_WORDS) },
     { key: 'jobRoleId', label: 'Job role', kind: 'select', options: (lists?.roles || []).filter((x) => !person.jobPositionId || !x.jobPositionId || x.jobPositionId === person.jobPositionId || x.id === person.jobRoleId).map((x) => [x.id, x.name]) },
   ].filter(Boolean);
   return (
@@ -879,6 +951,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             <Field label="Hours" value={HOURS_WORDS[person.hours || 'FULL_TIME']} />
             <Field label="Work mode" value={workTypeName} />
             <Field label="Job role" value={lists?.roles?.find((r) => r.id === person.jobRoleId)?.name} />
+            <Field label="How they were hired" value={HIRE_WORDS[person.hireSource]} />
             <Field label={person.currentEpisodeSeq > 1 ? 'Rejoined' : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
             {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} mono /> : null}
             {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono /> : null}

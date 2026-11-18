@@ -1936,6 +1936,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
         displayOrder: 900,
         expenseLedgerId: component?.expenseLedgerId ?? null,
         liabilityLedgerId: component?.liabilityLedgerId ?? null,
+        /* Count × rate (meals, pieces, nights): the payslip shows both. */
+        ...(adj.quantity != null && adj.rate != null ? { quantity: Number(adj.quantity), rate: Number(adj.rate), unit: adj.unit || null } : {}),
       });
     }
 
@@ -2120,7 +2122,7 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
           capBasis: { wages, deducted: round2(counted + [...cap.taken.values()].reduce((t, v) => t + v, 0)) },
         }),
         adjustmentSnapshotJson: JSON.stringify(
-          adjustments.map((a) => ({ id: a.id, componentId: a.componentId, amount: takenOf.has(a.id) ? takenOf.get(a.id)! : Number(a.amount), type: a.type, reason: a.reason }))
+          adjustments.map((a) => ({ id: a.id, componentId: a.componentId, amount: takenOf.has(a.id) ? takenOf.get(a.id)! : Number(a.amount), type: a.type, reason: a.reason, ...(a.quantity != null && a.rate != null ? { quantity: Number(a.quantity), rate: Number(a.rate), unit: a.unit || null } : {}) }))
         ),
         /* Which rule version produced each statutory figure. A rate published
            in October must not change what this payslip says. */

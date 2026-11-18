@@ -22,11 +22,11 @@ import { StaleEmployeeError, createEmployee, updateEmployee, correlationOf } fro
 import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, scheduleChanges } from '../services/people/effectiveDating.js';
 import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../services/people/changeLog.js';
 import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
-import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
+import { PAYROLL_STATUTORY_FIELDS, employeesByIdentifier, identifierQuery, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
 import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { heldFor } from '../services/people/lifecycle/joiningStatutory.js';
 import { stepUpRefusal } from '../services/stepUp.js';
-import { inScope, scopeWhere, seesPersonal, teamScope } from '../services/people/scope.js';
+import { inScope, scopeWhere, seesHealth, seesPersonal, teamScope } from '../services/people/scope.js';
 import { leavingReasonFilter, seesLeavingReason, seesLeavings } from '../services/people/companyChoices.js';
 import { isTimeLeaveSuggestionField, timeLeaveSuggestions } from '../services/attendance/suggestions.js';
 import { activeRule, shape as shapeRequest, submitRequest } from '../services/people/approvals/engine.js';
@@ -63,6 +63,7 @@ import { PAYROLL_HISTORY, lockPayrollEmployee } from '../services/payroll/employ
 /* Only for Payroll's own delete guard (employeeLock.ts), which takes a payroll transaction; People reads nothing else from it. */
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { addDays as addDaysIso, todayIst } from '../utils/istDate.js';
+import { BLOOD_GROUPS, FOOD_PREFERENCES, HIRE_SOURCES, HR_ONLY_FIELDS, RECORD_EXTRAS_PERSONAL, RECORD_EXTRAS_TEXT, languageWord, normaliseLanguages } from '../services/people/recordExtras.js';
 
 /**
  * People: the staff directory.
@@ -103,11 +104,18 @@ const text = (max: number) => z.string().trim().max(max).optional().nullable();
  * edit employees or see statutory details) and to the person themselves.
  * A read-only role (IT, a team lead) gets the work profile.
  */
-const PERSONAL_FIELDS = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber'] as const;
+const PERSONAL_FIELDS = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber', ...RECORD_EXTRAS_PERSONAL] as const;
 const withoutPersonal = (row: any, me: string) => {
   if (row?.userId && row.userId === me) return row;
   const out = { ...row, personalHidden: true };
   for (const k of PERSONAL_FIELDS) delete out[k];
+  return out;
+};
+/* Health and the second emergency contact: HR (who may edit records) and the person themself only. */
+const withoutHrOnly = (row: any, me: string) => {
+  if (row?.userId && row.userId === me) return row;
+  const out = { ...row, hrOnlyHidden: true };
+  for (const k of HR_ONLY_FIELDS) delete out[k];
   return out;
 };
 
@@ -205,6 +213,26 @@ const employeeSchema = z.object({
   devicePrivilege: z.coerce.number().int().refine((n) => n === 0 || n === 14, 'Reader privilege is user or administrator.').optional(),
   attendanceRequired: z.boolean().optional(),
   guardianName: text(150),
+  /* Record extras (server picks, theme A): see services/people/recordExtras.ts. */
+  emergencyContact2Name: text(120),
+  emergencyContact2Phone: phoneField,
+  emergencyContact2Relation: text(60),
+  permSameAsPresent: z.boolean().optional(),
+  permAddressLine: text(240),
+  permCity: text(80),
+  permState: text(80),
+  permCountry: text(80),
+  permPincode: text(12),
+  bloodGroup: z.enum(BLOOD_GROUPS).optional().nullable().or(z.literal('')),
+  disability: text(200),
+  healthNote: text(300),
+  foodPreference: z.enum(FOOD_PREFERENCES).optional().nullable().or(z.literal('')),
+  shoeSize: text(10),
+  uniformSize: text(10),
+  initials: text(10),
+  officeExtension: z.string().trim().max(10).refine((v) => !v || /^\d{1,10}$/.test(v), 'An extension is digits only.').optional().nullable(),
+  languages: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  hireSource: z.enum(HIRE_SOURCES).optional().nullable().or(z.literal('')),
   probationEndDate: date,
   contractEndDate: date,
 
@@ -296,9 +324,11 @@ const employeeData = (b: EmployeeBody) => {
     'maritalStatus', 'photoUrl', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName',
     'emergencyContactPhone', 'emergencyContactRelation', 'reportingManagerId', 'dottedManagerId', 'workPhone', 'workLocation',
     'probationEndDate', 'contractEndDate', 'hours', 'email', 'personalEmail', 'workEmail', 'devicePin',
-    'cardNumber', 'devicePassword', 'guardianName',
+    'cardNumber', 'devicePassword', 'guardianName', ...RECORD_EXTRAS_TEXT,
   ] as const;
   for (const k of keys) if (b[k] !== undefined) d[k] = blank(b[k]);
+  if (b.languages !== undefined) d.languages = normaliseLanguages(b.languages);
+  if (b.permSameAsPresent !== undefined) d.permSameAsPresent = b.permSameAsPresent;
   if (b.devicePrivilege !== undefined) d.devicePrivilege = b.devicePrivilege;
   if (b.attendanceRequired !== undefined) d.attendanceRequired = b.attendanceRequired;
   if (b.status) d.status = b.status;
@@ -592,11 +622,19 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
             { phone: { contains: q } },
             { designation: { contains: q, mode: 'insensitive' } },
             { department: { contains: q, mode: 'insensitive' } },
+            /* Languages spoken are searchable in the directory (round 43 pick). */
+            { languages: { has: languageWord(q) } },
           ],
         }
       : {}),
+    ...(pick('language') ? { languages: { has: languageWord(pick('language')!) } } : {}),
   };
   addHours(where, pick('hours'));
+  /* Round 55 (searchid A): a whole PAN or UAN finds its person too, for a reader who may see statutory details. Phone is matched above. */
+  if (q && where.OR && identifierQuery(q) && (req.isAdmin ||!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.statutory)))) {
+    const ids = await employeesByIdentifier(orgId, q);
+    if (ids.length) where.OR.push({ id: { in: ids } });
+  }
   /* No manager, as the Organization overview counts it: the top of the tree (someone others report to) is not listed. */
   if (pick('managerId') === 'none') (where.AND ||= []).push({ id: { notIn: (await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true }, distinct: ['reportingManagerId'] })).map((r) => r.reportingManagerId!) } });
   /* Working now: here and already joined; the count strip's first tile opens exactly these (W14). */
@@ -628,7 +666,9 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
   const shapedRows = await withMeta(orgId, viewed);
   const reasonOk = await leavingReasonFilter(req, shapedRows as any[]);
   const me = req.auth!.userId;
+  const health = await seesHealth(req);
   const listed = (personal ? shapedRows : shapedRows.map((r: any) => withoutPersonal(r, me)))
+    .map((r: any) => (health ? r : withoutHrOnly(r, me)))
     .map((r: any) => (reasonOk(r) ? r : withoutLeavingReason(r)))
     .map((r: any) => (leavingsOk ? r : withoutLeaving(r, me)));
   res.json({ employees: listed, total: asOfDate ? viewed.length : total, asOf: asOfDate || undefined });
@@ -680,9 +720,13 @@ peopleRouter.get('/orgs/:orgId/people/employees/counts', can(PermissionAction.VI
   const of = (s: string) => byStatus.find((x) => x.status === s)?._count._all || 0;
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
   const myTeam = me ? await peoplePrisma.employee.count({ where: { ...base, status: { not: 'LEFT' }, OR: [{ reportingManagerId: me.id }, { dottedManagerId: me.id }] } }) : 0;
+  /* Food preference over everyone working now, for whoever sees the personal details (catering counts; theme A). */
+  const food = (await seesPersonal(req))
+    ? Object.fromEntries((await peoplePrisma.employee.groupBy({ by: ['foodPreference'], where: { ...base, status: { not: 'LEFT' }, ...joined }, _count: { _all: true } })).map((r) => [r.foodPreference || 'NOT_SET', r._count._all]))
+    : undefined;
   /* Leavings kept from this reader (SPEC 3.5): on notice counts as active, and who left this month is not told. */
-  if (!(await seesLeavings(req))) return res.json({ total: working, active: of('ACTIVE') + of('ON_NOTICE'), onNotice: null, suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth: null, monthStart, leavingsHidden: true });
-  res.json({ total: working, active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth, monthStart });
+  if (!(await seesLeavings(req))) return res.json({ food, total: working, active: of('ACTIVE') + of('ON_NOTICE'), onNotice: null, suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth: null, monthStart, leavingsHidden: true });
+  res.json({ food, total: working, active: of('ACTIVE'), onNotice: of('ON_NOTICE'), suspended: of('SUSPENDED'), left: of('LEFT'), joining, onLeave: onLeave.length, myTeam, joinedThisMonth, leftThisMonth, monthStart });
 });
 
 /** A suggestion for the next employee ID (People design v1 EMP-02): the company's own pattern, one past the highest. Still editable. */
@@ -886,6 +930,7 @@ const EXPORT_COLUMNS: Array<[string, string, (e: any) => unknown]> = [
   ['Team', 'team', (e) => e.teamName], ['Position', 'position', (e) => e.seatName], ['Grade', 'grade', (e) => e.gradeName], ['Cost centre', 'costCentre', (e) => e.costCenterName],
   ['Probation ends', 'probationEndDate', (e) => e.probationEndDate], ['Contract ends', 'contractEndDate', (e) => e.contractEndDate], ['Tags', 'tags', (e) => (e.tags || []).map((t: any) => t.name).join('; ')],
   ['Branch', 'branch', (e) => e.branchName],
+  ['Extension', 'officeExtension', (e) => e.officeExtension], ['Initials', 'initials', (e) => e.initials], ['Languages', 'languages', (e) => (e.languages || []).join('; ')],
 ];
 const DEFAULT_EXPORT = EXPORT_COLUMNS.slice(0, 11).map(([, k]) => k);
 /* A cell a spreadsheet would run as a formula is quoted; a plain number such as +91 98450 12345 is left as it is, so the file imports again. */
@@ -936,7 +981,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/export', can(PermissionAction.EX
     ...(pick('tagId') ? { tags: { some: { tagId: pick('tagId') } } } : {}),
     ...(pick('joinedFrom') || pick('joinedTo') ? { dateOfJoining: { ...(pick('joinedFrom') ? { gte: pick('joinedFrom') } : {}), ...(pick('joinedTo') ? { lte: pick('joinedTo') } : {}) } } : {}),
     ...(leavingsOk && (pick('leftFrom') || pick('leftTo')) ? { dateOfLeaving: { not: null, ...(pick('leftFrom') ? { gte: pick('leftFrom') } : {}), ...(pick('leftTo') ? { lte: pick('leftTo') } : {}) } } : {}),
-    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }, { designation: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }] } : {}),
+    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }, { workEmail: { contains: q, mode: 'insensitive' } }, { phone: { contains: q } }, { designation: { contains: q, mode: 'insensitive' } }, { department: { contains: q, mode: 'insensitive' } }, { languages: { has: languageWord(q) } }] } : {}),
+    ...(pick('language') ? { languages: { has: languageWord(pick('language')!) } } : {}),
   };
   if (req.query.team === 'mine') {
     const mine = await peoplePrisma.employee.findFirst({ where: { orgId, userId: req.auth!.userId }, select: { id: true } });
@@ -1012,7 +1058,8 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id', can(PermissionAction.VIEW,
   /* The manager's name is shown either way; whether their record opens depends on the viewer's scope (E20). */
   const reasonShown = await seesLeavingReason(req, row as any);
   const leavingsShown = await seesLeavings(req);
-  const read = { ...((await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId)), ...(reasonShown ? {} : { leavingReason: null, leavingReasonHidden: Boolean((full as any).leavingReason) }) };
+  const seen = (await seesPersonal(req)) ? full : withoutPersonal(full, req.auth!.userId);
+  const read = { ...((await seesHealth(req)) ? seen : withoutHrOnly(seen, req.auth!.userId)), ...(reasonShown ? {} : { leavingReason: null, leavingReasonHidden: Boolean((full as any).leavingReason) }) };
   const shaped = { ...(leavingsShown ? read : withoutLeaving(read, req.auth!.userId)), managerOpens: !row.reportingManagerId || inScope(viewScope, row.reportingManagerId), ownRecordLocked: !viewScope.all && Boolean(row.userId) && row.userId === req.auth!.userId };
   const linked = row.userId ? await platformPrisma.user.findFirst({ where: { id: row.userId }, select: { fullName: true, email: true } }) : null;
   res.json({ scheduledChanges, permits: await permitsOf(req, orgId, row.id), employee: { ...shaped, directReports: reports, linkedUser: linked ? { name: linked.fullName || linked.email, email: linked.email } : null } });
@@ -1657,6 +1704,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/activity', can(PermissionAct
     canWriteNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.CREATE, NOTES)),
     canDeleteNotes: !(await authorize(req, PEOPLE_MODULE, PermissionAction.DELETE, NOTES)),
     canPersonal: await seesPersonal(req),
+    canHealth: Boolean(employee.userId && employee.userId === req.auth!.userId) || (await seesHealth(req)),
     /* The reason typed for leaving, and the note that came with it (SPEC 3.5). */
     canLeavingReason: await seesLeavingReason(req, employee),
     canLeavings: Boolean(employee.userId && employee.userId === req.auth!.userId) || (await seesLeavings(req)),
@@ -1676,7 +1724,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/journey', can(PermissionActi
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const shows = await leavingReasonFilter(req, [employee]);
   const hideLeavings = !(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req));
-  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !shows(employee), hideLeavings, reasonShownFor: (day) => shows(employee, day) }));
+  res.json(await journeyOf(orgId, employee as any, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideHealth: !(await seesHealth(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !shows(employee), hideLeavings, reasonShownFor: (day) => shows(employee, day) }));
 });
 
 /** Why (TRACE-01, 02): what changed, when, who asked, who approved, the rule version, the evidence, what it set off — or plain words for what is not known. */
@@ -1686,7 +1734,7 @@ peopleRouter.get('/orgs/:orgId/people/employees/:id/why/:key', can(PermissionAct
   const employee = await peoplePrisma.employee.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { id: true, userId: true, dateOfLeaving: true } });
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const hideLeavings = !(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req));
-  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)), hideLeavings });
+  const why = await whyOf(orgId, employee.id, String(req.params.key), { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideHealth: !(await seesHealth(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)), hideLeavings });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   res.json({ why });
 });
@@ -1703,7 +1751,7 @@ peopleRouter.post('/orgs/:orgId/people/employees/:id/why/:key/raise', can(Permis
   if (!employee || !inScope(await teamScope(req), employee.id)) return res.status(404).json({ error: 'No such employee.' });
   const key = String(req.params.key);
   const hideLeavings = !(employee.userId && employee.userId === req.auth!.userId) && !(await seesLeavings(req));
-  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)), hideLeavings });
+  const why = await whyOf(orgId, employee.id, key, { hidePersonal: !(await seesPersonal(req)) && employee.userId !== req.auth!.userId, hideHealth: !(await seesHealth(req)) && employee.userId !== req.auth!.userId, hideLeavingReason: !(await seesLeavingReason(req, employee)), hideLeavings });
   if (!why) return res.status(404).json({ error: 'No such change.' });
   const kind = String(req.body?.kind || 'CORRECTION').toUpperCase() === 'QUESTION' ? 'QUESTION' : 'CORRECTION';
   const what = (why.what as Array<{ field: string; before: string | null; after: string | null }>).map((w) => `${w.field}: ${w.before ?? 'blank'} to ${w.after ?? 'blank'}`).join('; ') || 'the change';

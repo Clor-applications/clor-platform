@@ -16,6 +16,7 @@ import { PermissionAction } from '../constants/enums.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { docAccess, docOpens, type DocAccess } from '../services/people/documentAccess.js';
 import { maskTail } from '../services/people/identifiers.js';
+import { RECORD_EXTRAS_PERSONAL } from '../services/people/recordExtras.js';
 import { levelFor, resolveAccess } from '../services/access.js';
 import { seesPersonal, teamScope } from '../services/people/scope.js';
 import { WORKSPACE } from '../services/people/workspace.js';
@@ -119,7 +120,7 @@ const TABLE_GRANT: Record<string, string> = {
   ...Object.fromEntries(['RetentionRule', 'DeletionReview', 'AuditorGrant', 'DataRequest', 'DataBreach', 'AccessLog'].map((m) => [m, P('Privacy')])),
   ...Object.fromEntries(['DeskCategory', 'DeskRequest', 'DeskMessage', 'DeskTemplate'].map((m) => [m, P('HR Cases')])),
   ...Object.fromEntries(['JobOpening', 'Candidate', 'Referral', 'ReferralLink', 'CandidateEvent', 'Interview', 'InterviewFeedback', 'Offer'].map((m) => [m, P('Recruitment')])),
-  ...Object.fromEntries(['Goal', 'GoalCheckIn', 'ReviewCycle', 'Review', 'ImprovementPlan', 'TalentNote', 'OneOnOne'].map((m) => [m, P('Performance')])),
+  ...Object.fromEntries(['Goal', 'GoalCheckIn', 'CompanyGoal', 'ReviewCycle', 'Review', 'ImprovementPlan', 'TalentNote', 'OneOnOne'].map((m) => [m, P('Performance')])),
   ...Object.fromEntries(['Training', 'TrainingSeat'].map((m) => [m, P('Learning')])),
   ...Object.fromEntries(['ExpenseCategory', 'ExpenseBill', 'ExpenseClaim', 'ExpenseLine', 'EmployeeAdvance', 'SalaryAdvanceAsk'].map((m) => [m, P('Expenses')])),
   ...Object.fromEntries(['GreetingPost', 'EngagementSettings'].map((m) => [m, P('Announcements')])),
@@ -137,7 +138,7 @@ const TABLE_GRANT: Record<string, string> = {
 };
 export const tableGrant = (model: string) => TABLE_GRANT[model] ?? P('Employees', 'EDIT');
 /* A person's private details (routes/people.ts PERSONAL_FIELDS), and the reason they left: for who keeps the records (seesPersonal). */
-const PERSONAL_KEYS = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber', 'leavingReason'];
+const PERSONAL_KEYS: string[] = ['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber', 'leavingReason', ...RECORD_EXTRAS_PERSONAL];
 const PERSONAL_SET = new Set(PERSONAL_KEYS);
 /* Files kept against a compliance deadline carry Payroll's figures (peopleCompliance.ts proofFile). */
 const BLOB_OF: Record<string, string> = { ObligationProof: 'data', ComplianceTask: 'evidenceData' };

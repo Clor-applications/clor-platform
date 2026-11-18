@@ -112,6 +112,31 @@ export default function Invitations({ tenant, companies = [] }) {
   };
 
   const count = (st) => (rows || []).filter((r) => r.status === st).length;
+  /* Round 60 pendinginvites A: everyone who has not joined yet, one list, sent again one by one or all at once. */
+  const [onlyWaiting, setOnlyWaiting] = useState(false);
+  const notJoined = (rows || []).filter((r) => r.status === 'PENDING' || r.status === 'EXPIRED');
+  const shown = onlyWaiting ? notJoined : rows || [];
+  const [sendingAll, setSendingAll] = useState(false);
+  const sendAll = async () => {
+    if (!notJoined.length || sendingAll) return;
+    setSendingAll(true);
+    setError('');
+    setNotice('');
+    let sent = 0;
+    const failed = [];
+    for (const r of notJoined) {
+      try {
+        await resendInvitation(r.id);
+        sent += 1;
+      } catch {
+        failed.push(r.email);
+      }
+    }
+    setSendingAll(false);
+    if (sent) setNotice(`Sent again to ${sent === 1 ? 'one person' : `${sent} people`}.`);
+    if (failed.length) setError(`Not sent to ${failed.join(', ')}. Try them one by one.`);
+    load();
+  };
 
   return (
     <div className="ws">
@@ -132,6 +157,17 @@ export default function Invitations({ tenant, companies = [] }) {
             <Stat icon={ICON.mail} label="Waiting" value={count('PENDING')} note="Link not used yet" />
             <Stat icon={ICON.people} label="Joined" value={count('ACCEPTED')} />
             <Stat icon={ICON.warning} tone={count('EXPIRED') ? 'warn' : null} label="Expired" value={count('EXPIRED')} note={count('EXPIRED') ? 'Resend to try again' : undefined} />
+          </div>
+        ) : null}
+
+        {notJoined.length ? (
+          <div className="ui-not-joined" role="group" aria-label="People who have not joined">
+            <button type="button" className={`ui-chip-toggle${onlyWaiting ? ' is-on' : ''}`} aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((v) => !v)}>
+              Not joined yet <span className="tabular-nums">{notJoined.length}</span>
+            </button>
+            <button type="button" className="ws-btn ws-btn--small" disabled={sendingAll} onClick={sendAll}>
+              <Send size={14} aria-hidden="true" /> {sendingAll ? 'Sending…' : notJoined.length === 1 ? 'Send again' : `Send again to all ${notJoined.length}`}
+            </button>
           </div>
         ) : null}
 
@@ -160,7 +196,7 @@ export default function Invitations({ tenant, companies = [] }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {shown.map((r) => {
                   const [label, pill] = STATUS[r.status] || [r.status, 'ws-pill'];
                   const open = r.status === 'PENDING' || r.status === 'EXPIRED';
                   return (
@@ -168,7 +204,7 @@ export default function Invitations({ tenant, companies = [] }) {
                       <td><strong style={{ fontWeight: 600 }}>{r.email}</strong></td>
                       <td>{ROLE_LABEL[r.accountRole] || r.accountRole}</td>
                       <td><span className={pill}>{label}</span></td>
-                      <td>{r.status === 'ACCEPTED' ? `Joined ${day(r.acceptedAt)}` : r.status === 'PENDING' ? `Expires ${day(r.expiresAt)}` : `Sent ${day(r.lastSentAt)}`}</td>
+                      <td>{r.status === 'ACCEPTED' ? `Joined ${day(r.acceptedAt)}` : r.status === 'PENDING' ? <>{r.lastSentAt ? <span className="block">Invited {day(r.lastSentAt)}</span> : null}<span className="ws-cell-sub">Expires {day(r.expiresAt)}</span></> : `Sent ${day(r.lastSentAt)}`}</td>
                       <td className="num">
                         {open ? (
                           <span className="inline-flex gap-2">

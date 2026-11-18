@@ -28,7 +28,7 @@ test.describe('Rahul manages his team', () => {
      * runner the list refreshed and dropped it ~0.2 s after the click, while the approval was
      * still on its way (0.7 s), and Imran's page was read too soon and said Waiting.
      */
-    await expect(rahul.toast(/Approved/)).toBeVisible();
+    await expect(rahul.toast(/Approved|approved/)).toBeVisible();
     await expect(rahul.row(webSpan(day), 'Imran Khan')).toHaveCount(0);
 
     /* Imran sees it approved and his balance moved from waiting to taken. */
@@ -64,7 +64,7 @@ test.describe('Rahul manages his team', () => {
     await panel.getByLabel('Note to them').fill('Dyeing batch due that week; please pick the week after.');
     await panel.getByRole('button', { name: 'Reject' }).click();
     /* Done when the app says so (see M1), not when the row first goes. */
-    await expect(rahul.toast(/Rejected|Not approved/)).toBeVisible();
+    await expect(rahul.toast(/Rejected|[Nn]ot approved/)).toBeVisible();
     await expect(rahul.row(webSpan(from, to))).toHaveCount(0);
 
     await lakshmi.goto('Leave');
@@ -169,7 +169,7 @@ test.describe('Rahul manages his team', () => {
     await rahul.goto();
     await rahul.open('Employees');
     await rahul.main.getByRole('searchbox', { name: 'Search employees' }).fill('Arjun');
-    await expect(rahul.main.getByRole('button', { name: /^Arjun Das/ })).toHaveCount(0);
+    await expect(rahul.main.getByRole('link', { name: /^Arjun Das/ })).toHaveCount(0);
 
     await rahul.page.goto(`/o/${w.asha.code}/?app=people&open=employee&s.id=${w.people.arjun.id}`);
     await expect(rahul.main).not.toContainText('Arjun Das', { timeout: 5_000 });

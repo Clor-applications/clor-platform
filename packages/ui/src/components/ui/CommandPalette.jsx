@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CornerDownLeft, Search } from '@ui/components/ui/lineIcons';
+import { CornerDownLeft, History, Search } from '@ui/components/ui/lineIcons';
+import { recentSearches, rememberSearch } from '@ui/components/ui/recents';
 
 /**
  * Spotlight-style command palette (⌘K / Ctrl+K).
@@ -34,8 +35,10 @@ const score = (label, group, q, keywords = []) => {
  * there is no reset-on-open effect to synchronise. A palette that reopens
  * showing the previous query is a palette people stop trusting.
  */
-export default function CommandPalette({ onClose, items = [], onSelect, searchRecords, loadRecords, placeholder = 'Search invoices, customers, reports, settings…' }) {
+export default function CommandPalette({ onClose, items = [], onSelect, searchRecords, loadRecords, remember = false, placeholder = 'Search invoices, customers, reports, settings…' }) {
   const [query, setQuery] = useState('');
+  /* Round 55 (recentsearch A): with `remember`, an empty box opens on the last five searches; choosing one types it back in. Read once per opening. */
+  const [recent] = useState(() => (remember ? recentSearches() : []));
   /* Records found on the server for a query (`loadRecords(q)`: people by name, code or email), kept with the query they answer. */
   const [loaded, setLoaded] = useState({ q: '', items: [] });
   useEffect(() => {
@@ -55,6 +58,9 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (!q && recent.length) {
+      return recent.map((r) => ({ key: `recent:${r}`, label: r, group: 'Recent search', icon: History, recentQuery: r }));
+    }
     const destinations = items
       .map((it) => ({ ...it, _s: score(it.label, it.group, q, it.keywords) }))
       .filter((it) => it._s > 0)
@@ -74,7 +80,7 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
     // screen whose name merely contains the same letters.
     const merged = [...records, ...destinations];
     return merged.sort((a, b) => b._s - a._s).slice(0, 40);
-  }, [items, query, searchRecords, loaded]);
+  }, [items, query, searchRecords, loaded, recent]);
 
   // Focus lands in the input on mount; nothing else needs synchronising.
   useEffect(() => {
@@ -98,10 +104,16 @@ export default function CommandPalette({ onClose, items = [], onSelect, searchRe
   const choose = useCallback(
     (item) => {
       if (!item) return;
+      if (item.recentQuery) {
+        setQuery(item.recentQuery);
+        inputRef.current?.focus();
+        return;
+      }
+      if (remember) rememberSearch(query);
       onSelect?.(item);
       onClose?.();
     },
-    [onSelect, onClose]
+    [onSelect, onClose, remember, query]
   );
 
   const onKeyDown = (e) => {

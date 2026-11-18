@@ -1,3 +1,4 @@
+import { RECORD_EXTRAS_ALL } from './recordExtras.js';
 import type { Prisma } from '../../generated/people/index.js';
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 
@@ -37,6 +38,7 @@ export const LOGGED_EMPLOYEE_FIELDS = [
   'reportingManagerId', 'dottedManagerId', 'workEmail', 'workPhone', 'workLocation', 'devicePin', 'areaId', 'contractorId', 'cardNumber',
   'devicePassword', 'devicePrivilege', 'attendanceRequired', 'guardianName', 'leavingType', 'leavingReason', 'portalEnabled',
   'mobilePunch', 'geofenceId', 'probationEndDate', 'contractEndDate', 'phonePunchMode', 'selfieRequired', 'establishmentId', 'teamId', 'seatId',
+  ...RECORD_EXTRAS_ALL,
 ] as const;
 
 /** Logged as changed, without the value. */

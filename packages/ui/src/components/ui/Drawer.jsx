@@ -5,6 +5,7 @@ import { ArrowLeft, X } from '@ui/components/ui/lineIcons';
 import { OverlayLayerContext } from './overlayLayer';
 import { confirmDialog } from './notify';
 import useSheetDrag from './useSheetDrag';
+import { openingFocus } from '@ui/picks/round61';
 
 /* Safari shows :active on a touch only when the page listens for touches: the press feedback needs it. */
 if (typeof document !== 'undefined') document.addEventListener('touchstart', () => {}, { passive: true });
@@ -44,7 +45,7 @@ export default function Drawer({ open, onClose, title, description = '', actions
   /* Owner's round 14 pick: outside Books a panel closes from a Back arrow at the top left. */
   const backClose = typeof document !== 'undefined' && document.documentElement.dataset.palette !== 'indigo';
   const beginClose = useCallback(async () => {
-    if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', tone: 'danger' }))) return;
+    if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', stayFirst: true }))) return;
     setClosing(true);
   }, []);
   /* A timer under `animationend`, for the reason spelled out in Modal: the
@@ -107,7 +108,8 @@ export default function Drawer({ open, onClose, title, description = '', actions
        after the first character. Opening is the only event that should move
        focus into the drawer. */
     window.addEventListener('keydown', onKey, true);
-    const wants = panelRef.current?.querySelector('[data-autofocus]');
+    /* Round 61 "focusfirst" A: whatever asks with data-autofocus, else the first empty field (not on a touch phone), else the panel. */
+    const wants = openingFocus(panelRef.current);
     (wants || panelRef.current)?.focus();
     return () => {
       window.removeEventListener('keydown', onKey, true);

@@ -104,6 +104,35 @@ model Employee {
   emergencyContactName     String?
   emergencyContactPhone    String?
   emergencyContactRelation String?
+  /// Record extras (server picks, theme A, 18 Nov 2026). HR-only ones are in PERSONAL_FIELDS (routes/people.ts).
+  /// A second emergency contact, HR only.
+  emergencyContact2Name     String?
+  emergencyContact2Phone    String?
+  emergencyContact2Relation String?
+  /// Permanent address, apart from the present one above; permSameAsPresent means it is the same.
+  permSameAsPresent         Boolean   @default(false)
+  permAddressLine           String?
+  permCity                  String?
+  permState                 String?
+  permCountry               String?
+  permPincode               String?
+  /// A+ | A- | B+ | B- | AB+ | AB- | O+ | O-; HR only.
+  bloodGroup                String?
+  /// Optional, in the person's words; HR only. The certificate is filed under Documents.
+  disability                String?
+  /// A short note for HR and first aid (an allergy, a condition to know about); HR only.
+  healthNote                String?
+  /// VEG | NON_VEG | EGG | JAIN; HR only, counted for events.
+  foodPreference            String?
+  /// Shoe and uniform size, for safety gear and uniforms; HR only.
+  shoeSize                  String?
+  uniformSize               String?
+  /// Work profile: initials shown before the name, the office extension, languages spoken, how they were hired.
+  initials                  String?
+  officeExtension           String?
+  languages                 String[]  @default([])
+  /// REFERRAL | JOB_SITE | AGENCY | CAMPUS | WALK_IN | CAREERS_PAGE | INTERNAL | OTHER (carried from hiring when known).
+  hireSource                String?
 
   // ---- Work (People app) ---------------------------------------------
   // Ids into the org-structure tables below. `department` and `designation`
@@ -233,6 +262,8 @@ model JobPosition {
   name         String
   description  String?
   isActive     Boolean @default(true)
+  /// Round 53 pick: the saved job description for this designation, filled in when an opening picks it.
+  jobDescription String?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -844,6 +875,12 @@ model LeaveType {
   sandwichIgnoreHalf  Boolean  @default(false)
   /// While the person is serving notice: ALLOW, WARN (asked, and the approver is told), or BLOCK.
   onNotice            String   @default("ALLOW")
+  /// Most days of this type in one calendar month, waiting and approved together (work from home style, round 42).
+  /// Null = no monthly cap.
+  maxDaysPerMonth     Float?
+  /// Warn on the leave form when this many of the person's team (department, else same manager) are already away
+  /// on those days. A warning only; null = never (round 42).
+  teamAwayWarnAt      Int?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -2023,6 +2060,12 @@ model PeopleSetting {
   /// from the company's stored chain (services/attendance/attendanceEngine.ts). Off by default; requests already
   /// waiting finish on the old path either way.
   attendanceOnEngine              Boolean  @default(false)
+  /// Leave still waiting when its first day has passed is closed as not approved by the nightly job
+  /// (closePassedLeave in routes/leave.ts). Off by default: until a company turns it on, it waits as before.
+  closePassedLeave                Boolean  @default(false)
+  /// Round 53 pick: one interview question list for every job, shown on each interviewer's form,
+  /// each question rated 1 to 5. ["Communication", "Problem solving", ...]
+  interviewQuestions              Json?
   updatedByUserId                 String?
   createdAt                       DateTime @default(now())
   updatedAt                       DateTime @updatedAt
@@ -3593,6 +3636,10 @@ model JobOpening {
   referBranchIds     String[]  @default([])
   internalApply      Boolean   @default(false)
   closedReason       String?
+  /// Round 53 picks: why the job is paused (asked on Put on hold), and up to five questions the
+  /// public apply page asks, each answered in a line or two.
+  heldReason         String?
+  screeningQuestions Json?
   createdByUserId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -3631,6 +3678,8 @@ model Candidate {
   /// them, it does not make a second employee record.
   internalEmployeeId String?
   anonymisedAt       DateTime?
+  /// Answers to the opening's screening questions from the apply page: [{ question, answer }].
+  screeningAnswers   Json?
   createdByUserId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -3740,6 +3789,8 @@ model InterviewFeedback {
   /// STRONG_YES | YES | NO | STRONG_NO
   recommendation String
   notes          String?
+  /// Round 53/36 picks: the company's interview questions, each rated 1 to 5: [{ question, rating }].
+  answers        Json?
   createdAt      DateTime @default(now())
 
   @@unique([interviewId, byUserId])
@@ -3762,11 +3813,33 @@ model Goal {
   /// ACTIVE | DONE | DROPPED
   status          String   @default("ACTIVE")
   description     String?
+  /// Round 53 picks: TEAM (the person's team sees it, the default) | PRIVATE (only the person, their
+  /// manager and HR); a manager's goal for the whole team; and the company goal it serves.
+  visibility      String   @default("TEAM")
+  forTeam         Boolean  @default(false)
+  companyGoalId   String?
   createdByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([orgId, employeeId, status])
+}
+
+/// Round 53 pick: a company goal shown over the Goals list; people's goals may link to it.
+model CompanyGoal {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  title           String
+  measure         String?
+  dueDate         String?
+  /// ACTIVE | DONE | DROPPED
+  status          String   @default("ACTIVE")
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId, status])
 }
 
 model GoalCheckIn {
@@ -4129,8 +4202,10 @@ model ExpenseLine {
   companyGstin   Boolean  @default(false)
   supplierGstin  String?
   taxAmount      Decimal? @db.Decimal(12, 2)
-  /// Same amount, day and shop as this earlier line; the person said it is a different bill. Shown to the approver.
+  /// Same amount, day and shop as this earlier line (picks round 51: never asked of the person). Shown to the approver.
   duplicateOf    String?
+  /// Paid with the company's card (picks round 51): on the claim for the record and Books, never paid back to the person.
+  paidByCompany  Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   claim ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)

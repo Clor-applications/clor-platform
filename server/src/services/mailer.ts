@@ -1,6 +1,7 @@
 import { assertPublicHost, isBlockedHost } from './outbound.js';
 import { isArchived } from './companyArchive.js';
 import { isSampleOrg } from './sampleIdentity.js';
+import { emailStopFooter, emailStopped } from './emailStop.js';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import nodemailer from 'nodemailer';
 // Nodemailer 10 no longer exposes its types under the default export's
@@ -312,6 +313,26 @@ export async function sendTemplate(opts: SendOptions) {
     }
   }
 
+  /* Round 55 ("Stop these emails"): optional mail honours the person's own stop for this kind, and carries the link to stop it. */
+  const optional = !template.transactional && !opts.transactional;
+  if (optional && (await emailStopped(opts.to, template.key))) {
+    return platformPrisma.emailOutbox.create({
+      data: {
+        accountId: opts.accountId ?? null,
+        orgId: opts.orgId ?? null,
+        templateKey: template.key,
+        toEmail: opts.to,
+        toName: opts.toName ?? null,
+        subject,
+        bodyText,
+        status: 'SUPPRESSED',
+        lastError: 'The person stopped these emails',
+        relatedType: opts.relatedType ?? null,
+        relatedId: opts.relatedId ?? null,
+      },
+    });
+  }
+
   const row = await platformPrisma.emailOutbox.create({
     data: {
       accountId: opts.accountId ?? null,
@@ -320,7 +341,7 @@ export async function sendTemplate(opts: SendOptions) {
       toEmail: opts.to,
       toName: opts.toName ?? null,
       subject,
-      bodyText,
+      bodyText: optional ? `${bodyText}${emailStopFooter(opts.to, template.key)}` : bodyText,
       bodyHtml: opts.html ?? null,
       attachmentsJson: opts.attachments?.length
         ? JSON.stringify(opts.attachments.map((a) => ({ filename: a.filename, contentType: a.contentType, base64: Buffer.from(a.content, 'utf8').toString('base64') })))

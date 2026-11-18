@@ -13,6 +13,8 @@ import ShiftBreaks from '../components/ShiftBreaks';
 import { breaksBody, breaksProblem, unpaidTotal } from '../components/shiftBreaksMath';
 import ColorDots from '@ui/components/ui/ColorDots';
 import { splitShiftLabel } from '../components/round24';
+import { mondayFirst, sortMondayFirst } from '@ui/timeOff/round33';
+import { SettingHelp, ShiftBar } from '@ui/picks/round64';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -72,7 +74,7 @@ export function halfDaySentence(halfMin, fullMin) {
 }
 const hoursWords = (m) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 const offs = (s, sats) => {
-  const days = s ? s.split(',').map((d) => DAYS[Number(d)]) : [];
+  const days = s ? sortMondayFirst(s.split(',')).map((d) => DAYS[Number(d)]) : [];
   const nth = sats ? sats.split(',').map((n) => `${NTH[Number(n) - 1]} Sat`) : [];
   return [...days, ...nth].join(', ') || 'None';
 };
@@ -320,13 +322,17 @@ function ShiftForm({ initial, onClose, onSaved }) {
     }
   };
 
-  const num = (k, label, hint) => (
-    <label className="block">
-      <span className="ui-label">{label}</span>
-      <input type="number" min={0} className="ui-input w-full" value={form[k]} onChange={set(k)} />
-      {hint ? <span className="ui-caption">{hint}</span> : null}
-    </label>
-  );
+  const num = (k, label, hint, help) => {
+    const field = (
+      <label className="block">
+        <span className="ui-label">{label}</span>
+        <input type="number" min={0} className="ui-input w-full" value={form[k]} onChange={set(k)} />
+        {hint ? <span className="ui-caption">{hint}</span> : null}
+      </label>
+    );
+    /* Round 64 "settinghelp" C: the ⓘ sits beside the field, outside its label, so a tap on it never focuses the box. */
+    return help ? <div className="ui-setting-with-help">{field}{help}</div> : field;
+  };
 
   return (
     <Drawer
@@ -350,6 +356,8 @@ function ShiftForm({ initial, onClose, onSaved }) {
           <input type="time" className="ui-input w-full" required value={form.endTime} onChange={set('endTime')} />
           {form.endTime <= form.startTime ? <span className="ui-caption">Night shift — ends the next morning.</span> : null}
         </label>
+        {/* Round 64 "shiftsetup" A: the shift drawn on a 24-hour bar, named breaks lighter. */}
+        <ShiftBar start={form.startTime} end={form.endTime} breaks={(form.breaks || []).filter((b) => !b.paid)} />
         {form.breaks.length ? (
           <>
             <ShiftBreaks breaks={form.breaks} mode={form.breakMode} onChange={setBreaks} onMode={(breakMode) => setForm((f) => ({ ...f, breakMode }))} />
@@ -366,7 +374,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
             </span>
           </label>
         )}
-        {num('graceMinutes', 'Late grace (minutes)')}
+        {num('graceMinutes', 'Late grace (minutes)', null, <SettingHelp topic="shifts-weekly-off" label="late grace" />)}
         {num('earlyOutGraceMinutes', 'Early-out grace (minutes)')}
         {num('halfDayMinutes', 'Half day (minutes worked)', halfDaySentence(form.halfDayMinutes, form.fullDayMinutes))}
         <label className="block">
@@ -393,7 +401,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
         <fieldset className="sm:col-span-2">
           <legend className="ui-label">Weekly off</legend>
           <div className="flex flex-wrap gap-3">
-            {DAYS.map((d, i) => (
+            {mondayFirst(DAYS).map(({ label: d, index: i }) => (
               <label key={d} className="flex items-center gap-1.5 text-sm">
                 <input type="checkbox" className="ui-checkbox" checked={offSet.has(String(i))} onChange={() => toggleOff(i)} /> {d}
               </label>

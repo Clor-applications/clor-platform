@@ -96,7 +96,7 @@ const REG_LABEL = {
 
 const STATE_SCHEMES = ['PT', 'LWF'];
 
-export default function PayrollCompliance() {
+export default function PayrollCompliance({ params } = {}) {
   const [schemes, setSchemes] = useState([]);
   const [checks, setChecks] = useState([]);
   const [offers, setOffers] = useState([]);
@@ -138,6 +138,14 @@ export default function PayrollCompliance() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /* Opened for one scheme ("See Karnataka's slab" on payroll details, round 25 pick): go to it, every state shown. */
+  const askedScheme = params?.scheme || '';
+  useEffect(() => {
+    if (!askedScheme || loading) return;
+    if (params?.state) setShowAll((p) => ({ ...p, [askedScheme]: true }));
+    document.getElementById(`scheme-section-${askedScheme}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [askedScheme, loading, params?.state]);
 
   const peopleIn = useMemo(() => new Map(states.map((s) => [s.state, s.people])), [states]);
 
@@ -394,7 +402,7 @@ export default function PayrollCompliance() {
                   .sort((a, b) => String(a.jurisdiction).localeCompare(String(b.jurisdiction)) || (a.effectiveFrom < b.effectiveFrom ? 1 : -1))
               : scheme.rules;
             return (
-              <section key={scheme.id} className="ui-card overflow-hidden">
+              <section key={scheme.id} id={`scheme-section-${scheme.code}`} className="ui-card overflow-hidden">
                 <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

@@ -42,7 +42,7 @@ const STATUS = {
   REVIEWED: { label: 'Reviewed', tone: 'ui-pill-neutral' },
   APPROVED: { label: 'Approved', tone: 'ui-pill-pos' },
   APPLIED: { label: 'In effect', tone: 'ui-pill-pos' },
-  REJECTED: { label: 'Rejected', tone: 'ui-pill-neutral' },
+  REJECTED: { label: 'Not approved', tone: 'ui-pill-neutral' },
 };
 
 
@@ -63,7 +63,7 @@ const TABS = [
   { value: 'OPEN', label: 'To decide', tone: 'outstanding' },
   { value: 'APPROVED', label: 'Approved', tone: 'sent' },
   { value: 'APPLIED', label: 'In effect', tone: 'paid' },
-  { value: 'REJECTED', label: 'Rejected', tone: 'cancelled' },
+  { value: 'REJECTED', label: 'Not approved', tone: 'cancelled' },
 ];
 const inTabOf = (r, tab) => !tab || (tab === 'OPEN' ? ['DRAFT', 'REVIEWED'].includes(r.status) : r.status === tab);
 const COLUMNS = {
@@ -139,7 +139,7 @@ export default function SalaryRevisions({ params } = {}) {
     <DocumentListShell
       entity="salaryRevision"
       title="Salary revisions"
-      description="Increments, with what each one does to take-home pay and to the company's cost before anybody agrees to it."
+      description="Increments, with what each one does to net pay and to the company's cost before anybody agrees to it."
       compact
       tight
       denseCards
@@ -211,7 +211,7 @@ export default function SalaryRevisions({ params } = {}) {
                       <EmptyState
                         icon={TrendingUp}
                         title={status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} revisions` : 'No revisions yet'}
-                        description="Propose an increment and see what it does to take-home pay, to deductions and to what the company spends — before anybody agrees to it."
+                        description="Propose an increment and see what it does to net pay, to deductions and to what the company spends — before anybody agrees to it."
                         routes={canStart && !status ? [{ label: 'New revision', description: 'The impact shows as you type.', onSelect: start }] : undefined}
                       />
                     )}
@@ -393,7 +393,7 @@ const RevisionForm = ({ people, structures, onCancel, onCreated, initialEmployee
 const Impact = ({ impact, compact = false }) => (
   <div className="space-y-3">
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <Figure label="Take-home a month" value={money(impact.monthly.to)} change={impact.monthly.change} />
+      <Figure label="Net pay a month" value={money(impact.monthly.to)} change={impact.monthly.change} />
       <Figure label="Deductions a month" value={money(impact.deductions.to)} change={impact.deductions.change} />
       <Figure label="Company pays a month" value={money(impact.employerCost.to)} change={impact.employerCost.change} />
       <Figure

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { BarList, ChartPanel, Columns, Delta, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import JoinLeaveBars from '@ui/timeOff/JoinLeaveBars';
+import YearOnYearLine, { shiftYear } from '@ui/timeOff/YearOnYearLine';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -12,6 +13,7 @@ import { orgId } from '@platform/context';
 import { leavingReasons } from '../api/engagement';
 import { listAllEmployees } from '../workforce/api';
 import { todayIst } from '@ui/utils/dates';
+import { AgePanel, SpanPanel } from './round45';
 
 /**
  * People report (People audit gap 21): headcount, joiners, leavers and
@@ -26,7 +28,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const monthWord = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const lastOf = (y, m) => new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 const pct = (v) => (v === null || v === undefined ? '—' : `${v.toFixed(1)}%`);
-const REASONS = { RESIGNED: 'Resigned', TERMINATED: 'Let go', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Died', NOT_SAID: 'Not said' };
+const REASONS = { RESIGNED: 'Resigned', TERMINATED: 'Let go', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Passed away', NOT_SAID: 'Not said' };
 
 /** The periods a small business asks about: the last year, and the financial years (April to March). */
 function periodsOf(today = todayIst()) {
@@ -119,17 +121,39 @@ function TenurePanel() {
   const r = req.data;
   if (!r || !Array.isArray(r.employees)) return null;
   const { rows, noDate } = tenureBands(r.employees);
-  if (!rows.some((x) => x.value)) return null;
   const total = Number(r.total || r.employees.length);
   const notes = [noDate ? `${noDate} without a joining date left out` : null, total > r.employees.length ? `counted from the first ${r.employees.length} people` : null].filter(Boolean);
   return (
-    <ChartPanel title="How long people have stayed" note={notes.length ? `Working today · ${notes.join(' · ')}` : 'Working today'}>
-      <BarList one label="People working today by years since joining" rows={rows} />
-    </ChartPanel>
+    <>
+      {rows.some((x) => x.value) ? (
+        <ChartPanel title="How long people have stayed" note={notes.length ? `Working today · ${notes.join(' · ')}` : 'Working today'}>
+          <BarList one label="People working today by years since joining" rows={rows} />
+        </ChartPanel>
+      ) : null}
+      {/* Round 45 picks: age mix and team size per manager, from the same list. */}
+      <AgePanel employees={r.employees} />
+      <SpanPanel employees={r.employees} />
+    </>
   );
 }
 
 const headcount = (from, to) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/headcount?from=${from}&to=${to}`, { skipWarehouseHeader: true });
+
+/** Headcount this period against the same months a year earlier (round 30 pick "yoy" A). */
+function YearOnYearPanel({ period, months }) {
+  const from = shiftYear(period.from);
+  const to = shiftYear(period.to);
+  const req = useRequest(() => headcount(from, to).catch(() => null), [from, to]);
+  const before = req.data?.months || [];
+  const byMonth = new Map(before.map((m) => [m.month, m.headcountAtEnd]));
+  if (!before.some((m) => m.headcountAtEnd)) return null;
+  const rows = months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], now: m.headcountAtEnd, before: byMonth.get(shiftYear(`${m.month}-01`).slice(0, 7)) ?? null }));
+  return (
+    <ChartPanel title="This year against last year" note="Headcount at the end of each month" className="pt-chart-wide">
+      <YearOnYearLine label="Headcount at the end of each month" rows={rows} nowLabel="This period" beforeLabel="A year before" />
+    </ChartPanel>
+  );
+}
 
 export default function PeopleReports({ params = {}, updateParams }) {
   const periods = useMemo(() => periodsOf(), []);
@@ -178,10 +202,13 @@ export default function PeopleReports({ params = {}, updateParams }) {
             <ChartPanel title="Why people left">
               {reasons.length ? <BarList label="Leavers by reason" rows={reasons.sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: REASONS[k] || k, value: n }))} /> : <p className="pt-foot">Nobody left in this period.</p>}
             </ChartPanel>
-            <ChartPanel title="Joined and left" note="Up joined · down left" className="pt-chart-wide">
-              <JoinLeaveBars rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], joiners: m.joiners, leavers: m.leavers }))} />
-            </ChartPanel>
+            {t.joiners || t.leavers ? (
+              <ChartPanel title="Joined and left" note="Up joined · down left" className="pt-chart-wide">
+                <JoinLeaveBars rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], joiners: m.joiners, leavers: m.leavers }))} />
+              </ChartPanel>
+            ) : null}
             <TenurePanel />
+            <YearOnYearPanel period={period} months={months} />
           </div>
         ) : null}
         </div>

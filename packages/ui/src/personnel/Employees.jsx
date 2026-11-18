@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import UnderEighteen from './UnderEighteen.jsx';
 import { nextEmployeeCode } from './nextCode';
+import { maskedAadhaar } from './round43';
 import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
+import { docFolders as groupDocs } from './round46';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
@@ -1344,7 +1347,8 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
         </form>
       ) : null}
       <dl className={embedded ? 'ui-field-grid' : 'grid gap-4 sm:grid-cols-2'}>
-        <Field row={embedded} label="Aadhaar" value={id.aadhaarLast4} />
+        {/* Round 43 "aadhaarmask" A: only the last four, written as a masked number. */}
+        <Field row={embedded} label="Aadhaar" value={maskedAadhaar(id.aadhaarLast4) ? <span className="ui-mono">{maskedAadhaar(id.aadhaarLast4)}</span> : id.aadhaarLast4} />
         <Masked label="Passport" field="passportNumber" value={id.passportNumber} />
         <Field row={embedded} label="Passport expiry" value={id.passportExpiry} />
         <Masked label="Work permit" field="workPermitNumber" value={id.workPermitNumber} />
@@ -1360,7 +1364,8 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
           <Masked label="UAN" field="uan" value={d.uan} />
           <Masked label="ESIC number" field="esic" value={d.esic} />
           <Masked label="Bank account" field="account" value={[d.bank, d.account].filter(Boolean).join(' ')} />
-          <Field row={embedded} label="IFSC" value={d.ifsc} />
+          {/* Round 61 "copyvalue" A: IFSC gets pasted into bank portals. */}
+          <Field row={embedded} label="IFSC" value={d.ifsc ? <><span className="ui-mono">{d.ifsc}</span><CopyWord value={d.ifsc} what="IFSC" /></> : null} />
           <Field row={embedded} label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>
       )}
@@ -1741,9 +1746,39 @@ export function ResignForm({ person, onClose, onDone }) {
             ) : null}
           </>
         ) : null}
-        <label className="block"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">Note</span><textarea id="resign-note" className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+        <LeavingReadBack person={person} form={form} today={today} resignedOn={resigning ? resignedOn : ''} short={short} noticeWaived={resigning && noticeWaived} />
       </form>
     </Drawer>
+  );
+}
+
+/*
+ * Round 56 (reviewstep A): before something this big is recorded, the drawer reads it back in plain words, each
+ * line with a Change link to its field. It sits above Record leaving, so the one press still records it.
+ */
+export function LeavingReadBack({ person, form, today, resignedOn = '', short = null, noticeWaived = false }) {
+  const focus = (id) => () => document.getElementById(id)?.focus();
+  const name = String(person?.name || '').trim() || 'They';
+  const lines = [];
+  if (form.leavingType === 'NOT_JOINED') lines.push(['Their offer is withdrawn; they never joined.', null]);
+  else if (form.lastDay) {
+    lines.push([form.lastDay >= today
+      ? `${name} works until ${formatDateShort(form.lastDay)}, stays paid until then, and is on notice meanwhile.`
+      : `${name} left on ${formatDateShort(form.lastDay)}, and is recorded as left now.`, 'resign-last-day']);
+  }
+  lines.push([`Why: ${LEAVING_TYPES[form.leavingType] || form.leavingType}.`, null]);
+  if (resignedOn) lines.push([`Resignation received ${formatDateShort(resignedOn)}${noticeWaived ? ', notice waived' : short ? `, ${short} ${short === 1 ? 'day' : 'days'} of notice short` : ''}.`, 'resign-received']);
+  lines.push([form.reason ? `Note: ${form.reason}` : 'No note.', 'resign-note']);
+  return (
+    <section className="ui-read-back" aria-label="Before you record">
+      <h3 className="text-sm font-semibold">Before you record</h3>
+      <ul>
+        {lines.map(([text, id]) => (
+          <li key={text}><span>{text}</span>{id ? <button type="button" className="ui-link text-sm" onClick={focus(id)}>Change</button> : null}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -2015,6 +2050,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           <h3 className="ui-t-sec sm:col-span-2">Personal Details</h3>
           {input('email', 'Personal email', { type: 'email' })}
           {input('dateOfBirth', 'Date of birth', { type: 'date' })}
+          <UnderEighteen dob={form.dateOfBirth} on={form.dateOfJoining || new Date().toISOString().slice(0, 10)} className="sm:col-span-2" />
           {select('gender', 'Gender', [{ id: 'MALE', label: 'Male' }, { id: 'FEMALE', label: 'Female' }, { id: 'NON_BINARY', label: 'Non-binary' }, { id: 'OTHER', label: 'Other' }, { id: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' }])}
           {select('maritalStatus', 'Marital status', [
             { id: 'SINGLE', label: 'Single' },
@@ -2062,6 +2098,8 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   );
 }
 
+/* Outside Books a person's documents sit in folders; Books keeps one plain list. */
+const foldersOn = () => typeof document === 'undefined' || document.documentElement.dataset.palette !== 'indigo';
 const DOC_KINDS = [
   ['ID_PROOF', 'ID proof'],
   ['ADDRESS_PROOF', 'Address proof'],
@@ -2241,8 +2279,13 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       {!docs ? <SkeletonCard lines={3} /> : !docs.length ? (
         <EmptyState icon={FileDown} title="No documents yet" action={canAdd ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button> : null} />
       ) : (
-        <ul className="ui-doc-list" aria-label="Documents">
-          {docs.map((d) => {
+        <div className="ui-doc-folders">
+        {(foldersOn() ? groupDocs(docs) : [{ name: 'All', docs }]).map((folder) => (
+        <section key={folder.name} className="ui-doc-folder" aria-label={folder.name}>
+        {/* Round 46 docfolders A: Identity, Joining, Letters, Payroll, Other; outside Books only. */}
+        {foldersOn() ? <h3 className="ui-doc-folder-head">{folder.name}<span className="ui-section-count tabular-nums">{folder.docs.length}</span></h3> : null}
+        <ul className="ui-doc-list" aria-label={foldersOn() ? `${folder.name} documents` : 'Documents'}>
+          {folder.docs.map((d) => {
             const expired = d.expiresOn && d.expiresOn < today;
             return (
               <li key={d.id}>
@@ -2283,6 +2326,9 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
             );
           })}
         </ul>
+        </section>
+        ))}
+        </div>
       )}
 
       {uploading ? (

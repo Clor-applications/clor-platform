@@ -787,3 +787,537 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 26 */
+/* Printed pages end with who printed them, from CLOR, and when (shell PrintFooter). */
+.ui-print-footer { display: none; }
+@media print {
+  :root:not([data-palette='indigo']) .ui-print-footer {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0;
+    padding-top: 4px; border-top: 1px solid #ccc; background: #fff;
+    color: #555; font-size: 9px; line-height: 1.4;
+  }
+}
+/* Too many wrong sign-in codes: the wait, counting down. */
+.ui-code-wait { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+/* J / K / A hint under the Inbox list. */
+.ui-kbd-hint .ui-kbd { font-size: 11px; }
+
+/* Round 27 */
+/* Ops, extend a trial: quick picks beside the days box */
+.ui-quick-days { display: inline-flex; flex-wrap: wrap; gap: 0.375rem; }
+.ui-quick-day { height: 2rem; padding: 0 0.75rem; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #FFFFFF; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); }
+.ui-quick-day:hover { background: #F7F7F7; }
+.ui-quick-day[aria-pressed='true'] { border-color: rgb(var(--act)); color: rgb(var(--act-ink)); }
+/* A second punch within a minute: greyed, still listed */
+.ui-punch-repeat td { color: rgb(var(--fg-subtle)); }
+/* A payslip printed before payroll is approved */
+.ui-draft-strip { margin: 0; padding: 0.5rem 0.75rem; border-radius: 8px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); font-size: 0.875rem; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.ui-draft-strip b { margin-right: 0.375rem; text-transform: uppercase; letter-spacing: 0.04em; }
+/* A browser too old for CLOR: one page naming the browsers that work */
+.ui-old-browser { max-width: 35rem; margin: 4rem auto; padding: 0 1rem; color: rgb(var(--fg)); background: #FFFFFF; line-height: 1.5; }
+.ui-old-browser-h { margin: 0 0 0.5rem; font-size: 1.5rem; font-weight: 700; }
+.ui-old-browser-list { list-style: none; margin: 1.25rem 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.ui-old-browser-list li { display: flex; flex-direction: column; padding: 0.75rem 0; border-bottom: 1px solid rgb(var(--border)); }
+
+/* Round 30 */
+/* Call and WhatsApp on a colleague's card (callcolleague A). */
+.ui-call-buttons { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ui-call-buttons .ui-btn { gap: 0.375rem; }
+/* This year against last year (yoy A): this period solid in the app colour, a year before faint and dashed behind. */
+.ui-yoy { margin: 0; }
+.ui-yoy-chart { display: block; width: 100%; height: 8rem; overflow: visible; }
+.ui-yoy-chart polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.ui-yoy-now { stroke: rgb(var(--act, var(--fg))); }
+.ui-yoy-before { stroke: rgb(var(--fg-muted, var(--fg))); stroke-opacity: 0.45; stroke-dasharray: 4 3; }
+.ui-yoy-axis { display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.75rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-yoy-key { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5rem; font-size: 0.8125rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-yoy-key span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.ui-yoy-swatch-now, .ui-yoy-swatch-before { display: inline-block; width: 1rem; height: 0; border-top: 2px solid rgb(var(--act, var(--fg))); }
+.ui-yoy-swatch-before { border-top: 2px dashed rgb(var(--fg-muted, var(--fg))); opacity: 0.6; }
+
+/* Round 31 */
+/* A joiner under 18: warned beside the date of birth, never blocked */
+.ui-under18 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-under18-tag { display: inline-flex; align-items: center; padding: 0.0625rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+
+/* Round 32 */
+/* Who is paid differently from last period, on a payroll run's Review step. */
+.ui-pay-changes ul { list-style: none; margin: 0.5rem 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+.ui-pay-changes li { display: grid; grid-template-columns: minmax(8rem, 1fr) auto minmax(10rem, 2fr); gap: 0.75rem; align-items: baseline; padding: 0.5rem 0; border-bottom: 1px solid rgb(var(--border)); }
+.ui-pay-changes-amt { text-align: right; }
+.ui-pay-changes-why { color: rgb(var(--fg-muted)); }
+
+/* Round 33 */
+/* Half a day: first half or second half in one tap */
+.ui-half-choice { display: inline-flex; border: 1px solid rgb(var(--border-field, var(--border))); border-radius: 0.5rem; overflow: hidden; }
+.ui-half-choice-btn { min-height: 2.5rem; padding: 0 0.875rem; font-size: 0.875rem; color: rgb(var(--fg)); background: #FFFFFF; border: 0; cursor: pointer; }
+.ui-half-choice-btn + .ui-half-choice-btn { border-left: 1px solid rgb(var(--border-field, var(--border))); }
+.ui-half-choice-btn:hover { background: #F7F7F7; }
+.ui-half-choice-btn.is-on { background: rgb(var(--act)); color: rgb(var(--act-ink)); font-weight: 600; }
+.ui-half-choice-btn:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
+/* Leave asked for days already gone */
+.ui-late-tag { display: inline-block; margin-top: 0.125rem; padding: 0 0.5rem; border-radius: 9999px; font-size: 0.75rem; line-height: 1.25rem; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+
+/* Round 34 */
+/* cbchart A: the calendar's day counts never lean on red against green. Blue for in, orange for absent
+   (a pair that stays apart for every common kind of colour blindness), grey for leave, each with its word. */
+.ui-calendar-counts { flex-wrap: wrap; column-gap: 0.5rem; row-gap: 0; }
+.ui-count-in { color: rgb(var(--chart-blue)); }
+.ui-count-absent { color: rgb(var(--chart-clay)); }
+.ui-count-k { font-weight: 500; color: rgb(var(--fg-muted)); }
+
+/* Round 35 */
+/* Ops customer page: pinned notes above the tabs */
+.ops-pinned { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.75rem 1rem; border: 1px solid rgb(var(--border)); border-radius: 12px; background: #FFFFFF; }
+.ops-pinned ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; flex: 1 1 20rem; }
+.ops-pinned li { display: flex; gap: 0.5rem; align-items: flex-start; }
+.ops-pinned-ico { flex-shrink: 0; margin-top: 0.1875rem; color: rgb(var(--fg-muted)); }
+.ops-pinned-text { display: grid; gap: 0.125rem; }
+.ops-pinned-body { white-space: pre-wrap; color: rgb(var(--fg)); }
+.ops-pinned-by { font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ops-pinned-all { flex-shrink: 0; font-size: 0.875rem; }
+/* Workspace home: "Call me" under the setup steps */
+.ws-call-me { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem 0.75rem; margin-top: 0.75rem; }
+.ws-call-me .ui-input { width: 11rem; }
+.ws-call-me-err { flex-basis: 100%; margin: 0; color: rgb(var(--neg)); }
+.ws-call-me-done { margin: 0.75rem 0 0; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+
+/* Round 36 */
+/* A sent offer past its answer date reads as overdue, not merely waiting. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-answer-by.is-late { background-color: rgb(var(--neg)); color: rgb(255 255 255); }
+
+/* Round 37 */
+/* selfreview A: the self-review and the manager's review side by side once both are read-only. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair { display: grid; gap: 1.25rem; }
+@media (min-width: 640px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair { grid-template-columns: 1fr 1fr; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-review-pair > section + section { border-left: 1px solid rgb(var(--border)); padding-left: 1.25rem; }
+}
+/* courseassign B: trainings to finish on the employee app's Today tab. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-training-due h2 { color: rgb(var(--act-ink)); }
+
+/* Round 38 */
+/* Seeing what a role can see: a plain list by screen, one hairline per row, no card. */
+.ui-role-access { display: grid; gap: 1.25rem; }
+.ui-role-access-head { margin: 0 0 0.375rem; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
+.ui-role-access-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.ui-role-access-table th { text-align: left; font-weight: 500; color: rgb(var(--fg-muted)); padding: 0.375rem 0.5rem; border-bottom: 1px solid rgb(var(--border)); }
+.ui-role-access-table td { padding: 0.5rem; border-bottom: 1px solid rgb(var(--border)); vertical-align: top; }
+.ui-role-access-table th:first-child, .ui-role-access-table td:first-child { padding-left: 0; width: 45%; }
+.ui-role-grid { margin-top: 0.5rem; }
+.ui-role-grid > summary { cursor: pointer; font-size: 0.875rem; color: rgb(var(--act-ink)); padding: 0.375rem 0; }
+.ui-role-grid[open] > summary { margin-bottom: 0.75rem; }
+
+/* Round 39 */
+.ui-tax-compare { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+.ui-tax-compare-rows { display: flex; flex-direction: column; gap: 0.25rem; }
+.ui-tax-compare-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.875rem; color: rgb(var(--fg-muted, var(--fg))); }
+.ui-tax-compare-row.is-lower { color: rgb(var(--fg)); font-weight: 600; }
+
+/* Round 40 */
+/* earlygo A: the early-go tag sits beside the late mark, same shape, a calmer tint. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-early-tag { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
+/* rowcount B: the matching count in the list title, quieter than the title itself. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-title-count { color: rgb(var(--fg-muted)); font-weight: 500; }
+
+/* Round 42 */
+/* Sick leave for a child: Me / My child on the leave form. */
+.ui-for-whom { border: 0; padding: 0; margin: 0; }
+.ui-for-whom-choices { display: inline-flex; gap: 0; border: 1px solid rgb(var(--border)); border-radius: 8px; overflow: hidden; }
+.ui-for-whom-choice { padding: 6px 14px; font-size: 14px; background: transparent; }
+.ui-for-whom-choice + .ui-for-whom-choice { border-left: 1px solid rgb(var(--border)); }
+.ui-for-whom-choice[aria-checked='true'] { background: rgb(var(--act) / 0.1); color: rgb(var(--act-ink)); font-weight: 600; }
+/* Leave without pay: the cost in words. */
+.ui-unpaid-note { color: rgb(var(--fg-muted)); }
+
+/* Round 44 */
+/* Payroll dates for the month: four steps with the days left to pay. */
+.ui-paycal { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.ui-paycal-steps { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+.ui-paycal-step { display: flex; flex-direction: column; min-width: 7.5rem; padding: 0.5rem 0.75rem; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #fff; }
+.ui-paycal-step.is-done { color: rgb(var(--fg-muted)); }
+.ui-paycal-step.is-now { border-color: rgb(var(--act)); box-shadow: inset 0 0 0 1px rgb(var(--act)); }
+.ui-paycal-label { font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ui-paycal-date { font-weight: 600; }
+.ui-paycal-left { margin: 0; }
+/* Take-home on an offer. */
+.ui-takehome { padding: 0.75rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-takehome p { margin: 0; }
+/* PF withdrawal steps in the employee app. */
+.ui-pf-steps-list { margin: 0.75rem 0; padding-left: 1.25rem; list-style: decimal; display: grid; gap: 0.375rem; }
+
+/* Round 45 */
+/* Team size per manager: a compact two-column table inside its chart panel. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-span-table th, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-span-table td { padding-block: 6px; }
+
+/* Round 46 */
+/* A person's documents in folders (docfolders A): a quiet heading over each folder's rows. */
+.ui-doc-folders { display: grid; gap: 16px; }
+.ui-doc-folder-head {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 4px;
+  font-size: 13px; font-weight: 600; color: rgb(var(--fg-muted));
+}
+/* A letter's fields as grey chips in plain words (lettervars A). */
+.ui-letter-preview { display: grid; gap: 8px; }
+.ui-letter-preview-body {
+  white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin: 0;
+  padding: 12px 16px; border: 1px solid rgb(var(--border)); border-radius: 12px; background: rgb(var(--surface));
+}
+.ui-merge-chip {
+  display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: 9999px;
+  background: rgb(var(--fg-muted) / 0.1); color: rgb(var(--fg-muted)); font-size: 12px; line-height: 20px; white-space: nowrap;
+}
+
+/* Round 47 */
+/* The one step a request is at, as a small chip ("With HR"); yours in the app's colour. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-step-chip {
+  display: inline-block; padding: 2px 10px; border-radius: 9999px;
+  background: rgb(var(--border) / 0.45); font-weight: 500;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-step-chip.is-yours { background: rgb(var(--act) / 0.12); color: rgb(var(--act-ink)); }
+/* The document sent with a request, shown inside the request. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-inline-doc { margin: 0; border: 1px solid rgb(var(--border)); border-radius: 12px; padding: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-inline-doc img { display: block; max-width: 100%; max-height: 420px; margin: 0 auto 6px; object-fit: contain; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-inline-doc iframe { display: block; width: 100%; height: 420px; border: 0; margin-bottom: 6px; }
+
+/* Round 48 */
+/* nextholiday A: the next day off, under today's card in the employee app. */
+.ui-next-holiday { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; padding: 0.625rem 0.875rem; border: 1px solid rgb(var(--border)); border-radius: 12px; background: rgb(var(--surface)); }
+.ui-next-holiday-k { font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ui-next-holiday b { font-weight: 600; }
+/* myshifts A: Next 14 days or Whole month in My schedule. */
+.ui-sched-view { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid rgb(var(--border)); border-radius: 8px; }
+.ui-sched-view-btn { min-height: 2rem; padding: 0 0.625rem; border-radius: 6px; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-sched-view-btn:hover { background: rgb(var(--surface-sunken)); }
+.ui-sched-view-btn[aria-pressed='true'] { color: rgb(var(--act-ink, var(--fg))); font-weight: 600; background: rgb(var(--accent-soft)); }
+
+/* Round 49 */
+/* importprogress B: a thin moving bar in the app's colour while an import runs. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress { appearance: none; height: 6px; border: 0; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress::-webkit-progress-bar { background: rgb(var(--border)); border-radius: 9999px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress::-webkit-progress-value { background: rgb(var(--act)); border-radius: 9999px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress::-moz-progress-bar { background: rgb(var(--act)); border-radius: 9999px; }
+
+/* Round 50 */
+/* highcontrast A: "Stronger text" in the name menu: darker greys, firmer hairlines. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo'])[data-contrast='strong'] {
+  --fg-muted: 52 51 48;
+  --fg-subtle: 64 62 58;
+  --border: 150 150 150;
+  --border-strong: 100 100 100;
+}
+/* tapsize A: on a touch screen every button and form field is at least 48px tall (gloves, small phones). */
+@media (pointer: coarse) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn, .ui-input, .ui-select, select, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden'])) { min-height: 48px; }
+}
+/* duecalendar B: the next five statutory dues on Payroll home. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 56 */
+/* optionalfold A: "More details" opens the fields most people skip; a quiet link-like button, 8px radius. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-more-details { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px dashed rgb(var(--border-strong)); background: transparent; color: rgb(var(--act-ink, var(--fg))); font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-more-details:hover { background: rgb(var(--surface-sunken)); }
+/* namecase A: "Use Ravi Kumar" under a name typed in capitals: a pill, one tap. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-name-case { display: inline-flex; align-items: center; margin-top: 6px; min-height: 28px; padding: 2px 10px; border-radius: 9999px; border: 1px solid rgb(var(--border)); background: transparent; color: rgb(var(--fg)); font-size: 0.8125rem; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-name-case:hover { background: rgb(var(--surface-sunken)); }
+/* reviewstep A: the leaving drawer reads itself back above Record leaving, each line with Change. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.875rem; }
+
+/* Round 57 */
+/* newtab A: a row's name is a real link (Ctrl-click, middle-click, long press), drawn exactly like the button it was. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a.ui-row-open { display: block; text-decoration: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a.ui-card-open { display: block; text-decoration: none; }
+/* emptycell A: an empty box is a calm grey dash. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-empty-cell { color: rgb(var(--fg-subtle, var(--fg-muted))); }
+/* newrowmark A: the row just added is softly lit, then fades back to the page. */
+@keyframes ui-row-new-fade { from { background-color: rgb(var(--accent-soft)); } to { background-color: transparent; } }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation: ui-row-new-fade 6s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation: none; background-color: rgb(var(--accent-soft)); }
+}
+/* todayrow A: today's row carries a thin line in the app colour and says "Today". */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) tr.is-today > td:first-child { box-shadow: inset 3px 0 0 rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) li.is-today { box-shadow: inset 3px 0 0 rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-today-chip { display: inline-flex; align-items: center; margin-left: 8px; padding: 0 8px; border-radius: 9999px; font-size: 0.75rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--act-ink, var(--fg))); background: rgb(var(--accent-soft)); vertical-align: middle; }
+/* bulkresult A: what went through and, for each one that did not, whose and why. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome { border: 1px solid rgb(var(--border)); border-left: 3px solid rgb(var(--warn-ink)); border-radius: 12px; padding: 12px 16px; background: rgb(var(--surface, 255 255 255)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-line { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 0.875rem; }
+/* liveupdate A: new rows wait behind a quiet bar; the list does not jump. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-new-rows-bar { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 2.5rem; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 0.875rem; font-weight: 600; color: rgb(var(--act-ink, var(--fg))); background: rgb(var(--accent-soft)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-new-rows-bar:hover { filter: brightness(0.97); }
+/* firstrunlist A: the ways into an empty list, side by side. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .people-first-run-ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/* Round 58 */
+/* stickysubmit C: on the employee app's leave form, Send sits top right and stays in reach while the form scrolls. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-form-top { position: sticky; top: 3.5rem; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -8px -4px 0; padding: 8px 4px; background: rgb(var(--surface)); }
+/* phonedate A + rangetap A: CLOR's own month calendar, holidays and weekly offs marked, the span lit between two taps. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal { display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-head { display: flex; align-items: center; justify-content: space-between; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid { width: 100%; border-collapse: separate; border-spacing: 0 2px; table-layout: fixed; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid th { font-weight: 500; padding: 2px 0; text-align: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid td { padding: 0; text-align: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day { position: relative; width: 100%; height: 40px; border-radius: 8px; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); background: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day:hover { background: rgb(var(--rail-bg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='off'] { color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='holiday'] { color: rgb(var(--warn-ink)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark]::after,
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key i { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 9999px; background: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark]::after { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='holiday']::after,
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key i[data-mark='holiday'] { background: rgb(var(--warn)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-today] { box-shadow: inset 0 0 0 1px rgb(var(--border-strong)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-picked] { background: rgb(var(--act) / 0.12); border-radius: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-end] { background: rgb(var(--act)); color: rgb(var(--on-primary)); border-radius: 8px; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-end]::after { background: rgb(var(--on-primary)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key span { display: inline-flex; align-items: center; gap: 6px; }
+/* balancewhy A: the balance number is itself the way into how it is worked out. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bal-why { display: block; padding: 0; background: none; text-align: left; text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 6px; text-decoration-thickness: 1px; }
+/* installapp A: the home-screen strip, from the second visit, on the page ground under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-install-strip { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgb(var(--border)); }
+/* outsidearea A: how far, the allowed distance, and two ways on. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-outside-box { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+/* punchdone A: a full tick screen after a saved punch; it goes by itself in 3 seconds. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; background: rgb(var(--surface)); animation: ui-punch-done-in 160ms ease-out; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-tick { color: rgb(var(--pos)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-first { font-size: 1.75rem; line-height: 2.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-second { color: rgb(var(--fg-muted)); margin-bottom: 16px; }
+@keyframes ui-punch-done-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { animation: none; } }
+/* payslipbundle A: last 3, 6 or 12 as a segmented choice, then one PDF. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slip-bundle { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid rgb(var(--border)); border-radius: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg-btn { min-height: 36px; padding: 0 12px; border-radius: 6px; font-size: 0.875rem; color: rgb(var(--fg-muted)); background: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg-btn[data-on] { background: rgb(var(--act)); color: rgb(var(--on-primary)); font-weight: 600; }
+/* payslipquery A: the question form sits under the payslip, under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slip-ask { padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
+
+/* Round 59 */
+/* monthflow C: the payroll month as a to-do list on Payroll home, under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px 24px; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li { display: flex; align-items: center; gap: 8px; min-height: 2rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-done { color: rgb(var(--fg-subtle)); text-decoration: line-through; text-decoration-color: rgb(var(--border-strong)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next { color: rgb(var(--fg)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-mark { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; border: 1.5px solid rgb(var(--border-strong)); border-radius: 9999px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-done .ui-month-todo-mark { border-color: rgb(var(--pos)); color: rgb(var(--pos)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next .ui-month-todo-mark { border-color: rgb(var(--act, var(--fg))); }
+/* ctcsplit A: the parts one yearly CTC makes, under the CTC field. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split { border-top: 1px solid rgb(var(--border)); padding-top: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dl { margin: 4px 0 0; display: grid; gap: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dl > div { display: flex; justify-content: space-between; gap: 16px; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dt { color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dd { text-align: right; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-sum { border-top: 1px solid rgb(var(--border)); padding-top: 4px; margin-top: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-net { font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-net dt { color: rgb(var(--fg)); }
+/* attexceptions A: Present and Unpaid right on a day with no attendance. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-quickfix { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) li > .ui-quickfix { display: grid; grid-template-columns: 1fr 1fr; }
+/* leavepolicyread A: "My leave rules" in the employee app, one line a type. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules { border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 0.875rem; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules ul { list-style: none; margin: 0 0 8px; padding: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules li { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 0; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules-name { min-width: 8rem; font-weight: 500; }
+/* quickadd A: the details still missing on a record, under its summary. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish-head { margin: 0; color: rgb(var(--warn-ink)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+/* Round 60 */
+/* abbrexplain A: a short form (PF, ESI, PT, TDS) underlined with dots; a tap shows the full name and one line. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-wrap { position: relative; display: inline-block; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr { text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; cursor: help; border-radius: 4px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr:focus-visible { outline: 2px solid rgb(var(--act, var(--fg))); outline-offset: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-tip { position: absolute; z-index: 30; left: 0; top: calc(100% + 6px); width: max-content; max-width: min(18rem, 80vw); padding: 8px 12px; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #fff; color: rgb(var(--fg)); font-size: 0.8125rem; line-height: 1.25rem; font-weight: 400; white-space: normal; box-shadow: 0 4px 16px rgb(0 0 0 / 0.08); }
+/* slowload A: a slow report says it is still working, after 5 seconds. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slow-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+/* pendinginvites A: the "Not joined yet" filter and Send again to all, above the invitations list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-not-joined { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid rgb(var(--border)); border-radius: 9999px; background: #fff; color: rgb(var(--fg)); font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle:hover { background: #F7F7F7; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle.is-on { border-color: rgb(var(--act, var(--fg))); box-shadow: inset 0 0 0 1px rgb(var(--act, var(--fg))); }
+
+/* Round 51 */
+/* foreigncur B + claimcutoff B: the line under the bill amount and day. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-r51-hint { margin-top: -4px; }
+
+/* Round 52 */
+/* fnfsheet B: the settlement drawer says the net first, above the one list of lines. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 0 0 12px; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net-figure { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* fnfclock A: the countdown sits under the due date in the settlements list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-clock { margin-top: 2px; white-space: nowrap; }
+
+/* Round 53 */
+/* dupcandidate A: "Applied before for … in …" on a new application, a quiet line with the info colour as its one mark. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-applied-before { padding-left: 10px; border-left: 2px solid rgb(var(--info)); }
+
+/* Round 54 */
+/* taxrelief89 B: the section 89 note under an arrears line reads as a note, not a hint. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .pick-r54-note { display: block; margin-top: 4px; color: rgb(var(--fg)); }
+
+/* Round 55 */
+/* recentrecords A: "Recently opened" people sit under their own hairline in the module panel. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-recent-people { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+
+/* Round 61 */
+/* breadcrumb A + pagehelp A: the row above a screen: the trail (Settings › Departments) on the left, "How this works ›" on the right. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-screen-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; min-height: 1.5rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-trail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-trail [aria-current='page'] { color: rgb(var(--fg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-screen-help { white-space: nowrap; margin-left: auto; }
+/* scrolltop A: "Top ↑" bottom right after two screens of scrolling; above the phone's tab bar. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-scroll-top { position: fixed; right: 24px; bottom: 24px; z-index: 30; display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 14px; border: 1px solid rgb(var(--border)); border-radius: 9999px; background: #fff; color: rgb(var(--fg)); font-size: 0.8125rem; font-weight: 600; box-shadow: var(--shadow-pop, 0 4px 16px rgb(0 0 0 / 0.08)); cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-scroll-top:hover { background: #F7F7F7; }
+@media (max-width: 767px) { :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-scroll-top { bottom: 88px; right: 16px; } }
+/* sectionjump A: the page's sections on the right of a long settings page, following the scroll; one column below 1280px. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump { display: none; }
+@media (min-width: 1280px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump-wrap { display: grid; grid-template-columns: minmax(0, 48rem) 12rem; gap: 40px; align-items: start; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump { display: grid; gap: 2px; position: sticky; top: 88px; padding-left: 12px; border-left: 1px solid rgb(var(--border)); }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump .ui-caption { margin: 0 0 6px; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump button { text-align: left; padding: 4px 0; border: 0; background: none; color: rgb(var(--fg-muted)); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump button:hover { color: rgb(var(--fg)); }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump button[aria-current='true'] { color: rgb(var(--act-ink, var(--fg))); font-weight: 600; }
+}
+/* externallink A: a link that leaves CLOR carries ↗ (it opens in a new tab). */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a[data-external]::after { content: ' ↗'; font-size: 0.85em; }
+/* copyvalue A: a small copy icon beside numbers people paste elsewhere; "Copied" for a moment. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; vertical-align: middle; color: rgb(var(--fg-muted)); border-radius: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word:hover { color: rgb(var(--fg)); background: #F7F7F7; text-decoration: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word-done { color: rgb(var(--pos-ink, var(--fg))); font-size: 0.75rem; font-weight: 600; padding: 0 2px; }
+
+/* Round 62 */
+/* contactactions A: phone and e-mail in the record header open the call or the mail, Copy beside each. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-contact { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-contact a { display: inline-flex; align-items: center; gap: 4px; }
+/* statusbadge A: On leave today, with the day they are back in small type. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-away { display: inline-flex; align-items: baseline; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-away-note { font-weight: 400; font-size: 0.75rem; }
+/* nextprevrecord A: ‹ 3 of 25 › beside the way back to the list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-back-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-stepper { display: inline-flex; align-items: center; gap: 4px; }
+/* leftrecord A: a grey band for someone who has left, the follow-up links on it. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; padding: 12px 16px; border-radius: 12px; background: #F7F7F7; color: rgb(var(--fg-muted)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band p { margin: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band b { color: rgb(var(--fg)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-links { display: inline-flex; gap: 16px; }
+/* timetab A: this month in one line, balances and leave coming up as plain rows. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-month-line { margin: 8px 0; font-size: 0.9375rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-upcoming li > :nth-child(2) { flex: 1; }
+/* salaryonrecord A: amounts in tabular figures, dots until Show. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-money { font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-tick { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; }
+/* profileprint A: the header and overview alone on paper, salary only when ticked. */
+.r62-print-salary { display: none; }
+@media print {
+  :root[data-print-profile]:not([data-palette='indigo']) body * { visibility: hidden; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area,
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area * { visibility: visible; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; color: #000; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area :is(button:not(.pc-summary-facts button), .ui-btn, .r62-stepper, .pc-back, [role='tablist'], textarea, .ui-copy-word, .ui-call-buttons a) { display: none !important; }
+  :root[data-print-profile='salary']:not([data-palette='indigo']) .r62-print-salary { display: block; margin: 0; font-size: 12px; }
+}
+
+/* Round 63 */
+/* columnhelp A: a column name that explains itself on hover or tap (focus), one line under it. */
+:root:not([data-palette='indigo']) .ui-colhelp { position: relative; cursor: help; text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; outline: none; }
+:root:not([data-palette='indigo']) .ui-colhelp:focus-visible { box-shadow: 0 0 0 2px rgb(var(--accent) / 0.45); border-radius: 4px; }
+:root:not([data-palette='indigo']) .ui-colhelp:hover::after,
+:root:not([data-palette='indigo']) .ui-colhelp:focus::after {
+  content: attr(data-help); position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  width: max-content; max-width: 16rem; padding: 6px 10px; border: 1px solid rgb(var(--border)); border-radius: 8px;
+  background: #FFFFFF; color: rgb(var(--fg)); font-size: 0.75rem; font-weight: 400; line-height: 1.1rem; text-align: left; white-space: normal;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+}
+:root:not([data-palette='indigo']) th.text-right .ui-colhelp::after { left: auto; right: 0; }
+/* negformat A: a minus figure in red, the minus sign before it. */
+:root:not([data-palette='indigo']) .ui-neg-figure { color: rgb(var(--neg)); }
+/* totalsrow A + reportpeek A: the table scrolls inside its box; headings on top and the totals row at the bottom stay in sight. */
+:root:not([data-palette='indigo']) .ui-report-scroll { max-height: 70vh; overflow: auto; }
+:root:not([data-palette='indigo']) .ui-report-table thead th { position: sticky; top: 0; z-index: 2; background: #FFFFFF; }
+:root:not([data-palette='indigo']) .ui-report-table tfoot th,
+:root:not([data-palette='indigo']) .ui-report-table tfoot td { position: sticky; bottom: 0; z-index: 2; background: #FFFFFF; box-shadow: inset 0 1px 0 rgb(var(--border)); font-weight: 600; }
+:root:not([data-palette='indigo']) .ui-report-more { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; font-size: 0.8125rem; }
+/* reportpdf A: Print lays the report out landscape, headings on every page, page numbers, totals once at the end. */
+@page clorreport { size: A4 landscape; margin: 12mm 10mm 16mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+@media print {
+  :root[data-printing='report']:not([data-palette='indigo']) body * { visibility: hidden !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print *,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-print-footer { visibility: visible !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print { page: clorreport; position: absolute; left: 0; top: 0; width: 100%; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-scroll { max-height: none; overflow: visible; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table thead { display: table-header-group; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table thead th { position: static; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot { display: table-row-group; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot th,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot td { position: static; box-shadow: none; border-top: 1px solid #333; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tr { break-inside: avoid; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table { font-size: 10px; color: #000; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-more,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-colhelp::after { display: none !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-colhelp { text-decoration: none; }
+}
+
+/* Round 64 */
+/* settinghelp C: a small ⓘ beside a setting; opens its how-to in the Help centre. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-help { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-left: 2px; border: 0; border-radius: 8px; background: transparent; color: rgb(var(--fg-muted)); cursor: pointer; flex: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-help:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-help:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-with-help > label { flex: 1 1 auto; min-width: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-with-help > .ui-setting-help { margin-top: 1px; }
+/* settingsfind A: "grace → Time off › Attendance rules" under the Settings search. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hits { display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hits ul { list-style: none; margin: 0; padding: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hit { min-height: 32px; padding: 4px 12px; border: 1px solid rgb(var(--border)); border-radius: 8px; background: rgb(var(--surface)); color: rgb(var(--fg)); font-size: 0.875rem; text-align: left; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hit:hover { background: rgb(var(--surface-sunken)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hit:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+/* shiftsetup A: the shift on a 24-hour bar, breaks lighter. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar { display: grid; gap: 4px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-track { position: relative; height: 12px; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-on { position: absolute; top: 0; bottom: 0; background: rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-break { position: absolute; top: 3px; bottom: 3px; background: rgb(var(--surface)); opacity: 0.85; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-ticks { display: flex; justify-content: space-between; font-size: 0.6875rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
+/* leavetypesetup A: a new leave type as plain questions, one at a time. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-questions { display: grid; gap: 8px; padding: 4px 0 8px; }
+/* settingslocked A: a locked setting, its reason and the way round. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-locked { display: flex; align-items: flex-start; gap: 8px; max-width: 48rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-locked > svg { margin-top: 3px; flex: none; color: rgb(var(--fg-muted)); }
+/* depttree A: departments as an indented tree. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-tree-mark { color: rgb(var(--fg-subtle)); font-weight: 400; }
+/* usersroles B: who holds the shown role. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ws-role-holders { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+
+/* Round 65 */
+/* My team (managers): count line, due this month and leave left, on the page ground under one hairline, no card. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam { display: grid; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-count { margin: 0; font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-block { display: grid; gap: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due { list-style: none; margin: 0; padding: 0; display: grid; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due > li { display: flex; align-items: center; gap: 12px; min-height: 40px; border-top: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due > li:first-child { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-date { width: 7rem; flex: none; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-scroll { overflow-x: auto; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table { border-collapse: collapse; min-width: 100%; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table th, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table td { padding: 8px 12px 8px 0; border-top: 1px solid rgb(var(--border)); text-align: left; font-weight: 400; white-space: nowrap; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table thead th { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table .text-right { text-align: right; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort { font: inherit; font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted)); background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort[aria-pressed='true'] { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }

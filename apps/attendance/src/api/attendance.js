@@ -104,6 +104,10 @@ export const listLeaveRequests = (params) => get(`/leave/requests${query(params)
 export const getMyLeave = (year) => get(`/me/leave${query({ year })}`);
 export const applyLeave = (body) => send('/me/leave', 'POST', body);
 export const cancelMyLeave = (id) => send(`/me/leave/${encodeURIComponent(id)}/cancel`, 'POST', {});
+/** Remind whoever my waiting request waits on (once a day). */
+export const remindMyLeave = (id) => send(`/me/leave/${encodeURIComponent(id)}/remind`, 'POST', {});
+/** Answer the question an approver sent back with my request. */
+export const answerMyLeave = (id, note) => send(`/me/leave/${encodeURIComponent(id)}/answer`, 'POST', { note });
 /** Change a waiting request of one's own (same body as applyLeave). */
 export const editMyLeave = (id, body) => send(`/me/leave/${encodeURIComponent(id)}`, 'PUT', body);
 /** Came back early: approved leave that has started now ends on `toDate`. */

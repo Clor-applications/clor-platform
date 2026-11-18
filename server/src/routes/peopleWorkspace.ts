@@ -5,6 +5,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { recordAudit } from '../services/auditTrail.js';
+import { HOLDER_KEYS } from '../services/people/assetsMine.js';
 import { MODULE_OF_KIND, WORKSPACE, announcementReaches, departmentNames, parseRecord, type WorkspaceKind } from '../services/people/workspace.js';
 import { authorize } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
@@ -126,6 +127,11 @@ peopleWorkspaceRouter.put(`${path}/:id`, check({ params: RECORD_PARAMS, body: an
   if (!body.version || body.version !== current.version) return res.status(409).json({ error: 'This record changed. Reload it before saving.' });
   await related(accountId, orgId, kind, body);
   const { version, ...data } = body;
+  /* What the holder wrote from the app ("I still have this", a problem) is not on HR's form: it is kept while the same person holds it in the same state. A new holder or status starts clean. */
+  if (kind === 'assets' && current.employeeId === data.employeeId && current.status === data.status) {
+    const was = (current.details || {}) as Record<string, unknown>;
+    data.details = { ...Object.fromEntries(HOLDER_KEYS.filter((k) => was[k]).map((k) => [k, was[k]])), ...data.details };
+  }
   const result = await peoplePrisma.peopleRecord.updateMany({ where: { ...where, version }, data: { ...data, version: { increment: 1 }, updatedBy: req.auth!.userId } });
   if (!result.count) return res.status(409).json({ error: 'This record changed. Reload it before saving.' });
   const record = await peoplePrisma.peopleRecord.findFirst({ where });

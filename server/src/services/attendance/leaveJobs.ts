@@ -374,12 +374,33 @@ export async function runLeaveEngineRefresh() {
   return moved;
 }
 
+/**
+ * Leave still waiting when its first day has passed, closed as not approved (round 47), in each company that
+ * turned the choice on (Company choices: leave.closePassed, off by default). One company that fails is logged
+ * and the rest go on.
+ */
+export async function runClosePassedLeave() {
+  const { outsideTenant, runInTenant } = await import('../../utils/tenantScope.js');
+  const orgs = await outsideTenant('job: close passed leave', () => peoplePrisma.peopleSetting.findMany({ where: { closePassedLeave: true }, select: { accountId: true, orgId: true } }));
+  let closed = 0;
+  for (const o of orgs) {
+    try {
+      const { closePassedLeave } = await import('../../routes/leave.js');
+      closed += await runInTenant(o.orgId, () => closePassedLeave(o.accountId, o.orgId));
+    } catch (e) {
+      console.error(`[leave] close passed: org ${o.orgId}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return closed;
+}
+
 export function startLeaveJobs({ intervalMs = 3_600_000, startupDelayMs = 180_000 } = {}) {
   const tick = () =>
     exclusive('leave.automation', leaseFor(intervalMs), async () => {
       await runLeaveHandOns();
       await runLeaveRuleDues();
       await runLeaveEngineRefresh();
+      await runClosePassedLeave();
       /* The digest goes out once, in the morning (IST), not every hour. */
       const hour = (new Date(Date.now() + 330 * 60_000).getUTCHours());
       if (hour >= 9 && hour < 11) {

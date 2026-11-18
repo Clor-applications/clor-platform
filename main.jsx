@@ -11,6 +11,7 @@ import './packages/ui/src/picks.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 import TipLayer from './packages/ui/src/components/ui/TipLayer';
+import { OldBrowserPage, browserIsTooOld } from './packages/ui/src/components/ui/OldBrowser';
 
 /*
  * Personal data an earlier version left in this browser.
@@ -78,6 +79,15 @@ const isOps = (() => {
 })();
 const OpsConsole = lazy(() => import('./packages/ops/OpsConsole'));
 
+/* A browser too old to run CLOR well gets one page naming the browsers that do (round 27); never on Books' own host. */
+const tooOld = (() => {
+  try {
+    return !shareToken && window.location.hostname.split('.')[0] !== 'books' && browserIsTooOld(window);
+  } catch {
+    return false;
+  }
+})();
+
 /*
  * One boundary above everything.
  *
@@ -89,7 +99,9 @@ const OpsConsole = lazy(() => import('./packages/ops/OpsConsole'));
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      {shareToken ? (
+      {tooOld ? (
+        <OldBrowserPage />
+      ) : shareToken ? (
         <Suspense fallback={null}>
           <SharedInvoice token={shareToken} />
         </Suspense>
@@ -105,7 +117,7 @@ createRoot(document.getElementById('root')).render(
         </SessionProvider>
       )}
       {/* White tooltips and the letter count on long text, everywhere but Books (owner's picks, 17 Nov 2026). */}
-      {shareToken ? null : <TipLayer />}
+      {shareToken || tooOld ? null : <TipLayer />}
     </ErrorBoundary>
   </React.StrictMode>
 );

@@ -13,7 +13,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { structure } from '../workforce/api';
 import { listBranches } from '../organization/api';
-import { createOpening, deleteOpening, getOpening, listCandidates, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
+import { createOpening, deleteOpening, getJobDescription, getOpening, listCandidates, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
 import { ReferralBlock } from './ReferralSettings';
 import { BarList, ChartPanel, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, day, staffOptions, tabItems, useParamState, usePerm, useStaff, usedValues } from './shared';
@@ -36,6 +36,7 @@ export default function Openings({ params = {}, openScreen }) {
   const [open, setOpen] = useParamState(params?.id);
   const [editing, setEditing] = useState(null);
   const [closing, setClosing] = useState(null);
+  const [holding, setHolding] = useState(null);
   const req = useRequest(() => listOpenings({ status, q }), [status, q]);
   const rows = req.data || [];
   /* The figures and the pipeline (R&D PEOPLE-18): every opening, and the candidates' stage counts, whatever the tab. */
@@ -56,6 +57,8 @@ export default function Openings({ params = {}, openScreen }) {
 
   const move = async (row, to) => {
     if (to === 'CLOSED') { setClosing(row); return; }
+    /* Round 53 pick: a pause says why. */
+    if (to === 'ON_HOLD') { setHolding(row); return; }
     try {
       await setOpeningStatus(row.id, to);
       notify.success(to === 'OPEN' ? `${row.title} is open.` : to === 'ON_HOLD' ? `${row.title} is on hold. Its apply link is off.` : `${row.title} is marked filled.`);
@@ -134,6 +137,12 @@ export default function Openings({ params = {}, openScreen }) {
           onClose={() => setClosing(null)}
           onDone={async (reason) => { await setOpeningStatus(closing.id, 'CLOSED', reason); notify.success(`${closing.title} is closed.`); setClosing(null); req.reload(); }} />
       ) : null}
+      {holding ? (
+        <ReasonDrawer title={`Put ${holding.title} on hold`} label="Why" help="Say why the job waits, so whoever opens it again knows."
+          action="Put on hold" suggestions={['Budget review', 'Team is changing', 'Waiting for approval']}
+          onClose={() => setHolding(null)}
+          onDone={async (reason) => { await setOpeningStatus(holding.id, 'ON_HOLD', reason); notify.success(`${holding.title} is on hold. Its apply link is off.`); setHolding(null); req.reload(); }} />
+      ) : null}
     </div>
   );
 }
@@ -180,8 +189,12 @@ function OpeningDrawer({ id, canEdit, moves, onMove, onEdit, openScreen, onClose
             <div><dt className="ui-label">Fill by</dt><dd className="text-sm tabular-nums">{day(o.targetDate) || '—'}</dd></div>
             {o.location ? <div><dt className="ui-label">Where</dt><dd className="text-sm">{o.location}</dd></div> : null}
             {o.closedReason ? <div className="sm:col-span-2"><dt className="ui-label">Why it closed</dt><dd className="text-sm">{o.closedReason}</dd></div> : null}
+            {o.status === 'ON_HOLD' && o.heldReason ? <div className="sm:col-span-2"><dt className="ui-label">Why it is on hold</dt><dd className="text-sm">{o.heldReason}</dd></div> : null}
           </dl>
           {o.description ? <section className="text-sm"><p className="ui-label">About the job</p><p className="whitespace-pre-wrap">{o.description}</p></section> : null}
+          {o.screeningQuestions?.length ? (
+            <section className="text-sm"><p className="ui-label">Asked on the apply page</p><ol className="list-decimal pl-5 space-y-0.5">{o.screeningQuestions.map((q) => <li key={q}>{q}</li>)}</ol></section>
+          ) : null}
           {canEdit && moves(o).length ? (
             <div className="flex flex-wrap gap-2 border-t pt-3" style={{ borderColor: 'rgb(var(--border))' }}>
               {moves(o).map(([to, label]) => <button key={to} type="button" className="ui-btn ui-btn-secondary" onClick={() => act(to)}>{label}</button>)}
@@ -222,6 +235,7 @@ function OpeningForm({ value, rows, canEdit, onClose, onSaved }) {
   const initial = useMemo(() => ({
     title: value.title || '', places: String(value.places ?? 1), departmentId: value.departmentId || '', jobPositionId: value.jobPositionId || '', branchId: value.branchId || '',
     employeeTypeId: value.employeeTypeId || '', hiringManagerId: value.hiringManagerId || '', location: value.location || '', targetDate: value.targetDate || '', description: value.description || '', openNow: true,
+    screeningQuestions: (value.screeningQuestions || []).join('\n'), saveDescription: false,
   }), [value]);
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -229,13 +243,25 @@ function OpeningForm({ value, rows, canEdit, onClose, onSaved }) {
   const inFlight = useRef(false);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  /* Round 53 pick: the designation's saved description fills an empty "About the job"; a typed one can be saved for next time. */
+  const [savedText, setSavedText] = useState(null);
+  const pickDesignation = async (jobPositionId) => {
+    set({ jobPositionId });
+    setSavedText(null);
+    if (!jobPositionId) return;
+    try {
+      const r = await getJobDescription(jobPositionId);
+      setSavedText(r?.description || null);
+      if (r?.description) setForm((f) => (f.description.trim() ? f : { ...f, description: r.description }));
+    } catch { /* the form works without it */ }
+  };
   const save = async () => {
     if (inFlight.current) return;
     if (!form.title.trim()) { setError({ message: 'Say what the job is.' }); return; }
     inFlight.current = true;
     setBusy(true);
     setError(null);
-    const body = { ...form, title: form.title.trim(), places: Number(form.places) || 1, ...Object.fromEntries(['departmentId', 'jobPositionId', 'branchId', 'employeeTypeId', 'hiringManagerId', 'targetDate', 'location', 'description'].map((k) => [k, form[k] || null])) };
+    const body = { ...form, screeningQuestions: form.screeningQuestions.split('\n').map((x) => x.trim()).filter(Boolean), title: form.title.trim(), places: Number(form.places) || 1, ...Object.fromEntries(['departmentId', 'jobPositionId', 'branchId', 'employeeTypeId', 'hiringManagerId', 'targetDate', 'location', 'description'].map((k) => [k, form[k] || null])) };
     try {
       const o = value.id ? await updateOpening(value.id, body) : await createOpening({ ...body, status: form.openNow ? 'OPEN' : 'DRAFT' });
       notify.success(value.id ? 'Saved.' : o.status === 'REQUESTED' ? 'Asked for. HR is told and opens it.' : o.status === 'OPEN' ? `${o.title} is open.` : 'Saved as a draft.');
@@ -252,7 +278,7 @@ function OpeningForm({ value, rows, canEdit, onClose, onSaved }) {
         <FormError error={error} />
         <label className="block sm:col-span-2"><span className="ui-label">Job *</span><SuggestInput autoFocus maxLength={120} value={form.title} onChange={(v) => set({ title: v })} suggestions={[...usedValues(rows, (r) => r.title), ...designations.map((d) => d.name)]} /></label>
         {pick('Department', 'departmentId', departments)}
-        {pick('Designation', 'jobPositionId', designations)}
+        <div><PopupSelect showValueSubtext={false} label="Designation" value={form.jobPositionId} placeholder="None" alwaysSearch={designations.length > 8} onChange={(v) => pickDesignation(v || '')} options={[{ value: '', label: 'None' }, ...designations.filter((x) => x.isActive !== false || x.id === form.jobPositionId).map((x) => ({ value: x.id, label: x.name }))]} /></div>
         {pick('Branch', 'branchId', branches, (b) => b.branchName)}
         {pick('Employment type', 'employeeTypeId', types)}
         <div><PopupSelect showValueSubtext={false} label="Hiring manager" value={form.hiringManagerId} placeholder="None" alwaysSearch onChange={(v) => set({ hiringManagerId: v || '' })} options={[{ value: '', label: 'None' }, ...staffOptions(staff)]} /></div>
@@ -260,6 +286,10 @@ function OpeningForm({ value, rows, canEdit, onClose, onSaved }) {
         <label className="block"><span className="ui-label">Where</span><SuggestInput maxLength={120} value={form.location} onChange={(v) => set({ location: v })} suggestions={[...usedValues(rows, (r) => r.location), ...branches.map((b) => b.city).filter(Boolean)]} /></label>
         <div><label className="ui-label" htmlFor="opening-target">Fill by</label><DatePicker id="opening-target" value={form.targetDate} onChange={(d) => set({ targetDate: d || '' })} /></div>
         <label className="block sm:col-span-2"><span className="ui-label">About the job</span><textarea className="ui-input w-full" rows={5} maxLength={10000} value={form.description} onChange={(e) => set({ description: e.target.value })} /></label>
+        {canEdit && form.jobPositionId && form.description.trim() && form.description.trim() !== (savedText || '').trim() ? (
+          <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.saveDescription} onChange={(e) => set({ saveDescription: e.target.checked })} />Save as the description for {designations.find((d) => d.id === form.jobPositionId)?.name || 'this designation'}</label>
+        ) : null}
+        <label className="block sm:col-span-2"><span className="ui-label">Questions on the apply page</span><textarea className="ui-input w-full" rows={3} maxLength={1100} placeholder={'Do you have a two-wheeler licence?\nWhat is your notice period?'} value={form.screeningQuestions} onChange={(e) => set({ screeningQuestions: e.target.value })} /><span className="ui-help">One question a line, up to five. Answers show on the candidate.</span></label>
         {!value.id && canEdit ? <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.openNow} onChange={(e) => set({ openNow: e.target.checked })} />Open it now, to take candidates</label> : null}
       </form>
     </Drawer>

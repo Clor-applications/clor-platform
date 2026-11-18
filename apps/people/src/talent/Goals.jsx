@@ -14,6 +14,8 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import { Avatar } from '@ui/personnel/Employees';
 import { checkIn, createGoal, getGoal, listGoals, updateGoal } from '../api/talent';
+import { CopyLastYear, WeightTotal } from './round53Parts';
+import { CompanyGoals, GoalMarks, useCompanyGoals } from './round53Goals';
 import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, todayIst, useParamState, usedValues, useStaff, when } from './shared';
 
 /**
@@ -45,6 +47,7 @@ export default function Goals({ params = {} }) {
   const [open, setOpen] = useParamState(params?.id);
   const [editing, setEditing] = useState(null);
   const staff = useStaff();
+  const company = useCompanyGoals();
   const req = useRequest(() => listGoals({ status, employeeId: person, q }), [status, person, q]);
   const rows = req.data?.goals || [];
   /* Who they may set goals for: everyone they can read, or, without the directory, themselves and their team. */
@@ -62,7 +65,7 @@ export default function Goals({ params = {} }) {
   ] : null;
   const columns = [
     ...(person ? [] : [{ key: 'person', label: 'Person', render: (g) => (g.employee?.name ? <span className="flex min-w-0 items-center gap-2.5"><Avatar person={{ name: g.employee.name }} size={28} /><span className="truncate font-medium">{g.employee.name}</span></span> : '—') }]),
-    { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="block truncate font-medium">{g.title}</span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
+    { key: 'title', label: 'Goal', always: true, render: (g) => <span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-1.5"><span className="truncate font-medium">{g.title}</span><GoalMarks goal={g} /></span>{g.measure ? <span className="block truncate ui-caption">{g.measure}</span> : null}</span> },
     { key: 'due', label: 'Due', render: (g) => <span className={`tabular-nums whitespace-nowrap ${g.overdue ? 'ui-text-neg' : ''}`}>{day(g.dueDate) || '—'}{g.overdue ? ' (late)' : ''}</span> },
     { key: 'progress', label: 'Progress', render: (g) => <Progress value={g.progress} /> },
     { key: 'health', label: 'How it is going', render: (g) => (g.status === 'ACTIVE' ? <Pill map={HEALTH} value={g.health} /> : <Pill map={STATUS} value={g.status} />) },
@@ -76,6 +79,7 @@ export default function Goals({ params = {} }) {
         title="Goals"
         description="What each person is working towards, how it is measured, by when, and how it is going."
         primary={canAdd ? { label: 'New goal', icon: Plus, onClick: () => setEditing(blank) } : null}
+        secondary={canAdd && person ? <CopyLastYear employeeId={person} onDone={req.reload} /> : null}
         toolbar={<>
           <SearchField value={q} onSearch={setQ} placeholder="Search goal or person" label="Search goals" className="w-full sm:w-72" />
           <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(people)]} /></div>
@@ -85,6 +89,7 @@ export default function Goals({ params = {} }) {
         tab={status}
         onTab={setStatus}
       />
+      <CompanyGoals state={company} />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
           label="Goals" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="goals"
@@ -100,7 +105,7 @@ export default function Goals({ params = {} }) {
             : <EmptyState title="No goals yet" description="Agree what someone is working towards, how it is measured and by when." routes={canAdd ? [{ label: 'New goal', onSelect: () => setEditing(blank) }] : undefined} />} />
       )}
       {open ? <GoalDrawer id={open} onEdit={(g) => { setOpen(null); setEditing(g); }} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
-      {editing ? <GoalForm value={editing} staff={people} rows={rows} onClose={() => setEditing(null)} onSaved={(g) => { setEditing(null); req.reload(); setOpen(g.id); }} /> : null}
+      {editing ? <GoalForm value={editing} staff={people} rows={rows} me={me} reports={req.data?.reports || []} companyGoals={company.goals} onClose={() => setEditing(null)} onSaved={(g) => { setEditing(null); req.reload(); setOpen(g.id); }} /> : null}
     </div>
   );
 }
@@ -122,7 +127,8 @@ function GoalDrawer({ id, onEdit, onClose, onChanged }) {
     if (!(await confirmDialog({ title: status === 'DONE' ? 'Mark this goal done?' : 'Drop this goal?', message: status === 'DONE' ? 'It is set to 100% and leaves the active list.' : 'It leaves the active list; its check-ins stay.', confirmLabel: status === 'DONE' ? 'Mark done' : 'Drop', tone: status === 'DONE' ? 'neutral' : 'danger' }))) return;
     try { await updateGoal(id, { status }); notify.success('Saved.'); reload(); } catch (e) { notify.error(String(e?.message || 'Not saved.')); }
   };
-  const active = g?.status === 'ACTIVE';
+  /* A teammate's goal is read only (round 53 pick: goals open to the team). */
+  const active = g?.status === 'ACTIVE' && g?.canAct !== false;
   return (
     <Drawer open onClose={onClose} title={g?.title || 'Goal'} widthClass={SHEET} dirty={Boolean(form.note.trim())}
       footer={g && active ? (
@@ -141,6 +147,7 @@ function GoalDrawer({ id, onEdit, onClose, onChanged }) {
             <div><dt className="ui-label">Status</dt><dd>{active ? <Pill map={HEALTH} value={g.health} /> : <Pill map={STATUS} value={g.status} />}</dd></div>
             {g.measure ? <div className="sm:col-span-2"><dt className="ui-label">Measured by</dt><dd className="text-sm">{g.measure}</dd></div> : null}
             {g.weight !== null && g.weight !== undefined ? <div><dt className="ui-label">Weight</dt><dd className="text-sm tabular-nums">{g.weight}%</dd></div> : null}
+            <div><dt className="ui-label">Who sees it</dt><dd className="text-sm">{g.forTeam ? 'Their team (a team goal)' : g.visibility === 'PRIVATE' ? 'Only them, their manager and HR' : 'Their team'}</dd></div>
           </dl>
           {g.description ? <p className="text-sm whitespace-pre-wrap">{g.description}</p> : null}
           {active ? (
@@ -172,8 +179,8 @@ function GoalDrawer({ id, onEdit, onClose, onChanged }) {
   );
 }
 
-function GoalForm({ value, staff, rows, onClose, onSaved }) {
-  const initial = useMemo(() => ({ employeeId: value.employeeId || '', title: value.title || '', measure: value.measure || '', dueDate: value.dueDate || '', weight: value.weight === null || value.weight === undefined ? '' : String(value.weight), description: value.description || '' }), [value]);
+function GoalForm({ value, staff, rows, me, reports, companyGoals, onClose, onSaved }) {
+  const initial = useMemo(() => ({ employeeId: value.employeeId || '', title: value.title || '', measure: value.measure || '', dueDate: value.dueDate || '', weight: value.weight === null || value.weight === undefined ? '' : String(value.weight), description: value.description || '', visibility: value.visibility || 'TEAM', forTeam: Boolean(value.forTeam), companyGoalId: value.companyGoalId || '' }), [value]);
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -187,7 +194,7 @@ function GoalForm({ value, staff, rows, onClose, onSaved }) {
     inFlight.current = true;
     setBusy(true);
     setError(null);
-    const body = { employeeId: form.employeeId, title: form.title.trim(), measure: form.measure.trim() || null, dueDate: form.dueDate || null, weight: form.weight === '' ? null : Number(form.weight), description: form.description.trim() || null };
+    const body = { employeeId: form.employeeId, visibility: form.forTeam ? 'TEAM' : form.visibility, forTeam: form.forTeam, companyGoalId: form.companyGoalId || null, title: form.title.trim(), measure: form.measure.trim() || null, dueDate: form.dueDate || null, weight: form.weight === '' ? null : Number(form.weight), description: form.description.trim() || null };
     try {
       const g = value.id ? await updateGoal(value.id, body) : await createGoal(body);
       notify.success('Goal saved.');
@@ -203,8 +210,19 @@ function GoalForm({ value, staff, rows, onClose, onSaved }) {
         <label className="block sm:col-span-2"><span className="ui-label">Goal *</span><SuggestInput autoFocus maxLength={200} value={form.title} onChange={(v) => set({ title: v })} suggestions={usedValues(rows, (r) => r.title)} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Measured by</span><SuggestInput maxLength={300} value={form.measure} onChange={(v) => set({ measure: v })} suggestions={usedValues(rows, (r) => r.measure)} /></label>
         <div><label className="ui-label" htmlFor="goal-due">Due</label><DatePicker id="goal-due" min={value.id ? '' : todayIst()} value={form.dueDate} onChange={(d) => set({ dueDate: d || '' })} /></div>
-        <label className="block"><span className="ui-label">Weight (%)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.weight} onChange={(e) => set({ weight: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
+        <label className="block"><span className="ui-label">Weight (%)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.weight} onChange={(e) => set({ weight: e.target.value.replace(/\D/g, '').slice(0, 3) })} /><WeightTotal employeeId={form.employeeId} goalId={value.id} weight={form.weight} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">More about it</span><textarea className="ui-input w-full" rows={4} maxLength={4000} value={form.description} onChange={(e) => set({ description: e.target.value })} /></label>
+        {companyGoals.length || form.companyGoalId ? (
+          <div className="sm:col-span-2"><PopupSelect showValueSubtext={false} label="Serves the company goal" value={form.companyGoalId} placeholder="None" onChange={(v) => set({ companyGoalId: v || '' })}
+            options={[{ value: '', label: 'None' }, ...companyGoals.map((c) => ({ value: c.id, label: c.title })), ...(form.companyGoalId && !companyGoals.some((c) => c.id === form.companyGoalId) ? [{ value: form.companyGoalId, label: 'A closed company goal' }] : [])]} /></div>
+        ) : null}
+        {/* A team goal: a manager's own goal for the people reporting to them; shown once, on their list. */}
+        {(me && form.employeeId === me.id && reports.length) || form.forTeam ? (
+          <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.forTeam} onChange={(e) => set({ forTeam: e.target.checked })} />A goal for my whole team</label>
+        ) : null}
+        {!form.forTeam ? (
+          <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="ui-checkbox" checked={form.visibility === 'PRIVATE'} onChange={(e) => set({ visibility: e.target.checked ? 'PRIVATE' : 'TEAM' })} />Only me and my manager (HR too); otherwise the team sees it</label>
+        ) : null}
       </form>
     </Drawer>
   );

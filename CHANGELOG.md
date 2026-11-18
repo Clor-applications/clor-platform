@@ -14,6 +14,16 @@ API revision `clor-api-00143-x2z`. Previous release `rel-c2ab508` (roll back the
 - #332 Release record: rel-c2ab508
 - #331 Round 22 picks: joined-and-left chart, Copy link, maternity return date
 
+## rel-644865e - 2026-11-18
+
+API revision `clor-api-00144-zdv`. Previous release `rel-f16a2ae` (roll back there).
+
+- #343 Server picks batches 1-2 and picks rounds 51-65 (one release)
+- #342 Picks rounds 56-60: forms, lists, phone app, daily HR and payroll, clear words
+- #340 Rounds 46–50 picks (outside Books): documents, approvals, shifts, imports, accessibility and dues
+- #338 Rounds 41–45 picks (outside Books): field staff, leave kinds, employee record, staff money, people reports
+- #336 Rounds 26–40 picks (outside Books): 15 rounds combined
+
 ## rel-c2ab508 - 2026-11-18
 
 API revision `clor-api-00142-gh5`. Previous release `rel-128629a` (roll back there).
@@ -22,6 +32,21 @@ API revision `clor-api-00142-gh5`. Previous release `rel-128629a` (roll back the
 - #325 Front-end audit fixes: double-submit guard, full pickers, paise, no dark CSS, gate page, DESIGN.md
 - #318 Payroll: ESI cover on the wage rate, late approvals paid, overtime at company rates, PT on one-offs
 - #328 Round 20 picks: leave form says which days off count
+
+## rel-128629a - 2026-11-18
+
+API revision `clor-api-00141-vhv`. Previous release `rel-c3389b8` (roll back there).
+
+- #322 Customers add seats themselves: on at once, prorated invoice, 14 days to pay
+- #327 Round 19 picks: text size in the name menu
+- #326 Round 17 picks: shift card, claim steps
+- #321 Round 18 picks: expense limit while typing, approver told on cancel
+- #320 Round 16 picks: holiday ticks, punch place pin, Locked tag, asset icons
+- #319 Round 15 picks: density switch, frozen name column, Reset
+- #316 Round 14 style picks, except Books
+- #303 Release record: rel-f374dd4
+- #314 Round 13 style picks, except Books
+- #315 Release record: rel-c3389b8
 
 ## rel-c3389b8 - 2026-11-17
 

@@ -12,6 +12,7 @@ import CandidateDrawer from './CandidateDrawer';
 const api = vi.hoisted(() => ({
   getCandidate: vi.fn(), hireCandidate: vi.fn(), moveCandidate: vi.fn(), noteCandidate: vi.fn(), saveResume: vi.fn(), resumeFile: vi.fn(),
   addCandidate: vi.fn(), updateCandidate: vi.fn(), cancelInterview: vi.fn(), giveFeedback: vi.fn(), interviewers: vi.fn().mockResolvedValue([]), listInterviews: vi.fn().mockResolvedValue({ interviews: [] }), moveInterview: vi.fn(), scheduleInterview: vi.fn(), readFile: vi.fn(),
+  listCandidates: vi.fn().mockResolvedValue({ rows: [] }), createGoal: vi.fn(), listGoals: vi.fn(),
 }));
 vi.mock('../api/talent', () => api);
 vi.mock('../workforce/api', () => ({ nextEmployeeCode: vi.fn().mockResolvedValue('E-42') }));

@@ -50,7 +50,7 @@ const api = vi.hoisted(() => ({
   getDataRequests: vi.fn(async () => ({ requests: [] })),
 }));
 vi.mock('../apps/attendance/src/portal/portalApi', () => {
-  const rest = ['acceptItem', 'activate', 'askLeave', 'listRequests', 'askRequest', 'changeRequest', 'cancelRequest', 'requestRules', 'explainDay', 'explainLeave', 'editLeave', 'shortenLeave', 'getRestrictedHolidays', 'changePassword', 'endOtherSessions', 'endSession', 'decideApproval', 'askData', 'getApprovals', 'getMyData', 'getPrivacyNotice', 'readPrivacyNotice', 'withdrawConsent', 'getDocument', 'getAttendance', 'previewLeave', 'getSchedule', 'saveTax', 'punch', 'signIn', 'signOut', 'askDetailsChange', 'answerMyRequest', 'withdrawMyRequest', 'getPolicy', 'shrinkPhoto', 'locate', 'getForms', 'askFormRequest', 'replyFormRequest', 'withdrawFormRequest', 'getFormFile', 'getSwaps', 'swapColleagues', 'askSwap', 'answerSwap', 'withdrawSwap', 'getFixes', 'getMyMarks', 'getNightConsent', 'setNightConsent', 'getTodayPosts', 'getExitInterview', 'sendExitInterview', 'getCelebrations', 'setCelebrations', 'getMyLetters', 'askLetter'];
+  const rest = ['acceptItem', 'activate', 'askLeave', 'listRequests', 'askRequest', 'changeRequest', 'cancelRequest', 'requestRules', 'explainDay', 'explainLeave', 'editLeave', 'shortenLeave', 'getRestrictedHolidays', 'changePassword', 'endOtherSessions', 'endSession', 'decideApproval', 'askData', 'getApprovals', 'getMyData', 'getPrivacyNotice', 'readPrivacyNotice', 'withdrawConsent', 'getDocument', 'getAttendance', 'previewLeave', 'getSchedule', 'saveTax', 'punch', 'signIn', 'signOut', 'askDetailsChange', 'answerMyRequest', 'withdrawMyRequest', 'getPolicy', 'shrinkPhoto', 'locate', 'getForms', 'askFormRequest', 'replyFormRequest', 'withdrawFormRequest', 'getFormFile', 'getSwaps', 'swapColleagues', 'askSwap', 'answerSwap', 'withdrawSwap', 'getFixes', 'getMyMarks', 'getNightConsent', 'setNightConsent', 'getTodayPosts', 'getExitInterview', 'sendExitInterview', 'getCelebrations', 'setCelebrations', 'getMyLetters', 'askLetter', 'getMyAssets', 'confirmMyAsset', 'reportAssetProblem', 'askForAsset', 'askToStay'];
   return { ...Object.fromEntries(rest.map((k) => [k, vi.fn(() => Promise.resolve({}))])), ...api };
 });
 /* The Me tab's money cards (MyMoney.jsx) call their own transport: nothing spent, no salary advance here. */
@@ -135,7 +135,7 @@ describe('What’s new', () => {
     ], waitingForMe: 0 });
     render(<WhatsNew guard={guard} />);
     expect(await screen.findByText(/was rejected\. “Stock count that day”/)).toBeInTheDocument();
-    expect(screen.getByText('Rejected')).toBeInTheDocument();
+    expect(screen.getByText('Not approved')).toBeInTheDocument();
     expect(screen.getByText(/will lapse on 31 Dec 2026/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Got it: Casual/ }));
     expect(screen.queryByText(/was rejected/)).toBeNull();
@@ -200,15 +200,28 @@ describe('Ask HR as a conversation', () => {
     await waitFor(() => expect(api.replyDesk).toHaveBeenCalledWith('d1', 'Only 14 October.'));
   });
 
-  it('offers Reopen on an answer from the last seven days', async () => {
+  it('asks "Did this solve it?" on an answer from the last seven days; No reopens (round 52)', async () => {
     api.getDesk.mockResolvedValue(DESK);
     api.getDeskCase.mockResolvedValue({ request: { id: 'd2', subject: 'Experience letter', category: 'OTHER', status: 'RESOLVED', description: 'Need one', resolution: 'Sent to your documents.', resolvedAt: new Date(Date.now() - 2 * 86_400_000).toISOString(), createdAt: '2026-10-10T05:00:00Z', messages: [] } });
     render(<AskHr guard={guard} />);
     fireEvent.click((await screen.findByText('Experience letter')).closest('button'));
     expect(await screen.findByText('Sent to your documents.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Your reply')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+    expect(screen.getByText('Did this solve it?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'No, reopen' }));
     await waitFor(() => expect(api.reopenDesk).toHaveBeenCalledWith('d2'));
+  });
+
+  it('Yes on "Did this solve it?" is remembered and does not reopen (round 52)', async () => {
+    try { window.localStorage.removeItem('clor.r52.solved.d3'); } catch { /* no storage here */ }
+    api.getDesk.mockResolvedValue(DESK);
+    api.getDeskCase.mockResolvedValue({ request: { id: 'd3', subject: 'Experience letter', category: 'OTHER', status: 'RESOLVED', description: 'Need one', resolution: 'Sent to your documents.', resolvedAt: new Date(Date.now() - 86_400_000).toISOString(), createdAt: '2026-10-10T05:00:00Z', messages: [] } });
+    api.reopenDesk.mockClear();
+    render(<AskHr guard={guard} />);
+    fireEvent.click((await screen.findByText('Experience letter')).closest('button'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes' }));
+    expect(screen.getByText(/Glad it is sorted/)).toBeInTheDocument();
+    expect(api.reopenDesk).not.toHaveBeenCalled();
   });
 
   it('shows nothing where the company does not take questions here', async () => {
@@ -303,6 +316,38 @@ describe('The Me tab and Leave in the app', () => {
     const [waiting, approved] = within(list).getAllByRole('listitem');
     expect(waiting.textContent).toContain('With Ravi (your manager)');
     expect(approved.textContent).not.toContain('With');
+  });
+
+  it('round 58: two taps on the calendar, Send top right, then who has it and what happens next', async () => {
+    const portal = await import('../apps/attendance/src/portal/portalApi');
+    api.getMe.mockResolvedValue(ME);
+    api.getUpdates.mockResolvedValue({ decided: [] });
+    api.getHolidays.mockResolvedValue({ year: 2026, quota: 0, picked: 0, left: 0, holidays: [] });
+    portal.getSchedule.mockResolvedValue({ days: [{ date: '2026-11-04', kind: 'HOLIDAY', holiday: 'Diwali' }] });
+    portal.previewLeave.mockResolvedValue({ days: 2, problems: [] });
+    portal.askLeave.mockResolvedValue({ request: { id: 'n1', days: 2, leaveTypeName: 'Casual' } });
+    const sent = { id: 'n1', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-03', toDate: '2026-11-05', days: 2, status: 'PENDING', withWhom: 'With Ravi (your manager)' };
+    api.getLeave
+      .mockResolvedValueOnce({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 5, allocated: 12 }], requests: [] })
+      .mockResolvedValue({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 3, allocated: 12 }], requests: [sent] });
+    render(<EmployeePortal />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Leave' }));
+    const form = await screen.findByRole('form', { name: 'Ask for leave' });
+    fireEvent.change(within(form).getByLabelText(/Leave type/), { target: { value: 't1' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Next month' }));
+    expect(await within(form).findByRole('button', { name: /4 November, holiday: Diwali/ })).toBeTruthy();
+    fireEvent.click(within(form).getByRole('button', { name: /^Tuesday, 3 November/ }));
+    fireEvent.click(within(form).getByRole('button', { name: /^Thursday, 5 November/ }));
+    expect(within(form).getByLabelText(/First day/).value).toBe('2026-11-03');
+    expect(within(form).getByLabelText(/Last day/).value).toBe('2026-11-05');
+    fireEvent.change(within(form).getByLabelText(/Reason/), { target: { value: 'Family function' } });
+    const send = within(form).getByRole('button', { name: 'Send' });
+    expect(send.closest('.ui-form-top')).toBeTruthy();
+    await waitFor(() => expect(send.disabled).toBe(false));
+    fireEvent.click(send);
+    await waitFor(() => expect(portal.askLeave).toHaveBeenCalledWith(expect.objectContaining({ fromDate: '2026-11-03', toDate: '2026-11-05' })));
+    expect(await screen.findByText(/Sent to Ravi \(your manager\)\. You will get a notice when it is decided\./)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'View request' })).toBeTruthy();
   });
 
   it('asks before cancelling approved leave', async () => {

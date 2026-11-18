@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { maritalNextStep } from '@ui/personnel/round43';
 import { SignedOut, acceptItem, answerMyRequest, askDetailsChange, getLeaving, getMyDetails, getPolicies, getPolicy, shrinkPhoto, withdrawMyRequest } from './portalApi';
 
 /**
@@ -111,6 +112,9 @@ function PersonalDetails({ d, guard, reload }) {
       const parts = [];
       if (r.saved?.length) parts.push(`Saved: ${r.saved.map(name).join(', ')}.`);
       if (r.requested?.length) parts.push(`Sent to HR: ${r.requested.map(name).join(', ')}. You will see the answer under My requests.`);
+      /* Round 43 "maritalchange" A: a marital status change asks for the nominee and cover next. */
+      const next = 'maritalStatus' in body ? maritalNextStep(d.fields.maritalStatus, body.maritalStatus) : null;
+      if (next) parts.push(next);
       setNote({ ok: true, text: parts.join(' ') || 'Nothing changed.' });
       setEditing(false);
       reload();

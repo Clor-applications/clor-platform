@@ -130,13 +130,17 @@ describe('bills from the employee app', () => {
     /* A page of HTML calling itself a PNG. */
     const fake = await me.post('/lines', { spentOn: daysAgo(1), categoryId: travel, amount: 50, merchant: 'Auto', bill: `data:image/png;base64,${Buffer.from('<html><script>x</script></html>').toString('base64')}` }).expect(400);
     expect(fake.body.error).toMatch(/not a photo or PDF/);
-    /* Same amount, day and shop: asked whether it is a different bill; said yes, it goes in and the approver sees it flagged. */
-    const twin = await me.post('/lines', { spentOn: daysAgo(2), categoryId: travel, amount: 450, merchant: 'uber' }).expect(409);
-    expect(twin.body.code).toBe('POSSIBLE_DUPLICATE');
-    const kept = await me.post('/lines', { spentOn: daysAgo(2), categoryId: travel, amount: 450, merchant: 'uber', notDuplicate: true }).expect(201);
+    /* Same amount, day and shop: never asked of the person (picks round 51); it goes in and the approver sees it flagged. */
+    const kept = await me.post('/lines', { spentOn: daysAgo(2), categoryId: travel, amount: 450, merchant: 'uber' }).expect(201);
     let draft = (await me.get('/').expect(200)).body.draft;
     expect(draft.lines.find((l: any) => l.id === kept.body.lineId).possibleDuplicate).toBe(true);
     await me.del(`/lines/${kept.body.lineId}`).expect(200);
+    /* A bill older than 60 days is refused in the app (picks round 51); 60 days back is still fine. */
+    const old = await me.post('/lines', { spentOn: daysAgo(61), categoryId: travel, amount: 80, merchant: 'Auto' }).expect(400);
+    expect(old.body).toMatchObject({ code: 'TOO_OLD' });
+    expect(old.body.error).toMatch(/older than 60 days/);
+    const edge = await me.post('/lines', { spentOn: daysAgo(60), categoryId: travel, amount: 80, merchant: 'Auto' }).expect(201);
+    await me.del(`/lines/${edge.body.lineId}`).expect(200);
     /* Food on a bill in the company's name: GSTIN and tax kept; food shows credit usually blocked. */
     await me.post('/lines', { spentOn: daysAgo(1), categoryId: food, amount: 1200, merchant: 'Hotel Saravana', companyGstin: true, supplierGstin: '29ABCDE1234F1ZW', taxAmount: 60, bill: bill(2) }).expect(201);
     await me.post('/lines', { spentOn: daysAgo(1), categoryId: food, amount: 100, merchant: 'Tea', supplierGstin: 'not-a-gstin' }).expect(400);
@@ -474,5 +478,22 @@ describe('who may, and company isolation', () => {
       expect(r.status).toBe(409);
     }
     expect((await api(hr).get(`/people/money/claims/${id}`).expect(200)).body.claim.status).not.toBe('SUBMITTED');
+  });
+});
+
+describe('a company card spend (picks round 51)', () => {
+  it('is on the claim for the record and Books, and never paid back to the person', async () => {
+    await me.post('/lines', { spentOn: daysAgo(4), categoryId: travel, amount: 2000, merchant: 'IndiGo', paidByCompany: true, bill: bill(141) }).expect(201);
+    await me.post('/lines', { spentOn: daysAgo(4), categoryId: travel, amount: 150, merchant: 'Airport cab', bill: bill(142) }).expect(201);
+    const draft = (await me.get('/').expect(200)).body.draft;
+    expect(draft.claimed).toBe(150);
+    expect(draft.lines.find((l: any) => l.merchant === 'IndiGo')).toMatchObject({ paidByCompany: true, amount: 2000 });
+    await me.post(`/claims/${draft.id}/submit`, { title: 'Client visit' }).expect(200);
+    await approveAll(await requestOf('claims', draft.id));
+    const claim = (await me.get('/').expect(200)).body.claims.find((c: any) => c.id === draft.id);
+    expect(claim).toMatchObject({ status: 'APPROVED', approved: 150, toPay: 150 });
+    const csv = (await api(hr).get('/people/money/export.csv?kind=books').expect(200)).text;
+    expect(csv.split('\n').find((l) => l.includes('IndiGo'))).toMatch(/,Yes\r?$/);
+    expect(csv.split('\n').find((l) => l.includes('Airport cab'))).toMatch(/,No\r?$/);
   });
 });

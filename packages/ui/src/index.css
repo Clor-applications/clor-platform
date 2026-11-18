@@ -7694,6 +7694,10 @@ select[aria-label="Report period"] { width: 8rem; min-width: 8rem; }
 .ui-chip.is-on { background: rgb(var(--fg)); border-color: rgb(var(--fg)); color: rgb(var(--surface)); }
 .ui-chip.is-on > span { color: inherit; opacity: 0.8; }
 .ui-chip:focus-visible { outline: 2px solid rgb(var(--ring, var(--brand))); outline-offset: 2px; }
+/* A chip that can be taken off (languages spoken): its × is a small round button. */
+.ui-chip-x { display: inline-grid; place-items: center; width: 1.125rem; height: 1.125rem; margin-right: -0.375rem; border-radius: 999px; color: rgb(var(--fg-muted)); font-size: 0.875rem; line-height: 1; }
+.ui-chip-x:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+.ui-chip-x:focus-visible { outline: 2px solid rgb(var(--ring, var(--brand))); outline-offset: 1px; }
 
 /* Explain a day */
 .ui-explain-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem 1rem; padding: 0.875rem 1rem; border-radius: 8px; background: rgb(var(--surface-sunken)); }

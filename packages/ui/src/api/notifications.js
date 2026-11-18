@@ -12,7 +12,9 @@ const opts = { skipWarehouseHeader: true };
 export const getInbox = (limit = 30) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox?limit=${limit}`, opts);
 export const markRead = (ids) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/read`, { ...opts, method: 'POST', body: { ids } });
 export const markAllRead = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/read`, { ...opts, method: 'POST', body: { all: true } });
-export const getMutes = () => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/mutes`, opts).then((r) => r?.mutes || []);
+/** Round 55: back at 9 AM tomorrow (India time), unread and at the top. */
+export const snoozeNotice = (id) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/snooze`, { ...opts, method: 'POST', body: { id } });
+export const getMutes =() => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/mutes`, opts).then((r) => r?.mutes || []);
 export const setMute = (kind, muted) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/notifications/inbox/mutes`, { ...opts, method: 'POST', body: { kind, muted } }).then((r) => r?.mutes || []);
 
 /**

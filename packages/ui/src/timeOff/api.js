@@ -43,9 +43,14 @@ export const previewLeaveType = (body) => send('/leave/types/preview', 'POST', b
 export const getWorkingWeek = () => get('/leave/working-week');
 export const saveWorkingWeek = (body) => send('/leave/working-week', 'PUT', body);
 export const createLeaveRequest = (body) => send('/leave/requests', 'POST', body);
-export const approveLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/approve`, 'POST', { note });
+/** `opts.asHr`: HR for the whole company deciding while it is still the manager's turn (marked "Decided by HR"). */
+export const approveLeave = (requestId, note, opts = {}) => send(`/leave/requests/${id(requestId)}/approve`, 'POST', { note, ...(opts.asHr ? { asHr: true } : {}) });
 export const rejectLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/reject`, 'POST', { note });
 export const cancelLeave = (requestId) => send(`/leave/requests/${id(requestId)}/cancel`, 'POST', {});
+/** Send a waiting request back to the person with a question; it stays with the same approver. */
+export const sendBackLeave = (requestId, question) => send(`/leave/requests/${id(requestId)}/send-back`, 'POST', { note: question });
+/** Take back an approval before the leave starts: it waits again and its days come off the record. */
+export const takeBackLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/take-back`, 'POST', { note });
 /** Decide several waiting leave requests at once, each through the same checks as one: { done, failed, handedOn, results: [{ id, error, code }] }. */
 export const bulkReviewLeave = (ids, approve, note) => send('/leave/requests/bulk-review', 'POST', { ids, approve, ...(note ? { note } : {}) });
 /** Approved work from home and on duty in a month: { rows: [{ id, employeeId, employeeName, department, kind, fromDate, toDate, halfDay, place }] }. */
@@ -111,7 +116,7 @@ export const phonePunch = (body) => send('/me/punch', 'POST', body);
 export const attendanceIsOn = () => featuresFor(orgId()).then((r) => Boolean((r?.features || r || {}).attendance)).catch(() => false);
 
 export const STATUS_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
-export const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
+export const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
 /** Private leave as a reader without the right to see it gets it: no type colour, no reason. */
 export const PRIVATE_LABEL = 'Private leave';
 export const DAY_LABEL = { PRESENT: 'Present', HALF_DAY: 'Half day', ABSENT: 'Absent', ON_LEAVE: 'On leave', HOLIDAY: 'Holiday', WEEKLY_OFF: 'Weekly off' };

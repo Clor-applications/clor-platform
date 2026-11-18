@@ -731,8 +731,17 @@ opsRouter.get('/ops/home', (_req, res) =>
       platformPrisma.paymentEvent.count({ where: paymentsWhere }),
     ]);
     const ticketRows = [...urgentTickets, ...unassignedTickets].slice(0, HOME_ITEMS);
+    /* Round 55 (renewals B): paid periods ending in the next 30 days that will renew, soonest first, with the amount and when the customer last signed in. */
+    const renewalsWhere = { status: 'active', cancelAtPeriodEnd: false, currentPeriodEnd: { gte: at, lte: new Date(now + 30 * DAY) } };
+    const [renewalRows, renewalsDue] = await Promise.all([
+      platformPrisma.subscription.findMany({ where: renewalsWhere, orderBy: { currentPeriodEnd: 'asc' }, take: HOME_ITEMS, select: { accountId: true, currentPeriodEnd: true, billingInterval: true, periodAmount: true, listAmount: true, offerEndsAt: true } }),
+      platformPrisma.subscription.count({ where: renewalsWhere }),
+    ]);
+    const lastSeen = renewalRows.length
+      ? new Map((await platformPrisma.user.groupBy({ by: ['accountId'], where: { accountId: { in: renewalRows.map((r) => r.accountId) } }, _max: { lastLoginAt: true } })).map((g) => [g.accountId, g._max.lastLoginAt]))
+      : new Map<string, Date | null>();
     const [titles, askers] = await Promise.all([
-      customerTitles([...trialRows, ...invoiceRows, ...ticketRows, ...approvalRows, ...paymentRows].map((r) => r.accountId)),
+      customerTitles([...trialRows, ...invoiceRows, ...ticketRows, ...approvalRows, ...paymentRows, ...renewalRows].map((r) => r.accountId)),
       approvalRows.length ? platformPrisma.user.findMany({ where: { id: { in: [...new Set(approvalRows.map((a) => a.requestedBy))] } }, select: { id: true, fullName: true, email: true } }) : [],
     ]);
     const asker = new Map(askers.map((u) => [u.id, u.fullName || u.email]));
@@ -752,8 +761,46 @@ opsRouter.get('/ops/home', (_req, res) =>
         total: paymentsFailed,
         items: paymentRows.map((p) => ({ id: p.id, what: paymentEventWords(p.type), accountId: p.accountId, customer: customer(p.accountId), amount: p.amount, detail: p.detail, at: p.receivedAt })),
       },
+      renewals: {
+        total: renewalsDue,
+        items: renewalRows.map((r) => ({
+          accountId: r.accountId,
+          customer: customer(r.accountId),
+          renewsAt: r.currentPeriodEnd,
+          interval: r.billingInterval,
+          /* What the next period costs before GST: the list price once the offer has run out by then. */
+          amount: r.periodAmount == null ? null : r.offerEndsAt && r.currentPeriodEnd && r.offerEndsAt <= r.currentPeriodEnd ? (r.listAmount ?? r.periodAmount) : r.periodAmount,
+          lastActiveAt: lastSeen.get(r.accountId) || null,
+        })),
+      },
     };
-    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen, approvalsWaiting, invoicesOverdue, work });
+    res.json({ newDemos, demosToday, followUpsDue, trialsEnding, failedPayments, failedEmails, suspended, overdue, alertsOpen, alertsCritical, ticketsOpen, approvalsWaiting, invoicesOverdue, renewalsDue, work });
+  }),
+);
+
+/* -------------------------------------------------------------- handover */
+
+/** The handover note on Home (round 55): the newest, and who wrote it when. Every operator reads it. */
+opsRouter.get('/ops/handover', (req, res) =>
+  outsideTenant('ops: handover note', async () => {
+    const row = await platformPrisma.opsHandoverNote.findFirst({ orderBy: { createdAt: 'desc' } });
+    if (!row) return res.json({ note: null });
+    const who = await platformPrisma.user.findUnique({ where: { id: row.authorUserId }, select: { fullName: true, email: true } });
+    res.json({ note: { id: row.id, body: row.body, at: row.createdAt, by: who?.fullName || who?.email || 'Staff', mine: row.authorUserId === req.auth!.userId } });
+  }),
+);
+
+const handoverBody = z.object({ body: z.string().trim().min(3, 'Write what the next person should know.').max(2000, 'Keep it under 2,000 characters.') });
+
+/** Write the handover note for the next shift. Any operator but Read-only; each note is kept, the newest shows. */
+opsRouter.post('/ops/handover', requireOperatorRole('SUPPORT', 'SALES', 'BILLING'), (req, res) =>
+  outsideTenant('ops: write the handover note', async () => {
+    const parsed = handoverBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Write the note.', code: 'INVALID' });
+    const row = await platformPrisma.opsHandoverNote.create({ data: { body: parsed.data.body, authorUserId: req.auth!.userId } });
+    await audit(req, 'HANDOVER_WRITTEN', {}, { id: row.id, length: row.body.length });
+    const who = await platformPrisma.user.findUnique({ where: { id: row.authorUserId }, select: { fullName: true, email: true } });
+    res.status(201).json({ note: { id: row.id, body: row.body, at: row.createdAt, by: who?.fullName || who?.email || 'Staff', mine: true } });
   }),
 );
 

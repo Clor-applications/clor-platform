@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { returnPath } from '@ui/picks/round34';
 import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import AuthLayout from './AuthLayout';
@@ -60,7 +61,7 @@ export default function SignIn({ onHome, onSignUp, onForgot, brand, door, subtit
     };
   }, [email]);
   const continueWith = (p) => {
-    window.location.assign(`${API_BASE}/auth/sso/${encodeURIComponent(p.id)}/start?return=${encodeURIComponent('/')}&hint=${encodeURIComponent(email.trim())}`);
+    window.location.assign(`${API_BASE}/auth/sso/${encodeURIComponent(p.id)}/start?return=${encodeURIComponent(returnPath())}&hint=${encodeURIComponent(email.trim())}`);
   };
 
   const submit = async (e) => {

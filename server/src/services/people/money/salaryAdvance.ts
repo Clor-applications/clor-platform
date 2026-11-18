@@ -77,10 +77,13 @@ export async function mySalaryAdvance(me: Me) {
   const loans = await payrollPrisma.payrollLoan.findMany({ where: { orgId: me.orgId, employeeId: me.employeeId, status: { in: ['ACTIVE', 'DRAFT'] } }, orderBy: { createdAt: 'desc' }, select: { id: true, number: true, type: true, status: true, principal: true, installmentAmount: true, outstandingBalance: true } });
   const loanById = new Map(await Promise.all(asks.filter((a) => a.loanId).map(async (a) => [a.loanId!, await loanState(me.orgId, a.loanId!)] as const)));
   const cap = await capFor(me.orgId, me.employeeId);
+  /* Each active loan's next instalment, which the person may ask to skip (picks round 54). */
+  const { nextInstalments } = await import('../../payroll/skipAsk.js');
+  const nextOf = await nextInstalments(me.orgId, loans.filter((l) => l.status === 'ACTIVE').map((l) => l.id));
   return {
     available: true,
     asks: asks.map((a) => shape(a, a.loanId ? loanById.get(a.loanId) : null, words.get(a.approvalRequestId || ''))),
-    loans: loans.map((l) => ({ number: l.number, kind: l.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan', status: l.status, principal: num(l.principal), instalment: num(l.installmentAmount), outstanding: num(l.outstandingBalance) })),
+    loans: loans.map((l) => ({ id: l.id, next: nextOf.get(l.id) ?? null, number: l.number, kind: l.type === 'SALARY_ADVANCE' ? 'Salary advance' : 'Loan', status: l.status, principal: num(l.principal), instalment: num(l.installmentAmount), outstanding: num(l.outstandingBalance) })),
     cap: { known: cap.known, monthlyRoom: cap.monthlyRoom, explain: cap.explain, interestFreeOwed: cap.interestFreeOwed },
     maxMonths: MAX_MONTHS, perquisiteLimit: PERQUISITE_LIMIT,
   };

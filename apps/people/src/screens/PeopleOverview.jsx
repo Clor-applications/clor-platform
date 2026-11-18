@@ -104,13 +104,47 @@ function loadCard(key, request, set, setFailed, inFlight) {
  */
 export function HomeGlance({ glance, go }) {
   if (!glance) return null;
-  const { probation, week, monthClose } = glance;
+  const { probation, week, monthClose, teamWeek } = glance;
   const weekRows = week ? [
     ...week.joining.map((p) => ({ key: `j-${p.id}`, on: p.on, text: <><b>{p.name}</b> joins</>, open: go('employee', { id: p.id }) })),
     ...week.leaving.map((p) => ({ key: `l-${p.id}`, on: p.on, text: <><b>{p.name}</b>’s last day</>, open: go('employee', { id: p.id }) })),
     ...week.holidays.map((h) => ({ key: `h-${h.date}-${h.name}`, on: h.date, text: <><b>{h.name}</b>{h.optional ? ' (optional holiday)' : ' (holiday)'}</>, open: go('holidays') })),
   ].sort((a, b) => a.on.localeCompare(b.on)) : [];
   const blocks = [];
+  /* Round 55 (week ahead A): a manager's own team for the next seven days, first; their open requests are the waiting line above. */
+  if (teamWeek && (teamWeek.away.length || teamWeek.birthdays.length || glance.waiting)) {
+    const rows = [
+      ...teamWeek.away.map((a) => ({ key: `a-${a.id}-${a.from}`, on: a.from < teamWeek.from ? teamWeek.from : a.from, text: <><b>{a.name}</b> away{a.from === a.to ? '' : ` till ${shortDate(a.to)}`}</>, when: a.from <= teamWeek.from ? 'Away now' : dayDate(a.from), open: go('employee', { id: a.id }) })),
+      ...teamWeek.birthdays.map((b) => ({ key: `b-${b.id}`, on: b.on, text: <><b>{b.name}</b>’s birthday</>, when: b.on === teamWeek.from ? 'Today' : dayDate(b.on), open: go('employee', { id: b.id }) })),
+    ].sort((x, y) => x.on.localeCompare(y.on));
+    blocks.push(
+      <section key="teamWeek" className="people-glance-block" aria-labelledby="glance-team-week">
+        <header className="people-glance-head">
+          <h2 id="glance-team-week" className="people-glance-title">Your team this week</h2>
+          <span className="ui-caption tabular-nums">{shortDate(teamWeek.from)} to {shortDate(teamWeek.to)}</span>
+        </header>
+        <ul className="people-glance-list">
+          {glance.waiting ? (
+            <li key="open">
+              <button type="button" className="people-glance-row" onClick={go('approvals')}>
+                <span className="min-w-0 flex-1 truncate"><b className="tabular-nums">{glance.waiting.toLocaleString('en-IN')}</b> {glance.waiting === 1 ? 'request waits' : 'requests wait'} for you</span>
+                <span className="people-glance-when">Open Inbox</span>
+              </button>
+            </li>
+          ) : null}
+          {rows.map((r) => (
+            <li key={r.key}>
+              <button type="button" className="people-glance-row" onClick={r.open}>
+                <span className="min-w-0 flex-1 truncate">{r.text}</span>
+                <span className="people-glance-when tabular-nums">{r.when}</span>
+              </button>
+            </li>
+          ))}
+          {!rows.length ? <li className="ui-caption" style={{ padding: '8px 0' }}>Nobody on your team is away and no birthdays this week.</li> : null}
+        </ul>
+      </section>,
+    );
+  }
   if (probation?.length) {
     blocks.push(
       <section key="probation" className="people-glance-block" aria-labelledby="glance-probation">

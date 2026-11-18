@@ -556,6 +556,13 @@ model PayrollAdjustment {
   type   String
   amount Decimal @default(0)
 
+  /// Count × rate (22 meals at ₹30, 340 pieces at ₹4, 6 nights at ₹150): the
+  /// amount is their product and the payslip line shows both. Null for a plain amount.
+  quantity Decimal?
+  rate     Decimal?
+  /// What was counted, in the singular: meal, piece, night.
+  unit     String?
+
   reason    String?
   reference String?
 
@@ -606,6 +613,9 @@ model PayrollRun {
 
   payrollDate String
   notes       String?
+  /// A note for whoever runs next month's payroll ("Ravi's arrears due in May"):
+  /// shown at the top of the next run for the same pay group and branch.
+  noteForNext String?
 
   /// DRAFT | CALCULATED | REVIEW | APPROVED | LOCKED | PAID | POSTED | CANCELLED
   status String @default("DRAFT")
@@ -839,6 +849,11 @@ model SalarySlipLine {
   /// What it would have been without proration, when they differ.
   fullAmount Decimal?
 
+  /// Copied from a count × rate adjustment, so the payslip reads "22 meals × ₹30".
+  quantity Decimal?
+  rate     Decimal?
+  unit     String?
+
   isTaxable    Boolean @default(true)
   displayOrder Int     @default(0)
 
@@ -970,6 +985,12 @@ model PayrollLoanInstallment {
   carriedFromId       String?
   carriedByRunId      String?
   carriedFromPeriodId String?
+
+  /// The employee asked, in the employee app, to skip this instalment; HR
+  /// skips it (it moves out of the way, still owed) or declines, which clears the ask.
+  skipAskedAt       DateTime?
+  skipAskedReason   String?
+  skipAskedByUserId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1316,6 +1337,30 @@ model PayrollOpeningYtd {
 
   @@unique([orgId, employeeId, financialYear])
   @@index([accountId, orgId, financialYear])
+}
+
+/// A salary TDS deposit (challan ITNS 281) against the month whose tax it
+/// pays. The 24Q carries its BSR code, date and serial (round 27 pick).
+model PayrollTdsChallan {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// "2026-27".
+  financialYear   String
+  /// The month whose deducted tax this deposits, "2026-05".
+  month           String
+  bsrCode         String
+  challanSerial   String
+  /// "2026-06-07".
+  depositDate     String
+  amount          Decimal
+  note            String?
+  deletedAt       DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, financialYear])
 }
 
 /// A PF nominee (EPF Form 2): who receives the PF if the member dies, and

@@ -5,6 +5,7 @@ import { notify } from '@ui/components/ui/notify';
 import { listShifts, updateShift } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { shiftBody } from '../components/shiftBody';
+import { mondayFirst } from '@ui/timeOff/round33';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const NTH = ['1st', '2nd', '3rd', '4th', '5th'];
@@ -85,7 +86,7 @@ export default function WeeklyOffPolicy({ openScreen }) {
                 <thead>
                   <tr>
                     <th>Shift</th>
-                    {DAYS.map((d) => <th key={d} className="ui-col-h-center">{d}</th>)}
+                    {mondayFirst(DAYS).map(({ label: d }) => <th key={d} className="ui-col-h-center">{d}</th>)}
                     {NTH.map((n) => <th key={n} className="ui-col-h-center">{n} Sat</th>)}
                     <th className="ui-col-h-right"><span className="sr-only">Save</span></th>
                   </tr>
@@ -102,7 +103,7 @@ export default function WeeklyOffPolicy({ openScreen }) {
                           <span className="ui-caption tabular-nums">{s.startTime}–{s.endTime}</span>{' '}
                           {s.isActive ? null : <StatusPill status="inactive" />}
                         </td>
-                        {DAYS.map((d, i) => (
+                        {mondayFirst(DAYS).map(({ label: d, index: i }) => (
                           <td key={d} className="text-center">
                             <input type="checkbox" className="ui-checkbox" checked={off.has(String(i))} onChange={() => toggle(s, 'weeklyOffDays', String(i))} aria-label={`${s.name}: ${d} off`} />
                           </td>

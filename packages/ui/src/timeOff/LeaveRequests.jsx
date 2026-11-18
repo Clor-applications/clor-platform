@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { waitingSaid } from '../picks/round34';
 import LeaveDocumentField from './LeaveDocumentField';
 import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from './HalfDayChoice';
 import { HoursChoice, PreviewNotes } from './LeaveShape';
@@ -8,6 +9,8 @@ import { LeavePill, Notice, StatTiles, TILE_ICON } from './Figures';
 import { clashDays } from './clashes';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import BulkOutcome from '@ui/components/list/BulkOutcome';
+import { bulkOutcome } from '@ui/picks/round57';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -17,16 +20,19 @@ import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { decidedLine } from '@ui/picks/round60';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
 import { can, homeCrumbs, istDay } from './shared';
+import { lateText } from './round33';
+import { BalanceAfter, InlineDocument, LONG_WAIT_DAYS, isWaitingTooLong, stepChipText } from './round47';
 import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
   PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, bulkReviewLeave, cancelLeave, getTimeOverview, createLeaveRequest, daysText,
-  getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave,
+  getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave, sendBackLeave, takeBackLeave,
   shortenLeave, swatchOf, updateLeaveRequest, listPeople,
 } from './api';
 import { addDaysIso as addDays } from '@ui/utils/dates';
@@ -40,7 +46,9 @@ import { addDaysIso as addDays } from '@ui/utils/dates';
  * away and what happened to it; HR enters leave for someone with the same
  * date-by-date preview the employee app shows.
  */
-const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
+const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Not approved'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
+/* Round 60 toastwords A: the done message names whose leave and which days. */
+const leaveDone = (r, verb) => decidedLine({ name: r.employeeName, what: r.leaveTypeName ? r.leaveTypeName.toLowerCase() : 'leave', from: r.fromDate, to: r.toDate, verb });
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 const half = (h) => (h === 'FIRST' ? 'First half' : h === 'SECOND' ? 'Second half' : '');
 const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
@@ -54,7 +62,7 @@ export function TypeDot({ row }) {
 export function StatusPill({ row }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>
+      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>{row.status === 'PENDING' && row.createdAt ? <span className="sr-only">{`, ${waitingSaid(row.createdAt)}`}</span> : null}
       {row.status === 'PENDING' && row.managerApprovedAt ? <span className="ui-caption">{row.managerApprovedById ? 'Manager approved' : 'Handed on to HR'}</span> : null}
       {row.status === 'PENDING' && row.ruleStep > 1 ? <span className="ui-caption">Step {row.ruleStep}</span> : null}
     </span>
@@ -78,7 +86,11 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   const year = p.year ? Number(p.year) : settings.data?.current?.year;
   const query = { status: tab === 'all' ? undefined : tab, q: p.q, leaveTypeId: p.type, year, limit: size, offset: (page - 1) * size };
   const list = useRequest(() => (year ? pageLeaveRequests(query) : Promise.resolve(null)), [JSON.stringify(query)]);
-  const rows = list.data?.requests || [];
+  const allRows = list.data?.requests || [];
+  /* Round 47 escalate B: a "Waiting too long" list of requests waiting more than three days. */
+  const longWaiting = tab === 'PENDING' ? allRows.filter((r) => isWaitingTooLong(r.createdAt)) : [];
+  const onlyLong = tab === 'PENDING' && p.long === '1';
+  const rows = onlyLong ? longWaiting : allRows;
   const counts = list.data?.counts || {};
   const [adding, setAdding] = useState(false);
   /* Today's figures for the tiles and the clash notice: the same overview Who's away reads; a refusal leaves them out. */
@@ -104,7 +116,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       </span>
     ) },
     { key: 'type', label: 'Leave', render: (r) => (r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL ? <span className="inline-flex items-center gap-2 whitespace-nowrap"><TypeDot row={r} />{r.leaveTypeName}</span> : <LeavePill type={r} />) },
-    { key: 'dates', label: 'Dates', render: (r) => <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}{hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{half(r.halfDay)}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : r.groupId ? <span className="ui-caption block">Part of a longer leave</span> : null}</span> },
+    { key: 'dates', label: 'Dates', render: (r) => <span className="tabular-nums whitespace-nowrap">{range(r.fromDate, r.toDate)}{hoursText(r) ? <span className="ui-caption block">{hoursText(r)}</span> : r.halfDay ? <span className="ui-caption block">{half(r.halfDay)}</span> : r.overflowOfId ? <span className="ui-caption block">Over the balance: loss of pay</span> : r.groupId ? <span className="ui-caption block">Part of a longer leave</span> : null}{r.createdAt && lateText(r.fromDate, istDay(r.createdAt)) ? <span className="ui-late-tag">{lateText(r.fromDate, istDay(r.createdAt))}</span> : null}</span> },
     { key: 'days', label: 'Days', align: 'right', render: (r) => <span className="tabular-nums">{r.days}</span> },
     { key: 'asked', label: tab === 'PENDING' ? 'Waiting since' : 'Asked', render: (r) => <span className={`whitespace-nowrap ${tab === 'PENDING' && waitedDays(r.createdAt) > 2 ? 'ui-text-warn' : ''}`}>{tab === 'PENDING' ? waitedText(r.createdAt) : formatDate(istDay(r.createdAt))}</span> },
     { key: 'reason', label: 'Reason', render: (r) => (r.reasonHidden ? <span className="ui-muted">Private</span> : <span className="block max-w-xs truncate" title={r.reason || undefined}>{r.reason || <span className="ui-muted">—</span>}</span>) },
@@ -126,7 +138,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
     setDeciding(true);
     try {
       const out = await approveLeave(r.id, '');
-      notify.success(out?.stage === 'NEXT' ? 'Your step is approved. It moves on to the next step.' : `Approved: ${r.employeeName}.`);
+      notify.success(out?.stage === 'NEXT' ? 'Your step is approved. It moves on to the next step.' : leaveDone(r, 'approved'));
       decided();
     } catch (e) {
       notify.error(String(e?.message || 'Not approved.'));
@@ -134,14 +146,19 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       setDeciding(false);
     }
   };
+  const [outcome, setOutcome] = useState(null);
   const approveChosen = async () => {
     if (!chosen.size) return;
     setDeciding(true);
+    setOutcome(null);
     try {
       const out = await bulkReviewLeave([...chosen], true);
       const failed = Number(out?.failed || 0);
       const done = Number(out?.done ?? chosen.size - failed);
-      if (failed) notify.error(`${done} approved; ${failed} could not be: ${out?.results?.[0]?.error || 'open them to see why.'}`);
+      /* Round 57 bulkresult A: each one that could not be approved, by name, with why. */
+      const said = bulkOutcome({ done, results: out?.results || [], nameOf: (id) => allRows.find((r) => r.id === id)?.employeeName });
+      if (failed && !said.failed.length) said.failed.push({ id: 'rest', name: `${failed} more`, reason: 'Open them to see why.' });
+      if (failed) setOutcome(said);
       else notify.success(done === 1 ? 'Approved.' : `${done} approved.`);
       decided();
     } catch (e) {
@@ -158,7 +175,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   const tiles = [
     { key: 'waiting', label: 'Waiting for a decision', value: counts.PENDING ?? '—', accent: 'warn', tone: Number(counts.PENDING) > 0 ? 'warn' : null, Icon: TILE_ICON.waiting, sub: oldest == null ? 'In this leave period' : oldest === 0 ? 'Oldest asked today' : `Oldest ${oldest} day${oldest === 1 ? '' : 's'}`, busy: list.loading && !list.data },
     { key: 'approved', label: 'Approved', value: counts.APPROVED ?? '—', accent: 2, Icon: TILE_ICON.done, sub: 'In this leave period', busy: list.loading && !list.data },
-    { key: 'rejected', label: 'Rejected', value: counts.REJECTED ?? '—', accent: 3, sub: 'In this leave period', busy: list.loading && !list.data },
+    { key: 'rejected', label: 'Not approved', value: counts.REJECTED ?? '—', accent: 3, sub: 'In this leave period', busy: list.loading && !list.data },
     awayToday == null ? null : { key: 'away', label: 'Away today', value: awayToday, accent: 4, Icon: TILE_ICON.away, sub: ov?.upcoming?.length ? `${new Set(ov.upcoming.map((x) => x.employeeId)).size} more in the next 7 days` : 'Nobody else in the next 7 days', onClick: openScreen ? () => openScreen('leaveCalendar') : null },
   ];
   /* The first thin day ahead, today and the next fourteen (M4): two or more of one department away at once. */
@@ -194,6 +211,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         toolbar={<>
           <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search leave requests" className="w-full sm:w-72" />
           <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder="Every type" /></div>
+          {tab === 'PENDING' && (longWaiting.length || onlyLong) ? <button type="button" className={`ui-btn ui-btn-sm ${onlyLong ? 'ui-btn-primary' : 'ui-btn-secondary'} ui-long-wait`} aria-pressed={onlyLong} title={`Waiting more than ${LONG_WAIT_DAYS} days`} onClick={() => set({ long: onlyLong ? null : '1', page: null })}>Waiting too long <span className="tabular-nums">({longWaiting.length})</span></button> : null}
           {periodOptions.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave period" value={String(year || '')} onChange={(v) => set({ year: v && Number(v) !== settings.data?.current?.year ? v : null, page: null })} options={periodOptions} /></div> : null}
         </>}
         tabs={TABS.map(([k, l]) => ({ key: k, label: l, count: counts[k], tone: k === 'PENDING' ? 'warn' : undefined }))}
@@ -201,11 +219,12 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         onTab={(k) => { setChosen(new Set()); set({ tab: k === 'PENDING' ? null : k, page: null }, true); }}
       />
 
+      <BulkOutcome outcome={outcome} verb="approved" onClose={() => setOutcome(null)} />
       <DataTable
         label="Leave requests"
         columns={shownColumns}
         rows={rows}
-        total={Number(list.data?.total || 0)}
+        total={onlyLong ? rows.length : Number(list.data?.total || 0)}
         page={page}
         pageSize={size}
         noun="requests"
@@ -292,6 +311,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const [shortening, setShortening] = useState(false);
   const [shortTo, setShortTo] = useState('');
   const [shortDays, setShortDays] = useState(null);
+  const [shownDoc, setShownDoc] = useState(null);
   useEffect(() => {
     if (!shortening || !shortTo || !r) { setShortDays(null); return undefined; }
     let live = true;
@@ -313,16 +333,18 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       setBusy(false);
     }
   };
+  /* Round 27: HR for the whole company decides while it is still the manager's turn; the request is marked "Decided by HR". */
+  const asHr = Boolean(d?.waitingForManager && d?.mayDecideAsHr);
   const approve = () => act(async () => {
-    const out = await approveLeave(r.id, note.trim());
+    const out = await approveLeave(r.id, note.trim(), { asHr });
     if (out?.stage === 'NEXT') notify.success('Your step is approved. It moves on to the next step.');
-  }, 'Approved.');
+  }, leaveDone(r, 'approved'));
   const openDocument = async () => {
     try {
       const doc = await getLeaveDocument(r.id);
       if (!doc?.dataUrl) return;
-      const blob = await (await fetch(doc.dataUrl)).blob();
-      window.open(URL.createObjectURL(blob), '_blank', 'noopener');
+      /* Round 47 approvalattach A: it opens inside the request, no download. */
+      setShownDoc(doc.dataUrl);
     } catch (e) {
       notify.error(String(e?.message || 'The document did not open.'));
     }
@@ -330,7 +352,17 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   /* A rejection says why: the person reads it in the employee app. */
   const reject = () => {
     if (!note.trim()) { setNoteError('Say why. They see this with the decision.'); noteRef.current?.focus(); return; }
-    act(() => rejectLeave(r.id, note.trim()), 'Rejected.');
+    act(() => rejectLeave(r.id, note.trim()), leaveDone(r, 'not approved'));
+  };
+  /* Round 27: send it back with a question (the note); it stays with the same approver until they answer. */
+  const sendBack = () => {
+    if (!note.trim()) { setNoteError('Write the question in the note. They answer it in the app.'); noteRef.current?.focus(); return; }
+    act(() => sendBackLeave(r.id, note.trim()), 'Sent back with your question.');
+  };
+  /* Round 18: take back an approval before the leave starts. */
+  const takeBack = async () => {
+    const ok = await confirmDialog({ title: 'Take back this approval?', message: 'It waits for a decision again, its days come off the attendance record, and they are told.', confirmLabel: 'Take back' });
+    if (ok) act(() => takeBackLeave(r.id, null), 'Approval taken back. It waits again.');
   };
   const cancel = async () => {
     const ok = await confirmDialog({
@@ -359,14 +391,16 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     <>
       {canCancel ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={cancel}>Withdraw</button> : null}
       {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
+      {d.question ? null : <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={sendBack}>Ask a question</button>}
       <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
-      {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button> : null}
+      {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || (Boolean(d.waitingForManager) && !asHr)} onClick={approve}><Check size={16} aria-hidden="true" /> {asHr ? 'Approve as HR' : 'Approve'}</button> : null}
     </>
-  ) : OPEN_STATUSES.includes(r.status) && canCancel ? (
+  ) : OPEN_STATUSES.includes(r.status) && (canCancel || d?.canTakeBack) ? (
     <>
       {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
       {shortenable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setShortening(true)}>Came back early</button> : null}
-      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw'}</button>
+      {d?.canTakeBack ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={takeBack}>Take back approval</button> : null}
+      {canCancel ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw'}</button> : null}
     </>
   ) : null;
 
@@ -377,35 +411,42 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <Fact label="Dates"><span className="tabular-nums">{range(r.fromDate, r.toDate)}</span>{hoursText(r) ? <span className="tabular-nums">, {hoursText(r)}</span> : r.halfDay ? `, ${half(r.halfDay).toLowerCase()}` : ''}</Fact>
             <Fact label="Charged"><span className="tabular-nums">{daysText(r.days)}</span></Fact>
-            <Fact label="Status"><StatusPill row={r} /></Fact>
+            <Fact label="Status"><StatusPill row={r} />{d.decidedByHr ? <span className="ui-caption block">Decided by HR</span> : null}</Fact>
             {d.parts?.length > 1 ? <div className="col-span-2"><Fact label="Saved in parts">{d.parts.map((x, i) => <span key={x.id} className="block tabular-nums">Part {i + 1}: {range(x.fromDate, x.toDate)}{x.halfDay ? `, ${half(x.halfDay).toLowerCase()}` : ''}, {daysText(x.days)}{x.overflowOfId ? `, ${x.leaveTypeName} (over the balance)` : ''}{x.status !== r.status ? ` · ${STATUS_LABEL[x.status]}` : ''}</span>)}</Fact></div> : null}
             <div className="col-span-2"><Fact label="Reason">{r.reasonHidden ? <span className="ui-muted">Private: HR reads the reason.</span> : r.reason ? r.reason : <span className="ui-muted">None given</span>}</Fact></div>
           </dl>
 
-          {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}</p> : null}
+          {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}{asHr ? ' You can decide it as HR; it is marked “Decided by HR”.' : ''}</p> : null}
+          {d.question ? <p className="text-sm">Waiting for their answer to {d.question.by ? `${d.question.by}’s` : 'a'} question: <span className="ui-muted">“{d.question.note}”</span></p> : null}
           {d.step ? (
             <section aria-labelledby="lr-step" className="space-y-1">
               <h3 id="lr-step" className="ui-t-sec">Approval</h3>
-              {d.step.engine && d.step.timeline?.length ? (d.step.current && d.step.yours ? <p className="text-sm"><strong>Yours to decide</strong></p> : null) : <p className="text-sm">
-                {d.step.current ? <>Step <span className="tabular-nums">{d.step.current}</span>{d.step.of ? <> of <span className="tabular-nums">{d.step.of}</span></> : null}: {d.step.yours ? <strong>yours to decide</strong> : <>waiting for {d.step.waitingFor.join(', ') || 'someone else'}</>}</> : 'Decided'}
+              {/* Round 47 approvalchain B: only the step it is at, "With HR"; the full trail folds away. */}
+              <p className="text-sm">
+                <span className={`ui-step-chip${d.step.current && d.step.yours ? ' is-yours' : ''}`}>{stepChipText(d.step)}</span>
                 {d.step.current && d.step.dueAt ? <span className="ui-muted tabular-nums"> · due {formatDate(new Date(new Date(d.step.dueAt).getTime() + 330 * 60_000).toISOString().slice(0, 10))}</span> : null}
-              </p>}
+              </p>
               {d.step.timeline?.length ? (
-                <ol className="text-sm space-y-1" aria-label="Steps">
-                  {d.step.timeline.map((t, i) => (
-                    <li key={`${t.order}-${i}`} className="flex flex-wrap gap-x-2">
-                      <span className={t.status === 'WAITING' ? 'font-medium' : ''}>{t.text}</span>
-                      {t.on ? <span className="ui-muted tabular-nums">{t.status === 'WAITING' ? 'due ' : ''}{formatDate(t.on)}</span> : null}
-                    </li>
-                  ))}
-                </ol>
+                <details className="text-sm">
+                  <summary className="ui-link">All steps</summary>
+                  <ol className="space-y-1 mt-1" aria-label="Steps">
+                    {d.step.timeline.map((t, i) => (
+                      <li key={`${t.order}-${i}`} className="flex flex-wrap gap-x-2">
+                        <span className={t.status === 'WAITING' ? 'font-medium' : ''}>{t.text}</span>
+                        {t.on ? <span className="ui-muted tabular-nums">{t.status === 'WAITING' ? 'due ' : ''}{formatDate(t.on)}</span> : null}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
               ) : null}
               <p className="ui-caption">{d.step.rule}</p>
             </section>
           ) : null}
           {d.document ? (
-            <p className="text-sm flex flex-wrap items-center gap-2"><span className="ui-label m-0">Document</span><span>{d.document.title}</span><button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={openDocument}>Open</button></p>
-          ) : d.documentNeeded && !r.reasonHidden ? <p className="text-sm ui-muted">No document sent with it, though this type asks for one at this length.</p> : null}
+            <p className="text-sm flex flex-wrap items-center gap-2"><span className="ui-label m-0">Document</span><span>{d.document.title}</span>{shownDoc ? null : <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={openDocument}>Open</button>}</p>
+          ) : null}
+          {d.document && shownDoc ? <InlineDocument dataUrl={shownDoc} title={d.document.title} onClose={() => setShownDoc(null)} /> : null}
+          {d.document ? null : d.documentNeeded && !r.reasonHidden ? <p className="text-sm ui-muted">No document sent with it, though this type asks for one at this length.</p> : null}
           {d.ownRequest && r.status === 'PENDING' ? <p className="text-sm ui-muted">This is your own request. Somebody else decides it, unless nobody else in the company can.</p> : null}
 
           {shortening ? (
@@ -424,7 +465,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
               <h3 id="lr-balance" className="ui-t-sec">Balance</h3>
               <p className="text-sm tabular-nums">
                 {OPEN_STATUSES.includes(r.status)
-                  ? <>{d.balance.without} {d.balance.without === 1 ? 'day' : 'days'} without this request, <strong>{d.balance.with}</strong> with it</>
+                  ? <BalanceAfter withIt={d.balance.with} without={d.balance.without} />
                   : <>{d.balance.available} {d.balance.available === 1 ? 'day' : 'days'} left</>}
                 <span className="ui-muted"> · {d.balance.label}</span>
               </p>

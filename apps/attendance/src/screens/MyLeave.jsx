@@ -1,5 +1,6 @@
 import DateNotes from '@ui/timeOff/DateNotes';
 import LongLeaveSpan from '@ui/timeOff/LongLeaveSpan';
+import { ForWhom, UnpaidNote, reasonFor } from '@ui/timeOff/round42';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 
@@ -12,7 +13,7 @@ import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import { expiringWords } from '@ui/timeOff/expiring';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { LEAVE_STATUS, applyLeave, cancelMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, listHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
+import { LEAVE_STATUS, answerMyLeave, applyLeave, cancelMyLeave, remindMyLeave, editMyLeave, explainMyLeave, getMyLeave, getMyRestrictedHolidays, listHolidays, pickMyRestrictedHoliday, shortenMyLeave } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import LeaveExplain from '../components/LeaveExplain';
 import LeaveDocumentField from '@ui/timeOff/LeaveDocumentField';
@@ -31,8 +32,8 @@ import './MyLeave.css';
  * as the dates are picked, the days it takes, the dates it skips and why,
  * and the balance after (AUT-05) — the same preview the employee app shows.
  */
-const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', reason: '' };
-const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
+const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', reason: '', forChild: false };
+const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
 const PRIVATE_LABEL = 'Private leave';
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
@@ -142,6 +143,31 @@ export default function MyLeave() {
     }
   };
 
+  /* Round 18/47: remind whoever it waits on, once a day. */
+  const remind = async (r) => {
+    try {
+      await remindMyLeave(r.id);
+      notify.success('Reminder sent.');
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not sent.'));
+    }
+  };
+  /* Round 27: answer the question the approver sent back; it goes back to them. */
+  const [answering, setAnswering] = useState({ id: null, text: '' });
+  const sendAnswer = async (e) => {
+    e.preventDefault();
+    if (!answering.text.trim()) return;
+    try {
+      await answerMyLeave(answering.id, answering.text.trim());
+      setAnswering({ id: null, text: '' });
+      notify.success('Answer sent.');
+      load();
+    } catch (err) {
+      notify.error(String(err?.message || 'Not sent.'));
+    }
+  };
+
   const header = (
     <PageHeader
       title="My leave"
@@ -180,6 +206,15 @@ export default function MyLeave() {
       <span className="inline-flex flex-col items-start gap-0.5">
         <span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span>
         {r.status === 'REJECTED' && r.reviewNote ? <span className="ui-caption whitespace-normal">{r.reviewNote}</span> : null}
+        {r.status === 'PENDING' && r.question ? <span className="ui-caption whitespace-normal">Question for you: “{r.question.note}”</span> : null}
+        {r.status === 'PENDING' && r.question && canAct ? (
+          answering.id === r.id ? (
+            <form onSubmit={sendAnswer} onClick={(e) => e.stopPropagation()} className="flex flex-wrap items-center gap-2" aria-label="Your answer">
+              <input className="ui-input" aria-label="Your answer" maxLength={500} autoFocus value={answering.text} onChange={(e) => setAnswering({ id: r.id, text: e.target.value })} />
+              <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!answering.text.trim()}>Send answer</button>
+            </form>
+          ) : <button type="button" className="ml-text-btn" onClick={(e) => { e.stopPropagation(); setAnswering({ id: r.id, text: '' }); }}>Answer</button>
+        ) : null}
       </span>
     ) },
     /* Cancel sits on the row as a text button (R&D PEOPLE-16); Change and Came back early stay in the row's menu. */
@@ -236,6 +271,7 @@ export default function MyLeave() {
             noun="requests"
             rowActions={canAct ? (r) => [
               r.status === 'PENDING' ? { key: 'change', label: 'Change', onSelect: () => setEditing(r) } : null,
+              r.status === 'PENDING' && r.canRemind ? { key: 'remind', label: 'Remind', onSelect: () => remind(r) } : null,
               shortenable(r) ? { key: 'shorten', label: 'Came back early', onSelect: () => setShortening(r) } : null,
             ] : null}
             card={(r) => (
@@ -322,6 +358,7 @@ function LeavePreview({ preview, checking }) {
           </ul>
         </div>
       ) : null}
+      <UnpaidNote type={preview.type} total={preview.total} />
       <HalfDayNote parts={parts} />
       <DateNotes parts={parts} label={dayLabel} />
       {(preview.problems || []).map((x) => <p key={x.code + x.message} className="ui-text-neg" role="alert">{x.message}</p>)}
@@ -341,7 +378,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
     ...f,
     [k]: v,
     ...(k === 'fromDate' && v && f.toDate && f.toDate < v ? { toDate: v } : {}),
-    ...(k === 'leaveTypeId' ? { halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '' } : {}),
+    ...(k === 'leaveTypeId' ? { halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', forChild: false } : {}),
   }));
   const listed = types.find((t) => t.id === form.leaveTypeId);
   const hourly = isHourly(listed);
@@ -382,7 +419,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
         toDate: form.toDate || form.fromDate,
         ...halfDayBody(form, halfAllowed),
         ...hoursBody(form, listed),
-        reason: form.reason.trim(),
+        reason: reasonFor(form.reason, form.forChild),
         ...(preview.split ? { split: true } : {}),
         ...(doc ? { attachment: doc } : {}),
       };
@@ -427,6 +464,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
         {hourly
           ? <HoursChoice form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
           : <HalfDayChoice form={form} allowed={halfAllowed} typeName={(type || listed)?.name} label="How much of the day" onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />}
+        <ForWhom typeName={(type || listed)?.name} value={form.forChild} onChange={(v) => set('forChild', v)} />
         <label className="block">
           <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
           <input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => set('reason', e.target.value)} />

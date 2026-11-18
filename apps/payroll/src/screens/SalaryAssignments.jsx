@@ -10,6 +10,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
 import UanQuestion from '../components/UanQuestion';
+import PtStateField from '../components/PtStateField';
 import {
   listEmployees,
   createEmployee,
@@ -19,6 +20,7 @@ import {
 } from '../api/payrollPeople';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { wholeRupees as money } from '@ui/utils/money';
+import { CtcSplit } from '../components/round59';
 
 /**
  * Who is paid what.
@@ -89,7 +91,7 @@ const TABS = [
 ];
 const statusLabel = (p) => STATUSES.find((s) => s.id === p.status)?.label || p.status;
 
-export default function SalaryAssignments() {
+export default function SalaryAssignments({ params } = {}) {
   const [people, setPeople] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [structures, setStructures] = useState([]);
@@ -114,6 +116,21 @@ export default function SalaryAssignments() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /* Opened for one person (a statutory file's "Fix", round 26 pick): their details, once the roster is in. */
+  const askedFor = params?.employeeId || '';
+  const [openTab, setOpenTab] = useState('salary');
+  /* Adjusted while rendering, once per request, rather than in an effect (no second render pass). */
+  const [handled, setHandled] = useState('');
+  const askKey = askedFor ? `${askedFor}|${params?.tab || ''}` : '';
+  if (askKey && people && handled !== askKey) {
+    setHandled(askKey);
+    const person = people.find((p) => p.id === askedFor);
+    if (person) {
+      setOpenTab(params?.tab === 'details' ? 'details' : 'salary');
+      setOpen(person);
+    }
+  }
 
   /* The salary each person is currently on, so the roster answers the question
      it is there to answer without a request per row. */
@@ -291,12 +308,18 @@ export default function SalaryAssignments() {
       >
         {open ? (
           <PersonPanel
+            key={open.id}
             person={open}
+            initialTab={openTab}
             structures={structures}
             sensitiveVisible={sensitiveVisible}
-            onClose={() => setOpen(null)}
+            onClose={() => {
+              setOpen(null);
+              setOpenTab('salary');
+            }}
             onChanged={() => {
               setOpen(null);
+              setOpenTab('salary');
               load();
             }}
           />
@@ -308,8 +331,8 @@ export default function SalaryAssignments() {
 
 /* --------------------------------------------------------- one person */
 
-const PersonPanel = ({ person, structures, sensitiveVisible, onClose, onChanged }) => {
-  const [tab, setTab] = useState('salary');
+const PersonPanel = ({ person, structures, sensitiveVisible, onClose, onChanged, initialTab = 'salary' }) => {
+  const [tab, setTab] = useState(initialTab);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -500,6 +523,9 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
           />
         </div>
       </div>
+
+      {/* Round 59 ctcsplit A: the yearly CTC split into its parts by the structure, with the net pay. */}
+      <CtcSplit structureId={form.structureId} annualCtc={form.annualCtc} />
 
       {current ? (
         <dl className="space-y-1.5">
@@ -698,6 +724,13 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
         <h3 className="ui-t-sec">Statutory</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <UanQuestion value={form.payroll.uan || ''} onChange={(uan) => setPay({ uan })} />
+          {form.payroll.ptApplicable ? (
+            <PtStateField
+              employeeId={initial.id}
+              value={form.payroll.professionalTaxState || ''}
+              onChange={(professionalTaxState) => setPay({ professionalTaxState })}
+            />
+          ) : null}
           <div>
             <label className="ui-label" htmlFor="employee-regime">Tax regime</label>
             <select

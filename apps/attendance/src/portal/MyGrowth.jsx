@@ -40,6 +40,16 @@ export default function MyGrowth({ guard }) {
       <h2 id="growth-h" className="ui-t-sec">My goals and reviews</h2>
       {said ? <p className="text-sm" role={said.ok ? 'status' : 'alert'}>{said.text}</p> : null}
 
+      {/* Round 53 picks: the company goals over mine, and my team's goals open to the team under them. */}
+      {data.companyGoals?.length ? (
+        <div className="space-y-1.5">
+          <h3 className="ui-label">Company goals</h3>
+          <ul className="space-y-1 text-sm" aria-label="Company goals">
+            {data.companyGoals.map((g) => <li key={g.id} className="flex justify-between gap-3"><span>{g.title}</span>{g.progress !== null && g.progress !== undefined ? <span className="tabular-nums ui-muted">{g.progress}%</span> : null}</li>)}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <h3 className="ui-label">My goals</h3>
         {!data.goals.length ? <p className="text-sm ui-muted">No goals yet. Your manager or HR sets them with you.</p> : (
@@ -48,6 +58,15 @@ export default function MyGrowth({ guard }) {
           </ul>
         )}
       </div>
+
+      {data.teamGoals?.length ? (
+        <div className="space-y-1.5">
+          <h3 className="ui-label">My team's goals</h3>
+          <ul className="space-y-1 text-sm" aria-label="My team's goals">
+            {data.teamGoals.map((g) => <li key={g.id} className="flex justify-between gap-3"><span className="min-w-0"><span className="block truncate">{g.title}</span><span className="block ui-caption">{g.forTeam ? 'Team goal' : g.person}</span></span><span className="tabular-nums ui-muted">{g.progress}%</span></li>)}
+          </ul>
+        </div>
+      ) : null}
 
       {data.reviews.length ? (
         <div className="space-y-2">

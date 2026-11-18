@@ -152,7 +152,8 @@ const PopupSelect = ({
 
   const canUseCustom = allowCustom && String(query || '').trim();
   const customValue = String(query || '').trim();
-  const customIsAlreadyOption = (options || []).some((o) => String(o?.value || '').trim().toLowerCase() === customValue.toLowerCase());
+  /* By value or by the words shown: "Accounts" typed into a list of department ids is already there. */
+  const customIsAlreadyOption = (options || []).some((o) => [o?.value, o?.label].some((x) => String(x || '').trim().toLowerCase() === customValue.toLowerCase()));
 
   useEffect(() => {
     if (!open || !showSearch) return;

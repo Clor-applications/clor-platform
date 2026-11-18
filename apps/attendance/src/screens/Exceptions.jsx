@@ -12,6 +12,7 @@ import { notify } from '@ui/components/ui/notify';
 import { dayLabel, explainDay, listExceptions, setExceptionState, setExceptionStates, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import DayExplain from '../components/DayExplain';
+import { DayQuickFix } from '../components/round59';
 import { plusDaysIso } from '@ui/utils/dates';
 
 /**
@@ -283,6 +284,8 @@ export default function Exceptions({ openScreen }) {
                       <p className="ui-caption mt-1">Owner: {x.assignee || 'Nobody'}</p>
                     </div>
                   </div>
+                  {/* Round 59 attexceptions A: a day with nothing on it is decided here. */}
+                  <DayQuickFix item={x} onDone={load} />
                   <div className="grid grid-cols-3 gap-2">
                     {isOpen(x) ? (
                       <>
@@ -351,6 +354,7 @@ export default function Exceptions({ openScreen }) {
                           {!x.assigneeUserId ? (
                             <button type="button" className="ui-icon-btn" aria-label="Assign to me" title="Take it" onClick={() => change(x, { assignee: 'me', status: 'IN_PROGRESS' }, 'Assigned to you.')}><UserRoundCheck size={16} aria-hidden="true" /></button>
                           ) : null}
+                          <DayQuickFix item={x} onDone={load} small />
                           {x.status === 'OPEN' || x.status === 'IN_PROGRESS' ? (
                             <>
                               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => settle(x, 'RESOLVED')}><CheckCircle2 size={14} aria-hidden="true" /> Settle</button>

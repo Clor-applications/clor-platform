@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Ban, CalendarClock, Check, Clock, HandCoins, Plus, RotateCcw, SkipForward, Wallet } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Ban, CalendarClock, Check, Clock, HandCoins, Plus, RotateCcw, SkipForward, Wallet, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
 import { useListSearch } from '@ui/components/ListToolbar';
@@ -242,6 +242,8 @@ export default function PayrollLoans() {
                     <td className="ui-num">{money(l.outstandingBalance)}</td>
                     <td className="ui-col-h-center">
                       <span className={`ui-pill ${STATUS[l.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[l.status]?.label || l.status}</span>
+                      {/* The employee asked in the employee app to skip the next instalment (picks round 54). */}
+                      {l.skipAsk ? <span className="ui-pill ui-pill-warn ml-1">Asked to skip</span> : null}
                     </td>
                   </tr>
                 ))
@@ -583,12 +585,34 @@ const LoanDetail = ({ loanId, onBack }) => {
                     <td className="ui-num">{i.interestAmount ? money(i.interestAmount) : '—'}</td>
                     <td className="ui-col-h-center">
                       <span className={`ui-pill ${INSTALLMENT[i.status]?.tone || 'ui-pill-neutral'}`}>{INSTALLMENT[i.status]?.label || i.status}</span>
+                      {i.skipAsk ? <span className="ui-caption block">Asked to skip: “{i.skipAsk.reason}”</span> : null}
                     </td>
                     <td className="ui-col-id">{i.slipNumber || '—'}</td>
                     {running ? (
                       <td>
                         <div className="flex items-center justify-center gap-1">
-                          {i.status === 'PENDING' ? (
+                          {i.status === 'PENDING' && i.skipAsk ? (
+                            <>
+                              <button
+                                type="button"
+                                className="ui-icon-btn"
+                                aria-label={`Agree to skip instalment ${i.sequence} — still owed`}
+                                disabled={busy === i.id}
+                                onClick={() => act(() => setInstallmentAction(loanId, i.id, 'SKIP'), 'Skipped. It is still owed.', i.id)}
+                              >
+                                <Check size={16} aria-hidden="true" />
+                              </button>
+                              <button
+                                type="button"
+                                className="ui-icon-btn"
+                                aria-label={`Decline the ask to skip instalment ${i.sequence}`}
+                                disabled={busy === i.id}
+                                onClick={() => act(() => setInstallmentAction(loanId, i.id, 'DECLINE_SKIP'), 'Declined. It stays due.', i.id)}
+                              >
+                                <X size={16} aria-hidden="true" />
+                              </button>
+                            </>
+                          ) : i.status === 'PENDING' ? (
                             <>
                               <button
                                 type="button"

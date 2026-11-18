@@ -67,7 +67,7 @@ it('lists each person with all three figures, and locks only with an acknowledge
 it('says when everything agrees, and offers no lock path for a run not yet approved', async () => {
   vi.mocked(getRunLopCheck).mockResolvedValue({ checked: 4, mismatches: [], openMonths: ['2026-09'], snapshotChanged: null });
   render(<LopCheckPanel runId="run-1" run={{ status: 'REVIEW' }} />);
-  expect(await screen.findByText(/Loss of pay agrees for all 4 people/)).toBeInTheDocument();
+  expect(await screen.findByText(/Unpaid days \(LOP\) agree for all 4 people/)).toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('September is not closed in Attendance; these figures can still change.');
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
 });

@@ -197,6 +197,13 @@ const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => (
 });
 
 /** Profile fields that change what is deducted from somebody's pay (ownPayRefusal on edit). */
+/** The state of the work site someone is at, which their professional tax follows unless set otherwise. */
+async function ptFromSite(orgId: string, establishmentId: string | null | undefined) {
+  if (!establishmentId) return null;
+  const est = await peoplePrisma.establishment.findFirst({ where: { id: establishmentId, orgId }, select: { name: true, state: true } });
+  return est?.state ? { state: est.state, site: est.name } : null;
+}
+
 const OWN_STATUTORY_FIELDS = ['pfApplicable', 'esiApplicable', 'ptApplicable', 'taxRegime', 'professionalTaxState', 'pan', 'payrollStatus'];
 /** What a profile not yet on file holds, so sending the defaults is not a change. */
 const STATUTORY_DEFAULTS: Record<string, unknown> = { pfApplicable: false, esiApplicable: false, ptApplicable: false, taxRegime: 'NEW', payrollStatus: 'IN_PAYROLL' };
@@ -256,7 +263,7 @@ payrollEmployeesRouter.get(
     const payroll = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId: row.id } });
     const reveal = await mayRevealSensitive(req);
     /* PF nominees (Form 2): names and shares, from the joining form or entered here. */
-    res.json({ employee: shape({ ...row, payroll }, reveal), sensitiveVisible: reveal.sensitive, nominees: await nomineesOf(orgId, row.id) });
+    res.json({ employee: shape({ ...row, payroll }, reveal), sensitiveVisible: reveal.sensitive, nominees: await nomineesOf(orgId, row.id), ptFromSite: await ptFromSite(orgId, row.establishmentId) });
   }
 );
 
@@ -450,6 +457,14 @@ payrollEmployeesRouter.put(
       const routed = await routeBankUpdate({ accountId, orgId, employeeId: row.id, userId: req.auth!.userId, current: payroll, incoming: bank });
       Object.assign(incoming, routed.apply);
       bankChangePending = Boolean(routed.pending);
+
+      /* Professional tax on and no state given: the work site's state (round 25 pick), as a transfer sets it. */
+      const ptOn = incoming.ptApplicable ?? payroll?.ptApplicable ?? false;
+      const ptState = incoming.professionalTaxState !== undefined ? incoming.professionalTaxState : payroll?.professionalTaxState ?? null;
+      if (ptOn && !ptState) {
+        const site = await ptFromSite(orgId, row.establishmentId);
+        if (site) incoming.professionalTaxState = site.state;
+      }
 
       payroll = payroll
         ? await payrollPrisma.employeePayrollProfile.update({ where: { id: payroll.id }, data: incoming })
