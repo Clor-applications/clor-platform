@@ -245,7 +245,7 @@ export const NAV = [
  * (#/page/id/tab?filters); `go(page, params, id, tab)` moves to another.
  */
 export const SCREENS = {
-  home: ({ go, has }) => <Home go={go} has={has} />,
+  home: ({ go, has, me }) => <Home go={go} has={has} me={me} />,
   customers: ({ route, go, me }) =>
     route.id ? (
       <CustomerPage

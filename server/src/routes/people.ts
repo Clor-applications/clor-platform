@@ -22,7 +22,7 @@ import { StaleEmployeeError, createEmployee, updateEmployee, correlationOf } fro
 import { SCHEDULABLE_FIELDS, asOf, cancelScheduledChange, pendingChangesOf, scheduleChanges } from '../services/people/effectiveDating.js';
 import { writeChangeLog, type Actor, type Change, type ChangeSource } from '../services/people/changeLog.js';
 import { checkIdentifier, maskTail } from '../services/people/identifiers.js';
-import { PAYROLL_STATUTORY_FIELDS, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
+import { PAYROLL_STATUTORY_FIELDS, employeesByIdentifier, identifierQuery, maskedStatutory, revealStatutory } from '../services/payroll/statutoryRead.js';
 import { nomineesOf } from '../services/payroll/statutoryWrite.js';
 import { heldFor } from '../services/people/lifecycle/joiningStatutory.js';
 import { stepUpRefusal } from '../services/stepUp.js';
@@ -630,6 +630,11 @@ peopleRouter.get('/orgs/:orgId/people/employees', can(PermissionAction.VIEW, EMP
     ...(pick('language') ? { languages: { has: languageWord(pick('language')!) } } : {}),
   };
   addHours(where, pick('hours'));
+  /* Round 55 (searchid A): a whole PAN or UAN finds its person too, for a reader who may see statutory details. Phone is matched above. */
+  if (q && where.OR && identifierQuery(q) && (req.isAdmin ||!(await authorize(req, PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.statutory)))) {
+    const ids = await employeesByIdentifier(orgId, q);
+    if (ids.length) where.OR.push({ id: { in: ids } });
+  }
   /* No manager, as the Organization overview counts it: the top of the tree (someone others report to) is not listed. */
   if (pick('managerId') === 'none') (where.AND ||= []).push({ id: { notIn: (await peoplePrisma.employee.findMany({ where: { orgId, status: { not: 'LEFT' }, reportingManagerId: { not: null } }, select: { reportingManagerId: true }, distinct: ['reportingManagerId'] })).map((r) => r.reportingManagerId!) } });
   /* Working now: here and already joined; the count strip's first tile opens exactly these (W14). */

@@ -16,13 +16,14 @@ function Editor({ reply, onClose, onSaved }) {
   const [title, setTitle] = useState(reply?.title || '');
   const [body, setBody] = useState(reply?.body || '');
   const [app, setApp] = useState(reply?.app || '');
+  const [helpUrl, setHelpUrl] = useState(reply?.helpUrl || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const save = async () => {
     setBusy(true);
     setError('');
     try {
-      await opsSaveSavedReply(reply?.id, { title: title.trim(), body: body.trim(), app: app || null });
+      await opsSaveSavedReply(reply?.id, { title: title.trim(), body: body.trim(), app: app || null, helpUrl: helpUrl.trim() || null });
       onSaved();
     } catch (e) {
       setError(String(e?.message || e));
@@ -63,6 +64,12 @@ function Editor({ reply, onClose, onSaved }) {
             ))}
           </select>
           <span className="ui-caption">Replies for a ticket’s own app are offered first.</span>
+        </label>
+        {/* Round 55 (canned replies B): a help page the reply links to. */}
+        <label className="grid gap-1">
+          <span className="ui-label">Help page (optional)</span>
+          <input className="ui-input" type="url" inputMode="url" maxLength={500} value={helpUrl} onChange={(e) => setHelpUrl(e.target.value)} placeholder="https://clor.in/help/…" />
+          <span className="ui-caption">Added under the reply as “Read more” with this link.</span>
         </label>
         <Err>{error}</Err>
       </div>
@@ -114,6 +121,12 @@ export function SavedReplies({ me }) {
                         {r.title} {r.app ? <span className="ws-pill">{appWord(r.app)}</span> : null}
                       </span>
                       <span className="ws-item-sub" style={{ whiteSpace: 'pre-wrap' }}>{r.body.length > 220 ? `${r.body.slice(0, 220)}…` : r.body}</span>
+                      {r.helpUrl ? (
+                        <span className="ws-item-sub">
+                          Read more:{' '}
+                          <a href={r.helpUrl} target="_blank" rel="noreferrer noopener" className="ops-link">{r.helpUrl.replace(/^https:\/\//, '')}</a>
+                        </span>
+                      ) : null}
                       <span className="ws-item-sub tabular-nums">Used {r.usedCount} {r.usedCount === 1 ? 'time' : 'times'}</span>
                     </span>
                     {canWrite ? (

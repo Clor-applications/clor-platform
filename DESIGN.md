@@ -1245,16 +1245,22 @@ Built:
 | Recent searches | The search box (⌘K) opens on the last five searches; choosing one types it back in (`recents.js`, `CommandPalette` `remember`). A search is remembered once it leads somewhere. Kept in this browser and cleared at sign-out. Not in Books. |
 | Recently opened | Under the module that holds Employees, "Recently opened" lists the last five people whose record was opened (`RecentPeople`); only the id and name are kept, in this browser, cleared at sign-out. |
 | Search finds pages and people | The search box no longer offers jobs as rows ("Ask for leave", "Fix a punch"); the words of those jobs still find the screen they belong to. Placeholder reads "Search people and screens…". |
+| Search by PAN or UAN | The people search (directory and ⌘K) also finds a person by a whole PAN or UAN, for a reader who may see statutory details; part of one never matches (`employeesByIdentifier`). Phone was already matched. |
+| Remind me tomorrow | An alarm-clock button on each bell notice takes it off the list and the badge until 9 AM tomorrow, India time, when it comes back unread at the top (`Notification.snoozedUntil`, `POST …/notifications/inbox/snooze`). Mark all read leaves it alone. |
+| Your team this week | A manager's People Home starts with their own team (solid or dotted line) for the next seven days: requests waiting for them, who is away on approved leave, and birthdays (the day only, never someone who opted out) (`teamWeekOf`, `/people/home` `teamWeek`). |
+| Subject lines | People approval emails start with the action: "Approve: Selvi's leave · due 20 Nov"; "Overdue, approve: …"; "Approve (handed on to you): …" (`approvalSubject`). |
+| Stop these emails | Every optional email ends with a signed "Stop these emails" link that turns off that kind for that address only; opening it changes nothing, a Stop button does, and the page after offers "Start them again" (`/api/public/email/stop/:token`, `EmailOptOut`). Sign-in, invitations and invoices are transactional and have no link. |
+| Ops handover note | Ops Overview has a Handover section under the numbers: the newest note, who wrote it and when; staff other than Read-only write the next one (`OpsHandoverNote`, `/ops/handover`). |
+| Saved reply help page | A saved reply may carry a help page link (https only); it is added under the reply as "Read more: <link>" when picked in a ticket. |
+| Renewals in 30 days | Ops Overview's "Needs you today" lists paid plans renewing in the next 30 days (not stopping), soonest first, with the next period's amount, monthly or yearly, and when the customer last signed in; each opens the Subscription tab. |
 
-Picked, **not built yet** (all need server work): search by phone, PAN or UAN (the people
-search matches name, code and email today); a notification summary every two hours; "Remind me
-tomorrow" bringing an item back at 9 AM; one company-wide digest time; the manager's week-ahead
-on their home (who is away, birthdays, open requests); the "Payment failed · Pay now" strip with
-days before apps lock; card or UPI autopay with the bill emailed first; a handover note on Ops
-home; canned replies in Ops that link a help page; free tags on each customer as list filters;
-renewals due in 30 days with amount and last activity; email subject lines that start with the
-action ("Approve Selvi's leave · 2 days"); a "Stop these emails" link that turns off just that
-kind.
+Picked and already how the app works: free tags on each customer as list filters (Ops Customers
+has tags and a tag filter).
+
+Picked, **not built yet**: a notification summary every two hours; one company-wide digest
+time; the "Payment failed · Pay now" strip with days before apps lock (needs a grace period the
+billing rules do not have yet); card or UPI autopay with the bill emailed first (needs a payment
+gateway mandate).
 
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 

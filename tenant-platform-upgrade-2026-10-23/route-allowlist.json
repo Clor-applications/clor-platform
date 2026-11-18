@@ -198,6 +198,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/orgs/:orgId/notifications/inbox/snooze",
+      "reason": "Self-service: \"Remind me tomorrow\" puts off one of the caller's own notifications until 9 AM tomorrow (where userId = caller and orgId = the company on screen)."
+    },
+    {
+      "method": "POST",
       "path": "/api/orgs/:orgId/security/change-password",
       "reason": "Self-service: the caller's own password; needs the current one."
     },
@@ -1030,6 +1035,16 @@
       "method": "GET",
       "path": "/api/public/app-catalogue",
       "reason": "The app catalogue clor.in and the app switcher read (opsCatalogue.ts): each app's name, Available or Coming soon, and its one-line blurb, the same for everybody; Hidden apps are left out; reads one platform table with no accountId and nothing of any customer's; changes nothing. CORS open to any origin for GET, without credentials."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/email/stop/:token",
+      "reason": "\"Stop these emails\" link at the foot of an optional email (emailStop.ts, round 55): JWT naming one address and one email kind, a year; GET only shows the kind and a Stop button and changes nothing (mail scanners open links); reads nothing of any account."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/email/stop/:token",
+      "reason": "The Stop (or Start again) button of the signed email-stop link: same JWT (one address, one kind); writes or removes one platform EmailOptOut row (no accountId) for that address and kind only; transactional mail is never stopped."
     },
     {
       "method": "GET",

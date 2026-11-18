@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Building2, CalendarClock, Receipt, TriangleAlert } from 'lucide-react';
 
 import { PageHead, ago } from '../../apps/admin/src/screens/wsKit';
-import { Err, Loading, day } from './kit';
+import { Err, Loading, day, may } from './kit';
 import { workerName } from './Health';
 import { daysLeft } from './Trials';
 import { inr } from './money';
-import { opsAudit, opsHealth, opsHome, opsOverview } from './api';
+import { opsAudit, opsHandover, opsHealth, opsHome, opsOverview, opsWriteHandover } from './api';
 
 /**
  * Overview (operator console; R&D CLOR-05): four numbers about the customer
@@ -45,7 +45,7 @@ const getHome = () => opsHome();
 const getHealth = () => opsHealth();
 const getAudit = () => opsAudit({});
 
-export function Home({ go, has }) {
+export function Home({ go, has, me }) {
   const ov = usePart(getOverview);
   const today = usePart(getHome);
   const health = usePart(getHealth);
@@ -71,6 +71,7 @@ export function Home({ go, has }) {
         }
       />
       <Kpis d={ov.d} error={ov.error} go={go} has={has} />
+      <Handover canWrite={may(me?.role, 'SUPPORT', 'SALES', 'BILLING')} />
       {/* What needs somebody comes before how the machinery is doing: it was under the services table, below the fold (owner, 17 Nov 2026: "info should be available right away"). */}
       <div className="ops-split">
         <NeedsAction d={today.d} error={today.error} go={go} has={has} />
@@ -186,6 +187,10 @@ function Services({ d, error, go, has }) {
 
 /* ------------------------------------------------------- needs you today */
 const DAY = 86_400_000;
+const renewIn = (at, now) => {
+  const d = Math.ceil((new Date(at).getTime() - now) / DAY);
+  return d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`;
+};
 const daysOverdue = (due, now) => {
   const d = Math.floor((now - new Date(due).getTime()) / DAY);
   return d < 1 ? 'due today' : n(d, 'day overdue', 'days overdue');
@@ -276,6 +281,20 @@ function workGroups(d, go, has, now) {
         money: p.amount,
         /* A payment nobody could match to a customer has only the Payments log to open. */
         open: () => (p.accountId ? go('customers', {}, p.accountId) : go('payments')),
+      })),
+    },
+    {
+      /* Round 55 (renewals B): paid plans renewing in the next 30 days, with the amount and when the customer last signed in. */
+      k: 'renewals',
+      title: 'Renewals in the next 30 days',
+      more: total('renewals') > items('renewals').length ? { label: `See all ${total('renewals')}`, open: () => go('customers', { status: 'active' }) } : null,
+      rows: items('renewals').map((r) => ({
+        id: r.accountId,
+        pill: [renewIn(r.renewsAt, now), 'info'],
+        title: r.customer || 'A customer',
+        sub: `Renews ${day(r.renewsAt)}${r.interval ? ` · ${r.interval === 'year' ? 'yearly' : 'monthly'}` : ''} · ${r.lastActiveAt ? `last active ${ago(r.lastActiveAt)}` : 'nobody has signed in'}`,
+        money: r.amount != null ? r.amount : undefined,
+        open: () => go('customers', {}, r.accountId, 'subscription'),
       })),
     },
   ].filter((g) => g.rows.length);
@@ -440,6 +459,79 @@ function RecentActions({ d, error, go, has }) {
             );
           })}
         </ul>
+      )}
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------- handover */
+/**
+ * Round 55 (handover A): what one shift leaves for the next, the newest note,
+ * with who wrote it and when. Writing a new one keeps the old ones on record.
+ */
+function Handover({ canWrite }) {
+  const [state, setState] = useState({ note: undefined, error: '' });
+  const [draft, setDraft] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  useEffect(() => {
+    let live = true;
+    opsHandover()
+      .then((r) => live && setState({ note: r.note || null, error: '' }))
+      .catch((e) => live && setState({ note: null, error: String(e?.message || e) }));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const save = async () => {
+    setBusy(true);
+    setSaveError('');
+    try {
+      const r = await opsWriteHandover(draft.trim());
+      setState({ note: r.note, error: '' });
+      setDraft(null);
+    } catch (e) {
+      setSaveError(String(e?.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const { note, error } = state;
+  return (
+    <section className="ops-section" aria-labelledby="ops-handover">
+      <div className="ops-section-head">
+        <h2 id="ops-handover" className="ops-h2">Handover</h2>
+        {canWrite && draft === null && note !== undefined ? (
+          <button type="button" className="ops-link" onClick={() => setDraft('')}>
+            {note ? 'Write a new note' : 'Write a note'}
+          </button>
+        ) : null}
+      </div>
+      {error ? (
+        <Err>{error}</Err>
+      ) : note === undefined ? (
+        <Loading />
+      ) : draft !== null ? (
+        <div className="grid gap-2">
+          <label className="grid gap-1">
+            <span className="sr-only">Handover note</span>
+            <textarea className="ui-input" rows={4} maxLength={2000} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="What the next person should pick up: customers waiting, calls promised, anything half done." />
+          </label>
+          <Err>{saveError}</Err>
+          <div className="flex gap-2">
+            <button type="button" className="ws-btn ws-btn--primary" disabled={busy || draft.trim().length < 3} onClick={save}>
+              {busy ? 'Saving…' : 'Save note'}
+            </button>
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={() => (setDraft(null), setSaveError(''))}>Cancel</button>
+          </div>
+        </div>
+      ) : note ? (
+        <div className="grid gap-1">
+          <p className="ops-ink" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{note.body}</p>
+          <span className="ws-item-sub">{note.mine ? 'You' : note.by} · {ago(note.at)}</span>
+        </div>
+      ) : (
+        <p className="ops-quiet-line">No handover note yet.</p>
       )}
     </section>
   );

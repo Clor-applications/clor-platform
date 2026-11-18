@@ -1089,6 +1089,8 @@ model Notification {
   /// approval:<requestId> | attendance:<requestId> | leave:<requestId>. Null on notices about nothing that can be withdrawn.
   subjectKey String?
   readAt    DateTime?
+  /// "Remind me tomorrow" (round 55): out of the list and the badge until then.
+  snoozedUntil DateTime?
   createdAt DateTime  @default(now())
 
   @@unique([orgId, userId, dedupeKey])
@@ -2189,11 +2191,36 @@ model SupportSavedReply {
   body            String
   /// accounting | people | attendance | payroll | workspace, or null for any.
   app             String?
+  /// A help page the reply points to (round 55 pick): added under the reply as "Read more: <link>".
+  helpUrl         String?
   usedCount       Int      @default(0)
   createdByUserId String
   updatedByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+/// One kind of optional email a person stopped from the "Stop these emails"
+/// link at the foot of it (round 55 pick). Mail that has to arrive (sign-in,
+/// invitations, invoices) has no such link and is never stopped.
+model EmailOptOut {
+  id          String   @id @default(cuid())
+  email       String
+  templateKey String
+  createdAt   DateTime @default(now())
+
+  @@unique([email, templateKey])
+}
+
+/// What one shift of CLOR staff leaves for the next (round 55 pick): the newest
+/// is shown on Ops home. Staff only, like notes.
+model OpsHandoverNote {
+  id           String   @id @default(cuid())
+  body         String
+  authorUserId String
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 /// A one-time code sent by text message for two-step sign-in

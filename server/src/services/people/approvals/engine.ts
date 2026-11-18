@@ -811,6 +811,18 @@ async function tellRequester(r: { accountId: string; orgId: string; requesterUse
  * sees it there. Optional mail: a company can switch these off in Workspace,
  * Email notifications. A failed send never stops the approval.
  */
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/**
+ * Round 55 (subject lines): an approval email's subject starts with the
+ * action, then the request, then when it is due: "Approve: Selvi's leave ·
+ * due 20 Nov". Overdue and handed-on ones say so first.
+ */
+export function approvalSubject(headline: 'Waiting for you' | 'Overdue' | 'Handed on to you', title: string, dueAt?: Date | null) {
+  const lead = headline === 'Overdue' ? 'Overdue, approve' : headline === 'Handed on to you' ? 'Approve (handed on to you)' : 'Approve';
+  const due = dueAt && headline !== 'Overdue' ? ` · due ${dueAt.getUTCDate()} ${SHORT_MONTHS[dueAt.getUTCMonth()]}` : '';
+  return `${lead}: ${title}${due}`.slice(0, 200);
+}
+
 async function emailUsers(accountId: string, orgId: string, userIds: string[], templateKey: 'people.approval_waiting' | 'people.approval_decided', data: Record<string, string>, relatedId: string) {
   const ids = [...new Set(userIds.filter((u) => u && !u.startsWith(PORTAL_PREFIX)))];
   if (!ids.length) return;
@@ -834,7 +846,7 @@ async function notifyStep(request: RequestRow) {
   /* ALL mode: everyone on every slot still waiting. */
   const ids = [...new Set(waiting.flatMap((s) => (s.candidateUserIds as string[]) || []))];
   await notifyUsers(request.accountId, request.orgId, ids, { kind: 'people.approval', title: `Waiting for you: ${request.title}`, body: `Due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${request.id}` });
-  await emailUsers(request.accountId, request.orgId, ids, 'people.approval_waiting', { headline: 'Waiting for you', title: request.title, dueLine: `Due ${step.dueAt.toISOString().slice(0, 10)}.` }, request.id);
+  await emailUsers(request.accountId, request.orgId, ids, 'people.approval_waiting', { headline: 'Waiting for you', subjectLine: approvalSubject('Waiting for you', request.title, step.dueAt), title: request.title, dueLine: `Due ${step.dueAt.toISOString().slice(0, 10)}.` }, request.id);
 }
 
 /**
@@ -1443,7 +1455,7 @@ export async function runApprovalDues(now = new Date()) {
   const remind = async (step: (typeof due)[number]) => {
     await peoplePrisma.approvalStep.update({ where: { id: step.id }, data: { remindedAt: now } });
     await notifyUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], { kind: 'people.approval', title: `Overdue: ${step.request.title}`, body: `Was due ${step.dueAt.toISOString().slice(0, 10)}.`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
-    await emailUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], 'people.approval_waiting', { headline: 'Overdue', title: step.request.title, dueLine: `It was due ${step.dueAt.toISOString().slice(0, 10)}.` }, step.requestId);
+    await emailUsers(step.accountId, step.orgId, (step.candidateUserIds as string[]) || [], 'people.approval_waiting', { headline: 'Overdue', subjectLine: approvalSubject('Overdue', step.request.title), title: step.request.title, dueLine: `It was due ${step.dueAt.toISOString().slice(0, 10)}.` }, step.requestId);
     reminded += 1;
   };
   for (const step of due) {
@@ -1476,7 +1488,7 @@ export async function runApprovalDues(now = new Date()) {
             await tx.approvalStep.create({ data: { accountId: step.accountId, orgId: step.orgId, requestId: step.requestId, order: step.order, slot: step.slot, mode: step.mode, candidateUserIds: candidates, approverUserId: candidates[0], dueAt: dueAtFrom(now, spec.due, addWorkingDays), status: 'WAITING', resolvedHow: 'HANDED_ON' } });
           });
           await notifyUsers(step.accountId, step.orgId, candidates, { kind: 'people.approval', title: `Handed on to you: ${step.request.title}`, link: { app: 'people', screen: 'approvals' } as any }, { subjectKey: `approval:${step.requestId}` });
-          await emailUsers(step.accountId, step.orgId, candidates, 'people.approval_waiting', { headline: 'Handed on to you', title: step.request.title, dueLine: '' }, step.requestId);
+          await emailUsers(step.accountId, step.orgId, candidates, 'people.approval_waiting', { headline: 'Handed on to you', subjectLine: approvalSubject('Handed on to you', step.request.title), title: step.request.title, dueLine: '' }, step.requestId);
           handedOn += 1;
           return;
         }
