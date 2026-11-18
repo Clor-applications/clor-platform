@@ -8,6 +8,7 @@ import { wholeRupees as money } from '@ui/utils/money';
 import PayCalendarStrip from '../components/PayCalendarStrip';
 import { todayIst } from '@ui/utils/dates';
 import StatutoryDues from '../components/StatutoryDues';
+import { MonthTodo } from '../components/round59';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -165,7 +166,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x" style={{ borderColor: 'rgb(var(--border))' }}>
             <Cell label="People" value={String(currentRun.employeeCount)} />
             <Cell label="Gross" value={money(currentRun.gross)} />
-            <Cell label="Take-home" value={money(currentRun.net)} />
+            <Cell label="Net pay" value={money(currentRun.net)} />
             <Cell label="Company pays" value={money(currentRun.employerCost)} />
           </div>
         </div>
@@ -190,6 +191,9 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           </button>
         </div>
       ) : null}
+
+      {/* Round 59 monthflow C: the month as a short to-do list. */}
+      <MonthTodo period={currentPeriod} run={currentRun} onOpen={onOpen} />
 
       {/* What is in the way, in the order somebody would act on it. */}
       {blockers.length ? (
@@ -238,7 +242,7 @@ export default function PayrollOverview({ onOpen = () => {} }) {
                   <th scope="col" className="ui-col-h-center">Paid on</th>
                   <th scope="col" className="ui-col-h-right">People</th>
                   <th scope="col" className="ui-col-h-right">Gross</th>
-                  <th scope="col" className="ui-col-h-right">Take-home</th>
+                  <th scope="col" className="ui-col-h-right">Net pay</th>
                   <th scope="col" className="ui-col-h-right">Company pays</th>
                 </tr>
               </thead>

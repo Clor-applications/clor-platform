@@ -42,6 +42,7 @@ import StatutoryGapsPanel from "../components/StatutoryGapsPanel";
 import { RegistrationNotice } from "../components/StatutoryRegistrationsStep";
 import { openMonthsOf } from "../components/runGuardText";
 import { PaidCount, PayChanges } from "../components/round32";
+import { lockWords } from "../components/round59";
 import { wholeRupees as money } from "@ui/utils/money";
 import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
 
@@ -675,7 +676,9 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
           type="button"
           className="ui-btn ui-btn-secondary"
           disabled={Boolean(busy)}
-          onClick={() =>
+          onClick={async () => {
+            /* Round 59 lockexplain A: what locking does, in plain words, before it happens. */
+            if (!(await confirmDialog(lockWords(run)))) return;
             act(
               "lock",
               async () => {
@@ -688,8 +691,8 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                 }
               },
               () => done("Payroll locked.", "Nothing in it can change now."),
-            )
-          }
+            );
+          }}
         >
           Lock
         </button>
@@ -1038,7 +1041,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                   Payable days
                 </th>
                 <th scope="col" className="ui-col-h-right">
-                  Loss of pay
+                  Unpaid days (LOP)
                 </th>
                 <th
                   scope="col"
@@ -1078,7 +1081,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
                           type="number"
                           min="0"
                           className="ui-input ui-num w-full min-w-0 px-2 py-1"
-                          aria-label={`${field === "workingDays" ? "Working days" : field === "payableDays" ? "Payable days" : field === "lwpDays" ? "Loss of pay days" : field === "overtimeHours" ? "Overtime hours" : "Variable pay"} for ${r.name}`}
+                          aria-label={`${field === "workingDays" ? "Working days" : field === "payableDays" ? "Payable days" : field === "lwpDays" ? "Unpaid days" : field === "overtimeHours" ? "Overtime hours" : "Variable pay"} for ${r.name}`}
                           value={r[field]}
                           onChange={(e) =>
                             patch(idx, { [field]: e.target.value })

@@ -17,7 +17,7 @@ const lastMonth = () => {
 };
 const monthWords = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const dayWords = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
-const PILL = { PENDING: ['ui-pill-warn', 'Waiting'], APPROVED: ['ui-pill-pos', 'Approved'], REJECTED: ['ui-pill-neg', 'Rejected'], CANCELLED: ['ui-pill-neutral', 'Cancelled'] };
+const PILL = { PENDING: ['ui-pill-warn', 'Waiting'], APPROVED: ['ui-pill-pos', 'Approved'], REJECTED: ['ui-pill-neg', 'Not approved'], CANCELLED: ['ui-pill-neutral', 'Cancelled'] };
 const Pill = ({ status }) => <span className={`ui-pill ${PILL[status]?.[0] || 'ui-pill-neutral'}`}>{PILL[status]?.[1] || status}</span>;
 
 /** Load once per key; only the latest answer fills the card. */
@@ -72,7 +72,7 @@ export function MonthReview({ guard }) {
       {!data ? (error ? null : <p className="ui-caption">Loading…</p>) : !s ? <p className="ui-caption">Nothing recorded for this month yet.</p> : (
         <>
           <dl className="grid grid-cols-3 gap-2 text-center">
-            {[['Payable days', s.payableDays], ['Loss of pay', s.lossOfPayDays], ['Present', s.present], ['Leave', s.leave], ['Absent', s.absent], ['Overtime', hm(s.approvedOvertimeMinutes)]].map(([k, v]) => (
+            {[['Payable days', s.payableDays], ['Unpaid days (LOP)', s.lossOfPayDays], ['Present', s.present], ['Leave', s.leave], ['Absent', s.absent], ['Overtime', hm(s.approvedOvertimeMinutes)]].map(([k, v]) => (
               <div key={k} className="rounded-xl p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}>
                 <dt className="ui-caption">{k}</dt>
                 <dd className="text-base font-semibold tabular-nums">{v}</dd>

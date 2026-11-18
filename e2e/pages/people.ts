@@ -221,7 +221,7 @@ export class PeopleWeb {
     await this.open('Employees');
     await this.main.getByRole('searchbox', { name: 'Search employees' }).fill(name);
     /* Wait for the list to narrow to that person before clicking, so the click lands on the row that stays. */
-    const hit = this.main.getByRole('button', { name: new RegExp(`^${name}\\b`) });
+    const hit = this.main.getByRole('link', { name: new RegExp(`^${name}\\b`) });
     await expect(hit).toHaveCount(1);
     /* The search is written to the address a moment later; a click before that is overwritten by it. */
     await expect(this.page).toHaveURL(/[?&]s\.q=/);

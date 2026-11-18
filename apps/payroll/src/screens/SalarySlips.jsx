@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { shownLines } from '@ui/picks/round60';
 import { Banknote, Clock, FileText, MinusCircle, Printer, Wallet } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -319,7 +320,8 @@ export const DeductionNote = ({ note, leaving = false }) => {
 const Section = ({ title, lines, trace, onExplain }) => (
   <section className="space-y-1.5">
     <div className="ui-sec-head">{title}</div>
-    {lines.map((l) => {
+    {/* Round 60 zerorows A: a line of ₹0 this month (no overtime, no bonus) is left out. */}
+    {shownLines(lines).map((l) => {
       const t = trace(l.code);
       return (
         <div key={`${l.componentId}:${l.name}`} className="flex items-baseline justify-between gap-3">

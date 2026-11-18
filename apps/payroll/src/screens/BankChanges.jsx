@@ -14,7 +14,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 const STATUS = {
   PENDING: { label: 'Waiting', pill: 'ui-pill-warn' },
   APPROVED: { label: 'Approved', pill: 'ui-pill-pos' },
-  REJECTED: { label: 'Rejected', pill: 'ui-pill-neg' },
+  REJECTED: { label: 'Not approved', pill: 'ui-pill-neg' },
   CANCELLED: { label: 'Replaced', pill: 'ui-pill-neutral' },
 };
 
@@ -28,7 +28,7 @@ const account = (num, ifsc, bank) => [num, ifsc, bank].filter(Boolean).join(' ·
 const TABS = [
   { value: 'PENDING', label: 'Waiting', tone: 'outstanding' },
   { value: 'APPROVED', label: 'Approved', tone: 'paid' },
-  { value: 'REJECTED', label: 'Rejected', tone: 'overdue' },
+  { value: 'REJECTED', label: 'Not approved', tone: 'overdue' },
   { value: '', label: 'All', tone: 'all' },
 ];
 const COLUMNS = {
@@ -113,7 +113,7 @@ export default function BankChanges() {
         { label: 'Waiting', value: counts.PENDING, count: true, tone: 'outstanding', Icon: Clock, onSelect: () => setStatus('PENDING') },
         { label: 'Entered by you', value: mineWaiting, count: true, tone: 'partial', Icon: UserRound },
         { label: 'Approved', value: counts.APPROVED, count: true, tone: 'paid', Icon: Check, onSelect: () => setStatus('APPROVED') },
-        { label: 'Rejected', value: counts.REJECTED, count: true, tone: 'overdue', Icon: X, onSelect: () => setStatus('REJECTED') },
+        { label: 'Not approved', value: counts.REJECTED, count: true, tone: 'overdue', Icon: X, onSelect: () => setStatus('REJECTED') },
       ]}
       tabs={TABS}
       statusValue={status}

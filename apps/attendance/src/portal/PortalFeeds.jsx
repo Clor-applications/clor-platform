@@ -31,7 +31,7 @@ const markSeen = (keys) => {
 };
 const PILL = {
   APPROVED: ['Approved', 'ui-pill-pos'],
-  REJECTED: ['Rejected', 'ui-pill-neg'],
+  REJECTED: ['Not approved', 'ui-pill-neg'],
   CANCELLED: ['Cancelled', 'ui-pill-neutral'],
   SHORTENED: ['Changed', 'ui-pill-neutral'],
   MORE_INFO: ['Needs you', 'ui-pill-warn'],
