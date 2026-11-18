@@ -1610,13 +1610,14 @@ Built:
 | ESI after a raise | Someone who paid ESI earlier in the contribution period (April–September, October–March) keeps paying after wages pass the threshold, until the period ends; the slip explains "ESI continues until the contribution period ends on 30 Sep 2026, then stops". |
 | Paying on time | A pay group whose paid-on day is after the 7th shows a warning under the field and "After the 7th" on its row; a run whose payroll date falls after the 7th of the next month says it is late under the Payment of Wages Act (`LatePayNote`). |
 | Wages at least half | The salary structure preview warns when basic plus DA (the gratuity wage components) is under half of gross, and says how much would be counted back as wages under the labour codes (`wagesCheck`). |
+| Weekly wages | Payroll › Pay runs › Weekly wages, for workers paid by the day in a weekly or fortnightly pay group. Daily rates: each worker's rate, hours in a day and overtime multiple (twice), canteen per day, advance left and recovered per sheet. A wage sheet covers one week or fortnight, one after another with no gap: days from Attendance (present, half days as half, paid leave, holidays, weekly offs only when the sheet pays them) or typed in, × the rate, plus overtime; PF on the month's PF wages so far less what earlier sheets took (one ₹15,000 ceiling a month), ESI per sheet judged on 26 days at the rate, professional tax once on the last sheet ending in the month on the month's total; deductions stop at half the wages. Approve (earlier drafts first, advances come down), Back to draft on the latest, Bank file CSV (workers without an account listed for cash), Mark paid, a wage slip per worker. The month adds every approved sheet ending in it per worker, with a summary CSV and the PF ECR file. Own tables (`WeeklyWageRate`, `WeeklyWageSheet`, `WeeklyWageLine`); the monthly run is unchanged (`weeklyWages.ts`, `WeeklyWages.jsx`). |
 
 Picked and already how the app works: an appointment letter for every worker (sent on hire, ticked
 in the joining plan); notice shortfall recovered in the final settlement.
 
 Picked, **not built yet**: a statutory bonus run (a new payroll flow); minimum wage revisions
 (needs each state's rate data); Budget slab updates (CLOR keeps the tax tables); a filled Form 11;
-an inspection pack download; weekly wages (runs are monthly); state leave minimums and the earned
+an inspection pack download; state leave minimums and the earned
 leave default of 180 days and 30 carried (need state law data); a yearly health check for staff 40
 and over (needs a new People record and its own flow); using the counted-back wages in PF and
 gratuity (the preview warns only).

@@ -1464,3 +1464,124 @@ model PayrollSetting {
 
   @@index([accountId, orgId])
 }
+
+/// Weekly wages (round 66): the daily rate of a worker paid by the day —
+/// factory hands, site labour, a contractor's gang — in a weekly or
+/// fortnightly pay group. Kept apart from salary structures on purpose: a
+/// daily-rated worker has no monthly CTC, and a weekly wage sheet is not a
+/// payroll run (a run is unique per month and pay group).
+model WeeklyWageRate {
+  id                 String  @id @default(cuid())
+  accountId          String
+  orgId              String
+  employeeId         String
+  /// A WEEKLY or FORTNIGHTLY pay group.
+  payGroupId         String
+  dailyRate          Decimal
+  /// Hours in the day the rate pays for: the hourly rate for overtime.
+  hoursPerDay        Decimal @default(8)
+  /// Overtime is paid at this many times the hourly rate (twice, by law).
+  overtimeMultiplier Decimal @default(2)
+  /// Canteen charge per day worked, taken from each sheet.
+  canteenPerDay      Decimal @default(0)
+  /// Advance still to recover, and how much each sheet takes of it.
+  advanceBalance     Decimal @default(0)
+  advancePerSheet    Decimal @default(0)
+  isActive           Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, employeeId])
+  @@index([orgId, payGroupId])
+}
+
+/// One week's (or fortnight's) wages for a pay group: days × rate plus
+/// overtime, less weekly deductions. The wage month is the month the sheet
+/// ends in; PF, ESI and PT add up across that month's sheets so the monthly
+/// returns still run monthly.
+model WeeklyWageSheet {
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  payGroupId    String
+  /// "2027-01-04".
+  startDate     String
+  endDate       String
+  /// "2027-01": the month the sheet ends in.
+  wageMonth     String
+  /// The last sheet ending in its wage month: professional tax is taken here.
+  lastOfMonth   Boolean @default(false)
+  paysWeeklyOff Boolean @default(false)
+  /// DRAFT | APPROVED | PAID
+  status        String  @default("DRAFT")
+  gross         Decimal @default(0)
+  deductions    Decimal @default(0)
+  net           Decimal @default(0)
+
+  approvedByUserId String?
+  approvedAt       DateTime?
+  /// "2027-01-10".
+  paidOn           String?
+  paymentReference String?
+  paidByUserId     String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lines WeeklyWageLine[]
+
+  @@unique([orgId, payGroupId, startDate])
+  @@index([orgId, wageMonth])
+}
+
+/// One worker on a weekly wage sheet. Bank and statutory numbers are copied
+/// at the time, as a payslip keeps them.
+model WeeklyWageLine {
+  id           String  @id @default(cuid())
+  accountId    String
+  orgId        String
+  sheetId      String
+  employeeId   String
+  employeeName String
+  employeeCode String?
+
+  daysWorked      Decimal @default(0)
+  dailyRate       Decimal @default(0)
+  overtimeHours   Decimal @default(0)
+  overtimeAmount  Decimal @default(0)
+  gross           Decimal @default(0)
+  /// Days × rate: PF is on this, never on overtime.
+  pfWage          Decimal @default(0)
+  pfEmployee      Decimal @default(0)
+  pfEmployer      Decimal @default(0)
+  pfEps           Decimal @default(0)
+  esiEmployee     Decimal @default(0)
+  esiEmployer     Decimal @default(0)
+  ptEmployee      Decimal @default(0)
+  advanceRecovery Decimal @default(0)
+  canteen         Decimal @default(0)
+  totalDeductions Decimal @default(0)
+  net             Decimal @default(0)
+  /// Days typed over attendance's.
+  edited          Boolean @default(false)
+  notes           String?
+  /// [{ scheme, text }]: how each statutory figure was reached.
+  explanationJson String  @default("[]")
+
+  bankAccountName   String?
+  bankAccountNumber String?
+  bankIfsc          String?
+  uan               String?
+  esiNumber         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sheet WeeklyWageSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  @@unique([sheetId, employeeId])
+  @@index([orgId, employeeId])
+}
