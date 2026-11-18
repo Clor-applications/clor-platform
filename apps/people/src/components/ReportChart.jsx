@@ -18,6 +18,9 @@ const colourOf = (s, i) => (s.other || i >= CHART_COLOURS ? 0 : i + 1);
 export default function ReportChart({ chart, label }) {
   if (!chart?.categories?.length || !chart.series?.length) return null;
   const { categories, series } = chart;
+  /* Round 29 pick "chartempty" C: a chart with nothing in it yet is not drawn
+     as a row of empty columns; the table under it already says so in words. */
+  if (!series.some((s) => (s.values || []).some((v) => Number(v) > 0))) return null;
   const stacked = chart.kind === 'stacked';
   const totals = categories.map((_, c) => series.reduce((n, s) => n + (Number(s.values[c]) || 0), 0));
   const top = Math.max(1, ...(stacked ? totals : series.flatMap((s) => s.values.map((v) => Number(v) || 0))));

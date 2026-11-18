@@ -19,6 +19,7 @@ import { EXPLORE_READ_ONLY_TEXT, subscribeConfirms, subscribeToasts } from './no
 
 export default function Toaster() {
 
+  const books = typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
   const [confirm, setConfirm] = useState(null);
   const cancelRef = useRef(null);
   /* An authenticator code asked for by @platform/http (step-up). */
@@ -94,7 +95,14 @@ export default function Toaster() {
         position="bottom-right"
         offset={16}
         gap={8}
-        visibleToasts={5}
+        /*
+         * Round 29 pick "toaststack" A: outside Books, several quick messages
+         * (approving five requests) stand open one above the other, newest
+         * in front, three at most, so each one is read. Books keeps its
+         * collapsed pile of five.
+         */
+        visibleToasts={books ? 5 : 3}
+        expand={!books}
         /*
          * Sonner injects its own stylesheet with `z-index: 999999999` on
          * `[data-sonner-toaster]`, which is outside this product's layer scale

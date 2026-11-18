@@ -562,6 +562,8 @@ list (branch, team, type); "Preview pay" on one person. All need server or phone
 
 ### Round 28 (18 Nov 2026)
 
+### Round 29 (18 Nov 2026)
+
 Built:
 
 | Building block | Pick |
@@ -614,6 +616,22 @@ signature in the PDF; PF capped at ₹15,000 by default with a choice per person
 allowed for one person whose fingerprint will not read; a small sign-in for former staff to get
 their papers; ideas counted from tags on support tickets; salary split between two bank accounts.
 All need server work. Pinning a person to the top of People needs pins kept on the server.
+
+| Several messages at once | Outside Books, quick messages stand open one above the other, newest in front, three at most, so each is read (Sonner `expand`, `visibleToasts` 3 in `Toaster`). Books keeps its collapsed pile of five. |
+| A chart with nothing to show yet | A chart with no figures is not drawn: a People report's chart with every value at nought, and "Joined and left" when nobody joined or left, are left out; the table or empty state under them says it in words (`ReportChart`, `JoinLeaveBars`). |
+| The name someone likes to be called | Lists and the record's title show the full legal name only, as on papers; the preferred name stays on the Personal tab and in friendly sentences (`Directory`, `EmployeeRecord`). |
+
+Picked and already how the app works: right-click on a row opens the browser's own menu (no
+custom menu anywhere); the roster has no dragging, a shift is moved by choosing the day; Ops
+staff roles are fixed (Support, Billing, Sales, Admin).
+
+Picked, **not built yet**: salary paid by mistake taken back from next month's pay; a roster
+warning when night-shift consent is not on file; the manager told when someone applies for a
+job inside the company; a CA's client list with this month's status; monthly revenue in Ops as
+a big number with a 12-month line; joining the company in the phone app by phone number and
+OTP; a joiner asked for their PAN before the first payroll; a billing email separate from the
+owner; a joining bonus line with its "returnable until" date; voting-day leave asked for and
+approved on its own. All need server or phone-app work.
 
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 

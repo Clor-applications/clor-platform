@@ -178,9 +178,11 @@ export default function PeopleReports({ params = {}, updateParams }) {
             <ChartPanel title="Why people left">
               {reasons.length ? <BarList label="Leavers by reason" rows={reasons.sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: REASONS[k] || k, value: n }))} /> : <p className="pt-foot">Nobody left in this period.</p>}
             </ChartPanel>
-            <ChartPanel title="Joined and left" note="Up joined · down left" className="pt-chart-wide">
-              <JoinLeaveBars rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], joiners: m.joiners, leavers: m.leavers }))} />
-            </ChartPanel>
+            {t.joiners || t.leavers ? (
+              <ChartPanel title="Joined and left" note="Up joined · down left" className="pt-chart-wide">
+                <JoinLeaveBars rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], joiners: m.joiners, leavers: m.leavers }))} />
+              </ChartPanel>
+            ) : null}
             <TenurePanel />
           </div>
         ) : null}

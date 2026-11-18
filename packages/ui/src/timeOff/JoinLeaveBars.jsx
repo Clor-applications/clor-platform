@@ -6,6 +6,8 @@ import React from 'react';
  * people who left, with both figures written under the month.
  */
 export default function JoinLeaveBars({ rows, label = 'Joiners and leavers each month' }) {
+  /* Round 29 pick "chartempty" C: nobody joined or left, so no empty chart. */
+  if (!rows?.some((r) => Number(r.joiners) > 0 || Number(r.leavers) > 0)) return null;
   const top = Math.max(1, ...rows.map((r) => Math.max(Number(r.joiners) || 0, Number(r.leavers) || 0)));
   const said = rows.map((r) => `${r.label} ${r.joiners || 0} joined, ${r.leavers || 0} left`).join(', ');
   return (
