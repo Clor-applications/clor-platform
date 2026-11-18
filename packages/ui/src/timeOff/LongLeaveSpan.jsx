@@ -37,16 +37,24 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 /** "Wed 2 Jun 2027". */
 const word = (d) => { const t = new Date(at(d)); return `${WEEKDAYS[t.getUTCDay()]} ${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]} ${t.getUTCFullYear()}`; };
 
+/* Round 42 pick "adoption" B: adoption leave is set by the child's age; a child under
+   3 months gets 12 weeks from the day the child comes home (Maternity Benefit Act). */
+export const ADOPTION = /adopt/i;
+export const ADOPTION_WEEKS = 12;
+
 export default function LongLeaveSpan({ typeName, fromDate, toDate, onFill }) {
-  if (!MATERNITY.test(typeName || '') || !fromDate) return null;
+  const adoption = ADOPTION.test(typeName || '');
+  if ((!MATERNITY.test(typeName || '') && !adoption) || !fromDate) return null;
   if (document.documentElement.dataset.palette === 'indigo') return null;
-  const full = lastDayOf(fromDate);
+  const weeks = adoption ? ADOPTION_WEEKS : MATERNITY_WEEKS;
+  const full = lastDayOf(fromDate, weeks);
   return (
     <div className="ui-long-leave text-sm">
       {toDate && toDate >= fromDate
         ? <p><span className="tabular-nums">{spanWords(fromDate, toDate)}</span> · back at work on <b className="tabular-nums">{word(backOn(toDate))}</b></p>
         : null}
-      {toDate !== full ? <button type="button" className="ui-link" onClick={() => onFill(full)}>Fill {MATERNITY_WEEKS} weeks, to {word(full)}</button> : null}
+      {adoption ? <p className="ui-muted">For a child under 3 months: {ADOPTION_WEEKS} weeks from the day the child comes home.</p> : null}
+      {toDate !== full ? <button type="button" className="ui-link" onClick={() => onFill(full)}>Fill {weeks} weeks, to {word(full)}</button> : null}
     </div>
   );
 }

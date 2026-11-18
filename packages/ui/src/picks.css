@@ -920,3 +920,33 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-early-tag { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
 /* rowcount B: the matching count in the list title, quieter than the title itself. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-title-count { color: rgb(var(--fg-muted)); font-weight: 500; }
+
+/* Round 42 */
+/* Sick leave for a child: Me / My child on the leave form. */
+.ui-for-whom { border: 0; padding: 0; margin: 0; }
+.ui-for-whom-choices { display: inline-flex; gap: 0; border: 1px solid rgb(var(--border)); border-radius: 8px; overflow: hidden; }
+.ui-for-whom-choice { padding: 6px 14px; font-size: 14px; background: transparent; }
+.ui-for-whom-choice + .ui-for-whom-choice { border-left: 1px solid rgb(var(--border)); }
+.ui-for-whom-choice[aria-checked='true'] { background: rgb(var(--act) / 0.1); color: rgb(var(--act-ink)); font-weight: 600; }
+/* Leave without pay: the cost in words. */
+.ui-unpaid-note { color: rgb(var(--fg-muted)); }
+
+/* Round 44 */
+/* Payroll dates for the month: four steps with the days left to pay. */
+.ui-paycal { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.ui-paycal-steps { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+.ui-paycal-step { display: flex; flex-direction: column; min-width: 7.5rem; padding: 0.5rem 0.75rem; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #fff; }
+.ui-paycal-step.is-done { color: rgb(var(--fg-muted)); }
+.ui-paycal-step.is-now { border-color: rgb(var(--act)); box-shadow: inset 0 0 0 1px rgb(var(--act)); }
+.ui-paycal-label { font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ui-paycal-date { font-weight: 600; }
+.ui-paycal-left { margin: 0; }
+/* Take-home on an offer. */
+.ui-takehome { padding: 0.75rem 0; border-top: 1px solid rgb(var(--border)); }
+.ui-takehome p { margin: 0; }
+/* PF withdrawal steps in the employee app. */
+.ui-pf-steps-list { margin: 0.75rem 0; padding-left: 1.25rem; list-style: decimal; display: grid; gap: 0.375rem; }
+
+/* Round 45 */
+/* Team size per manager: a compact two-column table inside its chart panel. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-span-table th, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-span-table td { padding-block: 6px; }

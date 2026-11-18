@@ -1,5 +1,6 @@
 import DateNotes from '@ui/timeOff/DateNotes';
 import LongLeaveSpan from '@ui/timeOff/LongLeaveSpan';
+import { ForWhom, UnpaidNote, reasonFor } from '@ui/timeOff/round42';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 
@@ -31,7 +32,7 @@ import './MyLeave.css';
  * as the dates are picked, the days it takes, the dates it skips and why,
  * and the balance after (AUT-05) — the same preview the employee app shows.
  */
-const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', reason: '' };
+const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', reason: '', forChild: false };
 const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
 const PRIVATE_LABEL = 'Private leave';
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
@@ -322,6 +323,7 @@ function LeavePreview({ preview, checking }) {
           </ul>
         </div>
       ) : null}
+      <UnpaidNote type={preview.type} total={preview.total} />
       <HalfDayNote parts={parts} />
       <DateNotes parts={parts} label={dayLabel} />
       {(preview.problems || []).map((x) => <p key={x.code + x.message} className="ui-text-neg" role="alert">{x.message}</p>)}
@@ -341,7 +343,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
     ...f,
     [k]: v,
     ...(k === 'fromDate' && v && f.toDate && f.toDate < v ? { toDate: v } : {}),
-    ...(k === 'leaveTypeId' ? { halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '' } : {}),
+    ...(k === 'leaveTypeId' ? { halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', forChild: false } : {}),
   }));
   const listed = types.find((t) => t.id === form.leaveTypeId);
   const hourly = isHourly(listed);
@@ -382,7 +384,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
         toDate: form.toDate || form.fromDate,
         ...halfDayBody(form, halfAllowed),
         ...hoursBody(form, listed),
-        reason: form.reason.trim(),
+        reason: reasonFor(form.reason, form.forChild),
         ...(preview.split ? { split: true } : {}),
         ...(doc ? { attachment: doc } : {}),
       };
@@ -427,6 +429,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
         {hourly
           ? <HoursChoice form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
           : <HalfDayChoice form={form} allowed={halfAllowed} typeName={(type || listed)?.name} label="How much of the day" onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />}
+        <ForWhom typeName={(type || listed)?.name} value={form.forChild} onChange={(v) => set('forChild', v)} />
         <label className="block">
           <span className="ui-label">{reasonNeeded ? 'Reason *' : 'Reason'}</span>
           <input className="ui-input w-full" maxLength={500} value={form.reason} onChange={(e) => set('reason', e.target.value)} />
