@@ -192,7 +192,7 @@ describe('Time & Leave', () => {
     fireEvent.click(await screen.findByRole('radio', { name: 'Month' }));
     const table = await screen.findByRole('table', { name: /Attendance in/ });
     await waitFor(() => expect(within(table).getByRole('row', { name: /Ravi Kumar/ })).toHaveTextContent(/2\s*2\s*29/));
-    expect(within(table).getByRole('columnheader', { name: 'Loss of pay' })).toBeInTheDocument();
+    expect(within(table).getByRole('columnheader', { name: 'Unpaid days (LOP)' })).toBeInTheDocument();
     expect(screen.getByText(/Payroll took these on/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Export/ }));
     expect(exporter.runListExport).toHaveBeenCalledWith(expect.objectContaining({ rows: [expect.objectContaining({ name: 'Ravi Kumar', lop: 2, payable: 29 })] }));

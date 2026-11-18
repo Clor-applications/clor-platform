@@ -78,7 +78,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
   };
 
   return (
-    <section className="space-y-3" aria-label="Loss of pay check">
+    <section className="space-y-3" aria-label="Unpaid days check">
       {check.snapshotChanged ? (
         <div className="ui-card p-3 text-sm flex items-start gap-2" role="alert" style={warnStyle}>
           <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
@@ -89,7 +89,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
 
       {!mismatches.length ? (
         <p className="ui-caption">
-          Loss of pay agrees for all {check.checked} {check.checked === 1 ? "person" : "people"}: approved unpaid leave, the days and this payroll.
+          Unpaid days (LOP) agree for all {check.checked} {check.checked === 1 ? "person" : "people"}: approved unpaid leave, the days and this payroll.
         </p>
       ) : (
         <>
@@ -98,7 +98,7 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
               <AlertTriangle size={12} aria-hidden="true" /> {mismatches.length} to check
             </span>
             <p className="ui-caption max-w-[70ch]">
-              Loss of pay does not agree for {mismatches.length} {mismatches.length === 1 ? "person" : "people"}. Correct the leave, the days or this payroll, or lock with a reason.
+              Unpaid days (LOP) do not agree for {mismatches.length} {mismatches.length === 1 ? "person" : "people"}. Correct the leave, the days or this payroll, or lock with a reason.
             </p>
           </div>
           <div className="ui-card overflow-hidden">
@@ -108,8 +108,8 @@ export function LopCheckPanel({ runId, run, refreshKey, onLocked }) {
                   <tr>
                     <th scope="col">Employee</th>
                     <th scope="col" className="ui-col-h-right">Unpaid leave approved</th>
-                    <th scope="col" className="ui-col-h-right">Loss of pay on the days</th>
-                    <th scope="col" className="ui-col-h-right">Loss of pay on this payroll</th>
+                    <th scope="col" className="ui-col-h-right">Unpaid days by attendance</th>
+                    <th scope="col" className="ui-col-h-right">Unpaid days on this payroll</th>
                     <th scope="col">What differs</th>
                   </tr>
                 </thead>
