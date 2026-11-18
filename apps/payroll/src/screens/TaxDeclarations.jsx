@@ -14,6 +14,7 @@ import { downloadCsv } from '@ui/utils/csv';
 import { get24q, getForm16, getTaxDeclaration, listTaxDeclarations, reopenTaxDeclaration, saveTaxDeclaration, verifyTaxDeclaration } from '../api/payrollTaxDeclarations';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import OpeningYtdPanel from '../components/OpeningYtdPanel';
+import TdsDepositsPanel, { monthWords } from '../components/TdsDepositsPanel';
 import OpeningYtdSection from '../components/OpeningYtdSection';
 import { wholeRupees as money } from '@ui/utils/money';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -108,6 +109,7 @@ export default function TaxDeclarations() {
       headerExtras={
         <>
           <OpeningYtdPanel fy={fy} onOpenPerson={setOpen} />
+          <TdsDepositsPanel fy={fy} />
           <Return24q fy={fy} />
         </>
       }
@@ -463,10 +465,16 @@ function Return24q({ fy }) {
           { key: 'amountPaid', label: 'Amount paid', value: (x) => Number(x.amountPaid).toFixed(2) },
           { key: 'tds', label: 'Tax deducted', value: (x) => Number(x.tds).toFixed(2) },
           { key: 'deducted', label: 'Date of deduction', value: (x) => formatDateIn(x.paymentDate) },
+          /* The challan that deposited the month's tax (round 27 pick), from TDS deposits. */
+          { key: 'bsrCode', label: 'BSR code', value: (x) => x.bsrCode || '' },
+          { key: 'challanSerial', label: 'Challan serial', value: (x) => x.challanSerial || '' },
+          { key: 'depositDate', label: 'Date deposited', value: (x) => (x.depositDate ? x.depositDate.split('; ').map(formatDateIn).join('; ') : '') },
         ],
         rows: r.rows,
       });
+      const noChallan = (r.noChallan || []).map(monthWords);
       if (r.problems.length) notify.error(`${r.problems.length} without a valid PAN: ${r.problems.map((p) => p.name).join(', ')}.`);
+      else if (noChallan.length) notify.error(`Downloaded. No challan recorded for ${noChallan.join(', ')}: add it under TDS deposits.`);
       else notify.success('Downloaded.');
     } catch (e) {
       notify.error(String(e?.message || 'Could not build the return.'));

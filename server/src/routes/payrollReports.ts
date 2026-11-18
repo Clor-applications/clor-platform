@@ -11,6 +11,9 @@ import { snapshotPerson } from '../services/payroll/payment.js';
 import { round2 } from '../utils/money.js';
 import { buildFilings } from '../services/payroll/filings.js';
 import { employerFor, form24q, taxYear } from '../services/payroll/form16.js';
+import { BSR, ISO_DAY, MONTH, SERIAL, challansFor, inYear, tdsMonths, type ChallanRow } from '../services/payroll/tdsChallans.js';
+import { recordAudit } from '../services/auditTrail.js';
+import { todayIst } from '../utils/istDate.js';
 
 /**
  * Payroll reports.
@@ -384,7 +387,70 @@ payrollReportsRouter.get(
     const fy = String(req.query.fy || '');
     const quarter = Number(req.query.quarter);
     if (!FY.test(fy) || ![1, 2, 3, 4].includes(quarter)) return res.status(400).json({ error: 'Choose a financial year and a quarter.' });
-    const [data, employer] = await Promise.all([form24q(orgId, fy, quarter), employerFor(orgId)]);
-    res.json({ financialYear: fy, quarter, employer, ...data });
+    const [data, employer, challans] = await Promise.all([form24q(orgId, fy, quarter), employerFor(orgId), challansFor(orgId, fy)]);
+    /* Each row carries the challan(s) that deposited its month's tax, as the return's deductee rows ask. */
+    const byMonth = new Map<string, ChallanRow[]>();
+    for (const c of challans) byMonth.set(c.month, [...(byMonth.get(c.month) || []), c]);
+    const rows = data.rows.map((r) => {
+      const mine = byMonth.get(String(r.paymentDate).slice(0, 7)) || [];
+      return { ...r, bsrCode: mine.map((c) => c.bsrCode).join('; '), challanSerial: mine.map((c) => c.challanSerial).join('; '), depositDate: mine.map((c) => c.depositDate).join('; ') };
+    });
+    const noChallan = [...new Set(data.rows.map((r) => String(r.paymentDate).slice(0, 7)))].filter((m) => !byMonth.has(m)).sort();
+    res.json({ financialYear: fy, quarter, employer, ...data, rows, noChallan });
   }
 );
+
+/**
+ * Salary TDS deposits (round 27 pick): a row per month of the year with the
+ * tax deducted, the challans recorded against it and what is left to deposit.
+ */
+payrollReportsRouter.get(
+  '/orgs/:orgId/payroll/reports/tds-challans',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { orgId } = req.tenant!;
+    const fy = String(req.query.fy || '');
+    if (!FY.test(fy)) return res.status(400).json({ error: 'Choose a financial year, like 2026-27.' });
+    res.json({ financialYear: fy, ...(await tdsMonths(orgId, fy, todayIst())) });
+  }
+);
+
+const SETTINGS_EDIT = requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, PAYROLL_RESOURCE.settings);
+
+payrollReportsRouter.post('/orgs/:orgId/payroll/tds-challans', SETTINGS_EDIT, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const b = req.body || {};
+  const fy = String(b.financialYear || '');
+  const month = String(b.month || '');
+  const bsrCode = String(b.bsrCode || '').replace(/\s+/g, '');
+  const challanSerial = String(b.challanSerial || '').replace(/\s+/g, '');
+  const depositDate = String(b.depositDate || '');
+  const amount = round2(Number(b.amount));
+  const note = String(b.note || '').trim().slice(0, 200) || null;
+  if (!FY.test(fy) || !MONTH.test(month) || !inYear(fy, month)) return res.status(400).json({ error: 'Choose a month of the financial year.' });
+  if (!BSR.test(bsrCode)) return res.status(400).json({ error: 'The BSR code is the bank branch’s 7 digits, on the challan.' });
+  if (!SERIAL.test(challanSerial)) return res.status(400).json({ error: 'The challan serial number is up to 5 digits.' });
+  if (!ISO_DAY.test(depositDate) || Number.isNaN(Date.parse(depositDate))) return res.status(400).json({ error: 'Give the date the tax was deposited.' });
+  if (depositDate < `${month}-01`) return res.status(400).json({ error: 'A deposit cannot be dated before the month it pays for.' });
+  if (depositDate > todayIst()) return res.status(400).json({ error: 'The deposit date cannot be in the future.' });
+  if (!(amount > 0) || amount > 1e10) return res.status(400).json({ error: 'Give the amount deposited.' });
+  const clash = await payrollPrisma.payrollTdsChallan.findFirst({ where: { orgId, bsrCode, challanSerial, depositDate, deletedAt: null }, select: { id: true } });
+  if (clash) return res.status(409).json({ error: 'That challan is already recorded.' });
+  const row = await payrollPrisma.payrollTdsChallan.create({
+    data: { accountId, orgId, financialYear: fy, month, bsrCode, challanSerial, depositDate, amount, note, createdByUserId: req.auth!.userId },
+  });
+  await recordAudit(req, { entity: 'PAYROLL_TDS_CHALLAN', entityId: row.id, action: 'CREATE', message: `TDS challan ${bsrCode}/${challanSerial} of ${depositDate} recorded for ${month}`, metadata: { month, amount } });
+  res.status(201).json({ id: row.id });
+});
+
+payrollReportsRouter.delete('/orgs/:orgId/payroll/tds-challans/:id', SETTINGS_EDIT, async (req, res) => {
+  if (!(await payrollRouteOk(req, res))) return;
+  const { orgId } = req.tenant!;
+  const row = await payrollPrisma.payrollTdsChallan.findFirst({ where: { orgId, id: String(req.params.id), deletedAt: null } });
+  if (!row) return res.status(404).json({ error: 'No such challan.' });
+  await payrollPrisma.payrollTdsChallan.update({ where: { id: row.id }, data: { deletedAt: new Date() } });
+  await recordAudit(req, { entity: 'PAYROLL_TDS_CHALLAN', entityId: row.id, action: 'DELETE', message: `TDS challan ${row.bsrCode}/${row.challanSerial} removed from ${row.month}`, metadata: { month: row.month } });
+  res.json({ ok: true });
+});

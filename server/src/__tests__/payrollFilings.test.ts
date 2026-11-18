@@ -111,6 +111,10 @@ describe('statutory files', () => {
     /* ESIC: Asha only (Vikram is over the ceiling); the person without an IP number is listed. */
     expect(f.esic.rows).toEqual([expect.objectContaining({ employeeId: asha, ipNumber: '3100123456', days: 30, wages: 18208, reason: 0, lastWorkingDay: '', employee: 137, employer: 592 })]);
     expect(f.esic.problems.map((p: { name: string }) => p.name)).toEqual(['Nobody Uan']);
+    /* The check lists before each download (round 26 and 44 picks): ready, and left out by reason. */
+    expect(f.ecr.checklist).toEqual({ ready: 2, leftOut: 1, byKind: { NO_UAN: 1 } });
+    expect(f.ecr.problems[0].kind).toBe('NO_UAN');
+    expect(f.esic.checklist).toEqual({ ready: 1, leftOut: 1, byKind: { NO_IP: 1 } });
 
     /* PT: one person at ₹200 in Karnataka. */
     expect(f.pt.states).toEqual([

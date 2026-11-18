@@ -392,6 +392,16 @@
       "reason": "Employee self-service: changes their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },
     {
+      "method": "POST",
+      "path": "/api/portal/leave/:id/remind",
+      "reason": "Employee self-service: reminds the approver of their own waiting leave, once a day; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave/:id/answer",
+      "reason": "Employee self-service: answers the question sent back on their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
       "method": "GET",
       "path": "/api/portal/leave/explain",
       "reason": "Employee self-service: reads their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
