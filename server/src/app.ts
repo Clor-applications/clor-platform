@@ -109,6 +109,7 @@ import { payrollOverviewRouter } from './routes/payrollOverview.js';
 import { payrollReportsRouter } from './routes/payrollReports.js';
 import { payrollBonusRouter } from './routes/payrollBonus.js';
 import { payrollSetupRouter } from './routes/payrollSetup.js';
+import { payrollWeeklyWagesRouter } from './routes/payrollWeeklyWages.js';
 import { posCheckoutRouter } from './routes/posCheckout.js';
 import { accountRouter } from './routes/account.js';
 import { invitationsRouter } from './routes/invitations.js';
@@ -575,6 +576,7 @@ export function buildApp() {
   app.use('/api', payrollReportsRouter);
   app.use('/api', payrollBonusRouter);
   app.use('/api', payrollSetupRouter);
+  app.use('/api', payrollWeeklyWagesRouter);
   app.use('/api', posCheckoutRouter);
   app.use('/api', accountRouter);
   app.use('/api', billingRouter);
