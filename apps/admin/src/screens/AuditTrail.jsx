@@ -144,7 +144,8 @@ export const messageWords = (message, entity, action) => {
   const m = String(message || '').match(/^(POST|PUT|PATCH|DELETE)\s+\/?([\w/-]+)/);
   if (m) {
     const last = m[2].split('/').filter((x) => x && !isId(x) && !/^\d+$/.test(x)).pop() || entity || 'record';
-    const noun = last.replace(/-/g, ' ').replace(/ies$/, 'y').replace(/s$/, '');
+    /* branches → branch, boxes → box, categories → category, roles → role. */
+    const noun = last.replace(/-/g, ' ').replace(/ies$/, 'y').replace(/(ch|sh|ss|x)es$/, '$1').replace(/s$/, '');
     return `${VERB[m[1]]} ${noun.replace(/^payroll /, '')}`.replace(/^(\w+) (\w)/, (_, v, c) => `${v} ${c.toLowerCase()}`);
   }
   return message || `${entityLabel(entity)} ${actionWords(action).toLowerCase()}`;
@@ -323,16 +324,6 @@ export default function AuditTrail({ tenant } = {}) {
           crumbs={['Home', 'Activity']}
           icon={PAGE_ICON}
           title="Activity"
-          actions={
-            <>
-              <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading} aria-label={loading ? 'Loading' : 'Refresh'} title="Refresh">
-                <RefreshCw size={16} aria-hidden="true" />
-              </button>
-              <button type="button" onClick={download} className="ws-btn ws-btn--quiet" disabled={!entries.length}>
-                <Download size={16} aria-hidden="true" /> Export
-              </button>
-            </>
-          }
         />
 
         <div className="ws-filters ws-filters--one-row" role="search">
@@ -365,6 +356,15 @@ export default function AuditTrail({ tenant } = {}) {
             ))}
           </select>
           <DateFilter span={span} from={filters.from} to={filters.to} onSpan={chooseSpan} onFrom={set('from')} onTo={set('to')} />
+          {/* Refresh and Export close the filter row, at its right end (owner, 19 Nov 2026: use the full width). */}
+          <span className="ws-filters-end">
+            <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet ws-btn--icon" disabled={loading} aria-label={loading ? 'Loading' : 'Refresh'} title="Refresh">
+              <RefreshCw size={16} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={download} className="ws-btn ws-btn--quiet" disabled={!entries.length}>
+              <Download size={16} aria-hidden="true" /> Export
+            </button>
+          </span>
         </div>
 
         {failed ? (
@@ -378,7 +378,13 @@ export default function AuditTrail({ tenant } = {}) {
         ) : (
           <>
             <div className="ws-table-wrap">
-              <table className="ws-table ws-sec-table" aria-label="Activity, newest first">
+              <table className="ws-table ws-sec-table ws-activity-table" aria-label="Activity, newest first">
+                <colgroup>
+                  <col className="ws-col-when" />
+                  <col className="ws-col-who" />
+                  <col />
+                  <col className="ws-col-app" />
+                </colgroup>
                 <thead>
                   <tr>
                     {/* No Company column: the trail is one company's, and the bar above names it. The same
@@ -406,13 +412,16 @@ export default function AuditTrail({ tenant } = {}) {
                           </span>
                         </td>
                         <td className="ws-sec-wrap">
-                          <span className="ws-sec-what">
-                            <span className="ws-sec-title">{messageWords(e.message, e.entity, e.action)}</span>
-                            <ActionPill action={e.action} />
-                            {e.entity ? <span className="ws-sec-record">{entityLabel(e.entity)}</span> : null}
-                          </span>
-                          <FieldChanges changes={e.changes} />
-                          <Changes metadata={e.metadata} />
+                          {/* One line: what happened, its action, the record, and Details at the end; opened, the details take the full width under it. */}
+                          <div className="ws-sec-line">
+                            <span className="ws-sec-what">
+                              <span className="ws-sec-title">{messageWords(e.message, e.entity, e.action)}</span>
+                              <ActionPill action={e.action} />
+                              {e.entity ? <span className="ws-sec-record">{entityLabel(e.entity)}</span> : null}
+                            </span>
+                            <FieldChanges changes={e.changes} />
+                            <Changes metadata={e.metadata} />
+                          </div>
                         </td>
                         <td>
                           {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}

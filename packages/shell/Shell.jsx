@@ -429,6 +429,8 @@ function ShellScreens() {
     if (!search || !main || typeof ResizeObserver === 'undefined') return undefined;
     const place = () => {
       search.style.marginLeft = '';
+      /* With the screens panel open the bar's CSS places the search (rnd.css, [data-panel]); this measuring is for the rest. */
+      if (search.closest('[data-panel]')) return;
       const pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
       const target = main.getBoundingClientRect().left + pad;
       const gap = target - search.getBoundingClientRect().left;

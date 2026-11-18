@@ -3389,3 +3389,46 @@ button.ws-stat:hover {
     align-items: center;
   }
 }
+
+/* ---- 19 Nov 2026 (owner, Activity: "do not add page like card, make full page") ----
+   Workspace pages use the whole width beside the screens panel, not the shell's 80rem column. */
+:root:not(#rnd):not([data-palette='indigo']) main#main-content > :is(.ws, :has(> .ws)) {
+  max-width: none;
+}
+.ws .ws-inner {
+  max-width: none;
+}
+/* A list sits on the page under its header rule: no card around it. Its first and last columns
+   line up with the page's title and filters above. */
+.ws .ws-table-wrap {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.ws .ws-table :is(th, td):first-child {
+  padding-left: 0;
+}
+.ws .ws-table :is(th, td):last-child {
+  padding-right: 0;
+}
+.ws .ws-table tbody tr:hover {
+  background: none;
+}
+.ws .ws-table tbody tr:hover td {
+  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+}
+/* Tools at the right end of a filter row (Refresh, Export). */
+.ws-filters-end {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws .ws-filters-end .ws-btn {
+  height: 36px;
+}
+.ws .ws-btn--icon {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
