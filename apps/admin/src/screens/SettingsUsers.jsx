@@ -735,7 +735,8 @@ export function SettingsUsers({ orgId, params }) {
             <input className="ui-input" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search name, email, user ID or role" />
           </label>
           <FilterSelect label="Status" value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} width="11rem" options={[['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']]} />
-          <span className="ws-head-meta">{rows.length} {rows.length === 1 ? 'user' : 'users'}</span>
+          {/* The total is on the Users card above; a count here only says how far a search or filter narrowed it. */}
+          {rows.length !== users.length ? <span className="ws-head-meta ws-filters-end">{rows.length} of {users.length} shown</span> : null}
         </div>
 
         {error && !panel ? errorNote : null}
