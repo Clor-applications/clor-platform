@@ -1172,6 +1172,90 @@ confirming "I still have this" for their assets; "Report a problem" on an asset;
 as a free text request; a director naming a helper who files claims for them; the employee no longer
 asked "Is this a different bill?" (the repeat goes to the approver only). All need server work.
 
+### Round 52 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Case waiting time | The Help desk list has a Waiting column: how long each open or reopened case has waited on HR ("1 day", "3 hours"), from the reopen if there was one (`deskWaiting.js`). The employee sees no promise. |
+| Did this solve it? | Under HR's answer in Ask HR, "Did this solve it?" Yes / No, reopen. No reopens through the existing seven-day reopen; Yes is remembered on that device (`CaseRating`). |
+| Settlement countdown | Each unpaid, not-yet-overdue full and final shows "Due in 2 working days" (or "Due today") under its due date; Sundays are not counted (`settlementClock.js`). |
+| Net first | The settlement drawer opens with the net, in words ("To pay …" / "… owes this"), above the one list of lines, and it follows edits as they are made. |
+
+Picked and already how the app works: each Help desk category sends its case to its own queue
+(set in Help desk settings); HR's internal note never reaches the employee; questions are named,
+never anonymous; the employee sees only "Waiting for HR", not a person; a question about a
+settlement is an ordinary Ask HR question; HR decides each early-release request.
+
+Picked, **not built yet**: Withdraw on a resignation with the manager accepting or not; the
+manager accepting a resignation before HR confirms the last day; the last salary paid on the normal
+pay day with dues settled later; an unreturned asset's value as its own settlement line; work
+apps stopping at the end of the last day while payslips stay open six months; a "Garden leave"
+status (paid, no work access, not absent). All need server work.
+
+### Round 53 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Duplicate candidate | A new application from someone who applied before, matched on e-mail or the last ten phone digits, shows "Applied before for Sales Executive in Mar 2026" (and how many more times) in the candidate drawer. HR only, since only HR sees e-mail and phone (`AppliedBefore`, `round53.js`). |
+| Goal weights | Under the goal form's Weight field: "Their active goals add to 70% with this one; 30% is still to give", in red once over 100% (`WeightTotal`). |
+| Copy last year's goals | With one person chosen on Goals, the secondary "Copy last year's goals" copies their finished goals due last year, a year on, with measure and weight, after asking; a title already set again is skipped and a date already past is left empty. Edit after (`CopyLastYear`). |
+
+Picked and already how the app works: a CV is attached and HR types the details; each interview
+names its interviewers and they see it in their own Interviews list; HR can send any offer; "Put
+on hold" keeps the candidates and turns the apply link off; people type their own goal progress
+in a check-in; feedback is asked only inside a review cycle.
+
+Picked, **not built yet**: a shared interview question list for all jobs; an e-mail to the
+candidate on every stage change (today only on "Not taken forward" and offers); a saved
+description per job title picked when opening a job; screening questions on the apply form; a
+reason asked when a job is paused; company goals shown over the Goals list; the review score
+following the goal weights; goals open to the team by default with "Only me and my manager" per
+goal; team goals on the manager's list only. All need server work.
+
+### Round 54 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Bank cut-off | Approving a payroll run after 3 PM India time adds "Approved after 3 PM; the bank will credit tomorrow." to the confirm and to the note after approval (`afterBankCutoff`, `@ui/picks/round54`). |
+| Arrears tax | An adjustment whose reason says arrears or back pay shows that arrears are taxed in the year paid and the person can claim section 89 relief in their own return (Form 10E). |
+| Closed months | A closed payroll period has no Reopen button; the Payroll periods page says closed months stay closed and a mistake is fixed in next month's run. |
+
+Picked and already how the app works: an arrear is one line on the payslip (an adjustment);
+group reports are run for each company separately.
+
+Picked, **not built yet**: a "Companies" page to pick a company from; a mid-month pay change split by days on the payslip; a small extra
+payroll for a late joiner; an EMI skip asked in the app and approved by HR; HR choosing what carries
+over on a transfer between group companies; one bill to the head company with a line per company;
+and the CA picks (one list of every client's dues, CA invited with payroll-only access and an end
+date, a client list with Run and status, "Ask client" for inputs, "Prepared by" the CA firm at the
+foot). All need server work.
+
+### Round 55 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Recent searches | The search box (⌘K) opens on the last five searches; choosing one types it back in (`recents.js`, `CommandPalette` `remember`). A search is remembered once it leads somewhere. Kept in this browser and cleared at sign-out. Not in Books. |
+| Recently opened | Under the module that holds Employees, "Recently opened" lists the last five people whose record was opened (`RecentPeople`); only the id and name are kept, in this browser, cleared at sign-out. |
+| Search finds pages and people | The search box no longer offers jobs as rows ("Ask for leave", "Fix a punch"); the words of those jobs still find the screen they belong to. Placeholder reads "Search people and screens…". |
+
+Picked, **not built yet** (all need server work): search by phone, PAN or UAN (the people
+search matches name, code and email today); a notification summary every two hours; "Remind me
+tomorrow" bringing an item back at 9 AM; one company-wide digest time; the manager's week-ahead
+on their home (who is away, birthdays, open requests); the "Payment failed · Pay now" strip with
+days before apps lock; card or UPI autopay with the bill emailed first; a handover note on Ops
+home; canned replies in Ops that link a help page; free tags on each customer as list filters;
+renewals due in 30 days with amount and last activity; email subject lines that start with the
+action ("Approve Selvi's leave · 2 days"); a "Stop these emails" link that turns off just that
+kind.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
