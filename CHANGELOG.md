@@ -21,6 +21,21 @@ API revision `clor-api-00142-gh5`. Previous release `rel-128629a` (roll back the
 - #318 Payroll: ESI cover on the wage rate, late approvals paid, overtime at company rates, PT on one-offs
 - #328 Round 20 picks: leave form says which days off count
 
+## rel-128629a - 2026-11-18
+
+API revision `clor-api-00141-vhv`. Previous release `rel-c3389b8` (roll back there).
+
+- #322 Customers add seats themselves: on at once, prorated invoice, 14 days to pay
+- #327 Round 19 picks: text size in the name menu
+- #326 Round 17 picks: shift card, claim steps
+- #321 Round 18 picks: expense limit while typing, approver told on cancel
+- #320 Round 16 picks: holiday ticks, punch place pin, Locked tag, asset icons
+- #319 Round 15 picks: density switch, frozen name column, Reset
+- #316 Round 14 style picks, except Books
+- #303 Release record: rel-f374dd4
+- #314 Round 13 style picks, except Books
+- #315 Release record: rel-c3389b8
+
 ## rel-c3389b8 - 2026-11-17
 
 API revision `clor-api-00140-77z`. Previous release `rel-61e7a5a` (roll back there).
