@@ -556,6 +556,28 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 30 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Calling a colleague from the app | Call and WhatsApp buttons beside the number on the employee record's overview and on an absence case: Call opens the phone, WhatsApp opens a chat with that number (only for a ten-digit Indian mobile; a landline gets Call only) (`CallButtons`). |
+| This year against last year in a chart | Headcount & attrition shows "This year against last year": the period's month-end headcount as a solid line in the app colour, the same months a year earlier faint and dashed behind, and "+18 on a year before" under it. Drawn only when the year before has people (`YearOnYearLine`). |
+| Landlord’s PAN for rent above ₹1 lakh | Payroll's tax declaration form now asks for the landlord's PAN only once rent passes ₹1,00,000 a year (or one is already on file); below that it says when it will be asked. |
+
+Picked and already how the app works: the employee app's tax form already shows the landlord's
+PAN field only above ₹1 lakh of rent a year, and makes it required there; vehicle numbers are
+not stored (a custom field can hold one).
+
+Picked, **not built yet**: a short "since April" box on the payslip (pay, tax, PF so far);
+moving this week's off day with "work on" and "off on" dates; a month's attendance taken as
+agreed unless raised by the 28th; a punch on a leave day asking to cancel the leave or ignore the
+punch; either of two managers approving; the health check before joining locking the joining
+date; a code to the owner's phone to release salaries; PF and ESI codes on each branch page; a
+split column in the cost report; injury logged on the record; "Stop" on an app card ending at the
+bill date; resetting two-step sign-in after a code to the old email. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

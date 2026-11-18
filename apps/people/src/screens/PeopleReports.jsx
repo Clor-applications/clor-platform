@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { BarList, ChartPanel, Columns, Delta, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import JoinLeaveBars from '@ui/timeOff/JoinLeaveBars';
+import YearOnYearLine, { shiftYear } from '@ui/timeOff/YearOnYearLine';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
@@ -131,6 +132,22 @@ function TenurePanel() {
 
 const headcount = (from, to) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/headcount?from=${from}&to=${to}`, { skipWarehouseHeader: true });
 
+/** Headcount this period against the same months a year earlier (round 30 pick "yoy" A). */
+function YearOnYearPanel({ period, months }) {
+  const from = shiftYear(period.from);
+  const to = shiftYear(period.to);
+  const req = useRequest(() => headcount(from, to).catch(() => null), [from, to]);
+  const before = req.data?.months || [];
+  const byMonth = new Map(before.map((m) => [m.month, m.headcountAtEnd]));
+  if (!before.some((m) => m.headcountAtEnd)) return null;
+  const rows = months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], now: m.headcountAtEnd, before: byMonth.get(shiftYear(`${m.month}-01`).slice(0, 7)) ?? null }));
+  return (
+    <ChartPanel title="This year against last year" note="Headcount at the end of each month" className="pt-chart-wide">
+      <YearOnYearLine label="Headcount at the end of each month" rows={rows} nowLabel="This period" beforeLabel="A year before" />
+    </ChartPanel>
+  );
+}
+
 export default function PeopleReports({ params = {}, updateParams }) {
   const periods = useMemo(() => periodsOf(), []);
   const period = periods.find((p) => p.value === params.period) || periods[0];
@@ -182,6 +199,7 @@ export default function PeopleReports({ params = {}, updateParams }) {
               <JoinLeaveBars rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], joiners: m.joiners, leavers: m.leavers }))} />
             </ChartPanel>
             <TenurePanel />
+            <YearOnYearPanel period={period} months={months} />
           </div>
         ) : null}
         </div>
