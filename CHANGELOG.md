@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-f5a3c97 - 2026-11-19
+
+API revision `clor-api-00146-dk7`. Previous release `rel-785a0dc` (roll back there).
+
+- #347 Customers add apps themselves: on at once, prorated invoice, renewals carry it
+- #348 Release record: rel-785a0dc
+
 ## rel-785a0dc - 2026-11-19
 
 API revision `clor-api-00145-twx`. Previous release `rel-644865e` (roll back there).
