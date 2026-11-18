@@ -127,7 +127,7 @@ export default function PayrollReports() {
             ...shown.columns.map((c) => ({ key: c.code, label: c.name, value: (r) => Number(r.amounts[c.code] || 0).toFixed(2) })),
             { key: 'grossEarnings', label: 'Gross', value: (r) => r.grossEarnings.toFixed(2) },
             { key: 'totalDeductions', label: 'Deductions', value: (r) => r.totalDeductions.toFixed(2) },
-            { key: 'netPay', label: 'Take-home', value: (r) => r.netPay.toFixed(2) },
+            { key: 'netPay', label: 'Net pay', value: (r) => r.netPay.toFixed(2) },
             { key: 'employerCost', label: 'Company pays', value: (r) => r.employerCost.toFixed(2) },
           ],
           rows: shown.rows,
@@ -169,7 +169,7 @@ export default function PayrollReports() {
             { key: 'headcount', label: 'People' },
             { key: 'gross', label: 'Gross', value: (r) => Number(r.gross).toFixed(2) },
             { key: 'deductions', label: 'Deductions', value: (r) => Number(r.deductions).toFixed(2) },
-            { key: 'net', label: 'Take-home', value: (r) => Number(r.net).toFixed(2) },
+            { key: 'net', label: 'Net pay', value: (r) => Number(r.net).toFixed(2) },
             { key: 'employerCost', label: 'Company pays', value: (r) => Number(r.employerCost).toFixed(2) },
           ],
           rows: shown.rows,
@@ -283,7 +283,7 @@ const Register = ({ data }) => (
             ))}
             <th scope="col" className="ui-col-h-right">Gross</th>
             <th scope="col" className="ui-col-h-right">Deductions</th>
-            <th scope="col" className="ui-col-h-right">Take-home</th>
+            <th scope="col" className="ui-col-h-right">Net pay</th>
           </tr>
         </thead>
         <tbody className="ui-rows">
@@ -374,7 +374,7 @@ const Variance = ({ data }) => (
         {data.count} of {data.totalSlips} {data.totalSlips === 1 ? 'payslip' : 'payslips'} worth a second look
       </div>
       <p className="ui-caption">
-        Anybody whose take-home moved {data.threshold}% or more since last month, and everybody being paid for the first time.
+        Anybody whose net pay moved {data.threshold}% or more since last month, and everybody being paid for the first time.
       </p>
     </div>
     <div className="ui-table-scroll">
@@ -419,7 +419,7 @@ const Cost = ({ data }) => (
             <th scope="col" className="ui-col-h-right">People</th>
             <th scope="col" className="ui-col-h-right">Gross</th>
             <th scope="col" className="ui-col-h-right">Deductions</th>
-            <th scope="col" className="ui-col-h-right">Take-home</th>
+            <th scope="col" className="ui-col-h-right">Net pay</th>
             <th scope="col" className="ui-col-h-right">Company pays</th>
           </tr>
         </thead>

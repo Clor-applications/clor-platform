@@ -1015,3 +1015,37 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 59 */
+/* monthflow C: the payroll month as a to-do list on Payroll home, under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px 24px; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li { display: flex; align-items: center; gap: 8px; min-height: 2rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-done { color: rgb(var(--fg-subtle)); text-decoration: line-through; text-decoration-color: rgb(var(--border-strong)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next { color: rgb(var(--fg)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-mark { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; border: 1.5px solid rgb(var(--border-strong)); border-radius: 9999px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-done .ui-month-todo-mark { border-color: rgb(var(--pos)); color: rgb(var(--pos)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next .ui-month-todo-mark { border-color: rgb(var(--act, var(--fg))); }
+/* ctcsplit A: the parts one yearly CTC makes, under the CTC field. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split { border-top: 1px solid rgb(var(--border)); padding-top: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dl { margin: 4px 0 0; display: grid; gap: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dl > div { display: flex; justify-content: space-between; gap: 16px; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dt { color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dd { text-align: right; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-sum { border-top: 1px solid rgb(var(--border)); padding-top: 4px; margin-top: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-net { font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-net dt { color: rgb(var(--fg)); }
+/* attexceptions A: Present and Unpaid right on a day with no attendance. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-quickfix { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) li > .ui-quickfix { display: grid; grid-template-columns: 1fr 1fr; }
+/* leavepolicyread A: "My leave rules" in the employee app, one line a type. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules { border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 0.875rem; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules ul { list-style: none; margin: 0 0 8px; padding: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules li { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 0; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules-name { min-width: 8rem; font-weight: 500; }
+/* quickadd A: the details still missing on a record, under its summary. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish-head { margin: 0; color: rgb(var(--warn-ink)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }

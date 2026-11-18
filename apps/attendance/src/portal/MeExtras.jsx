@@ -77,7 +77,7 @@ export function Payslips({ guard }) {
                   <span className="block font-medium">{s.period}</span>
                   <span className={`ui-pill ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
                 </span>
-                <span className="shrink-0 text-right tabular-nums">{money(s.net)}<span className="ui-caption block">take-home</span></span>
+                <span className="shrink-0 text-right tabular-nums">{money(s.net)}<span className="ui-caption block">net pay</span></span>
               </button>
             </li>
           ))}
@@ -116,7 +116,7 @@ function PayslipView({ slip: s }) {
         <span className={`ui-pill shrink-0 ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
       </div>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm">Take-home</span>
+        <span className="text-sm">Net pay</span>
         <span className="text-2xl font-semibold tabular-nums">{money(s.net)}</span>
       </div>
       {s.days ? <p className="ui-caption tabular-nums">{s.days.payable} of {s.days.working} days paid{s.days.lossOfPay ? ` · ${s.days.lossOfPay} without pay` : ''}</p> : null}
@@ -218,7 +218,7 @@ function PayslipPrint({ slip: s }) {
             </tr>
           ))}
           <tr className="tot"><td>Total earnings</td><td className="amt">{money(s.gross)}</td><td>Total deductions</td><td className="amt">{money(s.totalDeductions)}</td></tr>
-          <tr className="tot"><td colSpan={3}>Take-home pay</td><td className="amt">{money(s.net)}</td></tr>
+          <tr className="tot"><td colSpan={3}>Net pay</td><td className="amt">{money(s.net)}</td></tr>
         </tbody>
       </table>
       {s.deductionNote?.carried?.length ? (

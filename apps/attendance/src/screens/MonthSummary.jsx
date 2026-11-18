@@ -75,7 +75,7 @@ export default function MonthSummary({ openScreen } = {}) {
     { key: 'code', label: 'Employee ID' },
     { key: 'name', label: 'Name' },
     { key: 'payableDays', label: 'Payable days', lead: true },
-    { key: 'lossOfPayDays', label: 'Loss of pay', lead: true },
+    { key: 'lossOfPayDays', label: 'Unpaid days (LOP)', lead: true },
     { key: 'present', label: 'Present' },
     { key: 'halfDays', label: 'Half days' },
     { key: 'absent', label: 'Absent' },
@@ -137,7 +137,7 @@ export default function MonthSummary({ openScreen } = {}) {
       cards={data ? [
         { label: 'People', value: figures.people, count: true, tone: 'all', Icon: Users },
         { label: 'Payable days', value: round(figures.payable), count: true, tone: 'paid', Icon: CalendarCheck },
-        { label: 'Loss of pay days', value: round(figures.lop), count: true, tone: 'overdue', Icon: CalendarX },
+        { label: 'Unpaid days (LOP)', value: round(figures.lop), count: true, tone: 'overdue', Icon: CalendarX },
         { label: 'No check-out', value: figures.noOut, count: true, tone: 'outstanding', Icon: Clock },
       ] : null}
       above={

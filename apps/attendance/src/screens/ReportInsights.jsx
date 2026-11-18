@@ -114,7 +114,7 @@ export default function ReportInsights({ openScreen }) {
               <StatTile label="Late days" value={fmt(now?.lateDays)} hint={delta('lateDays', '')} tone={now?.lateDays ? 'warn' : 'neutral'} />
               <StatTile label="Late 3+ times" value={fmt(data.repeatLate)} hint="people this month" tone={data.repeatLate ? 'neg' : 'neutral'} />
               <StatTile label="Overtime" value={fmt(now?.overtimeHours, ' h')} hint="approved, this month" />
-              <StatTile label="Loss of pay days" value={fmt(now?.lossOfPayDays)} hint="this month so far" tone={now?.lossOfPayDays ? 'warn' : 'neutral'} />
+              <StatTile label="Unpaid days (LOP)" value={fmt(now?.lossOfPayDays)} hint="this month so far" tone={now?.lossOfPayDays ? 'warn' : 'neutral'} />
             </section>
 
             <div className="grid gap-4 xl:grid-cols-2">

@@ -36,6 +36,7 @@ import { BackLink } from '../components/Core';
 import { getLeaveBalances, swatchOf } from '@ui/timeOff/api';
 import { AppAccessHistory, PersonAssets, PersonCelebrations, PersonPolicies, ProbationSection } from './RecordExtras';
 import { todayIst } from '@ui/utils/dates';
+import ToFinish from './ToFinish';
 
 /**
  * Workforce → Employee (People design spec v1 EMP-03..09; Workforce package
@@ -278,6 +279,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
           <div><dt>Phone</dt><dd>{person.phone || person.workPhone || <span className="ui-muted">Not given</span>}</dd></div>
         </dl>
       </section>
+      {/* Round 59 quickadd A: what is still missing on a record added in a hurry. */}
+      <ToFinish person={person} canEdit={editable} go={(patch) => leaveTo(patch, true)} />
 
       {(rec.data.permits || []).filter((p) => p.daysLeft <= 30).map((p, i) => (
         <Alert key={p.id || `hidden-${i}`} tone={p.expired ? 'neg' : 'warn'} title={p.expired ? `${p.title} expired on ${formatDate(p.expiresOn)}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}>{p.restrictsWork ? `Until renewed: ${p.restrictsWork}.` : 'Add the renewed copy on Documents.'}</Alert>

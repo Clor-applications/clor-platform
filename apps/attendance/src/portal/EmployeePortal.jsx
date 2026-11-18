@@ -80,6 +80,7 @@ import PasswordInput from '@ui/components/ui/PasswordInput';
 import EarlyGoTag from '@ui/timeOff/EarlyGoTag';
 import { wholeRupees as rupees } from '@ui/utils/money';
 import TaxCompare from './TaxCompare';
+import { LeaveRules } from './LeaveRules';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -1006,6 +1007,8 @@ function MyLeave({ guard }) {
       ) : (
         <p className="ui-caption">No leave types are set up yet.</p>
       )}
+      {/* Round 59 leavepolicyread A: each type's rule in one line, so the answer is here, not with HR. */}
+      <LeaveRules types={data.types} />
 
       {data.types.length ? (
         <form ref={formRef} onSubmit={editing ? change : ask} className="ui-card space-y-3 p-5" aria-labelledby="ask-leave-h">

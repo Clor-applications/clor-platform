@@ -35,7 +35,7 @@ describe('take-home from a yearly CTC', () => {
   });
   it('shows the estimate under the CTC on an offer', () => {
     render(<TakeHomeEstimate ctc="600000" />);
-    expect(screen.getByRole('status')).toHaveTextContent('In hand, about ₹46,200 a month');
+    expect(screen.getByRole('status')).toHaveTextContent('Net pay, about ₹46,200 a month');
     expect(screen.getByRole('status')).toHaveTextContent('An estimate on the new tax regime');
   });
 });

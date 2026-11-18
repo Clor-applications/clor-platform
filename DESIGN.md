@@ -1128,6 +1128,32 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 59 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Adding a person quickly | The add form still creates someone with just a name, an employee ID and a joining date. Their record now shows "N details to finish" under its summary (phone, email, date of birth, gender, emergency contact, department, designation, manager), each opening the place it is filled in (`ToFinish`, `detailsToFinish`). "After you save" says anything left out is listed on the record. |
+| End of probation date | Worked out from the joining date and the employment type's months (already); the field now says "6 months from joining, from the employment type. Change it if needed." while it is that date (`probationHint`). |
+| Setting a salary | Typing the yearly CTC on Record a salary shows each month's parts from the chosen structure, worked out by the payroll engine's preview, with Gross and Net pay (`CtcSplit`). |
+| Words for salary | CTC, Gross, Net: "Take-home" became "Net pay" on Payroll home, reports, revisions, the offer estimate and the employee app's payslips. |
+| The word for unpaid days | "Unpaid days (LOP)" for loss of pay on attendance summaries, month close, team attendance, the employee app's month and the payroll days table; the LOP check says "Unpaid days (LOP) agree for all …". |
+| Days that need a decision | A working day with no attendance gets Present and Unpaid buttons right in the list; the day is marked as Records marks it by hand and the item is settled (`DayQuickFix`). A missing check-out still opens Records for its time. |
+| Before locking a payroll month | Lock asks first: "After locking, nobody can change this payroll and its payslips are final. A mistake found later is put right in November's payroll as an adjustment." (`lockWords`). |
+| The payroll month | Payroll home has "October to-do": start, check days and calculate, review and approve, lock, pay, post, ticked from the run's status, the next one a link (`MonthTodo`). |
+| Leave rules staff can read | "My leave rules" under the balances in the employee app: each type in one line, e.g. "12 days a year · earned through the year · up to 6 carry over · half days allowed" (`LeaveRules`). |
+
+Picked and already how the app works: PF, ESI, professional tax and TDS setup asks whether each
+applies and for its number, saying where the number is found (the registrations step).
+
+Picked, **not built yet**: "Send app invite now" on the add form, sent on the joining day; the
+branch's usual shift and weekly off filled in for a new joiner; a notice to someone made a manager
+for the first time; the PF/ESI setup also asking from which month and who is covered; HR opening
+tax declarations with a last date and a reminder 3 days before; "260 paid · 3 joined · 2 left ·
+1 on hold" above the run (the run does not carry joining and leaving dates yet); staff seeing
+payslips only after HR presses "Send payslips". All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

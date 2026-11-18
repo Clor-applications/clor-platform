@@ -24,6 +24,7 @@ import { listBranches } from '../organization/api';
 import { can } from './shared';
 import { BackLink } from '../components/Core';
 import { todayIst } from '@ui/utils/dates';
+import { probationHint } from './round59';
 
 /**
  * Workforce → Add employee (People design spec v1 §4.3 EMP-02; Workforce
@@ -302,7 +303,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
             <DateField id="dateOfJoining" label="Joining date" required {...field('dateOfJoining')} error={errors.dateOfJoining} />
             <SelectField id="hours" label="Hours" options={Object.entries(HOURS_WORDS).map(([value, label]) => ({ value, label }))} {...field('hours')} />
             <SelectField id="workTypeId" label="Work mode" optional options={opts(lists.workTypes)} {...field('workTypeId')} />
-            {dates.probation ? <DateField id="probationEndDate" label="Probation ends" optional min={form.dateOfJoining || ''} {...field('probationEndDate')} error={errors.probationEndDate} /> : null}
+            {dates.probation ? <DateField id="probationEndDate" label="Probation ends" optional min={form.dateOfJoining || ''} {...field('probationEndDate')} error={errors.probationEndDate} hint={probationHint(form, suggestedProbation, probationMonths)} /> : null}
             {dates.contract ? <DateField id="contractEndDate" label={dates.contractLabel} optional min={form.dateOfJoining || ''} {...field('contractEndDate')} error={errors.contractEndDate} /> : null}
           </Step>
         ) : null}
@@ -394,6 +395,7 @@ function WizardSummary({ form, lists, people, stepIndex }) {
     hasApp('payroll') ? 'Payroll can pay them from their joining month.' : null,
     hasApp('attendance') ? 'Attendance starts counting their days from the joining date.' : null,
     'Send them the joining form or employee app access from their record.',
+    'Anything left out now is listed on their record, to finish later.',
   ].filter(Boolean);
   return (
     <aside className="pc-aside" aria-label="Summary">
@@ -483,12 +485,14 @@ function Text({ id, label, required, help, error, value, onChange, type = 'text'
   );
 }
 
-function DateField({ id, label, required, error, value, onChange, min = '', max = '' }) {
+function DateField({ id, label, required, error, value, onChange, min = '', max = '', hint = '' }) {
+  const described = [error ? `${id}-err` : null, hint && !error ? `${id}-hint` : null].filter(Boolean).join(' ') || undefined;
   return (
     <div>
       <Label id={id} label={label} required={required} />
-      <DatePicker id={id} value={value} onChange={onChange} min={min} max={max} required={required} invalid={Boolean(error)} describedBy={error ? `${id}-err` : undefined} />
+      <DatePicker id={id} value={value} onChange={onChange} min={min} max={max} required={required} invalid={Boolean(error)} describedBy={described} />
       {error ? <p id={`${id}-err`} className="ui-field-error">{error}</p> : null}
+      {hint && !error ? <p id={`${id}-hint`} className="ui-caption mt-1">{hint}</p> : null}
     </div>
   );
 }
