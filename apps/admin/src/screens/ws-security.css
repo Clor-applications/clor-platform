@@ -328,3 +328,102 @@
   .ws-activity-layout { grid-template-columns: minmax(0, 1fr); }
   .ws-activity-side { position: static; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
 }
+
+/* Inbox (owner, 19 Nov 2026): Activity's layout, so the two read alike: tabs and filters in one row,
+   a flush list, the summary at the right. */
+.ws .ws-filters--one-row:has(.ws-tabs) { align-items: center; }
+.ws-inbox-table .ws-col-who { width: 14rem; }
+.ws-inbox-table .ws-col-app { width: 9rem; }
+.ws-inbox-table .ws-col-when { width: 8rem; }
+.ws-inbox-table .ws-col-open { width: 7rem; }
+.ws .ws-inbox-table tbody td { vertical-align: middle; }
+.ws-inbox-table .ws-sec-who { display: inline-flex; align-items: center; gap: 8px; }
+.ws .ws-inbox-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--hover-blue, 42 120 214));
+  cursor: pointer;
+}
+.ws .ws-inbox-open:hover { text-decoration: underline; }
+.ws .ws-inbox-open:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; border-radius: 4px; }
+.ws-inbox-what { display: inline-flex; align-items: center; gap: 8px; }
+.ws-inbox-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgb(var(--hover-blue, 42 120 214));
+  flex: none;
+}
+/* Empty: a quiet line on the page ground, not a dashed card. */
+.ws-inbox-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+  border-top: 1px solid rgb(var(--border, 229 229 229));
+}
+.ws .ws-inbox-empty-title {
+  margin: 0 0 2px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgb(var(--fg, 28 27 24));
+}
+.ws-inbox-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--hover-blue, 42 120 214));
+  cursor: pointer;
+}
+.ws-inbox-link:hover { text-decoration: underline; }
+.ws-inbox-link:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; border-radius: 4px; }
+.ws .ws-inbox-table td.num { overflow: visible; padding-right: 1px; }
+
+/* Inbox tabs (owner, 19 Nov 2026): an underline in each tab's own colour, not the grey pill.
+   The :root prefix matches picks.css, which otherwise paints every selected tab as a pill. */
+:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs { gap: 8px; border-bottom: 0; }
+:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs .ws-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  margin-right: 16px;
+  border-radius: 0 !important;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-weight: 500;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs .ws-tab:hover { color: rgb(var(--tab)); }
+:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs .ws-tab[aria-selected='true'] {
+  background: none;
+  color: rgb(var(--tab));
+  font-weight: 600;
+  border-bottom-color: rgb(var(--tab));
+}
+.ws-inbox-count {
+  min-width: 1.5rem;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgb(var(--tab) / 0.1);
+  color: rgb(var(--tab));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ws-inbox-tabs .ws-tab[aria-selected='true'] .ws-inbox-count { background: rgb(var(--tab)); color: rgb(255 255 255); }

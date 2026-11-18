@@ -33,8 +33,10 @@ describe('Workspace Inbox', () => {
     expect(table.queryByText('Collect ID and address proof')).toBeNull();
     expect(screen.getByRole('tab', { name: /To decide/ })).toHaveTextContent('2');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'App' }), { target: { value: 'people' } });
+    /* The side summary's app rows filter the list, the same as the App menu. */
+    fireEvent.click(screen.getByRole('button', { name: /People/, pressed: false }));
     expect(table.queryByText('Invoice to approve')).toBeNull();
+    expect(screen.getByRole('button', { name: /App: People/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Casual leave in People' }));
     expect(openApp).toHaveBeenCalledWith('people', 'approvals', {});
