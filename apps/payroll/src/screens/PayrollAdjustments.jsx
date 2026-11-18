@@ -23,6 +23,7 @@ import {
 } from '../api/payrollAdjustments';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money } from '@ui/utils/money';
+import { RELIEF_89_NOTE, mentionsArrears } from '@ui/picks/round54';
 
 /**
  * Bonuses, arrears, fines — what happened to one person in one month.
@@ -503,6 +504,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
             placeholder="Q4 bonus, arrears for March, canteen recovery…"
           />
           <span className="ui-caption">Whoever approves this reads only what is written here.</span>
+          {mentionsArrears(form.reason) ? <span className="ui-caption pick-r54-note" role="note">{RELIEF_89_NOTE}</span> : null}
         </div>
       </div>
 
