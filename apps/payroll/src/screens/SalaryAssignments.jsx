@@ -7,16 +7,18 @@ import DocumentListShell from '@ui/components/list/DocumentListShell';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
 import UanQuestion from '../components/UanQuestion';
 import PtStateField from '../components/PtStateField';
+import { SKILL_LEVELS } from '../components/minimumWageText';
 import {
   listEmployees,
   createEmployee,
   updateEmployee,
   listAssignments,
   createAssignment,
+  checkMinimumWage,
 } from '../api/payrollPeople';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { wholeRupees as money } from '@ui/utils/money';
@@ -76,6 +78,9 @@ const blankEmployee = () => ({
     pfNumber: '',
     esiNumber: '',
     professionalTaxState: '',
+    /* Minimum wage (round 66): the skill level the state's rates are read for. */
+    skillLevel: 'UNSKILLED',
+    minimumWageZone: '',
     /* Not sent unless set: a blank here must never switch PF or PT off for somebody who has them. */
     pfApplicable: undefined,
     esiApplicable: undefined,
@@ -462,12 +467,26 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await createAssignment({
+      const payload = {
         employeeId: person.id,
         structureId: form.structureId,
         effectiveFrom: form.effectiveFrom,
         annualCtc: Number(form.annualCtc) || 0,
-      });
+      };
+      /* Round 66: below the state's minimum wage, asked while the figure can still change. */
+      const below = await checkMinimumWage(payload).catch(() => null);
+      if (below) {
+        const keep = await confirmDialog({
+          title: 'Below minimum wage',
+          message: `${below.message}. Change the salary, or save it if the skill level or state on ${person.name}'s payroll details is wrong and you will correct it there.`,
+          confirmLabel: 'Save anyway',
+          cancelLabel: 'Change the salary',
+          tone: 'warn',
+          stayFirst: true,
+        });
+        if (!keep) return;
+      }
+      await createAssignment(payload);
       notify.success(`${person.name}'s salary recorded.`);
       onSaved();
     } catch (err) {
@@ -724,13 +743,14 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
         <h3 className="ui-t-sec">Statutory</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <UanQuestion value={form.payroll.uan || ''} onChange={(uan) => setPay({ uan })} />
-          {form.payroll.ptApplicable ? (
-            <PtStateField
-              employeeId={initial.id}
-              value={form.payroll.professionalTaxState || ''}
-              onChange={(professionalTaxState) => setPay({ professionalTaxState })}
-            />
-          ) : null}
+          {/* The state is also what the minimum wage is read for (round 66), so it shows with professional tax off too. */}
+          <PtStateField
+            employeeId={initial.id}
+            value={form.payroll.professionalTaxState || ''}
+            onChange={(professionalTaxState) => setPay({ professionalTaxState })}
+            label={form.payroll.ptApplicable ? 'Professional tax state' : 'State they work in'}
+            showSlab={Boolean(form.payroll.ptApplicable)}
+          />
           <div>
             <label className="ui-label" htmlFor="employee-regime">Tax regime</label>
             <select
@@ -742,6 +762,32 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
               <option value="NEW">New</option>
               <option value="OLD">Old</option>
             </select>
+          </div>
+          <div>
+            <label className="ui-label" htmlFor="employee-skill-level">Skill level</label>
+            <select
+              id="employee-skill-level"
+              className="ui-select w-full"
+              value={form.payroll.skillLevel || 'UNSKILLED'}
+              onChange={(e) => setPay({ skillLevel: e.target.value })}
+              aria-describedby="employee-skill-level-hint"
+            >
+              {SKILL_LEVELS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+            <p id="employee-skill-level-hint" className="ui-caption mt-1">Their pay is checked against the state’s minimum wage for this level.</p>
+          </div>
+          <div>
+            <label className="ui-label" htmlFor="employee-min-wage-zone">Minimum wage zone</label>
+            <input
+              id="employee-min-wage-zone"
+              className="ui-input w-full"
+              value={form.payroll.minimumWageZone || ''}
+              onChange={(e) => setPay({ minimumWageZone: e.target.value })}
+              placeholder="Whole state"
+              maxLength={60}
+            />
           </div>
           {/* Which statutory deductions apply to this person (QA of #82, F9). Left untouched, they stay as they are. */}
           <fieldset className="sm:col-span-2">

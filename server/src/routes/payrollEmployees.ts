@@ -88,6 +88,9 @@ const bodySchema = z.object({
       esiNumber: z.string().trim().max(40).optional().nullable(),
       taxRegime: z.enum(['OLD', 'NEW']).optional(),
       professionalTaxState: z.string().trim().max(60).optional().nullable(),
+      /* Minimum wage skill level and zone (round 66): left out is unchanged. */
+      skillLevel: z.enum(['UNSKILLED', 'SEMI_SKILLED', 'SKILLED', 'HIGHLY_SKILLED']).optional(),
+      minimumWageZone: z.string().trim().max(60).optional().nullable(),
       /* Left out means unchanged: a form without the switches must not turn PF and PT off (QA of #82, F9). New profiles start off. */
       pfApplicable: z.boolean().optional(),
       esiApplicable: z.boolean().optional(),
@@ -157,6 +160,8 @@ const shape = (row: any, reveal: Reveal) => {
           statutoryMasked: !reveal.ids && Boolean(p.uan || p.pfNumber || p.esiNumber),
           taxRegime: p.taxRegime,
           professionalTaxState: p.professionalTaxState || '',
+          skillLevel: p.skillLevel || 'UNSKILLED',
+          minimumWageZone: p.minimumWageZone || '',
           pfApplicable: !!p.pfApplicable,
           esiApplicable: !!p.esiApplicable,
           ptApplicable: !!p.ptApplicable,
@@ -191,6 +196,8 @@ const payrollData = (p: NonNullable<z.infer<typeof bodySchema>['payroll']>) => (
   ...(p.taxRegime !== undefined ? { taxRegime: p.taxRegime } : {}),
   /* Same for the PT state: left out is unchanged; sent blank clears it. */
   ...(p.professionalTaxState !== undefined ? { professionalTaxState: blank(p.professionalTaxState) } : {}),
+  ...(p.skillLevel !== undefined ? { skillLevel: p.skillLevel } : {}),
+  ...(p.minimumWageZone !== undefined ? { minimumWageZone: blank(p.minimumWageZone) } : {}),
   ...(p.pfApplicable !== undefined ? { pfApplicable: p.pfApplicable } : {}),
   ...(p.esiApplicable !== undefined ? { esiApplicable: p.esiApplicable } : {}),
   ...(p.ptApplicable !== undefined ? { ptApplicable: p.ptApplicable } : {}),
