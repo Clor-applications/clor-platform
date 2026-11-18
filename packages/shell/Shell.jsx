@@ -51,6 +51,7 @@ import TwoFactorGate from './TwoFactorGate';
 import GatePage from './GatePage';
 import PrintFooter from './PrintFooter';
 import CommandPalette from '@ui/components/ui/CommandPalette';
+import RecentPeople from '@ui/components/ui/RecentPeople';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
 import NoCompanyAccess from './NoCompanyAccess';
@@ -1057,6 +1058,10 @@ function ShellScreens() {
           ))}
         </div>
       ))}
+      {/* Round 55 (recentrecords A): the last five people opened, under the module that holds the employee list. */}
+      {openModule.groups.some((g) => g.items.some((i) => i.key === 'employees')) ? (
+        <RecentPeople currentId={screenKey === 'employee' ? screenParams?.id : null} onOpen={(p) => { goTo('employee', { id: p.id }); if (phone) setNavOpen(false); }} />
+      ) : null}
       {/* The foot of the panel: help, where a short list used to leave the column empty (owner, 17 Nov 2026). A phone's sheet has its own menu. */}
       {!phone ? (
         <button
@@ -1685,17 +1690,16 @@ function ShellScreens() {
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
             /* An app names what its own search finds (manifest `searchLabel`); the Workspace finds members and companies, not jobs. */
-            placeholder={app?.searchLabel ? `${app.searchLabel}…` : app?.searchRecords ? `Search people, jobs and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            placeholder={app?.searchLabel ? `${app.searchLabel}…` : app?.searchRecords ? `Search people and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            /* Round 55 (recentsearch A): the box opens on the last five searches. Books draws its own palette, so this never reaches it. */
+            remember
             /* People by name, code or email (manifest `searchRecords`), as the person types. */
             loadRecords={app?.searchRecords ? (q) => app.searchRecords(q, { apps: mine.map((a) => a.id) }) : undefined}
             items={[
               /* A screen can sit in two places in the menu; it is one destination here. */
-              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: i.keywords })),
-              /* Jobs named the way people ask for them (manifest `searchActions`): "probation", "fix a punch", "month close".
-                 One in another app shows only when this company has that app and this person can open it there. */
-              ...(app?.searchActions || [])
-                .filter((a) => (a.appId ? mine.some((m) => m.id === a.appId) : nav.some((i) => i.key === a.screen)))
-                .map((a) => ({ key: `do:${a.appId || ''}:${a.screen}:${a.label}`, label: a.label, group: a.appId ? appById(a.appId)?.name || 'Apps' : 'Do', icon: a.icon, screen: a.screen, params: a.params, appId: a.appId, keywords: a.keywords })),
+              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: [...(i.keywords || []), ...(app?.searchActions || []).filter((x) => !x.appId && x.screen === i.key).flatMap((x) => [x.label, ...(x.keywords || [])])] })),
+              /* Round 55 (searchactions B, owner 18 Nov 2026): search finds pages and people only, so the manifests' `searchActions` jobs
+                 ("apply leave", "fix a punch") are no longer offered as rows. Their words still find the screen they belong to, below. */
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
               { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },
