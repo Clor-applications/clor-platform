@@ -338,3 +338,72 @@
   font-weight: 500;
 }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-member-apps > li + li { border-top: 1px solid rgb(var(--border, 228 230 225)); }
+
+/* ---- Roles (owner, 19 Nov 2026: "remove duplicate buttons, fix the form, adjust space") ---- */
+/* Screen-by-screen access: headings like the other lists, Yes and No as soft tags. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access { gap: 28px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-head { font-size: 1rem; font-weight: 700; margin: 0 0 6px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table { border-collapse: collapse; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table thead { border-bottom: 2px solid rgb(var(--fg)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table th {
+  border-bottom: 0;
+  padding: 8px 8px 8px 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg));
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table td { padding: 10px 8px 10px 0; vertical-align: middle; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ui-role-access-table :is(th, td):nth-child(2) { width: 18%; }
+.ui-role-change { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Role list: compact rows; an app-coloured dot on each group; empty counts quiet. */
+.ws-role-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 4px;
+  padding: 0 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(74 72 66);
+}
+.ws-role-group > i { width: 8px; height: 8px; border-radius: 9999px; background: rgb(var(--tag)); flex: none; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-pick { min-height: 36px; border-radius: 8px; font-size: 0.875rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-pick .num[data-zero] { color: rgb(var(--fg) / 0.35); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-pick[aria-current='true'] { background: rgb(var(--fg) / 0.05); }
+
+/* Edit form: name and description side by side, white fields, the search icon inside its box. */
+.ws-role-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 16px; align-items: start; }
+@media (max-width: 720px) { .ws-role-fields { grid-template-columns: 1fr; } }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-form .ui-input {
+  height: 2.5rem;
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-radius: 8px;
+  box-shadow: none;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-form .ui-input:focus { border-color: rgb(var(--fg) / 0.6); outline: none; box-shadow: none; }
+.ws-role-form-h { font-size: 1rem; font-weight: 700; }
+.ws-role-find { display: flex; align-items: center; gap: 12px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search { position: relative; display: block; flex: 1 1 auto; max-width: 24rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgb(92 90 84); pointer-events: none; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search > .ui-input { padding-left: 36px; width: 100%; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-role-group { font-size: 0.75rem; line-height: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.03em; }
+/* Labels the same height whether or not they carry the Required badge, so the two fields line up. */
+.ws-role-fields > label > span:first-child { display: flex; align-items: center; gap: 8px; min-height: 1.5rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-find .ws-search > .ui-input { border-color: rgb(var(--border-field, 220 223 217)); }
+/* The grid fits the panel: narrower action columns, ticks in Workspace blue rather than black. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-table th:not(:first-child),
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-table td:not(:first-child) { width: 64px; padding-inline: 2px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-table th { font-size: 0.6875rem; letter-spacing: 0.03em; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-table td:first-child { min-width: 9rem !important; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-table input[type='checkbox'],
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-pm-head input[type='checkbox'] { accent-color: rgb(42 120 214); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-role-form .ws-pm-head .ws-pill { background: rgb(42 120 214 / 0.1); color: rgb(28 84 160); }
+/* picks.css sizes every h3 in a flat section and darkens the focused search with !important; these win back. */
+.ws .ws-flat h3.ws-role-group { font-size: 0.75rem !important; line-height: 1rem !important; }
+.ws .ws-role-find .ws-search > input.ui-input:not(:focus) { border-color: rgb(var(--border-field, 220 223 217)) !important; box-shadow: none !important; }
