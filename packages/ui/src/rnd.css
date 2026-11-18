@@ -50,7 +50,7 @@
   --act-2: 15 118 110;         /* the second colour; each app sets its own below */
   --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
   --panel: 255 255 255;        /* white */
-  --rail-bg: 247 247 247;      /* #F7F7F7: the rail's light grey. Neutral, not blue-grey: the text and graphite are warm-neutral, and a cool grey beside them read as a second palette (audit, 17 Nov 2026) */
+  --rail-bg: 243 243 240;      /* #F3F3F0 (19 Nov 2026: owner, "add light color to first sidebar to differentiate from 2nd sidebar"; #F7F7F7 read as white). The rail's light grey. Neutral, not blue-grey: the text and graphite are warm-neutral, and a cool grey beside them read as a second palette (audit, 17 Nov 2026) */
   --hover-blue: 42 120 214;    /* #2A78D6: hover tint in the sidebars and the app menu */
   --select-green: 27 175 122;  /* #1BAF7A: the open (selected) item's tint, a different hue from hover (owner, 17 Nov 2026) */
   --panel-border: 229 229 229; /* #E5E5E5 hairline */
@@ -92,7 +92,7 @@
   --ring: var(--act); --link: var(--act-ink); --link-hover: var(--act-hover);
   --doc-link: var(--act-ink); --doc-link-wash: var(--tint);
   --st-all-soft: var(--panel); --st-all-strong: var(--tint); --st-all-key: var(--marker); --st-all-ink: var(--act-ink);
-  --rail-bg: 255 255 255; --rail-border: 229 229 229; --rail-hover: 247 247 247; --rail-active: var(--tint);
+  --rail-border: 229 229 229; --rail-hover: 247 247 247; --rail-active: var(--tint);
   --ws-nav-selected: var(--tint); --ws-nav-selected-ink: var(--fg); --ws-brand: var(--marker);
   --choice: var(--graphite); --on-choice: 255 255 255; --choice-tray: 255 255 255;
   --logo-mark: 255 84 0; --logo-dot: 255 84 0; --logo-mark-orange: 255 84 0; --logo-mark-slate: 32 35 41;
@@ -315,6 +315,9 @@
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 12rem; padding-left: 1rem; margin-right: 0; }
   :root:not(#rnd) .ui-topbar .ui-app-switch { margin-left: 0; max-width: 100%; }
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) + .ui-global-search { margin-left: 0.25rem; }
+  /* The switcher heads the screens panel (owner, 19 Nov 2026): the search starts over the page's content,
+     past the 12rem panel and the content's 2rem. */
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-global-search { margin-left: 14rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }
@@ -591,6 +594,29 @@
   color: rgb(var(--fg));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head .ui-icon-btn { width: 1.75rem; height: 1.75rem; color: rgb(var(--fg-subtle)); }
+/* The app switcher at the panel's top (owner, 19 Nov 2026), the full width of the column bar the close button. */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head[data-switch] {
+  gap: 0.25rem;
+  padding: 0 0 0.75rem;
+  margin: 0 0 0.25rem;
+  border-bottom: 1px solid rgb(var(--panel-border));
+}
+.ui-split-panel-switch { flex: 1 1 auto; min-width: 0; display: flex; }
+.ui-split-panel-switch > .relative { width: 100%; min-width: 0; }
+:root:not(#rnd) .ui-split-panel-switch .ui-app-switch { width: 100%; min-width: 0; margin-left: 0; height: 2.25rem; }
+:root:not(#rnd) .ui-split-panel-switch .ui-app-switch-name { flex: 1 1 auto; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; }
+:root:not(#rnd) .ui-split-panel-switch .ui-app-switch-mark { width: 1.375rem; height: 1.375rem; border-radius: 0.375rem; }
+:root:not(#rnd) .ui-split-panel-switch .ui-app-switch-mark > svg { width: 0.875rem; height: 0.875rem; }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-title {
+  margin: 0.5rem 0 0.25rem;
+  padding: 0 0.625rem;
+  font-family: var(--font-brand);
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg));
+}
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel .ui-caption {
   padding: 0.875rem 0.625rem 0.375rem;
   font-size: 0.75rem;
