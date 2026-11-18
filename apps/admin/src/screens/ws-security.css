@@ -620,3 +620,129 @@
 /* Audit log action: tinted in its kind's colour (owner, 19 Nov 2026). */
 .ws .ws-sec-tagbtn[style] { background: rgb(var(--tag) / 0.1); color: rgb(var(--tag)); font-weight: 600; }
 .ws .ws-sec-tagbtn[style]:hover { background: rgb(var(--tag) / 0.16); }
+
+/* ── Security + Settings tidy (19 Nov): one face, coloured marks, flat rows ── */
+/* DESIGN.md: one face app-wide. Addresses, GSTINs and URLs read in Inter, tabular. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-mono,
+:root:not(#ux1):not(#ux2):not(#ux3) .ws code.ui-mono {
+  font-family: inherit !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0 !important;
+  font-size: inherit;
+}
+.ws-device-mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  color: color-mix(in srgb, rgb(var(--dm)) 70%, black);
+  background: color-mix(in srgb, rgb(var(--dm)) 14%, white);
+}
+.ws-device {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ws-device .ws-item-text { min-width: 0; }
+.ws-who-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws .ws-sec-table td.ws-sec-when,
+.ws .ws-sec-table td.ws-sec-addr { color: rgb(var(--fg-muted, 90 90 100)); font-variant-numeric: tabular-nums; }
+
+/* Fact rows: label left, value right, a hairline between, the look of the member drawer. */
+.ws .ws-rows {
+  display: grid;
+  margin: 0;
+}
+.ws .ws-rows > div {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid rgb(var(--border-subtle, 230 230 235));
+  font-size: 0.875rem;
+}
+.ws .ws-rows > div:last-child { border-bottom: 0; }
+.ws .ws-rows dt { color: rgb(var(--fg-muted, 90 90 100)); }
+.ws .ws-rows dd { margin: 0; font-weight: 500; }
+.ws-rows--num dd { text-align: right; font-variant-numeric: tabular-nums; }
+.ws-quiet-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted, 90 90 100));
+}
+
+/* SSO: providers as one flat list under the rule, not boxes. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+  border-top: 1px solid rgb(var(--border-subtle, 230 230 235));
+  margin: 0 0 8px;
+  padding: 0;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card {
+  background: none !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgb(var(--border-subtle, 230 230 235)) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 14px 0 !important;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 4px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card > :not(.ws-sso-head):not(.ws-sso-actions) { grid-column: 1; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card .ws-sso-line { margin: 0 0 0 44px !important; font-size: 0.8125rem; color: rgb(var(--fg-muted, 90 90 100)); }
+.ws .ws-sso-chip {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: inline-grid !important;
+  place-items: center;
+  color: color-mix(in srgb, rgb(var(--sso, var(--cat-1))) 72%, black) !important;
+  background: color-mix(in srgb, rgb(var(--sso, var(--cat-1))) 14%, white) !important;
+  border: 0 !important;
+}
+.ws .ws-copy-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 40rem;
+  padding: 8px 8px 8px 12px;
+  border-radius: 8px;
+  background: rgb(var(--cat-1) / 0.06);
+  border: 1px solid rgb(var(--cat-1) / 0.18);
+  font-size: 0.875rem;
+  font-weight: 500;
+  word-break: break-all;
+}
+.ws .ws-copy-box > span { flex: 1; min-width: 0; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card .ws-sso-actions {
+  grid-column: 2;
+  grid-row: 1 / span 6;
+  margin: 0 !important;
+  align-self: center;
+  justify-content: flex-end;
+}
+.ws .ws-owner-value { display: flex; flex-wrap: wrap; gap: 8px 16px; min-height: 2.5rem; font-weight: 600; }
+.ws .ws-rows > div:first-child { border-top: 0 !important; }
+/* Form sections take the same 2px rule as every panel head. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section > .ws-sec-body { border-top: 2px solid rgb(var(--fg)); }
+.ws input.tracking-widest::placeholder { letter-spacing: 0; }
+/* A section with a lede: the rule sits under the heading, the lede reads beneath it. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section:has(> .ws-sec-lede) > .ws-sec-section-head { border-bottom: 2px solid rgb(var(--fg)); padding-bottom: 8px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section:has(> .ws-sec-lede) > .ws-sec-body { border-top: 0; padding-top: 4px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-grid { border-top: 2px solid rgb(var(--fg)) !important; }

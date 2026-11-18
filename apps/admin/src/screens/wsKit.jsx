@@ -1,7 +1,7 @@
 import React from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { PageIconContext } from './pageIcon';
-import { ArrowLeft, Check, ChevronDown, ChevronRight } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Globe, Smartphone } from '@ui/components/ui/lineIcons';
 import { Menu as UiMenu, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '@ui/components/ui/Menu';
 import {
   Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
@@ -291,6 +291,22 @@ export function device(ua = '') {
   const browser = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
   const os = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Mac OS X|Macintosh/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : /Linux/.test(u) ? 'Linux' : '';
   return os ? `${browser} on ${os}` : browser;
+}
+
+/** An address as people read it: the IPv4 inside an IPv6 wrapper, plain. */
+export const ipText = (v) => (v ? String(v).replace(/^::ffff:/i, '') : '');
+
+const DEVICE_HUE = [[/Edg\//, 3], [/OPR\//, 5], [/Firefox\//, 4], [/Chrome\//, 1], [/Safari\//, 2], [/curl|wget|python|node|axios|okhttp|postman/i, 6]];
+/** A small coloured mark for a sign-in device: phone or browser, tinted by browser. */
+export function DeviceMark({ ua = '' }) {
+  const u = String(ua);
+  const hue = (DEVICE_HUE.find(([re]) => re.test(u)) || [null, 7])[1];
+  const Icon = /iPhone|iPad|Android/.test(u) ? Smartphone : Globe;
+  return (
+    <span className="ws-device-mark" style={{ '--dm': `var(--cat-${hue})` }} aria-hidden="true">
+      <Icon size={16} />
+    </span>
+  );
 }
 
 /** "3 hours ago" from a date, in words. */

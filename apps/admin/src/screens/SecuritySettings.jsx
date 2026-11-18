@@ -12,7 +12,7 @@ import {
   savePolicy,
 } from '@platform/admin/security';
 import AuthenticatorCard from '@ui/profile/AuthenticatorCard';
-import { Empty, ICON, Loading, PageHead, Panel, StatusPill, ago, device } from './wsKit';
+import { Avatar, DeviceMark, Empty, FilterSelect, ICON, Loading, PageHead, Panel, StatusPill, ago, device, ipText } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 
@@ -204,12 +204,13 @@ export const SecuritySettings = ({ openScreen }) => {
                   {sessions.map((s) => (
                     <tr key={s.id}>
                       <td>
-                        <span className="ws-sec-who">
+                        <span className="ws-device">
+                          <DeviceMark ua={s.userAgent} />
                           <span title={s.userAgent || ''}>{device(s.userAgent)}</span>
-                          {s.current ? <span className="ws-tag">This device</span> : null}
+                          {s.current ? <span className="ws-tag ws-tag--workspace">This device</span> : null}
                         </span>
                       </td>
-                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{s.ip || 'No address'}</td>
+                      <td className="ws-sec-addr">{ipText(s.ip) || 'No address'}</td>
                       <td>{stamp(s.createdAt)}</td>
                       <td className="num">{ago(s.lastSeenAt || s.createdAt)}</td>
                     </tr>
@@ -257,8 +258,12 @@ export const SecuritySettings = ({ openScreen }) => {
                     <tr key={e.id}>
                       <td className="ws-sec-when">{stamp(e.createdAt)}</td>
                       <td><StatusPill tone={eventTone(e.eventType)}>{eventWords(e.eventType)}</StatusPill></td>
-                      <td>{e.userName || e.userEmail || '—'}</td>
-                      <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{e.ip || '—'}</td>
+                      <td>
+                        {e.userName || e.userEmail ? (
+                          <span className="ws-who-cell"><Avatar name={e.userName || e.userEmail} />{e.userName || e.userEmail}</span>
+                        ) : '—'}
+                      </td>
+                      <td className="ws-sec-addr">{ipText(e.ip) || '—'}</td>
                       <td className="ws-sec-wrap ws-head-meta">{e.detail || ''}</td>
                     </tr>
                   ))}
@@ -314,14 +319,20 @@ export const SecuritySettings = ({ openScreen }) => {
 
               {/* A-13: separation of duties. Approving something about yourself is never allowed, whatever this says. */}
               <Section title="Approving your own work" id="ws-rules-maker">
-                <label className="grid gap-1">
-                  <span className="sr-only">Who may approve their own work</span>
-                  <select id="policy-maker-checker" className="ui-select" value={policy.makerChecker || 'AUTO'} onChange={(e) => setField({ makerChecker: e.target.value })} aria-label="Who may approve their own work">
-                    <option value="AUTO">Somebody else, whenever somebody else can (recommended)</option>
-                    <option value="STRICT">Always a second person</option>
-                    <option value="ALLOW">The same person may prepare and approve</option>
-                  </select>
-                </label>
+                <div>
+                  <FilterSelect
+                    label="Approver"
+                    ariaLabel="Who may approve their own work"
+                    value={policy.makerChecker || 'AUTO'}
+                    options={[
+                      ['AUTO', 'Somebody else, whenever somebody else can (recommended)'],
+                      ['STRICT', 'Always a second person'],
+                      ['ALLOW', 'The same person may prepare and approve'],
+                    ]}
+                    onChange={(v) => setField({ makerChecker: v })}
+                    width="26rem"
+                  />
+                </div>
                 <p className="ws-card-blurb">
                   Pay runs, salary revisions, adjustments, tax declarations, bank changes and leave. With the first choice a company with one administrator can still run payroll;
                   every approval of one&rsquo;s own work is written to the audit trail. Nobody ever approves their own salary, bank account or tax declaration.

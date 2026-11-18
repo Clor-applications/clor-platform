@@ -7,7 +7,7 @@ import { formatDateIn, localDateIso } from '@ui/utils/dates';
 import NotConnected from '@ui/components/ui/NotConnected';
 import { getAccountOverview } from '@platform/admin/admin';
 import { requestOpenScreen } from '@platform/context';
-import { Empty, ICON, Loading, PageHead, Panel, Stat } from './wsKit';
+import { Avatar, Empty, ICON, Loading, PageHead, Panel, Stat } from './wsKit';
 import { inr } from './InvoiceDocument';
 import './workspace.css';
 import './ws-plan.css';
@@ -109,7 +109,11 @@ function AccountName({ name, owners = null, onRenamed, onDirty }) {
       {owners ? (
         <div className="ws-field">
           <span id="ws-owner-label">Owner</span>
-          <p className="ws-field-value" aria-labelledby="ws-owner-label">{owners.length ? owners.join(', ') : 'No owner on record'}</p>
+          <p className="ws-field-value ws-owner-value" aria-labelledby="ws-owner-label">
+            {owners.length ? owners.map((o) => (
+              <span key={o} className="ws-who-cell"><Avatar name={o} />{o}</span>
+            )) : 'No owner on record'}
+          </p>
           <span className="ws-field-help">
             Change who owns the workspace in{' '}
             <button type="button" className="ws-link" onClick={() => requestOpenScreen('members')}>Members</button>.
@@ -163,7 +167,7 @@ function DataHealth({ health }) {
     <Panel title="Data health">
       <div className="flex items-center justify-between gap-2">
         <span className="ws-stat-note">{health.issues ? 'Needs a look' : 'Flowing'}</span>
-        <span className={`ws-pill${health.issues ? '' : ' ws-pill--ok'}`}>
+        <span className={`ws-pill ${health.issues ? 'ws-pill--warn' : 'ws-pill--ok'}`}>
           {health.issues ? `${health.issues} to fix` : 'All sources working'}
         </span>
       </div>
@@ -197,7 +201,7 @@ function Security({ security }) {
     <Panel title="Security">
       <div className="flex items-center justify-between gap-2">
         <span className="ws-stat-note">Sign in with an authenticator</span>
-        <span className={`ws-pill${everyone ? ' ws-pill--ok' : ''}`}>{share}%</span>
+        <span className="ws-state" data-tone={everyone ? 'ok' : share >= 50 ? 'info' : 'warn'}>{share}%</span>
       </div>
       <p className="ws-card-blurb">
         {everyone
@@ -313,7 +317,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
               <div className="ws-stats">
                 <Stat icon={ICON.companies} label="Companies" value={companies.length} note="In this account" />
                 <Stat icon={ICON.people} label="People" value={active} note="Active sign-ins" />
-                <Stat icon={ICON.plan} label="Billed across all companies" value={money(totals.billed)} note={`${totals.invoices} invoice(s)`} />
+                <Stat icon={ICON.plan} label="Billed across all companies" value={money(totals.billed)} note={totals.invoices === 1 ? '1 invoice' : `${totals.invoices} invoices`} />
                 <Stat icon={ICON.warning} label="Outstanding" value={money(totals.outstanding)} note="Still owed by customers" />
               </div>
 
@@ -353,7 +357,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                               {c.slug ? <span className="ws-cell-sub">{c.slug}.clor.in</span> : null}
                             </td>
                             <td>{c.state || '—'}</td>
-                            <td className="ui-mono">{c.gstin || '—'}</td>
+                            <td style={{ fontVariantNumeric: 'tabular-nums' }}>{c.gstin || '—'}</td>
                             <td className="num">{c.people}</td>
                             <td className="num">{c.invoices}</td>
                             <td className="num">{money(c.billed)}</td>
@@ -390,12 +394,19 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                     {users.map((u) => (
                       <li key={u.id}>
                         <div className="ws-item">
+                          <Avatar name={u.name || u.email} />
                           <span className="ws-item-text">
                             <span className="ws-item-title">{u.name || u.email}</span>
                             <span className="ws-item-sub truncate">{u.email}</span>
                           </span>
                           <span className="ws-item-end">
-                            {u.active ? (u.lastLoginAt ? `Last signed in ${formatDateIn(localDateIso(u.lastLoginAt))}` : 'Never signed in') : 'Deactivated'}
+                            {!u.active ? (
+                              <span className="ws-state" data-tone="off">Deactivated</span>
+                            ) : u.lastLoginAt ? (
+                              `Last signed in ${formatDateIn(localDateIso(u.lastLoginAt))}`
+                            ) : (
+                              <span className="ws-state" data-tone="warn">Never signed in</span>
+                            )}
                           </span>
                         </div>
                       </li>
@@ -456,7 +467,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
               {entities ? (
                 <section className="ws-section" aria-labelledby="ws-made-of">
                   <h2 id="ws-made-of" className="ws-h2">What the account is made of</h2>
-                  <dl className="ws-facts ws-facts--2">
+                  <dl className="ws-kv">
                     <div><dt>Companies</dt><dd className="num">{entities.companies}</dd></div>
                     <div><dt>Branches</dt><dd className="num">{entities.branches}</dd></div>
                     <div><dt>GST registrations</dt><dd className="num">{entities.taxProfiles}</dd></div>

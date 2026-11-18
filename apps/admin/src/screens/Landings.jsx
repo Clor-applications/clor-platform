@@ -6,7 +6,9 @@ import { accountAudit, listInvitations, memberDirectory } from '@platform/admin/
 import { getMySessions, getPolicy, getProviders } from '@platform/admin/security';
 import { listCredentials } from '@platform/admin/credentials';
 import { ACTION_WORDS } from './AccountActivity';
-import { Avatar, Empty, ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
+import { Avatar, DeviceMark, Empty, ICON, PageHead, Panel, Stat, ago, device, ipText } from './wsKit';
+
+const cap = (t) => String(t || '').replace(/^./, (c) => c.toUpperCase());
 import './workspace.css';
 import './ws-security.css';
 
@@ -193,15 +195,11 @@ export function SecurityHome({ navItems = [], openScreen }) {
           <div className="ws-main">
             {p ? (
               <Panel title="Sign-in rules in force">
-                <dl className="grid gap-2 text-sm" style={{ gridTemplateColumns: 'max-content 1fr', columnGap: 24 }}>
-                  <dt className="ws-item-sub">Passwords</dt>
-                  <dd>{policy?.passwordRules || `At least ${p.passwordMinLength} characters`}</dd>
-                  <dt className="ws-item-sub">Lockout</dt>
-                  <dd>After {p.maxFailedLogins} failed attempts, for {p.lockoutMinutes} minutes</dd>
-                  <dt className="ws-item-sub">Sessions</dt>
-                  <dd>Signed in for up to {p.sessionDays} days</dd>
-                  <dt className="ws-item-sub">Who may be invited</dt>
-                  <dd>{p.allowedEmailDomains ? `Addresses at ${p.allowedEmailDomains}` : 'Any email address'}</dd>
+                <dl className="ws-rows">
+                  <div><dt>Passwords</dt><dd>{cap(policy?.passwordRules || `At least ${p.passwordMinLength} characters`)}</dd></div>
+                  <div><dt>Lockout</dt><dd>After {p.maxFailedLogins} failed attempts, for {p.lockoutMinutes} minutes</dd></div>
+                  <div><dt>Sessions</dt><dd>Signed in for up to {p.sessionDays} days</dd></div>
+                  <div><dt>Who may be invited</dt><dd>{p.allowedEmailDomains ? `Addresses at ${p.allowedEmailDomains}` : 'Any email address'}</dd></div>
                 </dl>
               </Panel>
             ) : null}
@@ -222,7 +220,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
                   ))}
                 </ul>
               ) : (
-                refused === null ? <p className="ws-card-blurb">Only the account’s owners and administrators can see refusals.</p> : <Empty icon={LOG_ICON} compact>Nothing refused recently.</Empty>
+                refused === null ? <p className="ws-card-blurb">Only the account’s owners and administrators can see refusals.</p> : <p className="ws-quiet-ok"><span className="ws-state" data-tone="ok">All clear</span>Nothing refused recently.</p>
               )}
             </Panel>
           </div>
@@ -233,11 +231,12 @@ export function SecurityHome({ navItems = [], openScreen }) {
                   {sessions.sessions.slice(0, 5).map((x) => (
                     <li key={x.id}>
                       <div className="ws-item">
-                        <span className="ws-tile" aria-hidden="true"><ICON.secure size={18} /></span>
+                        <DeviceMark ua={x.userAgent} />
                         <span className="ws-item-text">
-                          <span className="ws-item-title">{device(x.userAgent)}{x.ip ? ` · ${x.ip}` : ''}</span>
-                          <span className="ws-item-sub">Last used {ago(x.lastSeenAt || x.createdAt)}</span>
+                          <span className="ws-item-title">{device(x.userAgent)}</span>
+                          <span className="ws-item-sub">{x.ip ? `${ipText(x.ip)} · ` : ''}last used {ago(x.lastSeenAt || x.createdAt)}</span>
                         </span>
+                        {x.current ? <span className="ws-tag ws-tag--workspace">This device</span> : null}
                       </div>
                     </li>
                   ))}

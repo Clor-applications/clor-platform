@@ -7,7 +7,8 @@ import { STATUS as CREDENTIAL_STATUS } from './credentialsModel';
 import { createProvider, createScimToken, deleteProvider, getProviders, getScim, revokeScimToken, updateProvider, verifyProviderDomains } from '@platform/admin/security';
 import { listRoles } from '@platform/admin/admin';
 import { Globe, Lock, LockKeyhole } from 'lucide-react';
-import { Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
+import { FilterSelect, Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
+import './ws-security.css';
 import './workspace.css';
 import './ws-security.css';
 
@@ -40,6 +41,8 @@ const SUGGESTED = [
   { match: /google/i, name: 'Google Workspace', line: 'Use if your email is on Google Workspace.', Icon: GLOBE, preset: { kind: 'OIDC', name: 'Google Workspace', discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration' } },
   { match: /microsoft|entra|azure/i, name: 'Microsoft Entra ID', line: 'Use if your email is on Microsoft 365.', Icon: LOCK, preset: { kind: 'OIDC', name: 'Microsoft Entra ID', discoveryUrl: '' } },
 ];
+/* Google blue, Microsoft green, anything else violet: the provider's own hue, softly. */
+const hueFor = (name = '') => (/google/i.test(name) ? 'var(--cat-1)' : /microsoft|entra|azure/i.test(name) ? 'var(--cat-3)' : 'var(--cat-5)');
 const iconFor = (p) => (/google/i.test(`${p.name} ${p.discoveryUrl || ''}`) ? GLOBE : LOCK);
 /* `.ws` outside the page: its tokens without its page padding and ground. */
 const DRAWER_WS = { padding: 0, background: 'none', minHeight: 0 };
@@ -71,10 +74,21 @@ function Section({ title, id, action, lede, children }) {
 }
 
 function Address({ label, value }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      notify.success('Copied.');
+    } catch {
+      notify.error('Could not copy. Select it and copy by hand.');
+    }
+  };
   return (
     <div className="grid gap-1">
-      <span className="ws-stat-note">{label}</span>
-      <code className="ui-mono text-sm break-all">{value}</code>
+      <span className="ui-label">{label}</span>
+      <div className="ws-copy-box">
+        <span>{value}</span>
+        <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={copy} aria-label={`Copy ${label.toLowerCase()}`}><Copy size={14} aria-hidden="true" /> Copy</button>
+      </div>
     </div>
   );
 }
@@ -184,6 +198,9 @@ export default function SsoSettings() {
           <Loading shape="rows" rows={3} label="Loading sign-in methods…" />
         ) : (
           <>
+            <div className="ws-sec-section-head">
+              <h2 className="ws-h2">Sign-in methods</h2>
+            </div>
             <ul className="ws-sso-grid" aria-label="Sign-in methods">
               {data.providers.map((p) => {
                 const [label, tone] = STATUS[p.status] || [p.status, 'neutral'];
@@ -192,7 +209,7 @@ export default function SsoSettings() {
                 return (
                   <li key={p.id} className="ws-sso-card">
                     <div className="ws-sso-head">
-                      <span className="ws-sso-chip" aria-hidden="true"><Icon size={18} /></span>
+                      <span className="ws-sso-chip" style={{ '--sso': hueFor(p.name) }} aria-hidden="true"><Icon size={18} /></span>
                       <span className="ws-sso-name">{p.name}</span>
                       <StatusPill tone={tone}>{label}</StatusPill>
                       <span className="ws-tag">{p.kind === 'SAML' ? 'SAML 2.0' : 'OpenID Connect'}</span>
@@ -228,7 +245,7 @@ export default function SsoSettings() {
               {suggested.map((x) => (
                 <li key={x.name} className="ws-sso-card">
                   <div className="ws-sso-head">
-                    <span className="ws-sso-chip" aria-hidden="true"><x.Icon /></span>
+                    <span className="ws-sso-chip" style={{ '--sso': hueFor(x.name) }} aria-hidden="true"><x.Icon size={18} /></span>
                     <span className="ws-sso-name">{x.name}</span>
                     <StatusPill tone="neutral">Not set up</StatusPill>
                   </div>
@@ -240,7 +257,7 @@ export default function SsoSettings() {
               ))}
               <li className="ws-sso-card">
                 <div className="ws-sso-head">
-                  <span className="ws-sso-chip" aria-hidden="true"><KEY size={18} /></span>
+                  <span className="ws-sso-chip" style={{ '--sso': 'var(--cat-4)' }} aria-hidden="true"><KEY size={18} /></span>
                   <span className="ws-sso-name">{data.local.name}</span>
                   <StatusPill tone="ok">Active</StatusPill>
                 </div>
@@ -290,14 +307,14 @@ export default function SsoSettings() {
                   })}
                 </ul>
               ) : null}
-              <div className="flex flex-wrap items-end gap-2">
-                <label className="grid gap-1">
-                  <span className="text-sm font-medium">Role for people the provider adds</span>
-                  <select className="ui-select" value={scimRole} onChange={(e) => setScimRole(e.target.value)}>
-                    <option value="">No role (view nothing until assigned)</option>
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
-                </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <FilterSelect
+                  label="Role for people it adds"
+                  ariaLabel="Role for people the provider adds"
+                  value={scimRole}
+                  options={[['', 'No role until assigned'], ...roles.map((r) => [r.id, r.name])]}
+                  onChange={setScimRole}
+                />
                 <button type="button" className="ws-btn ws-btn--quiet" onClick={makeToken}>Make a token</button>
               </div>
             </Section>
