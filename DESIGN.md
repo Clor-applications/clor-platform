@@ -577,6 +577,28 @@ number of days' absence without word; the company's year start with what each ch
 file space as a bar by kind; "Copy from" another branch with ticks; payslips by SMS with a short
 link; pay groups with their own pay day. All need server work.
 
+### Round 42 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Leave when a child is ill | Sick leave on the leave form asks "Who is ill": Me or My child. My child takes it from the person's own sick leave (one balance) and starts the reason with "For my child:" so the approver sees it (`ForWhom`, `reasonFor`). |
+| Asking for leave without pay | Unpaid leave already shows as a type on the form, marked unpaid; under the day count it now says "Without pay: your pay for the month is cut for these 3 days" (`UnpaidNote`). The rupee figure needs the salary from the server. |
+| Leave after adopting a child | An adoption leave type on the form says "For a child under 3 months: 12 weeks from the day the child comes home" and offers "Fill 12 weeks", with the back-at-work day, as maternity does with 26 weeks (`LongLeaveSpan`). |
+
+Picked and already how the app works: paternity leave (10 days within 3 months of the birth) and
+marriage leave (5 days, once) are leave types a company sets up with its own days and rules in
+Leave settings.
+
+Picked, **not built yet**: period days worked from home; a yearly number of study days; extra paid
+days the company gives for emergencies; a monthly work-from-home limit with days left on the form;
+the leave form warning when two of the team are already away; adding a newborn to cover from the
+phone with the birth date; children's education allowance per child, up to two, in salary; a
+greeting card post on the news feed for a wedding; weeks of work from home to care for a parent;
+moving days off plus a one-time moving allowance; a long-service gift with a news feed post. All
+need server work. The employee app's own leave form keeps its current fields for now.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

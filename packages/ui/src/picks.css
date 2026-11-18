@@ -787,3 +787,13 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 42 */
+/* Sick leave for a child: Me / My child on the leave form. */
+.ui-for-whom { border: 0; padding: 0; margin: 0; }
+.ui-for-whom-choices { display: inline-flex; gap: 0; border: 1px solid rgb(var(--border)); border-radius: 8px; overflow: hidden; }
+.ui-for-whom-choice { padding: 6px 14px; font-size: 14px; background: transparent; }
+.ui-for-whom-choice + .ui-for-whom-choice { border-left: 1px solid rgb(var(--border)); }
+.ui-for-whom-choice[aria-checked='true'] { background: rgb(var(--act) / 0.1); color: rgb(var(--act-ink)); font-weight: 600; }
+/* Leave without pay: the cost in words. */
+.ui-unpaid-note { color: rgb(var(--fg-muted)); }
