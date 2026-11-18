@@ -9,6 +9,8 @@ import { LeavePill, Notice, StatTiles, TILE_ICON } from './Figures';
 import { clashDays } from './clashes';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import BulkOutcome from '@ui/components/list/BulkOutcome';
+import { bulkOutcome } from '@ui/picks/round57';
 import DataTable from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -141,14 +143,19 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
       setDeciding(false);
     }
   };
+  const [outcome, setOutcome] = useState(null);
   const approveChosen = async () => {
     if (!chosen.size) return;
     setDeciding(true);
+    setOutcome(null);
     try {
       const out = await bulkReviewLeave([...chosen], true);
       const failed = Number(out?.failed || 0);
       const done = Number(out?.done ?? chosen.size - failed);
-      if (failed) notify.error(`${done} approved; ${failed} could not be: ${out?.results?.[0]?.error || 'open them to see why.'}`);
+      /* Round 57 bulkresult A: each one that could not be approved, by name, with why. */
+      const said = bulkOutcome({ done, results: out?.results || [], nameOf: (id) => allRows.find((r) => r.id === id)?.employeeName });
+      if (failed && !said.failed.length) said.failed.push({ id: 'rest', name: `${failed} more`, reason: 'Open them to see why.' });
+      if (failed) setOutcome(said);
       else notify.success(done === 1 ? 'Approved.' : `${done} approved.`);
       decided();
     } catch (e) {
@@ -209,6 +216,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         onTab={(k) => { setChosen(new Set()); set({ tab: k === 'PENDING' ? null : k, page: null }, true); }}
       />
 
+      <BulkOutcome outcome={outcome} verb="approved" onClose={() => setOutcome(null)} />
       <DataTable
         label="Leave requests"
         columns={shownColumns}

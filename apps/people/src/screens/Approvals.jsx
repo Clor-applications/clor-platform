@@ -1,4 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import BulkOutcome from '@ui/components/list/BulkOutcome';
+import { bulkOutcome, waitingFirst } from '@ui/picks/round57';
 import { Check, X } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -97,16 +99,35 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const items = useMemo(() => inbox.data?.items || [], [inbox.data]);
+  /*
+   * Round 57 liveupdate A: requests that arrive while the list is open wait
+   * behind a "2 new · Show" bar; the list itself never jumps under the reader.
+   * Checked once a minute while the page is in view.
+   */
+  const [arrived, setArrived] = useState(0);
+  useEffect(() => {
+    if (!inbox.data) return undefined;
+    const seen = new Set((inbox.data.items || []).map((i) => i.key));
+    setArrived(0);
+    let off = false;
+    const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      getInbox().then((d) => { if (!off) setArrived((d?.items || []).filter((i) => !seen.has(i.key)).length); }).catch(() => {});
+    }, 60000);
+    return () => { off = true; clearInterval(timer); };
+  }, [inbox.data]);
   const counts = inbox.data?.counts || {};
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => items.filter((i) => (!kind || i.kind === kind) && (!needle || [i.employeeName, i.employeeCode, i.what, kindText(i)].some((v) => String(v || '').toLowerCase().includes(needle)))), [items, kind, needle]);
-  const mineRows = useMemo(() => (mine.data?.mine || []).filter((r) => !needle || [r.title, typeOf(r.requestType, r.payload)].some((v) => String(v || '').toLowerCase().includes(needle))), [mine.data, needle]);
+  /* Round 57 waitingfirst A: my own requests still waiting come first, the oldest on top; then the rest, newest first. */
+  const mineRows = useMemo(() => waitingFirst((mine.data?.mine || []).filter((r) => !needle || [r.title, typeOf(r.requestType, r.payload)].some((v) => String(v || '').toLowerCase().includes(needle))), (r) => ['WAITING', 'MORE_INFO'].includes(r.status)), [mine.data, needle]);
   const taskRows = useMemo(() => (inbox.data?.tasks || []).filter((t) => !needle || [t.title, t.employee?.name, t.employee?.code, TASK_KIND[t.kind]].some((v) => String(v || '').toLowerCase().includes(needle))), [inbox.data, needle]);
   const list = tab === 'waiting' ? shown : tab === 'tasks' ? taskRows : mineRows;
   const pageRows = list.slice((page - 1) * size, page * size);
   const chosen = shown.filter((i) => selected.has(i.key) && i.bulk);
   const reload = () => { inbox.reload(); if (tab === 'mine') mine.reload(); };
 
+  const [outcome, setOutcome] = useState(null);
   const decideMany = async (approve) => {
     if (!chosen.length || bulkBusy) return;
     const note = bulkNote.trim();
@@ -125,15 +146,18 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
         if (res.status === 'fulfilled') {
           done += res.value.done || 0;
           handedOn += res.value.handedOn || 0;
-          for (const r of res.value.results || []) if (r.error) failed.push(r.error);
+          for (const r of res.value.results || []) if (r.error) failed.push({ id: r.id, ok: false, error: r.error, kind: k });
         } else {
-          failed.push(...ids(k).map(() => String(res.reason?.message || 'Not done.')));
+          failed.push(...ids(k).map((id) => ({ id, ok: false, error: String(res.reason?.message || 'Not done.'), kind: k })));
         }
       }
       const did = approve ? 'approved' : 'rejected';
       const passed = handedOn ? `, ${handedOn} as the manager, now with HR` : '';
-      if (failed.length) notify.error(`${done} ${did}${passed}; ${failed.length} not: ${failed[0]}`);
-      else notify.success(`${done} ${did}${passed}.`);
+      /* Round 57 bulkresult A: "12 approved · 2 could not be", and for each, whose and why. */
+      if (failed.length) {
+        const nameOf = (id) => chosen.find((i) => i.id === id)?.employeeName;
+        setOutcome({ ...bulkOutcome({ done, results: failed, nameOf }), verb: `${did}${passed}` });
+      } else { setOutcome(null); notify.success(`${done} ${did}${passed}.`); }
       setSelected(new Set());
       setBulkNote('');
       inbox.reload();
@@ -274,6 +298,7 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
         tabsLabel="Approvals"
       />
 
+      <BulkOutcome outcome={outcome} verb={outcome?.verb} onClose={() => setOutcome(null)} />
       {tab === 'waiting' && chosen.length ? (
         <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
           <span className="text-sm"><strong className="tabular-nums">{chosen.length}</strong> chosen</span>
@@ -285,6 +310,11 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       ) : null}
 
       <div ref={jkRef}>
+      {tab === 'waiting' && arrived ? (
+        <button type="button" className="ui-new-rows-bar" onClick={() => { setArrived(0); inbox.reload(); }}>
+          {arrived} new · Show
+        </button>
+      ) : null}
       <DataTable
         label={tab === 'waiting' ? 'To approve': tab === 'tasks' ? 'My tasks' : 'Asked by me'}
         columns={tab === 'waiting' ? waitingColumns : tab === 'tasks' ? taskColumns : mineColumns}

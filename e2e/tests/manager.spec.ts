@@ -169,7 +169,7 @@ test.describe('Rahul manages his team', () => {
     await rahul.goto();
     await rahul.open('Employees');
     await rahul.main.getByRole('searchbox', { name: 'Search employees' }).fill('Arjun');
-    await expect(rahul.main.getByRole('button', { name: /^Arjun Das/ })).toHaveCount(0);
+    await expect(rahul.main.getByRole('link', { name: /^Arjun Das/ })).toHaveCount(0);
 
     await rahul.page.goto(`/o/${w.asha.code}/?app=people&open=employee&s.id=${w.people.arjun.id}`);
     await expect(rahul.main).not.toContainText('Arjun Das', { timeout: 5_000 });
