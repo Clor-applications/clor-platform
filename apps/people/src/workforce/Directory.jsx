@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { saveRecordList } from '@ui/picks/round62';
 import { CalendarClock, CalendarDays, Smartphone, UserPlus, UserRoundX, Users } from 'lucide-react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
@@ -99,6 +100,9 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const [exportOpen, setExportOpen] = useState(false);
 
   const rows = list.data?.employees || [];
+  /* Round 62 "nextprevrecord" A: the order of this page, so a record opened from it can step to the next person. */
+  const rowIds = rows.map((r) => r.id).join(',');
+  useEffect(() => { if (rowIds) saveRecordList(rowIds.split(',')); }, [rowIds]);
   const total = Number(list.data?.total || 0);
   /* Managers to filter and move people to: everyone still here, by name (500 at most for the picker). */
   const [managers, setManagers] = useState([]);

@@ -1128,6 +1128,32 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 62 (18 Nov 2026)
+
+An employee's record. Chosen by Claude on the owner's instruction ("choose what is best for platform"), all option A.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Tap to call or mail | The record header's phone is a call link and its e-mail a mail link, each with Copy beside it (`PhoneFact`, `EmailLink`). |
+| Status with small notes | "On leave today · Sick leave · back after 20 Nov" beside the status, from approved leave covering today (`OnLeaveToday`; only for readers of leave requests). |
+| Tabs | Pay and Time join the record's tabs. Employment keeps its name (it is the Job tab) because notices and tasks tell people to open "their Employment tab". |
+| Time tab | This month so far in one line ("18 present · 1 on leave · 2 late days") with Open attendance, leave balances, and leave coming up in the next 90 days with Approved or Waiting (`TimeTab`). Shown to readers of leave requests or attendance records. |
+| Salary hidden until Show | The Pay tab shows yearly and monthly CTC as dots until Show (Hide puts them back), with since when and the structure, and links to Payslips and Salary revisions in Payroll (`PayTab`). Only with Payroll and the right to read salary assignments. |
+| Print a profile | Actions → Print profile: the header and overview alone on paper, buttons and tabs left off; "Include salary" (for readers of salary) adds the CTC line (`PrintProfile`, `data-print-profile`). |
+| Someone who left | A grey band under the header: "Left on 31 Oct 2026 · Resigned · reason", with Final settlement (Payroll) and the Leaving list (`LeftBand`). |
+| ‹ › through the list | Beside "← Employees", "3 of 25" with ‹ › to the people either side on the list the record was opened from (the Employees page keeps its order for this tab, `people.workforce.lastIds`). |
+| Search lands on the field | A search by phone, e-mail or PAN opens the person's record on the Personal tab (`tabForQuery` in `findPeople`). |
+
+Picked and already how the app works: one header band with photo, name, role, team, manager,
+status and joining date; a pencil per section that edits just that section; one Actions menu by
+role; the dated career story on History; manager above and direct reports below in the Team
+block; empty fields say "Not added yet · Add".
+
+Picked, **not built yet**: admins seeing who opened a person's pay and ID details (needs the
+server to record each view).
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

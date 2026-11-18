@@ -1015,3 +1015,37 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 62 */
+/* contactactions A: phone and e-mail in the record header open the call or the mail, Copy beside each. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-contact { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-contact a { display: inline-flex; align-items: center; gap: 4px; }
+/* statusbadge A: On leave today, with the day they are back in small type. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-away { display: inline-flex; align-items: baseline; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-away-note { font-weight: 400; font-size: 0.75rem; }
+/* nextprevrecord A: ‹ 3 of 25 › beside the way back to the list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-back-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-stepper { display: inline-flex; align-items: center; gap: 4px; }
+/* leftrecord A: a grey band for someone who has left, the follow-up links on it. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; padding: 12px 16px; border-radius: 12px; background: #F7F7F7; color: rgb(var(--fg-muted)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band p { margin: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band b { color: rgb(var(--fg)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-links { display: inline-flex; gap: 16px; }
+/* timetab A: this month in one line, balances and leave coming up as plain rows. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-month-line { margin: 8px 0; font-size: 0.9375rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-upcoming li > :nth-child(2) { flex: 1; }
+/* salaryonrecord A: amounts in tabular figures, dots until Show. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-money { font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-tick { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; }
+/* profileprint A: the header and overview alone on paper, salary only when ticked. */
+.r62-print-salary { display: none; }
+@media print {
+  :root[data-print-profile]:not([data-palette='indigo']) body * { visibility: hidden; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area,
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area * { visibility: visible; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; color: #000; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area :is(button:not(.pc-summary-facts button), .ui-btn, .r62-stepper, .pc-back, [role='tablist'], textarea, .ui-copy-word, .ui-call-buttons a) { display: none !important; }
+  :root[data-print-profile='salary']:not([data-palette='indigo']) .r62-print-salary { display: block; margin: 0; font-size: 12px; }
+}

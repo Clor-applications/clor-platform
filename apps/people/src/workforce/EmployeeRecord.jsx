@@ -36,6 +36,7 @@ import { BackLink } from '../components/Core';
 import { getLeaveBalances, swatchOf } from '@ui/timeOff/api';
 import { AppAccessHistory, PersonAssets, PersonCelebrations, PersonPolicies, ProbationSection } from './RecordExtras';
 import { todayIst } from '@ui/utils/dates';
+import { EmailLink, LeftBand, OnLeaveToday, PayTab, PhoneFact, PrintProfile, PrintSalaryLine, RecordStepper, TimeTab, printProfile } from './round62';
 
 /**
  * Workforce → Employee (People design spec v1 EMP-03..09; Workforce package
@@ -48,7 +49,8 @@ import { todayIst } from '@ui/utils/dates';
  * the server answers 409: the edits stay in the form, the newer record is
  * shown, and the person decides (spec §8, WF-04 conflict).
  */
-const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
+/* Round 62 "recordtabs" A: Pay and Time join the record (Employment keeps its name: notices send people to it). */
+const TABS = [['overview', 'Overview'], ['personal', 'Personal'], ['employment', 'Employment'], ['organization', 'Organisation'], ['pay', 'Pay'], ['time', 'Time'], ['documents', 'Documents'], ['history', 'History'], ['activity', 'Activity']];
 const LAST_DIRECTORY = 'people.workforce.lastDirectory';
 /* "7 yrs 5 mos" since a date (India's calendar day), or null before it. */
 const tenure = (from) => {
@@ -110,7 +112,10 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   /* A team lead's own record is changed through the employee app (the server says so as ownRecordLocked), so its edit actions are not offered. */
   const allowed = (k) => can(perms, k) && !(k === 'PEOPLE::Employees::EDIT' && rec.data?.employee?.ownRecordLocked);
   const id = params.id;
-  const tabsAllowed = TABS.filter(([k]) => k !== 'documents' || allowed('PEOPLE::Documents::VIEW')).map(([key, label]) => ({ key, label }));
+  const canLeaveRead = can(perms, 'ATTENDANCE::Leave Requests::VIEW');
+  const canRecordsRead = can(perms, 'ATTENDANCE::Attendance Records::VIEW');
+  const canPay = hasApp('payroll') && can(perms, 'PAYROLL::Salary Assignments::VIEW');
+  const tabsAllowed = TABS.filter(([k]) => (k !== 'documents' || allowed('PEOPLE::Documents::VIEW')) && (k !== 'pay' || canPay) && (k !== 'time' || canLeaveRead || canRecordsRead)).map(([key, label]) => ({ key, label }));
   const tab = tabsAllowed.some((t) => t.key === params.tab) ? params.tab : 'overview';
   const rec = useRequest(() => (id ? getEmployee(id) : Promise.reject(Object.assign(new Error('No employee chosen.'), { status: 404 }))), [id]);
   const person = rec.data?.employee || null;
@@ -134,6 +139,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const [offering, setOffering] = useState(false);
   const [lettering, setLettering] = useState(false);
   const [givingAccess, setGivingAccess] = useState(false);
+  const [printing, setPrinting] = useState(null);
+  const [printAsk, setPrintAsk] = useState(false);
   /* The record's list of access sent reloads after a send. */
   const [accessKey, setAccessKey] = useState(0);
   const set = (patch, push = false) => updateParams?.(patch, { push });
@@ -204,6 +211,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['leave', 'Change leaving details'] : null,
     person.status === 'ON_NOTICE' && allowed('PEOPLE::Employees::EDIT') ? ['stay', 'Withdraw leaving'] : null,
     person.status === 'LEFT' && allowed('PEOPLE::Employees::EDIT') ? ['rehire', 'Rehire'] : null,
+    ['print', 'Print profile'],
     allowed('PEOPLE::Employees::DELETE') ? ['delete', 'Delete'] : null,
   ].filter(Boolean);
   const headerDates = datesFor(kindOf(lists?.types, person.employeeTypeId));
@@ -211,9 +219,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   const probation = probationState(person, todayIst());
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 r62-print-area">
       <div className="pc-head">
-        <BackLink label="Employees" onClick={backToDirectory} />
+        <div className="r62-back-row"><BackLink label="Employees" onClick={backToDirectory} /><RecordStepper id={person.id} openScreen={openScreen} /></div>
         <PageHeader
           title={person.name /* round 29 "callname" C: full legal name only; the preferred name stays on the Personal tab */}
         actions={<>
@@ -224,6 +232,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
                 <Popover anchorRef={moreRef} onClose={() => setMoreOpen(false)} minWidth={220}>
                   <MenuList items={moreItems} onPick={(k) => {
                     if (k === 'delete') return remove();
+                    if (k === 'print') { setMoreOpen(false); return setPrintAsk(true); }
                     if (k === 'invite') { setMoreOpen(false); return setInviting(true); }
                     if (k === 'offer') { setMoreOpen(false); return setOffering(true); }
                     if (k === 'letter') { setMoreOpen(false); return setLettering(true); }
@@ -251,9 +260,10 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         <PhotoControl person={person} canEdit={editable} onSaved={(emp) => setPerson(emp)} />
         <div className="min-w-0">
           <p className="pc-summary-role">{person.designation || 'No designation yet'}</p>
-          <p className="pc-summary-line">{[person.department, person.branchName || person.areaName || person.workLocation, person.workEmail || person.email].filter(Boolean).join(' · ') || 'No department or place of work yet'}</p>
+          <p className="pc-summary-line">{[person.department, person.branchName || person.areaName || person.workLocation].filter(Boolean).join(' · ') || 'No department or place of work yet'}{person.workEmail || person.email ? <> · <EmailLink email={person.workEmail || person.email} name={person.name} /></> : null}</p>
           <div className="pc-summary-pills">
             <StatusBadge employee={person} />
+            {person.status !== 'LEFT' ? <OnLeaveToday employeeId={person.id} canRead={canLeaveRead} /> : null}
             {typeName ? <span className="pc-chip">{typeName}</span> : null}
             {person.hours === 'PART_TIME' ? <span className="pc-chip">Part-time</span> : null}
             {person.code ? <span className="pc-chip"><span>{person.code}</span> <CopyWord value={person.code} what="employee ID" /></span> : null}
@@ -275,10 +285,12 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
           <div><dt>Reports to</dt><dd>{person.reportingManagerName ? (person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button>) : <span className="ui-muted">No manager</span>}</dd></div>
           <div><dt>Joined</dt><dd>{person.dateOfJoining ? <>{formatDate(String(person.dateOfJoining).slice(0, 10))}{tenure(person.dateOfJoining) ? ` · ${tenure(person.dateOfJoining)}` : ''}</> : <span className="ui-muted">Not set</span>}</dd></div>
           <div><dt>Location</dt><dd>{person.branchName || person.areaName || person.workLocation || <span className="ui-muted">Not set</span>}</dd></div>
-          <div><dt>Phone</dt><dd>{person.phone || person.workPhone || <span className="ui-muted">Not given</span>}</dd></div>
+          <div><dt>Phone</dt><dd><PhoneFact phone={person.phone || person.workPhone} name={person.name} /></dd></div>
         </dl>
       </section>
 
+      <LeftBand person={person} leavingWord={person.leavingType ? LEAVING_TYPES[person.leavingType] || person.leavingType : ''} payrollOn={hasApp('payroll')} openScreen={openScreen} />
+      {printing?.salary ? <PrintSalaryLine person={person} /> : null}
       {(rec.data.permits || []).filter((p) => p.daysLeft <= 30).map((p, i) => (
         <Alert key={p.id || `hidden-${i}`} tone={p.expired ? 'neg' : 'warn'} title={p.expired ? `${p.title} expired on ${formatDate(p.expiresOn)}` : `${p.title} expires in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`}>{p.restrictsWork ? `Until renewed: ${p.restrictsWork}.` : 'Add the renewed copy on Documents.'}</Alert>
       ))}
@@ -293,6 +305,8 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
         {tab === 'personal' ? <Personal key={person.id} person={person} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => rec.setData((d) => ({ ...d, employee: { ...d.employee, ...emp } }))} reload={rec.reload} /> : null}
         {tab === 'employment' ? <Employment key={person.id} person={person} data={rec.data} lists={lists} allowed={allowed} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onLeave={() => setResigning(true)} openScreen={openScreen} /> : null}
         {tab === 'organization' ? <Organization key={person.id} person={person} lists={lists} allowed={allowed} openAction={openAction} openPerson={(pid) => openScreen?.('employee', { id: pid })} editing={params.edit} setEditing={setEditing} onSaved={(emp) => setPerson(emp)} reload={rec.reload} onSendAccess={() => setGivingAccess(true)} accessKey={accessKey} /> : null}
+        {tab === 'pay' ? <PayTab key={person.id} person={person} canChange={can(perms, 'PAYROLL::Salary Assignments::CREATE')} /> : null}
+        {tab === 'time' ? <TimeTab key={person.id} person={person} canLeave={canLeaveRead} canRecords={canRecordsRead} openScreen={openScreen} /> : null}
         {tab === 'documents' ? <div className="space-y-6"><EmployeeDocuments key={person.id} employeeId={person.id} personName={person.preferredName || person.firstName || person.name} />{allowed('PEOPLE::Policies::VIEW') ? <PersonPolicies key={`p-${person.id}`} employeeId={person.id} openScreen={openScreen} /> : null}</div> : null}
         {tab === 'history' ? <div className="space-y-6"><HistoryCompare key={person.id} person={person} lists={lists} /><Section title="Employment history"><EmploymentHistory key={person.id} employeeId={person.id} /></Section><Section title="Every change and why"><Journey key={person.id} employeeId={person.id} /></Section></div> : null}
         {tab === 'activity' ? <Activity key={person.id} person={person} canComment={allowed('PEOPLE::Employee Notes::CREATE')} /> : null}
@@ -307,6 +321,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       {inviting ? <InviteForm person={person} onClose={() => setInviting(false)} onDone={() => setInviting(false)} /> : null}
       {lettering ? <IssueLetter employeeId={person.id} onClose={() => setLettering(false)} onIssued={() => { setLettering(false); rec.reload(); }} /> : null}
       {offering || params.action === 'offer' ? <OfferDrawer employee={person} onClose={() => { setOffering(false); if (params.action === 'offer') set({ action: null }); }} onSent={() => { setOffering(false); if (params.action === 'offer') set({ action: null }); rec.reload(); }} /> : null}
+      {printAsk ? <PrintProfile person={person} salaryAllowed={canPay} onClose={() => setPrintAsk(false)} onPrint={(o) => { setPrintAsk(false); setPrinting(o); if (tab !== 'overview') set({ tab: null, edit: null }, false); printProfile(o, () => setPrinting(null)); }} /> : null}
       {givingAccess ? <AppAccessSend people={[{ id: person.id, name: person.name }]} onClose={() => { setGivingAccess(false); setAccessKey((k) => k + 1); }} /> : null}
     </div>
   );

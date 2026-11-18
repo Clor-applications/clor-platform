@@ -1,4 +1,5 @@
 import { listEmployees } from './api';
+import { tabForQuery } from '../picks/round62';
 
 /**
  * People found by name, employee ID or work email, for the search bar
@@ -8,13 +9,15 @@ import { listEmployees } from './api';
  */
 export async function findPeople(q, { appId = null } = {}) {
   const r = await listEmployees({ q, limit: 8 });
+  /* Round 62 "searchtotab" A: a phone, e-mail or PAN search opens the record on the tab that holds it. */
+  const tab = tabForQuery(q);
   return (r?.employees || []).map((e) => ({
     key: `person:${e.id}`,
     label: e.name || [e.firstName, e.lastName].filter(Boolean).join(' '),
     detail: [e.code, e.designation, e.department].filter(Boolean).join(' · '),
     group: 'People',
     screen: 'employee',
-    params: { id: e.id },
+    params: tab ? { id: e.id, tab } : { id: e.id },
     ...(appId ? { appId } : {}),
   }));
 }
