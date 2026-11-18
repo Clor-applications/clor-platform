@@ -127,7 +127,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     { key: 'code', label: 'Employee ID', sortable: true, render: (r) => <span className="tabular-nums">{r.code || '—'}</span> },
     { key: 'department', label: 'Department', sortable: true, render: (r) => (r.department ? <DeptTag name={r.department} /> : '—') },
     /* The department sits under the designation (PEOPLE-02), so the separate column starts hidden. */
-    { key: 'designation', label: 'Designation', sortable: true, render: (r) => (r.designation || r.department ? <span className="pc-two"><span>{r.designation || '—'}</span>{r.department ? <span><DeptTag name={r.department} /></span> : null}</span> : '—') },
+    { key: 'designation', label: 'Designation', sortable: true, render: (r) => (r.designation ? <span className="pc-two"><span>{r.designation}</span>{r.department ? <span><DeptTag name={r.department} /></span> : null}</span> : r.department ? <DeptTag name={r.department} /> : '—') },
     { key: 'manager', label: 'Manager', render: (r) => r.reportingManagerName || '—' },
     { key: 'branch', label: 'Works at', render: (r) => <span className="whitespace-nowrap">{r.branchName || '—'}</span> },
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },

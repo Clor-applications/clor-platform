@@ -11,15 +11,15 @@ export const STATUS = {
 
 
 /**
- * The status in words, never colour alone (WF-02 StatusPill). `quiet`, in a
- * list where nearly everyone is Active: Active is plain grey words, so the
- * pills that remain are the people who need a look.
+ * The status in words, never colour alone (WF-02 StatusPill): a soft tag with a
+ * dot, green for Active (owner, 19 Nov 2026: no plain-text statuses), blue for
+ * a joiner still to come. `quiet` is kept for callers and no longer changes it.
  */
+// eslint-disable-next-line no-unused-vars
 export function StatusBadge({ employee, quiet = false }) {
   /* Joining soon only stands in for Active: a suspended or departed joiner shows that instead. */
   const joining = employee?.status === 'ACTIVE' && employee?.dateOfJoining && String(employee.dateOfJoining).slice(0, 10) > todayIst();
-  const s = joining ? { label: 'Joining soon', pill: 'ui-pill-outline' } : STATUS[employee?.status] || { label: employee?.status || 'Unknown', pill: 'ui-pill-neutral' };
-  if (quiet && !joining && employee?.status === 'ACTIVE') return <span className="ui-muted">{s.label}</span>;
+  const s = joining ? { label: 'Joining soon', pill: 'ui-pill-info' } : STATUS[employee?.status] || { label: employee?.status || 'Unknown', pill: 'ui-pill-neutral' };
   return <span className={`ui-pill ${s.pill}`}>{s.label}</span>;
 }
 

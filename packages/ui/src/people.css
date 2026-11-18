@@ -677,6 +677,121 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .ui-company-goal-bar { display: block; height: 4px; margin-top: 6px; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
 .ui-company-goal-bar > span { display: block; height: 100%; background: rgb(var(--act, var(--fg))); }
 
+/* ── One People look (19 Nov): the Workspace pass, in People's magenta ──────────────────────────
+   Same rules the owner approved across Workspace: hairline quiet buttons, soft state tags, plain
+   links in the app colour, flat sections under a 2px rule, no shadowed card inside the page,
+   figure tiles with an identity accent. Scoped to People; beats picks.css by id count. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-btn-secondary) {
+  border-color: rgb(var(--border-field, 214 211 204)) !important;
+  border-radius: 8px;
+  background: rgb(var(--surface, 255 255 255));
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-btn-secondary:hover:not(:disabled) {
+  border-color: rgb(var(--app-people) / 0.45) !important;
+  background: rgb(var(--app-people) / 0.04);
+}
+/* Soft state tags: a tint and a dot, never a solid slab. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-pill-pos, .ui-pill-warn, .ui-pill-neg, .ui-pill-neutral, .ui-pill-info) {
+  --st: var(--neutral-ink, 92 90 84);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px !important;
+  border-color: transparent;
+  background-color: rgb(var(--st) / 0.1) !important;
+  color: rgb(var(--st)) !important;
+  font-weight: 600;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-pill-pos, .ui-pill-warn, .ui-pill-neg, .ui-pill-neutral, .ui-pill-info)::before {
+  content: '' !important;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+  flex: none;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-pos { --st: 21 128 61; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-warn { --st: 180 83 9; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-neg { --st: var(--neg, 180 35 24); }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-info { --st: 28 84 160; }
+/* Links: the app colour, no underline until hovered. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-more {
+  text-decoration: none;
+  font-size: 0.8125rem;
+  color: rgb(var(--app-people));
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-more:hover { text-decoration: underline; }
+/* Section heads: a 2px rule under the title, like every Workspace panel. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-block-head {
+  border-bottom: 2px solid rgb(var(--fg));
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-block-title { font-size: 1rem; }
+/* Cards on the page ground: a hairline, no lift. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content .ui-card {
+  box-shadow: none !important;
+  border: 1px solid rgb(var(--border-subtle, 230 230 235));
+  background-image: none;
+}
+/* Home figures: the identity colour on a top accent and the icon chip, as on Employees. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi {
+  box-shadow: inset 0 3px 0 rgb(var(--id, var(--border-strong)));
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi-icon {
+  background: color-mix(in srgb, rgb(var(--id, var(--border-strong))) 12%, rgb(var(--surface)));
+  color: color-mix(in srgb, rgb(var(--id, var(--border-strong))) 75%, black);
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-glance-head {
+  border-bottom: 2px solid rgb(var(--fg));
+  padding-bottom: 0.5rem;
+}
+/* Filter tabs: a hairline, the app colour when chosen. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-filter-chips .ui-tab:not([aria-selected='true']):not([aria-pressed='true']) {
+  border-color: rgb(var(--border-field, 214 211 204)) !important;
+}
+/* Table heads: one case for every column, sortable or not. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content th :is(button, span) {
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+/* Side blocks and the company-goals head take the same rule as the panels. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .rg-side-block > .rg-h2 {
+  border-bottom: 2px solid rgb(var(--fg));
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-company-goals h2.ui-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .rg-side-block > .rg-h2 + * { border-top: 0 !important; }
+/* Long pages: the section head is a title over a 2px rule, not a tinted band (Workspace look). */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-record-section, .ui-form-part) > :is(h2, h3, header):first-child,
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-form-part-head > :is(h2, h3) {
+  background: none !important;
+  color: rgb(var(--fg)) !important;
+  padding: 0 0 0.5rem !important;
+  border-radius: 0 !important;
+  border-bottom: 2px solid rgb(var(--fg));
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-record-section, .ui-form-part) > header:first-child :is(h2, h3) { border: 0; padding: 0; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.ui-record-section, .ui-form-part) > header:first-child .ui-t-sec { font-size: 1rem; }
+/* Fields: white with a hairline; the list toolbar's search keeps its fill. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(.ui-input, .ui-select, textarea):not(.ui-list-toolbar *):not(.ui-list-header *) {
+  background-color: rgb(var(--surface, 255 255 255));
+  border-color: rgb(var(--border-field, 214 211 204));
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(.ui-input, .ui-select, textarea):not(.ui-list-toolbar *):not(.ui-list-header *):hover:not(:focus):not(:focus-within) {
+  background-color: rgb(var(--surface, 255 255 255)) !important;
+  border-color: rgb(var(--app-people) / 0.4) !important;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(.ui-input, .ui-select, textarea):not(.ui-list-toolbar *):not(.ui-list-header *):is(:focus, :focus-within) {
+  border-color: rgb(var(--app-people)) !important;
+}
+
+
 /*
  * The employee app (shared with Attendance). Waiting reads as the Attention status and the open tab carries the
  * portal marker, through its own `data-brand="d"`, so Attendance's web screens keep their own look.
