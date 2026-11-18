@@ -401,7 +401,8 @@ const fromRequest = (r) => ({ employeeId: r.employeeId, kind: r.kind, date: r.da
 export function EnterRequest({ onClose, onDone, request = null, own = false, rules: givenRules = null, shifts: givenShifts = null, usage: givenUsage = null, month: givenMonth = '', preset = null }) {
   const editing = Boolean(request);
   /* `preset`: a new request already filled in, from the missing-punch notice (date, times, kind). */
-  const start = useMemo(() => (request ? fromRequest(request) : preset ? { ...blank, ...preset } : blank), [request, preset]);
+  /* Round 56 (datedefaults A): a new request starts on today, the day it is most often for. */
+  const start = useMemo(() => (request ? fromRequest(request) : { ...blank, date: todayIst(), ...(preset || {}) }), [request, preset]);
   const [form, setForm] = useState(start);
   const [saving, setSaving] = useState(false);
   /* A closed Attendance month is said in the form, with the way to Month close (O-09). */

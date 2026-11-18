@@ -1128,6 +1128,35 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 56 (18 Nov 2026)
+
+Forms that are easy to fill. Built (none in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Adding several in a row | Add employee's Review has "Create and add another" beside Create employee: the person is created, the form clears for the next joiner and keeps their branch, department, employment type, hours, work mode, joining date and manager, with the next employee ID suggested. Holidays clears after Add holiday, keeps where it applies and puts the cursor back on the date. |
+| When a mistake is shown | In Add employee a wrong value shows in red under the field as soon as the field is left (an email without its domain, a phone short of 10 digits); an empty field is not nagged until Continue. |
+| Dates already filled in | A new attendance fix or request, in the employee app and in HR's form, starts on today; a bill already did. The joining date stays empty. |
+| Typing a big amount | Every money field (`MoneyInput`) takes Indian commas as it is typed, 12,50,000, with the caret kept after the digit just typed; the screen still receives plain digits, and letters are refused. |
+| A long form left halfway | Add employee's server draft (private, 30 days) shows in Employees' waiting list as "Finish adding Ravi Kumar", "Draft · step 2 of 4". |
+| Fields most people skip | Add employee asks first name, last name, work email and phone first; personal email, date of birth, gender, photo, guardian and emergency contact wait under "More details", and so do the rarer organisation fields after works at, department, designation and manager. It opens by itself when anything in it is filled in or needs fixing. |
+| Choices repeated many times | The next person added starts at the branch, department, employment type, work mode and hours of the last one added in this browser, when those still exist (`clor.addPerson.last`, ids only, cleared at sign-in and sign-out); Organisation says so. |
+| Names typed in capitals | Under Add employee's name fields "Use Ravi Kumar" is offered for a name typed in capitals; one tap takes it, nothing is forced (`properName`). |
+| The choice is not in the list | Add employee's Department list ends with "+ Add “Field Sales”" when what is typed is not there; it is made on the spot for whoever may add departments, and chosen. |
+| Pressing Enter in a form | Enter moves to the next field on every form outside Books; only Save sends. A form of one or two fields (sign-in, a reason, a search) still sends from its last field, and an open list or suggestion keeps Enter for itself (`installFormRules`). |
+| Checking before sending something big | The leaving drawer reads itself back above Record leaving: the last day and what follows ("works until 31 Dec, stays paid until then"), why, the resignation date and notice short, the note, each with Change (`LeavingReadBack`). |
+| PAN, IFSC and GSTIN in small letters | A field for a PAN, IFSC, GSTIN or TAN turns what is typed to capitals as it is typed, on every form outside Books; the screen hears the capitals. |
+
+Picked and already how the app works: after adding a person their record opens with a green
+"Ravi Kumar added"; Add employee already ends on a Review page with Edit links; address fields are
+typed one by one (pincodefill B).
+
+Picked, **not built yet**: a button that works and points to what is missing instead of being
+greyed (the duplicate-reason Create button stays greyed, which the hiring tests check; other forms
+already let the browser point to the empty field on Save); several files on one bill or proof,
+each with Remove (each bill, proof and request keeps one file on the server, so this needs server
+work).
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

@@ -697,7 +697,8 @@ function PendingActions({ data, error, reload, openScreen }) {
       <Group title="Drafts" count={data.drafts.length}>
         {data.drafts.map((d) => (
           <li key={d.id} className="flex flex-wrap items-center gap-3 py-2">
-            <span className="min-w-0 flex-1">{d.label || 'Unnamed draft'}<span className="block ui-caption">Step {d.step} of 4 · saved {day(d.updatedAt)}</span></span>
+            {/* Round 56 (formdraft A): a person left halfway reads as the job still to do. */}
+            <span className="min-w-0 flex-1">{d.label ? `Finish adding ${d.label}` : 'Finish adding a new person'}<span className="block ui-caption">Draft · step {d.step} of 4 · saved {day(d.updatedAt)}</span></span>
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => openScreen?.('employeeNew', { draft: d.id })}>Continue</button>
           </li>
         ))}

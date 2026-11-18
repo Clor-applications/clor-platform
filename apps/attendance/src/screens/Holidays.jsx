@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCheck, CalendarClock, CalendarDays, CalendarMinus, CalendarPlus, Plus, Trash2, Upload, Users } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -62,6 +62,7 @@ export default function Holidays({ openScreen } = {}) {
   const [loadError, setLoadError] = useState('');
   /* `scope`: '' everyone, 'b:<id>' one branch, 'a:<id>' one area's people. */
   const [form, setForm] = useState({ date: '', name: '', isOptional: false, scope: '' });
+  const dateRef = useRef(null);
   const [areas, setAreas] = useState([]);
   const [branches, setBranches] = useState([]);
   const [drawer, setDrawer] = useState('');
@@ -94,7 +95,9 @@ export default function Holidays({ openScreen } = {}) {
       const { scope, ...rest } = form;
       await createHoliday({ ...rest, branchId: scope.startsWith('b:') ? scope.slice(2) : null, areaId: scope.startsWith('a:') ? scope.slice(2) : null });
       notify.success('Holiday added.');
-      setForm({ date: '', name: '', isOptional: false, scope: '' });
+      /* Round 56 (saveaddnext A): the form clears for the next holiday; where it applies stays, and the cursor goes back to the date. */
+      setForm((f) => ({ date: '', name: '', isOptional: false, scope: f.scope }));
+      dateRef.current?.focus();
       load();
     } catch (err) {
       notify.error(String(err?.message || 'Not added.'));
@@ -159,7 +162,7 @@ export default function Holidays({ openScreen } = {}) {
         <>
         <StateMinimum rows={minimum} year={year} />
         <form onSubmit={add} className="ui-card flex flex-wrap items-end gap-3 p-4" aria-label="Add a holiday">
-          <label className="block"><span className="ui-label">Date</span><input type="date" className="ui-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
+          <label className="block"><span className="ui-label">Date</span><input ref={dateRef} type="date" className="ui-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
           <label className="block min-w-[14rem] flex-1"><span className="ui-label">Name</span><input className="ui-input w-full" required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Diwali" /></label>
           {areas.length || branches.length > 1 ? (
             <label className="block">

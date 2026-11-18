@@ -1,5 +1,6 @@
 import { expiringWords } from '@ui/timeOff/expiring';
 import { fyLabel } from '@ui/picks/round34';
+import { installFormRules } from '@ui/picks/round56';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import DateNotes from '@ui/timeOff/DateNotes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -105,6 +106,8 @@ export default function EmployeePortal() {
   const [scheduleKey, setScheduleKey] = useState(0);
   /* A day to fix, tapped on Today: My days opens with the missed-punch request filled in. */
   const [fix, setFix] = useState(null);
+  /* Round 56: capitals in a PAN or IFSC as typed, and Enter moving to the next field. */
+  useEffect(() => installFormRules(), []);
 
   useEffect(() => {
     document.title = 'Employee portal · Clor';
@@ -567,7 +570,8 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
   const oneDay = spans && kind !== 'SHIFT_CHANGE' && form.date && (!form.toDate || form.toDate === form.date);
   const usage = rules?.usage?.[kind];
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
-  const pick = (k) => { setEditing(null); setForm({ ...EMPTY_ASK, kind: k }); setNote(null); };
+  /* Round 56 (datedefaults A): a fix or a request is most often for today, so the date starts there. */
+  const pick = (k) => { setEditing(null); setForm({ ...EMPTY_ASK, kind: k, date: todayIst() }); setNote(null); };
   const startChange = (r) => {
     setEditing(r);
     setNote(null);
@@ -591,7 +595,7 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
     try {
       await guard(editing ? changeRequest(editing.id, body) : askRequest(body));
       setNote({ ok: true, text: editing ? 'Changed. It waits for approval.' : 'Sent for approval.' });
-      setForm({ ...EMPTY_ASK, kind });
+      setForm({ ...EMPTY_ASK, kind, date: todayIst() });
       setEditing(null);
       load();
       onChanged?.();

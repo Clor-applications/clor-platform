@@ -1015,3 +1015,15 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 56 */
+/* optionalfold A: "More details" opens the fields most people skip; a quiet link-like button, 8px radius. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-more-details { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px dashed rgb(var(--border-strong)); background: transparent; color: rgb(var(--act-ink, var(--fg))); font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-more-details:hover { background: rgb(var(--surface-sunken)); }
+/* namecase A: "Use Ravi Kumar" under a name typed in capitals: a pill, one tap. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-name-case { display: inline-flex; align-items: center; margin-top: 6px; min-height: 28px; padding: 2px 10px; border-radius: 9999px; border: 1px solid rgb(var(--border)); background: transparent; color: rgb(var(--fg)); font-size: 0.8125rem; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-name-case:hover { background: rgb(var(--surface-sunken)); }
+/* reviewstep A: the leaving drawer reads itself back above Record leaving, each line with Change. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.875rem; }

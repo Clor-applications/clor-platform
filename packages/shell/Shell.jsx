@@ -65,6 +65,7 @@ import VerifyEmail from './VerifyEmail';
 import LegalPage from './legal/LegalPage';
 import { useLegalRoute } from './legal/useLegalRoute';
 import { renderPublicPage, usePublicPage } from './usePublicPage';
+import { installFormRules } from '@ui/picks/round56';
 
 /**
  * The CLOR shell.
@@ -219,6 +220,8 @@ function ShellScreens() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
   const [navOpen, setNavOpen] = useState(false);
+  /* Round 56: PAN, IFSC and GSTIN in capitals as typed, and Enter moving to the next field, on every form outside Books. */
+  useEffect(() => installFormRules(), []);
   useEffect(() => {
     const mq = window.matchMedia(PHONE_QUERY);
     const onChange = (e) => setPhone(e.matches);
