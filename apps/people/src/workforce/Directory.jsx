@@ -28,6 +28,7 @@ import { listBranches } from '../organization/api';
 import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
 import AppAccessSend from './AppAccessSend';
+import MyTeamPanel from './MyTeamPanel';
 import DeptTag from '@ui/components/ui/DeptTag';
 import { plusDaysIso, todayIst } from '@ui/utils/dates';
 
@@ -241,6 +242,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         onTab={(k) => set({ tab: k === 'directory' ? null : k }, true)}
       />
       <Banners openScreen={openScreen} />
+      {tab === 'team' && !firstRun ? <MyTeamPanel onFilter={(f) => set({ ...f, page: null }, true)} openScreen={openScreen} /> : null}
       {selected.size ? (
         <div className="ui-bulkbar" role="status" aria-live="polite">
           <span className="tabular-nums font-medium">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
