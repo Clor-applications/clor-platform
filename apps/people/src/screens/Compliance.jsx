@@ -372,7 +372,8 @@ function Registrations({ req, openScreen }) {
     const n = daysTo(r.validTill);
     if (n < 0) return ['Lapsed', 'ui-pill-neg'];
     if (n <= 30) return [`Runs out in ${n} day${n === 1 ? '' : 's'}`, 'ui-pill-warn'];
-    return ['Valid', 'ui-pill-pos'];
+    /* Round 25 pick (licences, A): every dated registration says how long it has left, not only the ones about to lapse. */
+    return [`Valid, ${n} days left`, 'ui-pill-pos'];
   };
   if (req.error && !req.data) return <ErrorState error={req.error} onRetry={req.reload} />;
   return (
