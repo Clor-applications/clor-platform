@@ -11,6 +11,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { nextEmployeeCode } from '../workforce/api';
 import OfferDrawer from '../workforce/OfferDrawer';
+import { OfferAnswerBy } from './round36';
 import {
   addCandidate, cancelInterview, getCandidate, giveFeedback, hireCandidate, interviewers, listInterviews, moveCandidate, moveInterview, noteCandidate, readFile, resumeFile, saveResume, scheduleInterview, updateCandidate,
 } from '../api/talent';
@@ -156,7 +157,8 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
                   <li key={o.id} className="text-sm flex flex-wrap items-center gap-2">
                     <Pill map={OFFER_STATUS} value={o.status} />
                     <span>{o.designation}</span>
-                    <span className="ui-muted tabular-nums">{o.joiningDate ? `joins ${day(o.joiningDate)}` : ''}{o.acceptBy ? ` · answer by ${day(o.acceptBy)}` : ''}</span>
+                    <span className="ui-muted tabular-nums">{o.joiningDate ? `joins ${day(o.joiningDate)}` : ''}{o.acceptBy && o.status !== 'SENT' ? ` · answer by ${day(o.acceptBy)}` : ''}</span>
+                    <OfferAnswerBy offer={o} />
                   </li>
                 ))}
               </ul>
