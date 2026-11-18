@@ -48,6 +48,7 @@ import { watchWideTables } from './wideTables';
 import HelpMenu from './HelpMenu';
 import TwoFactorGate from './TwoFactorGate';
 import GatePage from './GatePage';
+import PrintFooter from './PrintFooter';
 import CommandPalette from '@ui/components/ui/CommandPalette';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
@@ -1496,6 +1497,7 @@ function ShellScreens() {
 
           {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
           <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
+            <PrintFooter name={user?.fullName || user?.email || ''} />
             {/* W-2.1: working in somebody else's account (outside access) is said on every screen, not only in the picker. */}
             {user && tenant?.accountId && user.accountId && tenant.accountId !== user.accountId ? (
               <p className="ui-delegated" role="status">

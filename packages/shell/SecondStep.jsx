@@ -3,6 +3,7 @@ import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import { loginTwoFactorSms } from '@platform/auth';
 import { useSession } from './session';
+import { clockText, lockoutSeconds } from './lockoutWait';
 
 /**
  * The second step of a sign-in, after a right password: a code from the
@@ -28,7 +29,14 @@ export default function SecondStep({ challenge, methods = ['APP'], phone, frame,
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState('');
   const [wait, setWait] = useState(0);
+  const [locked, setLocked] = useState(0);
   const asked = useRef(false);
+
+  useEffect(() => {
+    if (locked <= 0) return undefined;
+    const t = setTimeout(() => setLocked((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [locked]);
 
   const expired = useCallback((err) => err?.code === 'CHALLENGE_EXPIRED' || err?.status === 401, []);
 
@@ -78,7 +86,9 @@ export default function SecondStep({ challenge, methods = ['APP'], phone, frame,
       await onSignedIn?.();
     } catch (err) {
       if (expired(err)) return onExpired?.(String(err?.message || ''));
-      setError(String(err?.message || 'That code did not work.'));
+      const hold = lockoutSeconds(err);
+      if (hold > 0) setLocked(hold);
+      else setError(String(err?.message || 'That code did not work.'));
     } finally {
       setBusy(false);
     }
@@ -122,10 +132,15 @@ export default function SecondStep({ challenge, methods = ['APP'], phone, frame,
           />
           <p className="ui-caption mt-1.5">Lost your phone? Type one of your recovery codes instead (like ABCD-EFGH).</p>
         </div>
-        {error ? (
+        {locked > 0 ? (
+          <div role="alert" className="ui-code-wait">
+            <b>Too many tries</b>
+            <span className="ui-caption">Try again in <span className="tabular-nums">{clockText(locked)}</span></span>
+          </div>
+        ) : error ? (
           <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p>
         ) : null}
-        <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy}>
+        <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg w-full" disabled={busy || locked > 0}>
           {busy ? 'Checking…' : submitLabel} <ArrowRight size={16} aria-hidden="true" />
         </button>
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

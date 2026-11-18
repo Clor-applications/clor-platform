@@ -11,6 +11,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import ReportChart from '../components/ReportChart';
 import { hrReportCsv, listHrReports, runHrReport } from '../api/hrReports';
+import { withWomenShare } from './womenShare';
 
 /*
  * One People report, full page (platform audit, 11 Nov 2026): the filters on
@@ -56,7 +57,7 @@ export default function HrReport({ params = {}, updateParams, openScreen }) {
   const spec = catalogue.data?.reports?.find((r) => r.id === id) || null;
   const q = { from: p.from || '', to: p.to || '', by: p.by || '', departmentId: p.departmentId || '', branchId: p.branchId || '', employeeTypeId: p.employeeTypeId || '', gradeId: p.gradeId || '' };
   const report = useRequest(() => runHrReport(id, q), [id, q.from, q.to, q.by, q.departmentId, q.branchId, q.employeeTypeId, q.gradeId]);
-  const d = report.data;
+  const d = withWomenShare(report.data);
   const [exporting, setExporting] = useState(false);
   const filtered = FILTER_KEYS.some((k) => q[k]);
 

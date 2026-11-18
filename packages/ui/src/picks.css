@@ -787,3 +787,18 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 26 */
+/* Printed pages end with who printed them, from CLOR, and when (shell PrintFooter). */
+.ui-print-footer { display: none; }
+@media print {
+  :root:not([data-palette='indigo']) .ui-print-footer {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0;
+    padding-top: 4px; border-top: 1px solid #ccc; background: #fff;
+    color: #555; font-size: 9px; line-height: 1.4;
+  }
+}
+/* Too many wrong sign-in codes: the wait, counting down. */
+.ui-code-wait { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+/* J / K / A hint under the Inbox list. */
+.ui-kbd-hint .ui-kbd { font-size: 11px; }

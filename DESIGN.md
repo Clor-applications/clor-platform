@@ -556,6 +556,28 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 26 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Footer on printed pages | Every printed screen outside Books ends with "Printed by Anita Rao from CLOR · 18 Nov 2026, 4:12 PM", at the foot of each page; the time is taken as printing starts. Hidden on screen. Printed documents with their own frame (invoices, vouchers) are untouched (`PrintFooter`). |
+| Men and women in each team | The Gender mix report adds a "% women" column worked out from the counts, per group and for everyone. Where the counts are masked ("Fewer than 5") the percent stays blank, and a fully masked table gets no column (`withWomenShare`). |
+| Moving down a list with the keyboard | In the Inbox's To approve list, J moves to the next request, K to the one before, Enter opens it and A approves it, with a hint line under the list. Keys are ignored while typing, with a dialog open, or in Books (`useJkList`). |
+| Too many wrong codes | After too many wrong sign-in codes the code step shows "Too many tries · Try again in 4:58", counting down, and holds the Sign in button until the time is up (`lockoutSeconds`, `clockText`). |
+
+Picked and already how the app works: none this round.
+
+Picked, **not built yet**: a check list before "Download ECR" (82 ready, 2 without UAN, Fix);
+a table of punch-machine numbers beside a name picker; "New date" or "Cancel joining" for a joiner
+who did not turn up; a role given "for" one branch; an outage timeline in Ops, newest on top;
+swipe right to approve, left to reject in the phone app; previous employer's pay, tax and PF this
+year; a punch from a phone faking its location blocked with a plain reason; suspension as sign-in
+turned off with a note only HR sees; "Continue with Google / Microsoft" on the sign-in page; a
+credit note raised from the invoice in Ops; daily or monthly pay type on the record. All need
+server or phone-app work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
