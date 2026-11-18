@@ -7,6 +7,7 @@ import { SkeletonCard } from '@ui/components/ui/Primitives';
 import useRequest from '@ui/components/ui/useRequest';
 import { listHrReports } from '../api/hrReports';
 import { listReports as listAttendanceReports } from '../../../attendance/src/api/attendance';
+import { periodWord, readRecentReports } from '@ui/picks/round63';
 
 /*
  * Reports home (platform audit, 11 Nov 2026): every People and Time report on
@@ -66,6 +67,11 @@ export default function ReportsHome({ openScreen, navItems = [] }) {
   const needle = q.trim().toLowerCase();
   const groups = GROUPS.map((title) => ({ title, rows: rows.filter((r) => r.group === title && (!needle || `${r.label} ${r.note} ${title}`.toLowerCase().includes(needle))) })).filter((g) => g.rows.length);
   const loading = own.loading || attendance.loading;
+  /* Round 63 "reportrecent" A: the reports this browser opened last, each with the period last picked. */
+  const recent = useMemo(() => {
+    const byId = new Map((own.data?.reports || []).map((r) => [r.id, r]));
+    return readRecentReports().map((x) => ({ ...x, spec: byId.get(x.id) })).filter((x) => x.spec);
+  }, [own.data]);
 
   return (
     <div className="space-y-6 pb-8">
@@ -78,6 +84,23 @@ export default function ReportsHome({ openScreen, navItems = [] }) {
       />
       {loading && !rows.length ? <SkeletonCard lines={8} /> : null}
       {!loading && !groups.length ? <p className="ui-muted text-sm">{needle ? `No report matches “${q}”.` : 'No report is open to your role.'}</p> : null}
+      {!needle && recent.length ? (
+        <section className="space-y-2" aria-labelledby="rep-recent">
+          <h2 id="rep-recent" className="ui-t-sec">Used recently</h2>
+          <ul className="ui-settings-rows">
+            {recent.map((r) => (
+              <li key={r.id}>
+                <button type="button" onClick={() => openScreen?.('hrReport', { report: r.id, ...(r.from ? { from: r.from } : {}), ...(r.to ? { to: r.to } : {}) })} className="ui-settings-row">
+                  <span className="ui-settings-row-icon" aria-hidden="true" />
+                  <span className="ui-settings-row-label">{r.spec.name}</span>
+                  <span className="ui-settings-row-note">{periodWord(r.from, r.to) || r.spec.description}</span>
+                  <ChevronRight size={16} aria-hidden="true" className="ui-settings-row-go" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {groups.map((g) => (
         <section key={g.title} className="space-y-2" aria-labelledby={`rep-${g.title}`}>
           <h2 id={`rep-${g.title}`} className="ui-t-sec">{g.title}</h2>

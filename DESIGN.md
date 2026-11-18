@@ -1128,6 +1128,34 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 63 (18 Nov 2026)
+
+Reports. Built (`@ui/picks/round63`, People reports; not in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Period chips | The quick periods read This month, Last month, This quarter (the financial quarter: Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar), This financial year; the two date boxes stay for any other period. "Last 3 months" is gone. Every screen with `RangePresets` gets it. |
+| What a column means | A column name with a known meaning (Attrition, At start, Average headcount, Days left, Gross, Net pay, Payable days…) has a dotted underline; hover or tap shows one line on how it is worked out (`ColumnName`, `COLUMN_HELP`). A report column may also carry its own `help`. |
+| Totals row | The report table scrolls inside its box (70% of the screen): headings stay on top, the totals row stays at the bottom. The download already ends with the same totals. |
+| Before downloading | The first 20 rows show with "20 of 412 shown · Show all 412", then Export. |
+| Rows that are all zero | Rows whose every figure is zero wait behind "Show 96 people with none" (unless every row is zero). A "Days left" countdown never counts: 0 days left is due today. |
+| Minus figures | "−3", the minus sign before the figure, in red (`ui-neg-figure`); a percentage too. |
+| Top of a download | The CSV starts with the company, the report, the period, the filters used, and "Made on 18 Nov 2026 by Priya", then a blank line and the table. |
+| Reports as PDF | Print (secondary, beside Export) lays the report out on A4 landscape: headings repeat on every page, "Page 2 of 6" at the foot, the totals once at the end, every row (Ctrl+P too). |
+| Opening a person from a row | In a report of people, the name opens the People list searched by their employee ID (the report carries the ID, not the record). |
+| Used recently | The reports page starts with the last four reports opened in this browser, each with the period last picked ("Oct 2026", "FY 2026–27"); report ids and dates only. |
+
+Picked and already how the app works: the reports page is grouped by job (Workforce, Joining and
+leaving, Time and attendance, Leave, Documents and compliance, Requests) with a purpose line under
+every report; its search also matches words in the purpose line.
+
+Picked, **not built yet**: clicking a number to see the people behind it (the server sends counts,
+not the people); a big download made in the background with a bell notice when it is ready; managers
+seeing only their team's rows with "Showing your team (8 people)" (People reports are HR-only on the
+server today); the minus figure in red inside the downloaded file (the server writes the file);
+opening the person's record itself from a row (needs the record's id in the report). The Payroll and
+Attendance report screens keep their own tables for now.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

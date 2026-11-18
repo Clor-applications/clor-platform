@@ -1015,3 +1015,44 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 63 */
+/* columnhelp A: a column name that explains itself on hover or tap (focus), one line under it. */
+:root:not([data-palette='indigo']) .ui-colhelp { position: relative; cursor: help; text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; outline: none; }
+:root:not([data-palette='indigo']) .ui-colhelp:focus-visible { box-shadow: 0 0 0 2px rgb(var(--accent) / 0.45); border-radius: 4px; }
+:root:not([data-palette='indigo']) .ui-colhelp:hover::after,
+:root:not([data-palette='indigo']) .ui-colhelp:focus::after {
+  content: attr(data-help); position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  width: max-content; max-width: 16rem; padding: 6px 10px; border: 1px solid rgb(var(--border)); border-radius: 8px;
+  background: #FFFFFF; color: rgb(var(--fg)); font-size: 0.75rem; font-weight: 400; line-height: 1.1rem; text-align: left; white-space: normal;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+}
+:root:not([data-palette='indigo']) th.text-right .ui-colhelp::after { left: auto; right: 0; }
+/* negformat A: a minus figure in red, the minus sign before it. */
+:root:not([data-palette='indigo']) .ui-neg-figure { color: rgb(var(--neg)); }
+/* totalsrow A + reportpeek A: the table scrolls inside its box; headings on top and the totals row at the bottom stay in sight. */
+:root:not([data-palette='indigo']) .ui-report-scroll { max-height: 70vh; overflow: auto; }
+:root:not([data-palette='indigo']) .ui-report-table thead th { position: sticky; top: 0; z-index: 2; background: #FFFFFF; }
+:root:not([data-palette='indigo']) .ui-report-table tfoot th,
+:root:not([data-palette='indigo']) .ui-report-table tfoot td { position: sticky; bottom: 0; z-index: 2; background: #FFFFFF; box-shadow: inset 0 1px 0 rgb(var(--border)); font-weight: 600; }
+:root:not([data-palette='indigo']) .ui-report-more { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; font-size: 0.8125rem; }
+/* reportpdf A: Print lays the report out landscape, headings on every page, page numbers, totals once at the end. */
+@page clorreport { size: A4 landscape; margin: 12mm 10mm 16mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+@media print {
+  :root[data-printing='report']:not([data-palette='indigo']) body * { visibility: hidden !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print *,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-print-footer { visibility: visible !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print { page: clorreport; position: absolute; left: 0; top: 0; width: 100%; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-scroll { max-height: none; overflow: visible; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table thead { display: table-header-group; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table thead th { position: static; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot { display: table-row-group; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot th,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot td { position: static; box-shadow: none; border-top: 1px solid #333; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tr { break-inside: avoid; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table { font-size: 10px; color: #000; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-more,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-colhelp::after { display: none !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-colhelp { text-decoration: none; }
+}
