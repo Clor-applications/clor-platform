@@ -3176,16 +3176,17 @@ button.ws-stat:hover {
 .ws-autos > div {
   max-width: none;
 }
+/* Flush groups on the page ground, not boxed sheets (owner, 19 Nov 2026: the same as the other list pages). */
 .ws-autos section {
-  padding: 4px 16px 6px;
-  border: 1px solid rgb(var(--border, 229 229 229));
-  border-radius: 12px;
-  background: rgb(255 255 255);
+  padding: 0 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: none;
 }
 .ws-autos section > h2 {
   margin: 0;
   padding: 12px 0 10px;
-  border-bottom: 1px solid rgb(var(--border, 229 229 229));
+  border-bottom: 2px solid rgb(var(--fg, 28 27 24));
   font-size: 1rem;
   line-height: 1.5rem;
   font-weight: 700;

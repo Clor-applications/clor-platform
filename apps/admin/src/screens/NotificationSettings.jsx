@@ -8,8 +8,9 @@ import { emailGroups, switchesBody, toggleEmail } from '@ui/notifications/emailA
 import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { readOnlyFor } from '@ui/permissions/WriteGuard';
-import { Empty, Loading, PageHead, Panel } from './wsKit';
+import { AppMark, Empty, Loading, PageHead } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('bell');
@@ -86,38 +87,67 @@ export default function NotificationSettings({ tenant }) {
 
         {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
 
-        <div className="ws-layout">
-          <div className="ws-main">
+        <div className="ws-activity-layout">
+          <div className="ws-activity-main ws-mail">
             {!events ? (
               error ? null : <Loading shape="rows" label="Loading…" />
             ) : groups.length === 0 ? (
               <Empty icon={PAGE_ICON} compact>This company has no apps that send emails you can switch off.</Empty>
             ) : (
-              groups.map((g) => (
-                <Panel key={g.id} title={g.label} labelledBy={`email-app-${g.id}`}>
-                  {g.events.length ? (
-                    <EmailSwitchList
-                      events={g.events}
-                      labelledBy={`email-app-${g.id}`}
-                      disabled={readOnly || saving}
-                      onToggle={(key, on) => setEvents((prev) => toggleEmail(prev, key, on))}
-                    />
-                  ) : (
-                    <p className="ws-card-blurb">{`Nothing to switch off. Every email ${g.label} sends has to arrive.`}</p>
-                  )}
-                </Panel>
-              ))
+              /* Flush groups on the page ground (owner, 19 Nov 2026), each headed by its app and how many are on. */
+              groups.map((g) => {
+                const on = g.events.filter((e) => e.enabled).length;
+                return (
+                  <section key={g.id} className="ws-mail-group" aria-labelledby={`email-app-${g.id}`}>
+                    <div className="ws-group-title ws-mail-title">
+                      <AppMark app={g.id} size={22} title="" />
+                      <h2 id={`email-app-${g.id}`} className="ws-mail-name">{g.label}</h2>
+                      {g.events.length ? <span className="ws-mail-count">{on} of {g.events.length} on</span> : null}
+                    </div>
+                    {g.events.length ? (
+                      <EmailSwitchList
+                        events={g.events}
+                        labelledBy={`email-app-${g.id}`}
+                        disabled={readOnly || saving}
+                        onToggle={(key, on2) => setEvents((prev) => toggleEmail(prev, key, on2))}
+                      />
+                    ) : (
+                      <p className="ws-card-blurb">{`Nothing to switch off. Every email ${g.label} sends has to arrive.`}</p>
+                    )}
+                  </section>
+                );
+              })
             )}
           </div>
 
-          <aside className="ws-side">
-            <Panel title="Always sent">
-              <p className="ws-card-blurb">
+          <aside className="ws-activity-side" aria-label="About email notifications">
+            {groups.length ? (
+              <section className="ws-activity-box">
+                <p className="ws-activity-box-title">Switched on</p>
+                <p className="ws-activity-big"><span className="ui-num">{groups.reduce((n, g) => n + g.events.filter((e) => e.enabled).length, 0)}</span> of {groups.reduce((n, g) => n + g.events.length, 0)}</p>
+                <p className="ws-activity-sub">{dirty ? 'Unsaved changes: press Save' : offCount ? `${offCount} ${offCount === 1 ? 'email' : 'emails'} not sent` : 'Every email is on'}</p>
+                <ul className="ws-activity-bars ws-activity-bars--wide" aria-label="On, by app">
+                  {groups.filter((g) => g.events.length).map((g) => {
+                    const on = g.events.filter((e) => e.enabled).length;
+                    return (
+                      <li key={g.id} data-tone={on === g.events.length ? 'ok' : undefined}>
+                        <span className="ws-activity-bar-label">{g.label}</span>
+                        <span className="ws-activity-bar"><span style={{ width: `${Math.round((on / g.events.length) * 100)}%` }} /></span>
+                        <span className="ws-activity-bar-n ui-num">{on}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+            <section className="ws-activity-box" aria-labelledby="email-always">
+              <h2 id="email-always" className="ws-activity-box-title">Always sent</h2>
+              <p className="ws-side-note">
                 Sign-in links, password resets, invitations, offer letters, the link to fill in details before joining,
                 salary bank changes and letters to an employee, such as an absence notice. These are not listed and
                 cannot be switched off.
               </p>
-            </Panel>
+            </section>
           </aside>
         </div>
       </div>
