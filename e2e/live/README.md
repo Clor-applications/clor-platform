@@ -27,11 +27,19 @@ requests, blank or crashed screen, slow screen (> 8 s), screenshot.
 
 ## Accounts (never in git)
 
-Copy `e2e/live/.env.live.example` to `e2e/live/.env.live` (git ignores it) and
-fill in QA logins. QA companies only (for example Knockbell Logistics QA,
-AGS Consultants QA), never a real customer. Live sign-up needs email
-verification and admins need 2FA, so the robot cannot make its own accounts:
-make them once by hand and put each admin's authenticator key in `totpSecret`.
+One time, the owner runs:
+
+```bash
+npm run qa:live:setup
+```
+
+It asks for one inbox you own, then makes Knockbell Logistics QA, AGS Consultants
+QA and Vels Traders QA on live, each with employees and owner, HR, manager,
+accountant and employee logins (plus-addresses of your inbox). You click one
+verification mail per company owner. Passwords are made up by the script, 2FA is
+switched on for every login, and all of it is saved only in `e2e/live/.env.live`
+(git ignores it). An Ops staff login is added in ops.clor.in > Staff; the script
+asks for it at the end. Hand-made logins: see `.env.live.example`.
 
 ## Safety
 
