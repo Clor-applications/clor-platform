@@ -48,7 +48,7 @@ import { compOffExpiringFor, lapseFor } from '../services/attendance/leaveJobs.j
 import { compOffGrants, expiringOf } from '../services/attendance/compOff.js';
 import { recomputeDeviceDay, shiftDayFor } from '../services/attendance/punches.js';
 import { enterTenant, outsideTenant, runInTenant } from '../utils/tenantScope.js';
-import { readableLines } from '../services/payroll/slipLines.js';
+import { countOf, readableLines, splitOf } from '../services/payroll/slipLines.js';
 import { addDays as plusDaysIso, addDays as plusDays } from '../utils/istDate.js';
 import { reportError } from '../utils/log.js';
 import { safeUrl } from '../utils/safeUrl.js';
@@ -1573,7 +1573,7 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
   const parse = (j: string) => { try { return JSON.parse(j || '{}'); } catch { return {}; } };
   const person = parse(slip.employeeSnapshotJson);
   const input = parse(slip.inputSnapshotJson);
-  const line = (l: any) => ({ name: l.componentName, amount: Number(l.amount) });
+  const line = (l: any) => ({ name: l.componentName, amount: Number(l.amount), ...countOf(l) });
   res.json({
     slip: {
       id: slip.id,
@@ -1594,6 +1594,8 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
         account: maskEnd(profile?.bankAccountNumber),
       },
       days: { working: Number(input.workingDays ?? 0), payable: Number(input.payableDays ?? 0), lossOfPay: Number(input.lwpDays ?? 0) },
+      /* The salary changed inside the month: the days at each salary (splitOf). */
+      split: splitOf(parse(slip.assignmentSnapshotJson)),
       earnings: readableLines(slip.lines.filter((l: any) => l.type === 'EARNING'), slip.adjustmentSnapshotJson).map(line),
       deductions: readableLines(slip.lines.filter((l: any) => l.type === 'DEDUCTION'), slip.adjustmentSnapshotJson).map(line),
       gross: Number(slip.grossEarnings),

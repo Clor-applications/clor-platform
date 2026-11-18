@@ -7,10 +7,11 @@ import SuggestInput from '@ui/components/ui/SuggestInput';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, todayIst } from './portalApi';
 import {
-  addBill, answerMoney, askAdvance, askSalaryAdvance, billData, billUrl, getMoney, previewSalaryAdvance, reopenClaim, removeBill, sendClaim, withdrawMoney,
+  addBill, answerMoney, askAdvance, askSalaryAdvance, askSkipInstalment, billData, billUrl, getMoney, previewSalaryAdvance, reopenClaim, removeBill, sendClaim, withdrawMoney,
 } from './moneyApi';
 import { rupees as money } from '@ui/utils/money';
 import PfWithdrawSteps from './PfWithdrawSteps';
+import { SKIP_ASK_HINT } from '@ui/picks/payLines';
 import { RUPEE_HINT, billTooOld, oldestBillDay, tooOldText } from './round51';
 
 /**
@@ -540,6 +541,58 @@ function SalaryAdvance({ info, guard, reload }) {
       {info.loans.length ? (
         <p className="ui-caption tabular-nums">Still to repay: {info.loans.map((l) => `${money(l.outstanding)} (${l.kind.toLowerCase()} ${l.number})`).join(', ')}.</p>
       ) : null}
+      {info.loans.filter((l) => l.next).map((l) => <SkipNext key={l.id} loan={l} guard={guard} reload={reload} />)}
     </section>
+  );
+}
+
+/** The next instalment of a loan, and an ask to skip it that HR decides (picks round 54). */
+function SkipNext({ loan, guard, reload }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const n = loan.next;
+  const send = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      await guard(askSkipInstalment(n.id, reason.trim()));
+      notify.success('Asked. HR decides.');
+      setOpen(false);
+      reload();
+    } catch (err) {
+      const m = errText(err, 'Not sent.');
+      if (m) notify.error(m);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-2 text-sm" style={{ borderTop: '1px solid rgb(var(--border))', paddingTop: '0.75rem' }}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block">Next instalment, {n.period}</span>
+          <span className="ui-caption block">{loan.kind} {loan.number}</span>
+        </span>
+        <span className="tabular-nums font-medium">{money(n.amount)}</span>
+      </div>
+      {n.skipAsked ? (
+        <p className="ui-caption" role="status">You asked to skip this one. HR decides.</p>
+      ) : open ? (
+        <form onSubmit={send} className="space-y-2" aria-label="Ask to skip this instalment">
+          <label className="block"><span className="ui-label">Why</span>
+            <SuggestInput value={reason} onChange={setReason} maxLength={300} required placeholder="Only HR reads this" suggestions={[]} aria-label="Why skip this instalment" />
+          </label>
+          <p className="ui-caption">{SKIP_ASK_HINT}</p>
+          <div className="flex gap-2">
+            <button type="submit" className="ui-btn ui-btn-primary flex-1" disabled={busy || reason.trim().length < 3}>{busy ? 'Sending…' : 'Ask to skip'}</button>
+            <button type="button" className="ui-btn" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </form>
+      ) : (
+        <button type="button" className="ui-link text-sm" onClick={() => setOpen(true)}>Ask to skip this month</button>
+      )}
+    </div>
   );
 }

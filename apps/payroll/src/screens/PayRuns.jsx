@@ -44,6 +44,7 @@ import { openMonthsOf } from "../components/runGuardText";
 import { PaidCount, PayChanges } from "../components/round32";
 import { wholeRupees as money } from "@ui/utils/money";
 import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
+import { EarlierNote, NextMonthNote } from "../components/RunNotes";
 
 /**
  * Running payroll.
@@ -468,6 +469,8 @@ const RunWorkflow = ({ runId, onBack }) => {
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
       {doneNote ? <SuccessNote title={doneNote.title} onClose={() => setDoneNote(null)}>{doneNote.next}</SuccessNote> : null}
+      {/* What last month's payroll left for this one (picks round 32). */}
+      <EarlierNote note={run.earlierNote} />
       {data.statutoryChecks?.length && ["CALCULATED", "REVIEW"].includes(run.status) ? (
         <StatutoryChecksBlocker checks={data.statutoryChecks} />
       ) : null}
@@ -491,6 +494,7 @@ const RunWorkflow = ({ runId, onBack }) => {
       {/* Entered deductions past the limit: the payroll waits for them to be reduced or a reason. */}
       <OverLimitPanel run={run} onSaved={load} />
       {run.stale && run.status === "CALCULATED" ? <p role="status" className="ui-caption ui-text-warn">{run.stale}</p> : null}
+      <NextMonthNote run={run} onSaved={load} />
 
       {errorCount > 0 || warningCount > 0 ? (
         <div className="flex flex-wrap items-center gap-3">

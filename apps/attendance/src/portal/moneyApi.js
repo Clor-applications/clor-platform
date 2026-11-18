@@ -43,6 +43,8 @@ export const reopenClaim = (claimId) => call(`/claims/${id(claimId)}/reopen`, { 
 export const askAdvance = (body) => call('/advances', { method: 'POST', body });
 export const previewSalaryAdvance = (body) => call('/salary-advance/preview', { method: 'POST', body });
 export const askSalaryAdvance = (body) => call('/salary-advance', { method: 'POST', body });
+/** Ask to skip my next loan instalment; HR decides (picks round 54). */
+export const askSkipInstalment = (instalmentId, reason) => call(`/instalments/${id(instalmentId)}/skip`, { method: 'POST', body: { reason } });
 /** kind: claims | advances | salary-advance */
 export const withdrawMoney = (kind, rowId) => call(`/${kind}/${id(rowId)}/withdraw`, { method: 'POST' });
 export const answerMoney = (kind, rowId, note) => call(`/${kind}/${id(rowId)}/reply`, { method: 'POST', body: { note } });
