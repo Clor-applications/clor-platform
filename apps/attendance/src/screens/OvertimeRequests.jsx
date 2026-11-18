@@ -8,7 +8,8 @@ import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/componen
 import { Pagination, usePaged, useResetPage } from '@ui/components/list/ListPageParts';
 import { EmptyState, SkeletonCard } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
-import { notify } from '@ui/components/ui/notify';
+import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { overCapQuestion } from '@ui/picks/round28';
 import { decideOvertimeRequest, getOvertimeRules, listOvertimeRequests, saveOvertimeRules } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import OvertimeRuleFields from '../components/OvertimeRuleFields';
@@ -87,6 +88,9 @@ export default function OvertimeRequests() {
   }, [byStatus]);
 
   const decide = async (r, approve) => {
+    /* Round 28 "otlimit" B: past the cap, ask at the moment of approving. */
+    const ask = approve ? overCapQuestion(r) : null;
+    if (ask && !(await confirmDialog(ask))) return;
     try {
       await decideOvertimeRequest(r.id, approve, notes[r.id] || null);
       notify.success(approve ? (r.kind === 'COMP_OFF' ? `${r.days} comp-off day${r.days === 1 ? '' : 's'} added for ${r.employeeName}.` : `${r.employeeName}'s overtime on ${r.date} is approved.`) : `${r.employeeName}'s request was declined.`);

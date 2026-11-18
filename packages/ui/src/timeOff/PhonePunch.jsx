@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Clock3, LogIn, LogOut, MapPin, X } from '@ui/components/ui/lineIcons';
 
+import { buzzForPunch } from '../picks/round28';
 import { shrinkPhoto } from './shrinkPhoto';
 
 /** Metres between two points, close enough for a work-site radius. */
@@ -158,6 +159,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
     setBusy(true);
     try {
       const res = await onPunch({ ...position, ...(photo ? { photo } : {}) });
+      buzzForPunch(res.kind);
       setMessage({ ok: true, text: `${res.kind === 'IN' ? 'In' : 'Out'} at ${res.time} · ${res.site}${photo && !res.photo ? ' · the selfie was not saved' : ''}` });
       setPhoto(null);
       onDone?.();
