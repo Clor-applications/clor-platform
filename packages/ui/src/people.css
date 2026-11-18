@@ -746,6 +746,12 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border-bottom: 2px solid rgb(var(--fg));
   padding-bottom: 0.5rem;
 }
+/* Chart and section titles on list pages: the same 2px rule. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.pt-chart-head, .pc-section-title) {
+  border-bottom: 2px solid rgb(var(--fg));
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
 /* Filter tabs: a hairline, the app colour when chosen. */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-filter-chips .ui-tab:not([aria-selected='true']):not([aria-pressed='true']) {
   border-color: rgb(var(--border-field, 214 211 204)) !important;
