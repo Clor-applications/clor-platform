@@ -20,6 +20,7 @@ import {
 } from '../api/payrollPeople';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { wholeRupees as money } from '@ui/utils/money';
+import { CtcSplit } from '../components/round59';
 
 /**
  * Who is paid what.
@@ -522,6 +523,9 @@ const RaiseForm = ({ person, structures, current, onCancel, onSaved }) => {
           />
         </div>
       </div>
+
+      {/* Round 59 ctcsplit A: the yearly CTC split into its parts by the structure, with the net pay. */}
+      <CtcSplit structureId={form.structureId} annualCtc={form.annualCtc} />
 
       {current ? (
         <dl className="space-y-1.5">

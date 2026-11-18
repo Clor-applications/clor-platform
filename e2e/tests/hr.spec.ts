@@ -81,7 +81,7 @@ test.describe('Kavya runs HR', () => {
     await expect(kavya.title).toContainText(`Ravi ${last}`);
     await kavya.open('Employees');
     await kavya.main.getByRole('searchbox', { name: 'Search employees' }).fill(last);
-    await expect(kavya.main.getByRole('button', { name: new RegExp(`^Ravi ${last}`) })).toHaveCount(1);
+    await expect(kavya.main.getByRole('link', { name: new RegExp(`^Ravi ${last}`) })).toHaveCount(1);
   });
 
   test('H2: a duplicate employee ID or email is stopped, in plain words', { tag: ['@H2'] }, async ({ asHR: kavya, w }, testInfo) => {

@@ -887,7 +887,7 @@ export const GUIDES = [
         heading: 'For another payroll',
         steps: [
           'Go to Reports › Monthly attendance summary and pick the month.',
-          'Open More and choose Export summary. The file starts with Payable days and Loss of pay for each person.',
+          'Open More and choose Export summary. The file starts with Payable days and Unpaid days (LOP) for each person.',
         ],
       },
       {

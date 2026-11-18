@@ -143,7 +143,7 @@ export default function TeamAttendance() {
         const pay = payOf.get(p.id);
         return { name: p.name, code: p.code || '', department: p.departmentName || p.department || '', present: n('PRESENT') + n('HALF_DAY') / 2, leave: n('ON_LEAVE'), absent: n('ABSENT'), unpaid: pay?.unpaidLeaveDays ?? '', lop: pay?.lossOfPayDays ?? '', payable: pay?.payableDays ?? '', totalDays: pay?.totalDays ?? '', why: pay?.why || '' };
       });
-      const cols = [['name', 'Employee'], ['code', 'Employee ID'], ['department', 'Department'], ['present', 'Present'], ['leave', 'Leave'], ['absent', 'Absent'], ['unpaid', 'Unpaid leave'], ['lop', 'Loss of pay'], ['payable', 'Payable days'], ['totalDays', 'Days in month'], ['why', 'Loss of pay from']].map(([key, label]) => ({ key, label }));
+      const cols = [['name', 'Employee'], ['code', 'Employee ID'], ['department', 'Department'], ['present', 'Present'], ['leave', 'Leave'], ['absent', 'Absent'], ['unpaid', 'Unpaid leave'], ['lop', 'Unpaid days (LOP)'], ['payable', 'Payable days'], ['totalDays', 'Days in month'], ['why', 'Unpaid days from']].map(([key, label]) => ({ key, label }));
       runListExport({ format: 'xlsx', title: `Attendance ${monthTitle(month)}`, fileName: `attendance-${month}`, label: 'Attendance', rows, columns: cols });
     } catch (e) {
       notify.error(String(e?.message || 'Could not export.'));
@@ -277,7 +277,7 @@ export default function TeamAttendance() {
                     <th scope="col" className="p-2 text-right font-medium">Leave</th>
                     <th scope="col" className="p-2 text-right font-medium">Absent</th>
                     <th scope="col" className="p-2 text-right font-medium">Unpaid leave</th>
-                    <th scope="col" className="p-2 text-right font-medium">Loss of pay</th>
+                    <th scope="col" className="p-2 text-right font-medium">Unpaid days (LOP)</th>
                     <th scope="col" className="p-2 text-right font-medium">Payable</th>
                     {daysIn(month).map((d) => <th key={d} scope="col" className={`p-0.5 text-center font-normal min-w-5 tabular-nums ${d === today ? 'text-[rgb(var(--brand-ink))]' : ''}`}>{Number(d.slice(8))}</th>)}
                   </tr>
@@ -309,10 +309,10 @@ export default function TeamAttendance() {
           <p className="ui-caption">P present, ½ half day, A absent, L leave, H holiday, W weekly off.</p>
           {payable.data ? (
             <p className="ui-caption">
-              {payable.data.source === 'ATTENDANCE' ? 'Loss of pay and payable days are what Payroll takes from Attendance: absences, half days, unpaid leave and late penalties.' : 'Loss of pay and payable days are what Payroll takes from leave: unpaid leave only, out of every day of the month.'}
+              {payable.data.source === 'ATTENDANCE' ? 'Unpaid days and payable days are what Payroll takes from Attendance: absences, half days, unpaid leave and late penalties.' : 'Unpaid days and payable days are what Payroll takes from leave: unpaid leave only, out of every day of the month.'}
               {payable.data.payrollTaken ? ` Payroll took these on ${formatDate(payable.data.payrollTaken.on)} (${payable.data.payrollTaken.period}).` : ''}
             </p>
-          ) : payable.error ? <p className="ui-caption">Loss of pay could not be worked out: {String(payable.error?.message || payable.error)}</p> : null}
+          ) : payable.error ? <p className="ui-caption">Unpaid days could not be worked out: {String(payable.error?.message || payable.error)}</p> : null}
         </section>
       )}
     </div>
