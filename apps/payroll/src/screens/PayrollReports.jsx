@@ -271,8 +271,102 @@ export default function PayrollReports() {
   );
 }
 
-const Register = ({ data }) => (
+/**
+ * The salary register. It opens short: each person's gross, deductions and
+ * take-home. A row opens into that person's parts; "Show every part" lays out
+ * the full table an auditor asks for. Both read the same payslip figures.
+ */
+function Register({ data }) {
+  const [full, setFull] = useState(false);
+  const [open, setOpen] = useState(() => new Set());
+  const toggle = (id) => setOpen((was) => {
+    const next = new Set(was);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const switcher = (
+    <div className="flex justify-end px-4 py-2" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
+      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-pressed={full} onClick={() => setFull((f) => !f)}>
+        {full ? 'Show the short register' : 'Show every part'}
+      </button>
+    </div>
+  );
+  if (full) return <FullRegister data={data} switcher={switcher} />;
+  const parts = (r, type) => data.columns.filter((c) => c.type === type && r.amounts[c.code]);
+  return (
+    <div className="ui-card overflow-hidden">
+      {switcher}
+      <div className="ui-table-scroll">
+        <table className="ui-table w-full">
+          <thead>
+            <tr>
+              <th scope="col">Employee</th>
+              <th scope="col" className="ui-col-h-right">Gross</th>
+              <th scope="col" className="ui-col-h-right">Deductions</th>
+              <th scope="col" className="ui-col-h-right">Take-home</th>
+            </tr>
+          </thead>
+          <tbody className="ui-rows">
+            {data.rows.map((r) => {
+              const isOpen = open.has(r.slipId);
+              return (
+                <React.Fragment key={r.slipId}>
+                  <tr>
+                    <td className="ui-col-entity">
+                      <button type="button" className="text-left" aria-expanded={isOpen} onClick={() => toggle(r.slipId)}>
+                        <span aria-hidden="true" className="ui-caption mr-1">{isOpen ? '▾' : '▸'}</span>
+                        {r.employeeName}
+                        {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
+                      </button>
+                    </td>
+                    <td className="ui-col-amount">{money(r.grossEarnings)}</td>
+                    <td className="ui-col-amount">{money(r.totalDeductions)}</td>
+                    <td className="ui-col-amount">{money(r.netPay)}</td>
+                  </tr>
+                  {isOpen ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="grid gap-4 py-1 sm:grid-cols-2">
+                          {[['EARNING', 'Earnings'], ['DEDUCTION', 'Deductions']].map(([type, label]) => (
+                            <div key={type}>
+                              <p className="ui-label">{label}</p>
+                              {parts(r, type).length ? (
+                                <dl aria-label={`${r.employeeName} ${label.toLowerCase()}`}>
+                                  {parts(r, type).map((c) => (
+                                    <div key={c.code} className="flex items-baseline justify-between gap-3 py-1 text-sm">
+                                      <dt>{c.name}</dt>
+                                      <dd className="text-right tabular-nums">{money(r.amounts[c.code])}</dd>
+                                    </div>
+                                  ))}
+                                </dl>
+                              ) : <p className="ui-caption py-1">None</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="ui-col-entity">{data.rows.length} {data.rows.length === 1 ? 'person' : 'people'}</td>
+              <td className="ui-col-amount">{money(data.totals.grossEarnings)}</td>
+              <td className="ui-col-amount">{money(data.totals.totalDeductions)}</td>
+              <td className="ui-col-amount">{money(data.totals.netPay)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const FullRegister = ({ data, switcher }) => (
   <div className="ui-card overflow-hidden">
+    {switcher}
     <div className="ui-table-scroll">
       <table className="ui-table ui-table-sticky w-full">
         <thead>

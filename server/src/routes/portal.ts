@@ -15,6 +15,7 @@ import { notifyPermission } from '../services/notifications.js';
 import { privacyNoticeFor } from '../services/attendance/privacyNotice.js';
 import { clearBiometricPolicy } from '../services/attendance/biometrics.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
+import { pfSaved, schemeComponents, sinceApril, slipParts } from '../services/payroll/payslipYear.js';
 import { DeclarationError, financialYearOf, regimeInForce, saveDeclaration, shapeDeclaration } from '../services/payroll/taxDeclaration.js';
 import { anotherApproverExists } from '../services/makerChecker.js';
 import { resolveAccess } from '../services/access.js';
@@ -1542,6 +1543,8 @@ portalRouter.get('/payslips', async (req, res) => {
   const byId = new Map(periods.map((p) => [p.id, p]));
   res.json({
     available: true,
+    /* PF put by in CLOR's payroll records, read from the payslips themselves. */
+    pfSaved: slips.length ? await pfSaved(e.orgId, e.id) : null,
     slips: slips.map((s) => ({
       id: s.id,
       number: s.number,
@@ -1565,6 +1568,8 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
     payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId: e.orgId, employeeId: e.id }, select: { pan: true, uan: true, bankName: true, bankAccountNumber: true } }),
     platformPrisma.org.findUnique({ where: { id: e.orgId }, select: { name: true } }),
   ]);
+  const [year, schemes] = await Promise.all([sinceApril(e.orgId, e.id, slip.payrollDate), schemeComponents(e.orgId)]);
+  const parts = slipParts(slip, schemes);
   const parse = (j: string) => { try { return JSON.parse(j || '{}'); } catch { return {}; } };
   const person = parse(slip.employeeSnapshotJson);
   const input = parse(slip.inputSnapshotJson);
@@ -1599,6 +1604,10 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
       deductionNote: slip.deductionNote ?? null,
       /* Somebody whose last day falls in this period has no next payslip: the rest goes to the full and final. */
       leaving: Boolean(person.dateOfLeaving && period?.endDate && String(person.dateOfLeaving).slice(0, 10) <= period.endDate),
+      /* The company's PF this month, as the payslip recorded it: the pension (EPS) share and the fund (EPF) share. */
+      pf: parts.pfEmployee || parts.pension || parts.pfEmployer ? { employee: parts.pfEmployee, pension: parts.pension, employer: parts.pfEmployer } : null,
+      /* This financial year so far, up to and including this payslip. */
+      sinceApril: year,
     },
   });
 });
