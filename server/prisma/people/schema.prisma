@@ -2052,6 +2052,9 @@ model PeopleSetting {
   /// from the company's stored chain (services/attendance/attendanceEngine.ts). Off by default; requests already
   /// waiting finish on the old path either way.
   attendanceOnEngine              Boolean  @default(false)
+  /// Leave still waiting when its first day has passed is closed as not approved by the nightly job
+  /// (closePassedLeave in routes/leave.ts). Off by default: until a company turns it on, it waits as before.
+  closePassedLeave                Boolean  @default(false)
   updatedByUserId                 String?
   createdAt                       DateTime @default(now())
   updatedAt                       DateTime @updatedAt

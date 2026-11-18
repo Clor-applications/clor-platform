@@ -44,7 +44,7 @@ export async function deliverNotice(ev: Envelope) {
     switch (topic) {
       case 'leave': {
         const { tellAboutLeave } = await import('../../routes/leave.js');
-        await tellAboutLeave(ev.orgId, data.request, { approvedBy: data.approvedBy ?? null, rev: Number(data.rev) || 0 });
+        await tellAboutLeave(ev.orgId, data.request, { approvedBy: data.approvedBy ?? null, rev: typeof data.rev === 'string' ? data.rev : Number(data.rev) || 0 });
         return;
       }
       case 'leave-shortened': {

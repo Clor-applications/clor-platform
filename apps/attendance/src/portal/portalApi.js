@@ -135,6 +135,10 @@ export const askLeave = (body) => call('/leave', { method: 'POST', body });
 /** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, type }. */
 export const previewLeave = (body) => call('/leave/preview', { method: 'POST', body });
 export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+/** Remind whoever my waiting request waits on (once a day). */
+export const remindLeave = (id) => call(`/leave/${encodeURIComponent(id)}/remind`, { method: 'POST' });
+/** Answer the question an approver sent back with my request. */
+export const answerLeaveQuestion = (id, note) => call(`/leave/${encodeURIComponent(id)}/answer`, { method: 'POST', body: { note } });
 /** Change a waiting request (same body as askLeave). */
 export const editLeave = (id, body) => call(`/leave/${encodeURIComponent(id)}`, { method: 'PUT', body });
 /** Came back early: approved leave that has started now ends on `toDate`. */
