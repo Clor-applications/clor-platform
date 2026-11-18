@@ -1128,6 +1128,26 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 54 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Bank cut-off | Approving a payroll run after 3 PM India time adds "Approved after 3 PM; the bank will credit tomorrow." to the confirm and to the note after approval (`afterBankCutoff`, `@ui/picks/round54`). |
+| Arrears tax | An adjustment whose reason says arrears or back pay shows that arrears are taxed in the year paid and the person can claim section 89 relief in their own return (Form 10E). |
+| Closed months | A closed payroll period has no Reopen button; the Payroll periods page says closed months stay closed and a mistake is fixed in next month's run. |
+
+Picked and already how the app works: an arrear is one line on the payslip (an adjustment);
+group reports are run for each company separately.
+
+Picked, **not built yet**: a "Companies" page to pick a company from; a mid-month pay change split by days on the payslip; a small extra
+payroll for a late joiner; an EMI skip asked in the app and approved by HR; HR choosing what carries
+over on a transfer between group companies; one bill to the head company with a line per company;
+and the CA picks (one list of every client's dues, CA invited with payroll-only access and an end
+date, a client list with Run and status, "Ask client" for inputs, "Prepared by" the CA firm at the
+foot). All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

@@ -43,6 +43,7 @@ import { RegistrationNotice } from "../components/StatutoryRegistrationsStep";
 import { openMonthsOf } from "../components/runGuardText";
 import { PaidCount, PayChanges } from "../components/round32";
 import { wholeRupees as money } from "@ui/utils/money";
+import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
 
 /**
  * Running payroll.
@@ -739,7 +740,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
           onClick={async () => {
             const ok = await confirmDialog({
               title: `Approve ${run.number}?`,
-              message: `Approving fixes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. Nothing can be changed afterwards.`,
+              message: `Approving fixes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. Nothing can be changed afterwards.${afterBankCutoff() ? ` ${BANK_CUTOFF_NOTE}` : ""}`,
               confirmLabel: "Yes, approve",
             });
             if (ok)
@@ -762,7 +763,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                   }
                 },
                 (out) => {
-                  if (out) done("Payroll approved.", "Next: post it to accounts, or lock it.");
+                  if (out) done("Payroll approved.", afterBankCutoff() ? `${BANK_CUTOFF_NOTE} Next: post it to accounts, or lock it.` : "Next: post it to accounts, or lock it.");
                 },
               );
           }}
