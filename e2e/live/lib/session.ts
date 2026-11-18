@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
-import { expect, type Browser, type Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { expect, test, type Browser, type Page } from '@playwright/test';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SITES, type QaAccount } from './env';
@@ -10,6 +10,7 @@ export function statePath(acc: QaAccount) { mkdirSync(STATE, { recursive: true }
 
 /** A page already signed in as acc (session saved by auth.setup.ts). */
 export async function pageAs(browser: Browser, acc: QaAccount) {
+  if (!existsSync(statePath(acc))) test.skip(true, `${acc.label} could not sign in (see auth step)`);
   const ctx = await browser.newContext({ storageState: statePath(acc), viewport: { width: 1440, height: 900 }, locale: 'en-IN', timezoneId: 'Asia/Kolkata' });
   return ctx.newPage();
 }
