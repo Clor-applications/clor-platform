@@ -1128,6 +1128,30 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 65 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Team size | Workforce › My team opens on one line: "8 people · 2 joining · 1 leaving". People is everyone already here; joining is anyone whose joining date is still ahead; leaving is anyone on notice. Each number sets the list's filter (`MyTeamPanel`, `teamCounts`). Open places are not counted (openings are not tied to a manager yet). |
+| Things due for my team | "Due this month" under it: probation ends (until confirmed), contract ends and work anniversaries from today to the month's end, earliest first, each with its date. A probation end says "Give your view" and opens the record; the others say "Open" (`teamDue`). |
+| Team leave balances | "Leave left": person × leave type with days left, from the leave balances the manager may already read, limited to the team; a type's heading sorts most-left first, Name sorts back. Below zero in red. Left out when the manager may not read balances (`teamBalanceRows`). |
+| Downloading my team | "Download team" saves a CSV that opens in Excel: name, employee ID, role, department, phone, work email and each leave type's days left (`teamCsv`). Shift is not in it (the list does not carry it yet). |
+
+Picked and already how the app works: My team lists each person with name and role; who is in
+today is the full day table on Attendance; a resignation in the team is accepted or declined by
+the manager (the default rule), HR doing the rest; managers ask HR through the one Ask HR; asking
+a team member to update their details is left to HR; managers do not see team pay unless the owner
+gives that manager a role that reads Payroll.
+
+Picked, **not built yet**: "Direct" and "Whole team" on My team (people under your reports); a
+missing-punch list with "Remind" that sends a notice; a joining checklist for the manager (desk,
+laptop request, first week, buddy); a short team-only set of reports (attendance, leave taken,
+late marks, overtime); private dated notes only the manager sees; work documents only
+(certificates, appraisal letters) for managers, ID and pay papers staying with HR; open places in
+the team count. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

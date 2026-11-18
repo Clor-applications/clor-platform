@@ -1015,3 +1015,22 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 65 */
+/* My team (managers): count line, due this month and leave left, on the page ground under one hairline, no card. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam { display: grid; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-count { margin: 0; font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-block { display: grid; gap: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due { list-style: none; margin: 0; padding: 0; display: grid; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due > li { display: flex; align-items: center; gap: 12px; min-height: 40px; border-top: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due > li:first-child { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-date { width: 7rem; flex: none; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-scroll { overflow-x: auto; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table { border-collapse: collapse; min-width: 100%; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table th, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table td { padding: 8px 12px 8px 0; border-top: 1px solid rgb(var(--border)); text-align: left; font-weight: 400; white-space: nowrap; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table thead th { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table .text-right { text-align: right; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort { font: inherit; font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted)); background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort[aria-pressed='true'] { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
