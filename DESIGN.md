@@ -911,6 +911,28 @@ of names, accounts and amounts; a phone notice with the amount when salary is se
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
+### Round 50 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Stronger contrast | "Stronger text" in the name menu darkens the greys and firms up the hairlines (`data-contrast="strong"`, `useStrongText`); kept in this browser, beside Text size and row density. Not in Books. |
+| Tap size on phones | On a touch screen every button and form field is at least 48px tall (`pointer: coarse` in picks.css). |
+| Statutory due dates | Payroll home ends with "Next dues": the next five of TDS deposit (7th; March's by 30 April), PF return and payment and ESI (15th), the quarterly TDS return (24Q) and Form 16 (15 June), each with its date and "In N days" (`StatutoryDues`). Professional tax is left out because its dates differ by state. |
+
+Picked and already how the app works: the phone or computer's "reduce motion" setting is followed
+everywhere (the global reduced-motion rule); a 2px ring in the app's colour marks the focused
+control; form mistakes show in red under each field; a payslip opens as a screen with earnings and
+deductions, PDF if wanted; every People report chart has a table of its figures under it; a screen
+reader re-reads the page after Save (nothing extra announced); labour law notices are not in CLOR.
+
+Picked, **not built yet**: the phone app keeping the last payslip, balances and shifts offline
+with "as of 9:40"; a fingerprint or PIN to open the phone app; a home-screen widget with today's
+shift and Punch in; CLOR suggesting a statutory rate change for the payroll admin to accept; an
+in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
+need the phone app or server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

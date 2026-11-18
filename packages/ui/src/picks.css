@@ -920,3 +920,20 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-early-tag { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
 /* rowcount B: the matching count in the list title, quieter than the title itself. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-title-count { color: rgb(var(--fg-muted)); font-weight: 500; }
+
+/* Round 50 */
+/* highcontrast A: "Stronger text" in the name menu: darker greys, firmer hairlines. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo'])[data-contrast='strong'] {
+  --fg-muted: 52 51 48;
+  --fg-subtle: 64 62 58;
+  --border: 150 150 150;
+  --border-strong: 100 100 100;
+}
+/* tapsize A: on a touch screen every button and form field is at least 48px tall (gloves, small phones). */
+@media (pointer: coarse) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn, .ui-input, .ui-select, select, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden'])) { min-height: 48px; }
+}
+/* duecalendar B: the next five statutory dues on Payroll home. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }

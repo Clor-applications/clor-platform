@@ -5,6 +5,8 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { getPayrollOverview } from '../api/payrollOverview';
 import { getPayrollSetup } from '../api/payrollSetup';
 import { wholeRupees as money } from '@ui/utils/money';
+import { todayIst } from '@ui/utils/dates';
+import StatutoryDues from '../components/StatutoryDues';
 
 /**
  * Where payroll is this month, and what is in the way.
@@ -255,6 +257,9 @@ export default function PayrollOverview({ onOpen = () => {} }) {
           </div>
         </div>
       ) : null}
+
+      {/* Round 50 pick "duecalendar" B: the next five statutory dues, under the month's work. */}
+      <StatutoryDues today={todayIst()} />
       </div>
     </div>
   );
