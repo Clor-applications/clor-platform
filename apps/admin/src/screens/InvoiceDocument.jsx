@@ -52,7 +52,8 @@ function Party({ title, p }) {
   );
 }
 
-export function InvoiceDocument({ invoice: inv, from = null }) {
+/* Round 67: a proforma prints on the same paper, headed as what it is (not a tax invoice) and valid until a date. */
+export function InvoiceDocument({ invoice: inv, from = null, proforma = false }) {
   const tax = inv.tax || {};
   const seller = inv.seller || from || { legalName: 'Clor Applications Private Limited' };
   const lines = Array.isArray(inv.lines) ? inv.lines : [];
@@ -62,18 +63,28 @@ export function InvoiceDocument({ invoice: inv, from = null }) {
     <article style={paper} aria-label={inv.number ? `Invoice ${inv.number}` : 'Draft invoice'}>
       <header style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>{seller.gstin ? 'Tax invoice' : 'Invoice'}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>{proforma ? 'Proforma invoice' : seller.gstin ? 'Tax invoice' : 'Invoice'}</div>
           <div style={{ color: ink2 }}>{inv.number || 'Draft: the number is given when it is issued'}</div>
+          {proforma ? <div style={{ color: ink2, fontSize: 13, marginTop: 4 }}>Not a tax invoice. The tax invoice is issued when payment is received.</div> : null}
         </div>
         <dl style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 16, rowGap: 2, margin: 0, color: ink2 }}>
           <dt>Date</dt>
           <dd style={{ margin: 0, color: ink, ...num }}>{day(inv.issueDate)}</dd>
-          <dt>Due</dt>
+          <dt>{proforma ? 'Valid until' : 'Due'}</dt>
           <dd style={{ margin: 0, color: ink, ...num }}>{day(inv.dueDate)}</dd>
           {period ? (
             <>
               <dt>For</dt>
               <dd style={{ margin: 0, color: ink }}>{period}</dd>
+            </>
+          ) : null}
+          {inv.poNumber ? (
+            <>
+              <dt>PO number</dt>
+              <dd style={{ margin: 0, color: ink, fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)' }}>
+                {inv.poNumber}
+                {inv.poDate ? <span style={{ color: ink2, fontFamily: 'inherit' }}> of {dateText(inv.poDate)}</span> : null}
+              </dd>
             </>
           ) : null}
         </dl>
@@ -140,7 +151,8 @@ export function InvoiceDocument({ invoice: inv, from = null }) {
       {inv.status === 'PAID' ? (
         <p style={{ marginTop: 24, fontWeight: 600 }}>
           Paid {inr(inv.paidAmount)} on {day(inv.paidAt)}
-          {inv.paymentReference ? `, reference ${inv.paymentReference}` : ''}. Thank you.
+          {inv.paymentReference ? `, reference ${inv.paymentReference}` : ''}
+          {inv.tdsDeducted ? `, with ${inr(inv.tdsDeducted)} TDS deducted` : ''}. Thank you.
         </p>
       ) : null}
       {inv.status === 'VOID' ? <p style={{ marginTop: 24, fontWeight: 600 }}>Cancelled on {day(inv.voidedAt)}. Nothing is due on this invoice.</p> : null}

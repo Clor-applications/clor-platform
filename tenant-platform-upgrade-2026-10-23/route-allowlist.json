@@ -1318,6 +1318,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/announcements/whats-new/seen",
+      "reason": "Mark CLOR's release notes read for yourself (round 67 What's new, announcements.ts): requireAuth; only notes listed for that person (their account's apps and role); writes AnnouncementDismissal rows keyed to the signed-in user; no business records read or changed."
+    },
+    {
+      "method": "POST",
       "path": "/api/auth/login/two-factor/sms",
       "reason": "Texts a sign-in code: needs the first step's short-lived challenge; codeLimiter; smsCodes holds back resends (30 s) and caps texts per person and number."
     },

@@ -6,6 +6,7 @@ import NotConnected from '@ui/components/ui/NotConnected';
 import { Empty, KpiTile, LoadError, Loading, PageHead } from './wsKit';
 import { inr } from './InvoiceDocument';
 import { InvoiceDrawer, InvoiceTable, invoiceDay, useInvoices } from './InvoiceDrawer';
+import BillingDocs from './BillingDocs';
 import './workspace.css';
 import './ws-plan.css';
 
@@ -112,6 +113,8 @@ export default function Invoices() {
             <InvoiceTable invoices={invoices} onOpen={openInvoice} detail />
           )}
         </section>
+
+        <BillingDocs />
 
         <p className="ws-foot-note">
           Open an invoice for its GST breakup (CGST and SGST, or IGST) and place of supply. {payOnline ? 'An unpaid one can be paid online, by UPI QR or by bank transfer.' : 'An unpaid one shows CLOR’s UPI QR and bank account.'}

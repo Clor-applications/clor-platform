@@ -19,6 +19,7 @@ import {
   opsSaveInvoice,
   opsSendInvoiceAgain,
   opsSendInvoiceToBooks,
+  opsTdsCertificate,
   opsVoidInvoice,
 } from './api';
 import { Empty, Err, Loading, ReasonDrawer, Tabs, day, may, when } from './kit';
@@ -629,6 +630,33 @@ export function InvoicePage({ id, role, back, openCustomer }) {
           </p>
         ) : null}
 
+        {inv.tdsDeducted ? (
+          <p className="ws-notice r67-tds">
+            <span>
+              The customer deducted {inr(inv.tdsDeducted)} TDS.{' '}
+              {inv.tdsCertificateAt ? `Their certificate came in on ${day(inv.tdsCertificateAt)}.` : 'Their TDS certificate has not come in yet.'}
+            </span>
+            {mayChange && !inv.tdsCertificateAt ? (
+              <button
+                type="button"
+                className="ws-btn ws-btn--quiet ws-btn--small"
+                disabled={doing === 'tds'}
+                onClick={async () => {
+                  setDoing('tds');
+                  try {
+                    done(await opsTdsCertificate(inv.id, today()), 'Certificate noted as received.');
+                  } catch (e) {
+                    setDoing(null);
+                    notify.error(String(e?.message || e));
+                  }
+                }}
+              >
+                Certificate received
+              </button>
+            ) : null}
+          </p>
+        ) : null}
+
         {inv.status === 'ISSUED' && !inv.emailTo ? <p className="ws-item-sub">No email on this invoice and no owner to send to, so it cannot be emailed or reminded.</p> : null}
 
         <InvoiceDocument invoice={inv} />
@@ -739,17 +767,28 @@ function EmailsSent({ sends }) {
 }
 
 function MarkPaid({ inv, onClose, onDone }) {
-  const [f, setF] = useState({ reference: '', paidOn: today(), amount: rupeesText(inv.total) });
+  const [f, setF] = useState({ reference: '', paidOn: today(), amount: rupeesText(inv.total), tds: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const amount = toPaise(f.amount);
+  const tds = f.tds.trim() ? toPaise(f.tds) : 0;
+  /* Round 67: TDS the customer kept back. Until the amount is typed over, it follows the total less the TDS. */
+  const setTds = (e) => {
+    const v = e.target.value;
+    setF((x) => {
+      const followed = toPaise(x.amount) === inv.total - (x.tds.trim() ? toPaise(x.tds) || 0 : 0);
+      const t = v.trim() ? toPaise(v) || 0 : 0;
+      return { ...x, tds: v, amount: followed && t < inv.total ? rupeesText(inv.total - t) : x.amount };
+    });
+  };
   const save = async () => {
     setError('');
     if (!amount) return setError('Enter the amount received, in rupees.');
+    if (f.tds.trim() && !tds) return setError('Enter the TDS in rupees, or leave it empty.');
     setBusy(true);
     try {
-      onDone(await opsMarkInvoicePaid(inv.id, { reference: f.reference.trim(), paidOn: f.paidOn, amount }));
+      onDone(await opsMarkInvoicePaid(inv.id, { reference: f.reference.trim(), paidOn: f.paidOn, amount, tdsDeducted: tds || null }));
     } catch (e) {
       setError(String(e?.message || e));
     } finally {
@@ -781,8 +820,11 @@ function MarkPaid({ inv, onClose, onDone }) {
           <Field id="paid-on" label="Money arrived on">
             <input id="paid-on" className="ui-input" type="date" max={today()} value={f.paidOn} onChange={set('paidOn')} />
           </Field>
-          <Field id="paid-amount" label="Amount received, ₹" hint={amount && amount !== inv.total ? `The invoice is for ${inr(inv.total)}.` : null}>
+          <Field id="paid-amount" label="Amount received, ₹" hint={amount && amount + tds !== inv.total ? `The invoice is for ${inr(inv.total)}.` : null}>
             <input id="paid-amount" className="ui-input ui-num" inputMode="decimal" value={f.amount} onChange={set('amount')} />
+          </Field>
+          <Field id="paid-tds" label="TDS deducted, ₹" hint="If the customer kept back tax at source. Their certificate is then chased under TDS certificates due.">
+            <input id="paid-tds" className="ui-input ui-num" inputMode="decimal" placeholder="None" value={f.tds} onChange={setTds} />
           </Field>
         </div>
         <p className="ws-card-blurb">Saving asks for a code from your authenticator app. It goes on the operator log.</p>

@@ -16,6 +16,7 @@ import {
   Coins,
   FileCode,
   FilePen,
+  FolderOpen,
   FileSignature,
   FileText,
   Gift,
@@ -33,8 +34,10 @@ import {
   MonitorSmartphone,
   Notebook,
   Receipt,
+  ScrollText,
   RefreshCw,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Smartphone,
@@ -73,6 +76,8 @@ import { Health } from './Health';
 import { TicketPage, Tickets } from './Tickets';
 import { Alerts } from './Alerts';
 import { Announcements } from './Announcements';
+import { Proformas, TdsCertificates, VendorDocuments } from './Procurement';
+import { Breaches } from './Breaches';
 import { CustomPlans } from './CustomPlans';
 import { Offers } from './Offers';
 import { Subscriptions } from './Deals';
@@ -121,6 +126,10 @@ const NI = {
   customPlans: FilePen,
   offers: Gift,
   invoices: FileText,
+  proformas: ScrollText,
+  tds: Receipt,
+  vendorDocs: FolderOpen,
+  breaches: ShieldAlert,
   payments: Banknote,
   tax: Landmark,
   invoicing: FileSignature,
@@ -213,6 +222,7 @@ export const NAV = [
       ['audit', 'Staff audit log', NI.audit],
       ['access', 'Access requests', NI.access],
       ['approvals', 'Approvals', NI.approvals],
+      ['breaches', 'Data breaches', NI.breaches],
       ['staff', 'Staff and roles', NI.staff, 'SUPER_ADMIN'],
     ],
   },
@@ -224,6 +234,9 @@ export const NAV = [
       ['customPlans', 'Custom plans', NI.customPlans],
       ['offers', 'Offers', NI.offers],
       ['invoices', 'Invoices', NI.invoices],
+      ['proformas', 'Proformas', NI.proformas],
+      ['tds', 'TDS certificates', NI.tds],
+      ['vendorDocs', 'Vendor documents', NI.vendorDocs],
       ['payments', 'Payments', NI.payments],
       ['tax', 'Tax', NI.tax],
       ['invoicing', 'Invoice settings', NI.invoicing],
@@ -290,6 +303,10 @@ export const SCREENS = {
     ) : (
       <Invoices key={route.params.status || 'all'} role={me.role} initialStatus={route.params.status || 'all'} openInvoice={(id) => go('invoices', {}, id)} />
     ),
+  proformas: ({ go, me }) => <Proformas role={me.role} openInvoice={(id) => go('invoices', {}, id)} />,
+  tds: ({ go, me }) => <TdsCertificates role={me.role} openInvoice={(id) => go('invoices', {}, id)} />,
+  vendorDocs: ({ me }) => <VendorDocuments role={me.role} />,
+  breaches: ({ go, me }) => <Breaches me={me} openCustomer={(id) => go('customers', {}, id)} />,
   invoicing: ({ go, me }) => <InvoiceSettings role={me.role} openTax={() => go('tax')} openPayments={() => go('payments')} openTemplates={() => go('emailTemplates')} />,
   catalogue: ({ me }) => <AppCatalogue role={me.role} />,
   sample: ({ go, me }) => <SampleCompany role={me.role} openLinks={() => go('links')} />,
