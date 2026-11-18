@@ -556,6 +556,27 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 25 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| PF number (UAN) for a new joiner | Payroll's person form asks "Had PF before, at an earlier job?" before any box. Yes opens the UAN field (digits only, 12, with where to find it); No says "No UAN yet. One is made when they are first on a PF return." and clears a typed number. A UAN already on file answers Yes (`UanQuestion`). |
+| Company licences and renewals | People → Compliance → Registrations already listed each work site's registrations with the valid-till date; a valid one now says how long it has left, "Valid, 214 days left", as the ones about to lapse already did. |
+
+Picked and already how the app works: the registers an inspector asks for (People → Statutory
+registers lists them, each printable to PDF or exported); customers behind on payment (Ops →
+Invoices → Overdue, by days late with "Remind"); a message to every customer (Ops announcements,
+a banner inside the app).
+
+Picked, **not built yet**: a supervisor's team list with "In" beside each for workers without
+phones; a note with the end date when pay crosses the ESI limit; a pay rule written as a sentence
+with blanks; a team's pay-rise budget bar; a time zone on the person (B); a flag after a set
+number of days' absence without word; the company's year start with what each choice changes;
+file space as a bar by kind; "Copy from" another branch with ticks; payslips by SMS with a short
+link; pay groups with their own pay day. All need server work.
+
 ### Round 26 (18 Nov 2026)
 
 Built:
