@@ -315,11 +315,11 @@
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 12rem; padding-left: 1rem; margin-right: 0; }
   :root:not(#rnd) .ui-topbar .ui-app-switch { margin-left: 0; max-width: 100%; }
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) + .ui-global-search { margin-left: 0.25rem; }
-  /* Screens panel open (owner, 19 Nov 2026): the switcher fills the 12rem column over the panel, inset as its
-     items are (0.5rem), and the search starts where the page's content does (panel edge + 2rem). */
-  :root:not(#rnd) .ui-topbar[data-panel] .ui-app-switch { width: 11rem; margin-left: 0.5rem; }
-  :root:not(#rnd) .ui-topbar[data-panel] .ui-app-switch-name { flex: 1 1 auto; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  :root:not(#rnd) .ui-topbar[data-panel] .ui-global-search { margin-left: 1.75rem; }
+  /* Screens panel open (owner, 19 Nov 2026): the switcher sits over the panel, as wide as its name ("reduce
+     width of the app dropdown"), inset as the panel's items are; the search starts where the page's content
+     does (rail 5rem + panel 12rem + content 2rem), whatever the switcher's width. */
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-app-switch { margin-left: 0.5rem; }
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-global-search { position: absolute; left: 19rem; margin-left: 0; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }
