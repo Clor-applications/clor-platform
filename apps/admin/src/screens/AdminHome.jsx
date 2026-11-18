@@ -14,6 +14,7 @@ import { orgId, requestOpenHelp } from '@platform/context';
 import { apiFetch } from '@platform/http';
 import { getPolicy } from '@platform/admin/security';
 import { setupSteps } from './SetupGuide';
+import { CallMe } from './CallMe';
 import './workspace.css';
 import './ws-home.css';
 import './ws-overview.css';
@@ -681,6 +682,7 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
                       </li>
                     ))}
                   </ul>
+                  {stepsDone < steps.length ? <CallMe /> : null}
                 </div>
               ) : null}
             </section>
