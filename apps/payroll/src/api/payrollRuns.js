@@ -23,6 +23,10 @@ export async function getPayrollRun(id) {
   return apiFetch(`${base()}/${encodeURIComponent(id)}`, opts);
 }
 
+/** A note this payroll leaves for next month's (picks round 32); an empty note clears it. */
+export const saveNoteForNext = (id, note) =>
+  apiFetch(`${base()}/${encodeURIComponent(id)}/note-for-next`, { ...opts, method: 'PUT', body: { note } });
+
 export async function createPayrollRun(payload) {
   return apiFetch(base(), { ...opts, method: 'POST', body: payload });
 }

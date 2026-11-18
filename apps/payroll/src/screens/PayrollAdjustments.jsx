@@ -24,6 +24,7 @@ import {
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money } from '@ui/utils/money';
 import { RELIEF_89_NOTE, mentionsArrears } from '@ui/picks/round54';
+import { COUNT_UNITS, countAmount, countWords } from '@ui/picks/payLines';
 
 /**
  * Bonuses, arrears, fines — what happened to one person in one month.
@@ -260,7 +261,10 @@ export default function PayrollAdjustments() {
                       {r.employeeName}
                       {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
                     </td>
-                    <td className="ui-col-meta">{r.componentName}</td>
+                    <td className="ui-col-meta">
+                      {r.componentName}
+                      {countWords(r) ? <span className="ui-caption block tabular-nums">{countWords(r)}</span> : null}
+                    </td>
                     <td className="ui-col-meta">{r.periodName || '—'}</td>
                     <td className="ui-num">
                       {/* A deduction reads as one: the sign is the point. */}
@@ -379,6 +383,11 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
     componentId: row.componentId || components[0]?.id || '',
     periodId: row.periodId || periods[0]?.id || '',
     amount: row.amount ?? '',
+    /* Count × rate (meals, pieces, nights): the amount is their product (server picks batch 2). */
+    counted: row.quantity != null && row.rate != null,
+    quantity: row.quantity ?? '',
+    rate: row.rate ?? '',
+    unit: row.unit || '',
     reason: row.reason || '',
     reference: row.reference || '',
     correctionReason: '',
@@ -390,9 +399,10 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
 
   const chosen = components.find((c) => c.id === form.componentId);
 
+  const counted = form.counted && !carried;
   const save = async (e) => {
     e.preventDefault();
-    const amount = Number(form.amount);
+    const amount = counted ? countAmount(form.quantity, form.rate) : Number(form.amount);
     if (!(amount > 0)) {
       notify.error('An adjustment of nothing changes nothing.');
       return;
@@ -409,6 +419,7 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
         componentId: form.componentId,
         periodId: form.periodId,
         amount,
+        ...(counted ? { quantity: Number(form.quantity), rate: Number(form.rate), unit: form.unit.trim() || null } : { quantity: null, rate: null, unit: null }),
         reason: form.reason.trim() || null,
         reference: form.reference.trim() || null,
         ...(carried ? { correctionReason: form.correctionReason.trim() } : {}),
@@ -467,19 +478,50 @@ const AdjustmentForm = ({ row, people, components, periods, encashments, onCance
           <span className="ui-caption">{carried ? 'Taken by the next payroll for this person, whichever month that is.' : 'Only this month. It does not carry into the next.'}</span>
         </div>
 
-        <div>
-          <label className="ui-label" htmlFor="adj-amount">Amount</label>
-          <input
-            id="adj-amount"
-            type="number"
-            min="0"
-            step="0.01"
-            className="ui-input ui-num w-full"
-            value={form.amount}
-            onChange={(e) => set({ amount: e.target.value })}
-            required
-          />
-        </div>
+        {!carried ? (
+          <fieldset className="sm:col-span-2">
+            <legend className="ui-label">Worked out as</legend>
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-2"><input type="radio" name="adj-how" checked={!form.counted} onChange={() => set({ counted: false })} /> An amount</label>
+              <label className="flex items-center gap-2"><input type="radio" name="adj-how" checked={form.counted} onChange={() => set({ counted: true })} /> Count × rate</label>
+            </div>
+            <span className="ui-caption">Count × rate shows both on the payslip: canteen meals, pieces made, night shifts.</span>
+          </fieldset>
+        ) : null}
+
+        {counted ? (
+          <div className="sm:col-span-2 grid grid-cols-3 gap-3">
+            <label className="block">
+              <span className="ui-label">Count</span>
+              <input type="number" min="0" step="0.01" className="ui-input ui-num w-full" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} required aria-label="Count" />
+            </label>
+            <label className="block">
+              <span className="ui-label">Of</span>
+              <SuggestInput value={form.unit} onChange={(v) => set({ unit: v })} maxLength={24} placeholder="meal" suggestions={COUNT_UNITS} aria-label="What was counted" />
+            </label>
+            <label className="block">
+              <span className="ui-label">Rate (₹)</span>
+              <input type="number" min="0" step="0.01" className="ui-input ui-num w-full" value={form.rate} onChange={(e) => set({ rate: e.target.value })} required aria-label="Rate" />
+            </label>
+            <p className="col-span-3 text-sm tabular-nums" role="status">
+              {countAmount(form.quantity, form.rate) > 0 ? <>{countWords({ quantity: form.quantity, rate: form.rate, unit: form.unit })} = <strong>{money(countAmount(form.quantity, form.rate))}</strong></> : 'Type the count and the rate.'}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label className="ui-label" htmlFor="adj-amount">Amount</label>
+            <input
+              id="adj-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              className="ui-input ui-num w-full"
+              value={form.amount}
+              onChange={(e) => set({ amount: e.target.value })}
+              required
+            />
+          </div>
+        )}
 
         <div>
           <label className="ui-label" htmlFor="adj-reference">Reference</label>

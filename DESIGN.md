@@ -488,9 +488,12 @@ Picked, **not built yet**: leave cashed in shown as days and amount together; th
 "not in yet" list sent as an alert; health insurance as a list of who is covered and how much;
 flexible pay parts with amounts and the total left; a handover list with who takes each item;
 an "Add to my calendar" link for approved leave; WhatsApp requests with Approve and Reject;
-changing one field for many people with a preview of who changes; night allowance as its own
-payslip line; a phone reminder at shift end to punch out; private HR notes with a lock and who
+changing one field for many people with a preview of who changes; a phone reminder at shift end to punch out; private HR notes with a lock and who
 wrote them.
+
+Built later (server picks batch 2): night allowance as its own payslip line, entered as an
+adjustment worked out as count × rate ("6 nights × ₹150"), the count and rate kept on the
+adjustment and on the payslip line (`countWords`, `@ui/picks/payLines`).
 
 ### Round 22 (18 Nov 2026)
 
@@ -549,7 +552,11 @@ Built:
 
 Picked and already how the app works: none this round.
 
-Picked, **not built yet**: canteen charges with count and rate on the payslip line; arrivals by
+Built later (server picks batch 2): canteen charges with count and rate on the payslip line: an
+adjustment worked out as count × rate, the amount their product to the paisa, shown under the line
+on Payroll's payslip, the employee app's payslip and its print ("Canteen (22 meals × ₹30)").
+
+Picked, **not built yet**: arrivals by
 15 minutes with the shift start marked; sign-up to paying as narrowing bars in Ops; handing over
 the owner role with the new owner accepting by email; company-wide quiet hours for notices; a
 new manager picked before a manager with a team leaves; fingerprint offered once in the phone
@@ -620,7 +627,8 @@ as every unpaid type's do, and the form says "Without pay" (round 42).
 Picked, **not built yet**: a row per month with "Add challan" for TDS; an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
 side; sharing a payslip from the phone's share list (needs a payslip PDF file from the server);
 payslips by sign-in link with no PDF password; leaving steps that start on their own at retirement age; a list of leavers due for
-clearing with one button; a payslip line showing pieces × rate. All need server work. Chart
+clearing with one button. All need server work. Built later (server picks batch 2): a payslip
+line showing pieces × rate, from an adjustment worked out as count × rate ("340 pieces × ₹4.5"). Chart
 names at the end of each line wait for a chart with several lines; none has more than one yet.
 
 ### Round 28 (18 Nov 2026)
@@ -734,8 +742,11 @@ on the phone (the employee app is told only paid or not); a fine split over mont
 pay stopping at zero with the rest carried to next month; a small extra run for a bonus between
 payroll months; pay divided by the days in the month as the company's chosen rule; extra PF set
 by the employee on the phone; the leave travel claim with "trips left 1 of 2"; a "Revised" tag
-with what changed on a reissued payslip (payslips keep no record of being reissued yet); notes
-shown at the top of next month's run. All need server work.
+with what changed on a reissued payslip (payslips keep no record of being reissued yet). All need server work.
+
+Built later (server picks batch 2): notes shown at the top of next month's run. A payroll has a
+"Note for next month" box, saved at any stage but cancelled; the next payroll for the same pay
+group and branch shows it at the top, "From June's payroll (PR-0006)" (`RunNotes.jsx`).
 
 ### Round 33 (18 Nov 2026)
 
@@ -1229,8 +1240,15 @@ Built:
 Picked and already how the app works: an arrear is one line on the payslip (an adjustment);
 group reports are run for each company separately.
 
-Picked, **not built yet**: a "Companies" page to pick a company from; a mid-month pay change split by days on the payslip; a small extra
-payroll for a late joiner; an EMI skip asked in the app and approved by HR; HR choosing what carries
+Built later (server picks batch 2): a mid-month pay change split by days on the payslip, "10 days
+from 1 Jun at ₹50,000 a month", on Payroll's payslip and the employee app's, from the days the
+calculation paid at each salary (`splitLines`); an EMI skip asked in the app and decided by HR:
+the employee app shows each loan's next instalment with "Ask to skip this month" and a reason,
+once; Payroll › Loans marks the loan "Asked to skip" and the instalment carries a tick (skipped,
+still owed) and a cross (declined, stays due).
+
+Picked, **not built yet**: a "Companies" page to pick a company from; a small extra
+payroll for a late joiner; HR choosing what carries
 over on a transfer between group companies; one bill to the head company with a line per company;
 and the CA picks (one list of every client's dues, CA invited with payroll-only access and an end
 date, a client list with Run and status, "Ask client" for inputs, "Prepared by" the CA firm at the

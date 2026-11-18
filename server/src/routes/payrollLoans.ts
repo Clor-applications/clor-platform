@@ -11,6 +11,8 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { PayrollLoanError, approveLoan, buildSchedule, summarise } from '../services/payroll/loan.js';
 import { forLiveEmployee } from '../services/payroll/employeeLock.js';
 import { ownPayRefusal } from '../services/payroll/ownPay.js';
+import { declineSkip } from '../services/payroll/skipAsk.js';
+import { recordAudit } from '../services/auditTrail.js';
 
 /**
  * Loans and salary advances.
@@ -68,6 +70,8 @@ const shapeInstallment = (i: any, extra: Record<string, unknown> = {}) => ({
   /* The rest of an earlier instalment a payroll could not take (the 50% limit, or net pay), and the month it came from. */
   carriedFromId: i.carriedFromId || null,
   carriedFromPeriodId: i.carriedFromPeriodId || null,
+  /* The employee asked in the employee app to skip this one, and why (picks round 54). */
+  skipAsk: i.skipAskedAt ? { at: i.skipAskedAt, reason: i.skipAskedReason || '' } : null,
   ...extra,
 });
 
@@ -92,12 +96,18 @@ payrollLoansRouter.get(
       ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: ids } }, select: { id: true, name: true, code: true } })
       : [];
     const byPerson = new Map(people.map((p) => [p.id, p]));
+    /* Instalments the employee asked to skip, waiting for HR (picks round 54). */
+    const asks = rows.length
+      ? await payrollPrisma.payrollLoanInstallment.findMany({ where: { orgId, loanId: { in: rows.map((r) => r.id) }, status: 'PENDING', skipAskedAt: { not: null } }, select: { id: true, loanId: true, dueAmount: true, skipAskedAt: true, skipAskedReason: true } })
+      : [];
+    const askOf = new Map(asks.map((a) => [a.loanId, { installmentId: a.id, amount: Number(a.dueAmount), at: a.skipAskedAt, reason: a.skipAskedReason || '' }]));
 
     res.json({
       loans: rows.map((r) =>
         shape(r, {
           employeeName: byPerson.get(r.employeeId)?.name || 'Unknown employee',
           employeeCode: byPerson.get(r.employeeId)?.code || '',
+          skipAsk: askOf.get(r.id) ?? null,
         })
       ),
     });
@@ -342,7 +352,7 @@ payrollLoansRouter.post(
     if (!(await payrollRouteOk(req, res))) return;
     const { accountId, orgId } = req.tenant!;
 
-    const schema = z.object({ action: z.enum(['SKIP', 'WAIVE', 'RESTORE']) });
+    const schema = z.object({ action: z.enum(['SKIP', 'WAIVE', 'RESTORE', 'DECLINE_SKIP']) });
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) return res.status(400).json({ error: 'Say whether to skip, waive or restore it.' });
 
@@ -364,11 +374,21 @@ payrollLoansRouter.post(
       if (own) return res.status(own.status).json(own.body);
     }
 
+    /* Declining the employee's ask to skip: the instalment stays due as it was; only the ask goes. */
+    if (parsed.data.action === 'DECLINE_SKIP') {
+      if (!installment.skipAskedAt) return res.status(409).json({ error: 'Nobody asked to skip this instalment.', code: 'NO_SKIP_ASK' });
+      await declineSkip(orgId, installment.id);
+      await recordAudit(req, { entity: 'PAYROLL_LOAN', entityId: installment.loanId, action: 'DECLINE_SKIP', message: `Declined an ask to skip instalment ${installment.sequence}.`, metadata: { installmentId: installment.id } });
+      const row = await payrollPrisma.payrollLoan.findUniqueOrThrow({ where: { id: installment.loanId } });
+      return res.json({ loan: shape(row) });
+    }
+
     const next = parsed.data.action === 'RESTORE' ? 'PENDING' : parsed.data.action === 'SKIP' ? 'SKIPPED' : 'WAIVED';
 
     const loan = await payrollPrisma.$transaction(async (tx) => {
       /* Only from the status read (compare-and-set): a payroll recovering it in between keeps it RECOVERED. */
-      const moved = await tx.payrollLoanInstallment.updateMany({ where: { orgId, id: installment.id, status: installment.status }, data: { status: next } });
+      /* Any decision answers an ask to skip, so the ask is cleared with it. */
+      const moved = await tx.payrollLoanInstallment.updateMany({ where: { orgId, id: installment.id, status: installment.status }, data: { status: next, skipAskedAt: null, skipAskedReason: null, skipAskedByUserId: null } });
       if (moved.count !== 1) return null;
       const installments = await tx.payrollLoanInstallment.findMany({ where: { orgId, loanId: installment.loanId } });
       const left = installments.filter((i) => i.status === 'PENDING');

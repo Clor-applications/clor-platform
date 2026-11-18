@@ -6,6 +6,7 @@ import { confirmDialog } from '@ui/components/ui/notify';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 import { addDaysIso as addDays } from '@ui/utils/dates';
+import { SPLIT_NOTE, SPLIT_TITLE, countWords, splitLines } from '@ui/picks/payLines';
 
 /**
  * The Me tab's pay and leaving pieces (EMPLOYEE-VIEW gaps 1, 3, 7, 8):
@@ -103,7 +104,7 @@ function PayslipView({ slip: s }) {
   /* Two lines can share a name (two fines): keyed by place, not by name. */
   const lines = (rows) => rows.map((l, i) => (
     <div key={`${i}:${l.name}`} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-      <dt>{l.name}</dt>
+      <dt>{l.name}{countWords(l) ? <span className="ui-caption block tabular-nums">{countWords(l)}</span> : null}</dt>
       <dd className="text-right tabular-nums">{money(l.amount)}</dd>
     </div>
   ));
@@ -121,6 +122,13 @@ function PayslipView({ slip: s }) {
         <span className="text-2xl font-semibold tabular-nums">{money(s.net)}</span>
       </div>
       {s.days ? <p className="ui-caption tabular-nums">{s.days.payable} of {s.days.working} days paid{s.days.lossOfPay ? ` · ${s.days.lossOfPay} without pay` : ''}</p> : null}
+      {splitLines(s.split).length ? (
+        <div aria-label={SPLIT_TITLE}>
+          <h3 className="ui-label">{SPLIT_TITLE}</h3>
+          {splitLines(s.split).map((t) => <p key={t} className="text-sm tabular-nums">{t}</p>)}
+          <p className="ui-caption">{SPLIT_NOTE}</p>
+        </div>
+      ) : null}
       <div>
         <h3 className="ui-label">Earnings</h3>
         <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
@@ -257,6 +265,9 @@ const PRINT_CSS = `
   .clor-payslip-print .muted { color: #444; }
 }`;
 
+/** A printed line's name, with its count × rate when it has one: "Canteen (22 meals × ₹30)". */
+const withCount = (l) => (countWords(l) ? `${l.name} (${countWords(l)})` : l.name);
+
 function PayslipPrint({ slip: s }) {
   const e = s.employee;
   const who = [
@@ -280,8 +291,8 @@ function PayslipPrint({ slip: s }) {
         <tbody>
           {Array.from({ length: rows }, (_, i) => (
             <tr key={i}>
-              <td>{s.earnings[i]?.name || ''}</td><td className="amt">{s.earnings[i] ? money(s.earnings[i].amount) : ''}</td>
-              <td>{s.deductions[i]?.name || ''}</td><td className="amt">{s.deductions[i] ? money(s.deductions[i].amount) : ''}</td>
+              <td>{s.earnings[i] ? withCount(s.earnings[i]) : ''}</td><td className="amt">{s.earnings[i] ? money(s.earnings[i].amount) : ''}</td>
+              <td>{s.deductions[i] ? withCount(s.deductions[i]) : ''}</td><td className="amt">{s.deductions[i] ? money(s.deductions[i].amount) : ''}</td>
             </tr>
           ))}
           <tr className="tot"><td>Total earnings</td><td className="amt">{money(s.gross)}</td><td>Total deductions</td><td className="amt">{money(s.totalDeductions)}</td></tr>

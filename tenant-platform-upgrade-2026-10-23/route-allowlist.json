@@ -548,6 +548,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/portal/people/money/instalments/:id/skip",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; asks HR to skip the next instalment of their own active loan, with a reason, once; another person's instalment reads as not found; changes nothing until HR decides."
+    },
+    {
+      "method": "POST",
       "path": "/api/portal/people/money/:kind/:id/withdraw",
       "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; withdraws their own waiting request only (404 otherwise)."
     },
