@@ -135,7 +135,7 @@ describe('What’s new', () => {
     ], waitingForMe: 0 });
     render(<WhatsNew guard={guard} />);
     expect(await screen.findByText(/was rejected\. “Stock count that day”/)).toBeInTheDocument();
-    expect(screen.getByText('Rejected')).toBeInTheDocument();
+    expect(screen.getByText('Not approved')).toBeInTheDocument();
     expect(screen.getByText(/will lapse on 31 Dec 2026/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Got it: Casual/ }));
     expect(screen.queryByText(/was rejected/)).toBeNull();

@@ -26,7 +26,7 @@ const DAY_WORDS = { working: 'working day', weeklyOff: 'weekly off', holiday: 'h
 const TABS = [
   { value: 'PENDING', label: 'Waiting', tone: 'partial' },
   { value: 'APPROVED', label: 'Approved', tone: 'paid' },
-  { value: 'REJECTED', label: 'Declined', tone: 'overdue' },
+  { value: 'REJECTED', label: 'Not approved', tone: 'overdue' },
   { value: 'CANCELLED', label: 'Withdrawn', tone: 'cancelled' },
 ];
 const COLUMNS = {

@@ -14,6 +14,7 @@ import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { decidedLine } from '@ui/picks/round60';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
 
@@ -33,7 +34,7 @@ import {
  * quota it takes, what happened to it, and the decision. HR enters a request
  * for someone with the same form the employee app has.
  */
-const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
+const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Not approved'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
 export const KINDS = ['MISSED_PUNCH', 'WFH', 'ON_DUTY', 'PERMISSION', 'SHIFT_CHANGE'];
 export const KIND_NAME = { MISSED_PUNCH: 'Missed punch', WFH: 'Work from home', ON_DUTY: 'On duty', PERMISSION: 'Permission', SHIFT_CHANGE: 'Shift change' };
 const KIND_OPTIONS = [{ value: '', label: 'Every kind' }, ...KINDS.map((k) => ({ value: k, label: KIND_NAME[k] }))];
@@ -41,6 +42,8 @@ const SPANS = ['WFH', 'ON_DUTY', 'SHIFT_CHANGE'];
 /* Kinds that may be half a day; a shift change is whole days. */
 const HALVES = ['WFH', 'ON_DUTY'];
 const half = (h) => (h === 'FIRST' ? 'First half' : h === 'SECOND' ? 'Second half' : '');
+/* Round 60 toastwords A: whose request, what kind and which day. */
+const requestDone = (r, verb) => decidedLine({ name: r.employeeName, what: (KIND_NAME[r.kind] || 'request').toLowerCase(), from: r.date, to: r.toDate, verb });
 const range = (from, to) => (!to || from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
 const waitedText = (at) => { const d = waitedDays(at); return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`; };
@@ -299,9 +302,9 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   /* A refusal says why, whatever the kind: the person reads it in the employee app. */
   const reject = () => {
     if (!note.trim()) { setNoteError('Say why. They see this with the decision.'); noteRef.current?.focus(); return; }
-    act(() => decideRequest(r.id, false, note.trim()), 'Rejected.');
+    act(() => decideRequest(r.id, false, note.trim()), requestDone(r, 'not approved'));
   };
-  const approve = () => act(() => decideRequest(r.id, true, note.trim() || undefined), (out) => (out?.stage === 'HR' ? 'Approved as the manager. It now waits for HR.' : 'Approved.'));
+  const approve = () => act(() => decideRequest(r.id, true, note.trim() || undefined), (out) => (out?.stage === 'HR' ? 'Approved as the manager. It now waits for HR.' : requestDone(r, 'approved')));
   const cancel = async () => {
     const ok = await confirmDialog({
       title: r.status === 'APPROVED' ? 'Cancel this request?' : 'Withdraw this request?',

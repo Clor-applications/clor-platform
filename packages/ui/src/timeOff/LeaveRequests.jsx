@@ -20,6 +20,7 @@ import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import { decidedLine } from '@ui/picks/round60';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { Avatar } from '@ui/personnel/Employees';
@@ -45,7 +46,9 @@ import { addDaysIso as addDays } from '@ui/utils/dates';
  * away and what happened to it; HR enters leave for someone with the same
  * date-by-date preview the employee app shows.
  */
-const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Rejected'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
+const TABS = [['PENDING', 'Waiting'], ['APPROVED', 'Approved'], ['REJECTED', 'Not approved'], ['CANCELLED', 'Cancelled'], ['all', 'All']];
+/* Round 60 toastwords A: the done message names whose leave and which days. */
+const leaveDone = (r, verb) => decidedLine({ name: r.employeeName, what: r.leaveTypeName ? r.leaveTypeName.toLowerCase() : 'leave', from: r.fromDate, to: r.toDate, verb });
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
 const half = (h) => (h === 'FIRST' ? 'First half' : h === 'SECOND' ? 'Second half' : '');
 const waitedDays = (at) => Math.max(0, Math.floor((Date.now() - new Date(at).getTime()) / 86_400_000));
@@ -135,7 +138,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
     setDeciding(true);
     try {
       const out = await approveLeave(r.id, '');
-      notify.success(out?.stage === 'NEXT' ? 'Your step is approved. It moves on to the next step.' : `Approved: ${r.employeeName}.`);
+      notify.success(out?.stage === 'NEXT' ? 'Your step is approved. It moves on to the next step.' : leaveDone(r, 'approved'));
       decided();
     } catch (e) {
       notify.error(String(e?.message || 'Not approved.'));
@@ -172,7 +175,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
   const tiles = [
     { key: 'waiting', label: 'Waiting for a decision', value: counts.PENDING ?? '—', accent: 'warn', tone: Number(counts.PENDING) > 0 ? 'warn' : null, Icon: TILE_ICON.waiting, sub: oldest == null ? 'In this leave period' : oldest === 0 ? 'Oldest asked today' : `Oldest ${oldest} day${oldest === 1 ? '' : 's'}`, busy: list.loading && !list.data },
     { key: 'approved', label: 'Approved', value: counts.APPROVED ?? '—', accent: 2, Icon: TILE_ICON.done, sub: 'In this leave period', busy: list.loading && !list.data },
-    { key: 'rejected', label: 'Rejected', value: counts.REJECTED ?? '—', accent: 3, sub: 'In this leave period', busy: list.loading && !list.data },
+    { key: 'rejected', label: 'Not approved', value: counts.REJECTED ?? '—', accent: 3, sub: 'In this leave period', busy: list.loading && !list.data },
     awayToday == null ? null : { key: 'away', label: 'Away today', value: awayToday, accent: 4, Icon: TILE_ICON.away, sub: ov?.upcoming?.length ? `${new Set(ov.upcoming.map((x) => x.employeeId)).size} more in the next 7 days` : 'Nobody else in the next 7 days', onClick: openScreen ? () => openScreen('leaveCalendar') : null },
   ];
   /* The first thin day ahead, today and the next fourteen (M4): two or more of one department away at once. */
@@ -333,7 +336,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const approve = () => act(async () => {
     const out = await approveLeave(r.id, note.trim());
     if (out?.stage === 'NEXT') notify.success('Your step is approved. It moves on to the next step.');
-  }, 'Approved.');
+  }, leaveDone(r, 'approved'));
   const openDocument = async () => {
     try {
       const doc = await getLeaveDocument(r.id);
@@ -347,7 +350,7 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   /* A rejection says why: the person reads it in the employee app. */
   const reject = () => {
     if (!note.trim()) { setNoteError('Say why. They see this with the decision.'); noteRef.current?.focus(); return; }
-    act(() => rejectLeave(r.id, note.trim()), 'Rejected.');
+    act(() => rejectLeave(r.id, note.trim()), leaveDone(r, 'not approved'));
   };
   const cancel = async () => {
     const ok = await confirmDialog({
