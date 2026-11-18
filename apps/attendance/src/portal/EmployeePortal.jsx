@@ -20,6 +20,7 @@ import { LeavingCompany, MySteps, PayCard, Payslips, PrivateComplaint } from './
 import { HolidaysYear, WhatsNew } from './PortalFeeds';
 import MyGrowth from './MyGrowth';
 import TrainingsDue from './TrainingsDue';
+import { NextHoliday, useNextDays } from './round48';
 import MyJobs from './MyJobs';
 import MyMoney from './MyMoney';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
@@ -168,7 +169,7 @@ export default function EmployeePortal() {
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-4">
         {error ? <div className="ui-card p-4 text-sm" role="alert">{error}</div> : null}
-        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} />{me?.people !== false ? <TrainingsDue guard={guard} /> : null}<TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
+        {tab === 'today' ? <><WhatsNew guard={guard} /><FixNotices guard={guard} onFix={(f) => { setFix(f); setTab('days'); }} /><Today me={me} reload={loadMe} guard={guard} /><NextHoliday guard={guard} today={todayIst()} />{me?.people !== false ? <TrainingsDue guard={guard} /> : null}<TodayPosts guard={guard} /><CompanyUpdates guard={guard} /></> : null}
         {tab === 'days' ? <><MyDays guard={guard} fix={fix} onFixUsed={() => setFix(null)} /><MonthReview guard={guard} /><MyOvertime guard={guard} /></> : null}
         {tab === 'approvals' ? <Approvals guard={guard} /> : null}
         {tab === 'schedule' ? <><ShiftSwaps guard={guard} onChanged={() => setScheduleKey((n) => n + 1)} /><MySchedule key={scheduleKey} guard={guard} /></> : null}
@@ -710,10 +711,13 @@ function Requests({ guard, month, onChanged, preset = null, onPresetUsed }) {
 // ---------------------------------------------------------------------------
 
 function MySchedule({ guard }) {
+  /* Round 48 "myshifts" A: the next 14 days first, today on top; the whole month on request. */
+  const [view, setView] = useState('next');
   const [month, setMonth] = useState(todayIst().slice(0, 7));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const next = useNextDays(guard, todayIst(), 14, attempt);
   useEffect(() => {
     let off = false;
     guard(getSchedule(month))
@@ -728,14 +732,20 @@ function MySchedule({ guard }) {
     <>
       <div className="flex items-center justify-between gap-2">
         <h2 className="ui-t-sec">My schedule</h2>
-        <input type="month" className="ui-input !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
+        <div className="flex items-center gap-2">
+          <div className="ui-sched-view" role="group" aria-label="Show">
+            <button type="button" className="ui-sched-view-btn" aria-pressed={view === 'next'} onClick={() => setView('next')}>Next 14 days</button>
+            <button type="button" className="ui-sched-view-btn" aria-pressed={view === 'month'} onClick={() => setView('month')}>Whole month</button>
+          </div>
+          {view === 'month' ? <input type="month" className="ui-input !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" /> : null}
+        </div>
       </div>
-      <LoadFailed message={error} onRetry={() => setAttempt((n) => n + 1)} />
-      {!data ? (
-        error ? null : <div className="ui-card p-6 ui-caption">Loading…</div>
+      <LoadFailed message={view === 'next' ? next.error : error} onRetry={() => setAttempt((n) => n + 1)} />
+      {!(view === 'next' ? next.days : data) ? (
+        (view === 'next' ? next.error : error) ? null : <div className="ui-card p-6 ui-caption">Loading…</div>
       ) : (
         <ul className="ui-card divide-y text-sm" style={{ borderColor: 'rgb(var(--border))' }}>
-          {data.days.map((d) => (
+          {(view === 'next' ? next.days : data.days).map((d) => (
             <li key={d.date} className="flex items-center gap-3 px-4 py-2" style={d.date === t ? { backgroundColor: 'rgb(var(--accent-soft))' } : undefined}>
               <span className="w-24 shrink-0 whitespace-nowrap">{dayLabel(d.date)}</span>
               {d.kind === 'WORK' ? (

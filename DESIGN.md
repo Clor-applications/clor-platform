@@ -911,6 +911,27 @@ of names, accounts and amounts; a phone notice with the amount when salary is se
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
+### Round 48 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| The next holiday on home | The employee app's Today tab shows "Next holiday · Pongal, Wed 14 Jan" under today's card: the first holiday from today that the person gets off (an optional one only once chosen), looking into next year when this year has none left (`NextHoliday`, `nextHoliday`). |
+| My shifts on the phone | My schedule opens on the next 14 days as a list, today on top, across a month end when needed; "Whole month" brings back the month picker (`useNextDays`, `nextDays`). |
+
+Picked and already how the app works: a shift's own grace minutes decide when a punch is late; the
+real punch time is shown and the day is counted from the shift start; hours called in on call are
+paid as overtime; working days are set per shift; Saturdays are working days unless a weekly-off rule
+says otherwise; the roster carries no hour totals.
+
+Picked, **not built yet**: one company holiday list with each holiday marked for some branches;
+"Publish" for a draft roster, with staff told; asking for a shift as a request approved like leave;
+a weekly choice of start time from fixed options; a repeating roster pattern set once; a warning
+for two shifts back to back (the roster holds one shift a person a day); a short-notice change the
+person must accept; a punch on a day with no shift sent to the manager to confirm as an extra day.
+All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
