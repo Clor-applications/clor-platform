@@ -9,6 +9,7 @@ import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { listSalaryStructures } from '../api/payrollStructures';
+import UanQuestion from '../components/UanQuestion';
 import {
   listEmployees,
   createEmployee,
@@ -696,15 +697,7 @@ const EmployeeForm = ({ initial, sensitiveVisible, onClose, onSaved }) => {
       <section className="space-y-3">
         <h3 className="ui-t-sec">Statutory</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="ui-label" htmlFor="employee-uan">UAN</label>
-            <input
-              id="employee-uan"
-              className="ui-input ui-mono w-full"
-              value={form.payroll.uan || ''}
-              onChange={(e) => setPay({ uan: e.target.value })}
-            />
-          </div>
+          <UanQuestion value={form.payroll.uan || ''} onChange={(uan) => setPay({ uan })} />
           <div>
             <label className="ui-label" htmlFor="employee-regime">Tax regime</label>
             <select
