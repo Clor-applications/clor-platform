@@ -12,7 +12,7 @@ import { parseCsv, readFileText } from '@ui/utils/csv';
 import { downloadImportTemplate } from '@ui/utils/importTemplate';
 import { readXlsx } from '@ui/utils/xlsx';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
-import { IMPORT_FIELDS, guessField } from '@ui/personnel/Employees';
+import { IMPORT_FIELDS } from '@ui/personnel/Employees';
 
 /* The spreadsheet keys stay as they are (the template uses them); people choose from names. */
 const FIELD_WORDS = {
@@ -25,6 +25,7 @@ import { importEmployees, undoImport } from '@ui/personnel/api';
 import { downloadText } from './api';
 import { can } from './shared';
 import ImportHistory from './ImportHistory';
+import { ImportProgress, ImportReadNotes, guessImportColumns } from './round49';
 
 /**
  * Workforce → Import employees (People design spec v1 EMP-10; Workforce
@@ -84,7 +85,7 @@ export default function ImportEmployees({ openScreen }) {
       const seen = new Set();
       const dupes = headers.filter((h) => { const k = h.toLowerCase(); if (seen.has(k)) return true; seen.add(k); return false; });
       setFile({ name: f.name, headers, rows, dupes });
-      setMapping(headers.map(guessField));
+      setMapping(guessImportColumns(headers));
       setPreview(null);
       setResult(null);
       setStep('map');
@@ -183,6 +184,7 @@ export default function ImportEmployees({ openScreen }) {
             {file.dupes.length ? <Alert tone="warn" title="Repeated column names">{file.dupes.join(', ')} appear more than once; map only one of each.</Alert> : null}
             {twice.length ? <Alert tone="neg" title="Two columns go to the same field">{[...new Set(twice)].join(', ')}: choose one.</Alert> : null}
             {!mappedKeys.includes('name') ? <Alert tone="info" title="A name column is needed">Map one column to name.</Alert> : null}
+            <ImportReadNotes file={file} mapping={mapping} />
             <div className="ui-table-scroll">
               <table className="ui-table w-full">
                 <thead><tr><th scope="col">Column in the file</th><th scope="col">First rows</th><th scope="col">Goes to</th></tr></thead>
@@ -215,6 +217,7 @@ export default function ImportEmployees({ openScreen }) {
               <div className="ui-metric" data-tint="peach" data-zero={Number(preview.failed) === 0 || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.failed}</dd><dt className="ui-metric-label">With a problem</dt></span></div>
               <div className="ui-metric" data-tint="lilac" data-zero={!preview.results.some((r) => r.warning) || undefined}><span><dd className="ui-metric-value tabular-nums">{preview.results.filter((r) => r.warning).length}</dd><dt className="ui-metric-label">May be someone already here</dt></span></div>
             </dl>
+            {busy ? <ImportProgress rows={preview.imported} /> : null}
             <p className="ui-caption">{mode === 'update' ? 'People already here are updated with the columns given.' : 'Rows with an employee ID already here are skipped.'} An import can be undone for 24 hours.</p>
             {step === 'validate' ? (
               <>
