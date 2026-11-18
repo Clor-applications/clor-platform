@@ -911,6 +911,29 @@ of names, accounts and amounts; a phone notice with the amount when salary is se
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
+### Round 49 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Moving from another HR tool | Import employees recognises an employee export from Keka, greytHR, Zoho People or Darwinbox by its column names, says "This looks like an export from greytHR; its columns are matched below", and matches those columns (employee number, joining date, reporting manager's number, work email, phone). Our own column names still win, and no two columns go to one field (`sheetFromTool`, `guessImportColumns`). |
+| Dates in an uploaded sheet | The mapping step reads dates day first, as the server does, and shows one from the file: "Dates are read day first: 03/04/2025 in DOJ is 3 Apr 2025". A date that cannot be read is named with the format to use (`readSheetDate`, `ImportReadNotes`). |
+| A big import running | While rows go in, a moving bar in the app's colour and "Importing 140 rows. Stay on this page until it finishes." (`ImportProgress`). |
+
+Picked and already how the app works: mistakes in a sheet are listed row by row, with the rest
+imported and a file of the rows to fix; a "Manager (employee ID)" column brings in who reports to
+whom; the template and any sheet with column matching both exist (sample sheet first); Export
+writes the list as it is on screen, with the columns chosen. The owner picked "support restores
+it" for undoing an import; the existing 24-hour "Undo this import" stays, since it removes only
+that import's rows.
+
+Picked, **not built yet**: "Invite everyone" by SMS and email; staff adding their own photo from
+the phone app; all of one person's documents as one ZIP in folders; a start date from which leave
+and attendance count, with balances carried in; a CLOR person checking the first payroll with
+you; a full data takeout through support; a salary sheet with CTC split by the salary structure;
+a "Came from import" filter on Employees. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

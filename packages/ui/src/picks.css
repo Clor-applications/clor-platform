@@ -920,3 +920,10 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-early-tag { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
 /* rowcount B: the matching count in the list title, quieter than the title itself. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-title-count { color: rgb(var(--fg-muted)); font-weight: 500; }
+
+/* Round 49 */
+/* importprogress B: a thin moving bar in the app's colour while an import runs. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress { appearance: none; height: 6px; border: 0; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress::-webkit-progress-bar { background: rgb(var(--border)); border-radius: 9999px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress::-webkit-progress-value { background: rgb(var(--act)); border-radius: 9999px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-progress::-moz-progress-bar { background: rgb(var(--act)); border-radius: 9999px; }
