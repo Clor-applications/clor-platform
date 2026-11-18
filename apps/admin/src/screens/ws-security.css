@@ -332,10 +332,15 @@
 /* Inbox (owner, 19 Nov 2026): Activity's layout, so the two read alike: tabs and filters in one row,
    a flush list, the summary at the right. */
 .ws .ws-filters--one-row:has(.ws-tabs) { align-items: center; }
-.ws-inbox-table .ws-col-who { width: 14rem; }
-.ws-inbox-table .ws-col-app { width: 9rem; }
-.ws-inbox-table .ws-col-when { width: 8rem; }
-.ws-inbox-table .ws-col-open { width: 7rem; }
+/* Shares, not fixed widths (owner, 19 Nov 2026: even gaps between What, Who, App): What keeps the most room,
+   the rest spread across the row instead of bunching at its right end. */
+.ws .ws-inbox-table .ws-col-what { width: 38%; }
+.ws .ws-inbox-table .ws-col-who { width: 22%; }
+.ws .ws-inbox-table .ws-col-app { width: 14%; }
+.ws .ws-inbox-table .ws-col-when { width: 14%; }
+.ws .ws-inbox-table .ws-col-open { width: 12%; }
+.ws .ws-inbox-table[data-updates] .ws-col-what { width: 60%; }
+.ws-inbox-table td:first-child strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws .ws-inbox-table tbody td { vertical-align: middle; }
 .ws-inbox-table .ws-sec-who { display: inline-flex; align-items: center; gap: 8px; }
 .ws .ws-inbox-open {

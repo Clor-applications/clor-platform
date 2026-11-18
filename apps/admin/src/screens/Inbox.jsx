@@ -141,10 +141,10 @@ export default function Inbox({ openApp, openScreen }) {
                 </div>
               ) : (
                 <div className="ws-table-wrap">
-                  <table className="ws-table ws-sec-table ws-activity-table ws-inbox-table">
+                  <table className="ws-table ws-sec-table ws-activity-table ws-inbox-table" data-updates={isUpdates ? '' : undefined}>
                     <caption className="sr-only">{TABS.find((t) => t.key === tab)?.label}</caption>
                     <colgroup>
-                      <col />
+                      <col className="ws-col-what" />
                       {isUpdates ? null : <col className="ws-col-who" />}
                       <col className="ws-col-app" />
                       <col className="ws-col-when" />
