@@ -1015,3 +1015,135 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 56 */
+/* optionalfold A: "More details" opens the fields most people skip; a quiet link-like button, 8px radius. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-more-details { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px dashed rgb(var(--border-strong)); background: transparent; color: rgb(var(--act-ink, var(--fg))); font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-more-details:hover { background: rgb(var(--surface-sunken)); }
+/* namecase A: "Use Ravi Kumar" under a name typed in capitals: a pill, one tap. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-name-case { display: inline-flex; align-items: center; margin-top: 6px; min-height: 28px; padding: 2px 10px; border-radius: 9999px; border: 1px solid rgb(var(--border)); background: transparent; color: rgb(var(--fg)); font-size: 0.8125rem; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-name-case:hover { background: rgb(var(--surface-sunken)); }
+/* reviewstep A: the leaving drawer reads itself back above Record leaving, each line with Change. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-read-back li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.875rem; }
+
+/* Round 57 */
+/* newtab A: a row's name is a real link (Ctrl-click, middle-click, long press), drawn exactly like the button it was. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a.ui-row-open { display: block; text-decoration: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a.ui-card-open { display: block; text-decoration: none; }
+/* emptycell A: an empty box is a calm grey dash. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-empty-cell { color: rgb(var(--fg-subtle, var(--fg-muted))); }
+/* newrowmark A: the row just added is softly lit, then fades back to the page. */
+@keyframes ui-row-new-fade { from { background-color: rgb(var(--accent-soft)); } to { background-color: transparent; } }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation: ui-row-new-fade 6s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation: none; background-color: rgb(var(--accent-soft)); }
+}
+/* todayrow A: today's row carries a thin line in the app colour and says "Today". */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) tr.is-today > td:first-child { box-shadow: inset 3px 0 0 rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) li.is-today { box-shadow: inset 3px 0 0 rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-today-chip { display: inline-flex; align-items: center; margin-left: 8px; padding: 0 8px; border-radius: 9999px; font-size: 0.75rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--act-ink, var(--fg))); background: rgb(var(--accent-soft)); vertical-align: middle; }
+/* bulkresult A: what went through and, for each one that did not, whose and why. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome { border: 1px solid rgb(var(--border)); border-left: 3px solid rgb(var(--warn-ink)); border-radius: 12px; padding: 12px 16px; background: rgb(var(--surface, 255 255 255)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-line { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 0.875rem; }
+/* liveupdate A: new rows wait behind a quiet bar; the list does not jump. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-new-rows-bar { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 2.5rem; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 0.875rem; font-weight: 600; color: rgb(var(--act-ink, var(--fg))); background: rgb(var(--accent-soft)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-new-rows-bar:hover { filter: brightness(0.97); }
+/* firstrunlist A: the ways into an empty list, side by side. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .people-first-run-ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/* Round 58 */
+/* stickysubmit C: on the employee app's leave form, Send sits top right and stays in reach while the form scrolls. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-form-top { position: sticky; top: 3.5rem; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -8px -4px 0; padding: 8px 4px; background: rgb(var(--surface)); }
+/* phonedate A + rangetap A: CLOR's own month calendar, holidays and weekly offs marked, the span lit between two taps. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal { display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-head { display: flex; align-items: center; justify-content: space-between; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid { width: 100%; border-collapse: separate; border-spacing: 0 2px; table-layout: fixed; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid th { font-weight: 500; padding: 2px 0; text-align: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-grid td { padding: 0; text-align: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day { position: relative; width: 100%; height: 40px; border-radius: 8px; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: rgb(var(--fg)); background: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day:hover { background: rgb(var(--rail-bg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='off'] { color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='holiday'] { color: rgb(var(--warn-ink)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark]::after,
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key i { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 9999px; background: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark]::after { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-mark='holiday']::after,
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key i[data-mark='holiday'] { background: rgb(var(--warn)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-today] { box-shadow: inset 0 0 0 1px rgb(var(--border-strong)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-picked] { background: rgb(var(--act) / 0.12); border-radius: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-end] { background: rgb(var(--act)); color: rgb(var(--on-primary)); border-radius: 8px; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-day[data-end]::after { background: rgb(var(--on-primary)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-cal-key span { display: inline-flex; align-items: center; gap: 6px; }
+/* balancewhy A: the balance number is itself the way into how it is worked out. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bal-why { display: block; padding: 0; background: none; text-align: left; text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 6px; text-decoration-thickness: 1px; }
+/* installapp A: the home-screen strip, from the second visit, on the page ground under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-install-strip { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgb(var(--border)); }
+/* outsidearea A: how far, the allowed distance, and two ways on. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-outside-box { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+/* punchdone A: a full tick screen after a saved punch; it goes by itself in 3 seconds. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; background: rgb(var(--surface)); animation: ui-punch-done-in 160ms ease-out; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-tick { color: rgb(var(--pos)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-first { font-size: 1.75rem; line-height: 2.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done-second { color: rgb(var(--fg-muted)); margin-bottom: 16px; }
+@keyframes ui-punch-done-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-punch-done { animation: none; } }
+/* payslipbundle A: last 3, 6 or 12 as a segmented choice, then one PDF. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slip-bundle { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid rgb(var(--border)); border-radius: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg-btn { min-height: 36px; padding: 0 12px; border-radius: 6px; font-size: 0.875rem; color: rgb(var(--fg-muted)); background: transparent; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-seg-btn[data-on] { background: rgb(var(--act)); color: rgb(var(--on-primary)); font-weight: 600; }
+/* payslipquery A: the question form sits under the payslip, under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slip-ask { padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
+
+/* Round 59 */
+/* monthflow C: the payroll month as a to-do list on Payroll home, under one hairline. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px 24px; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li { display: flex; align-items: center; gap: 8px; min-height: 2rem; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-done { color: rgb(var(--fg-subtle)); text-decoration: line-through; text-decoration-color: rgb(var(--border-strong)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next { color: rgb(var(--fg)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-mark { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; border: 1.5px solid rgb(var(--border-strong)); border-radius: 9999px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-done .ui-month-todo-mark { border-color: rgb(var(--pos)); color: rgb(var(--pos)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-month-todo-list li.is-next .ui-month-todo-mark { border-color: rgb(var(--act, var(--fg))); }
+/* ctcsplit A: the parts one yearly CTC makes, under the CTC field. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split { border-top: 1px solid rgb(var(--border)); padding-top: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dl { margin: 4px 0 0; display: grid; gap: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dl > div { display: flex; justify-content: space-between; gap: 16px; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dt { color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split dd { text-align: right; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-sum { border-top: 1px solid rgb(var(--border)); padding-top: 4px; margin-top: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-net { font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-ctc-split .is-net dt { color: rgb(var(--fg)); }
+/* attexceptions A: Present and Unpaid right on a day with no attendance. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-quickfix { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) li > .ui-quickfix { display: grid; grid-template-columns: 1fr 1fr; }
+/* leavepolicyread A: "My leave rules" in the employee app, one line a type. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules { border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 0.875rem; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules ul { list-style: none; margin: 0 0 8px; padding: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules li { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 0; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-rules-name { min-width: 8rem; font-weight: 500; }
+/* quickadd A: the details still missing on a record, under its summary. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish-head { margin: 0; color: rgb(var(--warn-ink)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-to-finish-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+/* Round 60 */
+/* abbrexplain A: a short form (PF, ESI, PT, TDS) underlined with dots; a tap shows the full name and one line. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-wrap { position: relative; display: inline-block; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr { text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; cursor: help; border-radius: 4px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr:focus-visible { outline: 2px solid rgb(var(--act, var(--fg))); outline-offset: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-tip { position: absolute; z-index: 30; left: 0; top: calc(100% + 6px); width: max-content; max-width: min(18rem, 80vw); padding: 8px 12px; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #fff; color: rgb(var(--fg)); font-size: 0.8125rem; line-height: 1.25rem; font-weight: 400; white-space: normal; box-shadow: 0 4px 16px rgb(0 0 0 / 0.08); }
+/* slowload A: a slow report says it is still working, after 5 seconds. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slow-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+/* pendinginvites A: the "Not joined yet" filter and Send again to all, above the invitations list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-not-joined { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid rgb(var(--border)); border-radius: 9999px; background: #fff; color: rgb(var(--fg)); font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle:hover { background: #F7F7F7; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle.is-on { border-color: rgb(var(--act, var(--fg))); box-shadow: inset 0 0 0 1px rgb(var(--act, var(--fg))); }

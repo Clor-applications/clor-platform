@@ -8,6 +8,7 @@ import ErrorState from '@ui/components/ui/ErrorState';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import DatePicker, { formatDate } from '@ui/components/ui/DatePicker';
 import useRequest from '@ui/components/ui/useRequest';
+import { SlowNote } from '@ui/picks/round60';
 import { notify } from '@ui/components/ui/notify';
 import ReportChart from '../components/ReportChart';
 import { hrReportCsv, listHrReports, runHrReport } from '../api/hrReports';
@@ -111,7 +112,7 @@ export default function HrReport({ params = {}, updateParams, openScreen }) {
         toolbar={toolbar}
       />
       {report.error && !d ? <ErrorState error={report.error} onRetry={report.reload} body={report.error?.status === 403 ? 'This report is not open to your role.' : undefined} />
-        : !d ? <SkeletonCard lines={8} />
+        : !d ? <><SlowNote busy /><SkeletonCard lines={8} /></>
           : !d.rows.length ? <EmptyState kind={filtered ? 'filtered' : undefined} title="Nothing in this period" description={filtered ? 'No one matches these filters.' : 'Change the dates to look further back or ahead.'} onClearFilters={filtered ? () => set(Object.fromEntries(FILTER_KEYS.map((k) => [k, null]))) : undefined} />
             : (
               <>

@@ -1745,9 +1745,39 @@ export function ResignForm({ person, onClose, onDone }) {
             ) : null}
           </>
         ) : null}
-        <label className="block"><span className="ui-label">Note</span><textarea className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+        <label className="block"><span className="ui-label">Note</span><textarea id="resign-note" className="ui-input w-full" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></label>
+        <LeavingReadBack person={person} form={form} today={today} resignedOn={resigning ? resignedOn : ''} short={short} noticeWaived={resigning && noticeWaived} />
       </form>
     </Drawer>
+  );
+}
+
+/*
+ * Round 56 (reviewstep A): before something this big is recorded, the drawer reads it back in plain words, each
+ * line with a Change link to its field. It sits above Record leaving, so the one press still records it.
+ */
+export function LeavingReadBack({ person, form, today, resignedOn = '', short = null, noticeWaived = false }) {
+  const focus = (id) => () => document.getElementById(id)?.focus();
+  const name = String(person?.name || '').trim() || 'They';
+  const lines = [];
+  if (form.leavingType === 'NOT_JOINED') lines.push(['Their offer is withdrawn; they never joined.', null]);
+  else if (form.lastDay) {
+    lines.push([form.lastDay >= today
+      ? `${name} works until ${formatDateShort(form.lastDay)}, stays paid until then, and is on notice meanwhile.`
+      : `${name} left on ${formatDateShort(form.lastDay)}, and is recorded as left now.`, 'resign-last-day']);
+  }
+  lines.push([`Why: ${LEAVING_TYPES[form.leavingType] || form.leavingType}.`, null]);
+  if (resignedOn) lines.push([`Resignation received ${formatDateShort(resignedOn)}${noticeWaived ? ', notice waived' : short ? `, ${short} ${short === 1 ? 'day' : 'days'} of notice short` : ''}.`, 'resign-received']);
+  lines.push([form.reason ? `Note: ${form.reason}` : 'No note.', 'resign-note']);
+  return (
+    <section className="ui-read-back" aria-label="Before you record">
+      <h3 className="text-sm font-semibold">Before you record</h3>
+      <ul>
+        {lines.map(([text, id]) => (
+          <li key={text}><span>{text}</span>{id ? <button type="button" className="ui-link text-sm" onClick={focus(id)}>Change</button> : null}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

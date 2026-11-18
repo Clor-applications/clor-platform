@@ -135,7 +135,7 @@ describe('What’s new', () => {
     ], waitingForMe: 0 });
     render(<WhatsNew guard={guard} />);
     expect(await screen.findByText(/was rejected\. “Stock count that day”/)).toBeInTheDocument();
-    expect(screen.getByText('Rejected')).toBeInTheDocument();
+    expect(screen.getByText('Not approved')).toBeInTheDocument();
     expect(screen.getByText(/will lapse on 31 Dec 2026/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Got it: Casual/ }));
     expect(screen.queryByText(/was rejected/)).toBeNull();
@@ -303,6 +303,38 @@ describe('The Me tab and Leave in the app', () => {
     const [waiting, approved] = within(list).getAllByRole('listitem');
     expect(waiting.textContent).toContain('With Ravi (your manager)');
     expect(approved.textContent).not.toContain('With');
+  });
+
+  it('round 58: two taps on the calendar, Send top right, then who has it and what happens next', async () => {
+    const portal = await import('../apps/attendance/src/portal/portalApi');
+    api.getMe.mockResolvedValue(ME);
+    api.getUpdates.mockResolvedValue({ decided: [] });
+    api.getHolidays.mockResolvedValue({ year: 2026, quota: 0, picked: 0, left: 0, holidays: [] });
+    portal.getSchedule.mockResolvedValue({ days: [{ date: '2026-11-04', kind: 'HOLIDAY', holiday: 'Diwali' }] });
+    portal.previewLeave.mockResolvedValue({ days: 2, problems: [] });
+    portal.askLeave.mockResolvedValue({ request: { id: 'n1', days: 2, leaveTypeName: 'Casual' } });
+    const sent = { id: 'n1', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-03', toDate: '2026-11-05', days: 2, status: 'PENDING', withWhom: 'With Ravi (your manager)' };
+    api.getLeave
+      .mockResolvedValueOnce({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 5, allocated: 12 }], requests: [] })
+      .mockResolvedValue({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 3, allocated: 12 }], requests: [sent] });
+    render(<EmployeePortal />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Leave' }));
+    const form = await screen.findByRole('form', { name: 'Ask for leave' });
+    fireEvent.change(within(form).getByLabelText(/Leave type/), { target: { value: 't1' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Next month' }));
+    expect(await within(form).findByRole('button', { name: /4 November, holiday: Diwali/ })).toBeTruthy();
+    fireEvent.click(within(form).getByRole('button', { name: /^Tuesday, 3 November/ }));
+    fireEvent.click(within(form).getByRole('button', { name: /^Thursday, 5 November/ }));
+    expect(within(form).getByLabelText(/First day/).value).toBe('2026-11-03');
+    expect(within(form).getByLabelText(/Last day/).value).toBe('2026-11-05');
+    fireEvent.change(within(form).getByLabelText(/Reason/), { target: { value: 'Family function' } });
+    const send = within(form).getByRole('button', { name: 'Send' });
+    expect(send.closest('.ui-form-top')).toBeTruthy();
+    await waitFor(() => expect(send.disabled).toBe(false));
+    fireEvent.click(send);
+    await waitFor(() => expect(portal.askLeave).toHaveBeenCalledWith(expect.objectContaining({ fromDate: '2026-11-03', toDate: '2026-11-05' })));
+    expect(await screen.findByText(/Sent to Ravi \(your manager\)\. You will get a notice when it is decided\./)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'View request' })).toBeTruthy();
   });
 
   it('asks before cancelling approved leave', async () => {

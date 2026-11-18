@@ -1,0 +1,48 @@
+import React, { useState } from 'react';
+import { notify } from '@ui/components/ui/notify';
+import { markDay, setExceptionState } from '../api/attendance';
+
+/*
+ * Round 59 picks (18 Nov 2026), Attendance side.
+ *
+ * attexceptions A: a working day with no attendance is decided on the spot,
+ * from the list of days that need a decision: Present or Unpaid. The day is
+ * marked the way Records marks one by hand, then the item is settled.
+ */
+
+export const QUICK_FIXES = [
+  { status: 'PRESENT', label: 'Present', done: 'Marked present.' },
+  { status: 'ABSENT', label: 'Unpaid', done: 'Marked as an unpaid day.' },
+];
+
+/** Only a day with nothing on it can be decided from here; a missing check-out needs its time on Records. */
+export const canQuickFix = (x) => x?.kind === 'NO_RECORD' && Boolean(x.employeeId && x.date) && (x.status === 'OPEN' || x.status === 'IN_PROGRESS');
+
+export function DayQuickFix({ item, onDone, small = false }) {
+  const [busy, setBusy] = useState('');
+  if (!canQuickFix(item)) return null;
+  const decide = async (f) => {
+    if (busy) return;
+    setBusy(f.status);
+    try {
+      await markDay({ employeeId: item.employeeId, date: item.date, checkIn: null, checkOut: null, status: f.status, note: 'Decided from Days that need a decision' });
+      await setExceptionState({ key: item.key, status: 'RESOLVED', note: f.label }).catch(() => undefined);
+      notify.success(f.done);
+      onDone?.();
+    } catch (e) {
+      notify.error(String(e?.message || 'Not saved.'));
+    } finally {
+      setBusy('');
+    }
+  };
+  const who = [item.employeeName, item.date].filter(Boolean).join(', ');
+  return (
+    <span className="ui-quickfix" role="group" aria-label={`Decide ${who}`}>
+      {QUICK_FIXES.map((f) => (
+        <button key={f.status} type="button" className={`ui-btn ui-btn-secondary ${small ? 'ui-btn-sm' : 'min-h-[44px]'}`} disabled={Boolean(busy)} aria-label={`${f.label}: ${who}`} onClick={() => decide(f)}>
+          {busy === f.status ? 'Saving…' : f.label}
+        </button>
+      ))}
+    </span>
+  );
+}

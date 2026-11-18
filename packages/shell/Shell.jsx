@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { placeFor, rememberPlace, restorePlace } from './scrollMemory';
 import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
 import { Contrast, Rows3 } from 'lucide-react';
 import { useDensity } from '@ui/components/ui/useDensity';
@@ -65,6 +66,7 @@ import VerifyEmail from './VerifyEmail';
 import LegalPage from './legal/LegalPage';
 import { useLegalRoute } from './legal/useLegalRoute';
 import { renderPublicPage, usePublicPage } from './usePublicPage';
+import { installFormRules } from '@ui/picks/round56';
 
 /**
  * The CLOR shell.
@@ -219,6 +221,8 @@ function ShellScreens() {
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
   const [navOpen, setNavOpen] = useState(false);
+  /* Round 56: PAN, IFSC and GSTIN in capitals as typed, and Enter moving to the next field, on every form outside Books. */
+  useEffect(() => installFormRules(), []);
   useEffect(() => {
     const mq = window.matchMedia(PHONE_QUERY);
     const onChange = (e) => setPhone(e.matches);
@@ -510,6 +514,9 @@ function ShellScreens() {
   const goTo = (key, params, link = false) => { confirmLeave(askLeave).then((ok) => ok && goToNow(key, params, link)); };
   /* `params` open the screen on one thing (a notice about one candidate); a rail click passes none. */
   const goToNow = (key, params = null, link = false) => {
+    /* Round 57 filtermemory A: note where this screen is scrolled to; going back to where it was opened from finds the same place. */
+    rememberPlace(screenKeyRef.current, liveParamsRef.current);
+    const returning = Boolean(key && cameFrom[screenKeyRef.current]?.key === key);
     noteOrigin(key, link);
     setScreenKey(key);
     setScreenParams(params && typeof params === 'object' ? params : null);
@@ -518,8 +525,8 @@ function ShellScreens() {
     setNavOpen(false);
     setBrowseModule(null);
     setTabletPanel(false);
-    /* A new screen starts at its top, not at the last one's scroll position. */
-    window.scrollTo(0, 0);
+    /* A new screen starts at its top, not at the last one's scroll position; a screen gone back to, where it was left. */
+    restorePlace(returning ? placeFor(key, params) : null);
   };
   /* Help (requestOpenHelp): the Help centre as a platform page, on the topic asked for. */
   const [helpTopic, setHelpTopic] = useState('welcome');
@@ -720,6 +727,8 @@ function ShellScreens() {
   }, [screenKey, ownsAddress, activeAppId, liveParams]);
   useEffect(() => {
     if (!ownsAddress) return undefined;
+    /* The shell puts a list back where it was left (round 57); the browser's own guess lands before the rows have drawn. */
+    try { if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'; } catch { /* older browsers */ }
     const onPop = () => {
       const { open, app: appInUrl, params } = readScreenSearch(window.location.search);
       fromHistory.current = true;
@@ -736,6 +745,9 @@ function ShellScreens() {
         askLeave().then((ok) => { if (ok) { clearUnsaved(); window.history.back(); } });
         return;
       }
+      /* Round 57 filtermemory A: the browser's Back finds the list where it was left. */
+      rememberPlace(screenKeyRef.current, liveParamsRef.current);
+      restorePlace(placeFor(open, params));
       setScreenParams(params);
       setScreenKey(open);
       setPlatformScreen(null);
@@ -1584,10 +1596,11 @@ function ShellScreens() {
                       const back = () => confirmLeave(askLeave).then((ok) => {
                         if (!ok) return;
                         if (!origin) { goToNow(parent.key); return; }
+                        rememberPlace(screenKeyRef.current, liveParamsRef.current);
                         setScreenKey(origin.key);
                         setScreenParams(from.params);
                         setPlatformScreen(null);
-                        window.scrollTo(0, 0);
+                        restorePlace(placeFor(origin.key, from.params));
                       });
                       return (
                         <button type="button" className="ui-link mb-2 inline-flex items-center gap-1 text-sm" onClick={back}>

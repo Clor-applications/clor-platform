@@ -4,8 +4,11 @@ import { ChevronLeft } from '@ui/components/ui/lineIcons';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { lineName, shownLines } from '@ui/picks/round60';
 import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 import { addDaysIso as addDays } from '@ui/utils/dates';
+import { useBackClose } from '@ui/picks/round58';
+import { PayslipAsk, PayslipBundle } from './round58';
 
 /**
  * The Me tab's pay and leaving pieces (EMPLOYEE-VIEW gaps 1, 3, 7, 8):
@@ -31,7 +34,7 @@ const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFract
  * browser's "Save as PDF"). Says nothing where the company does not run
  * payroll in CLOR.
  */
-export function Payslips({ guard }) {
+export function Payslips({ guard, onAsk = null }) {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState('');
   const [open, setOpen] = useState(null);
@@ -50,18 +53,22 @@ export function Payslips({ guard }) {
       .catch((e) => setSlipFailed(errText(e, 'Could not open this payslip.')));
   }, [open, guard]);
   useEffect(() => { loadSlip(); }, [loadSlip]);
+  /* Round 58 "androidback" A: the phone's Back returns from one payslip to the list. */
+  const closeSlip = useCallback(() => { setOpen(null); setSlip(null); setSlipFailed(''); }, []);
+  useBackClose(Boolean(open), closeSlip);
+  const loadOne = useCallback((id) => guard(getPayslip(id)), [guard]);
 
   if (failed) return <LoadFailed message={failed} onRetry={load} />;
   if (!data?.available) return null;
   if (open) {
     return (
       <section className="ui-card space-y-3 p-5 ui-touch-44" aria-labelledby="slip-h">
-        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setOpen(null); setSlip(null); setSlipFailed(''); }}>
+        <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={closeSlip}>
           <ChevronLeft size={16} aria-hidden="true" /> All payslips
         </button>
         <LoadFailed message={slipFailed} onRetry={loadSlip} />
         {!slip && !slipFailed ? <p className="ui-caption">Loading…</p> : null}
-        {slip ? <PayslipView slip={slip} /> : null}
+        {slip ? <PayslipView slip={slip} onAsk={onAsk} /> : null}
       </section>
     );
   }
@@ -77,7 +84,7 @@ export function Payslips({ guard }) {
                   <span className="block font-medium">{s.period}</span>
                   <span className={`ui-pill ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
                 </span>
-                <span className="shrink-0 text-right tabular-nums">{money(s.net)}<span className="ui-caption block">take-home</span></span>
+                <span className="shrink-0 text-right tabular-nums">{money(s.net)}<span className="ui-caption block">net pay</span></span>
               </button>
             </li>
           ))}
@@ -85,12 +92,13 @@ export function Payslips({ guard }) {
       ) : (
         <p className="ui-caption">No payslips yet. They appear here once HR closes a month’s payroll.</p>
       )}
+      {data.slips.length > 1 ? <PayslipBundle slips={data.slips} load={loadOne} /> : null}
     </section>
   );
 }
 
 /** One payslip on screen, with Save as PDF. */
-function PayslipView({ slip: s }) {
+function PayslipView({ slip: s, onAsk = null }) {
   const save = () => {
     const was = document.title;
     /* The browser names the PDF after the page title. */
@@ -100,9 +108,10 @@ function PayslipView({ slip: s }) {
     window.print();
   };
   /* Two lines can share a name (two fines): keyed by place, not by name. */
-  const lines = (rows) => rows.map((l, i) => (
+  /* Round 60: only lines with an amount (zerorows A); PF, ESI, PT and TDS explained on a tap (abbrexplain A). */
+  const lines = (rows) => shownLines(rows).map((l, i) => (
     <div key={`${i}:${l.name}`} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-      <dt>{l.name}</dt>
+      <dt>{lineName(l.name)}</dt>
       <dd className="text-right tabular-nums">{money(l.amount)}</dd>
     </div>
   ));
@@ -116,7 +125,7 @@ function PayslipView({ slip: s }) {
         <span className={`ui-pill shrink-0 ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
       </div>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm">Take-home</span>
+        <span className="text-sm">Net pay</span>
         <span className="text-2xl font-semibold tabular-nums">{money(s.net)}</span>
       </div>
       {s.days ? <p className="ui-caption tabular-nums">{s.days.payable} of {s.days.working} days paid{s.days.lossOfPay ? ` · ${s.days.lossOfPay} without pay` : ''}</p> : null}
@@ -130,13 +139,14 @@ function PayslipView({ slip: s }) {
       <div>
         <h3 className="ui-label">Deductions</h3>
         <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
-          {s.deductions.length ? lines(s.deductions) : <p className="ui-caption py-1.5">None</p>}
+          {shownLines(s.deductions).length ? lines(s.deductions) : <p className="ui-caption py-1.5">None</p>}
           <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-medium"><dt>Total deductions</dt><dd className="text-right tabular-nums">{money(s.totalDeductions)}</dd></div>
         </dl>
       </div>
       <MovedOn note={s.deductionNote} leaving={s.leaving} />
       <button type="button" className="ui-btn ui-btn-primary w-full" onClick={save}>Save as PDF</button>
       <p className="ui-caption">Choose “Save as PDF” as the printer. PAN and bank account show only their last digits.</p>
+      <PayslipAsk slip={s} onAsk={onAsk} />
       <PayslipPrint slip={s} />
     </>
   );
@@ -196,7 +206,9 @@ function PayslipPrint({ slip: s }) {
     ['Name', e.name], ['Employee code', e.code], ['Designation', e.designation], ['Department', e.department],
     ['PAN', e.pan], ['UAN', e.uan], ['Bank', [e.bank, e.account].filter(Boolean).join(' ')],
   ].filter(([, v]) => v);
-  const rows = Math.max(s.earnings.length, s.deductions.length);
+  const earn = shownLines(s.earnings);
+  const ded = shownLines(s.deductions);
+  const rows = Math.max(earn.length, ded.length);
   return createPortal(
     <div className="clor-payslip-print" aria-hidden="true">
       <style>{PRINT_CSS}</style>
@@ -213,12 +225,12 @@ function PayslipPrint({ slip: s }) {
         <tbody>
           {Array.from({ length: rows }, (_, i) => (
             <tr key={i}>
-              <td>{s.earnings[i]?.name || ''}</td><td className="amt">{s.earnings[i] ? money(s.earnings[i].amount) : ''}</td>
-              <td>{s.deductions[i]?.name || ''}</td><td className="amt">{s.deductions[i] ? money(s.deductions[i].amount) : ''}</td>
+              <td>{earn[i]?.name || ''}</td><td className="amt">{earn[i] ? money(earn[i].amount) : ''}</td>
+              <td>{ded[i]?.name || ''}</td><td className="amt">{ded[i] ? money(ded[i].amount) : ''}</td>
             </tr>
           ))}
           <tr className="tot"><td>Total earnings</td><td className="amt">{money(s.gross)}</td><td>Total deductions</td><td className="amt">{money(s.totalDeductions)}</td></tr>
-          <tr className="tot"><td colSpan={3}>Take-home pay</td><td className="amt">{money(s.net)}</td></tr>
+          <tr className="tot"><td colSpan={3}>Net pay</td><td className="amt">{money(s.net)}</td></tr>
         </tbody>
       </table>
       {s.deductionNote?.carried?.length ? (

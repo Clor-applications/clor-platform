@@ -125,19 +125,26 @@ describe('one Approvals inbox', () => {
     await screen.findAllByText('Meera Shah');
     for (const name of ['Choose Meera Shah', 'Choose Ravi Kumar']) fireEvent.click(screen.getAllByRole('checkbox', { name })[0]);
     fireEvent.click(within(screen.getByRole('region', { name: 'Decide the chosen requests' })).getByRole('button', { name: /Approve/ }));
-    await waitFor(() => expect(dialogs.notify.error).toHaveBeenCalledWith('1 approved; 1 not: Nobody decides their own request.'));
+    /* Round 57 bulkresult A: the count, then each one that could not be, by name, with why. */
+    const said = await screen.findByRole('status', { name: 'What happened to the chosen requests' });
+    expect(within(said).getByText('1 approved · 1 could not be')).toBeTruthy();
+    expect(within(said).getByText('Meera Shah')).toBeTruthy();
+    expect(within(said).getByText(/Nobody decides their own request\./)).toBeTruthy();
     expect(approvalsApi.bulkDecideRequests).toHaveBeenCalledWith(['p1', 'p2'], true, undefined);
     expect(timeApi.bulkReviewLeave).not.toHaveBeenCalled();
   });
 
-  it('says what was not done, with the first reason', async () => {
+  it('says what was not done, with whose it was and why', async () => {
     approvalsApi.getInbox.mockResolvedValue(INBOX);
     timeApi.bulkReviewLeave.mockResolvedValueOnce({ done: 0, failed: 1, handedOn: 0, results: [{ id: 'l1', error: 'Their manager has not approved this yet.', code: 'MANAGER_FIRST' }] });
     render(<Approvals params={{ kind: 'LEAVE' }} updateParams={() => {}} />);
     await screen.findAllByText('Asha Rao');
     fireEvent.click(screen.getAllByRole('checkbox', { name: 'Choose Asha Rao' })[0]);
     fireEvent.click(within(screen.getByRole('region', { name: 'Decide the chosen requests' })).getByRole('button', { name: /Approve/ }));
-    await waitFor(() => expect(dialogs.notify.error).toHaveBeenCalledWith('0 approved; 1 not: Their manager has not approved this yet.'));
+    const said = await screen.findByRole('status', { name: 'What happened to the chosen requests' });
+    expect(within(said).getByText('0 approved · 1 could not be')).toBeTruthy();
+    expect(within(said).getByText('Asha Rao')).toBeTruthy();
+    expect(within(said).getByText(/Their manager has not approved this yet\./)).toBeTruthy();
   });
 
   it('a row opens its own drawer, and a help desk case opens the Help Desk on that case', async () => {
@@ -185,7 +192,7 @@ describe('Time & Leave', () => {
     fireEvent.click(await screen.findByRole('radio', { name: 'Month' }));
     const table = await screen.findByRole('table', { name: /Attendance in/ });
     await waitFor(() => expect(within(table).getByRole('row', { name: /Ravi Kumar/ })).toHaveTextContent(/2\s*2\s*29/));
-    expect(within(table).getByRole('columnheader', { name: 'Loss of pay' })).toBeInTheDocument();
+    expect(within(table).getByRole('columnheader', { name: 'Unpaid days (LOP)' })).toBeInTheDocument();
     expect(screen.getByText(/Payroll took these on/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Export/ }));
     expect(exporter.runListExport).toHaveBeenCalledWith(expect.objectContaining({ rows: [expect.objectContaining({ name: 'Ravi Kumar', lop: 2, payable: 29 })] }));

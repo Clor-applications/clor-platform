@@ -104,12 +104,13 @@ const toTenant = (membership) => ({
  * The branch and warehouse chosen in each company are kept per company
  * (`clor.sel.<org>.<what>`, platform/context.js), not per person. Signing in
  * or out forgets them, so the next person on this browser does not send the
- * last person's branch and meet "No access to branch".
+ * last person's branch and meet "No access to branch". The choices that start the next person added
+ * (round 56, `clor.addPerson.last`) go with them.
  */
 const forgetSelections = () => {
   for (const store of [localStorage, sessionStorage]) {
     try {
-      for (const key of Object.keys(store)) if (key.startsWith('clor.sel.')) store.removeItem(key);
+      for (const key of Object.keys(store)) if (key.startsWith('clor.sel.') || key === 'clor.addPerson.last') store.removeItem(key);
     } catch {
       /* storage unavailable: nothing was kept */
     }

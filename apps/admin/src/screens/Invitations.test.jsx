@@ -73,4 +73,24 @@ describe('Workspace → Invitations', () => {
     fireEvent.click(screen.getByRole('button', { name: /Withdraw/ }));
     await waitFor(() => expect(api.revokeInvitation).toHaveBeenCalledWith('a'));
   });
+
+  /* Round 60 pendinginvites A: one list of who has not joined, sent again one by one or all at once. */
+  it('lists who has not joined yet and sends again to all of them', async () => {
+    api.listInvitations.mockResolvedValue({
+      invitations: [
+        { id: 'a', email: 'open@x.in', accountRole: 'MEMBER', status: 'PENDING', expiresAt: '2026-11-01', lastSentAt: '2026-10-25' },
+        { id: 'b', email: 'late@x.in', accountRole: 'MEMBER', status: 'EXPIRED', lastSentAt: '2026-10-01' },
+        { id: 'c', email: 'done@x.in', accountRole: 'MEMBER', status: 'ACCEPTED', acceptedAt: '2026-10-25', lastSentAt: '2026-10-24' },
+      ],
+    });
+    api.resendInvitation.mockResolvedValue({});
+    render(<Invitations tenant={tenant} companies={companies} />);
+    await screen.findByText('open@x.in');
+    expect(screen.getByText(/Invited 25 Oct 2026/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Not joined yet/ }));
+    expect(screen.queryByText('done@x.in')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Send again to all 2' }));
+    await waitFor(() => expect(api.resendInvitation).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Sent again to 2 people.')).toBeInTheDocument();
+  });
 });

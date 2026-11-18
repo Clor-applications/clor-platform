@@ -19,7 +19,7 @@ const api = vi.hoisted(() => ({
   saveDraft: vi.fn(),
 }));
 vi.mock('./api', () => api);
-vi.mock('../organization/api', () => ({ listBranches: async () => [] }));
+vi.mock('../organization/api', () => ({ listBranches: async () => [], createItem: vi.fn() }));
 vi.mock('./suggestions', () => ({ refreshSuggestions: () => {}, useEmailSuggestions: () => [], useSuggestions: () => [] }));
 vi.mock('@ui/permissions/usePermissions', () => ({ usePermissions: () => ({}) }));
 vi.mock('./shared', () => ({ can: () => true }));
@@ -108,4 +108,23 @@ it('an ID typed by hand is kept when the suggestion comes after it', async () =>
   await act(async () => { code.resolve('AT-013'); });
   fireEvent.click(screen.getByRole('button', { name: /Back/ }));
   expect((await screen.findByLabelText(/Employee ID/)).value).toBe('MY-1');
+});
+
+/* Round 56: the fields most people skip wait under "More details"; a name in capitals is offered in proper case; a mistake shows on leaving the field. */
+it('keeps the rarely used fields under More details and offers a proper-case name', async () => {
+  api.nextEmployeeCode.mockResolvedValue('AT-001');
+  render(<Wizard start="personal" />);
+  const first = await screen.findByLabelText(/First name/);
+  expect(screen.queryByLabelText(/Personal email/)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /More details/ }));
+  expect(screen.getByLabelText(/Personal email/)).toBeTruthy();
+
+  fireEvent.change(first, { target: { value: 'RAVI' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Use Ravi' }));
+  expect(first.value).toBe('Ravi');
+
+  const email = screen.getByLabelText(/Work email/);
+  fireEvent.change(email, { target: { value: 'ravi@' } });
+  fireEvent.blur(email);
+  expect(await screen.findByText(/Enter a valid work email/)).toBeTruthy();
 });

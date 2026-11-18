@@ -12,9 +12,9 @@ export default function TakeHomeEstimate({ ctc }) {
   if (!t) return null;
   return (
     <div className="ui-takehome" role="status">
-      <p className="tabular-nums"><span className="ui-muted">In hand, about</span> <b>{money(t.rounded)} a month</b></p>
+      <p className="tabular-nums"><span className="ui-muted">Net pay, about</span> <b>{money(t.rounded)} a month</b></p>
       <p className="ui-caption tabular-nums">
-        {money(t.gross)} pay − {money(t.pf)} PF − {money(t.pt)} professional tax{t.tax ? ` − ${money(t.tax)} income tax` : ', no income tax'}.
+        {money(t.gross)} gross − {money(t.pf)} PF − {money(t.pt)} professional tax{t.tax ? ` − ${money(t.tax)} income tax` : ', no income tax'}.
         {' '}An estimate on the new tax regime; the payslip works out the exact figure.
       </p>
     </div>

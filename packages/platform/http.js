@@ -274,7 +274,11 @@ export async function apiFetch(
        work is not lost. The environment variable that used to be named here
        means nothing to whoever is looking at the screen — and this string is
        shown to them, not logged. The cause carries the technical detail. */
-    const err = new Error('Could not reach the server. Check your connection — anything you have entered is still here.');
+    /* Round 60 savefail A (not in Books): a save that did not go says so in those words, and that what was typed stays. */
+    const books = typeof document !== 'undefined' && document.documentElement?.dataset?.palette === 'indigo';
+    const err = new Error(method !== 'GET' && !books
+      ? 'Not saved, the connection dropped. Everything you typed is still here; try again.'
+      : 'Could not reach the server. Check your connection — anything you have entered is still here.');
     err.cause = e;
     /* Screens tell "no connection" from a server that answered with an error (spec v1 §8). */
     err.network = true;
