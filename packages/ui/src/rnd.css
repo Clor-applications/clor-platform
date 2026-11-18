@@ -315,9 +315,11 @@
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) { box-sizing: border-box; width: 12rem; padding-left: 1rem; margin-right: 0; }
   :root:not(#rnd) .ui-topbar .ui-app-switch { margin-left: 0; max-width: 100%; }
   :root:not(#rnd) .ui-topbar > .relative:has(> .ui-app-switch) + .ui-global-search { margin-left: 0.25rem; }
-  /* The switcher heads the screens panel (owner, 19 Nov 2026): the search starts over the page's content,
-     past the 12rem panel and the content's 2rem. */
-  :root:not(#rnd) .ui-topbar[data-panel] .ui-global-search { margin-left: 14rem; }
+  /* Screens panel open (owner, 19 Nov 2026): the switcher fills the 12rem column over the panel, inset as its
+     items are (0.5rem), and the search starts where the page's content does (panel edge + 2rem). */
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-app-switch { width: 11rem; margin-left: 0.5rem; }
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-app-switch-name { flex: 1 1 auto; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root:not(#rnd) .ui-topbar[data-panel] .ui-global-search { margin-left: 1.75rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split-scrim { inset: 4rem 0 0 5rem; }
   :root:not(#rnd):not([data-palette='indigo']) .ui-split[data-overlay] .ui-split-panel { left: 5rem; }
 }
@@ -594,29 +596,6 @@
   color: rgb(var(--fg));
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head .ui-icon-btn { width: 1.75rem; height: 1.75rem; color: rgb(var(--fg-subtle)); }
-/* The app switcher at the panel's top (owner, 19 Nov 2026), the full width of the column bar the close button. */
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head[data-switch] {
-  gap: 0.25rem;
-  padding: 0 0 0.75rem;
-  margin: 0 0 0.25rem;
-  border-bottom: 1px solid rgb(var(--panel-border));
-}
-.ui-split-panel-switch { flex: 1 1 auto; min-width: 0; display: flex; }
-.ui-split-panel-switch > .relative { width: 100%; min-width: 0; }
-:root:not(#rnd) .ui-split-panel-switch .ui-app-switch { width: 100%; min-width: 0; margin-left: 0; height: 2.25rem; }
-:root:not(#rnd) .ui-split-panel-switch .ui-app-switch-name { flex: 1 1 auto; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; }
-:root:not(#rnd) .ui-split-panel-switch .ui-app-switch-mark { width: 1.375rem; height: 1.375rem; border-radius: 0.375rem; }
-:root:not(#rnd) .ui-split-panel-switch .ui-app-switch-mark > svg { width: 0.875rem; height: 0.875rem; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-title {
-  margin: 0.5rem 0 0.25rem;
-  padding: 0 0.625rem;
-  font-family: var(--font-brand);
-  font-size: 0.9375rem;
-  line-height: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: rgb(var(--fg));
-}
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel .ui-caption {
   padding: 0.875rem 0.625rem 0.375rem;
   font-size: 0.75rem;

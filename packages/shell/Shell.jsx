@@ -972,8 +972,8 @@ function ShellScreens() {
   const isCurrent = (key) => screen === key && !platformScreen && !showMoreApps;
 
   /* The app switcher. Named for the app you are in, because that is the question it answers before it is
-     the control it offers. On a desktop with the screens panel open it heads the panel; otherwise the bar. */
-  const switcherInPanel = Boolean(split && !phone && !tablet && !panelClosed && openModule && !openModule.single);
+     the control it offers. With the screens panel open on a desktop it sits over that column and the search over the page. */
+  const panelOpenDesktop = Boolean(split && !phone && !tablet && !panelClosed && openModule && !openModule.single);
   const appSwitcher = app && (app.id !== ADMIN_APP_ID || !phone) ? (
       <UiMenu open={switcherOpen} onOpenChange={setSwitcherOpen}>
         <MenuTrigger
@@ -1103,8 +1103,8 @@ function ShellScreens() {
   /* The open module's screens under plain headings; a single-screen module has no panel. */
   const modulePanel = openModule && !openModule.single && (phone || (tablet ? tabletPanel : !panelClosed)) ? (
     <nav className="ui-split-panel" aria-label={`${openModule.label} screens`}>
-      <div className="ui-split-panel-head" data-switch={switcherInPanel || undefined}>
-        {switcherInPanel ? <div className="ui-split-panel-switch">{appSwitcher}</div> : <span className="ui-t-sec">{openModule.label}</span>}
+      <div className="ui-split-panel-head">
+        <span className="ui-t-sec">{openModule.label}</span>
         <button
           type="button"
           className="ui-icon-btn"
@@ -1119,7 +1119,6 @@ function ShellScreens() {
           <X size={18} aria-hidden="true" />
         </button>
       </div>
-      {switcherInPanel ? <p className="ui-split-panel-title ui-t-sec">{openModule.label}</p> : null}
       {openModule.groups.map((g, gi) => (
         <div key={g.label || gi} className={gi ? 'mt-4' : ''}>
           {g.label ? <p className="ui-caption px-2 pb-1">{g.label}</p> : null}
@@ -1241,8 +1240,8 @@ function ShellScreens() {
           className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5 max-[389px]:gap-0.5' : 'gap-3 px-4'}`}
           /* A phone bar without an app menu (the Workspace) has room for 44px buttons, DESIGN.md's touch size (#80 QA). */
           data-touch={phone && !(app && !inWorkspace) ? '' : undefined}
-          /* The switcher is in the screens panel: the search then starts where the page's content does. */
-          data-panel={switcherInPanel ? '' : undefined}
+          /* The screens panel is open: the switcher sits over it and the search starts where the page's content does. */
+          data-panel={panelOpenDesktop ? '' : undefined}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -1261,9 +1260,8 @@ function ShellScreens() {
             {phone ? <ClorMark size={24} /> : <ClorLogo size={13} />}
           </button>
 
-          {/* The app switcher sits at the top of the screens panel when that panel is open on a desktop
-              (owner, 19 Nov 2026: "move app dropdown ... to second sidebar top"); otherwise here in the bar. */}
-          {switcherInPanel ? null : appSwitcher}
+          {/* The app switcher stays in the bar (owner, 19 Nov 2026); with the screens panel open it lines up over that column. */}
+          {appSwitcher}
 
           {/* Global search: the command palette (⌘K), as a field anyone can see and click. */}
           {app && !Root ? (
