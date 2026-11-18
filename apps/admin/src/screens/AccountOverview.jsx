@@ -326,7 +326,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                   <Empty icon={COMPANY_ICON} compact>No companies yet.</Empty>
                 ) : (
                   <div className="ws-table-wrap">
-                    <table className="ws-table">
+                    <table className="ws-table ws-acct-co">
                       <caption className="sr-only">Companies in this account</caption>
                       <thead>
                         <tr>
@@ -336,7 +336,7 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                           <th className="num">People</th>
                           <th className="num">Invoices</th>
                           <th className="num">Billed</th>
-                          <th className="num">Outstanding</th>
+                          <th className="num">Due</th>
                         </tr>
                       </thead>
                       <tbody>

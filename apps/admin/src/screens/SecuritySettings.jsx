@@ -56,7 +56,7 @@ const savedNote = (keptOut) => {
   return parts.join(' ');
 };
 const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
-const eventTone = (t) => (/FAILED|LOCKED/.test(t) ? 'danger' : /SUCCESS|VERIFIED|CHANGED/.test(t) ? 'ok' : 'neutral');
+const eventTone = (t) => (/FAILED|LOCKED|DENIED/.test(t) ? 'danger' : /SUCCESS|VERIFIED|CHANGED|ENABLED/.test(t) ? 'ok' : /REFRESH/.test(t) ? 'info' : /DISABLED|LOGOUT|REVOKED/.test(t) ? 'warn' : 'neutral');
 const eventWords = (t) => String(t || '').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 /** A section on the page under one hairline (no card): a title, then its body. */

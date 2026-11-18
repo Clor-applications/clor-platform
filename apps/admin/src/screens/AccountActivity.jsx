@@ -4,7 +4,7 @@ import { emoji } from '@ui/components/ui/emoji';
 
 import { exportRows } from '@ui/components/ListToolbar';
 import { accountAudit } from '@platform/admin/account';
-import { Empty, FilterSelect, Loading, PageHead, StatusPill } from './wsKit';
+import { Avatar, Empty, FilterSelect, Loading, PageHead, StatusPill } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 
@@ -71,6 +71,20 @@ export function DateFilter({ span, from, to, onSpan, onFrom, onTo }) {
 }
 
 /** Which company an event was about, when it says; otherwise it was the workspace itself. */
+/* Each kind of change in its own colour, as on Access overview: sent blue, joined or put back green,
+   changed amber, taken away or refused red. */
+export const ACTION_TONE = {
+  INVITATION_SENT: '28 84 160',
+  INVITATION_RESENT: '28 84 160',
+  INVITATION_ACCEPTED: '21 128 61',
+  MEMBER_REINSTATED: '21 128 61',
+  ACCOUNT_ROLE_CHANGE: '180 83 9',
+  MEMBER_SIGNED_OUT: '180 83 9',
+  ACCOUNT_RENAMED: '180 83 9',
+  MEMBER_SUSPENDED: '185 28 28',
+  MEMBER_REMOVED_FROM_COMPANY: '185 28 28',
+  ACCESS_DENIED: '185 28 28',
+};
 const scopeOf = (e) => e?.metadata?.orgName || e?.metadata?.companyName || e?.metadata?.company || 'Workspace';
 const detailOf = (e) => [e.targetName, e.message && e.message !== ACTION_WORDS[e.action] ? e.message : ''].filter(Boolean).join(' · ') || '—';
 
@@ -109,6 +123,7 @@ export default function AccountActivity() {
   }, []);
   useEffect(() => load(filters), [filters, load]);
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
+  const pick = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
   const chooseSpan = (v) => {
     setSpan(v);
     if (v !== 'custom') setFilters((f) => ({ ...f, from: spanFrom(v), to: '' }));
@@ -165,23 +180,10 @@ export default function AccountActivity() {
             <span className="sr-only">Search</span>
             <input type="search" className="ui-input" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
-          <select className="ui-select" aria-label="Person" value={filters.actor} onChange={set('actor')}>
-            <option value="">Person: Anyone</option>
-            {people.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <select className="ui-select" aria-label="What happened" value={filters.action} onChange={set('action')}>
-            <option value="">Action: All</option>
-            {Object.entries(ACTION_WORDS).map(([k, l]) => (
-              <option key={k} value={k}>{l}</option>
-            ))}
-          </select>
-          <select className="ui-select" aria-label="Result" value={filters.result} onChange={set('result')}>
-            <option value="">Result: Done or refused</option>
-            <option value="OK">Done</option>
-            <option value="DENIED">Refused</option>
-          </select>
+          {/* Menus, not native selects (owner, 19 Nov 2026). */}
+          <FilterSelect label="Person" value={filters.actor} onChange={pick('actor')} options={[['', 'Anyone'], ...people.map((p) => [p.id, p.name])]} />
+          <FilterSelect label="Action" ariaLabel="What happened" value={filters.action} onChange={pick('action')} width="16rem" options={[['', 'All'], ...Object.entries(ACTION_WORDS)]} />
+          <FilterSelect label="Result" value={filters.result} onChange={pick('result')} width="12rem" options={[['', 'Done or refused'], ['OK', 'Done'], ['DENIED', 'Refused']]} />
           <DateFilter span={span} from={filters.from} to={filters.to} onSpan={chooseSpan} onFrom={set('from')} onTo={set('to')} />
         </div>
 
@@ -212,12 +214,13 @@ export default function AccountActivity() {
                       </td>
                       <td>
                         <span className="ws-sec-who">
+                          <Avatar name={e.actor?.name || 'Someone'} />
                           <strong>{e.actor?.name || 'Someone'}</strong>
                         </span>
                       </td>
                       <td>
                         <span className="ws-sec-action">
-                          <button type="button" className="ws-tag ws-sec-tagbtn" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? '' : e.id)}>
+                          <button type="button" className="ws-tag ws-sec-tagbtn" style={{ '--tag': ACTION_TONE[e.result === 'DENIED' ? 'ACCESS_DENIED' : e.action] || '92 90 84' }} aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? '' : e.id)}>
                             {e.result === 'DENIED' ? <ShieldAlert size={14} aria-hidden="true" /> : null}
                             {ACTION_WORDS[e.action] || e.action}
                           </button>
@@ -225,7 +228,7 @@ export default function AccountActivity() {
                         </span>
                       </td>
                       <td className="ws-sec-wrap">{detailOf(e)}</td>
-                      <td>{scopeOf(e)}</td>
+                      <td>{scopeOf(e) === 'Workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : scopeOf(e)}</td>
                     </tr>
                     {open === e.id ? (
                       <tr className="ws-sec-detail">

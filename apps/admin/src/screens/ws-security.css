@@ -617,3 +617,6 @@
 :root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-list .ws-item { gap: 12px; min-height: 3.5rem; padding-block: 8px; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-head .ws-row-link { font-size: 0.8125rem; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-item-end { font-size: 0.8125rem; color: rgb(74 72 66); }
+/* Audit log action: tinted in its kind's colour (owner, 19 Nov 2026). */
+.ws .ws-sec-tagbtn[style] { background: rgb(var(--tag) / 0.1); color: rgb(var(--tag)); font-weight: 600; }
+.ws .ws-sec-tagbtn[style]:hover { background: rgb(var(--tag) / 0.16); }
