@@ -20,7 +20,7 @@ export default function LeaveDocumentField({ typeName, afterDays, value, onChang
     <label className="block">
       <span className="ui-label">{required ? 'Document *' : 'Document'}</span>
       <input type="file" className="ui-input w-full" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => pick(e.target.files?.[0] || null)} />
-      <span className={`ui-caption ${error ? 'ui-text-neg' : ''}`}>{error || `${typeName || 'This type'} for more than ${afterDays ?? '—'} ${afterDays === 1 ? 'day' : 'days'} asks for a document, such as a medical certificate.${value ? ` ${value.name} is attached.` : ''}${note ? ` ${note}` : ''}`}</span>
+      <span className={`ui-caption ${error ? 'ui-text-neg' : ''}`}>{error || `${typeName || 'This type'} for more than ${afterDays ?? '—'} ${afterDays === 1 ? 'day' : 'days'} asks for a document, such as a medical certificate. PDF or picture, up to 5 MB.${value ? ` ${value.name} is attached.` : ''}${note ? ` ${note}` : ''}`}</span>
     </label>
   );
 }

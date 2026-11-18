@@ -226,7 +226,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
           <span className="min-w-0 flex-1 truncate">{file.name}</span>
           <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => { setFile(null); setPreview(''); }}>Remove</button>
         </div>
-      ) : <p className="ui-caption">No bill? Add it anyway and say why in the note.</p>}
+      ) : <p className="ui-caption">A photo, or a PDF up to 5 MB. No bill? Add it anyway and say why in the note.</p>}
       <div className="grid grid-cols-2 gap-3">
         <label className="block"><span className="ui-label">Amount</span>
           <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />

@@ -10,6 +10,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
 import { leavingReasons } from '../api/engagement';
+import { listAllEmployees } from '../workforce/api';
 import { todayIst } from '@ui/utils/dates';
 
 /**
@@ -87,6 +88,47 @@ export function LeavingReasons() {
   );
 }
 
+/**
+ * How long people have stayed (round 23 pick "tenure" A): everyone working
+ * today, in bands by whole years since their joining date. People with no
+ * joining date, or one still to come, are left out and counted apart.
+ */
+export const TENURE_BANDS = [
+  { key: 'u1', label: 'Under 1 year', min: 0, max: 1 },
+  { key: '1to3', label: '1–3 years', min: 1, max: 3 },
+  { key: '3to5', label: '3–5 years', min: 3, max: 5 },
+  { key: '5p', label: '5+ years', min: 5, max: Infinity },
+];
+export function tenureBands(people, today = todayIst()) {
+  const counts = Object.fromEntries(TENURE_BANDS.map((b) => [b.key, 0]));
+  let noDate = 0;
+  for (const e of people || []) {
+    if (e.status === 'LEFT') continue;
+    const d = e.dateOfJoining ? String(e.dateOfJoining).slice(0, 10) : '';
+    if (!d || d > today) { if (!d) noDate += 1; continue; }
+    let years = Number(today.slice(0, 4)) - Number(d.slice(0, 4));
+    if (today.slice(5) < d.slice(5)) years -= 1;
+    const band = TENURE_BANDS.find((b) => years >= b.min && years < b.max);
+    counts[band.key] += 1;
+  }
+  return { rows: TENURE_BANDS.map((b) => ({ key: b.key, label: b.label, value: counts[b.key] })), noDate };
+}
+
+function TenurePanel() {
+  const req = useRequest(() => listAllEmployees({ sort: 'name' }).catch(() => null), []);
+  const r = req.data;
+  if (!r || !Array.isArray(r.employees)) return null;
+  const { rows, noDate } = tenureBands(r.employees);
+  if (!rows.some((x) => x.value)) return null;
+  const total = Number(r.total || r.employees.length);
+  const notes = [noDate ? `${noDate} without a joining date left out` : null, total > r.employees.length ? `counted from the first ${r.employees.length} people` : null].filter(Boolean);
+  return (
+    <ChartPanel title="How long people have stayed" note={notes.length ? `Working today · ${notes.join(' · ')}` : 'Working today'}>
+      <BarList one label="People working today by years since joining" rows={rows} />
+    </ChartPanel>
+  );
+}
+
 const headcount = (from, to) => apiFetch(`/orgs/${encodeURIComponent(orgId())}/people/headcount?from=${from}&to=${to}`, { skipWarehouseHeader: true });
 
 export default function PeopleReports({ params = {}, updateParams }) {
@@ -139,6 +181,7 @@ export default function PeopleReports({ params = {}, updateParams }) {
             <ChartPanel title="Joined and left" note="Up joined · down left" className="pt-chart-wide">
               <JoinLeaveBars rows={months.map((m) => ({ key: m.month, label: MONTHS[Number(m.month.slice(5, 7)) - 1], joiners: m.joiners, leavers: m.leavers }))} />
             </ChartPanel>
+            <TenurePanel />
           </div>
         ) : null}
         </div>

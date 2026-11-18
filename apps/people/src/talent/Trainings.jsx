@@ -211,6 +211,7 @@ function CompleteForm({ seat, validMonths, onClose, onSaved }) {
           <span className="ui-label">Certificate</span>
           <input ref={ref} type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" aria-label="Certificate file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           <button type="button" className="ui-btn ui-btn-secondary w-full justify-start truncate" onClick={() => ref.current?.click()}>{file ? file.name : seat.cert ? `Replace ${seat.cert.name}` : 'Choose a PDF or photo'}</button>
+          <span className="block ui-caption mt-1">Up to 5 MB.</span>
         </div>
         {validMonths ? <p className="sm:col-span-2 ui-caption">Good for {months(validMonths)} from this date.</p> : null}
       </form>

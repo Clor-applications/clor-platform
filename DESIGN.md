@@ -513,6 +513,28 @@ try; "Report a problem" in Help with a screenshot added; comp off added by itsel
 a holiday; the Ops support queue as an inbox with waiting time (Ops console); @ mentions in
 comments; booking a cab drop for a late shift.
 
+### Round 23 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| How long people have stayed | On People → Headcount & attrition, a "How long people have stayed" chart: everyone working today in four bars, under 1 year, 1–3, 3–5 and 5+ years since joining. People without a joining date are left out and counted in the note (`tenureBands`, `TenurePanel`). |
+| File too big to upload | The limit is written before choosing, beside the upload: the bill on My money ("A photo, or a PDF up to 5 MB"), a leave document, a night-work consent copy, a compliance proof, a training certificate and a résumé. The check on choosing stays. |
+| When a short day counts as half day | The shift form says the rule in one sentence under the half-day field: "Less than 4 h worked is absent; 4 h up to 8 h is a half day", from the half-day and full-day minutes as typed, the way the server works the day out (`halfDaySentence`). |
+
+Picked and already how the app works: a shift that ends after midnight is counted on the day it
+starts; the doctor's note is asked on the leave form only when the type and length need it
+(`LeaveDocumentField`); the home page is the same for everyone (no arranging).
+
+Picked, **not built yet**: labour welfare fund as its own payslip line in the month it is taken;
+a "For" field on the leave form so a manager can ask leave for someone; days short of notice with
+the amount to pay back; switches on an Ops customer's page to turn a feature on for that
+customer; password rules as ticks for the whole company; a strip in the phone app saying a new
+version is out; take-home rounded to the nearest rupee; a discount set on the customer in Ops;
+a "From" date on an edit shown as coming up; payroll problems listed with a "Fix" link each
+before the run. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
