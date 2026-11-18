@@ -6,12 +6,26 @@ import { accountAudit, listInvitations, memberDirectory } from '@platform/admin/
 import { getMySessions, getPolicy, getProviders } from '@platform/admin/security';
 import { listCredentials } from '@platform/admin/credentials';
 import { ACTION_WORDS } from './AccountActivity';
-import { Empty, ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
+import { Avatar, Empty, ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 
 /* The colour icons the empty lists show. */
 const LOG_ICON = emoji('scroll');
+/* Each kind of access change in its own colour and mark (owner, 19 Nov 2026): sent blue, joined green,
+   taken away red, put back or changed amber; anything else grey. */
+const CHANGE_LOOK = {
+  INVITATION_SENT: ['info', 'mail'],
+  INVITATION_RESENT: ['info', 'mail'],
+  INVITATION_ACCEPTED: ['ok', 'invite'],
+  INVITATION_REVOKED: ['off', 'mail'],
+  MEMBER_SUSPENDED: ['danger', 'warning'],
+  MEMBER_REMOVED_FROM_COMPANY: ['danger', 'person'],
+  ACCESS_DENIED: ['danger', 'security'],
+  MEMBER_REINSTATED: ['ok', 'secure'],
+  ACCOUNT_ROLE_CHANGE: ['warn', 'secure'],
+  MEMBER_SIGNED_OUT: ['warn', 'security'],
+};
 const PEOPLE_ICON = emoji('busts-in-silhouette');
 
 /**
@@ -94,13 +108,17 @@ export function AccessHome({ navItems = [], openScreen }) {
         ) : null}
         <div className="ws-layout">
           <div className="ws-main">
-            <Panel title="Recent access changes" action={may.has('accountActivity') ? <button type="button" className="ws-link" onClick={() => openScreen('accountActivity')}>View all <ChevronRight size={16} aria-hidden="true" /></button> : null}>
+            <Panel title="Recent access changes" action={may.has('accountActivity') ? <button type="button" className="ws-row-link" onClick={() => openScreen('accountActivity')}>View all <ChevronRight size={14} aria-hidden="true" /></button> : null}>
               {changes.length ? (
                 <ul className="ws-list">
                   {changes.map((e) => (
                     <li key={e.id}>
                       <div className="ws-item">
-                        <span className="ws-tile" aria-hidden="true"><ICON.history size={18} /></span>
+                        {(() => {
+                          const [tone, glyph] = CHANGE_LOOK[e.action] || ['off', 'history'];
+                          const Glyph = ICON[glyph] || ICON.history;
+                          return <span className="ws-change-mark" data-tone={tone} aria-hidden="true"><Glyph size={16} /></span>;
+                        })()}
                         <span className="ws-item-text">
                           <span className="ws-item-title">{ACTION_WORDS[e.action] || e.action}{e.targetName ? `: ${e.targetName}` : ''}</span>
                           <span className="ws-item-sub">{e.actor?.name || 'Someone'}</span>
@@ -116,19 +134,18 @@ export function AccessHome({ navItems = [], openScreen }) {
             </Panel>
           </div>
           <aside className="ws-side">
-            <Panel title="Who can administer" action={may.has('members') ? <button type="button" className="ws-link" onClick={() => openScreen('members')}>Members <ChevronRight size={16} aria-hidden="true" /></button> : null}>
+            <Panel title="Who can administer" action={may.has('members') ? <button type="button" className="ws-row-link" onClick={() => openScreen('members')}>Members <ChevronRight size={14} aria-hidden="true" /></button> : null}>
               {privileged.length ? (
                 <ul className="ws-list">
                   {privileged.map((m) => (
                     <li key={m.userId}>
                       <div className="ws-item">
-                        <span className={`ws-tile${m.authenticator ? '' : ' ws-tile--warn'}`} aria-hidden="true">{m.authenticator ? <ICON.secure size={18} /> : <ICON.warning size={18} />}</span>
+                        <Avatar name={m.name || m.email} size="lg" />
                         <span className="ws-item-text">
                           <span className="ws-item-title">{m.name || m.email}</span>
-                          <span className="ws-item-sub">
-                            {m.accountRole === 'OWNER' ? 'Account owner' : m.accountRole === 'ADMIN' ? 'Account administrator' : 'Company administrator'} · {m.authenticator ? 'authenticator on' : 'no authenticator'}
-                          </span>
+                          <span className="ws-item-sub">{m.accountRole === 'OWNER' ? 'Owner' : m.accountRole === 'ADMIN' ? 'Administrator' : 'Company admin'}</span>
                         </span>
+                        <span className="ws-state" data-tone={m.authenticator ? 'ok' : 'warn'}>{m.authenticator ? 'Authenticator on' : 'No authenticator'}</span>
                       </div>
                     </li>
                   ))}

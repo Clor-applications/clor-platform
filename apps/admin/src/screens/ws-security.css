@@ -596,3 +596,24 @@
 }
 .ws .ws-more-btn:hover, .ws .ws-more-btn[aria-expanded='true'] { background: rgb(var(--fg) / 0.06); color: rgb(var(--fg)); }
 .ws .ws-more-btn:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; }
+
+/* Access overview lists (owner, 19 Nov 2026): a coloured mark for each kind of change, people as initials,
+   the authenticator as a state tag, heading links like the other row links. */
+.ws-change-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 8px;
+  background: rgb(var(--st) / 0.1);
+  color: rgb(var(--st));
+  --st: 92 90 84;
+}
+.ws-change-mark[data-tone='ok'] { --st: 21 128 61; }
+.ws-change-mark[data-tone='warn'] { --st: 180 83 9; }
+.ws-change-mark[data-tone='danger'] { --st: 185 28 28; }
+.ws-change-mark[data-tone='info'] { --st: 28 84 160; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-list .ws-item { gap: 12px; min-height: 3.5rem; padding-block: 8px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-head .ws-row-link { font-size: 0.8125rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-item-end { font-size: 0.8125rem; color: rgb(74 72 66); }
