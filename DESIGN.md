@@ -556,6 +556,26 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 36 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| An offer with no answer yet | A sent offer on the candidate shows an amber chip, "Answer by 25 Nov · 7 days left" (or "Answer by today"); once the date passes it turns red, "Answer date passed". The offer form already asks "Open until", a week ahead by default (`OfferAnswerBy`, Candidates → a candidate → Offers). |
+
+Picked and already how the app works: "Move to screening", "Set an interview", "Send an offer",
+one button for the next stage; HR sets the interview time; a job's apply link made and copied to
+share on job sites; closed candidates stay searchable by name, e-mail or phone.
+
+Picked, **not built yet**: a reminder two days before the answer date; skills rated 1–5 on the
+interviewer's form; a welcome email with time, place and who to meet; a first-week task list for
+the joiner; one upload box for joining documents; HR ticking laptop and SIM on the joiner record;
+the work email created on joining; a director approving a new job with the yearly budget shown;
+the agency and its fee worked out on joining; a kind not-chosen email to the rest when the job is
+filled; a careers page in the company's colours; the joiner asking for a new joining date in the
+app. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
