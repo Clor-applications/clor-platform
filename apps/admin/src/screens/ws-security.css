@@ -187,8 +187,8 @@
 /* Activity's filters keep their own widths (owner, 19 Nov 2026: "reduce filter widths"); Refresh and Export
    sit at the row's right end. */
 .ws .ws-filters--one-row:has(.ws-filters-end) > .ws-search {
-  flex: 0 1 280px;
-  max-width: 280px;
+  flex: 0 1 260px;
+  max-width: 260px;
 }
 .ws .ws-filters--one-row .ws-filters-end {
   flex: none;
@@ -203,4 +203,128 @@
 /* Each cell's first line of text on one baseline: the time, the name, what happened and the app tag. */
 .ws .ws-activity-table tbody td {
   vertical-align: baseline;
+}
+
+/* Activity: the list and a summary column at its right (owner, 19 Nov 2026: "right space empty, add something"). */
+.ws-activity-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: 32px;
+  align-items: start;
+}
+.ws-activity-main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.ws-activity-side {
+  position: sticky;
+  top: 5rem;
+  display: grid;
+  gap: 12px;
+}
+.ws-activity-box {
+  padding: 14px 16px;
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+}
+.ws .ws-activity-side .ws-activity-box-title {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-activity-big {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-activity-big .ui-num {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+  color: rgb(var(--fg, 28 27 24));
+  margin-right: 2px;
+}
+.ws-activity-sub {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle, 92 90 84));
+}
+.ws-activity-bars,
+.ws-activity-people,
+.ws-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ws-activity-bars li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) 1.75rem;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+.ws-activity-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(var(--border, 229 229 229) / 0.7);
+  overflow: hidden;
+}
+.ws-activity-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(var(--cat-1, 42 120 214));
+}
+.ws-activity-bars li[data-tone='ok'] .ws-activity-bar > span { background: rgb(var(--cat-3, 27 175 122)); }
+.ws-activity-bars li[data-tone='danger'] .ws-activity-bar > span { background: rgb(var(--neg, 180 35 24)); }
+.ws-activity-bar-n {
+  margin-left: auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.ws-activity-person {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(var(--fg, 28 27 24));
+  text-align: left;
+  cursor: pointer;
+  box-sizing: content-box;
+}
+.ws-activity-person:hover { background: rgb(var(--hover-blue, 42 120 214) / 0.08); }
+.ws-activity-person[aria-pressed='true'] { background: rgb(var(--select-green, 27 175 122) / 0.14); }
+.ws-activity-person:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 1px; }
+.ws-activity-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+.ws-activity-record { color: rgb(var(--fg-muted, 58 63 71)); }
+.ws-activity-list li.ws-activity-record:first-of-type,
+.ws-activity-list li:not(.ws-activity-record) + .ws-activity-record {
+  padding-top: 8px;
+  border-top: 1px solid rgb(var(--border, 229 229 229));
+}
+@media (max-width: 1200px) {
+  .ws-activity-layout { grid-template-columns: minmax(0, 1fr); }
+  .ws-activity-side { position: static; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
 }

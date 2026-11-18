@@ -547,7 +547,8 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
             <p className="wsh-lede">{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
             <p className="wsh-facts">
               <span>{facts.join(' · ')}</span>
-              {role ? <span className="ws-pill ws-pill--neutral">{ROLE_LABEL[role] || role}</span> : null}
+              {/* The role in green with a live dot: you, signed in now (owner, 19 Nov 2026). */}
+              {role ? <span className="ws-pill wsh-role"><span className="wsh-live" aria-hidden="true" />{ROLE_LABEL[role] || role}</span> : null}
             </p>
             {isAdmin && go('invitations') ? (
               <div className="wsh-hero-actions">

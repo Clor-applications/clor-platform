@@ -2967,9 +2967,10 @@ button.ws-stat:hover {
   color: rgb(var(--ws-blue-ink));
 }
 .ws-tag--workspace {
-  /* A graphite tint, not a solid block: the solid tag was the loudest thing in the row (audit). */
-  background: rgb(var(--graphite, 32 35 41) / 0.09);
-  color: rgb(var(--graphite, 32 35 41));
+  /* The Workspace in its own colour, a soft blue tint (owner, 19 Nov 2026: "workspace also different color");
+     graphite read as a disabled grey. */
+  background: rgb(var(--cat-1, 42 120 214) / 0.1);
+  color: rgb(28 84 160);
   font-weight: 600;
 }
 /* Quiet buttons (Refresh, Export, and their like) carry their icon in the page's blue. */
@@ -3425,10 +3426,58 @@ button.ws-stat:hover {
   gap: 8px;
 }
 .ws .ws-filters-end .ws-btn {
-  height: 36px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  gap: 6px;
+  font-size: 0.8125rem;
+  border: 1px solid rgb(var(--border-field, 212 212 212));
+  background: rgb(255 255 255);
+  color: rgb(var(--fg, 28 27 24));
 }
+.ws .ws-filters-end .ws-btn:hover:not(:disabled) {
+  border-color: rgb(var(--cat-1, 42 120 214) / 0.5);
+  background: rgb(var(--cat-1, 42 120 214) / 0.06);
+}
+.ws .ws-filters-end .ws-btn--icon,
 .ws .ws-btn--icon {
-  width: 36px;
+  width: 32px;
+  flex: none;
   padding: 0;
   justify-content: center;
 }
+
+/* Filter chips (wsKit FilterSelect, 19 Nov 2026): 32px, sunken ground, "Label: value ⌄"; a chosen filter
+   turns soft blue so it reads as on. Their menu opens right under them. */
+.ws .ws-filters :is(input, select) {
+  height: 32px;
+  min-height: 32px;
+}
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgb(var(--surface-sunken, 244 245 242));
+  background: rgb(var(--rail-bg, 243 243 240));
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgb(var(--fg, 28 27 24));
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ws-chip:hover { border-color: rgb(var(--border-field, 212 212 212)); }
+.ws-chip[data-popup-open] { border-color: rgb(var(--cat-1, 42 120 214) / 0.6); background: rgb(255 255 255); }
+.ws-chip:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; }
+.ws-chip-k { color: rgb(var(--fg-muted, 68 66 61)); }
+.ws-chip-v { font-weight: 600; }
+.ws-chip-caret { margin-left: 2px; color: rgb(var(--fg-subtle, 92 90 84)); }
+.ws-chip[data-set] {
+  background: rgb(var(--cat-1, 42 120 214) / 0.1);
+  color: rgb(28 84 160);
+}
+.ws-chip[data-set] .ws-chip-k { color: rgb(28 84 160 / 0.8); }
+.ws-chip-item { gap: 8px; font-size: 0.8125rem; }

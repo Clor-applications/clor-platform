@@ -4,7 +4,7 @@ import { emoji } from '@ui/components/ui/emoji';
 
 import { exportRows } from '@ui/components/ListToolbar';
 import { accountAudit } from '@platform/admin/account';
-import { Empty, Loading, PageHead, StatusPill } from './wsKit';
+import { Empty, FilterSelect, Loading, PageHead, StatusPill } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 
@@ -59,11 +59,7 @@ export const spanFrom = (span) => (/^\d+$/.test(span) ? isoDay(new Date(Date.now
 export function DateFilter({ span, from, to, onSpan, onFrom, onTo }) {
   return (
     <>
-      <select className="ui-select" aria-label="Date" value={span} onChange={(e) => onSpan(e.target.value)}>
-        {DATE_SPANS.map(([v, l]) => (
-          <option key={v || 'any'} value={v}>{`Date: ${l}`}</option>
-        ))}
-      </select>
+      <FilterSelect label="Date" value={span} options={DATE_SPANS} onChange={onSpan} />
       {span === 'custom' ? (
         <>
           <input type="date" className="ui-input" aria-label="From" value={from} onChange={onFrom} />

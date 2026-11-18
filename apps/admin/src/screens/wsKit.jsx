@@ -1,7 +1,8 @@
 import React from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { PageIconContext } from './pageIcon';
-import { ArrowLeft, ChevronRight } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Check, ChevronDown, ChevronRight } from '@ui/components/ui/lineIcons';
+import { Menu as UiMenu, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '@ui/components/ui/Menu';
 import {
   Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
 } from 'lucide-react';
@@ -425,5 +426,34 @@ export function SeatRow({ app, used, limit, unit = 'users', note }) {
         {state === 'over' ? <StatusPill tone="danger">Over limit</StatusPill> : state === 'near' ? <StatusPill tone="warn">Near limit</StatusPill> : <StatusPill tone="ok">OK</StatusPill>}
       </span>
     </div>
+  );
+}
+
+/**
+ * A filter chip ("App: All ⌄") that opens the app's own menu right under it (owner, 19 Nov 2026: the
+ * browser's own select list opened in the middle of the page, in its own large type). `options` are
+ * `[value, label]` pairs; the chip shows `label` and the chosen option's label.
+ */
+export function FilterSelect({ label, value, options, onChange, ariaLabel, width = '14rem' }) {
+  const [open, setOpen] = React.useState(false);
+  const chosen = options.find(([v]) => v === value) || options[0];
+  return (
+    <UiMenu open={open} onOpenChange={setOpen}>
+      <MenuTrigger className="ws-chip" aria-label={`${ariaLabel || label}: ${chosen?.[1] || ''}`} data-set={value ? '' : undefined}>
+        <span className="ws-chip-k">{label}:</span>
+        <span className="ws-chip-v">{chosen?.[1]}</span>
+        <ChevronDown size={14} aria-hidden="true" className="ws-chip-caret" />
+      </MenuTrigger>
+      <MenuPanel aria-label={ariaLabel || label} minWidth="10rem" width={width} sideOffset={4}>
+        <MenuRadioGroup value={value} onValueChange={(v) => { onChange(v); setOpen(false); }}>
+          {options.map(([v, l]) => (
+            <MenuRadioItem key={v || '__all'} value={v} className="ws-chip-item">
+              <span className="min-w-0 flex-1 truncate">{l}</span>
+              {v === value ? <Check size={14} aria-hidden="true" /> : null}
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </MenuPanel>
+    </UiMenu>
   );
 }

@@ -5,7 +5,7 @@ import { Download, RefreshCw, Search } from '@ui/components/ui/lineIcons';
 import { exportRows } from '@ui/components/ListToolbar';
 import { listAudit, listAuditFacets } from '@platform/admin/audit';
 import { hasApp } from '@platform/context';
-import { AppTag, Avatar, Loading, PageHead } from './wsKit';
+import { AppTag, Avatar, FilterSelect, Loading, PageHead } from './wsKit';
 import { DateFilter, shortWhen, spanFrom } from './AccountActivity';
 import './workspace.css';
 import './ws-security.css';
@@ -291,6 +291,29 @@ export default function AuditTrail({ tenant } = {}) {
   }, [entries, filters.userId]);
   const company = tenant?.name || '';
 
+  /* The side summary (owner, 19 Nov 2026: use the empty right side): what the loaded entries add up to. */
+  const summary = useMemo(() => {
+    const count = (key) => {
+      const m = new Map();
+      for (const e of entries) {
+        const k = key(e);
+        if (!k) continue;
+        const [id, label] = Array.isArray(k) ? k : [k, k];
+        const was = m.get(id) || { id, label, n: 0 };
+        was.n += 1;
+        m.set(id, was);
+      }
+      return [...m.values()].sort((a, b) => b.n - a.n);
+    };
+    return {
+      actions: count((e) => [e.action, ACTION_DONE[e.action] || actionWords(e.action)]),
+      people: count((e) => (e.by?.id ? [e.by.id, e.by.name || 'Unknown user'] : null)).slice(0, 5),
+      apps: count((e) => { const a = appOfEntity(e.entity); return [a, APP_WORDS[a]]; }),
+      records: count((e) => (e.entity ? [e.entity, entityLabel(e.entity)] : null)).slice(0, 5),
+      latest: entries[0]?.at || null,
+    };
+  }, [entries]);
+
   const download = () =>
     exportRows({
       fileName: 'Audit trail',
@@ -332,29 +355,11 @@ export default function AuditTrail({ tenant } = {}) {
             <span className="sr-only">Search activity</span>
             <input id="audit-q" type="search" value={filters.q} onChange={set('q')} className="ui-input" placeholder="Search activity" />
           </label>
-          <select id="audit-app" aria-label="App" value={filters.app} onChange={set('app')} className="ui-select">
-            {[{ id: '', label: 'All' }, ...offered()].map((a) => (
-              <option key={a.id || 'all'} value={a.id}>{`App: ${a.label}`}</option>
-            ))}
-          </select>
-          <select id="audit-person" aria-label="Person" value={filters.userId} onChange={set('userId')} className="ui-select">
-            <option value="">Person: Anyone</option>
-            {people.map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
-            ))}
-          </select>
-          <select id="audit-entity" aria-label="Record" value={filters.entity} onChange={set('entity')} className="ui-select">
-            <option value="">Record: All</option>
-            {facets.entities.map((e) => (
-              <option key={e} value={e}>{entityLabel(e)}</option>
-            ))}
-          </select>
-          <select id="audit-action" aria-label="Action" value={filters.action} onChange={set('action')} className="ui-select">
-            <option value="">Action: All</option>
-            {facets.actions.map((a) => (
-              <option key={a} value={a}>{actionWords(a)}</option>
-            ))}
-          </select>
+          {/* The app's own menus, opening under each chip (owner, 19 Nov 2026), not the browser's select lists. */}
+          <FilterSelect label="App" value={filters.app} options={[['', 'All'], ...offered().map((a) => [a.id, a.label])]} onChange={(v) => setFilters((p) => ({ ...p, app: v }))} />
+          <FilterSelect label="Person" value={filters.userId} options={[['', 'Anyone'], ...people]} onChange={(v) => setFilters((p) => ({ ...p, userId: v }))} />
+          <FilterSelect label="Record" value={filters.entity} options={[['', 'All'], ...facets.entities.map((e) => [e, entityLabel(e)])]} onChange={(v) => setFilters((p) => ({ ...p, entity: v }))} />
+          <FilterSelect label="Action" value={filters.action} options={[['', 'All'], ...facets.actions.map((a) => [a, ACTION_DONE[a] || actionWords(a)])]} onChange={(v) => setFilters((p) => ({ ...p, action: v }))} />
           <DateFilter span={span} from={filters.from} to={filters.to} onSpan={chooseSpan} onFrom={set('from')} onTo={set('to')} />
           {/* Refresh and Export close the filter row, at its right end (owner, 19 Nov 2026: use the full width). */}
           <span className="ws-filters-end">
@@ -376,7 +381,8 @@ export default function AuditTrail({ tenant } = {}) {
         ) : !entries.length ? (
           <Loading shape="rows" rows={3} label="Loading activity…" />
         ) : (
-          <>
+          <div className="ws-activity-layout">
+          <div className="ws-activity-main">
             <div className="ws-table-wrap">
               <table className="ws-table ws-sec-table ws-activity-table" aria-label="Activity, newest first">
                 <colgroup>
@@ -392,7 +398,7 @@ export default function AuditTrail({ tenant } = {}) {
                     <th scope="col">When</th>
                     <th scope="col">Who</th>
                     {/* App beside Who, What happened last: its words take the rest of the row, so no gap opens before App (owner, 19 Nov 2026). */}
-                    <th scope="col">App</th>
+                    <th scope="col" className="ws-mid">App</th>
                     <th scope="col">What happened</th>
                   </tr>
                 </thead>
@@ -412,7 +418,7 @@ export default function AuditTrail({ tenant } = {}) {
                             {e.entity === 'SupportGrant' ? <span className="ws-tag">Staff</span> : null}
                           </span>
                         </td>
-                        <td>
+                        <td className="ws-mid">
                           {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
                         </td>
                         <td className="ws-sec-wrap">
@@ -444,7 +450,57 @@ export default function AuditTrail({ tenant } = {}) {
                 <span className="ws-head-meta sr-only">The start of the trail</span>
               )}
             </nav>
-          </>
+          </div>
+          <aside className="ws-activity-side" aria-label="Activity summary">
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">In this list</p>
+              <p className="ws-activity-big"><span className="ui-num">{entries.length}</span> {entries.length === 1 ? 'change' : 'changes'}</p>
+              {summary.latest ? <p className="ws-activity-sub">Latest {shortWhen(summary.latest)}</p> : null}
+              <ul className="ws-activity-bars" aria-label="By kind of change">
+                {summary.actions.map((a) => (
+                  <li key={a.id} data-tone={ACTION_STYLE[a.id]?.tone || 'info'}>
+                    <span className="ws-activity-bar-label">{a.label}</span>
+                    <span className="ws-activity-bar"><span style={{ width: `${Math.max(6, Math.round((a.n / entries.length) * 100))}%` }} /></span>
+                    <span className="ws-activity-bar-n ui-num">{a.n}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+            {summary.people.length ? (
+              <section className="ws-activity-box">
+                <p className="ws-activity-box-title">Most active</p>
+                <ul className="ws-activity-people">
+                  {summary.people.map((p) => (
+                    <li key={p.id}>
+                      <button type="button" className="ws-activity-person" aria-pressed={filters.userId === p.id} onClick={() => setFilters((f) => ({ ...f, userId: f.userId === p.id ? '' : p.id }))} title={filters.userId === p.id ? 'Show everyone' : `Show only ${p.label}`}>
+                        <Avatar name={p.label} hue="blue" />
+                        <span className="min-w-0 truncate">{p.label}</span>
+                        <span className="ws-activity-bar-n ui-num">{p.n}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">Where</p>
+              <ul className="ws-activity-list">
+                {summary.apps.map((a) => (
+                  <li key={a.id}>
+                    {a.id === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={a.id} />}
+                    <span className="ws-activity-bar-n ui-num">{a.n}</span>
+                  </li>
+                ))}
+                {summary.records.map((r) => (
+                  <li key={r.id} className="ws-activity-record">
+                    <span>{r.label}</span>
+                    <span className="ws-activity-bar-n ui-num">{r.n}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </aside>
+          </div>
         )}
       </div>
     </div>
