@@ -4,7 +4,7 @@ import { ArrowRight } from '@ui/components/ui/lineIcons';
 
 import { hasApp, orgId } from '@platform/context';
 import { apiFetch } from '@platform/http';
-import { Loading, PageHead, ago } from './wsKit';
+import { AppTag, Loading, PageHead, ago } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 
@@ -155,8 +155,8 @@ export default function Integrations({ openApp, openScreen }) {
                               <strong style={{ fontWeight: 600 }}>{a.label}</strong>
                               <div className="ws-card-blurb">{a.about}</div>
                             </td>
-                            <td>{WHERE[a.manage.app] || a.manage.app}</td>
-                            <td className="ws-mid"><span className="ws-state" data-tone="info">Not set up</span></td>
+                            <td>{a.manage.app === 'admin' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={a.manage.app}>{WHERE[a.manage.app] || a.manage.app}</AppTag>}</td>
+                            <td className="ws-mid"><span className="ws-state" data-tone="off">Not set up</span></td>
                             <td className="num">
                               <button type="button" className="ws-row-link" onClick={() => manage(a.manage)} aria-label={`Set up ${a.label} in ${WHERE[a.manage.app] || a.manage.app}`}>
                                 Set up <ArrowRight size={14} aria-hidden="true" />
