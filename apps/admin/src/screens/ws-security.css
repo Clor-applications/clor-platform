@@ -343,7 +343,7 @@
 .ws-inbox-table td:first-child strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws .ws-inbox-table tbody td { vertical-align: middle; }
 .ws-inbox-table .ws-sec-who { display: inline-flex; align-items: center; gap: 8px; }
-.ws .ws-inbox-open {
+.ws .ws-row-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -356,8 +356,8 @@
   color: rgb(var(--hover-blue, 42 120 214));
   cursor: pointer;
 }
-.ws .ws-inbox-open:hover { text-decoration: underline; }
-.ws .ws-inbox-open:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; border-radius: 4px; }
+.ws .ws-row-link:hover { text-decoration: underline; }
+.ws .ws-row-link:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; border-radius: 4px; }
 .ws-inbox-what { display: inline-flex; align-items: center; gap: 8px; }
 .ws-inbox-dot {
   width: 8px;
@@ -399,8 +399,8 @@
 
 /* Inbox tabs (owner, 19 Nov 2026): an underline in each tab's own colour, not the grey pill.
    The :root prefix matches picks.css, which otherwise paints every selected tab as a pill. */
-:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs { gap: 8px; border-bottom: 0; }
-:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs .ws-tab {
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs { gap: 8px; border-bottom: 0; }
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -412,14 +412,14 @@
   font-weight: 500;
   color: rgb(var(--fg-muted, 58 63 71));
 }
-:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs .ws-tab:hover { color: rgb(var(--tab)); }
-:root:not(#pk):not(#pk2) .ws .ws-inbox-tabs .ws-tab[aria-selected='true'] {
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab:hover { color: rgb(var(--tab)); }
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab[aria-selected='true'] {
   background: none;
   color: rgb(var(--tab));
   font-weight: 600;
   border-bottom-color: rgb(var(--tab));
 }
-.ws-inbox-count {
+.ws-tone-count {
   min-width: 1.5rem;
   padding: 1px 6px;
   border-radius: 9999px;
@@ -431,4 +431,74 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.ws-inbox-tabs .ws-tab[aria-selected='true'] .ws-inbox-count { background: rgb(var(--tab)); color: rgb(255 255 255); }
+.ws-tone-tabs .ws-tab[aria-selected='true'] .ws-tone-count { background: rgb(var(--tab)); color: rgb(255 255 255); }
+
+/* A state said softly (owner, 19 Nov 2026): a tinted tag with a dot, the same weight as the app tags beside it,
+   not a solid block of colour. Tones: ok, warn, danger, info, off. */
+.ws-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: rgb(var(--st) / 0.1);
+  color: rgb(var(--st));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  --st: var(--neutral-ink, 92 90 84);
+}
+.ws-state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+.ws-state[data-tone='ok'] { --st: 21 128 61; }
+.ws-state[data-tone='warn'] { --st: 180 83 9; }
+.ws-state[data-tone='danger'] { --st: var(--neg, 180 35 24); }
+.ws-state[data-tone='info'] { --st: 28 84 160; }
+
+/* A list page with a summary column at its right (Inbox, Help and support, Companies, Branches). */
+.ws-side-note { margin: 0; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted, 58 63 71)); }
+.ws-side-note + .ws-row-link { margin-top: 8px; }
+.ws-activity-bars--wide li { grid-template-columns: 7rem minmax(0, 1fr) 1.75rem; }
+
+/* Companies (owner, 19 Nov 2026): shares that spread the columns, soft states, link-style Switch. */
+.ws .ws-co-table .ws-co-name { width: 28%; }
+.ws .ws-co-table .ws-co-gstin { width: 20%; }
+.ws .ws-co-table .ws-co-pan { width: 12%; }
+.ws .ws-co-table .ws-co-apps { width: 14%; }
+.ws .ws-co-table .ws-co-people { width: 9%; }
+.ws .ws-co-table .ws-co-status { width: 11%; }
+.ws .ws-co-table .ws-co-act { width: 6.5rem; }
+.ws .ws-co-table tbody td { vertical-align: middle; }
+.ws .ws-co-table td.num { overflow: visible; }
+.ws-here {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  background: rgb(var(--cat-1) / 0.1);
+  color: rgb(28 84 160);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.ws-plan-bar { display: block; margin: 8px 0 4px; }
+.ws-activity-list .ws-row-link { text-align: left; }
+/* One unbroken rule under the headings: separate cell borders left hairline seams at fractional widths. */
+.ws .ws-activity-table { border-collapse: collapse; }
+
+/* Branches (owner, 19 Nov 2026): the same spread columns and soft states as Companies. */
+.ws .ws-br-table .ws-br-name { width: 26%; }
+.ws .ws-br-table .ws-br-type { width: 13%; }
+.ws .ws-br-table .ws-br-state { width: 16%; }
+.ws .ws-br-table .ws-br-gstin { width: 22%; }
+.ws .ws-br-table .ws-br-status { width: 15%; }
+.ws .ws-br-table .ws-br-act { width: 3.5rem; }
+.ws .ws-br-table tbody td { vertical-align: middle; }
+.ws .ws-br-table td.ws-td-menu { overflow: visible; text-align: right; }
+:root:not(#pk):not(#pk2) .ws .ws-activity-table thead th { border-bottom-width: 0; }
+.ws .ws-activity-table thead { border-bottom: 2px solid rgb(var(--fg, 28 27 24)); }

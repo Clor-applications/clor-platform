@@ -103,11 +103,11 @@ export default function Inbox({ openApp, openScreen }) {
         />
 
         <div className="ws-filters ws-filters--one-row">
-          <div className="ws-tabs ws-inbox-tabs" role="tablist" aria-label="Inbox">
+          <div className="ws-tabs ws-tone-tabs" role="tablist" aria-label="Inbox">
             {TABS.map((t) => (
               <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className="ws-tab" style={{ '--tab': `var(${t.tone})` }} onClick={() => { setTab(t.key); setApp(''); }}>
                 {t.label}
-                {count(t.key) ? <span className="ws-inbox-count">{count(t.key)}</span> : null}
+                {count(t.key) ? <span className="ws-tone-count">{count(t.key)}</span> : null}
               </button>
             ))}
           </div>
@@ -174,7 +174,7 @@ export default function Inbox({ openApp, openScreen }) {
                               <td className="ws-mid ws-sec-when">{ago(u.at)}</td>
                               <td className="num">
                                 {u.open ? (
-                                  <button type="button" className="ws-inbox-open" onClick={() => open(u.open)} aria-label={`Open ${u.title}`}>
+                                  <button type="button" className="ws-row-link" onClick={() => open(u.open)} aria-label={`Open ${u.title}`}>
                                     Open <ArrowRight size={14} aria-hidden="true" />
                                   </button>
                                 ) : null}
@@ -197,7 +197,7 @@ export default function Inbox({ openApp, openScreen }) {
                                 {r.overdue ? <span className="ws-pill ws-pill--danger">Overdue</span> : tab === 'task' ? (r.detail ? r.detail.replace(/^Due /, '') : '—') : ago(r.since)}
                               </td>
                               <td className="num">
-                                <button type="button" className="ws-inbox-open" onClick={() => open(r.open)} aria-label={`Open ${r.title} in ${label(r.app)}`}>
+                                <button type="button" className="ws-row-link" onClick={() => open(r.open)} aria-label={`Open ${r.title} in ${label(r.app)}`}>
                                   Open <ArrowRight size={14} aria-hidden="true" />
                                 </button>
                               </td>

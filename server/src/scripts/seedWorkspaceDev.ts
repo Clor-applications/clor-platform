@@ -72,6 +72,9 @@ const PEOPLE: { email: string; name: string; accountRole: 'ADMIN' | 'BILLING_ADM
 const TICKETS = [
   { subject: 'How do I move a person to another company?', body: 'Ravi works for both companies from next month. Where do I give him access to the second one?', category: 'QUESTION' },
   { subject: 'Invoice for October shows the wrong address', body: 'The CLOR invoice for October still has our old Bengaluru address. Please correct it and send it again.', category: 'BILLING', urgent: true },
+  { subject: 'Leave balance shows 13 days instead of 12', body: 'Anita Rao has 13 casual leave days this year; the policy gives 12. Where did the extra day come from?', category: 'PROBLEM', app: 'people' },
+  { subject: 'Can we import last year\'s attendance?', body: 'We kept attendance in a spreadsheet until October. Can it come into CLOR so the year is complete?', category: 'DATA', app: 'attendance' },
+  { subject: 'Payslip PDF cuts off the last column', body: 'On the November payslips the Net pay column is cut off when printed on A4.', category: 'PROBLEM', app: 'payroll' },
 ];
 
 type Ctx = { token: string; orgId: string; branchId: string };

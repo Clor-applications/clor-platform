@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CopyWord from '@ui/components/ui/CopyWord';
 import { emoji } from '@ui/components/ui/emoji';
-import { ArrowDownUp, MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
+import { ArrowDownUp, ArrowRight, Plus, Search } from '@ui/components/ui/lineIcons';
 
 import { GST_STATE_BY_CODE, getGstStateFromGstin } from '@ui/utils/gst';
 import { isValidGstin } from '@ui/utils/gstin';
@@ -10,6 +10,7 @@ import { AppMark, Empty, Loading, PageHead, WsDrawer } from './wsKit';
 import CompanyDetail from './CompanyDetail';
 import './workspace.css';
 import './ws-home.css';
+import './ws-security.css';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('classical-building');
@@ -72,7 +73,7 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
   const atLimit = limit != null && activeCount >= limit;
   const sortBy = (key) => setView((v) => ({ ...v, sort: key, dir: v.sort === key ? -v.dir : 1, page: 0 }));
   const th = (key, label, num) => (
-    <th className={num ? 'ws-count ws-mid' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
+    <th className={num ? 'ws-mid' : undefined} aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
       <button type="button" onClick={() => sortBy(key)}>
         {label} <ArrowDownUp size={12} aria-hidden="true" />
       </button>
@@ -122,9 +123,20 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
             {companies.length ? 'No company matches this search.' : 'No company yet.'}
           </Empty>
         ) : (
+          <div className="ws-activity-layout">
+          <div className="ws-activity-main">
           <div className="ws-table-wrap">
-            <table className="ws-table">
+            <table className="ws-table ws-sec-table ws-activity-table ws-co-table">
               <caption className="sr-only">Companies in this account</caption>
+              <colgroup>
+                <col className="ws-co-name" />
+                <col className="ws-co-gstin" />
+                <col className="ws-co-pan" />
+                <col className="ws-co-apps" />
+                <col className="ws-co-people" />
+                <col className="ws-co-status" />
+                <col className="ws-co-act" />
+              </colgroup>
               <thead>
                 <tr>
                   {th('name', 'Company')}
@@ -141,9 +153,10 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                   const current = c.orgId === tenant?.id;
                   const sub = [c.state, c.since ? `added ${day(c.since)}` : '', c.invoices ? `${c.invoices} invoice${c.invoices === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
                   return (
-                    <tr key={c.orgId}>
+                    <tr key={c.orgId} data-current={current ? '' : undefined}>
                       <td>
                         <button type="button" className="ws-name-link" onClick={() => setOpenId(c.orgId)}>{c.name}</button>
+                        {current ? <span className="ws-here">You are here</span> : null}
                         {sub ? <span className="ws-cell-sub">{sub}</span> : null}
                       </td>
                       <td className="ws-mono">{c.gstin ? <><span>{c.gstin}</span> <CopyWord value={c.gstin} what="GSTIN" /></> : <span className="ws-missing">Not added</span>}</td>
@@ -153,26 +166,24 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                           {(c.apps || []).length ? c.apps.map((id) => <AppMark key={id} app={id} size={20} />) : <span className="ws-cell-sub">None</span>}
                         </span>
                       </td>
-                      <td className="ws-count ws-mid">{c.people}</td>
+                      <td className="ws-mid ui-num">{c.people}</td>
                       <td className="ws-mid">
                         {c.archived ? (
-                          <span className="ws-pill ws-pill--neutral">Archived</span>
+                          <span className="ws-state" data-tone="off">Archived</span>
                         ) : c.gstin ? (
-                          <span className="ws-pill ws-pill--ok">Active</span>
+                          <span className="ws-state" data-tone="ok">Active</span>
                         ) : (
-                          <span className="ws-pill ws-pill--warn">Needs GSTIN</span>
+                          <span className="ws-state" data-tone="warn">Needs GSTIN</span>
                         )}
-                        {/* The company in use is said for screen readers only: on screen its row has no Switch to (owner, 17 Nov 2026). */}
-                        {current ? <span className="sr-only">You are here</span> : null}
                       </td>
-                      <td className="ws-td-menu">
+                      <td className="num">
                         {!current && switchCompany ? (
-                          <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => switchCompany(c.orgId)}>
-                            Switch to
+                          <button type="button" className="ws-row-link" onClick={() => switchCompany(c.orgId)} aria-label={`Switch to ${c.name}`}>
+                            Switch <ArrowRight size={14} aria-hidden="true" />
                           </button>
                         ) : (
-                          <button type="button" className="ws-rowmenu" aria-label={`Open ${c.name}`} title="Open" onClick={() => setOpenId(c.orgId)}>
-                            <MoreHorizontal size={16} aria-hidden="true" />
+                          <button type="button" className="ws-row-link" aria-label={`Open ${c.name}`} onClick={() => setOpenId(c.orgId)}>
+                            Open <ArrowRight size={14} aria-hidden="true" />
                           </button>
                         )}
                       </td>
@@ -181,6 +192,42 @@ export default function Companies({ tenant, addCompany, switchCompany, companies
                 })}
               </tbody>
             </table>
+          </div>
+          </div>
+
+          {/* The right side (owner, 19 Nov 2026): the plan's allowance, what is left to set up, and the apps in use. */}
+          <aside className="ws-activity-side" aria-label="Companies summary">
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">On your plan</p>
+              <p className="ws-activity-big"><span className="ui-num">{activeCount}</span> {limit != null ? `of ${limit}` : ''} {activeCount === 1 && limit == null ? 'company' : 'companies'}</p>
+              {limit != null ? (
+                <span className="ws-activity-bar ws-plan-bar"><span style={{ width: `${Math.min(100, Math.round((activeCount / Math.max(1, limit)) * 100))}%` }} /></span>
+              ) : null}
+              <p className="ws-activity-sub">{atLimit ? 'Allowance used up: change plan to add one.' : limit != null ? `${limit - activeCount} more can be added` : 'No limit on your plan'}</p>
+            </section>
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">To finish</p>
+              {incomplete ? (
+                <ul className="ws-activity-list">
+                  {companies.filter((c) => !c.gstin && !c.archived).map((c) => (
+                    <li key={c.orgId}>
+                      <button type="button" className="ws-row-link" onClick={() => setOpenId(c.orgId)}>Add GSTIN for {c.name}</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="ws-side-note">Every company has its GSTIN.</p>}
+            </section>
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">Members</p>
+              <p className="ws-activity-big"><span className="ui-num">{companies.reduce((n, c) => n + (c.people || 0), 0)}</span> seats</p>
+              <p className="ws-side-note">One person in two companies counts in each.</p>
+              {openScreen ? (
+                <button type="button" className="ws-row-link" onClick={() => openScreen('members')}>
+                  See members <ArrowRight size={14} aria-hidden="true" />
+                </button>
+              ) : null}
+            </section>
+          </aside>
           </div>
         )}
 
