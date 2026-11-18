@@ -49,6 +49,8 @@ export const KIND = {
   'people.first_day': 'First day plans',
   'attendance.leave_asked': 'Leave requests',
   'attendance.leave_decided': 'Leave decisions',
+  'attendance.leave_question': 'Questions about your leave',
+  'attendance.leave_answered': 'Answers about leave',
   'attendance.leave_digest': 'Leave summary',
   'attendance.leave_lapse': 'Leave about to lapse',
   'attendance.month_disputed': 'Disputed attendance months',

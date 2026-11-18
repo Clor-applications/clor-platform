@@ -17,10 +17,10 @@ import { teamScope } from './scope.js';
  * lives with the attendance rules and the final-settlement cap with Payroll's settings; this screen links to them.
  */
 
-export type ChoiceKey = 'attendance.correctionApproval' | 'people.hrSeesSalaryRevisions' | 'people.leavingsForReadOnly' | 'people.leavingReasonForReadOnly' | 'notifications.withdrawn' | 'leave.onEngine' | 'attendance.onEngine';
+export type ChoiceKey = 'attendance.correctionApproval' | 'people.hrSeesSalaryRevisions' | 'people.leavingsForReadOnly' | 'people.leavingReasonForReadOnly' | 'notifications.withdrawn' | 'leave.onEngine' | 'attendance.onEngine' | 'leave.closePassed';
 /** APPROVALS: whoever edits approval rules for the whole company (PEOPLE::Approvals::EDIT, not team-scoped), or an admin. ADMIN: the owner or an admin only. */
 type Who = 'APPROVALS' | 'ADMIN';
-type Column = 'correctionApproval' | 'hrSeesSalaryRevisions' | 'leavingsForReadOnly' | 'leavingReasonForReadOnly' | 'withdrawnNotices' | 'leaveOnEngine' | 'attendanceOnEngine';
+type Column = 'correctionApproval' | 'hrSeesSalaryRevisions' | 'leavingsForReadOnly' | 'leavingReasonForReadOnly' | 'withdrawnNotices' | 'leaveOnEngine' | 'attendanceOnEngine' | 'closePassedLeave';
 type Def = { column: Column; who: Who; default: string | boolean; options: Array<{ value: string | boolean; label: string }> };
 
 export const CORRECTION_CHOICES = ['HR_OR_MANAGER', 'MANAGER', 'HR', 'MANAGER_THEN_HR'] as const;
@@ -66,6 +66,11 @@ export const CHOICES: Record<ChoiceKey, Def> = {
    * the request. The same people decide. Owner or admin only, off until they turn it on, as leave.
    */
   'attendance.onEngine': { column: 'attendanceOnEngine', who: 'ADMIN', default: false, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] },
+  /*
+   * Leave still waiting when its first day has passed (round 47 pick): closed as not approved by the nightly job,
+   * the person and the approvers told. Off by default: until the company turns it on, such leave waits as before.
+   */
+  'leave.closePassed': { column: 'closePassedLeave', who: 'APPROVALS', default: false, options: [{ value: false, label: 'Off' }, { value: true, label: 'On' }] },
 };
 export const CHOICE_KEYS = Object.keys(CHOICES) as ChoiceKey[];
 
@@ -88,12 +93,13 @@ export type Choices = {
   withdrawnNotices: WithdrawnChoice;
   leaveOnEngine: boolean;
   attendanceOnEngine: boolean;
+  closePassedLeave: boolean;
 };
 
 /** The company's choices, with the defaults for anything not chosen. */
 export async function choicesFor(orgId: string): Promise<Choices> {
   const [row, att] = await Promise.all([
-    peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { correctionApproval: true, hrSeesSalaryRevisions: true, leavingsForReadOnly: true, leavingReasonForReadOnly: true, withdrawnNotices: true, leaveOnEngine: true, attendanceOnEngine: true } }),
+    peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { correctionApproval: true, hrSeesSalaryRevisions: true, leavingsForReadOnly: true, leavingReasonForReadOnly: true, withdrawnNotices: true, leaveOnEngine: true, attendanceOnEngine: true, closePassedLeave: true } }),
     peoplePrisma.attendanceSettings.findUnique({ where: { orgId }, select: { correctionApproval: true } }),
   ]);
   const correction = row?.correctionApproval && (CORRECTION_CHOICES as readonly string[]).includes(row.correctionApproval) ? (row.correctionApproval as CorrectionChoice) : fromAttendance(att?.correctionApproval);
@@ -105,6 +111,7 @@ export async function choicesFor(orgId: string): Promise<Choices> {
     withdrawnNotices: row?.withdrawnNotices === 'REMOVE' ? 'REMOVE' : 'SHOW_WITHDRAWN',
     leaveOnEngine: row?.leaveOnEngine ?? false,
     attendanceOnEngine: row?.attendanceOnEngine ?? false,
+    closePassedLeave: row?.closePassedLeave ?? false,
   };
 }
 
@@ -159,6 +166,7 @@ const LABELS: Record<ChoiceKey, string> = {
   'notifications.withdrawn': 'A withdrawn request’s notice',
   'leave.onEngine': 'Leave decided by the approval rules',
   'attendance.onEngine': 'Attendance requests, overtime and field punches decided by the approval rules',
+  'leave.closePassed': 'Leave still waiting when its day passes is closed as not approved',
 };
 
 /** Who changed each choice last, and when: "Changed by Asha, 31 Oct". */

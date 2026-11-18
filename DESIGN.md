@@ -422,13 +422,14 @@ Built:
 | --- | --- |
 | Limits on expenses | The category's limit shows under the form while the amount is typed, with how much is left or over (employee app, Add a bill) |
 | Cancelling approved leave | "Cancel leave" on the leave; the confirm now says whoever approved it is told (the server already tells them) |
+| A "Remind" button on my own request | "Remind" on my waiting leave (employee app, and My leave's row menu) tells whoever it waits on again, through the leave notice; once a day, then "Reminded" until tomorrow (`remindLeave`, history "Reminded the approvers") |
 
 Picked, **not built yet**: approvals going up to the next manager while one is away (today a
 stand-in is set by hand); an ID card sideways with a QR code (no ID cards yet); statutory due
 dates as a home card when one is near; work from home as a request type beside leave (it sits
 with attendance requests today); a branch move shown as From → To with a date; resigning from
 the app with the last day worked out; late-mark rules written as a sentence you fill in; weekly
-offs as a grid of weeks and days; a "Remind" button on my own request; nominees as a table per
+offs as a grid of weeks and days; nominees as a table per
 scheme; family as faces with relation and age; past jobs and education as two lists; skills as
 chips; leave carried to next year as one sentence ("10 carried, 4 lapse"). Most need records
 CLOR does not keep yet.
@@ -609,6 +610,7 @@ Built:
 | Marking a draft payslip | A payslip whose payroll is not approved yet (slip or run still draft, calculated or in review) opens with a coloured strip, "DRAFT Payroll is not approved yet, so these figures can still change." It prints too (`DraftStrip`). |
 | An old browser | A browser older than the build's line (late 2022: Chrome or Edge 107, Firefox 104, Safari 16) gets one page naming the browsers that work, with links, instead of broken screens. Not on Books' host or a shared invoice link (`OldBrowserPage`). |
 | Giving a customer more trial days | Ops → a customer → Extend trial has +7, +14 and +30 days beside the days box; one click fills it. |
+| "Take back" on an approval until the leave starts | Leave requests drawer → "Take back approval" for whoever approved it, or HR for the whole company, before the first day: it waits again, its days come off the attendance record and the person is told (`takeBackLeave`). Leave decided by the approval rule or steps is cancelled instead. |
 
 Picked and already how the app works: a day at a client's office is an "On duty" request with the
 place, counted as present once approved (employee app → Requests).
@@ -616,8 +618,7 @@ place, counted as present once approved (employee app → Requests).
 Picked, **not built yet**: a row per month with "Add challan" for TDS; a no-pay leave type for a
 long break; an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
 side; sharing a payslip from the phone's share list (needs a payslip PDF file from the server);
-"Take back" on an approval until the leave starts; payslips by sign-in link with no PDF
-password; leaving steps that start on their own at retirement age; a list of leavers due for
+payslips by sign-in link with no PDF password; leaving steps that start on their own at retirement age; a list of leavers due for
 clearing with one button; a payslip line showing pieces × rate. All need server work. Chart
 names at the end of each line wait for a chart with several lines; none has more than one yet.
 
@@ -1050,17 +1051,20 @@ Built:
 | What the approver sees about balance | The Balance line reads "Leaves 4 days after this", then "· 12 days without this request" in grey; a balance below zero is in red (`BalanceAfter`). |
 | A request nobody acts on | On the Waiting tab, HR gets a "Waiting too long (n)" button that lists only the requests waiting more than three days (`isWaitingTooLong`, `?long=1`). It counts the requests on the page already loaded. |
 | Seeing the attached proof | Open on the document sent with a request shows it inside the request: a picture as a picture, a PDF in a frame, anything else with a download link (`InlineDocument`). |
+| "Send back with a question" that returns once answered | "Ask a question" in the Leave requests drawer sends the note as a question; the request stays waiting on the same approver, the person answers in the employee app or on My leave, and whoever asked is told the answer (`sendBackLeave`, `answerLeaveQuestion`). |
+| HR deciding anything, marked "Decided by HR" | While it is still the manager's turn, HR for the whole company gets "Approve as HR" (Reject as before); the request's Status says "Decided by HR" and its history and audit line say so. Leave on the approval rule or steps keeps its own steps. |
+| A request still waiting when its day passes | Company choices → Approvals: "Leave still waiting when its first day has passed is closed as not approved", **off by default**. When on, the hourly leave job closes it with the reason and the person is told (`closePassedLeave`). The day itself reads as the attendance record has it; nothing marks it absent by hand. |
 
 Picked and already how the app works: who approves is fixed by the reporting line (no choice
-for the person asking); approving part of a request is approve all, then edit.
+for the person asking); approving part of a request is approve all, then edit; a stand-in with
+dates while a manager is away (a stand-in has from and to dates; requests go to the
+stand-in in that window).
 
-Picked, **not built yet**: a stand-in with dates while a manager is away; longer leave (over 5
-days) going on to the department head; "Send back with a question" that returns once answered;
-claims over ₹10,000 going to finance after the manager; two approvers at once, either one
-deciding; HR asked to choose a new approver when one leaves; HR deciding anything, marked
-"Decided by HR"; cancelling approved leave needing the manager's OK again; requests after the
-payroll cut-off allowed with payroll told to rerun; a request still waiting when its day passes
-closed as not approved and the day marked absent. All need server work.
+Picked, **not built yet**: longer leave (over 5 days) going on to the department head; claims
+over ₹10,000 going to finance after the manager; two approvers at once, either one deciding; HR
+asked to choose a new approver when one leaves; cancelling approved leave needing the manager's
+OK again; requests after the payroll cut-off allowed with payroll told to rerun. All need server
+work.
 
 ### Round 48 (18 Nov 2026)
 
