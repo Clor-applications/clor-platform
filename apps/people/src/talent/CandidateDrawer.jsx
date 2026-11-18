@@ -12,6 +12,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { nextEmployeeCode } from '../workforce/api';
 import OfferDrawer from '../workforce/OfferDrawer';
 import { OfferAnswerBy } from './round36';
+import { AppliedBefore } from './round53Parts';
 import {
   addCandidate, cancelInterview, getCandidate, giveFeedback, hireCandidate, interviewers, listInterviews, moveCandidate, moveInterview, noteCandidate, readFile, resumeFile, saveResume, scheduleInterview, updateCandidate,
 } from '../api/talent';
@@ -84,6 +85,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
             <Pill map={STAGES} value={c.stage} />
             <span>{[c.openingTitle, hr ? word(SOURCES, c.source) + (c.sourceDetail ? ` (${c.sourceDetail})` : '') : null, `since ${day(c.stageAt)}`].filter(Boolean).join(' · ')}</span>
           </p>
+          <AppliedBefore candidate={c} hr={hr} />
           {d.referral ? <p className="text-sm">Referred by <span className="font-medium">{d.referral.referrer}</span>{d.referral.via === 'LINK' ? ', through their link' : ''} on <span className="tabular-nums">{day(d.referral.referredAt)}</span>{d.referral.relation ? `. How they know them: ${d.referral.relation}` : ''}.{d.referral.note ? <span className="block whitespace-pre-wrap ui-muted">{d.referral.note}</span> : null}</p> : null}
           {c.closedReason ? <p className="text-sm"><span className="ui-label">Why</span> {c.closedReason}</p> : null}
           {c.offerAcceptedOn ? <p className="text-sm">Offer accepted on <span className="tabular-nums">{day(c.offerAcceptedOn)}</span>.</p> : null}

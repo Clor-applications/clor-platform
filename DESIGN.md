@@ -1128,6 +1128,28 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 53 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Duplicate candidate | A new application from someone who applied before, matched on e-mail or the last ten phone digits, shows "Applied before for Sales Executive in Mar 2026" (and how many more times) in the candidate drawer. HR only, since only HR sees e-mail and phone (`AppliedBefore`, `round53.js`). |
+| Goal weights | Under the goal form's Weight field: "Their active goals add to 70% with this one; 30% is still to give", in red once over 100% (`WeightTotal`). |
+| Copy last year's goals | With one person chosen on Goals, the secondary "Copy last year's goals" copies their finished goals due last year, a year on, with measure and weight, after asking; a title already set again is skipped and a date already past is left empty. Edit after (`CopyLastYear`). |
+
+Picked and already how the app works: a CV is attached and HR types the details; each interview
+names its interviewers and they see it in their own Interviews list; HR can send any offer; "Put
+on hold" keeps the candidates and turns the apply link off; people type their own goal progress
+in a check-in; feedback is asked only inside a review cycle.
+
+Picked, **not built yet**: a shared interview question list for all jobs; an e-mail to the
+candidate on every stage change (today only on "Not taken forward" and offers); a saved
+description per job title picked when opening a job; screening questions on the apply form; a
+reason asked when a job is paused; company goals shown over the Goals list; the review score
+following the goal weights; goals open to the team by default with "Only me and my manager" per
+goal; team goals on the manager's list only. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

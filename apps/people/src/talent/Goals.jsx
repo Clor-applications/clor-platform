@@ -14,6 +14,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
 import { Avatar } from '@ui/personnel/Employees';
 import { checkIn, createGoal, getGoal, listGoals, updateGoal } from '../api/talent';
+import { CopyLastYear, WeightTotal } from './round53Parts';
 import { FormError, Footer, HEALTH, Pill, SHEET, day, staffOptions, tabItems, todayIst, useParamState, usedValues, useStaff, when } from './shared';
 
 /**
@@ -76,6 +77,7 @@ export default function Goals({ params = {} }) {
         title="Goals"
         description="What each person is working towards, how it is measured, by when, and how it is going."
         primary={canAdd ? { label: 'New goal', icon: Plus, onClick: () => setEditing(blank) } : null}
+        secondary={canAdd && person ? <CopyLastYear employeeId={person} onDone={req.reload} /> : null}
         toolbar={<>
           <SearchField value={q} onSearch={setQ} placeholder="Search goal or person" label="Search goals" className="w-full sm:w-72" />
           <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(people)]} /></div>
@@ -203,7 +205,7 @@ function GoalForm({ value, staff, rows, onClose, onSaved }) {
         <label className="block sm:col-span-2"><span className="ui-label">Goal *</span><SuggestInput autoFocus maxLength={200} value={form.title} onChange={(v) => set({ title: v })} suggestions={usedValues(rows, (r) => r.title)} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">Measured by</span><SuggestInput maxLength={300} value={form.measure} onChange={(v) => set({ measure: v })} suggestions={usedValues(rows, (r) => r.measure)} /></label>
         <div><label className="ui-label" htmlFor="goal-due">Due</label><DatePicker id="goal-due" min={value.id ? '' : todayIst()} value={form.dueDate} onChange={(d) => set({ dueDate: d || '' })} /></div>
-        <label className="block"><span className="ui-label">Weight (%)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.weight} onChange={(e) => set({ weight: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
+        <label className="block"><span className="ui-label">Weight (%)</span><input className="ui-input w-full tabular-nums" inputMode="numeric" value={form.weight} onChange={(e) => set({ weight: e.target.value.replace(/\D/g, '').slice(0, 3) })} /><WeightTotal employeeId={form.employeeId} goalId={value.id} weight={form.weight} /></label>
         <label className="block sm:col-span-2"><span className="ui-label">More about it</span><textarea className="ui-input w-full" rows={4} maxLength={4000} value={form.description} onChange={(e) => set({ description: e.target.value })} /></label>
       </form>
     </Drawer>
