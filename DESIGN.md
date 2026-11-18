@@ -558,14 +558,6 @@ list (branch, team, type); "Preview pay" on one person. All need server or phone
 
 ### Round 26 (18 Nov 2026)
 
-### Round 27 (18 Nov 2026)
-
-### Round 28 (18 Nov 2026)
-
-### Round 29 (18 Nov 2026)
-
-### Round 30 (18 Nov 2026)
-
 Built:
 
 | Building block | Pick |
@@ -586,6 +578,12 @@ turned off with a note only HR sees; "Continue with Google / Microsoft" on the s
 credit note raised from the invoice in Ops; daily or monthly pay type on the record. All need
 server or phone-app work.
 
+### Round 27 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
 | Two punches a minute apart | Attendance → Transactions greys a punch made within 60 seconds of the same person's previous one, with "Repeat · the day counts the first" under its time. Nothing is removed; the day already reads first in and last out (`repeatPunchIds`). |
 | Marking a draft payslip | A payslip whose payroll is not approved yet (slip or run still draft, calculated or in review) opens with a coloured strip, "DRAFT Payroll is not approved yet, so these figures can still change." It prints too (`DraftStrip`). |
 | An old browser | A browser older than the build's line (late 2022: Chrome or Edge 107, Firefox 104, Safari 16) gets one page naming the browsers that work, with links, instead of broken screens. Not on Books' host or a shared invoice link (`OldBrowserPage`). |
@@ -602,6 +600,12 @@ password; leaving steps that start on their own at retirement age; a list of lea
 clearing with one button; a payslip line showing pieces × rate. All need server work. Chart
 names at the end of each line wait for a chart with several lines; none has more than one yet.
 
+### Round 28 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
 | A buzz when you punch | A punch saved from the phone buzzes twice for in and once for out, where the browser can buzz (`buzzForPunch`, `PhonePunch`). Nothing else changes where it cannot. |
 | Overtime close to the legal limit | Approving overtime that runs past the company's cap asks first: "Approving this takes Babu past the company’s overtime limit: 4:00 over the cap of 50:00 a quarter", with Approve anyway (`overCapQuestion`, Overtime requests). |
 | Removing a department that still has people | A department with people in it keeps Delete… in its menu; it says "14 people are in Field Sales. Move them to another department first, or retire it" and offers "See the 14 people", which opens Employees filtered to it (`blockedDelete`, Organisation → Departments). |
@@ -619,6 +623,12 @@ allowed for one person whose fingerprint will not read; a small sign-in for form
 their papers; ideas counted from tags on support tickets; salary split between two bank accounts.
 All need server work. Pinning a person to the top of People needs pins kept on the server.
 
+### Round 29 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
 | Several messages at once | Outside Books, quick messages stand open one above the other, newest in front, three at most, so each is read (Sonner `expand`, `visibleToasts` 3 in `Toaster`). Books keeps its collapsed pile of five. |
 | A chart with nothing to show yet | A chart with no figures is not drawn: a People report's chart with every value at nought, and "Joined and left" when nobody joined or left, are left out; the table or empty state under them says it in words (`ReportChart`, `JoinLeaveBars`). |
 | The name someone likes to be called | Lists and the record's title show the full legal name only, as on papers; the preferred name stays on the Personal tab and in friendly sentences (`Directory`, `EmployeeRecord`). |
@@ -635,6 +645,12 @@ OTP; a joiner asked for their PAN before the first payroll; a billing email sepa
 owner; a joining bonus line with its "returnable until" date; voting-day leave asked for and
 approved on its own. All need server or phone-app work.
 
+### Round 30 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
 | Calling a colleague from the app | Call and WhatsApp buttons beside the number on the employee record's overview and on an absence case: Call opens the phone, WhatsApp opens a chat with that number (only for a ten-digit Indian mobile; a landline gets Call only) (`CallButtons`). |
 | This year against last year in a chart | Headcount & attrition shows "This year against last year": the period's month-end headcount as a solid line in the app colour, the same months a year earlier faint and dashed behind, and "+18 on a year before" under it. Drawn only when the year before has people (`YearOnYearLine`). |
 | Landlord’s PAN for rent above ₹1 lakh | Payroll's tax declaration form now asks for the landlord's PAN only once rent passes ₹1,00,000 a year (or one is already on file); below that it says when it will be asked. |
