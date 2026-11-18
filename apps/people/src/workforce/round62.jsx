@@ -21,7 +21,7 @@ const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDa
 const day = (iso) => formatDate(String(iso).slice(0, 10));
 
 /* contactactions A: the phone and e-mail in the record's header open the call or the mail, each with Copy. */
-export function PhoneFact({ phone, name }) {
+export function PhoneFact({ phone }) {
   const links = phoneLinks(phone);
   if (!phone) return <span className="ui-muted">Not given</span>;
   return (
@@ -32,7 +32,7 @@ export function PhoneFact({ phone, name }) {
   );
 }
 
-export function EmailLink({ email, name }) {
+export function EmailLink({ email }) {
   if (!email) return null;
   return (
     <span className="r62-contact">
