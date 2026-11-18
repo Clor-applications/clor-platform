@@ -577,6 +577,28 @@ number of days' absence without word; the company's year start with what each ch
 file space as a bar by kind; "Copy from" another branch with ticks; payslips by SMS with a short
 link; pay groups with their own pay day. All need server work.
 
+### Round 44 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Payroll dates for the month | Payroll's overview opens with a strip of the month's steps: Inputs close (the period's last day), Run and review, Approve, Pay (the period's pay date), the step the month is at marked, and "Pay in 12 days", "Pay today" or, in amber, "Pay was due 2 days ago" (`PayCalendarStrip`, `payCalendar`). |
+| Working out take-home from a salary offer | Typing the yearly CTC on an offer shows "In hand, about ₹46,200 a month" under it, with pay, PF, ₹200 professional tax and income tax spelt out. An estimate on the new tax regime (half the pay as basic, PF on basic up to ₹15,000, surcharge left out); the payslip works out the exact figure (`TakeHomeEstimate`, `takeHome`). |
+| Help with PF withdrawal | The employee app's money page ends with "Taking money out of your PF": four steps (UAN linked, sign in, Claim, confirm with the Aadhaar code) and a link to the EPFO member page (`PfWithdrawSteps`). |
+
+Picked and already how the app works: loans with interest worked out (Payroll → Loans takes the
+rate a year and shows the EMI schedule before saving); a salary advance request instead of
+earned-wage access (employee app → money); the joiner brings any bank account (bank details on
+the record); a deduction is told, not agreed (it shows on the payslip).
+
+Picked, **not built yet**: a meal card amount chosen by staff and taken out of taxable pay; the
+ESI monthly file in the ESIC upload format with a check list first; a full-attendance bonus that
+allows one late mark; a stay bonus on the record with its due date, paid by itself; extra health
+cover chosen in the app with the premium taken over 12 months; the ESI card downloaded from the
+phone app; the month's service charge split by days worked; the pension (EPS) share shown on the
+payslip under PF; family members marked "Covered by ESI". All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

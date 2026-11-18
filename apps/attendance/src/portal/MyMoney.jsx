@@ -10,6 +10,7 @@ import {
   addBill, answerMoney, askAdvance, askSalaryAdvance, billData, billUrl, getMoney, previewSalaryAdvance, reopenClaim, removeBill, sendClaim, withdrawMoney,
 } from './moneyApi';
 import { rupees as money } from '@ui/utils/money';
+import PfWithdrawSteps from './PfWithdrawSteps';
 
 /**
  * Money in the employee app's Me tab (WORKFLOW-GAP-RESEARCH 4.1, 4.2):
@@ -44,6 +45,7 @@ export default function MyMoney({ guard }) {
       <SpentForWork data={data} guard={guard} reload={load} />
       <Advances data={data} guard={guard} reload={load} />
       {data.salaryAdvance?.available ? <SalaryAdvance info={data.salaryAdvance} guard={guard} reload={load} /> : null}
+      <PfWithdrawSteps />
     </>
   );
 }

@@ -7,6 +7,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { notify } from '@ui/components/ui/notify';
 import { createOffer, offerSetup, previewOffer } from './api';
 import { todayIst } from '@ui/utils/dates';
+import TakeHomeEstimate from './TakeHomeEstimate';
 
 /*
  * Send an offer from CLOR (HR-VIEW gap 5), to a draft hire (`employee`) or
@@ -103,6 +104,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
             <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.annualCtc} onChange={(e) => set({ annualCtc: e.target.value })} placeholder="600000" />
           </label>
         </div>
+        <TakeHomeEstimate ctc={form.annualCtc} />
 
         {setup?.payrollOn && setup.structures?.length ? (
           <div><PopupSelect showValueSubtext={false} label="Monthly pay" value={form.structureId} onChange={(v) => set({ structureId: v || TYPED })} options={structureOptions} /></div>
