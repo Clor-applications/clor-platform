@@ -556,6 +556,30 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 38 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Seeing what a role can see | Workspace → Roles shows the chosen role as a plain list by screen: Screen, Can see, Can change ("Yes: add, edit and approve"), read from the same server catalogue as the grid; only screens the role reaches are listed. The full permission grid stays under "Every permission, as a grid" (`RoleAccessList`). |
+| Copying a role to make a new one | The role's button and menu say "Copy role" / "Copy"; it opens the new-role form with every permission ticked, named "… (copy)", to untick what to remove. |
+| Chatting with CLOR support | The Help menu in every app but Books has "Ask CLOR support": a short ticket form (subject, what happened, urgent) sent as a support ticket for the app you are in; the answer comes by email and the ticket shows in Workspace → Help and support (`AskSupport`). |
+| CLOR service status | The same Help menu has "CLOR service status", opening clor.in/status, which shows each check green or not. |
+
+Picked and already how the app works: a History tab on each record (the employee record's History
+and Activity tabs, with every change and why); planned maintenance shown as a strip in the app
+(Ops → Status posts it and the in-app announcement strip shows "Planned maintenance" until closed).
+
+Picked, **not built yet**: staying signed in until the browser closes (a session cookie, server);
+the account owner becoming admin when the last HR admin is removed; a failing connection shown
+in an error log; a security page on clor.in naming where data is kept (the website is the
+owner's); an email to the person and the company admin on a sign-in from a new place; editing
+each email CLOR sends with fill-in names and a preview; small requests approved when nobody
+answers in 3 days; ticking CLOR bills and downloading one zip (needs invoice PDFs from the
+server); the card CLOR charges on the Billing page with "Change" (needs the payment gateway);
+active staff only as paid seats, with the Billing page listing who counts. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
