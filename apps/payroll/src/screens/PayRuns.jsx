@@ -41,6 +41,7 @@ import { DeductionCapNotice, OverLimitPanel } from "../components/DeductionCapSe
 import StatutoryGapsPanel from "../components/StatutoryGapsPanel";
 import { RegistrationNotice } from "../components/StatutoryRegistrationsStep";
 import { openMonthsOf } from "../components/runGuardText";
+import { PaidCount, PayChanges } from "../components/round32";
 import { wholeRupees as money } from "@ui/utils/money";
 
 /**
@@ -479,6 +480,8 @@ const RunWorkflow = ({ runId, onBack }) => {
         <Tile label="Deductions" value={money(run.deductionTotal)} />
         <Tile label="Net pay" value={money(run.netTotal)} strong />
       </div>
+      {/* Round 32: how many payslips the bank has paid. */}
+      <PaidCount slips={data.slips} status={run.status} />
 
       {/* Days after the company's cut-off paid as present before they happened (O-11). */}
       <ProvisionalDaysNotice run={run} />
@@ -1215,6 +1218,9 @@ const ReviewStage = ({ data, byEmployee }) => {
     );
   }
   return (
+    <div className="space-y-3">
+    {/* Round 32: who is paid differently from last period, and why. */}
+    <PayChanges slips={data.slips} byEmployee={byEmployee} />
     <div className="ui-card overflow-hidden">
       <div className="ui-table-scroll">
         <table className="ui-table ui-table-sticky w-full">
@@ -1276,6 +1282,7 @@ const ReviewStage = ({ data, byEmployee }) => {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 };
