@@ -787,3 +787,8 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 31 */
+/* A joiner under 18: warned beside the date of birth, never blocked */
+.ui-under18 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+.ui-under18-tag { display: inline-flex; align-items: center; padding: 0.0625rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }

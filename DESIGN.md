@@ -556,6 +556,27 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 31 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| A joiner under 18 | Typing a date of birth that makes the person under 18 on the joining day (today if no joining day yet) shows an amber "Under 18" tag under the field, in both add forms (People's Add employee and the Employees form): "Night work and some jobs are not allowed. You can still add them." The save is never blocked (`UnderEighteen`). The reason HR goes on with is not kept yet. |
+
+Picked and already how the app works: leave for part-time staff stays a leave type of its own for
+the part-time employee type (a leave type can be limited to employee types); pay by gender is not
+shown anywhere, only diversity counts.
+
+Picked, **not built yet**: the supplying agency's name as a tag on a contract worker's record;
+a reminder email to an agency on the 16th for its PF and ESI challans; a "Freelancer" type paid by
+bill with TDS and no payslip; a monthly list of NAPS apprentice shares to claim; an internship
+certificate made on the last day and sent to sign; an intern's same record taking a new job from a
+date; the skill category asked only when pay is near the state minimum; a "Works in" state apart
+from the branch; the ESI dispensary typed at joining; the POSH committee's faces and phones on a
+help page; a weekly list of days whose spread passed 10½ hours; festival temporaries as joiners
+marked "Temporary till"; a creche request form approved by HR. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
