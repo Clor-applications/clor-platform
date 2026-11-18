@@ -556,6 +556,30 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 32 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Who is paid differently from last month | A payroll run's Review step lists the people whose take-home moved from last period above the payslip table, biggest move first, each with the change and the reason this month's inputs give: days unpaid, overtime, variable pay, days paid ahead, or "First payslip"; otherwise "Salary or deductions changed" (`PayChanges`). |
+| Checking money sent matches payroll | Once a run is approved, one answer under its totals: "All 140 paid", "139 of 140 paid" or "Not paid yet", and "1 came back from the bank" when a payment failed, from each payslip's payment status (`PaidCount`). |
+| Pay due to family after a death | A normal leaving with the reason "Passed away": the reason now reads "Passed away" everywhere, the record and the attrition report included (it read "Deceased" and "Died"). |
+
+Picked and already how the app works: a missed amount after the month is locked goes in as an
+adjustment in the next month (Payroll → Adjustments, arrear); approved expenses paid with the
+next salary on their own payslip line ("With salary"); what the company also pays, NPS included,
+listed under its own heading on the payslip; pay so far this year brought in from one file per
+company ("Earlier this year").
+
+Picked, **not built yet**: a salary the bank sent back with the employee asked to update his bank
+on the phone (the employee app is told only paid or not); a fine split over months on its own;
+pay stopping at zero with the rest carried to next month; a small extra run for a bonus between
+payroll months; pay divided by the days in the month as the company's chosen rule; extra PF set
+by the employee on the phone; the leave travel claim with "trips left 1 of 2"; a "Revised" tag
+with what changed on a reissued payslip; notes shown at the top of next month's run. All need
+server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

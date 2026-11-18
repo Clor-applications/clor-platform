@@ -26,7 +26,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const monthWord = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const lastOf = (y, m) => new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 const pct = (v) => (v === null || v === undefined ? '—' : `${v.toFixed(1)}%`);
-const REASONS = { RESIGNED: 'Resigned', TERMINATED: 'Let go', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Died', NOT_SAID: 'Not said' };
+const REASONS = { RESIGNED: 'Resigned', TERMINATED: 'Let go', RETIRED: 'Retired', ABSCONDED: 'Absconded', CONTRACT_ENDED: 'Contract ended', DECEASED: 'Passed away', NOT_SAID: 'Not said' };
 
 /** The periods a small business asks about: the last year, and the financial years (April to March). */
 function periodsOf(today = todayIst()) {
