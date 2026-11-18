@@ -26,7 +26,7 @@ export function PhoneFact({ phone, name }) {
   if (!phone) return <span className="ui-muted">Not given</span>;
   return (
     <span className="r62-contact">
-      {links ? <a className="ui-link tabular-nums" href={links.tel} aria-label={`Call ${name}`}><Phone size={14} aria-hidden="true" /> {formatPhone(phone)}</a> : <span className="tabular-nums">{phone}</span>}
+      {links ? <a className="ui-link tabular-nums" href={links.tel}><Phone size={14} aria-hidden="true" /> {formatPhone(phone)}</a> : <span className="tabular-nums">{phone}</span>}
       <CopyWord value={phone} what="phone number" />
     </span>
   );
@@ -36,7 +36,7 @@ export function EmailLink({ email, name }) {
   if (!email) return null;
   return (
     <span className="r62-contact">
-      <a className="ui-link" href={`mailto:${email}`} aria-label={`E-mail ${name}`}><Mail size={14} aria-hidden="true" /> {email}</a>
+      <a className="ui-link" href={`mailto:${email}`}><Mail size={14} aria-hidden="true" /> {email}</a>
       <CopyWord value={email} what="e-mail" />
     </span>
   );

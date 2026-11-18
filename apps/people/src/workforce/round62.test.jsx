@@ -48,7 +48,7 @@ describe('round 62 helpers', () => {
 describe('round 62 record parts', () => {
   it('contactactions: the phone is a call link with Copy beside it', () => {
     render(<PhoneFact phone="9876543210" name="Ravi Kumar" />);
-    expect(screen.getByRole('link', { name: 'Call Ravi Kumar' }).getAttribute('href')).toBe('tel:+919876543210');
+    expect(screen.getByRole('link', { name: /98765 43210|9876543210/ }).getAttribute('href')).toBe('tel:+919876543210');
     expect(screen.getByRole('button', { name: 'Copy phone number' })).toBeTruthy();
   });
 
