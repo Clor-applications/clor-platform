@@ -752,10 +752,21 @@ company ("Earlier this year").
 
 Picked, **not built yet**: a salary the bank sent back with the employee asked to update his bank
 on the phone (the employee app is told only paid or not); a fine split over months on its own;
-pay stopping at zero with the rest carried to next month; a small extra run for a bonus between
-payroll months; pay divided by the days in the month as the company's chosen rule; extra PF set
+pay stopping at zero with the rest carried to next month; pay divided by the days in the month as the company's chosen rule; extra PF set
 by the employee on the phone; the leave travel claim with "trips left 1 of 2"; a "Revised" tag
 with what changed on a reissued payslip (payslips keep no record of being reissued yet). All need server work.
+
+Built later (19 Nov 2026): **the extra pay run** (a run kind, `OFF_CYCLE`, beside the month's
+`REGULAR` payroll; only regular runs are one per period, pay group and branch). Pay runs › Run
+payroll › Kind "Extra pay run" starts one for the period with nobody in it; its People stage
+(`ExtraPayStage.jsx`) adds each person as "Salary for the month" (a late joiner, worked out on their
+days like any payroll) or "Extra only" (a bonus or arrears, entered as earnings with a note). An
+extra waits for the month's salary to be approved, then takes only what it adds: PF the difference
+under the ceiling, ESI on its ESI wages, professional tax only if the month had none, income tax
+the whole year's increase at once (`offCycleExtra` in `run.ts`). Its payslips say "Extra pay run"
+(Payroll's list and payslip, the employee app's list, payslip and PDF) and show no days for an
+extra only; it is approved, paid by bank file and posted to the books like a regular payroll; the
+run list marks it "Extra pay run" under the period.
 
 Built later (server picks batch 2): notes shown at the top of next month's run. A payroll has a
 "Note for next month" box, saved at any stage but cancelled; the next payroll for the same pay
@@ -1293,12 +1304,11 @@ the employee app shows each loan's next instalment with "Ask to skip this month"
 once; Payroll › Loans marks the loan "Asked to skip" and the instalment carries a tick (skipped,
 still owed) and a cross (declined, stays due).
 
-Picked, **not built yet**: a "Companies" page to pick a company from; a small extra
-payroll for a late joiner; HR choosing what carries
+Picked, **not built yet**: a "Companies" page to pick a company from; HR choosing what carries
 over on a transfer between group companies; one bill to the head company with a line per company;
 and the CA picks (one list of every client's dues, CA invited with payroll-only access and an end
 date, a client list with Run and status, "Ask client" for inputs, "Prepared by" the CA firm at the
-foot). All need server work.
+foot). All need server work. (A small extra payroll for a late joiner is built: the extra pay run, above.)
 
 ### Round 55 (18 Nov 2026)
 

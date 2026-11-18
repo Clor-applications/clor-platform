@@ -31,6 +31,10 @@ export async function createPayrollRun(payload) {
   return apiFetch(base(), { ...opts, method: 'POST', body: payload });
 }
 
+/** On an extra pay run: put somebody in, what they are in it for (SALARY or EXTRA), and the amounts; the list replaces what was there. */
+export const saveExtraPay = (id, { employeeId, pays, items }) =>
+  apiFetch(`${base()}/${encodeURIComponent(id)}/extra-pay`, { ...opts, method: 'PUT', body: { employeeId, pays, items } });
+
 export const setRunEmployeeIncluded = (id, employeeId, include) =>
   apiFetch(`${base()}/${encodeURIComponent(id)}/employees`, { ...opts, method: 'POST', body: { employeeId, include } });
 

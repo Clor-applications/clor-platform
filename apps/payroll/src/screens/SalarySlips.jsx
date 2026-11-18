@@ -166,7 +166,7 @@ export default function SalarySlips() {
                       {x.employee?.name || 'Unknown'}
                       {x.employee?.code ? <span className="ui-caption"> · {x.employee.code}</span> : null}
                     </td>
-                    <td className="ui-col-meta">{x.period?.name || '—'}</td>
+                    <td className="ui-col-meta">{x.period?.name || '—'}{x.extraPayRun ? <span className="ui-caption"> · Extra pay run</span> : null}</td>
                     <td className="ui-num">{money(x.grossEarnings)}</td>
                     <td className="ui-num">{money(x.totalDeductions)}</td>
                     <td className="ui-num font-medium">{money(x.netPay)}</td>
@@ -231,8 +231,9 @@ const SlipDocument = ({ slipId }) => {
           {[slip.employee.designation, slip.employee.department].filter(Boolean).join(' · ') || '—'}
         </p>
         <p className="ui-caption">
-          {slip.period?.name || ''} · paid {shownDate(slip.payrollDate)} · {slip.days.payableDays} of{' '}
-          {slip.days.periodDays} days
+          {slip.period?.name || ''} · paid {shownDate(slip.payrollDate)}
+          {/* An extra only (a bonus, arrears) paid no days: the month's salary did. */}
+          {slip.extraPayRun && !slip.days.workingDays ? ' · Extra pay run' : <>{slip.extraPayRun ? ' · Extra pay run' : ''} · {slip.days.payableDays} of {slip.days.periodDays} days</>}
         </p>
       </section>
 

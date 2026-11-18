@@ -73,6 +73,8 @@ const summary = (s: any) => ({
   status: s.status,
   paymentStatus: s.paymentStatus,
   engineVersion: s.engineVersion || null,
+  /* Made by an extra pay run (a late joiner's days, a bonus, arrears): the payslip says "Extra pay run". From its own snapshot. */
+  extraPayRun: Boolean(parse(s.inputSnapshotJson ?? null).extraPayRun),
 });
 
 payrollSlipsRouter.get(

@@ -1520,6 +1520,13 @@ portalRouter.put('/tax', check({ body: anyBody }), async (req, res) => {
  * forwarded.
  */
 const FINAL_RUN = ['LOCKED', 'PAID', 'POSTED'];
+const extraPayRunOf = (json: string | null | undefined) => {
+  try {
+    return Boolean(JSON.parse(json || '{}').extraPayRun);
+  } catch {
+    return false;
+  }
+};
 const maskEnd = (v: string | null | undefined, keep = 4) => {
   const s = String(v || '');
   return s ? `${'•'.repeat(Math.max(0, s.length - keep))}${s.slice(-keep)}` : '';
@@ -1554,6 +1561,8 @@ portalRouter.get('/payslips', async (req, res) => {
       deductions: Number(s.totalDeductions),
       net: Number(s.netPay),
       paid: s.paymentStatus === 'PAID',
+      /* Made by an extra pay run (a bonus, arrears, a late joiner's days): said on the payslip. */
+      extraPayRun: extraPayRunOf(s.inputSnapshotJson),
     })),
   });
 });
@@ -1602,6 +1611,7 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
       totalDeductions: Number(slip.totalDeductions),
       net: Number(slip.netPay),
       paid: slip.paymentStatus === 'PAID',
+      extraPayRun: Boolean(input.extraPayRun),
       /* What this payslip could not take and moved on (deductionCap.ts), as Payroll's copy shows it. */
       deductionNote: slip.deductionNote ?? null,
       /* Somebody whose last day falls in this period has no next payslip: the rest goes to the full and final. */

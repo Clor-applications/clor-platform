@@ -625,6 +625,11 @@ model PayrollRun {
   /// DRAFT | CALCULATED | REVIEW | APPROVED | LOCKED | PAID | POSTED | CANCELLED
   status String @default("DRAFT")
 
+  /// REGULAR (the month's payroll) | OFF_CYCLE (an extra pay run in the same
+  /// month: a late joiner's days, a bonus or arrears). Only regular runs are
+  /// one per period, pay group and branch.
+  kind String @default("REGULAR")
+
   /// Totals, denormalised so a list of runs does not sum every slip.
   employeeCount             Int     @default(0)
   grossTotal                Decimal @default(0)
@@ -688,8 +693,10 @@ model PayrollRun {
   slips     SalarySlip[]
 
   @@unique([orgId, number])
-  /// One payroll per population per period, which is what stops a double run.
-  @@unique([orgId, periodId, payGroupId, branchId])
+  /// One REGULAR payroll per population per period, which is what stops a
+  /// double run: a partial unique index, SQL only (PayrollRun_regular_period_key,
+  /// migration 20261231090000_offcycle_runs). Off-cycle runs sit beside it.
+  @@index([orgId, periodId, kind])
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, periodId])
 }
@@ -705,6 +712,10 @@ model PayrollRunEmployee {
 
   /// INCLUDED | EXCLUDED
   inclusion String @default("INCLUDED")
+  /// On an off-cycle run: SALARY (their days for the month, a late joiner) or
+  /// EXTRA (only the amounts entered for them, a bonus or arrears). Always
+  /// SALARY on a regular run.
+  pays String @default("SALARY")
   /// PENDING | READY | WARNING | ERROR | CALCULATED
   state     String @default("PENDING")
 
