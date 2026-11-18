@@ -17,6 +17,7 @@ import { listCompanyDocuments, listAllEmployees, getDocument } from '@ui/personn
 import { Avatar, EmployeeDocuments } from '@ui/personnel/Employees';
 import { docWhoLabel } from '@ui/personnel/documentClassification';
 import { todayIst } from '@ui/utils/dates';
+import { expiresNextMonth, nextMonthRange } from '@ui/personnel/round46';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { can } from '@ui/permissions/can';
 
@@ -53,11 +54,13 @@ export default function PeopleDocuments({ openScreen }) {
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return docs
-      .filter((r) => tab === 'all' || (tab === 'expired' ? expired(r) : !expired(r)))
+      .filter((r) => tab === 'all' || (tab === 'nextmonth' ? expiresNextMonth(r, today) : tab === 'expired' ? expired(r) : !expired(r)))
       .filter((r) => !kind || r.kind === kind)
       .filter((r) => !needle || [r.title, r.employeeName, r.employeeCode, kindWord(r.kind)].some((v) => String(v || '').toLowerCase().includes(needle)));
   }, [docs, tab, q, kind, today]); // eslint-disable-line react-hooks/exhaustive-deps
-  const counts = { all: docs.length, valid: docs.filter((r) => !expired(r)).length, expired: docs.filter(expired).length };
+  /* Round 46 certexpiry B: the month ahead as one list to renew in a batch. */
+  const counts = { all: docs.length, valid: docs.filter((r) => !expired(r)).length, nextmonth: docs.filter((r) => expiresNextMonth(r, today)).length, expired: docs.filter(expired).length };
+  const nextMonth = nextMonthRange(today);
   const soon = docs.filter((r) => r.expiresOn && !expired(r) && daysTo(r.expiresOn, today) <= SOON_DAYS).length;
   const people = new Set(docs.map((r) => r.employeeId).filter(Boolean)).size;
   const shared = docs.filter((r) => r.visibleToEmployee).length;
@@ -99,7 +102,7 @@ export default function PeopleDocuments({ openScreen }) {
           <SearchField value={q} onSearch={setQ} placeholder="Search employee or document" label="Search documents" className="w-full sm:w-80" />
           {kinds.length > 1 ? <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Category" icon={null} placeholder="Category: All" value={kind} onChange={(v) => setKind(v || '')} options={[{ value: '', label: 'Category: All' }, ...kinds.map((k) => ({ value: k, label: kindWord(k) }))]} /></div> : null}
         </>}
-        tabs={[{ key: 'all', label: 'All', count: counts.all }, { key: 'valid', label: 'Current', count: counts.valid }, { key: 'expired', label: 'Expired', count: counts.expired }]}
+        tabs={[{ key: 'all', label: 'All', count: counts.all }, { key: 'valid', label: 'Current', count: counts.valid }, { key: 'nextmonth', label: `Expiring in ${nextMonth.label.split(' ')[0]}`, count: counts.nextmonth }, { key: 'expired', label: 'Expired', count: counts.expired }]}
         tab={tab}
         onTab={setTab}
       />
@@ -110,7 +113,9 @@ export default function PeopleDocuments({ openScreen }) {
           onRowClick={(r) => setDrawer({ employeeId: r.employeeId || '' })} rowActions={rowActions}
           card={(r) => <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.title}</span><span className="block truncate ui-caption">{[r.employeeName, kindWord(r.kind), r.expiresOn ? `until ${formatDate(r.expiresOn)}` : null].filter(Boolean).join(' · ')}</span></span>}
           empty={q || kind || tab !== 'all'
-            ? <EmptyState kind="filtered" title="No documents match" description="Nothing here matches the search or the tab." />
+            ? (tab === 'nextmonth' && !q && !kind
+              ? <EmptyState kind="filtered" title={`Nothing runs out in ${nextMonth.label}`} description="Documents with a valid-until date next month are listed here, to renew together." />
+              : <EmptyState kind="filtered" title="No documents match" description="Nothing here matches the search or the tab." />)
             : <EmptyState title="No documents yet" description="Documents added on a person's record, or here, are listed with who may see them and their expiry." routes={mayAdd ? [{ label: 'New document', onSelect: () => setDrawer({ employeeId: '' }) }] : []} />} />
       )}
       {drawer ? (
