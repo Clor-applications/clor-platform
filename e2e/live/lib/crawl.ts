@@ -5,19 +5,15 @@
  * screens, and a screenshot of each. Never clicks anything outside navigation,
  * and never a control whose label matches DANGER.
  */
-import { test } from '@playwright/test';
-import { accounts, SITES } from './lib/env';
-import { DANGER, renderIssues, saveVisits, shotPath, watch, type Visit } from './lib/monitor';
-import { pageAs } from './lib/session';
+import type { Page } from '@playwright/test';
+import type { QaAccount } from './env';
+import { SITES } from './env';
+import { DANGER, renderIssues, saveVisits, shotPath, watch, type Visit } from './monitor';
 
-const accs = accounts();
 const DEFAULT_APPS = ['app', 'people', 'payroll', 'attendance', 'books'] as const;
 
-test.skip(accs.length === 0, 'No QA_ACCOUNTS in e2e/live/.env.live: signed-in crawl skipped');
-
-for (const acc of accs) {
-  test(`Crawl as ${acc.label}`, async ({ browser }) => {
-    const page = await pageAs(browser, acc);
+export async function crawlAs(page: Page, acc: QaAccount) {
+  {
     const w = watch(page);
     const visits: Visit[] = [];
     const apps = (acc as any).apps || (acc.site === 'ops' ? ['ops'] : DEFAULT_APPS);
@@ -64,5 +60,5 @@ for (const acc of accs) {
       await page.screenshot({ path: shot }).catch(() => {});
       visits.push({ portal: app, account: acc.label, path: name, title: new URL(page.url()).pathname, ms, ok: issues.length === 0, issues, screenshot: shot });
     }
-  });
+  }
 }

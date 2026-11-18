@@ -11,17 +11,17 @@
  *      otherwise closes it (Cancel / Escape) without saving
  * Runs as each company's owner (sees every form). QA_FORM_ACCOUNTS=label,label overrides.
  */
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { accounts } from './lib/env';
-import { DANGER, saveVisits, shotPath, watch, type Issue, type Visit } from './lib/monitor';
-import { canWrite, RUN_TAG } from './lib/scenario';
-import { pageAs } from './lib/session';
-import { walkApp } from './lib/walk';
+import type { Locator, Page } from '@playwright/test';
+import type { QaAccount } from './env';
+import { DANGER, saveVisits, shotPath, watch, type Issue, type Visit } from './monitor';
+import { canWrite, RUN_TAG } from './scenario';
+import { walkApp } from './walk';
 
 const OPENER = /^\s*(\+\s*)?(add|new|create|invite|apply|record|raise|request|import|upload|set up|start)\b/i;
 const APPS = ['app', 'people', 'payroll', 'attendance', 'books'] as const;
 const pick = process.env.QA_FORM_ACCOUNTS?.split(',').map((s) => s.trim());
-const accs = accounts().filter((a) => (pick ? pick.includes(a.label) : (a as any).role === 'owner'));
+/** Forms run as each company's owner (sees every form), or the labels in QA_FORM_ACCOUNTS. */
+export const formsFor = (acc: QaAccount) => (pick ? pick.includes(acc.label) : (acc as any).role === 'owner');
 
 /* Field kind from its label/name/type, with a wrong value it must refuse and a good one it must take. */
 const KINDS: Array<{ kind: string; match: RegExp; bad?: string; good: string }> = [
@@ -75,12 +75,8 @@ async function closeForm(page: Page, form: Locator) {
   await page.waitForTimeout(300);
 }
 
-test.skip(accs.length === 0, 'No owner accounts in QA_ACCOUNTS');
-
-for (const acc of accs) {
-  test(`Forms as ${acc.label}`, async ({ browser }) => {
-    test.setTimeout(45 * 60_000);
-    const page = await pageAs(browser, acc);
+export async function formsAs(page: Page, acc: QaAccount) {
+  {
     const w = watch(page);
     const visits: Visit[] = [];
     const done = new Set<string>();
@@ -162,6 +158,5 @@ for (const acc of accs) {
       });
     }
     saveVisits(`forms-${acc.label}`, visits);
-    expect(visits.length).toBeGreaterThan(0);
-  });
+  }
 }

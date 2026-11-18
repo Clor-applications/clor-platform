@@ -6,10 +6,10 @@
  * they make carries the run tag (QA-yyyymmdd-xxxx) so it can be found and removed.
  */
 import { expect, test } from '@playwright/test';
-import { accounts } from './lib/env';
-import { saveVisits } from './lib/monitor';
-import { runSteps, type Scenario } from './lib/scenario';
-import { pageAs } from './lib/session';
+import type { QaAccount } from './env';
+import type { Page } from '@playwright/test';
+import { saveVisits } from './monitor';
+import { runSteps, type Scenario } from './scenario';
 
 const sees = (text: RegExp) => async ({ page }: any) => { await expect(page.getByText(text).first()).toBeVisible(); };
 const clickText = async (page: any, re: RegExp) => page.getByRole('button', { name: re }).or(page.getByRole('link', { name: re })).first().click();
@@ -184,17 +184,9 @@ export const SCENARIOS: Scenario[] = [
   },
 ];
 
-const accs = accounts();
-test.skip(accs.length === 0, 'No QA_ACCOUNTS in e2e/live/.env.live: scenarios skipped');
-
-for (const acc of accs) {
+export async function scenariosAs(page: Page, acc: QaAccount) {
   const role = (acc as any).role || 'owner';
-  const mine = SCENARIOS.filter((s) => s.who.includes(role));
-  if (!mine.length) continue;
-  test(`Scenarios as ${acc.label} (${role})`, async ({ browser }) => {
-    const page = await pageAs(browser, acc);
-    const all = [];
-    for (const s of mine) all.push(...(await runSteps(s, page, acc)));
-    saveVisits(`scenarios-${acc.label}`, all);
-  });
+  const all = [];
+  for (const sc of SCENARIOS.filter((x) => x.who.includes(role))) all.push(...(await runSteps(sc, page, acc)));
+  saveVisits(`scenarios-${acc.label}`, all);
 }

@@ -8,12 +8,6 @@ import { SITES, type QaAccount } from './env';
 const STATE = join(fileURLToPath(new URL('.', import.meta.url)), '..', '.state');
 export function statePath(acc: QaAccount) { mkdirSync(STATE, { recursive: true }); return join(STATE, `${acc.label}.json`); }
 
-/** A page already signed in as acc (session saved by auth.setup.ts). */
-export async function pageAs(browser: Browser, acc: QaAccount) {
-  if (!existsSync(statePath(acc))) test.skip(true, `${acc.label} could not sign in (see auth step)`);
-  const ctx = await browser.newContext({ storageState: statePath(acc), viewport: { width: 1440, height: 900 }, locale: 'en-IN', timezoneId: 'Asia/Kolkata' });
-  return ctx.newPage();
-}
 /* 2FA codes work once: wait for a fresh 30-second step before each sign-in. */
 const lastStep: Record<string, number> = {};
 
