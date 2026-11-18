@@ -787,3 +787,14 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 33 */
+/* Half a day: first half or second half in one tap */
+.ui-half-choice { display: inline-flex; border: 1px solid rgb(var(--border-field, var(--border))); border-radius: 0.5rem; overflow: hidden; }
+.ui-half-choice-btn { min-height: 2.5rem; padding: 0 0.875rem; font-size: 0.875rem; color: rgb(var(--fg)); background: #FFFFFF; border: 0; cursor: pointer; }
+.ui-half-choice-btn + .ui-half-choice-btn { border-left: 1px solid rgb(var(--border-field, var(--border))); }
+.ui-half-choice-btn:hover { background: #F7F7F7; }
+.ui-half-choice-btn.is-on { background: rgb(var(--act)); color: rgb(var(--act-ink)); font-weight: 600; }
+.ui-half-choice-btn:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
+/* Leave asked for days already gone */
+.ui-late-tag { display: inline-block; margin-top: 0.125rem; padding: 0 0.5rem; border-radius: 9999px; font-size: 0.75rem; line-height: 1.25rem; background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }

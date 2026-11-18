@@ -1,5 +1,4 @@
 import React from 'react';
-import PopupSelect from '@ui/components/pickers/PopupSelect';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
 /*
@@ -68,7 +67,18 @@ export default function HalfDayChoice({ form, allowed, typeName, onChange, nativ
         </label>
       );
     }
-    return <PopupSelect showValueSubtext={false} label={label} value={form.halfDay || 'WHOLE'} onChange={(v) => onChange({ halfDay: v === 'WHOLE' ? '' : v || '' })} options={DAY_OPTIONS} />;
+    /* Round 33 (halfwhich A): one tap, the three choices side by side. */
+    const value = form.halfDay || 'WHOLE';
+    return (
+      <div role="radiogroup" aria-label={label} className="space-y-1">
+        <span className="ui-label" aria-hidden="true">{label}</span>
+        <div className="ui-half-choice">
+          {DAY_OPTIONS.map((o) => (
+            <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={`ui-half-choice-btn${value === o.value ? ' is-on' : ''}`} onClick={() => onChange({ halfDay: o.value === 'WHOLE' ? '' : o.value })}>{o.label}</button>
+          ))}
+        </div>
+      </div>
+    );
   }
   return (
     <fieldset className="space-y-2">

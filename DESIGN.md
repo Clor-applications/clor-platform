@@ -556,6 +556,28 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 33 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| First half or second half of the day | One day of leave on the HR and My leave forms is chosen with three buttons side by side, Whole day, First half, Second half, one tap each (`HalfDayChoice`, `.ui-half-choice`). The employee app keeps its own select. |
+| Asking leave for a day already gone | The approver's leave list tags a request asked after its first day: "Asked 2 days late" under the dates (`lateText`, `.ui-late-tag`). How far back it may go stays the leave type's rule on the server. |
+| Week starting Monday or Sunday | Monday. Weekly off on a shift and the Weekly off policy table list Mon … Sun; the days a shift has off read Monday first. Stored day numbers are unchanged (`mondayFirst`). |
+
+Picked and already how the app works: leave that crosses into a new leave year is split on the
+form, "saved as two requests, one per leave period", with each part's days and balance; hours
+are written 7h 30m.
+
+Picked, **not built yet**: a bereavement leave type with no proof asked; on probation only
+casual and sick leave allowed; a busy period needing a second approver; no leave during notice
+with the balance paid out; "1 of 3 left" on the punch fix form; uploading the paper register for a
+day the machine was down; a guessed shift a supervisor confirms; asking staff to volunteer for a
+holiday; attendance kept to the calendar month with late days carried to next pay; calling
+someone back from leave with the days returned; a day off owed added after six days in a row.
+All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

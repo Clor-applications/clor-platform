@@ -13,6 +13,7 @@ import ShiftBreaks from '../components/ShiftBreaks';
 import { breaksBody, breaksProblem, unpaidTotal } from '../components/shiftBreaksMath';
 import ColorDots from '@ui/components/ui/ColorDots';
 import { splitShiftLabel } from '../components/round24';
+import { mondayFirst, sortMondayFirst } from '@ui/timeOff/round33';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -72,7 +73,7 @@ export function halfDaySentence(halfMin, fullMin) {
 }
 const hoursWords = (m) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 const offs = (s, sats) => {
-  const days = s ? s.split(',').map((d) => DAYS[Number(d)]) : [];
+  const days = s ? sortMondayFirst(s.split(',')).map((d) => DAYS[Number(d)]) : [];
   const nth = sats ? sats.split(',').map((n) => `${NTH[Number(n) - 1]} Sat`) : [];
   return [...days, ...nth].join(', ') || 'None';
 };
@@ -393,7 +394,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
         <fieldset className="sm:col-span-2">
           <legend className="ui-label">Weekly off</legend>
           <div className="flex flex-wrap gap-3">
-            {DAYS.map((d, i) => (
+            {mondayFirst(DAYS).map(({ label: d, index: i }) => (
               <label key={d} className="flex items-center gap-1.5 text-sm">
                 <input type="checkbox" className="ui-checkbox" checked={offSet.has(String(i))} onChange={() => toggleOff(i)} /> {d}
               </label>
