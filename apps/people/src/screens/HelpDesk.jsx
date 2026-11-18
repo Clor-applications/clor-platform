@@ -17,6 +17,7 @@ import {
 } from '../api/desk';
 import { istDay } from '@ui/utils/dates';
 import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { waitingWords } from './deskWaiting';
 
 /**
  * Help desk (DESK-01..06): what employees asked, by queue, with reply-by
@@ -56,6 +57,7 @@ export default function HelpDesk({ params = {} }) {
     { key: 'from', label: 'From', render: (r) => <span>{r.employeeName}{r.employeeCode ? <span className="ui-caption tabular-nums"> · {r.employeeCode}</span> : null}</span> },
     { key: 'queue', label: 'Queue', render: (r) => r.queue },
     { key: 'urgency', label: 'Urgency', render: (r) => <span className={`ui-pill ${r.urgency === 'URGENT' || r.urgency === 'HIGH' ? 'ui-pill-neg' : 'ui-pill-neutral'}`}>{URGENCY[r.urgency] || r.urgency}</span> },
+    { key: 'waiting', label: 'Waiting', render: (r) => <span className="tabular-nums whitespace-nowrap ui-muted r52-desk-waiting">{waitingWords(r).replace(/^Waiting /, '')}</span> },
     { key: 'reply', label: 'Reply by', render: (r) => (r.firstReplyAt ? <span className="ui-muted">Replied</span> : <span className={`tabular-nums whitespace-nowrap ${late(r.replyOverdue)}`}>{when(r.replyBy)}</span>) },
     { key: 'resolve', label: 'Resolve by', render: (r) => <span className={`tabular-nums whitespace-nowrap ${late(r.resolveOverdue)}`}>{day(r.resolveBy)}{r.resolveOverdue ? ' (late)' : ''}</span> },
     { key: 'status', label: 'Status', render: (r) => <span className={`ui-pill ${STATUS[r.status]?.[1] || ''}`}>{STATUS[r.status]?.[0] || r.status}</span> },

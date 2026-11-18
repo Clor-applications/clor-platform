@@ -200,15 +200,28 @@ describe('Ask HR as a conversation', () => {
     await waitFor(() => expect(api.replyDesk).toHaveBeenCalledWith('d1', 'Only 14 October.'));
   });
 
-  it('offers Reopen on an answer from the last seven days', async () => {
+  it('asks "Did this solve it?" on an answer from the last seven days; No reopens (round 52)', async () => {
     api.getDesk.mockResolvedValue(DESK);
     api.getDeskCase.mockResolvedValue({ request: { id: 'd2', subject: 'Experience letter', category: 'OTHER', status: 'RESOLVED', description: 'Need one', resolution: 'Sent to your documents.', resolvedAt: new Date(Date.now() - 2 * 86_400_000).toISOString(), createdAt: '2026-10-10T05:00:00Z', messages: [] } });
     render(<AskHr guard={guard} />);
     fireEvent.click((await screen.findByText('Experience letter')).closest('button'));
     expect(await screen.findByText('Sent to your documents.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Your reply')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+    expect(screen.getByText('Did this solve it?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'No, reopen' }));
     await waitFor(() => expect(api.reopenDesk).toHaveBeenCalledWith('d2'));
+  });
+
+  it('Yes on "Did this solve it?" is remembered and does not reopen (round 52)', async () => {
+    try { window.localStorage.removeItem('clor.r52.solved.d3'); } catch { /* no storage here */ }
+    api.getDesk.mockResolvedValue(DESK);
+    api.getDeskCase.mockResolvedValue({ request: { id: 'd3', subject: 'Experience letter', category: 'OTHER', status: 'RESOLVED', description: 'Need one', resolution: 'Sent to your documents.', resolvedAt: new Date(Date.now() - 86_400_000).toISOString(), createdAt: '2026-10-10T05:00:00Z', messages: [] } });
+    api.reopenDesk.mockClear();
+    render(<AskHr guard={guard} />);
+    fireEvent.click((await screen.findByText('Experience letter')).closest('button'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes' }));
+    expect(screen.getByText(/Glad it is sorted/)).toBeInTheDocument();
+    expect(api.reopenDesk).not.toHaveBeenCalled();
   });
 
   it('shows nothing where the company does not take questions here', async () => {

@@ -22,6 +22,7 @@ import {
   updateSettlement,
 } from '../api/payrollSettlements';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { settlementClock } from './settlementClock';
 
 const STATUS = {
   DRAFT: { label: 'Draft', pill: 'ui-pill-neutral' },
@@ -247,6 +248,7 @@ export default function FinalSettlements() {
                     <td className="ui-col-date whitespace-nowrap">
                       {formatDateIn(x.dueDate)}
                       {x.overdue && x.status !== 'PAID' ? <span className="ui-pill ui-pill-neg ms-2">Overdue</span> : null}
+                      {settlementClock(x) ? <span className="block ui-caption r52-fnf-clock">{settlementClock(x)}</span> : null}
                     </td>
                     <td className="ui-num">{money(x.netPayable)}</td>
                     <td className="ui-col-h-center">
@@ -358,6 +360,17 @@ function Settlement({ settlement, you, onClose, onChanged }) {
     >
       <div className="space-y-4">
         {own ? <p className="ui-caption" role="note">{OWN_WORDS}</p> : null}
+        {(() => {
+          /* Round 52 (FNFSHEET b): one list of lines, the net said first, live as lines change. */
+          const live = netOf(lines);
+          return (
+            <div className="r52-fnf-net" aria-live="polite">
+              <span className="ui-label">Net</span>
+              <span className="r52-fnf-net-figure tabular-nums">{money(Math.abs(live))}</span>
+              <span className="ui-caption">{live < 0 ? `${who} owes this` : live > 0 ? `To pay ${who}` : 'Nothing either way'}</span>
+            </div>
+          );
+        })()}
         {settlement.hold ? <HoldPanel settlement={settlement} busy={busy} run={run} stepUp={Boolean(you?.stepUp)} canLift={!own && you?.liftHold !== false} whyNot={own ? 'This is your own hold. Another HR user or the owner lifts it.' : you?.liftHoldWhy} /> : null}
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky w-full">
