@@ -69,7 +69,8 @@ describe('leave approvals: remind, a question sent back, decided by HR, take bac
   it('the person reminds the approvers of their own waiting request once a day; not of someone else’s', async () => {
     const day = mondayFrom(40);
     const r = (await att(me, 'post', '/me/leave', { leaveTypeId: plain.id, fromDate: day, toDate: day, reason: 'Errand' }).expect(201)).body.request;
-    const listed = (await att(me, 'get', '/me/leave').expect(200)).body.requests.find((x: any) => x.id === r.id);
+    /* The day can fall in next year (from mid-November on); the list shows one leave year, so ask for that day's. */
+    const listed = (await att(me, 'get', `/me/leave?year=${day.slice(0, 4)}`).expect(200)).body.requests.find((x: any) => x.id === r.id);
     expect(listed).toMatchObject({ canRemind: true, remindedAt: null, question: null });
     const done = (await att(me, 'post', `/me/leave/${r.id}/remind`).expect(200)).body.request;
     expect(done).toMatchObject({ canRemind: false });
