@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MoreHorizontal, Plus, Search } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 import { confirmDialog } from '@ui/components/ui/notify';
-import { listRoles, createRole, updateRole, deleteRole } from '@platform/admin/admin';
+import { listRoles, listUsers, createRole, updateRole, deleteRole } from '@platform/admin/admin';
 import Popover from '@ui/components/ui/Popover';
 import { MoreButton } from '@ui/components/list/ListPageParts';
 import { exportFormatFromKey, exportMenuItem, runListExport } from '@ui/components/list/exportMenu';
@@ -87,7 +87,38 @@ function permissionsToSet(perms) {
   return s;
 }
 
+/*
+ * Round 64 "usersroles" B: roles first, and the people inside each one. Who holds the shown role, by name, from the
+ * users list (only for someone who may read it; otherwise the count above stays the only figure).
+ */
+function RoleHolders({ users, roleId }) {
+  if (!Array.isArray(users)) return null;
+  const inRole = users.filter((u) => u.roleId === roleId && u.isActive !== false && !u.left);
+  const names = inRole.map((u) => u.fullName || u.name || u.email).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const shown = names.slice(0, 12);
+  return (
+    <section className="ws-role-holders" aria-label="Who has this role">
+      <h3 className="ws-kicker">Who has it</h3>
+      {names.length ? (
+        <p className="text-sm">{shown.join(', ')}{names.length > shown.length ? ` and ${names.length - shown.length} more` : ''}</p>
+      ) : (
+        <p className="ws-foot-note">Nobody in this company holds it yet. Give it from Users.</p>
+      )}
+    </section>
+  );
+}
+
 export function SettingsRoles({ orgId }) {
+  const [holders, setHolders] = useState(null);
+  useEffect(() => {
+    if (!orgId) return undefined;
+    let gone = false;
+    Promise.resolve()
+      .then(() => listUsers(orgId))
+      .then((r) => { if (!gone) setHolders(Array.isArray(r?.users) ? r.users : null); })
+      .catch(() => { if (!gone) setHolders(null); });
+    return () => { gone = true; };
+  }, [orgId]);
   /* Saving a role can change what the person saving it may do; their own permissions are read again afterwards. */
   const reloadMyPermissions = usePermissions()?.reload;
   const [roles, setRoles] = useState([]);
@@ -366,6 +397,7 @@ export function SettingsRoles({ orgId }) {
                   </div>
                 </div>
                 {shownRole.ownDocumentsOnly ? <p><span className="ws-pill ws-pill--neutral">Own documents only</span></p> : null}
+                <RoleHolders users={holders} roleId={shownRole.id} />
                 <TemplateDrift template={shownRole.template} modules={catalog.modules} />
                 {/* Round 38: a plain list of what the role can see and change, by screen; the full grid stays one click away. */}
                 {catalog.modules.length ? (

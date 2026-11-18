@@ -128,6 +128,14 @@ export default function BillingPreview() {
               <span className="ws-plan-sub">{runRate.monthly != null ? 'At today’s seats' : (runRate.unpriced || []).map((a) => appInfo(a)?.name || a).join(', ') || 'Ask CLOR for the price'}</span>
             </div>
           ) : null}
+          {/* Round 64 "billingpage" A: the next bill's date and amount at the top, so nothing on it is a surprise. */}
+          {runRate?.monthly > 0 && renewal?.renewsAt && (runRate.interval === 'month' || runRate.interval === 'year') ? (
+            <div>
+              <span className="ws-plan-label">Next bill</span>
+              <span className="ws-plan-value ws-plan-money">{inr(runRate.interval === 'year' ? runRate.monthly * 12 : runRate.monthly)}</span>
+              <span className="ws-plan-sub">On {invoiceDay(renewal.renewsAt)}, at today’s seats</span>
+            </div>
+          ) : null}
           <div>
             <span className="ws-plan-label">To pay</span>
             <span className="ws-plan-value ws-plan-money">{invoices === null ? '—' : inr(unpaid.reduce((n, i) => n + Number(i.total || 0), 0))}</span>

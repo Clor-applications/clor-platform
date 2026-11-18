@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowUpRight, ChevronRight, Search } from '@ui/components/ui/lineIcons';
 
 import { PageHeader } from '../components/ui/Primitives';
+import { settingHits } from '../picks/round64';
 
 /**
  * Settings as one page instead of a long sidebar (founder, 22 Oct 2026; the
@@ -12,13 +13,16 @@ import { PageHeader } from '../components/ui/Primitives';
  * groups: [{ title, note, tone?, items: [[navKey, note]], apps?: [[appId, label, note]] }]; `tone` (1–8) names the
  * group's identity colour (--cat-N), which a portal's stylesheet may use behind each tile's icon (People, PEOPLE-28).
  */
-export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], description = 'Everything set up once and changed rarely, in one place.' }) {
+export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], words = null, description = 'Everything set up once and changed rarely, in one place.' }) {
   const [q, setQ] = useState('');
   const byKey = useMemo(() => new Map(navItems.filter((i) => i.key).map((i) => [i.key, i])), [navItems]);
   const match = (...texts) => !q.trim() || texts.join(' ').toLowerCase().includes(q.trim().toLowerCase());
+  /* Round 64 "settingsfind" A: a word inside a setting ("grace") finds it too, and says where it lives. */
+  const hits = settingHits(q, words, GROUPS, byKey);
+  const hitKeys = new Set(hits.map((h) => h.key));
   const groups = GROUPS.map((g) => ({
     ...g,
-    cards: g.items.map(([key, note]) => ({ key, note, item: byKey.get(key) })).filter((c) => c.item && match(c.item.label, c.note, g.title)),
+    cards: g.items.map(([key, note]) => ({ key, note, item: byKey.get(key) })).filter((c) => c.item && (hitKeys.has(c.key) || match(c.item.label, c.note, g.title, ...(c.item.keywords || [])))),
     apps: (g.apps || []).filter(([, label, note]) => match(label, note, g.title)),
   })).filter((g) => g.cards.length || g.apps.length);
 
@@ -35,6 +39,20 @@ export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [],
         </div>
       </header>
       {!groups.length ? <p className="ui-muted text-sm">No setting matches “{q}”.</p> : null}
+      {hits.length ? (
+        <section aria-label="Settings that hold this word" className="ui-settings-hits">
+          <p className="ui-caption">Found inside</p>
+          <ul className="flex flex-wrap gap-2">
+            {hits.map((h) => (
+              <li key={h.key}>
+                <button type="button" className="ui-settings-hit" onClick={() => openScreen?.(h.key)}>
+                  <span className="font-medium">{h.word}</span> → {h.group} › {h.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {groups.map((g) => (
         <section key={g.title} className="space-y-2" aria-labelledby={`set-${g.title}`} data-tone={g.tone || undefined} style={g.tone ? { '--set-tone': `var(--cat-${g.tone})` } : undefined}>
           <div>

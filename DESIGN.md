@@ -1128,6 +1128,33 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 64 (18 Nov 2026)
+
+Settings. Built (shared pieces in `packages/ui/src/picks/round64.jsx`, styles in the Round 64 block of picks.css; never Books):
+
+| Building block | Pick |
+| --- | --- |
+| Finding one setting | Settings search also finds a word inside a setting and says where it lives: typing "grace" lists "grace → Time off › Attendance rules" under the search, and a tap opens it. The words are in `apps/people/src/settingWords.js`; each nav item's own `keywords` count too. |
+| Explaining a setting | A small ⓘ beside a setting opens its how-to in the Help centre (`SettingHelp`): the sandwich rule in Leave policy, late grace on a shift, and the tax numbers on Company details. It sits outside the field's label, so a tap never ticks or focuses the field. |
+| Locked settings | Once leave is recorded, Leave policy shows the leave period with a lock, the reason and the way round ("the balances move first: ask CLOR support"), and no Change link. A refusal from the server (`LEAVE_PERIOD_IN_USE`) shows the same words. |
+| Going back to the usual | Who decides & who sees: a choice moved off CLOR's usual one has "Use the usual (…)" beside it; Save keeps it. |
+| Company details | Grouped as Identity, Address and Tax numbers; each field says where it is used ("Used: on Form 16 and the 24Q return"). |
+| Departments and sub-teams | Departments read as an indented tree, each sub-department under its parent with its people count; "Add a sub-department" on any row's menu opens the form with the parent set. |
+| Who can do what | Roles lists roles first; the role shown now says who holds it, by name ("Who has it"), from the users list. |
+| Plan and billing | Billing & seats has a "Next bill" figure at the top: the amount at today's seats and the date. |
+| Setting up a leave type | A new blank leave type starts as plain questions, one at a time: name, paid, days a year, who gets it, carry forward, proof. "See the full form" or "Show every setting" opens the whole form. A usual type, a copy or an edit opens the full form as before. |
+| Creating a shift | The shift form draws the shift on a 24-hour bar, unpaid named breaks lighter, with "22:00 to 06:00 · ends next day · 8 h". |
+
+Picked and already how the app works: People's Settings page is tiles with icons (settingshome C);
+settings pages have Save at the top right (settingssave C); Ops email templates already have "Send
+test", which mails the saved wording to your own inbox (testemail A).
+
+Picked, **not built yet**: "From when?" with a dated list for a setting change (needs dated settings
+on the server); a company logo on Company details (no logo field yet); free-text job titles typed on
+each person (designations are a list on the server today); closing the company only through support
+(Ops has no way to close a company for a customer yet, so the typed confirm stays); dragging a
+department to move it (Edit › Under does it).
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

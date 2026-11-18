@@ -68,7 +68,18 @@ function Choice({ item, choice, value, onChange }) {
       <div className="min-w-0">
         <label htmlFor={id} className="text-sm block">{item.sentence}</label>
         {caption ? <p className="ui-caption mt-1">{caption}</p> : null}
-        <p className="ui-caption mt-1">{changedLine(choice)}{!choice.canChange && choice.why ? ` · ${choice.why}` : ''}</p>
+        <p className="ui-caption mt-1">
+          {changedLine(choice)}{!choice.canChange && choice.why ? ` · ${choice.why}` : ''}
+          {/* Round 64 "resetdefault" A: a choice moved off CLOR's usual one can go back in one tap (saved with Save). */}
+          {choice.canChange && choice.default !== undefined && String(value) !== String(choice.default) ? (
+            <>
+              {' · '}
+              <button type="button" className="ui-link" onClick={() => onChange(item.key, String(choice.default))}>
+                Use the usual ({choice.options.find((o) => String(o.value) === String(choice.default))?.label || String(choice.default)})
+              </button>
+            </>
+          ) : null}
+        </p>
       </div>
       <select id={id} className="ui-select w-full min-h-[44px] sm:min-h-0" value={String(value)} disabled={!choice.canChange} onChange={(e) => onChange(item.key, e.target.value)}>
         {choice.options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
