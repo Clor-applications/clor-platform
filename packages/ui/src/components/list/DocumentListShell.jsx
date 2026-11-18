@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { PageHeader } from '../ui/Primitives';
 import { ListSearch, MoreButton, StatCards } from './ListPageParts';
+import CopyListLink from './CopyListLink';
 
 /**
  * The shape of a document list page, in one place.
@@ -115,6 +116,7 @@ export default function DocumentListShell({
             />
           ) : null}
           {headerExtras}
+          <CopyListLink />
           {moreItems?.length ? <MoreButton items={moreItems} onSelect={onMoreSelect} /> : null}
           {primary}
         </>

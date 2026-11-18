@@ -491,6 +491,28 @@ changing one field for many people with a preview of who changes; night allowanc
 payslip line; a phone reminder at shift end to punch out; private HR notes with a lock and who
 wrote them.
 
+### Round 22 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Joiners and leavers each month | On People → Headcount & attrition, a "Joined and left" chart across the full width: a bar up from the middle line for joiners, a bar down for leavers, `+7 −3` under each month (`JoinLeaveBars`). Joiners in the first chart colour, leavers in the third. |
+| Sending someone a link to this list | "Copy link" (ghost button, link icon) in a list's header once anything is filtered. The address already holds the filters (`s.<key>`), so the link opens the same list; the other person's own access still applies (`CopyListLink`, every `DocumentListShell` list outside Books). |
+| Maternity leave | One request with the return date worked out: on the leave form, a maternity type shows "26 weeks · back at work on Wed 2 Jun 2027" and a "Fill 26 weeks" link that sets the last day (`LongLeaveSpan`, calendar days). |
+
+Picked and already how the app works: two hours off taken with a from and to time on the leave
+form, with the hours left this month (hourly leave types); a mid-month joiner's payslip shows the
+days paid with the amount ("13 of 30 days").
+
+Picked, **not built yet**: the professional tax state picked from the branch with a link to its
+slab; a holiday on a weekly off moved to the Monday; a written warning letter from a template
+sent to sign; Ops list of customers who may stop using CLOR, with the reason; a switch letting
+anyone with the company email join without an invite; a locked feature offered as a 14-day free
+try; "Report a problem" in Help with a screenshot added; comp off added by itself from punches on
+a holiday; the Ops support queue as an inbox with waiting time (Ops console); @ mentions in
+comments; booking a cab drop for a late shift.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

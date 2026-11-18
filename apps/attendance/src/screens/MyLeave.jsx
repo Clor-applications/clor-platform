@@ -1,4 +1,5 @@
 import DateNotes from '@ui/timeOff/DateNotes';
+import LongLeaveSpan from '@ui/timeOff/LongLeaveSpan';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from '@ui/components/ui/lineIcons';
 
@@ -422,6 +423,7 @@ function AskLeave({ types, rows = [], onClose, onDone, request = null }) {
           <div><label className="ui-label" htmlFor="ml-from">{hourly ? 'Day *' : 'First day *'}</label><DatePicker id="ml-from" value={form.fromDate} onChange={(v) => set('fromDate', v || '')} /></div>
           {hourly ? null : <div><label className="ui-label" htmlFor="ml-to">Last day</label><DatePicker id="ml-to" value={form.toDate} min={form.fromDate} onChange={(v) => set('toDate', v || '')} /></div>}
         </div>
+        {hourly ? null : <LongLeaveSpan typeName={(type || listed)?.name} fromDate={form.fromDate} toDate={form.toDate} onFill={(v) => set('toDate', v)} />}
         {hourly
           ? <HoursChoice form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
           : <HalfDayChoice form={form} allowed={halfAllowed} typeName={(type || listed)?.name} label="How much of the day" onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />}
