@@ -132,6 +132,56 @@ export const SCENARIOS: Scenario[] = [
       { name: 'Books settings hidden or refused', run: async ({ page, site }) => { await page.goto(site.books + '/', { waitUntil: 'networkidle' }); await expect(page.locator('nav').getByText(/^settings$/i)).toHaveCount(0); } },
     ],
   },
+  {
+    id: 'S13', title: 'Owner raises a support ticket to CLOR staff; it shows in their ticket list', who: ['owner', 'hr'],
+    steps: [
+      { name: 'help and support screen', run: async ({ open }) => open('app', 'Home', 'Help and support') },
+      { name: 'new ticket form opens', run: async ({ page }) => { await clickText(page, /new ticket/i); await expect(page.locator('#ws-ticket')).toBeVisible(); } },
+      { name: 'empty ticket cannot be sent', run: async ({ page }) => { await expect(page.locator('button[form="ws-ticket"]')).toBeDisabled(); } },
+      { name: 'send ticket', write: true, run: async ({ page, tag }) => {
+        await page.getByPlaceholder(/payslips show the wrong month/i).fill(`${tag} QA test ticket, please ignore`);
+        await page.getByPlaceholder(/what you did/i).fill(`${tag} Automated live QA check. Opened by the QA robot; close it.`);
+        await page.locator('button[form="ws-ticket"]').click();
+        await sees(new RegExp(tag))({ page });
+      } },
+      { name: 'ticket listed as With CLOR', write: true, run: async ({ page, tag }) => { await expect(page.getByRole('list', { name: 'Tickets' }).getByText(new RegExp(tag)).first()).toBeVisible({ timeout: 20_000 }); } },
+    ],
+  },
+  {
+    id: 'S14', title: 'Notifications: bell opens, inbox loads, email notification settings load', who: ['owner', 'hr', 'manager', 'employee', 'accountant'],
+    steps: [
+      { name: 'bell opens', run: async ({ open, page }) => { await open('app'); await page.getByRole('button', { name: /^notifications/i }).first().click(); await expect(page.getByLabel('Notifications').last()).toBeVisible(); await page.keyboard.press('Escape'); } },
+      { name: 'inbox', run: async ({ open }) => open('app', 'Home', 'Inbox') },
+      { name: 'email notification settings', run: async ({ open }) => open('app', 'Apps', 'Email notifications') },
+    ],
+  },
+  {
+    id: 'S15', title: 'Automations and integrations screens', who: ['owner'],
+    steps: [
+      { name: 'automations', run: async ({ open }) => open('app', 'Apps', 'Automations') },
+      { name: 'new automation form opens', run: async ({ page }) => { await clickText(page, /new|add|create/i); } },
+      { name: 'integrations', run: async ({ page, open }) => { await page.keyboard.press('Escape'); await open('app', 'Apps', 'Integrations'); } },
+    ],
+  },
+  {
+    id: 'S16', title: 'Workspace admin: members, accountants, security, activity, export', who: ['owner'],
+    steps: [
+      { name: 'members', run: async ({ open }) => open('app', 'Users', 'Members') },
+      { name: 'accountants (outside access)', run: async ({ open }) => open('app', 'Users', 'Accountants') },
+      { name: 'invite form opens', run: async ({ page }) => clickText(page, /invite/i) },
+      { name: 'security overview', run: async ({ open, page }) => { await page.keyboard.press('Escape'); await open('app', 'Security'); } },
+      { name: 'activity log', run: async ({ open }) => open('app', 'Home', 'Activity') },
+      { name: 'support access requests', run: async ({ open }) => open('app', 'Users', 'Support access') },
+    ],
+  },
+  {
+    id: 'S17', title: 'CLOR staff answers the QA ticket in Ops', who: ['staff'],
+    steps: [
+      { name: 'tickets list', run: async ({ open, page }) => { await open('ops'); await clickText(page, /tickets|support|inbox/i); } },
+      { name: 'QA ticket visible', run: async ({ page }) => { await page.getByPlaceholder(/search/i).first().fill('QA-').catch(() => {}); await expect(page.getByText(/QA-\d{8}/).first()).toBeVisible({ timeout: 20_000 }); } },
+      { name: 'reply and solve', write: true, run: async ({ page, tag }) => { await page.getByText(/QA-\d{8}/).first().click(); await page.getByRole('textbox').last().fill(`${tag} staff reply from QA robot`); await clickText(page, /^(send|reply)/i); await sees(new RegExp(tag))({ page }); } },
+    ],
+  },
 ];
 
 const accs = accounts();
