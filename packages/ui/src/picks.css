@@ -1015,3 +1015,10 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 52 */
+/* fnfsheet B: the settlement drawer says the net first, above the one list of lines. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 0 0 12px; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net-figure { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* fnfclock A: the countdown sits under the due date in the settlements list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-clock { margin-top: 2px; white-space: nowrap; }

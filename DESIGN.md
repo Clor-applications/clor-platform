@@ -1128,6 +1128,28 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 52 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Case waiting time | The Help desk list has a Waiting column: how long each open or reopened case has waited on HR ("1 day", "3 hours"), from the reopen if there was one (`deskWaiting.js`). The employee sees no promise. |
+| Did this solve it? | Under HR's answer in Ask HR, "Did this solve it?" Yes / No, reopen. No reopens through the existing seven-day reopen; Yes is remembered on that device (`CaseRating`). |
+| Settlement countdown | Each unpaid, not-yet-overdue full and final shows "Due in 2 working days" (or "Due today") under its due date; Sundays are not counted (`settlementClock.js`). |
+| Net first | The settlement drawer opens with the net, in words ("To pay …" / "… owes this"), above the one list of lines, and it follows edits as they are made. |
+
+Picked and already how the app works: each Help desk category sends its case to its own queue
+(set in Help desk settings); HR's internal note never reaches the employee; questions are named,
+never anonymous; the employee sees only "Waiting for HR", not a person; a question about a
+settlement is an ordinary Ask HR question; HR decides each early-release request.
+
+Picked, **not built yet**: Withdraw on a resignation with the manager accepting or not; the
+manager accepting a resignation before HR confirms the last day; the last salary paid on the normal
+pay day with dues settled later; an unreturned asset's value as its own settlement line; work
+apps stopping at the end of the last day while payslips stay open six months; a "Garden leave"
+status (paid, no work access, not absent). All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
