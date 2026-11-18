@@ -1458,9 +1458,101 @@ model PayrollSetting {
   /// themselves; this only records that the question was put and answered.
   statutoryRegistrationsAt DateTime?
 
+  /// Statutory bonus (Payment of Bonus Act 1965, carried into the Code on
+  /// Wages 2019). Each is the Act's figure as last checked, kept editable
+  /// because the government changes them by notification: HR checks the
+  /// current rule before a bonus run. A month whose salary or wage (basic +
+  /// DA) is at or under this counts toward the bonus (s.2(13): 21,000).
+  bonusEligibilityCeiling Decimal @default(21000)
+  /// The bonus is worked out on at most this monthly wage, or the minimum
+  /// wage below where that is higher (s.12: 7,000).
+  bonusCalculationCeiling Decimal @default(7000)
+  /// The monthly minimum wage for the company's scheduled employment. 0: not
+  /// set, the ceiling above alone is used.
+  bonusMinimumWage        Decimal @default(0)
+  /// The lowest and highest bonus a year may pay, as a share of the bonus
+  /// wages (s.10: 8.33; s.11: 20).
+  bonusMinPercent         Decimal @default(8.33)
+  bonusMaxPercent         Decimal @default(20)
+  /// The minimum bonus a year in rupees, whatever the share comes to (s.10: 100).
+  bonusMinimumAmount      Decimal @default(100)
+  /// Days worked in the year before a person qualifies (s.8: 30).
+  bonusMinDays            Int     @default(30)
+
   updatedByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([accountId, orgId])
+}
+
+/// A statutory bonus run for one financial year (Payment of Bonus Act 1965):
+/// worked out from the year's approved payslips, checked as a list, approved,
+/// and paid as one earning per person on the pay run of the month chosen.
+/// One open run a year; a cancelled one stays as a record.
+model PayrollBonusRun {
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// "2026-27": April to March.
+  financialYear String
+  /// DRAFT | APPROVED | CANCELLED
+  status        String  @default("DRAFT")
+  /// The share of the bonus wages paid, between the minimum and maximum.
+  ratePercent   Decimal
+  /// The rules the run was worked out with, so a later settings change does
+  /// not change what a run says: ceilings, minimum wage, days, limits.
+  rulesJson     String  @default("{}")
+  totalAmount   Decimal @default(0)
+  eligibleCount Int     @default(0)
+  /// Set on approval: the month whose pay run pays it, and the earning used.
+  periodId      String?
+  componentId   String?
+  note          String?
+
+  createdByUserId   String
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  cancelledByUserId String?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  lines PayrollBonusLine[]
+
+  @@index([orgId, financialYear])
+}
+
+/// One person on a bonus run: the year's days and wages, what the bonus is
+/// worked out on, and the bonus, or why they do not qualify.
+model PayrollBonusLine {
+  id           String   @id @default(cuid())
+  accountId    String
+  orgId        String
+  runId        String
+  employeeId   String
+  name         String
+  code         String   @default("")
+  designation  String   @default("")
+  daysWorked   Decimal  @default(0)
+  /// Basic + DA paid in the year (Form C column 7).
+  wages        Decimal  @default(0)
+  /// The wages the bonus is worked out on: month by month, the lower of the
+  /// wage paid and the calculation base, for the months that count.
+  bonusWages   Decimal  @default(0)
+  amount       Decimal  @default(0)
+  eligible     Boolean  @default(false)
+  /// Why somebody does not qualify, or what was left out, in plain words.
+  reason       String?
+  /// Month by month: [{ month, days, wage, counted, bonusWage }].
+  monthsJson   String   @default("[]")
+  /// The payroll earning that pays it, once the run is approved.
+  adjustmentId String?
+  createdAt    DateTime @default(now())
+
+  run PayrollBonusRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, employeeId])
+  @@index([orgId, employeeId])
 }

@@ -1,6 +1,6 @@
 import {
   ArrowUpRight, Banknote, BarChart3, BookOpen, CalendarDays, FileSignature, HandCoins, Handshake, KeyRound, Landmark,
-  Layers, LayoutGrid, ListChecks, Mail, PlusCircle, Receipt, ScrollText, SlidersHorizontal, TrendingUp, Users,
+  Gift, Layers, LayoutGrid, ListChecks, Mail, PlusCircle, Receipt, ScrollText, SlidersHorizontal, TrendingUp, Users,
   UsersRound, Wallet,
 } from '@ui/components/ui/navEmoji';
 import { Wallet as AppWallet } from 'lucide-react';
@@ -28,6 +28,7 @@ const PayrollSetup = screen('PayrollSetup');
 const BankChanges = screen('BankChanges');
 const FinalSettlements = screen('FinalSettlements');
 const TaxDeclarations = screen('TaxDeclarations');
+const StatutoryBonus = screen('StatutoryBonus');
 const RolesAccess = screen('RolesAccess');
 const EmailNotifications = screen('EmailNotifications');
 
@@ -38,7 +39,7 @@ const I = {
   adjustments: PlusCircle, assignments: Users, revisions: TrendingUp, loans: HandCoins, settlements: Handshake,
   tax: Receipt, reports: BarChart3, setup: ListChecks, calendar: CalendarDays, groups: UsersRound,
   components: SlidersHorizontal, structures: Layers, compliance: FileSignature, ledgers: BookOpen, roles: KeyRound,
-  mail: Mail,
+  mail: Mail, bonus: Gift,
 };
 
 /**
@@ -77,6 +78,7 @@ export const payrollApp = {
     ] },
     { key: 'people', label: 'Salaries', groups: [
       { label: 'Per employee', items: ['assignments', 'revisions', 'loans', 'taxDeclarations'] },
+      { label: 'Once a year', items: ['bonus'] },
       { label: 'Leaving', items: ['settlements'] },
     ] },
     { key: 'reports', label: 'Reports', items: ['reports'] },
@@ -100,6 +102,7 @@ export const payrollApp = {
     { key: 'loans', label: 'Loans & Advances', icon: I.loans, permission: 'PAYROLL::Payroll Loans::VIEW' },
     { key: 'settlements', label: 'Full & final', icon: I.settlements, permission: 'PAYROLL::Payroll Runs::VIEW' },
     { key: 'taxDeclarations', label: 'Tax declarations', icon: I.tax, permission: 'PAYROLL::Employee Payroll Profile::VIEW' },
+    { key: 'bonus', label: 'Statutory bonus', icon: I.bonus, permission: 'PAYROLL::Payroll Adjustments::VIEW' },
     { key: 'reports', label: 'Reports', icon: I.reports, permission: 'PAYROLL::Payroll Reports::VIEW' },
     /*
      * What payroll is configured with, apart from the month's work: the setup
@@ -132,6 +135,7 @@ export const payrollApp = {
     loans: PayrollLoans,
     settlements: FinalSettlements,
     taxDeclarations: TaxDeclarations,
+    bonus: StatutoryBonus,
     compliance: PayrollCompliance,
     reports: PayrollReports,
     ledgers: PayrollLedgerMapping,
