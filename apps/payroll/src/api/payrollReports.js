@@ -31,3 +31,8 @@ export const getVarianceReport = (filters) => get('variance', filters);
 export const getCostReport = (filters) => get('cost', filters);
 /** The month's PF ECR, ESIC contribution rows and PT counts, with whoever a file cannot carry. */
 export const getFilings = (filters) => get('filings', filters);
+/** Salary TDS deposits for a financial year: a row per month with its challans. */
+export const getTdsChallans = (fy) => apiFetch(`${base()}/tds-challans?fy=${encodeURIComponent(fy)}`, opts);
+const challans = () => `/orgs/${encodeURIComponent(orgId())}/payroll/tds-challans`;
+export const addTdsChallan = (body) => apiFetch(challans(), { ...opts, method: 'POST', body });
+export const removeTdsChallan = (id) => apiFetch(`${challans()}/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });

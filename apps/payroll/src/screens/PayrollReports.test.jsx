@@ -29,6 +29,7 @@ vi.mock('../api/payrollReports', () => ({
   getStatutoryReport: vi.fn(), getVarianceReport: vi.fn(), getCostReport: vi.fn(), getFilings: vi.fn(),
 }));
 vi.mock('@ui/components/ui/notify', () => ({ notify: { success: vi.fn(), error: vi.fn() }, confirmDialog: vi.fn() }));
+vi.mock('@platform/context', async (orig) => ({ ...(await orig()), requestOpenScreen: vi.fn() }));
 
 it('opens short, a row opens into its parts, and every part shows the full table', async () => {
   const user = userEvent.setup();
@@ -50,4 +51,30 @@ it('opens short, a row opens into its parts, and every part shows the full table
   expect(screen.getByRole('columnheader', { name: 'Basic' })).toBeTruthy();
   expect(screen.getByRole('columnheader', { name: 'House rent' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Show the short register' })).toBeTruthy();
+});
+
+it('checks the PF and ESI files before download, and Fix opens the person (round 26 and 44)', async () => {
+  const { getFilings } = await import('../api/payrollReports');
+  const { requestOpenScreen } = await import('@platform/context');
+  getFilings.mockResolvedValue({
+    slips: 3,
+    waiting: 0,
+    ecr: {
+      text: 'x', rows: [{ uan: '1' }, { uan: '2' }], totals: { members: 2, epfWages: 1, employee: 1, eps: 1, epf: 1 },
+      problems: [{ employeeId: 'e3', name: 'Nobody Uan', kind: 'NO_UAN', message: 'No UAN on file, so they are left out of the ECR.' }],
+      checklist: { ready: 2, leftOut: 1, byKind: { NO_UAN: 1 } },
+    },
+    esic: { rows: [], totals: { people: 0, wages: 0, employee: 0, employer: 0 }, problems: [], checklist: { ready: 0, leftOut: 0, byKind: {} } },
+    pt: { states: [], rows: [], problems: [] },
+    lwf: { states: [], rows: [], problems: [] },
+  });
+  const user = userEvent.setup();
+  render(<PayrollReports />);
+  await screen.findByRole('button', { name: /Asha/ });
+  await user.selectOptions(document.getElementById('report-kind'), 'filings');
+  expect(await screen.findByText('2 ready · 1 without a UAN')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Download ECR/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Download ESIC file/ }).hasAttribute('disabled')).toBe(true);
+  await user.click(screen.getByRole('button', { name: 'Fix Nobody Uan' }));
+  expect(requestOpenScreen).toHaveBeenCalledWith('assignments', { employeeId: 'e3', tab: 'details' });
 });

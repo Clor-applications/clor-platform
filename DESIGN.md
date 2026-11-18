@@ -506,8 +506,12 @@ Picked and already how the app works: two hours off taken with a from and to tim
 form, with the hours left this month (hourly leave types); a mid-month joiner's payslip shows the
 days paid with the amount ("13 of 30 days").
 
-Picked, **not built yet**: the professional tax state picked from the branch with a link to its
-slab; a holiday on a weekly off moved to the Monday; a written warning letter from a template
+Built later (server picks, batch 2): the professional tax state picked from the work site. Payroll →
+a person's details asks "Professional tax state" once PT is ticked; left blank it reads "From the
+work site (Maharashtra)" and the save fills in the site's state, as a transfer does; a state chosen
+stays; "See Maharashtra's slab" opens Compliance at the PT bands (`PtStateField`, `ptFromSite`).
+
+Picked, **not built yet**: a holiday on a weekly off moved to the Monday; a written warning letter from a template
 sent to sign; Ops list of customers who may stop using CLOR, with the reason; a switch letting
 anyone with the company email join without an invite; a locked feature offered as a 14-day free
 try; "Report a problem" in Help with a screenshot added; comp off added by itself from punches on
@@ -591,8 +595,11 @@ Built:
 
 Picked and already how the app works: none this round.
 
-Picked, **not built yet**: a check list before "Download ECR" (82 ready, 2 without UAN, Fix);
-a table of punch-machine numbers beside a name picker; "New date" or "Cancel joining" for a joiner
+Built later (server picks, batch 2): a check list before "Download ECR". Reports → Returns to file
+says "82 ready · 2 without a UAN" over the people left out, each with "Fix", which opens their
+payroll details (`checklistLine`, the server's `ecr.checklist`).
+
+Picked, **not built yet**: a table of punch-machine numbers beside a name picker; "New date" or "Cancel joining" for a joiner
 who did not turn up; a role given "for" one branch; an outage timeline in Ops, newest on top;
 swipe right to approve, left to reject in the phone app; previous employer's pay, tax and PF this
 year; a punch from a phone faking its location blocked with a plain reason; suspension as sign-in
@@ -617,7 +624,13 @@ place, counted as present once approved (employee app → Requests). A no-pay le
 break (a sabbatical): Leave settings → a type with "Paid leave" unticked; its days go to payroll as loss of pay,
 as every unpaid type's do, and the form says "Without pay" (round 42).
 
-Picked, **not built yet**: a row per month with "Add challan" for TDS; an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
+Built later (server picks, batch 2): a row per month with "Add challan" for TDS. Tax declarations →
+TDS deposits lists April to March with the tax deducted, deposited and left, the due date (the 7th;
+March's 30 April) and "Late"; "Add challan" takes the BSR code, serial, date and amount (the balance
+filled in). The 24Q download carries each month's BSR code, serial and date, and names any month with
+no challan (`TdsDepositsPanel`, `PayrollTdsChallan`).
+
+Picked, **not built yet**: an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
 side; sharing a payslip from the phone's share list (needs a payslip PDF file from the server);
 payslips by sign-in link with no PDF password; leaving steps that start on their own at retirement age; a list of leavers due for
 clearing with one button; a payslip line showing pieces × rate. All need server work. Chart
@@ -1006,9 +1019,13 @@ rate a year and shows the EMI schedule before saving); a salary advance request 
 earned-wage access (employee app → money); the joiner brings any bank account (bank details on
 the record); a deduction is told, not agreed (it shows on the payslip).
 
-Picked, **not built yet**: a meal card amount chosen by staff and taken out of taxable pay; the
-ESI monthly file in the ESIC upload format with a check list first; a full-attendance bonus that
-allows one late mark; a stay bonus on the record with its due date, paid by itself; extra health
+Built later (server picks, batch 2): the ESI monthly file in the ESIC upload format with a check list
+first. Reports → Returns to file → "Download ESIC file" gives an Excel sheet with only the ESIC
+template's six columns and rows (IP number, name, days, wages, reason code, last working day), under
+"1 ready · 1 without an ESI IP number" with "Fix" on each person left out (`esicRow`).
+
+Picked, **not built yet**: a meal card amount chosen by staff and taken out of taxable pay; a
+full-attendance bonus that allows one late mark; a stay bonus on the record with its due date, paid by itself; extra health
 cover chosen in the app with the premium taken over 12 months; the ESI card downloaded from the
 phone app; the month's service charge split by days worked; family members marked "Covered by ESI". All need server work.
 

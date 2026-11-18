@@ -1318,6 +1318,30 @@ model PayrollOpeningYtd {
   @@index([accountId, orgId, financialYear])
 }
 
+/// A salary TDS deposit (challan ITNS 281) against the month whose tax it
+/// pays. The 24Q carries its BSR code, date and serial (round 27 pick).
+model PayrollTdsChallan {
+  id              String    @id @default(cuid())
+  accountId       String
+  orgId           String
+  /// "2026-27".
+  financialYear   String
+  /// The month whose deducted tax this deposits, "2026-05".
+  month           String
+  bsrCode         String
+  challanSerial   String
+  /// "2026-06-07".
+  depositDate     String
+  amount          Decimal
+  note            String?
+  deletedAt       DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, financialYear])
+}
+
 /// A PF nominee (EPF Form 2): who receives the PF if the member dies, and
 /// what share. One or more per person; shares add up to 100. Written by
 /// Payroll's joining interface (services/payroll/statutoryWrite.ts) once HR

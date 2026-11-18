@@ -31,7 +31,8 @@ type Snapshot = {
   versions?: Record<string, { ruleId: string; version: string }>;
 };
 
-export type Problem = { employeeId: string; name: string; message: string };
+/** `kind` groups the check list before a download ("2 without UAN"); PT and LWF problems have none. */
+export type Problem = { employeeId: string; name: string; message: string; kind?: 'NO_UAN' | 'BAD_UAN' | 'NO_IP' | 'BAD_IP' };
 
 const rupees = (n: number) => Math.round(Number(n) || 0);
 /** The ECR's separator is `#~#`, so a name may not contain it, nor a line break. */
@@ -138,7 +139,7 @@ export async function buildFilings(orgId: string, period: { id: string; startDat
     if (a.pf) {
       const uan = (p?.uan || '').replace(/\s+/g, '');
       if (!/^\d{12}$/.test(uan)) {
-        ecrProblems.push({ employeeId: a.employeeId, name: a.name, message: uan ? `UAN ${uan} is not 12 digits.` : 'No UAN on file, so they are left out of the ECR.' });
+        ecrProblems.push({ employeeId: a.employeeId, name: a.name, kind: uan ? 'BAD_UAN' : 'NO_UAN', message: uan ? `UAN ${uan} is not 12 digits.` : 'No UAN on file, so they are left out of the ECR.' });
       } else {
         const epfWages = rupees(a.pf.wage);
         const pensionWages = Math.min(epfWages, rupees(a.pf.ceiling || PENSION_CEILING));
@@ -164,7 +165,7 @@ export async function buildFilings(orgId: string, period: { id: string; startDat
     if (a.esi) {
       const ip = (p?.esiNumber || '').replace(/\s+/g, '');
       if (!/^\d{10}$/.test(ip)) {
-        esicProblems.push({ employeeId: a.employeeId, name: a.name, message: ip ? `IP number ${ip} is not 10 digits.` : 'No ESI IP number on file, so they are left out.' });
+        esicProblems.push({ employeeId: a.employeeId, name: a.name, kind: ip ? 'BAD_IP' : 'NO_IP', message: ip ? `IP number ${ip} is not 10 digits.` : 'No ESI IP number on file, so they are left out.' });
       } else {
         const days = Math.round(a.payable);
         esic.push({
@@ -184,6 +185,12 @@ export async function buildFilings(orgId: string, period: { id: string; startDat
   }
 
   const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((t, r) => t + f(r), 0);
+  /* The check list before a download (round 26 and 44 picks): who is ready, and who is left out for what. */
+  const checklist = (ready: number, problems: Problem[]) => ({
+    ready,
+    leftOut: problems.length,
+    byKind: problems.reduce<Record<string, number>>((t, p) => (p.kind ? { ...t, [p.kind]: (t[p.kind] || 0) + 1 } : t), {}),
+  });
   return {
     slips: slips.length,
     /** Payslips of this period in a payroll not yet approved: left out of every file. */
@@ -200,6 +207,7 @@ export async function buildFilings(orgId: string, period: { id: string; startDat
         /* The challan's admin and EDLI charges are worked out by the portal; they are not in the file. */
       },
       problems: ecrProblems,
+      checklist: checklist(ecr.length, ecrProblems),
     },
     esic: {
       rows: esic,
@@ -210,6 +218,7 @@ export async function buildFilings(orgId: string, period: { id: string; startDat
         employer: Math.round(sum(esic, (r) => r.employer) * 100) / 100,
       },
       problems: esicProblems,
+      checklist: checklist(esic.length, esicProblems),
     },
     ...(await stateLevyReturns(orgId, period)),
   };
