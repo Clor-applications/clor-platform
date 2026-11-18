@@ -210,6 +210,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     <div className="people-directory space-y-6">
       <ListHeader
         title="Employees"
+        count={!firstRun && list.data && (tab === 'directory' || tab === 'team') ? total : null}
         description={firstRun ? 'No one here yet. Add your team to start using leave, attendance and payroll.' : 'Everyone who works here, with where they sit and where they stand.'}
         /* The strip's figures (working now, joining, left, on notice) are not the tabs' counts, so it stays. */
         strip={firstRun ? null : (

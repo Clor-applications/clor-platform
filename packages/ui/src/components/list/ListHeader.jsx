@@ -35,6 +35,8 @@ export default function ListHeader({
   onTab = null,
   tabsLabel = null,
   entity = '',
+  /** Round 40, rowcount B: how many rows match, drawn in the title as "Employees (6)". Null until known; not in Books. */
+  count = null,
   children = null,
 }) {
   const crumbs = breadcrumb || [{ label: module }, ...(section ? [{ label: section }] : []), { label: title }];
@@ -47,7 +49,7 @@ export default function ListHeader({
   const actions = secondary || primaryNode ? <>{secondary}{primaryNode}</> : null;
   return (
     <header className="ui-list-header">
-      <PageHeader breadcrumb={crumbs} title={title} entity={entity} actions={actions} />
+      <PageHeader breadcrumb={crumbs} title={titleWithCount(title, count)} entity={entity} actions={actions} />
       {description ? <p className="ui-list-desc ui-muted">{description}</p> : null}
       {strip}
       {toolbar || toolbarEnd ? (
@@ -60,6 +62,15 @@ export default function ListHeader({
       {children}
     </header>
   );
+}
+
+const isBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
+
+/** `Employees` + 6 → `Employees (6)`, with the figure in tabular numbers. Books keeps its plain title. */
+export function titleWithCount(title, count) {
+  const n = Number(count);
+  if (count == null || count === '' || !Number.isFinite(n) || n < 0 || isBooks()) return title;
+  return <>{title} <span className="ui-title-count tabular-nums">({n.toLocaleString('en-IN')})</span></>;
 }
 
 /**
