@@ -450,6 +450,69 @@ Aadhaar with a small green tick once checked; a list of everyone paid below mini
 shifts marked on my week; open positions as filled out of planned per team; a page listing
 scheduled report emails; incentives typed into a table for the month.
 
+### Round 20 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Weekend between leave days | The leave form says which days off in between count, and why ("2 days off in between count, by your company's leave rule"), apart from the dates not counted (`DateNotes`, My leave and the employee app). They used to be listed under "Dates not counted". |
+
+Picked and already how the app works: field staff as a list with place names (phone punches,
+with the pin from round 16); a fixed break taken off the day automatically (shifts).
+
+Picked, **not built yet**: two employees compared in two columns; rotating shifts built as a
+repeating strip; leave building up shown month by month; a countdown card before attendance
+closes; mileage typed in kilometres with the rate applied; monthly tax worked out in steps;
+payroll going to Books by itself when it locks; an edit clash showing both versions to pick
+from; dragging a column's edge to resize it; a profile photo centred on the face; next year's
+holidays suggested for the state to tick; a top list of who is absent most; Approve and
+Reject buttons inside the email.
+
+### Round 21 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| My hours this week | One bar per day, Monday to Sunday, with the week's total, above My days in the employee app (`WeekBars`, current month only). Days still to come show as an empty dashed bar. |
+| Telling the manager someone is late | The Today page's list is called "Not in yet", with the time it was read, as a morning look at who has not come. |
+
+Picked and already how the app works: signed-in devices listed with Sign out on each (employee
+app, Security settings); Rehire on the old record, history kept; a warning while adding someone
+with the same PAN or phone, with a link to the other record; delete only while payroll has never
+used the record, everyone else is marked as having left.
+
+Picked, **not built yet**: leave cashed in shown as days and amount together; the morning
+"not in yet" list sent as an alert; health insurance as a list of who is covered and how much;
+flexible pay parts with amounts and the total left; a handover list with who takes each item;
+an "Add to my calendar" link for approved leave; WhatsApp requests with Approve and Reject;
+changing one field for many people with a preview of who changes; night allowance as its own
+payslip line; a phone reminder at shift end to punch out; private HR notes with a lock and who
+wrote them.
+
+### Round 22 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Joiners and leavers each month | On People → Headcount & attrition, a "Joined and left" chart across the full width: a bar up from the middle line for joiners, a bar down for leavers, `+7 −3` under each month (`JoinLeaveBars`). Joiners in the first chart colour, leavers in the third. |
+| Sending someone a link to this list | "Copy link" (ghost button, link icon) in a list's header once anything is filtered. The address already holds the filters (`s.<key>`), so the link opens the same list; the other person's own access still applies (`CopyListLink`, every `DocumentListShell` list outside Books). |
+| Maternity leave | One request with the return date worked out: on the leave form, a maternity type shows "26 weeks · back at work on Wed 2 Jun 2027" and a "Fill 26 weeks" link that sets the last day (`LongLeaveSpan`, calendar days). |
+
+Picked and already how the app works: two hours off taken with a from and to time on the leave
+form, with the hours left this month (hourly leave types); a mid-month joiner's payslip shows the
+days paid with the amount ("13 of 30 days").
+
+Picked, **not built yet**: the professional tax state picked from the branch with a link to its
+slab; a holiday on a weekly off moved to the Monday; a written warning letter from a template
+sent to sign; Ops list of customers who may stop using CLOR, with the reason; a switch letting
+anyone with the company email join without an invite; a locked feature offered as a 14-day free
+try; "Report a problem" in Help with a screenshot added; comp off added by itself from punches on
+a holiday; the Ops support queue as an inbox with waiting time (Ops console); @ mentions in
+comments; booking a cab drop for a late shift.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
@@ -526,8 +589,8 @@ component, read this one.
 
 ### Do
 
-- **Take every colour from a token** in `src/index.css`. Dark mode is a token
-  redefinition, so a literal colour is a light-mode-only colour.
+- **Take every colour from a token** in `src/index.css`. A literal colour
+  drifts from the palette the next time a token moves.
 - **Set every amount in tabular figures** and align it by what it is, not by
   being a number — see *Value alignment*.
 - **Use the shared control height**: 40px in People and Attendance (44px on a
@@ -554,7 +617,7 @@ component, read this one.
 - **Don't introduce a third radius.** 8px clickable, 12px content, `999px`
   pills. The keycap is the one written-down exception.
 - **Don't add a Tailwind shadow utility.** Three tokens, and they carry meaning
-  — a hard-coded `shadow-sm` does not follow the dark-mode redefinition.
+  — a hard-coded `shadow-sm` does not follow a token change.
   **57 of them are still in app chrome** (37 in `App.jsx`, the rest spread over
   twelve files; none in the print surfaces). Legacy, counted 2026-09-18, not
   yet migrated — do not add a fifty-eighth.
@@ -588,8 +651,8 @@ component, read this one.
 - Scale 12/13/14/16/20/24/28/34 (`--text-xs` … `--text-3xl`); 12px is the floor
   in chrome (11px only in `.ui-kbd`). Two weights per screen, 400 and 600; 700
   for titles and totals. No uppercase labels.
-- Accounting keeps Inter until phase 4. Sora, Plus Jakarta Sans and Bricolage
-  Grotesque are retired. Never Google Fonts.
+- Figtree everywhere, Books included. Inter, Sora, Plus Jakarta Sans and
+  Bricolage Grotesque are retired. Never Google Fonts.
 
 ## Color
 
@@ -701,9 +764,8 @@ numbers refer to are defined once under *Controls → Height*.
   open item; lists are one bordered sheet with 48px rows and sentence-case column
   names; figure tiles carry no coloured bar or per-tile hue. On a phone the panel
   is a sheet (in Ops it lists every page) and a tab bar sits below.
-- **Icons:** `@fluentui/react-icons`. `*Color` icons via `colorIcon()`
-  (`packages/ui/src/components/ui/colorIcon.jsx`) for rails, nav and section
-  icons; `*Regular` for controls (search, bell, chevrons, close, more, add).
+- **Icons:** Fluent Emoji (flat) for navigation (`@ui/components/ui/navEmoji`);
+  Lucide line icons for controls (search, bell, chevrons, close, more, add).
 - **Components:** buttons 36px high, 16px sides, 8px radius, 14/600, 16px icon
   with 8px gap; primary on `--act` with white, secondary white with a
   field-border outline. Table header 40px, sunken, 8px radius, 12px/600
@@ -739,7 +801,7 @@ numbers refer to are defined once under *Controls → Height*.
 ### Elevation — three tiers, and they mean different things
 
 Shadow is not decoration here; it says how far a surface is from the page.
-Three tokens, each redefined for dark mode rather than restyled.
+Three tokens, never restyled per screen.
 
 | Token | Reads as | Applied to |
 | --- | --- | --- |
@@ -755,12 +817,9 @@ Rules that come out of that:
   on a touch screen there is no hover, and a sticky lifted state reads as broken.
 - **Anything popped over a card takes the raised surface, not just a shadow.**
   `.ui-in-pop` (and `[role="menu"].ui-card`) switch to `--surface-raised`.
-  In light both resolve to white so nothing changes; in dark, a menu opened on
-  a card used to sit at exactly the card's colour with only a shadow between
-  them. Shadow alone is not enough separation on a dark ground.
+  Both resolve to white today; the class keeps the intent if a ground moves.
 - **Shadows are token-only.** No `shadow-lg` or any Tailwind shadow utility in
-  app chrome — dark mode redefines these three and a hard-coded shadow does not
-  follow.
+  app chrome — a hard-coded shadow does not follow the tokens.
 
 ### Responsive behaviour — three layout classes
 
@@ -924,9 +983,7 @@ grid rules.
 A select draws its own indicator: `appearance: none`, a chevron as an inline
 SVG background, 36px of trailing room reserved for a 16px mark, and
 `text-overflow: ellipsis` so a long value truncates rather than running under
-it. The dark-theme stroke is a separate rule guarded by
-`@media (prefers-color-scheme: dark)` — an unguarded `:root:not([data-theme='light'])`
-also matches a light page.
+it.
 
 **This belongs to `.ui-select` alone, never to the shared `.ui-input` block.**
 Putting it there once gave every text input in the product a chevron.

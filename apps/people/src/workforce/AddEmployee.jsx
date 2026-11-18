@@ -18,7 +18,7 @@ import { clearUnsaved } from '@platform/unsaved';
 
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { refreshSuggestions, useEmailSuggestions, useSuggestions } from './suggestions';
-import { createEmployee, deleteDraft, getDraft, listContractors, listEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
+import { createEmployee, deleteDraft, getDraft, listContractors, listAllEmployees, listTags, nextEmployeeCode, saveDraft, structure } from './api';
 import { listBranches } from '../organization/api';
 import { can } from './shared';
 import { BackLink } from '../components/Core';
@@ -115,7 +115,7 @@ export default function AddEmployee({ params = {}, updateParams, openScreen }) {
   useEffect(() => {
     Promise.all([...['departments', 'job-positions', 'employee-types', 'work-types', 'areas', 'establishments', 'teams', 'cost-centres', 'grades', 'business-units', 'seats', 'job-roles'].map((k) => structure(k).catch(() => [])), hasApp('attendance') ? listContractors() : Promise.resolve([]), listTags().catch(() => []), listBranches().catch(() => [])])
       .then(([departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags, branchRows]) => setLists({ departments, positions, types, workTypes, areas, establishments, teams, centres, grades, units, seats, roles, contractors, tags , branches: branchRows.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, name: b.branchName, isActive: true })) }));
-    listEmployees({ limit: 500, sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.status !== 'LEFT'))).catch(() => {});
+    listAllEmployees({ sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.status !== 'LEFT'))).catch(() => {});
   }, []);
   /* A draft named in the address opens as it was left; otherwise the next ID is suggested. */
   useEffect(() => {

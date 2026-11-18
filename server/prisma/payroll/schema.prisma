@@ -728,6 +728,8 @@ model PayrollInput {
   overtimeAmount Decimal @default(0)
   /// Approved overtime hours, for a formula component (OVERTIME_HOURS) to price — from Attendance or entered.
   overtimeHours  Decimal @default(0)
+  /// The same approved hours, each at its day's rate from the company's overtime policy (2 hours on a holiday at 3× are 6): OVERTIME_HOURS_AT_RATE. Null where nobody took it from Attendance.
+  overtimeHoursAtRate Decimal?
   variablePay    Decimal @default(0)
 
   /// MANUAL | ATTENDANCE | IMPORT — where the numbers came from.

@@ -21,7 +21,7 @@ import { Avatar } from '@ui/personnel/Employees';
 import { HOURS_WORDS } from '@ui/personnel/employmentKinds';
 import { formatDate } from '@ui/components/ui/DatePicker';
 
-import { bulkUpdate, changeImpact, dataHealth, employeeIds, listContractors, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
+import { bulkUpdate, changeImpact, dataHealth, employeeIds, listContractors, deleteView, downloadText, employeeCounts, exportColumns, exportEmployees, listAllEmployees, listEmployees, listTags, listViews, openChecklistTasks, saveView, structure, workforcePending } from './api';
 import { listBranches } from '../organization/api';
 import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
@@ -104,7 +104,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const [managers, setManagers] = useState([]);
   /* The same read also counts people by employment type for the chart (up to 500 people; past that the chart says so). */
   const [everyone, setEveryone] = useState(null);
-  useEffect(() => { listEmployees({ limit: 500, sort: 'name' }).then((r) => { const here = (r?.employees || []).filter((e) => e.status !== 'LEFT'); setEveryone({ rows: here, total: Number(r?.total || here.length) }); setManagers(here.map((e) => ({ id: e.id, name: e.code ? `${e.name} (${e.code})` : e.name }))); }).catch(() => {}); }, []);
+  useEffect(() => { listAllEmployees({ sort: 'name' }).then((r) => { const here = (r?.employees || []).filter((e) => e.status !== 'LEFT'); setEveryone({ rows: here, total: Number(r?.total || here.length) }); setManagers(here.map((e) => ({ id: e.id, name: e.code ? `${e.name} (${e.code})` : e.name }))); }).catch(() => {}); }, []);
 
   const openRecord = (r, recordTab = 'overview') => openScreen?.('employee', { id: r.id, tab: recordTab });
   const columns = [

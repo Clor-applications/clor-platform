@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-c2ab508 - 2026-11-18
+
+API revision `clor-api-00142-gh5`. Previous release `rel-128629a` (roll back there).
+
+- #330 Round 21 picks: week hours bars, Not in yet
+- #325 Front-end audit fixes: double-submit guard, full pickers, paise, no dark CSS, gate page, DESIGN.md
+- #318 Payroll: ESI cover on the wage rate, late approvals paid, overtime at company rates, PT on one-offs
+- #328 Round 20 picks: leave form says which days off count
+
 ## rel-128629a - 2026-11-18
 
 API revision `clor-api-00141-vhv`. Previous release `rel-c3389b8` (roll back there).

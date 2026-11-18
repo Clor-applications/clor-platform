@@ -1,5 +1,6 @@
 import { expiringWords } from '@ui/timeOff/expiring';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
+import DateNotes from '@ui/timeOff/DateNotes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, CalendarOff, Camera, CheckSquare, Clock3, Fingerprint, HelpCircle, ListChecks, LogIn, LogOut, MapPin, UserRound, X } from '@ui/components/ui/lineIcons';
 
@@ -24,6 +25,7 @@ import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
 import AskLetter from './AskLetter';
 import { FixNotices, MyMarks, NightConsent } from './TimeRules';
+import WeekBars from './WeekBars';
 import { Celebrations, ExitInterview, TodayPosts } from './Engagement';
 import {
   SignedOut,
@@ -442,6 +444,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
               <div key={k} className="ui-card p-2"><div className="text-base font-semibold tabular-nums">{v}</div><div className="ui-caption">{k}</div></div>
             ))}
           </div>
+          {month === todayIst().slice(0, 7) ? <WeekBars days={data.days} today={todayIst()} /> : null}
           <section className="ui-card overflow-hidden">
             {data.days.length ? (
               <div className="overflow-x-auto ui-table-scroll ui-table-fit">
@@ -805,7 +808,6 @@ function LeavePreview({ preview, checking }) {
   if (!preview) return checking ? <p className="ui-caption" role="status">Working out the days…</p> : null;
   const parts = preview.parts || [];
   const saved = parts.filter((p) => p.days > 0);
-  const skipped = parts.flatMap((p) => p.dates || []).filter((d) => d.why);
   /* An hourly type says hours (gap 23): asked, and left after. */
   const amount = (n) => (isHourly(preview.type) ? amountWords(n, preview.type) : daysText(n));
   return (
@@ -819,11 +821,7 @@ function LeavePreview({ preview, checking }) {
           </ul>
         </div>
       ) : null}
-      {skipped.length ? (
-        <ul className="ui-caption space-y-0.5" aria-label="Dates not counted">
-          {skipped.map((d) => <li key={d.date}>{dayLabel(d.date)} — {d.why}</li>)}
-        </ul>
-      ) : null}
+      <DateNotes parts={parts} label={dayLabel} className="ui-caption" />
       {saved.filter((p) => p.balance?.after != null).map((p) => (
         <p key={p.label} className="tabular-nums">{saved.length > 1 ? `${p.label}: ` : ''}{isHourly(preview.type) ? amountWords(p.balance.after, preview.type) : p.balance.after} left after this</p>
       ))}

@@ -195,7 +195,7 @@ describe('the panel', () => {
     const rule = CSS.slice(CSS.indexOf('.ui-feature-scrim {'), CSS.indexOf('.ui-feature-panel {'));
     expect(rule).not.toContain('backdrop-filter');
     expect(rule).toContain('rgb(24 24 27 / 0.24)');
-    expect(rule).toContain(":root[data-theme='dark'] .ui-feature-scrim");
+    expect(CSS).not.toContain(":root[data-theme='dark'] .ui-feature-scrim");
   });
 
   it('settles into place rather than sliding in from off screen', () => {

@@ -298,6 +298,7 @@ export function calculateStructure(components: EngineComponent[], input: EngineI
     VARIABLE_PAY: Number(input.variableAmounts?.VARIABLE_PAY) || 0,
     OVERTIME: Number(input.variableAmounts?.OVERTIME) || 0,
     OVERTIME_HOURS: Number(input.variableAmounts?.OVERTIME_HOURS) || 0,
+    OVERTIME_HOURS_AT_RATE: Number(input.variableAmounts?.OVERTIME_HOURS_AT_RATE) || 0,
   };
 
   const resolved = new Map<string, number>();

@@ -417,7 +417,8 @@ payrollRunsRouter.put(
           lwpDays: row.lwpDays,
           variablePay: row.variablePay,
           overtimeAmount: row.overtimeAmount,
-          ...(row.overtimeHours !== undefined ? { overtimeHours: row.overtimeHours } : {}),
+          /* Hours typed by hand carry no day rates: the rated figure from Attendance no longer describes them. */
+          ...(row.overtimeHours !== undefined ? { overtimeHours: row.overtimeHours, overtimeHoursAtRate: null } : {}),
           notes: row.notes || null,
           source: 'MANUAL',
           /* Typed days are a decision, not an assumption: nothing for next month to correct. */
@@ -512,6 +513,11 @@ payrollRunsRouter.post(
       ].filter(Boolean).join(' ').slice(0, 300);
       /* Approved overtime only, as hours: a component's formula prices it (OVERTIME_HOURS). */
       const overtimeHours = Math.round(((Number(r.approvedOvertimeMinutes) || 0) / 60) * 100) / 100;
+      /*
+       * And at the company's rates by kind of day (audit, 17 Nov 2026): payroll used to get raw hours only, so a
+       * holiday's 3× or a weekly off's rate never reached the payslip. OVERTIME_HOURS_AT_RATE prices them.
+       */
+      const overtimeHoursAtRate = Math.round(((Number(r.weightedOvertimeMinutes ?? r.approvedOvertimeMinutes) || 0) / 60) * 100) / 100;
       /* What was assumed after the cut-off, for next month's pull to compare with what happened. None without the feature. */
       const assumedDates = provisional && Array.isArray(r.provisionalDates) && r.provisionalDates.length ? r.provisionalDates : null;
       if (r.provisionalDays) {
@@ -519,7 +525,7 @@ payrollRunsRouter.post(
         assumed.days += Number(r.provisionalDays);
       }
       const days = {
-        workingDays, payableDays, lwpDays: lop, overtimeHours, source: 'ATTENDANCE', notes,
+        workingDays, payableDays, lwpDays: lop, overtimeHours, overtimeHoursAtRate, source: 'ATTENDANCE', notes,
         provisionalDays: Number(r.provisionalDays) || 0,
         provisionalDates: assumedDates ?? Prisma.DbNull,
       };

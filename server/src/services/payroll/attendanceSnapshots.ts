@@ -32,7 +32,7 @@ export function provisionalWarning(openMonths: string[]) {
 }
 
 /** Numeric fields of a summary row, added across months for a period of several. */
-const SUMMED = ['totalDays', 'lossOfPayDays', 'absent', 'halfDays', 'incompleteDays', 'unpaidLeaveDays', 'latePenaltyDays', 'notYet', 'approvedOvertimeMinutes'];
+const SUMMED = ['totalDays', 'lossOfPayDays', 'absent', 'halfDays', 'incompleteDays', 'unpaidLeaveDays', 'latePenaltyDays', 'notYet', 'approvedOvertimeMinutes', 'weightedOvertimeMinutes'];
 
 /**
  * The figures for a pay period, per person, from the latest snapshot of each
