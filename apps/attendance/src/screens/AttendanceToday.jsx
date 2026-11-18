@@ -9,6 +9,7 @@ import { getCalendar, getOverview, getReaderHealth, todayIst } from '../api/atte
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import GetStarted from '../components/GetStarted';
 import MoveToPeople from '../components/MoveToPeople';
+import { TodayScreen } from '../components/round24';
 
 /* The reader states the server already decides (Reader health uses the same words). */
 const READER = {
@@ -92,6 +93,7 @@ export default function AttendanceToday({ openScreen }) {
   const [date, setDate] = useState(todayIst());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [onScreen, setOnScreen] = useState(false);
   const [attempt, setAttempt] = useState(0);
   /* Readers and the week are extras: without access to them, or on a failed read, the panel is simply not shown. */
   const [readers, setReaders] = useState(null);
@@ -154,7 +156,10 @@ export default function AttendanceToday({ openScreen }) {
         title="Today"
         description={data?.holiday ? `Holiday: ${data.holiday}` : 'Attendance at a glance.'}
         actions={
-          <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
+          <>
+            {data ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setOnScreen(true)}>Show on a screen</button> : null}
+            <input type="date" className="ui-input" value={date} max={todayIst()} onChange={(e) => setDate(e.target.value)} aria-label="Day" />
+          </>
         }
       />
       <div className="pb-8 space-y-6">
@@ -321,6 +326,7 @@ export default function AttendanceToday({ openScreen }) {
       )}
       <MoveToPeople />
       </div>
+      {onScreen && data ? <TodayScreen data={data} dateLabel={longDate(date)} onClose={() => setOnScreen(false)} /> : null}
     </div>
   );
 }

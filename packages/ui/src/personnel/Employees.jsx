@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { nextEmployeeCode } from './nextCode';
 import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
 
@@ -1766,6 +1767,8 @@ export const shrinkPhoto = (file) =>
 
 function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   const [form, setForm] = useState(() => ({ ...initial }));
+  /* Round 24: the next code in the company's own series, read from the codes in use. */
+  const nextCode = useMemo(() => nextEmployeeCode((people || []).map((p) => p.code)), [people]);
   const [saving, setSaving] = useState(false);
   /* The same person twice (CORE-02): the server names who already has this email, phone or ID; saving anyway needs a reason. */
   const [dupes, setDupes] = useState(null);
@@ -1932,7 +1935,12 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
           <h3 className="ui-t-sec sm:col-span-2">Basics</h3>
           {input('firstName', 'First name', { autoFocus: true })}
           {input('lastName', 'Last name')}
-          {input('code', 'Employee ID')}
+          <div>
+            {input('code', 'Employee ID')}
+            {!initial?.id && !form.code && nextCode ? (
+              <p className="ui-caption mt-1">Next: <span className="ui-mono">{nextCode}</span> · <button type="button" className="ui-link" onClick={() => setForm((x) => ({ ...x, code: nextCode }))}>Use it</button></p>
+            ) : null}
+          </div>
           {input('phone', 'Phone', { type: 'tel' })}
           {input('dateOfJoining', 'Date of joining', { type: 'date' })}
           {select('status', 'Status', STATUSES, {}, { required: true })}
