@@ -305,7 +305,7 @@ export default function AttendanceToday({ openScreen }) {
               )}
             </section>
             <section className="ui-card p-4 xl:col-span-2" aria-labelledby="notin-h">
-              <h2 id="notin-h" className="ui-t-sec mb-3">Not clocked in <span className="ui-caption tabular-nums">{data.notIn.length}</span></h2>
+              <h2 id="notin-h" className="ui-t-sec mb-3">Not in yet <span className="ui-caption tabular-nums">{data.notIn.length}{date === todayIst() ? ` · ${new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : ''}</span></h2>
               {data.notIn.length ? (
                 <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
                   {data.notIn.map((p) => (
