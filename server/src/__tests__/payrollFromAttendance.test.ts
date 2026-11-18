@@ -119,6 +119,35 @@ describe('days from Attendance', () => {
     expect(Number(line!.amount)).toBe(577);
   });
 
+  it("brings the hours at the company's rate for the kind of day too", async () => {
+    /* Audit, 17 Nov 2026: payroll got raw hours, never the company's rates by kind of day. */
+    const c = await makeOwner({ payroll: true, people: true, attendance: true });
+    const { employeeId, runId } = await setUp(c);
+    const rules = (await request(app).get(`/api/orgs/${c.orgId}/attendance/overtime/rules`).set(at(c)).expect(200)).body.rules;
+    await request(app)
+      .put(`/api/orgs/${c.orgId}/attendance/overtime/rules`)
+      .set(at(c))
+      .send({ overtimeRequests: rules.overtimeRequests, overtimeApproval: rules.overtimeApproval, compOffEnabled: rules.compOffEnabled, compOffLeaveTypeId: rules.compOffLeaveTypeId ?? null, confirmCutoffDay: rules.confirmCutoffDay, rates: { working: 3, weeklyOff: 3, holiday: 3 } })
+      .expect(200);
+    const day = await request(app).put(`/api/orgs/${c.orgId}/attendance/records`).set(at(c)).send({ employeeId, date: '2026-09-01', checkIn: '09:00', checkOut: '20:00' }).expect(200);
+    await request(app).post(`/api/orgs/${c.orgId}/attendance/records/${day.body.record.id}/overtime`).set(at(c)).send({ approved: true }).expect(200);
+
+    await pay.post(c, `/runs/${runId}/inputs/from-attendance`).expect(200);
+    const input = (await inputOf(runId, employeeId))!;
+    expect(Number(input.overtimeHours)).toBe(2);
+    expect(Number(input.overtimeHoursAtRate)).toBe(6);
+
+    await pay
+      .post(c, '/components', { name: 'Overtime', code: 'OT', type: 'EARNING', calculationMethod: 'FORMULA', formula: 'BASIC / 26 / 8 * OVERTIME_HOURS_AT_RATE', prorate: false, appliesTo: 'ALL_EMPLOYEES', displayOrder: 5 })
+      .expect(201);
+    await pay.post(c, `/runs/${runId}/validate`).expect(200);
+    await pay.post(c, `/runs/${runId}/calculate`).expect(200);
+    const slip = await payrollPrisma.salarySlip.findFirst({ where: { runId, employeeId } });
+    const line = await payrollPrisma.salarySlipLine.findFirst({ where: { slipId: slip!.id, componentCode: 'OT' } });
+    /* 30000 / 26 / 8 × 6 = ₹865.38. */
+    expect(Number(line!.amount)).toBe(865);
+  });
+
   it('a linked half day costs the same through Attendance and through Leave', async () => {
     /* The acceptance matrix: paid half worked = full pay; unpaid half worked
        = half lost; paid half unworked = half lost; unpaid half unworked = a

@@ -190,10 +190,10 @@ secret in the repository. Its findings are all medium or low.
 - [ ] Full and final has no tax, posts nothing to Books and is missing from Form 16 and 24Q (adds to the Stage 1 line above) — `routes/payrollSettlements.ts:309-383`, `services/payroll/form16.ts:59`
 - [~] Gratuity rounds up only after seven full months, so 5 years 6 months and 15 days is paid for 5 years, not 6 — `services/payroll/finalSettlement.ts:80` — **Merged, not live (#300).**
 - [~] Leave encashment in full and final is always gratuity wage ÷ 26, whatever the leave type says — `services/payroll/finalSettlement.ts:154` — **Merged, not live (#300).**
-- [ ] ESI cover is tested on the month's earned wage, not the wage rate, so unpaid leave or overtime moves a person in or out — `services/payroll/run.ts:976`, `statutory/engine.ts:215`
+- [x] ESI cover is tested on the month's earned wage, not the wage rate, so unpaid leave or overtime moves a person in or out — `services/payroll/run.ts:976`, `statutory/engine.ts:215` (fixed: tested on the wage rate, fix/payroll-medium)
 - [~] The ECR, ESIC and PT files are built from payslips of a run that is not yet approved; a member with no PF that month is left out — `services/payroll/filings.ts:65-68`, `:112` — **Merged, not live (#300).**
-- [ ] A bonus or deduction approved into a month whose run is already final, in a period that is not locked, is never paid — `services/payroll/run.ts:557-571`
-- [ ] Payroll gets raw overtime hours; the company's rates by day type and its caps are not passed (adds to the Stage 2 line above) — `routes/payrollRuns.ts:514`
+- [x] A bonus or deduction approved into a month whose run is already final, in a period that is not locked, is never paid — `services/payroll/run.ts:557-571` (fixed: the next run pays it, fix/payroll-medium)
+- [x] Payroll gets raw overtime hours; the company's rates by day type and its caps are not passed (adds to the Stage 2 line above) — `routes/payrollRuns.ts:514` (fixed: OVERTIME_HOURS_AT_RATE, fix/payroll-medium)
 - [~] Entered deductions can take net pay below zero, and the whole deduction is still marked recovered — `services/payroll/run.ts:1786`, `services/payroll/payment.ts:153` — **Merged, not live (#300): such a payroll cannot be sent for review or approved.**
 - [x] Employee app People routes check sign-in only, so in an Attendance-only company a private case can be filed where HR cannot open it — `routes/peoplePortal.ts:29`, `routes/peopleTimePortal.ts:26` (fixed: requirePortalApp, fix/books-medium)
 

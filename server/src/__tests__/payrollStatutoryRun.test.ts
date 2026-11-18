@@ -463,3 +463,24 @@ describe('a company that has not switched any scheme on', () => {
     expect(check.body.issues.some((i: any) => i.code === 'STATUTORY_NOT_COMPUTED')).toBe(true);
   });
 });
+
+describe('ESI cover', () => {
+  /*
+   * Audit, 17 Nov 2026: cover was tested on the month's earned wage, so unpaid leave brought a person over the
+   * threshold into ESI. ₹3,00,000 a year is ₹25,000 a month, above ₹21,000; twelve unpaid days take the month to
+   * ₹15,000. The wage rate decides: no ESI, only PF on what was earned.
+   */
+  it('is tested on the wage rate, so unpaid leave does not bring a person into ESI', async () => {
+    const c = await makeOwner();
+    const ids = await setUp(c);
+    const who = await addPerson(c, ids.structureId, 'Above threshold', 300_000);
+    const run = await api.post(c, '/runs', { periodId: ids.periodId }).expect(201);
+    const runId = run.body.run.id;
+    await api.put(c, `/runs/${runId}/inputs`, { inputs: [{ employeeId: who, workingDays: 30, payableDays: 18, lwpDays: 12 }] }).expect(200);
+    await api.post(c, `/runs/${runId}/validate`).expect(200);
+    await api.post(c, `/runs/${runId}/calculate`).expect(200);
+    const slip = (await api.get(c, `/slips?runId=${runId}`).expect(200)).body.slips.find((s: any) => s.employeeId === who);
+    /* PF: 12% of Basic ₹12,500 × 18/30 = ₹900. ESI would have added 0.75% of ₹15,000. */
+    expect(slip.totalDeductions).toBe(900);
+  });
+});

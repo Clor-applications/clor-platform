@@ -229,6 +229,8 @@ export function oneOffTaxableOf(ctx: { components: Map<string, any> }, adjustmen
 export function oneOffWagesOf(ctx: { components: Map<string, any> }, adjustments: any[]) {
   let pfWage = 0;
   let esiWage = 0;
+  /* Every earning added this month, for professional tax and LWF, which read the month's gross (audit, 17 Nov 2026). */
+  let gross = 0;
   for (const adj of adjustments) {
     const component = ctx.components.get(adj.componentId);
     const isDeduction = adj.type === 'DEDUCTION' || component?.type === 'DEDUCTION';
@@ -236,8 +238,9 @@ export function oneOffWagesOf(ctx: { components: Map<string, any> }, adjustments
     const amount = Number(adj.amount) || 0;
     if (component.includeInPfWage) pfWage += amount;
     if (component.includeInEsiWage) esiWage += amount;
+    if (component.includeInGross !== false) gross += amount;
   }
-  return { pfWage: round2(pfWage), esiWage: round2(esiWage) };
+  return { pfWage: round2(pfWage), esiWage: round2(esiWage), gross: round2(gross) };
 }
 
 /**
@@ -572,6 +575,17 @@ async function loadRunContext(orgId: string, runId: string) {
   /* Earlier periods, for deductions an earlier run carried on (deductionCap.ts). */
   const earlierPeriods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { lt: period.startDate } }, select: { id: true, name: true, startDate: true } });
 
+  /* Earlier months whose run is final and none still open: what is approved into them now is the next run's to pay. */
+  const earlierRuns = earlierPeriods.length
+    ? await payrollPrisma.payrollRun.findMany({ where: { orgId, periodId: { in: earlierPeriods.map((p) => p.id) }, id: { not: runId } }, select: { periodId: true, status: true } })
+    : [];
+  const closedEarlier = earlierPeriods
+    .map((p) => p.id)
+    .filter((pid) => {
+      const of = earlierRuns.filter((r) => r.periodId === pid);
+      return of.length > 0 && of.every((r) => PT_COUNTED_RUNS.includes(r.status));
+    });
+
   const [employees, profiles, inputs, ownAdjustments, carriedAdjustments, assignments] = await Promise.all([
     peoplePrisma.employee.findMany({ where: { orgId, id: { in: employeeIds } } }),
     payrollPrisma.employeePayrollProfile.findMany({ where: { orgId, employeeId: { in: employeeIds } } }),
@@ -587,8 +601,15 @@ async function loadRunContext(orgId: string, runId: string) {
             orgId,
             employeeId: { in: employeeIds },
             periodId: { in: earlierPeriods.map((p) => p.id) },
-            carriedByRunId: { not: runId },
-            OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }],
+            OR: [
+              /* Carried by an earlier run (the rest of a deduction it could not take), not yet taken by another. */
+              { carriedByRunId: { not: runId }, OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }] },
+              /*
+               * Approved into a month whose run was already final (audit, 17 Nov 2026): no run of that month will
+               * take it any more, so the next run pays it. A month with its run still open keeps it.
+               */
+              { carriedByRunId: null, periodId: { in: closedEarlier }, OR: [{ status: 'APPROVED' }, { status: 'CONSUMED', consumedByRunId: runId }] },
+            ],
           },
         })
       : Promise.resolve([]),
@@ -972,7 +993,7 @@ function calculateWithStatutory(
   /** Taxable one-off adjustment earnings this period (a bonus), counted in the year once, not for every month left (#15). */
   oneOffTaxable = 0,
   /** PF and ESI wages those one-off earnings add (oneOffWagesOf). */
-  oneOffWages: { pfWage: number; esiWage: number } = { pfWage: 0, esiWage: 0 }
+  oneOffWages: { pfWage: number; esiWage: number; gross?: number } = { pfWage: 0, esiWage: 0, gross: 0 }
 ) {
   const engineInput = {
     annualCtc: Number(assignment.annualCtc),
@@ -980,10 +1001,17 @@ function calculateWithStatutory(
     workingDays: input.workingDays,
     payableDays: input.payableDays,
     lwpDays: input.lwpDays,
-    variableAmounts: { VARIABLE_PAY: input.variablePay, OVERTIME: input.overtimeAmount, OVERTIME_HOURS: input.overtimeHours },
+    variableAmounts: { VARIABLE_PAY: input.variablePay, OVERTIME: input.overtimeAmount, OVERTIME_HOURS: input.overtimeHours, OVERTIME_HOURS_AT_RATE: input.overtimeHoursAtRate },
   };
 
   const firstPass = calculateStructure(engine, engineInput);
+  /* The month at the wage rate: every working day paid, nothing entered for the month. ESI cover is tested on this. */
+  const rateWage = calculateStructure(engine, {
+    ...engineInput,
+    payableDays: input.workingDays,
+    lwpDays: 0,
+    variableAmounts: { VARIABLE_PAY: 0, OVERTIME: 0, OVERTIME_HOURS: 0, OVERTIME_HOURS_AT_RATE: 0 },
+  });
 
   if (!ctx.statutoryRules.size) {
     return { result: firstPass, statutory: { amounts: {}, results: [], versions: {} } };
@@ -1054,9 +1082,14 @@ function calculateWithStatutory(
       wages: {
         pfWage: round2(pass.pfWage + oneOffWages.pfWage),
         esiWage: round2(pass.esiWage + oneOffWages.esiWage),
-        /* Cover is tested on the pay the structure gives, not on arrears or an incentive that month. */
-        esiCoverageWage: pass.esiWage,
-        gross: pass.grossEarnings,
+        /*
+         * Cover is tested on the wage rate: the full month the structure gives, before unpaid leave and without
+         * overtime, arrears or an incentive (audit, 17 Nov 2026). Testing the month's earned wage let a week of
+         * unpaid leave bring a person into ESI, or a month of overtime take them out.
+         */
+        esiCoverageWage: rateWage.esiWage,
+        /* With arrears, a bonus or an incentive added this month: professional tax is on what the month paid. */
+        gross: round2(pass.grossEarnings + (oneOffWages.gross || 0)),
         /* Taxable earnings and employer NPS, never plain gross: a reimbursement is paid but not taxed. */
         annualTaxable: annualTaxable(pass),
         employerNps: forYear(soFar.employerNps, taxablePay(pass).employerNps),
@@ -1138,6 +1171,8 @@ function inputFor(ctx: LoadedRun, employeeId: string) {
     variablePay: stored ? Number(stored.variablePay) || 0 : 0,
     overtimeAmount: stored ? Number(stored.overtimeAmount) || 0 : 0,
     overtimeHours: stored ? Number(stored.overtimeHours) || 0 : 0,
+    /* Entered by hand, with no rates behind it: the plain hours. */
+    overtimeHoursAtRate: stored ? (stored.overtimeHoursAtRate != null ? Number(stored.overtimeHoursAtRate) : Number(stored.overtimeHours)) || 0 : 0,
     source: stored?.source || 'DERIVED',
     derived: !stored,
   };
