@@ -1,8 +1,9 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
-import { Rows3 } from 'lucide-react';
+import { Contrast, Rows3 } from 'lucide-react';
 import { useDensity } from '@ui/components/ui/useDensity';
 import { TEXT_SIZES, useTextSize } from '@ui/components/ui/useTextSize';
+import { useStrongText } from '@ui/components/ui/useStrongText';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { Menu as UiMenu, MenuGroup, MenuGroupLabel, MenuItem, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from '@ui/components/ui/Menu';
@@ -214,6 +215,7 @@ function ShellScreens() {
   /* Owner's round 15 pick: roomy or compact rows, a personal choice in the name menu (not in Books, which has its own). */
   const { density, toggle: toggleDensity } = useDensity();
   const { size: textSize, set: setTextSize } = useTextSize();
+  const { on: strongText, toggle: toggleStrongText } = useStrongText();
   /* A phone: no rail, a menu sheet and a tab bar instead (mobileTabs.js). */
   const [phone, setPhone] = useState(() => typeof window !== 'undefined' && window.matchMedia(PHONE_QUERY).matches);
   const [navOpen, setNavOpen] = useState(false);
@@ -1370,6 +1372,12 @@ function ShellScreens() {
                 {document.documentElement.dataset.palette === 'indigo' ? null : (
                   <MenuItem className="min-h-11 gap-2 px-2" onClick={toggleDensity}>
                     <Rows3 size={16} aria-hidden="true" /> {density === 'compact' ? 'Roomy rows' : 'Compact rows'}
+                  </MenuItem>
+                )}
+                {document.documentElement.dataset.palette === 'indigo' ? null : (
+                  /* Round 50 pick "highcontrast" A: darker greys and thicker lines, for whoever finds grey text faint. */
+                  <MenuItem className="min-h-11 gap-2 px-2" onClick={toggleStrongText}>
+                    <Contrast size={16} aria-hidden="true" /> {strongText ? 'Normal text' : 'Stronger text'}
                   </MenuItem>
                 )}
                 {document.documentElement.dataset.palette === 'indigo' ? null : (
