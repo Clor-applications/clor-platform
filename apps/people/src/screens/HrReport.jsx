@@ -35,6 +35,7 @@ function shown(col, value) {
   if (value === null || value === undefined || value === '') return '—';
   if (col.kind === 'date') return formatDate(String(value).slice(0, 10)) || String(value);
   if (col.kind === 'pct' && typeof value === 'number') return `${value.toFixed(1)}%`;
+  if (col.kind === 'money' && typeof value === 'number') return `₹${value.toLocaleString('en-IN')}`;
   return String(value);
 }
 const cellClass = (col, value) => [col.align === 'right' ? 'text-right' : '', typeof value === 'number' || col.kind === 'date' || col.align === 'right' ? 'tabular-nums whitespace-nowrap' : '', typeof value === 'string' && col.align === 'right' ? 'ui-muted' : ''].filter(Boolean).join(' ');

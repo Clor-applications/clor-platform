@@ -105,3 +105,27 @@ it('a chart carries three colours at most: a fourth series is the grey “Other�
   /* No colour of its own in the component: tokens only. */
   expect(container.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|rgb\(\d/i);
 });
+
+it('a line chart (absence rate by month): one line a series, the months under it, said in words with its unit', () => {
+  const chart = { kind: 'line', unit: '%', categories: ['Jan 2025', 'Feb 2025', 'Mar 2025'], series: [{ label: 'Absence rate', values: [2.5, 4, 1.2] }] };
+  const { container } = render(<ReportChart chart={chart} label="Absence rate" />);
+  const lines = container.querySelectorAll('.people-chart-line polyline');
+  expect(lines).toHaveLength(1);
+  expect(lines[0].getAttribute('points').split(' ')).toHaveLength(3);
+  expect(screen.getByRole('img').getAttribute('aria-label')).toContain('Feb 2025: Absence rate 4%');
+  expect([...container.querySelectorAll('.people-chart-axis span')].map((s) => s.textContent)).toEqual(['Jan 2025', 'Feb 2025', 'Mar 2025']);
+  expect(container.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|rgb\(\d/i);
+});
+
+it('pay cost reads in rupees, in tabular figures', async () => {
+  const BRANCHES = {
+    id: 'branches', title: 'Branches side by side', from: '2025-01-01', to: '2025-03-31', by: 'branch',
+    columns: [{ key: 'branch', label: 'Branch' }, { key: 'headcount', label: 'Headcount', align: 'right' }, { key: 'pay', label: 'Pay cost', align: 'right', kind: 'money' }],
+    rows: [{ branch: 'Head office', headcount: 12, pay: 1234567 }], totals: null, chart: null, notes: [], masked: false,
+  };
+  api.listHrReports.mockResolvedValue({ ...CATALOGUE, reports: [...CATALOGUE.reports, { id: 'branches', group: 'Workforce', name: 'Branches side by side', description: 'x', dates: 'months', by: false }] });
+  api.runHrReport.mockResolvedValue(BRANCHES);
+  render(<HrReport params={{ report: 'branches' }} updateParams={() => {}} />);
+  const cell = await screen.findByText('₹12,34,567');
+  expect(cell.className).toContain('tabular-nums');
+});
