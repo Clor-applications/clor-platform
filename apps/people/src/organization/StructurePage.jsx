@@ -16,6 +16,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
+import { blockedDelete } from '@ui/picks/round28';
 import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 
 import { can } from '../workforce/shared';
@@ -207,6 +208,9 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     if (!(await confirmDialog({ title: `Delete ${r.name}?`, message: 'Nobody uses it, so it goes for good. Retire it instead to keep it in the history.', confirmLabel: 'Delete' }))) return;
     try { await deleteItem(kind, r.id); notify.success('Deleted.'); req.reload(); } catch (e) { notify.error(String(e?.message || 'Not deleted.')); }
   };
+  const blockedRemove = async (r) => {
+    if (await confirmDialog(blockedDelete(r.name, r.employeeCount, cfg.singular))) openScreen?.('employees', { dept: r.id });
+  };
 
   const columns = [
     /* PEOPLE-30..38: the name in bold, with its description (or, in a tree, where it sits) under it. */
@@ -232,6 +236,8 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     canEdit && r.isActive === false ? { key: 'reactivate', label: 'Bring back', onSelect: () => reactivate(r) } : null,
     { key: 'history', label: 'History', onSelect: () => openScreen?.('orgChanges', { kind, item: r.id }) },
     canDelete && !r.employeeCount && !(TREE_KEY[kind] && items.some((x) => x[TREE_KEY[kind]] === r.id)) ? { key: 'delete', label: 'Delete', onSelect: () => remove(r) } : null,
+    /* Round 28 "deldept" B: a department with people says why it cannot go, and offers them. */
+    canDelete && kind === 'departments' && r.employeeCount > 0 ? { key: 'delete', label: 'Delete…', onSelect: () => blockedRemove(r) } : null,
   ];
 
   return (

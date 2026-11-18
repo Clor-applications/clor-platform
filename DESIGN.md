@@ -556,6 +556,29 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 28 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| A buzz when you punch | A punch saved from the phone buzzes twice for in and once for out, where the browser can buzz (`buzzForPunch`, `PhonePunch`). Nothing else changes where it cannot. |
+| Overtime close to the legal limit | Approving overtime that runs past the company's cap asks first: "Approving this takes Babu past the company’s overtime limit: 4:00 over the cap of 50:00 a quarter", with Approve anyway (`overCapQuestion`, Overtime requests). |
+| Removing a department that still has people | A department with people in it keeps Delete… in its menu; it says "14 people are in Field Sales. Move them to another department first, or retire it" and offers "See the 14 people", which opens Employees filtered to it (`blockedDelete`, Organisation → Departments). |
+
+Picked and already how the app works: the punch uses CLOR's own time, not the phone's (the
+server stamps it); pointing at a chart bar shows a small white box with the month and amount
+(the shared chart tooltip); pinning rows is left to saved views until pins can follow a person
+across pages.
+
+Picked, **not built yet**: perks picked with the taxed value worked out by the rule; family
+members hidden from the directory under a locked tab for admins; keys for your own software with
+last used and Remove; deleted items restored one at a time from Ops; letter checks by a digital
+signature in the PDF; PF capped at ₹15,000 by default with a choice per person; phone punch
+allowed for one person whose fingerprint will not read; a small sign-in for former staff to get
+their papers; ideas counted from tags on support tickets; salary split between two bank accounts.
+All need server work. Pinning a person to the top of People needs pins kept on the server.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
