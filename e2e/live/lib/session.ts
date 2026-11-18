@@ -1,6 +1,20 @@
 import { createHmac } from 'node:crypto';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Browser, type Page } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { SITES, type QaAccount } from './env';
+
+const STATE = join(fileURLToPath(new URL('.', import.meta.url)), '..', '.state');
+export function statePath(acc: QaAccount) { mkdirSync(STATE, { recursive: true }); return join(STATE, `${acc.label}.json`); }
+
+/** A page already signed in as acc (session saved by auth.setup.ts). */
+export async function pageAs(browser: Browser, acc: QaAccount) {
+  const ctx = await browser.newContext({ storageState: statePath(acc), viewport: { width: 1440, height: 900 }, locale: 'en-IN', timezoneId: 'Asia/Kolkata' });
+  return ctx.newPage();
+}
+/* 2FA codes work once: wait for a fresh 30-second step before each sign-in. */
+const lastStep: Record<string, number> = {};
 
 function base32Decode(s: string) {
   const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -37,6 +51,9 @@ export async function signIn(page: Page, acc: QaAccount) {
   ]);
   if (await code.isVisible().catch(() => false)) {
     if (!acc.totpSecret) throw new Error(`${acc.label}: two-factor code asked; add totpSecret for this account in .env.live`);
+    const step = Math.floor(Date.now() / 30000);
+    if (step === lastStep[acc.label]) await page.waitForTimeout(30_500 - (Date.now() % 30_000));
+    lastStep[acc.label] = Math.floor(Date.now() / 30000);
     await code.fill(totp(acc.totpSecret));
     await page.getByRole('button', { name: /verify|continue|sign in/i }).first().click();
   }

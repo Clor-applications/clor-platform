@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test';
 import { accounts } from './lib/env';
 import { saveVisits } from './lib/monitor';
 import { runSteps, type Scenario } from './lib/scenario';
-import { signIn } from './lib/session';
+import { pageAs } from './lib/session';
 
 const sees = (text: RegExp) => async ({ page }: any) => { await expect(page.getByText(text).first()).toBeVisible(); };
 const clickText = async (page: any, re: RegExp) => page.getByRole('button', { name: re }).or(page.getByRole('link', { name: re })).first().click();
@@ -141,8 +141,8 @@ for (const acc of accs) {
   const role = (acc as any).role || 'owner';
   const mine = SCENARIOS.filter((s) => s.who.includes(role));
   if (!mine.length) continue;
-  test(`Scenarios as ${acc.label} (${role})`, async ({ page }) => {
-    await signIn(page, acc);
+  test(`Scenarios as ${acc.label} (${role})`, async ({ browser }) => {
+    const page = await pageAs(browser, acc);
     const all = [];
     for (const s of mine) all.push(...(await runSteps(s, page, acc)));
     saveVisits(`scenarios-${acc.label}`, all);

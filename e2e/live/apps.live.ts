@@ -8,7 +8,7 @@
 import { test } from '@playwright/test';
 import { accounts, SITES } from './lib/env';
 import { DANGER, renderIssues, saveVisits, shotPath, watch, type Visit } from './lib/monitor';
-import { signIn } from './lib/session';
+import { pageAs } from './lib/session';
 
 const accs = accounts();
 const DEFAULT_APPS = ['app', 'people', 'payroll', 'attendance', 'books'] as const;
@@ -16,11 +16,10 @@ const DEFAULT_APPS = ['app', 'people', 'payroll', 'attendance', 'books'] as cons
 test.skip(accs.length === 0, 'No QA_ACCOUNTS in e2e/live/.env.live: signed-in crawl skipped');
 
 for (const acc of accs) {
-  test(`Crawl as ${acc.label}`, async ({ page }) => {
+  test(`Crawl as ${acc.label}`, async ({ browser }) => {
+    const page = await pageAs(browser, acc);
     const w = watch(page);
     const visits: Visit[] = [];
-    w.start('sign-in');
-    await signIn(page, acc);
     const apps = (acc as any).apps || (acc.site === 'ops' ? ['ops'] : DEFAULT_APPS);
     for (const app of apps) {
       const base = SITES[app as keyof typeof SITES];

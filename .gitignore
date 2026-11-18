@@ -92,3 +92,4 @@ e2e/report/
 e2e/live/.env.live
 e2e/live/report/
 e2e/live/test-results/
+e2e/live/.state/

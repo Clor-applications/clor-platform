@@ -12,7 +12,6 @@ loadLiveEnv();
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /.*\.live\.ts/,
   outputDir: './test-results',
   fullyParallel: false,
   workers: Number(process.env.QA_WORKERS || 2),
@@ -30,4 +29,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  projects: [
+    { name: 'auth', testMatch: /auth\.setup\.ts/, fullyParallel: false },
+    { name: 'public', testMatch: /public\.live\.ts/ },
+    { name: 'signed-in', testMatch: /(apps|scenarios|forms)\.live\.ts/, dependencies: ['auth'] },
+  ],
 });
