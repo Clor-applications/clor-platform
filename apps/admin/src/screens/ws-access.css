@@ -327,3 +327,14 @@
   line-height: 1.25rem;
 }
 .ws-member-sensitive svg { margin-top: 2px; }
+/* Apps on one line (owner, 19 Nov 2026): each a small chip with its app mark, not a tall list. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-apps { display: flex; flex-wrap: wrap; gap: 8px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-apps > li {
+  min-height: 0;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid rgb(var(--border, 228 230 225));
+  border-radius: 9999px;
+  font-weight: 500;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-apps > li + li { border-top: 1px solid rgb(var(--border, 228 230 225)); }
