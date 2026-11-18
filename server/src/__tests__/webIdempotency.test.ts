@@ -21,6 +21,11 @@ describe('which writes are guarded', () => {
     expect(isGuardedWrite('POST', '/api/orgs/o1/payments')).toBe(true);
     expect(isGuardedWrite('POST', '/api/orgs/o1/payments/p1/reverse')).toBe(true);
     expect(isGuardedWrite('POST', '/api/orgs/o1/payroll/payments/x/post')).toBe(true);
+    /* Audit, 17 Nov 2026: bills, expenses, notes, orders, leave and holidays could be saved twice by a double click. */
+    for (const p of ['bills', 'expenses', 'credit-notes', 'debit-notes', 'estimates', 'sales-orders', 'purchase-orders', 'delivery-challans', 'attendance/holidays', 'attendance/me/leave', 'attendance/leave/requests']) {
+      expect(isGuardedWrite('POST', `/api/orgs/o1/${p}`)).toBe(true);
+    }
+    expect(isGuardedWrite('POST', '/api/orgs/o1/attendance/me/leave/preview')).toBe(false);
     expect(isGuardedWrite('GET', '/api/orgs/o1/invoices')).toBe(false);
     expect(isGuardedWrite('POST', '/api/orgs/o1/invoices/i1/ewaybill')).toBe(false);
     expect(isGuardedWrite('POST', '/api/orgs/o1/attendance/clock')).toBe(false);

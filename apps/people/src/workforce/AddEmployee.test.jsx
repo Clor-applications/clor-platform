@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   listContractors: vi.fn(async () => []),
   listTags: vi.fn(async () => []),
   listEmployees: vi.fn(async () => ({ employees: [] })),
+  listAllEmployees: vi.fn(async () => ({ employees: [], total: 0 })),
   nextEmployeeCode: vi.fn(),
   createEmployee: vi.fn(),
   deleteDraft: vi.fn(),

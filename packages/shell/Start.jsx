@@ -4,6 +4,8 @@ import { GST_STATE_BY_CODE } from '@ui/utils/gst';
 
 import { signupConfirm, signupOptions, signupPending, signupStart } from '@platform/auth';
 import AuthLayout from './AuthLayout';
+import GatePage from './GatePage';
+import { Clock } from '@ui/components/ui/lineIcons';
 import { legalHref } from './legal/useLegalRoute';
 import { readStartLinkOnce } from './startLink';
 
@@ -94,11 +96,12 @@ export default function Start({ onHome, onSignIn, signedIn = null, signOut = nul
 
   if (step === 'ended') {
     return (
-      <AuthLayout scene="start" title="This link has ended" subtitle="A link works for 24 hours and once. Start again and we will send a new one." onHome={onHome}>
+      /* On the gate frame like every other stop (DESIGN.md: every gate page on GatePage). */
+      <GatePage icon={Clock} title="This link has ended" subtitle="A link works for 24 hours and once. Start again and we will send a new one.">
         <button type="button" className="ui-btn ui-btn-brand ui-btn-lg w-full" onClick={() => setStep('email')}>
           Start again <ArrowRight size={16} aria-hidden="true" />
         </button>
-      </AuthLayout>
+      </GatePage>
     );
   }
 

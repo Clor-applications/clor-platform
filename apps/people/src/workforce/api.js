@@ -13,6 +13,8 @@ export const qs = (params = {}) => {
 };
 
 export const listEmployees = (params) => apiFetch(`${base()}/employees${qs(params)}`, opts);
+/* Every page, for pickers: a manager past the 500th person could not be chosen (audit, 17 Nov 2026). */
+export { listAllEmployees } from '@ui/personnel/api';
 export const employeeCounts = () => apiFetch(`${base()}/employees/counts`, opts);
 export const employeeIds = (params) => apiFetch(`${base()}/employees${qs({ ...params, idsOnly: '1' })}`, opts);
 export const employeeReadiness = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}/readiness`, opts);

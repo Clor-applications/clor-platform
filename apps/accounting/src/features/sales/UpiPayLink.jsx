@@ -5,6 +5,9 @@ import { notify } from '@ui/components/ui/notify';
 import { getInvoicePaymentDetails } from '@ui/utils/invoicePrefs';
 import { cancelPayRequest, confirmPayRequest, createPayment, createPayRequest, listPaymentModes, listPayRequests } from '@ui/api/payments';
 
+/* Indian grouping and two decimals (DESIGN.md: money is tabular): ₹1,23,456.00, not ₹123456.00. */
+const upiAmount = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 /**
  * UPI Direct for one invoice: a link the customer opens to pay straight into
  * the company's UPI ID — no gateway, no fee. They pay in their UPI app and
@@ -84,7 +87,7 @@ export default function UpiPayLink({ invoice, currentCompany, onPaid }) {
     });
   const cancel = (r) => act(`cancel:${r.id}`, async () => { await cancelPayRequest(r.id); load(); });
 
-  const share = made ? `Please pay ₹${made.request.amount.toFixed(2)} for invoice ${invoice.number} here: ${made.url}` : '';
+  const share = made ? `Please pay ${upiAmount(made.request.amount)} for invoice ${invoice.number} here: ${made.url}` : '';
   const open = (rows || []).filter((r) => r.status === 'PENDING' || r.status === 'CLAIMED');
 
   if (!serverId) return <p className="ui-caption">This invoice was made before invoices were kept on the server, so it cannot have a pay link. Share your UPI ID or the QR on the printed invoice instead.</p>;
@@ -101,7 +104,7 @@ export default function UpiPayLink({ invoice, currentCompany, onPaid }) {
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => copy(made.url)}><Copy size={14} aria-hidden="true" /> Copy</button>
             <a className="ui-btn ui-btn-secondary ui-btn-sm" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noreferrer"><MessageCircle size={14} aria-hidden="true" /> WhatsApp</a>
           </div>
-          <div className="ui-caption">Reference {made.request.reference} · ₹{made.request.amount.toFixed(2)} to {made.request.payeeVpa}</div>
+          <div className="ui-caption">Reference {made.request.reference} · <span className="tabular-nums">{upiAmount(made.request.amount)}</span> to {made.request.payeeVpa}</div>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -125,7 +128,7 @@ export default function UpiPayLink({ invoice, currentCompany, onPaid }) {
             return (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <span>
-                  ₹{r.amount.toFixed(2)} · {r.reference}
+                  <span className="tabular-nums">{upiAmount(r.amount)}</span> · {r.reference}
                   {r.payerUtr ? <> · UTR <code className="ui-mono">{r.payerUtr}</code></> : null}
                   {r.payerName ? ` · ${r.payerName}` : ''}
                 </span>

@@ -248,7 +248,11 @@ export const amountInWordsInr = (value, company) => {
  * each wrote their own; these are the two the screens agreed on. A blank or
  * non-number amount shows as ₹0.
  */
-/** Up to two decimals, none when whole: ₹1,23,456.5 */
-export const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+/** Two decimals, or none when whole: ₹1,23,456.50 and ₹1,23,456 (never ₹1,23,456.5, audit 17 Nov 2026). */
+export const rupees = (n) => {
+  const v = Number(n || 0);
+  const whole = Math.abs(v - Math.round(v)) < 0.005;
+  return `₹${v.toLocaleString('en-IN', whole ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 /** To the rupee: ₹1,23,457 */
 export const wholeRupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;

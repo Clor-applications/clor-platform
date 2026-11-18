@@ -24,7 +24,7 @@ import { LEAVING_TYPES } from '@ui/personnel/api';
 import { HOURS_WORDS, datesFor, kindOf, probationState } from '@ui/personnel/employmentKinds';
 
 import {
-  addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, deleteEmployee, deleteNote, employeeActivity, employeeAsOf, getEmployee, listContractors, listEmployees, listTags, openTasksFor, rehireEmployee, stayOn, structure, updateEmployee, withdrawScheduled,
+  addComment, changeImpact, employeeReadiness, linkCandidates, linkUser, deleteEmployee, deleteNote, employeeActivity, employeeAsOf, getEmployee, listContractors, listAllEmployees, listTags, openTasksFor, rehireEmployee, stayOn, structure, updateEmployee, withdrawScheduled,
 } from './api';
 import { listBranches } from '../organization/api';
 import SuggestInput from '@ui/components/ui/SuggestInput';
@@ -824,7 +824,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
   const [managers, setManagers] = useState([]);
   useEffect(() => {
     if (person.status !== 'LEFT') return;
-    listEmployees({ limit: 500, sort: 'name' }).then((r) => {
+    listAllEmployees({ sort: 'name' }).then((r) => {
       /* Someone who left or is suspended counts as no manager (approvalChain), so is neither offered nor kept. */
       const here = (r?.employees || []).filter((e) => e.id !== person.id && e.status !== 'LEFT' && e.status !== 'SUSPENDED');
       setManagers(here);
@@ -1063,7 +1063,7 @@ function OperationDrawer({ action, person, lists, onClose, onDone }) {
     ...(person.confirmedOn ? [] : [['probationEndDate', newDates.probation ? ends.probationEndDate : '']]),
   ].filter(([k, v]) => v !== day(person[k])));
   useEffect(() => {
-    if (op?.fields.some(([, , src]) => src === 'people')) listEmployees({ limit: 500, sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.id !== person.id && e.status !== 'LEFT'))).catch(() => setPeople([]));
+    if (op?.fields.some(([, , src]) => src === 'people')) listAllEmployees({ sort: 'name' }).then((r) => setPeople((r?.employees || []).filter((e) => e.id !== person.id && e.status !== 'LEFT'))).catch(() => setPeople([]));
   }, [op, person.id]);
   const changed = { ...Object.fromEntries(Object.entries(form).filter(([k, v]) => (v || '') !== (person[k] || ''))), ...endChanges };
   useEffect(() => {

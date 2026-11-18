@@ -12,7 +12,7 @@ import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import { apiFetch } from '@platform/http';
 import { orgId } from '@platform/context';
-import { listEmployees } from '@ui/personnel/api';
+import { listAllEmployees } from '@ui/personnel/api';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { runListExport } from '@ui/components/list/exportMenu';
 import { orgUsers } from '../api/desk';
@@ -208,7 +208,7 @@ function CaseDrawer({ id, onClose, onChanged }) {
 }
 
 function IntakeDrawer({ onClose, onDone }) {
-  const people = useRequest(() => listEmployees({ limit: 500, status: 'CURRENT' }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), []);
+  const people = useRequest(() => listAllEmployees({ status: 'CURRENT' }).then((r) => (r?.employees || []).filter((p) => p.status !== 'LEFT')), []);
   const [form, setForm] = useState({ kind: 'POSH', complainantEmployeeId: '', respondentEmployeeIds: [], incidentOn: '', summary: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);

@@ -33,7 +33,6 @@ describe('the neon default', () => {
     const selectors = red.match(/^:root[^{\n]*\{/gm);
     expect(selectors).toEqual([
       ":root:where([data-palette='sky'], [data-palette='indigo']) {",
-      ":root[data-theme='dark']:where([data-palette='sky'], [data-palette='indigo']) {",
     ]);
   });
 
