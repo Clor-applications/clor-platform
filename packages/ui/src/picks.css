@@ -920,3 +920,15 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-early-tag { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
 /* rowcount B: the matching count in the list title, quieter than the title itself. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-title-count { color: rgb(var(--fg-muted)); font-weight: 500; }
+
+/* Round 47 */
+/* The one step a request is at, as a small chip ("With HR"); yours in the app's colour. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-step-chip {
+  display: inline-block; padding: 2px 10px; border-radius: 9999px;
+  background: rgb(var(--border) / 0.45); font-weight: 500;
+}
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-step-chip.is-yours { background: rgb(var(--act) / 0.12); color: rgb(var(--act-ink)); }
+/* The document sent with a request, shown inside the request. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-inline-doc { margin: 0; border: 1px solid rgb(var(--border)); border-radius: 12px; padding: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-inline-doc img { display: block; max-width: 100%; max-height: 420px; margin: 0 auto 6px; object-fit: contain; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-inline-doc iframe { display: block; width: 100%; height: 420px; border: 0; margin-bottom: 6px; }

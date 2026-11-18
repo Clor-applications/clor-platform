@@ -911,6 +911,28 @@ of names, accounts and amounts; a phone notice with the amount when salary is se
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
+### Round 47 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Showing the steps of an approval | A leave request's Approval section says only the step it is at, as a small chip: "With HR", "Yours to decide" or "Decided", with the due date. The full trail folds under "All steps" (`stepChipText`, Leave requests drawer). |
+| What the approver sees about balance | The Balance line reads "Leaves 4 days after this", then "· 12 days without this request" in grey; a balance below zero is in red (`BalanceAfter`). |
+| A request nobody acts on | On the Waiting tab, HR gets a "Waiting too long (n)" button that lists only the requests waiting more than three days (`isWaitingTooLong`, `?long=1`). It counts the requests on the page already loaded. |
+| Seeing the attached proof | Open on the document sent with a request shows it inside the request: a picture as a picture, a PDF in a frame, anything else with a download link (`InlineDocument`). |
+
+Picked and already how the app works: who approves is fixed by the reporting line (no choice
+for the person asking); approving part of a request is approve all, then edit.
+
+Picked, **not built yet**: a stand-in with dates while a manager is away; longer leave (over 5
+days) going on to the department head; "Send back with a question" that returns once answered;
+claims over ₹10,000 going to finance after the manager; two approvers at once, either one
+deciding; HR asked to choose a new approver when one leaves; HR deciding anything, marked
+"Decided by HR"; cancelling approved leave needing the manager's OK again; requests after the
+payroll cut-off allowed with payroll told to rerun; a request still waiting when its day passes
+closed as not approved and the day marked absent. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
