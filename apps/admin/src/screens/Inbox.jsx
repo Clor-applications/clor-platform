@@ -41,15 +41,18 @@ export default function Inbox({ openApp, openScreen }) {
   const [tab, setTab] = useState('decide');
   const [app, setApp] = useState('');
 
-  const load = () => {
-    setLoading(true);
-    setError('');
-    return getInbox()
+  const fetchInbox = () =>
+    getInbox()
       .then((r) => setData(r || { rows: [], updates: [], unanswered: [] }))
       .catch((e) => setError(e?.message || 'The inbox could not be loaded. Try again in a minute.'))
       .finally(() => setLoading(false));
+  const load = () => {
+    setLoading(true);
+    setError('');
+    return fetchInbox();
   };
-  useEffect(() => { load(); }, []);
+  /* First load: loading already starts true, so nothing is set before the answer comes back. */
+  useEffect(() => { fetchInbox(); }, []);
 
   const all = useMemo(() => {
     if (!data) return null;
@@ -68,13 +71,14 @@ export default function Inbox({ openApp, openScreen }) {
   const missing = (data?.unanswered || []).map((a) => (a === 'updates' ? 'your updates' : label(a)));
 
   /* The side summary (owner, 19 Nov 2026: use the right side, as Activity does): what is waiting, where, and for how long. */
+  /* When the page opened: ages are read against it, so render stays pure. */
+  const [now] = useState(() => Date.now());
   const summary = useMemo(() => {
     const list = data?.rows || [];
     const byApp = new Map();
     for (const r of all || []) byApp.set(r.app, (byApp.get(r.app) || 0) + 1);
     const decide = list.filter((r) => r.kind === 'decide');
     const oldest = decide.reduce((o, r) => (!o || r.since < o ? r.since : o), null);
-    const now = Date.now();
     const ages = [
       ['Today', decide.filter((r) => now - new Date(r.since) < dayMs).length],
       ['This week', decide.filter((r) => { const a = now - new Date(r.since); return a >= dayMs && a < 7 * dayMs; }).length],
