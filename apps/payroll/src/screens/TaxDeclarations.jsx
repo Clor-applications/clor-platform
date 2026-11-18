@@ -372,11 +372,15 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
                   <label className="ui-label" htmlFor="tx-rent">Rent a month</label>
                   <input id="tx-rent" type="number" min="0" className="ui-input ui-num w-full" value={form.monthlyRent} onChange={(e) => set({ monthlyRent: e.target.value })} />
                 </div>
-                <div>
-                  <label className="ui-label" htmlFor="tx-pan">Landlord’s PAN</label>
-                  <input id="tx-pan" className="ui-input w-full uppercase" maxLength={10} value={form.landlordPan} onChange={(e) => set({ landlordPan: e.target.value })} />
-                  <span className="ui-caption">Needed when rent is over ₹1,00,000 a year.</span>
-                </div>
+                {Number(form.monthlyRent) * 12 > 100000 || form.landlordPan ? (
+                  <div>
+                    <label className="ui-label" htmlFor="tx-pan">Landlord’s PAN</label>
+                    <input id="tx-pan" className="ui-input w-full uppercase" maxLength={10} value={form.landlordPan} onChange={(e) => set({ landlordPan: e.target.value })} />
+                    <span className="ui-caption">Needed because the rent is over ₹1,00,000 a year.</span>
+                  </div>
+                ) : (
+                  <p className="ui-caption pt-6">The landlord’s PAN is asked for once rent goes over ₹1,00,000 a year.</p>
+                )}
                 <div className="space-y-2 pt-6 text-sm">
                   <label className="flex items-center gap-2"><input type="checkbox" checked={form.metroCity} onChange={(e) => set({ metroCity: e.target.checked })} /> Lives in Delhi, Mumbai, Kolkata or Chennai</label>
                 </div>
