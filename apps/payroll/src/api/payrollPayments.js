@@ -17,6 +17,22 @@ export async function previewRunPayment(runId) {
   return preview;
 }
 
+/* Round 66 "holdpay": one person's salary held out of the bank file, with a reason, until released. */
+export async function holdSlipPay(runId, slipId, reason) {
+  const { slip } = await apiFetch(`${base()}/runs/${encodeURIComponent(runId)}/slips/${encodeURIComponent(slipId)}/hold`, { ...opts, method: 'POST', body: { reason } });
+  return slip;
+}
+
+export async function releaseSlipPay(runId, slipId) {
+  const { slip } = await apiFetch(`${base()}/runs/${encodeURIComponent(runId)}/slips/${encodeURIComponent(slipId)}/release`, { ...opts, method: 'POST', body: {} });
+  return slip;
+}
+
+export async function listHeldPay() {
+  const { held } = await apiFetch(`${base()}/held-pay`, opts);
+  return Array.isArray(held) ? held : [];
+}
+
 export async function listPayrollPayments({ runId = '', status = '' } = {}) {
   const query = new URLSearchParams();
   if (runId) query.set('runId', runId);

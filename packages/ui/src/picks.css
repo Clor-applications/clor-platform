@@ -1321,3 +1321,41 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table .text-right { text-align: right; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort { font: inherit; font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted)); background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort[aria-pressed='true'] { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Round 66 */
+/* holdpay A: held salaries on the run, one hairline row each (name and reason, net pay, Release); no card. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-pay { padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-list { list-style: none; margin: 0; padding: 0; display: grid; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 48px; padding: 6px 0; border-top: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-row:first-child { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-form { padding-top: 4px; }
+
+/* Round 67 */
+/* What's new: the unread dot on Help (bar and rail) and in its menu row, the same colour as the bell's unread dot; the list in its dialog under hairlines. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-help-trigger { position: relative; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 999px; background: rgb(var(--act, var(--fg))); box-shadow: 0 0 0 2px rgb(var(--surface, 255 255 255)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-dot--inline { position: static; box-shadow: none; flex: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-wn { list-style: none; margin: 0; padding: 0; display: grid; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-wn-item { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-wn-item:first-child { border-top: 0; padding-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-wn-item p { margin: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-wn-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* Workspace, Invoices: purchase orders, proformas and vendor documents as plain rows on the page ground, no card. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-docs-section { display: grid; gap: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-head p { margin: 2px 0 0; max-width: 40rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-rows, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-docs, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-breaches, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-hits { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-height: 44px; padding: 6px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-row > :last-child { margin-left: auto; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-amt { font-variant-numeric: tabular-nums; text-align: right; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-po-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 12px; align-items: end; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-po-actions { display: flex; gap: 8px; justify-content: flex-end; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-problems { grid-column: 1 / -1; margin: 0; padding: 0; list-style: none; color: rgb(var(--neg)); }
+/* Ops: vendor documents and breach records as rows under hairlines. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-lede { margin: 0 0 16px; max-width: 44rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-doc { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-breach { display: grid; gap: 6px; padding: 16px 0; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-breach p { margin: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-hits { border-top: 0; gap: 4px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-chip-x { margin-left: 6px; border: 0; background: none; padding: 0 2px; font: inherit; cursor: pointer; border-radius: 8px; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r67-tds { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }

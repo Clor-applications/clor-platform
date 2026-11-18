@@ -75,6 +75,8 @@ export type StatutoryWages = {
 export type StatutoryEmployee = {
   pfApplicable: boolean;
   esiApplicable: boolean;
+  /** Round 66: covered earlier in this ESI contribution period, so ESI runs to this day (words) even above the threshold. */
+  esiContinuesUntil?: string | null;
   ptApplicable: boolean;
   /** Where this person is taxed for professional tax. */
   professionalTaxState?: string | null;
@@ -220,7 +222,8 @@ function computeEsi(rule: StatutoryRuleInput, wages: StatutoryWages, employee: S
 
   const threshold = rule.eligibilityThreshold;
   const coverageWage = wages.esiCoverageWage ?? wages.esiWage;
-  if (threshold != null && coverageWage > threshold) {
+  const continuing = threshold != null && coverageWage > threshold && !!employee.esiContinuesUntil;
+  if (threshold != null && coverageWage > threshold && !continuing) {
     return {
       ...base,
       employee: 0,
@@ -239,7 +242,9 @@ function computeEsi(rule: StatutoryRuleInput, wages: StatutoryWages, employee: S
     employer: applyRounding((wages.esiWage * employerRate) / 100, rule.rounding),
     wageApplied: wages.esiWage,
     rateApplied: employeeRate,
-    explanation: `${employeeRate}% of ${money(wages.esiWage)} of ESI wages.`,
+    explanation: continuing
+      ? `${employeeRate}% of ${money(wages.esiWage)} of ESI wages. Wages are now above the ${money(threshold!)} threshold, but ESI continues until the contribution period ends on ${employee.esiContinuesUntil}, then stops.`
+      : `${employeeRate}% of ${money(wages.esiWage)} of ESI wages.`,
   };
 }
 

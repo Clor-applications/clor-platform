@@ -215,6 +215,9 @@ export async function issueInvoice(id: string, userId: string | null, opts: { du
   const seller = { legalName: gst.legalName || 'Clor Applications Private Limited', gstin: gst.registered ? gst.gstin : null, stateCode: gst.sellerStateCode || null, sac: gst.sac || null, address: settings.address, footer: settings.footer };
   const now = new Date();
   const fy = financialYear(now);
+  /* Round 67 "ponumber": the customer's purchase order covering the period (or today) prints on the invoice. */
+  const { purchaseOrderOn } = await import('./round67.js');
+  const po = await purchaseOrderOn(inv.accountId, inv.periodStart || now.toISOString().slice(0, 10));
   return outsideTenant('billing: issue an invoice', () =>
     platformPrisma.$transaction(async (tx) => {
       await tx.platformSetting.upsert({ where: { key: INVOICING_KEY }, create: { key: INVOICING_KEY, value: {} }, update: {} });
@@ -237,6 +240,8 @@ export async function issueInvoice(id: string, userId: string | null, opts: { du
           total: t.total,
           seller: seller as any,
           payTo: (payTo as any) ?? undefined,
+          poNumber: po?.number ?? null,
+          poDate: po?.poDate ?? null,
           issuedByUserId: userId,
         },
       });
@@ -248,15 +253,19 @@ export async function issueInvoice(id: string, userId: string | null, opts: { du
 }
 
 /** Mark paid: the UTR of a UPI or bank payment. Recorded as a payment, and the subscription moves on by the invoice's months. */
-export async function markInvoicePaid(id: string, input: { reference: string; paidOn: Date; amount?: number | null }, userId: string) {
+export async function markInvoicePaid(id: string, input: { reference: string; paidOn: Date; amount?: number | null; tdsDeducted?: number | null }, userId: string) {
   const inv = await getInvoice(id);
   if (inv.status === 'PAID') throw new PaymentsError('This invoice is already paid.', 409);
   if (inv.status !== 'ISSUED') throw new PaymentsError('Only an issued invoice can be marked paid.', 409);
-  const amount = input.amount ?? inv.total;
+  /* Round 67 "tdsonours": a company that deducted tax at source pays the total less the TDS; the invoice is still paid in full. */
+  const tds = input.tdsDeducted && input.tdsDeducted > 0 ? input.tdsDeducted : 0;
+  if (tds >= inv.total) throw new PaymentsError('The TDS cannot be the whole invoice.', 400);
+  const amount = input.amount ?? inv.total - tds;
   /* The claim on the invoice comes first, in one transaction with the payment and the subscription (events.ts). */
   const r = await outsideTenant('billing: mark an invoice paid', () =>
     recordInvoicePayment({ invoiceId: id, number: inv.number, accountId: inv.accountId, amount, reference: input.reference, paidOn: input.paidOn, months: inv.months, periodStart: inv.periodStart, userId }),
   );
+  if (tds) await outsideTenant('billing: TDS on a payment', () => platformPrisma.billingInvoice.update({ where: { id }, data: { tdsDeducted: tds } }));
   return { invoice: await getInvoice(id), paidUntil: r.paidUntil, detail: r.detail };
 }
 
@@ -322,6 +331,9 @@ export const summary = (r: any) => ({
   taxTotal: r.taxTotal ?? 0,
   total: r.total,
   paidAt: r.paidAt,
+  poNumber: r.poNumber ?? null,
+  tdsDeducted: r.tdsDeducted ?? null,
+  tdsCertificateAt: r.tdsCertificateAt ?? null,
   booksStatus: r.booksStatus,
   buyerName: (r.buyer as any)?.name || null,
   createdAt: r.createdAt,
@@ -367,5 +379,9 @@ export function customerView(inv: any) {
     paidAmount: inv.paidAmount,
     paymentReference: inv.paymentReference,
     voidedAt: inv.voidedAt,
+    poNumber: inv.poNumber ?? null,
+    poDate: inv.poDate ?? null,
+    tdsDeducted: inv.tdsDeducted ?? null,
+    tdsCertificateAt: inv.tdsCertificateAt ?? null,
   };
 }

@@ -18,6 +18,7 @@ import {
 } from '../api/payrollStructures';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { rupees as money } from '@ui/utils/money';
+import { wagesHalfWords } from '@ui/picks/round66';
 
 /**
  * The shape of a salary, before anybody is on it.
@@ -619,6 +620,10 @@ const StructureEditor = ({ initial, components, onBack, onSaved }) => {
                 <li key={i} className="ui-caption" style={{ color: 'rgb(var(--warn-ink))' }}>{w.message}</li>
               ))}
             </ul>
+          ) : null}
+          {/* Round 66 "wageshalf": wages (basic and DA) under half of pay, as the labour codes count them. */}
+          {wagesHalfWords(preview?.wagesCheck) ? (
+            <p role="note" className="ui-caption ui-text-warn">{wagesHalfWords(preview.wagesCheck)}</p>
           ) : null}
 
           {preview ? (

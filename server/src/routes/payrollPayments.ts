@@ -15,7 +15,10 @@ import {
   bankAdvice,
   cancelPayment,
   createPayment,
+  heldPay,
+  holdSlipPay,
   maskAccount,
+  releaseSlipPay,
   postPayment,
   previewPayment,
   previewPaymentPosting,
@@ -72,6 +75,49 @@ payrollPaymentsRouter.get(
     const { accountId, orgId } = req.tenant!;
     try {
       res.json({ preview: await previewPayment(accountId, orgId, String(req.params.id)) });
+    } catch (e) {
+      return handle(res, e);
+    }
+  }
+);
+
+/* Round 66 "holdpay": one person's salary held out of the bank file, with a reason, until released. */
+payrollPaymentsRouter.get(
+  '/orgs/:orgId/payroll/held-pay',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    res.json({ held: await heldPay(accountId, orgId) });
+  }
+);
+
+payrollPaymentsRouter.post(
+  '/orgs/:orgId/payroll/runs/:id/slips/:slipId/hold',
+  requirePermission(PAYROLL_MODULE, PermissionAction.CREATE, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const parsed = z.object({ reason: z.string().trim().min(1, 'Say why this pay is held.').max(300) }).safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Say why this pay is held.', code: 'NO_REASON' });
+    try {
+      const slip = await holdSlipPay({ accountId, orgId, userId: req.auth!.userId, runId: String(req.params.id), slipId: String(req.params.slipId), reason: parsed.data.reason });
+      res.json({ slip });
+    } catch (e) {
+      return handle(res, e);
+    }
+  }
+);
+
+payrollPaymentsRouter.post(
+  '/orgs/:orgId/payroll/runs/:id/slips/:slipId/release',
+  requirePermission(PAYROLL_MODULE, PermissionAction.CREATE, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    try {
+      const slip = await releaseSlipPay({ accountId, orgId, runId: String(req.params.id), slipId: String(req.params.slipId) });
+      res.json({ slip });
     } catch (e) {
       return handle(res, e);
     }

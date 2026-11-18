@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { BookOpen, CircleHelp, Cpu, Keyboard, LifeBuoy, ListChecks, Mail, MessageCircle, Send } from '@ui/components/ui/lineIcons';
 import { requestOpenHelp } from '@platform/context';
 
 import { Menu, MenuItem, MenuLink, MenuPanel, MenuSeparator, MenuTrigger } from '@ui/components/ui/Menu';
 import { operator } from '@platform/operator';
 import AskSupport, { STATUS_URL } from './AskSupport';
+import WhatsNew, { useWhatsNew } from './WhatsNew';
 
 /* Round 38 picks live outside Books, which keeps its own Help menu. */
 const inBooks = () => typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo';
@@ -28,19 +30,30 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);
   const picks = !inBooks();
+  /* Round 67: What's new, with a dot on Help while a note is unread (never Books). */
+  const news = useWhatsNew(picks);
+  const [reading, setReading] = useState(null);
+  const dot = picks && news.unseen > 0;
+  const openNews = () => {
+    setOpen(false);
+    setReading(news.notes);
+    news.markSeen();
+  };
   const whatsapp = digits(operator.supportWhatsapp);
   const email = operator.contactEmail;
   return (
     <>
     <Menu open={open} onOpenChange={setOpen}>
       {variant === 'rail' ? (
-        <MenuTrigger className="ui-split-mod" aria-label="Help and support" title="Help and support">
+        <MenuTrigger className="ui-split-mod r67-help-trigger" aria-label={dot ? 'Help and support, something new to read' : 'Help and support'} title="Help and support">
           {Icon ? <Icon size={20} aria-hidden="true" /> : <CircleHelp size={20} aria-hidden="true" />}
           <span>Help</span>
+          {dot ? <span className="r67-dot" aria-hidden="true" /> : null}
         </MenuTrigger>
       ) : (
-        <MenuTrigger className="ui-icon-btn" aria-label="Help and contact" title="Help and contact">
+        <MenuTrigger className="ui-icon-btn r67-help-trigger" aria-label={dot ? 'Help and contact, something new to read' : 'Help and contact'} title="Help and contact">
           <CircleHelp size={16} aria-hidden="true" />
+          {dot ? <span className="r67-dot" aria-hidden="true" /> : null}
         </MenuTrigger>
       )}
       {/* From the rail's foot it opens beside the rail, not over it; from the bar it hangs under its button. */}
@@ -67,6 +80,15 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
             <MenuLink href={STATUS_URL} target="_blank" rel="noopener">
               <LifeBuoy size={16} aria-hidden="true" /> CLOR service status
             </MenuLink>
+            <MenuItem onClick={openNews}>
+              <Sparkles size={16} aria-hidden="true" /> What’s new
+              {dot ? (
+                <>
+                  <span className="r67-dot r67-dot--inline ml-auto" aria-hidden="true" />
+                  <span className="sr-only">, {news.unseen} new</span>
+                </>
+              ) : null}
+            </MenuItem>
           </>
         ) : null}
         {whatsapp || email ? <MenuSeparator /> : null}
@@ -83,6 +105,7 @@ export default function HelpMenu({ variant = 'bar', icon: Icon = null }) {
       </MenuPanel>
     </Menu>
     {asking ? <AskSupport onClose={() => setAsking(false)} /> : null}
+    {reading ? <WhatsNew notes={reading} onClose={() => setReading(null)} /> : null}
     </>
   );
 }

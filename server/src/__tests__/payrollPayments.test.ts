@@ -483,3 +483,50 @@ describe('a failed line', () => {
     expect(preview.body.preview.payable[0].employeeId).toBe(second.employeeId);
   });
 });
+
+describe("holding one person's pay (round 66)", () => {
+  it('keeps a held salary out of the payment until released, with the reason', async () => {
+    const c = await makeOwner();
+    const { runId, people } = await payrollThroughToPosted(c);
+    const slip = await payrollPrisma.salarySlip.findFirst({ where: { orgId: c.orgId, runId, employeeId: people[0] }, select: { id: true } });
+
+    const noReason = await api.post(c, `/runs/${runId}/slips/${slip!.id}/hold`, { reason: '  ' });
+    expect(noReason.status).toBe(400);
+
+    await api.post(c, `/runs/${runId}/slips/${slip!.id}/hold`, { reason: 'Waiting for the handover' }).expect(200);
+
+    const preview = await api.get(c, `/runs/${runId}/payment-preview`).expect(200);
+    expect(preview.body.preview.payable).toHaveLength(1);
+    const blocked = preview.body.preview.blocked.find((b: any) => b.code === 'HELD');
+    expect(blocked.reason).toBe('Pay held: Waiting for the handover.');
+
+    const held = await api.get(c, '/held-pay').expect(200);
+    expect(held.body.held).toHaveLength(1);
+    expect(held.body.held[0]).toMatchObject({ slipId: slip!.id, employeeName: 'Meghana Kulkarni', heldReason: 'Waiting for the handover', amount: 50_000 });
+
+    const detail = await api.get(c, `/runs/${runId}`).expect(200);
+    expect(detail.body.slips.find((s: any) => s.id === slip!.id).heldReason).toBe('Waiting for the handover');
+
+    const bank = await bankLedger(c);
+    const first = await api.post(c, '/payments', { runId, paymentDate: '2026-08-31', ledgerAccountId: bank.id }).expect(201);
+    const firstDetail = await api.get(c, `/payments/${first.body.payment.id}`).expect(200);
+    expect(firstDetail.body.payment.lines).toHaveLength(1);
+    expect(firstDetail.body.payment.lines[0].employeeId).toBe(people[1]);
+
+    await api.post(c, `/runs/${runId}/slips/${slip!.id}/release`).expect(200);
+    expect((await api.get(c, '/held-pay').expect(200)).body.held).toHaveLength(0);
+    const after = await api.get(c, `/runs/${runId}/payment-preview`).expect(200);
+    expect(after.body.preview.payable.map((r: any) => r.slipId)).toEqual([slip!.id]);
+  });
+
+  it('will not hold a salary that is already in a payment', async () => {
+    const c = await makeOwner();
+    const { runId, people } = await payrollThroughToPosted(c);
+    const bank = await bankLedger(c);
+    await api.post(c, '/payments', { runId, paymentDate: '2026-08-31', ledgerAccountId: bank.id }).expect(201);
+    const slip = await payrollPrisma.salarySlip.findFirst({ where: { orgId: c.orgId, runId, employeeId: people[1] }, select: { id: true } });
+    const refused = await api.post(c, `/runs/${runId}/slips/${slip!.id}/hold`, { reason: 'Absconding' });
+    expect(refused.body.code).toBe('ALREADY_IN_PAYMENT');
+    expect(refused.status).toBeGreaterThanOrEqual(400);
+  });
+});

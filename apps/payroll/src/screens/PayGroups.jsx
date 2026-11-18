@@ -10,6 +10,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { listPayGroups, createPayGroup, updatePayGroup, deletePayGroup } from '../api/payrollCalendar';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { payDayWarning } from '@ui/picks/round66';
 
 /**
  * Populations paid on the same rhythm.
@@ -189,7 +190,7 @@ export default function PayGroups() {
                       {g.code ? <span className="ui-caption ml-2 ui-mono">{g.code}</span> : null}
                     </td>
                     <td className="ui-col-meta">{labelFor(g.frequency)}</td>
-                    <td className="ui-col-h-center">{g.paymentDay ? `Day ${g.paymentDay}` : '—'}</td>
+                    <td className="ui-col-h-center">{g.paymentDay ? <>Day {g.paymentDay}{payDayWarning(g.paymentDay) ? <span className="ui-caption ui-text-warn block" title={payDayWarning(g.paymentDay)}>After the 7th</span> : null}</> : '—'}</td>
                     <td className="ui-col-meta">{describeUsage(g.usage)}</td>
                     <td className="ui-col-h-center">{g.isActive ? <StatusPill status="active" /> : <span className="ui-caption">Inactive</span>}</td>
                     <td className="text-end" onClick={(e) => e.stopPropagation()}>
@@ -317,7 +318,12 @@ const PayGroupForm = ({ initial, onClose, onSaved }) => {
               className="ui-input ui-num w-full"
               value={form.paymentDay ?? ''}
               onChange={(e) => set({ paymentDay: e.target.value })}
+              aria-describedby={payDayWarning(form.paymentDay) ? 'paygroup-payment-day-law' : undefined}
             />
+            {/* Round 66 "payontime": a pay day after the 7th is a breach of the Payment of Wages Act. */}
+            {payDayWarning(form.paymentDay) ? (
+              <p id="paygroup-payment-day-law" role="note" className="ui-caption ui-text-warn mt-1">{payDayWarning(form.paymentDay)}</p>
+            ) : null}
           </div>
         ) : null}
       </div>

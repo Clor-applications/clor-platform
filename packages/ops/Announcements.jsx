@@ -12,7 +12,7 @@ import { opsAnnouncementDelete, opsAnnouncementEnd, opsAnnouncementPublish, opsA
  * lasts (packages/shell/Announcements.jsx). Every change asks for the
  * authenticator code and is audited under the operator's own name.
  */
-const PILL = { info: 'ws-pill', maintenance: 'ws-pill ws-pill--warn', incident: 'ws-pill ws-pill--danger' };
+const PILL = { info: 'ws-pill', maintenance: 'ws-pill ws-pill--warn', incident: 'ws-pill ws-pill--danger', release: 'ws-pill' };
 const STATUS_WORD = { live: 'Showing now', scheduled: 'Starts later', draft: 'Draft', ended: 'Ended' };
 const AUDIENCE_WORD = { everyone: 'everyone', admins: 'owners and administrators' };
 
@@ -92,11 +92,11 @@ function Editor({ editing, apps, onClose, onSaved }) {
         </Field>
         <fieldset className="grid gap-2">
           <legend className="text-sm font-medium">Kind</legend>
-          {['info', 'maintenance', 'incident'].map((k) => (
+          {['info', 'maintenance', 'incident', 'release'].map((k) => (
             <label key={k} className="flex items-center gap-2 text-sm">
               <input type="radio" name="ann-kind" value={k} checked={kind === k} onChange={() => setKind(k)} />
               {KIND_WORD[k]}
-              <span className="ws-item-sub">{k === 'incident' ? '· cannot be closed until you end it' : '· people can close it'}</span>
+              <span className="ws-item-sub">{k === 'incident' ? '· cannot be closed until you end it' : k === 'release' ? '· no banner: listed under Help, What’s new, with a dot until read' : '· people can close it'}</span>
             </label>
           ))}
         </fieldset>
