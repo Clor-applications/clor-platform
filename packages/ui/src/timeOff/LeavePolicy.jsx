@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X } from '@ui/components/ui/lineIcons';
+import { Lock, Plus, X } from '@ui/components/ui/lineIcons';
 
 import { EmptyState, PageHeader } from '@ui/components/ui/Primitives';
 import DataTable from '@ui/components/ui/DataTable';
@@ -22,6 +22,7 @@ import {
   previewLeaveType, saveLeaveSettings, swatchOf, todayIst, updateLeaveType,
 } from './api';
 import ColorDots from '@ui/components/ui/ColorDots';
+import { LeaveQuestions, SettingHelp } from '@ui/picks/round64';
 
 /**
  * People → Settings → Leave Policy (founder, 22 Oct 2026: the full leave
@@ -273,6 +274,8 @@ export default function LeavePolicy() {
   const typeNames = useMemo(() => new Map((empTypes.data || []).map((t) => [t.id, t.name])), [empTypes.data]);
   const leaveNames = useMemo(() => new Map(all.map((t) => [t.id, t.name])), [all]);
   const counts = { active: all.filter((t) => t.isActive).length, inactive: all.filter((t) => !t.isActive).length };
+  /* The server refuses a new leave period once leave is recorded (LEAVE_PERIOD_IN_USE); a request on any type is proof. */
+  const periodLocked = all.some((t) => Number(t.requests) > 0);
   const shown = all
     .filter((t) => (tab === 'active' ? t.isActive : !t.isActive))
     .filter((t) => !q || `${t.name} ${t.code || ''} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase()));
@@ -330,9 +333,11 @@ export default function LeavePolicy() {
         <p className="text-sm">
           Leave period <span className="tabular-nums">{period.data.current.label}</span>
           <span className="ui-muted">, from {period.data.startDay} {MONTH_NAMES[period.data.startMonth - 1]}</span>
-          {canEdit ? <button type="button" className="ui-link ml-3" onClick={() => setEditingPeriod(true)}>Change</button> : null}
+          {canEdit && !periodLocked ? <button type="button" className="ui-link ml-3" onClick={() => setEditingPeriod(true)}>Change</button> : null}
         </p>
       ) : null}
+      {/* Round 64 "settingslocked" A: a setting that can no longer change says so, why, and what to do instead. */}
+      {period.data?.current && canEdit && periodLocked ? <PeriodLocked /> : null}
       {canCreate && req.data && (missing.length || statutory.length) ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="ui-caption">Usual types</span>
@@ -427,13 +432,15 @@ function NumberField({ label, value, onChange, placeholder, hint, step = 1 }) {
   );
 }
 
-function Check({ label, hint, checked, onChange, disabled }) {
-  return (
-    <label className="flex items-start gap-2 text-sm sm:col-span-2">
+function Check({ label, hint, checked, onChange, disabled, help }) {
+  const box = (
+    <label className={`flex items-start gap-2 text-sm ${help ? '' : 'sm:col-span-2'}`}>
       <input type="checkbox" className="ui-checkbox mt-0.5" checked={Boolean(checked)} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span>{label}{hint ? <span className="ui-caption block">{hint}</span> : null}</span>
     </label>
   );
+  /* Round 64 "settinghelp" C: the ⓘ beside the setting, outside its label so a tap on it never ticks the box. */
+  return help ? <div className="ui-setting-with-help sm:col-span-2">{box}{help}</div> : box;
 }
 
 function PolicyForm({ initial, empTypes, places = { departments: [], branches: [], grades: [] }, leaveTypes = [], taken, suggested, canSave, canCreate, canDelete, onClose, onSaved, onFork }) {
@@ -446,6 +453,8 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
   const byWorked = paid && form.accrualBasis === 'PER_DAYS_WORKED';
   /* A usual type, or a new type made from one in use, is unsaved work before it is touched; a blank form is not. */
   const dirty = (!form.id && Boolean(start.name)) || JSON.stringify(form) !== JSON.stringify(start);
+  /* Round 64 "leavetypesetup" A: a blank new type starts as plain questions; a usual type or an edit opens the full form. */
+  const [guided, setGuided] = useState(() => !form.id && !start.name && canSave);
   const body = bodyOf(form);
   const nameTaken = taken.some((n) => lower(n) === lower(form.name));
   /* A type in use keeps its history exact: a change to what it gives is refused, and a new type carries the change instead. */
@@ -525,7 +534,8 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
       ) : null}
     >
       <form id="leave-policy" onSubmit={save}>
-        <fieldset disabled={!canSave} className="ui-form-grid">
+        {guided ? <div className="ui-form-grid"><LeaveQuestions form={form} set={set} onDone={() => setGuided(false)} /></div> : null}
+        <fieldset disabled={!canSave} className="ui-form-grid" hidden={guided} style={guided ? { display: 'none' } : undefined}>
           {error ? (
             <div className="sm:col-span-2 space-y-2">
               <ErrorState error={error?.status ? error : null} compact title={forkable ? 'This type is in use' : error?.status === 409 ? 'Not saved' : error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} />
@@ -634,7 +644,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
             <div><PopupSelect showValueSubtext={false} label="While serving notice" value={form.onNotice || 'ALLOW'} onChange={(v) => set('onNotice')(v || 'ALLOW')} options={ON_NOTICE} /></div>
             {form.unit === 'HOUR' ? <NumberField label="Hours in a day" value={form.hoursPerDay} onChange={set('hoursPerDay')} placeholder="8" step={0.5} hint="Balances read in hours; an hour is this share of a day for pay." /> : null}
             {form.unit !== 'HOUR' ? <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} /> : null}
-            <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} disabled={form.countsCalendarDays} onChange={set('sandwich')} />
+            <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} disabled={form.countsCalendarDays} onChange={set('sandwich')} help={<SettingHelp topic="leave-types" label="the sandwich rule" />} />
             {form.sandwich ? (
               <>
                 <NumberField label="Sandwich only from, days" value={form.sandwichMinDays} onChange={set('sandwichMinDays')} placeholder="Any length" />
@@ -682,7 +692,7 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
 
           <Check label="Active: people can ask for it" checked={form.isActive} onChange={set('isActive')} />
         </fieldset>
-        <TryOnPeople body={body} />
+        {guided ? null : <TryOnPeople body={body} />}
       </form>
     </Drawer>
   );
@@ -770,6 +780,19 @@ function TryOnPeople({ body }) {
   );
 }
 
+/** The leave period once leave is recorded in it: locked, with the reason and the way round. */
+export function PeriodLocked() {
+  return (
+    <p className="ui-setting-locked text-sm" role="note">
+      <Lock size={14} aria-hidden="true" />
+      <span>
+        <span className="font-medium">The leave period is locked</span>
+        <span className="ui-muted">: leave is already recorded in it, and balances are worked out from its start. To start it on another day, the balances move first: ask CLOR support from Help, and they move them with you.</span>
+      </span>
+    </p>
+  );
+}
+
 function PeriodForm({ initial, onClose, onSaved }) {
   const start = useMemo(() => ({ startMonth: initial?.startMonth || 1, startDay: initial?.startDay || 1 }), [initial]);
   const [form, setForm] = useState(start);
@@ -813,7 +836,7 @@ function PeriodForm({ initial, onClose, onSaved }) {
       }
     >
       <form id="leave-period" onSubmit={save} className="ui-form-grid">
-        {error ? <div className="sm:col-span-2"><ErrorState error={error} compact /></div> : null}
+        {error ? <div className="sm:col-span-2">{error?.code === 'LEAVE_PERIOD_IN_USE' ? <PeriodLocked /> : <ErrorState error={error} compact />}</div> : null}
         <label className="block">
           <span className="ui-label">Starts on day</span>
           <input type="number" min={1} max={28} className="ui-input w-full tabular-nums" value={form.startDay} onChange={(e) => setForm({ ...form, startDay: Math.min(28, Math.max(1, Number(e.target.value) || 1)) })} />

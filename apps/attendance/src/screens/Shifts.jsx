@@ -14,6 +14,7 @@ import { breaksBody, breaksProblem, unpaidTotal } from '../components/shiftBreak
 import ColorDots from '@ui/components/ui/ColorDots';
 import { splitShiftLabel } from '../components/round24';
 import { mondayFirst, sortMondayFirst } from '@ui/timeOff/round33';
+import { SettingHelp, ShiftBar } from '@ui/picks/round64';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -321,13 +322,17 @@ function ShiftForm({ initial, onClose, onSaved }) {
     }
   };
 
-  const num = (k, label, hint) => (
-    <label className="block">
-      <span className="ui-label">{label}</span>
-      <input type="number" min={0} className="ui-input w-full" value={form[k]} onChange={set(k)} />
-      {hint ? <span className="ui-caption">{hint}</span> : null}
-    </label>
-  );
+  const num = (k, label, hint, help) => {
+    const field = (
+      <label className="block">
+        <span className="ui-label">{label}</span>
+        <input type="number" min={0} className="ui-input w-full" value={form[k]} onChange={set(k)} />
+        {hint ? <span className="ui-caption">{hint}</span> : null}
+      </label>
+    );
+    /* Round 64 "settinghelp" C: the ⓘ sits beside the field, outside its label, so a tap on it never focuses the box. */
+    return help ? <div className="ui-setting-with-help">{field}{help}</div> : field;
+  };
 
   return (
     <Drawer
@@ -351,6 +356,8 @@ function ShiftForm({ initial, onClose, onSaved }) {
           <input type="time" className="ui-input w-full" required value={form.endTime} onChange={set('endTime')} />
           {form.endTime <= form.startTime ? <span className="ui-caption">Night shift — ends the next morning.</span> : null}
         </label>
+        {/* Round 64 "shiftsetup" A: the shift drawn on a 24-hour bar, named breaks lighter. */}
+        <ShiftBar start={form.startTime} end={form.endTime} breaks={(form.breaks || []).filter((b) => !b.paid)} />
         {form.breaks.length ? (
           <>
             <ShiftBreaks breaks={form.breaks} mode={form.breakMode} onChange={setBreaks} onMode={(breakMode) => setForm((f) => ({ ...f, breakMode }))} />
@@ -367,7 +374,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
             </span>
           </label>
         )}
-        {num('graceMinutes', 'Late grace (minutes)')}
+        {num('graceMinutes', 'Late grace (minutes)', null, <SettingHelp topic="shifts-weekly-off" label="late grace" />)}
         {num('earlyOutGraceMinutes', 'Early-out grace (minutes)')}
         {num('halfDayMinutes', 'Half day (minutes worked)', halfDaySentence(form.halfDayMinutes, form.fullDayMinutes))}
         <label className="block">
