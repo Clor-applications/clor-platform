@@ -8,6 +8,7 @@ import { listCredentials } from '@platform/admin/credentials';
 import { ACTION_WORDS } from './AccountActivity';
 import { Empty, ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /* The colour icons the empty lists show. */
 const LOG_ICON = emoji('scroll');
@@ -74,7 +75,7 @@ export function AccessHome({ navItems = [], openScreen }) {
   const changes = (audit?.events || []).filter((e) => ACCESS_ACTIONS.has(e.action)).slice(0, 6);
 
   return (
-    <div className="ws">
+    <div className="ws ws-flat">
       <div className="ws-inner">
         <PageHead
           crumbs={['Users & access', 'Access overview']}

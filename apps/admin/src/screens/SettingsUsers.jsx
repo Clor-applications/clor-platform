@@ -35,8 +35,9 @@ import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
 import UserLocationAccessTable from './UserLocationAccessTable';
-import { Empty, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
+import { Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /* The colour icons the empty lists show: each the one its menu item wears. */
 const EMPTY_ICON = emoji('bust-in-silhouette');
@@ -731,11 +732,7 @@ export function SettingsUsers({ orgId, params }) {
             <Search size={16} aria-hidden="true" />
             <input className="ui-input" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search name, email, user ID or role" />
           </label>
-          <select className="ui-select" aria-label="Status" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-            <option value="">Status: All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          <FilterSelect label="Status" value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} width="11rem" options={[['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']]} />
           <span className="ws-head-meta">{rows.length} {rows.length === 1 ? 'user' : 'users'}</span>
         </div>
 
@@ -776,7 +773,7 @@ export function SettingsUsers({ orgId, params }) {
                       <button
                         type="button"
                         ref={menuFor === row.id ? menuAnchorRef : null}
-                        className="ws-btn ws-btn--quiet ws-btn--small"
+                        className="ws-more-btn"
                         aria-label={`Actions for ${nameOf(row)}`}
                         aria-expanded={menuFor === row.id}
                         onClick={(e) => {

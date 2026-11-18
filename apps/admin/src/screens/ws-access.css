@@ -277,3 +277,15 @@
   gap: 12px;
   align-content: start;
 }
+
+/* Member panel (owner, 19 Nov 2026): fields white with a hairline like every form, not grey slabs;
+   actions read as links, ending access in red. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-panel .ui-select {
+  height: 2.5rem;
+  background-color: rgb(255 255 255);
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-radius: 8px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-panel .ui-select:hover { border-color: rgb(var(--fg) / 0.35); }
+.ws-member-actions { gap: 8px 24px; }
+.ws-member-roles > li { justify-items: start; }

@@ -580,3 +580,19 @@
 .ws .ws-activity-bars + .ws-row-link { margin-top: 10px; }
 .ws .ws-mail-name { margin: 0; font-size: 1rem; line-height: 1.5rem; font-weight: 700; color: rgb(var(--fg, 28 27 24)); }
 .ws .ws-activity-side h2.ws-activity-box-title { font-size: 0.75rem; line-height: 1rem; }
+
+/* Users & access (owner, 19 Nov 2026): row actions read as links; ending access in red. */
+.ws .ws-row-link--danger { color: rgb(185 28 28); }
+/* The row menu: a bare icon that fills on hover, no box around every row's dots. */
+.ws .ws-more-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: rgb(74 72 66);
+}
+.ws .ws-more-btn:hover, .ws .ws-more-btn[aria-expanded='true'] { background: rgb(var(--fg) / 0.06); color: rgb(var(--fg)); }
+.ws .ws-more-btn:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; }

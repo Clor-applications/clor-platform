@@ -3482,3 +3482,81 @@ button.ws-stat:hover {
 }
 .ws-chip[data-set] .ws-chip-k { color: rgb(28 84 160 / 0.8); }
 .ws-chip-item { gap: 8px; font-size: 0.8125rem; }
+
+/* ---- Users & access pass (owner, 19 Nov 2026: "colour accent, alignment, filters, cards width") ----
+   The three-id prefix outranks picks.css (two), which paints every pill as a solid block. */
+
+/* States said softly everywhere in the Workspace: a tint with a dot, the colour of what it means. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(var(--st) / 0.1);
+  color: rgb(var(--st));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  --st: 92 90 84;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--ok { --st: 21 128 61; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--warn { --st: 180 83 9; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--danger { --st: 185 28 28; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--info { --st: 28 84 160; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ws-pill--off, .ws-pill--neutral) { --st: 92 90 84; }
+/* A count inside a tab or button, or a role name, is not a state: no dot. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ws-tab, .ws-btn) .ws-pill::before,
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--role::before { content: none; }
+
+/* Figure cards: as wide as they need (a row of four stretched across 1400px read as empty boxes),
+   each with its own colour on top, the figure in that colour. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 16rem));
+  gap: 12px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat {
+  --accent: 42 120 214;
+  box-shadow: inset 0 3px 0 rgb(var(--accent));
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats > :nth-child(4n + 2) { --accent: 21 150 100; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats > :nth-child(4n + 3) { --accent: 217 119 6; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats > :nth-child(4n + 4) { --accent: 124 58 237; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat:has(.ws-tile--warn) { --accent: 180 83 9; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat:has(.ws-tile--danger) { --accent: 185 28 28; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-stat-value { color: rgb(var(--fg, 28 27 24)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws button.ws-stat:hover { border-color: rgb(var(--accent) / 0.5); background: rgb(var(--accent) / 0.04); }
+/* Notes wrap to a second line rather than end in "…". */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat .ws-stat-note { white-space: normal; overflow: visible; text-overflow: clip; }
+/* Rows line up on their middle: a one-line cell beside a two-line one sat high. One rule under the headings, no seams. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table { border-collapse: collapse; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table td { vertical-align: middle; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table thead { border-bottom: 2px solid rgb(var(--fg)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table thead th { border-bottom: 0; }
+/* Access overview: sections on the page ground under a rule, not floating shadowed cards (no card-in-card). */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel {
+  background: none;
+  box-shadow: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-head {
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 2px solid rgb(var(--fg));
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-title { font-size: 1rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-list > li { padding-inline: 0; }
