@@ -382,8 +382,8 @@ export default function AuditTrail({ tenant } = {}) {
                 <colgroup>
                   <col className="ws-col-when" />
                   <col className="ws-col-who" />
-                  <col />
                   <col className="ws-col-app" />
+                  <col />
                 </colgroup>
                 <thead>
                   <tr>
@@ -391,8 +391,9 @@ export default function AuditTrail({ tenant } = {}) {
                         name on every row was the widest thing on the page (owner, 17 Nov 2026). */}
                     <th scope="col">When</th>
                     <th scope="col">Who</th>
-                    <th scope="col">What happened</th>
+                    {/* App beside Who, What happened last: its words take the rest of the row, so no gap opens before App (owner, 19 Nov 2026). */}
                     <th scope="col">App</th>
+                    <th scope="col">What happened</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -411,6 +412,9 @@ export default function AuditTrail({ tenant } = {}) {
                             {e.entity === 'SupportGrant' ? <span className="ws-tag">Staff</span> : null}
                           </span>
                         </td>
+                        <td>
+                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
+                        </td>
                         <td className="ws-sec-wrap">
                           {/* One line: what happened, its action, the record, and Details at the end; opened, the details take the full width under it. */}
                           <div className="ws-sec-line">
@@ -422,9 +426,6 @@ export default function AuditTrail({ tenant } = {}) {
                             <FieldChanges changes={e.changes} />
                             <Changes metadata={e.metadata} />
                           </div>
-                        </td>
-                        <td>
-                          {app === 'workspace' ? <span className="ws-tag ws-tag--workspace">Workspace</span> : <AppTag app={app} />}
                         </td>
                       </tr>
                     );

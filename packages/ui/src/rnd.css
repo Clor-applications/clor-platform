@@ -582,8 +582,8 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-head {
   height: auto;
   margin: 0 0 0.25rem;
-  /* The same inset as the items under it, so the heading starts exactly over their icons. */
-  padding: 0 0.625rem 0.5rem;
+  /* The heading starts over the items' icons as drawn (an emoji sits 2px inside its box; owner, 19 Nov 2026). */
+  padding: 0 0.375rem 0.5rem 0.75rem;
   border-bottom: 0;
   background: transparent;
 }

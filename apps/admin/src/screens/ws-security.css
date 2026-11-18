@@ -163,9 +163,9 @@
   table-layout: fixed;
   width: 100%;
 }
-.ws-activity-table .ws-col-when { width: 9.5rem; }
-.ws-activity-table .ws-col-who { width: 15rem; }
-.ws-activity-table .ws-col-app { width: 9rem; }
+.ws-activity-table .ws-col-when { width: 8rem; }
+.ws-activity-table .ws-col-who { width: 13rem; }
+.ws-activity-table .ws-col-app { width: 8.5rem; }
 .ws-activity-table td { overflow: hidden; text-overflow: ellipsis; }
 /* What happened, its action, the record and Details on one line; opened, details take the full width under it. */
 .ws-sec-line {
@@ -184,23 +184,21 @@
   line-height: 1.25rem;
 }
 
-/* Activity's filter row fills the page: search and filters share the width, Refresh and Export close it.
-   On a narrower page the filters shrink to their words, then the row wraps with the tools kept at the right. */
+/* Activity's filters keep their own widths (owner, 19 Nov 2026: "reduce filter widths"); Refresh and Export
+   sit at the row's right end. */
 .ws .ws-filters--one-row:has(.ws-filters-end) > .ws-search {
-  flex: 2 1 12rem;
-  max-width: none;
-  min-width: 10rem;
-}
-.ws .ws-filters--one-row:has(.ws-filters-end) > :not(.ws-search):not(.ws-filters-end) {
-  flex: 1 1 9rem;
-  min-width: 9rem;
-}
-.ws .ws-filters--one-row:has(.ws-filters-end) > select {
-  width: 100%;
+  flex: 0 1 280px;
+  max-width: 280px;
 }
 .ws .ws-filters--one-row .ws-filters-end {
   flex: none;
   margin-left: auto;
+}
+/* Opened details: one quiet sunken panel, the same on every row whether or not the cursor is over it. */
+.ws .ws-sec-line .ws-audit-more dl {
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border, 229 229 229));
+  max-width: 44rem;
 }
 /* Each cell's first line of text on one baseline: the time, the name, what happened and the app tag. */
 .ws .ws-activity-table tbody td {

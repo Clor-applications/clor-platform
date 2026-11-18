@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { placeFor, rememberPlace, restorePlace } from './scrollMemory';
 import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
-import { Contrast, Rows3 } from 'lucide-react';
+import { Contrast, PanelLeftClose, Rows3 } from 'lucide-react';
 import { useDensity } from '@ui/components/ui/useDensity';
 import { TEXT_SIZES, useTextSize } from '@ui/components/ui/useTextSize';
 import { useStrongText } from '@ui/components/ui/useStrongText';
@@ -1111,14 +1111,15 @@ function ShellScreens() {
           type="button"
           className="ui-icon-btn"
           aria-label={phone ? 'Close menu' : `Close ${openModule.label} menu`}
-          title="Close"
+          title={phone ? 'Close' : 'Hide this menu'}
           onClick={() => {
             if (phone) setNavOpen(false);
             else if (tablet) { setTabletPanel(false); setBrowseModule(null); }
             else { setPanelClosed(true); setBrowseModule(null); }
           }}
         >
-          <X size={18} aria-hidden="true" />
+          {/* Desktop: a fold-the-panel mark, not a bare X (owner, 19 Nov 2026). A phone's sheet keeps X. */}
+          {phone ? <X size={18} aria-hidden="true" /> : <PanelLeftClose size={18} strokeWidth={1.75} aria-hidden="true" />}
         </button>
       </div>
       {openModule.groups.map((g, gi) => (
