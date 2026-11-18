@@ -844,6 +844,12 @@ model LeaveType {
   sandwichIgnoreHalf  Boolean  @default(false)
   /// While the person is serving notice: ALLOW, WARN (asked, and the approver is told), or BLOCK.
   onNotice            String   @default("ALLOW")
+  /// Most days of this type in one calendar month, waiting and approved together (work from home style, round 42).
+  /// Null = no monthly cap.
+  maxDaysPerMonth     Float?
+  /// Warn on the leave form when this many of the person's team (department, else same manager) are already away
+  /// on those days. A warning only; null = never (round 42).
+  teamAwayWarnAt      Int?
 
   createdByUserId String
   createdAt       DateTime @default(now())

@@ -611,10 +611,11 @@ Built:
 | Giving a customer more trial days | Ops → a customer → Extend trial has +7, +14 and +30 days beside the days box; one click fills it. |
 
 Picked and already how the app works: a day at a client's office is an "On duty" request with the
-place, counted as present once approved (employee app → Requests).
+place, counted as present once approved (employee app → Requests). A no-pay leave type for a long
+break (a sabbatical): Leave settings → a type with "Paid leave" unticked; its days go to payroll as loss of pay,
+as every unpaid type's do, and the form says "Without pay" (round 42).
 
-Picked, **not built yet**: a row per month with "Add challan" for TDS; a no-pay leave type for a
-long break; an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
+Picked, **not built yet**: a row per month with "Add challan" for TDS; an "Office only" switch on roles; Ops comparing two sign-ups of one company side by
 side; sharing a payslip from the phone's share list (needs a payslip PDF file from the server);
 "Take back" on an approval until the leave starts; payslips by sign-in link with no PDF
 password; leaving steps that start on their own at retirement age; a list of leavers due for
@@ -663,8 +664,10 @@ warning when night-shift consent is not on file; the manager told when someone a
 job inside the company; a CA's client list with this month's status; monthly revenue in Ops as
 a big number with a 12-month line; joining the company in the phone app by phone number and
 OTP; a joiner asked for their PAN before the first payroll; a billing email separate from the
-owner; a joining bonus line with its "returnable until" date; voting-day leave asked for and
-approved on its own. All need server or phone-app work.
+owner; a joining bonus line with its "returnable until" date. All need server or phone-app work.
+
+Picked and already how the app works: voting-day leave is a leave type a company adds in Leave
+settings (one day a year, paid); it is asked for and approved on its own like any type.
 
 ### Round 30 (18 Nov 2026)
 
@@ -745,11 +748,14 @@ Built:
 
 Picked and already how the app works: leave that crosses into a new leave year is split on the
 form, "saved as two requests, one per leave period", with each part's days and balance; hours
-are written 7h 30m.
+are written 7h 30m. A bereavement leave type with no proof asked: a type whose "Document needed
+when longer than" is left at Never. On probation only casual and sick leave: every other type set
+to "Builds up, usable when confirmed" under During probation; the server refuses a locked type while the
+person is on probation. No leave during notice: "While serving notice" set to Not allowed on the
+type; the person is stopped, HR entering it is told.
 
-Picked, **not built yet**: a bereavement leave type with no proof asked; on probation only
-casual and sick leave allowed; a busy period needing a second approver; no leave during notice
-with the balance paid out; "1 of 3 left" on the punch fix form; uploading the paper register for a
+Picked, **not built yet**: a busy period needing a second approver (approvals); the leave balance
+paid out at notice (final settlement); "1 of 3 left" on the punch fix form; uploading the paper register for a
 day the machine was down; a guessed shift a supervisor confirms; asking staff to volunteer for a
 holiday; attendance kept to the calendar month with late days carried to next pay; calling
 someone back from leave with the days returned; a day off owed added after six days in a row.
@@ -933,14 +939,15 @@ Built:
 | Leave when a child is ill | Sick leave on the leave form asks "Who is ill": Me or My child. My child takes it from the person's own sick leave (one balance) and starts the reason with "For my child:" so the approver sees it (`ForWhom`, `reasonFor`). |
 | Asking for leave without pay | Unpaid leave already shows as a type on the form, marked unpaid; under the day count it now says "Without pay: your pay for the month is cut for these 3 days" (`UnpaidNote`). The rupee figure needs the salary from the server. |
 | Leave after adopting a child | An adoption leave type on the form says "For a child under 3 months: 12 weeks from the day the child comes home" and offers "Fill 12 weeks", with the back-at-work day, as maternity does with 26 weeks (`LongLeaveSpan`). |
+| A monthly work-from-home limit | Leave settings → a type → "Most days in a month" (blank = no limit, halves allowed). The server counts waiting and approved days of the type in each calendar month the request touches; past the limit the person is refused ("Work from home is at most 4 days a month. November has 1 day left; this asks 2 days."), HR entering it is warned. Every leave form (HR, My leave, employee app) shows "November: 1 day of 4 left after this" (`maxDaysPerMonth`, `monthlyUse`, `PreviewNotes`). |
+| Team already away | Leave settings → a type → "Warn when this many of the team are away" (blank = never). The form warns "2 of the team are already away on some of these days" when that many of the person's department (else people with the same manager) have waiting or approved leave overlapping; a warning only, the request still goes (`teamAwayWarnAt`, `teamAway`). |
 
 Picked and already how the app works: paternity leave (10 days within 3 months of the birth) and
 marriage leave (5 days, once) are leave types a company sets up with its own days and rules in
 Leave settings.
 
 Picked, **not built yet**: period days worked from home; a yearly number of study days; extra paid
-days the company gives for emergencies; a monthly work-from-home limit with days left on the form;
-the leave form warning when two of the team are already away; adding a newborn to cover from the
+days the company gives for emergencies; adding a newborn to cover from the
 phone with the birth date; children's education allowance per child, up to two, in salary; a
 greeting card post on the news feed for a wedding; weeks of work from home to care for a parent;
 moving days off plus a one-time moving allowance; a long-service gift with a news feed post. All

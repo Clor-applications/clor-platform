@@ -37,7 +37,7 @@ const BLANK = {
   negativeDays: 0, encashable: false, maxEncashDays: '', encashBase: 'BASIC_DA', encashDivisor: 26,
   entitlements: [], probationRule: 'ACCRUE', approval: '', autoApproveUpToDays: '', handOnAfterDays: '',
   accrualBasis: 'CALENDAR', perDaysWorked: '', minDaysWorked: '', oshCarry: false, countsCalendarDays: false, availableAfterBasis: 'JOINING',
-  unit: 'DAY', overBalance: 'REFUSE', notWithTypeIds: [], onNotice: 'ALLOW',
+  unit: 'DAY', overBalance: 'REFUSE', notWithTypeIds: [], onNotice: 'ALLOW', maxDaysPerMonth: '', teamAwayWarnAt: '',
   sandwichMinDays: '', sandwichWeekOffs: true, sandwichHolidays: true, sandwichIgnoreHalf: false,
 };
 const UNITS = [{ value: 'DAY', label: 'Days and half days' }, { value: 'HOUR', label: 'Hours, on one day' }];
@@ -168,6 +168,8 @@ function rulesOf(t, typeNames = new Map(), leaveNames = new Map()) {
   if (t.notWithTypeIds?.length) r.push(`not next to ${t.notWithTypeIds.map((i) => leaveNames.get(i) || 'a type').join(', ')}`);
   if (t.onNotice === 'BLOCK') r.push('not during notice');
   if (t.onNotice === 'WARN') r.push('notice: approver told');
+  if (t.maxDaysPerMonth != null) r.push(`at most ${plural(t.maxDaysPerMonth, 'day')} a month`);
+  if (t.teamAwayWarnAt) r.push(`warns when ${t.teamAwayWarnAt} of the team are away`);
   if (t.countsCalendarDays) r.push('calendar days');
   if (t.negativeDays) r.push(`${t.negativeDays} in advance`);
   if (t.encashable) r.push(t.maxEncashDays != null ? `pay out up to ${t.maxEncashDays}` : 'paid out');
@@ -186,7 +188,7 @@ const formOf = (t) => ({
   probationRule: t.probationRule || 'ACCRUE', approval: t.approval || '', autoApproveUpToDays: t.autoApproveUpToDays ?? '', handOnAfterDays: t.handOnAfterDays ?? '',
   accrualBasis: t.accrualBasis || 'CALENDAR', perDaysWorked: t.perDaysWorked ?? '', minDaysWorked: t.minDaysWorked ?? '',
   oshCarry: Boolean(t.oshCarry), countsCalendarDays: Boolean(t.countsCalendarDays), availableAfterBasis: t.availableAfterBasis || 'JOINING',
-  unit: t.unit || 'DAY', hoursPerDay: t.hoursPerDay ?? '', overBalance: t.overBalance || 'REFUSE', notWithTypeIds: t.notWithTypeIds || [], onNotice: t.onNotice || 'ALLOW',
+  unit: t.unit || 'DAY', hoursPerDay: t.hoursPerDay ?? '', overBalance: t.overBalance || 'REFUSE', notWithTypeIds: t.notWithTypeIds || [], onNotice: t.onNotice || 'ALLOW', maxDaysPerMonth: t.maxDaysPerMonth ?? '', teamAwayWarnAt: t.teamAwayWarnAt ?? '',
   sandwichMinDays: t.sandwichMinDays ?? '', sandwichWeekOffs: t.sandwichWeekOffs !== false, sandwichHolidays: t.sandwichHolidays !== false, sandwichIgnoreHalf: Boolean(t.sandwichIgnoreHalf),
 });
 
@@ -231,6 +233,8 @@ function bodyOf(form) {
     overBalance: paid && form.unit !== 'HOUR' && form.overBalance === 'LOSS_OF_PAY' ? 'LOSS_OF_PAY' : 'REFUSE',
     notWithTypeIds: form.notWithTypeIds || [],
     onNotice: ['WARN', 'BLOCK'].includes(form.onNotice) ? form.onNotice : 'ALLOW',
+    maxDaysPerMonth: num(form.maxDaysPerMonth),
+    teamAwayWarnAt: num(form.teamAwayWarnAt),
     negativeDays: paid ? Number(form.negativeDays) || 0 : 0,
     encashable: paid && Boolean(form.encashable),
     maxEncashDays: paid && form.encashable ? num(form.maxEncashDays) : null,
@@ -632,6 +636,8 @@ function PolicyForm({ initial, empTypes, places = { departments: [], branches: [
             <NumberField label="Document needed when longer than, days" value={form.attachmentAfterDays} onChange={set('attachmentAfterDays')} placeholder="Never" step={0.5} hint="A medical certificate, for example. It is kept on the person’s file." />
             <div><PopupSelect showValueSubtext={false} label="Taken in" value={form.unit || 'DAY'} onChange={(v) => set('unit')(v || 'DAY')} options={UNITS} /></div>
             <div><PopupSelect showValueSubtext={false} label="While serving notice" value={form.onNotice || 'ALLOW'} onChange={(v) => set('onNotice')(v || 'ALLOW')} options={ON_NOTICE} /></div>
+            <NumberField label="Most days in a month" value={form.maxDaysPerMonth} onChange={set('maxDaysPerMonth')} placeholder="No limit" step={0.5} hint="Work from home, for example. The form shows the days left in the month." />
+            <NumberField label="Warn when this many of the team are away" value={form.teamAwayWarnAt} onChange={set('teamAwayWarnAt')} placeholder="Never" hint="A warning on the form, not a stop. The team is the department, or the same manager." />
             {form.unit === 'HOUR' ? <NumberField label="Hours in a day" value={form.hoursPerDay} onChange={set('hoursPerDay')} placeholder="8" step={0.5} hint="Balances read in hours; an hour is this share of a day for pay." /> : null}
             {form.unit !== 'HOUR' ? <Check label="Half days allowed" checked={form.allowHalfDay} onChange={set('allowHalfDay')} /> : null}
             <Check label="Sandwich rule" hint="Weekly offs and holidays between two leave days count as leave. Friday and Monday off makes four days." checked={form.sandwich} disabled={form.countsCalendarDays} onChange={set('sandwich')} />

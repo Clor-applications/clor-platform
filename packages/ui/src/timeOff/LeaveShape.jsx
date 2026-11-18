@@ -37,11 +37,20 @@ export function HoursChoice({ form, onChange, native = false }) {
 }
 
 /** What the preview says that does not stop the request: serving notice, days over the balance as loss of pay. */
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const dayWord = (n) => `${n} day${Number(n) === 1 ? '' : 's'}`;
+
 export function PreviewNotes({ preview }) {
   const notes = preview?.warnings || [];
-  if (!notes.length) return null;
+  // A type with a monthly limit (round 42) shows the days left in each month the request touches.
+  const months = (preview?.monthly || []).filter((m) => m.after >= 0);
+  if (!notes.length && !months.length) return null;
   return (
     <ul className="space-y-1" aria-label="Before you send">
+      {months.map((m) => {
+        const [, mm] = String(m.month).split('-');
+        return <li key={'month' + m.month} className="text-sm ui-muted">{MONTHS[Number(mm) - 1] || m.month}: {dayWord(m.after)} of {m.limit} left after this.</li>;
+      })}
       {notes.map((w) => <li key={w.code + w.message} className="text-sm ui-text-warn">{w.message}</li>)}
     </ul>
   );
