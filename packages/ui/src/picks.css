@@ -787,3 +787,11 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 34 */
+/* cbchart A: the calendar's day counts never lean on red against green. Blue for in, orange for absent
+   (a pair that stays apart for every common kind of colour blindness), grey for leave, each with its word. */
+.ui-calendar-counts { flex-wrap: wrap; column-gap: 0.5rem; row-gap: 0; }
+.ui-count-in { color: rgb(var(--chart-blue)); }
+.ui-count-absent { color: rgb(var(--chart-clay)); }
+.ui-count-k { font-weight: 500; color: rgb(var(--fg-muted)); }

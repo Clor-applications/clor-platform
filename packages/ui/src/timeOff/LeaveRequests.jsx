@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { waitingSaid } from '../picks/round34';
 import LeaveDocumentField from './LeaveDocumentField';
 import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from './HalfDayChoice';
 import { HoursChoice, PreviewNotes } from './LeaveShape';
@@ -54,7 +55,7 @@ export function TypeDot({ row }) {
 export function StatusPill({ row }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>
+      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>{row.status === 'PENDING' && row.createdAt ? <span className="sr-only">{`, ${waitingSaid(row.createdAt)}`}</span> : null}
       {row.status === 'PENDING' && row.managerApprovedAt ? <span className="ui-caption">{row.managerApprovedById ? 'Manager approved' : 'Handed on to HR'}</span> : null}
       {row.status === 'PENDING' && row.ruleStep > 1 ? <span className="ui-caption">Step {row.ruleStep}</span> : null}
     </span>

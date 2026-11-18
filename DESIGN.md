@@ -556,6 +556,30 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 34 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| How the financial year is written | "FY 2026–27", with an en dash, wherever a year is shown: Payroll's tax declarations (year picker, export subtitle, a person's declaration), the earlier-this-year figures panel and the employee app's Income tax page (`fyLabel`). File names keep their plain hyphen. |
+| What a screen reader says for a status | A waiting leave or attendance request is read as the word and how long, "Waiting, 2 days" (hidden text beside the pill; the screen still shows only "Waiting") (`waitingSaid`). |
+| Opening a notice after being signed out | A sign-in through the company's own provider now comes back to the page that was being opened, not Home (`returnPath`; the API already accepted a safe return path). Password sign-in already stayed on the same address. |
+| Chart colours for colour-blind users | The Attendance calendar's day counts no longer lean on green against red: blue for in, orange for absent, grey for leave, and each count carries its word ("12 in · 2 absent · 1 leave"). |
+
+Picked and already how the app works: "Skip to main content" on the first Tab (the shell and Ops
+have it); figures only on letters (no amount in words outside Books' printed documents); a
+People report's chart always has its table of the same figures with it; the shared tablet is for
+punching only, leave is not looked up there; amounts outside Books are never shortened (when one
+is, it reads "₹18.42 lakh", not "₹18.4 L").
+
+Picked, **not built yet**: a new phone allowed only after HR approves it; punching blocked on a
+tampered phone while payslips still open; asking to turn notices back on after a missed
+approval; asking the worker to let the app track when battery saver stops it; the phone app
+read only (payslips open, punching paused) when the company's plan stops; an initials field
+before the name with lists sorted by name; languages someone speaks as a searchable list in the
+directory. All need server or phone-app work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

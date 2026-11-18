@@ -1,4 +1,5 @@
 import { expiringWords } from '@ui/timeOff/expiring';
+import { fyLabel } from '@ui/picks/round34';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import DateNotes from '@ui/timeOff/DateNotes';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -1240,7 +1241,7 @@ function MyTax({ guard }) {
 
   return (
     <form onSubmit={send} className="ui-card space-y-3 p-5" aria-labelledby="tax-h">
-      <h2 id="tax-h" className="ui-t-sec">Income tax · FY {d.financialYear}</h2>
+      <h2 id="tax-h" className="ui-t-sec">Income tax · {fyLabel(d.financialYear)}</h2>
       <p className="ui-caption">
         {locked ? 'HR has checked your proofs. Ask HR if something needs changing.' : d.status === 'SUBMITTED' ? 'Sent to HR. You can still change it until your proofs are checked.' : 'Choose your regime. Under the old one, tell us what you will invest so less tax is taken each month.'}
       </p>

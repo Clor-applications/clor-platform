@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { waitingSaid } from '../picks/round34';
 import { Check, Plus, X } from '@ui/components/ui/lineIcons';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -97,7 +98,7 @@ export const detailsText = (r) => {
 export function StatusPill({ row }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>
+      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>{row.status === 'PENDING' && row.createdAt ? <span className="sr-only">{`, ${waitingSaid(row.createdAt)}`}</span> : null}
       {row.status === 'PENDING' && row.managerApprovedAt ? <span className="ui-caption">Manager approved</span> : null}
     </span>
   );
