@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { PageHeader, SkeletonCard } from '@ui/components/ui/Primitives';
+import { SectionJump } from '@ui/picks/round61';
 import { notify } from '@ui/components/ui/notify';
 import { getFeatures, setFeatures } from '@ui/api/features';
 import { usePermissions } from '@ui/permissions/usePermissions';
@@ -86,6 +87,8 @@ export default function AttendanceRules() {
       {header}
 
       {/* A settings page: the compact column (DESIGN.md, Content width), not a field stretched across the screen. */}
+      {/* Round 61 "sectionjump" A: the page's sections listed on the right, following the scroll, on a wide screen. */}
+      <SectionJump>
       <div className="pb-8 max-w-3xl space-y-6">
       <form onSubmit={save} className="space-y-3">
         <section className="ui-card space-y-3 p-4" aria-labelledby="rules-default-h">
@@ -210,6 +213,7 @@ export default function AttendanceRules() {
       <RulePreview shifts={shifts} />
       <RuleHistory shifts={shifts} attempt={attempt} />
       </div>
+      </SectionJump>
     </div>
   );
 }

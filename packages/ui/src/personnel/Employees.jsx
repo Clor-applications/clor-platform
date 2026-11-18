@@ -1364,7 +1364,8 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
           <Masked label="UAN" field="uan" value={d.uan} />
           <Masked label="ESIC number" field="esic" value={d.esic} />
           <Masked label="Bank account" field="account" value={[d.bank, d.account].filter(Boolean).join(' ')} />
-          <Field row={embedded} label="IFSC" value={d.ifsc} />
+          {/* Round 61 "copyvalue" A: IFSC gets pasted into bank portals. */}
+          <Field row={embedded} label="IFSC" value={d.ifsc ? <><span className="ui-mono">{d.ifsc}</span><CopyWord value={d.ifsc} what="IFSC" /></> : null} />
           <Field row={embedded} label="Covered by" value={[d.pf && 'PF', d.esi && 'ESI', d.pt && `PT (${d.pt})`].filter(Boolean).join(' · ')} />
         </dl>
       )}
