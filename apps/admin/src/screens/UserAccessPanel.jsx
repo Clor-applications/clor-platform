@@ -72,10 +72,10 @@ export default function UserAccessPanel({ orgId, userId }) {
       <div>
         <div className="ui-detail-label">Roles</div>
         {access.roles.length ? (
-          <ul className="text-sm ui-fg space-y-0.5">
+          <ul className="text-sm ui-fg space-y-1.5 mt-1">
             {access.roles.map((r) => (
-              <li key={`${r.id}-${r.scope}`}>
-                {r.name} <span className="ui-subtle">· {r.scope}</span>
+              <li key={`${r.id}-${r.scope}`} className="flex items-center gap-2">
+                <span className="ws-tag ws-tag--workspace">{r.name}</span> <span className="ui-subtle">{r.scope}</span>
               </li>
             ))}
           </ul>
@@ -85,7 +85,7 @@ export default function UserAccessPanel({ orgId, userId }) {
       </div>
 
       {access.isAdmin ? (
-        <div className="text-sm ui-fg">Administrator: full access.</div>
+        <div><span className="ws-state" data-tone="ok">Administrator: full access</span></div>
       ) : (
         <div>
           <div className="ui-detail-label">

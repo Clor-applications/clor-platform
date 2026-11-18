@@ -66,3 +66,11 @@
 :root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-bars li { grid-template-columns: 6.5rem minmax(0, 1fr) 1.75rem; }
 :root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-bars--wide li { grid-template-columns: 7.5rem minmax(0, 1fr) 1.75rem; }
 :root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-activity-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Focus rings after a pointer (owner, 19 Nov 2026) ---- */
+/* main.jsx marks the last input on <html>. After a click or tap, a ring handed back by a menu or a page
+   change is noise; after a key it stays, for keyboard users. */
+:root[data-input='pointer']:not(#lg1):not(#lg2) :focus-visible { outline: none !important; }
+:root[data-input='pointer']:not(#lg1):not(#lg2) :is(.ui-input, .ui-select, textarea, select, input):focus-visible { box-shadow: none; }
+/* The selected side-panel item: the orange bar and tint say "here", without a grey ring round it. */
+:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item[aria-current='page'] { box-shadow: inset 3px 0 0 rgb(var(--marker, 255 107 0)); }

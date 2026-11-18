@@ -162,11 +162,17 @@ export default function Invitations({ tenant, companies = [] }) {
         ) : null}
 
         {notJoined.length ? (
-          <div className="ui-not-joined" role="group" aria-label="People who have not joined">
-            <button type="button" className={`ui-chip-toggle${onlyWaiting ? ' is-on' : ''}`} aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((v) => !v)}>
-              Not joined yet <span className="tabular-nums">{notJoined.length}</span>
-            </button>
-            <button type="button" className="ws-btn ws-btn--small" disabled={sendingAll} onClick={sendAll}>
+          /* Tabs in their own colours, as on the Inbox (owner, 19 Nov 2026); the resend is a link at the end. */
+          <div className="ws-filters ws-filters--one-row" role="group" aria-label="People who have not joined">
+            <div className="ws-tabs ws-tone-tabs">
+              <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-1)' }} aria-pressed={!onlyWaiting} onClick={() => setOnlyWaiting(false)}>
+                All <span className="ws-tone-count">{rows.length}</span>
+              </button>
+              <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-3)' }} aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((v) => !v)}>
+                Not joined yet <span className="ws-tone-count">{notJoined.length}</span>
+              </button>
+            </div>
+            <button type="button" className="ws-row-link ws-filters-end" disabled={sendingAll} onClick={sendAll}>
               <Send size={14} aria-hidden="true" /> {sendingAll ? 'Sending…' : notJoined.length === 1 ? 'Send again' : `Send again to all ${notJoined.length}`}
             </button>
           </div>

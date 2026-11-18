@@ -413,7 +413,7 @@
   color: rgb(var(--fg-muted, 58 63 71));
 }
 :root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab:hover { color: rgb(var(--tab)); }
-:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab[aria-selected='true'] {
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) {
   background: none;
   color: rgb(var(--tab));
   font-weight: 600;
@@ -431,7 +431,7 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.ws-tone-tabs .ws-tab[aria-selected='true'] .ws-tone-count { background: rgb(var(--tab)); color: rgb(255 255 255); }
+.ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) .ws-tone-count { background: rgb(var(--tab)); color: rgb(255 255 255); }
 
 /* A state said softly (owner, 19 Nov 2026): a tinted tag with a dot, the same weight as the app tags beside it,
    not a solid block of colour. Tones: ok, warn, danger, info, off. */

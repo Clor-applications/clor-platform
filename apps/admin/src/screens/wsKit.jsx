@@ -232,7 +232,7 @@ export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
       <span className="ws-stat-label">{label}</span>
       {onOpen ? <ChevronRight size={16} aria-hidden="true" className="ws-chev" style={{ opacity: 1 }} /> : <span />}
       <span className="ws-stat-value" style={{ gridColumn: '2 / span 2' }}>{value}</span>
-      {note ? <span className="ws-stat-note" style={{ gridColumn: '2 / span 2' }}>{note}</span> : null}
+      {note ? <span className="ws-stat-note" title={typeof note === 'string' ? note : undefined} style={{ gridColumn: '2 / span 2' }}>{note}</span> : null}
     </>
   );
   return onOpen ? (

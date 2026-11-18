@@ -3560,3 +3560,17 @@ button.ws-stat:hover {
 }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-title { font-size: 1rem; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-list > li { padding-inline: 0; }
+/* Cards in a row stretch to the tallest; the extra height went between the label and the figure.
+   Lines stay together at the top, the chip beside the label and figure. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat { align-content: start; row-gap: 2px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-tile { grid-row: 1 / span 2; align-self: center; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-chev { grid-row: 1 / span 2; align-self: center; }
+/* One card size across the Workspace (owner, 19 Nov 2026: "same height and width as the Members page").
+   Label up to two lines, the figure, a one-line note; the rest is cut with "…" rather than growing the card. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(auto-fill, 16rem); grid-auto-rows: 6.5rem; align-items: stretch; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat { height: 6.5rem; align-content: center; overflow: hidden; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-stat-label { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat .ws-stat-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-tile { grid-row: 1 / span 3; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-chev { grid-row: 1 / span 3; }
+@media (max-width: 640px) { :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); } }

@@ -38,6 +38,7 @@ import UserLocationAccessTable from './UserLocationAccessTable';
 import { Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
+import './ws-access.css';
 
 /* The colour icons the empty lists show: each the one its menu item wears. */
 const EMPTY_ICON = emoji('bust-in-silhouette');
@@ -450,7 +451,7 @@ export function SettingsUsers({ orgId, params }) {
   const errorNote = error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null;
   const u = panel?.user;
   const quiet = (label, onClick, extra = {}) => (
-    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={onClick} {...extra}>{label}</button>
+    <button type="button" className="ws-row-link" onClick={onClick} {...extra}>{label}</button>
   );
   const checkRow = (key, checked, onToggle, title, sub) => (
     <li key={key}>
@@ -518,22 +519,23 @@ export function SettingsUsers({ orgId, params }) {
       body: (
         <div className="grid gap-5">
           {errorNote}
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <div><dt className="ws-stat-note">Role</dt><dd className="text-sm font-medium">{roleName(u.roleId) || 'No role'}</dd></div>
-            <div><dt className="ws-stat-note">Status</dt><dd>{statusPill(u)}</dd></div>
+          {/* Same rows as the Members panel: label left, value right, a hairline between (owner, 19 Nov 2026). */}
+          <dl className="ws-member-facts">
+            <div><dt>Role</dt><dd>{roleName(u.roleId) ? <span className="ws-tag ws-tag--workspace">{roleName(u.roleId)}</span> : <span className="ws-state" data-tone="warn">No role</span>}</dd></div>
+            <div><dt>Status</dt><dd>{statusPill(u)}</dd></div>
             {u.left ? (
-              <div className="sm:col-span-2"><dt className="ws-stat-note">Left</dt><dd className="text-sm">{leftLine(u.left)}{u.left.note ? ` — ${u.left.note}` : ''}</dd></div>
+              <div><dt>Left</dt><dd>{leftLine(u.left)}{u.left.note ? ` — ${u.left.note}` : ''}</dd></div>
             ) : null}
-            <div><dt className="ws-stat-note">User ID</dt><dd className="text-sm ui-mono">{u.code || '—'}</dd></div>
-            <div><dt className="ws-stat-note">Username</dt><dd className="text-sm">{u.username || '—'}</dd></div>
+            <div><dt>User ID</dt><dd className="ui-num">{u.code || '—'}</dd></div>
+            <div><dt>Username</dt><dd>{u.username || '—'}</dd></div>
           </dl>
-          <div className="ws-actions">
+          <div className="ws-member-actions">
             {quiet('Edit', () => openEdit(u))}
             {quiet('Companies', () => openCompanies(u))}
             {branchesEnabled ? quiet('Branches', () => openBranches(u)) : null}
             {quiet('Roles by branch', () => openAccess(u))}
             {quiet('Set a password', () => open('password', u))}
-            {u.isActive === false ? quiet('Reactivate', () => bringBack(u)) : quiet('Mark as left', () => openLeave(u))}
+            {u.isActive === false ? quiet('Reactivate', () => bringBack(u)) : quiet('Mark as left', () => openLeave(u), { className: 'ws-row-link ws-row-link--danger' })}
           </div>
           <section aria-labelledby="ws-user-can" className="grid gap-2" style={{ borderTop: '1px solid rgb(var(--ws-line))', paddingTop: 16 }}>
             <h3 id="ws-user-can" className="ws-panel-title">What they can do</h3>
