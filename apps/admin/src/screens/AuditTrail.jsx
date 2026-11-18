@@ -395,8 +395,8 @@ export default function AuditTrail({ tenant } = {}) {
                   <tr>
                     {/* No Company column: the trail is one company's, and the bar above names it. The same
                         name on every row was the widest thing on the page (owner, 17 Nov 2026). */}
-                    <th scope="col">When</th>
-                    <th scope="col">Who</th>
+                    <th scope="col" className="ws-mid">When</th>
+                    <th scope="col" className="ws-mid">Who</th>
                     {/* App beside Who, What happened last: its words take the rest of the row, so no gap opens before App (owner, 19 Nov 2026). */}
                     <th scope="col" className="ws-mid">App</th>
                     <th scope="col">What happened</th>
@@ -408,10 +408,10 @@ export default function AuditTrail({ tenant } = {}) {
                     const who = e.by?.name || 'Unknown user';
                     return (
                       <tr key={e.id} data-action={e.action}>
-                        <td className="ws-sec-when">
+                        <td className="ws-sec-when ws-mid">
                           <time dateTime={e.at} title={when(e.at)}>{shortWhen(e.at)}</time>
                         </td>
-                        <td>
+                        <td className="ws-mid">
                           <span className="ws-sec-who" title={e.by?.email || undefined}>
                             <Avatar name={who} hue="blue" />
                             <strong>{who}</strong>
