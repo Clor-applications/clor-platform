@@ -1015,3 +1015,7 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 55 */
+/* recentrecords A: "Recently opened" people sit under their own hairline in the module panel. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-recent-people { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }

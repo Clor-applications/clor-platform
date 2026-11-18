@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { rememberPerson } from '@ui/components/ui/recents';
 import CopyWord from '@ui/components/ui/CopyWord';
 import CallButtons from '@ui/components/ui/CallButtons';
 import { CalendarClock, Camera, ChevronDown, Hourglass, Pencil, Plus } from '@ui/components/ui/lineIcons';
@@ -122,6 +123,9 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
   }, []);
   /* Opened at a section (People Home's Probation ending: focus=probation): scrolled to it once the record is drawn. */
   const loadedId = person?.id;
+  /* Round 55 (recentrecords A): the menu's "Recently opened" keeps the last five people; only the id and name are kept, in this browser. */
+  const loadedName = person ? person.name || [person.firstName, person.lastName].filter(Boolean).join(' ') : '';
+  useEffect(() => { if (loadedId && loadedName) rememberPerson({ id: loadedId, name: loadedName }); }, [loadedId, loadedName]);
   useEffect(() => {
     if (!loadedId || !params.focus) return undefined;
     const t = setTimeout(() => document.getElementById(params.focus)?.scrollIntoView({ block: 'start' }), 150);

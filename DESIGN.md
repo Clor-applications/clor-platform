@@ -1128,6 +1128,26 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 55 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Recent searches | The search box (⌘K) opens on the last five searches; choosing one types it back in (`recents.js`, `CommandPalette` `remember`). A search is remembered once it leads somewhere. Kept in this browser and cleared at sign-out. Not in Books. |
+| Recently opened | Under the module that holds Employees, "Recently opened" lists the last five people whose record was opened (`RecentPeople`); only the id and name are kept, in this browser, cleared at sign-out. |
+| Search finds pages and people | The search box no longer offers jobs as rows ("Ask for leave", "Fix a punch"); the words of those jobs still find the screen they belong to. Placeholder reads "Search people and screens…". |
+
+Picked, **not built yet** (all need server work): search by phone, PAN or UAN (the people
+search matches name, code and email today); a notification summary every two hours; "Remind me
+tomorrow" bringing an item back at 9 AM; one company-wide digest time; the manager's week-ahead
+on their home (who is away, birthdays, open requests); the "Payment failed · Pay now" strip with
+days before apps lock; card or UPI autopay with the bill emailed first; a handover note on Ops
+home; canned replies in Ops that link a help page; free tags on each customer as list filters;
+renewals due in 30 days with amount and last activity; email subject lines that start with the
+action ("Approve Selvi's leave · 2 days"); a "Stop these emails" link that turns off just that
+kind.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
