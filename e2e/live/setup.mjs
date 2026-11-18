@@ -61,7 +61,9 @@ async function ensure2fa(acc, s) {
   acc.totpSecret = r.body.secret;
   await new Promise((ok) => setTimeout(ok, 1500));
   await must(call('POST', `/orgs/${s.orgId}/security/two-factor/enable`, { code: totp(acc.totpSecret) }, s), `enable 2FA ${acc.label}`);
-  console.log(`  ${acc.label}: 2FA on`);
+  console.log(`  ${acc.label}: 2FA on (waiting for a fresh code)`);
+  /* A code works once: the next sign-in must wait for the next 30-second step. */
+  await new Promise((ok) => setTimeout(ok, 31_000 - (Date.now() % 30_000)));
 }
 
 const saved = (() => { if (!existsSync(ENV)) return []; const m = readFileSync(ENV, 'utf8').match(/^QA_ACCOUNTS=(.*)$/m); return m ? JSON.parse(m[1]) : []; })();
@@ -84,7 +86,7 @@ for (const c of COMPANIES) {
   const owner = byLabel[ownerLabel] ||= { label: ownerLabel, role: 'owner', company: c.name, email: mail(`${c.key}-owner`), password: pw() };
   save();
   const su = await call('POST', '/auth/signup', { email: owner.email, password: owner.password, name: `${c.name.replace(/ QA$/, '')} Owner` });
-  if (su.ok) await rl.question(`  Verification mail sent to ${owner.email}. Click its link, then press Enter here. `);
+  if (su.ok) console.log(`  signed up ${owner.email}`);
   else if (su.status !== 409) throw new Error(`sign up ${c.name}: ${su.status} ${JSON.stringify(su.body).slice(0, 200)}`);
 
   let token = await login(owner);
@@ -94,8 +96,25 @@ for (const c of COMPANIES) {
   if (!org) {
     const made = await must(call('POST', '/auth/setup-company', { companyName: c.name, state: c.state }, { token }), `make ${c.name}`);
     s = { token, orgId: made.company.orgId, branchId: made.branch.id };
-    await call('PUT', `/orgs/${s.orgId}/features`, { features: { people: true, attendance: true, peopleHiring: true, peoplePerformance: true, peopleEngage: true, peopleBenefits: true } }, s);
-    const base = `/orgs/${s.orgId}/people`; const depts = {}, desigs = {}, ids = [];
+    console.log('  company made');
+  } else {
+    s = { token, orgId: org.orgId };
+    const br = await call('GET', `/orgs/${s.orgId}/branches`, undefined, s);
+    s.branchId = (br.body.branches || br.body.items || br.body || [])[0]?.id;
+    console.log('  company already there');
+  }
+  owner.orgId = s.orgId;
+  /* Admins must have an authenticator before the company lets them change anything. */
+  await ensure2fa(owner, s);
+  save();
+  s.token = token = await login(owner);
+
+  await call('PUT', `/orgs/${s.orgId}/features`, { features: { people: true, attendance: true, peopleHiring: true, peoplePerformance: true, peopleEngage: true, peopleBenefits: true } }, s);
+  const base = `/orgs/${s.orgId}/people`;
+  const have = await call('GET', `${base}/employees`, undefined, s);
+  const existing = have.body.employees || have.body.items || [];
+  if (existing.length === 0) {
+    const depts = {}, desigs = {}, ids = [];
     for (const [, , d, j] of c.people) {
       depts[d] ||= (await must(call('POST', `${base}/structure/departments`, { name: d }, s), 'department')).item.id;
       desigs[j] ||= (await must(call('POST', `${base}/structure/job-positions`, { name: j, departmentId: depts[d] }, s), 'job position')).item.id;
@@ -104,14 +123,8 @@ for (const c of COMPANIES) {
       const e = await must(call('POST', `${base}/employees`, { firstName: f, lastName: l, code: `${c.prefix}-${String(i + 1).padStart(3, '0')}`, departmentId: depts[d], jobPositionId: desigs[j], reportingManagerId: mgr === undefined ? undefined : ids[mgr], dateOfJoining: '2025-04-01' }, s), `employee ${f}`);
       ids.push(e.employee.id);
     }
-    console.log(`  company made, ${ids.length} employees`);
-  } else {
-    s = { token, orgId: org.orgId, branchId: org.branchId || org.branches?.[0]?.id };
-    console.log('  company already there');
-  }
-  owner.orgId = s.orgId;
-  await ensure2fa(owner, s);
-  save();
+    console.log(`  ${ids.length} employees added`);
+  } else console.log(`  ${existing.length} employees already there`);
 
   const roles = (await must(call('GET', `/orgs/${s.orgId}/roles`, undefined, s), 'roles')).roles || [];
   for (const [tag, re, fullName] of USERS) {
