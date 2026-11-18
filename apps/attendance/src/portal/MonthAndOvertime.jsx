@@ -17,7 +17,7 @@ const lastMonth = () => {
 };
 const monthWords = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const dayWords = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
-const PILL = { PENDING: ['ui-pill-warn', 'Waiting'], APPROVED: ['ui-pill-pos', 'Approved'], REJECTED: ['ui-pill-neg', 'Rejected'], CANCELLED: ['ui-pill-neutral', 'Cancelled'] };
+const PILL = { PENDING: ['ui-pill-warn', 'Waiting'], APPROVED: ['ui-pill-pos', 'Approved'], REJECTED: ['ui-pill-neg', 'Not approved'], CANCELLED: ['ui-pill-neutral', 'Cancelled'] };
 const Pill = ({ status }) => <span className={`ui-pill ${PILL[status]?.[0] || 'ui-pill-neutral'}`}>{PILL[status]?.[1] || status}</span>;
 
 /** Load once per key; only the latest answer fills the card. */

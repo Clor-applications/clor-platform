@@ -4,6 +4,7 @@ import { emoji } from '@ui/components/ui/emoji';
 import { requestOpenScreen } from '@platform/context';
 
 import { confirmDialog } from '@ui/components/ui/notify';
+import { lastSignedInLine } from '@ui/picks/round60';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
 import { AppMark, AppTag, Avatar, Empty, ICON, Loading, PageHead, Stat, StatusPill, WsDrawer } from './wsKit';
 import './workspace.css';
@@ -287,7 +288,8 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                       {/* Who signs in with an authenticator and when they last did: it was only inside each person's panel. */}
                       <td>
                         <span className="ws-cell-main">{m.authenticator ? 'Authenticator on' : 'No authenticator'}</span>
-                        <span className="ws-cell-sub">{m.lastSignInAt ? `Last ${day(m.lastSignInAt)}` : 'Never signed in'}</span>
+                        {/* Round 60 lastsignin A: Today, 3 days ago, Never, to spot seats nobody uses. */}
+                        <span className="ws-cell-sub">{lastSignedInLine(m.lastSignInAt)}</span>
                       </td>
                       <td><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
                       <td className="num"><ChevronRight size={16} aria-hidden="true" className="ws-chev" /></td>

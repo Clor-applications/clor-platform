@@ -1128,6 +1128,33 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 60 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Done messages that name it | After a decision on leave or an attendance request the message names whose, what and which days: "Ravi Kumar’s casual leave, 4–6 Dec, approved", "Ravi’s missed punch, 4 Dec, not approved" (`decidedLine`). |
+| Same status words | Requests read Waiting, Approved, Not approved, Cancelled, Paid in every app: "Rejected" became "Not approved" on leave, attendance requests, overtime, approvals, salary revisions, bank detail changes and the employee app. A bank refusing a payment, an offer the candidate declined and a colleague declining a swap keep their own words. |
+| Short forms explained | PF, ESI, PT, TDS, UAN, HRA, LOP and other short forms on the employee app's payslip carry a dotted underline; a tap shows the full name and one line ("PF · Provident Fund, savings for retirement…"). `Abbr` is ready for other screens. |
+| Save on a weak connection | A save that does not reach the server says "Not saved, the connection dropped. Everything you typed is still here; try again." The form keeps what was typed. Not in Books. |
+| Slow reports | After 5 seconds a People or Payroll report says "Still working. Big reports take up to a minute." Payroll reports add Cancel, which stops waiting and ignores a late answer (`SlowNote`). |
+| Zero lines on a payslip | Lines of ₹0 (no overtime, no bonus) are left off the payslip in the employee app, its print and Payroll's payslip view (`shownLines`). |
+| Who has not joined | Invitations has a "Not joined yet N" filter and "Send again to all N"; each waiting invitation shows when it was sent and when it expires. |
+| Last signed in | The users list says "Signed in today", "Signed in 3 days ago" or "Never signed in" (`lastSignedInLine`). |
+| Finding a customer in Ops | The Ops search box says what it takes: company, GSTIN, phone, email, ID or invoice. |
+
+Picked and already how the app works: a confirm that asks the short question ("Delete this
+shift?"); error messages that say what went wrong and the way out, in the server's words; "My
+requests to CLOR" is Help and support, with each ticket's status and the replies; the Ops search
+already finds a customer by company name, GSTIN, phone, email or the 10-digit ID.
+
+Picked, **not built yet**: signing in again in a box over the page so a long form is kept when
+the session runs out; "Your HR: Anita Rao" with Ask on the employee app's Me page (nobody is
+named as a person's HR yet); "Send me a new link" on an invite that ran out; each Ops customer's
+"4 of 7 setup steps" with a filter for stuck ones; an error that links to the record it clashes
+with ("This PAN is on Ravi Kumar’s record. Open it"). All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

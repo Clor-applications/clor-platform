@@ -25,7 +25,7 @@ const STATUS = {
   REVIEWED: { label: 'Reviewed', tone: 'ui-pill-neutral' },
   APPROVED: { label: 'Approved', tone: 'ui-pill-pos' },
   APPLIED: { label: 'In effect', tone: 'ui-pill-pos' },
-  REJECTED: { label: 'Rejected', tone: 'ui-pill-neutral' },
+  REJECTED: { label: 'Not approved', tone: 'ui-pill-neutral' },
 };
 const WAITING = new Set(['DRAFT', 'REVIEWED']);
 

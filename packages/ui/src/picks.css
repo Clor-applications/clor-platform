@@ -1015,3 +1015,17 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 60 */
+/* abbrexplain A: a short form (PF, ESI, PT, TDS) underlined with dots; a tap shows the full name and one line. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-wrap { position: relative; display: inline-block; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr { text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; cursor: help; border-radius: 4px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr:focus-visible { outline: 2px solid rgb(var(--act, var(--fg))); outline-offset: 2px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-abbr-tip { position: absolute; z-index: 30; left: 0; top: calc(100% + 6px); width: max-content; max-width: min(18rem, 80vw); padding: 8px 12px; border: 1px solid rgb(var(--border)); border-radius: 8px; background: #fff; color: rgb(var(--fg)); font-size: 0.8125rem; line-height: 1.25rem; font-weight: 400; white-space: normal; box-shadow: 0 4px 16px rgb(0 0 0 / 0.08); }
+/* slowload A: a slow report says it is still working, after 5 seconds. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-slow-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; font-size: 0.875rem; color: rgb(var(--fg-muted)); }
+/* pendinginvites A: the "Not joined yet" filter and Send again to all, above the invitations list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-not-joined { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid rgb(var(--border)); border-radius: 9999px; background: #fff; color: rgb(var(--fg)); font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle:hover { background: #F7F7F7; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle.is-on { border-color: rgb(var(--act, var(--fg))); box-shadow: inset 0 0 0 1px rgb(var(--act, var(--fg))); }

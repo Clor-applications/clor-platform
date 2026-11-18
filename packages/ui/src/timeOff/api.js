@@ -111,7 +111,7 @@ export const phonePunch = (body) => send('/me/punch', 'POST', body);
 export const attendanceIsOn = () => featuresFor(orgId()).then((r) => Boolean((r?.features || r || {}).attendance)).catch(() => false);
 
 export const STATUS_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
-export const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
+export const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
 /** Private leave as a reader without the right to see it gets it: no type colour, no reason. */
 export const PRIVATE_LABEL = 'Private leave';
 export const DAY_LABEL = { PRESENT: 'Present', HALF_DAY: 'Half day', ABSENT: 'Absent', ON_LEAVE: 'On leave', HOLIDAY: 'Holiday', WEEKLY_OFF: 'Weekly off' };

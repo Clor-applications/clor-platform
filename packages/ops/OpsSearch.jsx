@@ -103,7 +103,7 @@ export function OpsSearch({ go }) {
         ref={input}
         type="search"
         className="ui-input ops-search-input"
-        placeholder="Search accounts, people, GSTIN, invoices"
+        placeholder="Company, GSTIN, phone, email, ID or invoice"
         aria-label="Search the console"
         role="combobox"
         aria-expanded={showList}

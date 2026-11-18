@@ -4,6 +4,7 @@ import { ChevronLeft } from '@ui/components/ui/lineIcons';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { lineName, shownLines } from '@ui/picks/round60';
 import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 import { addDaysIso as addDays } from '@ui/utils/dates';
 
@@ -100,9 +101,10 @@ function PayslipView({ slip: s }) {
     window.print();
   };
   /* Two lines can share a name (two fines): keyed by place, not by name. */
-  const lines = (rows) => rows.map((l, i) => (
+  /* Round 60: only lines with an amount (zerorows A); PF, ESI, PT and TDS explained on a tap (abbrexplain A). */
+  const lines = (rows) => shownLines(rows).map((l, i) => (
     <div key={`${i}:${l.name}`} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-      <dt>{l.name}</dt>
+      <dt>{lineName(l.name)}</dt>
       <dd className="text-right tabular-nums">{money(l.amount)}</dd>
     </div>
   ));
@@ -130,7 +132,7 @@ function PayslipView({ slip: s }) {
       <div>
         <h3 className="ui-label">Deductions</h3>
         <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
-          {s.deductions.length ? lines(s.deductions) : <p className="ui-caption py-1.5">None</p>}
+          {shownLines(s.deductions).length ? lines(s.deductions) : <p className="ui-caption py-1.5">None</p>}
           <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-medium"><dt>Total deductions</dt><dd className="text-right tabular-nums">{money(s.totalDeductions)}</dd></div>
         </dl>
       </div>
@@ -196,7 +198,9 @@ function PayslipPrint({ slip: s }) {
     ['Name', e.name], ['Employee code', e.code], ['Designation', e.designation], ['Department', e.department],
     ['PAN', e.pan], ['UAN', e.uan], ['Bank', [e.bank, e.account].filter(Boolean).join(' ')],
   ].filter(([, v]) => v);
-  const rows = Math.max(s.earnings.length, s.deductions.length);
+  const earn = shownLines(s.earnings);
+  const ded = shownLines(s.deductions);
+  const rows = Math.max(earn.length, ded.length);
   return createPortal(
     <div className="clor-payslip-print" aria-hidden="true">
       <style>{PRINT_CSS}</style>
@@ -213,8 +217,8 @@ function PayslipPrint({ slip: s }) {
         <tbody>
           {Array.from({ length: rows }, (_, i) => (
             <tr key={i}>
-              <td>{s.earnings[i]?.name || ''}</td><td className="amt">{s.earnings[i] ? money(s.earnings[i].amount) : ''}</td>
-              <td>{s.deductions[i]?.name || ''}</td><td className="amt">{s.deductions[i] ? money(s.deductions[i].amount) : ''}</td>
+              <td>{earn[i]?.name || ''}</td><td className="amt">{earn[i] ? money(earn[i].amount) : ''}</td>
+              <td>{ded[i]?.name || ''}</td><td className="amt">{ded[i] ? money(ded[i].amount) : ''}</td>
             </tr>
           ))}
           <tr className="tot"><td>Total earnings</td><td className="amt">{money(s.gross)}</td><td>Total deductions</td><td className="amt">{money(s.totalDeductions)}</td></tr>

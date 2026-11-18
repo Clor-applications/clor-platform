@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Download } from '@ui/components/ui/lineIcons';
 
 import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
+import { SlowNote } from '@ui/picks/round60';
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
 import { listPayrollPeriods } from '../api/payrollCalendar';
@@ -68,11 +69,19 @@ export default function PayrollReports() {
       .catch((e) => setError(String(e?.message || 'Could not load payroll periods.')));
   }, []);
 
+  /* Round 60 slowload A: Cancel stops waiting; a run that answers after Cancel is not shown. */
+  const run = useRef(0);
+  const cancel = () => {
+    run.current += 1;
+    setLoading(false);
+    setError('Stopped. Choose the report or month again to run it.');
+  };
   const load = useCallback(async () => {
     if (!periodId) {
       setLoading(false);
       return;
     }
+    const mine = (run.current += 1);
     setLoading(true);
     try {
       const filters = { periodId, ...(report === 'variance' ? { threshold } : {}) };
@@ -96,13 +105,15 @@ export default function PayrollReports() {
        * until the new one is ready, instead of flashing empty.
        */
       const payload = await fetcher(filters);
+      if (mine !== run.current) return;
       setData({ report, payload });
       setError('');
     } catch (e) {
+      if (mine !== run.current) return;
       setError(String(e?.message || 'Could not run that report.'));
       setData(null);
     } finally {
-      setLoading(false);
+      if (mine === run.current) setLoading(false);
     }
   }, [report, periodId, threshold]);
 
@@ -239,7 +250,10 @@ export default function PayrollReports() {
       </div>
 
       {loading ? (
-        <SkeletonCard lines={6} />
+        <>
+          <SlowNote busy onCancel={cancel} />
+          <SkeletonCard lines={6} />
+        </>
       ) : !periods.length ? (
         <EmptyState
           title="No payroll periods yet"

@@ -42,7 +42,7 @@ const STATUS = {
   REVIEWED: { label: 'Reviewed', tone: 'ui-pill-neutral' },
   APPROVED: { label: 'Approved', tone: 'ui-pill-pos' },
   APPLIED: { label: 'In effect', tone: 'ui-pill-pos' },
-  REJECTED: { label: 'Rejected', tone: 'ui-pill-neutral' },
+  REJECTED: { label: 'Not approved', tone: 'ui-pill-neutral' },
 };
 
 
@@ -63,7 +63,7 @@ const TABS = [
   { value: 'OPEN', label: 'To decide', tone: 'outstanding' },
   { value: 'APPROVED', label: 'Approved', tone: 'sent' },
   { value: 'APPLIED', label: 'In effect', tone: 'paid' },
-  { value: 'REJECTED', label: 'Rejected', tone: 'cancelled' },
+  { value: 'REJECTED', label: 'Not approved', tone: 'cancelled' },
 ];
 const inTabOf = (r, tab) => !tab || (tab === 'OPEN' ? ['DRAFT', 'REVIEWED'].includes(r.status) : r.status === tab);
 const COLUMNS = {

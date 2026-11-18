@@ -507,7 +507,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
 }
 
 const REQUEST_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
-const REQUEST_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Rejected', CANCELLED: 'Cancelled' };
+const REQUEST_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
 const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[status] || 'ui-pill-neutral'}`}>{REQUEST_LABEL[status] || status}</span>;
 
 /*
