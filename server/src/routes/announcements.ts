@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
-import { liveFor } from '../services/announcements.js';
+import { liveFor, markReleaseNotesSeen, releaseNotesFor } from '../services/announcements.js';
 import { check, idParams } from '../middleware/validate.js';
 
 /**
@@ -15,6 +15,15 @@ announcementsRouter.use('/announcements', requireAuth);
 
 announcementsRouter.get('/announcements', async (req, res) => {
   res.json({ announcements: await liveFor(req.auth!.accountId, req.auth!.userId) });
+});
+
+/** What's new (round 67): CLOR's release notes for this person, and how many are unread. */
+announcementsRouter.get('/announcements/whats-new', async (req, res) => {
+  res.json(await releaseNotesFor(req.auth!.accountId, req.auth!.userId));
+});
+
+announcementsRouter.post('/announcements/whats-new/seen', async (req, res) => {
+  res.json({ marked: await markReleaseNotesSeen(req.auth!.accountId, req.auth!.userId) });
 });
 
 /** Close one for yourself, on every device. Only one you can see, and never a problem notice while it lasts. */

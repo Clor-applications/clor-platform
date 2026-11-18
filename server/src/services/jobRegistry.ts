@@ -90,8 +90,9 @@ export async function runRegisteredJobs({ budgetMs = 240_000, only, now = Date.n
     /* 5% slack: a scheduler firing every 15 minutes still wakes a 15-minute job each time. */
     if (last !== undefined && now() - last < everyMs * 0.95) return { name, ok: true, ms: 0, skipped: true };
     const left = deadline - Date.now();
-    /* Its turn came too late: left for the next wake, which will find it due. */
-    if (left <= 0) return { name, ok: true, ms: 0, skipped: true };
+    /* Its turn came too late: left for the next wake, which will find it due. A timer can fire a few
+     * milliseconds before the clock reaches the deadline, so a sliver of time left counts as none. */
+    if (left <= 10) return { name, ok: true, ms: 0, skipped: true };
     lastWoken.set(name, now());
     const start = Date.now();
     let timer: NodeJS.Timeout | undefined;

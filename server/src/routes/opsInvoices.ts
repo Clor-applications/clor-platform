@@ -23,6 +23,7 @@ import { appName } from '../services/pricing/engine.js';
 import { accountNames } from './opsDeals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { audit } from './ops.js';
+import { certificateReceived, certificatesDue, listVendorDocuments, proformaToInvoice, recentProformas, removeVendorDocument, saveVendorDocument, vendorDocumentFile } from '../billing/round67.js';
 
 /**
  * CLOR's invoices to its customers, in the operator console (Money,
@@ -255,20 +256,22 @@ const paidBody = z.object({
     .regex(/^[A-Za-z0-9/-]{6,40}$/),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   amount: z.number().int().positive().max(1_00_00_000_00).nullish(),
+  /* Round 67: tax the customer deducted at source, in paise. */
+  tdsDeducted: z.number().int().min(0).max(1_00_00_000_00).nullish(),
 });
 opsInvoicesRouter.post('/ops/invoices/:id/mark-paid', ...BILLING, (req: Request, res) =>
   outsideTenant('ops: mark an invoice paid', async () => {
     const parsed = paidBody.safeParse(req.body);
     if (!parsed.success) {
       const field = String(parsed.error.issues[0]?.path[0] || '');
-      const say: Record<string, string> = { reference: 'Enter the UTR or bank reference: 6 to 40 letters and digits.', paidOn: 'Enter the date the money arrived.', amount: 'Enter the amount received, in rupees.' };
+      const say: Record<string, string> = { reference: 'Enter the UTR or bank reference: 6 to 40 letters and digits.', paidOn: 'Enter the date the money arrived.', amount: 'Enter the amount received, in rupees.', tdsDeducted: 'Enter the TDS deducted, in rupees.' };
       return res.status(400).json({ error: say[field] || 'Check the payment details.' });
     }
     const paidOn = new Date(`${parsed.data.paidOn}T00:00:00+05:30`);
     if (paidOn.getTime() > Date.now() + 86400000) return res.status(400).json({ error: 'The date the money arrived cannot be in the future.' });
     try {
-      const r = await markInvoicePaid(String(req.params.id), { reference: parsed.data.reference, paidOn, amount: parsed.data.amount ?? null }, req.auth!.userId);
-      await audit(req, 'INVOICE_MARKED_PAID', { accountId: r.invoice.accountId }, { invoiceId: r.invoice.id, number: r.invoice.number, amount: r.invoice.paidAmount, reference: r.invoice.paymentReference, paidUntil: r.paidUntil });
+      const r = await markInvoicePaid(String(req.params.id), { reference: parsed.data.reference, paidOn, amount: parsed.data.amount ?? null, tdsDeducted: parsed.data.tdsDeducted ?? null }, req.auth!.userId);
+      await audit(req, 'INVOICE_MARKED_PAID', { accountId: r.invoice.accountId }, { invoiceId: r.invoice.id, number: r.invoice.number, amount: r.invoice.paidAmount, tdsDeducted: r.invoice.tdsDeducted ?? null, reference: r.invoice.paymentReference, paidUntil: r.paidUntil });
       res.json({ ...(await full(r.invoice.id)), paidUntil: r.paidUntil, paymentDetail: r.detail });
     } catch (e) {
       return refused(res, e);
@@ -495,5 +498,78 @@ opsInvoicesRouter.post('/ops/invoicing/books/test', requireOperatorRole('BILLING
     const r = await testBooks();
     await audit(req, 'BOOKS_CONNECTOR_TESTED', {}, { ok: r.ok });
     res.json(r);
+  }),
+);
+
+/* ------------------------------------------------ round 67: TDS, proformas, vendor documents */
+
+/** Paid invoices whose TDS certificate has not come in: the console chases them until it does. */
+opsInvoicesRouter.get('/ops/invoicing/tds-due', (_req, res) => outsideTenant('ops: TDS certificates due', async () => res.json({ invoices: await certificatesDue() })));
+
+const certBody = z.object({ receivedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish() });
+opsInvoicesRouter.post('/ops/invoices/:id/tds-certificate', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: TDS certificate received', async () => {
+    const parsed = certBody.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ error: 'Enter the date the certificate came in.' });
+    try {
+      const on = parsed.data.receivedOn ? new Date(`${parsed.data.receivedOn}T00:00:00+05:30`) : new Date();
+      const inv = await certificateReceived(String(req.params.id), on);
+      await audit(req, 'INVOICE_TDS_CERTIFICATE', { accountId: inv.accountId }, { invoiceId: inv.id, number: inv.number, tdsDeducted: inv.tdsDeducted });
+      res.json(await full(inv.id));
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+opsInvoicesRouter.get('/ops/invoicing/proformas', (_req, res) => outsideTenant('ops: proformas', async () => res.json({ proformas: await recentProformas() })));
+
+opsInvoicesRouter.post('/ops/invoicing/proformas/:id/invoice', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: proforma to invoice', async () => {
+    try {
+      const draft = await proformaToInvoice(String(req.params.id), req.auth!.userId);
+      await audit(req, 'PROFORMA_TO_INVOICE', { accountId: draft.accountId }, { proformaId: String(req.params.id), invoiceId: draft.id });
+      res.status(201).json(await full(draft.id));
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+opsInvoicesRouter.get('/ops/invoicing/vendor-documents', (_req, res) => outsideTenant('ops: vendor documents', async () => res.json({ documents: await listVendorDocuments() })));
+
+opsInvoicesRouter.post('/ops/invoicing/vendor-documents', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: add a vendor document', async () => {
+    try {
+      const doc = await saveVendorDocument(req.body ?? {}, req.auth!.userId);
+      await audit(req, 'VENDOR_DOCUMENT_ADDED', {}, { id: doc.id, kind: doc.kind, title: doc.title });
+      res.status(201).json(doc);
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+opsInvoicesRouter.delete('/ops/invoicing/vendor-documents/:id', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: remove a vendor document', async () => {
+    try {
+      await removeVendorDocument(String(req.params.id));
+      await audit(req, 'VENDOR_DOCUMENT_REMOVED', {}, { id: String(req.params.id) });
+      res.status(204).end();
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+opsInvoicesRouter.get('/ops/invoicing/vendor-documents/:id/file', (req, res) =>
+  outsideTenant('ops: a vendor document file', async () => {
+    try {
+      const d = await vendorDocumentFile(String(req.params.id));
+      /* As a data URL in JSON: the browser saves it through a link, with the session's own headers on the request. */
+      res.json({ fileName: d.fileName, contentType: d.contentType, dataUrl: `data:${d.contentType};base64,${Buffer.from(d.content).toString('base64')}` });
+    } catch (e) {
+      return refused(res, e);
+    }
   }),
 );

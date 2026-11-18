@@ -78,6 +78,26 @@ If you did not ask for this, reset your password now and reply to this email.`,
     transactional: true,
   },
   {
+    key: 'platform.breach_notice',
+    label: 'Data breach notice (to customer administrators)',
+    description: 'Sent once by CLOR staff from Ops, Breaches, to every owner and administrator of each customer a recorded breach affects. Cannot be switched off.',
+    subject: 'About your data at CLOR: {{accountName}}',
+    body: `Hello {{name}},
+
+We are writing to tell you about a security incident at CLOR that involved data of {{accountName}}.
+
+What happened: {{what}}
+When it happened: {{when}}
+When we found it: {{found}}
+Data involved: {{dataKinds}}
+What we have done: {{stepsTaken}}
+What you can do: {{stepsForCustomer}}
+
+Reply to this email with any question. We are sorry this happened.`,
+    fields: ['name', 'accountName', 'what', 'when', 'found', 'dataKinds', 'stepsTaken', 'stepsForCustomer'],
+    transactional: true,
+  },
+  {
     key: 'billing.trial_ending',
     label: 'Trial ending (to the customer)',
     description: 'Sent to the account owner 7, 3 and 1 days before their free trial ends (billing/trialReminders.ts).',

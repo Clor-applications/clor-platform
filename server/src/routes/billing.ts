@@ -21,6 +21,7 @@ import { publishedBook } from '../services/pricing/books.js';
 import { taxSetting } from '../services/pricing/settings.js';
 import { publicPricing } from './pricing.js';
 import { invoiceForAccount, invoicesForAccount } from '../billing/invoices.js';
+import { addPurchaseOrder, listPurchaseOrders, listVendorDocuments, makeProforma, proformaForAccount, proformasForAccount, removePurchaseOrder, vendorDocumentFile } from '../billing/round67.js';
 import { checkPayLink, onlinePayment, payLinkFor } from '../billing/payLinks.js';
 import { PaymentsError } from '../billing/providers.js';
 import { DealError } from '../services/pricing/deals.js';
@@ -432,4 +433,79 @@ billingRouter.post('/billing/resume', async (req, res) => {
   if (!['active', 'trialing', 'past_due'].includes(sub.status)) return res.status(409).json({ error: 'This plan has ended. Write to sales@clor.in to start again.' });
   await outsideTenant('billing: renew again', () => platformPrisma.subscription.update({ where: { accountId }, data: { cancelAtPeriodEnd: false } }));
   res.json({ cancelAtPeriodEnd: false });
+});
+
+/* ------------------------------------------------ round 67: purchase orders, proformas, vendor documents */
+
+const billingRefused = (res: Response, e: unknown) => {
+  if (!(e instanceof PaymentsError)) throw e;
+  return res.status(e.status).json({ error: e.message, problems: e.problems });
+};
+const NOT_YOURS = 'Only the people who look after this account see its billing.';
+const NOT_CHANGE = 'Only the people who may change this account’s settings do this.';
+
+/** The customer's purchase orders: each number prints on the invoices whose period it covers. */
+billingRouter.get('/billing/purchase-orders', async (req, res) => {
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: NOT_YOURS });
+  res.json({ purchaseOrders: await listPurchaseOrders(req.tenant!.accountId), mayChange: await mayPayInvoices(req) });
+});
+
+billingRouter.post('/billing/purchase-orders', async (req, res) => {
+  if (!(await mayPayInvoices(req))) return res.status(403).json({ error: NOT_CHANGE });
+  try {
+    res.status(201).json(await addPurchaseOrder(req.tenant!.accountId, req.body ?? {}, req.auth?.userId ?? null));
+  } catch (e) {
+    return billingRefused(res, e);
+  }
+});
+
+billingRouter.delete('/billing/purchase-orders/:id', async (req, res) => {
+  if (!(await mayPayInvoices(req))) return res.status(403).json({ error: NOT_CHANGE });
+  try {
+    await removePurchaseOrder(req.tenant!.accountId, String(req.params.id));
+    res.status(204).end();
+  } catch (e) {
+    return billingRefused(res, e);
+  }
+});
+
+/** Proformas: a quote with GST for the plan, valid 15 days, for a company's accounts team to pay against. */
+billingRouter.get('/billing/proformas', async (req, res) => {
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: NOT_YOURS });
+  res.json({ proformas: await proformasForAccount(req.tenant!.accountId) });
+});
+
+billingRouter.post('/billing/proformas', async (req, res) => {
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: NOT_YOURS });
+  try {
+    res.status(201).json(await makeProforma(req.tenant!.accountId, req.auth?.userId ?? null));
+  } catch (e) {
+    return billingRefused(res, e);
+  }
+});
+
+billingRouter.get('/billing/proformas/:id', async (req, res) => {
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: NOT_YOURS });
+  try {
+    res.json(await proformaForAccount(req.tenant!.accountId, String(req.params.id)));
+  } catch (e) {
+    return billingRefused(res, e);
+  }
+});
+
+/** CLOR's own papers for a customer's procurement: GST certificate, PAN, incorporation and the like. */
+billingRouter.get('/billing/vendor-documents', async (req, res) => {
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: NOT_YOURS });
+  res.json({ documents: await listVendorDocuments() });
+});
+
+billingRouter.get('/billing/vendor-documents/:id/file', async (req, res) => {
+  if (!(await seesAccountInvoices(req))) return res.status(403).json({ error: NOT_YOURS });
+  try {
+    const d = await vendorDocumentFile(String(req.params.id));
+    /* As a data URL in JSON: the browser saves it through a link, with the session's own headers on the request. */
+    res.json({ fileName: d.fileName, contentType: d.contentType, dataUrl: `data:${d.contentType};base64,${Buffer.from(d.content).toString('base64')}` });
+  } catch (e) {
+    return billingRefused(res, e);
+  }
 });

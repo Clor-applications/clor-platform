@@ -228,6 +228,9 @@ payrollRunsRouter.get(
         variancePercent: s.variancePercent == null ? null : Number(s.variancePercent),
         status: s.status,
         paymentStatus: s.paymentStatus,
+        /* Round 66 "holdpay": held out of the bank file until released. */
+        heldAt: s.heldAt || null,
+        heldReason: s.heldReason || '',
       })),
     });
   }
