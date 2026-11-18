@@ -33,7 +33,9 @@ if (typeof document !== 'undefined') {
   const root = document.documentElement;
   const mark = (kind) => () => { if (root.dataset.input !== kind) root.dataset.input = kind; };
   document.addEventListener('pointerdown', mark('pointer'), true);
-  document.addEventListener('keydown', mark('keyboard'), true);
+  /* Escape only closes a panel or menu; the focus it hands back is not keyboard travel. */
+  const toKeyboard = mark('keyboard');
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') toKeyboard(); }, true);
 }
 
 try {

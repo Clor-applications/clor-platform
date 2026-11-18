@@ -35,7 +35,7 @@ import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
 import UserLocationAccessTable from './UserLocationAccessTable';
-import { Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
+import { Avatar, Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-security.css';
 import './ws-access.css';
@@ -763,7 +763,7 @@ export function SettingsUsers({ orgId, params }) {
                   <tr key={row.id}>
                     <td>
                       <button type="button" className="inline-flex items-center gap-2 text-left" onClick={() => open('view', row)}>
-                        <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.person size={14} /></span>
+                        <Avatar name={nameOf(row)} />
                         <strong style={{ fontWeight: 600 }}>{nameOf(row)}</strong>
                       </button>
                     </td>
