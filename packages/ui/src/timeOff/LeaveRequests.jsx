@@ -516,13 +516,16 @@ export function LeavePreview({ preview, loading }) {
   const parts = preview.parts || [];
   return (
     <section className="space-y-3" aria-live="polite" aria-busy={loading}>
-      {parts.length ? (
+      {parts.length ? (<>
         <p className="text-sm">
           Charges <strong className="tabular-nums">{daysText(preview.total)}</strong>
           {preview.type?.isPaid === false ? ' of loss of pay' : ''}
-          {parts.length === 1 && parts[0].balance?.after != null ? <> · <span className="tabular-nums">{parts[0].balance.after}</span> left after</> : null}
+          {parts.length === 1 && parts[0].balance?.after != null ? (parts[0].balance.after < 0
+            ? <> · balance after <span className="tabular-nums ui-text-neg font-semibold">{parts[0].balance.after} {Math.abs(parts[0].balance.after) === 1 ? 'day' : 'days'}</span></>
+            : <> · <span className="tabular-nums">{parts[0].balance.after}</span> left after</>) : null}
         </p>
-      ) : null}
+        {parts.length === 1 && parts[0].balance?.after < 0 ? <p className="text-sm ui-muted">The days below zero come out of the leave you earn next.</p> : null}
+      </>) : null}
       {preview.split ? (
         <div className="text-sm space-y-1">
           <p>This crosses the end of the leave period, so it is saved as {parts.length} requests:</p>

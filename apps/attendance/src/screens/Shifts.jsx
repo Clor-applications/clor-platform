@@ -12,6 +12,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 import ShiftBreaks from '../components/ShiftBreaks';
 import { breaksBody, breaksProblem, unpaidTotal } from '../components/shiftBreaksMath';
 import ColorDots from '@ui/components/ui/ColorDots';
+import { splitShiftLabel } from '../components/round24';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BLANK = {
@@ -195,7 +196,7 @@ export default function Shifts({ openScreen }) {
                       {s.name}
                     </td>
                     <td className="ui-col-h-center whitespace-nowrap">
-                      {s.startTime}–{s.endTime}
+                      {splitShiftLabel(s) || `${s.startTime}–${s.endTime}`}
                       {s.endTime <= s.startTime ? <span className="ui-caption"> (night)</span> : null}
                     </td>
                     <td className="ui-num">{s.breakMinutes}m{s.breakMode === 'PUNCHED' ? <span className="ui-caption block">or as punched</span> : null}</td>

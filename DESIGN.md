@@ -535,6 +535,27 @@ version is out; take-home rounded to the nearest rupee; a discount set on the cu
 a "From" date on an edit shown as coming up; payroll problems listed with a "Fix" link each
 before the run. All need server work.
 
+### Round 24 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Taking leave you do not have yet | The leave form's preview shows a balance that goes below zero in red, "balance after −2 days", with "The days below zero come out of the leave you earn next." Whether it is allowed stays the leave type's rule on the server (`LeavePreview`). |
+| How new employee codes are numbered | Adding a person shows the next code in the company's own series under Employee ID, "Next: KT-0143 · Use it", read from the codes already in use: the prefix most codes share and the number after the highest, same width (`nextEmployeeCode`). |
+| Two parts in one shift | A shift with an unpaid break of two hours or more that has its own times reads with both parts in the Shifts list: "Split · 07:00–11:00, 17:00–21:00" (`splitShiftLabel`). |
+| Today's numbers on an office screen | Attendance → Today has "Show on a screen": In, Late and Away in big figures on a white screen, with "412 of 450 in" under them; Esc or Close returns (`TodayScreen`). |
+
+Picked and already how the app works: none this round.
+
+Picked, **not built yet**: canteen charges with count and rate on the payslip line; arrivals by
+15 minutes with the shift start marked; sign-up to paying as narrowing bars in Ops; handing over
+the owner role with the new owner accepting by email; company-wide quiet hours for notices; a
+new manager picked before a manager with a team leaves; fingerprint offered once in the phone
+app; a notice to the manager two days before a short-staffed shift; payment mode on each person
+with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
+list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
