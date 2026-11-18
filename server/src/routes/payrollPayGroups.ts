@@ -7,6 +7,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
+import { payDayCheck } from '../services/payroll/labourCodes.js';
 
 /**
  * Populations that are paid on the same rhythm.
@@ -55,6 +56,8 @@ const shape = (row: any) => ({
   code: row.code || '',
   frequency: row.frequency,
   paymentDay: row.paymentDay ?? null,
+  /* Round 66 "payontime": a pay day after the legal date says so, when set and on every payroll of the group. */
+  payDayWarning: payDayCheck(row.paymentDay)?.message || null,
   branchId: row.branchId || null,
   notes: row.notes || '',
   isActive: !!row.isActive,

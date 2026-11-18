@@ -10,6 +10,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { validateFormula } from '../services/payroll/formula.js';
 import { calculateStructure } from '../services/payroll/engine/calculator.js';
 import { toEngineComponents } from '../services/payroll/structureEngine.js';
+import { wagesCheck } from '../services/payroll/labourCodes.js';
 
 /**
  * A reusable salary template: which components a person on it is paid, and how.
@@ -422,6 +423,8 @@ payrollStructuresRouter.post(
           netPay: Math.round(result.netPay * (PERIODS_PER_YEAR[body.frequency] ?? 12)),
           employerCost: Math.round(result.employerCost * (PERIODS_PER_YEAR[body.frequency] ?? 12)),
         },
+        /* Round 66 "wageshalf": wages under half of pay are flagged, with what the labour codes count instead. */
+        wagesCheck: wagesCheck(result.gratuityWage, result.grossEarnings),
       },
     });
   }

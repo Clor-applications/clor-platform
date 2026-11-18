@@ -1597,6 +1597,30 @@ late marks, overtime); private dated notes only the manager sees; work documents
 (certificates, appraisal letters) for managers, ID and pay papers staying with HR; open places in
 the team count. All need server work.
 
+### Round 66 (18 Nov 2026)
+
+Labour codes and statutory pay rules, in Payroll (never Books).
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Holding one person's pay | On an approved, locked, paid or posted run, "Held pay" lists each held salary on its own hairline row: name, the reason under it, net pay, and Release. "Hold one person's pay" asks who and why (a reason is required). A held slip stays on the run and the payslip stands; the bank file and payment preview leave it out ("Pay held: …"), a retry of a failed line refuses it, and it stays listed until released (`HoldPayPanel`, `holdSlipPay`, `releaseSlipPay`, `GET /payroll/held-pay`). |
+| Fixed-term gratuity | Final settlement for someone whose employee type is fixed-term pays gratuity after one year, not five, and says so in the explanation. |
+| ESI after a raise | Someone who paid ESI earlier in the contribution period (April–September, October–March) keeps paying after wages pass the threshold, until the period ends; the slip explains "ESI continues until the contribution period ends on 30 Sep 2026, then stops". |
+| Paying on time | A pay group whose paid-on day is after the 7th shows a warning under the field and "After the 7th" on its row; a run whose payroll date falls after the 7th of the next month says it is late under the Payment of Wages Act (`LatePayNote`). |
+| Wages at least half | The salary structure preview warns when basic plus DA (the gratuity wage components) is under half of gross, and says how much would be counted back as wages under the labour codes (`wagesCheck`). |
+
+Picked and already how the app works: an appointment letter for every worker (sent on hire, ticked
+in the joining plan); notice shortfall recovered in the final settlement.
+
+Picked, **not built yet**: a statutory bonus run (a new payroll flow); minimum wage revisions
+(needs each state's rate data); Budget slab updates (CLOR keeps the tax tables); a filled Form 11;
+an inspection pack download; weekly wages (runs are monthly); state leave minimums and the earned
+leave default of 180 days and 30 carried (need state law data); a yearly health check for staff 40
+and over (needs a new People record and its own flow); using the counted-back wages in PF and
+gratuity (the preview warns only).
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

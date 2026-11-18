@@ -46,6 +46,7 @@ import { lockWords } from "../components/round59";
 import { wholeRupees as money } from "@ui/utils/money";
 import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
 import { EarlierNote, NextMonthNote } from "../components/RunNotes";
+import { HoldPayPanel, LatePayNote } from "../components/round66";
 
 /**
  * Running payroll.
@@ -487,6 +488,9 @@ const RunWorkflow = ({ runId, onBack }) => {
       </div>
       {/* Round 32: how many payslips the bank has paid. */}
       <PaidCount slips={data.slips} status={run.status} />
+      {/* Round 66: paid after the legal date, and one person's pay held with a reason. */}
+      <LatePayNote run={run} />
+      <HoldPayPanel run={run} slips={data.slips} byEmployee={byEmployee} onChanged={load} />
 
       {/* Days after the company's cut-off paid as present before they happened (O-11). */}
       <ProvisionalDaysNotice run={run} />

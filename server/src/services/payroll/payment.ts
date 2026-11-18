@@ -90,7 +90,7 @@ export async function previewPayment(accountId: string, orgId: string, runId: st
 
   const slips = await payrollPrisma.salarySlip.findMany({
     where: { orgId, runId, status: { not: 'CANCELLED' } },
-    select: { id: true, number: true, employeeId: true, netPay: true, paymentStatus: true, employeeSnapshotJson: true },
+    select: { id: true, number: true, employeeId: true, netPay: true, paymentStatus: true, employeeSnapshotJson: true, heldAt: true, heldReason: true },
     orderBy: { number: 'asc' },
   });
 
@@ -146,6 +146,11 @@ export async function previewPayment(accountId: string, orgId: string, runId: st
     const already = claimed.get(slip.id);
     if (already) {
       blocked.push({ ...row, reason: `Already in payment ${already}.`, code: 'ALREADY_IN_PAYMENT' });
+      continue;
+    }
+    /* Round 66 "holdpay": a held salary stays out of every batch, and on the list, until somebody releases it. */
+    if (slip.heldAt) {
+      blocked.push({ ...row, reason: `Pay held: ${slip.heldReason || 'no reason given'}.`, code: 'HELD', heldAt: slip.heldAt, heldReason: slip.heldReason || '' });
       continue;
     }
     /* Nothing to pay is not a problem to report — a person on unpaid leave for
@@ -251,6 +256,9 @@ export async function createPayment(opts: {
         select: { slipId: true },
       });
       if (taken.length) throw new PayrollPaymentError('SLIP_ALREADY_IN_PAYMENT', alreadyInPayment(taken.length));
+      /* A hold put on between the preview and now still keeps that salary out. */
+      const heldNow = await tx.salarySlip.count({ where: { orgId, id: { in: chosen.map((r) => r.slipId) }, heldAt: { not: null } } });
+      if (heldNow) throw new PayrollPaymentError('SLIP_HELD', `${heldNow === 1 ? 'One salary was' : `${heldNow} salaries were`} held just now. Reload and try again.`);
       const count = await tx.payrollPayment.count({ where: { orgId } });
       const number = `PAY-${opts.paymentDate.slice(0, 7).replace('-', '')}-${String(count + 1).padStart(3, '0')}`;
       return tx.payrollPayment.create({
@@ -447,6 +455,10 @@ export async function settleLines(opts: {
             where: { orgId, slipId: line.slipId, id: { not: r.lineId }, status: { in: LIVE_LINE }, payment: { status: { not: 'CANCELLED' } } },
           });
           if (elsewhere) throw new PayrollPaymentError('SLIP_ALREADY_IN_PAYMENT', 'That person has been put in another payment since the bank rejected this line. Record it there, or cancel that payment first.');
+          /* Round 66: a salary held since the bank rejected it is not sent again until released. What the bank did pay is still recorded. */
+          if (line && r.status === 'PENDING' && (await tx.salarySlip.count({ where: { orgId, id: line.slipId, heldAt: { not: null } } }))) {
+            throw new PayrollPaymentError('SLIP_HELD', "That person's pay is held. Release it on the payroll before sending it again.");
+          }
         }
       }
       const moved = await tx.payrollPaymentLine.updateMany({
@@ -722,5 +734,65 @@ export async function cancelPayment(accountId: string, orgId: string, paymentId:
       data: { paymentStatus: 'UNPAID' },
     });
     return row;
+  });
+}
+
+/* ------------------------------------------------------------ holding one person's pay */
+
+/**
+ * Round 66 "holdpay": keep one person's salary out of the bank file, with a
+ * reason, without touching the payslip. The payslip stays approved and in the
+ * books as owed; only paying it waits. A salary already waiting in a payment
+ * cannot be held from here: that line has to fail or be cancelled first, or
+ * the hold would claim to stop money that is already on its way.
+ */
+export async function holdSlipPay(opts: { accountId: string; orgId: string; userId: string; runId: string; slipId: string; reason: string }) {
+  const { accountId, orgId, runId, slipId } = opts;
+  const reason = String(opts.reason || '').trim();
+  if (!reason) throw new PayrollPaymentError('NO_REASON', 'Say why this pay is held.', 400);
+  const slip = await payrollPrisma.salarySlip.findFirst({ where: { accountId, orgId, runId, id: slipId }, select: { id: true, status: true, paymentStatus: true } });
+  if (!slip || slip.status === 'CANCELLED') throw new PayrollPaymentError('NO_SLIP', 'No such payslip on this payroll.', 404);
+  if (slip.paymentStatus === 'PAID') throw new PayrollPaymentError('ALREADY_PAID', 'This salary has already been paid.');
+  const live = await payrollPrisma.payrollPaymentLine.count({ where: { orgId, slipId, status: 'PENDING', payment: { status: { not: 'CANCELLED' } } } });
+  if (live) throw new PayrollPaymentError('ALREADY_IN_PAYMENT', 'This salary is already in a payment. Mark that line failed, or cancel the payment, first.');
+  return payrollPrisma.salarySlip.update({
+    where: { id: slip.id },
+    data: { heldAt: new Date(), heldReason: reason.slice(0, 300), heldByUserId: opts.userId },
+    select: { id: true, heldAt: true, heldReason: true },
+  });
+}
+
+export async function releaseSlipPay(opts: { accountId: string; orgId: string; runId: string; slipId: string }) {
+  const slip = await payrollPrisma.salarySlip.findFirst({ where: { accountId: opts.accountId, orgId: opts.orgId, runId: opts.runId, id: opts.slipId }, select: { id: true } });
+  if (!slip) throw new PayrollPaymentError('NO_SLIP', 'No such payslip on this payroll.', 404);
+  return payrollPrisma.salarySlip.update({ where: { id: slip.id }, data: { heldAt: null, heldReason: null, heldByUserId: null }, select: { id: true, heldAt: true } });
+}
+
+/** Every salary still held and unpaid, across payrolls: the list stays until each is released. */
+export async function heldPay(accountId: string, orgId: string) {
+  const slips = await payrollPrisma.salarySlip.findMany({
+    where: { accountId, orgId, heldAt: { not: null }, status: { not: 'CANCELLED' }, paymentStatus: { not: 'PAID' } },
+    select: { id: true, runId: true, number: true, employeeId: true, netPay: true, heldAt: true, heldReason: true, employeeSnapshotJson: true, run: { select: { number: true } } },
+    orderBy: { heldAt: 'asc' },
+  });
+  const people = slips.length
+    ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: [...new Set(slips.map((s) => s.employeeId))] } }, select: { id: true, name: true, code: true } })
+    : [];
+  const byPerson = new Map(people.map((p) => [p.id, p]));
+  return slips.map((s) => {
+    const snap = snapshotPerson(s.employeeSnapshotJson);
+    const p = byPerson.get(s.employeeId);
+    return {
+      slipId: s.id,
+      runId: s.runId,
+      runNumber: s.run?.number || '',
+      slipNumber: s.number,
+      employeeId: s.employeeId,
+      employeeName: p?.name || snap.name || 'Unknown employee',
+      employeeCode: p?.code || snap.code || '',
+      amount: round2(Number(s.netPay) || 0),
+      heldAt: s.heldAt,
+      heldReason: s.heldReason || '',
+    };
   });
 }

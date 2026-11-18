@@ -795,6 +795,10 @@ model SalarySlip {
   status        String @default("DRAFT")
   /// UNPAID | PAID | FAILED | PARTIAL
   paymentStatus String @default("UNPAID")
+  /// Pay held for this person (round 66): left out of every payment until released. Who and why are kept.
+  heldAt        DateTime?
+  heldReason    String?
+  heldByUserId  String?
 
   // ---- Immutable snapshots -------------------------------------------------
   /// The employee and payroll profile as they were.
