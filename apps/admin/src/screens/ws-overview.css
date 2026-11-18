@@ -280,7 +280,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(264px, 320px);
   }
   .wsh-hero:not([data-today]) {
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, max-content) minmax(280px, 1fr);
   }
   .wsh-hero:not([data-today]) .wsh-stage {
     display: block;
@@ -288,7 +288,9 @@
 }
 @container wsh (min-width: 1040px) {
   .wsh-hero[data-today] {
-    grid-template-columns: minmax(0, 1fr) 260px minmax(280px, 360px);
+    /* The words take what they need; the picture takes the rest and sits in its middle, so no gap opens
+       between the greeting and the picture on a wide page (owner, 19 Nov 2026). */
+    grid-template-columns: minmax(0, max-content) minmax(260px, 1fr) minmax(280px, 360px);
   }
   .wsh-stage {
     display: block;
