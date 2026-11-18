@@ -91,8 +91,8 @@ const cells = (r: any, row: any, labels: string[]) => labels.map((l) => row[keyO
 describe('the list of reports', () => {
   it('names every report in its group, with the filters the reader’s people are in', async () => {
     const body = (await people(hr).get('/hr-reports').expect(200)).body;
-    expect(body.reports.map((r: any) => r.id)).toEqual(['headcount', 'tenure', 'age', 'gender', 'movement', 'probation', 'contracts', 'documents']);
-    expect([...new Set(body.reports.map((r: any) => r.group))]).toEqual(['Workforce', 'Joining and leaving', 'Documents and compliance']);
+    expect(body.reports.map((r: any) => r.id)).toEqual(['headcount', 'tenure', 'age', 'gender', 'movement', 'probation', 'contracts', 'documents', 'branches', 'probationoutcomes', 'exitreasons', 'absence', 'overtime', 'late', 'leavetypes', 'offsoon', 'shifts', 'sickspells']);
+    expect([...new Set(body.reports.map((r: any) => r.group))]).toEqual(['Workforce', 'Joining and leaving', 'Documents and compliance', 'Time and attendance', 'Leave']);
     expect(body.filters.departments.map((d: any) => d.name)).toEqual(['Ops', 'Sales']);
     const mine = (await people(manager).get('/hr-reports').expect(200)).body;
     expect(mine.filters.departments.map((d: any) => d.name)).toEqual(['Ops']);

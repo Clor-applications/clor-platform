@@ -910,10 +910,13 @@ time; leave left is shown as days, not money; a plain bank sheet of names, accou
 is Payments' bank advice download (full account numbers, so it needs the payroll export
 permission).
 
+Built later (server picks, 18 Nov 2026): exit-interview reasons read one by one, People → Reports →
+"Reasons for leaving": each leaver's main reason and "could have been kept", and the reasons counted
+in the chart; only for readers who see every leaver's reason (`exitReasonsReport`).
+
 Picked, **not built yet**: absence pay given back next month with a line saying why; attendance
 uploaded from any sheet with its columns matched; holiday work paid or taken as a day off, chosen
-each time; your own reports from fields, filters and groups; exit-interview reasons read one by
-one; a phone notice with the amount when salary is sent; planned
+each time; your own reports from fields, filters and groups; a phone notice with the amount when salary is sent; planned
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
@@ -1010,16 +1013,21 @@ Built:
 | --- | --- |
 | Age mix of the staff | Headcount & attrition adds "Age mix": bars by age band (under 25, 25–35, 35–45, 45–55, 55+) for everyone working today, with how many have no date of birth left out. Counts only; nobody's date of birth is shown (`ageBands`, `AgePanel`). |
 | How many people each manager has | Headcount & attrition adds "Team size per manager": managers with how many report to them today, largest team first, ten shown and "and N more" after, with how many have no manager set (`managerSpans`, `SpanPanel`). |
+| Absence over time | People → Reports → "Absence rate": days lost to absence and leave (a half day counts half) over working days, month by month, drawn as one line; weekly offs and holidays are not working days (`absenceReport`, `ReportChart` kind `line`). |
+| Overtime | "Overtime hours": hours (not money) worked past the shift each month, approved and not yet approved, stacked (`overtimeReport`). |
+| Late comers | "Late comers": one line a person with days late, average and most minutes late, last 30 days by default, most late first (`lateReport`). |
+| Leave by type | "Leave taken by type": approved days, requests and people per kind of leave, this year by default; a private kind reads "Private leave" for anyone but whole-company HR (`leaveTypesReport`). |
+| Branches side by side | "Branches side by side": headcount, leavers, attrition and absence rate per branch; pay cost (employer cost on approved and paid slips) only for readers with Payroll's salary slip right (`branchesReport`, `payCost`). |
+| Planned and present per shift | "Shifts: planned and present": for each shift on the day, who was due in (less full-day leave, weekly offs and holidays), present, not in, on leave (`shiftsReport`). |
+| Sick days by weekends | "Sick days next to weekends": per person, sick spells and how many start right after or end right before their weekly off or a holiday (`sickSpellsReport`). |
+| Probation outcomes | "Probation outcomes": confirmed, extended (a decided review) and let go, month by month; kept from whoever the company keeps leavings from (`probationOutcomesReport`). |
+| Who is off soon | "Who is off soon": approved leave in the next four weeks, names under the week the leave starts, people off per week in the chart; a private kind reads "Away" (`offSoonReport`). |
 
 Picked and already how the app works: none this round.
 
-Picked, **not built yet**: absence as percent of working days lost, by month, as a line; overtime
-hours (not money) over time; the late-comers list with average minutes late; days taken per leave
-type this year; cost per hire by channel; days to fill a job by job type; training hours against
-the yearly target; a branch table of headcount, attrition, absence and pay cost; lowest, middle and
-highest pay per job; a weeks × days grid shaded by people present; planned against present for each
-shift today; sick days next to weekends or holidays; probations confirmed, extended or let go; who is
-off in the coming weeks, names by week. All need report figures worked out on the server.
+Picked, **not built yet**: cost per hire by channel; days to fill a job by job type; training hours
+against the yearly target (CLOR keeps no hiring channel cost, job opening dates or training hours
+yet); lowest, middle and highest pay per job; a weeks × days grid shaded by people present.
 
 ### Round 46 (18 Nov 2026)
 
