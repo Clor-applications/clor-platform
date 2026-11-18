@@ -1,3 +1,4 @@
+import { hireSourceFromCandidate } from '../recordExtras.js';
 import { createHash, randomBytes } from 'node:crypto';
 
 import { peoplePrisma } from '../../../utils/peoplePrisma.js';
@@ -535,6 +536,7 @@ export async function hireCandidate(who: Who, id: string, raw: any) {
       jobPositionId: desig?.id ?? null, designation: desig?.name ?? offer?.designation ?? null,
       branchId: opening?.branchId ?? null, employeeTypeId: opening?.employeeTypeId ?? null,
       reportingManagerId: manager?.id ?? null,
+      hireSource: hireSourceFromCandidate(c.source),
       createdByUserId: who.userId,
     } as any,
     {

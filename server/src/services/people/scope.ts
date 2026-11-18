@@ -82,6 +82,12 @@ export const inScope = (scope: TeamScope, employeeId: string) => scope.all || sc
  * records (an administrator, anyone who may edit employees or see statutory
  * details). A read-only role (IT, a team lead) gets the work profile.
  */
+/** Health and the second emergency contact (recordExtras.ts HR_ONLY_FIELDS): HR, who may edit records, and admins. */
+export async function seesHealth(req: Request) {
+  if (req.isAdmin) return true;
+  return !(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.employees));
+}
+
 export async function seesPersonal(req: Request) {
   if (req.isAdmin) return true;
   if (!(await authorize(req, PEOPLE_MODULE, PermissionAction.EDIT, PEOPLE_RESOURCE.employees))) return true;

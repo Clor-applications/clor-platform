@@ -1,6 +1,7 @@
 import { peoplePrisma } from '../../utils/peoplePrisma.js';
 import { platformPrisma } from '../../utils/platformPrisma.js';
 import { changesOf, fieldWord } from './journey.js';
+import { HR_ONLY_FIELDS, RECORD_EXTRAS_PERSONAL } from './recordExtras.js';
 
 /**
  * One employee's Activity & Audit Trail (People design spec v1 §7, EMP-09;
@@ -25,6 +26,8 @@ export type ActivityViewer = {
   canDeleteNotes?: boolean;
   /** Personal details (date of birth, address, family, emergency contact): only for who keeps the records (routes/people.ts seesPersonal). */
   canPersonal?: boolean;
+  /** Health and the second emergency contact (recordExtras.ts HR_ONLY_FIELDS). */
+  canHealth?: boolean;
   /** The reason typed for leaving (companyChoices.ts seesLeavingReason, SPEC 3.5): false hides the line's before and after, and the reason the change came with. */
   canLeavingReason?: boolean;
   /** Whether the company lets this reader see who is leaving (companyChoices.ts seesLeavings): false drops the leaving's events. */
@@ -73,7 +76,7 @@ async function actorsOf(orgId: string, ids: string[]) {
   return { name: new Map((users as any[]).map((u) => [u.id, u.fullName || u.email])), role };
 }
 
-const PERSONAL_LINES = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
+const PERSONAL_LINES = new Set<string>(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber', ...RECORD_EXTRAS_PERSONAL]);
 
 export async function activityOf(viewer: ActivityViewer, employeeId: string, opts: { before?: Date | null; limit?: number } = {}) {
   const { orgId } = viewer;
@@ -97,6 +100,7 @@ export async function activityOf(viewer: ActivityViewer, employeeId: string, opt
     if (l.entity === 'EmployeeIdentity') return !viewer.canStatutory;
     if (l.entity === 'CustomFieldValue') return defOf.has(l.field) ? !seeable.has(l.field) : false;
     if (l.entity === 'Employee' && viewer.canPersonal === false && PERSONAL_LINES.has(l.field)) return true;
+    if (l.entity === 'Employee' && viewer.canHealth === false && (HR_ONLY_FIELDS as readonly string[]).includes(l.field)) return true;
     if (l.entity === 'Employee' && viewer.canLeavingReason === false && l.field === 'leavingReason') return true;
     return false;
   };

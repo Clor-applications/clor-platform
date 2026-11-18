@@ -4,6 +4,7 @@ import { episodesOf } from './episodes.js';
 import { labelOf, timelineOf } from './employmentHistory.js';
 import { namesFor, shape } from './approvals/engine.js';
 import { LOGGED_EMPLOYEE_FIELDS } from './changeLog.js';
+import { HR_ONLY_FIELDS, RECORD_EXTRAS_PERSONAL, RECORD_EXTRAS_WORDS } from './recordExtras.js';
 import { istDate } from '../../utils/istDate.js';
 
 /**
@@ -25,6 +26,7 @@ const FIELD_WORDS: Record<string, string> = {
   dateOfJoining: 'Joining date', dateOfLeaving: 'Date of leaving', firstJoiningDate: 'First joining date', currentEpisodeSeq: 'Stint', confirmedOn: 'Confirmed on', probationEndDate: 'Probation ends', contractEndDate: 'Contract ends', status: 'Status',
   leavingType: 'Leaving type', leavingReason: 'Leaving reason', dateOfBirth: 'Date of birth', gender: 'Gender', maritalStatus: 'Marital status', addressLine: 'Address', city: 'City', state: 'State', country: 'Country', pincode: 'PIN code',
   emergencyContactName: 'Emergency contact', emergencyContactPhone: 'Emergency contact phone', emergencyContactRelation: 'Emergency contact relation', guardianName: 'Father / husband name', invite: 'Invite', letter: 'Letter', version: 'Version', done: 'Done',
+  ...RECORD_EXTRAS_WORDS,
 };
 export const fieldWord = (f: string) => FIELD_WORDS[f] || f.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 
@@ -104,14 +106,15 @@ function groupLines(lines: Line[]) {
 
 /** The whole journey, newest first, each change with enough to show and a key for its Why. */
 /* Personal details a read-only viewer may not see: the line says changed, never the values (Workforce audit E4). */
-const PERSONAL_LINES = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
-const maskPersonal = <T extends { field: string; redacted: boolean }>(rows: T[], hide: boolean, hideReason = false) => (hide || hideReason ? rows.map((l) => ((hide && PERSONAL_LINES.has(l.field)) || (hideReason && l.field === 'leavingReason') ? { ...l, redacted: true } : l)) : rows);
+const PERSONAL_LINES = new Set<string>(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber', ...RECORD_EXTRAS_PERSONAL]);
+const HR_ONLY_LINES = new Set<string>(HR_ONLY_FIELDS);
+const maskPersonal = <T extends { field: string; redacted: boolean }>(rows: T[], hide: boolean, hideReason = false, hideHealth = false) => (hide || hideReason || hideHealth ? rows.map((l) => ((hide && PERSONAL_LINES.has(l.field)) || (hideHealth && HR_ONLY_LINES.has(l.field)) || (hideReason && l.field === 'leavingReason') ? { ...l, redacted: true } : l)) : rows);
 
 /**
  * hideLeavingReason: the reader may not see the reason for the current leaving (change-log lines and the reason on
  * them). reasonShownFor: for a past leaving, by its last day (a stint's end, a history note); defaults to the same.
  */
-export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean; hideLeavingReason?: boolean; hideLeavings?: boolean; reasonShownFor?: (leavingDate: string | null) => boolean } = {}) {
+export async function journeyOf(orgId: string, employee: { id: string; currentEpisodeSeq?: number | null; status?: string | null } & Record<string, unknown>, opts: { hidePersonal?: boolean; hideHealth?: boolean; hideLeavingReason?: boolean; hideLeavings?: boolean; reasonShownFor?: (leavingDate: string | null) => boolean } = {}) {
   const shownFor = opts.reasonShownFor || (() => !opts.hideLeavingReason);
   const [rawLines, rawEpisodes, history] = await Promise.all([
     peoplePrisma.changeLog.findMany({ where: { orgId, employeeId: employee.id }, orderBy: { at: 'asc' } }),
@@ -120,7 +123,7 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
   ]);
   /* Each stint's end carries the reason typed for that leaving (leaving.ts closeEpisode). */
   const episodes = rawEpisodes.map((ep) => (ep.endReason && !shownFor(ep.endDate) ? { ...ep, endReason: null } : ep));
-  const lines = maskPersonal(rawLines as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason));
+  const lines = maskPersonal(rawLines as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason), Boolean(opts.hideHealth));
   /* The person's own lines: a request's status lines carry the employee id too, but they are the request's story, told on the Why panel. */
   const groups = groupLines((lines as Line[]).filter((l) => l.entity === 'Employee')).filter((g) => !opts.hideLeavings || !aboutLeaving(g));
   const names = await namesFor([...new Set(lines.map((l) => l.actorUserId).filter((x): x is string => Boolean(x)))]);
@@ -154,7 +157,7 @@ export async function journeyOf(orgId: string, employee: { id: string; currentEp
 }
 
 /** Why: the seven things a reader asks about one change, and plain words for each one that is not known. */
-export async function whyOf(orgId: string, employeeId: string, key: string, opts: { hidePersonal?: boolean; hideLeavingReason?: boolean; hideLeavings?: boolean } = {}) {
+export async function whyOf(orgId: string, employeeId: string, key: string, opts: { hidePersonal?: boolean; hideHealth?: boolean; hideLeavingReason?: boolean; hideLeavings?: boolean } = {}) {
   if (key.startsWith('history_')) {
     const ev = await peoplePrisma.employmentEvent.findFirst({ where: { orgId, employeeId, id: key.slice('history_'.length) } });
     if (!ev || (opts.hideLeavings && isLeavingEvent(ev))) return null;
@@ -166,7 +169,7 @@ export async function whyOf(orgId: string, employeeId: string, key: string, opts
       reason: opts.hideLeavingReason && (ev.kind === 'LEFT' || ev.source === 'RESIGNATION') ? null : ev.note, impact: ev.payrollImpact,
     };
   }
-  const lines = maskPersonal((await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } })) as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason));
+  const lines = maskPersonal((await peoplePrisma.changeLog.findMany({ where: { orgId, employeeId, correlationId: key, entity: 'Employee' }, orderBy: { at: 'asc' } })) as Line[], Boolean(opts.hidePersonal), Boolean(opts.hideLeavingReason), Boolean(opts.hideHealth));
   if (!lines.length || (opts.hideLeavings && aboutLeaving(lines as Line[]))) return null;
   const first = lines[0];
   const [events, request, actorNames] = await Promise.all([

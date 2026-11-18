@@ -275,7 +275,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
           <div><dt>Reports to</dt><dd>{person.reportingManagerName ? (person.managerOpens === false ? person.reportingManagerName : <button type="button" className="ui-link" onClick={() => openScreen?.('employee', { id: person.reportingManagerId })}>{person.reportingManagerName}</button>) : <span className="ui-muted">No manager</span>}</dd></div>
           <div><dt>Joined</dt><dd>{person.dateOfJoining ? <>{formatDate(String(person.dateOfJoining).slice(0, 10))}{tenure(person.dateOfJoining) ? ` · ${tenure(person.dateOfJoining)}` : ''}</> : <span className="ui-muted">Not set</span>}</dd></div>
           <div><dt>Location</dt><dd>{person.branchName || person.areaName || person.workLocation || <span className="ui-muted">Not set</span>}</dd></div>
-          <div><dt>Phone</dt><dd>{person.phone || person.workPhone || <span className="ui-muted">Not given</span>}</dd></div>
+          <div><dt>Phone</dt><dd>{person.phone || person.workPhone || (person.officeExtension ? null : <span className="ui-muted">Not given</span>)}{person.officeExtension ? <span className="tabular-nums">{person.phone || person.workPhone ? ' · ' : ''}Ext. {person.officeExtension}</span> : null}</dd></div>
         </dl>
       </section>
 
@@ -731,7 +731,7 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
       ) : null}
       {error ? <ErrorState error={error} compact onRetry={save} retryLabel="Try again" body={error?.network ? 'Your changes have not been saved. They are still in this form.' : undefined} /> : null}
       <div className="ui-form-grid">
-        {fields.map((f) => {
+        {fields.filter((f) => !(f.unlessSame && form.permSameAsPresent)).map((f) => {
           const id = `${formId}-${f.key}`;
           const help = f.help ? `${id}-help` : undefined;
           return (
@@ -745,8 +745,10 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
                 <span className="flex items-center gap-2 text-sm"><input id={id} type="checkbox" className="ui-checkbox" aria-describedby={help} checked={form[f.key] !== false} onChange={(e) => setForm({ ...form, [f.key]: e.target.checked })} />{f.checkLabel}</span>
               ) : f.kind === 'date' ? (
                 <DatePicker id={id} describedBy={help} value={form[f.key] ? String(form[f.key]).slice(0, 10) : ''} onChange={(v) => setForm({ ...form, [f.key]: v })} />
+              ) : f.kind === 'chips' ? (
+                <ChipsInput id={id} help={help} label={f.label} value={Array.isArray(form[f.key]) ? form[f.key] : []} onChange={(v) => setForm({ ...form, [f.key]: v })} />
               ) : f.kind === 'textarea' ? (
-                <textarea id={id} className="ui-input w-full" rows={3} aria-describedby={help} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+                <textarea id={id} className="ui-input w-full" rows={3} aria-describedby={help} maxLength={f.max} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
               ) : f.suggest ? (
                 <SuggestedText field={f} id={id} help={help} value={form[f.key] ?? ''} onChange={(v) => setForm({ ...form, [f.key]: v })} person={person} />
               ) : (
@@ -765,20 +767,60 @@ function SectionForm({ person, fields, onCancel, onSaved, reload }) {
   );
 }
 
+/* Record extras (server picks, theme A): the lists the server takes (services/people/recordExtras.ts). */
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const FOOD_WORDS = { VEG: 'Veg', NON_VEG: 'Non-veg', EGG: 'Eggetarian', JAIN: 'Jain' };
+const HIRE_WORDS = { REFERRAL: 'Referral', JOB_SITE: 'Job site', AGENCY: 'Agency', CAMPUS: 'Campus', WALK_IN: 'Walk-in', CAREERS_PAGE: 'Careers page', INTERNAL: 'Moved from within', OTHER: 'Other' };
+/* Health and the second emergency contact: the server leaves them out for anyone who cannot edit records (hrOnlyHidden). */
+const HR_ONLY_KEYS = new Set(['bloodGroup', 'disability', 'healthNote', 'emergencyContact2Name', 'emergencyContact2Phone', 'emergencyContact2Relation']);
+
+/* Languages as chips: Enter or a comma adds one, × takes it off. */
+function ChipsInput({ id, help, label, value, onChange }) {
+  const [draft, setDraft] = useState('');
+  const add = () => {
+    const w = draft.trim().replace(/\s+/g, ' ');
+    if (!w) return;
+    const word = w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    if (!value.includes(word) && value.length < 20) onChange([...value, word]);
+    setDraft('');
+  };
+  return (
+    <div>
+      {value.length ? (
+        <ul className="flex flex-wrap gap-1 mb-2" aria-label={label}>
+          {value.map((l) => (
+            <li key={l} className="ui-chip">{l}<button type="button" className="ui-chip-x" aria-label={`Remove ${l}`} onClick={() => onChange(value.filter((x) => x !== l))}>×</button></li>
+          ))}
+        </ul>
+      ) : null}
+      <input id={id} className="ui-input w-full" aria-describedby={help} value={draft} maxLength={40} placeholder="Add a language"
+        onChange={(e) => setDraft(e.target.value.replace(',', ''))}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } }}
+        onBlur={add} />
+    </div>
+  );
+}
+
 const GENDERS = Object.entries(GENDER_WORDS);
 const MARITAL = [['SINGLE', 'Single'], ['MARRIED', 'Married'], ['DIVORCED', 'Divorced'], ['WIDOWED', 'Widowed']];
 const PERSONAL_SECTIONS = {
-  name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name' }] },
+  name: { title: 'Name', fields: [{ key: 'firstName', label: 'First name', required: true }, { key: 'lastName', label: 'Last name' }, { key: 'preferredName', label: 'Preferred name' }, { key: 'initials', label: 'Initials', max: 10, help: 'For sign-offs and initialled pages.' }] },
   /* `email` is the personal address the employee form has always saved; `personalEmail` is what a joiner gives on their invite. */
-  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email', suggest: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', hideEmpty: true }] },
+  contact: { title: 'Contact', fields: [{ key: 'workEmail', label: 'Work email', type: 'email', inputMode: 'email', suggest: 'email' }, { key: 'workPhone', label: 'Work phone', type: 'tel', inputMode: 'tel' }, { key: 'officeExtension', label: 'Extension', inputMode: 'numeric', max: 10, mono: true }, { key: 'email', label: 'Personal email', type: 'email', inputMode: 'email' }, { key: 'phone', label: 'Personal phone', type: 'tel', inputMode: 'tel' }, { key: 'personalEmail', label: 'Email from invite', type: 'email', inputMode: 'email', hideEmpty: true }] },
   personal: { title: 'Personal details', fields: [{ key: 'dateOfBirth', label: 'Date of birth', kind: 'date' }, { key: 'gender', label: 'Gender', kind: 'select', options: GENDERS }, { key: 'maritalStatus', label: 'Marital status', kind: 'select', options: MARITAL }, { key: 'guardianName', label: 'Father / husband name' }] },
   address: { title: 'Address', fields: [{ key: 'addressLine', label: 'Address', wide: true }, { key: 'city', label: 'City', suggest: 'city' }, { key: 'state', label: 'State', suggest: 'state' }, { key: 'pincode', label: 'PIN code', inputMode: 'numeric', max: 10 }, { key: 'country', label: 'Country', suggest: 'country' }] },
+  permanent: { title: 'Permanent address', fields: [{ key: 'permSameAsPresent', label: 'Same as present', kind: 'checkbox', checkLabel: 'Same as the address above' }, { key: 'permAddressLine', label: 'Address', wide: true, unlessSame: true }, { key: 'permCity', label: 'City', suggest: 'city', unlessSame: true }, { key: 'permState', label: 'State', suggest: 'state', unlessSame: true }, { key: 'permPincode', label: 'PIN code', inputMode: 'numeric', max: 10, unlessSame: true }, { key: 'permCountry', label: 'Country', suggest: 'country', unlessSame: true }] },
   emergency: { title: 'Emergency contact', fields: [{ key: 'emergencyContactName', label: 'Name' }, { key: 'emergencyContactRelation', label: 'Relationship', suggest: 'relation' }, { key: 'emergencyContactPhone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
+  emergency2: { title: 'Second emergency contact', note: 'Seen by HR and this person only.', fields: [{ key: 'emergencyContact2Name', label: 'Name' }, { key: 'emergencyContact2Relation', label: 'Relationship', suggest: 'relation' }, { key: 'emergencyContact2Phone', label: 'Phone', type: 'tel', inputMode: 'tel' }] },
+  health: { title: 'Health', note: 'Seen by HR and this person only.', fields: [{ key: 'bloodGroup', label: 'Blood group', kind: 'select', options: BLOOD_GROUPS.map((b) => [b, b]) }, { key: 'disability', label: 'Disability', max: 200, help: 'Only if they want it noted. The certificate goes in Documents as HR only.' }, { key: 'healthNote', label: 'Health note', kind: 'textarea', wide: true, max: 300, help: 'Short: what someone giving first aid should know.' }] },
+  everyday: { title: 'Food and uniform', fields: [{ key: 'foodPreference', label: 'Food', kind: 'select', options: Object.entries(FOOD_WORDS) }, { key: 'shoeSize', label: 'Shoe size', max: 10 }, { key: 'uniformSize', label: 'Uniform size', max: 10 }] },
+  languages: { title: 'Languages', fields: [{ key: 'languages', label: 'Languages spoken', kind: 'chips', wide: true, help: 'Type one and press Enter. Colleagues can find them by it in the directory.' }] },
 };
 
 /* Personal details the server leaves out for a read-only role (routes/people.ts seesPersonal): their fields are not drawn, rather than shown as "Not provided". */
-const PERSONAL_KEYS = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber']);
-const shownFields = (person, fields) => (person.personalHidden ? fields.filter((f) => !PERSONAL_KEYS.has(f.key)) : fields);
+const PERSONAL_KEYS = new Set(['dateOfBirth', 'maritalStatus', 'guardianName', 'email', 'personalEmail', 'addressLine', 'city', 'state', 'country', 'pincode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation', 'notes', 'cardNumber',
+  'permSameAsPresent', 'permAddressLine', 'permCity', 'permState', 'permCountry', 'permPincode', 'foodPreference', 'shoeSize', 'uniformSize', ...HR_ONLY_KEYS]);
+const shownFields = (person, fields) => fields.filter((f) => !(person.personalHidden && PERSONAL_KEYS.has(f.key)) && !(person.hrOnlyHidden && HR_ONLY_KEYS.has(f.key)) && !(f.unlessSame && person.permSameAsPresent));
 
 function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
   /* Personal and contact details stay correctable after someone leaves: a settlement, a certificate or a reference still needs them right. */
@@ -786,6 +828,9 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
   const value = (s, f) => {
     if (f.key === 'gender') return GENDER_WORDS[person.gender] || person.gender;
     if (f.key === 'maritalStatus') return MARITAL.find(([k]) => k === person.maritalStatus)?.[1] || person.maritalStatus;
+    if (f.key === 'permSameAsPresent') return person.permSameAsPresent ? 'Yes, same as present' : 'No';
+    if (f.key === 'foodPreference') return FOOD_WORDS[person.foodPreference] || person.foodPreference;
+    if (f.kind === 'chips') return (person[f.key] || []).length ? <span className="flex flex-wrap gap-1">{person[f.key].map((l) => <span key={l} className="ui-chip">{l}</span>)}</span> : null;
     if (f.kind === 'date') return person[f.key] ? formatDate(String(person[f.key]).slice(0, 10)) : null;
     return person[f.key];
   };
@@ -796,8 +841,9 @@ function Personal({ person, allowed, editing, setEditing, onSaved, reload }) {
           {editing === k ? (
             <SectionForm person={person} fields={s.fields} onCancel={() => setEditing(null)} onSaved={(emp) => { onSaved(emp); setEditing(null); }} reload={reload} />
           ) : (
-            <dl className="ui-field-grid">{shownFields(person, s.fields).filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} />)}</dl>
+            <dl className="ui-field-grid">{shownFields(person, s.fields).filter((f) => !f.hideEmpty || person[f.key]).map((f) => <Field key={f.key} label={f.label} value={value(s, f)} mono={f.mono} />)}</dl>
           )}
+          {s.note ? <p className="ui-caption mt-2">{s.note}</p> : null}
         </Section>
       ))}
       {person.personalHidden ? <p className="ui-caption">Date of birth, home address and family details are kept with HR.</p> : null}
@@ -864,6 +910,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
     { key: 'hours', label: 'Hours', kind: 'select', options: Object.entries(HOURS_WORDS), noBlank: true, fallback: 'FULL_TIME' },
     dates.probation && { key: 'probationEndDate', label: 'Probation ends', kind: 'date' },
     dates.contract && { key: 'contractEndDate', label: dates.contractLabel, kind: 'date' },
+    { key: 'hireSource', label: 'How they were hired', kind: 'select', options: Object.entries(HIRE_WORDS) },
     { key: 'jobRoleId', label: 'Job role', kind: 'select', options: (lists?.roles || []).filter((x) => !person.jobPositionId || !x.jobPositionId || x.jobPositionId === person.jobPositionId || x.id === person.jobRoleId).map((x) => [x.id, x.name]) },
   ].filter(Boolean);
   return (
@@ -879,6 +926,7 @@ function Employment({ person, data, lists, allowed, editing, setEditing, onSaved
             <Field label="Hours" value={HOURS_WORDS[person.hours || 'FULL_TIME']} />
             <Field label="Work mode" value={workTypeName} />
             <Field label="Job role" value={lists?.roles?.find((r) => r.id === person.jobRoleId)?.name} />
+            <Field label="How they were hired" value={HIRE_WORDS[person.hireSource]} />
             <Field label={person.currentEpisodeSeq > 1 ? 'Rejoined' : 'Joining date'} value={person.dateOfJoining ? formatDate(String(person.dateOfJoining).slice(0, 10)) : null} mono />
             {person.currentEpisodeSeq > 1 ? <Field label="First joined" value={person.firstJoiningDate ? formatDate(person.firstJoiningDate) : null} mono /> : null}
             {dates.probation || person.probationEndDate || person.confirmedOn ? <Field label={person.confirmedOn ? 'Confirmed on' : 'Probation ends'} value={person.confirmedOn ? formatDate(person.confirmedOn) : person.probationEndDate ? formatDate(person.probationEndDate) : null} mono /> : null}

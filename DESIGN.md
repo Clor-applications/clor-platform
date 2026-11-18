@@ -765,6 +765,8 @@ Built:
 | What a screen reader says for a status | A waiting leave or attendance request is read as the word and how long, "Waiting, 2 days" (hidden text beside the pill; the screen still shows only "Waiting") (`waitingSaid`). |
 | Opening a notice after being signed out | A sign-in through the company's own provider now comes back to the page that was being opened, not Home (`returnPath`; the API already accepted a safe return path). Password sign-in already stayed on the same address. |
 | Chart colours for colour-blind users | The Attendance calendar's day counts no longer lean on green against red: blue for in, orange for absent, grey for leave, and each count carries its word ("12 in · 2 absent · 1 leave"). |
+| Languages someone speaks | Chips on the Personal tab (Enter adds, × removes, one spelling each); the directory finds people by a language in its search, a "Speaks" filter and a Languages column (hidden at first) (server picks theme A). |
+| Initials | An Initials field under Name on the Personal tab (server picks theme A). |
 
 Picked and already how the app works: "Skip to main content" on the first Tab (the shell and Ops
 have it); figures only on letters (no amount in words outside Books' printed documents); a
@@ -775,9 +777,8 @@ is, it reads "₹18.42 lakh", not "₹18.4 L").
 Picked, **not built yet**: a new phone allowed only after HR approves it; punching blocked on a
 tampered phone while payslips still open; asking to turn notices back on after a missed
 approval; asking the worker to let the app track when battery saver stops it; the phone app
-read only (payslips open, punching paused) when the company's plan stops; an initials field
-before the name with lists sorted by name; languages someone speaks as a searchable list in the
-directory. All need server or phone-app work.
+read only (payslips open, punching paused) when the company's plan stops; initials shown before
+the name in lists. All need server or phone-app work.
 
 ### Round 35 (18 Nov 2026)
 
@@ -876,6 +877,8 @@ Built:
 
 | Building block | Pick |
 | --- | --- |
+| Two emergency contacts, HR only | A "Second emergency contact" section on the Personal tab; the server sends it only to whoever may edit records and to the person (server picks theme A). |
+| Shoe and uniform size | On the Personal tab under "Food and uniform", with the personal details (server picks theme A). |
 | Choosing old or new tax regime | The employee app's tax form works out both regimes side by side on a year's salary (started from the latest payslip's earnings times twelve, changeable) and what is declared, marks the lower one with "New saves you about ₹8,300 this year", and offers "Use the new regime". An estimate: standard deduction, slabs, rebate and cess; payroll still works out the exact tax (`TaxCompare`, `regimeTax`). |
 
 Picked and already how the app works: a name change keeps the legal name for PF and tax while
@@ -883,11 +886,11 @@ the preferred name shows elsewhere (round 29's legal name in lists, preferred na
 Personal tab).
 
 Picked, **not built yet**: a signed salary certificate downloaded by the employee; a bank account
-change approved by HR before payroll uses it; two emergency contacts seen by HR only; Form 16 in
+change approved by HR before payroll uses it; Form 16 in
 the employee app with a six-step filing guide; IT as a topic on the same Ask HR desk, sent to IT staff; visitor QR passes on WhatsApp; a desk given for a
 booked day; booking a room from the calendar; live poll bars in company news; events posted as
 news; a line in company news on a leaver's last day; a Friday reminder to hand over before
-leave; shoe and uniform size on the profile; PF saved so far from CLOR's payroll records. All need
+leave; PF saved so far from CLOR's payroll records. All need
 server work.
 
 ### Round 40 (18 Nov 2026)
@@ -957,6 +960,7 @@ Built:
 | Building block | Pick |
 | --- | --- |
 | Showing Aadhaar numbers | Statutory details show Aadhaar as "XXXX XXXX 1234" in JetBrains Mono, so it reads as a masked number (`maskedAadhaar`). |
+| Record extras (server picks theme A) | Personal tab: blood group, disability and a short health note under "Health", and the second emergency contact, sent only to whoever may edit records and to the person (not Viewer or Auditor, nor its history lines); "Permanent address" with "Same as the address above", which hides its fields; food (Veg, Non-veg, Eggetarian, Jain) with counts under By employee type on Employees, for those who see personal details; languages as chips; office extension beside the phone in the header ("Ext. 204") and in Contact; Employment shows "How they were hired", filled from the candidate's source on hire. |
 | Change in marital status | When someone changes their marital status in the employee app, the confirmation adds what to update next: after marrying, the nominee and the health cover; after a divorce or a death, a check of both (`maritalNextStep`, My details). |
 
 Picked and already how the app works: CLOR keeps only Aadhaar's last four digits, never the full
@@ -965,13 +969,13 @@ number, and passport and work permit numbers show in full only with an authentic
 Overview, Today), never the year; which details save at once and which go to HR is the company's
 self-service setting, so "every change goes to HR" is that setting turned to all.
 
-Picked, **not built yet**: blood group on the record for HR only; present and permanent address
-with "Same as present"; a passport section only for people who travel; a driving licence file; an
-optional disability field with certificate, HR only; languages spoken as chips searchable in the
-directory; Veg / Non-veg / Jain with counts for events; a short health note for HR and first-aid
-staff; the signer's uploaded signature on letters after approval; a work profile link on the
-directory card; an office extension beside the mobile; how someone was hired, carried from
-hiring. All need new fields on the server.
+Also already how the app works: passport number and expiry sit in IDs and statutory, and a driving
+licence or disability certificate is a file in Documents (marked HR only for the certificate).
+There is no first-aid role, so the health note is HR's to read out.
+
+Picked, **not built yet**: the passport section shown only for people who travel; the signer's
+uploaded signature on letters after approval; a work profile link on the directory card. All need
+new fields on the server.
 
 ### Round 44 (18 Nov 2026)
 

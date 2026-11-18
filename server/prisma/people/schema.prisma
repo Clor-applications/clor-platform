@@ -104,6 +104,35 @@ model Employee {
   emergencyContactName     String?
   emergencyContactPhone    String?
   emergencyContactRelation String?
+  /// Record extras (server picks, theme A, 18 Nov 2026). HR-only ones are in PERSONAL_FIELDS (routes/people.ts).
+  /// A second emergency contact, HR only.
+  emergencyContact2Name     String?
+  emergencyContact2Phone    String?
+  emergencyContact2Relation String?
+  /// Permanent address, apart from the present one above; permSameAsPresent means it is the same.
+  permSameAsPresent         Boolean   @default(false)
+  permAddressLine           String?
+  permCity                  String?
+  permState                 String?
+  permCountry               String?
+  permPincode               String?
+  /// A+ | A- | B+ | B- | AB+ | AB- | O+ | O-; HR only.
+  bloodGroup                String?
+  /// Optional, in the person's words; HR only. The certificate is filed under Documents.
+  disability                String?
+  /// A short note for HR and first aid (an allergy, a condition to know about); HR only.
+  healthNote                String?
+  /// VEG | NON_VEG | EGG | JAIN; HR only, counted for events.
+  foodPreference            String?
+  /// Shoe and uniform size, for safety gear and uniforms; HR only.
+  shoeSize                  String?
+  uniformSize               String?
+  /// Work profile: initials shown before the name, the office extension, languages spoken, how they were hired.
+  initials                  String?
+  officeExtension           String?
+  languages                 String[]  @default([])
+  /// REFERRAL | JOB_SITE | AGENCY | CAMPUS | WALK_IN | CAREERS_PAGE | INTERNAL | OTHER (carried from hiring when known).
+  hireSource                String?
 
   // ---- Work (People app) ---------------------------------------------
   // Ids into the org-structure tables below. `department` and `designation`
