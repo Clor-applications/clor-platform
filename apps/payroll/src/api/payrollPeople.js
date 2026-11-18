@@ -26,6 +26,9 @@ export async function listEmployees({ q = '', status = '' } = {}) {
   return { employees: Array.isArray(data.employees) ? data.employees : [], sensitiveVisible: !!data.sensitiveVisible };
 }
 
+/** One person, with the work site's state their professional tax follows (`ptFromSite`). */
+export const getEmployee = (id) => apiFetch(`${base()}/employees/${encodeURIComponent(id)}`, opts);
+
 export async function createEmployee(payload) {
   const { employee } = await apiFetch(`${base()}/employees`, { ...opts, method: 'POST', body: payload });
   return employee;

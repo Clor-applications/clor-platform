@@ -210,6 +210,34 @@ export async function resignFromApp(who: { accountId: string; orgId: string; emp
   return { request: { id: r.request.id, status: r.request.status, title: r.request.title }, outcome: r.outcome ?? null };
 }
 
+/**
+ * Taking a resignation back from the app (picks round 52): someone on notice after resigning asks to stay.
+ * Their manager accepts or not (a LEAVING_WITHDRAW request; without a rule, the default is the manager,
+ * handed on to HR when it waits too long). Accepted, the leaving is withdrawn as HR would by hand.
+ * A resignation not yet decided is simply withdrawn (My requests); this is for one already accepted.
+ */
+export async function askToStayFromApp(who: { accountId: string; orgId: string; employeeId: string; userId: string | null; correlationId: string }, input: { reason?: string | null }) {
+  const e = await peoplePrisma.employee.findFirst({ where: { id: who.employeeId, orgId: who.orgId } });
+  if (!e) throw new ResignError('No such person.', 404);
+  if (e.status !== 'ON_NOTICE' || !e.dateOfLeaving) throw new ResignError('You are not on notice, so there is nothing to take back.', 409);
+  if ((e.leavingType || 'RESIGNED') !== 'RESIGNED') throw new ResignError('Only a resignation can be taken back here. Talk to HR.', 409);
+  if (e.dateOfLeaving < todayIst()) throw new ResignError('Your last day has passed.', 409);
+  const open = await peoplePrisma.approvalRequest.findFirst({ where: { orgId: who.orgId, subjectEmployeeId: e.id, requestType: 'LEAVING_WITHDRAW', status: { in: ['WAITING', 'MORE_INFO'] } }, select: { id: true } });
+  if (open) throw new ResignError('You have already asked to stay. Your manager will answer.', 409);
+  if (!(await activeRule(who.orgId, 'LEAVING_WITHDRAW'))) {
+    await saveRule({ accountId: who.accountId, orgId: who.orgId, userId: null }, 'LEAVING_WITHDRAW', 'Taking back a resignation (default: manager)', [
+      { order: 1, approver: { kind: 'MANAGER' }, dueDays: 3, overdue: { action: 'HAND_ON', to: { kind: 'HR' } } },
+    ]);
+  }
+  const requester = who.userId || e.userId || `portal:${e.id}`;
+  const reason = String(input.reason || '').trim().slice(0, 1000) || null;
+  const r = await submitRequest({ accountId: who.accountId, orgId: who.orgId, userId: requester, source: 'SELF_SERVICE', correlationId: who.correlationId, reason }, {
+    requestType: 'LEAVING_WITHDRAW', subjectEmployeeId: e.id, title: `${e.name}: asks to take back their resignation (last day ${e.dateOfLeaving})`, payload: { employeeId: e.id, lastDay: e.dateOfLeaving, reason },
+  });
+  await notifyPermission(who.accountId, who.orgId, 'PEOPLE::Employees::EDIT', { kind: 'people.resignation', title: `${e.name} asks to take back their resignation`, body: reason || 'No reason given.', link: { app: 'people', screen: 'approvals' } as any }).catch(() => undefined);
+  return { request: { id: r.request.id, status: r.request.status, title: r.request.title }, outcome: r.outcome ?? null };
+}
+
 /* A department head or team lead leaving: HR is asked who takes over (Organization). Never blocks the leaving. */
 async function successorsFor(who: Who, employee: { id: string; name: string }, lastDay: string) {
   const { successorTasks } = await import('../organization.js');

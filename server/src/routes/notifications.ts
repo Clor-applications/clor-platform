@@ -36,7 +36,16 @@ const shape = (n: { id: string; kind: string; title: string; body: string | null
 
 const sameAs = (n: { kind: string; title: string; linkJson: string | null }) => `${n.kind}\u0000${n.title}\u0000${n.linkJson || ''}`;
 /** Distinct unread notices: the bell's badge. */
-const distinctUnread = async (orgId: string, userId: string) => new Set((await platformPrisma.notification.findMany({ where: { orgId, userId, readAt: null }, select: { kind: true, title: true, linkJson: true } })).map(sameAs)).size;
+const distinctUnread = async (orgId: string, userId: string) => new Set((await platformPrisma.notification.findMany({ where: { orgId, userId, readAt: null, ...awake() }, select: { kind: true, title: true, linkJson: true } })).map(sameAs)).size;
+
+/** Round 55 (snooze A): a notice put off until tomorrow stays out of the list and the badge until then. */
+const awake = () => ({ OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: new Date() } }] });
+
+/** 9 AM India time on the day after `now` (India's date). */
+export function tomorrowNineIst(now = new Date()): Date {
+  const istDay = new Date(now.getTime() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+  return new Date(new Date(`${istDay}T09:00:00+05:30`).getTime() + 86_400_000);
+}
 
 notificationsRouter.get(base, async (req, res) => {
   if (!orgOk(req, res)) return;
@@ -48,7 +57,7 @@ notificationsRouter.get(base, async (req, res) => {
    * Recurring jobs now refresh one row (upsertNotice); rows from before are read as one: the newest of each
    * kind + title + link speaks, and the badge counts distinct unread notices.
    */
-  const [rows, unread] = await Promise.all([platformPrisma.notification.findMany({ where: { orgId, userId }, orderBy: { createdAt: 'desc' }, take: take * 3 }), distinctUnread(orgId, userId)]);
+  const [rows, unread] = await Promise.all([platformPrisma.notification.findMany({ where: { orgId, userId, ...awake() }, orderBy: { createdAt: 'desc' }, take: take * 3 }), distinctUnread(orgId, userId)]);
   const seen = new Set<string>();
   const distinct = rows.filter((n) => { const k = sameAs(n); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, take);
   res.json({ unread, notifications: distinct.map(shape) });
@@ -61,12 +70,29 @@ notificationsRouter.post(`${base}/read`, async (req, res) => {
   const userId = req.auth!.userId;
   const p = z.object({ ids: z.array(z.string().min(1)).max(200).optional(), all: z.boolean().optional() }).safeParse(req.body || {});
   if (!p.success) return res.status(400).json({ error: 'Say which notifications.' });
-  const where = { orgId, userId, readAt: null, ...(p.data.all ? {} : { id: { in: p.data.ids || [] } }) };
+  const where = { orgId, userId, readAt: null, ...(p.data.all ? awake() : { id: { in: p.data.ids || [] } }) };
   /* A weekly summary opened from the bell (not "mark all read"): the habit the summary is for (PRODUCT-VIEW §7). */
   const opened = p.data.all ? [] : await platformPrisma.notification.findMany({ where: { ...where, kind: { in: DIGEST_KINDS } }, select: { kind: true } });
   const r = await platformPrisma.notification.updateMany({ where, data: { readAt: new Date() } });
   for (const n of opened) void track(orgId, userId, 'digest_opened', { kind: n.kind, channel: 'bell' });
   res.json({ marked: r.count, unread: await distinctUnread(orgId, userId) });
+});
+
+/**
+ * "Remind me tomorrow" (round 55): the notice leaves the list and comes back
+ * at 9 AM tomorrow, India time, unread and at the top (its time is moved to
+ * then, so it sorts first). Only the person's own notices.
+ */
+notificationsRouter.post(`${base}/snooze`, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const p = z.object({ id: z.string().min(1).max(60) }).safeParse(req.body || {});
+  if (!p.success) return res.status(400).json({ error: 'Say which notification.' });
+  const { orgId } = req.tenant!;
+  const userId = req.auth!.userId;
+  const until = tomorrowNineIst();
+  const r = await platformPrisma.notification.updateMany({ where: { id: p.data.id, orgId, userId }, data: { snoozedUntil: until, createdAt: until, readAt: null } });
+  if (!r.count) return res.status(404).json({ error: 'No such notification.' });
+  res.json({ snoozedUntil: until, unread: await distinctUnread(orgId, userId) });
 });
 
 /** Kinds this person muted for this company. */

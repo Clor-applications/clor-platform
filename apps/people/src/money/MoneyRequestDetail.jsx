@@ -103,7 +103,8 @@ function ClaimDetail({ claim: c, advance, monthTotal, canCut, onSaved }) {
                   <span className="ui-caption block">{day(l.spentOn)} · {l.category}{l.note ? ` · ${l.note}` : ''}</span>
                   {l.companyGstin ? <span className="ui-caption block">Bill in our GSTIN{l.supplierGstin ? ` · ${l.supplierGstin}` : ''}{l.taxAmount != null ? ` · GST ${money(l.taxAmount)}` : ''}{l.creditBlocked ? ' · credit usually not available' : ''}</span> : null}
                   {l.overLimit ? <span className="ui-caption block ui-text-warn">Over the {money(l.overLimit)} limit for {l.category}</span> : null}
-                  {l.possibleDuplicate ? <span className="ui-caption block ui-text-warn">Same amount, day and place as another bill; they say it is a different one</span> : null}
+                  {l.possibleDuplicate ? <span className="ui-caption block ui-text-warn">Same amount, day and place as another bill. Check it is not the same one</span> : null}
+                  {l.paidByCompany ? <span className="ui-caption block">Paid with the company card: kept for the accounts, not paid back</span> : null}
                   {l.billId ? <button type="button" className="ui-link text-xs" onClick={() => openBill(l.billId).catch((e) => notify.error(String(e?.message || 'Could not open the bill.')))}>See the bill</button> : <span className="ui-caption block">No bill</span>}
                   {l.cutReason && !cutting ? <span className="ui-caption block">Allowed less: {l.cutReason}</span> : null}
                   {cutting ? (

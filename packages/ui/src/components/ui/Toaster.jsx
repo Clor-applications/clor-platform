@@ -144,16 +144,30 @@ export default function Toaster() {
             <h2 id="confirm-title" className="ui-t-sec">{confirm.title}</h2>
             {confirm.message ? <p className="ui-muted mt-2 text-sm leading-relaxed">{confirm.message}</p> : null}
             <div className="ui-confirm-actions mt-5 flex justify-end gap-2">
-              <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-secondary">
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => settle(true)}
-                className={`ui-btn ${confirm.tone === 'danger' ? 'ui-btn-danger' : 'ui-btn-primary'}`}
-              >
-                {confirm.confirmLabel}
-              </button>
+              {confirm.stayFirst ? (
+                <>
+                  {/* Staying is the main button; leaving is the quiet one beside it. Focus starts on Stay. */}
+                  <button type="button" onClick={() => settle(true)} className="ui-btn ui-btn-secondary">
+                    {confirm.confirmLabel}
+                  </button>
+                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-primary">
+                    {confirm.cancelLabel || 'Cancel'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button ref={cancelRef} type="button" onClick={() => settle(false)} className="ui-btn ui-btn-secondary">
+                    {confirm.cancelLabel || 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => settle(true)}
+                    className={`ui-btn ${confirm.tone === 'danger' ? 'ui-btn-danger' : 'ui-btn-primary'}`}
+                  >
+                    {confirm.confirmLabel}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

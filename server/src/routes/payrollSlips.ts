@@ -9,7 +9,7 @@ import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { snapshotPerson } from '../services/payroll/payment.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
 import { levelFor, resolveAccess } from '../services/access.js';
-import { readableLines } from '../services/payroll/slipLines.js';
+import { countOf, readableLines, splitOf } from '../services/payroll/slipLines.js';
 
 /**
  * Payslips, and the reasoning behind every figure on them.
@@ -181,6 +181,8 @@ payrollSlipsRouter.get(
       type: l.type,
       amount: Number(l.amount),
       fullAmount: l.fullAmount == null ? null : Number(l.fullAmount),
+      /* Count × rate (meals, pieces, nights), when the line came from one. */
+      ...countOf(l),
       isTaxable: !!l.isTaxable,
       displayOrder: l.displayOrder,
     }));
@@ -220,6 +222,8 @@ payrollSlipsRouter.get(
         ctc: {
           annual: Number(assignmentSnapshot.annualCtc ?? 0),
           monthly: Number(assignmentSnapshot.monthlyCtc ?? 0),
+          /* The salary changed inside the period: the days at each salary, for "10 days at ₹6,00,000 a year, 20 days at ₹7,20,000". */
+          split: splitOf(assignmentSnapshot),
         },
         adjustments: Array.isArray(adjustmentSnapshot) ? adjustmentSnapshot : [],
         /* How each figure was reached — the answer to "why is my HRA that?". */

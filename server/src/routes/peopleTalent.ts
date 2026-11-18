@@ -82,6 +82,7 @@ const LIST_QUERY = z.object({ status: q(text(40)), q: q(text(2000)) });
 const OPENING = z.object({
   title: text(2000).nullish(), places: amount.nullish(), departmentId: ref.nullish(), jobPositionId: ref.nullish(), branchId: ref.nullish(), employeeTypeId: ref.nullish(),
   hiringManagerId: ref.nullish(), location: text(2000).nullish(), description: text(100_000).nullish(), targetDate: day.nullish(), status: text(40).nullish(),
+  screeningQuestions: z.union([list(text(2000), 50), text(20_000)]).nullish(), saveDescription: flag.nullish(),
 });
 const REASONED = { reason: text(5000).nullish() };
 const CANDIDATE = z.object({ openingId: ref.nullish(), name: text(2000).nullish(), email: text(2000).nullish(), phone: code(200).nullish(), source: text(40).nullish(), sourceDetail: text(2000).nullish(), currentEmployer: text(2000).nullish() });
@@ -90,7 +91,8 @@ const NOTE = z.object({ note: text(20_000).nullish() });
 const FILE = { name: text(2000).nullish(), mime: text(200).nullish(), data: rawText(7 * 1024 * 1024).nullish() };
 const HIRE = z.object({ dateOfJoining: day.nullish(), code: code(200).nullish(), withoutOffer: flag.nullish(), ...REASONED });
 const INTERVIEW = z.object({ at: text(80).nullish(), minutes: amount.nullish(), mode: text(40).nullish(), place: text(2000).nullish(), interviewerUserIds: list(ref, 500).nullish() });
-const GOAL = z.object({ employeeId: ref.nullish(), title: text(2000).nullish(), measure: text(2000).nullish(), dueDate: day.nullish(), weight: amount.nullish(), description: text(20_000).nullish(), status: text(40).nullish() });
+const GOAL = z.object({ employeeId: ref.nullish(), title: text(2000).nullish(), measure: text(2000).nullish(), dueDate: day.nullish(), weight: amount.nullish(), description: text(20_000).nullish(), status: text(40).nullish(), visibility: text(40).nullish(), forTeam: flag.nullish(), companyGoalId: ref.nullish() });
+const COMPANY_GOAL = z.object({ title: text(2000).nullish(), measure: text(2000).nullish(), dueDate: day.nullish(), status: text(40).nullish() });
 const CYCLE = z.object({ name: text(2000).nullish(), periodFrom: day.nullish(), periodTo: day.nullish(), selfDue: day.nullish(), managerDue: day.nullish(), departmentIds: list(ref, 1000).nullish() });
 const PLAN = z.object({ employeeId: ref.nullish(), reason: text(20_000).nullish(), expectations: text(50_000).nullish(), startDate: day.nullish(), endDate: day.nullish() });
 const ONE_ON_ONE = z.object({ employeeId: ref.nullish(), date: day.nullish(), notes: text(50_000).nullish(), actions: text(20_000).nullish() });
@@ -129,6 +131,10 @@ peopleTalentRouter.post(`${base}/openings/:id/apply-link`, hiringOn, can(Permiss
   const r = await hiring.setApplyLink(who(req), String(req.params.id), req.body?.on === true);
   await audit(req, 'JobOpening', String(req.params.id), r.applyOpen ? 'APPLY_LINK_ON' : 'APPLY_LINK_OFF', r.applyOpen ? 'Apply link made (a new one replaces any earlier link)' : 'Apply link turned off');
   res.json(r);
+}));
+/* Round 53 pick: the saved description for a designation, offered when an opening picks it. */
+peopleTalentRouter.get(`${base}/job-descriptions/:id`, hiringOn, can(PermissionAction.VIEW, R.recruitment), check({ params: idParams }), handle(async (req, res) => {
+  res.json(await hiring.jobDescriptionOf(req.tenant!.orgId, String(req.params.id)));
 }));
 peopleTalentRouter.delete(`${base}/openings/:id`, hiringOn, can(PermissionAction.DELETE, R.recruitment), check({ params: idParams }), handle(async (req, res) => {
   const row = await hiring.deleteOpening(who(req), String(req.params.id));
@@ -229,7 +235,16 @@ peopleTalentRouter.get(`${base}/interviews`, hiringOn, check({ query: z.object({
   const hr = await has(req, 'VIEW', R.recruitment);
   res.json({ interviews: await hiring.interviewsFor(req.tenant!.orgId, { userId: req.auth!.userId, hr: hr && req.query.mine !== '1' }, { when: String(req.query.when || '') }), hr });
 }));
-peopleTalentRouter.post(`${base}/interviews/:id/feedback`, hiringOn, check({ params: idParams, body: z.object({ recommendation: text(40).nullish(), notes: text(20_000).nullish() }) }), handle(async (req, res) => {
+/* Round 53 pick: one question list for every job's interviews; every interviewer reads it, HR (Recruitment edit) sets it. */
+peopleTalentRouter.get(`${base}/interview-questions`, hiringOn, handle(async (req, res) => {
+  res.json({ questions: await hiring.interviewQuestions(req.tenant!.orgId), canEdit: await has(req, 'EDIT', R.recruitment) });
+}));
+peopleTalentRouter.put(`${base}/interview-questions`, hiringOn, can(PermissionAction.EDIT, R.recruitment), check({ body: z.object({ questions: z.union([list(text(2000), 100), text(50_000)]).nullish() }) }), handle(async (req, res) => {
+  const questions = await hiring.setInterviewQuestions(who(req), req.body?.questions);
+  await audit(req, 'PeopleSetting', req.tenant!.orgId, 'INTERVIEW_QUESTIONS', `Interview questions set (${questions.length})`);
+  res.json({ questions, canEdit: true });
+}));
+peopleTalentRouter.post(`${base}/interviews/:id/feedback`, hiringOn, check({ params: idParams, body: z.object({ recommendation: text(40).nullish(), notes: text(20_000).nullish(), answers: list(z.object({ question: text(2000).nullish(), rating: amount.nullish() }), 100).nullish() }) }), handle(async (req, res) => {
   await hiring.giveFeedback(who(req), String(req.params.id), req.body || {});
   await audit(req, 'Interview', String(req.params.id), 'FEEDBACK', 'Interview feedback given');
   res.json({ ok: true });
@@ -258,6 +273,22 @@ peopleTalentRouter.post(`${base}/goals/:id/check-ins`, growthOn, can(PermissionA
   const g = await growth.checkIn(await viewer(req), String(req.params.id), req.body || {});
   await audit(req, 'Goal', g.id, 'CHECK_IN', `Check-in: ${g.title} at ${g.progress}%`);
   res.status(201).json({ goal: g });
+}));
+
+/* Round 53 pick: company goals over the Goals list. Everyone with Performance reads them; HR sets them. */
+peopleTalentRouter.get(`${base}/company-goals`, growthOn, can(PermissionAction.VIEW, R.performance), check({ query: z.object({ status: q(text(40)) }) }), handle(async (req, res) => {
+  const v = await viewer(req);
+  res.json({ goals: await growth.listCompanyGoals(v, { status: String(req.query.status || '') }), canEdit: v.hr });
+}));
+peopleTalentRouter.post(`${base}/company-goals`, growthOn, can(PermissionAction.EDIT, R.performance), check({ body: COMPANY_GOAL }), handle(async (req, res) => {
+  const g = await growth.createCompanyGoal(await viewer(req), req.body || {});
+  await audit(req, 'CompanyGoal', g.id, 'CREATE', `Company goal set: ${g.title}`);
+  res.status(201).json({ goal: g });
+}));
+peopleTalentRouter.put(`${base}/company-goals/:id`, growthOn, can(PermissionAction.EDIT, R.performance), check({ params: idParams, body: COMPANY_GOAL }), handle(async (req, res) => {
+  const g = await growth.updateCompanyGoal(await viewer(req), String(req.params.id), req.body || {});
+  await audit(req, 'CompanyGoal', g.id, 'UPDATE', `Company goal changed: ${g.title}`, { status: g.status });
+  res.json({ goal: g });
 }));
 
 /* ------------------------------------------------------------------- reviews */

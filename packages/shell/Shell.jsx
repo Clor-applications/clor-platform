@@ -34,8 +34,11 @@ import Start from './Start';
 import { isStartPath } from './startLink';
 
 /* Asked before any navigation that would drop edits a screen has not saved (spec v1 §5.1, WF-11). */
-const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'Your changes on this page have not been saved.', confirmLabel: 'Leave', tone: 'danger' });
+/* Round 61 "unsavedleave" A: Stay is the main button, so a stray click never loses a half-edited salary. */
+const askLeave = () => confirmDialog({ title: 'Leave without saving?', message: 'You have unsaved changes on this page.', confirmLabel: 'Leave', cancelLabel: 'Stay', stayFirst: true });
 import HelpCenter from './HelpCenter';
+import ScreenHelp, { guideForScreen } from './ScreenHelp';
+import { ExternalMarks, ScrollTop, TitleSync, useCtrlSave, useExternalLinksInNewTab } from '@ui/picks/round61';
 import { ClorLogo, ClorMark } from '@ui/components/brand';
 import { emoji } from '@ui/components/ui/emoji';
 
@@ -52,6 +55,7 @@ import TwoFactorGate from './TwoFactorGate';
 import GatePage from './GatePage';
 import PrintFooter from './PrintFooter';
 import CommandPalette from '@ui/components/ui/CommandPalette';
+import RecentPeople from '@ui/components/ui/RecentPeople';
 import CompanySetup from './CompanySetup';
 import { appIntent, captureAppIntent } from './appIntent';
 import NoCompanyAccess from './NoCompanyAccess';
@@ -447,6 +451,11 @@ function ShellScreens() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+  /* Round 61 "ctrlsave" A: Ctrl+S (⌘S) saves the open form. "externallink" A: links leaving CLOR open in a new tab.
+     An app that draws itself (Books) keeps its own keys and links. */
+  const drawsItself = () => Boolean(appById(paletteAppRef.current)?.Root);
+  useCtrlSave((label) => notify.info(label ? `Use “${label}” to finish this form.` : 'Nothing to save on this page.'), drawsItself);
+  useExternalLinksInNewTab(drawsItself);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   /* Closes on a click anywhere else, and on Escape. It did neither: the only
      way out of the app switcher was to click the app switcher again. */
@@ -1069,6 +1078,10 @@ function ShellScreens() {
           ))}
         </div>
       ))}
+      {/* Round 55 (recentrecords A): the last five people opened, under the module that holds the employee list. */}
+      {openModule.groups.some((g) => g.items.some((i) => i.key === 'employees')) ? (
+        <RecentPeople currentId={screenKey === 'employee' ? screenParams?.id : null} onOpen={(p) => { goTo('employee', { id: p.id }); if (phone) setNavOpen(false); }} />
+      ) : null}
       {/* The foot of the panel: help, where a short list used to leave the column empty (owner, 17 Nov 2026). A phone's sheet has its own menu. */}
       {!phone ? (
         <button
@@ -1518,6 +1531,9 @@ function ShellScreens() {
           {/* `flush`: the app's pages sit edge to edge on the white content column, as Accounting's do. */}
           <main id="main-content" tabIndex={-1} className={`flex-1 min-w-0 outline-none ${app?.flush ? `ui-content ${phone ? 'pb-24' : ''}` : phone ? 'p-4 pb-24' : 'p-6'}`}>
             <PrintFooter name={user?.fullName || user?.email || ''} />
+            {/* Round 61 "tabtitle" A: the browser tab says the page first, then the app. "externallink" A: ↗ on links leaving CLOR. */}
+            <TitleSync page={showMoreApps ? 'More apps' : platformScreen === 'help' ? 'Help centre' : platformScreen === 'profile' ? 'My profile' : screenItem?.label || ''} app={app?.name || ''} />
+            <ExternalMarks />
             {/* W-2.1: working in somebody else's account (outside access) is said on every screen, not only in the picker. */}
             {user && tenant?.accountId && user.accountId && tenant.accountId !== user.accountId ? (
               <p className="ui-delegated" role="status">
@@ -1590,9 +1606,9 @@ function ShellScreens() {
                          clicked (owner, 11 Nov 2026). Not when that page is its own list (Employees above a record):
                          the page's breadcrumb already goes there. */
                       const linked = !parent && from?.link && from.key !== screen && from.key !== parentKey;
-                      if (!parent && !linked) return null;
-                      const origin = from && from.key !== parent?.key ? nav.find((n) => n.key === from.key) : null;
-                      if (!parent && !origin) return null;
+                      const origin = (parent || linked) && from && from.key !== parent?.key ? nav.find((n) => n.key === from.key) : null;
+                      const helpHere = Boolean(guideForScreen(app?.id, screen));
+                      if (!parent && !origin && !helpHere) return null;
                       const back = () => confirmLeave(askLeave).then((ok) => {
                         if (!ok) return;
                         if (!origin) { goToNow(parent.key); return; }
@@ -1602,10 +1618,28 @@ function ShellScreens() {
                         setPlatformScreen(null);
                         restorePlace(placeFor(origin.key, from.params));
                       });
+                      /* Round 61 "breadcrumb" A: under a hub, a short trail (Settings › Departments), the hub a link.
+                         Opened from elsewhere, the way back to where the link was clicked, as before.
+                         "pagehelp" A: "How this works ›" at the right of the same row when the screen has a how-to. */
                       return (
-                        <button type="button" className="ui-link mb-2 inline-flex items-center gap-1 text-sm" onClick={back}>
-                          ← {origin ? origin.label : parent.label}
-                        </button>
+                        <div className="ui-screen-top">
+                          {origin ? (
+                            <button type="button" className="ui-link inline-flex items-center gap-1 text-sm" onClick={back}>
+                              ← {origin.label}
+                            </button>
+                          ) : parent ? (
+                            <nav className="ui-trail text-sm" aria-label="Breadcrumb">
+                              <button type="button" className="ui-link" onClick={back}>{parent.label}</button>
+                              <span aria-hidden="true">›</span>
+                              <span aria-current="page">{screenItem?.label}</span>
+                            </nav>
+                          ) : <span />}
+                          <ScreenHelp
+                            appId={app?.id}
+                            screen={screen}
+                            onOpenHelpCentre={(key) => { setHelpTopic(key); setPlatformScreen('help'); setShowMoreApps(false); window.scrollTo(0, 0); }}
+                          />
+                        </div>
                       );
                     })()}
                     <Suspense fallback={<AppLoading />}>
@@ -1659,6 +1693,8 @@ function ShellScreens() {
             ) : (
               <p className="ui-caption">Nothing selected.</p>
             )}
+            {/* Round 61 "scrolltop" A: "Top ↑" after two screens of scrolling. */}
+            <ScrollTop />
           </main>
           {phone && tabs.length ? (
             <nav className="ui-tabbar" aria-label={`${app.name} quick navigation`}>
@@ -1698,17 +1734,16 @@ function ShellScreens() {
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
             /* An app names what its own search finds (manifest `searchLabel`); the Workspace finds members and companies, not jobs. */
-            placeholder={app?.searchLabel ? `${app.searchLabel}…` : app?.searchRecords ? `Search people, jobs and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            placeholder={app?.searchLabel ? `${app.searchLabel}…` : app?.searchRecords ? `Search people and screens…` : `Search ${app?.name || 'CLOR'} screens and apps…`}
+            /* Round 55 (recentsearch A): the box opens on the last five searches. Books draws its own palette, so this never reaches it. */
+            remember
             /* People by name, code or email (manifest `searchRecords`), as the person types. */
             loadRecords={app?.searchRecords ? (q) => app.searchRecords(q, { apps: mine.map((a) => a.id) }) : undefined}
             items={[
               /* A screen can sit in two places in the menu; it is one destination here. */
-              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: i.keywords })),
-              /* Jobs named the way people ask for them (manifest `searchActions`): "probation", "fix a punch", "month close".
-                 One in another app shows only when this company has that app and this person can open it there. */
-              ...(app?.searchActions || [])
-                .filter((a) => (a.appId ? mine.some((m) => m.id === a.appId) : nav.some((i) => i.key === a.screen)))
-                .map((a) => ({ key: `do:${a.appId || ''}:${a.screen}:${a.label}`, label: a.label, group: a.appId ? appById(a.appId)?.name || 'Apps' : 'Do', icon: a.icon, screen: a.screen, params: a.params, appId: a.appId, keywords: a.keywords })),
+              ...[...new Map(nav.filter((i) => !i.section && app?.screens?.[i.key]).map((i) => [i.key, i])).values()].map((i) => ({ key: `screen:${i.key}`, label: i.label, group: app.name, icon: i.icon, screen: i.key, keywords: [...(i.keywords || []), ...(app?.searchActions || []).filter((x) => !x.appId && x.screen === i.key).flatMap((x) => [x.label, ...(x.keywords || [])])] })),
+              /* Round 55 (searchactions B, owner 18 Nov 2026): search finds pages and people only, so the manifests' `searchActions` jobs
+                 ("apply leave", "fix a punch") are no longer offered as rows. Their words still find the screen they belong to, below. */
               ...mine.filter((a) => a.id !== activeAppId).map((a) => ({ key: `app:${a.id}`, label: `Open ${a.name}`, group: 'Apps', icon: a.icon, appId: a.id })),
               { key: 'profile', label: 'My profile', group: 'You', icon: UserRound },
               { key: 'help', label: 'Help centre', group: 'You', icon: CircleHelp },

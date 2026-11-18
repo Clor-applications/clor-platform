@@ -68,5 +68,23 @@ describe('portal payslips', () => {
     await payrollPrisma.salarySlip.update({ where: { id: slipId }, data: { deductionNote: note } });
     const carried = (await request(app).get(`/api/portal/payslips/${slipId}`).set(me).expect(200)).body.slip;
     expect(carried.deductionNote).toEqual(note);
+
+    /* Since April: this financial year so far, read from final payslips. No PF on this payslip, so no PF card. */
+    expect(slip.sinceApril).toMatchObject({ from: '2026-04-01', payslips: 1, gross: 30_000, tax: 0, pf: 0, net: slip.net });
+    expect(slip.pf).toBeNull();
+    expect(list.pfSaved).toBeNull();
+
+    /* A payslip that carried PF: the employee's PF line, and the company's share split into pension (EPS) and fund (EPF)
+       as the statutory snapshot recorded it. The figures are read back, never worked out again. */
+    const pfComponent = await payrollPrisma.salaryComponent.findFirst({ where: { orgId: c.orgId, statutoryScheme: 'PF' } })
+      ?? await payrollPrisma.salaryComponent.create({ data: { accountId: (await payrollPrisma.salarySlip.findUniqueOrThrow({ where: { id: slipId } })).accountId, orgId: c.orgId, name: 'Provident Fund', code: `PF${rnd()}`, type: 'DEDUCTION', statutoryScheme: 'PF', createdByUserId: 'test' } as any });
+    const held = await payrollPrisma.salarySlip.findUniqueOrThrow({ where: { id: slipId } });
+    await payrollPrisma.salarySlipLine.create({ data: { accountId: held.accountId, orgId: c.orgId, slipId, componentId: pfComponent.id, componentCode: pfComponent.code, componentName: pfComponent.name, type: 'DEDUCTION', amount: 1_800, displayOrder: 9 } });
+    await payrollPrisma.salarySlip.update({ where: { id: slipId }, data: { statutorySnapshotJson: JSON.stringify({ results: [{ scheme: 'PF', employee: 1_800, employer: 1_800, employerSplit: { EPS: 1_250, EPF: 550 } }] }) } });
+    const withPf = (await request(app).get(`/api/portal/payslips/${slipId}`).set(me).expect(200)).body.slip;
+    expect(withPf.pf).toEqual({ employee: 1_800, pension: 1_250, employer: 550 });
+    expect(withPf.sinceApril).toMatchObject({ pf: 1_800, gross: 30_000 });
+    const saved = (await request(app).get('/api/portal/payslips').set(me).expect(200)).body.pfSaved;
+    expect(saved).toEqual({ since: held.payrollDate, payslips: 1, employee: 1_800, employer: 550, pension: 1_250, fund: 2_350 });
   }, 60_000);
 });

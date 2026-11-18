@@ -135,6 +135,10 @@ export const askLeave = (body) => call('/leave', { method: 'POST', body });
 /** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, type }. */
 export const previewLeave = (body) => call('/leave/preview', { method: 'POST', body });
 export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+/** Remind whoever my waiting request waits on (once a day). */
+export const remindLeave = (id) => call(`/leave/${encodeURIComponent(id)}/remind`, { method: 'POST' });
+/** Answer the question an approver sent back with my request. */
+export const answerLeaveQuestion = (id, note) => call(`/leave/${encodeURIComponent(id)}/answer`, { method: 'POST', body: { note } });
 /** Change a waiting request (same body as askLeave). */
 export const editLeave = (id, body) => call(`/leave/${encodeURIComponent(id)}`, { method: 'PUT', body });
 /** Came back early: approved leave that has started now ends on `toDate`. */
@@ -191,6 +195,13 @@ export const askLetter = (body) => call('/people/me/letters', { method: 'POST', 
 /* Leaving the company (server: peoplePortal /me/resign, /me/leaving). */
 export const resign = (body) => call('/people/me/resign', { method: 'POST', body });
 export const getLeaving = () => call('/people/me/leaving');
+/* Taking back an accepted resignation while on notice (picks round 52): the manager decides. */
+export const askToStay = (body) => call('/people/me/stay', { method: 'POST', body });
+/* The company things I hold (picks round 51; server: peoplePortal /me/assets): { available, assets: [{ id, title, tag, category, state, issuedOn, confirmedOn, problem }] }. */
+export const getMyAssets = () => call('/people/me/assets');
+export const confirmMyAsset = (id) => call(`/people/me/assets/${encodeURIComponent(id)}/confirm`, { method: 'POST', body: {} });
+export const reportAssetProblem = (id, what) => call(`/people/me/assets/${encodeURIComponent(id)}/problem`, { method: 'POST', body: { what } });
+export const askForAsset = (what) => call('/people/me/assets/ask', { method: 'POST', body: { what } });
 /* My joining and leaving steps (server: peoplePortal /me/journey): the ones that are mine to tick, and what I hand back. */
 export const getJourney = () => call('/people/me/journey');
 /* Today's greetings, my exit interview, and whether I am announced (server: peopleEngagementPortal; WORKFLOW-GAP-RESEARCH 4.8, 4.9). */

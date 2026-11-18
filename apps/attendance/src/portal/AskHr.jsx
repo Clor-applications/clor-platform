@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from '@ui/components/ui/lineIcons';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import CaseRating from './CaseRating';
 import { SignedOut, getDesk, getDeskCase, raiseDesk, reopenDesk, replyDesk } from './portalApi';
 
 /**
@@ -185,10 +186,7 @@ function Thread({ id, guard, label, onBack }) {
           {note ? <p className="text-sm" role="alert">{note.text}</p> : null}
           {resolved ? (
             canReopen ? (
-              <div className="space-y-1">
-                <p className="ui-caption">Not settled? Reopen it within {REOPEN_DAYS} days of the answer.</p>
-                <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => act(() => reopenDesk(id))}>Reopen</button>
-              </div>
+              <CaseRating id={id} busy={busy} onReopen={() => act(() => reopenDesk(id))} />
             ) : <p className="ui-caption">Answered more than {REOPEN_DAYS} days ago. Ask a new question if you need more.</p>
           ) : r.status === 'MOVED' ? null : (
             <form onSubmit={(e) => { e.preventDefault(); act(() => replyDesk(id, reply), () => setReply('')); }} className="space-y-2">

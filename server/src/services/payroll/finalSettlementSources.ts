@@ -196,7 +196,10 @@ export async function clearanceLines(orgId: string, employeeId: string, leaving:
   const items = (raw: unknown) => (Array.isArray(raw) ? raw : []).filter((i: any) => i && i.title) as Array<{ title: string; assetId?: string | null; tag?: string | null; returned?: boolean }>;
   const assetIds = rows.flatMap((r) => items(r.items).map((i) => i.assetId)).filter(Boolean) as string[];
   /* Marked returned in the register counts, whichever screen it was marked on. */
-  const back = new Set(assetIds.length ? (await peoplePrisma.peopleRecord.findMany({ where: { orgId, id: { in: assetIds }, status: { not: 'ASSIGNED' } }, select: { id: true } })).map((a) => a.id) : []);
+  const registered = assetIds.length ? await peoplePrisma.peopleRecord.findMany({ where: { orgId, id: { in: assetIds } }, select: { id: true, status: true, details: true } }) : [];
+  const back = new Set(registered.filter((a) => a.status !== 'ASSIGNED').map((a) => a.id));
+  /* The value the register puts on it (picks round 52): its own line, at that amount. */
+  const valueOf = new Map(registered.map((a) => [a.id, round2(Number((a.details as any)?.value) || 0)]));
   const named = (i: { title: string; tag?: string | null }) => `${i.title}${i.tag ? ` (${i.tag})` : ''}`;
   const out: SettlementLine[] = [];
   rows.forEach((r, n) => {
@@ -215,12 +218,15 @@ export async function clearanceLines(orgId: string, employeeId: string, leaving:
       return;
     }
     missing.filter((i) => i.assetId).forEach((i, k) => {
+      const value = valueOf.get(i.assetId!) || 0;
       out.push({
         code: `${code}_${k + 1}`.slice(0, 40),
         label: `Not returned: ${named(i)}`.slice(0, 120),
         kind: 'DEDUCTION',
-        amount: 0,
-        explanation: `Still with them in the asset register. Enter what the company recovers for it, or remove this line once it comes back.`,
+        amount: value,
+        explanation: value > 0
+          ? `Still with them in the asset register, valued there at ${inr(value)}. Change the amount if the company recovers less, or remove this line once it comes back.`
+          : `Still with them in the asset register. Enter what the company recovers for it, or remove this line once it comes back.`,
       });
     });
   });

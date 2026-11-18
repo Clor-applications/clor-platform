@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const api = vi.hoisted(() => ({ opsHome: vi.fn(), opsOverview: vi.fn(), opsHealth: vi.fn(), opsAudit: vi.fn() }));
+const api = vi.hoisted(() => ({ opsHome: vi.fn(), opsOverview: vi.fn(), opsHealth: vi.fn(), opsAudit: vi.fn(), opsHandover: vi.fn(), opsWriteHandover: vi.fn() }));
 vi.mock('./api', () => api);
 
 import { Home } from './Home';
@@ -20,6 +20,7 @@ beforeEach(() => {
   api.opsOverview.mockResolvedValue(overview);
   api.opsHealth.mockResolvedValue(health);
   api.opsAudit.mockResolvedValue(audit);
+  api.opsHandover.mockResolvedValue({ note: null });
 });
 
 describe('Overview', () => {

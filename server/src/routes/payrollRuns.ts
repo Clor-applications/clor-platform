@@ -61,6 +61,8 @@ const shape = (row: any, extra: Record<string, unknown> = {}) => ({
   department: row.department || null,
   payrollDate: row.payrollDate,
   notes: row.notes || '',
+  /* A note left for whoever runs next month (picks round 32). */
+  noteForNext: row.noteForNext || '',
   status: row.status,
   employeeCount: row.employeeCount,
   grossTotal: Number(row.grossTotal ?? 0),
@@ -183,7 +185,7 @@ payrollRunsRouter.get(
     const inputByEmployee = new Map(inputs.map((i) => [i.employeeId, i]));
 
     res.json({
-      run: { ...shape(run, { period }), stale: await runStale(orgId, run) },
+      run: { ...shape(run, { period }), stale: await runStale(orgId, run), earlierNote: await earlierNoteFor(orgId, run, period) },
       /* State rules on these payslips nobody has confirmed: the run cannot be approved until they are. */
       statutoryChecks: slips.length ? await uncheckedRulesOnRun(orgId, run.id) : [],
       /* Statutory lines nothing worked out (a scheme off, or no rate): the run cannot be approved until they are, or the owner records they do not apply. */
@@ -228,6 +230,47 @@ payrollRunsRouter.get(
         paymentStatus: s.paymentStatus,
       })),
     });
+  }
+);
+
+/**
+ * The note the last payroll before this one left for it: the same pay group
+ * and branch, an earlier period, not cancelled. Shown at the top of the run.
+ */
+async function earlierNoteFor(orgId: string, run: any, period: { startDate: string } | null) {
+  if (!period) return null;
+  const earlier = await payrollPrisma.payrollRun.findMany({
+    where: { orgId, payGroupId: run.payGroupId ?? null, branchId: run.branchId ?? null, status: { not: 'CANCELLED' }, id: { not: run.id } },
+    select: { id: true, number: true, periodId: true, noteForNext: true, payrollDate: true },
+    orderBy: { payrollDate: 'desc' },
+    take: 24,
+  });
+  if (!earlier.length) return null;
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, id: { in: [...new Set(earlier.map((r) => r.periodId))] } }, select: { id: true, name: true, startDate: true } });
+  const byId = new Map(periods.map((p) => [p.id, p]));
+  const before = earlier
+    .filter((r) => (byId.get(r.periodId)?.startDate || '') < period.startDate)
+    .sort((a, b) => (byId.get(b.periodId)?.startDate || '').localeCompare(byId.get(a.periodId)?.startDate || ''))[0];
+  if (!before?.noteForNext) return null;
+  return { text: before.noteForNext, runId: before.id, runNumber: before.number, period: byId.get(before.periodId)?.name || '' };
+}
+
+/*
+ * A note for next month's payroll. Not a figure, so it can be written on a
+ * run at any stage but cancelled; an empty note clears it.
+ */
+payrollRunsRouter.put(
+  '/orgs/:orgId/payroll/runs/:id/note-for-next',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const run = await runOr404(req, res);
+    if (!run) return;
+    if (run.status === 'CANCELLED') return res.status(409).json({ error: 'This payroll was cancelled.', code: 'RUN_CANCELLED' });
+    const parsed = z.object({ note: z.string().trim().max(500, 'Keep the note under 500 characters.').optional().nullable() }).safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid note.' });
+    const row = await payrollPrisma.payrollRun.update({ where: { id: run.id }, data: { noteForNext: parsed.data.note?.trim() || null } });
+    res.json({ run: shape(row) });
   }
 );
 

@@ -5,6 +5,8 @@ import { PageHeader, SkeletonCard, EmptyState } from '@ui/components/ui/Primitiv
 import { SlowNote } from '@ui/picks/round60';
 import { notify } from '@ui/components/ui/notify';
 import { downloadCsv } from '@ui/utils/csv';
+import { requestOpenScreen } from '@platform/context';
+import { ESIC_COLUMNS, checklistLine, esicRow } from '../components/filingChecks';
 import { listPayrollPeriods } from '../api/payrollCalendar';
 import { getSalaryRegister, getStatutoryReport, getVarianceReport, getCostReport, getFilings } from '../api/payrollReports';
 import { rupees as money } from '@ui/utils/money';
@@ -285,8 +287,102 @@ export default function PayrollReports() {
   );
 }
 
-const Register = ({ data }) => (
+/**
+ * The salary register. It opens short: each person's gross, deductions and
+ * take-home. A row opens into that person's parts; "Show every part" lays out
+ * the full table an auditor asks for. Both read the same payslip figures.
+ */
+function Register({ data }) {
+  const [full, setFull] = useState(false);
+  const [open, setOpen] = useState(() => new Set());
+  const toggle = (id) => setOpen((was) => {
+    const next = new Set(was);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const switcher = (
+    <div className="flex justify-end px-4 py-2" style={{ borderBottom: '1px solid rgb(var(--border))' }}>
+      <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-pressed={full} onClick={() => setFull((f) => !f)}>
+        {full ? 'Show the short register' : 'Show every part'}
+      </button>
+    </div>
+  );
+  if (full) return <FullRegister data={data} switcher={switcher} />;
+  const parts = (r, type) => data.columns.filter((c) => c.type === type && r.amounts[c.code]);
+  return (
+    <div className="ui-card overflow-hidden">
+      {switcher}
+      <div className="ui-table-scroll">
+        <table className="ui-table w-full">
+          <thead>
+            <tr>
+              <th scope="col">Employee</th>
+              <th scope="col" className="ui-col-h-right">Gross</th>
+              <th scope="col" className="ui-col-h-right">Deductions</th>
+              <th scope="col" className="ui-col-h-right">Take-home</th>
+            </tr>
+          </thead>
+          <tbody className="ui-rows">
+            {data.rows.map((r) => {
+              const isOpen = open.has(r.slipId);
+              return (
+                <React.Fragment key={r.slipId}>
+                  <tr>
+                    <td className="ui-col-entity">
+                      <button type="button" className="text-left" aria-expanded={isOpen} onClick={() => toggle(r.slipId)}>
+                        <span aria-hidden="true" className="ui-caption mr-1">{isOpen ? '▾' : '▸'}</span>
+                        {r.employeeName}
+                        {r.employeeCode ? <span className="ui-caption"> · {r.employeeCode}</span> : null}
+                      </button>
+                    </td>
+                    <td className="ui-col-amount">{money(r.grossEarnings)}</td>
+                    <td className="ui-col-amount">{money(r.totalDeductions)}</td>
+                    <td className="ui-col-amount">{money(r.netPay)}</td>
+                  </tr>
+                  {isOpen ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="grid gap-4 py-1 sm:grid-cols-2">
+                          {[['EARNING', 'Earnings'], ['DEDUCTION', 'Deductions']].map(([type, label]) => (
+                            <div key={type}>
+                              <p className="ui-label">{label}</p>
+                              {parts(r, type).length ? (
+                                <dl aria-label={`${r.employeeName} ${label.toLowerCase()}`}>
+                                  {parts(r, type).map((c) => (
+                                    <div key={c.code} className="flex items-baseline justify-between gap-3 py-1 text-sm">
+                                      <dt>{c.name}</dt>
+                                      <dd className="text-right tabular-nums">{money(r.amounts[c.code])}</dd>
+                                    </div>
+                                  ))}
+                                </dl>
+                              ) : <p className="ui-caption py-1">None</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="ui-col-entity">{data.rows.length} {data.rows.length === 1 ? 'person' : 'people'}</td>
+              <td className="ui-col-amount">{money(data.totals.grossEarnings)}</td>
+              <td className="ui-col-amount">{money(data.totals.totalDeductions)}</td>
+              <td className="ui-col-amount">{money(data.totals.netPay)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const FullRegister = ({ data, switcher }) => (
   <div className="ui-card overflow-hidden">
+    {switcher}
     <div className="ui-table-scroll">
       <table className="ui-table ui-table-sticky w-full">
         <thead>
@@ -464,6 +560,16 @@ const Cost = ({ data }) => (
   </div>
 );
 
+/** The ESIC monthly contribution upload: a sheet with the template's header row and one row per person, nothing above it. */
+async function downloadEsic(fileName, rows) {
+  const { default: writeXlsxFile } = await import('write-excel-file/browser');
+  const header = ESIC_COLUMNS.map((value) => ({ value, type: String, fontWeight: 'bold' }));
+  const body = rows.map((r) =>
+    esicRow(r).map((value, i) => (i === 2 || i === 3 || i === 4 ? { value, type: Number } : { value, type: String }))
+  );
+  await writeXlsxFile([header, ...body], { sheet: 'Sheet1' }).toFile(`${fileName}.xlsx`);
+}
+
 /** A plain-text file, as the EPFO portal takes the ECR. */
 function downloadText(fileName, text) {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
@@ -476,21 +582,29 @@ function downloadText(fileName, text) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const Problems = ({ rows }) =>
+/* "Fix" opens the person's payroll details, where the UAN or IP number is typed (round 26 pick). */
+const fixPerson = (employeeId) => requestOpenScreen('assignments', { employeeId, tab: 'details' });
+
+const Problems = ({ rows, fixable = false }) =>
   rows.length ? (
     <ul className="space-y-1 px-4 pb-3 text-sm" aria-label="Left out">
       {rows.map((p) => (
         <li key={p.employeeId} className="flex items-start gap-2">
           <AlertTriangle size={14} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'rgb(var(--warn-ink))' }} />
-          <span>
+          <span className="min-w-0 flex-1">
             <span className="font-medium">{p.name}</span> — {p.message}
           </span>
+          {fixable && p.kind ? (
+            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm shrink-0" onClick={() => fixPerson(p.employeeId)} aria-label={`Fix ${p.name}`}>
+              Fix
+            </button>
+          ) : null}
         </li>
       ))}
     </ul>
   ) : null;
 
-function FilingCard({ title, summary, note, problems, onDownload, disabled, label, children }) {
+function FilingCard({ title, summary, note, problems, checklist, onDownload, disabled, label, children }) {
   return (
     <section className="ui-card overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -502,8 +616,13 @@ function FilingCard({ title, summary, note, problems, onDownload, disabled, labe
           <Download size={14} aria-hidden="true" /> {label}
         </button>
       </div>
+      {checklist ? (
+        <p className="px-4 pb-2 text-sm font-medium" aria-label="Check before you download">
+          {checklistLine(checklist)}
+        </p>
+      ) : null}
       {children}
-      <Problems rows={problems} />
+      <Problems rows={problems} fixable={Boolean(checklist)} />
       {note ? <p className="ui-caption px-4 pb-3">{note}</p> : null}
     </section>
   );
@@ -571,11 +690,20 @@ function Filings({ data, periodName }) {
       notify.error(String(e?.message || 'Could not build that file.'));
     }
   };
+  const doneAsync = async (fn) => {
+    try {
+      await fn();
+      notify.success('Downloaded.');
+    } catch (e) {
+      notify.error(String(e?.message || 'Could not build that file.'));
+    }
+  };
   return (
     <div className="space-y-4">
       <FilingCard
         title="Provident Fund — ECR"
-        label="ECR file"
+        label="Download ECR"
+        checklist={ecr.checklist}
         summary={
           ecr.rows.length
             ? `${plural(ecr.totals.members, 'member', 'members')} · PF wages ${money(ecr.totals.epfWages)} · employees ${money(ecr.totals.employee)} · pension ${money(ecr.totals.eps)} · company PF ${money(ecr.totals.epf)}`
@@ -588,7 +716,8 @@ function Filings({ data, periodName }) {
       />
       <FilingCard
         title="ESI — monthly contribution"
-        label="ESIC rows"
+        label="Download ESIC file"
+        checklist={esic.checklist}
         summary={
           esic.rows.length
             ? `${plural(esic.totals.people, 'person', 'people')} · wages ${money(esic.totals.wages)} · employees ${money(esic.totals.employee)} · company ${money(esic.totals.employer)}`
@@ -596,23 +725,8 @@ function Filings({ data, periodName }) {
         }
         problems={esic.problems}
         disabled={!esic.rows.length}
-        onDownload={() =>
-          done(() =>
-            downloadCsv({
-              fileName: `ESIC ${periodName}`,
-              columns: [
-                { key: 'ipNumber', label: 'IP Number' },
-                { key: 'name', label: 'IP Name' },
-                { key: 'days', label: 'No of Days for which wages paid/payable during the month' },
-                { key: 'wages', label: 'Total Monthly Wages' },
-                { key: 'reason', label: 'Reason Code for Zero workings days', value: (r) => (r.days > 0 && !r.lastWorkingDay ? '' : String(r.reason)) },
-                { key: 'lastWorkingDay', label: 'Last Working Day' },
-              ],
-              rows: esic.rows,
-            })
-          )
-        }
-        note="The ESIC portal takes these columns in its Excel template: open the file, copy the rows into the template, and upload it."
+        onDownload={() => doneAsync(() => downloadEsic(`ESIC ${periodName}`, esic.rows))}
+        note="An Excel file in the ESIC monthly contribution template's columns and order. Upload it on the ESIC employer portal under Monthly Contribution; if the portal asks for the older Excel format, open the file and save it as Excel 97-2003 first."
       />
       <FilingCard
         title="Professional tax"

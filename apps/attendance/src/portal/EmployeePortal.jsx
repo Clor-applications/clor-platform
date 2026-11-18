@@ -24,6 +24,7 @@ import TrainingsDue from './TrainingsDue';
 import { NextHoliday, useNextDays } from './round48';
 import MyJobs from './MyJobs';
 import MyMoney from './MyMoney';
+import MyAssets from './MyAssets';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
@@ -45,6 +46,8 @@ import {
   explainDay as portalExplainDay,
   explainLeave as portalExplainLeave,
   cancelLeave,
+  remindLeave,
+  answerLeaveQuestion,
   editLeave,
   shortenLeave,
   changePassword,
@@ -188,7 +191,7 @@ export default function EmployeePortal() {
             <ExitInterview guard={guard} refreshKey={leavingSent} />
             {me?.people !== false ? <><MyJobs guard={guard} /><MyGrowth guard={guard} /></> : null}
             <Payslips guard={guard} onAsk={deskOn ? setAskPreset : null} />
-            {me?.people !== false ? <MyMoney guard={guard} /> : null}
+            {me?.people !== false ? <><MyMoney guard={guard} /><MyAssets guard={guard} /></> : null}
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <MyForms guard={guard} />
             <NightConsent guard={guard} />
@@ -941,6 +944,30 @@ function MyLeave({ guard }) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not cancelled.') });
     }
   };
+  /* Round 18/47: remind whoever it waits on, once a day. */
+  const remind = async (r) => {
+    try {
+      await guard(remindLeave(r.id));
+      setNote({ ok: true, text: 'Reminder sent.' });
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+    }
+  };
+  /* Round 27: the approver sent it back with a question; the answer sends it back to them. */
+  const [answering, setAnswering] = useState({ id: null, text: '' });
+  const answer = async (e) => {
+    e.preventDefault();
+    if (!answering.text.trim()) return;
+    try {
+      await guard(answerLeaveQuestion(answering.id, answering.text.trim()));
+      setAnswering({ id: null, text: '' });
+      setNote({ ok: true, text: 'Answer sent.' });
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
+    }
+  };
   /* Change a waiting request: the ask form, prefilled, saves over it. */
   const [editing, setEditing] = useState(null);
   const formRef = useRef(null);
@@ -1088,11 +1115,24 @@ function MyLeave({ guard }) {
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : halfWords(r.halfDay) ? `, ${halfWords(r.halfDay)}` : ''}{!leaveHours(r) && r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
                   {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
                   {r.status === 'PENDING' && r.withWhom ? <span className="ui-caption block">{r.withWhom}</span> : null}
+                  {r.status === 'PENDING' && r.question ? (
+                    <span className="block mt-1">
+                      <span className="ui-caption block">Question for you: “{r.question.note}”</span>
+                      <form onSubmit={answer} className="flex flex-wrap items-end gap-2 pt-1" aria-label="Your answer">
+                        <label className="block flex-1 min-w-[10rem]">
+                          <span className="ui-label">Your answer</span>
+                          <input className="ui-input w-full" maxLength={500} value={answering.id === r.id ? answering.text : ''} onChange={(e) => setAnswering({ id: r.id, text: e.target.value })} />
+                        </label>
+                        <button type="submit" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={answering.id !== r.id || !answering.text.trim()}>Send answer</button>
+                      </form>
+                    </span>
+                  ) : null}
                 </span>
                 <span className="flex flex-col items-end gap-1">
                   <RequestPill status={r.status} />
                   <span className="flex gap-3">
                     {r.status === 'PENDING' && editing?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => startChange(r)}>Change</button> : null}
+                    {r.status === 'PENDING' && 'canRemind' in r ? <button type="button" className="ui-link text-xs" disabled={!r.canRemind} title={r.canRemind ? undefined : 'Reminded today. You can remind again tomorrow.'} onClick={() => remind(r)}>{r.canRemind ? 'Remind' : 'Reminded'}</button> : null}
                     {shortenable(r) && shortening?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => { setShortening(r); setShortTo(''); setNote(null); }}>Came back early</button> : null}
                     {r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > data.today) ? (
                       <button type="button" className="ui-link text-xs" onClick={() => cancel(r)}>Cancel</button>

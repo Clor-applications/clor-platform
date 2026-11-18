@@ -147,6 +147,7 @@ import { opsApprovalsRouter } from './routes/opsApprovals.js';
 import { opsEmailRouter } from './routes/opsEmail.js';
 import { appCatalogueCors, opsCatalogueRouter, publicAppCatalogueRouter } from './routes/opsCatalogue.js';
 import { publicStatusRouter, statusCors, storeChecks } from './routes/status.js';
+import { emailStopRouter } from './routes/emailStop.js';
 import { exploreRouter } from './routes/explore.js';
 import { exploreReadOnly } from './middleware/exploreReadOnly.js';
 import { edgeGuard } from './middleware/edgeGuard.js';
@@ -438,6 +439,8 @@ export function buildApp() {
   app.use('/api', publicAppCatalogueRouter);
   /* Is CLOR working, for anybody to ask: no sign-in. */
   app.use('/api', publicStatusRouter);
+  /* "Stop these emails" at the foot of an optional email (round 55): a signed link, no sign-in. */
+  app.use('/api', emailStopRouter);
 
   /* No auth and no tenant headers: the customer has no account here. Mounted
      with authRouter for the same reason gstinRouter is — a router at '/api'

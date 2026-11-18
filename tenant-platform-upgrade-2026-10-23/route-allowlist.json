@@ -198,6 +198,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/orgs/:orgId/notifications/inbox/snooze",
+      "reason": "Self-service: \"Remind me tomorrow\" puts off one of the caller's own notifications until 9 AM tomorrow (where userId = caller and orgId = the company on screen)."
+    },
+    {
+      "method": "POST",
       "path": "/api/orgs/:orgId/security/change-password",
       "reason": "Self-service: the caller's own password; needs the current one."
     },
@@ -378,8 +383,28 @@
     },
     {
       "method": "POST",
+      "path": "/api/portal/leave/:id/remind",
+      "reason": "Employee self-service: reminds the approver of their own pending leave once a day; portal token (authenticate) + anyAppLive; org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave/:id/answer",
+      "reason": "Employee self-service: answers the approver's question on their own leave; portal token (authenticate) + anyAppLive; org and employee from the token."
+    },
+    {
+      "method": "POST",
       "path": "/api/portal/leave/:id/cancel",
       "reason": "Employee self-service: changes their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave/:id/remind",
+      "reason": "Employee self-service: reminds the approver of their own waiting leave, once a day; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/leave/:id/answer",
+      "reason": "Employee self-service: answers the question sent back on their own leave; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },
     {
       "method": "GET",
@@ -548,6 +573,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/portal/people/money/instalments/:id/skip",
+      "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; asks HR to skip the next instalment of their own active loan, with a reason, once; another person's instalment reads as not found; changes nothing until HR decides."
+    },
+    {
+      "method": "POST",
       "path": "/api/portal/people/money/:kind/:id/withdraw",
       "reason": "Employee self-service (People money): portal token (peopleMoneyPortal.ts uses portal authenticate); org and employee from the token; withdraws their own waiting request only (404 otherwise)."
     },
@@ -585,6 +615,31 @@
       "method": "POST",
       "path": "/api/portal/people/me/letters",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks for a letter or a document copy about themselves only, as a LETTER_REQUEST or DOCUMENT_REQUEST HR approves (People plan step 6)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/portal/people/me/assets",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; lists only the company things assigned to them in the register, without the value the company put on each (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/assets/ask",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks for a company thing in their own words, as an Ask HR case of their own in the IT queue (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/assets/:id/confirm",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; confirms they still hold an asset assigned to them only; writes today's date on it (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/assets/:id/problem",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reports a problem with an asset assigned to them only: marked on it and an Ask HR case of their own (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/stay",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks to take back their own accepted resignation while on notice; becomes a LEAVING_WITHDRAW request their manager decides (picks round 52)."
     },
     {
       "method": "POST",
@@ -1030,6 +1085,16 @@
       "method": "GET",
       "path": "/api/public/app-catalogue",
       "reason": "The app catalogue clor.in and the app switcher read (opsCatalogue.ts): each app's name, Available or Coming soon, and its one-line blurb, the same for everybody; Hidden apps are left out; reads one platform table with no accountId and nothing of any customer's; changes nothing. CORS open to any origin for GET, without credentials."
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/email/stop/:token",
+      "reason": "\"Stop these emails\" link at the foot of an optional email (emailStop.ts, round 55): JWT naming one address and one email kind, a year; GET only shows the kind and a Stop button and changes nothing (mail scanners open links); reads nothing of any account."
+    },
+    {
+      "method": "POST",
+      "path": "/api/public/email/stop/:token",
+      "reason": "The Stop (or Start again) button of the signed email-stop link: same JWT (one address, one kind); writes or removes one platform EmailOptOut row (no accountId) for that address and kind only; transactional mail is never stopped."
     },
     {
       "method": "GET",

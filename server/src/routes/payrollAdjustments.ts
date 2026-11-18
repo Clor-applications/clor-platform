@@ -51,6 +51,9 @@ const shape = (a: any, extra: Record<string, unknown> = {}) => ({
   periodId: a.periodId,
   type: a.type,
   amount: Number(a.amount ?? 0),
+  quantity: a.quantity == null ? null : Number(a.quantity),
+  rate: a.rate == null ? null : Number(a.rate),
+  unit: a.unit || null,
   reason: a.reason || '',
   reference: a.reference || '',
   status: a.status,
@@ -152,15 +155,38 @@ payrollAdjustmentsRouter.get('/orgs/:orgId/payroll/leave-encashments', requirePe
   res.json({ encashments: waiting.map((r) => ({ id: r.id, employeeId: r.employeeId, days: -r.days, reason: r.reason, leaveType: values.get(r.id)?.leaveType ?? null, amount: values.get(r.id)?.amount ?? null, explanation: values.get(r.id)?.explanation ?? null })) });
 });
 
-const body = z.object({
-  employeeId: z.string().trim().min(1, 'Say who this is for.'),
-  componentId: z.string().trim().min(1, 'Say what this is — a bonus, an arrear, a fine.'),
-  periodId: z.string().trim().min(1, 'Say which month this is paid in.'),
-  amount: z.number().finite().positive('An adjustment of nothing changes nothing.'),
-  reason: z.string().trim().max(240).optional().nullable(),
-  reference: z.string().trim().max(120).optional().nullable(),
-  leaveEncashmentId: z.string().trim().min(1).optional(),
-});
+/*
+ * Count × rate (canteen meals, pieces made, night shifts): when both are given
+ * the amount is their product, to the paisa, whatever amount was sent, and the
+ * payslip line shows the count and the rate (server picks batch 2).
+ */
+const body = z
+  .object({
+    employeeId: z.string().trim().min(1, 'Say who this is for.'),
+    componentId: z.string().trim().min(1, 'Say what this is — a bonus, an arrear, a fine.'),
+    periodId: z.string().trim().min(1, 'Say which month this is paid in.'),
+    amount: z.number().finite().optional(),
+    quantity: z.number().finite().positive('The count must be more than nothing.').max(100000).optional().nullable(),
+    rate: z.number().finite().positive('The rate must be more than nothing.').max(10000000).optional().nullable(),
+    unit: z.string().trim().max(24).optional().nullable(),
+    reason: z.string().trim().max(240).optional().nullable(),
+    reference: z.string().trim().max(120).optional().nullable(),
+    leaveEncashmentId: z.string().trim().min(1).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if ((v.quantity == null) !== (v.rate == null)) ctx.addIssue({ code: 'custom', message: 'Give both the count and the rate, or neither.' });
+  })
+  .transform((v) => {
+    const counted = v.quantity != null && v.rate != null;
+    return {
+      ...v,
+      amount: counted ? Math.round(v.quantity! * v.rate! * 100) / 100 : v.amount ?? 0,
+      quantity: counted ? v.quantity! : null,
+      rate: counted ? v.rate! : null,
+      unit: counted ? v.unit?.trim().toLowerCase() || null : null,
+    };
+  })
+  .refine((v) => v.amount > 0, { message: 'An adjustment of nothing changes nothing.' });
 
 /**
  * Checks shared by creating and editing.
@@ -233,6 +259,9 @@ payrollAdjustmentsRouter.post(
           periodId: parsed.data.periodId,
           type: checked.type,
           amount: parsed.data.amount,
+          quantity: parsed.data.quantity,
+          rate: parsed.data.rate,
+          unit: parsed.data.unit,
           reason: parsed.data.reason?.trim() || null,
           reference: source ? `leave-encash:${source.id}` : parsed.data.reference?.trim() || null,
           status: 'DRAFT',
@@ -307,6 +336,10 @@ payrollAdjustmentsRouter.put(
         periodId: parsed.data.periodId,
         type: checked.type,
         amount: parsed.data.amount,
+        /* A corrected carried row is a plain amount from here on. */
+        quantity: correction ? null : parsed.data.quantity,
+        rate: correction ? null : parsed.data.rate,
+        unit: correction ? null : parsed.data.unit,
         reason: correction
           ? `${existing.reason || 'Carried forward'}. Corrected from ₹${Number(existing.amount).toLocaleString('en-IN')} to ₹${parsed.data.amount.toLocaleString('en-IN')}: ${correction}`.slice(0, 240)
           : parsed.data.reason?.trim() || null,

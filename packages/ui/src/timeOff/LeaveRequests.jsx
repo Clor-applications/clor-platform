@@ -32,7 +32,7 @@ import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
   PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, bulkReviewLeave, cancelLeave, getTimeOverview, createLeaveRequest, daysText,
-  getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave,
+  getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave, sendBackLeave, takeBackLeave,
   shortenLeave, swatchOf, updateLeaveRequest, listPeople,
 } from './api';
 import { addDaysIso as addDays } from '@ui/utils/dates';
@@ -333,8 +333,10 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       setBusy(false);
     }
   };
+  /* Round 27: HR for the whole company decides while it is still the manager's turn; the request is marked "Decided by HR". */
+  const asHr = Boolean(d?.waitingForManager && d?.mayDecideAsHr);
   const approve = () => act(async () => {
-    const out = await approveLeave(r.id, note.trim());
+    const out = await approveLeave(r.id, note.trim(), { asHr });
     if (out?.stage === 'NEXT') notify.success('Your step is approved. It moves on to the next step.');
   }, leaveDone(r, 'approved'));
   const openDocument = async () => {
@@ -351,6 +353,16 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
   const reject = () => {
     if (!note.trim()) { setNoteError('Say why. They see this with the decision.'); noteRef.current?.focus(); return; }
     act(() => rejectLeave(r.id, note.trim()), leaveDone(r, 'not approved'));
+  };
+  /* Round 27: send it back with a question (the note); it stays with the same approver until they answer. */
+  const sendBack = () => {
+    if (!note.trim()) { setNoteError('Write the question in the note. They answer it in the app.'); noteRef.current?.focus(); return; }
+    act(() => sendBackLeave(r.id, note.trim()), 'Sent back with your question.');
+  };
+  /* Round 18: take back an approval before the leave starts. */
+  const takeBack = async () => {
+    const ok = await confirmDialog({ title: 'Take back this approval?', message: 'It waits for a decision again, its days come off the attendance record, and they are told.', confirmLabel: 'Take back' });
+    if (ok) act(() => takeBackLeave(r.id, null), 'Approval taken back. It waits again.');
   };
   const cancel = async () => {
     const ok = await confirmDialog({
@@ -379,14 +391,16 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     <>
       {canCancel ? <button type="button" className="ui-btn ui-btn-ghost mr-auto" disabled={busy} onClick={cancel}>Withdraw</button> : null}
       {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
+      {d.question ? null : <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={sendBack}>Ask a question</button>}
       <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
-      {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || Boolean(d.waitingForManager)} onClick={approve}><Check size={16} aria-hidden="true" /> Approve</button> : null}
+      {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || (Boolean(d.waitingForManager) && !asHr)} onClick={approve}><Check size={16} aria-hidden="true" /> {asHr ? 'Approve as HR' : 'Approve'}</button> : null}
     </>
-  ) : OPEN_STATUSES.includes(r.status) && canCancel ? (
+  ) : OPEN_STATUSES.includes(r.status) && (canCancel || d?.canTakeBack) ? (
     <>
       {changeable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setEditing(true)}>Change</button> : null}
       {shortenable ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={() => setShortening(true)}>Came back early</button> : null}
-      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw'}</button>
+      {d?.canTakeBack ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={takeBack}>Take back approval</button> : null}
+      {canCancel ? <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={cancel}>{r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw'}</button> : null}
     </>
   ) : null;
 
@@ -397,12 +411,13 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <Fact label="Dates"><span className="tabular-nums">{range(r.fromDate, r.toDate)}</span>{hoursText(r) ? <span className="tabular-nums">, {hoursText(r)}</span> : r.halfDay ? `, ${half(r.halfDay).toLowerCase()}` : ''}</Fact>
             <Fact label="Charged"><span className="tabular-nums">{daysText(r.days)}</span></Fact>
-            <Fact label="Status"><StatusPill row={r} /></Fact>
+            <Fact label="Status"><StatusPill row={r} />{d.decidedByHr ? <span className="ui-caption block">Decided by HR</span> : null}</Fact>
             {d.parts?.length > 1 ? <div className="col-span-2"><Fact label="Saved in parts">{d.parts.map((x, i) => <span key={x.id} className="block tabular-nums">Part {i + 1}: {range(x.fromDate, x.toDate)}{x.halfDay ? `, ${half(x.halfDay).toLowerCase()}` : ''}, {daysText(x.days)}{x.overflowOfId ? `, ${x.leaveTypeName} (over the balance)` : ''}{x.status !== r.status ? ` · ${STATUS_LABEL[x.status]}` : ''}</span>)}</Fact></div> : null}
             <div className="col-span-2"><Fact label="Reason">{r.reasonHidden ? <span className="ui-muted">Private: HR reads the reason.</span> : r.reason ? r.reason : <span className="ui-muted">None given</span>}</Fact></div>
           </dl>
 
-          {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}</p> : null}
+          {d.waitingForManager ? <p className="text-sm ui-text-warn">{d.waitingForManager}{asHr ? ' You can decide it as HR; it is marked “Decided by HR”.' : ''}</p> : null}
+          {d.question ? <p className="text-sm">Waiting for their answer to {d.question.by ? `${d.question.by}’s` : 'a'} question: <span className="ui-muted">“{d.question.note}”</span></p> : null}
           {d.step ? (
             <section aria-labelledby="lr-step" className="space-y-1">
               <h3 id="lr-step" className="ui-t-sec">Approval</h3>

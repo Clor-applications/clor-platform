@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { forgetPeople, forgetSearches } from '@ui/components/ui/recents';
 
 import { SWITCH_COMPANY_EVENT, setPlatformContext } from '@platform/context';
 import {
@@ -448,6 +449,9 @@ export function SessionProvider({ children }) {
       /* Losing the server's goodbye must not trap somebody in a session. */
     }
     writeToken('');
+    /* Recent searches and people opened are this person's, not the next one's on a shared computer. */
+    forgetSearches();
+    forgetPeople();
     markExplore(false);
     setExplore(null);
     setUser(null);

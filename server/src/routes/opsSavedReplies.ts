@@ -22,15 +22,25 @@ const fields = z.object({
   title: z.string().trim().min(3, 'Give it a short title.').max(80),
   body: z.string().trim().min(10, 'Write the reply.').max(4000),
   app: z.enum(SAVED_REPLY_APPS).nullable().optional(),
+  /* Round 55: the help page the reply points to, added under it as "Read more". Web pages only. */
+  helpUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === '' || /^https:\/\/[^\s]+$/i.test(v), 'A help page link starts with https://.')
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
 });
 
-/** {name} and {ticket} filled in for one ticket; left as they are without one. */
-export function fillReply(body: string, who: { name?: string | null; ticket?: string | null }) {
+/** {name} and {ticket} filled in for one ticket; left as they are without one. A help page goes under it as "Read more: <link>". */
+export function fillReply(body: string, who: { name?: string | null; ticket?: string | null }, helpUrl?: string | null) {
   const first = String(who.name || '').trim().split(/\s+/)[0] || 'there';
-  return body.replace(/\{name\}/g, first).replace(/\{ticket\}/g, who.ticket || 'your ticket');
+  const filled = body.replace(/\{name\}/g, first).replace(/\{ticket\}/g, who.ticket || 'your ticket');
+  return helpUrl ? `${filled}\n\nRead more: ${helpUrl}` : filled;
 }
 
-const shape = (r: any, filled?: string) => ({ id: r.id, title: r.title, body: r.body, app: r.app, usedCount: r.usedCount, updatedAt: r.updatedAt, ...(filled !== undefined ? { filled } : {}) });
+const shape = (r: any, filled?: string) => ({ id: r.id, title: r.title, body: r.body, app: r.app, helpUrl: r.helpUrl ?? null, usedCount: r.usedCount, updatedAt: r.updatedAt, ...(filled !== undefined ? { filled } : {}) });
 
 /** Most used first. With ?ticket=<id>, each also comes filled in for that ticket, and the ticket's app ones lead. */
 opsSavedRepliesRouter.get('/ops/saved-replies', (req, res) =>
@@ -43,7 +53,7 @@ opsSavedRepliesRouter.get('/ops/saved-replies', (req, res) =>
     const who = await platformPrisma.user.findUnique({ where: { id: t.openedByUserId }, select: { fullName: true } });
     const fits = (r: { app: string | null }) => (r.app && r.app === t.app ? 0 : r.app ? 2 : 1);
     const sorted = [...rows].sort((a, b) => fits(a) - fits(b));
-    res.json({ replies: sorted.map((r) => shape(r, fillReply(r.body, { name: who?.fullName, ticket: ticketCode(t.number) }))) });
+    res.json({ replies: sorted.map((r) => shape(r, fillReply(r.body, { name: who?.fullName, ticket: ticketCode(t.number) }, r.helpUrl))) });
   }),
 );
 
@@ -55,7 +65,7 @@ opsSavedRepliesRouter.post('/ops/saved-replies', requireOperatorRole('SUPPORT'),
     const parsed = fields.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the fields.', code: 'INVALID' });
     try {
-      const r = await platformPrisma.supportSavedReply.create({ data: { ...parsed.data, app: parsed.data.app ?? null, createdByUserId: req.auth!.userId, updatedByUserId: req.auth!.userId } });
+      const r = await platformPrisma.supportSavedReply.create({ data: { ...parsed.data, app: parsed.data.app ?? null, helpUrl: parsed.data.helpUrl ?? null, createdByUserId: req.auth!.userId, updatedByUserId: req.auth!.userId } });
       await audit(req, 'SAVED_REPLY_ADDED', {}, { id: r.id, title: r.title });
       res.status(201).json({ reply: shape(r) });
     } catch (err) {

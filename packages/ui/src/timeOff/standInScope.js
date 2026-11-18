@@ -13,6 +13,7 @@ export const STAND_IN_TYPES = [
   ['PROFILE_CHANGE', 'Personal detail changes'],
   ['JOB_CHANGE', 'Job changes'],
   ['LEAVING', 'Leaving'],
+  ['LEAVING_WITHDRAW', 'Taking back a resignation'],
   ['PROBATION', 'Probation'],
   ['LETTER_REQUEST', 'Letters'],
   ['DOCUMENT_REQUEST', 'Documents'],

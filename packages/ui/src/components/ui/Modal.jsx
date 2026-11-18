@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { OverlayLayerContext } from './overlayLayer';
 import { X } from '@ui/components/ui/lineIcons';
 import { confirmDialog } from './notify';
+import { openingFocus } from '@ui/picks/round61';
 
 /**
  * The one dialog in the product.
@@ -40,7 +41,7 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
   const dirtyRef = useRef(dirty);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
   const beginClose = useCallback(async () => {
-    if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', tone: 'danger' }))) return;
+    if (dirtyRef.current && !(await confirmDialog({ title: 'Discard your changes?', message: 'What you entered here has not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', stayFirst: true }))) return;
     setClosing(true);
   }, []);
 
@@ -89,7 +90,8 @@ const Modal = ({ children, onClose, title = 'Form', maxWidthClass = 'max-w-4xl',
   useEffect(() => {
     returnFocusRef.current = document.activeElement;
     const panel = panelRef.current;
-    const wants = panel?.querySelector('[data-autofocus]');
+    /* Round 61 "focusfirst" A: data-autofocus first, else the first empty field (not on a touch phone). */
+    const wants = openingFocus(panel);
     (wants && typeof wants.focus === 'function' ? wants : panel)?.focus();
     return () => {
       const back = returnFocusRef.current;

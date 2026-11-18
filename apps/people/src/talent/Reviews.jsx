@@ -13,6 +13,7 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { structure } from '../workforce/api';
 import { calibration, createCycle, getCycle, listCycles, moveCycle, setFinal, writeManager, writeSelf } from '../api/talent';
 import { oneDueDate, showSideBySide, withOneDueDate } from './round37';
+import { GoalScore } from './round53Goals';
 import { CYCLE_STATUS, FormError, Footer, Pill, RATINGS, SHEET, Stars, Tabs, WIDE_SHEET, day, ratingWord, useParamState, usedValues } from './shared';
 
 /**
@@ -213,6 +214,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
           <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); if (busy) return; run('manager', () => writeManager(r.id, { managerRating: form.managerRating, managerText: form.managerText }), 'Manager review saved.'); }}>
             <p className="ui-label sm:col-span-2">{r.manager ? 'Your review as their manager' : 'Manager review (they have no manager)'}</p>
             <RatingPick label="Rating *" value={form.managerRating} onChange={(v) => set({ managerRating: v })} />
+            <div className="sm:col-span-2"><GoalScore score={r.goalScore} /></div>
             <label className="block sm:col-span-2"><span className="ui-label">What went well and what to work on *</span><textarea className="ui-input w-full" rows={5} maxLength={8000} value={form.managerText} onChange={(e) => set({ managerText: e.target.value })} /></label>
             <div className="sm:col-span-2 flex justify-end"><button type="submit" className="ui-btn ui-btn-primary" disabled={Boolean(busy)}>{busy === 'manager' ? 'Saving…' : 'Save manager review'}</button></div>
           </form>
@@ -221,6 +223,7 @@ function ReviewDrawer({ review: r, cycle, hr, onClose, onSaved }) {
           <form className="ui-form-grid border-t pt-4" style={{ borderColor: 'rgb(var(--border))' }} onSubmit={(e) => { e.preventDefault(); if (busy) return; run('final', () => setFinal(r.id, { finalRating: form.finalRating, finalReason: form.finalReason.trim() || null }), 'Final rating set.'); }}>
             <p className="ui-label sm:col-span-2">Final rating</p>
             <RatingPick label="Final rating *" value={form.finalRating} onChange={(v) => set({ finalRating: v })} />
+            <div className="sm:col-span-2"><GoalScore score={r.goalScore} /></div>
             {r.managerRating && form.finalRating && Number(form.finalRating) !== r.managerRating ? (
               <label className="block sm:col-span-2"><span className="ui-label">Why it differs from the manager’s *</span><SuggestInput maxLength={2000} value={form.finalReason} onChange={(v) => set({ finalReason: v })} suggestions={['Brought in line with the department', 'Goals not met in the period', 'Work outside the goals recognised']} /></label>
             ) : null}

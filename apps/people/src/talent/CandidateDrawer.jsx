@@ -12,6 +12,8 @@ import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { nextEmployeeCode } from '../workforce/api';
 import OfferDrawer from '../workforce/OfferDrawer';
 import { OfferAnswerBy } from './round36';
+import { AppliedBefore } from './round53Parts';
+import { RatedAnswers, RatingRow, ScreeningAnswers, useInterviewQuestions } from './round53Server';
 import {
   addCandidate, cancelInterview, getCandidate, giveFeedback, hireCandidate, interviewers, listInterviews, moveCandidate, moveInterview, noteCandidate, readFile, resumeFile, saveResume, scheduleInterview, updateCandidate,
 } from '../api/talent';
@@ -84,6 +86,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
             <Pill map={STAGES} value={c.stage} />
             <span>{[c.openingTitle, hr ? word(SOURCES, c.source) + (c.sourceDetail ? ` (${c.sourceDetail})` : '') : null, `since ${day(c.stageAt)}`].filter(Boolean).join(' · ')}</span>
           </p>
+          <AppliedBefore candidate={c} hr={hr} />
           {d.referral ? <p className="text-sm">Referred by <span className="font-medium">{d.referral.referrer}</span>{d.referral.via === 'LINK' ? ', through their link' : ''} on <span className="tabular-nums">{day(d.referral.referredAt)}</span>{d.referral.relation ? `. How they know them: ${d.referral.relation}` : ''}.{d.referral.note ? <span className="block whitespace-pre-wrap ui-muted">{d.referral.note}</span> : null}</p> : null}
           {c.closedReason ? <p className="text-sm"><span className="ui-label">Why</span> {c.closedReason}</p> : null}
           {c.offerAcceptedOn ? <p className="text-sm">Offer accepted on <span className="tabular-nums">{day(c.offerAcceptedOn)}</span>.</p> : null}
@@ -108,6 +111,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
               </dd>
             </div>
           </dl>
+          <ScreeningAnswers answers={c.screeningAnswers} />
           {canEdit && live ? (
             <div className="flex flex-wrap gap-2">
               <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSub({ kind: 'edit' })}>Edit details</button>
@@ -134,7 +138,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
                     <p className="ui-caption">{iv.interviewers.map((u) => `${u.name}${u.gave ? ' ✓' : ''}`).join(', ')}</p>
                     {iv.feedback.map((f) => (
                       <div key={f.byUserId} className="text-sm">
-                        <span className="font-medium">{f.by}</span>: {word(RECOMMENDATIONS, f.recommendation)}{f.notes ? <span className="block whitespace-pre-wrap ui-muted">{f.notes}</span> : null}
+                        <span className="font-medium">{f.by}</span>: {word(RECOMMENDATIONS, f.recommendation)}<RatedAnswers answers={f.answers} />{f.notes ? <span className="block whitespace-pre-wrap ui-muted">{f.notes}</span> : null}
                       </div>
                     ))}
                     {iv.feedbackHidden ? <p className="ui-caption">Others have given feedback. You see it once you give yours.</p> : null}
@@ -318,11 +322,14 @@ export function FeedbackForm({ interview, name, onClose, onSaved }) {
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  /* Round 53 pick: the company's questions, each rated 1 to 5. */
+  const { questions } = useInterviewQuestions();
+  const [ratings, setRatings] = useState({});
   const save = async () => {
     if (!recommendation) { setError({ message: 'Pick a recommendation.' }); return; }
     setBusy(true);
     setError(null);
-    try { await giveFeedback(interview.id, { recommendation, notes: notes.trim() || null }); notify.success('Feedback given.'); onSaved(); } catch (e) { setError(e); setBusy(false); }
+    try { await giveFeedback(interview.id, { recommendation, notes: notes.trim() || null, ...(questions.length ? { answers: questions.map((question) => ({ question, rating: ratings[question] ?? null })) } : {}) }); notify.success('Feedback given.'); onSaved(); } catch (e) { setError(e); setBusy(false); }
   };
   return (
     <Drawer open onClose={onClose} widthClass={SHEET} dirty={Boolean(recommendation || notes.trim())} title={`Feedback on ${name}`}
@@ -339,6 +346,7 @@ export function FeedbackForm({ interview, name, onClose, onSaved }) {
             ))}
           </div>
         </fieldset>
+        {questions.map((q) => <RatingRow key={q} question={q} value={ratings[q] ?? null} onChange={(n) => setRatings((r) => ({ ...r, [q]: n }))} />)}
         <label className="block sm:col-span-2"><span className="ui-label">What you saw</span><textarea className="ui-input w-full" rows={5} maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
       </form>
     </Drawer>

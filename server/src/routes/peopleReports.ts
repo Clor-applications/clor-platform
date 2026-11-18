@@ -7,9 +7,10 @@ import { PermissionAction } from '../constants/enums.js';
 import { recordAudit } from '../services/auditTrail.js';
 import { PEOPLE_MODULE, PEOPLE_RESOURCE, peopleRouteOk } from '../services/people/guards.js';
 import { seesPersonal, teamScope } from '../services/people/scope.js';
-import { seesLeavings } from '../services/people/companyChoices.js';
+import { leavingReasonAccess, seesLeavings } from '../services/people/companyChoices.js';
+import { authorize } from '../middleware/rbac.js';
 import { docAccess } from '../services/people/documentAccess.js';
-import { HR_REPORTS, ReportError, reportCsv, reportFilters, runReport, type ReportCtx } from '../services/people/reports.js';
+import { HR_REPORTS, LEAVING_REPORTS, REASON_REPORTS, ReportError, reportCsv, reportFilters, runReport, type ReportCtx } from '../services/people/reports.js';
 
 /**
  * People's reports (services/people/reports.ts): the list, one report with
@@ -19,7 +20,10 @@ import { HR_REPORTS, ReportError, reportCsv, reportFilters, runReport, type Repo
  * reader's team scope: a team manager's headcount is their own line's.
  * Gender and age figures under five are hidden from everyone but
  * whole-company HR. Joiners and leavers is kept from whoever the company
- * keeps the Leaving list from (companyChoices.ts).
+ * keeps the Leaving list from (companyChoices.ts), and so are probation
+ * outcomes and reasons for leaving; reasons for leaving only open to readers
+ * who see every leaver's reason. The branch table's pay cost needs the
+ * Payroll right to salary slips.
  */
 export const peopleReportsRouter = Router();
 const base = '/orgs/:orgId/people/hr-reports';
@@ -29,14 +33,21 @@ const view = requirePermission(PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESO
 
 async function ctxOf(req: Request): Promise<ReportCtx> {
   const scope = await teamScope(req);
-  return { orgId: req.tenant!.orgId, scope, hr: scope.all && (await seesPersonal(req)), docs: await docAccess(req) };
+  return { orgId: req.tenant!.orgId, scope, hr: scope.all && (await seesPersonal(req)), docs: await docAccess(req), payCost: !(await authorize(req, 'PAYROLL', PermissionAction.VIEW, 'Salary Slips')) };
+}
+
+/** The reports this reader may open at all: leaving figures and leaving reasons follow the company's choices. */
+async function openTo(req: Request) {
+  const leavings = await seesLeavings(req);
+  const reasons = leavings && (await leavingReasonAccess(req)) === 'ALL';
+  return (id: string) => (leavings || !LEAVING_REPORTS.includes(id)) && (reasons || !REASON_REPORTS.includes(id));
 }
 
 /** The report asked for, or the refusal already sent. */
 async function reportFor(req: Request, res: Response) {
   const id = String(req.params.id);
-  if (id === 'movement' && !(await seesLeavings(req))) {
-    res.status(403).json({ error: 'Your role does not show who is leaving, so this report is not open to you.' });
+  if (!(await openTo(req))(id)) {
+    res.status(403).json({ error: REASON_REPORTS.includes(id) ? 'Your role does not show why people leave, so this report is not open to you.' : 'Your role does not show who is leaving, so this report is not open to you.' });
     return null;
   }
   try {
@@ -52,8 +63,8 @@ async function reportFor(req: Request, res: Response) {
 
 peopleReportsRouter.get(base, view, async (req, res) => {
   if (!(await peopleRouteOk(req, res))) return;
-  const leavingsOk = await seesLeavings(req);
-  res.json({ reports: HR_REPORTS.filter((r) => leavingsOk || r.id !== 'movement'), filters: await reportFilters(await ctxOf(req)) });
+  const open = await openTo(req);
+  res.json({ reports: HR_REPORTS.filter((r) => open(r.id)), filters: await reportFilters(await ctxOf(req)) });
 });
 
 peopleReportsRouter.get(`${base}/:id`, view, async (req, res) => {

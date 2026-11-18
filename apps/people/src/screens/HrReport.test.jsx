@@ -105,3 +105,54 @@ it('a chart carries three colours at most: a fourth series is the grey “Other�
   /* No colour of its own in the component: tokens only. */
   expect(container.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|rgb\(\d/i);
 });
+
+it('a line chart (absence rate by month): one line a series, the months under it, said in words with its unit', () => {
+  const chart = { kind: 'line', unit: '%', categories: ['Jan 2025', 'Feb 2025', 'Mar 2025'], series: [{ label: 'Absence rate', values: [2.5, 4, 1.2] }] };
+  const { container } = render(<ReportChart chart={chart} label="Absence rate" />);
+  const lines = container.querySelectorAll('.people-chart-line polyline');
+  expect(lines).toHaveLength(1);
+  expect(lines[0].getAttribute('points').split(' ')).toHaveLength(3);
+  expect(screen.getByRole('img').getAttribute('aria-label')).toContain('Feb 2025: Absence rate 4%');
+  expect([...container.querySelectorAll('.people-chart-axis span')].map((s) => s.textContent)).toEqual(['Jan 2025', 'Feb 2025', 'Mar 2025']);
+  expect(container.innerHTML).not.toMatch(/#[0-9a-f]{3,6}\b|rgb\(\d/i);
+});
+
+it('pay cost reads in rupees, in tabular figures', async () => {
+  const BRANCHES = {
+    id: 'branches', title: 'Branches side by side', from: '2025-01-01', to: '2025-03-31', by: 'branch',
+    columns: [{ key: 'branch', label: 'Branch' }, { key: 'headcount', label: 'Headcount', align: 'right' }, { key: 'pay', label: 'Pay cost', align: 'right', kind: 'money' }],
+    rows: [{ branch: 'Head office', headcount: 12, pay: 1234567 }], totals: null, chart: null, notes: [], masked: false,
+  };
+  api.listHrReports.mockResolvedValue({ ...CATALOGUE, reports: [...CATALOGUE.reports, { id: 'branches', group: 'Workforce', name: 'Branches side by side', description: 'x', dates: 'months', by: false }] });
+  api.runHrReport.mockResolvedValue(BRANCHES);
+  render(<HrReport params={{ report: 'branches' }} updateParams={() => {}} />);
+  const cell = await screen.findByText('₹12,34,567');
+  expect(cell.className).toContain('tabular-nums');
+});
+
+it('round 63: a person report shows 20 rows with the count, hides people with none, links names, and the file says whose it is', async () => {
+  /* 22 people with overtime, 2 with none, and one whose date has passed (days left −3); a "0 days left" row is due today and stays. */
+  const people = Array.from({ length: 24 }, (_, i) => ({ name: `Person ${i + 1}`, code: `E${i + 1}`, department: 'Sales', ot: i < 22 ? i + 1 : 0, days: 0 }));
+  people.push({ name: 'Late Payer', code: 'E99', department: 'Sales', ot: 2, days: -3 });
+  api.runHrReport.mockResolvedValue({ id: 'probation', title: 'Probation due', from: '2026-10-01', to: '2026-10-31', columns: [{ key: 'name', label: 'Employee' }, { key: 'code', label: 'Employee ID' }, { key: 'department', label: 'Department' }, { key: 'ot', label: 'Overtime hours', align: 'right' }, { key: 'days', label: 'Days left', align: 'right' }], rows: people, totals: null, chart: null, notes: [] });
+  api.hrReportCsv.mockResolvedValue('\uFEFFEmployee,Days left\r\nPerson 1,1');
+  const openScreen = vi.fn();
+  let blob = null;
+  URL.createObjectURL = vi.fn((b) => { blob = b; return 'blob:x'; });
+  render(<HrReport params={{ report: 'probation', departmentId: 'd1' }} updateParams={vi.fn()} openScreen={openScreen} tenant={{ name: 'Kave Foods' }} user={{ fullName: 'Priya' }} />);
+  const table = await screen.findByRole('table', { name: 'Probation due' });
+  expect(within(table).getAllByRole('row').length - 1).toBe(20);
+  expect(screen.getByText(/20 of 23 shown/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Show 2 people with none' })).toBeTruthy();
+  expect(screen.getByText('Days left').getAttribute('data-help')).toMatch(/minus means/);
+  fireEvent.click(screen.getByRole('button', { name: 'Show all 23' }));
+  const minus = within(table).getByText('−3');
+  expect(minus.className).toMatch(/ui-neg-figure/);
+  fireEvent.click(within(table).getByRole('button', { name: 'Person 1' }));
+  expect(openScreen).toHaveBeenCalledWith('employees', { q: 'E1' });
+  fireEvent.click(screen.getByRole('button', { name: /Export/ }));
+  await vi.waitFor(() => expect(blob).not.toBeNull());
+  const text = await blob.text();
+  expect(text).toMatch(/^\uFEFF?Kave Foods\r\nProbation due\r\nPeriod: 1 Oct 2026 to 31 Oct 2026\r\nFilters: Department: Sales\r\nMade on .+ by Priya\r\n\r\nEmployee,Days left/);
+  expect(screen.getByRole('button', { name: /Print/ }).className).toMatch(/ui-btn-secondary/);
+});

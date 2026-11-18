@@ -16,6 +16,7 @@ import {
   deletePayrollPeriod,
 } from '../api/payrollCalendar';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { CLOSED_MONTH_NOTE } from '@ui/picks/round54';
 
 /**
  * The pay cycles a run is filed against.
@@ -178,7 +179,7 @@ export default function PayrollPeriods() {
     <DocumentListShell
       entity="payPeriod"
       title="Payroll periods"
-      description="The pay cycles a run belongs to, and which of them are closed."
+      description={`The pay cycles a run belongs to, and which of them are closed. ${CLOSED_MONTH_NOTE}`}
       compact
       tight
       denseCards
@@ -254,16 +255,19 @@ export default function PayrollPeriods() {
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          className="ui-icon-btn"
-                          aria-label={p.isLocked ? `Reopen ${p.name}` : `Close ${p.name}`}
-                          title={p.isLocked ? 'Reopen' : 'Close'}
-                          disabled={busy === p.id}
-                          onClick={() => toggleLock(p)}
-                        >
-                          {p.isLocked ? <LockOpen size={16} aria-hidden="true" /> : <Lock size={16} aria-hidden="true" />}
-                        </button>
+                        {/* Round 54 (unlockmonth B): a closed month is never reopened; fix it next month. */}
+                        {p.isLocked ? null : (
+                          <button
+                            type="button"
+                            className="ui-icon-btn"
+                            aria-label={`Close ${p.name}`}
+                            title="Close"
+                            disabled={busy === p.id}
+                            onClick={() => toggleLock(p)}
+                          >
+                            <Lock size={16} aria-hidden="true" />
+                          </button>
+                        )}
                         {!p.isLocked && !p.usage?.total ? (
                           <button type="button" className="ui-icon-btn" aria-label={`Delete ${p.name}`} onClick={() => remove(p)}>
                             <Trash2 size={16} aria-hidden="true" />

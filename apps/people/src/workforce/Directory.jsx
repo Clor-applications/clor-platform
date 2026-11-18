@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { saveRecordList } from '@ui/picks/round62';
 import { CalendarClock, CalendarDays, Smartphone, UserPlus, UserRoundX, Users } from 'lucide-react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
@@ -27,6 +28,7 @@ import { listBranches } from '../organization/api';
 import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
 import AppAccessSend from './AppAccessSend';
+import MyTeamPanel from './MyTeamPanel';
 import DeptTag from '@ui/components/ui/DeptTag';
 import { plusDaysIso, todayIst } from '@ui/utils/dates';
 
@@ -38,7 +40,7 @@ import { plusDaysIso, todayIst } from '@ui/utils/dates';
  * `updateParams`), so Back and refresh return to the same list. Choosing
  * people is per page; changing filters or company clears the choice.
  */
-const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto', 'working', 'branch'];
+const FILTER_KEYS = ['status', 'dept', 'pos', 'type', 'wtype', 'hrs', 'prob', 'contract', 'area', 'est', 'unit', 'grade', 'centre', 'tag', 'mgr', 'from', 'to', 'lfrom', 'lto', 'working', 'branch', 'lang'];
 const COLUMNS_KEY = 'people.workforce.columns';
 const DISMISS_KEY = 'people.workforce.dismissed';
 /* Ticked rows are sent as ids in the export address; above this many it grows too long. */
@@ -49,7 +51,7 @@ const apiParams = (p) => ({
   /* Leavers stay out unless asked for: the default is everyone still with the company. */
   q: p.q, status: p.status || 'CURRENT', departmentId: p.dept, jobPositionId: p.pos, employeeTypeId: p.type, workTypeId: p.wtype, hours: p.hrs, probation: p.prob, contract: p.contract, areaId: p.area, establishmentId: p.est,
   businessUnitId: p.unit, gradeId: p.grade, costCenterId: p.centre, tagId: p.tag, managerId: p.mgr,
-  joinedFrom: p.from, joinedTo: p.to, leftFrom: p.lfrom, leftTo: p.lto, working: p.working, branchId: p.branch, sort: p.sort, dir: p.dir,
+  joinedFrom: p.from, joinedTo: p.to, leftFrom: p.lfrom, leftTo: p.lto, working: p.working, branchId: p.branch, language: p.lang, sort: p.sort, dir: p.dir,
 });
 
 export default function Directory({ params = {}, updateParams, openScreen }) {
@@ -90,7 +92,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   if (selKey !== listKey) { setSelKey(listKey); setSelected(new Set()); }
 
   /* Lower-priority columns start hidden so the table fits beside both sidebars; Columns shows them (WF-03). */
-  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type', 'location', 'department', 'code'] }));
+  const [prefs, setPrefsState] = useState(() => readJson(COLUMNS_KEY, { hidden: ['manager', 'type', 'location', 'department', 'code', 'languages'] }));
   const setPrefs = (next) => { setPrefsState(next); writeJson(COLUMNS_KEY, next); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulk, setBulk] = useState(null);
@@ -100,6 +102,9 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const [exportOpen, setExportOpen] = useState(false);
 
   const rows = list.data?.employees || [];
+  /* Round 62 "nextprevrecord" A: the order of this page, so a record opened from it can step to the next person. */
+  const rowIds = rows.map((r) => r.id).join(',');
+  useEffect(() => { if (rowIds) saveRecordList(rowIds.split(',')); }, [rowIds]);
   const total = Number(list.data?.total || 0);
   /* Managers to filter and move people to: everyone still here, by name (500 at most for the picker). */
   const [managers, setManagers] = useState([]);
@@ -129,6 +134,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     { key: 'type', label: 'Employment type', render: (r) => lists.types.find((t) => t.id === r.employeeTypeId)?.name || '—' },
     { key: 'dateOfJoining', label: 'Joining date', sortable: true, render: (r) => <span className="tabular-nums whitespace-nowrap">{r.dateOfJoining ? formatDate(String(r.dateOfJoining).slice(0, 10)) : '—'}</span> },
     { key: 'status', label: 'Status', sortable: true, render: (r) => <StatusBadge employee={r} quiet /> },
+    { key: 'languages', label: 'Languages', render: (r) => ((r.languages || []).length ? <span className="flex flex-wrap gap-1">{r.languages.map((l) => <span key={l} className="ui-chip">{l}</span>)}</span> : '—') },
   ];
 
   const rowActions = (r) => [
@@ -199,6 +205,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     p.grade && { k: 'grade', label: `Grade: ${lookup('grades', p.grade)}` },
     p.centre && { k: 'centre', label: `Cost centre: ${lookup('centres', p.centre)}` },
     p.tag && { k: 'tag', label: `Tag: ${lookup('tags', p.tag)}` },
+    p.lang && { k: 'lang', label: `Speaks ${p.lang}` },
     p.mgr && { k: 'mgr', label: p.mgr === 'none' ? 'No manager' : `Manager: ${managers.find((m) => m.id === p.mgr)?.name || 'Chosen'}` },
     (p.from || p.to) && { k: 'dates', label: `Joined ${p.from ? formatDate(p.from) : 'any time'} – ${p.to ? formatDate(p.to) : 'now'}` },
     (p.lfrom || p.lto) && { k: 'left', label: `Left ${p.lfrom ? formatDate(p.lfrom) : 'any time'} – ${p.lto ? formatDate(p.lto) : 'now'}` },
@@ -231,12 +238,13 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
             <Filter size={16} aria-hidden="true" /> Filters{filtersOn ? <span className="ui-pill ui-pill-info tabular-nums ml-1">{filtersOn}</span> : null}
           </button>
         </> : null}
-        toolbarEnd={!firstRun && (tab === 'directory' || tab === 'team') ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: ['manager', 'type', 'location', 'department', 'code'] }} /> : null}
+        toolbarEnd={!firstRun && (tab === 'directory' || tab === 'team') ? <ColumnSettings columns={columns} prefs={prefs} onPrefs={setPrefs} defaults={{ hidden: ['manager', 'type', 'location', 'department', 'code', 'languages'] }} /> : null}
         tabs={firstRun ? [] : [{ key: 'directory', label: 'Directory' }, counts.data?.myTeam ? { key: 'team', label: 'My team', count: counts.data.myTeam } : null, { key: 'views', label: 'Saved views' }, pendingCount ? { key: 'pending', label: 'Pending actions', count: pendingCount } : null]}
         tab={tab}
         onTab={(k) => set({ tab: k === 'directory' ? null : k }, true)}
       />
       <Banners openScreen={openScreen} />
+      {tab === 'team' && !firstRun ? <MyTeamPanel onFilter={(f) => set({ ...f, page: null }, true)} openScreen={openScreen} /> : null}
       {selected.size ? (
         <div className="ui-bulkbar" role="status" aria-live="polite">
           <span className="tabular-nums font-medium">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>
@@ -398,6 +406,7 @@ function MetricStrip({ counts, onPick }) {
  * By department (PEOPLE-02): today's headcount per department on the soft panel, from the same overview Home reads,
  * and beside it the movements the tiles do not carry, each opening the list filtered to them.
  */
+const FOOD_ORDER = [['VEG', 'Veg'], ['NON_VEG', 'Non-veg'], ['EGG', 'Eggetarian'], ['JAIN', 'Jain'], ['NOT_SET', 'Not said']];
 function Breakdown({ counts, everyone, types, onPick }) {
   const overview = useRequest(() => getOverview(), []);
   const depts = overview.data?.byDepartment || [];
@@ -416,6 +425,8 @@ function Breakdown({ counts, everyone, types, onPick }) {
     counts?.leavingsHidden ? null : { k: 'leftMonth', label: 'Left this month', value: counts?.leftThisMonth, patch: counts ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : null },
     { k: 'suspended', label: 'Suspended', value: counts?.suspended, patch: { status: 'SUSPENDED' } },
     counts?.leavingsHidden ? null : { k: 'left', label: 'Everyone who left', value: counts?.left, patch: { status: 'LEFT' } },
+    /* Food preference over everyone working now (catering), for those who see personal details only. */
+    counts?.food ? { k: 'food', label: 'Food', value: FOOD_ORDER.filter(([k]) => counts.food[k]).map(([k, w]) => `${w} ${counts.food[k]}`).join(' · ') || 'Not recorded' } : null,
   ].filter(Boolean);
   return (
     <div className="pc-charts">
@@ -503,6 +514,7 @@ function FiltersDrawer({ params, lists, managers, noticeHidden = false, onClose,
             {field('contract', 'Contract end', [{ value: '', label: 'Any' }, { value: 'ending', label: 'Ending in 30 days or ended' }])}
             {lists.grades.length ? field('grade', 'Grade', opt(lists.grades)) : null}
             {lists.tags.length ? field('tag', 'Tag', opt(lists.tags)) : null}
+            <div><label className="ui-label" htmlFor="wf-lang">Speaks</label><input id="wf-lang" className="ui-input w-full" maxLength={40} placeholder="Any language" value={draft.lang || ''} onChange={(e) => setDraft({ ...draft, lang: e.target.value })} /></div>
           </div>
         </section>
         <section aria-label="Place">

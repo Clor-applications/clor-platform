@@ -9,10 +9,12 @@ export function presetRanges(today = new Date()) {
   const y = today.getFullYear();
   const m = today.getMonth();
   const fyStart = m >= 3 ? y : y - 1;
+  const qStart = Math.floor(m / 3) * 3;
   return [
     ['thisMonth', 'This month', iso(new Date(y, m, 1)), iso(new Date(y, m + 1, 0))],
     ['lastMonth', 'Last month', iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))],
-    ['quarter', 'Last 3 months', iso(new Date(y, m - 2, 1)), iso(new Date(y, m + 1, 0))],
+    /* Round 63 "datepresets" A: the financial quarter (Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar), the way returns are filed. */
+    ['quarter', 'This quarter', iso(new Date(y, qStart, 1)), iso(new Date(y, qStart + 3, 0))],
     ['fy', 'This financial year', iso(new Date(fyStart, 3, 1)), iso(new Date(fyStart + 1, 2, 31))],
   ];
 }

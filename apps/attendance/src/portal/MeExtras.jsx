@@ -5,8 +5,9 @@ import { confirmDialog } from '@ui/components/ui/notify';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { lineName, shownLines } from '@ui/picks/round60';
-import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
+import { SignedOut, askToStay, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 import { addDaysIso as addDays } from '@ui/utils/dates';
+import { SPLIT_NOTE, SPLIT_TITLE, countWords, splitLines } from '@ui/picks/payLines';
 import { useBackClose } from '@ui/picks/round58';
 import { PayslipAsk, PayslipBundle } from './round58';
 
@@ -75,6 +76,7 @@ export function Payslips({ guard, onAsk = null }) {
   return (
     <section className="ui-card p-5 ui-touch-44" aria-labelledby="slips-h">
       <h2 id="slips-h" className="ui-t-sec mb-1">Payslips</h2>
+      {data.pfSaved ? <PfSaved pf={data.pfSaved} /> : null}
       {data.slips.length ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {data.slips.map((s) => (
@@ -111,7 +113,7 @@ function PayslipView({ slip: s, onAsk = null }) {
   /* Round 60: only lines with an amount (zerorows A); PF, ESI, PT and TDS explained on a tap (abbrexplain A). */
   const lines = (rows) => shownLines(rows).map((l, i) => (
     <div key={`${i}:${l.name}`} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-      <dt>{lineName(l.name)}</dt>
+      <dt>{lineName(l.name)}{countWords(l) ? <span className="ui-caption block tabular-nums">{countWords(l)}</span> : null}</dt>
       <dd className="text-right tabular-nums">{money(l.amount)}</dd>
     </div>
   ));
@@ -129,6 +131,13 @@ function PayslipView({ slip: s, onAsk = null }) {
         <span className="text-2xl font-semibold tabular-nums">{money(s.net)}</span>
       </div>
       {s.days ? <p className="ui-caption tabular-nums">{s.days.payable} of {s.days.working} days paid{s.days.lossOfPay ? ` · ${s.days.lossOfPay} without pay` : ''}</p> : null}
+      {splitLines(s.split).length ? (
+        <div aria-label={SPLIT_TITLE}>
+          <h3 className="ui-label">{SPLIT_TITLE}</h3>
+          {splitLines(s.split).map((t) => <p key={t} className="text-sm tabular-nums">{t}</p>)}
+          <p className="ui-caption">{SPLIT_NOTE}</p>
+        </div>
+      ) : null}
       <div>
         <h3 className="ui-label">Earnings</h3>
         <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
@@ -143,12 +152,78 @@ function PayslipView({ slip: s, onAsk = null }) {
           <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-medium"><dt>Total deductions</dt><dd className="text-right tabular-nums">{money(s.totalDeductions)}</dd></div>
         </dl>
       </div>
+      {s.pf ? <CompanyPf pf={s.pf} /> : null}
       <MovedOn note={s.deductionNote} leaving={s.leaving} />
+      {s.sinceApril ? <SinceApril year={s.sinceApril} /> : null}
       <button type="button" className="ui-btn ui-btn-primary w-full" onClick={save}>Save as PDF</button>
       <p className="ui-caption">Choose “Save as PDF” as the printer. PAN and bank account show only their last digits.</p>
       <PayslipAsk slip={s} onAsk={onAsk} />
       <PayslipPrint slip={s} />
     </>
+  );
+}
+
+/** A label-and-amount row, money right-aligned in tabular figures. */
+const Row = ({ label, amount, strong = false }) => (
+  <div className={`flex items-baseline justify-between gap-3 py-1.5 text-sm${strong ? ' font-medium' : ''}`}>
+    <dt>{label}</dt>
+    <dd className="text-right tabular-nums">{money(amount)}</dd>
+  </div>
+);
+
+/**
+ * The company's PF this month, under the employee's own PF: how much of it
+ * went to the pension (EPS) and how much to the fund (EPF). Read from the
+ * payslip as it was made; nothing is worked out again here.
+ */
+export function CompanyPf({ pf }) {
+  if (!pf.pension && !pf.employer) return null;
+  return (
+    <div>
+      <h3 className="ui-label">Company’s PF this month</h3>
+      <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        {pf.employer ? <Row label="To your PF account (EPF)" amount={pf.employer} /> : null}
+        {pf.pension ? <Row label="To your pension (EPS)" amount={pf.pension} /> : null}
+      </dl>
+      <p className="ui-caption">Paid by the company on top of your pay; not taken from it.</p>
+    </div>
+  );
+}
+
+/** This financial year so far, up to and including this payslip. */
+export function SinceApril({ year }) {
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: 'rgb(var(--border))' }}>
+      <h3 className="ui-label">Since {longDate(year.from)}</h3>
+      <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        <Row label="Pay" amount={year.gross} />
+        <Row label="Income tax" amount={year.tax} />
+        <Row label="Your PF" amount={year.pf} />
+        <Row label="Take-home" amount={year.net} strong />
+      </dl>
+      <p className="ui-caption tabular-nums">{year.payslips} {year.payslips === 1 ? 'payslip' : 'payslips'} this financial year</p>
+    </div>
+  );
+}
+
+/**
+ * PF put by in CLOR's payroll records. The fund's own balance can differ: PF
+ * from an earlier job, and the interest the fund adds, are not known here.
+ */
+export function PfSaved({ pf }) {
+  return (
+    <div className="mb-3 rounded-xl border p-3" style={{ borderColor: 'rgb(var(--border))' }}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="ui-label">PF saved so far</h3>
+        <span className="text-lg font-semibold tabular-nums">{money(pf.fund)}</span>
+      </div>
+      <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        <Row label="From your pay" amount={pf.employee} />
+        <Row label="From the company" amount={pf.employer} />
+        {pf.pension ? <Row label="Pension (EPS), kept separately" amount={pf.pension} /> : null}
+      </dl>
+      <p className="ui-caption">From {pf.payslips} {pf.payslips === 1 ? 'payslip' : 'payslips'} since {longDate(pf.since)}. Your PF account’s balance on the EPFO site also counts interest and any earlier job.</p>
+    </div>
   );
 }
 
@@ -200,6 +275,9 @@ const PRINT_CSS = `
   .clor-payslip-print .muted { color: #444; }
 }`;
 
+/** A printed line's name, with its count × rate when it has one: "Canteen (22 meals × ₹30)". */
+const withCount = (l) => (countWords(l) ? `${l.name} (${countWords(l)})` : l.name);
+
 function PayslipPrint({ slip: s }) {
   const e = s.employee;
   const who = [
@@ -225,8 +303,8 @@ function PayslipPrint({ slip: s }) {
         <tbody>
           {Array.from({ length: rows }, (_, i) => (
             <tr key={i}>
-              <td>{earn[i]?.name || ''}</td><td className="amt">{earn[i] ? money(earn[i].amount) : ''}</td>
-              <td>{ded[i]?.name || ''}</td><td className="amt">{ded[i] ? money(ded[i].amount) : ''}</td>
+              <td>{earn[i] ? withCount(earn[i]) : ''}</td><td className="amt">{earn[i] ? money(earn[i].amount) : ''}</td>
+              <td>{ded[i] ? withCount(ded[i]) : ''}</td><td className="amt">{ded[i] ? money(ded[i].amount) : ''}</td>
             </tr>
           ))}
           <tr className="tot"><td>Total earnings</td><td className="amt">{money(s.gross)}</td><td>Total deductions</td><td className="amt">{money(s.totalDeductions)}</td></tr>
@@ -235,6 +313,20 @@ function PayslipPrint({ slip: s }) {
       </table>
       {s.deductionNote?.carried?.length ? (
         <p className="muted">{s.leaving ? 'Left for the full and final' : 'Moved to next month'}: {s.deductionNote.carried.map((c) => `${c.label} ${money(c.amount)}`).join(', ')}.</p>
+      ) : null}
+      {s.pf && (s.pf.employer || s.pf.pension) ? (
+        <p className="muted">Company’s PF this month, not taken from pay: to PF (EPF) {money(s.pf.employer)}, to pension (EPS) {money(s.pf.pension)}.</p>
+      ) : null}
+      {s.sinceApril ? (
+        <table>
+          <thead><tr><th colSpan={2}>Since {longDate(s.sinceApril.from)}</th></tr></thead>
+          <tbody>
+            <tr><td>Pay</td><td className="amt">{money(s.sinceApril.gross)}</td></tr>
+            <tr><td>Income tax</td><td className="amt">{money(s.sinceApril.tax)}</td></tr>
+            <tr><td>Your PF</td><td className="amt">{money(s.sinceApril.pf)}</td></tr>
+            <tr className="tot"><td>Take-home</td><td className="amt">{money(s.sinceApril.net)}</td></tr>
+          </tbody>
+        </table>
       ) : null}
       <p className="muted">From CLOR. PAN and bank account show only their last digits.</p>
     </div>,
@@ -311,6 +403,27 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
   };
 
   const decided = leaving.status === 'ON_NOTICE' || leaving.status === 'LEFT';
+  /* Picks round 52: someone on notice after resigning may ask to stay; their manager decides. */
+  const canStay = leaving.status === 'ON_NOTICE' && (leaving.leavingType || 'RESIGNED') === 'RESIGNED' && leaving.lastDay && leaving.lastDay >= t;
+  const stay = async () => {
+    const sure = await confirmDialog({ title: 'Ask to stay?', message: 'Your manager decides. If they agree, your resignation is taken back and you keep working here.', confirmLabel: 'Ask to stay' });
+    if (!sure) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await guard(askToStay({ reason: null }));
+      setNote({ ok: true, text: 'Sent to your manager.' });
+      load();
+    } catch (err) {
+      const text = errText(err, 'Not sent.');
+      if (text) setNote({ ok: false, text });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const stayWords = leaving.staying?.status === 'WAITING' || leaving.staying?.status === 'MORE_INFO'
+    ? 'You asked to stay. Your manager will answer.'
+    : leaving.staying?.status === 'REJECTED' ? 'You asked to stay; your manager kept your last day.' : null;
   return (
     <section className="ui-card space-y-3 p-5" aria-labelledby="leaving-h">
       <h2 id="leaving-h" className="ui-t-sec">Leaving the company</h2>
@@ -318,7 +431,11 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
       {leaving.waiting ? (
         <p className="text-sm">Your resignation is with your manager and HR, sent {longDate(new Date(new Date(leaving.waiting.createdAt).getTime() + 330 * 60_000).toISOString())}.</p>
       ) : decided ? (
-        <p className="text-sm">{leaving.lastDay ? `Your last working day is ${longDate(leaving.lastDay)}.` : 'Your leaving is on record.'} Ask HR to change it.</p>
+        <>
+          <p className="text-sm">{leaving.lastDay ? `Your last working day is ${longDate(leaving.lastDay)}.` : 'Your leaving is on record.'} Ask HR to change it.</p>
+          {stayWords ? <p className="text-sm" role="status">{stayWords}</p> : null}
+          {canStay && !stayWords ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={stay}>Changed your mind? Ask to stay</button> : null}
+        </>
       ) : open ? (
         <form onSubmit={send} className="space-y-3">
           <label className="block">

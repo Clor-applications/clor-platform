@@ -26,6 +26,7 @@ const TYPE_WORDS = {
   PROFILE_CHANGE: ['Personal detail changes', 'A person changes their own details from the app, or HR changes them for them.'],
   JOB_CHANGE: ['Job changes', 'Department, designation, manager, work site, grade, type: a transfer or a promotion.'],
   LEAVING: ['Resignations and leaving', 'A resignation from the app, or a leaving HR records with a last day ahead.'],
+  LEAVING_WITHDRAW: ['Taking back a resignation', 'Someone on notice asks from the app to stay after all. Approved: they are working here again and the leaving plan closes.'],
   PROBATION: ['Probation decisions', 'Confirm, extend or end after probation.'],
   POLICY_PUBLISH: ['Publishing a policy', 'A new policy version going live.'],
   DOCUMENT_REQUEST: ['Document copies', 'A person asks for a copy of a document on their file, from the employee app. Approved: a task for HR to share it.'],

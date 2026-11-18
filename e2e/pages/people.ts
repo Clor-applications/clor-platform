@@ -8,6 +8,10 @@ import { expect, type Locator, type Page, type TestInfo } from '@playwright/test
 import { auditScreen } from '../support/checks';
 import type { Company } from '../support/world';
 
+/* A list title may carry its row count ("Employees (12)", round 40 pick); the screen check allows it too. */
+const titleLike = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?: \\(\\d[\\d,]*\\))?$`);
+
+
 /** Each screen's menu label → the module it sits under (apps/people/manifest.jsx `modules`). */
 /** Rail modules that hold a single screen: the rail button opens it, with no list. */
 const ONE_SCREEN = new Set(['Home']);
@@ -145,7 +149,7 @@ export class PeopleWeb {
       await list.getByRole('button', { name: itemName(ITEM[label] || label) }).click();
     }
     if (this.isPhone && (await this.page.getByRole('dialog', { name: 'People navigation' }).isVisible())) await this.page.keyboard.press('Escape');
-    await expect(this.title).toHaveText(opts.title || label);
+    await expect(this.title).toHaveText(titleLike(opts.title || label));
     await this.settle();
     await auditScreen(this.page, this.testInfo);
   }
@@ -154,7 +158,7 @@ export class PeopleWeb {
   async openSetting(label: string) {
     await this.open('Settings');
     await this.main.getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) }).click();
-    await expect(this.title).toHaveText(label);
+    await expect(this.title).toHaveText(titleLike(label));
     await this.settle();
     await auditScreen(this.page, this.testInfo);
   }
@@ -163,7 +167,7 @@ export class PeopleWeb {
   async openMine(label: 'My leave' | 'My attendance' | 'My requests') {
     await (await this.openYourMenu()).getByRole('menuitem', { name: 'My profile' }).click();
     await this.main.getByRole('navigation', { name: 'Your pages' }).getByRole('button', { name: label, exact: true }).click();
-    await expect(this.title).toHaveText(label);
+    await expect(this.title).toHaveText(titleLike(label));
     await this.settle();
     await auditScreen(this.page, this.testInfo);
   }

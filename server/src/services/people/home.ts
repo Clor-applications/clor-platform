@@ -155,7 +155,57 @@ export type HomeGlance = {
   probation: Array<{ id: string; name: string; code: string | null; endsOn: string; over: boolean }> | null;
   week: { from: string; to: string; joining: Array<{ id: string; name: string; on: string }>; leaving: Array<{ id: string; name: string; on: string }>; holidays: Array<{ date: string; name: string; optional: boolean }> } | null;
   monthClose: { month: string; closedAt: string | null; ready: boolean; blocking: number; noRecordDays: number } | null;
+  /** Round 55 (week ahead A): a manager's own team for the next seven days. Null for someone with no reports. */
+  teamWeek?: TeamWeek | null;
 };
+
+export type TeamWeek = {
+  from: string;
+  to: string;
+  team: number;
+  away: Array<{ id: string; name: string; from: string; to: string; days: number }>;
+  birthdays: Array<{ id: string; name: string; on: string }>;
+};
+
+/**
+ * Round 55 (week ahead A): for a reader who manages people, the next seven
+ * days of their own team (solid or dotted line): who is away on approved leave,
+ * and whose birthday falls in the week (the day only, never the year; never
+ * someone who asked not to be announced). Open requests are Home's own waiting
+ * number. Null for a reader with no reports.
+ */
+export async function teamWeekOf(accountId: string, orgId: string, userId: string, today = todayIst()): Promise<TeamWeek | null> {
+  const me = await peoplePrisma.employee.findFirst({ where: { accountId, orgId, userId, status: { not: 'LEFT' } }, select: { id: true } });
+  if (!me) return null;
+  const reports = await peoplePrisma.employee.findMany({
+    where: { accountId, orgId, status: { not: 'LEFT' }, OR: [{ reportingManagerId: me.id }, { dottedManagerId: me.id }] },
+    select: { id: true, name: true, dateOfBirth: true },
+    orderBy: { name: 'asc' },
+  });
+  if (!reports.length) return null;
+  const to = plusDays(today, 6);
+  const ids = reports.map((r) => r.id);
+  const nameOf = new Map(reports.map((r) => [r.id, r.name]));
+  const [leave, quiet] = await Promise.all([
+    peoplePrisma.leaveRequest.findMany({ where: { accountId, orgId, employeeId: { in: ids }, status: 'APPROVED', fromDate: { lte: to }, toDate: { gte: today } }, select: { employeeId: true, fromDate: true, toDate: true, days: true }, orderBy: { fromDate: 'asc' } }),
+    peoplePrisma.celebrationOptOut.findMany({ where: { orgId, employeeId: { in: ids } }, select: { employeeId: true } }),
+  ]);
+  const optedOut = new Set(quiet.map((q) => q.employeeId));
+  /* Each day of the week as MM-DD, with its date: a birthday is matched by month and day, whatever the year. */
+  const days = Array.from({ length: 7 }, (_, i) => plusDays(today, i));
+  const byMonthDay = new Map(days.map((d) => [d.slice(5), d]));
+  const birthdays = reports
+    .filter((r) => r.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(r.dateOfBirth) && !optedOut.has(r.id) && byMonthDay.has(r.dateOfBirth.slice(5)))
+    .map((r) => ({ id: r.id, name: r.name, on: byMonthDay.get(r.dateOfBirth!.slice(5))! }))
+    .sort((a, b) => a.on.localeCompare(b.on) || a.name.localeCompare(b.name));
+  return {
+    from: today,
+    to,
+    team: reports.length,
+    away: leave.map((l) => ({ id: l.employeeId, name: nameOf.get(l.employeeId) || 'Someone', from: l.fromDate, to: l.toDate, days: l.days })),
+    birthdays,
+  };
+}
 
 /**
  * People → Home's three short lists (People plan, 8 Nov 2026): probation ending in the next 30 days (or past and
@@ -172,7 +222,14 @@ export async function homeGlance(req: Request): Promise<HomeGlance> {
     may(PEOPLE_MODULE, PermissionAction.VIEW, PEOPLE_RESOURCE.employees),
     may(ATTENDANCE_MODULE, PermissionAction.APPROVE, ATTENDANCE_RESOURCE.records),
   ]);
-  const out: HomeGlance = { probation: null, week: null, monthClose: null };
+  const out: HomeGlance = { probation: null, week: null, monthClose: null, teamWeek: null };
+  /* A manager's own team for the week; never takes Home down. */
+  if (req.auth?.userId) {
+    out.teamWeek = await teamWeekOf(accountId, orgId, req.auth.userId, today).catch((e) => {
+      console.error(`[home] week ahead for ${orgId}:`, e instanceof Error ? e.message : e); // eslint-disable-line no-console
+      return null;
+    });
+  }
 
   if (lifecycle) {
     const rows = await peoplePrisma.employee.findMany({

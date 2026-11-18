@@ -44,6 +44,8 @@ import { openMonthsOf } from "../components/runGuardText";
 import { PaidCount, PayChanges } from "../components/round32";
 import { lockWords } from "../components/round59";
 import { wholeRupees as money } from "@ui/utils/money";
+import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
+import { EarlierNote, NextMonthNote } from "../components/RunNotes";
 
 /**
  * Running payroll.
@@ -468,6 +470,8 @@ const RunWorkflow = ({ runId, onBack }) => {
 
       <div className="px-5 lg:px-7 pb-8 space-y-4">
       {doneNote ? <SuccessNote title={doneNote.title} onClose={() => setDoneNote(null)}>{doneNote.next}</SuccessNote> : null}
+      {/* What last month's payroll left for this one (picks round 32). */}
+      <EarlierNote note={run.earlierNote} />
       {data.statutoryChecks?.length && ["CALCULATED", "REVIEW"].includes(run.status) ? (
         <StatutoryChecksBlocker checks={data.statutoryChecks} />
       ) : null}
@@ -491,6 +495,7 @@ const RunWorkflow = ({ runId, onBack }) => {
       {/* Entered deductions past the limit: the payroll waits for them to be reduced or a reason. */}
       <OverLimitPanel run={run} onSaved={load} />
       {run.stale && run.status === "CALCULATED" ? <p role="status" className="ui-caption ui-text-warn">{run.stale}</p> : null}
+      <NextMonthNote run={run} onSaved={load} />
 
       {errorCount > 0 || warningCount > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -742,7 +747,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
           onClick={async () => {
             const ok = await confirmDialog({
               title: `Approve ${run.number}?`,
-              message: `Approving fixes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. Nothing can be changed afterwards.`,
+              message: `Approving fixes these figures: ${money(run.netTotal)} to ${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}. Nothing can be changed afterwards.${afterBankCutoff() ? ` ${BANK_CUTOFF_NOTE}` : ""}`,
               confirmLabel: "Yes, approve",
             });
             if (ok)
@@ -765,7 +770,7 @@ export const RunPrimaryAction = ({ run, busy, act, runId, setIssues, onLopMismat
                   }
                 },
                 (out) => {
-                  if (out) done("Payroll approved.", "Next: post it to accounts, or lock it.");
+                  if (out) done("Payroll approved.", afterBankCutoff() ? `${BANK_CUTOFF_NOTE} Next: post it to accounts, or lock it.` : "Next: post it to accounts, or lock it.");
                 },
               );
           }}

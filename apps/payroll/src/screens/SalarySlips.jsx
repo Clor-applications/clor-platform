@@ -12,6 +12,7 @@ import { notify } from '@ui/components/ui/notify';
 import { listSalarySlips, getSalarySlip, getSlipYearToDate } from '../api/payrollSlips';
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import DraftStrip from '../components/DraftStrip';
+import { SPLIT_NOTE, SPLIT_TITLE, countWords, splitLines } from '@ui/picks/payLines';
 
 /**
  * Payslips.
@@ -235,6 +236,13 @@ const SlipDocument = ({ slipId }) => {
         </p>
       </section>
 
+      {splitLines(slip.ctc?.split).length ? (
+        <section className="space-y-1" aria-label={SPLIT_TITLE}>
+          <div className="ui-sec-head">{SPLIT_TITLE}</div>
+          {splitLines(slip.ctc.split).map((t) => <p key={t} className="text-sm tabular-nums">{t}</p>)}
+          <p className="ui-caption">{SPLIT_NOTE}</p>
+        </section>
+      ) : null}
       <Section title="Earnings" lines={slip.earnings} trace={trace} onExplain={setExplaining} />
       {slip.deductions.length ? (
         <Section title="Deductions" lines={slip.deductions} trace={trace} onExplain={setExplaining} />
@@ -336,6 +344,7 @@ const Section = ({ title, lines, trace, onExplain }) => (
               {l.name}
             </button>
             {t?.ruleText ? <span className="ui-caption block">{t.ruleText}</span> : null}
+            {countWords(l) ? <span className="ui-caption block tabular-nums">{countWords(l)}</span> : null}
           </span>
           <span className="ui-num text-sm">{money(l.amount)}</span>
         </div>

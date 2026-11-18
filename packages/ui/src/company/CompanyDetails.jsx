@@ -3,6 +3,7 @@ import { apiFetch } from '@platform/http';
 import { orgId as platformOrgId } from '@platform/context';
 import { PageHeader, SkeletonCard } from '../components/ui/Primitives';
 import { notify } from '../components/ui/notify';
+import { SettingHelp } from '../picks/round64';
 
 /**
  * Settings → Company → Company Details: who the employer is, as letters,
@@ -16,9 +17,14 @@ const opts = { skipWarehouseHeader: true };
  * R&D PEOPLE-29: plain sections on the page ground (no cards), two columns of fields, the side column for contact.
  * GSTIN and state are shown read-only where the design puts them; Accounting owns them.
  */
+/*
+ * Round 64 "companyprofile" A: grouped as Identity, Address and Tax numbers, and each field says where it is used, so
+ * a change shows what it touches before it is saved.
+ */
 const MAIN = [
-  { title: 'Legal', fields: [['legalName', 'Legal name', { required: true, wide: true }], ['industry', 'Industry'], ['cin', 'CIN / LLPIN'], ['pan', 'PAN', { placeholder: 'AABCC1234D' }], ['tan', 'TAN', { placeholder: 'BLRC12345D' }], ['gstin', 'GSTIN', { readOnly: 'Changed in Accounting, where tax is worked out.' }], ['epfCode', 'PF establishment code'], ['esicCode', 'ESIC code'], ['ptRegistration', 'PT registration'], ['lwfRegistration', 'Labour Welfare Fund registration']] },
-  { title: 'Registered office', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['state', 'State', { readOnly: 'Comes from the head office in Accounting.' }], ['pincode', 'PIN code']] },
+  { title: 'Identity', fields: [['legalName', 'Legal name', { required: true, wide: true, used: 'On letters, payslips, Form 16 and every return' }], ['industry', 'Industry'], ['cin', 'CIN / LLPIN', { used: 'On appointment and relieving letters' }]] },
+  { title: 'Address', note: 'The registered office, printed on letters and payslips.', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['state', 'State', { readOnly: 'Comes from the head office in Accounting.' }], ['pincode', 'PIN code']] },
+  { title: 'Tax numbers', help: true, fields: [['pan', 'PAN', { placeholder: 'AABCC1234D', used: 'On Form 16 and the 24Q return' }], ['tan', 'TAN', { placeholder: 'BLRC12345D', used: 'On Form 16, TDS challans and the 24Q return' }], ['gstin', 'GSTIN', { readOnly: 'Changed in Accounting, where tax is worked out.' }], ['epfCode', 'PF establishment code', { used: 'On the PF ECR file and PF challans' }], ['esicCode', 'ESIC code', { used: 'On the ESIC file and challans' }], ['ptRegistration', 'PT registration', { used: 'On professional tax returns' }], ['lwfRegistration', 'Labour Welfare Fund registration', { used: 'On LWF returns' }]] },
 ];
 const SIDE = [
   { title: 'Contact', fields: [['phone', 'Phone'], ['email', 'Email'], ['website', 'Website']] },
@@ -39,6 +45,7 @@ function Field({ k, label, o = {}, form, set }) {
         style={o.readOnly ? { background: 'rgb(var(--surface-sunken))' } : undefined}
       />
       {o.readOnly ? <span className="ui-caption mt-1 block">{o.readOnly}</span> : null}
+      {o.used ? <span className="ui-caption mt-1 block">Used: {o.used.charAt(0).toLowerCase() + o.used.slice(1)}</span> : null}
     </label>
   );
 }
@@ -83,7 +90,10 @@ export default function CompanyDetails() {
           <div className="space-y-8 min-w-0">
             {MAIN.map((sec) => (
               <section key={sec.title} className="space-y-3" aria-label={sec.title}>
-                <h2 className="ui-t-sec">{sec.title}</h2>
+                <div>
+                  <h2 className="ui-t-sec inline-flex items-center gap-1">{sec.title}{sec.help ? <SettingHelp topic="company-branches" label="the tax numbers" /> : null}</h2>
+                  {sec.note ? <p className="ui-caption">{sec.note}</p> : null}
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {sec.fields.map(([k, label, o]) => <Field key={k} k={k} label={label} o={o} form={form} set={set} />)}
                 </div>

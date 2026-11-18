@@ -1147,3 +1147,177 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid rgb(var(--border)); border-radius: 9999px; background: #fff; color: rgb(var(--fg)); font-size: 0.875rem; font-weight: 500; cursor: pointer; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle:hover { background: #F7F7F7; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-chip-toggle.is-on { border-color: rgb(var(--act, var(--fg))); box-shadow: inset 0 0 0 1px rgb(var(--act, var(--fg))); }
+
+/* Round 51 */
+/* foreigncur B + claimcutoff B: the line under the bill amount and day. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-r51-hint { margin-top: -4px; }
+
+/* Round 52 */
+/* fnfsheet B: the settlement drawer says the net first, above the one list of lines. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 0 0 12px; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-net-figure { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* fnfclock A: the countdown sits under the due date in the settlements list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r52-fnf-clock { margin-top: 2px; white-space: nowrap; }
+
+/* Round 53 */
+/* dupcandidate A: "Applied before for … in …" on a new application, a quiet line with the info colour as its one mark. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-applied-before { padding-left: 10px; border-left: 2px solid rgb(var(--info)); }
+
+/* Round 54 */
+/* taxrelief89 B: the section 89 note under an arrears line reads as a note, not a hint. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .pick-r54-note { display: block; margin-top: 4px; color: rgb(var(--fg)); }
+
+/* Round 55 */
+/* recentrecords A: "Recently opened" people sit under their own hairline in the module panel. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-recent-people { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+
+/* Round 61 */
+/* breadcrumb A + pagehelp A: the row above a screen: the trail (Settings › Departments) on the left, "How this works ›" on the right. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-screen-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; min-height: 1.5rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-trail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-trail [aria-current='page'] { color: rgb(var(--fg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-screen-help { white-space: nowrap; margin-left: auto; }
+/* scrolltop A: "Top ↑" bottom right after two screens of scrolling; above the phone's tab bar. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-scroll-top { position: fixed; right: 24px; bottom: 24px; z-index: 30; display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 14px; border: 1px solid rgb(var(--border)); border-radius: 9999px; background: #fff; color: rgb(var(--fg)); font-size: 0.8125rem; font-weight: 600; box-shadow: var(--shadow-pop, 0 4px 16px rgb(0 0 0 / 0.08)); cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-scroll-top:hover { background: #F7F7F7; }
+@media (max-width: 767px) { :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-scroll-top { bottom: 88px; right: 16px; } }
+/* sectionjump A: the page's sections on the right of a long settings page, following the scroll; one column below 1280px. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump { display: none; }
+@media (min-width: 1280px) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump-wrap { display: grid; grid-template-columns: minmax(0, 48rem) 12rem; gap: 40px; align-items: start; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump { display: grid; gap: 2px; position: sticky; top: 88px; padding-left: 12px; border-left: 1px solid rgb(var(--border)); }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump .ui-caption { margin: 0 0 6px; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump button { text-align: left; padding: 4px 0; border: 0; background: none; color: rgb(var(--fg-muted)); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump button:hover { color: rgb(var(--fg)); }
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-section-jump button[aria-current='true'] { color: rgb(var(--act-ink, var(--fg))); font-weight: 600; }
+}
+/* externallink A: a link that leaves CLOR carries ↗ (it opens in a new tab). */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a[data-external]::after { content: ' ↗'; font-size: 0.85em; }
+/* copyvalue A: a small copy icon beside numbers people paste elsewhere; "Copied" for a moment. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; vertical-align: middle; color: rgb(var(--fg-muted)); border-radius: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word:hover { color: rgb(var(--fg)); background: #F7F7F7; text-decoration: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word-done { color: rgb(var(--pos-ink, var(--fg))); font-size: 0.75rem; font-weight: 600; padding: 0 2px; }
+
+/* Round 62 */
+/* contactactions A: phone and e-mail in the record header open the call or the mail, Copy beside each. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-contact { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-contact a { display: inline-flex; align-items: center; gap: 4px; }
+/* statusbadge A: On leave today, with the day they are back in small type. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-away { display: inline-flex; align-items: baseline; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-away-note { font-weight: 400; font-size: 0.75rem; }
+/* nextprevrecord A: ‹ 3 of 25 › beside the way back to the list. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-back-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-stepper { display: inline-flex; align-items: center; gap: 4px; }
+/* leftrecord A: a grey band for someone who has left, the follow-up links on it. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; padding: 12px 16px; border-radius: 12px; background: #F7F7F7; color: rgb(var(--fg-muted)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band p { margin: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-band b { color: rgb(var(--fg)); font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-left-links { display: inline-flex; gap: 16px; }
+/* timetab A: this month in one line, balances and leave coming up as plain rows. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-month-line { margin: 8px 0; font-size: 0.9375rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.r62-balances, .r62-upcoming) li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-upcoming li > :nth-child(2) { flex: 1; }
+/* salaryonrecord A: amounts in tabular figures, dots until Show. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-money { font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .r62-tick { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; }
+/* profileprint A: the header and overview alone on paper, salary only when ticked. */
+.r62-print-salary { display: none; }
+@media print {
+  :root[data-print-profile]:not([data-palette='indigo']) body * { visibility: hidden; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area,
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area * { visibility: visible; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area { position: absolute; inset: 0 auto auto 0; width: 100%; color: #000; }
+  :root[data-print-profile]:not([data-palette='indigo']) .r62-print-area :is(button:not(.pc-summary-facts button), .ui-btn, .r62-stepper, .pc-back, [role='tablist'], textarea, .ui-copy-word, .ui-call-buttons a) { display: none !important; }
+  :root[data-print-profile='salary']:not([data-palette='indigo']) .r62-print-salary { display: block; margin: 0; font-size: 12px; }
+}
+
+/* Round 63 */
+/* columnhelp A: a column name that explains itself on hover or tap (focus), one line under it. */
+:root:not([data-palette='indigo']) .ui-colhelp { position: relative; cursor: help; text-decoration: underline dotted rgb(var(--fg-muted)); text-underline-offset: 3px; outline: none; }
+:root:not([data-palette='indigo']) .ui-colhelp:focus-visible { box-shadow: 0 0 0 2px rgb(var(--accent) / 0.45); border-radius: 4px; }
+:root:not([data-palette='indigo']) .ui-colhelp:hover::after,
+:root:not([data-palette='indigo']) .ui-colhelp:focus::after {
+  content: attr(data-help); position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  width: max-content; max-width: 16rem; padding: 6px 10px; border: 1px solid rgb(var(--border)); border-radius: 8px;
+  background: #FFFFFF; color: rgb(var(--fg)); font-size: 0.75rem; font-weight: 400; line-height: 1.1rem; text-align: left; white-space: normal;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+}
+:root:not([data-palette='indigo']) th.text-right .ui-colhelp::after { left: auto; right: 0; }
+/* negformat A: a minus figure in red, the minus sign before it. */
+:root:not([data-palette='indigo']) .ui-neg-figure { color: rgb(var(--neg)); }
+/* totalsrow A + reportpeek A: the table scrolls inside its box; headings on top and the totals row at the bottom stay in sight. */
+:root:not([data-palette='indigo']) .ui-report-scroll { max-height: 70vh; overflow: auto; }
+:root:not([data-palette='indigo']) .ui-report-table thead th { position: sticky; top: 0; z-index: 2; background: #FFFFFF; }
+:root:not([data-palette='indigo']) .ui-report-table tfoot th,
+:root:not([data-palette='indigo']) .ui-report-table tfoot td { position: sticky; bottom: 0; z-index: 2; background: #FFFFFF; box-shadow: inset 0 1px 0 rgb(var(--border)); font-weight: 600; }
+:root:not([data-palette='indigo']) .ui-report-more { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; font-size: 0.8125rem; }
+/* reportpdf A: Print lays the report out landscape, headings on every page, page numbers, totals once at the end. */
+@page clorreport { size: A4 landscape; margin: 12mm 10mm 16mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+@media print {
+  :root[data-printing='report']:not([data-palette='indigo']) body * { visibility: hidden !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print *,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-print-footer { visibility: visible !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-print { page: clorreport; position: absolute; left: 0; top: 0; width: 100%; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-scroll { max-height: none; overflow: visible; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table thead { display: table-header-group; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table thead th { position: static; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot { display: table-row-group; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot th,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tfoot td { position: static; box-shadow: none; border-top: 1px solid #333; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table tr { break-inside: avoid; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-table { font-size: 10px; color: #000; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-report-more,
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-colhelp::after { display: none !important; }
+  :root[data-printing='report']:not([data-palette='indigo']) .ui-colhelp { text-decoration: none; }
+}
+
+/* Round 64 */
+/* settinghelp C: a small ⓘ beside a setting; opens its how-to in the Help centre. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-help { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-left: 2px; border: 0; border-radius: 8px; background: transparent; color: rgb(var(--fg-muted)); cursor: pointer; flex: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-help:hover { background: rgb(var(--surface-sunken)); color: rgb(var(--fg)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-help:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-with-help > label { flex: 1 1 auto; min-width: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-with-help > .ui-setting-help { margin-top: 1px; }
+/* settingsfind A: "grace → Time off › Attendance rules" under the Settings search. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hits { display: grid; gap: 6px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hits ul { list-style: none; margin: 0; padding: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hit { min-height: 32px; padding: 4px 12px; border: 1px solid rgb(var(--border)); border-radius: 8px; background: rgb(var(--surface)); color: rgb(var(--fg)); font-size: 0.875rem; text-align: left; cursor: pointer; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hit:hover { background: rgb(var(--surface-sunken)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-settings-hit:focus-visible { outline: 2px solid rgb(var(--ring)); outline-offset: 1px; }
+/* shiftsetup A: the shift on a 24-hour bar, breaks lighter. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar { display: grid; gap: 4px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-track { position: relative; height: 12px; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-on { position: absolute; top: 0; bottom: 0; background: rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-break { position: absolute; top: 3px; bottom: 3px; background: rgb(var(--surface)); opacity: 0.85; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-shift-bar-ticks { display: flex; justify-content: space-between; font-size: 0.6875rem; line-height: 1rem; color: rgb(var(--fg-muted)); font-variant-numeric: tabular-nums; }
+/* leavetypesetup A: a new leave type as plain questions, one at a time. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-leave-questions { display: grid; gap: 8px; padding: 4px 0 8px; }
+/* settingslocked A: a locked setting, its reason and the way round. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-locked { display: flex; align-items: flex-start; gap: 8px; max-width: 48rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-setting-locked > svg { margin-top: 3px; flex: none; color: rgb(var(--fg-muted)); }
+/* depttree A: departments as an indented tree. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-tree-mark { color: rgb(var(--fg-subtle)); font-weight: 400; }
+/* usersroles B: who holds the shown role. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ws-role-holders { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid rgb(var(--border)); border-bottom: 1px solid rgb(var(--border)); }
+
+/* Round 65 */
+/* My team (managers): count line, due this month and leave left, on the page ground under one hairline, no card. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam { display: grid; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-count { margin: 0; font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-block { display: grid; gap: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-title { margin: 0; font-size: 0.875rem; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due { list-style: none; margin: 0; padding: 0; display: grid; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due > li { display: flex; align-items: center; gap: 12px; min-height: 40px; border-top: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-due > li:first-child { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-date { width: 7rem; flex: none; color: rgb(var(--fg-muted)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-scroll { overflow-x: auto; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table { border-collapse: collapse; min-width: 100%; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table th, :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table td { padding: 8px 12px 8px 0; border-top: 1px solid rgb(var(--border)); text-align: left; font-weight: 400; white-space: nowrap; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table thead th { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table .text-right { text-align: right; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort { font: inherit; font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted)); background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort[aria-pressed='true'] { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }

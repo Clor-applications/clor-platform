@@ -46,7 +46,7 @@ const FIELD_WORDS = {
 const STATUS = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', WITHDRAWN: 'Withdrawn', MORE_INFO: 'Asked for more' };
 const STEP = { WAITING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', MORE_INFO: 'Asked for more', HANDED_ON: 'Handed on', SKIPPED: 'Skipped', WITHDRAWN: 'Withdrawn' };
 const TONE = { WAITING: 'warn', APPROVED: 'pos', REJECTED: 'neg', WITHDRAWN: 'neutral', MORE_INFO: 'warn', HANDED_ON: 'neutral', SKIPPED: 'neutral' };
-const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap', ...MONEY_TYPES };
+const TYPE = { PROFILE_CHANGE: 'Profile change', JOB_CHANGE: 'Job change', LEAVING: 'Leaving', LEAVING_WITHDRAW: 'Staying on', DOCUMENT_REQUEST: 'Document', LETTER_REQUEST: 'Letter', POLICY_PUBLISH: 'Policy', DESK_ESCALATION: 'Help desk', SEAT_REQUEST: 'Seat', PROBATION: 'Probation', SHIFT_SWAP: 'Shift swap', ...MONEY_TYPES };
 /* A request type HR set up (FORM:<id>, gap 25) is named by its form; one asked before the name was read shows as a request. */
 const typeOf = (requestType, payload) => TYPE[requestType] || (String(requestType || '').startsWith('FORM:') ? payload?.formName || 'Request' : requestType);
 /* To approve, then my own open tasks (joining, leaving, probation, letters: People plan 8 Nov 2026, step 2), then what I asked for. */
