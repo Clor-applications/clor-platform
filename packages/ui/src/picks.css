@@ -787,3 +787,19 @@
 .ui-tv-figures span { margin-top: 0.5rem; font-size: clamp(1rem, 2.5vw, 1.75rem); color: rgb(var(--fg-muted)); }
 .ui-tv-note { margin: 0; font-size: clamp(1rem, 2vw, 1.5rem); color: rgb(var(--fg-muted)); }
 .ui-tv-close { position: absolute; top: 1rem; right: 1rem; }
+
+/* Round 35 */
+/* Ops customer page: pinned notes above the tabs */
+.ops-pinned { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.75rem 1rem; border: 1px solid rgb(var(--border)); border-radius: 12px; background: #FFFFFF; }
+.ops-pinned ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; flex: 1 1 20rem; }
+.ops-pinned li { display: flex; gap: 0.5rem; align-items: flex-start; }
+.ops-pinned-ico { flex-shrink: 0; margin-top: 0.1875rem; color: rgb(var(--fg-muted)); }
+.ops-pinned-text { display: grid; gap: 0.125rem; }
+.ops-pinned-body { white-space: pre-wrap; color: rgb(var(--fg)); }
+.ops-pinned-by { font-size: 0.75rem; color: rgb(var(--fg-muted)); }
+.ops-pinned-all { flex-shrink: 0; font-size: 0.875rem; }
+/* Workspace home: "Call me" under the setup steps */
+.ws-call-me { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem 0.75rem; margin-top: 0.75rem; }
+.ws-call-me .ui-input { width: 11rem; }
+.ws-call-me-err { flex-basis: 100%; margin: 0; color: rgb(var(--neg)); }
+.ws-call-me-done { margin: 0.75rem 0 0; font-size: 0.875rem; color: rgb(var(--fg-muted)); }

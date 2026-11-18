@@ -556,6 +556,30 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 35 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Private notes on a customer in Ops | Pinned notes sit at the top of the customer page, above the tabs, with who wrote them and when, and "All notes" opens the Notes tab. Nothing shows when there is no pinned note (`PinnedNotes`). |
+| Checking a caller is really the customer | No changes by phone: the customer's Users tab in Ops says staff do not change an account over the phone, and the owner makes the change signed in or opens a ticket (`PhoneRule`). |
+| Booking a setup call with CLOR | "Call me" under the setup steps on Workspace home while setup is not finished: a mobile number, then "Ask for a call" opens a support ticket CLOR sees in Ops, "CLOR will call you within one working day" (`CallMe`). |
+
+Picked and already how the app works: opening leave balances by uploading a sheet (person, leave
+type, days) is Attendance → Import, Leave balances; each company in a group is kept apart, with
+no group-wide headcount.
+
+Picked, **not built yet**: a duplicate charge kept as credit for the next bill unless the customer
+asks for the money back; a data deletion request sent from a form on clor.in to the person's old
+company; the customer editing the name or GSTIN on bills from the next bill on; a smaller plan
+right away with credit for unused days; sample data removed on its own when the first real person
+is added; a discount to the client instead of a CA partner's share; emails from the customer's own
+address after they add DNS records; 90 days before a closed account is wiped, with a copy of the
+data emailed on day 1; a record in each group company, linked, for one person paid by two; the
+customer's own letterhead PDF as the page background; the signer signing each letter online. All
+need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
