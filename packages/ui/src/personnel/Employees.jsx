@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nextEmployeeCode } from './nextCode';
+import { maskedAadhaar } from './round43';
 import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
 
@@ -1344,7 +1345,8 @@ export function StatutoryDetails({ employeeId, embedded = false }) {
         </form>
       ) : null}
       <dl className={embedded ? 'ui-field-grid' : 'grid gap-4 sm:grid-cols-2'}>
-        <Field row={embedded} label="Aadhaar" value={id.aadhaarLast4} />
+        {/* Round 43 "aadhaarmask" A: only the last four, written as a masked number. */}
+        <Field row={embedded} label="Aadhaar" value={maskedAadhaar(id.aadhaarLast4) ? <span className="ui-mono">{maskedAadhaar(id.aadhaarLast4)}</span> : id.aadhaarLast4} />
         <Masked label="Passport" field="passportNumber" value={id.passportNumber} />
         <Field row={embedded} label="Passport expiry" value={id.passportExpiry} />
         <Masked label="Work permit" field="workPermitNumber" value={id.workPermitNumber} />

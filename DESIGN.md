@@ -577,6 +577,33 @@ number of days' absence without word; the company's year start with what each ch
 file space as a bar by kind; "Copy from" another branch with ticks; payslips by SMS with a short
 link; pay groups with their own pay day. All need server work.
 
+### Round 43 (18 Nov 2026)
+
+The employee record. Picks: bloodgroup B, twoaddress A, passport B, drivinglicence B,
+disability A, maritalchange A, spokenlang A, dietpref A, medicalnote A, signaturespec A,
+aadhaarmask A, linkedin A, hidebirthday B, selfedit B, workphone A, joinsource A.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Showing Aadhaar numbers | Statutory details show Aadhaar as "XXXX XXXX 1234" in JetBrains Mono, so it reads as a masked number (`maskedAadhaar`). |
+| Change in marital status | When someone changes their marital status in the employee app, the confirmation adds what to update next: after marrying, the nominee and the health cover; after a divorce or a death, a check of both (`maritalNextStep`, My details). |
+
+Picked and already how the app works: CLOR keeps only Aadhaar's last four digits, never the full
+number, and passport and work permit numbers show in full only with an authenticator code, logged
+(safer than "Show with a reason"); birthdays reach colleagues as a day and month (This week panel,
+Overview, Today), never the year; which details save at once and which go to HR is the company's
+self-service setting, so "every change goes to HR" is that setting turned to all.
+
+Picked, **not built yet**: blood group on the record for HR only; present and permanent address
+with "Same as present"; a passport section only for people who travel; a driving licence file; an
+optional disability field with certificate, HR only; languages spoken as chips searchable in the
+directory; Veg / Non-veg / Jain with counts for events; a short health note for HR and first-aid
+staff; the signer's uploaded signature on letters after approval; a work profile link on the
+directory card; an office extension beside the mobile; how someone was hired, carried from
+hiring. All need new fields on the server.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
