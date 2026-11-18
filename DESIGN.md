@@ -577,6 +577,19 @@ number of days' absence without word; the company's year start with what each ch
 file space as a bar by kind; "Copy from" another branch with ticks; payslips by SMS with a short
 link; pay groups with their own pay day. All need server work.
 
+### Round 41 (18 Nov 2026)
+
+Field and site staff. Built:
+
+| Building block | Pick |
+| --- | --- |
+| Where the field team is now | Attendance → Mobile punches has a "Where now" tab: each person who punched from a phone in the chosen days, once, with the place (street address for a field punch, else the work site) and time of their last punch, and the map and selfie buttons. A list, no map (`latestPlaces`). |
+| When location is followed | The phone punch notice now says it plainly: "Only the place at the moment you punch is kept; CLOR does not follow you between punches." That is how it works: the location is saved with each punch and nowhere else. |
+
+Picked and already how the app works: a field day can start from home, because people set to Field under Portal access punch from anywhere (their punches show with the address, waiting for approval if the company wants); a fixed fuel amount a month is a fixed earning on the salary structure, with no card to check.
+
+Picked, **not built yet**: "Check in here" at the customer's shop found from his location; Ravi's own visit plan for the day, seen by his manager; outcome chips and a note after a visit; a gallery photo as proof at a site; one customer and site list kept by the office, with new shops suggested from the field; a fixed night-halt amount from the tour dates; daily allowance by city group (metro, other city, town); "28 of 40 visits this week" on his home; a punch kept on the phone with no signal and sent later with its real time (the server stamps the time today); the site in-charge's daily crew count by trade; HR marking a site closed for the day as a paid day for everyone there; an area on each salesperson's record with its shops. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
