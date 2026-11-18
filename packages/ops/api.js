@@ -154,6 +154,7 @@ export const opsTestBooks = () => apiFetch('/ops/invoicing/books/test', { ...o, 
 export const opsSaveSelfServe = (body) => apiFetch('/ops/self-serve', { ...o, method: 'PUT', body });
 export const opsSeatChanges = (accountId) => apiFetch(`/ops/accounts/${encodeURIComponent(accountId)}/seat-changes`, o);
 export const opsTakeBackSeats = (id, reason) => apiFetch(`/ops/seat-changes/${encodeURIComponent(id)}/cancel`, { ...o, method: 'POST', body: { reason } });
+export const opsEndAddOn = (id, reason) => apiFetch(`/ops/add-ons/${encodeURIComponent(id)}/end`, { ...o, method: 'POST', body: { reason } });
 export const opsRenewals = () => apiFetch('/ops/invoicing/renewals', o);
 export const opsRunRenewals = () => apiFetch('/ops/invoicing/renewals/run', { ...o, method: 'POST', body: {} });
 

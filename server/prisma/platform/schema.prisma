@@ -1752,8 +1752,11 @@ model BillingInvoice {
 model SubscriptionChange {
   id                String    @id @default(cuid())
   accountId         String
-  /// SEATS (apps later)
+  /// SEATS | APP
   kind              String    @default("SEATS")
+  /// For an APP change: the app added, and the add-on row it made.
+  appCode           String?
+  addOnId           String?   @unique
   /// OPEN (seats on, invoice unpaid) | PAID | LAPSED (unpaid, seats taken off) | CANCELLED (by CLOR staff, or the invoice could not be raised)
   status            String    @default("OPEN")
   /// USER | EMPLOYEE, how many were added, and the count before and after.
@@ -1782,6 +1785,36 @@ model SubscriptionChange {
 
   @@index([accountId, createdAt])
   @@index([status, dueAt])
+}
+
+/// An app a customer added to their own plan from Workspace
+/// (billing/selfServeApps.ts), priced from its own price book plan at the
+/// list price, on the subscription's own period. The app is on while ACTIVE;
+/// every renewal carries it as its own line. ENDED when its first invoice
+/// went unpaid, CLOR staff took it off, or a deal CLOR set now includes it.
+/// One ACTIVE add-on per app per account (a partial unique index).
+model SubscriptionAddOn {
+  id              String    @id @default(cuid())
+  accountId       String
+  appCode         String
+  /// The price book plan it was priced from, and its name then.
+  planCode        String
+  planName        String
+  /// COMPANY | USER | EMPLOYEE, and how many.
+  unit            String
+  quantity        Int
+  /// Paise per period before GST, the list price.
+  listAmount      Int
+  /// ACTIVE | ENDED
+  status          String    @default("ACTIVE")
+  endedAt         DateTime?
+  endedByUserId   String?
+  endedReason     String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([accountId, status])
 }
 
 /// One email CLOR sent a customer about one of its invoices

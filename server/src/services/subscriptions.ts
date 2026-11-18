@@ -1,4 +1,5 @@
 import { platformPrisma, type PlatformDb } from '../utils/platformPrisma.js';
+import { keepAddOnsIn } from '../billing/addOns.js';
 import { APP_CATALOG, APP_CODES, SELLABLE_APP_CODES, appByCode, appForFeature, isSellableApp } from '../constants/appCatalog.js';
 
 /**
@@ -228,13 +229,16 @@ export async function setSubscription(accountId: string, input: SetSubscriptionI
         },
       });
     }
+    /* Apps the customer added on their own stay on, unless this plan now includes them (billing/addOns.ts). */
+    kept = await keepAddOnsIn(tx, accountId, row.id, new Set(apps.map((a) => a.appCode)));
     return row;
   };
+  let kept: string[] = [];
   if (db) await write(db);
   else await platformPrisma.$transaction((tx) => write(tx));
 
   await syncAccountEntitlement(accountId, db);
-  await syncAppSwitches(accountId, before, new Set(apps.map((a) => a.appCode)), db);
+  await syncAppSwitches(accountId, before, new Set([...apps.map((a) => a.appCode), ...kept]), db);
   return getSubscription(accountId, db);
 }
 

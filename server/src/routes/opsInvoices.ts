@@ -17,6 +17,9 @@ import { invoiceSends, lastSends, recipientFor, sendInvoiceEmail, type SendKind,
 import { dueRenewals, runRenewals } from '../billing/renewals.js';
 import { reminderForecast } from '../billing/invoiceReminders.js';
 import { changesFor, saveSelfServe, selfServeSettings, takeBack } from '../billing/selfServe.js';
+import { activeAddOns } from '../billing/addOns.js';
+import { endAddOn } from '../billing/selfServeApps.js';
+import { appName } from '../services/pricing/engine.js';
 import { accountNames } from './opsDeals.js';
 import { platformPrisma } from '../utils/platformPrisma.js';
 import { audit } from './ops.js';
@@ -379,22 +382,42 @@ opsInvoicesRouter.put('/ops/self-serve', ...BILLING, (req: Request, res) =>
 /** The seats this customer added themselves, newest first. */
 opsInvoicesRouter.get('/ops/accounts/:id/seat-changes', (req, res) =>
   outsideTenant('ops: seat changes', async () => {
-    res.json({ changes: await changesFor(String(req.params.id), 50) });
+    const id = String(req.params.id);
+    const [changes, addOns] = await Promise.all([changesFor(id, 50), activeAddOns(id)]);
+    res.json({ changes, addOns: addOns.map((a) => ({ id: a.id, appCode: a.appCode, appName: appName(a.appCode), planName: a.planName, unit: a.unit, quantity: a.quantity, listAmount: a.listAmount, since: a.createdAt })) });
   }),
 );
 
-/** Take back seats a customer added and has not paid for: the invoice is cancelled and the count goes back down. */
+/** Take back seats or an app a customer added and has not paid for: the invoice is cancelled and the addition comes off. */
 opsInvoicesRouter.post('/ops/seat-changes/:id/cancel', ...BILLING, (req: Request, res) =>
   outsideTenant('ops: take seats back', async () => {
     const reason = String(req.body?.reason ?? '').trim();
     if (reason.length < 3) return res.status(400).json({ error: 'Say why, for the customer’s record.' });
     const c = await platformPrisma.subscriptionChange.findUnique({ where: { id: String(req.params.id) } });
     if (!c) return res.status(404).json({ error: 'No such change.' });
-    if (c.status !== 'OPEN') return res.status(409).json({ error: 'Only seats waiting to be paid can be taken back.' });
+    if (c.status !== 'OPEN') return res.status(409).json({ error: 'Only an addition waiting to be paid can be taken back.' });
     try {
       const done = await takeBack(c.id, 'CANCELLED', `Taken back by CLOR: ${reason}`.slice(0, 500), req.auth!.userId);
-      if (!done) return res.status(409).json({ error: 'The invoice was paid a moment ago, so the seats stay.' });
-      await audit(req, 'SEATS_TAKEN_BACK', { accountId: c.accountId }, { seats: c.added, reason });
+      if (!done) return res.status(409).json({ error: `The invoice was paid a moment ago, so ${c.kind === 'APP' ? 'the app stays' : 'the seats stay'}.` });
+      await audit(req, c.kind === 'APP' ? 'APP_ADDON_TAKEN_BACK' : 'SEATS_TAKEN_BACK', { accountId: c.accountId }, c.kind === 'APP' ? { app: c.appCode, reason } : { seats: c.added, reason });
+      res.json({ ok: true });
+    } catch (e) {
+      return refused(res, e);
+    }
+  }),
+);
+
+/** Take a paid app a customer added off their plan again. No refund is made here. */
+opsInvoicesRouter.post('/ops/add-ons/:id/end', ...BILLING, (req: Request, res) =>
+  outsideTenant('ops: end an add-on', async () => {
+    const reason = String(req.body?.reason ?? '').trim();
+    if (reason.length < 3) return res.status(400).json({ error: 'Say why, for the customer’s record.' });
+    const a = await platformPrisma.subscriptionAddOn.findUnique({ where: { id: String(req.params.id) } });
+    if (!a) return res.status(404).json({ error: 'No such app on the plan.' });
+    try {
+      const done = await endAddOn(a.id, `Taken off by CLOR: ${reason}`.slice(0, 500), req.auth!.userId);
+      if (!done) return res.status(409).json({ error: 'That app is already off the plan.' });
+      await audit(req, 'APP_ADDON_ENDED', { accountId: a.accountId }, { app: a.appCode, reason });
       res.json({ ok: true });
     } catch (e) {
       return refused(res, e);

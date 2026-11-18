@@ -196,7 +196,23 @@ export async function boughtSeats(accountId: string): Promise<{ unit: 'USER' | '
   );
   const unit = String(sub?.planUnit || '').toUpperCase();
   const quantity = Number(sub?.quantity || 0);
-  return (unit === 'USER' || unit === 'EMPLOYEE') && quantity > 0 ? { unit, quantity } : null;
+  if ((unit === 'USER' || unit === 'EMPLOYEE') && quantity > 0) return { unit, quantity };
+  return null;
+}
+
+/**
+ * The number of employees the account is paid for: the plan's own when it is
+ * sold by the employee, else the largest app added by the employee
+ * (billing/selfServeApps.ts: People added to a Books plan, say). Null when
+ * nothing bought counts employees.
+ */
+export async function boughtEmployees(accountId: string): Promise<number | null> {
+  const bought = await boughtSeats(accountId);
+  if (bought?.unit === 'EMPLOYEE') return bought.quantity;
+  const addOn = await outsideTenant('entitlements: apps added by the employee', () =>
+    platformPrisma.subscriptionAddOn.findFirst({ where: { accountId, status: 'ACTIVE', unit: 'EMPLOYEE' }, orderBy: { quantity: 'desc' }, select: { quantity: true } }),
+  );
+  return addOn?.quantity ?? null;
 }
 
 /**
@@ -220,11 +236,11 @@ export async function assertEmployeeSeat(accountId: string): Promise<void> {
 }
 
 export async function employeeLimitReason(accountId: string): Promise<string | null> {
-  const bought = await boughtSeats(accountId);
-  if (!bought || bought.unit !== 'EMPLOYEE') return null;
+  const paidFor = await boughtEmployees(accountId);
+  if (paidFor == null) return null;
   const count = await outsideTenant('entitlements: employees across the account', () => peoplePrisma.employee.count({ where: { accountId, status: { not: 'LEFT' } } }));
-  if (count < bought.quantity) return null;
-  return `This account is paid for ${bought.quantity} ${bought.quantity === 1 ? 'employee' : 'employees'}, and it has ${count}. Ask the account's owner to add more to the plan, or mark people who have left as left.`;
+  if (count < paidFor) return null;
+  return `This account is paid for ${paidFor} ${paidFor === 1 ? 'employee' : 'employees'}, and it has ${count}. Ask the account's owner to add more to the plan, or mark people who have left as left.`;
 }
 
 /** Same question for users. */

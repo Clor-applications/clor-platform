@@ -2,10 +2,11 @@ import { platformPrisma } from '../utils/platformPrisma.js';
 import { outsideTenant } from '../utils/tenantScope.js';
 import { clearAccessCache } from '../utils/accessCache.js';
 import { syncAccountEntitlement } from '../services/subscriptions.js';
+import { appSwitchesAfter, endAddOnIn, ownedApps } from './addOns.js';
 import { recordAccountEvent } from '../services/accountMembership.js';
 import { publishedBook } from '../services/pricing/books.js';
 import { fromBookPlan, fromCustom, periodEnd, priceDeal, unitWord, DealError, type DealOffer, type DealPlan } from '../services/pricing/deals.js';
-import type { PricePeriod } from '../services/pricing/engine.js';
+import { appName, type PricePeriod } from '../services/pricing/engine.js';
 import { LeaseLost, exclusive, leaseFor } from '../services/jobLease.js';
 import { registerJob } from '../services/jobRegistry.js';
 import { buyerFor, createDraft, deleteDraft, issueInvoice, totalsFor, type Line } from './invoices.js';
@@ -84,7 +85,7 @@ export const istDay = (d: Date) => new Date(d.getTime() + 330 * 60_000).toISOStr
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const dayNo = (s: string) => Math.round(Date.parse(`${s}T00:00:00.000Z`) / 86_400_000);
 const dateOf = (s: string) => new Date(`${s}T00:00:00.000Z`);
-const shown = (s: string) => dateOf(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+export const shown = (s: string) => dateOf(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 /**
  * What `delta` more per period costs from today to the end of what is paid.
@@ -115,7 +116,7 @@ export function prorate(delta: number, paidTo: Date, period: PricePeriod, now = 
 
 export type Refusal = { code: 'OFF' | 'NO_PLAN' | 'NOT_BY_HEAD' | 'STOPPING' | 'OVERDUE' | 'OPEN' | 'ASK_CLOR'; reason: string; invoiceId?: string | null };
 
-type Sub = NonNullable<Awaited<ReturnType<typeof readSub>>>;
+export type Sub = NonNullable<Awaited<ReturnType<typeof readSub>>>;
 const readSub = (accountId: string) => outsideTenant('billing: the plan seats are added to', () => platformPrisma.subscription.findUnique({ where: { accountId } }));
 
 /** The deal plan the subscription was sold on, as it is priced today; null when it is gone. */
@@ -142,25 +143,28 @@ export async function openChange(accountId: string) {
   return outsideTenant('billing: an open seat change', () => platformPrisma.subscriptionChange.findFirst({ where: { accountId, status: 'OPEN' } }));
 }
 
-/** Whether this account may add seats itself now; a refusal says why, in words for the customer. */
-export async function eligibility(accountId: string, now = new Date()): Promise<{ ok: true; sub: Sub; settings: SelfServe } | { ok: false; refusal: Refusal; settings: SelfServe }> {
+/** Whether this account may add seats (or, `what: 'app'`, an app) itself now; a refusal says why, in words for the customer. */
+export async function eligibility(accountId: string, now = new Date(), what: 'seats' | 'app' = 'seats'): Promise<{ ok: true; sub: Sub; settings: SelfServe } | { ok: false; refusal: Refusal; settings: SelfServe }> {
   const settings = await selfServeSettings();
   const no = (refusal: Refusal) => ({ ok: false as const, refusal, settings });
-  if (!settings.on) return no({ code: 'OFF', reason: 'Adding seats yourself is not open yet. Ask CLOR for the change.' });
+  const adding = what === 'app' ? 'an app' : 'seats';
+  if (!settings.on) return no({ code: 'OFF', reason: `Adding ${adding} yourself is not open yet. Ask CLOR for the change.` });
   const sub = await readSub(accountId);
   if (!sub || sub.status !== 'active' || sub.periodAmount == null || !sub.planSource || !sub.quantity || !sub.currentPeriodEnd || !['month', 'year'].includes(String(sub.billingInterval)))
-    return no({ code: 'NO_PLAN', reason: sub?.status === 'trialing' ? 'Choose a plan first. Seats are added to a plan you pay for.' : 'This account has no paid plan to add seats to. Ask CLOR for a plan.' });
-  if (sub.planUnit !== 'USER' && sub.planUnit !== 'EMPLOYEE') return no({ code: 'NOT_BY_HEAD', reason: 'This plan is not priced by the user or the employee, so there are no seats to add.' });
+    return no({ code: 'NO_PLAN', reason: sub?.status === 'trialing' ? `Choose a plan first. ${what === 'app' ? 'Apps are' : 'Seats are'} added to a plan you pay for.` : `This account has no paid plan to add ${adding} to. Ask CLOR for a plan.` });
+  if (what === 'seats' && sub.planUnit !== 'USER' && sub.planUnit !== 'EMPLOYEE') return no({ code: 'NOT_BY_HEAD', reason: 'This plan is not priced by the user or the employee, so there are no seats to add.' });
   if (sub.currentPeriodEnd <= now) return no({ code: 'NO_PLAN', reason: 'The paid period has ended. Pay the renewal first.' });
-  if (sub.cancelAtPeriodEnd) return no({ code: 'STOPPING', reason: 'This plan is set to stop at the end of the period. Keep the plan to add seats.' });
+  if (sub.cancelAtPeriodEnd) return no({ code: 'STOPPING', reason: `This plan is set to stop at the end of the period. Keep the plan to add ${adding}.` });
   const overdue = await outsideTenant('billing: an overdue invoice', () =>
     platformPrisma.billingInvoice.findFirst({ where: { accountId, status: 'ISSUED', dueDate: { lt: now } }, orderBy: { dueDate: 'asc' }, select: { id: true, number: true } }),
   );
-  if (overdue) return no({ code: 'OVERDUE', reason: `Invoice ${overdue.number} is overdue. Pay it first, then add seats.`, invoiceId: overdue.id });
+  if (overdue) return no({ code: 'OVERDUE', reason: `Invoice ${overdue.number} is overdue. Pay it first, then add ${adding}.`, invoiceId: overdue.id });
   const open = await openChange(accountId);
   if (open) {
     const inv = open.invoiceId ? await outsideTenant('billing: the open change invoice', () => platformPrisma.billingInvoice.findUnique({ where: { id: open.invoiceId! }, select: { number: true } })) : null;
-    return no({ code: 'OPEN', reason: `${unitWord(open.unit, open.added)} added on ${inv?.number ? `invoice ${inv.number}` : 'an invoice'} are waiting to be paid. Pay it, then add more.`, invoiceId: open.invoiceId });
+    const on = inv?.number ? `invoice ${inv.number}` : 'an invoice';
+    const what0 = open.kind === 'APP' ? `${appName(open.appCode || '')}, added on ${on}, is` : `${unitWord(open.unit, open.added)} added on ${on} are`;
+    return no({ code: 'OPEN', reason: `${what0} waiting to be paid. Pay it, then add more.`, invoiceId: open.invoiceId });
   }
   return { ok: true, sub, settings };
 }
@@ -239,7 +243,7 @@ export async function quoteSeats(accountId: string, add: number, now = new Date(
 
 /* -------------------------------------------------------------------- add */
 
-const isUnique = (e: unknown) => (e as { code?: string })?.code === 'P2002';
+export const isUnique = (e: unknown) => (e as { code?: string })?.code === 'P2002';
 
 /**
  * Add the seats now and raise their invoice. `expectTotal` is the total the
@@ -263,7 +267,7 @@ export async function addSeats(accountId: string, add: number, userId: string, e
           where: { accountId },
           data: { quantity: q.quantityAfter, listAmount: (sub.listAmount ?? 0) + q.deltaList, periodAmount: (sub.periodAmount ?? 0) + q.deltaPeriod },
         });
-        await tx.subscriptionItem.updateMany({ where: { subscriptionId: sub.id, seats: { not: null } }, data: { seats: q.quantityAfter } });
+        await tx.subscriptionItem.updateMany({ where: { subscriptionId: sub.id, seats: { not: null }, OR: [{ priceModel: null }, { priceModel: { not: 'addon' } }] }, data: { seats: q.quantityAfter } });
         return tx.subscriptionChange.create({
           data: {
             accountId,
@@ -290,29 +294,9 @@ export async function addSeats(accountId: string, add: number, userId: string, e
   await syncAccountEntitlement(accountId);
   clearAccessCache();
 
-  let invoice: Awaited<ReturnType<typeof issueInvoice>> | null = null;
-  if (!free) {
-    let draftId: string | null = null;
-    try {
-      const draft = await createDraft(
-        { accountId, lines: [q.line], periodStart: q.from, periodEnd: q.to, months: 1, note: `Seats added from Workspace. Unpaid by ${shown(istDay(dueAt))}, these ${q.unit === 'USER' ? 'users' : 'employees'} come off the plan.` },
-        userId,
-        { source: 'ADDON' },
-      );
-      draftId = draft.id;
-      invoice = await issueInvoice(draft.id, userId, { dueDays: settings.payDays });
-      await outsideTenant('billing: tie the seats to their invoice', () => platformPrisma.subscriptionChange.update({ where: { id: change.id }, data: { invoiceId: invoice!.id } }));
-    } catch (e) {
-      /* No invoice, no seats: put the count back as it was. */
-      if (draftId && !invoice) await deleteDraft(draftId).catch(() => undefined);
-      if (invoice)
-        await outsideTenant('billing: cancel an untied seat invoice', () =>
-          platformPrisma.billingInvoice.updateMany({ where: { id: invoice!.id, status: 'ISSUED' }, data: { status: 'VOID', voidedAt: new Date(), voidReason: 'The seats it was for could not be added.' } }),
-        ).catch(() => undefined);
-      await takeBack(change.id, 'CANCELLED', `The invoice could not be raised: ${String(e instanceof Error ? e.message : e).slice(0, 200)}`, null);
-      throw e instanceof PaymentsError ? e : new PaymentsError('The invoice for these seats could not be raised, so nothing was added. Try again, or ask CLOR.', 503);
-    }
-  }
+  const invoice = free
+    ? null
+    : await raiseFor(change.id, accountId, q.line, q.from, q.to, `Seats added from Workspace. Unpaid by ${shown(istDay(dueAt))}, these ${q.unit === 'USER' ? 'users' : 'employees'} come off the plan.`, userId, settings.payDays, 'The invoice for these seats could not be raised, so nothing was added. Try again, or ask CLOR.');
   await recordAccountEvent({
     accountId,
     actorUserId: userId,
@@ -324,6 +308,33 @@ export async function addSeats(accountId: string, add: number, userId: string, e
   return { change: { ...change, invoiceId: invoice?.id ?? null }, invoice, quote: q };
 }
 
+/* ------------------------------------------------------------- invoice */
+
+/**
+ * Issue an addition's invoice (an ADDON invoice: paying it never moves the paid
+ * period) and tie it to the change. No invoice, no addition: when it cannot be
+ * raised, the change is taken back as CANCELLED and the error says so.
+ */
+export async function raiseFor(changeId: string, accountId: string, line: Line, from: string, to: string, note: string, userId: string, payDays: number, failWords: string) {
+  let draftId: string | null = null;
+  let invoice: Awaited<ReturnType<typeof issueInvoice>> | null = null;
+  try {
+    const draft = await createDraft({ accountId, lines: [line], periodStart: from, periodEnd: to, months: 1, note }, userId, { source: 'ADDON' });
+    draftId = draft.id;
+    invoice = await issueInvoice(draft.id, userId, { dueDays: payDays });
+    await outsideTenant('billing: tie an addition to its invoice', () => platformPrisma.subscriptionChange.update({ where: { id: changeId }, data: { invoiceId: invoice!.id } }));
+    return invoice;
+  } catch (e) {
+    if (draftId && !invoice) await deleteDraft(draftId).catch(() => undefined);
+    if (invoice)
+      await outsideTenant('billing: cancel an untied addition invoice', () =>
+        platformPrisma.billingInvoice.updateMany({ where: { id: invoice!.id, status: 'ISSUED' }, data: { status: 'VOID', voidedAt: new Date(), voidReason: 'The addition it was for could not be made.' } }),
+      ).catch(() => undefined);
+    await takeBack(changeId, 'CANCELLED', `The invoice could not be raised: ${String(e instanceof Error ? e.message : e).slice(0, 200)}`, null);
+    throw e instanceof PaymentsError ? e : new PaymentsError(failWords, 503);
+  }
+}
+
 /* ------------------------------------------------------------- take back */
 
 /**
@@ -333,9 +344,10 @@ export async function addSeats(accountId: string, add: number, userId: string, e
  * invoice could not be raised. False when it was paid or settled meanwhile.
  */
 export async function takeBack(changeId: string, status: 'LAPSED' | 'CANCELLED', note: string, userId: string | null): Promise<boolean> {
-  const out = await outsideTenant('billing: take seats back', () =>
+  const res = await outsideTenant('billing: take an addition back', () =>
     platformPrisma.$transaction(async (tx) => {
       const c = await tx.subscriptionChange.findUnique({ where: { id: changeId } });
+      const before = await ownedApps(tx, c?.accountId);
       if (!c || c.status !== 'OPEN') return null;
       if (c.invoiceId) {
         const voided = await tx.billingInvoice.updateMany({
@@ -349,30 +361,36 @@ export async function takeBack(changeId: string, status: 'LAPSED' | 'CANCELLED',
       if (!claimed.count) throw new PaymentsError('This change was settled a moment ago.', 409);
       await tx.$queryRaw`SELECT id FROM "Subscription" WHERE "accountId" = ${c.accountId} FOR UPDATE`;
       const sub = await tx.subscription.findUnique({ where: { accountId: c.accountId } });
-      if (sub) {
+      if (c.kind === 'APP') {
+        /* The app comes off: its add-on ends and the items it brought go. */
+        if (c.addOnId) await endAddOnIn(tx, c.addOnId, status === 'LAPSED' ? 'Its first invoice was not paid in time.' : note, userId);
+      } else if (sub) {
         const quantity = Math.max(1, (sub.quantity ?? c.toQuantity) - c.added);
         await tx.subscription.update({
           where: { accountId: c.accountId },
           data: { quantity, listAmount: sub.listAmount == null ? null : Math.max(0, sub.listAmount - c.deltaList), periodAmount: sub.periodAmount == null ? null : Math.max(0, sub.periodAmount - c.deltaPeriod) },
         });
-        await tx.subscriptionItem.updateMany({ where: { subscriptionId: sub.id, seats: { not: null } }, data: { seats: quantity } });
+        await tx.subscriptionItem.updateMany({ where: { subscriptionId: sub.id, seats: { not: null }, OR: [{ priceModel: null }, { priceModel: { not: 'addon' } }] }, data: { seats: quantity } });
       }
       /* A renewal raised while these seats were on carries them: staff check it (Ops shows the note). */
       const renewal = await tx.billingInvoice.findFirst({ where: { accountId: c.accountId, source: 'RENEWAL', createdAt: { gt: c.createdAt }, status: { in: ['ISSUED', 'PAID'] } }, select: { number: true } });
-      if (renewal) await tx.subscriptionChange.update({ where: { id: c.id }, data: { note: `${note} Renewal ${renewal.number} was raised with these seats on; check it.`.slice(0, 600) } });
-      return c;
+      if (renewal) await tx.subscriptionChange.update({ where: { id: c.id }, data: { note: `${note} Renewal ${renewal.number} was raised with ${c.kind === 'APP' ? 'this app' : 'these seats'} on; check it.`.slice(0, 600) } });
+      return { change: c, before };
     }),
   );
-  if (!out) return false;
+  if (!res) return false;
+  const out = res.change;
   if (out.invoiceId) await cancelUnsentInvoiceMail(out.invoiceId, 'VOID');
+  if (out.kind === 'APP') await appSwitchesAfter(out.accountId, res.before);
   await syncAccountEntitlement(out.accountId);
   clearAccessCache();
+  const app = out.kind === 'APP';
   await recordAccountEvent({
     accountId: out.accountId,
     actorUserId: userId,
-    action: status === 'LAPSED' ? 'SEATS_LAPSED' : 'SEATS_CANCELLED',
+    action: app ? (status === 'LAPSED' ? 'APP_ADDON_LAPSED' : 'APP_ADDON_CANCELLED') : status === 'LAPSED' ? 'SEATS_LAPSED' : 'SEATS_CANCELLED',
     targetType: 'Subscription',
-    message: `${unitWord(out.unit, out.added)} taken off the plan (${out.toQuantity} to ${out.fromQuantity}). ${note}`.slice(0, 500),
+    message: (app ? `${appName(out.appCode || '')} taken off the plan. ${note}` : `${unitWord(out.unit, out.added)} taken off the plan (${out.toQuantity} to ${out.fromQuantity}). ${note}`).slice(0, 500),
     metadata: { changeId: out.id, invoiceId: out.invoiceId },
   }).catch(() => undefined);
   return true;
@@ -387,7 +405,7 @@ export async function lapseDue(now = new Date()) {
   const failed: Array<{ id: string; reason: string }> = [];
   for (const c of due) {
     try {
-      if (await takeBack(c.id, 'LAPSED', `Not paid within the days to pay, so these ${c.unit === 'USER' ? 'users' : 'employees'} came off the plan.`, null)) lapsed += 1;
+      if (await takeBack(c.id, 'LAPSED', c.kind === 'APP' ? `Not paid within the days to pay, so ${appName(c.appCode || '')} came off the plan.` : `Not paid within the days to pay, so these ${c.unit === 'USER' ? 'users' : 'employees'} came off the plan.`, null)) lapsed += 1;
     } catch (e) {
       if (e instanceof LeaseLost) throw e;
       failed.push({ id: c.id, reason: String(e instanceof Error ? e.message : e).slice(0, 200) });
@@ -405,6 +423,9 @@ export async function changesFor(accountId: string, take = 20) {
   return rows.map((r) => ({
     id: r.id,
     status: r.status,
+    kind: r.kind,
+    appCode: r.appCode,
+    appName: r.appCode ? appName(r.appCode) : null,
     unit: r.unit,
     added: r.added,
     fromQuantity: r.fromQuantity,

@@ -173,6 +173,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/billing/apps",
+      "reason": "Adds an app to the caller's own account's paid plan (billing/selfServeApps.ts), priced from that app's price book plan. Needs SETTINGS::Company Profile::EDIT (mayChangePlan, checked in the handler), the same staff switch as seats (off by default), an active priced plan with nothing overdue and one open addition per account (unique index). Raises a prorated invoice; unpaid in the days to pay, the app comes off again."
+    },
+    {
+      "method": "POST",
       "path": "/api/billing/resume",
       "reason": "Turns renewal back on for the caller's own account before the period ends; account OWNER membership checked in the handler."
     },
