@@ -668,13 +668,6 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-step-note { grid-area: note; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
 
 /*
- * The employee app (shared with Attendance). Waiting reads as the Attention status and the open tab carries the
- * portal marker, through its own `data-brand="d"`, so Attendance's web screens keep their own look.
- */
-.ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
-.ui-portal[data-brand='d'] nav[aria-label='Portal'] button[aria-current='page'] { box-shadow: inset 0 3px 0 rgb(var(--marker)); }
-
-/*
  * Company goals over the Goals list (round 53 pick): on the page ground under one hairline, no card;
  * each goal a short line with a thin bar of how far its linked goals have come.
  */
@@ -683,3 +676,10 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .ui-company-goal { min-width: 0; font-size: 0.875rem; }
 .ui-company-goal-bar { display: block; height: 4px; margin-top: 6px; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
 .ui-company-goal-bar > span { display: block; height: 100%; background: rgb(var(--act, var(--fg))); }
+
+/*
+ * The employee app (shared with Attendance). Waiting reads as the Attention status and the open tab carries the
+ * portal marker, through its own `data-brand="d"`, so Attendance's web screens keep their own look.
+ */
+.ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
+.ui-portal[data-brand='d'] nav[aria-label='Portal'] button[aria-current='page'] { box-shadow: inset 0 3px 0 rgb(var(--marker)); }

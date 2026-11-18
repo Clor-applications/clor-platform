@@ -18,6 +18,7 @@ export const KIND = {
   'people.absence': 'Absences without word',
   'people.acknowledge': 'Policies to read',
   'people.approval': 'Request decisions',
+  'people.asset': 'Asset problems',
   'people.contract_ending': 'Contracts ending',
   'people.desk': 'Help desk cases',
   'people.desk_overdue': 'Overdue help desk cases',
