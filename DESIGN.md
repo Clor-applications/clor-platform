@@ -556,6 +556,27 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 40 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Going home early | A day where someone left before the shift ended gets its own tag beside the late mark, "Left 2h early" or "Left 40 min early", in the employee app's Today card and day list and in Attendance → Records. It uses the `earlyOutMinutes` the server already works out (`EarlyGoTag`). |
+| Showing how many rows match | The Employees list title carries the matching count, "Employees (6)", once the list has loaded; any list on `ListHeader` can pass `count`. Not in Books (`titleWithCount`). |
+
+Picked and already how the app works: a "Columns" button with ticks and an order per column on
+data tables (moved with arrows rather than dragged); grouping is a filter on one branch at a
+time; leave left is shown as days, not money.
+
+Picked, **not built yet**: absence pay given back next month with a line saying why; attendance
+uploaded from any sheet with its columns matched; holiday work paid or taken as a day off, chosen
+each time; your own reports from fields, filters and groups; exit-interview reasons read one by
+one; a short salary register (gross, deductions, net) opening into the parts; a plain bank sheet
+of names, accounts and amounts; a phone notice with the amount when salary is sent; planned
+headcount as one number on home; a PDF of a list to print; a download with every field. All
+need server work, or a per-list field set that does not exist yet.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

@@ -74,6 +74,7 @@ import {
   todayIst,
 } from './portalApi';
 import PasswordInput from '@ui/components/ui/PasswordInput';
+import EarlyGoTag from '@ui/timeOff/EarlyGoTag';
 import { wholeRupees as rupees } from '@ui/utils/money';
 
 /**
@@ -368,7 +369,7 @@ function Today({ me, reload, guard }) {
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Out</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOutTime || '—'}</dd></div>
           <div className="rounded-lg p-2" style={{ backgroundColor: 'rgb(var(--app-bg))' }}><dt className="ui-caption">Worked</dt><dd className="text-lg font-semibold tabular-nums">{r?.checkOut ? hm(r.workedMinutes) : '—'}</dd></div>
         </dl>
-        {r?.lateMinutes ? <p><span className="ui-late-tag">Late {r.lateMinutes} min</span></p> : null}
+        {r?.lateMinutes || r?.earlyOutMinutes ? <p className="flex flex-wrap gap-1.5">{r.lateMinutes ? <span className="ui-late-tag">Late {r.lateMinutes} min</span> : null}<EarlyGoTag minutes={r.earlyOutMinutes} /></p> : null}
       </section>
 
       {me.phone.allowed ? (
@@ -471,6 +472,7 @@ function MyDays({ guard, fix = null, onFixUsed }) {
                             <span className={`ui-pill ${STATUS[d.status]?.pill || 'ui-pill-neutral'}`}>{STATUS[d.status]?.label || d.status}</span>
                           )}
                           {d.lateMinutes ? <span className="block"><span className="ui-late-tag">Late {d.lateMinutes} min</span></span> : null}
+                          <EarlyGoTag minutes={d.earlyOutMinutes} block />
                         </td>
                         <td className="whitespace-nowrap text-end tabular-nums">
                           {d.checkIn ? `${d.checkIn} – ${d.checkOut || ''}`.trim() : '—'}
