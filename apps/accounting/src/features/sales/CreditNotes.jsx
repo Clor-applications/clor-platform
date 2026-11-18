@@ -20,6 +20,7 @@ import { MoneyValue } from '@ui/components/docs';
 import Modal from '@ui/components/ui/Modal';
 import PrintDownloadFrame from '@ui/components/PrintDownloadFrame';
 import DocumentPrintView from '@ui/components/DocumentPrintView';
+import { registerCreditNoteEInvoiceApi } from '../../api/einvoice';
 
 export const CreditNotesList = ({
   db,
@@ -36,6 +37,22 @@ export const CreditNotesList = ({
 }) => {
   const { isEnabled: featureIsEnabled } = useFeatures();
   const importsOn = featureIsEnabled('imports');
+  const einvoiceOn = featureIsEnabled('einvoice');
+  const [registering, setRegistering] = useState('');
+  /* A credit note against a registered invoice is registered too, as CRN (audit, 17 Nov 2026). */
+  const registerNote = async (cn) => {
+    setRegistering(cn.id);
+    try {
+      const d = await registerCreditNoteEInvoiceApi(cn.backendDocId);
+      setDb((prev) => ({ ...prev, creditNotes: (prev.creditNotes || []).map((x) => (x.id === cn.id ? { ...x, irn: d.irn, irnStatus: 'REGISTERED' } : x)) }));
+      notify.success(`Registered: IRN ${d.irn}`);
+    } catch (err) {
+      const issues = err?.data?.issues;
+      notify.error(Array.isArray(issues) && issues.length ? `Not registered: ${issues.map((i) => i.message || i).join('; ')}` : err?.message || 'Could not register the credit note.');
+    } finally {
+      setRegistering('');
+    }
+  };
   const warehouseById = useMemo(() => {
     const list = Array.isArray(warehouses) ? warehouses : [];
     return new Map(list.map((w) => [String(w?.id), w]));
@@ -340,6 +357,15 @@ export const CreditNotesList = ({
                       >
                         <Printer size={14} aria-hidden="true" /> Print
                       </button>
+                      {einvoiceOn && cn.backendDocId && !['Draft', 'Cancelled'].includes(cnStatusOf(cn)) ? (
+                        cn.irnStatus === 'REGISTERED' ? (
+                          <span className="ui-caption mr-2" title={cn.irn}>IRN registered</span>
+                        ) : (
+                          <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm text-xs mr-2" disabled={registering === cn.id} onClick={() => registerNote(cn)}>
+                            {registering === cn.id ? 'Registering…' : 'Register IRN'}
+                          </button>
+                        )
+                      ) : null}
                       {isOnAccount(cn) ? (
                         noteBalance(cn).unsettled > 0.0001 ? (
                           <button

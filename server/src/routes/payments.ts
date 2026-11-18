@@ -240,6 +240,7 @@ paymentsRouter.post('/orgs/:orgId/payments', async (req, res) => {
     await assertAllocationsFit(tx, {
       accountId,
       orgId,
+      direction: body.direction,
       allocations: (body.allocations || []) as Array<{ docType: 'INVOICE' | 'BILL'; docId: string; amount: number }>,
     });
 
@@ -494,6 +495,7 @@ paymentsRouter.put('/orgs/:orgId/payments/:paymentId', async (req, res) => {
       await tx.paymentAllocation.deleteMany({ where: { paymentId: original.id, accountId, orgId } });
       await assertAllocationsFit(tx, {
         accountId, orgId,
+        direction: 'RECEIPT',
         allocations: (body.allocations || []) as Array<{ docType: 'INVOICE' | 'BILL'; docId: string; amount: number }>,
       });
       const receipt = await tx.payment.update({

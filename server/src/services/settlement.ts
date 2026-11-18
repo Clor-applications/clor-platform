@@ -116,6 +116,49 @@ export async function validAllocatedPaise(
 }
 
 /**
+ * What else takes a document down besides money (audit, 17 Nov 2026: settlement read the total only), in paise:
+ *
+ *  - on a bill, the TDS it deducted at source: that part is owed to the department, not the vendor;
+ *  - notes knocked off against it (allocations kept on the note), and notes raised against it alone,
+ *    credit notes for an invoice and debit notes for a bill. The same rule as the browser's documentOutstanding.
+ *
+ * Drafts and cancelled notes take nothing off.
+ */
+export async function reductionsPaise(
+  tx: DbClient,
+  opts: { accountId: string; orgId: string; docType: 'INVOICE' | 'BILL'; docId: string; extrasJson?: string | null }
+): Promise<number> {
+  const extras = (() => {
+    try {
+      return opts.extrasJson ? JSON.parse(opts.extrasJson) : {};
+    } catch {
+      return {};
+    }
+  })();
+  const tds = opts.docType === 'BILL' ? Math.max(0, paise(extras?.tdsAmount)) : 0;
+  const notes: Array<{ total: any; status: string; againstDocId: string | null; extrasJson: string | null }> = await (opts.docType === 'INVOICE' ? tx.creditNote : (tx as any).debitNote).findMany({
+    where: { accountId: opts.accountId, orgId: opts.orgId, status: { notIn: ['Draft', 'Cancelled', 'draft', 'cancelled'] } },
+    select: { total: true, status: true, againstDocId: true, extrasJson: true },
+  });
+  let noted = 0;
+  for (const n of notes) {
+    let ex: any = {};
+    try {
+      ex = n.extrasJson ? JSON.parse(n.extrasJson) : {};
+    } catch {
+      ex = {};
+    }
+    const allocations = Array.isArray(ex?.allocations) ? ex.allocations : [];
+    if (allocations.length) {
+      for (const a of allocations) if (String(a?.docId ?? '') === opts.docId) noted += Math.max(0, paise(a?.amount));
+    } else if (String(ex?.settlementMode || 'DOCUMENT') !== 'ON_ACCOUNT' && n.againstDocId === opts.docId) {
+      noted += Math.max(0, paise(n.total));
+    }
+  }
+  return tds + noted;
+}
+
+/**
  * Recalculate one document's settlement and write it back.
  *
  * Idempotent: running it twice on unchanged allocations writes the same values
@@ -129,12 +172,13 @@ export async function recalcDocumentSettlement(
 
   const doc =
     docType === 'INVOICE'
-      ? await tx.invoice.findFirst({ where: { id: docId, accountId, orgId }, select: { id: true, total: true, paidAmount: true, status: true } })
-      : await tx.bill.findFirst({ where: { id: docId, accountId, orgId }, select: { id: true, total: true, settledAmount: true, status: true } });
+      ? await tx.invoice.findFirst({ where: { id: docId, accountId, orgId }, select: { id: true, total: true, paidAmount: true, status: true, extrasJson: true } })
+      : await tx.bill.findFirst({ where: { id: docId, accountId, orgId }, select: { id: true, total: true, settledAmount: true, status: true, extrasJson: true } });
 
   if (!doc) return null;
 
-  const totalPaise = paise(doc.total);
+  /* What money has to cover: the total less TDS at source and notes against it. paidAmount stays the money. */
+  const totalPaise = Math.max(0, paise(doc.total) - (await reductionsPaise(tx, { ...opts, extrasJson: (doc as any).extrasJson })));
   const paidPaise = await validAllocatedPaise(tx, opts);
   const previousPaidPaise = paise(docType === 'INVOICE' ? (doc as any).paidAmount : (doc as any).settledAmount);
   const previousStatus = String(doc.status ?? '');
@@ -224,8 +268,14 @@ export async function assertAllocationsFit(
     orgId: string;
     allocations: Array<{ docType: 'INVOICE' | 'BILL'; docId: string; amount: number }>;
     excludePaymentId?: string | null;
+    /** A receipt settles invoices and a payment settles bills, never the other way round (audit, 17 Nov 2026). */
+    direction?: 'RECEIPT' | 'PAYMENT';
   }
 ): Promise<void> {
+  for (const a of opts.allocations || []) {
+    if (opts.direction === 'RECEIPT' && a.docType === 'BILL') throw new OverAllocationError('A receipt is money in: it settles invoices, not bills.');
+    if (opts.direction === 'PAYMENT' && a.docType === 'INVOICE') throw new OverAllocationError('A payment is money out: it settles bills, not invoices.');
+  }
   const wanted = new Map<string, { docType: 'INVOICE' | 'BILL'; docId: string; paise: number }>();
   for (const a of opts.allocations || []) {
     const key = `${a.docType}:${a.docId}`;
@@ -237,8 +287,8 @@ export async function assertAllocationsFit(
   for (const { docType, docId, paise: wantPaise } of wanted.values()) {
     const doc =
       docType === 'INVOICE'
-        ? await tx.invoice.findFirst({ where: { id: docId, accountId: opts.accountId, orgId: opts.orgId }, select: { total: true, number: true } })
-        : await tx.bill.findFirst({ where: { id: docId, accountId: opts.accountId, orgId: opts.orgId }, select: { total: true, number: true } });
+        ? await tx.invoice.findFirst({ where: { id: docId, accountId: opts.accountId, orgId: opts.orgId }, select: { total: true, number: true, extrasJson: true } })
+        : await tx.bill.findFirst({ where: { id: docId, accountId: opts.accountId, orgId: opts.orgId }, select: { total: true, number: true, extrasJson: true } });
     if (!doc) throw new OverAllocationError(`Cannot allocate to a ${docType.toLowerCase()} that does not exist`);
 
     const rows = await tx.paymentAllocation.findMany({
@@ -251,7 +301,7 @@ export async function assertAllocationsFit(
       return sum + paise(r.amount);
     }, 0);
 
-    const remaining = paise(doc.total) - alreadyPaise;
+    const remaining = paise(doc.total) - (await reductionsPaise(tx, { accountId: opts.accountId, orgId: opts.orgId, docType, docId, extrasJson: doc.extrasJson })) - alreadyPaise;
     // Half a paisa of slack, the same tolerance the allocation-versus-payment
     // check upstream already uses.
     if (wantPaise > remaining) {

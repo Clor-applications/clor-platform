@@ -11,6 +11,7 @@ import Drawer from '@ui/components/ui/Drawer';
 import { notify } from '@ui/components/ui/notify';
 import { getPhonePunches, getPunchPhoto, reviewFieldPunch, setFieldPunchApproval, todayIst } from '../api/attendance';
 import LoadFailed from '@ui/components/ui/LoadFailed';
+import { latestPlaces, placeOf } from '../components/round41';
 
 /**
  * Punches from phones, the way readers are watched: who punched, from which
@@ -32,6 +33,8 @@ const TABS = [
   { value: 'accepted', label: 'Recorded', tone: 'paid' },
   { value: 'refused', label: 'Refused', tone: 'overdue' },
   { value: 'field', label: 'Field', tone: 'partial' },
+  /* Round 41, teammap B: each person's last place and time, as a list. */
+  { value: 'latest', label: 'Where now', tone: 'all' },
 ];
 const kindLabel = (p) => (p.kind === 'IN' ? 'In' : p.kind === 'OUT' ? 'Out' : '—');
 const reviewLabel = (p) => (p.review === 'PENDING' ? 'Waiting' : p.review === 'REJECTED' ? 'Refused' : 'Counts');
@@ -68,12 +71,14 @@ export default function PhonePunches() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [photo, setPhoto] = useState(null);
-  const counts = useMemo(() => ({ accepted: data?.accepted.length || 0, refused: data?.refused.length || 0, field: data?.summary.field || 0 }), [data]);
+  const latest = useMemo(() => latestPlaces(data?.accepted), [data]);
+  const counts = useMemo(() => ({ accepted: data?.accepted.length || 0, refused: data?.refused.length || 0, field: data?.summary.field || 0, latest: latest.length }), [data, latest]);
   const inTab = useMemo(() => {
     if (!data) return [];
     if (tab === 'refused') return data.refused;
+    if (tab === 'latest') return latest;
     return tab === 'field' ? data.accepted.filter((p) => p.outside) : data.accepted;
-  }, [data, tab]);
+  }, [data, tab, latest]);
   const search = useListSearch(inTab, ['time', 'name', 'site', 'address', 'message']);
   const filters = useColumnFilters();
   const rows = filters.applyFilters(search.filtered, COLUMNS);
@@ -172,6 +177,31 @@ export default function PhonePunches() {
       <LoadFailed message={error} onRetry={load} />
       {!data ? (
         error ? null : <SkeletonCard lines={6} />
+      ) : tab === 'latest' ? (
+        <div className="ui-table-scroll">
+          <table className="ui-table ui-table-sticky w-full">
+            <thead>
+              <tr>
+                <ColumnHeader label="Employee" col="employee" state={filters} />
+                <th className="ui-col-grow" scope="col">Last place</th>
+                <ColumnHeader label="In or out" col="kind" state={filters} />
+                <ColumnHeader label="Time" col="time" state={filters} type="date" />
+                <th scope="col"><span className="sr-only">Selfie and map</span></th>
+              </tr>
+            </thead>
+            <tbody className="ui-rows">
+              {!rows.length ? empty(5, Users, 'No one punched from a phone', 'Each person who punched from a phone in these days shows here once, with the place and time of their last punch.') : rows.map((p) => (
+                <tr key={p.employeeId || p.id}>
+                  <td className="ui-col-entity">{p.name}</td>
+                  <td className="ui-col-grow whitespace-normal min-w-[12rem]">{placeOf(p) ? <span className="ui-punch-place" title={placeOf(p)}><MapPin size={13} aria-hidden="true" className="ui-punch-pin" />{placeOf(p)}</span> : <span className="ui-caption">Place not named</span>}</td>
+                  <td>{kindLabel(p)}</td>
+                  <td className="ui-col-date whitespace-nowrap tabular-nums">{p.time}</td>
+                  <td className="ui-col-meta"><span className="flex items-center justify-end gap-1">{tools(p)}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : tab === 'field' ? (
         <div className="ui-table-scroll">
           <table className="ui-table ui-table-sticky w-full">

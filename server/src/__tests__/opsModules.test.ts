@@ -164,6 +164,9 @@ describe('switches', () => {
       expect(await lastAudit(owner.userId, 'SWITCH_PAUSED')).toBeTruthy();
       const refused = await request(app).post('/api/public/signup/start').send({ email: `p.${rnd()}@example.com` }).expect(503);
       expect(refused.body).toMatchObject({ code: 'PAUSED', error: 'Back on Monday.' });
+      /* The app's own sign-up page too (audit, 17 Nov 2026). */
+      const direct = await request(app).post('/api/auth/signup').send({ email: `p.${rnd()}@example.com`, password: 'Passw0rd!23x', name: 'Paused' }).expect(503);
+      expect(direct.body.code).toBe('PAUSED');
 
       await request(app).put('/api/ops/switches/demoRequests').set(owner.h).send({ open: false }).expect(200);
       expect((await request(app).post('/api/public/demo-requests').send({}).expect(503)).body.error).toMatch(/not taking demo requests/);

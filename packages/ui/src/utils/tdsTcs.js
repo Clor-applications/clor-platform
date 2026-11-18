@@ -67,7 +67,12 @@ export function tds194qRows(db, companyId, config, fy) {
  * Base = receipt vouchers in the FY (collection happens on receipt, not
  * billing). Customers flagged buyerDeducts194Q are exempt.
  */
+/* The Finance Act, 2025 omitted 206C(1H) from 1 April 2025; 194Q alone covers the goods trade from then. */
+export const TCS_206C1H_ENDS = '2025-04-01';
+
 export function tcs206cRows(db, companyId, config, fy) {
+  /* Nothing to collect for a year that starts after the section went (audit, 17 Nov 2026: it was still charged). */
+  if (fy?.from && String(fy.from) >= TCS_206C1H_ENDS) return [];
   const customersById = new Map((db?.customers || []).filter((c) => c.companyId === companyId).map((c) => [String(c.id), c]));
   const byCustomer = new Map();
   for (const p of db?.payments || []) {

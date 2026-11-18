@@ -183,6 +183,7 @@ export default function PhonePunch({ phone, punches = [], onPunch, onDone, priva
       {/* The notice, before anything is collected. */}
       <p className="ui-caption">
         To punch here, your location is used to check you are at a work site and is saved with the punch.
+        Only the place at the moment you punch is kept; CLOR does not follow you between punches.
         A selfie is optional{days ? ` and is deleted after ${days} days` : ''}.{' '}
         <a className="ui-link" href={privacyHref}>Privacy notice</a>
       </p>

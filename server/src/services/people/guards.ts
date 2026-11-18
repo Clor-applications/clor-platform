@@ -1,4 +1,4 @@
-import { isAppEntitled } from '../subscriptions.js';
+import { appGate } from '../appGate.js';
 import type { Request, Response } from 'express';
 
 import { isFeatureEnabled } from '../features.js';
@@ -40,11 +40,10 @@ export const isSharedDirectoryRoute = (path: string | undefined): boolean => Boo
 export const peopleRouteOk = async (req: Request, res: Response): Promise<boolean> => {
   if (!orgMatches(req, res)) return false;
   const { accountId } = req.tenant!;
-  const entitled = (await isAppEntitled(accountId, 'people'))
-    || (isSharedDirectoryRoute(req.route?.path) && (await isAppEntitled(accountId, 'attendance')));
-  /* A-15: one order for every app — not bought (402) before switched off (403), so an unowned app says so instead of reading as a setting. */
-  if (!entitled) {
-    res.status(402).json({ error: 'People is not on this account’s subscription.', app: 'people', code: 'APP_NOT_SUBSCRIBED' });
+  /* A-15: one order for every app — not bought (402) before switched off (403). Lapsed: reading goes on, changes are refused. */
+  const refused = await appGate(accountId, isSharedDirectoryRoute(req.route?.path) ? ['people', 'attendance'] : ['people'], req.method, { name: 'People', app: 'people' });
+  if (refused) {
+    res.status(refused.status).json(refused.body);
     return false;
   }
   if (!(await peopleEnabled(req, res))) return false;
@@ -85,8 +84,9 @@ export const hrOrAttendanceRouteOk = async (req: Request, res: Response): Promis
     res.status(403).json({ error: 'Switch on People or Attendance for this organisation to use leave and holidays.', code: 'TIME_OFF_DISABLED' });
     return false;
   }
-  for (const app of on) if (await isAppEntitled(accountId, app)) return true;
-  res.status(402).json({ error: 'Neither People nor Attendance is on this account’s subscription.', app: on[0], code: 'APP_NOT_SUBSCRIBED' });
+  const refused = await appGate(accountId, on, req.method, { name: on.length > 1 ? 'People or Attendance' : on[0] === 'people' ? 'People' : 'Attendance', app: on[0] });
+  if (!refused) return true;
+  res.status(refused.status).json(refused.body);
   return false;
 };
 
@@ -98,6 +98,8 @@ export const hrOrAttendanceRouteOk = async (req: Request, res: Response): Promis
  */
 export const portalNeedsPeople = async (req: Request, res: Response, next: () => void) => {
   const accountId = (req as unknown as { portal?: { accountId?: string } }).portal?.accountId;
-  if (accountId && (await isAppEntitled(accountId, 'people'))) return next();
+  const refused = accountId ? await appGate(accountId, ['people'], req.method, { name: 'People', app: 'people' }) : { status: 402, body: {} };
+  if (!refused) return next();
+  if (refused.body.code === 'SUBSCRIPTION_LAPSED') return void res.status(402).json(refused.body);
   res.status(402).json({ error: 'This needs the People app, which your company does not have.', app: 'people', code: 'APP_NOT_SUBSCRIBED' });
 };

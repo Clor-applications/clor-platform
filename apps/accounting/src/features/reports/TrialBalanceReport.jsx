@@ -37,7 +37,8 @@ export default function TrialBalanceReport({ db, currentCompany }) {
   const range = useMemo(() => {
     const now = new Date();
     const iso = date => date.toISOString().slice(0, 10);
-    if (periodMode === 'year') return { start: `${now.getFullYear()}-01-01`, end: iso(now) };
+    /* The financial year, from 1 April (audit, 17 Nov 2026: this started on 1 January). */
+    if (periodMode === 'year') { const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; return { start: `${y}-04-01`, end: iso(now) }; }
     if (periodMode === '30days') { const start = new Date(now); start.setDate(start.getDate() - 29); return { start: iso(start), end: iso(now) }; }
     if (periodMode === 'custom') return { start: customStart, end: customEnd };
     return monthBounds(now.toISOString().slice(0, 7));
