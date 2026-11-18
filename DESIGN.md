@@ -1158,19 +1158,29 @@ need the phone app or server work.
 Expense claims and company assets. **Built** (employee app bill form, `apps/attendance/src/portal/round51.js`):
 a bill paid in another currency is typed as the rupee amount from the card statement, said under
 the amount; a bill older than 60 days is refused (the day picker stops at 60 days back and the form
-refuses it; the server does not check this yet); a bill in the company's GSTIN asks only for the GST
-amount on the bill, no supplier GSTIN.
+refuses it, and since server batch 2 the server refuses it too, code `TOO_OLD`; HR can still
+record an older bill for someone); a bill in the company's GSTIN asks only for the GST amount on the
+bill, no supplier GSTIN.
+
+**Built in server batch 2**:
+
+| Building block | Pick |
+| --- | --- |
+| Company card | "Paid with the company card" on a bill (`ExpenseLine.paidByCompany`): it stays on the claim and in the Books export ("Paid with company card" column), counts nothing towards what is claimed back or paid, and the approver reads "Paid with the company card: kept for the accounts, not paid back". |
+| Repeat bill to the approver only | The person is never asked "Is this a different bill?"; a bill with the same amount, day and place goes in and the approver reads "Same amount, day and place as another bill. Check it is not the same one". The same photo twice is still refused. |
+| Asset condition | The Assets register's Condition is Good, Fair or Damaged (`state`); the old free text is now "Return notes". |
+| Company things with you | A card on the employee app's Me tab (`MyAssets`) lists what the register says the person holds, with tag and condition, never its value. "I still have this" puts today's date on the asset; "Report a problem" marks the asset ("Problem reported" in the register) and opens an Ask HR case in the IT queue; "Ask for something you need" is a free-text Ask HR case in the same queue. What the holder wrote is kept when HR saves the asset, and cleared when it moves to someone else or another status. |
 
 **Already matching**: a repeat bill is flagged to the approver ("Same amount, day and place as another
 bill"); no hotel limit, the approver decides; a lost bill is added with a note and the approver decides
 each time; people book their own travel and claim it; a shared bill is claimed by each person for their
 part with a copy of the bill; a team meal is one amount and a note.
 
-Picked, **not built yet**: an advance with later claims set against it; company card spends claimed
-like a bill marked "paid by company"; asset condition as Good / Fair / Damaged only; each person
-confirming "I still have this" for their assets; "Report a problem" on an asset; asking for an asset
-as a free text request; a director naming a helper who files claims for them; the employee no longer
-asked "Is this a different bill?" (the repeat goes to the approver only). All need server work.
+An advance with later claims set against it was already how the app works (Advances, and "Set
+against" when sending a claim).
+
+Picked, **not built yet**: a director naming a helper who files claims for them (needs its own
+permission model).
 
 ### Round 52 (18 Nov 2026)
 
@@ -1188,11 +1198,19 @@ Picked and already how the app works: each Help desk category sends its case to 
 never anonymous; the employee sees only "Waiting for HR", not a person; a question about a
 settlement is an ordinary Ask HR question; HR decides each early-release request.
 
-Picked, **not built yet**: Withdraw on a resignation with the manager accepting or not; the
-manager accepting a resignation before HR confirms the last day; the last salary paid on the normal
-pay day with dues settled later; an unreturned asset's value as its own settlement line; work
-apps stopping at the end of the last day while payslips stay open six months; a "Garden leave"
-status (paid, no work access, not absent). All need server work.
+**Built in server batch 2**:
+
+| Building block | Pick |
+| --- | --- |
+| Ask to stay | Someone on notice after resigning sees "Changed your mind? Ask to stay" under Leaving the company in the employee app. It is a request of its own (`LEAVING_WITHDRAW`, "Taking back a resignation" in Approval rules; default rule: the manager, handed to HR when it waits three days). Accepted, the leaving is withdrawn as HR's Withdraw leaving does it; turned down, the app says the manager kept the last day. A leaving HR recorded another way (a termination) is HR's to undo. A resignation not yet decided is still withdrawn from My requests. |
+| Unreturned asset line | An asset not handed back is its own final settlement line at the value the Assets register gives it ("valued there at ₹42,000"); without a value the line stays at ₹0 for Payroll to price. |
+
+Picked and already how the app works: a resignation goes to the manager first and HR confirms
+(the default rule for resignations is the manager, then HR).
+
+Picked, **not built yet**: the last salary paid on the normal pay day with dues settled later;
+work apps stopping at the end of the last day while payslips stay open six months; a "Garden
+leave" status (paid, no work access, not absent). All need Payroll or sign-in work.
 
 ### Round 53 (18 Nov 2026)
 

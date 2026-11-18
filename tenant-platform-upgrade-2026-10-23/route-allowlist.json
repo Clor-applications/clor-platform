@@ -587,6 +587,31 @@
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks for a letter or a document copy about themselves only, as a LETTER_REQUEST or DOCUMENT_REQUEST HR approves (People plan step 6)."
     },
     {
+      "method": "GET",
+      "path": "/api/portal/people/me/assets",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; lists only the company things assigned to them in the register, without the value the company put on each (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/assets/ask",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks for a company thing in their own words, as an Ask HR case of their own in the IT queue (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/assets/:id/confirm",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; confirms they still hold an asset assigned to them only; writes today's date on it (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/assets/:id/problem",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; reports a problem with an asset assigned to them only: marked on it and an Ask HR case of their own (picks round 51)."
+    },
+    {
+      "method": "POST",
+      "path": "/api/portal/people/me/stay",
+      "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; asks to take back their own accepted resignation while on notice; becomes a LEAVING_WITHDRAW request their manager decides (picks round 52)."
+    },
+    {
       "method": "POST",
       "path": "/api/portal/people/me/resign",
       "reason": "Employee self-service (People): portal token (peoplePortal.ts uses portal authenticate) + anyAppLive; org and employee from the token; resigns on their own employee id only; becomes a LEAVING request the manager and HR decide (LIFE-05)."

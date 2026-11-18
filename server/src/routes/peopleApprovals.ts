@@ -266,7 +266,7 @@ const submitSchema = z.object({
   requestType: z.enum(REQUEST_TYPES).refine((t) => t !== 'SHIFT_SWAP', 'A shift swap is asked from the employee app.')
     /* These have their own paths, which check what the generic one cannot: a profile change from the employee app,
        leaving from the person's record, probation from its review, a policy from its version (security audit, 3 Nov 2026). */
-    .refine((t) => !['PROFILE_CHANGE', 'LEAVING', 'PROBATION', 'POLICY_PUBLISH'].includes(t), 'Ask for this from its own screen.'),
+    .refine((t) => !['PROFILE_CHANGE', 'LEAVING', 'LEAVING_WITHDRAW', 'PROBATION', 'POLICY_PUBLISH'].includes(t), 'Ask for this from its own screen.'),
   subjectEmployeeId: z.string().trim().max(60).optional().nullable(),
   title: z.string().trim().min(1, 'Say what is asked.').max(200),
   payload: z.record(z.string(), z.any()).default({}),

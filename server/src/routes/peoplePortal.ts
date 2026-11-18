@@ -6,7 +6,8 @@ import { AckError, accept, pendingFor } from '../services/people/acknowledgement
 import { DeskError, categoriesOf, employeeReply, listRequests, raiseRequest, reopenRequest, requestDetail } from '../services/people/desk.js';
 import { SELF_FIELDS, SelfServiceError, answerFromApp, myDetails, requestChange, withdrawFromApp } from '../services/people/selfService.js';
 import { correlationOf } from '../services/people/employees.js';
-import { ResignError, resignFromApp } from '../services/people/lifecycle/leaving.js';
+import { ResignError, askToStayFromApp, resignFromApp } from '../services/people/lifecycle/leaving.js';
+import { AssetError, askForAsset, confirmAsset, myAssets, reportProblem } from '../services/people/assetsMine.js';
 import { CaseError, intake } from '../services/people/privateCases.js';
 import { CaseKeyMissing } from '../services/people/caseBox.js';
 import { isFeatureEnabled } from '../services/features.js';
@@ -250,6 +251,55 @@ peoplePortalRouter.post('/me/resign', check({ body: z.object({ lastDay: ymd('Say
   }
 });
 
+/* The company things I hold (picks round 51): confirm I still have one, report a problem, ask for something. */
+const assetError = (res: any, e: unknown) => {
+  if (e instanceof AssetError) return res.status(e.status).json({ error: e.message });
+  if (e instanceof DeskError) return res.status(e.status).json({ error: e.message });
+  console.error('[people-portal assets]', e instanceof Error ? e.message : e);
+  return res.status(500).json({ error: 'Something went wrong.' });
+};
+peoplePortalRouter.get('/me/assets', async (req, res) => {
+  try {
+    res.json(await myAssets(me(req)));
+  } catch (e) {
+    assetError(res, e);
+  }
+});
+peoplePortalRouter.post('/me/assets/ask', check({ body: z.object({ what: text(5000).nullish() }) }), async (req, res) => {
+  try {
+    res.status(201).json(await askForAsset(me(req), req.body?.what));
+  } catch (e) {
+    assetError(res, e);
+  }
+});
+peoplePortalRouter.post('/me/assets/:id/confirm', check({ params: idParams, body: noBody }), async (req, res) => {
+  try {
+    res.json({ asset: await confirmAsset(me(req), String(req.params.id)) });
+  } catch (e) {
+    assetError(res, e);
+  }
+});
+peoplePortalRouter.post('/me/assets/:id/problem', check({ params: idParams, body: z.object({ what: text(5000).nullish() }) }), async (req, res) => {
+  try {
+    res.json(await reportProblem(me(req), String(req.params.id), req.body?.what));
+  } catch (e) {
+    assetError(res, e);
+  }
+});
+
+/* Taking back an accepted resignation while on notice (picks round 52): a LEAVING_WITHDRAW request the manager decides. */
+peoplePortalRouter.post('/me/stay', check({ body: z.object({ reason: text(20_000).nullish() }) }), async (req, res) => {
+  const { accountId, orgId, employeeId } = me(req);
+  try {
+    res.status(202).json(await askToStayFromApp({ accountId, orgId, employeeId, userId: req.portal!.employee.userId || null, correlationId: correlationOf(req as any) }, req.body || {}));
+  } catch (e) {
+    if (e instanceof ResignError) return res.status(e.status).json({ error: e.message });
+    if ((e as any)?.status && (e as any).status < 500) return res.status((e as any).status).json({ error: (e as Error).message });
+    console.error('[people-portal stay]', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
 /*
  * My growth (Talent, TALENT-DECISIONS.md): my goals and their check-ins, my reviews (writing my
  * self-review while a cycle is open; reading the outcome once HR shares it), my improvement plan
@@ -319,7 +369,8 @@ peoplePortalRouter.get('/me/leaving', async (req, res) => {
   const { orgId, employeeId } = me(req);
   const e = await peoplePrisma.employee.findFirst({ where: { id: employeeId, orgId }, select: { status: true, dateOfLeaving: true, leavingType: true } });
   const waiting = await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING', status: { in: ['WAITING', 'MORE_INFO'] } }, select: { id: true, title: true, status: true, createdAt: true } });
-  res.json({ status: e?.status || null, lastDay: e?.dateOfLeaving || null, leavingType: e?.leavingType || null, waiting });
+  const staying = e?.status === 'ON_NOTICE' ? await peoplePrisma.approvalRequest.findFirst({ where: { orgId, subjectEmployeeId: employeeId, requestType: 'LEAVING_WITHDRAW' }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true, createdAt: true } }) : null;
+  res.json({ status: e?.status || null, lastDay: e?.dateOfLeaving || null, leavingType: e?.leavingType || null, waiting, staying });
 });
 
 /*

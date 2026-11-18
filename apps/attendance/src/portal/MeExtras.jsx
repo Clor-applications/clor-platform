@@ -4,7 +4,7 @@ import { ChevronLeft } from '@ui/components/ui/lineIcons';
 import { confirmDialog } from '@ui/components/ui/notify';
 
 import LoadFailed from '@ui/components/ui/LoadFailed';
-import { SignedOut, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
+import { SignedOut, askToStay, doneJourneyTask, getJourney, getLeaving, getMyDetails, getPayslip, getPayslips, raisePrivateCase, resign, todayIst } from './portalApi';
 import { addDaysIso as addDays } from '@ui/utils/dates';
 
 /**
@@ -380,6 +380,27 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
   };
 
   const decided = leaving.status === 'ON_NOTICE' || leaving.status === 'LEFT';
+  /* Picks round 52: someone on notice after resigning may ask to stay; their manager decides. */
+  const canStay = leaving.status === 'ON_NOTICE' && (leaving.leavingType || 'RESIGNED') === 'RESIGNED' && leaving.lastDay && leaving.lastDay >= t;
+  const stay = async () => {
+    const sure = await confirmDialog({ title: 'Ask to stay?', message: 'Your manager decides. If they agree, your resignation is taken back and you keep working here.', confirmLabel: 'Ask to stay' });
+    if (!sure) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await guard(askToStay({ reason: null }));
+      setNote({ ok: true, text: 'Sent to your manager.' });
+      load();
+    } catch (err) {
+      const text = errText(err, 'Not sent.');
+      if (text) setNote({ ok: false, text });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const stayWords = leaving.staying?.status === 'WAITING' || leaving.staying?.status === 'MORE_INFO'
+    ? 'You asked to stay. Your manager will answer.'
+    : leaving.staying?.status === 'REJECTED' ? 'You asked to stay; your manager kept your last day.' : null;
   return (
     <section className="ui-card space-y-3 p-5" aria-labelledby="leaving-h">
       <h2 id="leaving-h" className="ui-t-sec">Leaving the company</h2>
@@ -387,7 +408,11 @@ export function LeavingCompany({ guard, refreshKey, onSent }) {
       {leaving.waiting ? (
         <p className="text-sm">Your resignation is with your manager and HR, sent {longDate(new Date(new Date(leaving.waiting.createdAt).getTime() + 330 * 60_000).toISOString())}.</p>
       ) : decided ? (
-        <p className="text-sm">{leaving.lastDay ? `Your last working day is ${longDate(leaving.lastDay)}.` : 'Your leaving is on record.'} Ask HR to change it.</p>
+        <>
+          <p className="text-sm">{leaving.lastDay ? `Your last working day is ${longDate(leaving.lastDay)}.` : 'Your leaving is on record.'} Ask HR to change it.</p>
+          {stayWords ? <p className="text-sm" role="status">{stayWords}</p> : null}
+          {canStay && !stayWords ? <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={stay}>Changed your mind? Ask to stay</button> : null}
+        </>
       ) : open ? (
         <form onSubmit={send} className="space-y-3">
           <label className="block">

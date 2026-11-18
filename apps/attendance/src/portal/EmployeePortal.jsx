@@ -23,6 +23,7 @@ import TrainingsDue from './TrainingsDue';
 import { NextHoliday, useNextDays } from './round48';
 import MyJobs from './MyJobs';
 import MyMoney from './MyMoney';
+import MyAssets from './MyAssets';
 import { MonthReview, MyOvertime } from './MonthAndOvertime';
 import ShiftSwaps from './ShiftSwaps';
 import MyForms from './MyForms';
@@ -184,7 +185,7 @@ export default function EmployeePortal() {
             <ExitInterview guard={guard} refreshKey={leavingSent} />
             {me?.people !== false ? <><MyJobs guard={guard} /><MyGrowth guard={guard} /></> : null}
             <Payslips guard={guard} />
-            {me?.people !== false ? <MyMoney guard={guard} /> : null}
+            {me?.people !== false ? <><MyMoney guard={guard} /><MyAssets guard={guard} /></> : null}
             <MyDetails guard={guard} refreshKey={leavingSent} />
             <MyForms guard={guard} />
             <NightConsent guard={guard} />
