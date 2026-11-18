@@ -289,3 +289,10 @@
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-member-panel .ui-select:hover { border-color: rgb(var(--fg) / 0.35); }
 .ws-member-actions { gap: 8px 24px; }
 .ws-member-roles > li { justify-items: start; }
+.ws-member-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 15rem));
+  gap: 16px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-panel .ui-select:is(:hover, :focus) { background-color: rgb(255 255 255); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-panel .ui-select:focus-visible { border-color: rgb(var(--fg) / 0.6); outline: none; }

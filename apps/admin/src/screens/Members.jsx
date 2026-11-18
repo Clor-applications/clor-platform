@@ -290,6 +290,8 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
           <p role="alert" className="text-sm">{detail.error}</p>
         ) : (
           <div className="ws-member-panel">
+            {/* Account role and company side by side, each as wide as its words (owner, 19 Nov 2026). */}
+            <div className="ws-member-fields">
             <div className="grid gap-2">
               <label htmlFor="ws-member-role" className="ws-kicker">Account role</label>
               <select
@@ -316,7 +318,6 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
               </select>
             </div>
 
-            {detail.companies.length === 0 ? <p className="ui-caption">Not in any company of this account.</p> : null}
             {detail.companies.length > 1 ? (
               <div className="grid gap-2">
                 <label htmlFor="ws-member-company" className="ws-kicker">Company</label>
@@ -327,6 +328,8 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 </select>
               </div>
             ) : null}
+            </div>
+            {detail.companies.length === 0 ? <p className="ui-caption">Not in any company of this account.</p> : null}
             {shown ? (
               <section className="ws-member-company" aria-label={shown.name}>
                 <div className="flex items-center gap-2">
