@@ -99,8 +99,8 @@ for (const c of COMPANIES) {
     console.log('  company made');
   } else {
     s = { token, orgId: org.orgId };
-    const br = await call('GET', `/orgs/${s.orgId}/branches`, undefined, s);
-    s.branchId = (br.body.branches || br.body.items || br.body || [])[0]?.id;
+    s.branchId = org.branchId || org.branches?.[0]?.id || org.branches?.[0]?.branchId || me.activeBranchId;
+    if (!s.branchId) { const br = await call('GET', `/orgs/${s.orgId}/branches`, undefined, s); const list = Array.isArray(br.body) ? br.body : br.body.branches || br.body.items || []; s.branchId = list[0]?.id; }
     console.log('  company already there');
   }
   owner.orgId = s.orgId;
