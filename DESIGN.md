@@ -556,6 +556,28 @@ app; a notice to the manager two days before a short-staffed shift; payment mode
 with a printed cash sheet; bounced emails in Ops with the reason and "Send again"; a rule's "Who"
 list (branch, team, type); "Preview pay" on one person. All need server or phone-app work.
 
+### Round 29 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Several messages at once | Outside Books, quick messages stand open one above the other, newest in front, three at most, so each is read (Sonner `expand`, `visibleToasts` 3 in `Toaster`). Books keeps its collapsed pile of five. |
+| A chart with nothing to show yet | A chart with no figures is not drawn: a People report's chart with every value at nought, and "Joined and left" when nobody joined or left, are left out; the table or empty state under them says it in words (`ReportChart`, `JoinLeaveBars`). |
+| The name someone likes to be called | Lists and the record's title show the full legal name only, as on papers; the preferred name stays on the Personal tab and in friendly sentences (`Directory`, `EmployeeRecord`). |
+
+Picked and already how the app works: right-click on a row opens the browser's own menu (no
+custom menu anywhere); the roster has no dragging, a shift is moved by choosing the day; Ops
+staff roles are fixed (Support, Billing, Sales, Admin).
+
+Picked, **not built yet**: salary paid by mistake taken back from next month's pay; a roster
+warning when night-shift consent is not on file; the manager told when someone applies for a
+job inside the company; a CA's client list with this month's status; monthly revenue in Ops as
+a big number with a 12-month line; joining the company in the phone app by phone number and
+OTP; a joiner asked for their PAN before the first payroll; a billing email separate from the
+owner; a joining bonus line with its "returnable until" date; voting-day leave asked for and
+approved on its own. All need server or phone-app work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

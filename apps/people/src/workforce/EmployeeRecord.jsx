@@ -215,7 +215,7 @@ export default function EmployeeRecord({ params = {}, updateParams, openScreen }
       <div className="pc-head">
         <BackLink label="Employees" onClick={backToDirectory} />
         <PageHeader
-          title={<>{person.name}{person.preferredName ? <span className="ui-profile-aka"> “{person.preferredName}”</span> : null}</>}
+          title={person.name /* round 29 "callname" C: full legal name only; the preferred name stays on the Personal tab */}
         actions={<>
           {moreItems.length ? (
             <>

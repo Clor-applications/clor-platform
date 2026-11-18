@@ -112,7 +112,8 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
       <span className="pc-who">
         <Avatar person={r} size={32} />
         <span className="pc-who-text">
-          <span className="pc-who-name">{r.preferredName ? `${r.name} (${r.preferredName})` : r.name}</span>
+          {/* Round 29 pick "callname" C: lists show the full legal name only, as on papers. */}
+          <span className="pc-who-name">{r.name}</span>
           <span className="pc-who-sub">{r.code || r.workEmail || r.email || ''}</span>
         </span>
       </span>
