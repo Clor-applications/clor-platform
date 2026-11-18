@@ -76,6 +76,7 @@ import {
   punch,
   rememberedIds,
   saveTax,
+  setLanguage,
   signIn,
   signOut,
   todayIst,
@@ -87,6 +88,7 @@ import TaxCompare from './TaxCompare';
 import { AddToHome, LeaveCalendar } from './round58';
 import { sentWords, useBackClose } from '@ui/picks/round58';
 import { LeaveRules } from './LeaveRules';
+import { LANGUAGES, isLanguage, rememberLanguage, savedLanguage, usePageLanguage } from '@ui/i18n';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -114,6 +116,9 @@ export default function EmployeePortal() {
   const [fix, setFix] = useState(null);
   /* Round 56: capitals in a PAN or IFSC as typed, and Enter moving to the next field. */
   useEffect(() => installFormRules(), []);
+  /* Round 67: the app in Hindi or English, as the person chose on Me (this browser remembers it for the sign-in page). */
+  const [language, setLanguageNow] = useState(savedLanguage);
+  usePageLanguage(language);
 
   useEffect(() => {
     document.title = 'Employee portal · Clor';
@@ -133,14 +138,23 @@ export default function EmployeePortal() {
     throw e;
   }), []);
 
+  const chooseLanguage = useCallback((code, { save = true } = {}) => {
+    if (!isLanguage(code)) return;
+    setLanguageNow(code);
+    rememberLanguage(code);
+    if (save) guard(setLanguage(code)).catch((e) => !(e instanceof SignedOut) && notify.error(String(e?.message || 'Not saved.')));
+  }, [guard]);
+
   const loadMe = useCallback(() => {
     guard(getMe())
       .then((d) => {
         setMe(d);
         setError('');
+        /* The language kept on the person wins: a new phone opens in it too. */
+        if (d?.language && isLanguage(d.language)) chooseLanguage(d.language, { save: false });
       })
       .catch((e) => !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load.')));
-  }, [guard]);
+  }, [guard, chooseLanguage]);
   useEffect(() => {
     if (signedIn) loadMe();
   }, [signedIn, loadMe]);
@@ -201,7 +215,7 @@ export default function EmployeePortal() {
             <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />
             <PrivateComplaint guard={guard} />
             <LeavingCompany guard={guard} refreshKey={leavingSent} onSent={resigned} />
-            <Account me={me} guard={guard} onSignOut={leave} />
+            <Account me={me} guard={guard} onSignOut={leave} language={language} onLanguage={chooseLanguage} />
           </div>
         ) : null}
       </main>
@@ -1165,7 +1179,7 @@ function MyLeave({ guard }) {
 // Me
 // ---------------------------------------------------------------------------
 
-function Account({ me, guard, onSignOut }) {
+function Account({ me, guard, onSignOut, language = 'en', onLanguage }) {
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
   /* A letter approved at once (no approver but me) reloads My documents. */
   const [docsAt, setDocsAt] = useState(0);
@@ -1191,6 +1205,7 @@ function Account({ me, guard, onSignOut }) {
           <div className="ui-caption">{me.company.name}{me.company.code ? ` · ${me.company.code}` : ''}</div>
         </section>
       ) : null}
+      {onLanguage ? <LanguageChoice language={language} onLanguage={onLanguage} /> : null}
       <MyTax guard={guard} />
       <MyDocuments key={docsAt} guard={guard} />
       <AskLetter guard={guard} onIssued={() => setDocsAt(Date.now())} />
@@ -1208,6 +1223,41 @@ function Account({ me, guard, onSignOut }) {
         <LogOut size={16} aria-hidden="true" /> Sign out
       </button>
     </>
+  );
+}
+
+/**
+ * The app's language (round 67): English or Hindi, kept on the person so every
+ * phone they sign in on follows it. Each language is named in its own script,
+ * so someone who reads only one of them can still find theirs.
+ */
+function LanguageChoice({ language, onLanguage }) {
+  return (
+    <section className="ui-card space-y-3 p-5" aria-labelledby="lang-h">
+      <div>
+        <h2 id="lang-h" className="ui-t-sec">Language</h2>
+        <p className="ui-caption">The app's words, on this phone and any other you sign in on.</p>
+      </div>
+      <div role="radiogroup" aria-labelledby="lang-h" className="grid grid-cols-2 gap-2">
+        {LANGUAGES.map((l) => {
+          const on = language === l.code;
+          return (
+            <button
+              key={l.code}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              lang={l.code}
+              data-no-translate=""
+              className={`ui-btn w-full ${on ? 'ui-btn-primary' : 'ui-btn-secondary'}`}
+              onClick={() => !on && onLanguage(l.code)}
+            >
+              {l.name}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

@@ -1652,10 +1652,20 @@ referred person stays; the exit interview at leaving; Download my data; the data
 contact under Privacy; a company's own breach register; support access the customer approves for
 a set time; Payroll's Tally export (Books untouched).
 
-Picked, **not built yet**: the employee app in Hindi and other languages (translating the whole app
-is large, and half-translated screens read worse than English); HR forgiving one late mark a month;
-an administrator granting CLOR support 24 hours of access without CLOR asking first (today CLOR
-asks and the customer approves).
+Built since (19 Nov 2026): **the employee app in Hindi.** Me › Language offers English and हिन्दी,
+each named in its own script; the choice is kept on the person (`Employee.portalLanguage`,
+`PUT /api/portal/me/language`, returned by `/me`) so every phone follows it, and in the browser so the
+sign-in page opens in it. The English in the code stays the one source: `packages/ui/src/i18n/`
+turns what the page renders (text, placeholders, screen-reader labels, toasts and dialogs, the tab
+title) from one file per language (`hi.js`), with values kept in place ("{} के लिए आवेदन करें"),
+Hindi month and day names, digits 0–9 and Indian money format as before. PF, ESI, UAN, PAN, HR and
+names stay as written; server errors turn by their code, then their words. Every screen at once,
+never half: `scripts/i18n-strings.mjs --missing hi` reads every line from the code and a test fails
+on any line without Hindi. Another language (Tamil, Telugu, Kannada, Marathi) is one more file
+beside `hi.js`.
+
+Picked, **not built yet**: HR forgiving one late mark a month; an administrator granting CLOR
+support 24 hours of access without CLOR asking first (today CLOR asks and the customer approves).
 
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
