@@ -602,6 +602,20 @@ We will not be taking your application further this time. We were glad to meet y
     fields: ['name', 'jobTitle', 'orgName'],
   },
   {
+    key: 'people.candidate_stage',
+    label: 'Candidate application moved on',
+    description: 'Sent to a candidate when HR moves their application a step forward (being looked at, to interview, to offer) or opens it again. Interviews and offers also send their own e-mail with the details.',
+    subject: 'Your application to {{orgName}}',
+    body: `Hello {{name}},
+
+An update on your application for the {{jobTitle}} position at {{orgName}}.
+
+{{stageLine}}
+
+{{orgName}}`,
+    fields: ['name', 'jobTitle', 'orgName', 'stageLine'],
+  },
+  {
     key: 'people.task_assigned',
     label: 'Joining or leaving tasks for you',
     description: 'Sent once to each person given tasks on a joining, leaving or change plan, listing their tasks, each with a link that marks it done.',

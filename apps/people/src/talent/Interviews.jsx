@@ -8,6 +8,7 @@ import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { listCandidates, listInterviews } from '../api/talent';
 import CandidateDrawer, { InterviewForm } from './CandidateDrawer';
+import { InterviewQuestionsDrawer } from './round53Server';
 import { MODES, STAGES, usePerm, when, word } from './shared';
 
 /**
@@ -23,6 +24,7 @@ export default function Interviews({ params = {} }) {
   const [mine, setMine] = useState(false);
   const [open, setOpen] = useState(null);
   const [scheduling, setScheduling] = useState(false);
+  const [questions, setQuestions] = useState(false);
   const req = useRequest(() => listInterviews({ when: when_ === 'past' ? 'past' : '', mine: mine ? '1' : '' }), [when_, mine]);
   const rows = req.data?.interviews || [];
   const hr = Boolean(req.data?.hr);
@@ -53,6 +55,7 @@ export default function Interviews({ params = {} }) {
         title="Interviews"
         description={hr ? 'Every interview set with a candidate, coming up first, and whose feedback is still owed.' : 'The interviews you are asked to sit on, coming up first, and the feedback you still owe.'}
         primary={canSchedule ? { label: 'Schedule interview', icon: CalendarClock, onClick: () => setScheduling(true) } : null}
+        secondary={canSchedule ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setQuestions(true)}>Interview questions</button> : null}
         toolbar={hr ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />Only mine</label> : null}
         tabs={[{ key: 'upcoming', label: 'Coming up' }, { key: 'past', label: 'Past' }]}
         tab={when_}
@@ -74,6 +77,7 @@ export default function Interviews({ params = {} }) {
             action={canSchedule && when_ !== 'past' ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setScheduling(true)}>Schedule interview</button> : null} />} />
       )}
       {open ? <CandidateDrawer id={open} hr={hr} canEdit={canSchedule} canHire={false} canOffer={false} onClose={() => setOpen(null)} onChanged={req.reload} /> : null}
+      {questions ? <InterviewQuestionsDrawer onClose={() => setQuestions(false)} /> : null}
       {scheduling ? <ScheduleInterview onClose={() => setScheduling(false)} onSaved={() => { setScheduling(false); req.reload(); }} /> : null}
     </div>
   );

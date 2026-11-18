@@ -35,7 +35,11 @@ const APPLY_BODY = z.object({
   website: text(2000).nullish(),
   /* Not on the page, but the services read them when sent (hiring.ts candidateInput, referrals.ts friendInput). */
   sourceDetail: text(2000).nullish(), currentEmployer: text(2000).nullish(), relation: text(2000).nullish(),
+  /* The opening's screening questions, answered one box each (round 53 pick). */
+  answer0: text(5000).nullish(), answer1: text(5000).nullish(), answer2: text(5000).nullish(), answer3: text(5000).nullish(), answer4: text(5000).nullish(),
 });
+const screeningOf = (o: { screeningQuestions?: unknown }): string[] => (Array.isArray(o.screeningQuestions) ? (o.screeningQuestions as string[]).slice(0, 5) : []);
+const answersOf = (b: Record<string, string>) => [0, 1, 2, 3, 4].map((i) => b[`answer${i}`] ?? '');
 
 async function findOpening(token: string) {
   const o = await outsideTenant('apply link: find the opening', () => openingByToken(token));
@@ -45,7 +49,7 @@ async function findOpening(token: string) {
   return { o, orgName: org?.name || '' };
 }
 
-const form = (title: string, orgName: string, description: string | null, error = '', values: Record<string, string> = {}, referredBy = '') => page(`${title} at ${orgName}`, `
+const form = (title: string, orgName: string, description: string | null, error = '', values: Record<string, string> = {}, referredBy = '', questions: string[] = []) => page(`${title} at ${orgName}`, `
   <h1 style="font-size:1.35rem;margin:0">${esc(title)}</h1><p class="muted">${esc(orgName)}${referredBy ? ` · referred by ${esc(referredBy)}` : ''}</p>
   ${referredBy ? `<p class="muted" style="font-size:.875rem">${esc(referredBy)} will see your name and whether you joined, never anything else.</p>` : ''}
   ${description ? `<p style="white-space:pre-line">${esc(description)}</p>` : ''}
@@ -55,6 +59,7 @@ const form = (title: string, orgName: string, description: string | null, error 
     <label for="email">E-mail</label><input id="email" name="email" type="email" maxlength="200" value="${esc(values.email || '')}">
     <label for="phone">Phone</label><input id="phone" name="phone" inputmode="tel" maxlength="40" value="${esc(values.phone || '')}">
     <label for="resumeUrl">Link to your résumé (optional)</label><input id="resumeUrl" name="resumeUrl" type="url" placeholder="https://" maxlength="500" value="${esc(values.resumeUrl || '')}">
+    ${questions.map((q, i) => `<label for="answer${i}">${esc(q)}</label><textarea id="answer${i}" name="answer${i}" rows="2" maxlength="1000">${esc(values[`answer${i}`] || '')}</textarea>`).join('\n    ')}
     <label for="note">Anything you want them to know (optional)</label><textarea id="note" name="note" rows="4" maxlength="2000">${esc(values.note || '')}</textarea>
     <div class="trap" aria-hidden="true"><label for="website">Leave this empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
     <p class="muted" style="font-size:.8rem">Give an e-mail or a phone number. ${esc(orgName)} uses what you send only to consider you for this job, and clears it within a year if you are not taken on.</p>
@@ -64,7 +69,7 @@ const form = (title: string, orgName: string, description: string | null, error 
 peopleTalentApplyRouter.get('/people/apply/:token', check({ params: TOKEN_PARAMS }), async (req, res) => {
   const found = await findOpening(String(req.params.token || ''));
   if (!found || !found.o.applyOpen || found.o.status !== 'OPEN') return res.status(410).type('html').send(page('Not taking applications', '<h1 style="font-size:1.25rem">This job is not taking applications</h1><p class="muted">It may have been filled or closed.</p>'));
-  res.type('html').send(form(found.o.title, found.orgName, found.o.description));
+  res.type('html').send(form(found.o.title, found.orgName, found.o.description, '', {}, '', screeningOf(found.o)));
 });
 
 peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded({ extended: false, limit: '16kb' }), check({ params: TOKEN_PARAMS, body: APPLY_BODY }), async (req, res) => {
@@ -76,10 +81,10 @@ peopleTalentApplyRouter.post('/people/apply/:token', ...applyLimiter, urlencoded
   if (String(b.website || '').trim()) return res.type('html').send(thanks);
   try {
     /* The company found by the token, held for the write: enterTenant inside findOpening does not reach back out to this handler, and the policies fail closed. */
-    await runInTenant(found.o.orgId, () => applyFromLink(found.o, b));
+    await runInTenant(found.o.orgId, () => applyFromLink(found.o, { ...b, answers: answersOf(b) }));
     res.type('html').send(thanks);
   } catch (e) {
-    if (e instanceof TalentError) return res.status(e.status === 410 ? 410 : 400).type('html').send(form(found.o.title, found.orgName, found.o.description, e.message, b));
+    if (e instanceof TalentError) return res.status(e.status === 410 ? 410 : 400).type('html').send(form(found.o.title, found.orgName, found.o.description, e.message, b, '', screeningOf(found.o)));
     console.error('[apply]', e instanceof Error ? e.message : e);
     res.status(500).type('html').send(page('Not sent', '<p>Something went wrong. Try again in a little while.</p>'));
   }

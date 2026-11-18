@@ -77,12 +77,22 @@ function goalInput(raw: any) {
   if (!title) throw new TalentError('Say what the goal is.');
   const weight = raw?.weight === undefined || raw?.weight === null || raw?.weight === '' ? null : Math.round(Number(raw.weight));
   if (weight !== null && (!Number.isFinite(weight) || weight < 0 || weight > 100)) throw new TalentError('Weight is a share from 0 to 100.');
-  return { title, measure: text(raw?.measure, 300), dueDate: date(raw?.dueDate, 'due date'), weight, description: text(raw?.description, 4000) };
+  /* Round 53 picks: open to the team unless set to "Only me and my manager"; a manager's goal for the whole team; the company goal it serves. */
+  const visibility = raw?.visibility === 'PRIVATE' ? 'PRIVATE' : 'TEAM';
+  return { title, measure: text(raw?.measure, 300), dueDate: date(raw?.dueDate, 'due date'), weight, description: text(raw?.description, 4000), visibility, forTeam: raw?.forTeam === true, companyGoalId: text(raw?.companyGoalId, 60) };
+}
+
+/** A company goal picked for a person's goal must be this company's and still running; a team goal needs a team. */
+async function checkGoalLinks(v: Viewer, employeeId: string, data: { forTeam: boolean; companyGoalId: string | null }, before?: { companyGoalId: string | null }) {
+  if (data.companyGoalId && data.companyGoalId !== before?.companyGoalId && !(await peoplePrisma.companyGoal.findFirst({ where: { id: data.companyGoalId, orgId: v.orgId, status: 'ACTIVE' }, select: { id: true } }))) throw new TalentError('Pick a company goal that is still running.');
+  if (data.forTeam && !(await peoplePrisma.employee.count({ where: { orgId: v.orgId, status: { not: 'LEFT' }, OR: [{ reportingManagerId: employeeId }, { dottedManagerId: employeeId }] } }))) throw new TalentError('A team goal belongs to someone with people reporting to them.');
 }
 
 export async function createGoal(v: Viewer, raw: any) {
   const { e } = await goalAccess(v, String(raw?.employeeId || ''));
-  return peoplePrisma.goal.create({ data: { ...goalInput(raw), accountId: v.accountId, orgId: v.orgId, employeeId: e.id, createdByUserId: v.userId } });
+  const data = goalInput(raw);
+  await checkGoalLinks(v, e.id, data);
+  return peoplePrisma.goal.create({ data: { ...data, accountId: v.accountId, orgId: v.orgId, employeeId: e.id, createdByUserId: v.userId } });
 }
 
 export async function updateGoal(v: Viewer, id: string, raw: any) {
@@ -90,7 +100,9 @@ export async function updateGoal(v: Viewer, id: string, raw: any) {
   if (!g) throw new TalentError('No such goal.', 404);
   await goalAccess(v, g.employeeId);
   const status = raw?.status && ['ACTIVE', 'DONE', 'DROPPED'].includes(raw.status) ? raw.status : g.status;
-  return peoplePrisma.goal.update({ where: { id }, data: { ...goalInput({ ...g, ...raw }), status, ...(status === 'DONE' ? { progress: 100 } : {}) } });
+  const data = goalInput({ ...g, ...raw });
+  await checkGoalLinks(v, g.employeeId, data, g);
+  return peoplePrisma.goal.update({ where: { id }, data: { ...data, status, ...(status === 'DONE' ? { progress: 100 } : {}) } });
 }
 
 /** A check-in: progress, how it is going and a note; the goal takes the latest. From the app with source SELF_SERVICE. */
@@ -110,13 +122,41 @@ export async function checkIn(v: Viewer, goalId: string, raw: any, source = 'FOR
   });
 }
 
+/**
+ * Who else sees a goal (round 53 picks). The person's team, meaning those who share their manager, sees
+ * goals left open to the team; their manager's team goals are seen by everyone reporting to that manager.
+ * "Only me and my manager" goals are seen by the person, their direct manager and HR alone.
+ */
+async function teamOf(v: Viewer) {
+  if (!v.selfEmployeeId) return { managerId: null as string | null, peers: [] as string[] };
+  const me = await peoplePrisma.employee.findFirst({ where: { id: v.selfEmployeeId, orgId: v.orgId }, select: { reportingManagerId: true } });
+  if (!me?.reportingManagerId) return { managerId: null, peers: [] };
+  const peers = await peoplePrisma.employee.findMany({ where: { orgId: v.orgId, reportingManagerId: me.reportingManagerId, status: { not: 'LEFT' }, id: { not: v.selfEmployeeId } }, select: { id: true } });
+  return { managerId: me.reportingManagerId, peers: peers.map((p) => p.id) };
+}
+/** A goal shown to a viewer who is not HR, not the person and not their direct manager: open to the team only. */
+const seenByTeam = (g: { visibility: string; forTeam: boolean; employeeId: string }, team: { managerId: string | null; peers: string[] }) =>
+  g.visibility !== 'PRIVATE' && (team.peers.includes(g.employeeId) || (g.forTeam && g.employeeId === team.managerId));
+
 export async function listGoals(v: Viewer, q: { employeeId?: string; status?: string; q?: string } = {}) {
   const where: any = { orgId: v.orgId, ...(q.status && q.status !== 'all' ? { status: q.status } : q.status === 'all' ? {} : { status: 'ACTIVE' }) };
+  const team = v.hr ? { managerId: null, peers: [] } : await teamOf(v);
+  const teamIds = [...team.peers, ...(team.managerId ? [team.managerId] : [])];
   if (q.employeeId) {
-    if (!inScope(v, q.employeeId) && q.employeeId !== v.selfEmployeeId) throw new TalentError('No such employee.', 404);
+    if (!inScope(v, q.employeeId) && q.employeeId !== v.selfEmployeeId && !teamIds.includes(q.employeeId)) throw new TalentError('No such employee.', 404);
     where.employeeId = q.employeeId;
-  } else if (!v.scope.all) where.employeeId = { in: [...v.scope.ids] };
-  const rows = await peoplePrisma.goal.findMany({ where, orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }], take: 1000 });
+  } else if (!v.scope.all) where.employeeId = { in: [...new Set([...v.scope.ids, ...(v.selfEmployeeId ? [v.selfEmployeeId] : []), ...teamIds])] };
+  const found = await peoplePrisma.goal.findMany({ where, orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }], take: 1000 });
+  const managerOf = new Map((await peoplePrisma.employee.findMany({ where: { orgId: v.orgId, id: { in: [...new Set(found.map((g) => g.employeeId))] } }, select: { id: true, reportingManagerId: true, dottedManagerId: true } })).map((e) => [e.id, e]));
+  const rows = found.flatMap((g) => {
+    const own = g.employeeId === v.selfEmployeeId;
+    const boss = managerOf.get(g.employeeId);
+    const manages = Boolean(boss && managesThem(v, boss));
+    if (v.hr || own || manages) return [{ ...g, peer: false }];
+    /* Someone further up (in the team scope, not the direct manager) sees open goals only. */
+    if (inScope(v, g.employeeId) && g.visibility !== 'PRIVATE') return [{ ...g, peer: false }];
+    return seenByTeam(g, team) ? [{ ...g, peer: true }] : [];
+  });
   const people = await namesOf(v.orgId, rows.map((r) => r.employeeId));
   const last = await peoplePrisma.goalCheckIn.findMany({ where: { orgId: v.orgId, goalId: { in: rows.map((r) => r.id) } }, orderBy: { createdAt: 'desc' }, distinct: ['goalId'], select: { goalId: true, createdAt: true, note: true } });
   const lastOf = new Map(last.map((l) => [l.goalId, l]));
@@ -128,10 +168,72 @@ export async function listGoals(v: Viewer, q: { employeeId?: string; status?: st
 
 export async function goalOf(v: Viewer, id: string) {
   const g = await peoplePrisma.goal.findFirst({ where: { id, orgId: v.orgId } });
-  if (!g || (!inScope(v, g.employeeId) && g.employeeId !== v.selfEmployeeId)) throw new TalentError('No such goal.', 404);
+  if (!g) throw new TalentError('No such goal.', 404);
+  const own = g.employeeId === v.selfEmployeeId;
+  let canAct = own || v.hr;
+  if (!own && !v.hr) {
+    const boss = await peoplePrisma.employee.findFirst({ where: { id: g.employeeId, orgId: v.orgId }, select: { reportingManagerId: true, dottedManagerId: true } });
+    const manages = Boolean(boss && managesThem(v, boss));
+    canAct = manages;
+    const scoped = inScope(v, g.employeeId) && g.visibility !== 'PRIVATE';
+    if (!manages && !scoped && !seenByTeam(g, await teamOf(v))) throw new TalentError('No such goal.', 404);
+  } else if (!own && !inScope(v, g.employeeId)) throw new TalentError('No such goal.', 404);
   const checkIns = await peoplePrisma.goalCheckIn.findMany({ where: { orgId: v.orgId, goalId: id }, orderBy: { createdAt: 'desc' } });
   const users = await userNames(checkIns.map((c) => c.byUserId));
-  return { goal: { ...g, employee: (await namesOf(v.orgId, [g.employeeId])).get(g.employeeId) || null }, checkIns: checkIns.map((c) => ({ ...c, by: c.byUserId ? users.get(c.byUserId) || '' : '' })) };
+  /* canAct: may check in, edit and close it (the person, their manager, HR); a teammate only reads it. */
+  return { goal: { ...g, canAct, employee: (await namesOf(v.orgId, [g.employeeId])).get(g.employeeId) || null }, checkIns: checkIns.map((c) => ({ ...c, by: c.byUserId ? users.get(c.byUserId) || '' : '' })) };
+}
+
+/* -------------------------------------------------------------- company goals */
+
+/**
+ * Company goals over the Goals list (round 53 pick): HR sets a few; people's goals link to one, and
+ * each shows how far the linked goals have come on average (dropped goals left out).
+ */
+export async function listCompanyGoals(v: Viewer, q: { status?: string } = {}) {
+  const rows = await peoplePrisma.companyGoal.findMany({ where: { orgId: v.orgId, ...(q.status === 'all' ? {} : { status: 'ACTIVE' }) }, orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }], take: 50 });
+  const linked = await peoplePrisma.goal.groupBy({ by: ['companyGoalId'], where: { orgId: v.orgId, companyGoalId: { in: rows.map((r) => r.id) }, status: { not: 'DROPPED' } }, _avg: { progress: true }, _count: { _all: true } });
+  const by = new Map(linked.map((l) => [l.companyGoalId, l]));
+  return rows.map((r) => ({ ...r, linkedGoals: by.get(r.id)?._count._all || 0, progress: by.get(r.id) ? Math.round(by.get(r.id)!._avg.progress || 0) : null }));
+}
+
+function companyGoalInput(raw: any) {
+  const title = text(raw?.title, 200);
+  if (!title) throw new TalentError('Say what the company goal is.');
+  return { title, measure: text(raw?.measure, 300), dueDate: date(raw?.dueDate, 'due date') };
+}
+
+export async function createCompanyGoal(v: Viewer, raw: any) {
+  if (!v.hr) throw new TalentError('Only HR sets company goals.', 403);
+  return peoplePrisma.companyGoal.create({ data: { ...companyGoalInput(raw), accountId: v.accountId, orgId: v.orgId, createdByUserId: v.userId } });
+}
+
+export async function updateCompanyGoal(v: Viewer, id: string, raw: any) {
+  if (!v.hr) throw new TalentError('Only HR sets company goals.', 403);
+  const g = await peoplePrisma.companyGoal.findFirst({ where: { id, orgId: v.orgId } });
+  if (!g) throw new TalentError('No such company goal.', 404);
+  const status = raw?.status && ['ACTIVE', 'DONE', 'DROPPED'].includes(raw.status) ? raw.status : g.status;
+  return peoplePrisma.companyGoal.update({ where: { id }, data: { ...companyGoalInput({ ...g, ...raw }), status } });
+}
+
+/**
+ * The score the goals give for a review (round 53 pick): the person's goals due in the period (or with no
+ * date), dropped ones left out, progress averaged by weight (equal shares when no weights are set), on the
+ * 1 to 5 scale: 0% is 1, 100% is 5. A suggestion beside the rating, never the rating itself.
+ */
+export function goalScore(goals: Array<{ progress: number; weight: number | null }>) {
+  if (!goals.length) return null;
+  const weighted = goals.some((g) => (g.weight || 0) > 0);
+  const total = goals.reduce((n, g) => n + (weighted ? g.weight || 0 : 1), 0);
+  if (!total) return null;
+  const progress = goals.reduce((n, g) => n + g.progress * (weighted ? g.weight || 0 : 1), 0) / total;
+  return { score: Math.round((1 + (4 * progress) / 100) * 10) / 10, progress: Math.round(progress), goals: goals.length, weighted };
+}
+
+async function goalScores(orgId: string, employeeIds: string[], periodFrom: string, periodTo: string) {
+  if (!employeeIds.length) return new Map<string, ReturnType<typeof goalScore>>();
+  const goals = await peoplePrisma.goal.findMany({ where: { orgId, employeeId: { in: employeeIds }, status: { not: 'DROPPED' }, forTeam: false, OR: [{ dueDate: null }, { dueDate: { gte: periodFrom, lte: periodTo } }] }, select: { employeeId: true, progress: true, weight: true } });
+  return new Map(employeeIds.map((id) => [id, goalScore(goals.filter((g) => g.employeeId === id))]));
 }
 
 /* ------------------------------------------------------------------- reviews */
@@ -201,6 +303,8 @@ export async function cycleReviews(v: Viewer, id: string) {
   const people = await namesOf(v.orgId, [...all.map((r) => r.employeeId), ...all.map((r) => r.managerEmployeeId)]);
   const depts = new Map((await peoplePrisma.employee.findMany({ where: { orgId: v.orgId, id: { in: all.map((r) => r.employeeId) } }, select: { id: true, departmentId: true, department: true } })).map((e) => [e.id, e.department || '']));
   const visible = all.filter((r) => (v.hr && inScope(v, r.employeeId)) || (v.selfEmployeeId && r.managerEmployeeId === v.selfEmployeeId) || r.employeeId === v.selfEmployeeId);
+  /* What the goals say, for whoever rates: HR and the manager (not the person on their own review). */
+  const scores = await goalScores(v.orgId, visible.filter((r) => r.employeeId !== v.selfEmployeeId).map((r) => r.employeeId), c.periodFrom, c.periodTo);
   return {
     cycle: c,
     reviews: visible.map((r) => {
@@ -213,6 +317,7 @@ export async function cycleReviews(v: Viewer, id: string) {
         managerRating: hide ? null : r.managerRating, managerText: hide ? null : r.managerText, managerAt: r.managerAt,
         finalRating: hide ? null : r.finalRating, finalReason: v.hr && !hide ? r.finalReason : null, sharedAt: r.sharedAt, acknowledgedAt: r.acknowledgedAt,
         own, mineToWrite: Boolean(v.selfEmployeeId && r.managerEmployeeId === v.selfEmployeeId && !own),
+        goalScore: own ? null : scores.get(r.employeeId) || null,
       };
     }),
   };

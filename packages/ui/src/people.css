@@ -673,3 +673,13 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
  */
 .ui-portal[data-brand='d'] .ui-pill-warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
 .ui-portal[data-brand='d'] nav[aria-label='Portal'] button[aria-current='page'] { box-shadow: inset 0 3px 0 rgb(var(--marker)); }
+
+/*
+ * Company goals over the Goals list (round 53 pick): on the page ground under one hairline, no card;
+ * each goal a short line with a thin bar of how far its linked goals have come.
+ */
+.ui-company-goals { border-bottom: 1px solid rgb(var(--border)); padding-bottom: 16px; display: grid; gap: 8px; }
+.ui-company-goals-list { display: grid; gap: 12px 24px; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+.ui-company-goal { min-width: 0; font-size: 0.875rem; }
+.ui-company-goal-bar { display: block; height: 4px; margin-top: 6px; border-radius: 9999px; background: rgb(var(--border)); overflow: hidden; }
+.ui-company-goal-bar > span { display: block; height: 100%; background: rgb(var(--act, var(--fg))); }

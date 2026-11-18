@@ -27,6 +27,10 @@ export const setOpeningStatus = (openingId, status, reason) => send(`/openings/$
 export const setApplyLink = (openingId, on) => send(`/openings/${id(openingId)}/apply-link`, 'POST', { on });
 export const deleteOpening = (openingId) => send(`/openings/${id(openingId)}`, 'DELETE');
 export const interviewers = () => get('/interviewers').then((r) => r?.users || []);
+/* Round 53 picks: a designation's saved description; the interview question list for every job. */
+export const getJobDescription = (jobPositionId) => get(`/job-descriptions/${id(jobPositionId)}`);
+export const getInterviewQuestions = () => get('/interview-questions').then((r) => ({ questions: r?.questions || [], canEdit: Boolean(r?.canEdit) }));
+export const setInterviewQuestions = (questions) => send('/interview-questions', 'PUT', { questions }).then((r) => r?.questions || []);
 
 /* Candidates */
 export const listCandidates = (params) => get(`/candidates${qs(params)}`);
@@ -53,6 +57,9 @@ export const getGoal = (goalId) => get(`/goals/${id(goalId)}`);
 export const createGoal = (body) => send('/goals', 'POST', body).then((r) => r?.goal);
 export const updateGoal = (goalId, body) => send(`/goals/${id(goalId)}`, 'PUT', body).then((r) => r?.goal);
 export const checkIn = (goalId, body) => send(`/goals/${id(goalId)}/check-ins`, 'POST', body).then((r) => r?.goal);
+export const listCompanyGoals = (params) => get(`/company-goals${qs(params)}`).then((r) => ({ goals: r?.goals || [], canEdit: Boolean(r?.canEdit) }));
+export const createCompanyGoal = (body) => send('/company-goals', 'POST', body).then((r) => r?.goal);
+export const updateCompanyGoal = (goalId, body) => send(`/company-goals/${id(goalId)}`, 'PUT', body).then((r) => r?.goal);
 
 /* Reviews */
 export const listCycles = () => get('/cycles');

@@ -66,7 +66,33 @@ function openingInput(raw: any) {
     title, places,
     departmentId: text(raw?.departmentId, 60), jobPositionId: text(raw?.jobPositionId, 60), branchId: text(raw?.branchId, 60), employeeTypeId: text(raw?.employeeTypeId, 60),
     hiringManagerId: text(raw?.hiringManagerId, 60), location: text(raw?.location, 120), description: text(raw?.description, 10000), targetDate: dateOrNull(raw?.targetDate),
+    screeningQuestions: questionList(raw?.screeningQuestions, 5, 'screening questions'),
   };
+}
+
+/** A short list of questions typed one per line or as an array: blanks dropped, repeats folded, each cut to 200 characters. */
+export function questionList(raw: unknown, max: number, what: string): string[] {
+  const items = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split('\n') : [];
+  const out: string[] = [];
+  for (const q of items) {
+    const t = text(q, 200);
+    if (t && !out.some((o) => o.toLowerCase() === t.toLowerCase())) out.push(t);
+  }
+  if (out.length > max) throw new TalentError(`Keep the ${what} to ${max}.`);
+  return out;
+}
+
+/** "Save as this designation's description" (round 53 pick): the next opening for it starts with this text. */
+async function saveJobDescription(orgId: string, raw: any, data: { jobPositionId: string | null; description: string | null }) {
+  if (raw?.saveDescription !== true || !data.jobPositionId || !data.description) return;
+  await peoplePrisma.jobPosition.updateMany({ where: { id: data.jobPositionId, orgId }, data: { jobDescription: data.description } });
+}
+
+/** The saved description for a designation, for a new opening's form. */
+export async function jobDescriptionOf(orgId: string, jobPositionId: string) {
+  const j = await peoplePrisma.jobPosition.findFirst({ where: { id: jobPositionId, orgId }, select: { name: true, jobDescription: true } });
+  if (!j) throw new TalentError('No such designation.', 404);
+  return { designation: j.name, description: j.jobDescription || null };
 }
 
 /** A new opening. Someone who may not edit openings (a manager) can only ask for one. */
@@ -75,6 +101,7 @@ export async function createOpening(who: Who, raw: any, opts: { canOpen: boolean
   await checkLists(who.orgId, data);
   const status = opts.canOpen ? (raw?.status === 'OPEN' ? 'OPEN' : 'DRAFT') : 'REQUESTED';
   const row = await peoplePrisma.jobOpening.create({ data: { ...data, accountId: who.accountId, orgId: who.orgId, status, requestedByUserId: status === 'REQUESTED' ? who.userId : null, openedByUserId: status === 'OPEN' ? who.userId : null, createdByUserId: who.userId } });
+  await saveJobDescription(who.orgId, raw, data);
   if (status === 'REQUESTED') {
     const hr = (await usersWithPermission(who.accountId, who.orgId, 'PEOPLE::Recruitment::EDIT').catch(() => [] as string[])).filter((u) => u !== who.userId);
     await notifyUsers(who.accountId, who.orgId, hr, { kind: 'people.hiring', title: `Opening asked for: ${row.title}`, body: 'Open it, or say why not.', link: { app: 'people', screen: 'recruitment', params: { id: row.id } } as any });
@@ -87,7 +114,9 @@ export async function updateOpening(who: Who, id: string, raw: any) {
   if (!current) throw new TalentError('No such opening.', 404);
   const data = openingInput({ ...current, ...raw });
   await checkLists(who.orgId, data);
-  return peoplePrisma.jobOpening.update({ where: { id }, data });
+  const row = await peoplePrisma.jobOpening.update({ where: { id }, data });
+  await saveJobDescription(who.orgId, raw, data);
+  return row;
 }
 
 /**
@@ -104,7 +133,10 @@ export async function setOpeningStatus(who: Who, id: string, status: string, rea
   }
   const closedReason = status === 'CLOSED' ? text(reason, 500) : null;
   if (status === 'CLOSED' && !closedReason) throw new TalentError('Say why it is closed, for example filled elsewhere or no longer needed.');
-  const row = await peoplePrisma.jobOpening.update({ where: { id }, data: { status, closedReason, ...(status === 'OPEN' && !current.openedByUserId ? { openedByUserId: who.userId } : {}), ...(status !== 'OPEN' ? { applyOpen: false } : {}) } });
+  /* Round 53 pick: a pause says why, so whoever opens the job later knows what it waited for. */
+  const heldReason = status === 'ON_HOLD' ? text(reason, 500) : null;
+  if (status === 'ON_HOLD' && !heldReason) throw new TalentError('Say why the job is paused, for example budget review or the team is changing.');
+  const row = await peoplePrisma.jobOpening.update({ where: { id }, data: { status, closedReason, heldReason, ...(status === 'OPEN' && !current.openedByUserId ? { openedByUserId: who.userId } : {}), ...(status !== 'OPEN' ? { applyOpen: false } : {}) } });
   if (current.status === 'REQUESTED' && status === 'OPEN' && current.requestedByUserId) {
     await notifyUsers(who.accountId, who.orgId, [current.requestedByUserId], { kind: 'people.hiring', title: `Opening open: ${row.title}`, body: null, link: { app: 'people', screen: 'recruitment', params: { id } } as any });
   }
@@ -168,6 +200,7 @@ const shapeOpening = (r: any, n: Awaited<ReturnType<typeof labels>>) => ({
   employeeTypeId: r.employeeTypeId, employeeTypeName: r.employeeTypeId ? n.t.get(r.employeeTypeId) || null : null,
   hiringManagerId: r.hiringManagerId, hiringManagerName: r.hiringManagerId ? n.m.get(r.hiringManagerId) || null : null,
   applyOpen: r.applyOpen, referralOpen: r.referralOpen, internalApply: r.internalApply, closedReason: r.closedReason, requestedByUserId: r.requestedByUserId, createdAt: r.createdAt, updatedAt: r.updatedAt,
+  heldReason: r.heldReason ?? null, screeningQuestions: Array.isArray(r.screeningQuestions) ? r.screeningQuestions : [],
 });
 
 export async function openingOf(orgId: string, id: string) {
@@ -268,10 +301,20 @@ export async function moveCandidate(who: Who, id: string, stage: string, reason?
   });
   /* Not taken forward: the candidate hears it from the company, plainly and kindly; the reason stays on the card (People plan 8 Nov 2026, step 4). */
   if (stage === 'REJECTED' && c.email) await mailCandidate(who, c, 'people.candidate_not_taken', {});
+  /* Round 53 pick: the candidate hears of every step forward too. Interview and offer carry their own e-mails with the details. */
+  else if (STAGE_NEWS[stage] && c.email) await mailCandidate(who, c, 'people.candidate_stage', { stageLine: STAGE_NEWS[stage] });
   return moved;
 }
 
 /* ---------------------------------------------------------- candidate e-mail */
+
+/** What a candidate is told when their application moves on (round 53 pick); the stages not here say nothing or have their own e-mail. */
+export const STAGE_NEWS: Record<string, string> = {
+  SCREENING: 'Your application has been read and is now being looked at more closely. We will be in touch about the next step.',
+  INTERVIEW: 'We would like to meet you. You will get a separate e-mail with the day, the time and who you will meet once the interview is set.',
+  OFFER: 'We are preparing an offer for you. It will reach you in a separate e-mail.',
+  APPLIED: 'Your application is open again and back with the hiring team.',
+};
 
 /**
  * E-mail to a candidate about their own application: an interview set or
@@ -279,7 +322,7 @@ export async function moveCandidate(who: Who, id: string, stage: string, reason?
  * e-mail who is still a person on the card (not anonymised); a failure to
  * queue never undoes the step it tells about.
  */
-async function mailCandidate(who: Who, c: { id: string; name: string; email: string | null; openingId: string; anonymisedAt?: Date | null }, templateKey: 'people.interview' | 'people.candidate_not_taken', data: Record<string, string>) {
+async function mailCandidate(who: Who, c: { id: string; name: string; email: string | null; openingId: string; anonymisedAt?: Date | null }, templateKey: 'people.interview' | 'people.candidate_not_taken' | 'people.candidate_stage', data: Record<string, string>) {
   if (!c.email || c.anonymisedAt) return false;
   try {
     const [org, opening] = await Promise.all([
@@ -349,7 +392,7 @@ export async function listCandidates(orgId: string, q: { openingId?: string; sta
  * opinions); HR sees all.
  */
 export async function candidateOf(orgId: string, id: string, viewer: { userId: string; hr: boolean }) {
-  const c = await peoplePrisma.candidate.findFirst({ where: { id, orgId }, select: { id: true, name: true, email: true, phone: true, source: true, sourceDetail: true, currentEmployer: true, stage: true, stageAt: true, closedReason: true, offerAcceptedOn: true, employeeId: true, resumeName: true, resumeSize: true, resumeMime: true, resumeUrl: true, openingId: true, createdAt: true, anonymisedAt: true } });
+  const c = await peoplePrisma.candidate.findFirst({ where: { id, orgId }, select: { id: true, name: true, email: true, phone: true, source: true, sourceDetail: true, currentEmployer: true, stage: true, stageAt: true, closedReason: true, offerAcceptedOn: true, employeeId: true, resumeName: true, resumeSize: true, resumeMime: true, resumeUrl: true, openingId: true, createdAt: true, anonymisedAt: true, screeningAnswers: true } });
   if (!c) throw new TalentError('No such candidate.', 404);
   const [opening, events, interviews, feedback, offers] = await Promise.all([
     peoplePrisma.jobOpening.findFirst({ where: { id: c.openingId, orgId }, select: { id: true, title: true } }),
@@ -363,7 +406,7 @@ export async function candidateOf(orgId: string, id: string, viewer: { userId: s
   const isInterviewer = interviews.some((i) => ((i.interviewerUserIds as string[]) || []).includes(viewer.userId));
   if (!viewer.hr && !isInterviewer) throw new TalentError('No such candidate.', 404);
   const gave = new Set(feedback.filter((f) => f.byUserId === viewer.userId).map((f) => f.interviewId));
-  const shaped = shapeCandidate(c, opening);
+  const shaped = Object.assign(shapeCandidate(c, opening), { screeningAnswers: Array.isArray(c.screeningAnswers) ? c.screeningAnswers : [] });
   /* An interviewer gets the brief: name, opening, where they work now, the résumé; not their contact details. */
   if (!viewer.hr) Object.assign(shaped, { email: null, phone: null, closedReason: null, sourceDetail: null });
   return {
@@ -378,7 +421,7 @@ export async function candidateOf(orgId: string, id: string, viewer: { userId: s
         interviewers: ids.map((u) => ({ id: u, name: users.get(u) || '' , gave: fb.some((f) => f.byUserId === u) })),
         mineToGive: ids.includes(viewer.userId) && !mine && i.status !== 'CANCELLED',
         /* Independent opinions: an interviewer reads the others' only after giving their own. */
-        feedback: viewer.hr || mine ? fb.map((f) => ({ by: users.get(f.byUserId) || '', byUserId: f.byUserId, recommendation: f.recommendation, notes: f.notes, at: f.createdAt })) : fb.filter((f) => f.byUserId === viewer.userId).map((f) => ({ by: users.get(f.byUserId) || '', byUserId: f.byUserId, recommendation: f.recommendation, notes: f.notes, at: f.createdAt })),
+        feedback: viewer.hr || mine ? fb.map((f) => ({ by: users.get(f.byUserId) || '', byUserId: f.byUserId, recommendation: f.recommendation, notes: f.notes, answers: Array.isArray(f.answers) ? f.answers : [], at: f.createdAt })) : fb.filter((f) => f.byUserId === viewer.userId).map((f) => ({ by: users.get(f.byUserId) || '', byUserId: f.byUserId, recommendation: f.recommendation, notes: f.notes, answers: Array.isArray(f.answers) ? f.answers : [], at: f.createdAt })),
         feedbackHidden: !viewer.hr && !mine && fb.length > 0,
       };
     }),
@@ -453,6 +496,34 @@ export async function cancelInterview(who: Who, id: string) {
   });
 }
 
+/* ------------------------------------------------------- interview questions */
+
+/** The company's interview questions (round 53 pick), the same for every job. */
+export async function interviewQuestions(orgId: string): Promise<string[]> {
+  const s = await peoplePrisma.peopleSetting.findUnique({ where: { orgId }, select: { interviewQuestions: true } });
+  return Array.isArray(s?.interviewQuestions) ? (s!.interviewQuestions as string[]) : [];
+}
+
+export async function setInterviewQuestions(who: Who, raw: unknown) {
+  const questions = questionList(raw, 12, 'interview questions');
+  await peoplePrisma.peopleSetting.upsert({ where: { orgId: who.orgId }, create: { accountId: who.accountId, orgId: who.orgId, interviewQuestions: questions, updatedByUserId: who.userId }, update: { interviewQuestions: questions, updatedByUserId: who.userId } });
+  return questions;
+}
+
+/** Each company question rated 1 to 5 (round 36 pick); a question left unrated is kept without a rating. Only today's questions are taken. */
+async function ratedAnswers(orgId: string, raw: unknown) {
+  const questions = await interviewQuestions(orgId);
+  if (!questions.length || !Array.isArray(raw)) return [];
+  const given = new Map(raw.map((a: any) => [String(a?.question ?? ''), a?.rating]));
+  return questions.map((question) => {
+    const r = given.get(question);
+    if (r === undefined || r === null || r === '') return { question, rating: null };
+    const n = Math.round(Number(r));
+    if (!Number.isInteger(n) || n < 1 || n > 5) throw new TalentError('Rate each question from 1 to 5.');
+    return { question, rating: n };
+  });
+}
+
 /** Feedback from one interviewer, once per interview (they may change it before HR moves the candidate on). */
 export async function giveFeedback(who: Who, interviewId: string, raw: any) {
   const i = await peoplePrisma.interview.findFirst({ where: { id: interviewId, orgId: who.orgId } });
@@ -461,8 +532,9 @@ export async function giveFeedback(who: Who, interviewId: string, raw: any) {
   const recommendation = String(raw?.recommendation || '');
   if (!(RECOMMENDATIONS as readonly string[]).includes(recommendation)) throw new TalentError('Pick a recommendation.');
   const notes = text(raw?.notes, 4000);
+  const answers = await ratedAnswers(who.orgId, raw?.answers);
   await peoplePrisma.$transaction(async (tx) => {
-    await tx.interviewFeedback.upsert({ where: { interviewId_byUserId: { interviewId, byUserId: who.userId! } }, create: { accountId: who.accountId, orgId: who.orgId, interviewId, candidateId: i.candidateId, byUserId: who.userId!, recommendation, notes }, update: { recommendation, notes } });
+    await tx.interviewFeedback.upsert({ where: { interviewId_byUserId: { interviewId, byUserId: who.userId! } }, create: { accountId: who.accountId, orgId: who.orgId, interviewId, candidateId: i.candidateId, byUserId: who.userId!, recommendation, notes, answers }, update: { recommendation, notes, answers } });
     await event(tx, who, i.candidateId, { kind: 'FEEDBACK', text: `Feedback given: ${recommendation.replace('_', ' ').toLowerCase()}` });
     /* Every interviewer has spoken: the interview is done. */
     const given = await tx.interviewFeedback.count({ where: { interviewId } });
@@ -650,13 +722,17 @@ export async function openingByToken(token: string) {
 }
 
 /** An application from the public page: a candidate at Applied, HR told. Duplicates are folded quietly. */
-export async function applyFromLink(opening: { id: string; accountId: string; orgId: string; title: string; status: string; applyOpen: boolean }, raw: any) {
+export async function applyFromLink(opening: { id: string; accountId: string; orgId: string; title: string; status: string; applyOpen: boolean; screeningQuestions?: unknown }, raw: any) {
   if (!opening.applyOpen || opening.status !== 'OPEN') throw new TalentError('This job is no longer taking applications.', 410);
   const data = candidateInput({ ...raw, source: 'APPLY_LINK' }) as any;
   if (!data.email && !data.phone) throw new TalentError('Give an e-mail address or a phone number, so the company can reach you.');
   const resumeUrl = text(raw?.resumeUrl, 500);
   if (resumeUrl && !/^https:\/\//i.test(resumeUrl)) throw new TalentError('A résumé link starts with https://');
   const note = text(raw?.note, 2000);
+  /* Round 53 pick: the opening's screening questions, each answered; all are asked, none forced. */
+  const asked: string[] = Array.isArray((opening as any).screeningQuestions) ? (opening as any).screeningQuestions : [];
+  const replies = Array.isArray(raw?.answers) ? raw.answers : [];
+  const screeningAnswers = asked.map((question, i) => ({ question, answer: text(replies[i], 1000) }));
   const who = { accountId: opening.accountId, orgId: opening.orgId, userId: null };
   const dup = await duplicateOf(opening.orgId, opening.id, data.email, data.phone);
   if (dup) {
@@ -664,7 +740,7 @@ export async function applyFromLink(opening: { id: string; accountId: string; or
     return { duplicate: true };
   }
   await peoplePrisma.$transaction(async (tx) => {
-    const c = await tx.candidate.create({ data: { ...data, resumeUrl, accountId: opening.accountId, orgId: opening.orgId, openingId: opening.id, stage: 'APPLIED' } });
+    const c = await tx.candidate.create({ data: { ...data, resumeUrl, ...(screeningAnswers.length ? { screeningAnswers } : {}), accountId: opening.accountId, orgId: opening.orgId, openingId: opening.id, stage: 'APPLIED' } });
     await event(tx, who, c.id, { kind: 'APPLIED', toStage: 'APPLIED', text: note ? `Through the apply link. ${note}` : 'Through the apply link' });
   });
   const hr = await usersWithPermission(opening.accountId, opening.orgId, 'PEOPLE::Recruitment::EDIT').catch(() => [] as string[]);

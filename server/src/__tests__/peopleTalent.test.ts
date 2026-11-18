@@ -147,7 +147,7 @@ describe('hiring, from opening to employee record', () => {
     await request(app).post(path).type('form').send({ name: 'Kiran Walk', phone: '9811111111', note: 'Lives nearby', resumeUrl: 'https://drive.example/cv' }).expect(200);
     const list = (await api(c).get(`/talent/candidates?openingId=${opening.id}`).expect(200)).body.rows;
     expect(list.map((r: any) => [r.name, r.source, r.resumeUrl])).toEqual([['Kiran Walk', 'APPLY_LINK', 'https://drive.example/cv']]);
-    await api(c).post(`/talent/openings/${opening.id}/status`, { status: 'ON_HOLD' }).expect(200);
+    await api(c).post(`/talent/openings/${opening.id}/status`, { status: 'ON_HOLD', reason: 'Budget review' }).expect(200);
     await request(app).get(path).expect(410);
   }, 60_000);
 

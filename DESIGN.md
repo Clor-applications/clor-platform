@@ -823,8 +823,10 @@ Picked and already how the app works: "Move to screening", "Set an interview", "
 one button for the next stage; HR sets the interview time; a job's apply link made and copied to
 share on job sites; closed candidates stay searchable by name, e-mail or phone.
 
-Picked, **not built yet**: a reminder two days before the answer date; skills rated 1–5 on the
-interviewer's form; a welcome email with time, place and who to meet; a first-week task list for
+Built later with the server (round 53 batch): skills rated 1–5 on the interviewer's form, as the
+company's interview questions (see round 53).
+
+Picked, **not built yet**: a reminder two days before the answer date; a welcome email with time, place and who to meet; a first-week task list for
 the joiner; one upload box for joining documents; HR ticking laptop and SIM on the joiner record;
 the work email created on joining; a director approving a new job with the yearly budget shown;
 the agency and its fee worked out on joining; a kind not-chosen email to the rest when the job is
@@ -1209,12 +1211,21 @@ names its interviewers and they see it in their own Interviews list; HR can send
 on hold" keeps the candidates and turns the apply link off; people type their own goal progress
 in a check-in; feedback is asked only inside a review cycle.
 
-Picked, **not built yet**: a shared interview question list for all jobs; an e-mail to the
-candidate on every stage change (today only on "Not taken forward" and offers); a saved
-description per job title picked when opening a job; screening questions on the apply form; a
-reason asked when a job is paused; company goals shown over the Goals list; the review score
-following the goal weights; goals open to the team by default with "Only me and my manager" per
-goal; team goals on the manager's list only. All need server work.
+Built later with the server (server picks, hiring and goals; migration `20261224090000_talent_picks`, additive):
+
+| Building block | Pick |
+| --- | --- |
+| Interview questions | One list for every job (Interviews → "Interview questions", HR with Recruitment edit, up to 12, one a line). Each interviewer rates every question 1 to 5 as joined buttons beside the recommendation; HR reads "Communication 4 · Problem solving —" under each feedback (`PeopleSetting.interviewQuestions`, `InterviewFeedback.answers`, `round53Server.jsx`). |
+| Stage e-mails | Moving a candidate to Screening, Interview or Offer, or opening their application again, sends "Candidate application moved on" (`people.candidate_stage`, can be switched off like other notices); interviews and offers still send their own e-mail with the details; Not taken forward keeps its own. |
+| Saved job descriptions | Picking a designation on a new opening fills an empty "About the job" with that designation's saved text; "Save as the description for …" keeps a typed one for next time (`JobPosition.jobDescription`). |
+| Screening questions | Up to five questions per opening ("Questions on the apply page", one a line); the public apply page asks each in its own box, and the candidate shows "Answers on the apply page". Referral links do not ask them yet. |
+| Pause reason | "Put on hold" asks why (Budget review, Team is changing, Waiting for approval); the opening shows "Why it is on hold" until it opens again (`JobOpening.heldReason`). |
+| Company goals | HR adds a few company goals; they sit over the Goals list under one hairline with "2 goals linked, 45% on average" and a thin bar; a person's goal picks the company goal it serves; the employee app lists them over "My goals" (`CompanyGoal`). |
+| Score from goals | On a review's manager and final rating: "Goals say 3.8 (70% done across 2 goals, by weight)", from the person's goals due in the period (or undated), dropped ones and team goals left out, 0% = 1 and 100% = 5. A suggestion only; the rating stays the manager's. |
+| Who sees a goal | Goals are open to the team by default: people who share the person's manager see them (marked "Teammate", read only); "Only me and my manager (HR too)" on the goal keeps it to the person, their direct manager and HR. The employee app lists "My team's goals". |
+| Team goals | A manager's own goal ticked "A goal for my whole team" is kept once, on the manager's list, marked "Team goal", and seen by everyone reporting to them; it is left out of the manager's own review score. |
+
+Still **not built**: nothing from this round's hiring and goal picks.
 
 ### Round 54 (18 Nov 2026)
 
