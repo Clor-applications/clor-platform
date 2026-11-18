@@ -1,3 +1,4 @@
+import { recalcDocumentSettlement } from '../services/settlement.js';
 import { checkDocTotals, totalsRefusal } from '../services/docTotals.js';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -635,10 +636,18 @@ function register(kind: DocKind) {
       }
 
       const extras = { ...spreadExtras(doc), ...parsed.data };
+      const before = (spreadExtras(doc) as any)?.allocations || [];
       const updated = await table().update({
         where: { id: doc.id },
         data: { extrasJson: JSON.stringify(extras) },
       });
+
+      /* The documents knocked off against, before and after: their settlement reads the note now (services/settlement.ts). */
+      const docType = cfg.model === 'creditNote' ? 'INVOICE' : cfg.model === 'debitNote' ? 'BILL' : null;
+      if (docType) {
+        const touched = new Set([...before, ...parsed.data.allocations].map((a: any) => String(a?.docId || '')).filter(Boolean));
+        for (const docId of touched) await recalcDocumentSettlement(prisma, { accountId, orgId, docType, docId });
+      }
 
       res.json({ document: normalize(updated) });
     }

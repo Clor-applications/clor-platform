@@ -150,6 +150,56 @@ einvoiceRouter.get('/orgs/:orgId/:docs(invoices|credit-notes)/:docId/einvoice/pa
  * invoice; anything in the request body is ignored. On success the IRN lands
  * on the invoice row.
  */
+/** Why a document cannot go to the IRP in this status, or null when it can. */
+export function notIssuedReason(status: string | null | undefined): string | null {
+  const st = String(status || '').toLowerCase();
+  if (st.includes('draft')) return 'Finalise it first: a draft is not registered on the IRP.';
+  if (st.includes('pending') || st.includes('reject')) return 'It is waiting for approval: register it once it is approved.';
+  if (st.includes('cancel')) return 'It is cancelled.';
+  return null;
+}
+
+/**
+ * Register a credit note on the IRP (audit, 17 Nov 2026: only invoices could be). A credit note against a
+ * registered invoice must itself be registered, as type CRN; the payload builder already makes one.
+ */
+einvoiceRouter.post('/orgs/:orgId/credit-notes/:docId/einvoice', INVOICE_EDIT, async (req, res) => {
+  if (!orgOk(req, res)) return;
+  const { accountId, orgId } = req.tenant!;
+  if (!(await isFeatureEnabled(accountId, orgId, 'einvoice'))) {
+    return res.status(400).json({ error: 'e-Invoicing is switched off for this company (Settings → Features).' });
+  }
+  const note = await prisma.creditNote.findFirst({ where: { id: String(req.params.docId), accountId, orgId, ...ownDocsWhere(req) } });
+  if (!note) return res.status(404).json({ error: 'Credit note not found' });
+  if (note.irn && note.irnStatus === 'REGISTERED') return res.status(409).json({ error: `Credit note already has IRN ${note.irn}` });
+  const notIssued = notIssuedReason(note.status);
+  if (notIssued) return res.status(409).json({ error: notIssued, code: 'NOT_ISSUED' });
+
+  const built = await buildEInvoiceFor('creditNote', note.id, { accountId, orgId });
+  if (!built.found) return res.status(404).json({ error: 'Credit note not found' });
+  if (!built.ok) return refuse(res, built);
+  const result = await registerOnIrp(orgId, built.payload);
+  if (!result.ok) {
+    await prisma.creditNote.update({ where: { id: note.id }, data: { irnStatus: 'FAILED', irnError: String(result.error || 'Registration failed').slice(0, 1000) } });
+    return res.status(502).json({ error: result.error || 'IRP registration failed' });
+  }
+  const updated = await prisma.creditNote.update({
+    where: { id: note.id },
+    data: {
+      irn: result.irn,
+      irnStatus: 'REGISTERED',
+      irnAckNo: result.ackNo || null,
+      irnAckDate: result.ackDate || null,
+      irnSignedQr: result.signedQr || null,
+      irnSignedInvoice: result.signedInvoice || null,
+      einvoicePayloadJson: JSON.stringify(built.payload),
+      irnError: null,
+      irnRegisteredAt: new Date(),
+    },
+  });
+  res.json({ ok: true, irn: updated.irn, ackNo: updated.irnAckNo, ackDate: updated.irnAckDate, signedQr: updated.irnSignedQr, signedInvoice: updated.irnSignedInvoice });
+});
+
 einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/einvoice', INVOICE_EDIT, async (req, res) => {
   if (!orgOk(req, res)) return;
   const { accountId, orgId } = req.tenant!;
@@ -165,6 +215,9 @@ einvoiceRouter.post('/orgs/:orgId/invoices/:invoiceId/einvoice', INVOICE_EDIT, a
   if (invoice.irn && invoice.irnStatus === 'REGISTERED') {
     return res.status(409).json({ error: `Invoice already has IRN ${invoice.irn}` });
   }
+  /* Only an invoice that is issued (audit, 17 Nov 2026): a draft, one waiting for approval or a cancelled one is not a supply to register. */
+  const notIssued = notIssuedReason(invoice.status);
+  if (notIssued) return res.status(409).json({ error: notIssued, code: 'NOT_ISSUED' });
 
   const built = await buildEInvoiceFor('invoice', invoice.id, { accountId, orgId });
   if (!built.found) return res.status(404).json({ error: 'Invoice not found' });

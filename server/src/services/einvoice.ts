@@ -127,6 +127,13 @@ export type IrpResult = {
 
 type FetchLike = (url: string, init?: any) => Promise<{ status: number; json: () => Promise<any>; text: () => Promise<string> }>;
 
+/**
+ * Every call to the IRP gives up after this long (audit, 17 Nov 2026): a portal that never answered held the
+ * request, and the invoice screen with it, until the platform cut it off with no word of what happened.
+ */
+export const IRP_TIMEOUT_MS = 30_000;
+const timed = (f: FetchLike): FetchLike => (url, init) => f(url, { ...(init || {}), signal: init?.signal ?? AbortSignal.timeout(IRP_TIMEOUT_MS) });
+
 const authHeaders = (cfg: EInvoiceConfig): Record<string, string> => ({
   'Content-Type': 'application/json',
   ...(cfg.username ? { username: cfg.username } : {}),
@@ -260,7 +267,7 @@ async function nicAuthenticate(orgId: string, cfg: EInvoiceConfig, doFetch: Fetc
 
   let res: Awaited<ReturnType<FetchLike>>;
   try {
-    res = await doFetch(`${cfg.baseUrl}/eivital/v1.04/auth`, {
+    res = await timed(doFetch)(`${cfg.baseUrl}/eivital/v1.04/auth`, {
       method: 'POST',
       headers: nicBaseHeaders(cfg),
       body: JSON.stringify({ Data: data }),
@@ -321,7 +328,7 @@ async function nicCall(
 
   let res: Awaited<ReturnType<FetchLike>>;
   try {
-    res = await doFetch(`${cfg.baseUrl}${path}`, {
+    res = await timed(doFetch)(`${cfg.baseUrl}${path}`, {
       method: 'POST',
       headers: { ...nicBaseHeaders(cfg), user_name: cfg.username, AuthToken: session.authToken },
       body: JSON.stringify({ Data: data }),
@@ -383,7 +390,7 @@ export async function registerOnIrp(
   const url = `${cfg.baseUrl}/invoice`;
   let res: Awaited<ReturnType<FetchLike>>;
   try {
-    res = await doFetch(url, {
+    res = await timed(doFetch)(url, {
       method: 'POST',
       headers: authHeaders(cfg),
       body: JSON.stringify(payload),
@@ -434,7 +441,7 @@ export async function cancelIrnOnIrp(
   // GSP gateways expose a plain cancel endpoint next to /invoice.
   let res: Awaited<ReturnType<FetchLike>>;
   try {
-    res = await doFetch(`${cfg.baseUrl}/invoice/cancel`, {
+    res = await timed(doFetch)(`${cfg.baseUrl}/invoice/cancel`, {
       method: 'POST',
       headers: authHeaders(cfg),
       body: JSON.stringify(payload),
@@ -501,7 +508,7 @@ export async function testIrpConnection(
   }
 
   try {
-    const res = await doFetch(cfg.baseUrl, { method: 'GET', headers: authHeaders(cfg) });
+    const res = await timed(doFetch)(cfg.baseUrl, { method: 'GET', headers: authHeaders(cfg) });
     return res.status < 500 ? { ok: true } : { ok: false, error: `Gateway answered ${res.status}` };
   } catch (err: any) {
     return { ok: false, error: `Could not reach the e-Invoice gateway: ${String(err?.message || err)}` };

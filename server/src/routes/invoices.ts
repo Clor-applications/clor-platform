@@ -212,6 +212,7 @@ async function postInvoice(row: any, userId: string) {
       igstTotal: toBase(Number(row.igstTotal ?? 0), fxRate),
       total: toBase(Number(row.total ?? 0), fxRate),
       otherChargesTotal: toBase(otherChargesFromExtras(row.extrasJson), fxRate),
+      reverseCharge: Boolean(row.reverseCharge),
     }),
   });
 }
@@ -441,7 +442,7 @@ invoicesRouter.post('/orgs/:orgId/invoices', requirePermission(INVOICE_MODULE, P
   }
 
   /* The figures must agree with the lines before anything is kept, and before a number is taken for it. */
-  const totalsProblem = checkDocTotals(body as any);
+  const totalsProblem = checkDocTotals({ ...(body as any), reverseCharge: Boolean((body as any).reverseCharge) });
   if (totalsProblem) return res.status(422).json(totalsRefusal(totalsProblem));
 
   /* The currency and rate are checked before a number is taken, so a refusal here leaves no gap in the series. */
@@ -686,6 +687,7 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVOI
       igstTotal: keepNumber('igstTotal', existing.igstTotal),
       gstTotal: keepNumber('gstTotal', existing.gstTotal),
       total: keepNumber('total', existing.total),
+      reverseCharge: given('reverseCharge') ? Boolean((body as any).reverseCharge) : Boolean(existing.reverseCharge),
       otherCharges: extras.otherCharges as any,
       otherChargesTotal: extras.otherChargesTotal,
       invoiceDiscountApplied: extras.invoiceDiscountApplied,
@@ -798,6 +800,15 @@ invoicesRouter.patch('/orgs/:orgId/invoices/:invoiceId/status', requirePermissio
       throw e;
     }
 
+    /*
+     * Registered on the IRP: the IRN has to go first (audit, 17 Nov 2026). Cancelling here left it live on the GST
+     * network while the books said no sale. Within 24 hours the IRN is cancelled from the invoice's e-invoice
+     * panel; after that only a credit note undoes the supply.
+     */
+    if (existing.irn && existing.irnStatus === 'REGISTERED') {
+      return res.status(409).json({ error: 'This invoice has a live IRN. Cancel the IRN first (within 24 hours of registering), or raise a credit note against it.', code: 'IRN_LIVE' });
+    }
+
     /* Nor may any other invoice something already leans on: a receipt
        allocated to it, or a credit note raised against it. Cancelling would
        take the sale out of the ledger and leave those standing. */
@@ -891,9 +902,13 @@ invoicesRouter.delete('/orgs/:orgId/invoices/:invoiceId', requirePermission(INVO
 
   const existing = await prisma.invoice.findFirst({
     where: { id: invoiceId, accountId, orgId, branchId: req.tenant!.branchId, ...ownDocsWhere(req) },
-    select: { id: true, number: true, total: true, status: true, date: true },
+    select: { id: true, number: true, total: true, status: true, date: true, irn: true, irnStatus: true },
   });
   if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+  /* Registered on the IRP: deleting it would leave the IRN live with nothing behind it in the books. */
+  if (existing.irn && existing.irnStatus === 'REGISTERED') {
+    return res.status(409).json({ error: 'This invoice has a live IRN. Cancel the IRN first (within 24 hours of registering), or raise a credit note against it.', code: 'IRN_LIVE' });
+  }
   await assertPeriodUnlocked({ accountId, orgId, userId: req.auth!.userId, module: 'sales', date: existing.date });
 
   /*

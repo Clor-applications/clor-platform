@@ -615,11 +615,14 @@ export function invoicePostingLines(invoice: {
   total?: number | null;
   /** Freight, packing and the like, before tax: part of what was sold, kept beside the lines on the document. */
   otherChargesTotal?: number | null;
+  /** Reverse charge: the buyer pays the GST to the government, so none of it is the seller's output tax or receivable. */
+  reverseCharge?: boolean | null;
 }): PostingLine[] {
   const subtotal = Number(invoice.subtotal ?? 0);
-  const cgst = Number(invoice.cgstTotal ?? 0);
-  const sgst = Number(invoice.sgstTotal ?? 0);
-  const igst = Number(invoice.igstTotal ?? 0);
+  const rcm = Boolean(invoice.reverseCharge);
+  const cgst = rcm ? 0 : Number(invoice.cgstTotal ?? 0);
+  const sgst = rcm ? 0 : Number(invoice.sgstTotal ?? 0);
+  const igst = rcm ? 0 : Number(invoice.igstTotal ?? 0);
   const declaredTotal = Number(invoice.total ?? 0);
   const charges = Math.max(0, Number(invoice.otherChargesTotal ?? 0) || 0);
 

@@ -580,6 +580,7 @@ async function releaseApprovedDocument(opts: {
           igstTotal: toBase(Number(inv.igstTotal), fxRate),
           total: toBase(Number(inv.total), fxRate),
           otherChargesTotal: toBase(otherChargesFromExtras(inv.extrasJson), fxRate),
+          reverseCharge: Boolean(inv.reverseCharge),
         }),
       });
     }

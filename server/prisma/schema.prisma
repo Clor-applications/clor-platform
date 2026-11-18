@@ -739,6 +739,17 @@ model CreditNote {
   /// Form-collected fields with no column of their own (see Invoice.extrasJson).
   extrasJson String?
 
+  /// e-Invoice (IRP) registration of the credit note (type CRN), as on Invoice.
+  irn                 String?
+  irnStatus           String? // REGISTERED | FAILED | CANCELLED
+  irnAckNo            String?
+  irnAckDate          String?
+  irnSignedQr         String?
+  irnSignedInvoice    String?
+  einvoicePayloadJson String?
+  irnError            String?
+  irnRegisteredAt     DateTime?
+
   /// Same single-currency rule as invoices: the books are kept in the base
   /// currency, and this is the rate the document was translated at.
   currency     String  @default("INR")
