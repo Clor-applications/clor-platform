@@ -300,6 +300,7 @@ function ObligationDrawer({ o, known = [], canAct, owners, onClose, onSaved }) {
             <span>
               <input ref={fileRef} type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" aria-label="Proof file" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; attach(f); }} />
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => fileRef.current?.click()}>Attach a file</button>
+              <span className="ui-caption ml-2">PDF or picture, up to 5 MB.</span>
             </span>
           ) : null}
         </section>

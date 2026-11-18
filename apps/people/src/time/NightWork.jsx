@@ -133,7 +133,7 @@ function ConsentDrawer({ row, canEdit, onClose, onDone }) {
               {[['GIVEN', 'Given'], ['WITHDRAWN', 'Withdrawn']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={status === k} aria-pressed={status === k} className="ui-choice-chip" onClick={() => setStatus(k)}>{l}</button>)}
             </div>
             <div className="grid gap-3 sm:grid-cols-2"><DateField label="On" value={onDate} max={istToday()} onChange={(v) => setOnDate(v || '')} /></div>
-            <label className="block"><span className="ui-label">Signed copy</span><input type="file" className="ui-input w-full" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => pick(e.target.files?.[0] || null)} /></label>
+            <label className="block"><span className="ui-label">Signed copy</span><input type="file" className="ui-input w-full" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => pick(e.target.files?.[0] || null)} /><span className="block ui-caption mt-1">PDF or picture, up to 5 MB.</span></label>
             <label className="block"><span className="ui-label">Note</span><SuggestInput value={note} onChange={setNote} suggestions={['Signed consent form', 'Transport arranged both ways', 'Asked to move to day shifts']} maxLength={500} /></label>
           </form>
         ) : null}

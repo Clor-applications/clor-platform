@@ -101,6 +101,7 @@ export default function CandidateDrawer({ id, hr, canEdit = false, canHire, canO
                   <>
                     <input ref={fileRef} type="file" className="sr-only" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={upload} aria-label="Résumé file" />
                     <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => fileRef.current?.click()}><Upload size={14} aria-hidden="true" /> {c.resume ? 'Replace' : 'Add'}</button>
+                    <span className="ui-caption">PDF or Word, up to 5 MB.</span>
                   </>
                 ) : null}
               </dd>

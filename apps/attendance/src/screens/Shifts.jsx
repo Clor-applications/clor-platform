@@ -56,6 +56,19 @@ const netMinutes = (f) => {
   const half = Number(f.halfDayMinutes) || 0;
   return span > half ? Math.max(half, span - (Number(f.breakMinutes) || 0)) : span;
 };
+/**
+ * The half-day rule as one sentence (round 23 pick "halfdayrule" A), the way
+ * attendance is worked out on the server (services/attendance/compute.ts):
+ * under the half day is absent, from it up to the full day is a half day.
+ */
+export function halfDaySentence(halfMin, fullMin) {
+  const half = Number(halfMin);
+  const full = Number(fullMin);
+  if (!Number.isFinite(half) || half <= 0) return null;
+  const w = (m) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+  if (!Number.isFinite(full) || full <= half) return `Less than ${w(half)} worked is absent.`;
+  return `Less than ${w(half)} worked is absent; ${w(half)} up to ${w(full)} is a half day.`;
+}
 const hoursWords = (m) => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 const offs = (s, sats) => {
   const days = s ? s.split(',').map((d) => DAYS[Number(d)]) : [];
@@ -354,7 +367,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
         )}
         {num('graceMinutes', 'Late grace (minutes)')}
         {num('earlyOutGraceMinutes', 'Early-out grace (minutes)')}
-        {num('halfDayMinutes', 'Half day (minutes worked)')}
+        {num('halfDayMinutes', 'Half day (minutes worked)', halfDaySentence(form.halfDayMinutes, form.fullDayMinutes))}
         <label className="block">
           <span className="ui-label">Full day (minutes worked)</span>
           <input type="number" min={0} className="ui-input w-full" value={form.fullDayMinutes} onChange={set('fullDayMinutes')} aria-invalid={fullDayTooLong || undefined} data-invalid={fullDayTooLong ? 'true' : undefined} aria-describedby={net !== null ? 'full-day-hint' : undefined} />
