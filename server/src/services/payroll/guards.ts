@@ -1,4 +1,4 @@
-import { isAppEntitled } from '../subscriptions.js';
+import { appGate } from '../appGate.js';
 import type { Request, Response } from 'express';
 
 import { isFeatureEnabled } from '../features.js';
@@ -43,8 +43,10 @@ export const payrollEnabled = async (req: Request, res: Response): Promise<boole
 export const payrollRouteOk = async (req: Request, res: Response): Promise<boolean> => {
   if (!orgMatches(req, res)) return false;
   /* A-15: one order for every app — not bought (402) before switched off (403), so an unowned app says so instead of reading as a setting. */
-  if (!(await isAppEntitled(req.tenant!.accountId, 'payroll'))) {
-    res.status(402).json({ error: 'Payroll is not on this account’s subscription.', app: 'payroll', code: 'APP_NOT_SUBSCRIBED' });
+  /* Lapsed: reading goes on (payslips stay the employees'), changes are refused. */
+  const refused = await appGate(req.tenant!.accountId, ['payroll'], req.method, { name: 'Payroll', app: 'payroll' });
+  if (refused) {
+    res.status(refused.status).json(refused.body);
     return false;
   }
   if (!(await payrollEnabled(req, res))) return false;

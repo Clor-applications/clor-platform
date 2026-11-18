@@ -207,6 +207,30 @@ function shapeRows(model: string, rows: any[], rule: RowRule) {
   return kept.map((r) => maskDeep(r, rule.reveal));
 }
 
+
+/**
+ * Every row of one table, a page at a time (audit, 17 Nov 2026). The export read 36 tables at once, each in one
+ * unbounded query: a large company's export held the database's connections and the API's memory together. Now
+ * one table at a time, 5,000 rows a query, in id order.
+ */
+const EXPORT_PAGE = 5_000;
+async function readAll(delegate: any, args: Record<string, any>): Promise<any[]> {
+  const out: any[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page: any[] = await delegate.findMany({ ...args, orderBy: { id: 'asc' }, take: EXPORT_PAGE, ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}) });
+    out.push(...page);
+    if (page.length < EXPORT_PAGE) return out;
+    cursor = page[page.length - 1].id;
+  }
+}
+/** Tables read one after another, not all at once. */
+async function inTurn<T extends readonly (() => Promise<any[]>)[]>(reads: T): Promise<any[][]> {
+  const out: any[][] = [];
+  for (const read of reads) out.push(await read());
+  return out;
+}
+
 async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ name: string; fields: Array<{ name: string }> }> } }, prefix: string, scope: { orgId: string }, rule: RowRule) {
   const out: Record<string, any[]> = {};
   for (const m of dmmf.datamodel.models) {
@@ -215,7 +239,7 @@ async function exportDomain(client: any, dmmf: { datamodel: { models: Array<{ na
     const key = m.name.charAt(0).toLowerCase() + m.name.slice(1);
     const delegate = client[key];
     if (!delegate?.findMany) continue;
-    out[`${prefix}.${key}`] = shapeRows(m.name, scrub(await delegate.findMany({ where: { orgId: scope.orgId } })), rule);
+    out[`${prefix}.${key}`] = shapeRows(m.name, scrub(m.fields.some((f) => f.name === 'id') ? await readAll(delegate, { where: { orgId: scope.orgId } }) : await delegate.findMany({ where: { orgId: scope.orgId } })), rule);
   }
   return out;
 }
@@ -280,31 +304,31 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
       invoices, bills, estimates, salesOrders, purchaseOrders, deliveryChallans,
       creditNotes, debitNotes, expenses, payments, paymentAllocations,
       journals, journalEntries, journalLines, salesmen, fixedAssets, bankBook, posDayCloses,
-    ] = await Promise.all([
-      prisma.party.findMany({ where: scope }),
-      prisma.partyAddress.findMany({ where: scope }),
-      prisma.partyContact.findMany({ where: scope }),
-      prisma.itemMaster.findMany({ where: scope }),
-      prisma.invoice.findMany({ where: scope }),
-      prisma.bill.findMany({ where: scope }),
-      prisma.estimate.findMany({ where: scope }),
-      prisma.salesOrderDoc.findMany({ where: scope }),
-      prisma.purchaseOrderDoc.findMany({ where: scope }),
-      prisma.deliveryChallan.findMany({ where: scope }),
-      prisma.creditNote.findMany({ where: scope }),
-      prisma.debitNote.findMany({ where: scope }),
-      prisma.expense.findMany({ where: scope }),
-      prisma.payment.findMany({ where: scope }),
-      prisma.paymentAllocation.findMany({ where: scope }),
-      prisma.journal.findMany({ where: scope }),
-      prisma.journalEntry.findMany({ where: scope }),
-      prisma.journalLine.findMany({ where: { entry: scope } }),
-      prisma.salesman.findMany({ where: scope }),
-      prisma.fixedAsset.findMany({ where: scope }),
-      prisma.bankBookEntry.findMany({ where: scope }),
+    ] = await inTurn([
+      () => readAll(prisma.party, { where: scope }),
+      () => readAll(prisma.partyAddress, { where: scope }),
+      () => readAll(prisma.partyContact, { where: scope }),
+      () => readAll(prisma.itemMaster, { where: scope }),
+      () => readAll(prisma.invoice, { where: scope }),
+      () => readAll(prisma.bill, { where: scope }),
+      () => readAll(prisma.estimate, { where: scope }),
+      () => readAll(prisma.salesOrderDoc, { where: scope }),
+      () => readAll(prisma.purchaseOrderDoc, { where: scope }),
+      () => readAll(prisma.deliveryChallan, { where: scope }),
+      () => readAll(prisma.creditNote, { where: scope }),
+      () => readAll(prisma.debitNote, { where: scope }),
+      () => readAll(prisma.expense, { where: scope }),
+      () => readAll(prisma.payment, { where: scope }),
+      () => readAll(prisma.paymentAllocation, { where: scope }),
+      () => readAll(prisma.journal, { where: scope }),
+      () => readAll(prisma.journalEntry, { where: scope }),
+      () => readAll(prisma.journalLine, { where: { entry: scope } }),
+      () => readAll(prisma.salesman, { where: scope }),
+      () => readAll(prisma.fixedAsset, { where: scope }),
+      () => readAll(prisma.bankBookEntry, { where: scope }),
       // The till counts. A backup that leaves out the cash controls is not a
       // backup of the business's books.
-      prisma.posDayClose.findMany({ where: scope }),
+      () => readAll(prisma.posDayClose, { where: scope }),
     ]);
     Object.assign(data, {
       parties, partyAddresses, partyContacts, items,
@@ -319,20 +343,20 @@ dataExportRouter.get('/orgs/:orgId/export', EXPORT, async (req, res) => {
       branches, warehouses, ledgerAccounts, masters, numberSeries,
       roles, rolePermissions, featureSettings, approvalRules,
       fiscalYears, emailSettings, einvoiceSettings, recurring,
-    ] = await Promise.all([
-      platformPrisma.branch.findMany({ where: scope }),
-      prisma.warehouse.findMany({ where: scope }),
-      prisma.ledgerAccount.findMany({ where: scope }),
-      prisma.orgMaster.findMany({ where: scope }),
-      prisma.numberSeries.findMany({ where: scope }),
-      platformPrisma.role.findMany({ where: scope }),
-      platformPrisma.rolePermission.findMany({ where: scope, include: { permission: true } }),
-      platformPrisma.featureSetting.findMany({ where: scope }),
-      prisma.approvalRule.findMany({ where: scope }),
-      prisma.fiscalYear.findMany({ where: scope }),
-      platformPrisma.emailSetting.findMany({ where: scope }),
-      prisma.eInvoiceSetting.findMany({ where: scope }),
-      prisma.recurringSchedule.findMany({ where: scope }),
+    ] = await inTurn([
+      () => readAll(platformPrisma.branch, { where: scope }),
+      () => readAll(prisma.warehouse, { where: scope }),
+      () => readAll(prisma.ledgerAccount, { where: scope }),
+      () => readAll(prisma.orgMaster, { where: scope }),
+      () => readAll(prisma.numberSeries, { where: scope }),
+      () => readAll(platformPrisma.role, { where: scope }),
+      () => readAll(platformPrisma.rolePermission, { where: scope, include: { permission: true } }),
+      () => readAll(platformPrisma.featureSetting, { where: scope }),
+      () => readAll(prisma.approvalRule, { where: scope }),
+      () => readAll(prisma.fiscalYear, { where: scope }),
+      () => readAll(platformPrisma.emailSetting, { where: scope }),
+      () => readAll(prisma.eInvoiceSetting, { where: scope }),
+      () => readAll(prisma.recurringSchedule, { where: scope }),
     ]);
     Object.assign(configuration, {
       companyProfile: [{ id: org.id, name: org.name, handle: org.slug || null, profileJson: org.profileJson || null }],
