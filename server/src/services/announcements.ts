@@ -10,7 +10,8 @@ import { SELLABLE_APP_CODES } from '../constants/appCatalog.js';
 import { appAccess } from './subscriptions.js';
 import { accountRoleOf } from './accountMembership.js';
 
-export const KINDS = ['info', 'maintenance', 'incident'] as const;
+/* Round 67 "whatsnew": a 'release' note is not a bar at the top; it is listed under Help, What's new, with a dot until read. */
+export const KINDS = ['info', 'maintenance', 'incident', 'release'] as const;
 export const AUDIENCES = ['everyone', 'admins'] as const;
 export const ANNOUNCEMENT_APPS = SELLABLE_APP_CODES;
 export type AnnouncementStatus = 'draft' | 'scheduled' | 'live' | 'ended';
@@ -45,10 +46,45 @@ export async function liveFor(accountId: string, userId: string, now = new Date(
     const [access, role] = await Promise.all([appAccess(accountId), accountRoleOf(accountId, userId)]);
     const owned = new Set(access.ownedApps);
     return live
+      .filter((a) => a.kind !== 'release')
       .filter((a) => !a.apps.length || a.apps.some((x) => owned.has(x)))
       .filter((a) => a.audience !== 'admins' || (role && ADMIN_ROLES.has(role)))
       .filter((a) => !dismissible(a.kind) || a.dismissals.length === 0)
       .sort((a, b) => (ORDER[a.kind] ?? 9) - (ORDER[b.kind] ?? 9) || b.startsAt.getTime() - a.startsAt.getTime())
       .map((a) => ({ id: a.id, title: a.title, body: a.body, kind: a.kind, apps: a.apps, startsAt: a.startsAt, endsAt: a.endsAt, dismissible: dismissible(a.kind) }));
   });
+}
+
+/**
+ * What's new (round 67 pick): CLOR's dated, plain-word release notes for this
+ * person, newest first, and how many they have not opened yet. A note stays
+ * listed after its end date (it is a record, not a notice); a draft never shows.
+ */
+export async function releaseNotesFor(accountId: string, userId: string, now = new Date()) {
+  return outsideTenant('announcements: what is new for this person', async () => {
+    const rows = await platformPrisma.announcement.findMany({
+      where: { kind: 'release', publishedAt: { not: null }, startsAt: { lte: now } },
+      orderBy: { startsAt: 'desc' },
+      take: 30,
+      include: { dismissals: { where: { userId }, select: { userId: true } } },
+    });
+    const [access, role] = rows.length ? await Promise.all([appAccess(accountId), accountRoleOf(accountId, userId)]) : [{ ownedApps: [] as string[] }, null];
+    const owned = new Set(access.ownedApps);
+    const notes = rows
+      .filter((a) => !a.apps.length || a.apps.some((x) => owned.has(x)))
+      .filter((a) => a.audience !== 'admins' || (role && ADMIN_ROLES.has(role)))
+      .map((a) => ({ id: a.id, title: a.title, body: a.body, apps: a.apps, on: a.startsAt, seen: a.dismissals.length > 0 }));
+    return { notes, unseen: notes.filter((n) => !n.seen).length };
+  });
+}
+
+/** Opening What's new marks every note listed as read for this person, on every device. */
+export async function markReleaseNotesSeen(accountId: string, userId: string) {
+  const { notes } = await releaseNotesFor(accountId, userId);
+  const fresh = notes.filter((n) => !n.seen);
+  if (!fresh.length) return 0;
+  await outsideTenant('announcements: what is new, read', () =>
+    platformPrisma.announcementDismissal.createMany({ data: fresh.map((n) => ({ announcementId: n.id, userId })), skipDuplicates: true }),
+  );
+  return fresh.length;
 }

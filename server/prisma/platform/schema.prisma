@@ -1732,6 +1732,12 @@ model BillingInvoice {
   /// Emails about this invoice (billing/invoiceEmail.ts): staff can stop the
   /// automatic reminders for one invoice; the count and last time are of
   /// reminders only, not of the first email or a copy sent again.
+  /// The customer's purchase order covering this invoice's period (round 67 pick), copied in when issued.
+  poNumber         String?
+  poDate           String?
+  /// Tax the customer deducted at source from what they paid (paise), and when their TDS certificate came in.
+  tdsDeducted      Int?
+  tdsCertificateAt DateTime?
   remindersOff     Boolean   @default(false)
   lastRemindedAt   DateTime?
   reminderCount    Int       @default(0)
@@ -2241,4 +2247,87 @@ model SmsCode {
 
   @@index([userId, purpose, createdAt])
   @@index([phone, createdAt])
+}
+
+/// A customer's purchase order (round 67 pick): its number prints on every
+/// invoice whose period falls between its dates. The customer keeps them in
+/// Billing; an invoice copies the number in when it is issued.
+model BillingPurchaseOrder {
+  id              String   @id @default(cuid())
+  accountId       String
+  number          String
+  /// The date on the purchase order, YYYY-MM-DD.
+  poDate          String?
+  /// The invoice periods it covers, YYYY-MM-DD.
+  fromDate        String
+  toDate          String
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@index([accountId])
+}
+
+/// A proforma (round 67 pick): a quote with GST for the plan, valid 15 days,
+/// that a company's accounts team can pay against. Not a tax invoice; CLOR
+/// staff turn it into one, and the invoice it became is kept on it.
+model BillingProforma {
+  id              String   @id @default(cuid())
+  /// PF/26-27/0001
+  number          String   @unique
+  accountId       String
+  lines           Json     @default("[]")
+  subtotal        Int      @default(0)
+  tax             Json     @default("{}")
+  taxTotal        Int      @default(0)
+  total           Int      @default(0)
+  buyer           Json     @default("{}")
+  seller          Json?
+  validUntil      DateTime
+  invoiceId       String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@index([accountId, createdAt])
+}
+
+/// CLOR's own papers a customer's procurement asks for (round 67 pick): GST
+/// certificate, PAN, incorporation, MSME, cancelled cheque. Ops keeps them
+/// current; anyone who looks after a customer's billing downloads them.
+model VendorDocument {
+  id              String   @id @default(cuid())
+  /// GST | PAN | INCORPORATION | MSME | CHEQUE | OTHER
+  kind            String
+  title           String
+  fileName        String
+  contentType     String
+  size            Int
+  content         Bytes
+  /// YYYY-MM-DD, when the paper runs out (if it does).
+  validUntil      String?
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([kind])
+}
+
+/// A breach of customer data, recorded by CLOR staff before it is needed
+/// (round 67 pick): what, when, which customers, and when their
+/// administrators were told. Staff only, like notes.
+model OpsBreach {
+  id               String    @id @default(cuid())
+  what             String
+  dataKinds        String
+  stepsTaken       String
+  stepsForCustomer String?
+  happenedAt       DateTime
+  foundAt          DateTime
+  accountIds       String[]  @default([])
+  notifiedAt       DateTime?
+  notifiedByUserId String?
+  notifiedCount    Int       @default(0)
+  createdByUserId  String
+  createdAt        DateTime  @default(now())
+
+  @@index([createdAt])
 }

@@ -1621,6 +1621,30 @@ leave default of 180 days and 30 carried (need state law data); a yearly health 
 and over (needs a new People record and its own flow); using the counted-back wages in PF and
 gratuity (the preview warns only).
 
+### Round 67 (18 Nov 2026)
+
+Built (never in Books; documents and records only, nothing here charges or moves money):
+
+| Building block | Pick |
+| --- | --- |
+| PO number on our invoices | Workspace › Invoices › Purchase orders: a customer adds a PO number, its date and the dates it covers. Issuing an invoice copies the PO covering the invoice's period (or today) onto it, and the invoice document prints "PO number … of …" in JetBrains Mono under the dates (`billing/round67.ts`, `InvoiceDocument`). |
+| TDS on our invoices | Ops Mark paid takes "TDS deducted, ₹"; the amount received follows total less TDS until typed over, and the invoice is paid in full. Ops › TDS certificates lists every paid invoice whose Form 16A has not come in, each with "Certificate received"; the invoice page says so too, and the printed invoice says "with ₹… TDS deducted". |
+| Proformas | Workspace › Invoices › Get a proforma: the plan's priced apps with GST, numbered PF/26-27/0001, valid 15 days, printed on the invoice paper headed "Proforma invoice — not a tax invoice". A plan with no price refuses with a plain message. Ops › Proformas lists them; "Make invoice" turns one into a draft tax invoice once, noted "Against proforma …". |
+| Vendor documents | Ops › Vendor documents: Finance uploads CLOR's GST certificate, PAN, incorporation, MSME, cancelled cheque (PDF, PNG or JPEG, 2 MB, content checked). Customers' billing people download them from Workspace › Invoices › Vendor documents; the section is hidden while there are none. |
+| Breach record (Ops) | Ops › Trust › Data breaches: Support records what happened, what data, happened and found dates, what CLOR did, what customers should do, and which customers. "Tell their admins" emails every owner and administrator of each customer once (`platform.breach_notice`, transactional) and keeps when and how many. Staff only (row security `staff_only`). |
+| What's new | Ops announcements gain the kind "What's new note": never a banner, listed under Help › What's new with a dot on Help while unread. Opening the list marks them read for that person on every device (`WhatsNew.jsx`, `/announcements/whats-new`). |
+
+Picked and already how the app works: optional holidays from a list; On duty requests; repeated
+late marks turning into half a day by the late rule; staff referrals with a bonus after the
+referred person stays; the exit interview at leaving; Download my data; the data protection
+contact under Privacy; a company's own breach register; support access the customer approves for
+a set time; Payroll's Tally export (Books untouched).
+
+Picked, **not built yet**: the employee app in Hindi and other languages (translating the whole app
+is large, and half-translated screens read worse than English); HR forgiving one late mark a month;
+an administrator granting CLOR support 24 hours of access without CLOR asking first (today CLOR
+asks and the customer approves).
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

@@ -213,3 +213,15 @@ export const opsAccountEntitlements = (id) => apiFetch(`/ops/accounts/${encodeUR
 export const opsSms = () => apiFetch('/ops/settings/sms', o);
 export const opsSaveSms = (body) => apiFetch('/ops/settings/sms', { ...o, method: 'PUT', body });
 export const opsTestSms = (phone) => apiFetch('/ops/settings/sms/test', { ...o, method: 'POST', body: { phone } });
+/* Round 67: TDS certificates, proformas, CLOR's vendor documents (routes/opsInvoices.ts) and the breach record (routes/opsBreaches.ts). */
+export const opsTdsDue = () => apiFetch('/ops/invoicing/tds-due', o);
+export const opsTdsCertificate = (id, receivedOn) => apiFetch(`/ops/invoices/${enc(id)}/tds-certificate`, { ...o, method: 'POST', body: { receivedOn: receivedOn || null } });
+export const opsProformas = () => apiFetch('/ops/invoicing/proformas', o);
+export const opsProformaToInvoice = (id) => apiFetch(`/ops/invoicing/proformas/${enc(id)}/invoice`, { ...o, method: 'POST', body: {} });
+export const opsVendorDocuments = () => apiFetch('/ops/invoicing/vendor-documents', o);
+export const opsAddVendorDocument = (body) => apiFetch('/ops/invoicing/vendor-documents', { ...o, method: 'POST', body });
+export const opsRemoveVendorDocument = (id) => apiFetch(`/ops/invoicing/vendor-documents/${enc(id)}`, { ...o, method: 'DELETE' });
+export const opsVendorDocumentFile = (id) => apiFetch(`/ops/invoicing/vendor-documents/${enc(id)}/file`, o);
+export const opsBreaches = () => apiFetch('/ops/breaches', o);
+export const opsRecordBreach = (body) => apiFetch('/ops/breaches', { ...o, method: 'POST', body });
+export const opsNotifyBreach = (id) => apiFetch(`/ops/breaches/${enc(id)}/notify`, { ...o, method: 'POST', body: {} });
