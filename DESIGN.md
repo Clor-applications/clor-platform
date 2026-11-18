@@ -1267,6 +1267,138 @@ named as a person's HR yet); "Send me a new link" on an invite that ran out; eac
 "4 of 7 setup steps" with a filter for stuck ones; an error that links to the record it clashes
 with ("This PAN is on Ravi Kumar’s record. Open it"). All need server work.
 
+### Round 61 (18 Nov 2026)
+
+Built (getting around the apps; never in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Where you are | A page under a hub shows a short trail above its title, "Settings › Departments", the hub a link (`nav aria-label="Breadcrumb"` in the shell). A page opened from elsewhere keeps its "← where you came from". |
+| Browser tab names | Page first, then the app: "Employees · People · CLOR"; an employee's record names the person ("Ravi Kumar · People · CLOR", `usePageTitle`). |
+| Leaving with unsaved changes | "Leave without saving? You have unsaved changes on this page." with **Stay** as the main button and the focus on it; Leave is the quiet one. Drawers and dialogs ask "Discard your changes?" the same way, with Keep editing as the main button (`confirmDialog({ cancelLabel, stayFirst })`). |
+| Long pages | Attendance policy lists its sections on the right on a wide screen (1280px and up), following the scroll and jumping on click (`SectionJump`). |
+| Back to the top | "Top ↑" at the bottom right after two screens of scrolling (above the phone's tab bar). |
+| Help for this screen | "How this works ›" at the right of the row above a screen that has a how-to article; it opens the article in a side panel, with "Open in the Help centre" (`ScreenHelp`, same text as the Help centre). |
+| Links that leave CLOR | Marked ↗ and opened in a new tab, so CLOR stays open (another CLOR app is not "leaving"). |
+| Cursor in the first field | A drawer or dialog that opens puts the cursor in its first empty field, ready to type; `data-autofocus` still wins; not on a touch phone, where it would throw the keyboard up. |
+| Copying numbers | The copy control beside employee ID, PAN, UAN, IFSC and other numbers is now a small copy icon, "Copied" for a moment after (replaces the "Copy" word of 17 Nov). IFSC got one. |
+| Ctrl+S | Ctrl+S (⌘S) saves the form the cursor is in, else the open drawer's or the page's only Save, instead of saving the web page. It only ever presses a button that says Save: a form whose button is Send or Approve is left alone, with "Use “Send” to finish this form." |
+
+Picked and already how the app works: the app switcher top left lists only your apps with the
+current one marked; the left menu's screens panel closes to the icon rail, remembered on this
+computer, with names on hover; waiting counts show only beside menu items that need you; grey
+shapes stand in for rows while a list loads; a page that has moved or that your role can't open
+says which, with a way back to the app.
+
+Picked, **not built yet**: naming the company's administrator to ask on a page your role can't
+open (needs the admins list from the server); every person's name a link to their record outside
+the Employees list (Employees list names are links from round 57).
+
+### Round 62 (18 Nov 2026)
+
+An employee's record. Chosen by Claude on the owner's instruction ("choose what is best for platform"), all option A.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Tap to call or mail | The record header's phone is a call link and its e-mail a mail link, each with Copy beside it (`PhoneFact`, `EmailLink`). |
+| Status with small notes | "On leave today · Sick leave · back after 20 Nov" beside the status, from approved leave covering today (`OnLeaveToday`; only for readers of leave requests). |
+| Tabs | Pay and Time join the record's tabs. Employment keeps its name (it is the Job tab) because notices and tasks tell people to open "their Employment tab". |
+| Time tab | This month so far in one line ("18 present · 1 on leave · 2 late days") with Open attendance, leave balances, and leave coming up in the next 90 days with Approved or Waiting (`TimeTab`). Shown to readers of leave requests or attendance records. |
+| Salary hidden until Show | The Pay tab shows yearly and monthly CTC as dots until Show (Hide puts them back), with since when and the structure, and links to Payslips and Salary revisions in Payroll (`PayTab`). Only with Payroll and the right to read salary assignments. |
+| Print a profile | Actions → Print profile: the header and overview alone on paper, buttons and tabs left off; "Include salary" (for readers of salary) adds the CTC line (`PrintProfile`, `data-print-profile`). |
+| Someone who left | A grey band under the header: "Left on 31 Oct 2026 · Resigned · reason", with Final settlement (Payroll) and the Leaving list (`LeftBand`). |
+| ‹ › through the list | Beside "← Employees", "3 of 25" with ‹ › to the people either side on the list the record was opened from (the Employees page keeps its order for this tab, `people.workforce.lastIds`). |
+| Search lands on the field | A search by phone, e-mail or PAN opens the person's record on the Personal tab (`tabForQuery` in `findPeople`). |
+
+Picked and already how the app works: one header band with photo, name, role, team, manager,
+status and joining date; a pencil per section that edits just that section; one Actions menu by
+role; the dated career story on History; manager above and direct reports below in the Team
+block; empty fields say "Not added yet · Add".
+
+Picked, **not built yet**: admins seeing who opened a person's pay and ID details (needs the
+server to record each view).
+
+### Round 63 (18 Nov 2026)
+
+Reports. Built (`@ui/picks/round63`, People reports; not in Books):
+
+| Building block | Pick |
+| --- | --- |
+| Period chips | The quick periods read This month, Last month, This quarter (the financial quarter: Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar), This financial year; the two date boxes stay for any other period. "Last 3 months" is gone. Every screen with `RangePresets` gets it. |
+| What a column means | A column name with a known meaning (Attrition, At start, Average headcount, Days left, Gross, Net pay, Payable days…) has a dotted underline; hover or tap shows one line on how it is worked out (`ColumnName`, `COLUMN_HELP`). A report column may also carry its own `help`. |
+| Totals row | The report table scrolls inside its box (70% of the screen): headings stay on top, the totals row stays at the bottom. The download already ends with the same totals. |
+| Before downloading | The first 20 rows show with "20 of 412 shown · Show all 412", then Export. |
+| Rows that are all zero | Rows whose every figure is zero wait behind "Show 96 people with none" (unless every row is zero). A "Days left" countdown never counts: 0 days left is due today. |
+| Minus figures | "−3", the minus sign before the figure, in red (`ui-neg-figure`); a percentage too. |
+| Top of a download | The CSV starts with the company, the report, the period, the filters used, and "Made on 18 Nov 2026 by Priya", then a blank line and the table. |
+| Reports as PDF | Print (secondary, beside Export) lays the report out on A4 landscape: headings repeat on every page, "Page 2 of 6" at the foot, the totals once at the end, every row (Ctrl+P too). |
+| Opening a person from a row | In a report of people, the name opens the People list searched by their employee ID (the report carries the ID, not the record). |
+| Used recently | The reports page starts with the last four reports opened in this browser, each with the period last picked ("Oct 2026", "FY 2026–27"); report ids and dates only. |
+
+Picked and already how the app works: the reports page is grouped by job (Workforce, Joining and
+leaving, Time and attendance, Leave, Documents and compliance, Requests) with a purpose line under
+every report; its search also matches words in the purpose line.
+
+Picked, **not built yet**: clicking a number to see the people behind it (the server sends counts,
+not the people); a big download made in the background with a bell notice when it is ready; managers
+seeing only their team's rows with "Showing your team (8 people)" (People reports are HR-only on the
+server today); the minus figure in red inside the downloaded file (the server writes the file);
+opening the person's record itself from a row (needs the record's id in the report). The Payroll and
+Attendance report screens keep their own tables for now.
+
+### Round 64 (18 Nov 2026)
+
+Settings. Built (shared pieces in `packages/ui/src/picks/round64.jsx`, styles in the Round 64 block of picks.css; never Books):
+
+| Building block | Pick |
+| --- | --- |
+| Finding one setting | Settings search also finds a word inside a setting and says where it lives: typing "grace" lists "grace → Time off › Attendance rules" under the search, and a tap opens it. The words are in `apps/people/src/settingWords.js`; each nav item's own `keywords` count too. |
+| Explaining a setting | A small ⓘ beside a setting opens its how-to in the Help centre (`SettingHelp`): the sandwich rule in Leave policy, late grace on a shift, and the tax numbers on Company details. It sits outside the field's label, so a tap never ticks or focuses the field. |
+| Locked settings | Once leave is recorded, Leave policy shows the leave period with a lock, the reason and the way round ("the balances move first: ask CLOR support"), and no Change link. A refusal from the server (`LEAVE_PERIOD_IN_USE`) shows the same words. |
+| Going back to the usual | Who decides & who sees: a choice moved off CLOR's usual one has "Use the usual (…)" beside it; Save keeps it. |
+| Company details | Grouped as Identity, Address and Tax numbers; each field says where it is used ("Used: on Form 16 and the 24Q return"). |
+| Departments and sub-teams | Departments read as an indented tree, each sub-department under its parent with its people count; "Add a sub-department" on any row's menu opens the form with the parent set. |
+| Who can do what | Roles lists roles first; the role shown now says who holds it, by name ("Who has it"), from the users list. |
+| Plan and billing | Billing & seats has a "Next bill" figure at the top: the amount at today's seats and the date. |
+| Setting up a leave type | A new blank leave type starts as plain questions, one at a time: name, paid, days a year, who gets it, carry forward, proof. "See the full form" or "Show every setting" opens the whole form. A usual type, a copy or an edit opens the full form as before. |
+| Creating a shift | The shift form draws the shift on a 24-hour bar, unpaid named breaks lighter, with "22:00 to 06:00 · ends next day · 8 h". |
+
+Picked and already how the app works: People's Settings page is tiles with icons (settingshome C);
+settings pages have Save at the top right (settingssave C); Ops email templates already have "Send
+test", which mails the saved wording to your own inbox (testemail A).
+
+Picked, **not built yet**: "From when?" with a dated list for a setting change (needs dated settings
+on the server); a company logo on Company details (no logo field yet); free-text job titles typed on
+each person (designations are a list on the server today); closing the company only through support
+(Ops has no way to close a company for a customer yet, so the typed confirm stays); dragging a
+department to move it (Edit › Under does it).
+
+### Round 65 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Team size | Workforce › My team opens on one line: "8 people · 2 joining · 1 leaving". People is everyone already here; joining is anyone whose joining date is still ahead; leaving is anyone on notice. Each number sets the list's filter (`MyTeamPanel`, `teamCounts`). Open places are not counted (openings are not tied to a manager yet). |
+| Things due for my team | "Due this month" under it: probation ends (until confirmed), contract ends and work anniversaries from today to the month's end, earliest first, each with its date. A probation end says "Give your view" and opens the record; the others say "Open" (`teamDue`). |
+| Team leave balances | "Leave left": person × leave type with days left, from the leave balances the manager may already read, limited to the team; a type's heading sorts most-left first, Name sorts back. Below zero in red. Left out when the manager may not read balances (`teamBalanceRows`). |
+| Downloading my team | "Download team" saves a CSV that opens in Excel: name, employee ID, role, department, phone, work email and each leave type's days left (`teamCsv`). Shift is not in it (the list does not carry it yet). |
+
+Picked and already how the app works: My team lists each person with name and role; who is in
+today is the full day table on Attendance; a resignation in the team is accepted or declined by
+the manager (the default rule), HR doing the rest; managers ask HR through the one Ask HR; asking
+a team member to update their details is left to HR; managers do not see team pay unless the owner
+gives that manager a role that reads Payroll.
+
+Picked, **not built yet**: "Direct" and "Whole team" on My team (people under your reports); a
+missing-punch list with "Remind" that sends a notice; a joining checklist for the manager (desk,
+laptop request, first week, buddy); a short team-only set of reports (attendance, leave taken,
+late marks, overtime); private dated notes only the manager sees; work documents only
+(certificates, appraisal letters) for managers, ID and pay papers staying with HR; open places in
+the team count. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of
