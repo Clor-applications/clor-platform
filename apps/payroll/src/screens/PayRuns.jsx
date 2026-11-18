@@ -47,6 +47,7 @@ import { wholeRupees as money } from "@ui/utils/money";
 import { BANK_CUTOFF_NOTE, afterBankCutoff } from "@ui/picks/round54";
 import { EarlierNote, NextMonthNote } from "../components/RunNotes";
 import { HoldPayPanel, LatePayNote } from "../components/round66";
+import ExtraPayStage from "../components/ExtraPayStage";
 
 /**
  * Running payroll.
@@ -175,7 +176,9 @@ export default function PayRuns() {
     try {
       const made = await createPayrollRun(payload);
       notify.success(
-        `${made.run.number} started with ${made.eligible} ${made.eligible === 1 ? "person" : "people"}.`,
+        made.run.kind === "OFF_CYCLE"
+          ? `${made.run.number} started. Add the people it is for and what to pay them.`
+          : `${made.run.number} started with ${made.eligible} ${made.eligible === 1 ? "person" : "people"}.`,
       );
       setStarting(false);
       setOpenId(made.run.id);
@@ -296,7 +299,10 @@ export default function PayRuns() {
                 rows.map((r) => (
                   <tr key={r.id} className="ui-row-click" onClick={() => setOpenId(r.id)}>
                     <td className="ui-col-id">{r.number}</td>
-                    <td className="ui-col-entity">{r.period?.name || "—"}</td>
+                    <td className="ui-col-entity">
+                      {r.period?.name || "—"}
+                      {r.kind === "OFF_CYCLE" ? <span className="ui-caption block">Extra pay run</span> : null}
+                    </td>
                     <td className="ui-col-date ui-col-h-center hidden md:table-cell">{shownDate(r.payrollDate)}</td>
                     <td className="ui-col-amount hidden md:table-cell">{r.employeeCount}</td>
                     <td className="ui-col-amount hidden md:table-cell">{money(r.grossTotal)}</td>
@@ -322,7 +328,9 @@ const StartRun = ({ periods, payGroups, onCancel, onStart }) => {
   const [form, setForm] = useState({
     periodId: periods[0]?.id || "",
     payGroupId: "",
+    kind: "REGULAR",
   });
+  const extra = form.kind === "OFF_CYCLE";
   const set = (patch) => setForm((p) => ({ ...p, ...patch }));
 
   return (
@@ -330,14 +338,24 @@ const StartRun = ({ periods, payGroups, onCancel, onStart }) => {
       className="ui-card p-4 space-y-3"
       onSubmit={(e) => {
         e.preventDefault();
-        onStart({
-          periodId: form.periodId,
-          payGroupId: form.payGroupId || null,
-        });
+        onStart(
+          extra
+            ? { periodId: form.periodId, kind: "OFF_CYCLE", people: [] }
+            : { periodId: form.periodId, payGroupId: form.payGroupId || null },
+        );
       }}
     >
       <div className="ui-sec-head">Run payroll</div>
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+        <div>
+          <label className="ui-label" htmlFor="run-kind">
+            Kind
+          </label>
+          <select id="run-kind" className="ui-select w-full" value={form.kind} onChange={(e) => set({ kind: e.target.value })}>
+            <option value="REGULAR">Monthly payroll</option>
+            <option value="OFF_CYCLE">Extra pay run</option>
+          </select>
+        </div>
         <div>
           <label className="ui-label" htmlFor="run-period">
             Period
@@ -356,24 +374,28 @@ const StartRun = ({ periods, payGroups, onCancel, onStart }) => {
             ))}
           </select>
         </div>
-        <div>
-          <label className="ui-label" htmlFor="run-group">
-            Pay group
-          </label>
-          <select
-            id="run-group"
-            className="ui-select w-full"
-            value={form.payGroupId}
-            onChange={(e) => set({ payGroupId: e.target.value })}
-          >
-            <option value="">Everybody</option>
-            {payGroups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {extra ? (
+          <p className="ui-caption">A late joiner's days, a bonus or arrears, beside the month's payroll. You choose the people next.</p>
+        ) : (
+          <div>
+            <label className="ui-label" htmlFor="run-group">
+              Pay group
+            </label>
+            <select
+              id="run-group"
+              className="ui-select w-full"
+              value={form.payGroupId}
+              onChange={(e) => set({ payGroupId: e.target.value })}
+            >
+              <option value="">Everybody</option>
+              {payGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -445,7 +467,7 @@ const RunWorkflow = ({ runId, onBack }) => {
       <PageHeader
         entity="payRun"
         title={`${run.number} — ${run.period?.name || "payroll"}`}
-        description={`${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}, paid on ${shownDate(run.payrollDate)}.`}
+        description={`${run.kind === "OFF_CYCLE" ? "Extra pay run: " : ""}${run.employeeCount} ${run.employeeCount === 1 ? "person" : "people"}, paid on ${shownDate(run.payrollDate)}.`}
         actions={
           <>
             <button
@@ -541,7 +563,9 @@ const RunWorkflow = ({ runId, onBack }) => {
         ))}
       </div>
 
-      {stage === "people" ? (
+      {stage === "people" && run.kind === "OFF_CYCLE" ? (
+        <ExtraPayStage data={data} editable={editable} runId={runId} onChanged={load} />
+      ) : stage === "people" ? (
         <PeopleStage
           data={data}
           editable={editable}

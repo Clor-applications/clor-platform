@@ -81,9 +81,9 @@ export function Payslips({ guard, onAsk = null }) {
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {data.slips.map((s) => (
             <li key={s.id}>
-              <button type="button" className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm" onClick={() => { setSlip(null); setSlipFailed(''); setOpen(s.id); }} aria-label={`Open payslip for ${s.period}`}>
+              <button type="button" className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm" onClick={() => { setSlip(null); setSlipFailed(''); setOpen(s.id); }} aria-label={`Open payslip for ${s.period}${s.extraPayRun ? ' · Extra pay run' : ''}`}>
                 <span className="min-w-0">
-                  <span className="block font-medium">{s.period}</span>
+                  <span className="block font-medium">{s.period}{s.extraPayRun ? ' · Extra pay run' : ''}</span>
                   <span className={`ui-pill ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
                 </span>
                 <span className="shrink-0 text-right tabular-nums">{money(s.net)}<span className="ui-caption block">net pay</span></span>
@@ -122,7 +122,7 @@ function PayslipView({ slip: s, onAsk = null }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 id="slip-h" className="ui-t-sec">Payslip · {s.period}</h2>
-          <p className="ui-caption">{[s.company, s.number].filter(Boolean).join(' · ')}</p>
+          <p className="ui-caption">{[s.company, s.number, s.extraPayRun ? 'Extra pay run' : ''].filter(Boolean).join(' · ')}</p>
         </div>
         <span className={`ui-pill shrink-0 ${s.paid ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{s.paid ? 'Paid' : 'Not paid yet'}</span>
       </div>
@@ -130,7 +130,7 @@ function PayslipView({ slip: s, onAsk = null }) {
         <span className="text-sm">Net pay</span>
         <span className="text-2xl font-semibold tabular-nums">{money(s.net)}</span>
       </div>
-      {s.days ? <p className="ui-caption tabular-nums">{s.days.payable} of {s.days.working} days paid{s.days.lossOfPay ? ` · ${s.days.lossOfPay} without pay` : ''}</p> : null}
+      {s.days && !(s.extraPayRun && !s.days.working) ? <p className="ui-caption tabular-nums">{s.days.payable} of {s.days.working} days paid{s.days.lossOfPay ? ` · ${s.days.lossOfPay} without pay` : ''}</p> : null}
       {splitLines(s.split).length ? (
         <div aria-label={SPLIT_TITLE}>
           <h3 className="ui-label">{SPLIT_TITLE}</h3>
@@ -291,11 +291,11 @@ function PayslipPrint({ slip: s }) {
     <div className="clor-payslip-print" aria-hidden="true">
       <style>{PRINT_CSS}</style>
       <h1>{s.company || 'Payslip'}</h1>
-      <div className="muted">Payslip for {s.period}{s.number ? ` · ${s.number}` : ''}{s.from && s.to ? ` · ${longDate(s.from)} to ${longDate(s.to)}` : ''}</div>
+      <div className="muted">{s.extraPayRun ? 'Extra pay run' : 'Payslip'} for {s.period}{s.number ? ` · ${s.number}` : ''}{s.from && s.to ? ` · ${longDate(s.from)} to ${longDate(s.to)}` : ''}</div>
       <table>
         <tbody>
           {who.map(([k, v]) => <tr key={k}><td className="muted">{k}</td><td>{v}</td></tr>)}
-          {s.days ? <tr><td className="muted">Days paid</td><td>{s.days.payable} of {s.days.working}{s.days.lossOfPay ? `, ${s.days.lossOfPay} without pay` : ''}</td></tr> : null}
+          {s.days && !(s.extraPayRun && !s.days.working) ? <tr><td className="muted">Days paid</td><td>{s.days.payable} of {s.days.working}{s.days.lossOfPay ? `, ${s.days.lossOfPay} without pay` : ''}</td></tr> : null}
         </tbody>
       </table>
       <table>
