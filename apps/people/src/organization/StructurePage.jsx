@@ -169,6 +169,14 @@ const pathOf = (rows, row, key) => {
   return names.join(' › ');
 };
 
+/** How deep a row sits in a tree list: 0 at the top level. */
+const depthOf = (rows, row, key) => {
+  let n = 0;
+  let at = rows.find((r) => r.id === row[key]);
+  for (; at && n < 20; n += 1) at = rows.find((r) => r.id === at[key]);
+  return n;
+};
+
 export default function StructurePage({ kind, openScreen, params = {}, updateParams }) {
   const cfg = KINDS[kind];
   const perms = usePermissions();
@@ -217,7 +225,13 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
     { key: 'name', label: cfg.singular.charAt(0).toUpperCase() + cfg.singular.slice(1), always: true, render: (r) => {
       const under = TREE_KEY[kind] && r[TREE_KEY[kind]] && kind !== 'departments' ? pathOf(items, items.find((x) => x.id === r[TREE_KEY[kind]]) || {}, TREE_KEY[kind]) : null;
       const sub = [under, r.description].filter(Boolean).join(' · ');
-      return <span className="pc-two"><span className="font-semibold">{r.name}</span>{sub ? <span>{sub}</span> : null}</span>;
+      /* Round 64 "depttree" A: departments read as an indented tree (sorted by their path), sub-teams under their parent. */
+      const depth = kind === 'departments' && !q ? depthOf(items, r, 'parentId') : 0;
+      return (
+        <span className="pc-two ui-tree-name" data-depth={depth || undefined} style={depth ? { paddingLeft: `${Math.min(depth, 6) * 1.25}rem` } : undefined}>
+          <span className="font-semibold">{depth ? <span className="ui-tree-mark" aria-hidden="true">└ </span> : null}{r.name}</span>{sub ? <span>{sub}</span> : null}
+        </span>
+      );
     } },
     ...cfg.columns.map((c) => ({ ...c, render: (r) => c.render(r, refNames) })),
     /* Direct count; a department with sub-departments also says how many with them (ORG-R050). */
@@ -231,6 +245,8 @@ export default function StructurePage({ kind, openScreen, params = {}, updatePar
   ];
   const rowActions = (r) => [
     canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...r }) } : null,
+    /* Round 64 "depttree" A: a sub-department added straight under any row. */
+    canCreate && TREE_KEY[kind] && r.isActive !== false ? { key: 'addUnder', label: kind === 'areas' ? 'Add a location inside' : 'Add a sub-department', onSelect: () => setEditing({ name: '', isActive: true, [TREE_KEY[kind]]: r.id }) } : null,
     canMove && r.isActive !== false ? { key: 'merge', label: 'Merge into…', onSelect: () => setMerging(r) } : null,
     canEdit && r.isActive !== false ? { key: 'retire', label: 'Retire', onSelect: () => setRetiring(r) } : null,
     canEdit && r.isActive === false ? { key: 'reactivate', label: 'Bring back', onSelect: () => reactivate(r) } : null,

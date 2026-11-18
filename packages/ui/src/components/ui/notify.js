@@ -54,9 +54,11 @@ export const subscribeToasts = (fn) => {
  * `if (!(await confirmDialog({...}))) return;` — the same guard shape as the
  * native call, one `await` added.
  */
-export const confirmDialog = ({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', tone = 'danger' } = {}) =>
+/* `cancelLabel` names the way out; `stayFirst` makes it the main button (round 61 "unsavedleave" A:
+   "Leave without saving?" with Stay as the main button, so a stray click never loses work). */
+export const confirmDialog = ({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', tone = 'danger', cancelLabel = 'Cancel', stayFirst = false } = {}) =>
   new Promise((resolve) => {
-    const request = { id: ++nextId, title, message, confirmLabel, tone, resolve };
+    const request = { id: ++nextId, title, message, confirmLabel, tone, cancelLabel, stayFirst, resolve };
     confirmListeners.forEach((l) => l(request));
     // No subscriber mounted (tests, early boot): fall back to the native
     // dialog rather than silently resolving false and eating the action.

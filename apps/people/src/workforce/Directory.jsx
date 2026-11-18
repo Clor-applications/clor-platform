@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { saveRecordList } from '@ui/picks/round62';
 import { CalendarClock, CalendarDays, Smartphone, UserPlus, UserRoundX, Users } from 'lucide-react';
 import SuggestInput from '@ui/components/ui/SuggestInput';
 import { useSuggestions } from './suggestions';
@@ -27,6 +28,7 @@ import { listBranches } from '../organization/api';
 import { hasApp } from '@platform/context';
 import { STATUS, StatusBadge, can } from './shared';
 import AppAccessSend from './AppAccessSend';
+import MyTeamPanel from './MyTeamPanel';
 import DeptTag from '@ui/components/ui/DeptTag';
 import { plusDaysIso, todayIst } from '@ui/utils/dates';
 
@@ -100,6 +102,9 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
   const [exportOpen, setExportOpen] = useState(false);
 
   const rows = list.data?.employees || [];
+  /* Round 62 "nextprevrecord" A: the order of this page, so a record opened from it can step to the next person. */
+  const rowIds = rows.map((r) => r.id).join(',');
+  useEffect(() => { if (rowIds) saveRecordList(rowIds.split(',')); }, [rowIds]);
   const total = Number(list.data?.total || 0);
   /* Managers to filter and move people to: everyone still here, by name (500 at most for the picker). */
   const [managers, setManagers] = useState([]);
@@ -239,6 +244,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         onTab={(k) => set({ tab: k === 'directory' ? null : k }, true)}
       />
       <Banners openScreen={openScreen} />
+      {tab === 'team' && !firstRun ? <MyTeamPanel onFilter={(f) => set({ ...f, page: null }, true)} openScreen={openScreen} /> : null}
       {selected.size ? (
         <div className="ui-bulkbar" role="status" aria-live="polite">
           <span className="tabular-nums font-medium">{selected.size === total && total > rows.length ? `All ${total} matching selected` : `${selected.size} selected`}</span>

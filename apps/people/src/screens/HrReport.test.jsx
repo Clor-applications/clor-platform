@@ -129,3 +129,30 @@ it('pay cost reads in rupees, in tabular figures', async () => {
   const cell = await screen.findByText('₹12,34,567');
   expect(cell.className).toContain('tabular-nums');
 });
+
+it('round 63: a person report shows 20 rows with the count, hides people with none, links names, and the file says whose it is', async () => {
+  /* 22 people with overtime, 2 with none, and one whose date has passed (days left −3); a "0 days left" row is due today and stays. */
+  const people = Array.from({ length: 24 }, (_, i) => ({ name: `Person ${i + 1}`, code: `E${i + 1}`, department: 'Sales', ot: i < 22 ? i + 1 : 0, days: 0 }));
+  people.push({ name: 'Late Payer', code: 'E99', department: 'Sales', ot: 2, days: -3 });
+  api.runHrReport.mockResolvedValue({ id: 'probation', title: 'Probation due', from: '2026-10-01', to: '2026-10-31', columns: [{ key: 'name', label: 'Employee' }, { key: 'code', label: 'Employee ID' }, { key: 'department', label: 'Department' }, { key: 'ot', label: 'Overtime hours', align: 'right' }, { key: 'days', label: 'Days left', align: 'right' }], rows: people, totals: null, chart: null, notes: [] });
+  api.hrReportCsv.mockResolvedValue('\uFEFFEmployee,Days left\r\nPerson 1,1');
+  const openScreen = vi.fn();
+  let blob = null;
+  URL.createObjectURL = vi.fn((b) => { blob = b; return 'blob:x'; });
+  render(<HrReport params={{ report: 'probation', departmentId: 'd1' }} updateParams={vi.fn()} openScreen={openScreen} tenant={{ name: 'Kave Foods' }} user={{ fullName: 'Priya' }} />);
+  const table = await screen.findByRole('table', { name: 'Probation due' });
+  expect(within(table).getAllByRole('row').length - 1).toBe(20);
+  expect(screen.getByText(/20 of 23 shown/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Show 2 people with none' })).toBeTruthy();
+  expect(screen.getByText('Days left').getAttribute('data-help')).toMatch(/minus means/);
+  fireEvent.click(screen.getByRole('button', { name: 'Show all 23' }));
+  const minus = within(table).getByText('−3');
+  expect(minus.className).toMatch(/ui-neg-figure/);
+  fireEvent.click(within(table).getByRole('button', { name: 'Person 1' }));
+  expect(openScreen).toHaveBeenCalledWith('employees', { q: 'E1' });
+  fireEvent.click(screen.getByRole('button', { name: /Export/ }));
+  await vi.waitFor(() => expect(blob).not.toBeNull());
+  const text = await blob.text();
+  expect(text).toMatch(/^\uFEFF?Kave Foods\r\nProbation due\r\nPeriod: 1 Oct 2026 to 31 Oct 2026\r\nFilters: Department: Sales\r\nMade on .+ by Priya\r\n\r\nEmployee,Days left/);
+  expect(screen.getByRole('button', { name: /Print/ }).className).toMatch(/ui-btn-secondary/);
+});
