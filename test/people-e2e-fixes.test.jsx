@@ -151,7 +151,7 @@ describe("the bell's stop-showing button", () => {
   const walk = (dir) => {
     for (const name of readdirSync(dir)) {
       const p = join(dir, name);
-      if (statSync(p).isDirectory()) { if (name !== '__tests__' && name !== 'generated') walk(p); continue; }
+      if (statSync(p).isDirectory()) { if (name !== '__tests__' && name !== 'generated' && name !== 'scripts') walk(p); continue; }
       if (!/\.ts$/.test(name)) continue;
       for (const m of readFileSync(p, 'utf8').matchAll(/kind: '([a-z]+\.[a-z_]+)'/g)) kinds.add(m[1]);
     }
