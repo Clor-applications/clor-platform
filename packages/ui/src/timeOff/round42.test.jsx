@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ForWhom, UnpaidNote, reasonFor } from './round42';
 import LongLeaveSpan from './LongLeaveSpan';
+import { PreviewNotes } from './LeaveShape';
 
 /* Round 42 picks (18 Nov 2026): sick leave for a child, unpaid leave cost, adoption weeks. */
 
@@ -57,5 +58,19 @@ describe('adoption leave', () => {
     render(<LongLeaveSpan typeName="Maternity leave" fromDate="2027-02-02" toDate="" onFill={() => {}} />);
     expect(screen.getByRole('button', { name: /Fill 26 weeks/ })).toBeInTheDocument();
     expect(screen.queryByText(/under 3 months/)).toBeNull();
+  });
+});
+
+describe('monthly limit and team away (server picks, round 42)', () => {
+  it('shows the days left in each month the request touches, with the warnings', () => {
+    render(<PreviewNotes preview={{ monthly: [{ month: '2026-11', limit: 4, before: 2, asked: 1, after: 1 }, { month: '2026-12', limit: 4, before: 4, asked: 1, after: 3 }], warnings: [{ code: 'TEAM_AWAY', message: '2 of the team are already away on some of these days.' }] }} />);
+    const list = screen.getByRole('list', { name: 'Before you send' });
+    expect(list).toHaveTextContent('November: 1 day of 4 left after this.');
+    expect(list).toHaveTextContent('December: 3 days of 4 left after this.');
+    expect(list).toHaveTextContent('2 of the team are already away');
+  });
+  it('draws nothing when there is no limit and no warning', () => {
+    const { container } = render(<PreviewNotes preview={{ monthly: [], warnings: [] }} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

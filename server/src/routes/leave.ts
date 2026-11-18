@@ -370,6 +370,10 @@ const policySchema = z.object({
   sandwichHolidays: z.boolean().optional(),
   sandwichIgnoreHalf: z.boolean().optional(),
   onNotice: z.enum(['ALLOW', 'WARN', 'BLOCK']).optional(),
+  /** Most days of the type in one calendar month (work from home style); null = no monthly cap (round 42). */
+  maxDaysPerMonth: z.coerce.number().min(0.5, 'At least half a day.').max(31, 'At most 31 days.').nullable().optional(),
+  /** Warn on the form when this many of the team are already away on those days; null = never (round 42). */
+  teamAwayWarnAt: z.coerce.number().int().min(1, 'At least one person.').max(500).nullable().optional(),
   /** Comp-off credited to the type is used within this many days of the day worked, else it lapses; null: it does not expire (compOff.ts). */
   compOffValidDays: z.coerce.number().int().min(1, 'At least one day.').max(730, 'At most 730 days (two years).').nullable().optional(),
 });
@@ -1035,7 +1039,7 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
     parts.push({ ...part, label: periodLabel(period, part.year), days, dates, balance, rows, overflow: null as Overflow | null });
   }
   const total = (hours ? round4 : round)(parts.reduce((a, p) => a + p.days, 0));
-  const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { gender: true, employeeTypeId: true, dateOfJoining: true, dateOfLeaving: true, branchId: true, areaId: true, departmentId: true, gradeId: true, status: true } });
+  const person = await peoplePrisma.employee.findFirst({ where: { id: employee.id, orgId }, select: { gender: true, employeeTypeId: true, dateOfJoining: true, dateOfLeaving: true, branchId: true, areaId: true, departmentId: true, gradeId: true, status: true, reportingManagerId: true } });
   /* Eligibility by days worked in the 12 months before (Code on Social Security, maternity: 80), when the type asks for it. */
   const workedBefore = type.availableAfterBasis === 'DAYS_WORKED' && type.availableAfterDays && person ? (await daysWorkedBefore(accountId, orgId, { id: employee.id, ...person }, b.fromDate)).eligible : null;
   const clash = await peoplePrisma.leaveRequest.findFirst({ where: { orgId, employeeId: employee.id, status: { in: OPEN }, fromDate: { lte: b.toDate }, toDate: { gte: b.fromDate }, ...(ignoreIds.length ? { id: { notIn: ignoreIds } } : {}) } });
@@ -1064,6 +1068,20 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
     else warnings.push({ code: 'ON_NOTICE', message: `Serving notice${leaving}: the approver sees this.` });
   }
   /* Clubbing: types that may not sit next to each other, weekly offs and holidays between still counting as next to. */
+  /* A monthly cap on the type (work from home style, round 42): days of it in each calendar month, waiting and approved
+     together. The person asking is stopped; HR entering it is told. */
+  const monthly = type.maxDaysPerMonth != null && total ? await monthlyUse(orgId, employee, type, plan, edges, hours, b, ignoreIds) : [];
+  for (const m of monthly) {
+    if (m.after >= 0) continue;
+    const msg = `${type.name} is at most ${plural(m.limit, 'day')} a month. ${monthWords(m.month)} has ${plural(Math.max(0, m.before), 'day')} left; this asks ${plural(m.asked, 'day')}.`;
+    if (onBehalf) warnings.push({ code: 'MONTH_LIMIT', message: msg }); else problems.push({ code: 'MONTH_LIMIT', message: msg });
+  }
+  /* Too many of the team away at once (round 42): a warning only, a count and never names. The team is the department, or
+     those with the same manager when no department is set. */
+  if (type.teamAwayWarnAt && person) {
+    const away = await teamAway(orgId, employee.id, person, b.fromDate, b.toDate);
+    if (away >= type.teamAwayWarnAt) warnings.push({ code: 'TEAM_AWAY', message: `${away} of the team ${away === 1 ? 'is' : 'are'} already away on some of these days.` });
+  }
   const club = await clubbingClash(orgId, employee, type, b.fromDate, b.toDate, ignoreIds);
   if (club) problems.push({ code: 'CLUBBING', message: club });
   /* More than the balance: refused, or (LOSS_OF_PAY) the extra days become linked unpaid rows. Not while locked by probation: nothing is taken then. */
@@ -1095,7 +1113,61 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   if (documentNeeded(type, total) && !onBehalf && !b.attachment?.data && !b.hasDocument) problems.push({ code: 'DOCUMENT', message: `${type.name} for more than ${type.attachmentAfterDays} ${type.attachmentAfterDays === 1 ? 'day' : 'days'} needs a document, such as a medical certificate. Attach it to ask.` });
   /* total: what this type is charged (days over the balance are the loss-of-pay part, not this type's); asked: the whole request. */
   const charged = (hours ? round4 : round)(parts.reduce((a, p) => a + p.days, 0));
-  return { type, parts, total: charged, asked: total, problems, warnings, clash, split: parts.length > 1, reason: reasonText, edges, hours, lossOfPay: parts.some((p) => p.overflow) } as const;
+  return { type, parts, total: charged, asked: total, problems, warnings, clash, split: parts.length > 1, reason: reasonText, edges, hours, lossOfPay: parts.some((p) => p.overflow), monthly } as const;
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** `2026-11` → `November`. */
+export function monthWords(month: string) { return MONTH_NAMES[Number(month.slice(5, 7)) - 1] || month; }
+
+/**
+ * Days of a type in each calendar month a request touches, against the type's monthly cap: what the month had
+ * before this request (`before` left), what this asks, and what is left after. Waiting and approved requests of
+ * the same type count; the request being edited does not. A request that crosses a month end is split by its
+ * counted days.
+ */
+export async function monthlyUse(orgId: string, employee: { id: string; branchId: string | null; areaId?: string | null }, type: any, plan: Array<{ date: string; counted: boolean }>, edges: { halfDay: string | null; startHalf: boolean; endHalf: boolean }, hours: { minutes: number; dayMinutes: number } | null, b: { fromDate: string; toDate: string }, ignoreIds: string[]) {
+  const limit = Number(type.maxDaysPerMonth);
+  const weight = (d: string) => {
+    if (hours) return Math.min(1, hours.minutes / hours.dayMinutes);
+    if (edges.halfDay) return 0.5;
+    if ((d === b.fromDate && edges.startHalf) || (d === b.toDate && edges.endHalf)) return 0.5;
+    return 1;
+  };
+  const asked = new Map<string, number>();
+  for (const d of plan) if (d.counted) asked.set(d.date.slice(0, 7), round4((asked.get(d.date.slice(0, 7)) || 0) + weight(d.date)));
+  const months = [...asked.keys()].sort();
+  if (!months.length) return [];
+  const first = `${months[0]}-01`, last = `${months[months.length - 1]}-31`;
+  const others = await peoplePrisma.leaveRequest.findMany({
+    where: { orgId, employeeId: employee.id, leaveTypeId: type.id, status: { in: OPEN }, fromDate: { lte: last }, toDate: { gte: first }, ...(ignoreIds.length ? { id: { notIn: ignoreIds } } : {}) },
+    select: { fromDate: true, toDate: true, days: true },
+  });
+  const used = new Map<string, number>();
+  for (const r of others) {
+    if (r.fromDate.slice(0, 7) === r.toDate.slice(0, 7)) { used.set(r.fromDate.slice(0, 7), round4((used.get(r.fromDate.slice(0, 7)) || 0) + r.days)); continue; }
+    /* Across a month end: share its days out by the counted days in each month. */
+    const days = await dayPlan(orgId, employee, r.fromDate, r.toDate, type);
+    const counted = days.filter((d) => d.counted);
+    if (!counted.length) continue;
+    const each = r.days / counted.length;
+    for (const d of counted) used.set(d.date.slice(0, 7), round4((used.get(d.date.slice(0, 7)) || 0) + each));
+  }
+  return months.map((month) => {
+    const before = round4(limit - (used.get(month) || 0));
+    const a = asked.get(month) || 0;
+    return { month, limit, before, asked: a, after: round4(before - a) };
+  });
+}
+
+/** Others of the person's team with leave waiting or approved on any of these days: the department, else the same manager. */
+export async function teamAway(orgId: string, employeeId: string, person: { departmentId: string | null; reportingManagerId: string | null }, from: string, to: string) {
+  const team = person.departmentId ? { departmentId: person.departmentId } : person.reportingManagerId ? { reportingManagerId: person.reportingManagerId } : null;
+  if (!team) return 0;
+  const ids = (await peoplePrisma.employee.findMany({ where: { orgId, ...team, status: { not: 'LEFT' }, id: { not: employeeId } }, select: { id: true } })).map((x) => x.id);
+  if (!ids.length) return 0;
+  const rows = await peoplePrisma.leaveRequest.findMany({ where: { orgId, employeeId: { in: ids }, status: { in: OPEN }, fromDate: { lte: to }, toDate: { gte: from } }, select: { employeeId: true }, distinct: ['employeeId'] });
+  return rows.length;
 }
 
 /**
@@ -2653,6 +2725,8 @@ export async function previewOut(req: any | null, accountId: string, orgId: stri
     /* Not stopping it: serving notice (WARN), days over the balance as loss of pay. */
     warnings: plan.warnings,
     hours: plan.hours ? { fromTime: plan.hours.fromTime, toTime: plan.hours.toTime, minutes: plan.hours.minutes } : null,
+    /* The type's monthly cap, month by month: what is left before and after this request (round 42). */
+    monthly: plan.monthly,
     reasonNeeded: !plan.type.isPrivate, documentNeeded: documentNeeded(plan.type, plan.asked), documentAfterDays: plan.type.attachmentAfterDays ?? null };
   if (!req) return { status: 200, body: own };
   const reads = await readsPrivateLeave(req);
