@@ -38,6 +38,7 @@ import {
   opsTags,
   opsSeatChanges,
   opsTakeBackSeats,
+  opsEndAddOn,
 } from './api';
 
 /**
@@ -1344,23 +1345,68 @@ function Timeline({ id, openLink }) {
 const SEAT_STATUS = { OPEN: ['Waiting to be paid', 'warn'], PAID: ['Paid', 'ok'], LAPSED: ['Taken off, unpaid', 'off'], CANCELLED: ['Taken back', 'off'] };
 function SeatChanges({ accountId, name, role, openInvoice, reload }) {
   const [rows, setRows] = useState(null);
+  const [addOns, setAddOns] = useState([]);
   const [taking, setTaking] = useState(null);
+  const [ending, setEnding] = useState(null);
   const load = useCallback(() => {
     opsSeatChanges(accountId)
-      .then((r) => setRows(r?.changes || []))
+      .then((r) => {
+        setRows(r?.changes || []);
+        setAddOns(r?.addOns || []);
+      })
       .catch(() => setRows([]));
   }, [accountId]);
   useEffect(load, [load]);
-  if (!rows?.length) return null;
+  if (!rows?.length && !addOns.length) return null;
   const word = (unit, n) => `${n} ${unit === 'EMPLOYEE' ? (n === 1 ? 'employee' : 'employees') : n === 1 ? 'user' : 'users'}`;
+  const byHead = (unit) => unit === 'EMPLOYEE' || unit === 'USER';
+  const openFor = new Set(rows.filter((c) => c.kind === 'APP' && c.status === 'OPEN').map((c) => c.appCode));
+  const takingWhat = taking ? (taking.kind === 'APP' ? `${taking.appName} comes off` : `${word(taking.unit, taking.added)} come off`) : '';
   return (
     <section aria-labelledby="ops-seat-changes" className="grid gap-3" style={{ marginTop: 24 }}>
-      <h3 id="ops-seat-changes" className="ops-h2">Seats the customer added</h3>
-      <table className="ws-table">
+      {addOns.length ? (
+        <>
+          <h3 id="ops-add-ons" className="ops-h2">Apps the customer added</h3>
+          <table className="ws-table" aria-labelledby="ops-add-ons">
+            <thead>
+              <tr>
+                <th scope="col">App</th>
+                <th scope="col">Plan</th>
+                <th scope="col">Since</th>
+                <th scope="col" className="text-right">Each period</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {addOns.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.appName}</td>
+                  <td>
+                    {a.planName}
+                    {byHead(a.unit) ? <span className="ws-item-sub" style={{ display: 'block' }}>{word(a.unit, a.quantity)}</span> : null}
+                  </td>
+                  <td>{day(a.since)}</td>
+                  <td className="text-right tabular-nums">{inr(a.listAmount)}</td>
+                  <td className="text-right">
+                    {may(role, 'BILLING') && !openFor.has(a.appCode) ? (
+                      <button type="button" className="ws-link" onClick={() => setEnding(a)}>
+                        Take off
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
+      {rows.length ? <h3 id="ops-seat-changes" className="ops-h2">What the customer added</h3> : null}
+      {rows.length ? (
+      <table className="ws-table" aria-labelledby="ops-seat-changes">
         <thead>
           <tr>
             <th scope="col">Added</th>
-            <th scope="col">Seats</th>
+            <th scope="col">What</th>
             <th scope="col">Invoice</th>
             <th scope="col" className="text-right">Amount</th>
             <th scope="col">Status</th>
@@ -1374,10 +1420,19 @@ function SeatChanges({ accountId, name, role, openInvoice, reload }) {
               <tr key={c.id}>
                 <td>{day(c.createdAt)}</td>
                 <td>
-                  {word(c.unit, c.added)} more
-                  <span className="ws-item-sub" style={{ display: 'block' }}>
-                    {c.fromQuantity} to {c.toQuantity}
-                  </span>
+                  {c.kind === 'APP' ? (
+                    <>
+                      {c.appName}
+                      {byHead(c.unit) ? <span className="ws-item-sub" style={{ display: 'block' }}>{word(c.unit, c.added)}</span> : null}
+                    </>
+                  ) : (
+                    <>
+                      {word(c.unit, c.added)} more
+                      <span className="ws-item-sub" style={{ display: 'block' }}>
+                        {c.fromQuantity} to {c.toQuantity}
+                      </span>
+                    </>
+                  )}
                 </td>
                 <td>
                   {c.invoice ? (
@@ -1406,10 +1461,26 @@ function SeatChanges({ accountId, name, role, openInvoice, reload }) {
           })}
         </tbody>
       </table>
+      ) : null}
+      <ReasonDrawer
+        open={Boolean(ending)}
+        title={ending ? `Take ${ending.appName} off` : ''}
+        what={ending ? `${ending.appName} comes off ${name}'s plan now and stops renewing. Its data stays. No refund is made here; raise a credit note for that.` : ''}
+        confirmLabel="Take off"
+        tone="danger"
+        onClose={() => setEnding(null)}
+        onConfirm={async (reason) => {
+          await opsEndAddOn(ending.id, reason);
+          notify.success(`${ending.appName} is off the plan.`);
+          setEnding(null);
+          load();
+          reload();
+        }}
+      />
       <ReasonDrawer
         open={Boolean(taking)}
-        title="Take these seats back"
-        what={taking ? `${word(taking.unit, taking.added)} come off ${name}'s plan now, and invoice ${taking.invoice?.number || ''} is cancelled. The customer sees why in their activity.` : ''}
+        title={taking?.kind === 'APP' ? 'Take this app back' : 'Take these seats back'}
+        what={taking ? `${takingWhat} ${name}'s plan now, and invoice ${taking.invoice?.number || ''} is cancelled. The customer sees why in their activity.` : ''}
         confirmLabel="Take back"
         tone="danger"
         onClose={() => setTaking(null)}

@@ -6,6 +6,7 @@ import { sendTemplate } from '../services/mailer.js';
 import { periodEnd } from '../services/pricing/deals.js';
 import { rupees } from '../services/pricing/engine.js';
 import { SYSTEM_OPERATOR } from '../routes/ops.js';
+import { addOnLines } from './addOns.js';
 import { autoSend } from './booksConnector.js';
 import { createDraft, dealLine, issueInvoice } from './invoices.js';
 import { recipientFor, recordedSend } from './invoiceEmail.js';
@@ -108,12 +109,14 @@ export async function runRenewals(now = new Date(), only?: string[]): Promise<Re
         if (!draftId) {
           /* The offer's price only if it lasts beyond the moment the paid period ends. */
           const line = dealLine(sub, sub.currentPeriodEnd!);
-          if (!line || line.amount <= 0) {
+          /* Apps the customer added on their own renew beside the plan, each on its own line (billing/addOns.ts). */
+          const lines = [...(line && line.amount > 0 ? [line] : []), ...(await addOnLines(sub.accountId, sub.billingInterval))];
+          if (!lines.length) {
             out.skipped += 1;
             continue;
           }
           const draft = await createDraft(
-            { accountId: sub.accountId, lines: [line], periodStart: startIso, periodEnd: lastIso, months: period === 'YEARLY' ? 12 : 1, note: 'Renewal of your CLOR subscription.' },
+            { accountId: sub.accountId, lines, periodStart: startIso, periodEnd: lastIso, months: period === 'YEARLY' ? 12 : 1, note: 'Renewal of your CLOR subscription.' },
             null,
             { source: 'RENEWAL', renewalFor: startIso },
           );

@@ -2332,6 +2332,18 @@ because focus, portals and event order cannot be read off the source.
 
 ## Decisions Log
 
+- **2026-11-19 — Customers add apps themselves (owner, 17 Nov: seats and apps on at once):** the
+  same switch and guards as seats. Change plan shows **Add an app** when an app the plan lacks is on the
+  price list. The drawer picks the app (radio list), its plan when it has more than one (name with its
+  one-line description), and how many employees or users, starting at the plan's own count; it prices
+  live in the same rows as seats, at the **list price** (no offer), and the one primary button is named
+  by the app, "Add People". Added, it works at once and the invoice opens; each renewal after carries
+  it as its **own line**. "Apps on this plan" marks it "(added)"; People brings Attendance, and an
+  account with Attendance is not offered People (moving is the Move to People request). Ops: "Apps the
+  customer added" above the additions list, with **Take off** for a paid one (Finance, with a reason,
+  no refund) and **Take back** for one still waiting to be paid. A plan CLOR sets keeps an added app,
+  or ends it when the new plan includes the app. Changing an added app's count stays with CLOR.
+
 - **2026-11-18 — Customers add seats themselves (owner, 17 Nov: on at once, like Claude Team and
   Microsoft 365; 14 days to pay):** Workspace, Billing & seats, Change plan shows "This plan is paid
   for N users" and **Add users** (or employees) when CLOR has it switched on and the plan is active,

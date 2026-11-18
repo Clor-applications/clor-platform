@@ -26,6 +26,7 @@ import { checkPayLink, onlinePayment, payLinkFor } from '../billing/payLinks.js'
 import { PaymentsError } from '../billing/providers.js';
 import { DealError } from '../services/pricing/deals.js';
 import { addSeats, changesFor, eligibility, quoteSeats } from '../billing/selfServe.js';
+import { addApp, appOptions, quoteApp } from '../billing/selfServeApps.js';
 import { applyGrant, askForGrant, recordGrant, type PlanGrant } from '../services/ops/grants.js';
 
 export const billingRouter = Router();
@@ -347,6 +348,55 @@ billingRouter.post('/billing/seats', async (req, res) => {
     const r = await addSeats(req.tenant!.accountId, p.data.add, req.auth!.userId, p.data.total ?? null);
     res.status(201).json({
       change: { id: r.change.id, status: r.change.status, added: r.change.added, toQuantity: r.change.toQuantity, dueAt: r.change.dueAt },
+      invoice: r.invoice ? { id: r.invoice.id, number: r.invoice.number, total: r.invoice.total, dueDate: r.invoice.dueDate } : null,
+    });
+  } catch (e) {
+    seatsFail(res, e);
+  }
+});
+
+/*
+ * Apps the customer adds themselves (billing/selfServeApps.ts): the same rules
+ * and the same switch as seats. Priced from the app's own price book plan.
+ */
+const appsDenied = 'Only the people who may change this account’s settings add apps.';
+
+billingRouter.get('/billing/apps', async (req, res) => {
+  if (!(await mayChangePlan(req))) return res.status(403).json({ error: appsDenied });
+  const { eligibility: e, options, addOns } = await appOptions(req.tenant!.accountId);
+  res.json({
+    open: e.settings.on,
+    eligible: e.ok,
+    reason: e.ok ? null : e.refusal.reason,
+    code: e.ok ? null : e.refusal.code,
+    invoiceId: e.ok ? null : (e.refusal.invoiceId ?? null),
+    period: e.ok ? (e.sub.billingInterval === 'year' ? 'year' : 'month') : null,
+    payDays: e.settings.payDays,
+    options,
+    addOns,
+  });
+});
+
+billingRouter.get('/billing/apps/quote', async (req, res) => {
+  if (!(await mayChangePlan(req))) return res.status(403).json({ error: appsDenied });
+  try {
+    const { line: _l, ...q } = await quoteApp(req.tenant!.accountId, String(req.query.plan || ''), Number(req.query.quantity));
+    res.json({ quote: q });
+  } catch (e) {
+    seatsFail(res, e);
+  }
+});
+
+const appSchema = z.object({ plan: z.string().min(1).max(64), quantity: z.number().int().min(1).max(100000), total: z.number().int().min(0).optional().nullable() });
+
+billingRouter.post('/billing/apps', async (req, res) => {
+  if (!(await mayChangePlan(req))) return res.status(403).json({ error: appsDenied });
+  const p = appSchema.safeParse(req.body ?? {});
+  if (!p.success) return res.status(400).json({ error: 'Choose a plan and say how many.' });
+  try {
+    const r = await addApp(req.tenant!.accountId, p.data.plan, p.data.quantity, req.auth!.userId, p.data.total ?? null);
+    res.status(201).json({
+      change: { id: r.change.id, status: r.change.status, appCode: r.change.appCode, dueAt: r.change.dueAt },
       invoice: r.invoice ? { id: r.invoice.id, number: r.invoice.number, total: r.invoice.total, dueDate: r.invoice.dueDate } : null,
     });
   } catch (e) {

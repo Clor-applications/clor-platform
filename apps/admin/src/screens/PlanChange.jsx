@@ -17,6 +17,11 @@ import { Panel, WsDrawer } from './wsKit';
  * (server: billing/selfServe.ts, GET/POST /billing/seats): they work at once,
  * and a prorated invoice for the rest of the paid period opens to be paid.
  * Unpaid within the days to pay, those seats alone come off.
+ *
+ * Adding an app works the same way, under the same switch (server:
+ * billing/selfServeApps.ts, GET/POST /billing/apps): the app's own plan from
+ * the price list, the number the customer chooses, on at once, an invoice for
+ * the rest of the period, and every renewal after carries it.
  */
 const APPS = [
   ['accounting', 'Books'],
@@ -35,6 +40,8 @@ const heads = (unit, n) => `${n} ${unit === 'EMPLOYEE' ? (n === 1 ? 'employee' :
 const isoDay = (s) => (s ? new Date(`${s}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '');
 const day = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null);
 const appName = (code) => APPS.find(([k]) => k === code)?.[1] || code;
+/** "Payroll, People or Attendance". */
+const orList = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`);
 
 /**
  * `asButton`: the page's one primary action, "Change plan", opening the same
@@ -43,7 +50,9 @@ const appName = (code) => APPS.find(([k]) => k === code)?.[1] || code;
 export default function PlanChange({ asButton = false, onInvoice }) {
   const [state, setState] = useState(null);
   const [seats, setSeats] = useState(null);
+  const [apps, setApps] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [addingApp, setAddingApp] = useState(false);
   const [menu, setMenu] = useState(false);
   const [asking, setAsking] = useState(null);
   const [stopping, setStopping] = useState(false);
@@ -53,10 +62,14 @@ export default function PlanChange({ asButton = false, onInvoice }) {
       .then((r) => {
         setState(r && Array.isArray(r.ownedApps) ? r : false);
         /* Seats are only for whoever may change the plan; anyone else is never asked. */
-        if (r?.mayChangePlan)
+        if (r?.mayChangePlan) {
           apiFetch('/billing/seats')
             .then((x) => setSeats(x || null))
             .catch(() => setSeats(null));
+          apiFetch('/billing/apps')
+            .then((x) => setApps(x || null))
+            .catch(() => setApps(null));
+        }
       })
       .catch(() => setState(false));
   useEffect(() => {
@@ -102,10 +115,20 @@ export default function PlanChange({ asButton = false, onInvoice }) {
     onInvoice?.(id);
   };
   const selfServe = state.mayChangePlan && seats?.open ? seats : null;
+  const selfApps = state.mayChangePlan && apps?.open ? apps : null;
+  const canAddApp = Boolean(selfApps?.eligible && selfApps.options?.length);
+  /* People brings Attendance with it, so both read as added. */
+  const added = new Set((selfApps?.addOns || []).flatMap((a) => (a.appCode === 'people' ? ['people', 'attendance'] : [a.appCode])));
+  /* Why nothing can be added now (an invoice waiting, one overdue, the plan stopping): said once, from whichever answered. */
+  const waiting = [selfServe, selfApps].find((x) => x && ['OPEN', 'OVERDUE', 'STOPPING'].includes(x.code)) || null;
+  const addApp = () => {
+    setMenu(false);
+    setAddingApp(true);
+  };
 
   const body = (
     <>
-      <p className="ws-card-blurb">Apps on this plan: {owned.length ? owned.map(appName).join(', ') : 'none'}.</p>
+      <p className="ws-card-blurb">Apps on this plan: {owned.length ? owned.map((a) => (added.has(a) ? `${appName(a)} (added)` : appName(a))).join(', ') : 'none'}.</p>
       {selfServe?.eligible ? (
         <div className="grid gap-2">
           <p className="ws-card-blurb">This plan is paid for {heads(selfServe.unit, selfServe.quantity)}. Add more and they work at once; the extra for the rest of this period comes as an invoice.</p>
@@ -115,13 +138,24 @@ export default function PlanChange({ asButton = false, onInvoice }) {
             </button>
           </div>
         </div>
-      ) : selfServe && ['OPEN', 'OVERDUE', 'STOPPING'].includes(selfServe.code) ? (
+      ) : null}
+      {canAddApp ? (
+        <div className="grid gap-2">
+          <p className="ws-card-blurb">Add {orList(selfApps.options.map((o) => o.appName))} to this plan. It works at once; the rest of this period comes as an invoice, and each renewal after carries it.</p>
+          <div>
+            <button type="button" className="ws-btn ws-btn--quiet" onClick={addApp}>
+              Add an app
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {waiting ? (
         <p className="ws-card-blurb">
-          {selfServe.reason}
-          {selfServe.invoiceId && onInvoice ? (
+          {waiting.reason}
+          {waiting.invoiceId && onInvoice ? (
             <>
               {' '}
-              <button type="button" className="ws-link" onClick={() => openInvoice(selfServe.invoiceId)}>
+              <button type="button" className="ws-link" onClick={() => openInvoice(waiting.invoiceId)}>
                 Open the invoice
               </button>
             </>
@@ -173,7 +207,7 @@ export default function PlanChange({ asButton = false, onInvoice }) {
             Change plan
           </button>
           {menu ? (
-            <WsDrawer open onClose={() => setMenu(false)} title="Change the plan" description={selfServe ? `Add ${selfServe.unit === 'EMPLOYEE' ? 'employees' : 'users'} yourself here. For anything else, CLOR sales replies by email with the price.` : 'CLOR sales replies by email with the new price. Nothing changes until you agree.'}>
+            <WsDrawer open onClose={() => setMenu(false)} title="Change the plan" description={selfServe?.eligible || canAddApp ? `Add ${[selfServe?.eligible ? (selfServe.unit === 'EMPLOYEE' ? 'employees' : 'users') : null, canAddApp ? 'an app' : null].filter(Boolean).join(' or ') || 'to the plan'} yourself here. For anything else, CLOR sales replies by email with the price.` : 'CLOR sales replies by email with the new price. Nothing changes until you agree.'}>
               <div className="grid gap-4">{body}</div>
             </WsDrawer>
           ) : null}
@@ -187,6 +221,17 @@ export default function PlanChange({ asButton = false, onInvoice }) {
           onClose={() => setAdding(false)}
           onDone={(r) => {
             setAdding(false);
+            load();
+            if (r?.invoice?.id) onInvoice?.(r.invoice.id);
+          }}
+        />
+      ) : null}
+      {addingApp && canAddApp ? (
+        <AddAppDrawer
+          apps={selfApps}
+          onClose={() => setAddingApp(false)}
+          onDone={(r) => {
+            setAddingApp(false);
             load();
             if (r?.invoice?.id) onInvoice?.(r.invoice.id);
           }}
@@ -300,6 +345,157 @@ function AddSeatsDrawer({ seats, onClose, onDone }) {
             <div>
               <dt>From the next renewal, each {quote.period}</dt>
               <dd className="tabular-nums">{inr(quote.perPeriodMore)} more, before GST</dd>
+            </div>
+          </dl>
+        ) : valid && !quoteError ? (
+          <p className="ws-card-blurb">Working out the price…</p>
+        ) : null}
+      </form>
+    </WsDrawer>
+  );
+}
+
+const unitWords = (unit) => (unit === 'EMPLOYEE' ? 'employees' : unit === 'USER' ? 'users' : null);
+
+function AddAppDrawer({ apps, onClose, onDone }) {
+  const options = apps.options;
+  const [appCode, setAppCode] = useState(options[0].appCode);
+  const option = options.find((o) => o.appCode === appCode) || options[0];
+  const [planCode, setPlanCode] = useState(option.plans[0].code);
+  const plan = option.plans.find((p) => p.code === planCode) || option.plans[0];
+  const [count, setCount] = useState(String(plan.startAt));
+  const [quote, setQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const word = unitWords(plan.unit);
+  const n = word ? Number(count) : 1;
+  const valid = Number.isInteger(n) && n >= 1 && n <= 5000;
+
+  const pickApp = (code) => {
+    const o = options.find((x) => x.appCode === code);
+    setAppCode(code);
+    setPlanCode(o.plans[0].code);
+    setCount(String(o.plans[0].startAt));
+  };
+  const pickPlan = (code) => {
+    const p = option.plans.find((x) => x.code === code);
+    setPlanCode(code);
+    setCount(String(p.startAt));
+  };
+
+  useEffect(() => {
+    if (!valid) return undefined;
+    let live = true;
+    const t = setTimeout(() => {
+      apiFetch(`/billing/apps/quote?plan=${encodeURIComponent(plan.code)}&quantity=${n}`)
+        .then((r) => {
+          if (!live) return;
+          setQuote(r?.quote || null);
+          setQuoteError('');
+        })
+        .catch((e) => {
+          if (!live) return;
+          setQuote(null);
+          setQuoteError(String(e?.message || e));
+        });
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [plan.code, n, valid]);
+
+  const ready = valid && quote && quote.planCode === plan.code && quote.quantity === n;
+  const add = async (e) => {
+    e.preventDefault();
+    if (!ready || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const r = await apiFetch('/billing/apps', { method: 'POST', body: { plan: plan.code, quantity: n, total: quote.total } });
+      notify.success(r.invoice ? `${option.appName} added. Invoice ${r.invoice.number} is open to pay.` : `${option.appName} added.`);
+      onDone(r);
+    } catch (err) {
+      setError(String(err?.message || err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <WsDrawer
+      open
+      onClose={onClose}
+      title="Add an app"
+      description={`It works as soon as you add it. Pay the invoice within ${apps.payDays} days, or the app comes off the plan again. Your data in it stays.`}
+      actions={
+        <>
+          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>Cancel</button>
+          <button type="submit" form="ws-add-app" className="ws-btn ws-btn--primary" disabled={!ready || busy}>
+            {busy ? 'Adding…' : `Add ${option.appName}`}
+          </button>
+        </>
+      }
+    >
+      <form id="ws-add-app" className="grid gap-5" onSubmit={add}>
+        {error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{error}</p> : null}
+        <fieldset className="grid gap-2">
+          <legend>App</legend>
+          {options.map((o) => (
+            <label key={o.appCode} className="flex items-center gap-2">
+              <input type="radio" name="ws-add-app-app" value={o.appCode} checked={o.appCode === appCode} onChange={() => pickApp(o.appCode)} />
+              <span>{o.appName}</span>
+            </label>
+          ))}
+        </fieldset>
+        {option.plans.length > 1 ? (
+          <fieldset className="grid gap-2">
+            <legend>Plan</legend>
+            {option.plans.map((p) => (
+              <label key={p.code} className="flex items-start gap-2">
+                <input type="radio" name="ws-add-app-plan" value={p.code} checked={p.code === plan.code} onChange={() => pickPlan(p.code)} />
+                <span>
+                  {p.name}
+                  {p.description ? <span className="ui-caption block">{p.description}</span> : null}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        ) : (
+          <p className="ws-card-blurb">
+            {plan.name}
+            {plan.description ? `: ${plan.description}` : ''}
+          </p>
+        )}
+        {word ? (
+          <label className="grid">
+            <span>How many {word}</span>
+            <input className="ui-input" type="number" inputMode="numeric" min={1} max={5000} value={count} onChange={(e) => setCount(e.target.value)} aria-describedby="ws-add-app-hint" />
+            <span id="ws-add-app-hint" className="ui-caption">
+              {valid ? `${inr(plan.basePrice)} each ${apps.period} covers ${heads(plan.unit, plan.includedUnits)}; ${inr(plan.extraUnitPrice)} for each one more.` : 'A whole number from 1. For more than 5,000, ask CLOR.'}
+            </span>
+          </label>
+        ) : null}
+        {valid && quoteError ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--ws-danger))' }}>{quoteError}</p> : null}
+        {ready ? (
+          <dl className="ws-seat-quote">
+            <div>
+              <dt>For {isoDay(quote.from)} to {isoDay(quote.to)}</dt>
+              <dd className="tabular-nums">{inr(quote.subtotal)}</dd>
+            </div>
+            {quote.taxTotal ? (
+              <div>
+                <dt>GST</dt>
+                <dd className="tabular-nums">{inr(quote.taxTotal)}</dd>
+              </div>
+            ) : null}
+            <div className="ws-seat-quote-total">
+              <dt>To pay by {isoDay(quote.dueOn)}</dt>
+              <dd className="tabular-nums">{inr(quote.total)}</dd>
+            </div>
+            <div>
+              <dt>From the next renewal, each {quote.period}</dt>
+              <dd className="tabular-nums">{inr(quote.perPeriod)}, before GST</dd>
             </div>
           </dl>
         ) : valid && !quoteError ? (
