@@ -45,7 +45,7 @@ const LINE_BODY = z.object({
   spentOn: DAY, categoryId: text(80).nullish(), amount: NUMBERISH, merchant: text(2000).nullish(), note: text(5000).nullish(),
   companyGstin: flag.nullish(), supplierGstin: text(200).nullish(), taxAmount: NUMBERISH,
   /* The bill as a data URL: the route's body may be 7 MB (app.ts). */
-  bill: rawText(7_400_000).nullish(), billName: text(2000).nullish(), notDuplicate: flag.nullish(),
+  bill: rawText(7_400_000).nullish(), billName: text(2000).nullish(), notDuplicate: flag.nullish(), paidByCompany: flag.nullish(),
 });
 const ASK_BODY = z.object({ amount: NUMBERISH, months: NUMBERISH, reason: text(5000).nullish() });
 /* claims, advances or salary-advance; any other word is the handler's 404. */

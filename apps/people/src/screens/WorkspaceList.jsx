@@ -128,7 +128,7 @@ export default function WorkspaceList({ kind, params }) {
       label={cfg.title} columns={status === 'ALL' || extra.keepStatus ? columns : columns.filter((c) => c.key !== 'status')} rows={list} loading={req.loading} refreshing={req.refreshing}
       total={list.length} pageSize={Math.max(25, list.length)} noun={extra.noun || noun}
       onRowClick={open} rowActions={rowActions}
-      card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{symbolOf(r.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(r.details.symbol).emoji}</span> : null}{kind === 'benefits' ? names.get(r.employeeId) || r.title : r.title}</span>{kind === 'assets' ? <AssetPill cfg={cfg} row={r} holder={people.get(r.employeeId)} today={today} /> : <StatusPill cfg={cfg} status={r.status} />}</span><span className="block truncate ui-caption">{kind === 'assets' ? [r.details?.assetTag, r.details?.category, names.get(r.employeeId) || NOBODY.assets].filter(Boolean).join(' · ') : kind === 'benefits' ? [r.title, r.details?.coverage, day(r.details?.startDate)].filter(Boolean).join(' · ') : [cfg.employee ? names.get(r.employeeId) || NOBODY[kind] || 'Nobody' : null, ...cfg.columns.map((k) => detailValue(r, k))].filter(Boolean).join(' · ')}</span></span>}
+      card={(r) => <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate font-medium">{symbolOf(r.details?.symbol) ? <span className="mr-1.5" aria-hidden="true">{symbolOf(r.details.symbol).emoji}</span> : null}{kind === 'benefits' ? names.get(r.employeeId) || r.title : r.title}</span>{kind === 'assets' ? <AssetPill cfg={cfg} row={r} holder={people.get(r.employeeId)} today={today} /> : <StatusPill cfg={cfg} status={r.status} />}</span><span className="block truncate ui-caption">{kind === 'assets' ? [r.details?.assetTag, r.details?.category, names.get(r.employeeId) || NOBODY.assets, r.details?.problem ? 'Problem reported' : null].filter(Boolean).join(' · ') : kind === 'benefits' ? [r.title, r.details?.coverage, day(r.details?.startDate)].filter(Boolean).join(' · ') : [cfg.employee ? names.get(r.employeeId) || NOBODY[kind] || 'Nobody' : null, ...cfg.columns.map((k) => detailValue(r, k))].filter(Boolean).join(' · ')}</span></span>}
       empty={extra.empty || empty} />
   );
   let body;
@@ -237,6 +237,13 @@ function RecordDrawer({ kind, cfg, rows, value, employees, onClose, onDone }) {
             options={[...(cfg.requiredEmployee ? [] : [{ value: '', label: NOBODY[kind] || 'Nobody' }]), ...employees.filter((p) => p.status !== 'LEFT' || p.id === form.employeeId).map((p) => ({ value: p.id, label: p.code ? `${p.name} (${p.code})` : p.name }))]} /></div>
         ) : null}
         {cfg.fields.map(fieldOf)}
+        {/* Round 51 picks: what the holder said from the employee app, read here; kept while the same person holds it. */}
+        {kind === 'assets' && (form.details.problem || form.details.confirmedOn) ? (
+          <div className="sm:col-span-2 space-y-1 text-sm" aria-label="From the holder">
+            {form.details.confirmedOn ? <p className="ui-caption">The holder confirmed they still have it on {day(form.details.confirmedOn)}.</p> : null}
+            {form.details.problem ? <p className="ui-text-warn">Problem reported{form.details.problemOn ? ` on ${day(form.details.problemOn)}` : ''}: {form.details.problem}</p> : null}
+          </div>
+        ) : null}
       </form>
     </Drawer>
   );

@@ -44,6 +44,8 @@ export type Staff = { accountId: string; orgId: string; userId: string; correlat
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_AMOUNT = 1_000_000;
+/** How far back the person may claim a bill themselves (picks round 51). */
+export const CLAIM_DAYS = 60;
 export const BILL_MAX_BYTES = 5 * 1024 * 1024;
 const BILL_MIMES = /^(application\/pdf|image\/(jpeg|png|webp))$/;
 const OPEN_CLAIM = ['DRAFT', 'SUBMITTED', 'APPROVED', 'PAYING', 'WITH_SALARY', 'PAID', 'SETTLED'];
@@ -196,8 +198,8 @@ async function backToDraft(orgId: string, claimId: string, from: 'SUBMITTED' | '
     const draft = await tx.expenseClaim.findFirst({ where: { orgId, employeeId: c.employeeId, status: 'DRAFT', id: { not: c.id } }, orderBy: { createdAt: 'asc' } });
     if (draft) {
       await tx.expenseLine.updateMany({ where: { claimId: c.id, orgId }, data: { claimId: draft.id } });
-      const lines = await tx.expenseLine.findMany({ where: { claimId: draft.id, orgId }, select: { amount: true } });
-      await tx.expenseClaim.update({ where: { id: draft.id }, data: { claimedTotal: round2(lines.reduce((t, l) => t + num(l.amount), 0)) } });
+      const lines = await tx.expenseLine.findMany({ where: { claimId: draft.id, orgId }, select: { amount: true, paidByCompany: true } });
+      await tx.expenseClaim.update({ where: { id: draft.id }, data: { claimedTotal: round2(lines.reduce((t, l) => t + owed(l), 0)) } });
       await tx.expenseClaim.delete({ where: { id: c.id } });
     } else {
       await tx.expenseClaim.update({ where: { id: c.id }, data: { status: 'DRAFT', approvalRequestId: null, submittedAt: null, decidedAt: null, approvedTotal: null, advanceId: null } });
@@ -213,8 +215,8 @@ async function theDraft(tx: Prisma.TransactionClient, orgId: string, employeeId:
       await tx.expenseLine.updateMany({ where: { claimId: d.id, orgId }, data: { claimId: drafts[0].id } });
       await tx.expenseClaim.delete({ where: { id: d.id } });
     }
-    const lines = await tx.expenseLine.findMany({ where: { claimId: drafts[0].id, orgId }, select: { amount: true } });
-    return tx.expenseClaim.update({ where: { id: drafts[0].id }, data: { claimedTotal: round2(lines.reduce((t, l) => t + num(l.amount), 0)) } });
+    const lines = await tx.expenseLine.findMany({ where: { claimId: drafts[0].id, orgId }, select: { amount: true, paidByCompany: true } });
+    return tx.expenseClaim.update({ where: { id: drafts[0].id }, data: { claimedTotal: round2(lines.reduce((t, l) => t + owed(l), 0)) } });
   }
   return drafts[0] || null;
 }
@@ -290,7 +292,7 @@ export function decodeBill(input: unknown): { mime: string; data: Buffer; sha256
 // The person's own: adding bills, sending a claim
 // ---------------------------------------------------------------------------
 
-type LineInput = { spentOn?: unknown; categoryId?: unknown; amount?: unknown; merchant?: unknown; note?: unknown; companyGstin?: unknown; supplierGstin?: unknown; taxAmount?: unknown; bill?: unknown; billName?: unknown; notDuplicate?: unknown };
+type LineInput = { spentOn?: unknown; categoryId?: unknown; amount?: unknown; merchant?: unknown; note?: unknown; companyGstin?: unknown; supplierGstin?: unknown; taxAmount?: unknown; bill?: unknown; billName?: unknown; notDuplicate?: unknown; paidByCompany?: unknown };
 
 /** One bill, checked: the date, the amount, the shop, the category, the GSTIN and tax, the photo. Shared by the person's own bills and HR's recording. */
 async function lineInput(orgId: string, input: LineInput) {
@@ -317,7 +319,7 @@ async function lineInput(orgId: string, input: LineInput) {
     bill = d;
   }
   const note = String(input.note ?? '').trim().slice(0, 300) || null;
-  return { spentOn, amount, merchant, category, companyGstin, supplierGstin, tax, bill, note, billName: String(input.billName || 'bill').trim().slice(0, 120) || 'bill' };
+  return { spentOn, amount, merchant, category, companyGstin, supplierGstin, tax, bill, note, paidByCompany: Boolean(input.paidByCompany), billName: String(input.billName || 'bill').trim().slice(0, 120) || 'bill' };
 }
 
 /**
@@ -342,7 +344,7 @@ export async function recordClaim(staff: Staff, input: { employeeId?: unknown; t
     advanceId = adv.id;
   }
   const key = pendingLink();
-  const total = round2(lines.reduce((t, l) => t + l.amount, 0));
+  const total = round2(lines.reduce((t, l) => t + (l.paidByCompany ? 0 : l.amount), 0));
   const me: Me = { accountId: staff.accountId, orgId: staff.orgId, employeeId: e.id, correlationId: staff.correlationId };
   const made = await peoplePrisma.$transaction(async (tx) => {
     await lock(tx, `people-money-draft:${e.id}`);
@@ -355,7 +357,7 @@ export async function recordClaim(staff: Staff, input: { employeeId?: unknown; t
       }
       const twin = await tx.expenseLine.findFirst({ where: { orgId: staff.orgId, spentOn: l.spentOn, amount: l.amount, merchant: { equals: l.merchant, mode: 'insensitive' }, claim: { status: { in: OPEN_CLAIM }, id: { not: claim.id } } }, select: { id: true } });
       const billRow = l.bill ? await tx.expenseBill.create({ data: { accountId: staff.accountId, orgId: staff.orgId, employeeId: e.id, name: l.billName, mime: l.bill.mime, size: l.bill.data.length, sha256: l.bill.sha256, data: l.bill.data } }) : null;
-      await tx.expenseLine.create({ data: { accountId: staff.accountId, orgId: staff.orgId, claimId: claim.id, employeeId: e.id, spentOn: l.spentOn, categoryId: l.category.id, categoryName: l.category.name, merchant: l.merchant, amount: l.amount, note: l.note, billId: billRow?.id ?? null, companyGstin: l.companyGstin, supplierGstin: l.supplierGstin, taxAmount: l.tax, duplicateOf: twin?.id ?? null } });
+      await tx.expenseLine.create({ data: { accountId: staff.accountId, orgId: staff.orgId, claimId: claim.id, employeeId: e.id, spentOn: l.spentOn, categoryId: l.category.id, categoryName: l.category.name, merchant: l.merchant, amount: l.amount, note: l.note, billId: billRow?.id ?? null, companyGstin: l.companyGstin, supplierGstin: l.supplierGstin, taxAmount: l.tax, duplicateOf: twin?.id ?? null, paidByCompany: l.paidByCompany } });
     }
     return { claim, monthTotal: await sentThisMonth(tx, staff.orgId, e.id, 'claim') };
   });
@@ -376,7 +378,8 @@ export async function addLine(me: Me, input: LineInput) {
   const spentOn = String(input.spentOn || '').slice(0, 10);
   if (!ISO.test(spentOn)) throw new MoneyError('When did you spend it?');
   if (spentOn > todayIst()) throw new MoneyError('That date is in the future.');
-  if (spentOn < addDays(todayIst(), -365)) throw new MoneyError('Bills older than a year cannot be claimed here. Ask HR.');
+  /* Picks round 51: a bill is claimed within 60 days. HR can still record an older one (recordClaim, a year). */
+  if (spentOn < addDays(todayIst(), -CLAIM_DAYS)) throw new MoneyError(`Bills older than ${CLAIM_DAYS} days cannot be claimed here. Ask HR.`, 400, 'TOO_OLD');
   const amount = round2(Number(input.amount));
   if (!Number.isFinite(amount) || amount <= 0) throw new MoneyError('How much did you spend?');
   if (amount > MAX_AMOUNT) throw new MoneyError('That is more than ₹10,00,000. Ask HR to pay it directly.');
@@ -396,6 +399,7 @@ export async function addLine(me: Me, input: LineInput) {
     bill = d;
   }
   const note = String(input.note ?? '').trim().slice(0, 300) || null;
+  const paidByCompany = Boolean(input.paidByCompany);
 
   return peoplePrisma.$transaction(async (tx) => {
     /* One writer per person's draft, and one per bill across the company: the same photo sent twice at once is caught. */
@@ -408,23 +412,19 @@ export async function addLine(me: Me, input: LineInput) {
         if (used) throw new MoneyError(used.employeeId === me.employeeId ? `This bill is already on ${used.claim.number}.` : 'This bill has already been claimed.', 409, 'DUPLICATE_BILL');
       }
     }
-    /* Same amount, day and place: the person's own is asked about; a colleague's (one meal, two claims) goes to the approver as a flag. */
-    const twins = await tx.expenseLine.findMany({ where: { orgId: me.orgId, spentOn, amount, merchant: { equals: merchant, mode: 'insensitive' }, claim: { status: { in: OPEN_CLAIM } } }, select: { id: true, employeeId: true, claim: { select: { number: true } } }, take: 5 });
-    const mine = twins.find((t) => t.employeeId === me.employeeId);
-    if (mine && !input.notDuplicate) {
-      throw new MoneyError(`You already have ${inr(amount)} at ${merchant} on that day (${mine.claim.number}). Is this a different bill?`, 409, 'POSSIBLE_DUPLICATE');
-    }
-    const twin = mine || twins[0] || null;
+    /* Same amount, day and place, theirs or a colleague's: never asked of the person (picks round 51); the approver sees the flag and decides. */
+    const twins = await tx.expenseLine.findMany({ where: { orgId: me.orgId, spentOn, amount, merchant: { equals: merchant, mode: 'insensitive' }, claim: { status: { in: OPEN_CLAIM } } }, select: { id: true, employeeId: true }, take: 5 });
+    const twin = twins.find((t) => t.employeeId === me.employeeId) || twins[0] || null;
     let claim = await theDraft(tx, me.orgId, me.employeeId);
     if (!claim) claim = await tx.expenseClaim.create({ data: { accountId: me.accountId, orgId: me.orgId, employeeId: me.employeeId, number: await nextNumber(tx, me.orgId, 'claim'), title: 'Spent for work' } });
     const billRow = bill ? await tx.expenseBill.create({ data: { accountId: me.accountId, orgId: me.orgId, employeeId: me.employeeId, name: String(input.billName || 'bill').trim().slice(0, 120) || 'bill', mime: bill.mime, size: bill.data.length, sha256: bill.sha256, data: bill.data } }) : null;
     const line = await tx.expenseLine.create({
       data: {
         accountId: me.accountId, orgId: me.orgId, claimId: claim.id, employeeId: me.employeeId, spentOn, categoryId: category.id, categoryName: category.name,
-        merchant, amount, note, billId: billRow?.id ?? null, companyGstin, supplierGstin, taxAmount: tax, duplicateOf: twin ? twin.id : null,
+        merchant, amount, note, billId: billRow?.id ?? null, companyGstin, supplierGstin, taxAmount: tax, duplicateOf: twin ? twin.id : null, paidByCompany,
       },
     });
-    await tx.expenseClaim.update({ where: { id: claim.id }, data: { claimedTotal: round2(num(claim.claimedTotal) + amount) } });
+    await tx.expenseClaim.update({ where: { id: claim.id }, data: { claimedTotal: round2(num(claim.claimedTotal) + (paidByCompany ? 0 : amount)) } });
     return { lineId: line.id, claimId: claim.id, overLimit: category.limitPerBill != null && amount > Number(category.limitPerBill) ? Number(category.limitPerBill) : null };
   });
 }
@@ -437,11 +437,16 @@ export async function removeLine(me: Me, lineId: string) {
     if (line.claim.status !== 'DRAFT') throw new MoneyError('This bill has been sent. Withdraw the claim first.', 409);
     await tx.expenseLine.delete({ where: { id: line.id } });
     if (line.billId) await tx.expenseBill.deleteMany({ where: { id: line.billId, orgId: me.orgId } });
-    const left = await tx.expenseLine.findMany({ where: { claimId: line.claimId }, select: { amount: true } });
-    await tx.expenseClaim.update({ where: { id: line.claimId }, data: { claimedTotal: round2(left.reduce((t, l) => t + num(l.amount), 0)) } });
+    const left = await tx.expenseLine.findMany({ where: { claimId: line.claimId }, select: { amount: true, paidByCompany: true } });
+    await tx.expenseClaim.update({ where: { id: line.claimId }, data: { claimedTotal: round2(left.reduce((t, l) => t + owed(l), 0)) } });
     return { ok: true };
   });
 }
+
+/** What a bill asks back: nothing when the company's card paid it (picks round 51). */
+const owed = (l: { amount: unknown; paidByCompany?: boolean | null }) => (l.paidByCompany ? 0 : num(l.amount));
+/** What an approver allowed to pay back for a bill. */
+const allowedOf = (l: { amount: unknown; approvedAmount: unknown; paidByCompany?: boolean | null }) => (l.paidByCompany ? 0 : l.approvedAmount == null ? num(l.amount) : num(l.approvedAmount));
 
 /** What is left on an advance: paid, less what claims used, what was given back, and what salary took or is taking. */
 export const advanceOpen = (a: { amount: unknown; settledAmount: unknown; returnedAmount: unknown; recoveredAmount: unknown; recoveringAmount?: unknown }) => round2(num(a.amount) - num(a.settledAmount) - num(a.returnedAmount) - num(a.recoveredAmount) - num(a.recoveringAmount));
@@ -486,7 +491,7 @@ export async function submitClaim(me: Me, claimId: string, input: { title?: unkn
     if (claim.status !== 'DRAFT') throw new MoneyError('This claim has already been sent.', 409, 'NOT_DRAFT');
     if (!claim.lines.length) throw new MoneyError('Add a bill first.');
     const title = String(input.title ?? '').trim().slice(0, 120) || claim.title;
-    const total = round2(claim.lines.reduce((t, l) => t + num(l.amount), 0));
+    const total = round2(claim.lines.reduce((t, l) => t + owed(l), 0));
     await tx.expenseClaim.update({ where: { id: claim.id }, data: { status: 'SUBMITTED', title, advanceId, claimedTotal: total, submittedAt: new Date(), approvalRequestId: `${PENDING}${key}` } });
     return { claim, title, total, monthTotal: await sentThisMonth(tx, me.orgId, me.employeeId, 'claim') };
   });
@@ -620,7 +625,7 @@ function shapeClaim(c: ClaimRow, extra: { words?: { status: string; comment: str
         approvedAmount: l.approvedAmount == null ? null : num(l.approvedAmount), cutReason: l.cutReason, note: l.note, billId: l.billId,
         companyGstin: l.companyGstin, supplierGstin: l.supplierGstin, taxAmount: l.taxAmount == null ? null : num(l.taxAmount),
         overLimit: cat?.limitPerBill != null && num(l.amount) > cat.limitPerBill ? cat.limitPerBill : null,
-        creditBlocked: Boolean(cat?.creditBlocked), possibleDuplicate: Boolean(l.duplicateOf),
+        creditBlocked: Boolean(cat?.creditBlocked), possibleDuplicate: Boolean(l.duplicateOf), paidByCompany: Boolean(l.paidByCompany),
       };
     }),
   };
@@ -766,7 +771,7 @@ export async function approveClaim(request: { id: string; orgId: string; account
     const claim = await tx.expenseClaim.findFirst({ where: { orgId: request.orgId, status: 'SUBMITTED', OR: [{ approvalRequestId: request.id }, ...(request.idempotencyKey?.startsWith('expense-claim:') ? [{ approvalRequestId: `${PENDING}${request.idempotencyKey.slice('expense-claim:'.length)}` }] : [])] }, include: { lines: true } });
     if (!claim) return null;
     await lock(tx, `people-money-claim:${claim.id}`);
-    const approved = round2(claim.lines.reduce((t, l) => t + (l.approvedAmount == null ? num(l.amount) : num(l.approvedAmount)), 0));
+    const approved = round2(claim.lines.reduce((t, l) => t + allowedOf(l), 0));
     let settled = 0;
     if (claim.advanceId) {
       await lock(tx, `people-money-advance-row:${claim.advanceId}`);
@@ -980,7 +985,7 @@ export async function report(orgId: string, range: { from?: string; to?: string 
     for (const l of lines) {
       const k = key(l);
       const row = m.get(k) || { key: k, amount: 0, bills: 0, gst: 0 };
-      row.amount = round2(row.amount + (l.approvedAmount == null ? num(l.amount) : num(l.approvedAmount)));
+      row.amount = round2(row.amount + allowedOf(l));
       row.bills += 1;
       if (l.companyGstin) row.gst = round2(row.gst + num(l.taxAmount));
       m.set(k, row);
@@ -994,7 +999,7 @@ export async function report(orgId: string, range: { from?: string; to?: string 
   const toPay = await peoplePrisma.expenseClaim.findMany({ where: { orgId, status: 'APPROVED' }, select: { approvedTotal: true, advanceSettled: true } });
   return {
     from, to,
-    total: round2(lines.reduce((t, l) => t + (l.approvedAmount == null ? num(l.amount) : num(l.approvedAmount)), 0)),
+    total: round2(lines.reduce((t, l) => t + allowedOf(l), 0)),
     byPerson, byCategory: sum((l) => l.categoryName), byMonth,
     openAdvances: advances, openAdvanceTotal: round2(advances.reduce((t, a) => t + a.open, 0)),
     waiting: { count: waiting._count, amount: num(waiting._sum.claimedTotal) },
@@ -1031,7 +1036,7 @@ export async function exportCsv(orgId: string, kind: 'claims' | 'books', range: 
   const byId = new Map(people.map((p) => [p.id, p]));
   const advNo = new Map(advs.map((a) => [a.id, a.number]));
   const how = (c: (typeof claims)[number]) => (c.payMode === 'SALARY' ? `With salary${c.payrollPeriodName ? ` (${c.payrollPeriodName})` : ''}${c.status === 'WITH_SALARY' ? ', waiting for Payroll' : ''}` : c.payMode === 'NOW' ? 'Paid now' : c.status === 'SETTLED' ? 'Set against advance' : 'Not paid yet');
-  const rows: unknown[][] = [['Claim', 'Employee', 'Employee ID', 'Bill date', 'Category', 'Spent at', 'Claimed', 'Approved', 'Bill in company GSTIN', 'Supplier GSTIN', 'GST on bill', 'GST credit usually blocked', 'Advance used', 'Set against advance', 'Paid', 'Paid on', 'Paid by', 'Reference']];
+  const rows: unknown[][] = [['Claim', 'Employee', 'Employee ID', 'Bill date', 'Category', 'Spent at', 'Claimed', 'Approved', 'Bill in company GSTIN', 'Supplier GSTIN', 'GST on bill', 'GST credit usually blocked', 'Advance used', 'Set against advance', 'Paid', 'Paid on', 'Paid by', 'Reference', 'Paid with company card']];
   for (const c of claims) {
     const lines = [...c.lines].sort((a, b) => a.spentOn.localeCompare(b.spentOn));
     lines.forEach((l, i) => {
@@ -1042,14 +1047,14 @@ export async function exportCsv(orgId: string, kind: 'claims' | 'books', range: 
         l.categoryId && catMap.get(l.categoryId)?.creditBlocked ? 'Yes' : 'No',
         /* The set-off is the claim's, so it is written once, on its first bill. */
         c.advanceId ? advNo.get(c.advanceId) || '' : '', i === 0 && num(c.advanceSettled) ? num(c.advanceSettled).toFixed(2) : '',
-        how(c), c.paidOn || '', c.paidMethod || '', c.paidReference || '',
+        how(c), c.paidOn || '', c.paidMethod || '', c.paidReference || '', l.paidByCompany ? 'Yes' : 'No',
       ]);
     });
   }
   if (kind === 'books') {
     const advances = await peoplePrisma.employeeAdvance.findMany({ where: { orgId, status: { in: ['PAID', 'CLOSED'] }, booksStatus: 'TO_RECORD' }, orderBy: { createdAt: 'asc' } });
     const more = new Map((await peoplePrisma.employee.findMany({ where: { orgId, id: { in: advances.map((a) => a.employeeId) } }, select: { id: true, name: true, code: true } })).map((p) => [p.id, p]));
-    for (const a of advances) rows.push([a.number, more.get(a.employeeId)?.name || '', more.get(a.employeeId)?.code || '', a.paidOn || '', 'Advance to employee', a.purpose, num(a.amount).toFixed(2), num(a.amount).toFixed(2), 'No', '', '', 'No', '', '', 'Paid now', a.paidOn || '', a.paidMethod || '', a.paidReference || '']);
+    for (const a of advances) rows.push([a.number, more.get(a.employeeId)?.name || '', more.get(a.employeeId)?.code || '', a.paidOn || '', 'Advance to employee', a.purpose, num(a.amount).toFixed(2), num(a.amount).toFixed(2), 'No', '', '', 'No', '', '', 'Paid now', a.paidOn || '', a.paidMethod || '', a.paidReference || '', 'No']);
   }
   return csv(rows);
 }

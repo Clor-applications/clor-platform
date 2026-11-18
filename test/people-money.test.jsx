@@ -74,22 +74,22 @@ describe('the employee app: spent for work', () => {
     expect(screen.getByRole('button', { name: /Choose a file/ })).toBeTruthy();
   });
 
-  it('adds a bill; a lookalike bill is asked about and sent again as a different one', async () => {
+  it('adds a bill without asking about a lookalike (round 51: the approver sees it); a company card spend is marked', async () => {
     portal.getMoney.mockResolvedValue(base());
-    portal.addBill
-      .mockRejectedValueOnce(Object.assign(new Error('You already have ₹450 at Uber on that day (EXP-0001). Is this a different bill?'), { code: 'POSSIBLE_DUPLICATE' }))
-      .mockResolvedValueOnce({ lineId: 'l2', claimId: 'k1', overLimit: null });
+    portal.addBill.mockResolvedValueOnce({ lineId: 'l2', claimId: 'k1', overLimit: null });
     render(<MyMoney guard={guard} />);
     fireEvent.click(await screen.findByRole('button', { name: /Add a bill/ }));
     const form = screen.getByRole('form', { name: 'Add a bill' });
     fireEvent.change(within(form).getByPlaceholderText('₹'), { target: { value: '450' } });
     fireEvent.change(within(form).getByRole('combobox', { name: /What it was for/ }), { target: { value: 'c1' } });
     fireEvent.change(within(form).getByPlaceholderText('Shop, cab, hotel'), { target: { value: 'Uber' } });
+    fireEvent.click(within(form).getByRole('checkbox', { name: /Paid with the company card/ }));
+    expect(within(form).getByText(/not paid back to you/)).toBeTruthy();
     fireEvent.click(within(form).getByRole('button', { name: 'Add bill' }));
-    await waitFor(() => expect(portal.addBill).toHaveBeenCalledTimes(2));
-    expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Is this a different bill?' }));
-    expect(portal.addBill.mock.calls[0][0]).toMatchObject({ amount: 450, categoryId: 'c1', merchant: 'Uber', notDuplicate: false });
-    expect(portal.addBill.mock.calls[1][0]).toMatchObject({ notDuplicate: true });
+    await waitFor(() => expect(portal.addBill).toHaveBeenCalledTimes(1));
+    expect(dialogs.confirmDialog).not.toHaveBeenCalled();
+    expect(portal.addBill.mock.calls[0][0]).toMatchObject({ amount: 450, categoryId: 'c1', merchant: 'Uber', paidByCompany: true });
+    expect(portal.addBill.mock.calls[0][0].notDuplicate).toBeUndefined();
   });
 
   it('shows the category limit while typing, and how far over it is', async () => {
@@ -167,7 +167,7 @@ describe('the approver in the inbox drawer', () => {
     render(<MoneyRequestDetail request={{ id: 'r1', requestType: 'EXPENSE_CLAIM' }} />);
     expect(await screen.findByText(/Over the ₹1,000 limit/)).toBeTruthy();
     expect(screen.getByText(/credit usually not available/)).toBeTruthy();
-    expect(screen.getByText(/they say it is a different one/)).toBeTruthy();
+    expect(screen.getByText(/Check it is not the same one/)).toBeTruthy();
     expect(screen.getByText(/Set against advance ADV-0001/)).toBeTruthy();
     expect(screen.queryByText(/in claims this month/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Allow less on a bill' }));

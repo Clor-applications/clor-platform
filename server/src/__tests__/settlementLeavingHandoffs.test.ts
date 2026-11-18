@@ -93,7 +93,7 @@ describe('clearance on the full and final', () => {
     const employeeId = await resigned(c);
     await own(c, async () => {
       const base = { accountId: c.accountId, orgId: c.orgId, employeeId, leavingDate: '2026-10-14' };
-      const laptop = await peoplePrisma.peopleRecord.create({ data: { accountId: c.accountId, orgId: c.orgId, kind: 'assets', title: 'Laptop', status: 'ASSIGNED', employeeId, details: { assetTag: 'LT-042' }, createdBy: 'hr', updatedBy: 'hr' } });
+      const laptop = await peoplePrisma.peopleRecord.create({ data: { accountId: c.accountId, orgId: c.orgId, kind: 'assets', title: 'Laptop', status: 'ASSIGNED', employeeId, details: { assetTag: 'LT-042', value: '42000' }, createdBy: 'hr', updatedBy: 'hr' } });
       const phone = await peoplePrisma.peopleRecord.create({ data: { accountId: c.accountId, orgId: c.orgId, kind: 'assets', title: 'Phone', status: 'RETURNED', employeeId, details: { assetTag: 'PH-7' }, createdBy: 'hr', updatedBy: 'hr' } });
       await peoplePrisma.clearanceLine.createMany({
         data: [
@@ -108,11 +108,13 @@ describe('clearance on the full and final', () => {
     const s = await propose(c, employeeId);
     const clearance = s.lines.filter((l: any) => l.code.startsWith('CLEARANCE_'));
     expect(clearance.map((l: any) => [l.label, l.kind, Number(l.amount)])).toEqual([
-      ['Not returned: Laptop (LT-042)', 'DEDUCTION', 0],
+      ['Not returned: Laptop (LT-042)', 'DEDUCTION', 42_000],
       ['Clearance: ID card, keys and access', 'DEDUCTION', 500],
       ['Clearance: Security deposit', 'EARNING', 2_000],
     ]);
     expect(clearance[1].explanation).toMatch(/ID card lost.*Not handed back: ID card/);
+    /* The register's value is the line's amount (picks round 52). */
+    expect(clearance[0].explanation).toMatch(/valued there at ₹42,000/);
     expect(s.lines.some((l: any) => Number(l.amount) === 9_000 || Number(l.amount) === 7_777)).toBe(false);
     /* HR prices the laptop and the settlement saves. */
     const priced = s.lines.map((l: any) => (l.label === 'Not returned: Laptop (LT-042)' ? { ...l, amount: 35_000 } : l));

@@ -4202,8 +4202,10 @@ model ExpenseLine {
   companyGstin   Boolean  @default(false)
   supplierGstin  String?
   taxAmount      Decimal? @db.Decimal(12, 2)
-  /// Same amount, day and shop as this earlier line; the person said it is a different bill. Shown to the approver.
+  /// Same amount, day and shop as this earlier line (picks round 51: never asked of the person). Shown to the approver.
   duplicateOf    String?
+  /// Paid with the company's card (picks round 51): on the claim for the record and Books, never paid back to the person.
+  paidByCompany  Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   claim ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)

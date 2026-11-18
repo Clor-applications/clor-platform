@@ -40,7 +40,7 @@ import {
  */
 
 /* EXPENSE_CLAIM, EMPLOYEE_ADVANCE and SALARY_ADVANCE: money asked from the employee app (services/people/money). */
-export const REQUEST_TYPES = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION', 'SHIFT_SWAP', 'EXPENSE_CLAIM', 'EMPLOYEE_ADVANCE', 'SALARY_ADVANCE'] as const;
+export const REQUEST_TYPES = ['PROFILE_CHANGE', 'JOB_CHANGE', 'LEAVING', 'LEAVING_WITHDRAW', 'DOCUMENT_REQUEST', 'LETTER_REQUEST', 'POLICY_PUBLISH', 'DESK_ESCALATION', 'SEAT_REQUEST', 'PROBATION', 'SHIFT_SWAP', 'EXPENSE_CLAIM', 'EMPLOYEE_ADVANCE', 'SALARY_ADVANCE'] as const;
 /**
  * A request type HR defines with a short form (FEATURE-UI-AUDIT gap 25,
  * services/people/requestForms.ts) is `FORM:<RequestForm id>`: its rule, its

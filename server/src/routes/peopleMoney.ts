@@ -57,7 +57,7 @@ const AMOUNT = z.union([z.number(), text(40)]).nullish();
 const DAY = text(40).nullish();
 const CATEGORY = z.object({ name: text(200).nullish(), limitPerBill: AMOUNT, creditBlocked: flag.nullish(), active: flag.nullish() });
 /* A bill's photo is a data URL, within what one request may carry. */
-const LINE = z.object({ spentOn: DAY, categoryId: text(80).nullish(), amount: AMOUNT, merchant: text(1000).nullish(), note: text(5000).nullish(), companyGstin: flag.nullish(), supplierGstin: text(40).nullish(), taxAmount: AMOUNT, bill: rawText(10_000_000).nullish(), billName: text(1000).nullish(), notDuplicate: flag.nullish() });
+const LINE = z.object({ spentOn: DAY, categoryId: text(80).nullish(), amount: AMOUNT, merchant: text(1000).nullish(), note: text(5000).nullish(), companyGstin: flag.nullish(), supplierGstin: text(40).nullish(), taxAmount: AMOUNT, bill: rawText(10_000_000).nullish(), billName: text(1000).nullish(), notDuplicate: flag.nullish(), paidByCompany: flag.nullish() });
 const PAID = z.object({ mode: text(40).nullish(), paidOn: DAY, method: text(40).nullish(), reference: text(1000).nullish() });
 const RANGE = { from: q(text(40)), to: q(text(40)) };
 

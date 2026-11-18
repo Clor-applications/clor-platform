@@ -56,7 +56,7 @@ export default function MyMoney({ guard }) {
 // Spent for work
 // ---------------------------------------------------------------------------
 
-const blankBill = () => ({ amount: '', spentOn: todayIst(), categoryId: '', merchant: '', note: '', companyGstin: false, supplierGstin: '', taxAmount: '' });
+const blankBill = () => ({ amount: '', spentOn: todayIst(), categoryId: '', merchant: '', note: '', companyGstin: false, supplierGstin: '', taxAmount: '', paidByCompany: false });
 
 function SpentForWork({ data, guard, reload }) {
   const [adding, setAdding] = useState(false);
@@ -109,7 +109,7 @@ function SpentForWork({ data, guard, reload }) {
               <li key={l.id} className="flex items-start gap-3 py-2.5 text-sm">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{l.merchant}</span>
-                  <span className="ui-caption block">{day(l.spentOn)} · {l.category}{l.billId ? '' : ' · no bill'}</span>
+                  <span className="ui-caption block">{day(l.spentOn)} · {l.category}{l.billId ? '' : ' · no bill'}{l.paidByCompany ? ' · Company card, not paid back' : ''}</span>
                   {l.overLimit ? <span className="ui-caption block ui-text-warn">Over the {money(l.overLimit)} limit for {l.category}: your approver decides.</span> : null}
                 </span>
                 <span className="shrink-0 text-right tabular-nums">{money(l.amount)}</span>
@@ -194,22 +194,17 @@ function BillForm({ data, guard, onDone, onCancel }) {
     setFile(f);
     setPreview(f.type.startsWith('image/') ? URL.createObjectURL(f) : '');
   };
-  const save = async (e, notDuplicate = false) => {
+  const save = async (e) => {
     e?.preventDefault?.();
     if (busy) return;
     if (billTooOld(form.spentOn, todayIst())) { notify.error(tooOldText()); return; }
     setBusy(true);
     try {
       const bill = file ? await billData(file) : undefined;
-      const out = await guard(addBill({ ...form, amount: Number(form.amount), taxAmount: form.taxAmount === '' ? undefined : Number(form.taxAmount), bill, billName: file?.name, notDuplicate }));
+      const out = await guard(addBill({ ...form, amount: Number(form.amount), taxAmount: form.taxAmount === '' ? undefined : Number(form.taxAmount), bill, billName: file?.name }));
       notify.success(out.overLimit ? `Added. It is over the ${money(out.overLimit)} limit; your approver decides.` : 'Bill added.');
       onDone();
     } catch (err) {
-      if (err?.code === 'POSSIBLE_DUPLICATE') {
-        setBusy(false);
-        if (await confirmDialog({ title: 'Is this a different bill?', message: err.message, confirmLabel: 'Yes, a different bill' })) save(null, true);
-        return;
-      }
       const m = errText(err, 'Not added.');
       if (m) notify.error(m);
     } finally {
@@ -260,6 +255,9 @@ function BillForm({ data, guard, onDone, onCancel }) {
       <label className="block"><span className="ui-label">Where</span>
         <SuggestInput value={form.merchant} onChange={(v) => set({ merchant: v })} maxLength={120} required placeholder="Shop, cab, hotel" suggestions={data.merchants} />
       </label>
+      {/* Round 51 pick (corpcard): a company card spend is claimed for the record and never paid back. */}
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.paidByCompany} onChange={(e) => set({ paidByCompany: e.target.checked })} /> Paid with the company card</label>
+      {form.paidByCompany ? <p className="ui-caption">Kept with your claim for the accounts. It is not paid back to you.</p> : null}
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.companyGstin} onChange={(e) => set({ companyGstin: e.target.checked })} /> The bill is in the company’s name, with our GSTIN</label>
       {form.companyGstin ? (
         /* Round 51 pick (gstbill B): only the GST amount on the bill is asked. */
@@ -327,7 +325,7 @@ function ClaimRow({ claim: c, guard, reload }) {
             {c.lines.map((l) => (
               <li key={l.id} className="flex items-start gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{l.merchant} <span className="ui-caption">· {day(l.spentOn)} · {l.category}</span></span>
+                  <span className="block truncate">{l.merchant} <span className="ui-caption">· {day(l.spentOn)} · {l.category}{l.paidByCompany ? ' · Company card' : ''}</span></span>
                   {l.approvedAmount != null ? <span className="ui-caption block">Allowed {money(l.approvedAmount)} of {money(l.amount)}{l.cutReason ? `: ${l.cutReason}` : ''}</span> : null}
                   {l.billId ? <button type="button" className="ui-link text-xs" onClick={() => showBill(l.billId)}>See the bill</button> : null}
                 </span>

@@ -81,6 +81,17 @@ export function registerPeopleEffects() {
   /* A copy of a document asked for: a task on HR's list to share it. */
   onApproved('DOCUMENT_REQUEST', async ({ request, actor }) => documentRequestApproved(actor, request));
 
+  /* A resignation taken back (picks round 52): withdrawn as HR would by hand, if they are still on notice for the same day. */
+  onApproved('LEAVING_WITHDRAW', async ({ request, actor }) => {
+    const p = (request.payload || {}) as { lastDay?: string; reason?: string | null };
+    if (!request.subjectEmployeeId) return;
+    const e = await peoplePrisma.employee.findFirst({ where: { id: request.subjectEmployeeId, orgId: request.orgId }, select: { status: true, dateOfLeaving: true } });
+    if (!e || e.status !== 'ON_NOTICE' || (p.lastDay && e.dateOfLeaving !== p.lastDay)) return { skipped: 'No longer on notice for that day.' };
+    const { cancelLeaving } = await import('../lifecycle/stayOn.js');
+    await cancelLeaving({ accountId: actor.accountId, orgId: actor.orgId, userId: actor.userId }, request.subjectEmployeeId, `asked to stay${p.reason ? `: ${p.reason}` : ''}`);
+    return { staying: true };
+  });
+
   /* Leaving: recorded as HR would record it by hand. */
   onApproved('LEAVING', async ({ request, actor }) => {
     const p = (request.payload || {}) as { lastDay?: string; leavingType?: string; reason?: string | null };
