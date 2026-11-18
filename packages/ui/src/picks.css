@@ -920,3 +920,21 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-early-tag { background: rgb(var(--info-soft)); color: rgb(var(--info)); }
 /* rowcount B: the matching count in the list title, quieter than the title itself. */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-title-count { color: rgb(var(--fg-muted)); font-weight: 500; }
+
+/* Round 46 */
+/* A person's documents in folders (docfolders A): a quiet heading over each folder's rows. */
+.ui-doc-folders { display: grid; gap: 16px; }
+.ui-doc-folder-head {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 4px;
+  font-size: 13px; font-weight: 600; color: rgb(var(--fg-muted));
+}
+/* A letter's fields as grey chips in plain words (lettervars A). */
+.ui-letter-preview { display: grid; gap: 8px; }
+.ui-letter-preview-body {
+  white-space: pre-wrap; font-size: 14px; line-height: 1.7; margin: 0;
+  padding: 12px 16px; border: 1px solid rgb(var(--border)); border-radius: 12px; background: rgb(var(--surface));
+}
+.ui-merge-chip {
+  display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: 9999px;
+  background: rgb(var(--fg-muted) / 0.1); color: rgb(var(--fg-muted)); font-size: 12px; line-height: 20px; white-space: nowrap;
+}

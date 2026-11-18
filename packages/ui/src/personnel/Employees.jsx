@@ -3,6 +3,7 @@ import UnderEighteen from './UnderEighteen.jsx';
 import { nextEmployeeCode } from './nextCode';
 import CopyWord from '@ui/components/ui/CopyWord';
 import { FileDown, LayoutGrid, List, MoreHorizontal, Plus, Trash2, Upload, UserMinus, UserPlus, UserRound, Users } from '@ui/components/ui/lineIcons';
+import { docFolders as groupDocs } from './round46';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
 import DocumentListShell from '@ui/components/list/DocumentListShell';
@@ -2064,6 +2065,8 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
   );
 }
 
+/* Outside Books a person's documents sit in folders; Books keeps one plain list. */
+const foldersOn = () => typeof document === 'undefined' || document.documentElement.dataset.palette !== 'indigo';
 const DOC_KINDS = [
   ['ID_PROOF', 'ID proof'],
   ['ADDRESS_PROOF', 'Address proof'],
@@ -2243,8 +2246,13 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
       {!docs ? <SkeletonCard lines={3} /> : !docs.length ? (
         <EmptyState icon={FileDown} title="No documents yet" action={canAdd ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setUploading(true)}><Upload size={16} aria-hidden="true" /> Upload</button> : null} />
       ) : (
-        <ul className="ui-doc-list" aria-label="Documents">
-          {docs.map((d) => {
+        <div className="ui-doc-folders">
+        {(foldersOn() ? groupDocs(docs) : [{ name: 'All', docs }]).map((folder) => (
+        <section key={folder.name} className="ui-doc-folder" aria-label={folder.name}>
+        {/* Round 46 docfolders A: Identity, Joining, Letters, Payroll, Other; outside Books only. */}
+        {foldersOn() ? <h3 className="ui-doc-folder-head">{folder.name}<span className="ui-section-count tabular-nums">{folder.docs.length}</span></h3> : null}
+        <ul className="ui-doc-list" aria-label={foldersOn() ? `${folder.name} documents` : 'Documents'}>
+          {folder.docs.map((d) => {
             const expired = d.expiresOn && d.expiresOn < today;
             return (
               <li key={d.id}>
@@ -2285,6 +2293,9 @@ export function EmployeeDocuments({ employeeId, personName = '' }) {
             );
           })}
         </ul>
+        </section>
+        ))}
+        </div>
       )}
 
       {uploading ? (

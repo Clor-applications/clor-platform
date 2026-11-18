@@ -911,6 +911,32 @@ of names, accounts and amounts; a phone notice with the amount when salary is se
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
+### Round 46 (18 Nov 2026)
+
+Documents and letters, outside Books.
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| How a person's documents are arranged | A person's Documents sit in folders: Identity (ID, address proof, permits), Joining (contract, education, certificates), Letters, Payroll, Other, each with its count; empty folders are left out. Books keeps one plain list (`docFolders`, `EmployeeDocuments`). |
+| Certificates that expire | People → Documents has an "Expiring in December" tab: everything whose valid-until date falls in the next calendar month, to renew together. The month names itself (`nextMonthRange`, `expiresNextMonth`). |
+| Filling a letter template | Under the letter's text, "How it reads" shows the letter with each field as a grey chip in plain words ("Date of joining", "Effective date") instead of `{{codes}}`; fields still go in with a click from the list beside it (`LetterFieldsPreview`). |
+
+Picked and already how the app works: a replaced document shows the new one with the earlier
+versions kept under "Earlier versions"; one Documents screen across people, filtered by type,
+with an export; who sees a document is set per document (the person and HR by default, managers
+none).
+
+Picked, **not built yet**: "Ask for it" on the record giving the person an upload task; one
+letter to many people with a preview of each and a PDF per person; a faint "Downloaded from CLOR ·
+date" across downloaded pages; the relieving and experience letter ready in the employee app on
+the last day after clearance; "Opened 19 Nov, 10:12" beside a letter; a camera scan that crops
+pages into one PDF; the NDA signed in the app as a joining step; automatic letter reference
+numbers per letter type (KAVE/HR/2026/014); the manager copied on a letter; letters delivered in
+the employee app with email only for those not on the app; a branch and date filter and "download
+all" on Documents. All need server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

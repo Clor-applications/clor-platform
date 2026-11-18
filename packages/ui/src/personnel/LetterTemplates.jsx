@@ -9,6 +9,7 @@ import { formatDate } from '@ui/components/ui/DatePicker';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
 import { getLetterTemplateVersions, getLetterTemplates, saveLetterSettings, saveLetterTemplate } from './api';
 import { istDay } from '@ui/utils/dates';
+import { LetterFieldsPreview } from './round46';
 
 /**
  * Letters the company issues (DOC-04): one template per kind, plain text
@@ -78,7 +79,10 @@ function Editor({ data, current, kind, setKind, onSaved }) {
       <Signatory key={data.signatory || ''} saved={data.signatory || ''} onSaved={onSaved} />
       {error ? <ErrorState error={error?.status ? error : null} compact title={error?.status ? undefined : error.message} body={error?.status && error.status < 500 ? error.message : undefined} /> : null}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
-        <label className="block"><span className="ui-label">Letter</span><textarea ref={bodyRef} className="ui-input w-full text-sm leading-relaxed" rows={22} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>
+        <div className="min-w-0 space-y-4">
+          <label className="block"><span className="ui-label">Letter</span><textarea ref={bodyRef} className="ui-input w-full text-sm leading-relaxed" rows={22} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></label>
+          <LetterFieldsPreview body={form.body} />
+        </div>
         <aside className="space-y-4" aria-label="Fields">
           <section className="space-y-2">
             <h3 className="ui-label">From the record</h3>
