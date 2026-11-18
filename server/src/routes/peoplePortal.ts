@@ -277,9 +277,13 @@ peoplePortalRouter.get('/me/growth', async (req, res) => {
   ]);
   const cycles = new Map((await peoplePrisma.reviewCycle.findMany({ where: { orgId, id: { in: reviews.map((r) => r.cycleId) } } })).map((c) => [c.id, c]));
   const trainings = new Map((await peoplePrisma.training.findMany({ where: { orgId, id: { in: seats.map((s) => s.trainingId) } }, select: { id: true, title: true, startDate: true, endDate: true, status: true } })).map((t) => [t.id, t]));
+  /* Round 53 picks: the goals my team keeps open to the team (and my manager's team goals), and the company goals. */
+  const [teamGoals, companyGoals] = await Promise.all([growth.listGoals(meAsViewer(req)).catch(() => []), growth.listCompanyGoals(meAsViewer(req)).catch(() => [])]);
   res.json({
     on: true,
-    goals: goals.map((g) => ({ id: g.id, title: g.title, measure: g.measure, dueDate: g.dueDate, progress: g.progress, health: g.health, status: g.status })),
+    goals: goals.map((g) => ({ id: g.id, title: g.title, measure: g.measure, dueDate: g.dueDate, progress: g.progress, health: g.health, status: g.status, visibility: g.visibility })),
+    teamGoals: teamGoals.filter((g) => g.peer).map((g) => ({ id: g.id, title: g.title, dueDate: g.dueDate, progress: g.progress, forTeam: g.forTeam, person: g.employee?.name || '' })),
+    companyGoals: companyGoals.map((g) => ({ id: g.id, title: g.title, dueDate: g.dueDate, progress: g.progress })),
     reviews: reviews.filter((r) => cycles.get(r.cycleId)?.status !== 'DRAFT').map((r) => {
       const c = cycles.get(r.cycleId)!;
       /* Until HR shares it, I see only what I wrote. */

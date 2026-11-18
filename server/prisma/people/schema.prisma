@@ -262,6 +262,8 @@ model JobPosition {
   name         String
   description  String?
   isActive     Boolean @default(true)
+  /// Round 53 pick: the saved job description for this designation, filled in when an opening picks it.
+  jobDescription String?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -2061,6 +2063,9 @@ model PeopleSetting {
   /// Leave still waiting when its first day has passed is closed as not approved by the nightly job
   /// (closePassedLeave in routes/leave.ts). Off by default: until a company turns it on, it waits as before.
   closePassedLeave                Boolean  @default(false)
+  /// Round 53 pick: one interview question list for every job, shown on each interviewer's form,
+  /// each question rated 1 to 5. ["Communication", "Problem solving", ...]
+  interviewQuestions              Json?
   updatedByUserId                 String?
   createdAt                       DateTime @default(now())
   updatedAt                       DateTime @updatedAt
@@ -3631,6 +3636,10 @@ model JobOpening {
   referBranchIds     String[]  @default([])
   internalApply      Boolean   @default(false)
   closedReason       String?
+  /// Round 53 picks: why the job is paused (asked on Put on hold), and up to five questions the
+  /// public apply page asks, each answered in a line or two.
+  heldReason         String?
+  screeningQuestions Json?
   createdByUserId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -3669,6 +3678,8 @@ model Candidate {
   /// them, it does not make a second employee record.
   internalEmployeeId String?
   anonymisedAt       DateTime?
+  /// Answers to the opening's screening questions from the apply page: [{ question, answer }].
+  screeningAnswers   Json?
   createdByUserId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -3778,6 +3789,8 @@ model InterviewFeedback {
   /// STRONG_YES | YES | NO | STRONG_NO
   recommendation String
   notes          String?
+  /// Round 53/36 picks: the company's interview questions, each rated 1 to 5: [{ question, rating }].
+  answers        Json?
   createdAt      DateTime @default(now())
 
   @@unique([interviewId, byUserId])
@@ -3800,11 +3813,33 @@ model Goal {
   /// ACTIVE | DONE | DROPPED
   status          String   @default("ACTIVE")
   description     String?
+  /// Round 53 picks: TEAM (the person's team sees it, the default) | PRIVATE (only the person, their
+  /// manager and HR); a manager's goal for the whole team; and the company goal it serves.
+  visibility      String   @default("TEAM")
+  forTeam         Boolean  @default(false)
+  companyGoalId   String?
   createdByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([orgId, employeeId, status])
+}
+
+/// Round 53 pick: a company goal shown over the Goals list; people's goals may link to it.
+model CompanyGoal {
+  id              String   @id @default(cuid())
+  accountId       String
+  orgId           String
+  title           String
+  measure         String?
+  dueDate         String?
+  /// ACTIVE | DONE | DROPPED
+  status          String   @default("ACTIVE")
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId, status])
 }
 
 model GoalCheckIn {
