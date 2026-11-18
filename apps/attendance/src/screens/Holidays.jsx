@@ -11,6 +11,7 @@ import { createHoliday, dayLabel, deleteHoliday, getHolidayYear, todayIst, updat
 import LoadFailed from '@ui/components/ui/LoadFailed';
 import { listBranches, listStructure } from '@ui/personnel/api';
 import { CalendarImport, RestrictedPicks } from './HolidayDrawers';
+import { freshFirst, useFreshRow } from '@ui/picks/round57';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekday = (iso) => WEEKDAY[new Date(`${iso}T00:00:00Z`).getUTCDay()];
@@ -86,13 +87,17 @@ export default function Holidays({ openScreen } = {}) {
   const inTab = useMemo(() => (all || []).filter((h) => !kind || (kind === 'OPTIONAL') === Boolean(h.isOptional)), [all, kind]);
   const search = useListSearch(inTab, ['name', 'date', 'areaName']);
   const filters = useColumnFilters();
-  const rows = filters.applyFilters(search.filtered, COLUMNS);
+  /* Round 57 newrowmark A: the holiday just added sits on top, softly lit for a few seconds. */
+  const [freshId, markFresh] = useFreshRow();
+  const rows = freshFirst(filters.applyFilters(search.filtered, COLUMNS), freshId);
+  const today = todayIst();
 
   const add = async (e) => {
     e.preventDefault();
     try {
       const { scope, ...rest } = form;
-      await createHoliday({ ...rest, branchId: scope.startsWith('b:') ? scope.slice(2) : null, areaId: scope.startsWith('a:') ? scope.slice(2) : null });
+      const made = await createHoliday({ ...rest, branchId: scope.startsWith('b:') ? scope.slice(2) : null, areaId: scope.startsWith('a:') ? scope.slice(2) : null });
+      markFresh(made?.holiday?.id || made?.id || null);
       notify.success('Holiday added.');
       setForm({ date: '', name: '', isOptional: false, scope: '' });
       load();
@@ -210,8 +215,9 @@ export default function Holidays({ openScreen } = {}) {
                 </tr>
               ) : (
                 rows.map((h) => (
-                  <tr key={h.id}>
-                    <td className="ui-col-date whitespace-nowrap">{dayLabel(h.date)}</td>
+                  <tr key={h.id} className={`${h.id === freshId ? 'is-new' : ''} ${h.date === today ? 'is-today' : ''}`}>
+                    {/* Round 57 todayrow A: today's holiday says so. */}
+                    <td className="ui-col-date whitespace-nowrap">{dayLabel(h.date)}{h.date === today ? <span className="ui-today-chip">Today</span> : null}</td>
                     <td className="ui-col-meta">{weekday(h.date)}</td>
                     <td className="ui-col-entity">{h.name}</td>
                     <td className="ui-col-meta">{forWords(h)}</td>

@@ -1,4 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
+import BulkOutcome from '@ui/components/list/BulkOutcome';
+import { bulkOutcome } from '@ui/picks/round57';
 import { waitingSaid } from '../picks/round34';
 import { Check, Plus, X } from '@ui/components/ui/lineIcons';
 
@@ -130,6 +132,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
   const [seenTab, setSeenTab] = useState(tab);
   if (seenTab !== tab) { setSeenTab(tab); setSelected(new Set()); }
   const chosen = rows.filter((r) => selected.has(r.id) && r.status === 'PENDING');
+  const [outcome, setOutcome] = useState(null);
   const decideMany = async (approve) => {
     const ids = chosen.map((r) => r.id);
     if (!ids.length || bulkBusy) return;
@@ -138,8 +141,9 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
     try {
       const out = await bulkReviewRequests(ids, approve, bulkNote.trim() || undefined);
       const did = approve ? (out.handedOn && out.handedOn === out.done ? 'approved as the manager; they now wait for HR' : 'approved') : 'rejected';
-      if (out.failed) notify.error(`${out.done} ${did}, ${out.failed} not: ${out.results?.[0]?.error || ''}`);
-      else notify.success(`${out.done} ${did}.`);
+      /* Round 57 bulkresult A: each one that could not be decided, by name, with why. */
+      if (out.failed) setOutcome({ ...bulkOutcome({ done: out.done, results: out.results || [], nameOf: (id) => chosen.find((r) => r.id === id)?.employeeName }), verb: approve ? 'approved' : 'rejected' });
+      else { setOutcome(null); notify.success(`${out.done} ${did}.`); }
       setSelected(new Set());
       setBulkNote('');
       list.reload();
@@ -188,6 +192,7 @@ export default function AttendanceRequests({ params = {}, updateParams, statusFr
         onTab={(k) => set({ tab: k === 'PENDING' ? null : k, page: null }, true)}
       />
 
+      <BulkOutcome outcome={outcome} verb={outcome?.verb} onClose={() => setOutcome(null)} />
       {chosen.length ? (
         <div className="ui-bulkbar" role="region" aria-label="Decide the chosen requests">
           <span className="text-sm"><strong className="tabular-nums">{chosen.length}</strong> chosen</span>

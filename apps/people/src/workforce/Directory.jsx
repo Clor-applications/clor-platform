@@ -7,6 +7,7 @@ import { KpiTiles, BarPanel } from '../components/Core';
 import { getOverview } from '@ui/personnel/api';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
+import { screenHref } from '@ui/picks/round57';
 import DataTable, { ColumnSettings } from '@ui/components/ui/DataTable';
 import SearchField from '@ui/components/ui/SearchField';
 import Drawer from '@ui/components/ui/Drawer';
@@ -266,6 +267,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
           selected={selected}
           onSelect={setSelected}
           onRowClick={(r) => openRecord(r)}
+          rowHref={(r) => screenHref('employee', { id: r.id, tab: 'overview' })}
           rowActions={rowActions}
           loading={list.loading}
           refreshing={list.refreshing}
@@ -782,7 +784,13 @@ function FirstRun({ openScreen, mayAdd }) {
         <UserPlus size={20} aria-hidden="true" />
         <h2 id="first-run-h" className="people-first-run-title">Bring your team into CLOR People</h2>
         <p className="people-first-run-text">Most companies import from Excel in a few minutes. You can also add people one by one, or connect your attendance reader and match punches to names.</p>
-        {mayAdd ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import from Excel</button> : null}
+        {/* Round 57 firstrunlist A: the ways in side by side; start the way you like. */}
+        {mayAdd ? (
+          <div className="people-first-run-ways">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import from Excel</button>
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeNew', {})}><UserPlus size={16} aria-hidden="true" /> Add one person</button>
+          </div>
+        ) : null}
       </section>
       <ol className="people-steps">
         {steps.map(({ n, Icon, title, note, screen }) => (

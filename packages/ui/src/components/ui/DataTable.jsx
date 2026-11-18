@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Columns3, MoreVertical, 
 
 import Popover from './Popover';
 import { LoadingSpinner, loadsWithSpinner } from './Primitives';
+import { freshFirst, isTodayDate, opensElsewhere, todayInIndia } from '../../picks/round57';
 
 /**
  * DataTable (People design spec v1 §5, §4.2): one table for server-driven
@@ -171,6 +172,13 @@ export function TablePager({ total, page, pageSize, onPage, onPageSize, noun = '
   );
 }
 
+/* emptycell A: a box with nothing in it reads as a calm grey dash, never a blank. */
+const isBlank = (v) => v == null || v === '' || v === false;
+function cellOf(c, r) {
+  const v = c.render ? c.render(r) : r[c.key];
+  return isBlank(v) ? <span className="ui-empty-cell"><span aria-hidden="true">—</span><span className="sr-only">Not added</span></span> : v;
+}
+
 export default function DataTable({
   columns, rows, rowKey = (r) => r.id, label = 'Results',
   sort = null, onSort, prefs = {}, onPrefs = null,
@@ -179,6 +187,8 @@ export default function DataTable({
   loading = false, refreshing = false, empty = null,
   total = 0, page = 1, pageSize = 25, onPage, onPageSize, noun = 'results', toolbar = null, tabs = null, defaultPrefs = {},
   rowLabel = null, tiles = false,
+  /* Round 57: the row just added (on top, softly lit), today's row in a dated list, and a record's own address. */
+  freshKey = null, rowDate = null, rowHref = null,
 }) {
   /* What a row's menu and tick box are named after: its own words, never a database id (#80 QA: "Actions for cmv…" on Branches). */
   const nameOf = (r, id) => (rowLabel && rowLabel(r)) || r.name || r.employeeName || r.branchName || r.managerName || r.title || r.label || r.code || id;
@@ -199,8 +209,20 @@ export default function DataTable({
   const open = (e, row) => {
     if (!onRowClick) return;
     if (e.target.closest('button, a, input, select, label, [role="menu"]')) return;
+    /* newtab A: Ctrl-click anywhere on a row opens the record in a new tab, like any link. */
+    if (rowHref && opensElsewhere(e)) { const href = rowHref(row); if (href) window.open(href, '_blank', 'noopener'); return; }
     onRowClick(row);
   };
+  /* The link a row's name is: a plain click opens it here, Ctrl-click, middle-click or a long press leaves it to the browser. */
+  const followLink = (e, row) => {
+    if (opensElsewhere(e)) return;
+    e.preventDefault();
+    onRowClick(row);
+  };
+  const today = rowDate ? todayInIndia() : null;
+  const shownRows = freshKey ? freshFirst(rows, freshKey, rowKey) : rows;
+  const rowState = (r, id) => `${freshKey && id === freshKey ? 'is-new' : ''} ${rowDate && isTodayDate(rowDate(r), today) ? 'is-today' : ''}`;
+  const todayMark = (r) => (rowDate && isTodayDate(rowDate(r), today) ? <span className="ui-today-chip">Today</span> : null);
 
   return (
     <div className={`ui-datatable ${compact ? 'is-compact' : ''} ${card ? 'has-cards' : ''} ${card && tiles ? 'is-tiles' : ''}`} aria-busy={loading || refreshing || undefined}>
@@ -242,16 +264,18 @@ export default function DataTable({
                 {cols.map((c) => <td key={c.key}><span className="ui-skel ui-skel-text" /></td>)}
                 {rowActions ? <td /> : null}
               </tr>
-            )) : rows.map((r) => {
+            )) : shownRows.map((r) => {
               const id = rowKey(r);
               return (
-                <tr key={id} className={`${onRowClick ? 'ui-row-click' : ''} ${selected.has(id) ? 'is-selected' : ''}`} onClick={(e) => open(e, r)}>
+                <tr key={id} className={`${onRowClick ? 'ui-row-click' : ''} ${selected.has(id) ? 'is-selected' : ''} ${rowState(r, id)}`} onClick={(e) => open(e, r)}>
                   {selectable ? <td className="w-10">{choosable(r) ? <input type="checkbox" className="ui-checkbox" aria-label={`Choose ${nameOf(r, id)}`} checked={selected.has(id)} onChange={() => toggle(id)} /> : null}</td> : null}
                   {cols.map((c, i) => (
                     <td key={c.key} className={c.align === 'right' ? 'text-right tabular-nums' : c.align === 'center' ? 'text-center' : ''}>
-                      {i === 0 && onRowClick ? (
-                        <button type="button" className="ui-row-open" onClick={() => onRowClick(r)}>{c.render ? c.render(r) : r[c.key] ?? '—'}</button>
-                      ) : c.render ? c.render(r) : (r[c.key] ?? '—')}
+                      {i === 0 && onRowClick && rowHref && rowHref(r) ? (
+                        <a href={rowHref(r)} className="ui-row-open" onClick={(e) => followLink(e, r)}>{cellOf(c, r)}{todayMark(r)}</a>
+                      ) : i === 0 && onRowClick ? (
+                        <button type="button" className="ui-row-open" onClick={() => onRowClick(r)}>{cellOf(c, r)}{todayMark(r)}</button>
+                      ) : i === 0 ? <>{cellOf(c, r)}{todayMark(r)}</> : cellOf(c, r)}
                     </td>
                   ))}
                   {rowActions ? <td className="ui-row-actions-col text-right">{(() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })()}</td> : null}
@@ -263,14 +287,14 @@ export default function DataTable({
       </div>
       {card ? (
         <ul className="ui-datatable-cards" aria-label={label}>
-          {loading && loadsWithSpinner() ? <li className="ui-datatable-card" aria-hidden="true"><LoadingSpinner /></li> : loading ? Array.from({ length: 4 }, (_, i) => <li key={`sk${i}`} className="ui-datatable-card" aria-hidden="true"><span className="ui-skel ui-skel-text" /></li>) : rows.map((r) => {
+          {loading && loadsWithSpinner() ? <li className="ui-datatable-card" aria-hidden="true"><LoadingSpinner /></li> : loading ? Array.from({ length: 4 }, (_, i) => <li key={`sk${i}`} className="ui-datatable-card" aria-hidden="true"><span className="ui-skel ui-skel-text" /></li>) : shownRows.map((r) => {
             const id = rowKey(r);
             return (
-              <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''}`}>
+              <li key={id} className={`ui-datatable-card ${selected.has(id) ? 'is-selected' : ''} ${rowState(r, id)}`}>
                 {/* A 44px tap target around the tick box (#80 QA: 24px on a phone), its footprint unchanged. */}
                 {selectable && choosable(r) ? <label className="ui-card-check-hit"><input type="checkbox" className="ui-checkbox ui-card-check" aria-label={`Choose ${nameOf(r, id)}`} checked={selected.has(id)} onChange={() => toggle(id)} /></label> : null}
                 {/* A card opens the record only when there is one to open; otherwise it is plain content, not a stop for Tab. */}
-                {onRowClick ? <button type="button" className="ui-card-open" onClick={() => onRowClick(r)}>{card(r)}</button> : <div className="w-full min-w-0">{card(r)}</div>}
+                {onRowClick && rowHref && rowHref(r) ? <a href={rowHref(r)} className="ui-card-open" onClick={(e) => followLink(e, r)}>{card(r)}{todayMark(r)}</a> : onRowClick ? <button type="button" className="ui-card-open" onClick={() => onRowClick(r)}>{card(r)}{todayMark(r)}</button> : <div className="w-full min-w-0">{card(r)}{todayMark(r)}</div>}
                 {rowActions ? (() => { const items = rowActions(r).filter(Boolean); return items.length ? <RowMenu label={`Actions for ${nameOf(r, id)}`} items={items} /> : null; })() : null}
               </li>
             );

@@ -1128,6 +1128,33 @@ shift and Punch in; CLOR suggesting a statutory rate change for the payroll admi
 in-app notice before a due date; a late payment marked in red (needs paid dates recorded). All
 need the phone app or server work.
 
+### Round 57 (18 Nov 2026)
+
+Built:
+
+| Building block | Pick |
+| --- | --- |
+| Coming back to a list | Filters and search already ride in the address; now the scroll place does too. Leaving a screen notes where it was scrolled, and going back to it (the browser's Back, the "← Employees" link, or the record's own way back) puts the page back there once the rows have drawn, for half an hour (`packages/shell/scrollMemory.js`). Any wheel, touch or key press stops it. |
+| The row just added | It sits on top of the list with a soft highlight that fades in six seconds (`freshKey` on DataTable, `useFreshRow`; Holidays wired). Reduced motion keeps the tint without the fade. |
+| After acting on many rows | Approvals, Leave requests and Attendance requests say "12 approved · 2 could not be" and list each one that could not be, by name, with the reason, until closed (`BulkOutcome`). A clean run stays a short toast. |
+| Order of requests | Approvals › Asked by me: still waiting first, the oldest on top; then the rest, newest first (`waitingFirst`). |
+| A list with nothing yet | Employees with nobody in it shows "Import from Excel" and "Add one person" side by side. |
+| Opening a record in a new tab | An employee's name in the list is a real link: Ctrl-click, middle-click or a long press opens the record in a new tab; a plain click opens it here as before (`rowHref` on DataTable, `screenHref`). |
+| When the list changes while open | Approvals checks once a minute while in view; new requests wait behind "2 new · Show" and the list does not jump. |
+| An empty box in a table | Every empty DataTable box is a grey dash, read out as "Not added". |
+| Today in dated lists | Today's row carries a thin line in the app colour and a "Today" mark (`rowDate` on DataTable; Holidays and One-on-ones wired). |
+
+Picked and already how the app works: searches narrow as you type (300 ms quiet, Enter at once);
+Employees opens on working people with joining and left a click away; request lists open on
+what is waiting, of any date; the waiting inbox is oldest first; Employees shows each filter in
+force as a chip with Clear all; pickers for a manager never offer someone who has left.
+
+Picked, **not built yet**: ticking several branches or departments in one filter (the server
+takes one value per filter); a "Try sample people" start for an empty company (no sample data
+yet); an amber "No PAN" or "No bank" mark on employee rows with a chip to filter them (the list
+does not carry those details); "Show people who left" at the bottom of a person picker. All need
+server work.
+
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 
 `frontend-redesign-2026-11-15.md` (PDF on the owner's desktop) is the source of

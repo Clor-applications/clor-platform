@@ -1015,3 +1015,30 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-list { list-style: none; margin: 8px 0 4px; padding: 0; border-top: 1px solid rgb(var(--border)); }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--border)); font-size: 0.875rem; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-dues-when { white-space: nowrap; }
+
+/* Round 57 */
+/* newtab A: a row's name is a real link (Ctrl-click, middle-click, long press), drawn exactly like the button it was. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a.ui-row-open { display: block; text-decoration: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) a.ui-card-open { display: block; text-decoration: none; }
+/* emptycell A: an empty box is a calm grey dash. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-empty-cell { color: rgb(var(--fg-subtle, var(--fg-muted))); }
+/* newrowmark A: the row just added is softly lit, then fades back to the page. */
+@keyframes ui-row-new-fade { from { background-color: rgb(var(--accent-soft)); } to { background-color: transparent; } }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation: ui-row-new-fade 6s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(tr.is-new > td, li.is-new) { animation: none; background-color: rgb(var(--accent-soft)); }
+}
+/* todayrow A: today's row carries a thin line in the app colour and says "Today". */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) tr.is-today > td:first-child { box-shadow: inset 3px 0 0 rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) li.is-today { box-shadow: inset 3px 0 0 rgb(var(--act)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-today-chip { display: inline-flex; align-items: center; margin-left: 8px; padding: 0 8px; border-radius: 9999px; font-size: 0.75rem; line-height: 1.25rem; font-weight: 600; color: rgb(var(--act-ink, var(--fg))); background: rgb(var(--accent-soft)); vertical-align: middle; }
+/* bulkresult A: what went through and, for each one that did not, whose and why. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome { border: 1px solid rgb(var(--border)); border-left: 3px solid rgb(var(--warn-ink)); border-radius: 12px; padding: 12px 16px; background: rgb(var(--surface, 255 255 255)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-line { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-bulk-outcome-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 0.875rem; }
+/* liveupdate A: new rows wait behind a quiet bar; the list does not jump. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-new-rows-bar { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 2.5rem; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 0.875rem; font-weight: 600; color: rgb(var(--act-ink, var(--fg))); background: rgb(var(--accent-soft)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-new-rows-bar:hover { filter: brightness(0.97); }
+/* firstrunlist A: the ways into an empty list, side by side. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .people-first-run-ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }

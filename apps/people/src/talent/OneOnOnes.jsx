@@ -39,7 +39,7 @@ export default function OneOnOnes() {
         toolbar={reports.length > 1 ? <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone' }, ...reports.map((p) => ({ value: p.id, label: p.name }))]} /></div> : null}
       />
       {req.error && !req.data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
-        <DataTable label="One-on-ones" columns={columns} rows={rows} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="one-on-ones"
+        <DataTable label="One-on-ones" columns={columns} rows={rows} rowDate={(r) => r.date} loading={req.loading} refreshing={req.refreshing} total={rows.length} pageSize={Math.max(25, rows.length)} noun="one-on-ones"
           onRowClick={(r) => (r.mine ? setEditing(r) : null)}
           card={(r) => (
             <span className="min-w-0 flex-1">

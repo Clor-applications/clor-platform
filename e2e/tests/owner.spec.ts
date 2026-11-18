@@ -77,7 +77,7 @@ test.describe('Suresh owns the account', () => {
 
     /* Search, the address, and Back: still nothing of Asha's. */
     await vels.main.getByRole('searchbox', { name: 'Search employees' }).fill('Priya');
-    await expect(vels.main.getByRole('button', { name: /^Priya Sharma/ })).toHaveCount(0);
+    await expect(vels.main.getByRole('link', { name: /^Priya Sharma/ })).toHaveCount(0);
     await suresh.page.goto(`/o/${w.vels.code}/?app=people&open=employee&s.id=${w.people.priya.id}`);
     await expect(vels.main).toContainText(/not available|not found/i);
     await expect(vels.main).not.toContainText('Priya Sharma');
