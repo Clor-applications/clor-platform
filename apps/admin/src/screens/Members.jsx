@@ -380,12 +380,12 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 ) : tenant?.id && shown.orgId !== tenant.id ? (
                   <p className="ui-caption">
                     Roles in {shown.name} are changed from that company.{' '}
-                    {switchCompany ? <button type="button" className="ws-link" onClick={() => switchCompany(shown.orgId)}>Switch to {shown.name}</button> : null}
+                    {switchCompany ? <button type="button" className="ws-row-link" onClick={() => switchCompany(shown.orgId)}>Switch to {shown.name}</button> : null}
                   </p>
                 ) : null}
                 {shown.sensitive.length ? (
-                  <p className="ui-caption flex items-start gap-1">
-                    <ShieldAlert size={14} aria-hidden="true" className="mt-0.5 shrink-0" /> Can reach sensitive data: {shown.sensitive.length} permission{shown.sensitive.length === 1 ? '' : 's'} on payroll, people, salary, bank or documents.
+                  <p className="ws-member-sensitive">
+                    <ShieldAlert size={16} aria-hidden="true" className="shrink-0" /> Can reach sensitive data: {shown.sensitive.length} permission{shown.sensitive.length === 1 ? '' : 's'} on payroll, people, salary, bank or documents.
                   </p>
                 ) : null}
               </section>
@@ -393,19 +393,19 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
 
             <dl className="ws-member-facts">
               <div>
-                <dt>Branches</dt>
-                <dd>{shown?.branches?.length ? shown.branches.join(', ') : '—'}</dd>
-              </div>
-              <div>
                 <dt>Status</dt>
                 <dd>{detail.status === 'SUSPENDED' ? <span className="ws-state" data-tone="danger">Suspended in this account</span> : <span className="ws-state" data-tone="ok">Active</span>}</dd>
               </div>
               <div>
                 <dt>Sign-in</dt>
-                <dd className="grid gap-1 justify-items-start">
+                <dd>
                   <span className="ws-state" data-tone={detail.authenticator ? 'ok' : 'warn'}>Authenticator {detail.authenticator ? 'on' : 'off'}</span>
                   <span className="ws-cell-sub">Last signed in {detail.lastSignInAt ? day(detail.lastSignInAt) : 'never'}</span>
                 </dd>
+              </div>
+              <div>
+                <dt>Branches</dt>
+                <dd>{shown?.branches?.length ? shown.branches.join(', ') : '—'}</dd>
               </div>
               <div>
                 <dt>Member since</dt>

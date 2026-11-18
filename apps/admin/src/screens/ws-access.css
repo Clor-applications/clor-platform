@@ -296,3 +296,34 @@
 }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-member-panel .ui-select:is(:hover, :focus) { background-color: rgb(255 255 255); }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws-member-panel .ui-select:focus-visible { border-color: rgb(var(--fg) / 0.6); outline: none; }
+
+/* Member panel facts (owner, 19 Nov 2026): one row each, label left and value right, a hairline between,
+   so tags and plain values line up instead of floating in two loose columns. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-facts { display: grid; grid-template-columns: 1fr; gap: 0; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-facts > div {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 2.75rem;
+  padding: 6px 0;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-facts > div + div { border-top: 1px solid rgb(var(--border, 228 230 225)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-facts dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.875rem; }
+/* A role: its tag and who gave it on one line. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws-member-roles > li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.ws-member-company .ws-row-link { padding: 0; font-size: inherit; }
+/* Sensitive reach is a warning, said in amber. */
+.ws-member-sensitive {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(180 83 9 / 0.08);
+  color: rgb(146 64 14);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+.ws-member-sensitive svg { margin-top: 2px; }
