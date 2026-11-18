@@ -1,8 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
-import { MovedOn, Payslips } from './MeExtras';
+import { CompanyPf, MovedOn, Payslips } from './MeExtras';
 
 /*
  * The employee's payslip says what it could not take and moved on, as
@@ -62,4 +62,37 @@ it('words it for net pay running out, and for a leaver whose rest goes to the fu
 it('when other deductions alone passed the share, says none was taken this month', () => {
   render(<MovedOn note={{ percent: 50, wages: 15000, limit: 7500, counted: 7800, reason: 'LIMIT', total: 3000, carried: [{ label: 'Advance', amount: 3000 }] }} />);
   expect(screen.getByText(/other deductions already came to ₹7,800\.00, so none was taken this month/)).toBeTruthy();
+});
+
+/* Server picks, theme C: read-only figures from the payslips themselves. */
+it('the list shows PF saved so far, and the opened payslip shows the company PF split and the year since April', async () => {
+  api.getPayslips.mockResolvedValue({
+    available: true,
+    pfSaved: { since: '2026-04-30', payslips: 7, employee: 12600, employer: 4585, pension: 8015, fund: 17185 },
+    slips: [{ id: 's1', period: 'October 2026', net: 14000, paid: true }],
+  });
+  api.getPayslip.mockResolvedValue({ slip: { ...SLIP, leaving: false, deductionNote: null,
+    pf: { employee: 1800, pension: 1250, employer: 550 },
+    sinceApril: { from: '2026-04-01', payslips: 7, gross: 140000, tax: 3500, pf: 12600, net: 98000 } } });
+  render(<Payslips guard={guard} />);
+  const list = await screen.findByRole('region', { name: 'Payslips' });
+  expect(within(list).getByText('PF saved so far')).toBeTruthy();
+  expect(within(list).getByText('₹17,185.00')).toBeTruthy();
+  expect(within(list).getByText(/since 30 Apr 2026/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Open payslip for October 2026' }));
+  const slip = await screen.findByRole('region', { name: 'Payslip · October 2026' });
+  expect(within(slip).getByText('To your pension (EPS)')).toBeTruthy();
+  expect(within(slip).getByText('₹1,250.00')).toBeTruthy();
+  expect(within(slip).getByText('Since 1 Apr 2026')).toBeTruthy();
+  expect(within(slip).getByText('₹3,500.00')).toBeTruthy();
+  expect(within(slip).getByText('₹98,000.00')).toBeTruthy();
+});
+
+it('no PF card where the payslip had no company PF, and no saved card without PF', async () => {
+  const { container } = render(<CompanyPf pf={{ employee: 0, pension: 0, employer: 0 }} />);
+  expect(container).toBeEmptyDOMElement();
+  api.getPayslips.mockResolvedValue({ available: true, pfSaved: null, slips: [] });
+  render(<Payslips guard={guard} />);
+  await screen.findByText(/No payslips yet/);
+  expect(screen.queryByText('PF saved so far')).toBeNull();
 });

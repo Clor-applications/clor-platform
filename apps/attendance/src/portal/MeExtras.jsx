@@ -68,6 +68,7 @@ export function Payslips({ guard }) {
   return (
     <section className="ui-card p-5 ui-touch-44" aria-labelledby="slips-h">
       <h2 id="slips-h" className="ui-t-sec mb-1">Payslips</h2>
+      {data.pfSaved ? <PfSaved pf={data.pfSaved} /> : null}
       {data.slips.length ? (
         <ul className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
           {data.slips.map((s) => (
@@ -134,11 +135,77 @@ function PayslipView({ slip: s }) {
           <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm font-medium"><dt>Total deductions</dt><dd className="text-right tabular-nums">{money(s.totalDeductions)}</dd></div>
         </dl>
       </div>
+      {s.pf ? <CompanyPf pf={s.pf} /> : null}
       <MovedOn note={s.deductionNote} leaving={s.leaving} />
+      {s.sinceApril ? <SinceApril year={s.sinceApril} /> : null}
       <button type="button" className="ui-btn ui-btn-primary w-full" onClick={save}>Save as PDF</button>
       <p className="ui-caption">Choose “Save as PDF” as the printer. PAN and bank account show only their last digits.</p>
       <PayslipPrint slip={s} />
     </>
+  );
+}
+
+/** A label-and-amount row, money right-aligned in tabular figures. */
+const Row = ({ label, amount, strong = false }) => (
+  <div className={`flex items-baseline justify-between gap-3 py-1.5 text-sm${strong ? ' font-medium' : ''}`}>
+    <dt>{label}</dt>
+    <dd className="text-right tabular-nums">{money(amount)}</dd>
+  </div>
+);
+
+/**
+ * The company's PF this month, under the employee's own PF: how much of it
+ * went to the pension (EPS) and how much to the fund (EPF). Read from the
+ * payslip as it was made; nothing is worked out again here.
+ */
+export function CompanyPf({ pf }) {
+  if (!pf.pension && !pf.employer) return null;
+  return (
+    <div>
+      <h3 className="ui-label">Company’s PF this month</h3>
+      <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        {pf.employer ? <Row label="To your PF account (EPF)" amount={pf.employer} /> : null}
+        {pf.pension ? <Row label="To your pension (EPS)" amount={pf.pension} /> : null}
+      </dl>
+      <p className="ui-caption">Paid by the company on top of your pay; not taken from it.</p>
+    </div>
+  );
+}
+
+/** This financial year so far, up to and including this payslip. */
+export function SinceApril({ year }) {
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: 'rgb(var(--border))' }}>
+      <h3 className="ui-label">Since {longDate(year.from)}</h3>
+      <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        <Row label="Pay" amount={year.gross} />
+        <Row label="Income tax" amount={year.tax} />
+        <Row label="Your PF" amount={year.pf} />
+        <Row label="Take-home" amount={year.net} strong />
+      </dl>
+      <p className="ui-caption tabular-nums">{year.payslips} {year.payslips === 1 ? 'payslip' : 'payslips'} this financial year</p>
+    </div>
+  );
+}
+
+/**
+ * PF put by in CLOR's payroll records. The fund's own balance can differ: PF
+ * from an earlier job, and the interest the fund adds, are not known here.
+ */
+export function PfSaved({ pf }) {
+  return (
+    <div className="mb-3 rounded-xl border p-3" style={{ borderColor: 'rgb(var(--border))' }}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="ui-label">PF saved so far</h3>
+        <span className="text-lg font-semibold tabular-nums">{money(pf.fund)}</span>
+      </div>
+      <dl className="divide-y" style={{ borderColor: 'rgb(var(--border))' }}>
+        <Row label="From your pay" amount={pf.employee} />
+        <Row label="From the company" amount={pf.employer} />
+        {pf.pension ? <Row label="Pension (EPS), kept separately" amount={pf.pension} /> : null}
+      </dl>
+      <p className="ui-caption">From {pf.payslips} {pf.payslips === 1 ? 'payslip' : 'payslips'} since {longDate(pf.since)}. Your PF account’s balance on the EPFO site also counts interest and any earlier job.</p>
+    </div>
   );
 }
 
@@ -223,6 +290,20 @@ function PayslipPrint({ slip: s }) {
       </table>
       {s.deductionNote?.carried?.length ? (
         <p className="muted">{s.leaving ? 'Left for the full and final' : 'Moved to next month'}: {s.deductionNote.carried.map((c) => `${c.label} ${money(c.amount)}`).join(', ')}.</p>
+      ) : null}
+      {s.pf && (s.pf.employer || s.pf.pension) ? (
+        <p className="muted">Company’s PF this month, not taken from pay: to PF (EPF) {money(s.pf.employer)}, to pension (EPS) {money(s.pf.pension)}.</p>
+      ) : null}
+      {s.sinceApril ? (
+        <table>
+          <thead><tr><th colSpan={2}>Since {longDate(s.sinceApril.from)}</th></tr></thead>
+          <tbody>
+            <tr><td>Pay</td><td className="amt">{money(s.sinceApril.gross)}</td></tr>
+            <tr><td>Income tax</td><td className="amt">{money(s.sinceApril.tax)}</td></tr>
+            <tr><td>Your PF</td><td className="amt">{money(s.sinceApril.pf)}</td></tr>
+            <tr className="tot"><td>Take-home</td><td className="amt">{money(s.sinceApril.net)}</td></tr>
+          </tbody>
+        </table>
       ) : null}
       <p className="muted">From CLOR. PAN and bank account show only their last digits.</p>
     </div>,

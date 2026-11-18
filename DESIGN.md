@@ -675,13 +675,13 @@ Built:
 | Calling a colleague from the app | Call and WhatsApp buttons beside the number on the employee record's overview and on an absence case: Call opens the phone, WhatsApp opens a chat with that number (only for a ten-digit Indian mobile; a landline gets Call only) (`CallButtons`). |
 | This year against last year in a chart | Headcount & attrition shows "This year against last year": the period's month-end headcount as a solid line in the app colour, the same months a year earlier faint and dashed behind, and "+18 on a year before" under it. Drawn only when the year before has people (`YearOnYearLine`). |
 | Landlord’s PAN for rent above ₹1 lakh | Payroll's tax declaration form now asks for the landlord's PAN only once rent passes ₹1,00,000 a year (or one is already on file); below that it says when it will be asked. |
+| Since April on the payslip | The employee app's payslip (and its printed copy) ends with "Since 1 Apr 2026": pay, income tax, your PF and take-home over this financial year up to that payslip, from final payslips only; read from the payslips, nothing worked out again (`SinceApril`, `sinceApril` in `payslipYear.ts`). |
 
 Picked and already how the app works: the employee app's tax form already shows the landlord's
 PAN field only above ₹1 lakh of rent a year, and makes it required there; vehicle numbers are
 not stored (a custom field can hold one).
 
-Picked, **not built yet**: a short "since April" box on the payslip (pay, tax, PF so far);
-moving this week's off day with "work on" and "off on" dates; a month's attendance taken as
+Picked, **not built yet**: moving this week's off day with "work on" and "off on" dates; a month's attendance taken as
 agreed unless raised by the 28th; a punch on a leave day asking to cancel the leave or ignore the
 punch; either of two managers approving; the health check before joining locking the joining
 date; a code to the owner's phone to release salaries; PF and ESI codes on each branch page; a
@@ -730,8 +730,8 @@ on the phone (the employee app is told only paid or not); a fine split over mont
 pay stopping at zero with the rest carried to next month; a small extra run for a bonus between
 payroll months; pay divided by the days in the month as the company's chosen rule; extra PF set
 by the employee on the phone; the leave travel claim with "trips left 1 of 2"; a "Revised" tag
-with what changed on a reissued payslip; notes shown at the top of next month's run. All need
-server work.
+with what changed on a reissued payslip (payslips keep no record of being reissued yet); notes
+shown at the top of next month's run. All need server work.
 
 ### Round 33 (18 Nov 2026)
 
@@ -877,6 +877,7 @@ Built:
 | Building block | Pick |
 | --- | --- |
 | Choosing old or new tax regime | The employee app's tax form works out both regimes side by side on a year's salary (started from the latest payslip's earnings times twelve, changeable) and what is declared, marks the lower one with "New saves you about ₹8,300 this year", and offers "Use the new regime". An estimate: standard deduction, slabs, rebate and cess; payroll still works out the exact tax (`TaxCompare`, `regimeTax`). |
+| PF saved so far | The employee app's Payslips opens with "PF saved so far": from your pay, from the company, and the pension (EPS) kept separately, summed from final payslips made in CLOR, with "Your PF account's balance on the EPFO site also counts interest and any earlier job" (`PfSaved`, `pfSaved` in `payslipYear.ts`). |
 
 Picked and already how the app works: a name change keeps the legal name for PF and tax while
 the preferred name shows elsewhere (round 29's legal name in lists, preferred name on the
@@ -887,8 +888,7 @@ change approved by HR before payroll uses it; two emergency contacts seen by HR 
 the employee app with a six-step filing guide; IT as a topic on the same Ask HR desk, sent to IT staff; visitor QR passes on WhatsApp; a desk given for a
 booked day; booking a room from the calendar; live poll bars in company news; events posted as
 news; a line in company news on a leaver's last day; a Friday reminder to hand over before
-leave; shoe and uniform size on the profile; PF saved so far from CLOR's payroll records. All need
-server work.
+leave; shoe and uniform size on the profile. All need server work.
 
 ### Round 40 (18 Nov 2026)
 
@@ -898,16 +898,18 @@ Built:
 | --- | --- |
 | Going home early | A day where someone left before the shift ended gets its own tag beside the late mark, "Left 2h early" or "Left 40 min early", in the employee app's Today card and day list and in Attendance → Records. It uses the `earlyOutMinutes` the server already works out (`EarlyGoTag`). |
 | Showing how many rows match | The Employees list title carries the matching count, "Employees (6)", once the list has loaded; any list on `ListHeader` can pass `count`. Not in Books (`titleWithCount`). |
+| Short salary register | Payroll's Salary register opens short: Employee, Gross, Deductions, Take-home; a name opens that person's earnings and deductions under the row, and "Show every part" lays out the full table with a column per component (`Register`, `FullRegister`). |
 
 Picked and already how the app works: a "Columns" button with ticks and an order per column on
 data tables (moved with arrows rather than dragged); grouping is a filter on one branch at a
-time; leave left is shown as days, not money.
+time; leave left is shown as days, not money; a plain bank sheet of names, accounts and amounts
+is Payments' bank advice download (full account numbers, so it needs the payroll export
+permission).
 
 Picked, **not built yet**: absence pay given back next month with a line saying why; attendance
 uploaded from any sheet with its columns matched; holiday work paid or taken as a day off, chosen
 each time; your own reports from fields, filters and groups; exit-interview reasons read one by
-one; a short salary register (gross, deductions, net) opening into the parts; a plain bank sheet
-of names, accounts and amounts; a phone notice with the amount when salary is sent; planned
+one; a phone notice with the amount when salary is sent; planned
 headcount as one number on home; a PDF of a list to print; a download with every field. All
 need server work, or a per-list field set that does not exist yet.
 
@@ -982,6 +984,7 @@ Built:
 | Payroll dates for the month | Payroll's overview opens with a strip of the month's steps: Inputs close (the period's last day), Run and review, Approve, Pay (the period's pay date), the step the month is at marked, and "Pay in 12 days", "Pay today" or, in amber, "Pay was due 2 days ago" (`PayCalendarStrip`, `payCalendar`). |
 | Working out take-home from a salary offer | Typing the yearly CTC on an offer shows "In hand, about ₹46,200 a month" under it, with pay, PF, ₹200 professional tax and income tax spelt out. An estimate on the new tax regime (half the pay as basic, PF on basic up to ₹15,000, surcharge left out); the payslip works out the exact figure (`TakeHomeEstimate`, `takeHome`). |
 | Help with PF withdrawal | The employee app's money page ends with "Taking money out of your PF": four steps (UAN linked, sign in, Claim, confirm with the Aadhaar code) and a link to the EPFO member page (`PfWithdrawSteps`). |
+| Pension share on the payslip | Under Deductions, the employee app's payslip shows "Company's PF this month": to your PF account (EPF) and to your pension (EPS), as the payslip recorded it, "paid by the company on top of your pay"; the printed copy says the same (`CompanyPf`). |
 
 Picked and already how the app works: loans with interest worked out (Payroll → Loans takes the
 rate a year and shows the EMI schedule before saving); a salary advance request instead of
@@ -992,8 +995,7 @@ Picked, **not built yet**: a meal card amount chosen by staff and taken out of t
 ESI monthly file in the ESIC upload format with a check list first; a full-attendance bonus that
 allows one late mark; a stay bonus on the record with its due date, paid by itself; extra health
 cover chosen in the app with the premium taken over 12 months; the ESI card downloaded from the
-phone app; the month's service charge split by days worked; the pension (EPS) share shown on the
-payslip under PF; family members marked "Covered by ESI". All need server work.
+phone app; the month's service charge split by days worked; family members marked "Covered by ESI". All need server work.
 
 ### Round 45 (18 Nov 2026)
 
