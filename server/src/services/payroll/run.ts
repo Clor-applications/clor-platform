@@ -430,6 +430,49 @@ export async function ptPaidSoFar(orgId: string, run: { id: string }, period: { 
 }
 
 /**
+ * ESI's contribution periods run April to September and October to March.
+ * Someone covered at any point in a period stays covered to its end, even
+ * when a raise takes their wages over the threshold (ESI Act, s. 2(9) proviso;
+ * round 66 "esicontinue"). Returns the day the current period ends, as words.
+ */
+export function esiPeriodOf(periodStart: string) {
+  const y = Number(periodStart.slice(0, 4));
+  const m = Number(periodStart.slice(5, 7));
+  if (m >= 4 && m <= 9) return { start: `${y}-04-01`, ends: `30 Sep ${y}` };
+  const startYear = m >= 10 ? y : y - 1;
+  return { start: `${startYear}-10-01`, ends: `31 Mar ${startYear + 1}` };
+}
+
+/** People with ESI taken on an approved payslip earlier in this contribution period: their cover runs to its end. */
+export async function esiCoveredThisPeriod(orgId: string, run: { id: string }, period: { startDate: string }, employeeIds: string[]) {
+  const out = new Set<string>();
+  if (!employeeIds.length) return out;
+  const cp = esiPeriodOf(period.startDate);
+  if (cp.start >= period.startDate) return out;
+  const periods = await payrollPrisma.payrollPeriod.findMany({ where: { orgId, startDate: { gte: cp.start, lt: period.startDate } }, select: { id: true } });
+  if (!periods.length) return out;
+  const runs = await payrollPrisma.payrollRun.findMany({ where: { orgId, id: { not: run.id }, periodId: { in: periods.map((p) => p.id) }, status: { in: PT_COUNTED_RUNS } }, select: { id: true } });
+  if (!runs.length) return out;
+  const esiComponents = await payrollPrisma.salaryComponent.findMany({ where: { orgId, statutoryScheme: 'ESI', type: 'DEDUCTION' }, select: { id: true } });
+  if (!esiComponents.length) return out;
+  const slips = await payrollPrisma.salarySlip.findMany({
+    where: { orgId, runId: { in: runs.map((r) => r.id) }, employeeId: { in: employeeIds }, status: { not: 'CANCELLED' } },
+    select: { id: true, employeeId: true },
+  });
+  if (!slips.length) return out;
+  const lines = await payrollPrisma.salarySlipLine.findMany({
+    where: { orgId, slipId: { in: slips.map((s) => s.id) }, componentId: { in: esiComponents.map((c) => c.id) }, amount: { gt: 0 } },
+    select: { slipId: true },
+  });
+  const whose = new Map(slips.map((s) => [s.id, s.employeeId]));
+  for (const l of lines) {
+    const id = whose.get(l.slipId);
+    if (id) out.add(id);
+  }
+  return out;
+}
+
+/**
  * The first month of this financial year the company ran payroll in CLOR
  * (an approved run), or this month when there is none before it. Months
  * before it were paid somewhere else, and CLOR cannot see what PT they took,
@@ -728,6 +771,8 @@ async function loadRunContext(orgId: string, runId: string) {
   const lwfSettings = await lwfSettingsFor(orgId);
   const ptFirstMonth = await firstPayrollMonthInYear(orgId, run, period);
   const ptSoFar = await ptPaidSoFar(orgId, run, period, employeeIds, new Map(profiles.map((p) => [p.employeeId, canonicalState(p.professionalTaxState)])));
+  const esiContinues = await esiCoveredThisPeriod(orgId, run, period, employeeIds);
+  const esiPeriodEnds = esiPeriodOf(period.startDate).ends;
   const taxDeclarations = new Map(
     (
       await payrollPrisma.taxDeclaration.findMany({ where: { orgId, financialYear: taxYear, employeeId: { in: employeeIds } } })
@@ -751,6 +796,8 @@ async function loadRunContext(orgId: string, runId: string) {
     lwfSettings,
     ptSoFar,
     ptFirstMonth,
+    esiContinues,
+    esiPeriodEnds,
     recoveriesByEmployee: recoveries.reduce((m, r) => {
       const list = m.get(r.employeeId) || [];
       list.push(r);
@@ -1027,6 +1074,8 @@ function calculateWithStatutory(
   const employee = {
     pfApplicable: !!profile?.pfApplicable,
     esiApplicable: !!profile?.esiApplicable,
+    /* Covered earlier in this ESI contribution period: cover runs to its end even above the threshold. */
+    esiContinuesUntil: ctx.esiContinues?.has(assignment.employeeId) ? ctx.esiPeriodEnds : null,
     ptApplicable: !!profile?.ptApplicable,
     professionalTaxState: profile?.professionalTaxState ?? null,
     /* Maharashtra's women's bands read gender from the People record. */

@@ -147,8 +147,14 @@ export async function proposeSettlement(accountId: string, orgId: string, employ
   const { wage, gross, from } = await lastDrawnWages(orgId, employeeId);
   const wageNote = `from payslip ${from}`;
 
+  /* Round 66 "fixedgratuity": fixed-term staff are owed gratuity after one year, not five (Code on Social Security, s. 53(1) proviso). */
+  const typeCategory = person.employeeTypeId
+    ? (await peoplePrisma.employeeType.findFirst({ where: { orgId, id: person.employeeTypeId }, select: { category: true } }))?.category
+    : null;
+  const fixedTerm = typeCategory === 'FIXED_TERM';
   if (person.dateOfJoining) {
-    const g = gratuityFor(wage, person.dateOfJoining, leaving);
+    const g0 = gratuityFor(wage, person.dateOfJoining, leaving, fixedTerm ? { ...GRATUITY_DEFAULTS, minimumYears: 1 } : GRATUITY_DEFAULTS);
+    const g = fixedTerm ? { ...g0, explanation: `${g0.explanation} Fixed-term staff are owed gratuity after one year.` } : g0;
     const explanation = from || (!g.amount && /owed after/.test(g.explanation))
       ? `${g.explanation}${from ? ` Wages ${wageNote}.` : ''}`
       : `${serviceYears(person.dateOfJoining, leaving).years === 1 ? '1 year' : `${serviceYears(person.dateOfJoining, leaving).years} years`} counted; no approved payslip yet, so enter 15/26 × monthly wages × years.`;

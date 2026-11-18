@@ -1321,3 +1321,11 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-table .text-right { text-align: right; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort { font: inherit; font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted)); background: none; border: 0; padding: 0; cursor: pointer; border-radius: 8px; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-myteam-sort[aria-pressed='true'] { color: rgb(var(--fg)); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Round 66 */
+/* holdpay A: held salaries on the run, one hairline row each (name and reason, net pay, Release); no card. */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-pay { padding-top: 12px; border-top: 1px solid rgb(var(--border)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-list { list-style: none; margin: 0; padding: 0; display: grid; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 48px; padding: 6px 0; border-top: 1px solid rgb(var(--border)); font-size: 0.875rem; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-row:first-child { border-top: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-hold-form { padding-top: 4px; }
