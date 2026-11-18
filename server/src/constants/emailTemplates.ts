@@ -377,13 +377,14 @@ Open it in the operator console: {{opsUrl}}`,
     key: 'people.approval_waiting',
     label: 'People: a request waits for your decision',
     description: 'Sent to each approver when a People request (job change, resignation, probation, request form, and others) reaches their step, and again if it is handed on to them or goes overdue.',
-    subject: '{{headline}}: {{title}}',
+    /* Round 55: the subject starts with what to do ("Approve: Selvi's leave · due 20 Nov"). */
+    subject: '{{subjectLine}}',
     body: `Hello {{userName}},
 
 {{headline}}: {{title}}, in {{orgName}}. {{dueLine}}
 
 Open Approvals in People to decide: {{appUrl}}`,
-    fields: ['userName', 'headline', 'title', 'orgName', 'dueLine', 'appUrl'],
+    fields: ['userName', 'subjectLine', 'headline', 'title', 'orgName', 'dueLine', 'appUrl'],
   },
   {
     key: 'people.approval_decided',

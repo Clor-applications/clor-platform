@@ -43,3 +43,24 @@ export async function revealStatutory(orgId: string, employeeId: string, field: 
   const p = await payrollPrisma.employeePayrollProfile.findFirst({ where: { orgId, employeeId }, select: { [column[field]]: true } as any });
   return (p as any)?.[column[field]] ?? null;
 }
+
+/** A whole PAN (ABCDE1234F) or UAN (12 digits) typed into a search box, or null. Parts never match: a search is not a way to guess one. */
+export function identifierQuery(q: string): { field: 'pan' | 'uan'; value: string } | null {
+  const s = String(q || '').replace(/\s+/g, '').toUpperCase();
+  if (/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(s)) return { field: 'pan', value: s };
+  if (/^[0-9]{12}$/.test(s)) return { field: 'uan', value: s };
+  return null;
+}
+
+/**
+ * Round 55 (searchid A): the people whose PAN or UAN is exactly this, for the
+ * people search. Only whole identifiers match; the caller checks the reader
+ * may see statutory details before asking.
+ */
+export async function employeesByIdentifier(orgId: string, q: string): Promise<string[]> {
+  const id = identifierQuery(q);
+  if (!id) return [];
+  const where = id.field === 'pan' ? { orgId, pan: { equals: id.value, mode: 'insensitive' as const } } : { orgId, uan: id.value };
+  const rows = await payrollPrisma.employeePayrollProfile.findMany({ where, select: { employeeId: true }, take: 20 });
+  return rows.map((r) => r.employeeId);
+}

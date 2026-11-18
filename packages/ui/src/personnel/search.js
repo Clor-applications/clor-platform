@@ -1,7 +1,7 @@
 import { listEmployees } from './api';
 
 /**
- * People found by name, employee ID or work email, for the search bar
+ * People found by name, employee ID, work email or phone (and a whole PAN or UAN for a reader who may see statutory details, round 55), for the search bar
  * (People plan, 8 Nov 2026: typing "Priya" found nothing). Each opens the
  * person's record: in People itself, or in People from another app. The
  * server applies the reader's own scope, so a manager finds their team only.

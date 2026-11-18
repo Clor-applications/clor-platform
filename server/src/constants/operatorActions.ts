@@ -40,6 +40,7 @@ export const OPERATOR_ACTION_LABELS: Record<string, string> = {
   SAVED_REPLY_ADDED: 'Added a saved reply',
   SAVED_REPLY_CHANGED: 'Changed a saved reply',
   SAVED_REPLY_REMOVED: 'Removed a saved reply',
+  HANDOVER_WRITTEN: 'Wrote the handover note',
   SWITCH_PAUSED: 'Paused a form on clor.in',
   SWITCH_OPENED: 'Opened a form on clor.in',
   FEATURE_TURNED_ON: 'Turned on a feature',

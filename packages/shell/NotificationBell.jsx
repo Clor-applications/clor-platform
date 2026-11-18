@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bell, BellOff, Check } from '@ui/components/ui/lineIcons';
+import { AlarmClock, Bell, BellOff, Check } from '@ui/components/ui/lineIcons';
 
 import { Popover } from '@base-ui/react/popover';
-import { getInbox, getMutes, markAllRead, markRead, setMute } from '@ui/api/notifications';
+import { getInbox, getMutes, markAllRead, markRead, setMute, snoozeNotice } from '@ui/api/notifications';
 
 import { kindLabel } from './notificationKinds';
 
@@ -69,6 +69,11 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
     if (n.link && onOpen) onOpen(n.link);
   };
   const readAll = () => markAllRead().then(load).catch(() => undefined);
+  const snooze = (n) => {
+    /* Gone from the list at once; the server keeps it until 9 AM tomorrow (India time). */
+    setState((s) => ({ ...s, items: s.items.filter((x) => x.id !== n.id), unread: n.readAt ? s.unread : Math.max(0, s.unread - 1) }));
+    snoozeNotice(n.id).then(load).catch(load);
+  };
 
   return (
     /* base-ui places the panel on screen, closes it on Escape or a click elsewhere and returns the keyboard to the bell. */
@@ -111,6 +116,10 @@ export default function NotificationBell({ tenantKey, onOpen, icon: Icon = Bell,
                         {n.body ? <span className="block ui-caption">{n.body}</span> : null}
                         <span className="block ui-caption">{ago(n.createdAt)}</span>
                       </span>
+                    </button>
+                    {/* Round 55 (snooze A): "Remind me tomorrow" hides the notice until 9 AM tomorrow, when it comes back unread at the top. */}
+                    <button type="button" className="ui-icon-btn mt-1" aria-label={`Remind me tomorrow: ${n.title}`} title="Remind me tomorrow at 9 AM" onClick={() => snooze(n)}>
+                      <AlarmClock size={14} aria-hidden="true" />
                     </button>
                     <button type="button" className="ui-icon-btn mt-1" aria-label={`Stop showing ${kindLabel(n.kind).toLowerCase()}`} title={`Stop showing ${kindLabel(n.kind).toLowerCase()}`} onClick={() => toggleMute(n.kind, true)}>
                       <BellOff size={14} aria-hidden="true" />
