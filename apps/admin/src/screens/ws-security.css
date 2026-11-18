@@ -502,3 +502,32 @@
 .ws .ws-br-table td.ws-td-menu { overflow: visible; text-align: right; }
 :root:not(#pk):not(#pk2) .ws .ws-activity-table thead th { border-bottom-width: 0; }
 .ws .ws-activity-table thead { border-bottom: 2px solid rgb(var(--fg, 28 27 24)); }
+
+/* Company profile (owner, 19 Nov 2026: "visibility"): important, because picks.css paints every panel and
+   field with an :is() list too heavy to outweigh otherwise; scoped to this one page. White panels with a hairline, and fields that read as
+   fields: white, a visible border, a blue ring on focus. Grey boxes on grey panels hid every input. */
+:root:not(#pk):not(#pk2) .ws .ws-profile .ws-panel {
+  background: rgb(255 255 255) !important;
+  background-image: none !important;
+  border: 1px solid rgb(var(--border, 229 229 229)) !important;
+  box-shadow: none !important;
+}
+.ws .ws-profile .ws-panel-title { font-size: 1rem; line-height: 1.5rem; }
+.ws .ws-profile label > span.text-sm { color: rgb(var(--fg, 28 27 24)); font-weight: 600; font-size: 0.8125rem; }
+:root:not(#pk):not(#pk2) .ws .ws-profile .ui-input {
+  min-height: 40px !important;
+  background: rgb(255 255 255) !important;
+  border: 1px solid rgb(var(--border-field, 214 214 214)) !important;
+  box-shadow: none !important;
+  color: rgb(var(--fg, 28 27 24)) !important;
+}
+:root:not(#pk):not(#pk2) .ws .ws-profile .ui-input:hover { border-color: rgb(var(--fg-muted, 58 63 71) / 0.5) !important; }
+:root:not(#pk):not(#pk2) .ws .ws-profile .ui-input:focus {
+  border-color: rgb(var(--hover-blue, 42 120 214)) !important;
+  box-shadow: 0 0 0 3px rgb(var(--hover-blue, 42 120 214) / 0.15) !important;
+  outline: none !important;
+}
+.ws .ws-profile .ui-input::placeholder { color: rgb(var(--fg-muted, 58 63 71) / 0.55); }
+/* A section still to fill says so in amber, not in the brand's purple. */
+.ws .ws-profile .ws-tile--warn { background: rgb(180 83 9 / 0.1) !important; color: rgb(180 83 9) !important; }
+.ws .ws-profile .ws-meter-bar { background: rgb(var(--border, 229 229 229)) !important; }
