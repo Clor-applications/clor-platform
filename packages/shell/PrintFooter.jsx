@@ -13,12 +13,16 @@ export function printedLine(name, when = new Date()) {
 }
 
 export default function PrintFooter({ name }) {
-  const [when, setWhen] = useState(() => new Date());
+  /* Drawn only while the page prints, so the signed-in name never sits in the screen's own text. */
+  const [when, setWhen] = useState(null);
   useEffect(() => {
-    const now = () => setWhen(new Date());
-    window.addEventListener('beforeprint', now);
-    return () => window.removeEventListener('beforeprint', now);
+    const start = () => setWhen(new Date());
+    const end = () => setWhen(null);
+    window.addEventListener('beforeprint', start);
+    window.addEventListener('afterprint', end);
+    return () => { window.removeEventListener('beforeprint', start); window.removeEventListener('afterprint', end); };
   }, []);
+  if (!when) return null;
   if (typeof document !== 'undefined' && document.documentElement.dataset.palette === 'indigo') return null;
   return <div className="ui-print-footer" aria-hidden="true">{printedLine(name, when)}</div>;
 }

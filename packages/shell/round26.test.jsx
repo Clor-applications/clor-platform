@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { clockText, lockoutSeconds } from './lockoutWait';
@@ -25,7 +25,12 @@ describe('printed footer', () => {
     const line = printedLine('Anita Rao', new Date(2026, 10, 18, 16, 12));
     expect(line).toMatch(/^Printed by Anita Rao from CLOR · 18 Nov 2026, 4:12 PM$/i);
     render(<PrintFooter name="Anita Rao" />);
+    /* Not in the screen's text until printing starts, and gone again after. */
+    expect(document.querySelector('.ui-print-footer')).toBeNull();
+    act(() => { window.dispatchEvent(new Event('beforeprint')); });
     expect(document.querySelector('.ui-print-footer')).toHaveTextContent('Printed by Anita Rao from CLOR');
+    act(() => { window.dispatchEvent(new Event('afterprint')); });
+    expect(document.querySelector('.ui-print-footer')).toBeNull();
   });
   it('is not drawn in Books', () => {
     document.documentElement.dataset.palette = 'indigo';
