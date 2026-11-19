@@ -68,8 +68,11 @@ export default function LeaveCalendar() {
   const today = todayIst();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [dept, setDept] = useState('');
-  /* Month (R&D PEOPLE-12): the weeks with names in each day; By person: one line a person across the month. */
-  const [view, setView] = useState('month');
+  /*
+   * By person first (owner, 19 Nov 2026, DESIGN.md "Pick conflicts resolved": rounds 5 and 17 over round 8): one row a
+   * person across the days, leave as blocks. Month (R&D PEOPLE-12) keeps the weeks with names in each day, one tap away.
+   */
+  const [view, setView] = useState('person');
   const req = useRequest(
     () => Promise.all([listLeaveRequests({ month }), listHolidays(month.slice(0, 4)).catch(() => []), getWorkingWeek().catch(() => null), getWorkingAway(month).catch(() => [])])
       .then(([r, h, week, working]) => ({ month, requests: r.filter((x) => ['APPROVED', 'PENDING'].includes(x.status)), holidays: h, week, working })),
@@ -131,7 +134,7 @@ export default function LeaveCalendar() {
           </div>
           {month !== today.slice(0, 7) ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setMonth(today.slice(0, 7))}>This month</button> : null}
           <div className="pt-seg" role="group" aria-label="View">
-            {[['month', 'Month'], ['person', 'By person']].map(([k, l]) => <button key={k} type="button" className="pt-seg-item" aria-pressed={view === k} onClick={() => setView(k)}>{l}</button>)}
+            {[['person', 'By person'], ['month', 'Month']].map(([k, l]) => <button key={k} type="button" className="pt-seg-item" aria-pressed={view === k} onClick={() => setView(k)}>{l}</button>)}
           </div>
           {departments.length > 1 ? (
             <div className="w-full sm:w-56">
@@ -159,76 +162,16 @@ export default function LeaveCalendar() {
           {view === 'month' ? (
             <MonthGrid month={month} today={today} people={people} isOffDay={isOffDay} holidayOn={holidayOn} clashOn={clashOn} />
           ) : (
-          /* Scrolls sideways on a phone: reachable by keyboard, so the days past the edge can be read (axe scrollable-region-focusable). */
-          <div className="ui-table-scroll border-t" style={{ borderColor: 'rgb(var(--border))' }} tabIndex={0} role="group" aria-label={`Days of ${title(month)}`}>
-            <table className="w-full border-collapse text-xs" aria-label={`Leave in ${title(month)}`}>
-              <thead>
-                <tr>
-                  <th scope="col" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-medium min-w-44">Employee</th>
-                  {days.map((d) => (
-                    <th key={d} scope="col" title={holidayOn.get(d) || undefined} className={`p-0.5 text-center font-normal min-w-6 tabular-nums ${shaded(d) ? 'bg-[rgb(var(--border)/0.45)] ui-muted' : ''} ${d === today ? 'text-[rgb(var(--brand-ink))] font-medium' : ''}`}>
-                      <div>{'SMTWTFS'[weekday(d)]}</div>
-                      <div>{Number(d.slice(8))}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {!people.length ? (
-                  <tr className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
-                    <td className="p-3 text-sm ui-muted" colSpan={days.length + 1} role="status">Nobody is away or working elsewhere in {title(month)}{dept ? ` in ${dept}` : ''}. Leave approved for these days shows here, one line a person.</td>
-                  </tr>
-                ) : null}
-                {people.map((p) => (
-                  <tr key={p.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
-                    <th scope="row" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-normal">
-                      {p.name}{p.department ? <span className="ui-caption block">{p.department}</span> : null}
-                    </th>
-                    {days.map((d) => {
-                      const r = p.leave.find((x) => x.fromDate <= d && d <= x.toDate);
-                      const tone = r ? toneOf(r) : null;
-                      const w = r ? null : p.working.find((x) => x.fromDate <= d && d <= x.toDate && !shaded(d));
-                      return (
-                        <td key={d} className={`p-0.5 text-center ${shaded(d) ? 'bg-[rgb(var(--border)/0.45)]' : ''}`}>
-                          {r ? (
-                            <span
-                              className={`block h-5 ${r.halfDay ? `w-1/2 ${r.halfDay === 'SECOND' ? 'ml-auto' : ''}` : ''} ${tone.className || ''}`}
-                              role="img"
-                              data-half={r.halfDay || undefined}
-                              style={{ ...(tone.style || {}), opacity: r.status === 'PENDING' ? 0.4 : 1 }}
-                              title={`${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`}
-                              aria-label={`${d}: ${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`}
-                            />
-                          ) : w ? (
-                            <span
-                              className="flex h-5 items-center justify-center text-[0.75rem] font-medium"
-                              role="img"
-                              style={workingMark}
-                              title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${halfWords(w.halfDay)}`}
-                              aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}${halfWords(w.halfDay)}`}
-                            >{WORKING[w.kind]?.letter || ''}</span>
-                          ) : null}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-                <tr className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
-                  <th scope="row" className="sticky left-0 z-10 bg-[rgb(var(--app-bg))] p-2 text-left text-sm font-medium">Away</th>
-                  {days.map((d) => (clashOn.has(d)
-                    ? <td key={d} className="p-0.5 text-center" title="Two or more of one department away"><span className="ui-pill ui-pill-warn tabular-nums px-1">{awayOn(d) || '!'}</span></td>
-                    : <td key={d} className="p-1 text-center ui-muted tabular-nums">{awayOn(d) || ''}</td>))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+            <PersonRows month={month} today={today} days={days} people={people} shaded={shaded} holidayOn={holidayOn} clashOn={clashOn} awayOn={awayOn} dept={dept} />
           )}
           <ul className="pt-legend" aria-label="Key">
             {legend.map((t) => (isPrivate(t.row)
               ? <li key={t.key} className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full ui-dot-quiet" aria-hidden="true" />{t.name}</li>
               : <li key={t.key}><LeavePill type={t.row} /></li>))}
-            <li className="inline-flex items-center gap-1.5"><span className="pt-cal-leave is-waiting" aria-hidden="true">&nbsp;&nbsp;&nbsp;</span>Waiting</li>
-            <li className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border" style={{ background: 'rgb(var(--surface-sunken))', borderColor: 'rgb(var(--border))' }} aria-hidden="true" />Weekly off</li>
+            {view === 'person'
+              ? <li className="inline-flex items-center gap-1.5"><span className="pt-rows-swatch ui-dot-quiet" style={{ opacity: 0.4 }} aria-hidden="true" />Waiting, lighter</li>
+              : <li className="inline-flex items-center gap-1.5"><span className="pt-cal-leave is-waiting" aria-hidden="true">&nbsp;&nbsp;&nbsp;</span>Waiting</li>}
+            <li className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border" style={{ background: 'rgb(var(--fg) / 0.045)', borderColor: 'rgb(var(--border))' }} aria-hidden="true" />Weekly off</li>
             {holidayOn.size ? <li className="pt-cal-holiday">Holidays in amber</li> : null}
             {people.some((p) => p.leave.some((x) => x.halfDay)) ? <li className="inline-flex items-center gap-1.5"><span className="inline-flex h-2.5 w-5 border" style={{ borderColor: 'rgb(var(--border))' }} aria-hidden="true"><span className="h-full w-1/2 ui-dot-quiet" /></span>Half day: left half first, right half second</li> : null}
             {workingKinds.map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className="inline-flex h-4 w-4 items-center justify-center text-[0.75rem]" style={workingMark} aria-hidden="true">{WORKING[k].letter}</span>{WORKING[k].name}, working</li>)}
@@ -281,6 +224,108 @@ function MonthGrid({ month, today, people, isOffDay, holidayOn, clashOn }) {
         </div>
       ))}
       {empty ? <p className="pt-month-empty" role="status">Nobody is away or working elsewhere in {title(month)}. Approved leave shows on its days here.</p> : null}
+    </div>
+  );
+}
+
+/* The person's identity colour, the same hash as the Employees avatar (personnel/Employees identityCat), kept here so the calendar does not load that screen. */
+const identityCat = (name) => ([...String(name || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 0) % 8) + 1;
+const initialsOf = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('');
+const leaveWords = (r) => `${isPrivate(r) ? PRIVATE_LABEL : r.leaveTypeName}, ${STATUS_LABEL[r.status].toLowerCase()}${halfWords(r.halfDay)}`;
+
+/**
+ * By person (rounds 5 and 17): one row a person, a column a day. The name stays put on the left while the days scroll
+ * under it on a phone; the scroll is the grid's own, never the page's. A leave is one solid block in its type's colour
+ * across its days (a run of cells with the ends rounded), lighter while it waits; a half day fills half its cell, left
+ * for the first half, right for the second. Weekly offs and holidays are tinted, today is marked in the head.
+ */
+function PersonRows({ month, today, days, people, shaded, holidayOn, clashOn, awayOn, dept }) {
+  const leaveOn = (p, d) => p.leave.find((x) => x.fromDate <= d && d <= x.toDate);
+  return (
+    /* Reachable by keyboard, so the days past the edge can be read (axe scrollable-region-focusable). */
+    <div className="pt-rows-scroll" tabIndex={0} role="group" aria-label={`Days of ${title(month)}`}>
+      <table className="pt-rows ui-table-register" aria-label={`Leave in ${title(month)}`}>
+        <thead>
+          <tr>
+            <th scope="col" className="ui-register-sticky pt-rows-who">Employee</th>
+            {days.map((d) => (
+              <th
+                key={d}
+                scope="col"
+                title={holidayOn.get(d) || undefined}
+                className={`pt-rows-day ${shaded(d) ? 'is-shaded' : ''} ${holidayOn.has(d) ? 'is-holiday' : ''} ${d === today ? 'is-today' : ''}`}
+                aria-current={d === today ? 'date' : undefined}
+              >
+                <span className="pt-rows-wd">{'SMTWTFS'[weekday(d)]}</span>
+                <span className="pt-rows-n">{Number(d.slice(8))}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {!people.length ? (
+            <tr>
+              <td className="pt-rows-empty" colSpan={days.length + 1} role="status">Nobody is away or working elsewhere in {title(month)}{dept ? ` in ${dept}` : ''}. Leave approved for these days shows here, one line a person.</td>
+            </tr>
+          ) : null}
+          {people.map((p) => (
+            <tr key={p.id}>
+              <th scope="row" className="ui-register-sticky pt-rows-who">
+                <span className="pt-rows-person">
+                  <span className="pt-rows-face" aria-hidden="true" style={{ '--face': `var(--cat-${identityCat(p.name)}, var(--fg-subtle))` }}>{initialsOf(p.name)}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate">{p.name}</span>
+                    {p.department ? <span className="ui-caption block truncate">{p.department}</span> : null}
+                  </span>
+                </span>
+              </th>
+              {days.map((d, i) => {
+                const r = leaveOn(p, d);
+                const cls = `pt-rows-cell ${shaded(d) ? 'is-shaded' : ''} ${d === today ? 'is-today' : ''}`;
+                if (r) {
+                  const tone = toneOf(r);
+                  /* The block runs on from the day before and into the day after when it is the same leave; a half day stands alone. */
+                  const joinsBefore = !r.halfDay && i > 0 && leaveOn(p, days[i - 1])?.id === r.id;
+                  const joinsAfter = !r.halfDay && i < days.length - 1 && leaveOn(p, days[i + 1])?.id === r.id;
+                  return (
+                    <td key={d} className={cls}>
+                      <span
+                        className={`pt-rows-leave ${joinsBefore ? '' : 'is-start'} ${joinsAfter ? '' : 'is-end'} ${r.halfDay ? `is-half ${r.halfDay === 'SECOND' ? 'is-second' : ''}` : ''} ${r.status === 'PENDING' ? 'is-waiting' : ''} ${tone.className || ''}`}
+                        role="img"
+                        data-half={r.halfDay || undefined}
+                        data-joins={[joinsBefore ? 'before' : '', joinsAfter ? 'after' : ''].filter(Boolean).join(' ') || undefined}
+                        style={tone.style}
+                        title={`${p.name}: ${leaveWords(r)}`}
+                        aria-label={`${d}: ${leaveWords(r)}`}
+                      />
+                    </td>
+                  );
+                }
+                const w = p.working.find((x) => x.fromDate <= d && d <= x.toDate && !shaded(d));
+                return (
+                  <td key={d} className={cls}>
+                    {w ? (
+                      <span
+                        className="pt-rows-working"
+                        role="img"
+                        style={workingMark}
+                        title={`${WORKING[w.kind]?.name || w.kind}${w.place ? `, ${w.place}` : ''}${halfWords(w.halfDay)}`}
+                        aria-label={`${d}: ${WORKING[w.kind]?.name || w.kind}${halfWords(w.halfDay)}`}
+                      >{WORKING[w.kind]?.letter || ''}</span>
+                    ) : null}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+          <tr className="pt-rows-away">
+            <th scope="row" className="ui-register-sticky pt-rows-who font-medium">Away</th>
+            {days.map((d) => (clashOn.has(d)
+              ? <td key={d} className="pt-rows-cell" title="Two or more of one department away"><span className="ui-pill ui-pill-warn tabular-nums px-1">{awayOn(d) || '!'}</span></td>
+              : <td key={d} className={`pt-rows-cell ui-muted tabular-nums ${shaded(d) ? 'is-shaded' : ''}`}>{awayOn(d) || ''}</td>))}
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
