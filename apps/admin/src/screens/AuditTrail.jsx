@@ -125,7 +125,7 @@ const valueText = (v, depth = 0) => {
     if (depth > 1) return '…';
     return Object.entries(v).map(([k, x]) => `${fieldWords(k)}: ${valueText(x, depth + 1)}`).join(' · ') || '—';
   }
-  return String(v);
+  return datesInWords(String(v));
 };
 const short = (t) => (t.length > 140 ? `${t.slice(0, 140)}…` : t);
 
@@ -139,6 +139,10 @@ const fieldWords = (k) => {
  * The general recorder names a request ("POST payroll/loans"); say it as the
  * change it made. Messages written by the routes themselves pass through.
  */
+/* "2026-12-09" in a route's own message reads "9 Dec 2026" (page audit 19 Nov 2026). */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const datesInWords = (text) =>
+  String(text).replace(/\b(\d{4})-(\d{2})-(\d{2})(?![\d:T])/g, (all, y, mo, d) => (Number(mo) >= 1 && Number(mo) <= 12 ? `${Number(d)} ${MONTHS[Number(mo) - 1]} ${y}` : all));
 const VERB = { POST: 'Added', PUT: 'Changed', PATCH: 'Changed', DELETE: 'Removed' };
 export const messageWords = (message, entity, action) => {
   const m = String(message || '').match(/^(POST|PUT|PATCH|DELETE)\s+\/?([\w/-]+)/);
@@ -148,7 +152,7 @@ export const messageWords = (message, entity, action) => {
     const noun = last.replace(/-/g, ' ').replace(/ies$/, 'y').replace(/(ch|sh|ss|x)es$/, '$1').replace(/s$/, '');
     return `${VERB[m[1]]} ${noun.replace(/^payroll /, '')}`.replace(/^(\w+) (\w)/, (_, v, c) => `${v} ${c.toLowerCase()}`);
   }
-  return message || `${entityLabel(entity)} ${actionWords(action).toLowerCase()}`;
+  return message ? datesInWords(message) : `${entityLabel(entity)} ${actionWords(action).toLowerCase()}`;
 };
 
 /**
