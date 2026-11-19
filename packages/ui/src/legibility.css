@@ -30,10 +30,20 @@
 
 /* ---- Second sidebar ---- */
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item {
-  height: 2.25rem;
+  height: auto;
+  min-height: 2.25rem;
   font-size: 0.875rem;
   font-weight: 500;
   color: rgb(var(--fg));
+}
+/* At 14px a 192px panel cut six People names ("Punches with no em…", "All attendance rec…") with no
+   way to read the rest. A long name takes a second line instead; one-line items stay 36px. Not in Books. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-split-panel .ui-split-item > .truncate {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  padding-block: 0.4375rem;
 }
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item[aria-current='page'] { font-weight: 600; }
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel-head > .ui-t-sec { font-size: 1rem; }
