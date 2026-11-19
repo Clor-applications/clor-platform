@@ -234,6 +234,8 @@ export default function Approvals({ params = {}, updateParams, openScreen }) {
       <span className="block max-w-xs">
         <span className="block truncate" title={whatOf(i)}>{whatOf(i)}</span>
         {OWN_NOTE[i.own] ? <span className="block ui-caption whitespace-normal">{OWN_NOTE[i.own]}</span> : null}
+        {/* Round 47: approved leave the person asks to cancel; opened, it reads Approve cancellation or Keep leave. */}
+        {i.cancelAsked ? <span className="block ui-caption whitespace-normal">Asks to cancel approved leave{i.reason ? `: “${i.reason}”` : ''}. Open it to decide.</span> : null}
       </span>
     ) },
     { key: 'when', label: 'Dates', render: (i) => <span className="tabular-nums whitespace-nowrap">{range(i.fromDate, i.toDate)}{i.halfDay ? <span className="ui-caption block">{halfText(i.halfDay)}</span> : i.fromTime && i.toTime ? <span className="ui-caption block">{i.fromTime}–{i.toTime}</span> : null}</span> },

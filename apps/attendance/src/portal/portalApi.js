@@ -137,7 +137,8 @@ export const getLeave = () => call('/leave');
 export const askLeave = (body) => call('/leave', { method: 'POST', body });
 /** What a request would charge, without saving: { ok, total, split, parts[{label, from, to, days, balance, dates}], problems, reasonNeeded, type }. */
 export const previewLeave = (body) => call('/leave/preview', { method: 'POST', body });
-export const cancelLeave = (id) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+/** A waiting request is withdrawn at once; approved leave is asked to be cancelled (`asked: true`), with an optional reason. */
+export const cancelLeave = (id, reason) => call(`/leave/${encodeURIComponent(id)}/cancel`, { method: 'POST', ...(reason ? { body: { reason } } : {}) });
 /** Remind whoever my waiting request waits on (once a day). */
 export const remindLeave = (id) => call(`/leave/${encodeURIComponent(id)}/remind`, { method: 'POST' });
 /** Answer the question an approver sent back with my request. */

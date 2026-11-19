@@ -46,7 +46,10 @@ export const createLeaveRequest = (body) => send('/leave/requests', 'POST', body
 /** `opts.asHr`: HR for the whole company deciding while it is still the manager's turn (marked "Decided by HR"). */
 export const approveLeave = (requestId, note, opts = {}) => send(`/leave/requests/${id(requestId)}/approve`, 'POST', { note, ...(opts.asHr ? { asHr: true } : {}) });
 export const rejectLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/reject`, 'POST', { note });
-export const cancelLeave = (requestId) => send(`/leave/requests/${id(requestId)}/cancel`, 'POST', {});
+/** HR cancels at once; `note` is the reason the person reads. */
+export const cancelLeave = (requestId, note) => send(`/leave/requests/${id(requestId)}/cancel`, 'POST', note ? { note } : {});
+/** Answer the person's ask to cancel approved leave (round 47): `approve` cancels it, otherwise it stays approved. */
+export const decideLeaveCancellation = (requestId, approve, note) => send(`/leave/requests/${id(requestId)}/cancellation`, 'POST', { approve: Boolean(approve), ...(note ? { note } : {}) });
 /** Send a waiting request back to the person with a question; it stays with the same approver. */
 export const sendBackLeave = (requestId, question) => send(`/leave/requests/${id(requestId)}/send-back`, 'POST', { note: question });
 /** Take back an approval before the leave starts: it waits again and its days come off the record. */

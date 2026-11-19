@@ -546,6 +546,8 @@ function MyDays({ guard, fix = null, onFixUsed }) {
 const REQUEST_PILL = { PENDING: 'ui-pill-warn', APPROVED: 'ui-pill-pos', REJECTED: 'ui-pill-neg', CANCELLED: 'ui-pill-neutral' };
 const REQUEST_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
 const RequestPill = ({ status }) => <span className={`ui-pill ${REQUEST_PILL[status] || 'ui-pill-neutral'}`}>{REQUEST_LABEL[status] || status}</span>;
+/* Approved leave I asked to cancel (round 47): still approved, waiting on the approver. */
+const LeavePill = ({ r }) => (r.status === 'APPROVED' && r.cancelAsked ? <span className="ui-pill ui-pill-warn">Approved · cancellation asked</span> : <RequestPill status={r.status} />);
 
 /*
  * Requests (TIME-LEAVE-DECISIONS.md, advanced build): a missed punch, and —
@@ -942,21 +944,30 @@ function MyLeave({ guard }) {
       setSending(false);
     }
   };
+  /* Approved leave (round 47): "Cancel" asks whoever approved it, with an optional reason, in a small form on the row. */
+  const [asking, setAsking] = useState({ id: null, reason: '' });
   const cancel = async (r) => {
-    const approved = r.status === 'APPROVED';
+    if (r.status === 'APPROVED') { setAsking({ id: r.id, reason: '' }); setNote(null); return; }
     const span = r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`;
-    const ok = await confirmDialog({
-      title: approved ? 'Cancel this leave?' : 'Withdraw this request?',
-      message: `${r.leaveTypeName}, ${span}. ${approved ? 'It was approved; the days go back to your balance, you are expected at work, and whoever approved it is told.' : 'It will not be decided.'}`,
-      confirmLabel: approved ? 'Cancel leave' : 'Withdraw',
-    });
+    const ok = await confirmDialog({ title: 'Withdraw this request?', message: `${r.leaveTypeName}, ${span}. It will not be decided.`, confirmLabel: 'Withdraw' });
     if (!ok) return;
     try {
       await guard(cancelLeave(r.id));
-      setNote({ ok: true, text: approved ? 'Leave cancelled.' : 'Request withdrawn.' });
+      setNote({ ok: true, text: 'Request withdrawn.' });
       load();
     } catch (err) {
       if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not cancelled.') });
+    }
+  };
+  const askCancel = async (e) => {
+    e.preventDefault();
+    try {
+      await guard(cancelLeave(asking.id, asking.reason.trim()));
+      setAsking({ id: null, reason: '' });
+      setNote({ ok: true, text: 'Asked to cancel. Your leave stays approved until it is agreed.' });
+      load();
+    } catch (err) {
+      if (!(err instanceof SignedOut)) setNote({ ok: false, text: String(err?.message || 'Not sent.') });
     }
   };
   /* Round 18/47: remind whoever it waits on, once a day. */
@@ -1130,6 +1141,7 @@ function MyLeave({ guard }) {
                   <span className="ui-caption block">{r.fromDate === r.toDate ? dayLabel(r.fromDate) : `${dayLabel(r.fromDate)} – ${dayLabel(r.toDate)}`}{leaveHours(r) ? `, ${leaveHours(r)}` : halfWords(r.halfDay) ? `, ${halfWords(r.halfDay)}` : ''}{!leaveHours(r) && r.overflowOfId ? ', over the balance: loss of pay' : ''}</span>
                   {r.note && r.status !== 'PENDING' ? <span className="ui-caption block">“{r.note}”</span> : null}
                   {r.status === 'PENDING' && r.withWhom ? <span className="ui-caption block">{r.withWhom}</span> : null}
+                  {r.status === 'APPROVED' && r.cancelAsked ? <span className="ui-caption block">You asked to cancel this. It stays approved until whoever approved it agrees.</span> : null}
                   {r.status === 'PENDING' && r.question ? (
                     <span className="block mt-1">
                       <span className="ui-caption block">Question for you: “{r.question.note}”</span>
@@ -1144,15 +1156,25 @@ function MyLeave({ guard }) {
                   ) : null}
                 </span>
                 <span className="flex flex-col items-end gap-1">
-                  <RequestPill status={r.status} />
+                  <LeavePill r={r} />
                   <span className="flex gap-3">
                     {r.status === 'PENDING' && editing?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => startChange(r)}>Change</button> : null}
                     {r.status === 'PENDING' && 'canRemind' in r ? <button type="button" className="ui-link text-xs" disabled={!r.canRemind} title={r.canRemind ? undefined : 'Reminded today. You can remind again tomorrow.'} onClick={() => remind(r)}>{r.canRemind ? 'Remind' : 'Reminded'}</button> : null}
                     {shortenable(r) && shortening?.id !== r.id ? <button type="button" className="ui-link text-xs" onClick={() => { setShortening(r); setShortTo(''); setNote(null); }}>Came back early</button> : null}
-                    {r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > data.today) ? (
+                    {r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > data.today && !r.cancelAsked && asking.id !== r.id) ? (
                       <button type="button" className="ui-link text-xs" onClick={() => cancel(r)}>Cancel</button>
                     ) : null}
                   </span>
+                  {asking.id === r.id ? (
+                    <form onSubmit={askCancel} className="flex flex-wrap items-end justify-end gap-2 pt-1" aria-label="Ask to cancel">
+                      <label className="block">
+                        <span className="ui-label">Why cancel (optional)</span>
+                        <input className="ui-input" maxLength={500} value={asking.reason} onChange={(e) => setAsking({ ...asking, reason: e.target.value })} />
+                      </label>
+                      <button type="submit" className="ui-btn ui-btn-primary ui-btn-sm">Ask to cancel</button>
+                      <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setAsking({ id: null, reason: '' })}>Keep leave</button>
+                    </form>
+                  ) : null}
                   {shortening?.id === r.id ? (
                     <form onSubmit={shorten} className="flex flex-wrap items-end justify-end gap-2 pt-1" aria-label="Came back early">
                       <label className="block">
@@ -1463,7 +1485,7 @@ function MyTax({ guard }) {
 // Approvals — what my reportees are waiting on
 // ---------------------------------------------------------------------------
 
-const APPROVAL_PILL = { leave: 'Leave', punch: 'Field punch', overtime: 'Overtime', correction: 'Correction' };
+const APPROVAL_PILL = { leave: 'Leave', 'leave-cancel': 'Cancel leave', punch: 'Field punch', overtime: 'Overtime', correction: 'Correction' };
 function Approvals({ guard }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -1498,7 +1520,7 @@ function Approvals({ guard }) {
   if (error && !data) return <LoadFailed message={error} onRetry={load} />;
   if (!data) return <div className="ui-card p-6 ui-caption">Loading…</div>;
   /* Field punches and overtime wait here too (time depth, gap 18): the phone app always showed them. */
-  const items = [...data.leaves, ...data.corrections, ...(data.requests || []), ...(data.punches || []), ...(data.overtime || [])].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
+  const items = [...data.leaves, ...(data.cancellations || []), ...data.corrections, ...(data.requests || []), ...(data.punches || []), ...(data.overtime || [])].sort((a, b) => String(a.askedAt).localeCompare(String(b.askedAt)));
   const fmt = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   return (
@@ -1519,8 +1541,8 @@ function Approvals({ guard }) {
               <div className="min-w-0">
                 <div className="font-semibold">{item.employeeName}{item.employeeCode ? <span className="ui-caption font-normal"> · {item.employeeCode}</span> : null}</div>
                 <div className="text-sm">
-                  {item.type === 'leave'
-                    ? <>{item.leaveTypeName} · {fmt(item.fromDate)}{item.toDate !== item.fromDate ? ` – ${fmt(item.toDate)}` : ''} · {item.days} day{item.days === 1 ? '' : 's'}</>
+                  {item.type === 'leave' || item.type === 'leave-cancel'
+                    ? <>{item.type === 'leave-cancel' ? 'Asks to cancel ' : ''}{item.leaveTypeName} · {fmt(item.fromDate)}{item.toDate !== item.fromDate ? ` – ${fmt(item.toDate)}` : ''} · {item.days} day{item.days === 1 ? '' : 's'}</>
                     : item.type === 'request'
                       ? <span className="tabular-nums">{item.kindName} · {requestWords(item)}</span>
                       : item.type === 'punch'
@@ -1537,16 +1559,16 @@ function Approvals({ guard }) {
             {rejecting === key ? (
               <div className="space-y-2">
                 {/* A rejected leave or request needs a reason; the person sees it. */}
-                <textarea className="ui-input w-full" rows={2} aria-label="Why not" placeholder="Why not? The person sees this." value={note} onChange={(e) => setNote(e.target.value)} />
+                <textarea className="ui-input w-full" rows={2} aria-label="Why not" placeholder={item.type === 'leave-cancel' ? 'Why keep it? The person sees this.' : 'Why not? The person sees this.'} value={note} onChange={(e) => setNote(e.target.value)} />
                 <div className="flex gap-2">
-                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key || ((item.type === 'leave' || item.type === 'request') && !note.trim())} onClick={() => decide(item, 'reject')}>Reject</button>
+                  <button type="button" className="ui-btn ui-btn-danger flex-1" disabled={busy === key || ((item.type === 'leave' || item.type === 'request') && !note.trim())} onClick={() => decide(item, 'reject')}>{item.type === 'leave-cancel' ? 'Keep leave' : 'Reject'}</button>
                   <button type="button" className="ui-btn ui-btn-secondary" onClick={() => { setRejecting(null); setNote(''); }}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="flex gap-2">
-                <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy === key} onClick={() => decide(item, 'approve')}>{busy === key ? 'Saving…' : 'Approve'}</button>
-                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => { setRejecting(key); setNote(''); }}>Reject</button>
+                <button type="button" className="ui-btn ui-btn-primary flex-1" disabled={busy === key} onClick={() => decide(item, 'approve')}>{busy === key ? 'Saving…' : item.type === 'leave-cancel' ? 'Approve cancellation' : 'Approve'}</button>
+                <button type="button" className="ui-btn ui-btn-secondary" disabled={busy === key} onClick={() => { setRejecting(key); setNote(''); }}>{item.type === 'leave-cancel' ? 'Keep leave' : 'Reject'}</button>
               </div>
             )}
           </section>

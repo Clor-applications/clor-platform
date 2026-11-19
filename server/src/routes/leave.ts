@@ -277,7 +277,7 @@ export async function readsPrivateLeave(req: any) {
 export const PRIVATE_LABEL = 'Private leave';
 /** Rows as this reader may see them: a private type's name and reason hidden unless they read private leave or it is their own. */
 export const masked = (rows: any[], reads: boolean, ownEmployeeId: string | null = null) =>
-  rows.map((r) => (!r.isPrivate || reads || (ownEmployeeId && r.employeeId === ownEmployeeId) ? r : { ...r, leaveTypeId: null, leaveTypeName: PRIVATE_LABEL, leaveTypeColor: null, reason: null, reviewNote: null, reasonHidden: true }));
+  rows.map((r) => (!r.isPrivate || reads || (ownEmployeeId && r.employeeId === ownEmployeeId) ? r : { ...r, leaveTypeId: null, leaveTypeName: PRIVATE_LABEL, leaveTypeColor: null, reason: null, reviewNote: null, cancelReason: null, reasonHidden: true }));
 
 export const withTypes = async (orgId: string, rows: any[]) => {
   const types = new Map(
@@ -2074,7 +2074,14 @@ leaveRouter.post(`${base}/requests/bulk-review`, canOrStep(PermissionAction.APPR
   res.json({ done: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, handedOn, results: results.filter((x) => !x.ok) });
 });
 
-export async function cancelLeaveRequest(accountId: string, orgId: string, id: string, userId: string) {
+/**
+ * Cancel a request and every other open part of the same leave. An approved
+ * one's days come off the attendance record and its days go back to the
+ * balance (balances count APPROVED only). `note`: why (HR cancelling, or an
+ * approver agreeing to the person's ask); the person reads it with the notice.
+ */
+export async function cancelLeaveRequest(accountId: string, orgId: string, id: string, userId: string, opts: { note?: string | null } = {}) {
+  const note = opts.note ?? null;
   return peopleWrite(orgId, async () => {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId } });
     if (!r || !OPEN.includes(r.status)) throw fail(409, 'This request is no longer open.');
@@ -2082,7 +2089,7 @@ export async function cancelLeaveRequest(accountId: string, orgId: string, id: s
     const parts = r.groupId ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: r.groupId, status: { in: OPEN }, id: { not: r.id } } }) : [];
     let first = null;
     for (const x of [r, ...parts]) {
-      const updated = await peoplePrisma.leaveRequest.update({ where: { id: x.id }, data: { status: 'CANCELLED', reviewedByUserId: userId, reviewedAt: new Date(), history: withHistory(x, { by: userId, what: x.status === 'APPROVED' ? 'CANCELLED' : 'WITHDRAWN' }) } });
+      const updated = await peoplePrisma.leaveRequest.update({ where: { id: x.id }, data: { status: 'CANCELLED', reviewedByUserId: userId, reviewedAt: new Date(), ...(note ? { reviewNote: note } : {}), history: withHistory(x, { by: userId, what: x.status === 'APPROVED' ? 'CANCELLED' : 'WITHDRAWN', ...(note ? { note } : {}) }) } });
       if (x.status === 'APPROVED') await clearLeaveDays(orgId, x.id);
       /* Who approved it, before the cancellation wrote over it: they are told (tellAboutLeave). */
       const shaped = await announce(orgId, updated, { approvedBy: x.status === 'APPROVED' ? x.reviewedByUserId || 'system' : null });
@@ -2092,15 +2099,134 @@ export async function cancelLeaveRequest(accountId: string, orgId: string, id: s
   });
 }
 
+/** HR (leave edit right) cancels any open leave at once, approved or not, with a reason the person reads. */
 leaveRouter.post(`${base}/requests/:id/cancel`, can(PermissionAction.EDIT, R.leave), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId }, select: { employeeId: true, fromDate: true, toDate: true } });
     if (!r || !inScope(await leaveScope(req), r.employeeId)) return res.status(404).json({ error: 'No such request.' });
-    const request = await cancelLeaveRequest(accountId, orgId, String(req.params.id), req.auth!.userId);
-    await recordAudit(req, { entity: 'LeaveRequest', entityId: String(req.params.id), action: 'CANCEL', message: `Cancelled ${request.employeeName}'s ${request.leaveTypeName}, ${r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} to ${r.toDate}`}`, metadata: { employeeId: r.employeeId } });
+    const note = noteOf(req) || (String(req.body?.reason || '').trim().slice(0, 500) || null);
+    const request = await cancelLeaveRequest(accountId, orgId, String(req.params.id), req.auth!.userId, { note });
+    await recordAudit(req, { entity: 'LeaveRequest', entityId: String(req.params.id), action: 'CANCEL', message: `Cancelled ${request.employeeName}'s ${request.leaveTypeName}, ${r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} to ${r.toDate}`}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId } });
     res.json({ request: masked([request], await readsPrivateLeave(req))[0] });
+  } catch (e) { return sendError(res, e); }
+});
+
+// ---------------------------------------------------------------------------
+// Cancelling approved leave needs the approver's OK again (round 47, decided
+// 19 Nov 2026 over round 18's "cancel at once, the manager is told"). The
+// person asks; the leave stays APPROVED and keeps counting until whoever
+// approves leave for them agrees (it is cancelled through cancelLeaveRequest,
+// exactly as HR's cancel) or keeps it (the ask is cleared, the person told).
+// ---------------------------------------------------------------------------
+
+/** Every approved part of one leave (split at the period end), first part first. */
+async function approvedParts(orgId: string, r: { id: string; groupId?: string | null }) {
+  return r.groupId
+    ? peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: r.groupId, status: 'APPROVED' }, orderBy: { fromDate: 'asc' } })
+    : peoplePrisma.leaveRequest.findMany({ where: { orgId, id: r.id, status: 'APPROVED' } });
+}
+
+/** The person asks to cancel their approved leave that has not started. Nothing changes until an approver decides. */
+export async function askToCancelLeave(accountId: string, orgId: string, r: any, by: string, reason: string | null): Promise<{ status: number; body: any }> {
+  const out = await peopleWrite(orgId, async () => {
+    const parts = await approvedParts(orgId, r);
+    if (!parts.length) return { status: 409, body: { error: 'This leave is no longer approved.' } };
+    if (parts.some((x) => x.cancelAskedAt)) return { status: 409, body: { error: 'You have already asked to cancel this leave. It waits for a decision.', code: 'CANCEL_ASKED' } };
+    const at = new Date();
+    for (const x of parts) {
+      const moved = await peoplePrisma.leaveRequest.updateMany({ where: { id: x.id, status: 'APPROVED', cancelAskedAt: null }, data: { cancelAskedAt: at, cancelAskedBy: by, cancelReason: reason, history: withHistory(x, { by, what: 'CANCEL_ASKED', note: reason }) as any } });
+      if (!moved.count) throw fail(409, 'This leave changed meanwhile. Open it again.');
+    }
+    return { status: 200, body: { request: (await withTypes(orgId, [await peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: r.id } })]))[0], asked: true }, lead: parts[0] };
+  });
+  if (out.status === 200) await tellCancelAsked(accountId, orgId, (out as any).lead).catch((e) => console.error('[leave] cancellation notice not sent:', e instanceof Error ? e.message : e));
+  return { status: out.status, body: out.body };
+}
+
+/** Whoever approved it (or, for leave approved by a rule or a manager with no sign-in, those who approve leave for the person) is asked. */
+async function tellCancelAsked(accountId: string, orgId: string, lead: any) {
+  const emp = await peoplePrisma.employee.findFirst({ where: { id: lead.employeeId, orgId }, select: { name: true, code: true, userId: true } });
+  if (!emp) return;
+  const [shaped] = await withTypes(orgId, [lead]);
+  const to = await approverUsers(orgId, lead.reviewedByUserId, () => approversOf(accountId, orgId, lead.employeeId));
+  const app = await appOf(accountId, orgId);
+  const what = shaped.isPrivate ? 'leave' : shaped.leaveTypeName;
+  const span = lead.groupId ? (await approvedParts(orgId, lead)) : [lead];
+  const when = leaveSpanWords({ fromDate: span[0].fromDate, toDate: span[span.length - 1].toDate });
+  await sendNotice(accountId, orgId, to, { kind: 'attendance.leave_asked', title: `${emp.name}${emp.code ? ` (${emp.code})` : ''} asks to cancel ${what}, ${when}`, body: shaped.isPrivate ? null : lead.cancelReason || null, link: app === 'people' ? { app, screen: 'approvals' } : { app, screen: 'leaveRequests', params: { id: lead.id } } }, { except: emp.userId, dedupeKey: `leave-cancel-asked:${lead.id}:${new Date(lead.cancelAskedAt).getTime()}`, subjectKey: `leave-cancel:${lead.id}` });
+}
+
+/**
+ * The approver's answer to an ask to cancel: `approve` cancels the leave (its days come off the
+ * record, the balance gets them back, the person is told); otherwise it stays approved, the ask is
+ * cleared and the person is told, with the note when there is one.
+ */
+export async function decideLeaveCancellation(accountId: string, orgId: string, id: string, by: string, approve: boolean, note: string | null): Promise<{ status: number; body: any }> {
+  const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId } });
+  if (!r) return { status: 404, body: { error: 'No such request.' } };
+  if (r.status !== 'APPROVED' || !r.cancelAskedAt) return { status: 409, body: { error: r.status === 'CANCELLED' ? 'This leave is already cancelled.' : 'Nobody is asking to cancel this leave now.', code: 'NO_CANCEL_ASK' } };
+  if (approve) {
+    const request = await cancelLeaveRequest(accountId, orgId, r.id, by, { note });
+    return { status: 200, body: { request, cancelled: true } };
+  }
+  const row = await peopleWrite(orgId, async () => {
+    for (const x of await approvedParts(orgId, r)) {
+      if (!x.cancelAskedAt) continue;
+      await peoplePrisma.leaveRequest.update({ where: { id: x.id }, data: { cancelAskedAt: null, cancelAskedBy: null, cancelReason: null, history: withHistory(x, { by, what: 'CANCEL_REFUSED', note }) as any } });
+    }
+    return peoplePrisma.leaveRequest.findUniqueOrThrow({ where: { id: r.id } });
+  });
+  const emp = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
+  const [shaped] = await withTypes(orgId, [row]);
+  if (emp?.userId) await sendNotice(accountId, orgId, [emp.userId], { kind: 'attendance.leave_decided', title: `Your ${shaped.leaveTypeName}, ${leaveSpanWords(r)}, stays approved`, body: note || 'Your ask to cancel it was not agreed. Talk to whoever approved it.', link: { app: await appOf(accountId, orgId), screen: 'myLeave' } }, { except: by, dedupeKey: `leave-cancel-kept:${r.id}:${(row.history as any[]).length}` });
+  return { status: 200, body: { request: shaped, cancelled: false } };
+}
+
+/** May this reader answer an ask to cancel: whoever approved it, or one who approves leave with the person in their scope; never their own. */
+async function readerDecidesCancel(req: any, r: { employeeId: string; reviewedByUserId: string | null }) {
+  const { accountId, orgId } = req.tenant!;
+  const userId = req.auth!.userId;
+  const own = await peoplePrisma.employee.findFirst({ where: { id: r.employeeId, orgId }, select: { userId: true } });
+  if (own?.userId && own.userId === userId) return false;
+  if (r.reviewedByUserId === userId) return true;
+  const access = await resolveAccess(accountId, orgId, userId);
+  if (!access.isAdmin && !access.permissions.has(permKey(ATTENDANCE_MODULE, R.leave, 'APPROVE'))) return false;
+  return inScope(await leaveScope(req), r.employeeId);
+}
+
+/** Asks to cancel waiting on this reader (the Approvals inbox): one row per leave, its first part. */
+export async function cancellationsForReader(req: any, opts: { scoped: boolean }) {
+  const { orgId } = req.tenant!;
+  const userId = req.auth!.userId;
+  const scope = opts.scoped ? await leaveScope(req) : null;
+  const rows = await peoplePrisma.leaveRequest.findMany({ where: { orgId, status: 'APPROVED', cancelAskedAt: { not: null }, ...(scope?.all ? {} : scope ? { OR: [{ employeeId: { in: scope.ids } }, { reviewedByUserId: userId }] } : { reviewedByUserId: userId }) }, orderBy: { cancelAskedAt: 'asc' }, take: 500 });
+  if (!rows.length) return [];
+  const own = new Set((await peoplePrisma.employee.findMany({ where: { orgId, userId }, select: { id: true } })).map((e) => e.id));
+  const seen = new Set<string>();
+  const out = [];
+  for (const r of [...rows].sort((a, b) => a.fromDate.localeCompare(b.fromDate))) {
+    if (own.has(r.employeeId)) continue;
+    if (r.groupId) { if (seen.has(r.groupId)) continue; seen.add(r.groupId); }
+    out.push(r);
+  }
+  return out.sort((a, b) => a.cancelAskedAt!.getTime() - b.cancelAskedAt!.getTime());
+}
+
+leaveRouter.post(`${base}/requests/:id/cancellation`, async (req, res) => {
+  if (!(await hrOrAttendanceRouteOk(req, res))) return;
+  const { accountId, orgId } = req.tenant!;
+  const approve = req.body?.approve === true;
+  if (!approve && req.body?.approve !== false) return res.status(400).json({ error: 'approve must be true or false.' });
+  try {
+    const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), accountId, orgId } });
+    if (!r || !(await readerDecidesCancel(req, r))) return res.status(404).json({ error: 'No such request.' });
+    const note = noteOf(req);
+    const out = await decideLeaveCancellation(accountId, orgId, r.id, req.auth!.userId, approve, note);
+    if (out.status === 200) await recordAudit(req, { entity: 'LeaveRequest', entityId: r.id, action: approve ? 'CANCEL' : 'CANCEL_REFUSED', message: `${approve ? 'Agreed to cancel' : 'Kept'} ${out.body.request.employeeName}'s ${out.body.request.leaveTypeName}, ${leaveSpanWords(r)}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId } });
+    if (out.status === 200) out.body.request = masked([out.body.request], await readsPrivateLeave(req))[0];
+    res.status(out.status).json(out.body);
   } catch (e) { return sendError(res, e); }
 });
 
@@ -2237,7 +2363,7 @@ async function takeBackLeave(req: any, id: string, note: string | null): Promise
   if (parts.some((x) => x.fromDate <= today())) return { status: 409, body: { error: 'This leave has started. Cancel it or shorten it instead.', code: 'STARTED' } };
   const row = await peopleWrite(orgId, async () => {
     for (const x of parts) {
-      const moved = await peoplePrisma.leaveRequest.updateMany({ where: { id: x.id, status: 'APPROVED' }, data: { status: 'PENDING', reviewedByUserId: null, reviewedAt: null, reviewNote: null, history: withHistory(x, { by: userId, what: 'TAKEN_BACK', note }) as any } });
+      const moved = await peoplePrisma.leaveRequest.updateMany({ where: { id: x.id, status: 'APPROVED' }, data: { status: 'PENDING', reviewedByUserId: null, reviewedAt: null, reviewNote: null, cancelAskedAt: null, cancelAskedBy: null, cancelReason: null, history: withHistory(x, { by: userId, what: 'TAKEN_BACK', note }) as any } });
       if (!moved.count) throw fail(409, 'This leave changed meanwhile. Open it again.');
       await clearLeaveDays(orgId, x.id);
     }
@@ -2832,7 +2958,7 @@ leaveRouter.get(`${base}/requests/:id`, canOrStep(PermissionAction.VIEW, R.leave
     const names = await actorNames(orgId, [r.requestedByUserId, r.reviewedByUserId, ...stored.map((h) => h.by)]);
     const manager = r.managerApprovedById ? await peoplePrisma.employee.findFirst({ where: { id: r.managerApprovedById, orgId }, select: { name: true } }) : null;
     const own = Boolean(employee?.userId && r.requestedByUserId === employee.userId) || r.requestedByUserId === `portal:${r.employeeId}`;
-    const WORDS: Record<string, string> = { ASKED: 'Asked', ENTERED: `Entered for ${employee?.name || 'them'}`, MANAGER_APPROVED: 'Approved by the manager', HANDED_ON: 'Handed on to HR', APPROVED: 'Approved', AUTO_APPROVED: 'Approved by the leave rule', REJECTED: 'Rejected', CANCELLED: 'Cancelled', WITHDRAWN: 'Withdrawn', EDITED: 'Changed', REASON_EDITED: 'Changed the reason', SHORTENED: 'Came back early', STEP_APPROVED: 'Approved a step', STEP_SKIPPED: 'Step skipped', STEP_WAITING: 'Step sent on', STEP_HANDED_ON: 'Step handed on', RULE_SKIPPED: 'Not approved by the rule', SENT_BACK: 'Sent back with a question', ANSWERED: 'Answered', REMINDED: 'Reminded the approvers', TAKEN_BACK: 'Approval taken back', DECIDED_BY_HR: 'Decided by HR' };
+    const WORDS: Record<string, string> = { ASKED: 'Asked', ENTERED: `Entered for ${employee?.name || 'them'}`, MANAGER_APPROVED: 'Approved by the manager', HANDED_ON: 'Handed on to HR', APPROVED: 'Approved', AUTO_APPROVED: 'Approved by the leave rule', REJECTED: 'Rejected', CANCELLED: 'Cancelled', WITHDRAWN: 'Withdrawn', EDITED: 'Changed', REASON_EDITED: 'Changed the reason', SHORTENED: 'Came back early', STEP_APPROVED: 'Approved a step', STEP_SKIPPED: 'Step skipped', STEP_WAITING: 'Step sent on', STEP_HANDED_ON: 'Step handed on', RULE_SKIPPED: 'Not approved by the rule', SENT_BACK: 'Sent back with a question', ANSWERED: 'Answered', REMINDED: 'Reminded the approvers', TAKEN_BACK: 'Approval taken back', DECIDED_BY_HR: 'Decided by HR', CANCEL_ASKED: 'Asked to cancel', CANCEL_REFUSED: 'Kept: cancelling not agreed' };
     /* The request's own history where it has one (every change since the advanced build); the fields it carried before otherwise. */
     const history: Array<{ at: Date; what: string; by: string | null; note?: string | null; from?: string | null; to?: string | null }> = stored.length
       ? stored.map((h) => ({ at: new Date(h.at), what: WORDS[h.what] || h.what, by: h.by === 'system' ? null : names.get(h.by || '') || null, note: shaped.reasonHidden ? null : h.note ?? null, from: h.from ?? null, to: h.to ?? null }))
@@ -3706,27 +3832,39 @@ leaveRouter.post('/orgs/:orgId/attendance/me/leave', can(PermissionAction.CREATE
   }
 });
 
-/** One's own request: a pending one any time, an approved one only before it starts. */
-export async function cancelOwnLeave(accountId: string, orgId: string, employeeId: string, id: string): Promise<{ status: number; body: any }> {
-  return peopleWrite(orgId, async () => {
+/**
+ * "Cancel" on one's own request: a pending one is withdrawn at once, any time. An approved one, before it
+ * starts, is not cancelled but asked to be (round 47): it stays approved until an approver agrees
+ * (`asked: true` in the answer). Once it has started, "Came back early" ends it sooner, or HR cancels it.
+ */
+export async function cancelOwnLeave(accountId: string, orgId: string, employeeId: string, id: string, reason: string | null = null): Promise<{ status: number; body: any }> {
+  const by = `portal:${employeeId}`;
+  const out: { status: number; body: any; ask?: any } = await peopleWrite(orgId, async () => {
     const r = await peoplePrisma.leaveRequest.findFirst({ where: { id, accountId, orgId, employeeId } });
     if (!r) return { status: 404, body: { error: 'No such request.' } };
     if (!OPEN.includes(r.status)) return { status: 409, body: { error: `This request was already ${r.status.toLowerCase()}.` } };
     const started = r.groupId
       ? await peoplePrisma.leaveRequest.findFirst({ where: { orgId, groupId: r.groupId, status: 'APPROVED', fromDate: { lte: today() } }, select: { id: true } })
       : r.status === 'APPROVED' && r.fromDate <= today();
-    if (started) return { status: 409, body: { error: 'This leave has started. Ask your manager to cancel it.' } };
-    return { status: 200, body: { request: await cancelLeaveRequest(accountId, orgId, r.id, `portal:${employeeId}`) } };
+    if (started) return { status: 409, body: { error: 'This leave has started. Use "Came back early" to end it sooner, or ask HR to cancel it.', code: 'STARTED' } };
+    if (r.status === 'APPROVED') return { status: 0, body: null, ask: r };
+    return { status: 200, body: { request: await cancelLeaveRequest(accountId, orgId, r.id, by) } };
   });
+  /* Asked outside that transaction: the approver's notice goes once the ask is saved. */
+  if (out.ask) return askToCancelLeave(accountId, orgId, out.ask, by, reason);
+  return { status: out.status, body: out.body };
 }
+
+/** The reason the person gives for cancelling approved leave (optional). */
+const cancelReasonOf = (req: any) => String(req.body?.reason || '').trim().slice(0, 500) || null;
 
 leaveRouter.post('/orgs/:orgId/attendance/me/leave/:id/cancel', can(PermissionAction.CREATE, R.self), async (req, res) => {
   if (!(await hrOrAttendanceRouteOk(req, res))) return;
   const { accountId, orgId } = req.tenant!;
   try {
     const me = await myEmployee(accountId, orgId, req.auth!.userId);
-    const out = await cancelOwnLeave(accountId, orgId, me.id, String(req.params.id));
-    if (out.status === 200) await recordAudit(req, { entity: 'LeaveRequest', entityId: String(req.params.id), action: 'CANCEL', message: `${me.name} cancelled their own leave`, metadata: { employeeId: me.id } });
+    const out = await cancelOwnLeave(accountId, orgId, me.id, String(req.params.id), cancelReasonOf(req));
+    if (out.status === 200) await recordAudit(req, { entity: 'LeaveRequest', entityId: String(req.params.id), action: out.body.asked ? 'CANCEL_ASKED' : 'CANCEL', message: out.body.asked ? `${me.name} asked to cancel their approved leave` : `${me.name} withdrew their leave request`, metadata: { employeeId: me.id } });
     res.status(out.status).json(out.body);
   } catch (e) {
     return sendError(res, e);
