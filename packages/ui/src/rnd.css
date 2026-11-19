@@ -519,6 +519,8 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod-count {
   position: absolute;
   top: 4px;
+  /* index.css also sets `left`; with both set the pill was squeezed to 17px and "99+" spilled out of it. */
+  left: auto;
   right: 10px;
   min-width: 1rem;
   height: 1rem;
