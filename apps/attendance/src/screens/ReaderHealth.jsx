@@ -463,7 +463,7 @@ function AlertSettings({ initial, onClose, onSaved }) {
         <label className="block">
           <span className="ui-label">“No punches today” after (hour, 24-h)</span>
           <input type="number" min={6} max={20} className="ui-input w-full" value={form.noPunchAfterHour} onChange={(e) => setForm({ ...form, noPunchAfterHour: e.target.value })} />
-          <span className="ui-caption">On a working day, if not one punch from any reader has arrived by then, collection is broken — whatever the readers look like.</span>
+          <span className="ui-caption">On a working day, if not one punch from any reader has arrived by then, collection is broken, whatever the readers look like.</span>
         </label>
       </form>
     </Drawer>

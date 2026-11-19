@@ -42,10 +42,10 @@ import './ws-overview.css';
 const ROLE_LABEL = { OWNER: 'Account Owner', ADMIN: 'Account Admin', BILLING_ADMIN: 'Billing Admin', MEMBER: 'Member' };
 /* One line under the greeting, by account role. Presentation only: what each can do is the server's. */
 const ROLE_LEDE = {
-  OWNER: 'Your workspace, applications and team, all in one place.',
-  ADMIN: 'Manage your workspace and keep your team moving.',
+  OWNER: 'Your companies, their apps and people, and what waits on you.',
+  ADMIN: 'The companies, apps and people you look after.',
 };
-const DEFAULT_LEDE = 'Your applications and work, all in one place.';
+const DEFAULT_LEDE = 'The apps you use and what waits on you.';
 
 /** What an app is to this company and this person right now (spec §18): never one universal "switched on". */
 export function appState(app, tenant, myApps = null) {

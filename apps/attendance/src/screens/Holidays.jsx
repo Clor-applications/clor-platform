@@ -140,7 +140,7 @@ export default function Holidays({ openScreen } = {}) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Holidays', fileName: 'Holidays', label: 'holiday/holidays', columns: EXPORT_COLUMNS, rows });
       }}
-      description="Paid days off — for everyone, or only one branch’s or area’s people (a branch in another state keeps its own). Optional holidays do not change anyone's attendance."
+      description="Paid days off: for everyone, or only one branch’s or area’s people (a branch in another state keeps its own). Optional holidays do not change anyone's attendance."
       compact
       tight
       denseCards
@@ -211,7 +211,7 @@ export default function Holidays({ openScreen } = {}) {
                       <EmptyState
                         icon={CalendarDays}
                         title={kind ? `No ${kind.toLowerCase()} holidays in ${year}` : `No holidays in ${year}`}
-                        description="Paid days off — for everyone, or only one area’s people (a plant in another state keeps its own). Optional holidays do not change anyone's attendance. A day worked on a holiday is all overtime. Add the year's holidays above."
+                        description="Paid days off: for everyone, or only one area’s people (a plant in another state keeps its own). Optional holidays do not change anyone's attendance. A day worked on a holiday is all overtime. Add the year's holidays above."
                       />
                     )}
                   </td>

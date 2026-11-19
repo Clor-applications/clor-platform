@@ -531,7 +531,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
         <label className="block"><span className="ui-label">Out</span><input type="time" className="ui-input w-full" value={form.checkOut} onChange={set('checkOut')} disabled={!form.checkIn} /></label>
         {!form.checkIn ? (
           <label className="block sm:col-span-2">
-            <span className="ui-label">No times — mark as</span>
+            <span className="ui-label">No times: mark as</span>
             <select className="ui-select w-full" value={form.status || 'ABSENT'} onChange={set('status')}>
               <option value="ABSENT">Absent</option>
 

@@ -13,7 +13,7 @@ import { settingHits } from '../picks/round64';
  * groups: [{ title, note, tone?, items: [[navKey, note]], apps?: [[appId, label, note]] }]; `tone` (1–8) names the
  * group's identity colour (--cat-N), which a portal's stylesheet may use behind each tile's icon (People, PEOPLE-28).
  */
-export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], words = null, description = 'Everything set up once and changed rarely, in one place.' }) {
+export default function SettingsHub({ groups: GROUPS, openScreen, navItems = [], words = null, description = 'What you set up once and rarely change.' }) {
   const [q, setQ] = useState('');
   const byKey = useMemo(() => new Map(navItems.filter((i) => i.key).map((i) => [i.key, i])), [navItems]);
   const match = (...texts) => !q.trim() || texts.join(' ').toLowerCase().includes(q.trim().toLowerCase());

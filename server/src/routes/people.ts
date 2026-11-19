@@ -2840,7 +2840,7 @@ peopleRouter.post('/orgs/:orgId/people/data-requests/:id/resolve', can(Permissio
   const status = String(req.body?.status || '').toUpperCase();
   if (!['RESOLVED', 'REJECTED'].includes(status)) return res.status(400).json({ error: 'status must be RESOLVED or REJECTED.' });
   const resolution = String(req.body?.resolution || '').trim().slice(0, 2000);
-  if (!resolution) return res.status(400).json({ error: 'Say what was done — the person reads this.' });
+  if (!resolution) return res.status(400).json({ error: 'Say what was done. The person reads this.' });
   const updated = await peoplePrisma.dataRequest.update({ where: { id: r.id }, data: { status, resolution, reviewedByUserId: req.auth!.userId, reviewedAt: new Date() } });
   res.json({ request: updated });
 });

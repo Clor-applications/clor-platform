@@ -354,7 +354,7 @@ function ShiftForm({ initial, onClose, onSaved }) {
         <label className="block">
           <span className="ui-label">Ends</span>
           <input type="time" className="ui-input w-full" required value={form.endTime} onChange={set('endTime')} />
-          {form.endTime <= form.startTime ? <span className="ui-caption">Night shift — ends the next morning.</span> : null}
+          {form.endTime <= form.startTime ? <span className="ui-caption">Night shift: ends the next morning.</span> : null}
         </label>
         {/* Round 64 "shiftsetup" A: the shift drawn on a 24-hour bar, named breaks lighter. */}
         <ShiftBar start={form.startTime} end={form.endTime} breaks={(form.breaks || []).filter((b) => !b.paid)} />

@@ -226,7 +226,7 @@ export default function PayRuns() {
     <DocumentListShell
       entity="payRun"
       title="Pay runs"
-      description="Payroll for a period and a population — checked, reviewed and approved before anybody is paid."
+      description="Payroll for a period and a population, checked, reviewed and approved before anybody is paid."
       compact
       tight
       denseCards
@@ -951,7 +951,7 @@ const DaysStage = ({ data, editable, runId, onSaved }) => {
       notify.success(
         `Days taken from Attendance for ${out.saved} ${out.saved === 1 ? "person" : "people"}.` +
           (unresolved
-            ? ` ${unresolved} still have days with no check-out — those count as loss of pay until corrected in Attendance.`
+            ? ` ${unresolved} still have days with no check-out. Those count as loss of pay until corrected in Attendance.`
             : "") +
           (out.attendanceClosed
             ? (out.attendanceSnapshots || []).length

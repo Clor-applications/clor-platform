@@ -163,7 +163,7 @@ emailRouter.post('/orgs/:orgId/email/send-test', SETTINGS_EDIT, async (req, res)
     accountId,
     orgId,
     transactional: true,
-    data: { userName: user.fullName, email: user.email, verifyUrl: '(test message — no action needed)' },
+    data: { userName: user.fullName, email: user.email, verifyUrl: '(test message, no action needed)' },
   });
 
   res.json({ ok: row?.status === 'SENT', status: row?.status, error: row?.lastError, to: user.email });

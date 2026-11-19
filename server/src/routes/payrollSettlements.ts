@@ -355,7 +355,7 @@ payrollSettlementsRouter.post('/orgs/:orgId/payroll/settlements/:id/paid', APPRO
   /* Held by an absconding case: not paid until the hold is lifted, with a reason. Never forfeited. */
   const hold = await settlementHold(row.orgId, row.employeeId);
   if (hold) {
-    return res.status(409).json({ error: `Held — absconding case: ${hold.reason}. Lift the hold, with a reason, before paying.`, code: 'SETTLEMENT_HELD', hold });
+    return res.status(409).json({ error: `Held as an absconding case: ${hold.reason}. Lift the hold, with a reason, before paying.`, code: 'SETTLEMENT_HELD', hold });
   }
   /* Paid only if the limit, worked out from today's records, still allows what it recovers (a payroll cancelled since, an older settlement). Checked again inside the payment. */
   const early = await recheckCap(row);

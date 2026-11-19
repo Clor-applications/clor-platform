@@ -147,7 +147,7 @@ opsPricingRouter.get('/ops/pricing', (_req, res) =>
 
 /** The sample prices, for the draft editor's Load sample prices. Nothing is saved until the operator saves the draft. */
 opsPricingRouter.get('/ops/pricing/sample', (_req, res) => {
-  res.json({ plans: samplePlans(), note: 'Sample prices — not final' });
+  res.json({ plans: samplePlans(), note: 'Sample prices: not final' });
 });
 
 opsPricingRouter.get('/ops/pricing/books/:id', (req, res) =>

@@ -466,7 +466,7 @@ export const ProfileScreen = ({ Header = PageHeader, links = [] }) => {
                 )}
               </dd>
             </div>
-            <Field label="Branches" value={branchNames} hint={branchNames ? null : 'No branch restriction — you can see all of them.'} />
+            <Field label="Branches" value={branchNames} hint={branchNames ? null : 'No branch restriction: you can see all of them.'} />
             <Field label="Warehouses" value={warehouseNames} hint={warehouseNames ? null : 'No warehouse restriction.'} />
             <Field label="User ID" value={user.code || '—'} mono />
             <Field label="Client ID" value={user.accountCode || user.accountId} mono />

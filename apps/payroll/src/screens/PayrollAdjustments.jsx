@@ -177,7 +177,7 @@ export default function PayrollAdjustments() {
     <DocumentListShell
       entity="payAdjustment"
       title="Adjustments"
-      description="One-off earnings and deductions for a single month — a bonus, an arrear, a recovery. Approved before payroll pays them."
+      description="One-off earnings and deductions for a single month, such as a bonus, an arrear or a recovery. Approved before payroll pays them."
       compact
       tight
       denseCards
@@ -248,7 +248,7 @@ export default function PayrollAdjustments() {
                       <EmptyState
                         icon={Percent}
                         title={periodFilter ? 'Nothing adjusted in this month' : status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} adjustments` : 'No adjustments yet'}
-                        description="A bonus, an arrear, a fine — anything that happened to one person in one month rather than being part of what they are on."
+                        description="A bonus, an arrear, a fine: anything that happened to one person in one month rather than being part of what they are on."
                         routes={canAdd && !status ? [{ label: 'New adjustment', description: 'One person, one month, one amount.', onSelect: create }] : undefined}
                       />
                     )}
@@ -321,7 +321,7 @@ export default function PayrollAdjustments() {
           editing?.carried
             ? 'The rest of a deduction a payroll carried forward. Only the amount changes, with a reason, and it goes back for approval.'
             : editing?.status === 'APPROVED'
-            ? 'Changing this sends it back for approval — the approval was of an amount, not of a row.'
+            ? 'Changing this sends it back for approval. The approval was of an amount, not of a row.'
             : 'One person, one month, one amount.'
         }
       >

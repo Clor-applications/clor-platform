@@ -110,7 +110,7 @@ describe('the operator console', () => {
     expect(v1).toMatchObject({ previousVersion: null, book: { version: 1, status: 'PUBLISHED' } });
 
     const site = (await publicList().expect(200)).body;
-    expect(site).toMatchObject({ version: 1, note: 'Sample prices — not final', gst: { charged: false, ratePercent: 0 } });
+    expect(site).toMatchObject({ version: 1, note: 'Sample prices: not final', gst: { charged: false, ratePercent: 0 } });
     expect(site.plans.map((p: any) => p.code)).toEqual(['books-starter', 'books-growth', 'payroll-starter', 'payroll-growth', 'people-starter', 'people-growth', 'attendance-starter', 'attendance-growth']);
     expect(site.plans[1]).toMatchObject({ name: 'Books Growth', highlight: true, trialDays: 30 });
     const q = (await publicQuote({ plans: ['books-starter', 'payroll-starter'], period: 'monthly', users: 3, employees: 6 }).expect(200)).body.quote;

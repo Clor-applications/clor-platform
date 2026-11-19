@@ -60,7 +60,7 @@ async function tokenFor(ctx: PullContext, fresh = false) {
   const token = r.json?.payload?.token;
   if (!token) {
     const why = errorOf(r.json);
-    return { error: why === 'auth' ? 'CrossChex Cloud refused the API key or secret.' : r.status >= 400 ? `CrossChex Cloud answered ${r.status}.` : why || 'CrossChex Cloud gave no token — is the region right?' };
+    return { error: why === 'auth' ? 'CrossChex Cloud refused the API key or secret.' : r.status >= 400 ? `CrossChex Cloud answered ${r.status}.` : why || 'CrossChex Cloud gave no token. Is the region right?' };
   }
   const exp = r.json?.payload?.expires ? Date.parse(r.json.payload.expires) : Date.now() + 3_600_000;
   tokens.set(key, { token, exp: Number.isFinite(exp) ? exp : Date.now() + 3_600_000 });

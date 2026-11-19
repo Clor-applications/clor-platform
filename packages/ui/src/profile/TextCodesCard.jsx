@@ -99,7 +99,7 @@ export default function TextCodesCard({ sms, appOn = false, payrollStepUp = fals
 
       {codes ? (
         <div className="space-y-2">
-          <p className="text-sm">Recovery codes — each works once if you lose your phone. Keep them somewhere safe; they are not shown again.</p>
+          <p className="text-sm">Recovery codes: each works once if you lose your phone. Keep them somewhere safe; they are not shown again.</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {codes.map((c) => (
               <span key={c} className="ui-mono rounded-lg px-2 py-1 text-sm" style={{ border: '1px solid rgb(var(--border))' }}>{c}</span>

@@ -207,7 +207,7 @@ export default function Exceptions({ openScreen, menuLabel }) {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Exceptions', fileName: 'Exceptions', label: 'item/items', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      description="Everything not settled yet, in one place. Each item opens the screen that fixes it."
+      description="What is still not settled. Each item opens the screen that fixes it."
       compact
       tight
       denseCards

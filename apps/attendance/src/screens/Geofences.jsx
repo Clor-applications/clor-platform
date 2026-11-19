@@ -207,7 +207,7 @@ function PlaceSearch({ onPick }) {
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={key}
-          placeholder="Building, street, area or city — e.g. Peenya Industrial Area, Bengaluru"
+          placeholder="Building, street, area or city, e.g. Peenya Industrial Area, Bengaluru"
         />
       </div>
       {showList ? (

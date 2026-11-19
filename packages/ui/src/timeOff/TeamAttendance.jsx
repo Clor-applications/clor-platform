@@ -159,7 +159,7 @@ export default function TeamAttendance() {
     ) },
     { key: 'day', label: 'Status', render: (p) => (p.day ? <span className={`ui-pill ${DAY_PILL[p.day.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[p.day.status] || p.day.status}</span> : <span className="ui-pill ui-pill-neutral">Not marked</span>) },
     /* The bar only where there is a time to draw; an empty grey track on every unmarked row repeated the Status column. */
-    { key: 'line', label: 'Day (7 am – 9 pm)', render: (p) => (p.day?.checkInTime ? <DayLine day={p.day} isToday={isToday} /> : <span className="ui-subtle" aria-label="No time recorded">—</span>) },
+    { key: 'line', label: 'Day (7 am to 9 pm)', render: (p) => (p.day?.checkInTime ? <DayLine day={p.day} isToday={isToday} /> : <span className="ui-subtle" aria-label="No time recorded">—</span>) },
     { key: 'in', label: 'In', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.checkInTime || '—'}{p.day?.lateMinutes ? <span className="att-late">+{p.day.lateMinutes}m</span> : null}</span> },
     { key: 'out', label: 'Out', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.checkOutTime || '—'}</span> },
     { key: 'worked', label: 'Worked', align: 'right', render: (p) => <span className="tabular-nums">{hours(p.day?.workedMinutes)}</span> },

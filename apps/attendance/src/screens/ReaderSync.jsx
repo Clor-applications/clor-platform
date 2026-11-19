@@ -82,7 +82,7 @@ export default function ReaderSync({ menuLabel } = {}) {
     <DocumentListShell
       entity="reader"
       title={menuLabel || 'Sync monitoring'}
-      description="Who is on which reader. Enrol once on any reader — CLOR copies fingerprints and faces to the rest."
+      description="Who is on which reader. Enrol once on any reader and CLOR copies fingerprints and faces to the rest."
       compact
       tight
       denseCards
@@ -166,7 +166,7 @@ export default function ReaderSync({ menuLabel } = {}) {
                       <EmptyState
                         icon={Fingerprint}
                         title={onlyGaps ? 'No gaps' : 'Nobody'}
-                        description={onlyGaps ? 'Everyone is on every reader they belong on. Enrol once on any reader — CLOR copies fingerprints and faces to the rest.' : 'No one with an employee code or Reader ID.'}
+                        description={onlyGaps ? 'Everyone is on every reader they belong on. Enrol once on any reader and CLOR copies fingerprints and faces to the rest.' : 'No one with an employee code or Reader ID.'}
                       />
                     )}
                   </td>

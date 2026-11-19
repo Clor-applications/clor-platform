@@ -1552,7 +1552,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         severity: 'ERROR',
         code: 'NO_PAYROLL_PROFILE',
         employeeId: employee.id,
-        message: `${who} is on the staff list but not in payroll — no bank account, PAN or statutory details. Add their payroll details, or take them out of this run.`,
+        message: `${who} is on the staff list but not in payroll: no bank account, PAN or statutory details. Add their payroll details, or take them out of this run.`,
       });
       continue;
     }

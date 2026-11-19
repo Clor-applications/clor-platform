@@ -24,7 +24,7 @@ export async function pullBiostar(ctx: PullContext): Promise<PullResult> {
   if (login.status === 401 || login.status === 403) return { ok: false, message: 'BioStar refused the login.', lines: [], received: 0 };
   if (login.status < 200 || login.status >= 300) return { ok: false, message: `BioStar answered ${login.status} at login.`, lines: [], received: 0 };
   const session = String(login.headers['bs-session-id'] || '');
-  if (!session) return { ok: false, message: 'BioStar gave no session — is the address its web port?', lines: [], received: 0 };
+  if (!session) return { ok: false, message: 'BioStar gave no session. Is the address its web port?', lines: [], received: 0 };
 
   const lines: string[] = [];
   const sources: string[] = [];

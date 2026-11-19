@@ -349,7 +349,7 @@ const PeriodForm = ({ initial, onClose, onSaved }) => {
             required
             autoFocus
           />
-          <span className="ui-caption">What people call it — "September 2026".</span>
+          <span className="ui-caption">What people call it, such as "September 2026".</span>
         </div>
         <div>
           <label className="ui-label" htmlFor="period-frequency">Cycle</label>
@@ -406,7 +406,7 @@ const PeriodForm = ({ initial, onClose, onSaved }) => {
 
       {datesFixed ? (
         <p className="ui-caption">
-          Payroll has already been run for this period, so its dates are fixed — proration counts the days in it, and moving
+          Payroll has already been run for this period, so its dates are fixed. Proration counts the days in it, and moving
           them would leave the payslips describing a month they were not calculated for. The name can still change.
         </p>
       ) : null}

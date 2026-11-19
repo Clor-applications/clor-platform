@@ -39,7 +39,7 @@ export const appsText = (codes = []) => {
 
 /* What each refusal reason code means (Entitlement denials; server: services/ops/denials.ts). */
 export const REASON = {
-  APP_NOT_SUBSCRIBED: 'The app is not on the account’s subscription — an upsell signal.',
+  APP_NOT_SUBSCRIBED: 'The app is not on the account’s subscription. An upsell signal.',
   SUBSCRIPTION_LAPSED: 'The account owns the app, but the subscription has lapsed.',
   NO_ROLE_GRANT: 'The person’s role in that company does not allow it.',
   NO_MEMBERSHIP: 'The person is not a member of that company or branch.',

@@ -92,7 +92,7 @@ export const LWF_SEEDS: SeedRule[] = [
       ],
     },
     /* Source: Kerala has two funds and a shop or office can owe both: the Labour Welfare Fund, ₹45 and ₹45 each half-year (June and December) from 16 Jan 2020, and the Shops and Commercial Establishments Workers Welfare Fund, ₹50 and ₹50 a month from 1 Sep 2022. A factory owes only the first: correct the rule if so. Fairly sure. */
-    'Kerala: two funds. ₹45 and ₹45 each June and December, and ₹50 and ₹50 every month for shops and offices. A factory owes only the first. Not yet checked against the state’s own notice — confirm before use.'
+    'Kerala: two funds. ₹45 and ₹45 each June and December, and ₹50 and ₹50 every month for shops and offices. A factory owes only the first. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   lwf(
     'ANDHRA PRADESH',
@@ -127,7 +127,7 @@ export const LWF_SEEDS: SeedRule[] = [
     '2026-01-30',
     { employeeAmount: 10, employerAmount: 50, months: JUNE_DECEMBER, minEmployees: 10, excludesManagers: true, supervisorWageAbove: 1600, employerMinimumPerEstablishment: 2500, needsCheck: true },
     /* Source: Madhya Pradesh, from 30 Jan 2026 (Notification F. LAB-8-0003-2025): ₹10 and ₹50 each half-year, the employer paying at least ₹2,500 per establishment. One publisher, read from a photo of the gazette; the board’s own page still shows ₹30. Not sure — confirm with the MP Shram Kalyan Mandal. */
-    'Madhya Pradesh: ₹10 from pay and ₹50 from the employer in June and December, the employer paying at least ₹2,500 per establishment. From 30 Jan 2026. Not yet checked against the state’s own notice — confirm before use.'
+    'Madhya Pradesh: ₹10 from pay and ₹50 from the employer in June and December, the employer paying at least ₹2,500 per establishment. From 30 Jan 2026. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   lwf(
     'CHHATTISGARH',
@@ -164,7 +164,7 @@ export const LWF_SEEDS: SeedRule[] = [
     '2018-04-10',
     { employeeAmount: 5, employerAmount: 20, minEmployees: 21, needsCheck: true },
     /* Source: Chandigarh, from 10 Apr 2018 (Punjab’s Act applied): ₹5 and ₹20 every month. Whether it starts at more than 20 people or at 10 is not settled. Not sure of the threshold. */
-    'Chandigarh: ₹5 from pay and ₹20 from the employer every month. Whether it starts above 20 people or at 10 is not settled. Not yet checked against the state’s own notice — confirm before use.'
+    'Chandigarh: ₹5 from pay and ₹20 from the employer every month. Whether it starts above 20 people or at 10 is not settled. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   lwf(
     'DELHI',
@@ -193,6 +193,6 @@ export const LWF_SEEDS: SeedRule[] = [
     '2017-05-01',
     { employeeAmount: 10, employerAmount: 20, months: JUNE_DECEMBER, minEmployees: 20, excludesManagers: true, needsCheck: true },
     /* Source: Odisha, from 1 May 2017: ₹20 and ₹40 a year in two instalments (₹10 and ₹20 in June and December), for establishments of 20 or more. Sources disagree on the amounts. Not sure. */
-    'Odisha: ₹10 from pay and ₹20 from the employer in June and December, from 20 people. Not yet checked against the state’s own notice — confirm before use.'
+    'Odisha: ₹10 from pay and ₹20 from the employer in June and December, from 20 people. Not yet checked against the state’s own notice. Confirm before use.'
   ),
 ];

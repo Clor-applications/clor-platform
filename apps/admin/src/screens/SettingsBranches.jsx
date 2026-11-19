@@ -366,7 +366,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
             submitLabel="Add branch"
             onSubmit={async (f, w) => {
               const t = (v) => String(v || '').trim();
-              if (!t(f.state)) throw new Error('State is required — pick the branch state.');
+              if (!t(f.state)) throw new Error('State is required. Pick the branch state.');
               if (showType && !f.branchType) throw new Error('Choose whether this is a Service, Trading, or Both branch.');
               if (gstEnabled && !t(f.gstin)) throw new Error('GSTIN is mandatory while GST is enabled.');
               const badGstin = gstinError(f.gstin);

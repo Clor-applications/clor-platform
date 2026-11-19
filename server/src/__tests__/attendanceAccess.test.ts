@@ -924,7 +924,7 @@ describe('re-review of #144', () => {
     await heldRows(c, gate, [{ employeeId: p.id, pin: 'CM-1', localTime: '2026-09-10 14:00:00' }]);
     const id = (await runInTenant(c.orgId, () => peoplePrisma.devicePunch.findFirstOrThrow({ where: { orgId: c.orgId, deviceId: gate.id } }))).id;
     const out = (await att(c).post(`/held-punches/${id}/release`).expect(200)).body;
-    expect(out).toMatchObject({ closedMonth: true, message: 'Counted. The day is in a closed month, so it was not changed — adjust in payroll.' });
+    expect(out).toMatchObject({ closedMonth: true, message: 'Counted. The day is in a closed month, so it was not changed. Adjust in payroll.' });
     expect(await runInTenant(c.orgId, () => peoplePrisma.attendanceRecord.count({ where: { employeeId: p.id, date: '2026-09-10' } }))).toBe(0);
     /* In bulk too. */
     await heldRows(c, gate, [{ employeeId: p.id, pin: 'CM-1', localTime: '2026-09-11 14:00:00' }]);

@@ -89,7 +89,7 @@ describe('UPI Direct', () => {
     const ok = await request(app).post(`/api/orgs/${owner.orgId}/pay-requests/${id}/confirm`).set(auth(owner)).send({ paymentId: receipt.id }).expect(200);
     expect(ok.body.request).toMatchObject({ status: 'PAID', paymentId: receipt.id });
     expect((await request(app).post(`/api/orgs/${owner.orgId}/pay-requests/${id}/confirm`).set(auth(owner)).send({ paymentId: receipt.id }).expect(200)).body.replayed).toBe(true);
-    expect((await request(app).get(`/pay/${token}`).expect(200)).text).toContain('Paid — thank you');
+    expect((await request(app).get(`/pay/${token}`).expect(200)).text).toContain('Paid, thank you');
     /* Nothing is owed now: no new link. */
     expect((await request(app).post(`/api/orgs/${owner.orgId}/pay-requests`).set(auth(owner)).send({ docId: inv.id, payeeVpa: 'asha.traders@okhdfc', payeeName: 'Asha Traders' }).expect(400)).body.error).toMatch(/Nothing is owed/);
   });

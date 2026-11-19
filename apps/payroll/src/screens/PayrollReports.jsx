@@ -24,7 +24,7 @@ import { rupees as money } from '@ui/utils/money';
  */
 
 const REPORTS = [
-  { id: 'register', label: 'Salary register', hint: 'Everybody, every component — the one an auditor asks for.' },
+  { id: 'register', label: 'Salary register', hint: 'Everybody, every component. The one an auditor asks for.' },
   { id: 'statutory', label: 'Statutory', hint: 'What is owed to provident fund, ESI, professional tax and income tax.' },
   { id: 'filings', label: 'Returns to file', hint: 'The PF ECR, the ESIC upload, and professional tax and Labour Welfare Fund by state.' },
   { id: 'variance', label: 'What changed', hint: 'Who moved since last month, and every new joiner.' },
@@ -701,7 +701,7 @@ function Filings({ data, periodName }) {
   return (
     <div className="space-y-4">
       <FilingCard
-        title="Provident Fund — ECR"
+        title="Provident Fund: ECR"
         label="Download ECR"
         checklist={ecr.checklist}
         summary={
@@ -715,7 +715,7 @@ function Filings({ data, periodName }) {
         note="Upload on the EPFO employer portal under ECR Upload. Admin and EDLI charges are added by the portal on the challan."
       />
       <FilingCard
-        title="ESI — monthly contribution"
+        title="ESI: monthly contribution"
         label="Download ESIC file"
         checklist={esic.checklist}
         summary={

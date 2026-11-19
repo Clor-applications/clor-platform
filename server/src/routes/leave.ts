@@ -1053,7 +1053,7 @@ export async function planLeave(accountId: string, orgId: string, employee: Aske
   const counted = plan.filter((d) => d.counted).map((d) => d.date);
   const shut = await closedMonthRefusal(orgId, counted.length ? counted : [b.fromDate, b.toDate], 'leave');
   if (shut) problems.push({ code: shut.code, message: shut.message, month: shut.month, months: shut.months });
-  if (!total) problems.push({ code: 'NO_WORKING_DAYS', message: 'Those are all weekly offs or holidays — there is nothing to take leave from.' });
+  if (!total) problems.push({ code: 'NO_WORKING_DAYS', message: 'Those are all weekly offs or holidays. There is nothing to take leave from.' });
   const halfAsked = b.halfDay ?? (b.fromDate !== b.toDate && (b.startHalf || b.endHalf) ? (b.startHalf ? 'SECOND' : 'FIRST') : null);
   const policy = total ? policyProblem(type, person, { fromDate: b.fromDate, halfDay: halfAsked, days: total, workedBefore }, t0, onBehalf) : null;
   if (policy) problems.push({ code: 'LEAVE_POLICY', message: policy });

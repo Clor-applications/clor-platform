@@ -100,7 +100,7 @@ export default function Integrations() {
   };
   const test = async (h) => {
     const r = await testWebhook(h.id);
-    if (r.ok) notify.success(`Delivered — the endpoint answered ${r.status}.`);
+    if (r.ok) notify.success(`Delivered. The endpoint answered ${r.status}.`);
     else notify.error(r.error || `The endpoint answered ${r.status}.`);
     load();
   };
@@ -248,7 +248,7 @@ function Deliveries({ hook }) {
     setBusy(d.id);
     try {
       const r = await resendWebhookDelivery(hook.id, d.id);
-      if (r.ok) notify.success(`Delivered — answered ${r.status}.`);
+      if (r.ok) notify.success(`Delivered. The endpoint answered ${r.status}.`);
       else notify.error(r.error || `Answered ${r.status}.`);
       load();
     } catch (e) {
@@ -488,7 +488,7 @@ function HrField({ f, form, setForm }) {
           {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       ) : f.key === 'privateKey' ? (
-        <textarea id={id} className="ui-input w-full ui-mono text-xs" rows={4} placeholder={stored ? 'Stored — paste to replace' : '-----BEGIN PRIVATE KEY-----'} value={value} onChange={change} />
+        <textarea id={id} className="ui-input w-full ui-mono text-xs" rows={4} placeholder={stored ? 'Stored. Paste to replace' : '-----BEGIN PRIVATE KEY-----'} value={value} onChange={change} />
       ) : (
         <input id={id} type={f.secret ? 'password' : 'text'} className="ui-input w-full" placeholder={stored ? 'Stored — type to replace' : f.placeholder || ''} value={value} autoComplete="off" onChange={change} />
       )}

@@ -54,10 +54,10 @@ const OVERVIEWS = [
       {
         heading: 'The four steps',
         steps: [
-          'Add company details — GSTIN, PAN and the registered address, under Company › Company profile.',
-          'Invite your team — Access › Invitations. People choose their own password from the link.',
-          'Give everyone access — Access › Users. Each person needs a role that opens at least one app.',
-          'Protect admin sign-in — Security › Sign-in and sessions: require an authenticator app for owners and admins.',
+          'Add company details: GSTIN, PAN and the registered address, under Company › Company profile.',
+          'Invite your team: Access › Invitations. People choose their own password from the link.',
+          'Give everyone access: Access › Users. Each person needs a role that opens at least one app.',
+          'Protect admin sign-in: under Security › Sign-in and sessions, require an authenticator app for owners and admins.',
         ],
       },
     ],
@@ -92,7 +92,7 @@ const OVERVIEWS = [
         heading: 'Common tasks',
         steps: [
           'Add a company: Add company, then its name, state and (if registered) GSTIN.',
-          'See a company at a glance: click its name — figures, who administers it, its people and its apps.',
+          'See a company at a glance: click its name to see its figures, who administers it, its people and its apps.',
           'Work in another company: Switch to on its row, or Switch to this company in its panel.',
           'Fill in legal details: Company › Company profile; branches under Company › Branches.',
         ],
@@ -109,19 +109,19 @@ const OVERVIEWS = [
       {
         heading: 'The pages',
         points: [
-          'Members — everyone in the account, their account role, companies and apps.',
-          'Users — the logins of the company you are in, with their role here.',
-          'Invitations — invite by email; links work once and expire in 7 days.',
-          'Outside access — people from other accounts, such as your accountant, and until when.',
+          'Members: everyone in the account, their account role, companies and apps.',
+          'Users: the logins of the company you are in, with their role here.',
+          'Invitations: invite by email; links work once and expire in 7 days.',
+          'Outside access: people from other accounts, such as your accountant, and until when.',
         ],
       },
       {
         heading: 'Account roles',
         points: [
-          'Account Owner — runs the account, its plan and its owners.',
-          'Account Admin — adds companies and invites people.',
-          'Billing Admin — sees the account, its plan and billing.',
-          'Member — what they can do in a company comes from their company roles.',
+          'Account Owner: runs the account, its plan and its owners.',
+          'Account Admin: adds companies and invites people.',
+          'Billing Admin: sees the account, its plan and billing.',
+          'Member: what they can do in a company comes from their company roles.',
         ],
       },
     ],
@@ -137,7 +137,7 @@ const OVERVIEWS = [
         heading: 'Common tasks',
         steps: [
           'Create a role: Access › Roles › Create role, named for the work it covers.',
-          'Choose what it may do: Access › Permissions — pick the role, tick by app and module, then Save changes.',
+          'Choose what it may do: Access › Permissions. Pick the role, tick by app and module, then Save changes.',
           'Start from a template to fill the ticks, then adjust.',
           'Give it to someone: Access › Users, open the person, Edit, choose the role.',
         ],
@@ -158,11 +158,11 @@ const OVERVIEWS = [
       {
         heading: 'The pages',
         points: [
-          'Sign-in and sessions — lockout, session length, password rules, who may sign in; your own sessions.',
-          'Single sign-on — sign in through Google Workspace, Microsoft Entra, Okta or another provider.',
-          'Credentials — API keys and tokens other systems use; pause, rotate or revoke them.',
-          'Audit trail — every change in the company, who made it and when.',
-          'Account activity — changes to the account itself, and refused attempts.',
+          'Sign-in and sessions: lockout, session length, password rules, who may sign in; your own sessions.',
+          'Single sign-on: sign in through Google Workspace, Microsoft Entra, Okta or another provider.',
+          'Credentials: API keys and tokens other systems use; pause, rotate or revoke them.',
+          'Audit trail: every change in the company, who made it and when.',
+          'Account activity: changes to the account itself, and refused attempts.',
         ],
       },
     ],
@@ -249,15 +249,15 @@ const OVERVIEWS = [
     key: 'people-app',
     group: 'apps',
     title: 'People',
-    summary: 'Every HR job in one place: employees, time off, hiring, growth and the workplace.',
+    summary: 'Employees, time off, hiring, growth and the workplace.',
     sections: [
       {
         heading: 'Where things are',
         points: [
-          'Employees — directory, org chart, documents, onboarding and exit, letters.',
-          'Time & Leave — leave requests, balances, calendar, attendance requests, holidays.',
-          'Hiring — jobs and candidates. Performance — goals, feedback, training.',
-          'Settings — company details, departments, designations, approval rules, modules.',
+          'Employees: directory, org chart, documents, onboarding and exit, letters.',
+          'Time & Leave: leave requests, balances, calendar, attendance requests, holidays.',
+          'Hiring: jobs and candidates. Performance: goals, feedback, training.',
+          'Settings: company details, departments, designations, approval rules, modules.',
         ],
       },
     ],
@@ -272,10 +272,10 @@ const OVERVIEWS = [
       {
         heading: 'Where things are',
         points: [
-          'Readers — reader health, logs, enrolment; punch data and unmatched punches.',
-          'Attendance — daily records, exceptions, corrections; scheduling and shifts.',
-          'Period closing — lock the month and hand payable days to Payroll.',
-          'Settings — work policy, integrations, data and privacy.',
+          'Readers: reader health, logs, enrolment; punch data and unmatched punches.',
+          'Attendance: daily records, exceptions, corrections; scheduling and shifts.',
+          'Period closing: lock the month and hand payable days to Payroll.',
+          'Settings: work policy, integrations, data and privacy.',
         ],
       },
     ],
@@ -313,7 +313,7 @@ const OVERVIEWS = [
     key: 'sso',
     group: 'integrations',
     title: 'Single sign-on',
-    summary: 'Google Workspace, Microsoft Entra, Okta, ADFS — OpenID Connect and SAML 2.0.',
+    summary: 'Google Workspace, Microsoft Entra, Okta and ADFS, over OpenID Connect or SAML 2.0.',
     doc: '/docs/sso.html',
   },
   {

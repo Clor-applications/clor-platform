@@ -46,7 +46,7 @@ const LimitMeter = ({ label, used, limit }) => {
     );
   }
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-  const words = `${used} of ${limit}${pct >= 100 ? ' — at the limit' : pct >= 80 ? ' — nearly full' : ''}`;
+  const words = `${used} of ${limit}${pct >= 100 ? ', at the limit' : pct >= 80 ? ', nearly full' : ''}`;
   return (
     <div className="ws-meter">
       <div className="ws-meter-row">

@@ -804,7 +804,7 @@ function EmployeeFile({ id, onClose, onEdit, onDeleted }) {
                   <Field label="Card" value={person.cardNumber} />
                   <Field label="Reader PIN" value={person.hasDevicePassword ? 'Set' : null} />
                   <Field label="On the readers as" value={person.devicePrivilege === 14 ? 'Reader administrator' : 'User'} />
-                  <Field label="Attendance expected" value={person.attendanceRequired === false ? 'No — door-only' : 'Yes'} />
+                  <Field label="Attendance expected" value={person.attendanceRequired === false ? 'No: door-only' : 'Yes'} />
                   <Field label="Father’s / husband’s name" value={person.guardianName} />
                 </>
               ) : null}
@@ -1547,7 +1547,7 @@ const JOINER_FIELDS = [
   ['addressLine', 'Address'], ['city', 'City'], ['state', 'State'], ['pincode', 'PIN code'], ['country', 'Country'],
   ['emergencyContactName', 'Emergency contact'], ['emergencyContactPhone', 'Emergency contact phone'], ['emergencyContactRelation', 'Relation'], ['guardianName', 'Father’s / guardian’s name'],
 ];
-const INVITE_STATUS = { SENT: 'Sent, not opened', STARTED: 'Opened, not sent back', RETURNED: 'Sent back — check it', CHECKED: 'Checked', EXPIRED: 'Ran out' };
+const INVITE_STATUS = { SENT: 'Sent, not opened', STARTED: 'Opened, not sent back', RETURNED: 'Sent back, to check', CHECKED: 'Checked', EXPIRED: 'Ran out' };
 
 /** Invite someone about to join to fill in their own details (LIFE-01). By phone, HR is handed the link to send. */
 export function InviteForm({ person, onClose, onDone }) {
@@ -2028,7 +2028,7 @@ function EmployeeForm({ initial, lists, people, onClose, onSaved }) {
                 maxLength={20}
                 value={form.devicePassword || ''}
                 onChange={set('devicePassword')}
-                placeholder={form.hasDevicePassword ? 'Set — leave blank to keep' : 'Optional, instead of a finger'}
+                placeholder={form.hasDevicePassword ? 'Set. Leave blank to keep' : 'Optional, instead of a finger'}
               />
             </label>
             <label className="block">

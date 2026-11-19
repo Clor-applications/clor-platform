@@ -59,7 +59,7 @@ export default function SiteMap({ latitude, longitude, radius, onMove, className
     }
     const at = [latitude, longitude];
     if (!pin.current) {
-      pin.current = L.marker(at, { icon: PIN, draggable: true, keyboard: true, title: 'Site centre — drag to move', alt: 'Site centre' }).addTo(m);
+      pin.current = L.marker(at, { icon: PIN, draggable: true, keyboard: true, title: 'Site centre: drag to move', alt: 'Site centre' }).addTo(m);
       pin.current.on('dragend', () => {
         const p = pin.current.getLatLng();
         moved.current?.(p.lat, p.lng);

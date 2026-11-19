@@ -193,7 +193,7 @@ function computePf(rule: StatutoryRuleInput, wages: StatutoryWages, employee: St
     wageApplied: applicableWage,
     rateApplied: employeeRate,
     explanation: capped
-      ? `${employeeRate}% of ${money(applicableWage)}, the PF ceiling — wages above it do not increase the contribution.`
+      ? `${employeeRate}% of ${money(applicableWage)}, the PF ceiling. Wages above it do not increase the contribution.`
       : `${employeeRate}% of ${money(applicableWage)} of PF wages.`,
   };
 }
