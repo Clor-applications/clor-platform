@@ -575,17 +575,32 @@ async function auditNames(rows: { operatorUserId: string; targetAccountId: strin
 /** The operator id a job writes in the audit log when no person acted. */
 export const SYSTEM_OPERATOR = 'system';
 
-/** The one line a person reads for what was done: the reason if one was given, else the change. */
+/** The sentence a person gave for the change. Never a dump of the stored fields. */
 export function auditSummary(detail: any): string {
   if (!detail || typeof detail !== 'object') return '';
-  if (detail.reason) return String(detail.reason);
-  if (detail.note) return String(detail.note);
+  const why = detail.reason || detail.note;
+  return why ? String(why).slice(0, 500) : '';
+}
+
+/** Keys that are machine bookkeeping, not something a person needs to read. */
+const AUDIT_HIDDEN = /^(id|.*Id|.*_ids?|auto|raw|payload|secret|token|password|hash|ip|approvedAfterRequest)$/i;
+const AUDIT_LABELS: Record<string, string> = {
+  to: 'To', from: 'From', kind: 'Kind', step: 'Step', number: 'Number',
+  days: 'Days', apps: 'Apps', off: 'Off', sent: 'Sent', tried: 'Tried',
+  sessions: 'Sessions', told: 'Told', count: 'Count', rows: 'Rows',
+};
+
+/** The other fields of a change, as short plain-word phrases instead of raw key: value pairs. */
+export function auditDetails(detail: any): string {
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return '';
   const parts: string[] = [];
-  for (const [k, v] of Object.entries(detail)) {
-    if (v == null || typeof v === 'object') continue;
-    parts.push(`${k}: ${v}`);
+  for (const [key, value] of Object.entries(detail)) {
+    if (key === 'reason' || key === 'note' || AUDIT_HIDDEN.test(key) || value == null || typeof value === 'object') continue;
+    const label = AUDIT_LABELS[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+    const word = typeof value === 'boolean' ? (value ? 'yes' : 'no') : String(value).toLowerCase();
+    parts.push(`${label} ${word}`);
   }
-  return parts.join(', ').slice(0, 300);
+  return parts.join(' · ').slice(0, 300);
 }
 
 /** What every operator did, newest first, by operator, action, customer and date. */
@@ -602,6 +617,7 @@ opsRouter.get('/ops/audit', (req, res) =>
         ...r,
         label: operatorActionLabel(r.action),
         summary: auditSummary(r.detail),
+        details: auditDetails(r.detail),
         operator: who.get(r.operatorUserId) || null,
         targetUser: r.targetUserId ? who.get(r.targetUserId) || null : null,
         accountName: r.targetAccountId ? acct.get(r.targetAccountId) || null : null,
@@ -639,12 +655,12 @@ opsRouter.get('/ops/audit/export', (req, res) =>
     if (!parsed.success) return res.status(400).json({ error: 'Those filters are not right.' });
     const rows = await platformPrisma.operatorAuditEvent.findMany({ where: auditWhere(parsed.data), orderBy: { at: 'desc' }, take: 10_000 });
     const { who, acct } = await auditNames(rows);
-    const lines = [['When (UTC)', 'Staff member', 'Staff email', 'What they did', 'Action code', 'Customer', 'Customer ID', 'Person', 'Detail', 'IP address'].join(',')];
+    const lines = [['When (UTC)', 'Staff member', 'Staff email', 'What they did', 'Action code', 'Customer', 'Customer ID', 'Person', 'Why', 'Details', 'IP address'].join(',')];
     for (const r of rows) {
       const op = who.get(r.operatorUserId);
       const target = r.targetUserId ? who.get(r.targetUserId) : null;
       lines.push(
-        [r.at.toISOString(), op?.fullName || '', op?.email || r.operatorUserId, operatorActionLabel(r.action), r.action, r.targetAccountId ? acct.get(r.targetAccountId) || '' : '', r.targetAccountId || '', target?.email || '', auditSummary(r.detail), r.ip || '']
+        [r.at.toISOString(), op?.fullName || '', op?.email || r.operatorUserId, operatorActionLabel(r.action), r.action, r.targetAccountId ? acct.get(r.targetAccountId) || '' : '', r.targetAccountId || '', target?.email || '', auditSummary(r.detail), auditDetails(r.detail), r.ip || '']
           .map(csvCell)
           .join(','),
       );
