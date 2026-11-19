@@ -90,3 +90,14 @@
 :root[data-input='pointer']:not(#lg1):not(#lg2) :is(.ui-input, .ui-select, textarea, select, input):focus-visible { box-shadow: none; }
 /* The selected side-panel item: the orange bar and tint say "here", without a grey ring round it. */
 :root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item[aria-current='page'] { box-shadow: inset 3px 0 0 rgb(var(--marker, 255 107 0)); }
+
+/* ---- The 12px floor (DESIGN.md "Don't reach below 12px type"; page audit 19 Nov 2026) ---- */
+/* The crawl of every menu page found counts, key hints, file badges and step numbers at 10–11px. Books keeps its own. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) :is(
+  .ui-tab-count, .ui-side-count, .ui-segment-count, .ui-side-pill, .ui-kbd, .ui-global-search kbd,
+  .ui-textcount, .ui-file-badge, .ui-claim-step-dot, .ui-week-cal-days, .ui-week-axis, .ui-week-n small,
+  .ui-joinleave-figs, .ui-shift-bar-ticks, .ui-calendar-head, .ui-calendar-tag, .ui-kpi-label,
+  .ui-t-label, .ui-label-eyebrow, .ui-cell-settled, .ui-auth-fact-about, .org-head-face, .pt-myday-mark,
+  .ops-rail-btn > span, .ui-date-tile > b, .ui-side-date > span, .ui-bell-mark
+) { font-size: 0.75rem; }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-claim-step-dot { width: 1.25rem; height: 1.25rem; }
