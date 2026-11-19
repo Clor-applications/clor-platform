@@ -52,6 +52,8 @@
   --panel: 255 255 255;        /* white */
   --rail-bg: 243 243 240;      /* #F3F3F0 (19 Nov 2026: owner, "add light color to first sidebar to differentiate from 2nd sidebar"; #F7F7F7 read as white). The rail's light grey. Neutral, not blue-grey: the text and graphite are warm-neutral, and a cool grey beside them read as a second palette (audit, 17 Nov 2026) */
   --hover: 247 247 247;        /* #F7F7F7: hover and the open item's ground, everywhere (DESIGN.md, 19 Nov 2026: the calm register) */
+  --list-head: 255 255 255;    /* list header rows are white over a rule, not a band (DESIGN.md "Tables", migration step 2) */
+  --list-head-hover: 247 247 247;
   --panel-border: 229 229 229; /* #E5E5E5 hairline */
 
   /* Neutrals: warm paper, not cool zinc (§6.2) */
@@ -231,7 +233,7 @@
   box-shadow: none;
 }
 
-/* Table header: 40px, sunken, 12px/600 uppercase, 16px sides. Rows ≥ 56px. */
+/* Table header: 40px, white over a rule, 12px/600 sentence case, 16px sides. Rows 44px (DESIGN.md "Tables"). */
 :root:not(#rnd):not([data-palette='indigo']) .ui-table thead th {
   height: 2.5rem;
   padding: 0 1rem;
@@ -240,15 +242,14 @@
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border-bottom: 0;
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 1px solid rgb(var(--border-strong));
+  border-radius: 0;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-table thead th:first-child { border-radius: 0.5rem 0 0 0.5rem; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-table thead th:last-child { border-radius: 0 0.5rem 0.5rem 0; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-table tbody td {
   box-sizing: border-box;
-  height: 3.5rem;
+  height: 2.75rem;
   padding: 0.5rem 1rem;
   vertical-align: middle;
   border-top: 1px solid rgb(var(--border));

@@ -58,13 +58,20 @@
 
 /* ---- Tables: a bold rule under the header, no lines between rows ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) thead th {
+  /* DESIGN.md "Tables": white, label-size heads in muted ink, a 1px rule under it. */
   background-color: rgb(var(--surface));
-  color: rgb(var(--fg));
-  font-weight: 700;
-  border-bottom: 2px solid rgb(var(--fg));
+  color: rgb(var(--fg-muted));
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 1px solid rgb(var(--border-strong));
   border-radius: 0;
 }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody td { border-top: 0; border-bottom: 0; }
+/* A hairline between rows (DESIGN.md "Tables"). */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody td { border-top: 1px solid rgb(var(--border)); border-bottom: 0; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody tr:first-child td { border-top: 0; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-table :is(thead th + th, tbody td + td) { border-left: 0; }
 
 /* ---- Cards: flat white, hairline, 12px (19 Nov 2026: the round-1 glassy wash with 16px
@@ -383,8 +390,8 @@
    Round 4 (17 Nov 2026). Same rule: everywhere except Books.
    ====================================================================== */
 
-/* ---- Row height: roomy rows ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody td { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+/* ---- Row height: 44px, one row height everywhere (DESIGN.md "Tables", migration step 2) ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody td { height: 2.75rem; padding-top: 0.75rem; padding-bottom: 0.75rem; }
 
 /* ---- Long lists: the header stays while the rows scroll under it ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-table-scroll > .ui-table thead th { position: sticky; top: 0; z-index: var(--z-sticky, 2); }

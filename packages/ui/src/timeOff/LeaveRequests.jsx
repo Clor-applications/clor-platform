@@ -5,7 +5,7 @@ import HalfDayChoice, { HalfDayNote, halfDayBody, leaveSpan } from './HalfDayCho
 import { HoursChoice, PreviewNotes } from './LeaveShape';
 import { hoursBody, hoursReady, hoursText, isHourly } from './partOfDay';
 import { AlertTriangle, Check, Download, Plus, X } from '@ui/components/ui/lineIcons';
-import { LeavePill, Notice, StatTiles, TILE_ICON } from './Figures';
+import { LeavePill, Notice, CountLine, TILE_ICON } from './Figures';
 import { clashDays } from './clashes';
 
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
@@ -209,7 +209,7 @@ export default function LeaveRequests({ params = {}, updateParams, openScreen, s
         primary={setUpTypes ? { label: 'Set up leave types', onClick: setUpTypes }
           : waitingTab ? { label: chosen.size ? `Approve ${chosen.size} chosen` : 'Approve chosen', icon: Check, onClick: approveChosen, disabled: !chosen.size || deciding, title: chosen.size ? undefined : 'Tick the requests to approve' }
           : allowed('ATTENDANCE::Leave Requests::CREATE') ? { label: 'Enter leave', icon: Plus, onClick: () => setAdding(true), disabled: noTypes, title: noTypes ? 'No leave types yet' : undefined } : null}
-        strip={<StatTiles label="Leave figures" items={tiles} />}
+        strip={<CountLine label="Leave figures" items={tiles} />}
         toolbar={<>
           <SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name or employee ID" label="Search leave requests" className="w-full sm:w-72" />
           <div className="w-full sm:w-48"><PopupSelect showValueSubtext={false} ariaLabel="Leave type" value={p.type || ''} onChange={(v) => set({ type: v || null, page: null })} options={typeOptions} placeholder="Every type" /></div>

@@ -189,7 +189,7 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border: 1px solid rgb(var(--border-field)) !important;
   border-radius: 0.75rem;
   background: rgb(var(--surface));
-  box-shadow: inset 0 3px 0 rgb(var(--id));
+  box-shadow: none; /* tiles never carry coloured bars (DESIGN.md) */
   overflow: hidden;
 }
 :root[data-app='people'] #main-content .ui-metric-strip > :not([data-tint]) { --id: var(--border-strong); --tint: var(--surface-sunken); --tint-ink: var(--fg-muted); }
@@ -740,9 +740,9 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   border: 1px solid rgb(var(--border-subtle, 230 230 235));
   background-image: none;
 }
-/* Home figures: the identity colour on a top accent and the icon chip, as on Employees. */
+/* Home figures: no coloured top bar (DESIGN.md: tiles never carry coloured bars). */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi {
-  box-shadow: inset 0 3px 0 rgb(var(--id, var(--border-strong)));
+  box-shadow: none !important;
 }
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-kpi-icon {
   background: color-mix(in srgb, rgb(var(--id, var(--border-strong))) 12%, rgb(var(--surface)));

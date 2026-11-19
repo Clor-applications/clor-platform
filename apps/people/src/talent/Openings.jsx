@@ -15,7 +15,7 @@ import { structure } from '../workforce/api';
 import { listBranches } from '../organization/api';
 import { createOpening, deleteOpening, getJobDescription, getOpening, listCandidates, listOpenings, setApplyLink, setOpeningStatus, updateOpening } from '../api/talent';
 import { ReferralBlock } from './ReferralSettings';
-import { BarList, ChartPanel, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { BarList, ChartPanel, CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 import { FormError, Footer, OPENING_STATUS, Pill, ReasonDrawer, SHEET, day, staffOptions, tabItems, useParamState, usePerm, useStaff, usedValues } from './shared';
 
 /**
@@ -102,7 +102,7 @@ export default function Openings({ params = {}, openScreen }) {
         description="What the company is hiring for; candidates and interviews hang off each opening."
         primary={canCreate ? { label: canEdit ? 'New opening' : 'Ask for an opening', icon: Plus, onClick: () => setEditing(blank) } : null}
         toolbar={<SearchField value={q} onSearch={setQ} placeholder="Search job, department or place" label="Search openings" className="w-full sm:w-80" />}
-        strip={tiles ? <StatTiles label="Hiring figures" items={tiles} /> : null}
+        strip={tiles ? <CountLine label="Hiring figures" items={tiles} /> : null}
         tabs={tabItems(TABS)}
         tab={status}
         onTab={setStatus}

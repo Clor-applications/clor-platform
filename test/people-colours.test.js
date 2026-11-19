@@ -162,8 +162,8 @@ describe('moss: People declares no brand of its own (R&D redesign, 14 Nov 2026)'
     }
   });
 
-  it('draws the figure strip as KPI tiles: 36px chip, 12px uppercase label, 28px tabular number, 3px top accent', () => {
-    expect(people).toMatch(/\.ui-metric-strip > \* \{[^}]*border-radius: 0\.75rem;[^}]*box-shadow: inset 0 3px 0 rgb\(var\(--id\)\);/);
+  it('draws the figure strip as KPI tiles: 36px chip, 12px uppercase label, 28px tabular number, no coloured top bar (DESIGN.md, 19 Nov 2026)', () => {
+    expect(people).toMatch(/\.ui-metric-strip > \* \{[^}]*border-radius: 0\.75rem;[^}]*box-shadow: none;/);
     expect(people).toMatch(/\.ui-metric-icon \{[^}]*width: 2\.25rem;[^}]*height: 2\.25rem;/);
     expect(people).toMatch(/\.ui-metric-label \{[^}]*font-size: 0\.75rem;[^}]*text-transform: uppercase;/);
     expect(people).toMatch(/\.ui-metric-value \{[^}]*font-size: 1\.75rem;[^}]*font-variant-numeric: tabular-nums;/);

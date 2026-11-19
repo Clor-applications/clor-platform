@@ -11,7 +11,7 @@ import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { Meter, Notice, StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { Meter, Notice, CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 import { assignSeats, certificateFile, deleteTraining, expiringCertificates, getTraining, listTrainings, markSeat, readFile, removeSeat, saveTraining } from '../api/talent';
 import { FormError, Footer, Pill, SHEET, WIDE_SHEET, day, staffOptions, tabItems, todayIst, useParamState, usePerm, usedValues, useStaff } from './shared';
 
@@ -76,7 +76,7 @@ export default function Trainings({ params = {} }) {
         description="Trainings, who attends them, and the certificates that lapse."
         primary={canCreate ? { label: 'New training', icon: Plus, onClick: () => setEditing({}) } : null}
         toolbar={expiring ? null : <SearchField value={q} onSearch={setQ} placeholder="Search training or provider" label="Search trainings" className="w-full sm:w-80" />}
-        strip={tiles ? <StatTiles label="Training figures" items={tiles} /> : null}
+        strip={tiles ? <CountLine label="Training figures" items={tiles} /> : null}
         tabs={tabItems(TABS)}
         tab={tab}
         onTab={setTab}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 import { Avatar } from '@ui/personnel/Employees';
 import ListHeader, { ListEmpty as EmptyState } from '@ui/components/list/ListHeader';
 import DataTable from '@ui/components/ui/DataTable';
@@ -77,7 +77,7 @@ export default function Candidates({ params = {}, openScreen }) {
         title="Candidates"
         description="Everyone applying, on one pipeline from applied to hired, as a list or a board of stages."
         primary={canCreate ? { label: 'Add candidate', icon: Plus, onClick: () => setAdding(true) } : null}
-        strip={tiles ? <StatTiles label="Candidate figures" items={tiles} /> : null}
+        strip={tiles ? <CountLine label="Candidate figures" items={tiles} /> : null}
         toolbar={<ToolbarItems {...{ q, setQ, opening, setOpening, openings: openings.data || [], view, chooseView }} />}
         tabs={board ? null : tabItems(TABS.map(([k, l]) => [k, l, counts[COUNT_KEY[k] || k] || 0]))}
         tab={stage}

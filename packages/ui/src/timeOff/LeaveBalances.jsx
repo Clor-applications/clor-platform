@@ -19,7 +19,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { can, homeCrumbs } from './shared';
 import { useSuggestions } from './suggestions';
 import BulkGrant from './BulkGrant';
-import { BarList, ChartPanel, StatTiles, TILE_ICON } from './Figures';
+import { BarList, ChartPanel, CountLine, TILE_ICON } from './Figures';
 import { Avatar } from '@ui/personnel/Employees';
 import { addLeaveAdjustment, deleteLeaveAdjustment, getLeaveBalances, getLeaveLedger, getLeaveSettings, grantCompOff, periodChoices, setAllocation, swatchOf, thisYear, todayIst } from './api';
 
@@ -122,7 +122,7 @@ export default function LeaveBalances({ openScreen }) {
             </div>
           ) : null}
         </> : null}
-        strip={figures ? <StatTiles label="Leave balance figures" items={[
+        strip={figures ? <CountLine label="Leave balance figures" items={[
           { key: 'taken', label: `Days taken, ${label}`, value: fmt(figures.taken), accent: 1, Icon: TILE_ICON.away, sub: figures.people ? `${fmt(figures.taken / figures.people)} per person` : null },
           { key: 'unused', label: 'Days still unused', value: fmt(figures.unused), accent: 2, Icon: TILE_ICON.gift, sub: `Across ${types.length} paid type${types.length === 1 ? '' : 's'}` },
           { key: 'low', label: 'Low balances', value: `${figures.low} ${figures.low === 1 ? 'person' : 'people'}`, accent: 'warn', tone: figures.low ? 'warn' : null, Icon: TILE_ICON.low, sub: '15% or less left' },

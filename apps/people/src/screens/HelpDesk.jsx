@@ -16,7 +16,7 @@ import {
   deskAssign, deskMessage, deskMoveToCase, deskReopen, deskResolve, deskTemplates, getDeskRequest, listDesk, orgUsers, raiseDeskRequest,
 } from '../api/desk';
 import { istDay } from '@ui/utils/dates';
-import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 import { waitingWords } from './deskWaiting';
 
 /**
@@ -82,7 +82,7 @@ export default function HelpDesk({ params = {} }) {
       <PageHeader breadcrumb={[{ label: 'People' }, { label: 'Help desk' }]} title="Help desk"
         actions={canEdit ? <button type="button" className="ui-btn ui-btn-primary" onClick={() => setRaising(true)}><Plus size={16} aria-hidden="true" /> New request</button> : null} />
       <p className="ui-list-desc ui-muted -mt-4">Questions and requests from employees. Confidential cases are kept apart, for the people the case routes name.</p>
-      {tiles ? <StatTiles label="Help desk figures" items={tiles} /> : null}
+      {tiles ? <CountLine label="Help desk figures" items={tiles} /> : null}
       {req.error && !data ? <ErrorState error={req.error} onRetry={req.reload} /> : (
         <DataTable
           tabs={(
