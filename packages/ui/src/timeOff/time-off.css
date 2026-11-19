@@ -279,7 +279,7 @@
 .pt-rows-day.is-holiday .pt-rows-n { color: rgb(var(--warn-ink)); font-weight: 600; }
 .pt-rows-day.is-today .pt-rows-n { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; border-radius: 999px; background: rgb(var(--act)); color: rgb(255 255 255); font-weight: 700; }
 .pt-rows-cell { height: 2.75rem; padding: 0 !important; text-align: center; vertical-align: middle; }
-.pt-rows .is-shaded { background: rgb(var(--surface-sunken)); }
+.pt-rows .is-shaded { background: rgb(var(--fg) / 0.045); } /* --surface-sunken is white in the all-white theme, so it shaded nothing */
 .pt-rows .pt-rows-cell.is-today { box-shadow: inset 1px 0 0 rgb(var(--act) / 0.35), inset -1px 0 0 rgb(var(--act) / 0.35); }
 /* A leave is one block across its days: cells sit flush, only the first and last day round off. */
 .pt-rows-leave { display: block; height: 1.25rem; }

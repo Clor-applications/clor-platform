@@ -171,7 +171,7 @@ export default function LeaveCalendar() {
             {view === 'person'
               ? <li className="inline-flex items-center gap-1.5"><span className="pt-rows-swatch ui-dot-quiet" style={{ opacity: 0.4 }} aria-hidden="true" />Waiting, lighter</li>
               : <li className="inline-flex items-center gap-1.5"><span className="pt-cal-leave is-waiting" aria-hidden="true">&nbsp;&nbsp;&nbsp;</span>Waiting</li>}
-            <li className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border" style={{ background: 'rgb(var(--surface-sunken))', borderColor: 'rgb(var(--border))' }} aria-hidden="true" />Weekly off</li>
+            <li className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm border" style={{ background: 'rgb(var(--fg) / 0.045)', borderColor: 'rgb(var(--border))' }} aria-hidden="true" />Weekly off</li>
             {holidayOn.size ? <li className="pt-cal-holiday">Holidays in amber</li> : null}
             {people.some((p) => p.leave.some((x) => x.halfDay)) ? <li className="inline-flex items-center gap-1.5"><span className="inline-flex h-2.5 w-5 border" style={{ borderColor: 'rgb(var(--border))' }} aria-hidden="true"><span className="h-full w-1/2 ui-dot-quiet" /></span>Half day: left half first, right half second</li> : null}
             {workingKinds.map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className="inline-flex h-4 w-4 items-center justify-center text-[0.75rem]" style={workingMark} aria-hidden="true">{WORKING[k].letter}</span>{WORKING[k].name}, working</li>)}
