@@ -67,7 +67,7 @@ describe('seeding a new company', () => {
     const meghalaya = pt.find((r: any) => r.jurisdiction === 'MEGHALAYA');
     expect(meghalaya.config.needsCheck).toBe(true);
     expect(meghalaya.needsCheck).toBe(true);
-    expect(meghalaya.note).toMatch(/confirm before use/);
+    expect(meghalaya.note).toMatch(/confirm before use/i);
     /* Notes are for the owner: no other products or research sources named. */
     for (const r of [...pt, ...lwf]) expect(r.note, r.jurisdiction).not.toMatch(/greytHR|Lexplosion|K S & K|publisher|gazette|TankhaPay|SGCMS|CalcGuru|http/i);
   });
