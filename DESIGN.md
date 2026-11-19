@@ -752,10 +752,21 @@ company ("Earlier this year").
 
 Picked, **not built yet**: a salary the bank sent back with the employee asked to update his bank
 on the phone (the employee app is told only paid or not); a fine split over months on its own;
-pay stopping at zero with the rest carried to next month; a small extra run for a bonus between
-payroll months; pay divided by the days in the month as the company's chosen rule; extra PF set
+pay stopping at zero with the rest carried to next month; pay divided by the days in the month as the company's chosen rule; extra PF set
 by the employee on the phone; the leave travel claim with "trips left 1 of 2"; a "Revised" tag
 with what changed on a reissued payslip (payslips keep no record of being reissued yet). All need server work.
+
+Built later (19 Nov 2026): **the extra pay run** (a run kind, `OFF_CYCLE`, beside the month's
+`REGULAR` payroll; only regular runs are one per period, pay group and branch). Pay runs › Run
+payroll › Kind "Extra pay run" starts one for the period with nobody in it; its People stage
+(`ExtraPayStage.jsx`) adds each person as "Salary for the month" (a late joiner, worked out on their
+days like any payroll) or "Extra only" (a bonus or arrears, entered as earnings with a note). An
+extra waits for the month's salary to be approved, then takes only what it adds: PF the difference
+under the ceiling, ESI on its ESI wages, professional tax only if the month had none, income tax
+the whole year's increase at once (`offCycleExtra` in `run.ts`). Its payslips say "Extra pay run"
+(Payroll's list and payslip, the employee app's list, payslip and PDF) and show no days for an
+extra only; it is approved, paid by bank file and posted to the books like a regular payroll; the
+run list marks it "Extra pay run" under the period.
 
 Built later (server picks batch 2): notes shown at the top of next month's run. A payroll has a
 "Note for next month" box, saved at any stage but cancelled; the next payroll for the same pay
@@ -1293,12 +1304,11 @@ the employee app shows each loan's next instalment with "Ask to skip this month"
 once; Payroll › Loans marks the loan "Asked to skip" and the instalment carries a tick (skipped,
 still owed) and a cross (declined, stays due).
 
-Picked, **not built yet**: a "Companies" page to pick a company from; a small extra
-payroll for a late joiner; HR choosing what carries
+Picked, **not built yet**: a "Companies" page to pick a company from; HR choosing what carries
 over on a transfer between group companies; one bill to the head company with a line per company;
 and the CA picks (one list of every client's dues, CA invited with payroll-only access and an end
 date, a client list with Run and status, "Ask client" for inputs, "Prepared by" the CA firm at the
-foot). All need server work.
+foot). All need server work. (A small extra payroll for a late joiner is built: the extra pay run, above.)
 
 ### Round 55 (18 Nov 2026)
 
@@ -1610,13 +1620,15 @@ Built:
 | ESI after a raise | Someone who paid ESI earlier in the contribution period (April–September, October–March) keeps paying after wages pass the threshold, until the period ends; the slip explains "ESI continues until the contribution period ends on 30 Sep 2026, then stops". |
 | Paying on time | A pay group whose paid-on day is after the 7th shows a warning under the field and "After the 7th" on its row; a run whose payroll date falls after the 7th of the next month says it is late under the Payment of Wages Act (`LatePayNote`). |
 | Wages at least half | The salary structure preview warns when basic plus DA (the gratuity wage components) is under half of gross, and says how much would be counted back as wages under the labour codes (`wagesCheck`). |
+| Statutory bonus run | Payroll → Salaries → Once a year → "Statutory bonus" (h1 the same). Pick the year (last year first) and the share; "Work out bonus" (the one primary) reads the year's approved payslips into a draft: a hairline row per person paid in the year, who qualifies first, with days worked, basic + DA, bonus wages and bonus in tabular figures, and "Does not qualify" with the reason in plain words on the rest. A month counts when basic + DA is at or under the eligibility ceiling; the bonus is on the lower of that wage and the calculation base (ceiling, or the minimum wage if higher); at least the minimum days and never under the minimum amount. "Rules" opens the Act's figures as company settings (21,000 / 7,000 / minimum wage / 8.33–20% / ₹100 / 30 days as defaults), each with its section and "Check the current rule". On a draft "Approve bonus" (primary) asks which open month's pay run pays it; each eligible person becomes an approved Statutory bonus earning (`STAT_BONUS`, made the first time) on that run, the approver's own bonus waiting in Adjustments for someone else, under the company's maker-checker setting. An approved run downloads the Form C register (columns CLOR does not hold left blank) and cancels with a reason while none of its earnings is on a payslip (`StatutoryBonus`, `services/payroll/bonus.ts`, `/payroll/bonus-runs`, `/payroll/bonus/settings`; notification "Bonus runs to approve"). |
+| Minimum wage per state | Compliance has a "Minimum wages" section: a table of state, zone ("Whole state" when blank), skill level (unskilled, semi-skilled, skilled, highly skilled), from date, a month's rate (tabular, right-aligned) and In force / Earlier / Upcoming, with "Add a rate" (inline form) and "Import CSV" (columns state, zone, skill, effective_from, monthly_rate, note; all or nothing, every bad line listed by number; a CSV template link). CLOR ships no rates: the empty table says to take them from the state labour department's notification. Each person's payroll details carry a skill level (default unskilled) and an optional zone; the state is the one on their payroll details, shown as "State they work in" when professional tax is off. Saving a salary below the rate asks first ("Below minimum wage for Karnataka, semi-skilled: ₹X a month, pays ₹Y", Change the salary / Save anyway); a pay run's check warns per person with Fix (opens their salary). Wages compared are basic plus DA for a full month, never less than half of pay. From 1 April and 1 October, a state in use with rates on file but none from that date gets an "Update minimum wages" card on the Payroll overview and a note on the section (`PayrollMinimumWage`, `minimumWage.ts`, `MinimumWagesSection`). |
+| Weekly wages | Payroll › Pay runs › Weekly wages, for workers paid by the day in a weekly or fortnightly pay group. Daily rates: each worker's rate, hours in a day and overtime multiple (twice), canteen per day, advance left and recovered per sheet. A wage sheet covers one week or fortnight, one after another with no gap: days from Attendance (present, half days as half, paid leave, holidays, weekly offs only when the sheet pays them) or typed in, × the rate, plus overtime; PF on the month's PF wages so far less what earlier sheets took (one ₹15,000 ceiling a month), ESI per sheet judged on 26 days at the rate, professional tax once on the last sheet ending in the month on the month's total; deductions stop at half the wages. Approve (earlier drafts first, advances come down), Back to draft on the latest, Bank file CSV (workers without an account listed for cash), Mark paid, a wage slip per worker. The month adds every approved sheet ending in it per worker, with a summary CSV and the PF ECR file. Own tables (`WeeklyWageRate`, `WeeklyWageSheet`, `WeeklyWageLine`); the monthly run is unchanged (`weeklyWages.ts`, `WeeklyWages.jsx`). |
 
 Picked and already how the app works: an appointment letter for every worker (sent on hire, ticked
 in the joining plan); notice shortfall recovered in the final settlement.
 
-Picked, **not built yet**: a statutory bonus run (a new payroll flow); minimum wage revisions
-(needs each state's rate data); Budget slab updates (CLOR keeps the tax tables); a filled Form 11;
-an inspection pack download; weekly wages (runs are monthly); state leave minimums and the earned
+Picked, **not built yet**: Budget slab updates (CLOR keeps the tax tables); a filled Form 11;
+an inspection pack download; state leave minimums and the earned
 leave default of 180 days and 30 carried (need state law data); a yearly health check for staff 40
 and over (needs a new People record and its own flow); using the counted-back wages in PF and
 gratuity (the preview warns only).
@@ -1640,10 +1652,20 @@ referred person stays; the exit interview at leaving; Download my data; the data
 contact under Privacy; a company's own breach register; support access the customer approves for
 a set time; Payroll's Tally export (Books untouched).
 
-Picked, **not built yet**: the employee app in Hindi and other languages (translating the whole app
-is large, and half-translated screens read worse than English); HR forgiving one late mark a month;
-an administrator granting CLOR support 24 hours of access without CLOR asking first (today CLOR
-asks and the customer approves).
+Built since (19 Nov 2026): **the employee app in Hindi.** Me › Language offers English and हिन्दी,
+each named in its own script; the choice is kept on the person (`Employee.portalLanguage`,
+`PUT /api/portal/me/language`, returned by `/me`) so every phone follows it, and in the browser so the
+sign-in page opens in it. The English in the code stays the one source: `packages/ui/src/i18n/`
+turns what the page renders (text, placeholders, screen-reader labels, toasts and dialogs, the tab
+title) from one file per language (`hi.js`), with values kept in place ("{} के लिए आवेदन करें"),
+Hindi month and day names, digits 0–9 and Indian money format as before. PF, ESI, UAN, PAN, HR and
+names stay as written; server errors turn by their code, then their words. Every screen at once,
+never half: `scripts/i18n-strings.mjs --missing hi` reads every line from the code and a test fails
+on any line without Hindi. Another language (Tamil, Telugu, Kannada, Marathi) is one more file
+beside `hi.js`.
+
+Picked, **not built yet**: HR forgiving one late mark a month; an administrator granting CLOR
+support 24 hours of access without CLOR asking first (today CLOR asks and the customer approves).
 
 ## Brand (frontend redesign, owner, 15 Nov 2026 — current)
 

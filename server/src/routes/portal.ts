@@ -147,6 +147,7 @@ const PORTAL_FIELDS = {
   portalSetupHash: true,
   portalSetupExpires: true,
   portalSessionsRevokedAt: true,
+  portalLanguage: true,
   mobilePunch: true,
   geofenceId: true,
   dateOfBirth: true,
@@ -360,7 +361,19 @@ portalRouter.get('/me', async (req, res) => {
     privacy: { version: notice.version, read: e.privacyNoticeVersion === notice.version },
     /* Money, growth, jobs and engagement are People's: hidden when the company has Attendance alone. */
     people: await isAppEntitled(req.portal!.accountId, 'people'),
+    /* The language chosen on Me, so a new phone opens in it too. */
+    language: e.portalLanguage || 'en',
   });
+});
+
+/** The employee app's language (English or Hindi), kept on the person so every phone follows it. */
+const PORTAL_LANGUAGES = ['en', 'hi'] as const;
+portalRouter.put('/me/language', check({ body: z.object({ language: choice(PORTAL_LANGUAGES, 'Choose English or Hindi.') }) }), async (req, res) => {
+  const e = req.portal!.employee;
+  const language = req.body?.language;
+  if (!language) return res.status(400).json({ error: 'Choose English or Hindi.' });
+  await peoplePrisma.employee.update({ where: { id: e.id }, data: { portalLanguage: language === 'en' ? null : language } });
+  res.json({ language });
 });
 
 /**
@@ -1520,6 +1533,13 @@ portalRouter.put('/tax', check({ body: anyBody }), async (req, res) => {
  * forwarded.
  */
 const FINAL_RUN = ['LOCKED', 'PAID', 'POSTED'];
+const extraPayRunOf = (json: string | null | undefined) => {
+  try {
+    return Boolean(JSON.parse(json || '{}').extraPayRun);
+  } catch {
+    return false;
+  }
+};
 const maskEnd = (v: string | null | undefined, keep = 4) => {
   const s = String(v || '');
   return s ? `${'•'.repeat(Math.max(0, s.length - keep))}${s.slice(-keep)}` : '';
@@ -1554,6 +1574,8 @@ portalRouter.get('/payslips', async (req, res) => {
       deductions: Number(s.totalDeductions),
       net: Number(s.netPay),
       paid: s.paymentStatus === 'PAID',
+      /* Made by an extra pay run (a bonus, arrears, a late joiner's days): said on the payslip. */
+      extraPayRun: extraPayRunOf(s.inputSnapshotJson),
     })),
   });
 });
@@ -1602,6 +1624,7 @@ portalRouter.get('/payslips/:id', check({ params: idParams }), async (req, res) 
       totalDeductions: Number(slip.totalDeductions),
       net: Number(slip.netPay),
       paid: slip.paymentStatus === 'PAID',
+      extraPayRun: Boolean(input.extraPayRun),
       /* What this payslip could not take and moved on (deductionCap.ts), as Payroll's copy shows it. */
       deductionNote: slip.deductionNote ?? null,
       /* Somebody whose last day falls in this period has no next payslip: the rest goes to the full and final. */

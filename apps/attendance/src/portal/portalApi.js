@@ -1,5 +1,6 @@
 import { API_BASE } from '@platform/http';
 import { todayIst } from '@ui/utils/dates';
+import { errorWords } from '@ui/i18n';
 export { todayIst };
 
 /**
@@ -63,9 +64,9 @@ async function call(path, { method = 'GET', body } = {}) {
   }
   if (res.status === 401 && data?.code === 'PORTAL_SIGNIN') {
     setPortalToken('');
-    throw new SignedOut(data.error);
+    throw new SignedOut(errorWords(data.error, data.code));
   }
-  if (!res.ok) throw Object.assign(new Error(data?.error || `Something went wrong (${res.status}).`), { code: data?.code, status: res.status });
+  if (!res.ok) throw Object.assign(new Error(errorWords(data?.error || `Something went wrong (${res.status}).`, data?.code)), { code: data?.code, status: res.status });
   return data;
 }
 
@@ -105,6 +106,8 @@ export const endOtherSessions = async () => {
 };
 
 export const getMe = () => call('/me');
+/** The app's language, kept on the person (round 67): English or Hindi. */
+export const setLanguage = (language) => call('/me/language', { method: 'PUT', body: { language } });
 export const punch = (body) => call('/punch', { method: 'POST', body });
 /* Approvals: what the people reporting to me are waiting on, and my decision on one. */
 export const getApprovals = () => call('/approvals');

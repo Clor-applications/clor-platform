@@ -62,7 +62,14 @@ export async function listAssignments({ employeeId = '', status = '' } = {}) {
   return Array.isArray(assignments) ? assignments : [];
 }
 
+/** Round 66: `{ minimumWage }`, null when the salary meets the state's minimum wage (or no rate is on file). */
+export async function checkMinimumWage(payload) {
+  const { minimumWage } = await apiFetch(`${base()}/assignments/minimum-wage-check`, { ...opts, method: 'POST', body: payload });
+  return minimumWage || null;
+}
+
 export async function createAssignment(payload) {
-  const { assignment } = await apiFetch(`${base()}/assignments`, { ...opts, method: 'POST', body: payload });
-  return assignment;
+  const { assignment, minimumWage } = await apiFetch(`${base()}/assignments`, { ...opts, method: 'POST', body: payload });
+  /* Round 66: below the state's minimum wage is said, not refused. */
+  return minimumWage ? { ...assignment, minimumWage } : assignment;
 }

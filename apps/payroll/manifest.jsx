@@ -1,6 +1,6 @@
 import {
-  ArrowUpRight, Banknote, BarChart3, BookOpen, CalendarDays, FileSignature, HandCoins, Handshake, KeyRound, Landmark,
-  Layers, LayoutGrid, ListChecks, Mail, PlusCircle, Receipt, ScrollText, SlidersHorizontal, TrendingUp, Users,
+  ArrowUpRight, Banknote, BarChart3, BookOpen, CalendarDays, FileSignature, HandCoins, Handshake, HardHat, KeyRound, Landmark,
+  Gift, Layers, LayoutGrid, ListChecks, Mail, PlusCircle, Receipt, ScrollText, SlidersHorizontal, TrendingUp, Users,
   UsersRound, Wallet,
 } from '@ui/components/ui/navEmoji';
 import { Wallet as AppWallet } from 'lucide-react';
@@ -28,6 +28,8 @@ const PayrollSetup = screen('PayrollSetup');
 const BankChanges = screen('BankChanges');
 const FinalSettlements = screen('FinalSettlements');
 const TaxDeclarations = screen('TaxDeclarations');
+const StatutoryBonus = screen('StatutoryBonus');
+const WeeklyWages = screen('WeeklyWages');
 const RolesAccess = screen('RolesAccess');
 const EmailNotifications = screen('EmailNotifications');
 
@@ -38,7 +40,7 @@ const I = {
   adjustments: PlusCircle, assignments: Users, revisions: TrendingUp, loans: HandCoins, settlements: Handshake,
   tax: Receipt, reports: BarChart3, setup: ListChecks, calendar: CalendarDays, groups: UsersRound,
   components: SlidersHorizontal, structures: Layers, compliance: FileSignature, ledgers: BookOpen, roles: KeyRound,
-  mail: Mail,
+  mail: Mail, bonus: Gift, weekly: HardHat,
 };
 
 /**
@@ -73,10 +75,12 @@ export const payrollApp = {
     { key: 'overview', label: 'Overview', items: ['overview'] },
     { key: 'runs', label: 'Pay runs', groups: [
       { label: 'Each month', items: ['runs', 'slips', 'payments'] },
+      { label: 'Each week', items: ['weeklyWages'] },
       { label: 'Before the run', items: ['adjustments', 'bankChanges'] },
     ] },
     { key: 'people', label: 'Salaries', groups: [
       { label: 'Per employee', items: ['assignments', 'revisions', 'loans', 'taxDeclarations'] },
+      { label: 'Once a year', items: ['bonus'] },
       { label: 'Leaving', items: ['settlements'] },
     ] },
     { key: 'reports', label: 'Reports', items: ['reports'] },
@@ -93,6 +97,8 @@ export const payrollApp = {
     { key: 'runs', label: 'Pay Runs', icon: I.runs, permission: 'PAYROLL::Payroll Runs::VIEW' },
     { key: 'slips', label: 'Salary Slips', icon: I.slips, permission: 'PAYROLL::Salary Slips::VIEW' },
     { key: 'payments', label: 'Payments', icon: I.payments, permission: 'PAYROLL::Payroll Payments::VIEW' },
+    /* Round 66: workers paid by the day, every week or fortnight. */
+    { key: 'weeklyWages', label: 'Weekly wages', icon: I.weekly, permission: 'PAYROLL::Payroll Runs::VIEW' },
     { key: 'bankChanges', label: 'Bank changes', icon: I.bank, permission: 'PAYROLL::Employee Payroll Profile::VIEW' },
     { key: 'adjustments', label: 'Adjustments', icon: I.adjustments, permission: 'PAYROLL::Payroll Adjustments::VIEW' },
     { key: 'assignments', label: 'Salary Assignments', icon: I.assignments, permission: 'PAYROLL::Salary Assignments::VIEW' },
@@ -100,6 +106,7 @@ export const payrollApp = {
     { key: 'loans', label: 'Loans & Advances', icon: I.loans, permission: 'PAYROLL::Payroll Loans::VIEW' },
     { key: 'settlements', label: 'Full & final', icon: I.settlements, permission: 'PAYROLL::Payroll Runs::VIEW' },
     { key: 'taxDeclarations', label: 'Tax declarations', icon: I.tax, permission: 'PAYROLL::Employee Payroll Profile::VIEW' },
+    { key: 'bonus', label: 'Statutory bonus', icon: I.bonus, permission: 'PAYROLL::Payroll Adjustments::VIEW' },
     { key: 'reports', label: 'Reports', icon: I.reports, permission: 'PAYROLL::Payroll Reports::VIEW' },
     /*
      * What payroll is configured with, apart from the month's work: the setup
@@ -132,6 +139,8 @@ export const payrollApp = {
     loans: PayrollLoans,
     settlements: FinalSettlements,
     taxDeclarations: TaxDeclarations,
+    bonus: StatutoryBonus,
+    weeklyWages: WeeklyWages,
     compliance: PayrollCompliance,
     reports: PayrollReports,
     ledgers: PayrollLedgerMapping,

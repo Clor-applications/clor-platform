@@ -16,6 +16,7 @@ import { componentApplies, monthsOfService, type EligibilityFacts } from './elig
 import { isCorrection, isLatePenalty } from './provisionalDays.js';
 import { daysBetween } from '../../utils/istDate.js';
 import { canonicalState, stateLabel } from '../../constants/stateLevies.js';
+import { minimumWageCheck } from './minimumWage.js';
 import { checksSentence, parseConfig, ruleNeedsCheck, stateRulesThatCount } from './statutory/resolve.js';
 
 /**
@@ -297,7 +298,14 @@ export type TaxSoFar = { gross: number; tds: number; taxable: number; employerNp
  * March payroll paid in April was taxed as April (twelve months left) with the
  * year's earlier pay forgotten, and April's payroll counted March's in its year.
  */
-export async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate: string }, period: { startDate: string; endDate: string }, employeeIds: string[]) {
+export async function taxPaidSoFar(
+  orgId: string,
+  run: { id: string; payrollDate: string },
+  period: { startDate: string; endDate: string },
+  employeeIds: string[],
+  /* An extra pay run is worked out on top of everything else final in its month, whatever day that was paid (OFF_CYCLE). */
+  sameMonth: 'EARLIER' | 'ALL' = 'EARLIER'
+) {
   /* `taxable` is what income tax reads (taxablePay.ts): taxable earnings and employer NPS, not gross. */
   const out = new Map<string, TaxSoFar>();
   if (!employeeIds.length) return out;
@@ -313,7 +321,7 @@ export async function taxPaidSoFar(orgId: string, run: { id: string; payrollDate
     select: { id: true, periodId: true, payrollDate: true },
   });
   /* An earlier month of the year; or, for the same month, another run (a bonus run) paid before this one. */
-  const earlier = candidates.filter((r) => String(endOf.get(r.periodId)) < period.endDate || r.payrollDate < run.payrollDate);
+  const earlier = candidates.filter((r) => String(endOf.get(r.periodId)) < period.endDate || sameMonth === 'ALL' || r.payrollDate < run.payrollDate);
   if (!earlier.length) return out;
   const slips = await payrollPrisma.salarySlip.findMany({
     where: { orgId, runId: { in: earlier.map((r) => r.id) }, employeeId: { in: employeeIds }, status: { not: 'CANCELLED' } },
@@ -601,6 +609,56 @@ export async function lwfSettingsFor(orgId: string) {
  * fetched per employee — which is the difference between a run that takes a
  * second and one that takes a minute.
  */
+/** Ids of the amounts entered on an extra pay run: the run's own, never another payroll's to take. */
+export const extraItemPrefix = (runId: string) => `offcycle:${runId}:`;
+
+export type MonthDays = { workingDays: number; payableDays: number; lwpDays: number; variablePay: number; overtimeAmount: number; overtimeHours: number; overtimeHoursAtRate: number };
+
+/**
+ * A person's salary for the month, paid on a final payroll other than this one
+ * (the regular run, or an extra run that paid their days): the days it was
+ * worked out on, by person. An extra is worked out on top of it.
+ */
+export async function salaryPaidThisMonth(orgId: string, run: { id: string; periodId: string }, employeeIds: string[]) {
+  const out = new Map<string, MonthDays>();
+  if (!employeeIds.length) return out;
+  const runs = await payrollPrisma.payrollRun.findMany({
+    where: { orgId, periodId: run.periodId, id: { not: run.id }, status: { in: PT_COUNTED_RUNS } },
+    select: { id: true, kind: true },
+  });
+  if (!runs.length) return out;
+  const [slips, extraMembers] = await Promise.all([
+    payrollPrisma.salarySlip.findMany({
+      where: { orgId, runId: { in: runs.map((r) => r.id) }, employeeId: { in: employeeIds }, status: { not: 'CANCELLED' } },
+      select: { runId: true, employeeId: true, inputSnapshotJson: true },
+    }),
+    payrollPrisma.payrollRunEmployee.findMany({
+      where: { orgId, runId: { in: runs.filter((r) => r.kind === 'OFF_CYCLE').map((r) => r.id) }, employeeId: { in: employeeIds }, pays: 'EXTRA' },
+      select: { runId: true, employeeId: true },
+    }),
+  ]);
+  const extra = new Set(extraMembers.map((m) => `${m.runId}:${m.employeeId}`));
+  for (const slip of slips) {
+    if (extra.has(`${slip.runId}:${slip.employeeId}`)) continue;
+    let i: any = {};
+    try {
+      i = JSON.parse(slip.inputSnapshotJson || '{}');
+    } catch {
+      i = {};
+    }
+    out.set(slip.employeeId, {
+      workingDays: Number(i.workingDays) || 0,
+      payableDays: Number(i.payableDays) || 0,
+      lwpDays: Number(i.lwpDays) || 0,
+      variablePay: Number(i.variablePay) || 0,
+      overtimeAmount: Number(i.overtimeAmount) || 0,
+      overtimeHours: Number(i.overtimeHours) || 0,
+      overtimeHoursAtRate: Number(i.overtimeHoursAtRate ?? i.overtimeHours) || 0,
+    });
+  }
+  return out;
+}
+
 async function loadRunContext(orgId: string, runId: string) {
   const run = await payrollPrisma.payrollRun.findFirst({ where: { orgId, id: runId } });
   if (!run) throw new Error('No such payroll run.');
@@ -612,6 +670,16 @@ async function loadRunContext(orgId: string, runId: string) {
     where: { orgId, runId, inclusion: 'INCLUDED' },
   });
   const employeeIds = members.map((m) => m.employeeId);
+  /*
+   * An extra pay run (OFF_CYCLE): people in it for their month's salary (a
+   * late joiner) are worked out as on any payroll; people in it for an extra
+   * only (a bonus, arrears) are paid exactly what was entered for them on this
+   * run, and nothing else the month holds: no other adjustment, no loan
+   * instalment, which stay the regular payroll's.
+   */
+  const offCycle = run.kind === 'OFF_CYCLE';
+  const extraOnly = new Set(offCycle ? members.filter((m) => m.pays === 'EXTRA').map((m) => m.employeeId) : []);
+  const ownExtra = (a: { id: string }) => a.id.startsWith(extraItemPrefix(runId));
 
   /* This run's own payslips, from a calculation before: what they took is still this run's to take. */
   const ownSlipIds = (await payrollPrisma.salarySlip.findMany({ where: { orgId, runId }, select: { id: true } })).map((s) => s.id);
@@ -699,7 +767,7 @@ async function loadRunContext(orgId: string, runId: string) {
   }
   const backOnAdjustment = new Map<string, number>();
   for (const c of ownCarriedAdjustments) if (c.carriedFromId) backOnAdjustment.set(c.carriedFromId, round2((backOnAdjustment.get(c.carriedFromId) || 0) + Number(c.amount)));
-  const recoveries = loanDue.map((r) => {
+  const recoveries = loanDue.filter((r) => !extraOnly.has(r.employeeId)).map((r) => {
     const back = backOnInstallment.get(r.installmentId) || 0;
     if (!back) return r;
     const due = round2(r.dueAmount + back);
@@ -710,6 +778,7 @@ async function loadRunContext(orgId: string, runId: string) {
   const adjustments = [...ownAdjustments, ...carriedAdjustments]
     /* Holders of what this run carried sit in its own period: not deductions of their own. */
     .filter((a) => a.carriedByRunId !== runId)
+    .filter((a) => !extraOnly.has(a.employeeId) || ownExtra(a))
     .map((a) => (backOnAdjustment.has(a.id) ? { ...a, amount: new Prisma.Decimal(round2(Number(a.amount) + backOnAdjustment.get(a.id)!)) } : a));
   const periodName = new Map([...earlierPeriods.map((p) => [p.id, p.name] as const), [period.id, period.name] as const]);
   const periodStart = new Map(earlierPeriods.map((p) => [p.id, p.startDate]));
@@ -763,7 +832,9 @@ async function loadRunContext(orgId: string, runId: string) {
     include: { conditions: { orderBy: { displayOrder: 'asc' } }, employeeTargets: true },
   });
 
-  const taxSoFar = await taxPaidSoFar(orgId, run, period, employeeIds);
+  const taxSoFar = await taxPaidSoFar(orgId, run, period, employeeIds, offCycle ? 'ALL' : 'EARLIER');
+  /* For each person here for an extra only: their salary for this month on a final payroll, if any (the days it was paid on). */
+  const salaryThisMonth = await salaryPaidThisMonth(orgId, run, [...extraOnly]);
   /* The year this payroll's tax belongs to: the pay period's, never the payment date's (#1). */
   const taxYear = financialYearOf(period.endDate);
   const openingYtd = await openingFor(orgId, taxYear, employeeIds);
@@ -782,6 +853,9 @@ async function loadRunContext(orgId: string, runId: string) {
   const yearRegime = await yearRegimes(orgId, employeeIds, taxYear, runId);
 
   return {
+    offCycle,
+    extraOnly,
+    salaryThisMonth,
     ownSlipIds,
     periodName,
     periodStart,
@@ -1040,7 +1114,15 @@ function calculateWithStatutory(
   /** Taxable one-off adjustment earnings this period (a bonus), counted in the year once, not for every month left (#15). */
   oneOffTaxable = 0,
   /** PF and ESI wages those one-off earnings add (oneOffWagesOf). */
-  oneOffWages: { pfWage: number; esiWage: number; gross?: number } = { pfWage: 0, esiWage: 0, gross: 0 }
+  oneOffWages: { pfWage: number; esiWage: number; gross?: number } = { pfWage: 0, esiWage: 0, gross: 0 },
+  /*
+   * An extra on an extra pay run (offCycleExtra): this month's salary is
+   * already on a payslip (in the year so far) or was never paid, so the year
+   * is what was paid, the months still ahead at this pay, and the extra once.
+   * Tax is the whole year's due less what was deducted, not spread: the
+   * difference the extra makes is taken on its own payslip.
+   */
+  extra?: { monthsAhead: number }
 ) {
   const engineInput = {
     annualCtc: Number(assignment.annualCtc),
@@ -1092,7 +1174,7 @@ function calculateWithStatutory(
   const previous = previousEmployerOf(declaration);
   const ptSoFar = ctx.ptSoFar.get(assignment.employeeId) || { yearToDate: 0, thisMonth: 0, byState: new Map() };
   /* The year from this period: what earlier payslips had, plus this period's for the periods left. Other frequencies keep the simple annualisation. */
-  const forYear = (sofar: number, now: number, once = 0) => round2(periodsPerYear === 12 ? sofar + now * monthsRemaining + once : (now + once) * periodsPerYear);
+  const forYear = (sofar: number, now: number, once = 0) => round2(periodsPerYear === 12 ? sofar + now * (extra ? extra.monthsAhead : monthsRemaining) + once : (now + once) * periodsPerYear);
   const taxablePay = (pass: ReturnType<typeof calculateStructure>) =>
     taxablePayOf(
       pass.lines.map((l) => ({ type: l.type, amount: l.amount, isTaxable: l.isTaxable, code: l.code, employerNps: isEmployerNps(ctx.components.get(l.componentId)), pfWage: !!ctx.components.get(l.componentId)?.includeInPfWage }))
@@ -1115,7 +1197,8 @@ function calculateWithStatutory(
     ).taxable;
   const annualTaxable = (pass: ReturnType<typeof calculateStructure>) => {
     const once = oneOffInPass(pass);
-    return forYear(soFar.taxable, taxablePay(pass).taxable - once, once + oneOffTaxable);
+    /* On an extra run the month's own variable pay is already in the year so far: only the extra counts once. */
+    return forYear(soFar.taxable, taxablePay(pass).taxable - once, (extra ? 0 : once) + oneOffTaxable);
   };
   /* Basic and DA (or PF wages, where a structure names them otherwise) and HRA, for the HRA exemption. */
   const byCode = (pass: ReturnType<typeof calculateStructure>, codes: string[]) =>
@@ -1148,7 +1231,7 @@ function calculateWithStatutory(
       },
       employee,
       components: engine.map((c) => ({ code: c.code, statutoryScheme: c.statutoryScheme, type: c.type })),
-      monthsRemaining: Math.max(1, monthsRemaining),
+      monthsRemaining: extra ? 1 : Math.max(1, monthsRemaining),
       taxAlreadyDeducted: periodsPerYear === 12 ? soFar.tds : 0,
       ptSoFar,
       /* The year's professional tax: what payslips took, this period's for the periods left, and a previous employer's (engine caps it at ₹2,500). */
@@ -1190,6 +1273,97 @@ function calculateWithStatutory(
   }
   if (!settled) result = calculateStructure(engine, { ...engineInput, statutoryAmounts: statutory.amounts });
   return { result, statutory };
+}
+
+/**
+ * What an extra (a bonus, arrears) on an extra pay run deducts: the difference
+ * it makes to the month, never the month's statutory deductions again.
+ *
+ * The month is worked out twice on the same footing, without the extra and
+ * with it, on the days the month's salary was paid on (salaryPaidThisMonth).
+ * PF is the second less the first, so the ceiling the salary already reached
+ * holds; ESI is on the extra's ESI wages where the person is covered;
+ * professional tax already deducted this month is not taken again; income tax
+ * is the whole year's tax with the extra less the year's tax without it,
+ * taken in full on this payslip (taxPaidSoFar counts the month's salary).
+ * Somebody with no salary on a final payroll this month (arrears after
+ * leaving) has the extra as the month's only pay.
+ */
+export function offCycleExtra(
+  ctx: LoadedRun,
+  engine: EngineComponent[],
+  input: ReturnType<typeof inputFor>,
+  assignment: any,
+  profile: any,
+  periodsPerYear: number,
+  adjustments: any[]
+): ReturnType<typeof calculateWithStatutory> {
+  const employeeId = assignment.employeeId as string;
+  const paid = ctx.salaryThisMonth.get(employeeId);
+  const engineX = paid ? engine : engine.filter((c) => c.statutoryScheme);
+  const days = paid ? { ...input, ...paid } : input;
+  const monthsAhead = paid ? Math.max(0, monthsLeftFor(ctx.period.endDate, ctx.employees.get(employeeId)?.dateOfLeaving) - 1) : 0;
+  const base = calculateWithStatutory(ctx, engineX, days, assignment, profile, periodsPerYear, 0, undefined, { monthsAhead });
+  const withExtra = calculateWithStatutory(ctx, engineX, days, assignment, profile, periodsPerYear, oneOffTaxableOf(ctx, adjustments), oneOffWagesOf(ctx, adjustments), { monthsAhead });
+  const more = (a: number, b: number | undefined) => Math.max(0, round2(a - (b || 0)));
+
+  const scheme = new Map(engineX.map((c) => [c.componentId, c.statutoryScheme]));
+  const before = new Map(base.result.lines.map((l) => [l.componentId, l.amount]));
+  const lines = withExtra.result.lines
+    .filter((l) => scheme.get(l.componentId) && l.type !== 'EARNING')
+    .map((l) => {
+      const amount = more(l.amount, before.get(l.componentId));
+      return { ...l, amount, fullAmount: amount };
+    })
+    .filter((l) => l.amount > 0);
+  const deductions = round2(lines.filter((l) => l.type === 'DEDUCTION').reduce((t, l) => t + l.amount, 0));
+  const employer = round2(lines.filter((l) => l.type === 'EMPLOYER_CONTRIBUTION').reduce((t, l) => t + l.amount, 0));
+  const amountOf = new Map(lines.map((l) => [l.componentId, l.amount]));
+  const result = {
+    ...withExtra.result,
+    lines,
+    grossEarnings: 0,
+    totalDeductions: deductions,
+    employerContributions: employer,
+    netPay: round2(-deductions),
+    employerCost: employer,
+    pfWage: more(withExtra.result.pfWage, base.result.pfWage),
+    esiWage: more(withExtra.result.esiWage, base.result.esiWage),
+    gratuityWage: 0,
+    trace: withExtra.result.trace.filter((t) => amountOf.has(t.componentId)).map((t) => ({ ...t, computedAmount: amountOf.get(t.componentId)! })),
+    errors: [],
+    warnings: [],
+  };
+
+  const prior = new Map(base.statutory.results.map((r) => [r.scheme, r]));
+  const rupees = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  const results = withExtra.statutory.results.map((r) => {
+    const b = prior.get(r.scheme);
+    const employee = more(r.employee, b?.employee);
+    const employerShare = more(r.employer, b?.employer);
+    const explanation =
+      r.scheme === 'TDS'
+        ? employee > 0
+          ? `The extra pay raises the year's income tax by ${rupees(employee)}, taken in full on this payslip. With it: ${r.explanation}`
+          : `The extra pay adds no income tax still to deduct. With it: ${r.explanation}`
+        : employee > 0 || employerShare > 0
+          ? `On the extra pay only: the month's figure with it, less what the month's salary already had. ${r.explanation}`
+          : r.exemptReason
+            ? r.explanation
+            : `Nothing more on the extra pay: the month's salary already had it. ${r.explanation}`;
+    return {
+      ...r,
+      employee,
+      employer: employerShare,
+      ...(r.employerSplit ? { employerSplit: Object.fromEntries(Object.entries(r.employerSplit).map(([k, v]) => [k, more(Number(v), b?.employerSplit?.[k])])) } : {}),
+      ...(r.funds ? { funds: r.funds.map((f) => { const was = b?.funds?.find((x) => x.name === f.name); return { ...f, employee: more(f.employee, was?.employee), employer: more(f.employer, was?.employer) }; }) } : {}),
+      /* The year's taxable income for tax; for the rest, the wages the extra added. */
+      wageApplied: r.scheme === 'TDS' ? r.wageApplied : more(r.wageApplied, b?.wageApplied),
+      explanation,
+    };
+  });
+  const amounts = Object.fromEntries(Object.entries(withExtra.statutory.amounts).map(([k, v]) => [k, more(Number(v), (base.statutory.amounts as Record<string, number>)[k])]));
+  return { result, statutory: { ...withExtra.statutory, amounts, results } };
 }
 
 /** Days in the period, and the input a run was given for one person. */
@@ -1245,6 +1419,8 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
   });
   const bankChanges = new Map(recentBank.filter((c) => c.status === 'APPROVED' && c.decidedAt).map((c) => [c.employeeId, c.decidedAt!]));
   const pendingBank = new Set(recentBank.filter((c) => c.status === 'PENDING').map((c) => c.employeeId));
+  /* Minimum wages HR has entered (round 66); none on file, nothing is checked. */
+  const minimumWages = await payrollPrisma.payrollMinimumWage.findMany({ where: { orgId, deletedAt: null } });
 
   const add = (issue: RunIssue) => {
     issues.push(issue);
@@ -1262,7 +1438,11 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
     add({ severity: 'ERROR', code: 'NO_EMPLOYEES', message: 'Nobody is included in this run.' });
   }
 
-  /* A second run over the same people and period would pay them twice. */
+  /*
+   * A second run over the same people and period would pay them twice. Only
+   * a salary twice: an extra on an extra pay run (a bonus, arrears) sits beside
+   * the month's salary on purpose, so neither side counts the other here.
+   */
   const siblings = await payrollPrisma.payrollRun.findMany({
     where: {
       orgId,
@@ -1270,20 +1450,44 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
       id: { not: runId },
       status: { in: ['CALCULATED', 'REVIEW', 'APPROVED', 'LOCKED', 'PAID', 'POSTED'] },
     },
-    select: { id: true, number: true },
+    select: { id: true, number: true, kind: true },
   });
   if (siblings.length) {
-    const otherSlips = await payrollPrisma.salarySlip.findMany({
-      where: { orgId, runId: { in: siblings.map((s) => s.id) }, employeeId: { in: ctx.members.map((m) => m.employeeId) } },
-      select: { employeeId: true, number: true },
-    });
+    const [otherSlips, otherExtras] = await Promise.all([
+      payrollPrisma.salarySlip.findMany({
+        where: { orgId, runId: { in: siblings.map((s) => s.id) }, employeeId: { in: ctx.members.map((m) => m.employeeId) } },
+        select: { runId: true, employeeId: true, number: true },
+      }),
+      payrollPrisma.payrollRunEmployee.findMany({
+        where: { orgId, runId: { in: siblings.filter((s) => s.kind === 'OFF_CYCLE').map((s) => s.id) }, pays: 'EXTRA' },
+        select: { runId: true, employeeId: true },
+      }),
+    ]);
+    const extraThere = new Set(otherExtras.map((m) => `${m.runId}:${m.employeeId}`));
     for (const slip of otherSlips) {
+      if (ctx.extraOnly.has(slip.employeeId) || extraThere.has(`${slip.runId}:${slip.employeeId}`)) continue;
       add({
         severity: 'ERROR',
         code: 'ALREADY_PAID_THIS_PERIOD',
         employeeId: slip.employeeId,
         message: `Already has a payslip for ${ctx.period.name} (${slip.number}).`,
       });
+    }
+  }
+
+  /* People here for an extra whose salary this month is on a payroll still open: by person, that payroll's number. */
+  const openSalary = new Map<string, string>();
+  if (ctx.extraOnly.size) {
+    const open = await payrollPrisma.payrollRun.findMany({
+      where: { orgId, periodId: ctx.run.periodId, id: { not: runId }, status: { notIn: [...PT_COUNTED_RUNS, 'CANCELLED'] } },
+      select: { id: true, number: true },
+    });
+    if (open.length) {
+      const there = await payrollPrisma.payrollRunEmployee.findMany({
+        where: { orgId, runId: { in: open.map((r) => r.id) }, employeeId: { in: [...ctx.extraOnly] }, inclusion: 'INCLUDED', pays: 'SALARY' },
+        select: { runId: true, employeeId: true },
+      });
+      for (const m of there) openSalary.set(m.employeeId, open.find((r) => r.id === m.runId)?.number || 'another payroll');
     }
   }
 
@@ -1455,7 +1659,19 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
     }
 
     const input = inputFor(ctx, employee.id);
-    if (input.payableDays <= 0) {
+    const extraOnly = ctx.extraOnly.has(employee.id);
+    if (extraOnly && !(ctx.adjustmentsByEmployee.get(employee.id) || []).length) {
+      add({ severity: 'ERROR', code: 'NO_EXTRA_PAY', employeeId: employee.id, message: `${who} is in this extra pay run for an extra, but nothing has been entered to pay them.` });
+    }
+    if (extraOnly && openSalary.has(employee.id)) {
+      add({
+        severity: 'ERROR',
+        code: 'SALARY_RUN_OPEN',
+        employeeId: employee.id,
+        message: `${who}'s salary for ${ctx.period.name} is on payroll ${openSalary.get(employee.id)}, not yet approved. Approve it first: PF, ESI, professional tax and income tax on the extra are worked out on top of it.`,
+      });
+    }
+    if (!extraOnly && input.payableDays <= 0) {
       add({
         severity: 'WARNING',
         code: 'ZERO_PAYABLE_DAYS',
@@ -1463,7 +1679,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         message: `${who} has no payable days, so this payslip would be nil.`,
       });
     }
-    if (input.payableDays > input.workingDays) {
+    if (!extraOnly && input.payableDays > input.workingDays) {
       add({
         severity: 'WARNING',
         code: 'PAYABLE_EXCEEDS_WORKING',
@@ -1522,6 +1738,33 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
       }
       for (const w of trial.warnings) {
         add({ severity: 'WARNING', code: w.code, employeeId: employee.id, message: `${who}: ${w.message}` });
+      }
+      /*
+       * Minimum wage (round 66): a full month's wages at this salary, against
+       * the rate for the person's state, zone and skill level on the last day
+       * of the period. A full month, so unpaid leave is not read as underpay.
+       */
+      if (minimumWages.length && canonicalState(profile.professionalTaxState)) {
+        const month = calculateStructure(engine, {
+          annualCtc: Number(periodPay.annualCtc),
+          periodsPerYear: PERIODS_PER_YEAR[structure.frequency] ?? 12,
+          workingDays: input.workingDays,
+          payableDays: input.workingDays,
+          lwpDays: 0,
+          variableAmounts: { VARIABLE_PAY: 0, OVERTIME: 0, OVERTIME_HOURS: 0, OVERTIME_HOURS_AT_RATE: 0 },
+        });
+        const mw = minimumWageCheck({
+          rows: minimumWages,
+          state: profile.professionalTaxState,
+          zone: profile.minimumWageZone,
+          skill: profile.skillLevel,
+          onDate: ctx.period.endDate,
+          wages: month.gratuityWage,
+          gross: month.grossEarnings,
+        });
+        if (mw?.below) {
+          add({ severity: 'WARNING', code: 'BELOW_MINIMUM_WAGE', employeeId: employee.id, message: `${who}: ${mw.message}. Raise their salary, or check their skill level and state on their payroll details.` });
+        }
       }
     }
 
@@ -1593,7 +1836,7 @@ export async function validateRun(orgId: string, runId: string): Promise<{ issue
         message: `${who} has ${profile?.pan ? 'a PAN that is not in the PAN format' : 'no PAN on file'}, so income tax is withheld at 20% (section 206AA) once their income is above the taxable limit. Add their PAN before this run is approved.`,
       });
     }
-    if (input.derived) {
+    if (input.derived && !extraOnly) {
       add({
         severity: 'INFO',
         code: 'DAYS_DERIVED',
@@ -1921,16 +2164,20 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
       assignment.structureId,
       factsFor(ctx, employee.id, ctx.period.endDate)
     );
-    const { result, statutory } = calculateWithStatutory(
-      ctx,
-      engine,
-      input,
-      periodPay,
-      profile,
-      periodsPerYear(assignment.structureId),
-      oneOffTaxableOf(ctx, adjustments),
-      oneOffWagesOf(ctx, adjustments)
-    );
+    /* Here for an extra only (an extra pay run): the difference the extra makes to the month (offCycleExtra). */
+    const extraOnly = ctx.extraOnly.has(employee.id);
+    const { result, statutory } = extraOnly
+      ? offCycleExtra(ctx, engine, input, periodPay, profile, periodsPerYear(assignment.structureId), adjustments)
+      : calculateWithStatutory(
+          ctx,
+          engine,
+          input,
+          periodPay,
+          profile,
+          periodsPerYear(assignment.structureId),
+          oneOffTaxableOf(ctx, adjustments),
+          oneOffWagesOf(ctx, adjustments)
+        );
 
     /*
      * Adjustments are added after the structure, not inside it. A bonus is not
@@ -2111,7 +2358,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
       });
     }
 
-    const previousNetPay = previousByEmployee.has(employee.id) ? previousByEmployee.get(employee.id)! : null;
+    /* An extra on its own is not compared with last month's salary. */
+    const previousNetPay = !extraOnly && previousByEmployee.has(employee.id) ? previousByEmployee.get(employee.id)! : null;
     const variancePercent =
       previousNetPay && previousNetPay !== 0 ? round2(((netPay - previousNetPay) / previousNetPay) * 100) : null;
 
@@ -2165,8 +2413,11 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
           components: engine,
         }),
         inputSnapshotJson: JSON.stringify({
-          ...input,
+          /* An extra only pays no days: the month's salary paid them. */
+          ...(extraOnly ? { ...input, workingDays: 0, payableDays: 0, lwpDays: 0, variablePay: 0, overtimeAmount: 0, overtimeHours: 0, overtimeHoursAtRate: 0 } : input),
           periodDays: daysBetween(ctx.period.startDate, ctx.period.endDate),
+          /* Made by an extra pay run: the payslip says so ("Extra pay run"), and what the person was in it for. */
+          ...(ctx.offCycle ? { extraPayRun: true, pays: extraOnly ? 'EXTRA' : 'SALARY' } : {}),
           /* The wages and what counted toward their share, for a leaver's full and final in the same period (fnfRecoveryCap.ts). */
           capBasis: { wages, deducted: round2(counted + [...cap.taken.values()].reduce((t, v) => t + v, 0)) },
         }),
@@ -2416,7 +2667,8 @@ async function calculateRunLocked(orgId: string, runId: string, userId: string, 
     /* An adjustment this run consumed before, and no longer does — somebody
        was taken out of the payroll — goes back to being owed. */
     await tx.payrollAdjustment.updateMany({
-      where: { orgId, consumedByRunId: runId, id: { notIn: consumedAdjustmentIds } },
+      /* Never an extra pay run's own amounts: entered for this run, they stay its own while somebody is taken out and put back. */
+      where: { orgId, consumedByRunId: runId, id: { notIn: consumedAdjustmentIds }, NOT: { id: { startsWith: extraItemPrefix(runId) } } },
       data: { status: 'APPROVED', consumedByRunId: null },
     });
 

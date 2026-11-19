@@ -9,7 +9,8 @@ import { PermissionAction } from '../constants/enums.js';
 import { payrollPrisma } from '../utils/payrollPrisma.js';
 import { peoplePrisma } from '../utils/peoplePrisma.js';
 import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/payroll/guards.js';
-import { calculateRun, daysBetween, eligibleEmployees, noPanPeopleOnRun, ptAlreadyTakenElsewhere, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
+import { calculateRun, daysBetween, eligibleEmployees, extraItemPrefix, noPanPeopleOnRun, ptAlreadyTakenElsewhere, ptTakenElsewhereGone, validateRun } from '../services/payroll/run.js';
+import { randomUUID } from 'node:crypto';
 import { checksSentence, uncheckedRulesOnRun } from '../services/payroll/statutory/resolve.js';
 import { isFeatureEnabled } from '../services/features.js';
 import { recordAudit } from '../services/auditTrail.js';
@@ -64,6 +65,8 @@ const shape = (row: any, extra: Record<string, unknown> = {}) => ({
   /* A note left for whoever runs next month (picks round 32). */
   noteForNext: row.noteForNext || '',
   status: row.status,
+  /* REGULAR, or OFF_CYCLE: an extra pay run in the same month (a late joiner's days, a bonus, arrears). */
+  kind: row.kind || 'REGULAR',
   employeeCount: row.employeeCount,
   grossTotal: Number(row.grossTotal ?? 0),
   deductionTotal: Number(row.deductionTotal ?? 0),
@@ -183,6 +186,8 @@ payrollRunsRouter.get(
     const byEmployee = new Map(employees.map((e) => [e.id, e]));
     const inputs = await payrollPrisma.payrollInput.findMany({ where: { orgId, runId: run.id } });
     const inputByEmployee = new Map(inputs.map((i) => [i.employeeId, i]));
+    /* An extra pay run: what was entered to pay each person (extra-pay below). */
+    const extras = run.kind === 'OFF_CYCLE' ? await extraItemsOf(orgId, run.id) : new Map<string, any[]>();
 
     res.json({
       run: { ...shape(run, { period }), stale: await runStale(orgId, run), earlierNote: await earlierNoteFor(orgId, run, period) },
@@ -197,6 +202,9 @@ payrollRunsRouter.get(
         employeeId: m.employeeId,
         inclusion: m.inclusion,
         state: m.state,
+        /* SALARY, or EXTRA: here only for the amounts entered (an extra pay run). */
+        pays: m.pays || 'SALARY',
+        ...(run.kind === 'OFF_CYCLE' ? { extraPay: extras.get(m.employeeId) || [] } : {}),
         issues: JSON.parse(m.issuesJson || '[]'),
         employee: byEmployee.get(m.employeeId) || null,
         input: inputByEmployee.get(m.employeeId)
@@ -286,6 +294,12 @@ const createSchema = z.object({
   department: z.string().trim().optional().nullable(),
   payrollDate: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().trim().max(500).optional().nullable(),
+  /* OFF_CYCLE: an extra pay run beside the month's regular payroll, for the people named below only. */
+  kind: z.enum(['REGULAR', 'OFF_CYCLE']).optional(),
+  people: z
+    .array(z.object({ employeeId: z.string().trim().min(1), pays: z.enum(['SALARY', 'EXTRA']).default('EXTRA') }))
+    .max(2000)
+    .optional(),
 });
 
 payrollRunsRouter.post(
@@ -305,11 +319,14 @@ payrollRunsRouter.post(
       return res.status(409).json({ error: `${period.name} is closed, so no payroll can be run for it.`, code: 'PERIOD_LOCKED' });
     }
 
+    if (body.kind === 'OFF_CYCLE') return createExtraRun(req, res, body, period);
+
     /* One payroll per population per period, which is what stops the same
-       people being paid twice in a month. */
+       people being paid twice in a month. An extra pay run beside it does not count. */
     const existing = await payrollPrisma.payrollRun.findFirst({
       where: {
         orgId,
+        kind: 'REGULAR',
         periodId: body.periodId,
         payGroupId: body.payGroupId || null,
         branchId: body.branchId || null,
@@ -373,6 +390,168 @@ payrollRunsRouter.post(
       eligible: people.length,
       periodDays: daysBetween(period.startDate, period.endDate),
     });
+  }
+);
+
+// ---------------------------------------------------------------- extra pay runs
+
+/*
+ * An extra pay run (OFF_CYCLE): a second payroll in the same month, for a late
+ * joiner's days, a bonus or arrears, paid between monthly payrolls. Only the
+ * people chosen are in it. Somebody in it for their SALARY is worked out as on
+ * any payroll (their days this month); somebody in it for an EXTRA gets only
+ * the amounts entered for them here, with PF, ESI, professional tax and income
+ * tax worked out on top of the month's salary, never doubled (run.ts
+ * offCycleExtra). It is approved, paid, sent to the bank and posted to the
+ * books exactly like a regular payroll, and its payslips say "Extra pay run".
+ */
+async function createExtraRun(req: any, res: any, body: z.infer<typeof createSchema>, period: any) {
+  const { accountId, orgId } = req.tenant!;
+  /* Nobody is fine to start with: people are added on the run (extra-pay below). */
+  const chosen = [...new Map((body.people || []).map((p) => [p.employeeId, p])).values()];
+  const found = chosen.length ? await peoplePrisma.employee.findMany({ where: { orgId, id: { in: chosen.map((p) => p.employeeId) } }, select: { id: true } }) : [];
+  if (found.length !== chosen.length) return res.status(400).json({ error: 'Somebody chosen is not an employee here.' });
+
+  const count = await payrollPrisma.payrollRun.count({ where: { orgId } });
+  const number = `PR-${period.startDate.slice(0, 7).replace('-', '')}-${String(count + 1).padStart(3, '0')}`;
+  const run = await payrollPrisma.$transaction(async (tx) => {
+    const created = await tx.payrollRun.create({
+      data: {
+        accountId,
+        orgId,
+        kind: 'OFF_CYCLE',
+        branchId: body.branchId || null,
+        number,
+        periodId: body.periodId,
+        payGroupId: body.payGroupId || null,
+        department: null,
+        payrollDate: body.payrollDate || period.paymentDate || period.endDate,
+        notes: body.notes || null,
+        status: 'DRAFT',
+        employeeCount: chosen.length,
+        createdByUserId: req.auth!.userId,
+      },
+    });
+    if (chosen.length) {
+      await tx.payrollRunEmployee.createMany({
+        data: chosen.map((p) => ({ accountId, orgId, runId: created.id, employeeId: p.employeeId, inclusion: 'INCLUDED', state: 'PENDING', pays: p.pays })),
+      });
+    }
+    return created;
+  });
+  await recordAudit(req, { entity: 'PAYROLL_RUN', entityId: run.id, action: 'CREATE', message: `Extra pay run ${run.number} started for ${period.name} (${chosen.length} ${chosen.length === 1 ? 'person' : 'people'})` });
+  return res.status(201).json({ run: shape(run, { period }), eligible: chosen.length, periodDays: daysBetween(period.startDate, period.endDate) });
+}
+
+/** What an extra pay run was given to pay each person: its own adjustment rows (extraItemPrefix), by person. */
+async function extraItemsOf(orgId: string, runId: string) {
+  const rows = await payrollPrisma.payrollAdjustment.findMany({
+    where: { orgId, id: { startsWith: extraItemPrefix(runId) }, status: { not: 'CANCELLED' } },
+    orderBy: { createdAt: 'asc' },
+  });
+  const components = new Map(
+    (await payrollPrisma.salaryComponent.findMany({ where: { orgId, id: { in: [...new Set(rows.map((r) => r.componentId))] } }, select: { id: true, name: true, code: true } })).map((c) => [c.id, c])
+  );
+  const out = new Map<string, any[]>();
+  for (const r of rows) {
+    const list = out.get(r.employeeId) || [];
+    list.push({ id: r.id, componentId: r.componentId, component: components.get(r.componentId)?.name || '', amount: Number(r.amount), reason: r.reason || '' });
+    out.set(r.employeeId, list);
+  }
+  return out;
+}
+
+const extraPaySchema = z.object({
+  employeeId: z.string().trim().min(1),
+  pays: z.enum(['SALARY', 'EXTRA']).optional(),
+  items: z
+    .array(
+      z.object({
+        componentId: z.string().trim().min(1, 'Say what the amount is for.'),
+        amount: z.coerce.number().positive('Each amount must be more than zero.').max(100_000_000),
+        reason: z.string().trim().max(200).optional().nullable(),
+      })
+    )
+    .max(20, 'Twenty amounts per person at most.'),
+});
+
+/*
+ * What one person is paid on an extra pay run: put in (if not already), what
+ * they are in it for, and the amounts (a bonus, arrears) as earnings. The list
+ * given replaces what was there. The amounts are this run's own adjustment
+ * rows, taken by this run from the start, so no other payroll pays them; they
+ * are cancelled with the run.
+ */
+payrollRunsRouter.put(
+  '/orgs/:orgId/payroll/runs/:id/extra-pay',
+  requirePermission(PAYROLL_MODULE, PermissionAction.EDIT, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { accountId, orgId } = req.tenant!;
+    const run = await runOr404(req, res);
+    if (!run) return;
+    if (run.kind !== 'OFF_CYCLE') return res.status(409).json({ error: 'Amounts are entered this way on an extra pay run only. On a regular payroll, record an adjustment.', code: 'NOT_EXTRA_RUN' });
+    if (!editable(run, res)) return;
+    const parsed = extraPaySchema.safeParse(req.body || {});
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid extra pay.' });
+    const body = parsed.data;
+
+    const employee = await peoplePrisma.employee.findFirst({ where: { orgId, id: body.employeeId }, select: { id: true, name: true, branchId: true } });
+    if (!employee) return res.status(404).json({ error: 'No such employee.' });
+    const componentIds = [...new Set(body.items.map((i) => i.componentId))];
+    const components = await payrollPrisma.salaryComponent.findMany({ where: { orgId, id: { in: componentIds } }, select: { id: true, type: true, isActive: true, name: true } });
+    for (const id of componentIds) {
+      const c = components.find((x) => x.id === id);
+      if (!c) return res.status(400).json({ error: 'No such pay component.' });
+      if (!c.isActive) return res.status(400).json({ error: `${c.name} is switched off.` });
+      if (c.type !== 'EARNING') return res.status(400).json({ error: `${c.name} is not an earning. An extra pay run pays earnings: a bonus, arrears, a joining amount.` });
+    }
+
+    const member = await payrollPrisma.payrollRunEmployee.findFirst({ where: { orgId, runId: run.id, employeeId: employee.id } });
+    const pays = body.pays || member?.pays || 'EXTRA';
+    await payrollPrisma.$transaction(async (tx) => {
+      /* Still open: an approval in between stops this. */
+      const still = await tx.payrollRun.updateMany({ where: { orgId, id: run.id, status: { in: EDITABLE } }, data: { updatedAt: new Date() } });
+      if (!still.count) throw new RunChangedError('RUN_NOT_EDITABLE', 'This payroll can no longer be changed. Reload it.');
+      if (member) {
+        await tx.payrollRunEmployee.update({ where: { id: member.id }, data: { pays, inclusion: 'INCLUDED', state: 'PENDING' } });
+      } else {
+        await tx.payrollRunEmployee.create({ data: { accountId, orgId, runId: run.id, employeeId: employee.id, inclusion: 'INCLUDED', state: 'PENDING', pays } });
+      }
+      /* Replaced: the old ones cancelled rather than deleted, so the run reads as changed since it was calculated (runStale). */
+      await tx.payrollAdjustment.updateMany({ where: { orgId, employeeId: employee.id, id: { startsWith: extraItemPrefix(run.id) }, status: { not: 'CANCELLED' } }, data: { status: 'CANCELLED', consumedByRunId: null } });
+      if (body.items.length) {
+        await tx.payrollAdjustment.createMany({
+          data: body.items.map((i) => ({
+            id: `${extraItemPrefix(run.id)}${randomUUID()}`,
+            accountId,
+            orgId,
+            branchId: employee.branchId || run.branchId || null,
+            employeeId: employee.id,
+            componentId: i.componentId,
+            periodId: run.periodId,
+            type: 'EARNING',
+            amount: new Prisma.Decimal(Math.round(i.amount * 100) / 100),
+            reason: i.reason?.trim() || null,
+            reference: `Extra pay run ${run.number}`,
+            /* This run's from the start: no other payroll, and no full and final, takes it. */
+            status: 'CONSUMED',
+            consumedByRunId: run.id,
+            approvedAt: new Date(),
+            approvedByUserId: req.auth!.userId,
+            createdByUserId: req.auth!.userId,
+          })),
+        });
+      }
+      const included = await tx.payrollRunEmployee.count({ where: { orgId, runId: run.id, inclusion: 'INCLUDED' } });
+      await tx.payrollRun.update({ where: { id: run.id }, data: { employeeCount: included } });
+    }).catch((e) => {
+      if (e instanceof RunChangedError) return res.status(409).json({ error: e.message, code: e.code });
+      throw e;
+    });
+    if (res.headersSent) return;
+    const items = (await extraItemsOf(orgId, run.id)).get(employee.id) || [];
+    res.json({ ok: true, employeeId: employee.id, pays, extraPay: items });
   }
 );
 
@@ -1201,6 +1380,8 @@ payrollRunsRouter.post(
         const undone = await undoCarries(tx, orgId, run.id);
         const instalments = ids.length ? await tx.payrollLoanInstallment.findMany({ where: { orgId, slipId: { in: ids } }, select: { loanId: true } }) : [];
         if (ids.length) await tx.payrollLoanInstallment.updateMany({ where: { orgId, slipId: { in: ids }, status: 'RECOVERED' }, data: { status: 'PENDING', slipId: null, recoveredAt: null } });
+        /* An extra pay run's own amounts go with it: entered for this run only, nobody else's to pay. */
+        await tx.payrollAdjustment.updateMany({ where: { orgId, id: { startsWith: extraItemPrefix(run.id) } }, data: { status: 'CANCELLED', consumedByRunId: null } });
         await tx.payrollAdjustment.updateMany({ where: { orgId, consumedByRunId: run.id, status: 'CONSUMED' }, data: { status: 'APPROVED', consumedByRunId: null } });
         await rederiveLoans(tx, orgId, [...undone.loanIds, ...instalments.map((i) => i.loanId)]);
         if (ids.length) {

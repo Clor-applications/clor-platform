@@ -12,6 +12,7 @@ import { PAYROLL_MODULE, PAYROLL_RESOURCE, payrollRouteOk } from '../services/pa
 import { costCentreRefusal } from '../services/payroll/accounting/references.js';
 import { ownPayRefusal } from '../services/payroll/ownPay.js';
 import { tickWhenDone } from '../services/people/checklists.js';
+import { minimumWageForSalary } from '../services/payroll/minimumWage.js';
 
 /**
  * What one person is paid, from a date.
@@ -140,6 +141,33 @@ payrollAssignmentsRouter.get(
   }
 );
 
+/**
+ * Round 66: would this salary be below the state's minimum wage? Asked before
+ * saving, so the screen can say so while the figure can still be changed.
+ * Nothing is written.
+ */
+payrollAssignmentsRouter.post(
+  '/orgs/:orgId/payroll/assignments/minimum-wage-check',
+  requirePermission(PAYROLL_MODULE, PermissionAction.VIEW, RESOURCE),
+  async (req, res) => {
+    if (!(await payrollRouteOk(req, res))) return;
+    const { orgId } = req.tenant!;
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid salary.' });
+    const body = parsed.data;
+    const structure = await payrollPrisma.salaryStructure.findFirst({ where: { orgId, id: body.structureId }, select: { frequency: true } });
+    if (!structure) return res.status(400).json({ error: 'No such salary structure.' });
+    const minimumWage = await minimumWageForSalary(orgId, {
+      employeeId: body.employeeId,
+      structureId: body.structureId,
+      annualCtc: body.annualCtc,
+      effectiveFrom: body.effectiveFrom,
+      periodsPerYear: PERIODS_PER_YEAR[structure.frequency] ?? 12,
+    });
+    res.json({ minimumWage });
+  }
+);
+
 payrollAssignmentsRouter.post(
   '/orgs/:orgId/payroll/assignments',
   requirePermission(PAYROLL_MODULE, PermissionAction.CREATE, RESOURCE),
@@ -236,7 +264,9 @@ payrollAssignmentsRouter.post(
     /* Their salary is set: the joining step asking for it closes by itself (People plan 8 Nov 2026, step 4). */
     await tickWhenDone(orgId, body.employeeId, 'JOINING', ['salary structure'], `Payroll put them on ${structure.name} at Rs ${body.annualCtc.toLocaleString('en-IN')} a year, from ${body.effectiveFrom}.`, req.auth!.userId);
 
-    res.status(201).json({ assignment: shape(row, { employee, structure }) });
+    /* Round 66: said, not refused. The company may know better (a rate not yet in force, a trainee). */
+    const minimumWage = await minimumWageForSalary(orgId, { employeeId: body.employeeId, structureId: body.structureId, annualCtc: body.annualCtc, effectiveFrom: body.effectiveFrom, periodsPerYear: periods });
+    res.status(201).json({ assignment: shape(row, { employee, structure }), minimumWage });
   }
 );
 
@@ -299,7 +329,8 @@ payrollAssignmentsRouter.put(
         branchId: blank(body.branchId),
       },
     });
-    res.json({ assignment: shape(row) });
+    const minimumWage = await minimumWageForSalary(orgId, { employeeId: existing.employeeId, structureId: body.structureId, annualCtc: body.annualCtc, effectiveFrom: body.effectiveFrom, periodsPerYear: periods });
+    res.json({ assignment: shape(row), minimumWage });
   }
 );
 
