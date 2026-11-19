@@ -221,7 +221,7 @@ function Renewals({ s: settings, mayChange, onSaved }) {
         <Problems list={problems} />
         {mayChange ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="ws-btn ws-btn--primary" disabled={Boolean(busy) || !changed || (on && !/^\d{1,2}$/.test(days))}>
+            <button type="submit" className="ws-btn" disabled={Boolean(busy) || !changed || (on && !/^\d{1,2}$/.test(days))}>
               {busy === 'save' ? 'Saving…' : 'Save renewals'}
             </button>
             {s.renewals.on ? (
@@ -326,7 +326,7 @@ function Reminders({ s: settings, mayChange, onSaved, openTemplates }) {
         <Problems list={problems} />
         {mayChange ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !changed}>
+            <button type="submit" className="ws-btn" disabled={busy || !changed}>
               {busy ? 'Saving…' : 'Save reminders'}
             </button>
             <span className="ws-card-blurb">Asks for a code from your authenticator app. It runs on its own through the day.</span>
@@ -393,7 +393,7 @@ function SelfServeSeats({ s: settings, mayChange, onSaved }) {
         <Problems list={problems} />
         {mayChange ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="ws-btn ws-btn--primary" disabled={busy || !changed}>
+            <button type="submit" className="ws-btn" disabled={busy || !changed}>
               {busy ? 'Saving…' : 'Save seat settings'}
             </button>
             <span className="ws-card-blurb">Asks for a code from your authenticator app.</span>

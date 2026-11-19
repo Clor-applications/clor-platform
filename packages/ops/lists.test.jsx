@@ -59,7 +59,7 @@ describe('the lists across every account', () => {
     expect(row).toHaveTextContent('402');
     expect(row).toHaveTextContent('c-7f2b04');
     expect(screen.getByRole('button', { name: /Denials today/ })).toHaveTextContent('7');
-    fireEvent.click(screen.getByRole('button', { name: /^APP_NOT_SUBSCRIBED/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^App not subscribed/ }));
     await waitFor(() => expect(api.opsDenials).toHaveBeenLastCalledWith(expect.objectContaining({ code: 'APP_NOT_SUBSCRIBED' })));
   });
 

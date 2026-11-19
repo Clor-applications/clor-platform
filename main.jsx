@@ -112,8 +112,14 @@ const tooOld = (() => {
  * throws loses its screen and nothing else. This is the one below that: a
  * failure in the shell itself — the session, the switcher, the theme — would
  * otherwise unmount the page and leave a white rectangle with no way back.
+ *
+ * The root is kept on its container: when this module runs a second time in the
+ * same page (the dev server re-optimising a dependency a screen just imported),
+ * a second createRoot on the same element warns and fights the first.
  */
-createRoot(document.getElementById('root')).render(
+const container = document.getElementById('root');
+const appRoot = container.__clorRoot || (container.__clorRoot = createRoot(container));
+appRoot.render(
   <React.StrictMode>
     <ErrorBoundary>
       {tooOld ? (

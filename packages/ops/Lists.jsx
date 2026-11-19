@@ -347,9 +347,9 @@ export function Users({ openAccount }) {
 /* ---------------------------------------------------------------- denials */
 const TILES = [
   ['', 'Denials today', 1, null],
-  ['APP_NOT_SUBSCRIBED', 'APP_NOT_SUBSCRIBED', 2, 'Upsell signal'],
-  ['NO_ROLE_GRANT', 'NO_ROLE_GRANT', 3, 'Role does not allow it'],
-  ['SUBSCRIPTION_LAPSED', 'SUBSCRIPTION_LAPSED', 4, 'Plan lapsed', 'warn'],
+  ['APP_NOT_SUBSCRIBED', 'App not subscribed', 2, 'Could add the app'],
+  ['NO_ROLE_GRANT', 'Role does not allow it', 3, 'Their role needs changing'],
+  ['SUBSCRIPTION_LAPSED', 'Subscription lapsed', 4, 'Renew to reopen', 'warn'],
 ];
 const SINCE = [
   ['hour', 'Last hour'],
@@ -458,7 +458,7 @@ export function Denials({ account = '', openAccount, clearAccount }) {
                     </div>
                   </td>
                   <td className="num hidden sm:table-cell">{d.status}</td>
-                  <td className="hidden lg:table-cell tabular-nums ops-clip" style={{ maxWidth: 220 }} title={d.requestId || undefined}>
+                  <td className="hidden lg:table-cell ui-mono" style={{ maxWidth: 220, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
                     {d.requestId || '—'}
                   </td>
                 </tr>
