@@ -17,6 +17,13 @@ export const LANGUAGES = [
 const PACKS = {
   hi: () => import('./hi.js'),
 };
+/**
+ * Paused 19 Nov 2026 (owner): the Language choice on Me is hidden and the app
+ * shows in English for everyone, whatever a person or browser chose before.
+ * The Hindi file, the translator and the server field all stay; set this to
+ * true to bring the choice back.
+ */
+export const LANGUAGE_CHOICE_ON = false;
 export const isLanguage = (code) => LANGUAGES.some((l) => l.code === code);
 
 export async function loadPack(code) {

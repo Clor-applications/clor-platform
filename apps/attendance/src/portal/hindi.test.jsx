@@ -6,6 +6,9 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import EmployeePortal from './EmployeePortal';
 import { KEEP_ENGLISH } from '@ui/i18n/translate';
 
+/* The Language choice is paused in the product (LANGUAGE_CHOICE_ON false); these tests keep Hindi working for when it comes back. */
+vi.mock('@ui/i18n', async (importOriginal) => ({ ...(await importOriginal()), LANGUAGE_CHOICE_ON: true }));
+
 /*
  * Round 67: the employee app in Hindi. With Hindi chosen, every main screen
  * (Today, My days, Schedule, Leave, Me) shows no English word except the terms

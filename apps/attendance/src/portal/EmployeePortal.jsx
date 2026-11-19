@@ -88,7 +88,7 @@ import TaxCompare from './TaxCompare';
 import { AddToHome, LeaveCalendar } from './round58';
 import { sentWords, useBackClose } from '@ui/picks/round58';
 import { LeaveRules } from './LeaveRules';
-import { LANGUAGES, isLanguage, rememberLanguage, savedLanguage, usePageLanguage } from '@ui/i18n';
+import { LANGUAGES, LANGUAGE_CHOICE_ON, isLanguage, rememberLanguage, savedLanguage, usePageLanguage } from '@ui/i18n';
 
 /**
  * The employee portal (ClorTime's /portal), at #/portal: for staff who have no
@@ -116,8 +116,9 @@ export default function EmployeePortal() {
   const [fix, setFix] = useState(null);
   /* Round 56: capitals in a PAN or IFSC as typed, and Enter moving to the next field. */
   useEffect(() => installFormRules(), []);
-  /* Round 67: the app in Hindi or English, as the person chose on Me (this browser remembers it for the sign-in page). */
-  const [language, setLanguageNow] = useState(savedLanguage);
+  /* Round 67: the app in Hindi or English, as the person chose on Me (this browser remembers it for the sign-in page).
+   * Paused 19 Nov 2026: English for everyone while LANGUAGE_CHOICE_ON is false. */
+  const [language, setLanguageNow] = useState(() => (LANGUAGE_CHOICE_ON ? savedLanguage() : 'en'));
   usePageLanguage(language);
 
   useEffect(() => {
@@ -151,7 +152,7 @@ export default function EmployeePortal() {
         setMe(d);
         setError('');
         /* The language kept on the person wins: a new phone opens in it too. */
-        if (d?.language && isLanguage(d.language)) chooseLanguage(d.language, { save: false });
+        if (LANGUAGE_CHOICE_ON && d?.language && isLanguage(d.language)) chooseLanguage(d.language, { save: false });
       })
       .catch((e) => !(e instanceof SignedOut) && setError(String(e?.message || 'Could not load.')));
   }, [guard, chooseLanguage]);
@@ -215,7 +216,7 @@ export default function EmployeePortal() {
             <AskHr guard={guard} preset={askPreset} onPresetUsed={presetUsed} onAvailability={setDeskOn} />
             <PrivateComplaint guard={guard} />
             <LeavingCompany guard={guard} refreshKey={leavingSent} onSent={resigned} />
-            <Account me={me} guard={guard} onSignOut={leave} language={language} onLanguage={chooseLanguage} />
+            <Account me={me} guard={guard} onSignOut={leave} language={language} onLanguage={LANGUAGE_CHOICE_ON ? chooseLanguage : undefined} />
           </div>
         ) : null}
       </main>
