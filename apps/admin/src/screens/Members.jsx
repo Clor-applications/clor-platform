@@ -6,9 +6,10 @@ import { requestOpenScreen } from '@platform/context';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { lastSignedInLine } from '@ui/picks/round60';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
-import { AppMark, AppTag, Avatar, Empty, ICON, Loading, PageHead, Stat, StatusPill, WsDrawer } from './wsKit';
+import { AppMark, AppTag, Avatar, Empty, FilterSelect, ICON, Loading, PageHead, Stat, StatusPill, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
+import './ws-security.css';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('busts-in-silhouette');
@@ -112,6 +113,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
 
   const rows = useMemo(() => (data ? filterMembers(data.members, filters) : []), [data, filters]);
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
+  const pick = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
 
   const act = async (fn, done) => {
     setError('');
@@ -193,34 +195,12 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
             <Search size={16} aria-hidden="true" />
             <input className="ui-input" value={filters.q} onChange={set('q')} placeholder="Search name or email" />
           </label>
-          <select className="ui-select" aria-label="Company" value={filters.companyId} onChange={set('companyId')}>
-            <option value="">Company: All</option>
-            {(data?.companies || []).map((c) => (
-              <option key={c.orgId} value={c.orgId}>{c.name}</option>
-            ))}
-          </select>
-          <select className="ui-select" aria-label="App" value={filters.app} onChange={set('app')}>
-            <option value="">App: All</option>
-            {Object.entries(APP_LABEL).map(([k, l]) => (
-              <option key={k} value={k}>{l}</option>
-            ))}
-          </select>
-          <select className="ui-select" aria-label="Account role" value={filters.role} onChange={set('role')}>
-            <option value="">Access: All</option>
-            {Object.entries(ROLE_LABEL).map(([k, l]) => (
-              <option key={k} value={k}>{l}</option>
-            ))}
-          </select>
-          <select className="ui-select" aria-label="Status" value={filters.status} onChange={set('status')}>
-            <option value="">Status: All</option>
-            <option value="ACTIVE">Active</option>
-            <option value="SUSPENDED">Suspended</option>
-          </select>
-          <select className="ui-select" aria-label="Authenticator" value={filters.auth} onChange={set('auth')}>
-            <option value="">Authenticator: All</option>
-            <option value="none">No authenticator</option>
-            <option value="on">Has authenticator</option>
-          </select>
+          {/* Menus, not native selects: a native list opened as a tall sheet in the middle of the page. */}
+          <FilterSelect label="Company" value={filters.companyId} onChange={pick('companyId')} options={[['', 'All'], ...(data?.companies || []).map((c) => [c.orgId, c.name])]} />
+          <FilterSelect label="App" value={filters.app} onChange={pick('app')} options={[['', 'All'], ...Object.entries(APP_LABEL)]} />
+          <FilterSelect label="Access" ariaLabel="Account role" value={filters.role} onChange={pick('role')} options={[['', 'All'], ...Object.entries(ROLE_LABEL)]} />
+          <FilterSelect label="Status" value={filters.status} onChange={pick('status')} width="11rem" options={[['', 'All'], ['ACTIVE', 'Active'], ['SUSPENDED', 'Suspended']]} />
+          <FilterSelect label="Authenticator" value={filters.auth} onChange={pick('auth')} options={[['', 'All'], ['none', 'No authenticator'], ['on', 'Has authenticator']]} />
         </div>
 
         {notice ? <p role="status" className="text-sm">{notice}</p> : null}
@@ -275,14 +255,15 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                       </td>
                       <td style={{ whiteSpace: 'normal' }}>
                         {m.accountRole === 'OWNER' && !roles.length ? (
-                          'Full access'
+                          <span className="ws-tag ws-tag--workspace">Full access</span>
                         ) : roles.length ? (
                           <span className="ws-tags">
-                            {roles.slice(0, 3).map((r) => <AppTag key={r.name} app={r.app}>{r.name}</AppTag>)}
+                            {roles.slice(0, 3).map((r) => (r.app ? <AppTag key={r.name} app={r.app}>{r.name}</AppTag> : <span key={r.name} className="ws-tag ws-tag--workspace">{r.name}</span>))}
                             {roles.length > 3 ? <span className="ws-cell-sub">+{roles.length - 3} more</span> : null}
                           </span>
                         ) : (
-                          <span className="ws-cell-sub">No role</span>
+                          /* Signs in but opens nothing: amber, as on Company users' "Without a role". */
+                          <span className="ws-state" data-tone="warn">No role</span>
                         )}
                       </td>
                       {/* Who signs in with an authenticator and when they last did: it was only inside each person's panel. */}
@@ -309,6 +290,8 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
           <p role="alert" className="text-sm">{detail.error}</p>
         ) : (
           <div className="ws-member-panel">
+            {/* Account role and company side by side, each as wide as its words (owner, 19 Nov 2026). */}
+            <div className="ws-member-fields">
             <div className="grid gap-2">
               <label htmlFor="ws-member-role" className="ws-kicker">Account role</label>
               <select
@@ -335,7 +318,6 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
               </select>
             </div>
 
-            {detail.companies.length === 0 ? <p className="ui-caption">Not in any company of this account.</p> : null}
             {detail.companies.length > 1 ? (
               <div className="grid gap-2">
                 <label htmlFor="ws-member-company" className="ws-kicker">Company</label>
@@ -346,11 +328,13 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 </select>
               </div>
             ) : null}
+            </div>
+            {detail.companies.length === 0 ? <p className="ui-caption">Not in any company of this account.</p> : null}
             {shown ? (
               <section className="ws-member-company" aria-label={shown.name}>
                 <div className="flex items-center gap-2">
                   <h3 className="ws-member-company-name">{shown.name}</h3>
-                  {shown.isAdmin ? <StatusPill tone="neutral">Company admin</StatusPill> : null}
+                  {shown.isAdmin ? <span className="ws-tag ws-tag--workspace">Company admin</span> : null}
                 </div>
                 <p className="ws-kicker">Apps</p>
                 {shown.apps.length ? (
@@ -370,7 +354,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 <ul className="ws-member-roles">
                   {shown.roles.map((r) => (
                     <li key={r.name}>
-                      <strong>{r.name}</strong>
+                      <span>{shown.apps.length === 1 ? <AppTag app={shown.apps[0]}>{r.name}</AppTag> : <span className="ws-tag ws-tag--workspace">{r.name}</span>}</span>
                       <span className="ui-caption">
                         {r.via === 'direct' ? `given${r.grantedBy ? ` by ${r.grantedBy}` : ''}${r.grantedAt ? ` on ${day(r.grantedAt)}` : ''}` : 'through a role profile'}
                       </span>
@@ -396,12 +380,12 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 ) : tenant?.id && shown.orgId !== tenant.id ? (
                   <p className="ui-caption">
                     Roles in {shown.name} are changed from that company.{' '}
-                    {switchCompany ? <button type="button" className="ws-link" onClick={() => switchCompany(shown.orgId)}>Switch to {shown.name}</button> : null}
+                    {switchCompany ? <button type="button" className="ws-row-link" onClick={() => switchCompany(shown.orgId)}>Switch to {shown.name}</button> : null}
                   </p>
                 ) : null}
                 {shown.sensitive.length ? (
-                  <p className="ui-caption flex items-start gap-1">
-                    <ShieldAlert size={14} aria-hidden="true" className="mt-0.5 shrink-0" /> Can reach sensitive data: {shown.sensitive.length} permission{shown.sensitive.length === 1 ? '' : 's'} on payroll, people, salary, bank or documents.
+                  <p className="ws-member-sensitive">
+                    <ShieldAlert size={16} aria-hidden="true" className="shrink-0" /> Can reach sensitive data: {shown.sensitive.length} permission{shown.sensitive.length === 1 ? '' : 's'} on payroll, people, salary, bank or documents.
                   </p>
                 ) : null}
               </section>
@@ -409,16 +393,19 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
 
             <dl className="ws-member-facts">
               <div>
-                <dt>Branches</dt>
-                <dd>{shown?.branches?.length ? shown.branches.join(', ') : '—'}</dd>
-              </div>
-              <div>
                 <dt>Status</dt>
-                <dd>{detail.status === 'SUSPENDED' ? 'Suspended in this account' : 'Active'}</dd>
+                <dd>{detail.status === 'SUSPENDED' ? <span className="ws-state" data-tone="danger">Suspended in this account</span> : <span className="ws-state" data-tone="ok">Active</span>}</dd>
               </div>
               <div>
                 <dt>Sign-in</dt>
-                <dd>Authenticator {detail.authenticator ? 'on' : 'off'} · last {day(detail.lastSignInAt)}</dd>
+                <dd>
+                  <span className="ws-state" data-tone={detail.authenticator ? 'ok' : 'warn'}>Authenticator {detail.authenticator ? 'on' : 'off'}</span>
+                  <span className="ws-cell-sub">Last signed in {detail.lastSignInAt ? day(detail.lastSignInAt) : 'never'}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Branches</dt>
+                <dd>{shown?.branches?.length ? shown.branches.join(', ') : '—'}</dd>
               </div>
               <div>
                 <dt>Member since</dt>
@@ -429,7 +416,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
             <div className="ws-member-actions">
               <button
                 type="button"
-                className="ws-btn ws-btn--quiet"
+                className="ws-row-link"
                 onClick={async () => {
                   if (!(await confirmDialog({ title: 'Sign out everywhere?', message: 'Ends every session now. They can sign in again.', confirmLabel: 'Sign out everywhere', tone: 'neutral' }))) return;
                   act(() => signOutMember(detail.userId), 'Signed out of every session.');
@@ -438,13 +425,13 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                 Sign out everywhere
               </button>
               {detail.status === 'SUSPENDED' ? (
-                <button type="button" className="ws-btn ws-btn--quiet" onClick={() => act(() => reinstateMember(detail.userId), 'Reinstated: their roles work again.')}>
+                <button type="button" className="ws-row-link" onClick={() => act(() => reinstateMember(detail.userId), 'Reinstated: their roles work again.')}>
                   Reinstate in the account
                 </button>
               ) : (
                 <button
                   type="button"
-                  className="ws-btn ws-btn--danger-quiet"
+                  className="ws-row-link ws-row-link--danger"
                   onClick={async () => {
                     if (!(await confirmDialog({ title: 'Suspend in the account?', message: 'They lose access to every company until reinstated.', confirmLabel: 'Suspend' }))) return;
                     act(() => suspendMember(detail.userId), 'Suspended in every company of the account.');
@@ -456,7 +443,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
               {shown ? (
                 <button
                   type="button"
-                  className="ws-btn ws-btn--danger-quiet"
+                  className="ws-row-link ws-row-link--danger"
                   onClick={async () => {
                     if (!(await confirmDialog({ title: `Remove from ${shown.name}?`, message: 'They lose access to this company only.', confirmLabel: 'Remove from company' }))) return;
                     act(() => removeMemberFromCompany(detail.userId, shown.orgId), `Removed from ${shown.name}.`);

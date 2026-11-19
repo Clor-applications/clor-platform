@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { emoji } from '@ui/components/ui/emoji';
-import { ArrowLeft, ChevronRight, Plus, Send } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, ArrowRight, ChevronRight, Plus, Send } from '@ui/components/ui/lineIcons';
 
 import { getTicket, listTickets, openTicket, replyTicket, ticketSolved } from '@platform/admin/account';
 import { lastErrorRef } from '@platform/http';
 import { hasApp, requestOpenHelp } from '@platform/context';
 import { INCLUDED_IN } from '@platform/includedApps';
-import { ICON, PageHead, WsDrawer, ago } from './wsKit';
+import { Avatar, ICON, PageHead, WsDrawer, ago } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('red-question-mark');
@@ -23,10 +24,10 @@ const EMPTY_ICON = emoji('speech-balloon');
  */
 
 export const STATUS = {
-  OPEN: { label: 'With CLOR', pill: 'ws-pill ws-pill--warn' },
-  WAITING: { label: 'Waiting for you', pill: 'ws-pill ws-pill--danger' },
-  SOLVED: { label: 'Solved', pill: 'ws-pill ws-pill--ok' },
-  CLOSED: { label: 'Closed', pill: 'ws-pill ws-pill--off' },
+  OPEN: { label: 'With CLOR', pill: 'ws-pill ws-pill--warn', tone: 'info' },
+  WAITING: { label: 'Waiting for you', pill: 'ws-pill ws-pill--danger', tone: 'warn' },
+  SOLVED: { label: 'Solved', pill: 'ws-pill ws-pill--ok', tone: 'ok' },
+  CLOSED: { label: 'Closed', pill: 'ws-pill ws-pill--off', tone: 'off' },
 };
 const CATEGORY = [
   ['QUESTION', 'A question', 'How to do something'],
@@ -44,6 +45,12 @@ const APP = [
   ['workspace', 'Workspace'],
 ];
 const APP_NAME = Object.fromEntries(APP.filter(([k]) => k));
+/* Coloured tabs, as on the Inbox (owner, 19 Nov 2026). */
+const SHOW = [
+  { key: 'all', label: 'All', tone: '--cat-1' },
+  { key: 'open', label: 'Open', tone: '--cat-2' },
+  { key: 'done', label: 'Solved', tone: '--cat-3' },
+];
 
 const ticketFromUrl = () => {
   try {
@@ -59,6 +66,7 @@ export default function Support() {
   const [error, setError] = useState('');
   const [openId, setOpenId] = useState(ticketFromUrl);
   const [asking, setAsking] = useState(false);
+  const [show, setShow] = useState('all');
 
   const load = useCallback(() => {
     listTickets()
@@ -72,7 +80,11 @@ export default function Support() {
 
   if (openId) return <TicketView id={openId} onBack={() => { setOpenId(null); load(); }} />;
 
-  const waiting = (rows || []).filter((t) => t.status === 'WAITING').length;
+  const all = rows || [];
+  const waiting = all.filter((t) => t.status === 'WAITING').length;
+  const shown = all.filter((t) => show === 'all' || (show === 'open' ? t.status === 'OPEN' || t.status === 'WAITING' : t.status === 'SOLVED' || t.status === 'CLOSED'));
+  const n = (k) => all.filter((t) => (k === 'open' ? t.status === 'OPEN' || t.status === 'WAITING' : k === 'done' ? t.status === 'SOLVED' || t.status === 'CLOSED' : true)).length;
+  const byStatus = Object.keys(STATUS).map((k) => ({ k, n: all.filter((t) => t.status === k).length })).filter((x) => x.n);
 
   return (
     <div className="ws">
@@ -99,32 +111,105 @@ export default function Support() {
           <div className="grid gap-3" aria-hidden="true">
             {[0, 1, 2].map((i) => <span key={i} className="ui-skel" style={{ height: 56, borderRadius: 12 }} />)}
           </div>
-        ) : rows && rows.length === 0 ? (
-          <div className="ws-empty">
-            <EMPTY_ICON size={36} aria-hidden="true" />
-            <p>No tickets yet. Ask a question and CLOR answers by email.</p>
-            <button type="button" className="ws-btn ws-btn--quiet" onClick={() => requestOpenHelp('welcome')}>Try the help centre first</button>
-          </div>
         ) : rows ? (
-          <ul className="ws-list ws-list--ground" aria-label="Tickets">
-            {rows.map((t) => (
-              <li key={t.id}>
-                <button type="button" className="ws-item" onClick={() => setOpenId(t.id)}>
-                  <span className="ws-item-text">
-                    <span className="ws-item-title">
-                      <span className="ui-num" style={{ color: 'rgb(var(--ws-muted))', marginRight: 8 }}>{t.code}</span>
-                      {t.subject}
-                    </span>
-                    <span className="ws-item-sub">
-                      {[t.app ? APP_NAME[t.app] : null, whole ? t.openedBy : null, `updated ${ago(t.updatedAt)}`].filter(Boolean).join(' · ')}
-                    </span>
-                  </span>
-                  <span className={STATUS[t.status]?.pill || 'ws-pill'}>{STATUS[t.status]?.label || t.status}</span>
-                  <ChevronRight size={16} aria-hidden="true" />
+          <div className="ws-activity-layout">
+            <div className="ws-activity-main">
+              <div className="ws-tabs ws-tone-tabs" role="tablist" aria-label="Tickets">
+                {SHOW.map((s) => (
+                  <button key={s.key} type="button" role="tab" aria-selected={show === s.key} className="ws-tab" style={{ '--tab': `var(${s.tone})` }} onClick={() => setShow(s.key)}>
+                    {s.label}
+                    <span className="ws-tone-count">{n(s.key)}</span>
+                  </button>
+                ))}
+              </div>
+              {!shown.length ? (
+                <div className="ws-inbox-empty">
+                  <EMPTY_ICON size={28} aria-hidden="true" />
+                  <div>
+                    <p className="ws-inbox-empty-title">{all.length ? 'No tickets here.' : 'No tickets yet.'}</p>
+                    <p className="ws-card-blurb">Ask a question and CLOR answers here and by email.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="ws-table-wrap">
+                  <table className="ws-table ws-sec-table ws-activity-table ws-inbox-table ws-ticket-table">
+                    <caption className="sr-only">Tickets</caption>
+                    <colgroup>
+                      <col className="ws-col-what" />
+                      <col className="ws-col-who" />
+                      <col className="ws-col-app" />
+                      <col className="ws-col-when" />
+                      <col className="ws-col-open" />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th scope="col">Ticket</th>
+                        <th scope="col">{whole ? 'Opened by' : 'App'}</th>
+                        <th scope="col" className="ws-mid">Status</th>
+                        <th scope="col" className="ws-mid">Updated</th>
+                        <th scope="col"><span className="sr-only">Open</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.map((t) => (
+                        <tr key={t.id}>
+                          <td>
+                            <strong style={{ fontWeight: 600 }}>{t.subject}</strong>
+                            <div className="ws-card-blurb">
+                              <span className="ui-num">{t.code}</span>
+                              {t.app && whole ? ` · ${APP_NAME[t.app]}` : ''}
+                            </div>
+                          </td>
+                          <td>
+                            {whole ? (
+                              t.openedBy ? <span className="ws-sec-who"><Avatar name={t.openedBy} /><span>{t.openedBy}</span></span> : '—'
+                            ) : (t.app ? APP_NAME[t.app] : 'Not about one app')}
+                          </td>
+                          <td className="ws-mid"><span className="ws-state" data-tone={STATUS[t.status]?.tone}>{STATUS[t.status]?.label || t.status}</span></td>
+                          <td className="ws-mid ws-sec-when">{ago(t.updatedAt)}</td>
+                          <td className="num">
+                            <button type="button" className="ws-row-link" onClick={() => setOpenId(t.id)} aria-label={`Open ${t.code} ${t.subject}`}>
+                              Open <ArrowRight size={14} aria-hidden="true" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <aside className="ws-activity-side" aria-label="Support summary">
+              <section className="ws-activity-box">
+                <p className="ws-activity-box-title">Your tickets</p>
+                <p className="ws-activity-big"><span className="ui-num">{all.length}</span> {all.length === 1 ? 'ticket' : 'tickets'}</p>
+                <p className="ws-activity-sub">{n('open') ? `${n('open')} still open` : 'Nothing open'}</p>
+                {byStatus.length ? (
+                  <ul className="ws-activity-bars ws-activity-bars--wide" aria-label="By status">
+                    {byStatus.map((x) => (
+                      <li key={x.k} data-tone={x.k === 'WAITING' ? 'danger' : x.k === 'SOLVED' ? 'ok' : undefined}>
+                        <span className="ws-activity-bar-label">{STATUS[x.k].label}</span>
+                        <span className="ws-activity-bar"><span style={{ width: `${Math.max(6, Math.round((x.n / all.length) * 100))}%` }} /></span>
+                        <span className="ws-activity-bar-n ui-num">{x.n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+              <section className="ws-activity-box">
+                <p className="ws-activity-box-title">Before you ask</p>
+                <p className="ws-side-note">Most answers are already in the help centre, with steps for every app.</p>
+                <button type="button" className="ws-row-link" onClick={() => requestOpenHelp('welcome')}>
+                  Open the help centre <ArrowRight size={14} aria-hidden="true" />
                 </button>
-              </li>
-            ))}
-          </ul>
+              </section>
+              <section className="ws-activity-box">
+                <p className="ws-activity-box-title">How CLOR answers</p>
+                <p className="ws-side-note">A person at CLOR replies, not a bot. You get an email, and the whole conversation stays here.</p>
+              </section>
+            </aside>
+          </div>
         ) : null}
       </div>
       <NewTicket open={asking} onClose={() => setAsking(false)} onOpened={(t) => { setAsking(false); setOpenId(t.id); }} />

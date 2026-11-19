@@ -1807,6 +1807,13 @@ component, read this one.
   for titles and totals. No uppercase labels.
 - Figtree everywhere, Books included. Inter, Sora, Plus Jakarta Sans and
   Bricolage Grotesque are retired. Never Google Fonts.
+- **Legibility (owner, 19 Nov 2026; shell + Workspace, `packages/ui/src/legibility.css`):**
+  Figtree's lowercase is small, so 13px read as 12px. Body and table text 14px; second
+  sidebar items 14px/500 in ink (600 when open), its heading 16px, group capitals 12px/700
+  in `#4A4842`; rail labels 12px/600 in ink; Workspace page titles 20px/700 (over the
+  slim-toolbar pick's 16px); secondary lines 13px in `#4A4842` (Workspace's `--fg-muted`),
+  `--fg-subtle` `#5C5A54`; tags stay 12px. macOS default text rendering, not
+  `antialiased`, everywhere but Books. People, Attendance and Payroll pages next, app by app.
 
 ## Color
 

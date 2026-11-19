@@ -6,11 +6,28 @@ import { accountAudit, listInvitations, memberDirectory } from '@platform/admin/
 import { getMySessions, getPolicy, getProviders } from '@platform/admin/security';
 import { listCredentials } from '@platform/admin/credentials';
 import { ACTION_WORDS } from './AccountActivity';
-import { Empty, ICON, PageHead, Panel, Stat, ago, device } from './wsKit';
+import { Avatar, DeviceMark, Empty, ICON, PageHead, Panel, Stat, ago, device, ipText } from './wsKit';
+
+const cap = (t) => String(t || '').replace(/^./, (c) => c.toUpperCase());
 import './workspace.css';
+import './ws-security.css';
 
 /* The colour icons the empty lists show. */
 const LOG_ICON = emoji('scroll');
+/* Each kind of access change in its own colour and mark (owner, 19 Nov 2026): sent blue, joined green,
+   taken away red, put back or changed amber; anything else grey. */
+const CHANGE_LOOK = {
+  INVITATION_SENT: ['info', 'mail'],
+  INVITATION_RESENT: ['info', 'mail'],
+  INVITATION_ACCEPTED: ['ok', 'invite'],
+  INVITATION_REVOKED: ['off', 'mail'],
+  MEMBER_SUSPENDED: ['danger', 'warning'],
+  MEMBER_REMOVED_FROM_COMPANY: ['danger', 'person'],
+  ACCESS_DENIED: ['danger', 'security'],
+  MEMBER_REINSTATED: ['ok', 'secure'],
+  ACCOUNT_ROLE_CHANGE: ['warn', 'secure'],
+  MEMBER_SIGNED_OUT: ['warn', 'security'],
+};
 const PEOPLE_ICON = emoji('busts-in-silhouette');
 
 /**
@@ -74,7 +91,7 @@ export function AccessHome({ navItems = [], openScreen }) {
   const changes = (audit?.events || []).filter((e) => ACCESS_ACTIONS.has(e.action)).slice(0, 6);
 
   return (
-    <div className="ws">
+    <div className="ws ws-flat">
       <div className="ws-inner">
         <PageHead
           crumbs={['Users & access', 'Access overview']}
@@ -93,13 +110,17 @@ export function AccessHome({ navItems = [], openScreen }) {
         ) : null}
         <div className="ws-layout">
           <div className="ws-main">
-            <Panel title="Recent access changes" action={may.has('accountActivity') ? <button type="button" className="ws-link" onClick={() => openScreen('accountActivity')}>View all <ChevronRight size={16} aria-hidden="true" /></button> : null}>
+            <Panel title="Recent access changes" action={may.has('accountActivity') ? <button type="button" className="ws-row-link" onClick={() => openScreen('accountActivity')}>View all <ChevronRight size={14} aria-hidden="true" /></button> : null}>
               {changes.length ? (
                 <ul className="ws-list">
                   {changes.map((e) => (
                     <li key={e.id}>
                       <div className="ws-item">
-                        <span className="ws-tile" aria-hidden="true"><ICON.history size={18} /></span>
+                        {(() => {
+                          const [tone, glyph] = CHANGE_LOOK[e.action] || ['off', 'history'];
+                          const Glyph = ICON[glyph] || ICON.history;
+                          return <span className="ws-change-mark" data-tone={tone} aria-hidden="true"><Glyph size={16} /></span>;
+                        })()}
                         <span className="ws-item-text">
                           <span className="ws-item-title">{ACTION_WORDS[e.action] || e.action}{e.targetName ? `: ${e.targetName}` : ''}</span>
                           <span className="ws-item-sub">{e.actor?.name || 'Someone'}</span>
@@ -115,19 +136,18 @@ export function AccessHome({ navItems = [], openScreen }) {
             </Panel>
           </div>
           <aside className="ws-side">
-            <Panel title="Who can administer" action={may.has('members') ? <button type="button" className="ws-link" onClick={() => openScreen('members')}>Members <ChevronRight size={16} aria-hidden="true" /></button> : null}>
+            <Panel title="Who can administer" action={may.has('members') ? <button type="button" className="ws-row-link" onClick={() => openScreen('members')}>Members <ChevronRight size={14} aria-hidden="true" /></button> : null}>
               {privileged.length ? (
                 <ul className="ws-list">
                   {privileged.map((m) => (
                     <li key={m.userId}>
                       <div className="ws-item">
-                        <span className={`ws-tile${m.authenticator ? '' : ' ws-tile--warn'}`} aria-hidden="true">{m.authenticator ? <ICON.secure size={18} /> : <ICON.warning size={18} />}</span>
+                        <Avatar name={m.name || m.email} size="lg" />
                         <span className="ws-item-text">
                           <span className="ws-item-title">{m.name || m.email}</span>
-                          <span className="ws-item-sub">
-                            {m.accountRole === 'OWNER' ? 'Account owner' : m.accountRole === 'ADMIN' ? 'Account administrator' : 'Company administrator'} · {m.authenticator ? 'authenticator on' : 'no authenticator'}
-                          </span>
+                          <span className="ws-item-sub">{m.accountRole === 'OWNER' ? 'Owner' : m.accountRole === 'ADMIN' ? 'Administrator' : 'Company admin'}</span>
                         </span>
+                        <span className="ws-state" data-tone={m.authenticator ? 'ok' : 'warn'}>{m.authenticator ? 'Authenticator on' : 'No authenticator'}</span>
                       </div>
                     </li>
                   ))}
@@ -175,15 +195,11 @@ export function SecurityHome({ navItems = [], openScreen }) {
           <div className="ws-main">
             {p ? (
               <Panel title="Sign-in rules in force">
-                <dl className="grid gap-2 text-sm" style={{ gridTemplateColumns: 'max-content 1fr', columnGap: 24 }}>
-                  <dt className="ws-item-sub">Passwords</dt>
-                  <dd>{policy?.passwordRules || `At least ${p.passwordMinLength} characters`}</dd>
-                  <dt className="ws-item-sub">Lockout</dt>
-                  <dd>After {p.maxFailedLogins} failed attempts, for {p.lockoutMinutes} minutes</dd>
-                  <dt className="ws-item-sub">Sessions</dt>
-                  <dd>Signed in for up to {p.sessionDays} days</dd>
-                  <dt className="ws-item-sub">Who may be invited</dt>
-                  <dd>{p.allowedEmailDomains ? `Addresses at ${p.allowedEmailDomains}` : 'Any email address'}</dd>
+                <dl className="ws-rows">
+                  <div><dt>Passwords</dt><dd>{cap(policy?.passwordRules || `At least ${p.passwordMinLength} characters`)}</dd></div>
+                  <div><dt>Lockout</dt><dd>After {p.maxFailedLogins} failed attempts, for {p.lockoutMinutes} minutes</dd></div>
+                  <div><dt>Sessions</dt><dd>Signed in for up to {p.sessionDays} days</dd></div>
+                  <div><dt>Who may be invited</dt><dd>{p.allowedEmailDomains ? `Addresses at ${p.allowedEmailDomains}` : 'Any email address'}</dd></div>
                 </dl>
               </Panel>
             ) : null}
@@ -204,7 +220,7 @@ export function SecurityHome({ navItems = [], openScreen }) {
                   ))}
                 </ul>
               ) : (
-                refused === null ? <p className="ws-card-blurb">Only the account’s owners and administrators can see refusals.</p> : <Empty icon={LOG_ICON} compact>Nothing refused recently.</Empty>
+                refused === null ? <p className="ws-card-blurb">Only the account’s owners and administrators can see refusals.</p> : <p className="ws-quiet-ok"><span className="ws-state" data-tone="ok">All clear</span>Nothing refused recently.</p>
               )}
             </Panel>
           </div>
@@ -215,11 +231,12 @@ export function SecurityHome({ navItems = [], openScreen }) {
                   {sessions.sessions.slice(0, 5).map((x) => (
                     <li key={x.id}>
                       <div className="ws-item">
-                        <span className="ws-tile" aria-hidden="true"><ICON.secure size={18} /></span>
+                        <DeviceMark ua={x.userAgent} />
                         <span className="ws-item-text">
-                          <span className="ws-item-title">{device(x.userAgent)}{x.ip ? ` · ${x.ip}` : ''}</span>
-                          <span className="ws-item-sub">Last used {ago(x.lastSeenAt || x.createdAt)}</span>
+                          <span className="ws-item-title">{device(x.userAgent)}</span>
+                          <span className="ws-item-sub">{x.ip ? `${ipText(x.ip)} · ` : ''}last used {ago(x.lastSeenAt || x.createdAt)}</span>
                         </span>
+                        {x.current ? <span className="ws-tag ws-tag--workspace">This device</span> : null}
                       </div>
                     </li>
                   ))}

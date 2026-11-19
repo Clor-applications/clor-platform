@@ -30,7 +30,8 @@ describe('Workspace → Audit log', () => {
   it('filters on the server and pages back', async () => {
     render(<AccountActivity />);
     await screen.findByText('Suspended in the account');
-    fireEvent.change(screen.getByLabelText('Result'), { target: { value: 'DENIED' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Result:/ }));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Refused' }));
     await waitFor(() => expect(accountAudit).toHaveBeenLastCalledWith(expect.objectContaining({ result: 'DENIED' })));
     fireEvent.click(await screen.findByRole('button', { name: 'Show older' }));
     await waitFor(() => expect(accountAudit).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'e1' })));

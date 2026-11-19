@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight } from '@ui/components/ui/lineIcons';
+import { ArrowRight } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 
 import { getAccountMe, memberDirectory } from '@platform/admin/account';
@@ -9,6 +9,7 @@ import { appState, hostLabel } from './AdminHome';
 import { seatsByApp } from './overviewFigures';
 import './workspace.css';
 import './ws-home.css';
+import './ws-security.css';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('package');
@@ -52,6 +53,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
   const seatApps = built.map((a) => a.id);
   const seats = directory ? seatsByApp(directory, overview?.seats, seatApps) : null;
   const planName = overview?.plan?.name || null;
+  const inPlanCount = built.filter((a) => ['open', 'noaccess', 'off'].includes(appState(a, tenant, myApps).key)).length;
 
   return (
     <div className="ws">
@@ -75,7 +77,9 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
           <LoadError onRetry={() => { setMe(undefined); setTries((n) => n + 1); }}>Your access to these apps could not be read. Try again in a minute.</LoadError>
         ) : null}
 
-        <ul className="ws-appgrid" role="list" aria-label="CLOR apps">
+        <div className="ws-activity-layout">
+        <div className="ws-activity-main">
+        <ul className="ws-appgrid ws-appgrid--side" role="list" aria-label="CLOR apps">
           {built.map((a) => {
             const s = appState(a, tenant, myApps);
             const inPlan = s.key === 'open' || s.key === 'noaccess' || s.key === 'off';
@@ -89,7 +93,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
                   <div className="ws-appcard-top">
                     <AppMark app={a.id} size={36} title="" />
                     <h2 id={`app-${a.id}`} className="ws-appcard-name">{a.name}</h2>
-                    <span className={s.key === 'open' ? 'ws-pill ws-pill--ok' : 'ws-pill ws-pill--neutral'}>{s.key === 'open' ? 'In plan' : s.key === 'plan' ? 'Not in plan' : s.label}</span>
+                    <span className="ws-state" data-tone={s.key === 'open' ? 'ok' : 'off'}>{s.key === 'open' ? 'In plan' : s.key === 'plan' ? 'Not in plan' : s.label}</span>
                   </div>
                   <p className="ws-appcard-sub ws-clamp-2" title={a.blurb}>{a.blurb}</p>
                   <div className="ws-appcard-foot">
@@ -99,18 +103,18 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
                       {inPlan && planName ? `${planName} plan` : ''}
                     </span>
                     {s.key === 'open' ? (
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => openApp?.(a.id)} aria-label={`Open ${a.name} at ${hostLabel(a.id)}`}>
-                        Open <ChevronRight size={14} aria-hidden="true" />
+                      <button type="button" className="ws-row-link" onClick={() => openApp?.(a.id)} aria-label={`Open ${a.name} at ${hostLabel(a.id)}`}>
+                        Open <ArrowRight size={14} aria-hidden="true" />
                       </button>
                     ) : s.key === 'noaccess' ? (
                       <span className="ws-appcard-sub">Ask an administrator for a role</span>
                     ) : s.key === 'off' && openMoreApps ? (
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => openMoreApps()}>
-                        Switch it on
+                      <button type="button" className="ws-row-link" onClick={() => openMoreApps()}>
+                        Switch it on <ArrowRight size={14} aria-hidden="true" />
                       </button>
                     ) : toBilling ? (
-                      <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={toBilling}>
-                        Add to plan
+                      <button type="button" className="ws-row-link" onClick={toBilling}>
+                        Add to plan <ArrowRight size={14} aria-hidden="true" />
                       </button>
                     ) : (
                       <span className="ws-appcard-sub">An owner can add it to the plan</span>
@@ -126,7 +130,7 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
                 <div className="ws-appcard-top">
                   <AppMark app={a.id} size={36} title="" />
                   <h2 id={`app-${a.id}`} className="ws-appcard-name">{a.name}</h2>
-                  <span className="ws-pill ws-pill--neutral">Coming soon</span>
+                  <span className="ws-state" data-tone="info">Coming soon</span>
                 </div>
                 <p className="ws-appcard-sub ws-clamp-2" title={a.blurb}>{a.blurb}</p>
                 <div className="ws-appcard-foot">
@@ -136,6 +140,45 @@ export default function Apps({ tenant, catalog = [], navItems = [], openScreen, 
             </li>
           ))}
         </ul>
+        </div>
+
+        {/* The right side (owner, 19 Nov 2026): what is in the plan and who uses each app. */}
+        <aside className="ws-activity-side" aria-label="Apps summary">
+          <section className="ws-activity-box">
+            <p className="ws-activity-box-title">In your plan</p>
+            <p className="ws-activity-big"><span className="ui-num">{inPlanCount}</span> of {built.length} apps</p>
+            <p className="ws-activity-sub">{planName ? `${planName} plan` : 'Plan not read'}{planned.length ? ` · ${planned.length} coming soon` : ''}</p>
+          </section>
+          {seats?.length ? (
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">People in each app</p>
+              <ul className="ws-activity-bars ws-activity-bars--wide" aria-label="People in each app">
+                {built.map((a) => {
+                  const seat = seats.find((x) => x.app === a.id);
+                  if (!seat) return null;
+                  const max = Math.max(1, ...seats.map((x) => x.bought ?? x.used));
+                  return (
+                    <li key={a.id}>
+                      <span className="ws-activity-bar-label">{a.name}</span>
+                      <span className="ws-activity-bar"><span style={{ width: `${Math.max(4, Math.round((seat.used / (seat.bought ?? max)) * 100))}%` }} /></span>
+                      <span className="ws-activity-bar-n ui-num">{seat.used}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {may.has('members') ? (
+                <button type="button" className="ws-row-link" onClick={() => openScreen?.('members')}>
+                  See members <ArrowRight size={14} aria-hidden="true" />
+                </button>
+              ) : null}
+            </section>
+          ) : null}
+          <section className="ws-activity-box">
+            <p className="ws-activity-box-title">One sign-in</p>
+            <p className="ws-side-note">Every app opens with the same account. A person sees only the apps they have a role in.</p>
+          </section>
+        </aside>
+        </div>
       </div>
     </div>
   );

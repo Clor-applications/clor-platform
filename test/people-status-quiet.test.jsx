@@ -6,15 +6,15 @@ import { StatusBadge } from '../apps/people/src/workforce/shared';
 afterEach(cleanup);
 
 describe('the Employees list status', () => {
-  it('says Active in plain words when quiet, and keeps the pill for anyone who needs a look', () => {
+  it('shows every status as a soft tag, Active included (owner, 19 Nov 2026)', () => {
     render(<>
       <StatusBadge quiet employee={{ status: 'ACTIVE', dateOfJoining: '2024-01-01' }} />
       <StatusBadge quiet employee={{ status: 'ON_NOTICE' }} />
       <StatusBadge quiet employee={{ status: 'ACTIVE', dateOfJoining: '2999-01-01' }} />
     </>);
-    expect(screen.getByText('Active').className).not.toMatch(/ui-pill/);
+    expect(screen.getByText('Active').className).toMatch(/ui-pill-pos/);
     expect(screen.getByText('On notice').className).toMatch(/ui-pill/);
-    expect(screen.getByText('Joining soon').className).toMatch(/ui-pill/);
+    expect(screen.getByText('Joining soon').className).toMatch(/ui-pill-info/);
   });
 
   it('keeps the pill everywhere else', () => {

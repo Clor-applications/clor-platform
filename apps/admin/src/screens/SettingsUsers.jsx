@@ -35,8 +35,10 @@ import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
 import UserLocationAccessTable from './UserLocationAccessTable';
-import { Empty, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
+import { Avatar, Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
+import './ws-access.css';
 
 /* The colour icons the empty lists show: each the one its menu item wears. */
 const EMPTY_ICON = emoji('bust-in-silhouette');
@@ -449,7 +451,7 @@ export function SettingsUsers({ orgId, params }) {
   const errorNote = error ? <p role="alert" className="text-sm" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null;
   const u = panel?.user;
   const quiet = (label, onClick, extra = {}) => (
-    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={onClick} {...extra}>{label}</button>
+    <button type="button" className="ws-row-link" onClick={onClick} {...extra}>{label}</button>
   );
   const checkRow = (key, checked, onToggle, title, sub) => (
     <li key={key}>
@@ -517,22 +519,23 @@ export function SettingsUsers({ orgId, params }) {
       body: (
         <div className="grid gap-5">
           {errorNote}
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <div><dt className="ws-stat-note">Role</dt><dd className="text-sm font-medium">{roleName(u.roleId) || 'No role'}</dd></div>
-            <div><dt className="ws-stat-note">Status</dt><dd>{statusPill(u)}</dd></div>
+          {/* Same rows as the Members panel: label left, value right, a hairline between (owner, 19 Nov 2026). */}
+          <dl className="ws-member-facts">
+            <div><dt>Role</dt><dd>{roleName(u.roleId) ? <span className="ws-tag ws-tag--workspace">{roleName(u.roleId)}</span> : <span className="ws-state" data-tone="warn">No role</span>}</dd></div>
+            <div><dt>Status</dt><dd>{statusPill(u)}</dd></div>
             {u.left ? (
-              <div className="sm:col-span-2"><dt className="ws-stat-note">Left</dt><dd className="text-sm">{leftLine(u.left)}{u.left.note ? ` — ${u.left.note}` : ''}</dd></div>
+              <div><dt>Left</dt><dd>{leftLine(u.left)}{u.left.note ? ` — ${u.left.note}` : ''}</dd></div>
             ) : null}
-            <div><dt className="ws-stat-note">User ID</dt><dd className="text-sm ui-mono">{u.code || '—'}</dd></div>
-            <div><dt className="ws-stat-note">Username</dt><dd className="text-sm">{u.username || '—'}</dd></div>
+            <div><dt>User ID</dt><dd className="ui-num">{u.code || '—'}</dd></div>
+            <div><dt>Username</dt><dd>{u.username || '—'}</dd></div>
           </dl>
-          <div className="ws-actions">
+          <div className="ws-member-actions">
             {quiet('Edit', () => openEdit(u))}
             {quiet('Companies', () => openCompanies(u))}
             {branchesEnabled ? quiet('Branches', () => openBranches(u)) : null}
             {quiet('Roles by branch', () => openAccess(u))}
             {quiet('Set a password', () => open('password', u))}
-            {u.isActive === false ? quiet('Reactivate', () => bringBack(u)) : quiet('Mark as left', () => openLeave(u))}
+            {u.isActive === false ? quiet('Reactivate', () => bringBack(u)) : quiet('Mark as left', () => openLeave(u), { className: 'ws-row-link ws-row-link--danger' })}
           </div>
           <section aria-labelledby="ws-user-can" className="grid gap-2" style={{ borderTop: '1px solid rgb(var(--ws-line))', paddingTop: 16 }}>
             <h3 id="ws-user-can" className="ws-panel-title">What they can do</h3>
@@ -731,12 +734,9 @@ export function SettingsUsers({ orgId, params }) {
             <Search size={16} aria-hidden="true" />
             <input className="ui-input" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search name, email, user ID or role" />
           </label>
-          <select className="ui-select" aria-label="Status" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-            <option value="">Status: All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          <span className="ws-head-meta">{rows.length} {rows.length === 1 ? 'user' : 'users'}</span>
+          <FilterSelect label="Status" value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} width="11rem" options={[['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']]} />
+          {/* The total is on the Users card above; a count here only says how far a search or filter narrowed it. */}
+          {rows.length !== users.length ? <span className="ws-head-meta ws-filters-end">{rows.length} of {users.length} shown</span> : null}
         </div>
 
         {error && !panel ? errorNote : null}
@@ -764,19 +764,19 @@ export function SettingsUsers({ orgId, params }) {
                   <tr key={row.id}>
                     <td>
                       <button type="button" className="inline-flex items-center gap-2 text-left" onClick={() => open('view', row)}>
-                        <span className="ws-tile ws-tile--sm" aria-hidden="true"><ICON.person size={14} /></span>
+                        <Avatar name={nameOf(row)} />
                         <strong style={{ fontWeight: 600 }}>{nameOf(row)}</strong>
                       </button>
                     </td>
                     <td className="ui-mono" style={{ fontSize: '0.8125rem' }}>{row.code || '—'}</td>
                     <td>{row.email}</td>
-                    <td>{roleName(row.roleId) ? <span className="ws-pill ws-pill--role">{roleName(row.roleId)}</span> : <span className="ws-head-meta">No role</span>}</td>
+                    <td>{roleName(row.roleId) ? <span className="ws-tag ws-tag--workspace">{roleName(row.roleId)}</span> : <span className="ws-state" data-tone="warn">No role</span>}</td>
                     <td>{statusPill(row)}</td>
                     <td className="num">
                       <button
                         type="button"
                         ref={menuFor === row.id ? menuAnchorRef : null}
-                        className="ws-btn ws-btn--quiet ws-btn--small"
+                        className="ws-more-btn"
                         aria-label={`Actions for ${nameOf(row)}`}
                         aria-expanded={menuFor === row.id}
                         onClick={(e) => {

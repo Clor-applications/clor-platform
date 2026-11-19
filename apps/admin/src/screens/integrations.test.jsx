@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const http = vi.hoisted(() => ({ apiFetch: vi.fn() }));
 vi.mock('@platform/http', () => ({ apiFetch: (...a) => http.apiFetch(...a) }));
-vi.mock('@platform/context', () => ({ orgId: () => 'org1', requestOpenScreen: vi.fn() }));
+vi.mock('@platform/context', () => ({ orgId: () => 'org1', hasApp: () => true, requestOpenScreen: vi.fn() }));
 
 import Integrations from './Integrations';
 
@@ -22,7 +22,7 @@ describe('Workspace Integrations', () => {
     const openApp = vi.fn();
     const openScreen = vi.fn();
     render(<Integrations openApp={openApp} openScreen={openScreen} />);
-    const list = within(await screen.findByRole('list', { name: 'Integrations' }));
+    const list = within(await screen.findByRole('table', { name: 'Connected' }));
     expect(screen.getByText('1 needs a look')).toBeInTheDocument();
     expect(list.getByText('Head office server')).toBeInTheDocument();
     expect(list.getByText('Not connected yet')).toBeInTheDocument();

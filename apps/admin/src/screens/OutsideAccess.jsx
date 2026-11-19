@@ -13,6 +13,7 @@ import { requestOpenScreen } from '@platform/context';
 import { Plus } from '@ui/components/ui/lineIcons';
 import { Avatar, ICON, Loading, PageHead, Stat, StatusPill } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 import './ws-access.css';
 
 /**
@@ -210,9 +211,9 @@ export default function OutsideAccess() {
                       </td>
                       <td className="num">{r.expiresAt ? dateOf(r.expiresAt) : 'No end'}</td>
                       <td className="num">
-                        <div className="inline-flex justify-end gap-1">
+                        <div className="inline-flex justify-end gap-4">
                           {actionsFor(r).map((a) => (
-                            <button key={a} type="button" className={`ws-btn ws-btn--small ${a === 'end' ? 'ws-btn--danger-quiet' : 'ws-btn--quiet'}`} aria-label={`${ACTION_LABEL[a]} access for ${name}`} onClick={() => act(r, a)}>
+                            <button key={a} type="button" className={`ws-row-link${a === 'end' ? ' ws-row-link--danger' : ''}`} aria-label={`${ACTION_LABEL[a]} access for ${name}`} onClick={() => act(r, a)}>
                               {ACTION_LABEL[a]}
                             </button>
                           ))}

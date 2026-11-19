@@ -3,6 +3,7 @@ import { notify } from '@ui/components/ui/notify';
 import { approveSupportGrant, endSupportGrant, listSupportGrants } from '@platform/admin/supportGrants';
 import { ICON, Loading, PageHead, Stat } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /**
  * Workspace → CLOR support access (docs/workspace/SUPPORT_GRANTS.md).
@@ -183,7 +184,7 @@ export default function SupportAccess() {
                             <td>{g.state === 'ACTIVE' || g.state === 'EXPIRED' ? when(g.expiresAt) : g.endedAt ? when(g.endedAt) : '—'}</td>
                             <td className="num">
                               {g.state === 'ACTIVE' ? (
-                                <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" style={{ color: 'rgb(var(--ws-danger))' }} aria-label={`End access for ${g.staff}`} onClick={() => end(g)}>
+                                <button type="button" className="ws-row-link ws-row-link--danger" aria-label={`End access for ${g.staff}`} onClick={() => end(g)}>
                                   End now
                                 </button>
                               ) : null}
@@ -198,10 +199,7 @@ export default function SupportAccess() {
             ) : null}
 
             {!grants.length ? (
-              <div className="ws-setup">
-                <span className="ws-tile" aria-hidden="true"><ICON.chat size={20} /></span>
-                <p className="ws-card-blurb">CLOR support has never asked to look. When they do, the request waits here for you.</p>
-              </div>
+              <p className="ws-inbox-empty">CLOR support has never asked to look. When they do, the request waits here for you.</p>
             ) : null}
           </>
         )}

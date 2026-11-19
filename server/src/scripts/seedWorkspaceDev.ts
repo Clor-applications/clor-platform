@@ -72,6 +72,9 @@ const PEOPLE: { email: string; name: string; accountRole: 'ADMIN' | 'BILLING_ADM
 const TICKETS = [
   { subject: 'How do I move a person to another company?', body: 'Ravi works for both companies from next month. Where do I give him access to the second one?', category: 'QUESTION' },
   { subject: 'Invoice for October shows the wrong address', body: 'The CLOR invoice for October still has our old Bengaluru address. Please correct it and send it again.', category: 'BILLING', urgent: true },
+  { subject: 'Leave balance shows 13 days instead of 12', body: 'Anita Rao has 13 casual leave days this year; the policy gives 12. Where did the extra day come from?', category: 'PROBLEM', app: 'people' },
+  { subject: 'Can we import last year\'s attendance?', body: 'We kept attendance in a spreadsheet until October. Can it come into CLOR so the year is complete?', category: 'DATA', app: 'attendance' },
+  { subject: 'Payslip PDF cuts off the last column', body: 'On the November payslips the Net pay column is cut off when printed on A4.', category: 'PROBLEM', app: 'payroll' },
 ];
 
 type Ctx = { token: string; orgId: string; branchId: string };
@@ -180,6 +183,93 @@ async function tickets(c: Ctx) {
   }
 }
 
+
+/* ------------------------------------------------------------------ apps
+ * Something on every Workspace page that reads the apps (Inbox, Home's Today card, Activity):
+ * People switched on, departments, twelve people, leave waiting for a decision, and recent notices.
+ */
+const STAFF = [
+  ['Anita', 'Rao', 'Operations'], ['Bharat', 'Mehta', 'Operations'], ['Chitra', 'Pillai', 'Finance'], ['Dev', 'Sharma', 'Sales'],
+  ['Esha', 'Gupta', 'Sales'], ['Gopal', 'Naidu', 'Warehouse'], ['Hema', 'Krishnan', 'Finance'], ['Irfan', 'Ali', 'Warehouse'],
+  ['Jaya', 'Menon', 'Operations'], ['Karan', 'Bose', 'Sales'], ['Leela', 'Thomas', 'Warehouse'], ['Manoj', 'Hegde', 'Operations'],
+] as const;
+
+const NOTICES = [
+  { kind: 'people.joined', title: 'Leela Thomas joins on Monday', body: 'Her joining checklist has 6 open items.', link: { app: 'people', screen: 'employees' }, hoursAgo: 2 },
+  { kind: 'payroll.bank_change', title: 'Bank details changed for Irfan Ali', body: 'Waiting for a second person to check them before the next pay run.', link: { app: 'payroll', screen: 'employees' }, hoursAgo: 5 },
+  { kind: 'workspace.member', title: 'Divya Iyer accepted your invitation', body: 'She can now open People and Books in Sundaram Traders.', link: { app: 'admin', screen: 'members' }, hoursAgo: 20, read: true },
+  { kind: 'billing.invoice', title: 'Your CLOR invoice for November is ready', body: '₹4,720 including GST. Due on 3 December.', link: { app: 'admin', screen: 'invoices' }, hoursAgo: 30 },
+  { kind: 'attendance.reader', title: 'Front gate reader went quiet', body: 'No punches from the Mysuru office reader since 9:40 am.', link: { app: 'attendance', screen: 'devices' }, hoursAgo: 52, read: true },
+  { kind: 'support.reply', title: 'CLOR support replied to your ticket', body: '"Invoice for October shows the wrong address": we have corrected the address.', link: { app: 'admin', screen: 'support' }, hoursAgo: 75 },
+  { kind: 'people.document_expiring', title: 'Two passports expire in 30 days', body: 'Dev Sharma and Esha Gupta.', link: { app: 'people', screen: 'documents' }, hoursAgo: 120, read: true },
+];
+
+async function apps(c: Ctx) {
+  const peopleApi = (path: string) => `/api/orgs/${c.orgId}/people${path}`;
+  const f = await request(app).put(`/api/orgs/${c.orgId}/features`).set(at(c)).send({ features: { people: true, attendance: true, payroll: true } });
+  if (f.status >= 300) note(false, 'apps switched on', f);
+
+  const depts: Record<string, string> = {};
+  for (const d of (await request(app).get(peopleApi('/structure/departments')).set(at(c))).body?.items || []) depts[d.name] = d.id;
+  for (const name of new Set(STAFF.map((x) => x[2]))) {
+    if (depts[name]) continue;
+    const r = await request(app).post(peopleApi('/structure/departments')).set(at(c)).send({ name });
+    if (r.status < 300) depts[name] = r.body.item.id;
+    note(r.status < 300, `department ${name}`, r);
+  }
+
+  const have = new Map<string, any>((((await request(app).get(peopleApi('/employees?limit=500')).set(at(c))).body?.employees) || []).map((e: any) => [e.code, e]));
+  const ids: string[] = [];
+  for (const [i, [firstName, lastName, dept]] of STAFF.entries()) {
+    const code = `ST-${String(i + 1).padStart(3, '0')}`;
+    if (have.has(code)) { ids.push(have.get(code).id); continue; }
+    /* Most joined over the last two years; the last two join this month and next, so their checklists are open. */
+    const join = i >= STAFF.length - 2 ? new Date(Date.now() + (i - STAFF.length + 2) * 7 * 86400000) : new Date(2024, i % 12, 3 + i);
+    const r = await request(app).post(peopleApi('/employees')).set(at(c)).send({
+      firstName, lastName, code, departmentId: depts[dept], dateOfJoining: join.toISOString().slice(0, 10),
+      email: `${firstName}.${lastName}@sundaram.test`.toLowerCase(), phone: `97${String(31000000 + i * 7919).slice(0, 8)}`, gender: i % 2 ? 'FEMALE' : 'MALE',
+    });
+    if (r.status < 300) ids.push(r.body?.employee?.id || r.body?.id);
+    note(r.status < 300, `person ${firstName} ${lastName}`, r);
+  }
+
+  /* Leave waiting for a decision: four people, the next few weeks. */
+  const leaveBase = `/api/orgs/${c.orgId}/attendance/leave`;
+  let types: any[] = (await request(app).get(`${leaveBase}/types`).set(at(c))).body?.types || [];
+  for (const t of [{ name: 'Casual leave', code: 'CL', annualDays: 12 }, { name: 'Sick leave', code: 'SL', annualDays: 8 }]) {
+    if (types.some((x) => x.name === t.name)) continue;
+    const r = await request(app).post(`${leaveBase}/types`).set(at(c)).send({ ...t, isPaid: true, accrual: 'YEARLY' });
+    note(r.status < 300, `leave type ${t.name}`, r);
+  }
+  types = (await request(app).get(`${leaveBase}/types`).set(at(c))).body?.types || [];
+  const type = types.find((t) => t.name === 'Casual leave') || types[0];
+  const pending = (await request(app).get(`/api/orgs/${c.orgId}/attendance/leave/requests?status=PENDING`).set(at(c))).body;
+  const asked = new Set((pending?.requests || pending?.items || []).map((r: any) => r.employeeId || r.employee?.id));
+  if (type) {
+    const day = (n: number) => { const d = new Date(Date.now() + n * 86400000); while ([0, 6].includes(d.getDay())) d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const asks = [[0, 9, 9, 'Family function in Mangaluru'], [2, 12, 13, 'Fever, doctor advised rest'], [4, 16, 16, 'Bank work'], [7, 20, 22, 'Sister\'s wedding']] as const;
+    for (const [who, from, to, reason] of asks) {
+      if (!ids[who] || asked.has(ids[who])) continue;
+      const r = await request(app).post(`/api/orgs/${c.orgId}/attendance/leave/requests`).set(at(c)).send({ employeeId: ids[who], leaveTypeId: type.id, fromDate: day(from), toDate: day(to), reason });
+      note(r.status < 300, `leave for ${STAFF[who][0]} ${STAFF[who][1]}`, r);
+    }
+  } else if (!type) note(false, 'leave requests', { status: 0, body: { error: 'no leave type' } });
+
+  /* Recent notices for the owner: the Inbox's Updates and the bell. */
+  const me = (await request(app).get('/api/auth/me').set('Authorization', `Bearer ${c.token}`)).body;
+  const userId = me?.user?.id || me?.id;
+  const org = await platformPrisma.org.findFirst({ where: { id: c.orgId }, select: { accountId: true } }).catch(() => null);
+  if (userId && org?.accountId) {
+    for (const n of NOTICES) {
+      const dedupeKey = `seed:${n.kind}:${n.title}`;
+      if (await platformPrisma.notification.findFirst({ where: { orgId: c.orgId, userId, dedupeKey }, select: { id: true } })) continue;
+      const at_ = new Date(Date.now() - n.hoursAgo * 3600000);
+      await platformPrisma.notification.create({ data: { accountId: org.accountId, orgId: c.orgId, userId, kind: n.kind, title: n.title, body: n.body, linkJson: JSON.stringify(n.link), dedupeKey, createdAt: at_, readAt: n.read ? at_ : null } });
+      made.push(`notice "${n.title}"`);
+    }
+  } else note(false, 'notices', { status: 0, body: { error: 'owner or account not found' } });
+}
+
 async function main() {
   if (process.argv.includes('--code')) {
     const code = await ownerCode();
@@ -194,6 +284,7 @@ async function main() {
   await people(head, second);
   await role(head);
   await tickets(head);
+  await apps(head);
 
   console.log(`\n  Workspace dev account: ${WORKSPACE_DEV_OWNER.email} (password in this file).`);
   console.log(`  Added ${made.length}: ${made.join('; ') || 'nothing new, it was all there'}.`);

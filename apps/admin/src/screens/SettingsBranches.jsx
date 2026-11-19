@@ -10,9 +10,10 @@ import { gstinError } from '@ui/utils/gstinValidation';
 import { PermissionButton } from '@ui/permissions/ActionGuard';
 import { listBranches, createBranch, updateBranch, deleteBranch } from '@platform/admin/admin';
 import { hasApp, platformContext } from '@platform/context';
-import { Empty, Loading, PageHead, WsDrawer } from './wsKit';
+import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-home.css';
+import './ws-security.css';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('convenience-store');
@@ -162,6 +163,13 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
       rows,
     });
 
+  const byState = useMemo(() => {
+    const m = new Map();
+    for (const b of all) if (b.isActive !== false && b.state) m.set(b.state, (m.get(b.state) || 0) + 1);
+    return [...m].sort((a, b) => b[1] - a[1]);
+  }, [all]);
+  const missingGstin = all.filter((b) => b.isActive !== false && !b.gstin);
+
   const sortBy = (key) => setView((v) => ({ ...v, sort: key, dir: v.sort === key ? -v.dir : 1 }));
   const th = (key, label) => (
     <th aria-sort={view.sort === key ? (view.dir > 0 ? 'ascending' : 'descending') : 'none'}>
@@ -186,15 +194,7 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                 <input className="ui-input" value={view.q} onChange={(e) => setView((v) => ({ ...v, q: e.target.value }))} placeholder="Search branches" />
               </label>
               {statesHere.length > 1 ? (
-                <label>
-                  <span className="sr-only">State</span>
-                  <select className="ui-select" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
-                    <option value="">State: All</option>
-                    {statesHere.map((st) => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
-                </label>
+                <FilterSelect label="State" value={stateFilter} options={[['', 'All'], ...statesHere.map((st) => [st, st])]} onChange={setStateFilter} />
               ) : null}
               {branches ? (
                 <span className="ws-list-meta">
@@ -225,16 +225,26 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
         ) : rows.length === 0 ? (
           <Empty icon={PAGE_ICON} compact>{all.length ? 'No branch matches this search.' : 'No branches yet. Add the first one.'}</Empty>
         ) : (
+          <div className="ws-activity-layout">
+          <div className="ws-activity-main">
           <div className="ws-table-wrap">
-            <table className="ws-table">
+            <table className="ws-table ws-sec-table ws-activity-table ws-br-table">
               <caption className="sr-only">Branches of this company</caption>
+              <colgroup>
+                <col className="ws-br-name" />
+                {showType ? <col className="ws-br-type" /> : null}
+                <col className="ws-br-state" />
+                <col className="ws-br-gstin" />
+                <col className="ws-br-status" />
+                <col className="ws-br-act" />
+              </colgroup>
               <thead>
                 <tr>
                   {th('branchName', 'Branch')}
                   {showType ? <th>Type</th> : null}
                   {th('state', 'State')}
                   <th>GSTIN</th>
-                  <th>Status</th>
+                  <th className="ws-mid">Status</th>
                   <th className="ws-th-menu"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
@@ -249,14 +259,14 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                     </td>
                     {showType ? <td>{branchTypeLabel(b.branchType)}</td> : null}
                     <td>{b.state || '—'}</td>
-                    <td className="ws-mono">{b.gstin || '—'}</td>
-                    <td>
+                    <td className="ws-mono">{b.gstin || <span className="ws-missing">{gstEnabled ? 'Not added' : '—'}</span>}</td>
+                    <td className="ws-mid">
                       {b.isActive === false ? (
-                        <span className="ws-pill ws-pill--neutral">Inactive</span>
+                        <span className="ws-state" data-tone="off">Inactive</span>
                       ) : !b.gstin && gstEnabled ? (
-                        <span className="ws-pill ws-pill--warn">Needs GSTIN</span>
+                        <span className="ws-state" data-tone="warn">Needs GSTIN</span>
                       ) : (
-                        <span className="ws-pill ws-pill--ok">Active</span>
+                        <span className="ws-state" data-tone="ok">Active</span>
                       )}
                     </td>
                     <td className="ws-td-menu">
@@ -291,6 +301,44 @@ export function SettingsBranches({ orgId, company, onBranchesChanged }) {
                 ))}
               </tbody>
             </table>
+          </div>
+          </div>
+
+          {/* The right side (owner, 19 Nov 2026): where the branches are, and what is left to set up. */}
+          <aside className="ws-activity-side" aria-label="Branches summary">
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">Branches</p>
+              <p className="ws-activity-big"><span className="ui-num">{active}</span> active</p>
+              <p className="ws-activity-sub">{all.length - active ? `${all.length - active} inactive` : 'None marked inactive'}</p>
+              {byState.length ? (
+                <ul className="ws-activity-bars ws-activity-bars--wide" aria-label="By state">
+                  {byState.map(([st, n]) => (
+                    <li key={st}>
+                      <span className="ws-activity-bar-label">{st}</span>
+                      <span className="ws-activity-bar"><span style={{ width: `${Math.max(6, Math.round((n / all.length) * 100))}%` }} /></span>
+                      <span className="ws-activity-bar-n ui-num">{n}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">To finish</p>
+              {gstEnabled && missingGstin.length ? (
+                <ul className="ws-activity-list">
+                  {missingGstin.map((b) => (
+                    <li key={b.id}>
+                      <button type="button" className="ws-row-link" onClick={() => setDrawer({ mode: 'edit', id: String(b.id) })}>Add GSTIN for {b.branchName || b.branchCode}</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="ws-side-note">{gstEnabled ? 'Every branch has its GSTIN.' : 'GST is off for this company, so branches need no GSTIN.'}</p>}
+            </section>
+            <section className="ws-activity-box">
+              <p className="ws-activity-box-title">One GSTIN per state</p>
+              <p className="ws-side-note">A branch in another state needs its own GST registration. Branches in the same state can share the company's GSTIN.</p>
+            </section>
+          </aside>
           </div>
         )}
       </div>
