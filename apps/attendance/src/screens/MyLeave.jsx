@@ -183,7 +183,7 @@ export default function MyLeave() {
     />
   );
 
-  if (unlinked) return <div className="space-y-6">{header}<EmptyState title="No employee file is linked to your sign-in" description="HR links your sign-in on your employee record." /></div>;
+  if (unlinked) return <div className="space-y-6">{header}<EmptyState title="No employee file is linked to your sign-in" description="Ask HR to put your email on your employee file; your leave then shows here." /></div>;
   if (error && !me) return <div className="space-y-6">{header}<LoadFailed message={error} onRetry={load} /></div>;
   if (!me) return <div className="space-y-6" aria-busy="true">{header}<SkeletonCard lines={6} /></div>;
 
