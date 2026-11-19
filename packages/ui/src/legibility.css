@@ -101,3 +101,8 @@
   .ops-rail-btn > span, .ui-date-tile > b, .ui-side-date > span, .ui-bell-mark
 ) { font-size: 0.75rem; }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-claim-step-dot { width: 1.25rem; height: 1.25rem; }
+
+/* ---- Page titles 20px in People, Payroll and Attendance too (page audit 19 Nov 2026) ---- */
+/* Workspace's titles went to 20px/700 over the slim-toolbar pick's 16px; the other apps' "next, app by app" is this.
+   At 16px/600 a People title read no bigger than its table's names. Books keeps its own. */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-page-heading h1 { font-size: 1.25rem !important; line-height: 1.75rem !important; font-weight: 700 !important; letter-spacing: -0.01em; }
