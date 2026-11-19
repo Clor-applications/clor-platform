@@ -399,7 +399,7 @@ function EnrolAuthenticator({ onDone }) {
         <div className="ops-enrol-codes">
           {codes.map((c) => <span key={c} className="ui-mono">{c}</span>)}
         </div>
-        <button type="button" className="ws-btn ws-btn--primary" onClick={onDone}>I have saved them — open the console</button>
+        <button type="button" className="ws-btn ws-btn--primary" onClick={onDone}>I have saved them. Open the console</button>
       </div>
     );
   }

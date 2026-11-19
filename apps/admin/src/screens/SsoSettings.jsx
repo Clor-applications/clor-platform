@@ -129,7 +129,7 @@ export default function SsoSettings() {
       await navigator.clipboard.writeText(newToken);
       notify.success('Copied.');
     } catch {
-      notify.error('Could not copy — select it and copy by hand.');
+      notify.error('Could not copy. Select it and copy by hand.');
     }
   };
 
@@ -215,7 +215,7 @@ export default function SsoSettings() {
                       <span className="ws-tag">{p.kind === 'SAML' ? 'SAML 2.0' : 'OpenID Connect'}</span>
                     </div>
                     <p className="ws-sso-line">
-                      {p.emailDomains ? p.emailDomains : 'No domains named — nobody is offered it'}
+                      {p.emailDomains ? p.emailDomains : 'No domains named, so nobody is offered it'}
                       {p.autoProvision ? ' · new people are added automatically' : ''}
                       {p.lastUsedAt ? ` · last used ${stamp(p.lastUsedAt)}` : ''}
                     </p>
@@ -274,7 +274,7 @@ export default function SsoSettings() {
               {scim?.baseUrl ? <Address label="Tenant URL to give the provider" value={scim.baseUrl} /> : null}
               {newToken ? (
                 <div className="ws-band" data-tone="warn" role="status" style={{ display: 'grid', gap: 8 }}>
-                  <span className="text-sm font-semibold">Secret token — shown once</span>
+                  <span className="text-sm font-semibold">Secret token: shown once</span>
                   <div className="flex flex-wrap items-center gap-2">
                     <code className="ui-mono text-sm break-all min-w-0 flex-1">{newToken}</code>
                     <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={copyToken}><Copy size={14} aria-hidden="true" /> Copy</button>

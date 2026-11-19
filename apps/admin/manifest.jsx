@@ -137,7 +137,7 @@ export const adminApp = {
   name: 'Workspace',
   /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
   icon: AppShieldCheck,
-  blurb: 'People, roles, sign-in, billing and the audit trail — for every app.',
+  blurb: 'People, roles, sign-in, billing and the audit trail, for every app.',
   available: true,
   platform: true,
   home: 'home',

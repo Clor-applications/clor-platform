@@ -42,10 +42,10 @@ import './ws-overview.css';
 const ROLE_LABEL = { OWNER: 'Account Owner', ADMIN: 'Account Admin', BILLING_ADMIN: 'Billing Admin', MEMBER: 'Member' };
 /* One line under the greeting, by account role. Presentation only: what each can do is the server's. */
 const ROLE_LEDE = {
-  OWNER: 'Your workspace, applications and team, all in one place.',
-  ADMIN: 'Manage your workspace and keep your team moving.',
+  OWNER: 'Your companies, their apps and people, and what waits on you.',
+  ADMIN: 'The companies, apps and people you look after.',
 };
-const DEFAULT_LEDE = 'Your applications and work, all in one place.';
+const DEFAULT_LEDE = 'The apps you use and what waits on you.';
 
 /** What an app is to this company and this person right now (spec §18): never one universal "switched on". */
 export function appState(app, tenant, myApps = null) {
@@ -538,10 +538,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         {/* Hero: who you are, where you are, and the one primary action. */}
         <section className="wsh-hero" data-today={lines.length ? '' : undefined} aria-labelledby="wsh-hello">
           <div className="wsh-hero-text">
-            <p className="wsh-eyebrow">Welcome to CLOR Workspace</p>
             <h1 id="wsh-hello" className="wsh-hello">
               {greeting()}
-              {name ? <>, <span className="wsh-name">{name}</span></> : null}
+              {name ? <>, {name}</> : null}
               <E.wave size={36} className="wsh-wave" aria-hidden="true" />
             </h1>
             <p className="wsh-lede">{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
@@ -616,10 +615,19 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               ) : null}
             </div>
             {!settled ? (
-              <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
-                <span className="ui-skel ui-skel-text" />
-                <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
-              </div>
+              <ul className="wsh-attn" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <li key={i}>
+                    <div className="wsh-attn-row">
+                      <span className="ui-skel wsh-ico" />
+                      <span className="wsh-attn-text">
+                        <span className="ui-skel ui-skel-text" style={{ width: '72%' }} />
+                        <span className="ui-skel ui-skel-text" style={{ width: '48%' }} />
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : attention.length ? (
               <ul className="wsh-attn" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
                 {attention.map((a) => {

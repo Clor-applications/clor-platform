@@ -295,7 +295,7 @@ export default function PayrollCompliance({ params } = {}) {
       <PageHeader
         entity="compliance"
         title="Compliance"
-        description="Provident fund, ESI, professional tax, Labour Welfare Fund and income tax — the rates payroll deducts under, and when each took effect."
+        description="The rates payroll deducts for provident fund, ESI, professional tax, Labour Welfare Fund and income tax, and when each took effect."
         actions={
           <button type="button" className="ui-btn ui-btn-secondary" onClick={seed} disabled={busy === 'seed'}>
             {busy === 'seed' ? 'Adding…' : 'Add the standard rates'}
@@ -383,7 +383,7 @@ export default function PayrollCompliance({ params } = {}) {
       {schemes.length === 0 ? (
         <EmptyState
           title="No statutory schemes set up"
-          description="Add the standard Indian rates to start from — provident fund, ESI, professional tax and Labour Welfare Fund for every state that levies them, and income tax. Nothing is switched on until you say it applies."
+          description="Add the standard Indian rates to start from: provident fund, ESI, professional tax and Labour Welfare Fund for every state that levies them, and income tax. Nothing is switched on until you say it applies."
           action={
             <button type="button" className="ui-btn ui-btn-primary" onClick={seed} disabled={busy === 'seed'}>
               <Plus size={16} aria-hidden="true" /> Add the standard rates
@@ -616,7 +616,7 @@ const LwfSettings = ({ value, onSaved }) => {
           <input type="radio" name="lwf-coverage" className="mt-1" checked={coverage === 'BY_HEADCOUNT'} onChange={() => setCoverage('BY_HEADCOUNT')} />
           <span>
             Count the people in payroll in each state
-            <span className="ui-caption block">Most states start LWF at a size — Karnataka at 10, Andhra Pradesh at 20. Below it, nothing is deducted.</span>
+            <span className="ui-caption block">Most states start LWF at a size (Karnataka at 10, Andhra Pradesh at 20). Below it, nothing is deducted.</span>
           </span>
         </label>
         <label className="flex items-start gap-2 text-sm">
@@ -989,7 +989,7 @@ const RateForm = ({ scheme, from, onClose, onSaved }) => {
           />
           <span className="ui-caption">
             {scheme.code === 'LWF'
-              ? 'Copied from the rate you are correcting: change only the figures — the amounts from pay and from the employer, the months it is collected in, and the number of people it starts at — to match the state’s current notice.'
+              ? 'Copied from the rate you are correcting: change only the figures: the amounts from pay and from the employer, the months it is collected in, and the number of people it starts at, to match the state’s current notice.'
               : scheme.code === 'PF'
                 ? 'Copied from the rate you are correcting: the pension share and its wage ceiling, and whether the company contributes on the whole wage.'
                 : 'Copied from the rate you are correcting: change only the figures.'}

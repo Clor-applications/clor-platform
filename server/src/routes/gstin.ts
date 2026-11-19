@@ -113,10 +113,10 @@ gstinRouter.get('/gstin/:gstin', requireAuth, async (req, res) => {
   const gstin = String(req.params.gstin || '').trim().toUpperCase();
 
   if (!isValidGstinFormat(gstin)) {
-    return res.status(400).json({ error: 'That is not a valid GSTIN — it should be 15 characters.' });
+    return res.status(400).json({ error: 'That is not a valid GSTIN. It should be 15 characters.' });
   }
   if (!isValidGstinChecksum(gstin)) {
-    return res.status(400).json({ error: 'That GSTIN fails its own check digit — please re-read it.' });
+    return res.status(400).json({ error: 'That GSTIN fails its own check digit. Please re-read it.' });
   }
 
   const stateCode = gstinStateCode(gstin);

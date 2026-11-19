@@ -126,7 +126,10 @@ export function AuditLog({ initialAccount = null, openCustomer }) {
                       '—'
                     )}
                   </td>
-                  <td className="hidden sm:table-cell" data-label="Why" style={{ whiteSpace: 'normal', maxWidth: 420 }}>{e.summary || '—'}</td>
+                  <td className="hidden sm:table-cell" data-label="Why" style={{ whiteSpace: 'normal', maxWidth: 420 }}>
+                    {e.summary || '—'}
+                    {e.details ? <div className="ws-item-sub">{e.details}</div> : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

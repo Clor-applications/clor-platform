@@ -6,6 +6,7 @@ const { buildApp } = await import('../app.js');
 const { platformPrisma } = await import('../utils/platformPrisma.js');
 const { opsKit, lastAudit } = await import('./opsTestKit.js');
 const { setSubscription } = await import('../services/subscriptions.js');
+const { auditDetails, auditSummary } = await import('../routes/ops.js');
 
 const app = buildApp().listen(0, '127.0.0.1');
 afterAll(async () => {
@@ -116,4 +117,20 @@ describe('the audit log and home', () => {
     expect(h.work.invoices.total).toBeGreaterThanOrEqual(7);
     expect(h.work.invoices.items.map((i: any) => i.total)).toEqual([100, 101, 102, 103, 104]);
   }, 60_000);
+});
+
+describe('audit words', () => {
+  it('shows only the reason as the why, and the rest as plain words', () => {
+    const detail = { to: 'workspace.dev@clor.test', auto: false, kind: 'REMINDER', step: 'manual', number: 'CLOR/26-27/0042', invoiceId: 'inv_1', reason: 'Chased the unpaid invoice' };
+    expect(auditSummary(detail)).toBe('Chased the unpaid invoice');
+    expect(auditSummary({ note: 'Asked by phone' })).toBe('Asked by phone');
+    expect(auditSummary({ to: 'a@b.in' })).toBe('');
+
+    const words = auditDetails(detail);
+    expect(words).toContain('To workspace.dev@clor.test');
+    expect(words).toContain('Kind reminder');
+    expect(words).toContain('Step manual');
+    expect(words).not.toMatch(/invoiceId|auto:|kind:|reason:/);
+    expect(auditDetails(null)).toBe('');
+  });
 });

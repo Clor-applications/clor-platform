@@ -163,7 +163,7 @@ payrollAdjustmentsRouter.get('/orgs/:orgId/payroll/leave-encashments', requirePe
 const body = z
   .object({
     employeeId: z.string().trim().min(1, 'Say who this is for.'),
-    componentId: z.string().trim().min(1, 'Say what this is — a bonus, an arrear, a fine.'),
+    componentId: z.string().trim().min(1, 'Say what this is: a bonus, an arrear, a fine.'),
     periodId: z.string().trim().min(1, 'Say which month this is paid in.'),
     amount: z.number().finite().optional(),
     quantity: z.number().finite().positive('The count must be more than nothing.').max(100000).optional().nullable(),

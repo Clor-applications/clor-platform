@@ -14,7 +14,7 @@ import type { PlanData, PriceUnit } from './engine.js';
  * months free; as a percentage that would be 16.67%, so each sample plan
  * carries its own yearly price rather than a yearly discount.
  */
-export const SAMPLE_NOTE = 'Sample prices — not final';
+export const SAMPLE_NOTE = 'Sample prices: not final';
 export const SAMPLE_TRIAL_DAYS = 30;
 
 const RS = 100;

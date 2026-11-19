@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Cake, CalendarDays, ChevronRight, CircleAlert, Hourglass, LogOut, Medal, Megaphone, MessagesSquare, Pin, Plane, Plus, Users } from 'lucide-react';
 
 import { SkeletonCard } from '@ui/components/ui/Primitives';
+import { MoreButton } from '@ui/components/list/ListPageParts';
 import { getOverview, getPeopleHome, listEmployees, summaryOpened } from '@ui/personnel/api';
 import { listLeaveRequests, swatchOf } from '@ui/timeOff/api';
 import { listRecords } from '../api/workspace';
@@ -191,7 +192,7 @@ export function HomeGlance({ glance, go }) {
       : monthClose.blocking
         ? { tone: 'warn', text: `${plural(monthClose.blocking, 'thing')} to fix before closing` }
         : monthClose.noRecordDays
-          ? { tone: 'warn', text: `${monthClose.noRecordDays.toLocaleString('en-IN')} ${monthClose.noRecordDays === 1 ? 'day' : 'days'} with no record to confirm` }
+          ? { tone: 'warn', text: 'Attendance missing, needs confirming' }
           : { tone: undefined, text: 'Ready to close' };
     blocks.push(
       <section key="close" className="people-glance-block" aria-labelledby="glance-close">
@@ -376,14 +377,26 @@ export default function PeopleOverview({ openScreen }) {
             {leave ? <> and <strong data-zero={outToday.length === 0 || undefined}>{plural(outToday.length, 'person', 'people')}</strong> {outToday.length === 1 ? 'is' : 'are'} out today.</> : '.'}
           </p>
         </div>
-        {/* One primary, top right; the shortcuts beside it are secondary. */}
+        {/* One primary, top right; the shortcuts beside it are secondary, and fold behind More on a phone. */}
         <div className="people-home-actions">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={go('leaveRequests')}><CalendarDays size={16} aria-hidden="true" /> Leave requests</button>
-          {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}><MessagesSquare size={16} aria-hidden="true" /> HR cases</button> : null}
-          {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('announcements')}><Megaphone size={16} aria-hidden="true" /> Announce</button> : null}
+          <div className="people-home-secondary">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={go('leaveRequests')}><CalendarDays size={16} aria-hidden="true" /> Leave requests</button>
+            {may('PEOPLE::HR Cases::VIEW') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('helpdesk')}><MessagesSquare size={16} aria-hidden="true" /> HR cases</button> : null}
+            {may('PEOPLE::Announcements::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={go('announcements')}><Megaphone size={16} aria-hidden="true" /> Announce</button> : null}
+          </div>
           {may('PEOPLE::Employees::CREATE') ? (
             <button type="button" className="ui-btn ui-btn-primary" onClick={go('employeeNew')}><Plus size={16} aria-hidden="true" /> Add an employee</button>
           ) : null}
+          <div className="people-home-more">
+            <MoreButton
+              items={[
+                { key: 'leaveRequests', label: 'Leave requests', Icon: CalendarDays },
+                may('PEOPLE::HR Cases::VIEW') ? { key: 'helpdesk', label: 'HR cases', Icon: MessagesSquare } : null,
+                may('PEOPLE::Announcements::CREATE') ? { key: 'announcements', label: 'Announce', Icon: Megaphone } : null,
+              ]}
+              onSelect={(key) => openScreen?.(key)}
+            />
+          </div>
         </div>
       </header>
       <HomeCheckIn />

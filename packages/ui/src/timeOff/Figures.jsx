@@ -64,6 +64,31 @@ export function StatTiles({ items, label = 'Figures' }) {
   );
 }
 
+/**
+ * The count line (DESIGN.md "Page header"): a list page's figures as one quiet line under its title, in place
+ * of figure tiles. Same items as StatTiles; a figure at zero or still loading is left out, and an item with
+ * `onClick` is a link that filters the list. "12 waiting · 3 approved this month".
+ */
+const lowerFirst = (t) => (typeof t === 'string' && /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
+const isZero = (v) => v === 0 || v === '0' || v === null || v === undefined || v === '' || v === '—';
+export function CountLine({ items, label = 'Figures' }) {
+  const shown = (items || []).filter((it) => it && !it.busy && !isZero(it.value));
+  if (!shown.length) return null;
+  return (
+    <p className="ui-count-line" aria-label={label}>
+      {shown.map(({ key, label: what, value, onClick, tone }, i) => {
+        const text = <><span className={`ui-count-line-figure ${tone ? `is-${tone}` : ''}`}>{value}</span> {lowerFirst(what)}</>;
+        return (
+          <React.Fragment key={key || what}>
+            {i ? <span className="ui-count-line-sep" aria-hidden="true"> · </span> : null}
+            {onClick ? <button type="button" className="ui-count-line-link" onClick={onClick}>{text}</button> : <span>{text}</span>}
+          </React.Fragment>
+        );
+      })}
+    </p>
+  );
+}
+
 /** A leave type's name on its own colour: `type` is a leave type, or a row with `leaveTypeName` / `leaveTypeColor`. */
 export function LeavePill({ type, children = null }) {
   const name = type?.name ?? type?.leaveTypeName ?? '';

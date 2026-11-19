@@ -95,7 +95,7 @@ export function AccessHome({ navItems = [], openScreen }) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Users & access', 'Access overview']}
-          title="Access"
+          title="Access overview"
           description="Who is in the account, who is waiting to join, and who can administer it."
           actions={may.has('invitations') ? <button type="button" className="ws-btn ws-btn--primary" onClick={() => openScreen('invitations')}><ICON.invite size={18} /> Invite people</button> : null}
         />

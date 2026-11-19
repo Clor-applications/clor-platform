@@ -94,16 +94,16 @@ export const payrollApp = {
   /* `permission`: what the screen's data needs (server routes); the shell hides what this user cannot open and shows read-only what they cannot change. */
   nav: [
     { key: 'overview', label: 'Overview', icon: I.overview, permission: 'PAYROLL::Payroll Runs::VIEW' },
-    { key: 'runs', label: 'Pay Runs', icon: I.runs, permission: 'PAYROLL::Payroll Runs::VIEW' },
-    { key: 'slips', label: 'Salary Slips', icon: I.slips, permission: 'PAYROLL::Salary Slips::VIEW' },
+    { key: 'runs', label: 'Pay runs', icon: I.runs, permission: 'PAYROLL::Payroll Runs::VIEW' },
+    { key: 'slips', label: 'Salary slips', icon: I.slips, permission: 'PAYROLL::Salary Slips::VIEW' },
     { key: 'payments', label: 'Payments', icon: I.payments, permission: 'PAYROLL::Payroll Payments::VIEW' },
     /* Round 66: workers paid by the day, every week or fortnight. */
     { key: 'weeklyWages', label: 'Weekly wages', icon: I.weekly, permission: 'PAYROLL::Payroll Runs::VIEW' },
     { key: 'bankChanges', label: 'Bank changes', icon: I.bank, permission: 'PAYROLL::Employee Payroll Profile::VIEW' },
     { key: 'adjustments', label: 'Adjustments', icon: I.adjustments, permission: 'PAYROLL::Payroll Adjustments::VIEW' },
-    { key: 'assignments', label: 'Salary Assignments', icon: I.assignments, permission: 'PAYROLL::Salary Assignments::VIEW' },
-    { key: 'revisions', label: 'Salary Revisions', icon: I.revisions, permission: 'PAYROLL::Salary Revisions::VIEW' },
-    { key: 'loans', label: 'Loans & Advances', icon: I.loans, permission: 'PAYROLL::Payroll Loans::VIEW' },
+    { key: 'assignments', label: 'Salary assignments', icon: I.assignments, permission: 'PAYROLL::Salary Assignments::VIEW' },
+    { key: 'revisions', label: 'Salary revisions', icon: I.revisions, permission: 'PAYROLL::Salary Revisions::VIEW' },
+    { key: 'loans', label: 'Loans & advances', icon: I.loans, permission: 'PAYROLL::Payroll Loans::VIEW' },
     { key: 'settlements', label: 'Full & final', icon: I.settlements, permission: 'PAYROLL::Payroll Runs::VIEW' },
     { key: 'taxDeclarations', label: 'Tax declarations', icon: I.tax, permission: 'PAYROLL::Employee Payroll Profile::VIEW' },
     { key: 'bonus', label: 'Statutory bonus', icon: I.bonus, permission: 'PAYROLL::Payroll Adjustments::VIEW' },
@@ -115,14 +115,14 @@ export const payrollApp = {
      */
     { section: 'Settings' },
     { key: 'setup', label: 'Setup', icon: I.setup, permission: 'PAYROLL::Payroll Settings::VIEW' },
-    { key: 'periods', label: 'Pay Calendar', icon: I.calendar, permission: 'PAYROLL::Payroll Settings::VIEW' },
-    { key: 'payGroups', label: 'Pay Groups', icon: I.groups, permission: 'PAYROLL::Payroll Settings::VIEW' },
-    { key: 'components', label: 'Salary Components', icon: I.components, permission: 'PAYROLL::Salary Structures::VIEW' },
-    { key: 'structures', label: 'Salary Structures', icon: I.structures, permission: 'PAYROLL::Salary Structures::VIEW' },
+    { key: 'periods', label: 'Pay calendar', icon: I.calendar, permission: 'PAYROLL::Payroll Settings::VIEW' },
+    { key: 'payGroups', label: 'Pay groups', icon: I.groups, permission: 'PAYROLL::Payroll Settings::VIEW' },
+    { key: 'components', label: 'Salary components', icon: I.components, permission: 'PAYROLL::Salary Structures::VIEW' },
+    { key: 'structures', label: 'Salary structures', icon: I.structures, permission: 'PAYROLL::Salary Structures::VIEW' },
     { key: 'compliance', label: 'Compliance', icon: I.compliance, permission: 'PAYROLL::Payroll Settings::VIEW' },
     { key: 'ledgers', label: 'Ledger mapping', icon: I.ledgers, permission: 'PAYROLL::Payroll Posting::VIEW' },
     /* Payroll's roles live in Workspace's one role editor; this opens it on Payroll (ADR-010). */
-    { key: 'rolesAccess', label: 'Roles & Access', icon: I.roles, permission: 'SETTINGS::Roles::VIEW' },
+    { key: 'rolesAccess', label: 'Roles & access', icon: I.roles, permission: 'SETTINGS::Roles::VIEW' },
     { key: 'emailNotifications', label: 'Email notifications', icon: I.mail, permission: 'SETTINGS::Company Profile::VIEW' },
   ],
 

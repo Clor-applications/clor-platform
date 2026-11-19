@@ -37,7 +37,7 @@ describe('a quote', () => {
     expect(q.tax.note).toMatch(/not registered for GST/);
     expect(q.total).toBe(900 * RS);
     expect(q.trialDays).toBe(30);
-    expect(q.note).toBe('Sample prices — not final');
+    expect(q.note).toBe('Sample prices: not final');
   });
 
   it('the base price covers the included employees: Payroll Starter is ₹500 for six, ₹700 for fourteen', () => {

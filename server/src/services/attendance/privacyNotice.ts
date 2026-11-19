@@ -47,9 +47,9 @@ export async function privacyNoticeFor(orgId: string): Promise<PrivacyNotice> {
       id: 'what',
       title: 'What is collected, and why',
       items: [
-        'Your name, employee code, department, site and reader ID — to know whose punch is whose.',
-        'Each punch: the time, which reader, in or out, and how you were recognised (finger, face, card) — to work out your attendance, leave and pay.',
-        'Phone punches, only if HR switched them on for you: where you were at the moment you punched, how accurate that was, and a selfie if asked — to check you were at a work site. Your location is read only when you press Punch, never in between.',
+        'Your name, employee code, department, site and reader ID, to know whose punch is whose.',
+        'Each punch: the time, which reader, in or out, and how you were recognised (finger, face, card), to work out your attendance, leave and pay.',
+        'Phone punches, only if HR switched them on for you: where you were at the moment you punched, how accurate that was, and a selfie if asked, to check you were at a work site. Your location is read only when you press Punch, never in between.',
         ...(fieldPeople
           ? ['Field punching, only for people HR set to it (for work away from the sites): a punch is accepted wherever you are, and the place and its address are recorded and shown to your manager and HR, who may need to approve it before it counts.']
           : []),

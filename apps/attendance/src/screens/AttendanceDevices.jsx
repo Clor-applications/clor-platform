@@ -39,8 +39,8 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
 
 const DIRECTIONS = {
   both: 'In and out (the reader’s keys decide)',
-  in: 'Entry only — every punch is an arrival',
-  out: 'Exit only — every punch is a departure',
+  in: 'Entry only: every punch is an arrival',
+  out: 'Exit only: every punch is a departure',
 };
 const ago = (iso) => {
   if (!iso) return 'never';
@@ -68,17 +68,17 @@ const URL_PUSH = { MATRIX_COSEC: true, HIKVISION_PUSH: true };
 const ANVIZ_REGIONS = [['https://api.us.crosschexcloud.com/', 'Americas (api.us)'], ['https://api.ap.crosschexcloud.com/', 'Asia-Pacific incl. India (api.ap)'], ['https://api.eu.crosschexcloud.com/', 'Europe (api.eu)']];
 const ADDRESS_HINT = { HIKVISION: 'http://203.0.113.10:80', DAHUA: 'http://203.0.113.10:80', BIOSTAR: 'https://biostar.example.com', HTTP_PULL: 'https://host/api/punches?from={from}&to={to}', ANVIZ_CLOUD: 'https://api.ap.crosschexcloud.com/' };
 const TIME_STAMPS = [
-  ['iso', 'ISO, UTC — 2026-10-17T03:30:00.000Z'],
-  ['local', 'Local — 2026-10-17 09:00:00'],
-  ['date', 'Date only — 2026-10-17'],
-  ['dmy', 'Day first — 17/10/2026 09:00'],
+  ['iso', 'ISO, UTC: 2026-10-17T03:30:00.000Z'],
+  ['local', 'Local: 2026-10-17 09:00:00'],
+  ['date', 'Date only: 2026-10-17'],
+  ['dmy', 'Day first: 17/10/2026 09:00'],
   ['epoch', 'Seconds since 1970'],
   ['epoch_ms', 'Milliseconds since 1970'],
 ];
 /** Not readers: punches sent with an API key, and from the employee portal on phones. */
 const VIRTUAL = {
-  API: { label: 'API key', title: 'Punches sent with an API key — manage it under Integrations' },
-  MOBILE: { label: 'Employee portal', title: 'Punches from phones in the employee portal — see Portal access and Work sites' },
+  API: { label: 'API key', title: 'Punches sent with an API key. Manage it under Integrations' },
+  MOBILE: { label: 'Employee portal', title: 'Punches from phones in the employee portal. See Portal access and Work sites' },
 };
 
 /**
@@ -153,7 +153,7 @@ const exportColumns = (siteNames) => [
   { key: 'userCount', label: 'Enrolled' },
   { key: 'punchesToday', label: 'Punches today' },
 ];
-export default function AttendanceDevices({ openScreen }) {
+export default function AttendanceDevices({ openScreen, menuLabel }) {
   const [data, setData] = useState(null);
   /* Site names for the list; a reader holds only the area's id. */
   const [siteNames, setSiteNames] = useState(() => new Map());
@@ -190,13 +190,13 @@ export default function AttendanceDevices({ openScreen }) {
     <div className="space-y-6">
     <DocumentListShell
       entity="reader"
-      title="All readers"
+      title={menuLabel || 'All readers'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'All readers', fileName: 'Readers', label: 'reader/readers', columns: exportColumns(siteNames), rows: rows });
       }}
-      description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days."
+      description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office, all landing on the same days."
       compact
       tight
       denseCards
@@ -279,7 +279,7 @@ export default function AttendanceDevices({ openScreen }) {
                         <EmptyState
                           icon={Cpu}
                           title="No readers yet"
-                          description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office — all landing on the same days. Point a reader at CLOR as below, then add it by its serial number."
+                          description="Readers of any make, software that can send punches to a URL, files from reader software, and e-Time Office, all landing on the same days. Point a reader at CLOR as below, then add it by its serial number."
                           routes={[{ label: 'Add reader', description: 'By serial number, push URL, file or pull.', onSelect: () => setAdding(true) }]}
                         />
                       )}
@@ -336,7 +336,7 @@ export default function AttendanceDevices({ openScreen }) {
             On the reader: <strong>Menu → Comm → Cloud Server Setting</strong>. Server address <code className="ui-mono font-semibold">{server.host}</code>, port{' '}
             <code className="ui-mono font-semibold">80</code>, domain name <strong>on</strong>, proxy <strong>off</strong>. (Port 443 with HTTPS on, if the model offers it.)
           </li>
-          <li>Set the reader’s date and time to Indian time — punches are recorded at the reader’s clock.</li>
+          <li>Set the reader’s date and time to Indian time. Punches are recorded at the reader’s clock.</li>
           <li>
             Add it here with the serial number from <strong>Menu → System Info → Device Info</strong>, from a computer or phone on the same internet connection as the
             reader (the office Wi-Fi). Its stored punches come across on the first heartbeat.
@@ -429,7 +429,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
         return;
       }
       notify.success(
-        cloud || pull ? `${r.device.name} connected. Punches are pulled every few minutes${kind === 'HTTP_PULL' ? '; open it to set where each field is' : ''}.` : mapped ? `${r.device.name} added. Open it to import a file.` : r.seenBefore ? `${r.device.name} added — it is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`
+        cloud || pull ? `${r.device.name} connected. Punches are pulled every few minutes${kind === 'HTTP_PULL' ? '; open it to set where each field is' : ''}.` : mapped ? `${r.device.name} added. Open it to import a file.` : r.seenBefore ? `${r.device.name} added. It is already talking to CLOR.` : `${r.device.name} added. It shows online once it connects.`
       );
       onSaved();
     } catch (err) {
@@ -450,7 +450,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={onSaved}>Done</button>}
       >
         <PushUrl url={made.url} />
-        {matrix ? <MatrixSetupNote /> : hikPush ? <HikvisionSetupNote /> : <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is — open the reader afterwards and choose <strong>Set up fields</strong>.</p>}
+        {matrix ? <MatrixSetupNote /> : hikPush ? <HikvisionSetupNote /> : <p className="ui-caption mt-4">Send punches with POST, as JSON, in whatever shape the device uses. The first thing it sends is kept so you can set where each field is. Open the reader afterwards and choose <strong>Set up fields</strong>.</p>}
       </Drawer>
     );
   }
@@ -493,7 +493,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!form.username || !form.password} onClick={test}>Test connection</button>
               {tested ? (
                 <span className="text-sm" role="status" style={{ color: tested.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
-                  {tested.ok ? `Connected — ${tested.punchesToday} punches today.` : tested.message}
+                  {tested.ok ? `Connected. ${tested.punchesToday} punches today.` : tested.message}
                 </span>
               ) : null}
             </div>
@@ -535,7 +535,7 @@ function AddReader({ drivers, pushBase, matrixBase, hikvisionBase, onClose, onSa
               <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!form.baseUrl} onClick={test}>Test connection</button>
               {tested ? (
                 <span className="text-sm" role="status" style={{ color: tested.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>
-                  {tested.ok ? `Connected — ${tested.punchesToday} record${tested.punchesToday === 1 ? '' : 's'} today${kind === 'HTTP_PULL' ? `, ${tested.readable} readable with the mapping` : ''}.` : tested.message}
+                  {tested.ok ? `Connected. ${tested.punchesToday} record${tested.punchesToday === 1 ? '' : 's'} today${kind === 'HTTP_PULL' ? `, ${tested.readable} readable with the mapping` : ''}.` : tested.message}
                 </span>
               ) : null}
               {anviz ? <span className="ui-caption">CrossChex Cloud allows one request every 15 seconds; a test takes about that long.</span> : null}
@@ -585,7 +585,7 @@ function PushUrl({ url }) {
       await navigator.clipboard.writeText(url);
       notify.success('Copied.');
     } catch {
-      notify.error('Could not copy — select it and copy by hand.');
+      notify.error('Could not copy. Select it and copy by hand.');
     }
   };
   return (
@@ -598,8 +598,8 @@ function PushUrl({ url }) {
 
 const TIME_FORMATS = [
   ['auto', 'Work it out (ISO, YYYY-MM-DD, epoch)'],
-  ['DMY', 'Day first — 31/12/2026 09:05'],
-  ['MDY', 'Month first — 12/31/2026 09:05'],
+  ['DMY', 'Day first: 31/12/2026 09:05'],
+  ['MDY', 'Month first: 12/31/2026 09:05'],
   ['epoch', 'Seconds since 1970'],
   ['epoch_ms', 'Milliseconds since 1970'],
 ];
@@ -784,9 +784,9 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
           ) : null}
           <datalist id="hdr-list">{headers.map((h) => <option key={h} value={h} />)}</datalist>
           <div className="grid gap-3 sm:grid-cols-2">
-            {!isFile ? field('records', 'Where the list of punches is', 'e.g. data.events — blank if the answer is the list') : null}
+            {!isFile ? field('records', 'Where the list of punches is', 'e.g. data.events, blank if the answer is the list') : null}
             {field('employeeCode', 'Employee code *', isFile ? 'column name' : 'e.g. employeeNoString or user.id')}
-            {field('timestamp', 'Date and time, one field', 'e.g. dateTime — or use the two below')}
+            {field('timestamp', 'Date and time, one field', 'e.g. dateTime, or use the two below')}
             <label className="block">
               <span className="ui-label">How the time is written</span>
               <select className="ui-select w-full" value={map.timeFormat} onChange={setM('timeFormat')}>
@@ -795,7 +795,7 @@ function MappedDrawer({ device, pushBase, onClose, onChanged }) {
             </label>
             {field('date', 'Date (if separate)', 'e.g. PunchDate')}
             {field('time', 'Time (if separate)', 'e.g. PunchTime')}
-            {field('direction', 'In / out field', 'e.g. attendanceStatus — blank uses the direction above')}
+            {field('direction', 'In / out field', 'e.g. attendanceStatus, blank uses the direction above')}
             <div className="grid grid-cols-2 gap-3">
               <label className="block"><span className="ui-label">Means in</span><input className="ui-input w-full" value={map.inValues} onChange={setM('inValues')} /></label>
               <label className="block"><span className="ui-label">Means out</span><input className="ui-input w-full" value={map.outValues} onChange={setM('outValues')} /></label>
@@ -944,7 +944,7 @@ function HikvisionPushDrawer({ device, hikvisionBase, onClose, onChanged }) {
             <PushUrl url={newUrl} />
           ) : (
             <p className="text-sm">
-              Starts <code className="ui-mono">{hikvisionBase}{device.pushTokenPrefix}…</code> — the full URL was shown when the terminal was added.
+              Starts <code className="ui-mono">{hikvisionBase}{device.pushTokenPrefix}…</code>. The full URL was shown when the terminal was added.
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
@@ -1096,7 +1096,7 @@ function MatrixDrawer({ device, matrixBase, onClose, onChanged }) {
             <PushUrl url={newUrl} />
           ) : (
             <p className="text-sm">
-              Starts <code className="ui-mono">{matrixBase}{device.pushTokenPrefix}…</code> — the full URL was shown when the controller was added.
+              Starts <code className="ui-mono">{matrixBase}{device.pushTokenPrefix}…</code>. The full URL was shown when the controller was added.
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
@@ -1303,7 +1303,7 @@ function PullDrawer({ device, onClose, onChanged }) {
           <ZoneField value={form.sourceTimezone} onChange={(v) => setForm({ ...form, sourceTimezone: v })} />
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" disabled={!form.baseUrl} onClick={test}>Test connection</button>
-            {tested ? <span className="text-sm" role="status" style={{ color: tested.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{tested.ok ? `Connected — ${tested.punchesToday} records today.` : tested.message}</span> : null}
+            {tested ? <span className="text-sm" role="status" style={{ color: tested.ok ? 'rgb(var(--pos))' : 'rgb(var(--neg))' }}>{tested.ok ? `Connected. ${tested.punchesToday} records today.` : tested.message}</span> : null}
           </div>
           <label className="block">
             <span className="ui-label">Direction when not said</span>
@@ -1353,7 +1353,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
     e.preventDefault();
     try {
       const r = await updateDevice(device.id, { ...form, areaId: form.areaId || null, ...(hasAllowList ? { ipAllowList: allowListOf(allowList) } : {}) });
-      notify.success(r?.areaChanged ? 'Reader saved. Its area changed — see Sync status to add the new people and remove the rest.' : 'Reader saved.');
+      notify.success(r?.areaChanged ? 'Reader saved. Its area changed. See Sync status to add the new people and remove the rest.' : 'Reader saved.');
       /* Saved as asked, but the real reader is outside the list: say so before the punches stop arriving. */
       if (r?.readerOutsideAllowList) {
         notify.error(`This reader last called from ${r.readerOutsideAllowList}, which is not in the list you saved. Its punches will be refused until that address is added.`);
@@ -1419,7 +1419,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
                 <option value="">Everyone</option>
                 {areas.map((a) => <option key={a.id} value={a.id}>Only {a.name} area</option>)}
               </select>
-              <span className="ui-caption">A site’s reader holds only that site’s staff — smaller, faster, and nobody else’s finger opens it. People with no area go to every reader.</span>
+              <span className="ui-caption">A site’s reader holds only that site’s staff. It is smaller and faster, and nobody else’s finger opens it. People with no area go to every reader.</span>
             </label>
           ) : null}
           <label className="flex items-center gap-2 text-sm">
@@ -1465,7 +1465,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
             <button
               type="button"
               className="ui-btn ui-btn-secondary ui-btn-sm"
-              onClick={() => run('COPY_TEMPLATES', (r) => (r.people ? `Copying ${r.people} ${r.people === 1 ? 'person' : 'people'}’s fingerprints and faces to this reader (${r.queued} commands).` : 'No fingerprints or faces stored yet — fetch them from a reader first.'))}
+              onClick={() => run('COPY_TEMPLATES', (r) => (r.people ? `Copying ${r.people} ${r.people === 1 ? 'person' : 'people'}’s fingerprints and faces to this reader (${r.queued} commands).` : 'No fingerprints or faces stored yet. Fetch them from a reader first.'))}
             >
               Copy everyone’s fingerprints &amp; faces here
             </button>
@@ -1522,7 +1522,7 @@ function ReaderDrawer({ device, onClose, onChanged }) {
           {!users ? (
             <SkeletonCard lines={2} />
           ) : !users.length ? (
-            <p className="ui-muted text-sm">Not known yet — use “Fetch its users”.</p>
+            <p className="ui-muted text-sm">Not known yet. Use “Fetch its users”.</p>
           ) : (
             <ul className="grid gap-1 text-sm sm:grid-cols-2">
               {users.map((u) => (
@@ -1561,7 +1561,7 @@ function ReaderMessage({ device, onSent }) {
     setBusy(true);
     try {
       const r = await deviceCommand(device.id, 'MESSAGE', { text: text.trim(), minutes: Number(minutes) || 60, ...(employeeId ? { employeeId } : {}) });
-      notify.success(r.to === 'person' ? 'Queued — it shows the next time they punch.' : 'Queued — it shows on the reader within a minute.');
+      notify.success(r.to === 'person' ? 'Queued. It shows the next time they punch.' : 'Queued. It shows on the reader within a minute.');
       setText('');
       onSent?.();
     } catch (err) {

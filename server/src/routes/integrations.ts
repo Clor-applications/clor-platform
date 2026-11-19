@@ -63,7 +63,7 @@ integrationsRouter.post(`${base}/keys`, can(PermissionAction.CREATE), async (req
   const scopeRefused = await scopeRefusal(req, parsed.data.scopes, permKey(ATTENDANCE_MODULE, ATTENDANCE_RESOURCE.integrations, PermissionAction.CREATE));
   if (scopeRefused) return res.status(scopeRefused.status).json(scopeRefused.body);
   const { key, token } = await createApiKey({ accountId, orgId }, { name: parsed.data.name, scopes: parsed.data.scopes, allowedIps: parsed.data.allowedIps }, { ...actorFrom(req), id: req.auth!.userId });
-  res.status(201).json({ key: keyRow(key), token, note: 'Shown once — copy it now. Only a hash is kept.' });
+  res.status(201).json({ key: keyRow(key), token, note: 'Shown once: copy it now. Only a hash is kept.' });
 });
 
 /** A credential refusal (Batch 5) as a response; anything else is a real error. */
@@ -82,7 +82,7 @@ integrationsRouter.post(`${base}/keys/:id/rotate`, can(PermissionAction.EDIT), a
   try {
     /* The old key stops working at once; the punches it sent stay under its reader row. A revoked key stays revoked. */
     const { key, token } = await rotateApiKey({ accountId, orgId }, String(req.params.id), actorFrom(req), req.body?.reason ? String(req.body.reason).slice(0, 200) : null);
-    res.json({ key: keyRow(key), token, note: 'Rotated — the previous key no longer works. Shown once.' });
+    res.json({ key: keyRow(key), token, note: 'Rotated. The previous key no longer works. Shown once.' });
   } catch (e) {
     credentialFailed(res, e);
   }
@@ -130,7 +130,7 @@ integrationsRouter.post(`${base}/webhooks`, can(PermissionAction.CREATE), async 
     data: { accountId, orgId, name: parsed.data.name, url: parsed.data.url, events: parsed.data.events.join(','), isActive: parsed.data.isActive ?? true, secret: encryptSecret(secret), createdByUserId: req.auth!.userId },
   });
   forgetWebhooks(orgId);
-  res.status(201).json({ webhook: hookRow(hook), secret, note: 'Shown once — use it to check the X-Clor-Signature-256 header.' });
+  res.status(201).json({ webhook: hookRow(hook), secret, note: 'Shown once: use it to check the X-Clor-Signature-256 header.' });
 });
 
 integrationsRouter.put(`${base}/webhooks/:id`, can(PermissionAction.EDIT), async (req, res) => {

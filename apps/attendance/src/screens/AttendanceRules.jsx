@@ -25,7 +25,7 @@ const lateRuleWords = (r) => {
  * anyone with no schedule at all, the late-arrival penalty, and how long
  * phone-punch selfies are kept. Plus working days out again after schedules change.
  */
-export default function AttendanceRules() {
+export default function AttendanceRules({ menuLabel } = {}) {
   const [rules, setRules] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -70,7 +70,7 @@ export default function AttendanceRules() {
     }
   };
 
-  const header = <PageHeader entity="settings" title="Attendance policy" description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />;
+  const header = <PageHeader entity="settings" title={menuLabel || 'Attendance policy'} description="Company-wide. Grace, half day, overtime and weekly offs are set on each shift." />;
   if (!rules) {
     return (
       <div className="space-y-3">

@@ -22,7 +22,7 @@
  */
 
 /* Shown, not edited: they come from Accounting (the company name and the head-office branch). */
-export const FROM_ACCOUNTING = 'Changed in Accounting, where tax is worked out.';
+export const FROM_ACCOUNTING = 'Changed in Books, where tax is worked out.';
 
 /** [key, label, options]. `readOnly` fields are drawn as text; `used` is where the value appears. */
 export const SECTIONS = [

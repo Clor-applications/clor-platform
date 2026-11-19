@@ -10,7 +10,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { formatDate } from '@ui/components/ui/DatePicker';
 import { usePermissions } from '@ui/permissions/usePermissions';
 
-import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 
 import { READER_PILL, leavingExtras, lifecycleOverview, pageLeavers } from './api';
 import { PersonCell, can, crumbs } from './shared';
@@ -93,7 +93,7 @@ export default function Leaving({ params = {}, updateParams, openScreen }) {
         description="Everyone on notice or recently gone: their last day, the steps, the readers, final wages and sign-in."
         secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Steps</button> : null}
         primary={can(perms, 'PEOPLE::Employees::EDIT') ? { label: 'Record a leaving', icon: UserMinus, onClick: () => setPicking(true) } : null}
-        strip={<StatTiles label="Leaving figures" items={tiles} />}
+        strip={<CountLine label="Leaving figures" items={tiles} />}
         toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search leavers" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
         tab={view}

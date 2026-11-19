@@ -347,7 +347,7 @@ export function ExportButton({ title, fileName, sheetName, columns, rows, subtit
                 <o.Icon size={16} aria-hidden="true" /> {o.label}
               </button>
             ))}
-            <p className="ui-caption px-3 pt-1 pb-2">Exports what you are looking at — this tab, this search, this period.</p>
+            <p className="ui-caption px-3 pt-1 pb-2">Exports what you are looking at: this tab, this search, this period.</p>
           </div>
         </Popover>
       ) : null}

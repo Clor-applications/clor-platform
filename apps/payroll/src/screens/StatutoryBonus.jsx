@@ -301,7 +301,7 @@ function ApproveDrawer({ run, eligible, onClose, onDone }) {
       }
     >
       {!periods ? <SkeletonCard lines={2} /> : null}
-      {periods && !periods.length ? <p className="ui-caption" role="alert">There is no open month to pay it in. Add one in Pay Calendar first.</p> : null}
+      {periods && !periods.length ? <p className="ui-caption" role="alert">There is no open month to pay it in. Add one in Pay calendar first.</p> : null}
       {periods?.length ? (
         <div className="space-y-2">
           <label className="ui-label" htmlFor="bonus-period">Paid on the pay run of</label>

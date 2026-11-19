@@ -11,7 +11,7 @@ import DatePicker from '@ui/components/ui/DatePicker';
 import PopupSelect from '@ui/components/pickers/PopupSelect';
 import useRequest from '@ui/components/ui/useRequest';
 import { confirmDialog, notify } from '@ui/components/ui/notify';
-import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 import { Avatar } from '@ui/personnel/Employees';
 import { checkIn, createGoal, getGoal, listGoals, updateGoal } from '../api/talent';
 import { CopyLastYear, WeightTotal } from './round53Parts';
@@ -84,7 +84,7 @@ export default function Goals({ params = {} }) {
           <SearchField value={q} onSearch={setQ} placeholder="Search goal or person" label="Search goals" className="w-full sm:w-72" />
           <div className="w-full sm:w-56"><PopupSelect showValueSubtext={false} ariaLabel="Person" value={person} alwaysSearch onChange={(v) => setPerson(v || '')} options={[{ value: '', label: 'Everyone I can see' }, ...staffOptions(people)]} /></div>
         </>}
-        strip={tiles ? <StatTiles label="Goal figures" items={tiles} /> : null}
+        strip={tiles ? <CountLine label="Goal figures" items={tiles} /> : null}
         tabs={tabItems(TABS)}
         tab={status}
         onTab={setStatus}

@@ -85,7 +85,7 @@ describe('the account overview', () => {
       plan: { ...OVERVIEW.plan, limits: { maxCompanies: 2, maxUsers: 25 } },
     });
     render(<AccountOverview currentCompany={COMPANY} />);
-    await waitFor(() => expect(screen.getByText('2 of 2 — at the limit')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('2 of 2, at the limit')).toBeInTheDocument());
   });
 
   it('says plainly when a plan has no limit', async () => {

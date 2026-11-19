@@ -152,7 +152,7 @@ function methodProblems(body: Body): string | null {
     if (!verdict.ok) return verdict.error;
   }
   if (body.calculationMethod === 'STATUTORY' && !body.statutoryScheme) {
-    return 'A statutory component needs to say which scheme computes it — PF, ESI, PT or TDS.';
+    return 'A statutory component needs to say which scheme computes it: PF, ESI, PT or TDS.';
   }
   if (body.calculationMethod !== 'STATUTORY' && body.statutoryScheme) {
     return 'Only a statutory component may name a scheme.';

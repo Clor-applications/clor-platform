@@ -12,7 +12,7 @@ import useRequest from '@ui/components/ui/useRequest';
 import { notify } from '@ui/components/ui/notify';
 import { usePermissions } from '@ui/permissions/usePermissions';
 import * as api from '../api/compliance';
-import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 import { todayIst } from '@ui/utils/dates';
 
 /**
@@ -152,7 +152,7 @@ export default function Compliance({ params = {}, updateParams, openScreen }) {
           <SegmentedControl label="Compliance" options={VIEWS.map(([k, l]) => ({ key: k, label: l }))} value={view} onChange={(k) => set({ view: k === 'owed' ? null : k, status: null, id: null })} />
           {view === 'owed' ? <SearchField value={q} onSearch={setQ} placeholder="Search what is owed" label="Search what is owed" className="w-full sm:w-80" /> : null}
         </>}
-        strip={view === 'owed' && tiles ? <StatTiles label="Compliance figures" items={tiles} /> : null}
+        strip={view === 'owed' && tiles ? <CountLine label="Compliance figures" items={tiles} /> : null}
         tabs={view === 'owed' ? TABS.map(([k, l]) => ({ key: k, label: l, count: all.filter((o) => inTab(o, k)).length, tone: k === 'OVERDUE' ? 'warn' : undefined })) : null}
         tab={tab}
         onTab={(k) => set({ status: k === 'OPEN' ? null : k })}

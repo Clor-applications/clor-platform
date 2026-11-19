@@ -49,12 +49,16 @@ test.describe('Suresh owns the account', () => {
     /* Kavya: everyone, and may add people. */
     await kavya.goto();
     await kavya.open('Employees');
+    /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
+    await kavya.main.getByText('Show figures', { exact: true }).click();
     await expect(kavya.main.getByRole('button', { name: /Working now/ })).toContainText('12');
     await expect(kavya.main.getByRole('button', { name: 'Add employee', exact: true })).toBeVisible();
 
     /* Rahul: himself and his four, nothing to add, no company settings. */
     await rahul.goto();
     await rahul.open('Employees');
+    /* The figures sit behind "Show figures" so the list comes first (FINDING-018). */
+    await rahul.main.getByText('Show figures', { exact: true }).click();
     await expect(rahul.main.getByRole('button', { name: /Working now/ })).toContainText('5');
     await expect(rahul.main.getByRole('tab', { name: /My team/ })).toContainText('4');
     await expect(rahul.main.getByRole('button', { name: 'Add employee', exact: true })).toHaveCount(0);

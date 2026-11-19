@@ -116,7 +116,7 @@ export async function approveBankChange(orgId: string, id: string, userId: strin
   if (change.requestedByUserId === userId && now.getTime() - change.requestedAt.getTime() < SELF_APPROVAL_AFTER_MS) {
     throw new BankChangeError(
       409,
-      'Somebody else must approve a bank change you entered — or you, 24 hours after entering it. Until then pay goes to the account on file.',
+      'Somebody else must approve a bank change you entered, or you can, 24 hours after entering it. Until then pay goes to the account on file.',
       'SELF_APPROVAL_TOO_SOON'
     );
   }

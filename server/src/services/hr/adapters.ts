@@ -305,7 +305,7 @@ const zoho: HrAdapter = {
     try {
       const token = await zohoToken(config, secrets);
       const res = await guardedRequest('GET', `${zohoPeople(config)}/people/api/forms/employee/getRecords?sIndex=1&limit=1`, { headers: { Authorization: `Zoho-oauthtoken ${token}` }, timeoutMs: 20_000 });
-      if (res.status !== 200) return { ok: false, message: `Zoho People answered ${res.status} when reading one employee — check the scopes on the token.` };
+      if (res.status !== 200) return { ok: false, message: `Zoho People answered ${res.status} when reading one employee. Check the scopes on the token.` };
       return { ok: true, message: 'Zoho People accepted the token.' };
     } catch (e: any) {
       return { ok: false, message: String(e?.message || e) };

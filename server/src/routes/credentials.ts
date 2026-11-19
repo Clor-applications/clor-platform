@@ -187,7 +187,7 @@ credentialsRouter.post(`${base}/api-keys`, can(PermissionAction.CREATE), async (
   if (scopeRefused) return res.status(scopeRefused.status).json(scopeRefused.body);
   const { key, token, credential } = await createApiKey({ accountId, orgId }, p.data, { ...actorFrom(req), id: req.auth!.userId });
   await recordAudit(req, { entity: 'Credential', entityId: credential?.id || key.id, action: 'CREATE', message: `Made the API key “${key.name}”`, metadata: { scopes: p.data.scopes, expiresAt: credential?.expiresAt ?? null } });
-  res.status(201).json({ token, credentialId: credential?.id ?? null, note: 'Shown once — copy it now. Only a hash is kept.' });
+  res.status(201).json({ token, credentialId: credential?.id ?? null, note: 'Shown once: copy it now. Only a hash is kept.' });
 });
 
 /** The credential a change is about, checked for this company and — for SCIM — for user management. */
@@ -284,7 +284,7 @@ credentialsRouter.post(`${base}/:id/rotate`, can(PermissionAction.EDIT), async (
     if (c.kind === 'API_KEY') {
       const r = await rotateApiKey(t, c.ownerId, actorFrom(req), reasonOf(req));
       await audit(req, c, 'ROTATE', 'Rotated');
-      return res.json({ token: r.token, credentialId: r.credential.id, note: 'Rotated — the previous key no longer works. Shown once.' });
+      return res.json({ token: r.token, credentialId: r.credential.id, note: 'Rotated. The previous key no longer works. Shown once.' });
     }
     if (c.kind === 'SCIM') {
       const r = await rotateScimToken(c.orgId, c.ownerId, actorFrom(req), reasonOf(req));
@@ -296,7 +296,7 @@ credentialsRouter.post(`${base}/:id/rotate`, can(PermissionAction.EDIT), async (
        */
       await platformPrisma.scimToken.update({ where: { id: c.ownerId }, data: { createdByUserId: req.auth!.userId } });
       await audit(req, c, 'ROTATE', 'Rotated');
-      return res.json({ token: r.token, credentialId: r.credential.id, sentToAgent: !!r.agentId, note: r.token ? 'Rotated — paste the new token into your identity provider. Shown once.' : 'Rotated — the connector picks up the new token on its next check-in.' });
+      return res.json({ token: r.token, credentialId: r.credential.id, sentToAgent: !!r.agentId, note: r.token ? 'Rotated. Paste the new token into your identity provider. Shown once.' : 'Rotated. The connector picks up the new token on its next check-in.' });
     }
     return res.status(409).json({ error: c.kind === 'AGENT' ? 'Rotate a connector’s token under Attendance → Integrations, where it is reinstalled.' : 'Make a new push address for a reader under Attendance → Readers, where it is set up.', code: 'ROTATE_ELSEWHERE' });
   } catch (e) {

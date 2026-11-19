@@ -452,6 +452,7 @@ function RecentActions({ d, error, go, has }) {
                       {e.accountName ? ` · ${e.accountName}` : ''}
                     </span>
                     {e.summary ? <span className="ws-item-sub">Reason: {e.summary}</span> : null}
+                    {e.details ? <span className="ws-item-sub">{e.details}</span> : null}
                   </span>
                   <span className="ws-item-end">{ago(e.at)}</span>
                 </div>

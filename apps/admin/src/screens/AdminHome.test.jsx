@@ -79,8 +79,8 @@ describe('the Workspace overview', () => {
   it('shows an owner the business at a glance, what needs attention first, and the subscription', async () => {
     const openScreen = vi.fn();
     render(<AdminHome user={{ firstName: 'Kavya' }} tenant={tenant} catalog={CATALOG} navItems={NAV} openScreen={openScreen} openApp={() => {}} accountName="Neev Group" />);
-    /* Owner, 16 Nov 2026: the hero welcomes the reader by name under "Welcome to CLOR Workspace", the account's facts on one line. */
-    expect(screen.getByText('Welcome to CLOR Workspace')).toBeInTheDocument();
+    /* The hero greets the reader by name with no retired kicker above it; the account's facts sit on one line. */
+    expect(screen.queryByText('Welcome to CLOR Workspace')).toBeNull();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Good (morning|afternoon|evening), Kavya$/);
     expect(await screen.findByText('Account Owner')).toBeInTheDocument();
     /* The account's name only: the counts are said once, in the figures row below. */

@@ -223,7 +223,7 @@ export default function PortalAccess() {
             </select>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => change({ portalEnabled: false }, 'switched off')}>Switch portal off</button>
             <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" onClick={() => setPicked(new Set())}>Clear</button>
-            {!fences.length ? <p className="ui-caption w-full">No work sites yet — phone punches need one, except for people set to Field. Add them under Work sites.</p> : null}
+            {!fences.length ? <p className="ui-caption w-full">No work sites yet: phone punches need one, except for people set to Field. Add them under Work sites.</p> : null}
             <p className="ui-caption w-full">Field: for sales, service and site staff. A phone punch is accepted anywhere; the place and its address are recorded, marked outside a site, and wait for approval under Phone punches (or the person’s manager) when the company asks.</p>
           </div>
         ) : null

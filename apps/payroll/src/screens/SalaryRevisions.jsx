@@ -211,7 +211,7 @@ export default function SalaryRevisions({ params } = {}) {
                       <EmptyState
                         icon={TrendingUp}
                         title={status ? `No ${TABS.find((t) => t.value === status)?.label.toLowerCase()} revisions` : 'No revisions yet'}
-                        description="Propose an increment and see what it does to net pay, to deductions and to what the company spends — before anybody agrees to it."
+                        description="Propose an increment and see what it does to net pay, to deductions and to what the company spends, before anybody agrees to it."
                         routes={canStart && !status ? [{ label: 'New revision', description: 'The impact shows as you type.', onSelect: start }] : undefined}
                       />
                     )}
@@ -605,7 +605,7 @@ const RevisionDetail = ({ revisionId, onBack }) => {
           </p>
         </>
       ) : (
-        <p className="ui-caption">The impact could not be worked out — the structure or the rates behind it may have changed.</p>
+        <p className="ui-caption">The impact could not be worked out. The structure or the rates behind it may have changed.</p>
       )}
 
       {revision.notes ? <p className="ui-caption">{revision.notes}</p> : null}

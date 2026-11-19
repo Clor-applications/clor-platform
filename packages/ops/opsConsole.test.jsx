@@ -77,7 +77,7 @@ describe('the operator console', () => {
     expect(await screen.findByText('AAAA-BBBB')).toBeInTheDocument();
     expect(api.opsEnableTwoFactor).toHaveBeenCalledWith('123456');
     api.opsMe.mockResolvedValue({ user: { id: 'u1', fullName: 'Asha' }, role: 'SUPER_ADMIN' });
-    fireEvent.click(screen.getByRole('button', { name: /open the console/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Open the console/ }));
     expect(await screen.findByRole('button', { name: /Asha/ })).toBeInTheDocument();
   });
 

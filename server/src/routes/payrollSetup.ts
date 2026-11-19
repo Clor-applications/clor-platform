@@ -143,7 +143,7 @@ payrollSetupRouter.get(
         done: earnings > 0 && structures > 0,
         detail:
           earnings === 0
-            ? 'Nothing to pay yet — add at least one earning.'
+            ? 'Nothing to pay yet: add at least one earning.'
             : structures === 0
               ? 'Components exist, but no active structure combines them.'
               : `${components.length} components, ${structures} ${structures === 1 ? 'structure' : 'structures'}`,
@@ -152,7 +152,7 @@ payrollSetupRouter.get(
       {
         key: 'statutory',
         title: 'Statutory',
-        blurb: 'Provident fund, ESI, professional tax and income tax — which apply, and at what rates.',
+        blurb: 'Provident fund, ESI, professional tax and income tax: which apply, and at what rates.',
         done: schemes.length > 0,
         detail:
           schemes.length === 0

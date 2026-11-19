@@ -95,7 +95,7 @@ export default function DataRequests() {
 
   const decide = async (r, status) => {
     const resolution = (answer[r.id] || '').trim();
-    if (!resolution) return notify.error('Say what was done — the person reads this.');
+    if (!resolution) return notify.error('Say what was done. The person reads this.');
     try {
       await resolveDataRequest(r.id, { status, resolution });
       notify.success(status === 'RESOLVED' ? 'Marked done; the person can see your answer.' : 'Declined; the person can see why.');
@@ -191,7 +191,7 @@ export default function DataRequests() {
                       <td className="ui-col-meta min-w-[18rem]">
                         {r.status === 'PENDING' ? (
                           <div className="space-y-2">
-                            <textarea className="ui-input w-full" rows={2} aria-label={`Answer to ${r.employeeName}`} placeholder="What was done, or why not — the person reads this" value={answer[r.id] || ''} onChange={(e) => setAnswer({ ...answer, [r.id]: e.target.value })} />
+                            <textarea className="ui-input w-full" rows={2} aria-label={`Answer to ${r.employeeName}`} placeholder="What was done, or why not. The person reads this" value={answer[r.id] || ''} onChange={(e) => setAnswer({ ...answer, [r.id]: e.target.value })} />
                             <div className="flex gap-1">
                               {r.type === 'ERASURE' ? (
                                 <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => { setTyped(''); setErasing(r); }}><Eraser size={14} aria-hidden="true" /> Anonymise…</button>

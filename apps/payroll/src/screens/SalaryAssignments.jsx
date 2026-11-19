@@ -248,7 +248,7 @@ export default function SalaryAssignments({ params } = {}) {
                       <EmptyState
                         icon={Banknote}
                         title="No active salary structures yet"
-                        description="A salary is a structure plus a figure. Build a structure under Settings → Salary Structures, then people can be put on it."
+                        description="A salary is a structure plus a figure. Build a structure under Settings → Salary structures, then people can be put on it."
                       />
                     ) : (
                       <EmptyState
