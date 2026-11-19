@@ -752,6 +752,38 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   padding-bottom: 0.5rem;
   margin-bottom: 0.75rem;
 }
+/* Segmented toggles: a hairline round the set, the chosen one in soft magenta, counts as soft chips. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-segmented:not(.ui-segmented-solid) {
+  border: 1px solid rgb(var(--border-field, 214 211 204));
+  border-radius: 8px;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-segmented:not(.ui-segmented-solid) .ui-segment:is([aria-selected='true'], [aria-checked='true'], [aria-pressed='true']) {
+  background: rgb(var(--app-people) / 0.1) !important;
+  border-color: transparent !important;
+  color: color-mix(in srgb, rgb(var(--app-people)) 80%, black) !important;
+  font-weight: 600;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-segment .ui-segment-count {
+  background: rgb(var(--neutral-soft, 238 236 231)) !important;
+  color: rgb(var(--neutral-ink, 92 90 84)) !important;
+}
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-segment:is([aria-selected='true'], [aria-checked='true'], [aria-pressed='true']) .ui-segment-count {
+  background: color-mix(in srgb, rgb(var(--app-people)) 80%, black) !important;
+  color: rgb(255 255 255) !important;
+}
+/* A person or record named in a table reads as ink, not Books' teal. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content td.ui-col-entity { color: rgb(var(--fg)); font-weight: 500; }
+/* Preset choices (a period, a range): the chosen one is a soft app tint, not a
+   second solid button beside the page's one primary action. Codes and file
+   headings stay in the one face. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-btn-choice[aria-pressed='true'] { background: rgb(var(--app-people) / 0.1); border-color: rgb(var(--app-people) / 0.45); color: color-mix(in srgb, rgb(var(--app-people)) 80%, black); font-weight: 600; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content .ui-mono { font-family: inherit; font-variant-numeric: tabular-nums; }
+
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) #main-content :is(input[type='radio'], input[type='checkbox']) { accent-color: rgb(var(--app-people)); }
+
+/* One-series charts take the app colour. */
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) :is(.pt-col-bar, .pt-meter-bar:not([class*='is-'])) { background: rgb(var(--app-people)); }
+
 /* Filter tabs: a hairline, the app colour when chosen. */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-filter-chips .ui-tab:not([aria-selected='true']):not([aria-pressed='true']) {
   border-color: rgb(var(--border-field, 214 211 204)) !important;

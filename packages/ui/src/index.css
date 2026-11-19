@@ -2774,6 +2774,8 @@
   .ui-nav-sheet-split .ui-split-panel { width: auto; flex: 1 1 auto; min-width: 0; padding-top: 0; }
   .ui-nav-sheet-split .ui-split-panel-head { margin: 0 -0.75rem 0.5rem; padding: 0 0.75rem 0 1rem; }
 
+  .ui-btn-choice[aria-pressed='true'] { background: rgb(var(--brand) / 0.1); border-color: rgb(var(--brand) / 0.45); color: rgb(var(--fg)); font-weight: 600; }
+
   /* --- attendance register and calendar ------------------------------------ */
   .ui-table-register td, .ui-table-register th { padding-inline: 0.25rem; }
   .ui-register-day { width: 2.1rem; min-width: 2.1rem; }
