@@ -86,7 +86,7 @@ const words = {
   "Allowed": "मंज़ूर",
   "Allowed {} of {}{}": "{2}{3} में से {1} मंज़ूर",
   "Amount": "रकम",
-  "Amount (₹) *": "रकम (₹) *",
+  "Amount *": "रकम *",
   "An asset ticked here is marked Returned in the asset register too.": "यहाँ टिक किया सामान एसेट रजिस्टर में भी लौटाया हुआ दर्ज होता है।",
   "Another complaint about work": "काम से जुड़ी कोई और शिकायत",
   "Answer now": "अभी जवाब दें",
