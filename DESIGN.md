@@ -1684,6 +1684,9 @@ names stay as written; server errors turn by their code, then their words. Every
 never half: `scripts/i18n-strings.mjs --missing hi` reads every line from the code and a test fails
 on any line without Hindi. Another language (Tamil, Telugu, Kannada, Marathi) is one more file
 beside `hi.js`.
+**Paused 19 Nov 2026 (owner):** the Language choice is hidden and the app shows in English for
+everyone (`LANGUAGE_CHOICE_ON = false` in `packages/ui/src/i18n/index.js`); the Hindi file, the
+translator and the saved field stay, so setting it to true brings the choice back.
 
 Picked, **not built yet**: HR forgiving one late mark a month; an administrator granting CLOR
 support 24 hours of access without CLOR asking first (today CLOR asks and the customer approves).
