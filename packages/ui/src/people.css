@@ -406,6 +406,12 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
 .people-home-sub strong { color: rgb(var(--fg)); font-weight: 600; }
 .people-home-sub strong[data-zero] { color: inherit; font-weight: 400; }
 .people-home-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.people-home-secondary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.people-home-more { display: none; }
+@media (max-width: 639px) {
+  .people-home-secondary { display: none; }
+  .people-home-more { display: block; }
+}
 .people-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
 .people-kpi {
   --id: var(--border-strong);
