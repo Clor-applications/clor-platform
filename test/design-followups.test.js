@@ -13,6 +13,8 @@ const peopleCss = readFileSync('packages/ui/src/people.css', 'utf8');
 const account = readFileSync('apps/admin/src/screens/AccountOverview.jsx', 'utf8');
 const shell = readFileSync('packages/shell/Shell.jsx', 'utf8');
 const siteCss = readFileSync('website/src/styles/site.css', 'utf8');
+const adminHome = readFileSync('apps/admin/src/screens/AdminHome.jsx', 'utf8');
+const wsOverviewCss = readFileSync('apps/admin/src/screens/ws-overview.css', 'utf8');
 
 describe('People Employees, figures after the list', () => {
   it('does not put the figure strip above the table', () => {
@@ -58,5 +60,18 @@ describe('the shell and clor.in', () => {
     expect(shell).toMatch(/ui-caption ui-app-blurb/);
     expect(siteCss).toMatch(/\.rv \{\s*opacity: 0\.9;/);
     expect(siteCss).not.toMatch(/transition-delay: calc\(var\(--rv-i, 0\) \* 70ms\)/);
+  });
+});
+
+describe('Workspace Home', () => {
+  it('drops the retired kicker and orange underline', () => {
+    expect(adminHome).not.toMatch(/wsh-eyebrow/);
+    expect(wsOverviewCss).not.toMatch(/\.wsh-eyebrow|\.wsh-name::after/);
+    expect(adminHome).toMatch(/wsh-wave/);
+  });
+
+  it('loads in the shape of the attention list it becomes', () => {
+    expect(adminHome).toMatch(/<ul className="wsh-attn" aria-hidden="true">/);
+    expect(adminHome).toMatch(/wsh-attn-row[\s\S]*ui-skel ui-skel-text/);
   });
 });

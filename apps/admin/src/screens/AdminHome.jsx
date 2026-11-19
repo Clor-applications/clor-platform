@@ -538,10 +538,9 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
         {/* Hero: who you are, where you are, and the one primary action. */}
         <section className="wsh-hero" data-today={lines.length ? '' : undefined} aria-labelledby="wsh-hello">
           <div className="wsh-hero-text">
-            <p className="wsh-eyebrow">Welcome to CLOR Workspace</p>
             <h1 id="wsh-hello" className="wsh-hello">
               {greeting()}
-              {name ? <>, <span className="wsh-name">{name}</span></> : null}
+              {name ? <>, {name}</> : null}
               <E.wave size={36} className="wsh-wave" aria-hidden="true" />
             </h1>
             <p className="wsh-lede">{ROLE_LEDE[role] || DEFAULT_LEDE}</p>
@@ -616,10 +615,19 @@ export default function AdminHome({ user, tenant, catalog = [], navItems = [], o
               ) : null}
             </div>
             {!settled ? (
-              <div style={{ display: 'grid', gap: 12 }} aria-hidden="true">
-                <span className="ui-skel ui-skel-text" />
-                <span className="ui-skel ui-skel-text" style={{ width: '60%' }} />
-              </div>
+              <ul className="wsh-attn" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <li key={i}>
+                    <div className="wsh-attn-row">
+                      <span className="ui-skel wsh-ico" />
+                      <span className="wsh-attn-text">
+                        <span className="ui-skel ui-skel-text" style={{ width: '72%' }} />
+                        <span className="ui-skel ui-skel-text" style={{ width: '48%' }} />
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : attention.length ? (
               <ul className="wsh-attn" aria-label={urgent ? `${plural(urgent, 'urgent item')}` : 'Nothing urgent'}>
                 {attention.map((a) => {
