@@ -182,7 +182,7 @@ function LineDrawer({ line, canEdit, onClose, onSaved }) {
           <div><PopupSelect label="Money" showValueSubtext={false} value={direction} onChange={(v) => { setDirection(v || 'NONE'); setError(''); }} options={DIRECTION} /></div>
           {direction !== 'NONE' ? (
             <label className="block">
-              <span className="ui-label">Amount (₹) *</span>
+              <span className="ui-label">Amount *</span>
               <MoneyInput type="number" min="0" step="0.01" inputMode="decimal" className="ui-input w-full tabular-nums text-right" value={amount} onChange={(e) => { setAmount(e.target.value); setError(''); }} aria-invalid={Boolean(error) || undefined} />
             </label>
           ) : null}

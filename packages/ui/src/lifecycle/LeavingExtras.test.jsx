@@ -87,7 +87,7 @@ it('no-dues: someone else’s line opens read only; owed money needs an amount',
   fireEvent.click(within(drawer).getByRole('button', { name: 'Sign off' }));
   expect(await within(drawer).findByRole('alert')).toBeTruthy();
   expect(api.updateClearanceLine).not.toHaveBeenCalled();
-  fireEvent.change(within(drawer).getByLabelText('Amount (₹) *'), { target: { value: '1250' } });
+  fireEvent.change(within(drawer).getByLabelText('Amount *'), { target: { value: '1250' } });
   fireEvent.click(within(drawer).getByRole('button', { name: 'Sign off' }));
   await waitFor(() => expect(api.updateClearanceLine).toHaveBeenCalledWith('l1', expect.objectContaining({ direction: 'OWED', amount: 1250, sign: true })));
 });

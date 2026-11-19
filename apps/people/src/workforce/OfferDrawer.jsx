@@ -100,7 +100,7 @@ export default function OfferDrawer({ employee, candidate, onClose, onSent }) {
           <div><label className="ui-label" htmlFor="offer-joining">Joining date</label><DatePicker id="offer-joining" value={form.joiningDate} onChange={(v) => set({ joiningDate: v || '' })} /></div>
           <div><label className="ui-label" htmlFor="offer-accept-by">Open until *</label><DatePicker id="offer-accept-by" required min={todayIst()} value={form.acceptBy} onChange={(v) => set({ acceptBy: v || '' })} /></div>
           <label className="block">
-            <span className="ui-label">Annual CTC (₹) *</span>
+            <span className="ui-label">Annual CTC *</span>
             <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.annualCtc} onChange={(e) => set({ annualCtc: e.target.value })} placeholder="600000" />
           </label>
         </div>
