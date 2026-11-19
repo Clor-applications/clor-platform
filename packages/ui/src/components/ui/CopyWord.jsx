@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy } from '@ui/components/ui/lineIcons';
 
 /**
  * "Copy" as a word beside a number people often need elsewhere: a GSTIN, a PAN, an employee ID
  * (owner's style pick, 17 Nov 2026). Says "Copied" for a moment after. Where the browser refuses
  * the clipboard it selects the number instead, so Ctrl+C still works.
- * Round 61 "copyvalue" A (newest pick wins): a small copy icon, and "Copied" for a moment after.
+ * Round 61 "copyvalue" A briefly made it an icon only; the owner settled the conflict on 19 Nov
+ * 2026 (DESIGN.md "Pick conflicts resolved"): the word "Copy", turning "Copied" (rounds 3 and 13).
  */
 export default function CopyWord({ value, label = 'Copy', what = '' }) {
   const [done, setDone] = useState(false);
@@ -25,8 +25,8 @@ export default function CopyWord({ value, label = 'Copy', what = '' }) {
     }
   };
   return (
-    <button type="button" className="ui-copy-word" title={`${label}${what ? ` ${what}` : ''}`} onClick={copy} aria-label={done ? 'Copied' : `${label}${what ? ` ${what}` : ''}`}>
-      {done ? <span className="ui-copy-word-done">Copied</span> : <Copy size={14} aria-hidden="true" />}
+    <button type="button" className={`ui-copy-word${done ? ' is-done' : ''}`} title={`${label}${what ? ` ${what}` : ''}`} onClick={copy} aria-label={done ? 'Copied' : `${label}${what ? ` ${what}` : ''}`}>
+      {done ? <span className="ui-copy-word-done">Copied</span> : label}
     </button>
   );
 }
