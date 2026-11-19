@@ -197,16 +197,16 @@ describe('#80 manager QA: half days say which half; the bell stays on a phone sc
       away({ employeeId: 'l', employeeName: 'Lakshmi Patil', fromDate: day, toDate: day }),
     ]);
     render(<LeaveCalendar />);
-    /* One line a person (the By person view) draws each day's mark; the Month view lists names. */
+    /* One line a person (the By person view, open first) draws each day's mark; the Month view lists names. */
     fireEvent.click(await screen.findByRole('button', { name: 'By person' }));
     const first = await screen.findByRole('img', { name: `${day}: Casual leave, approved, first half` });
     const second = screen.getByRole('img', { name: `${day}: Casual leave, approved, second half` });
     const whole = screen.getByRole('img', { name: `${day}: Casual leave, approved` });
-    expect(first.className).toContain('w-1/2');
-    expect(first.className).not.toContain('ml-auto');
-    expect(second.className).toContain('w-1/2');
-    expect(second.className).toContain('ml-auto');
-    expect(whole.className).not.toContain('w-1/2');
+    expect(first.className).toContain('is-half');
+    expect(first.className).not.toContain('is-second');
+    expect(second.className).toContain('is-half');
+    expect(second.className).toContain('is-second');
+    expect(whole.className).not.toContain('is-half');
     expect(screen.getByRole('list', { name: 'Key' }).textContent).toContain('Half day');
   });
 

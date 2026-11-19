@@ -65,11 +65,56 @@ it('draws the month grid with nobody away, and says so in the grid rather than i
   render(<LeaveCalendar />);
   expect(await screen.findByRole('status')).toBeTruthy();
   expect(screen.getByRole('status').textContent).toContain('Nobody is away or working elsewhere in November 2026');
-  /* The month view (R&D PEOPLE-12) draws its weeks from Monday; By person keeps one column a day. */
-  expect(within(screen.getByRole('table', { name: 'Leave in November 2026' })).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
-  fireEvent.click(screen.getByRole('button', { name: 'By person' }));
-  expect(screen.getByRole('status').textContent).toContain('Nobody is away or working elsewhere in November 2026');
+  /* By person opens first (owner, 19 Nov 2026): the name column, then one column a day. */
+  expect(screen.getByRole('button', { name: 'By person' }).getAttribute('aria-pressed')).toBe('true');
   const grid = screen.getByRole('group', { name: 'Days of November 2026' });
   expect(within(grid).getAllByRole('columnheader')).toHaveLength(31);
   expect(within(grid).getByRole('rowheader', { name: 'Away' })).toBeTruthy();
+  /* The month view (R&D PEOPLE-12), one tap away, draws its weeks from Monday. */
+  fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+  expect(screen.getByRole('status').textContent).toContain('Nobody is away or working elsewhere in November 2026');
+  expect(within(screen.getByRole('table', { name: 'Leave in November 2026' })).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+});
+
+/* DESIGN.md "Pick conflicts resolved", 19 Nov 2026: the team leave calendar is a row per person across the days. */
+it('draws a row a person with leave as one block across its days', async () => {
+  listLeaveRequests.mockResolvedValueOnce([
+    { ...leave('a', 'Asha Rao', '2026-11-10'), toDate: '2026-11-12', days: 3, leaveTypeColor: '#1b9e77' },
+    { ...leave('b', 'Bala Menon', '2026-11-13'), id: 'b1', halfDay: 'SECOND', days: 0.5 },
+    { ...leave('b', 'Bala Menon', '2026-11-20'), id: 'b2', status: 'PENDING' },
+  ]);
+  render(<LeaveCalendar />);
+  const grid = await screen.findByRole('group', { name: 'Days of November 2026' });
+
+  /* One row a person, named on the left with their initials. */
+  const rows = within(grid).getAllByRole('row').slice(1);
+  expect(rows.map((r) => within(r).getByRole('rowheader').textContent)).toEqual(['ARAsha RaoSales', 'BMBala MenonSales', 'Away']);
+
+  /* Day head: weekday letter and number; today marked; Sundays (the weekly off here) tinted. */
+  const heads = within(grid).getAllByRole('columnheader').slice(1);
+  expect(heads[0].textContent).toBe('S1');
+  expect(heads[6].getAttribute('aria-current')).toBe('date');
+  expect(heads[0].className).toContain('is-shaded');
+  expect(heads[1].className).not.toContain('is-shaded');
+
+  /* Asha's three days are one block: rounded at the 10th, running through the 11th, closed on the 12th. */
+  const asha = within(rows[0]).getAllByRole('img');
+  expect(asha.map((b) => b.getAttribute('aria-label'))).toEqual(['2026-11-10: Casual leave, approved', '2026-11-11: Casual leave, approved', '2026-11-12: Casual leave, approved']);
+  expect(asha.map((b) => b.getAttribute('data-joins') || '')).toEqual(['after', 'before after', 'before']);
+  expect(asha[0].className).toContain('is-start');
+  expect(asha[2].className).toContain('is-end');
+  expect(asha[1].className).not.toMatch(/is-(start|end)/);
+  expect(asha[0].style.background).toBeTruthy();
+
+  /* Bala: the afternoon of the 13th as half a block on the right, and a waiting day drawn lighter. */
+  const [half, waiting] = within(rows[1]).getAllByRole('img');
+  expect(half.getAttribute('data-half')).toBe('SECOND');
+  expect(half.className).toMatch(/is-half.*is-second/);
+  expect(half.getAttribute('aria-label')).toContain('second half');
+  expect(waiting.className).toContain('is-waiting');
+
+  /* The Away row counts approved leave only. */
+  const away = within(rows[2]).getAllByRole('cell');
+  expect(away[10].textContent).toBe('1');
+  expect(away[19].textContent).toBe('');
 });
