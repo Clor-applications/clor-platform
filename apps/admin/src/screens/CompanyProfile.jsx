@@ -115,7 +115,7 @@ export default function CompanyProfile() {
             </form>
 
             <aside className="ws-side">
-              <Panel title="From Accounting">
+              <Panel title="From Books">
                 <dl className="grid gap-3">
                   <div>
                     <dt className="ws-stat-note">Name in CLOR</dt>
@@ -130,7 +130,7 @@ export default function CompanyProfile() {
                     <dd className="text-sm ui-mono">{form.gstin || 'Not registered'}</dd>
                   </div>
                 </dl>
-                <p className="ws-card-blurb">Changed in Accounting, where tax is worked out.</p>
+                <p className="ws-card-blurb">Changed in Books, where tax is worked out.</p>
               </Panel>
               <Panel title="Filled in">
                 <div className="ws-meter">

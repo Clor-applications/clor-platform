@@ -132,7 +132,7 @@ export default function Shifts({ openScreen }) {
       description={
         <>
           Timings, grace and the days off of the people on each shift. Anyone without a shift works 09:00–18:00 and has the days off set in{' '}
-          {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('workingWeek')}>Working Week</button> : 'Working Week'}.
+          {openScreen ? <button type="button" className="ui-link" onClick={() => openScreen('workingWeek')}>Working week</button> : 'Working week'}.
         </>
       }
       compact
@@ -184,7 +184,7 @@ export default function Shifts({ openScreen }) {
                       <EmptyState
                         icon={Clock3}
                         title={status ? `No ${status.toLowerCase()} shifts` : 'No shifts yet'}
-                        description="Timings, grace and days off. Anyone without a shift works 09:00–18:00 with the days off set in Working Week. Create one, then assign people to it."
+                        description="Timings, grace and days off. Anyone without a shift works 09:00–18:00 with the days off set in Working week. Create one, then assign people to it."
                         routes={status ? undefined : [{ label: 'New shift', description: 'Timings, grace and weekly offs; then assign people to it.', onSelect: create }]}
                       />
                     )}

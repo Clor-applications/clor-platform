@@ -176,7 +176,7 @@ export default function AttendanceReports({ openScreen, initialReport = '', menu
             if (!list.length) return null;
             return (
               <section key={g} aria-labelledby={`grp-${g}`} className="space-y-2">
-                <h2 id={`grp-${g}`} className="ui-t-sec">{g}</h2>
+                <h2 id={`grp-${g}`} className="ui-t-sec">{g.replace('Statutory Registers', 'Statutory registers')}</h2>
                 <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {list.map((r) => (
                     <li key={r.id}>
