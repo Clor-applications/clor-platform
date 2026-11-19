@@ -16,7 +16,8 @@ import {
   suspendCredential,
 } from '@platform/admin/credentials';
 import { KIND, STATUS, actionsFor } from './credentialsModel';
-import { Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
+import { Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
+import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 
@@ -248,12 +249,12 @@ export default function Credentials() {
         {shown ? <ShownOnce label={shown.label} value={shown.value} hint={shown.hint} onDone={() => setShown(null)} /> : null}
 
         {data ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.secure} label="Working" value={counts.working} note="Can be used right now" />
-            <Stat icon={ICON.warning} tone={counts.stopped ? 'warn' : null} label="Not working" value={counts.stopped} note="Paused, blocked or expired" />
-            <Stat icon={ICON.alert} tone={counts.review ? 'warn' : null} label="To review" value={counts.review} note={counts.review ? 'Their maker left or changed' : 'Nothing to look at'} onOpen={counts.review ? () => setOnlyReview(true) : undefined} />
-            <Stat icon={ICON.history} label="Expire within 30 days" value={counts.expiring} note="Extend without changing the key" />
-          </div>
+          <CountLine label="Credential figures" items={[
+            { key: 'working', label: 'working', value: counts.working },
+            { key: 'stopped', label: 'paused, blocked or expired', value: counts.stopped, tone: 'warn' },
+            { key: 'review', label: 'to review', value: counts.review, tone: 'warn', onClick: () => setOnlyReview(true), active: onlyReview },
+            { key: 'expiring', label: 'expire within 30 days', value: counts.expiring },
+          ]} />
         ) : null}
 
         <div className="ws-filters ws-filters--one-row" role="search">

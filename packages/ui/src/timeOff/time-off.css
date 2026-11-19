@@ -297,13 +297,3 @@
   .pt-rows-face { width: 1.5rem; height: 1.5rem; font-size: 0.625rem; }
 }
 
-/* The count line under a list page's title (DESIGN.md "Page header": totals in a count line, never figure tiles).
-   Secondary size in muted ink; the figures in ink, tabular; a filtering figure is a link in the app colour. */
-.ui-count-line { margin: 0; font-size: 0.8125rem; line-height: 1.125rem; color: rgb(var(--fg-muted)); }
-.ui-count-line-figure { color: rgb(var(--fg)); font-weight: 600; font-variant-numeric: tabular-nums; }
-.ui-count-line-figure.is-warn { color: rgb(var(--warn-ink)); }
-.ui-count-line-figure.is-neg { color: rgb(var(--neg)); }
-.ui-count-line-link { padding: 0; border: 0; background: none; font: inherit; color: rgb(var(--act-ink, var(--act, var(--fg)))); cursor: pointer; }
-.ui-count-line-link .ui-count-line-figure { color: inherit; }
-.ui-count-line-link:hover { text-decoration: underline; }
-.ui-count-line-link:focus-visible { outline: 2px solid rgb(var(--act, var(--fg))); outline-offset: 2px; border-radius: 4px; }

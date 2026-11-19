@@ -6,7 +6,8 @@ import { requestOpenScreen } from '@platform/context';
 import { confirmDialog } from '@ui/components/ui/notify';
 import { lastSignedInLine } from '@ui/picks/round60';
 import { memberAccess, memberDirectory, reinstateMember, removeMemberFromCompany, setAccountRole, signOutMember, suspendMember } from '@platform/admin/account';
-import { AppMark, AppTag, Avatar, Empty, FilterSelect, ICON, Loading, PageHead, Stat, StatusPill, WsDrawer } from './wsKit';
+import { AppMark, AppTag, Avatar, Empty, FilterSelect, Loading, PageHead, StatusPill, WsDrawer } from './wsKit';
+import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-access.css';
 import './ws-security.css';
@@ -179,12 +180,12 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
             const suspended = data.members.filter((m) => m.status === 'SUSPENDED').length;
             const toggle = (risk) => setFilters((f) => ({ ...f, risk: f.risk === risk ? '' : risk }));
             return (
-              <div className="ws-stats">
-                <Stat icon={ICON.people} label="Members" value={data.members.length} />
-                <Stat icon={ICON.secure} label="Can administer" value={privileged.length} note={filters.risk === 'privileged' ? 'Showing only these' : undefined} onOpen={() => toggle('privileged')} />
-                <Stat icon={ICON.warning} tone={exposed.length ? 'warn' : null} label="Admins without authenticator" value={exposed.length} note={filters.risk === 'no2fa' ? 'Showing only these' : undefined} onOpen={exposed.length ? () => toggle('no2fa') : undefined} />
-                <Stat icon={ICON.person} label="Suspended" value={suspended} />
-              </div>
+              <CountLine label="Member figures" items={[
+                { key: 'members', label: data.members.length === 1 ? 'member' : 'members', value: data.members.length },
+                { key: 'privileged', label: 'can administer', value: privileged.length, onClick: () => toggle('privileged'), active: filters.risk === 'privileged' },
+                { key: 'no2fa', label: exposed.length === 1 ? 'admin without an authenticator' : 'admins without an authenticator', value: exposed.length, tone: 'warn', onClick: () => toggle('no2fa'), active: filters.risk === 'no2fa' },
+                { key: 'suspended', label: 'suspended', value: suspended },
+              ]} />
             );
           })()
         ) : null}

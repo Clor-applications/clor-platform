@@ -6,7 +6,8 @@ import {
 import { MoreHorizontal } from '@ui/components/ui/lineIcons';
 import Popover from '@ui/components/ui/Popover';
 import { formatDate } from '@ui/components/ui/DatePicker';
-import { KpiTiles, Meter } from '../components/Core';
+import { Meter } from '../components/Core';
+import { CountLine } from '@ui/components/ui/CountLine';
 import { statusName, statusPill } from './workspaceConfig';
 import { symbolOf } from './symbols';
 import {
@@ -105,7 +106,7 @@ export function RegisterFigures({ kind, cfg, rows, people, working, today, onTab
     items = [
       { key: 'month', label: 'Posts this month', value: f.thisMonth, delta: diff ? `${diff > 0 ? '▲ +' : '▼ −'}${Math.abs(diff)}` : null, good: diff >= 0, note: `${f.lastMonth} last month`, cat: 1, Icon: ICON.post },
       { key: 'live', label: 'Published', value: f.published, note: f.archived ? `${f.archived} archived` : 'On the employee app', cat: 2, Icon: ICON.done, onClick: tab('PUBLISHED') },
-      { key: 'reach', label: 'Reach', value: f.reach, note: 'Everyone working', cat: 3, Icon: ICON.team },
+      { key: 'reach', label: 'people reached', value: f.published ? f.reach : 0, note: 'Everyone working', cat: 3, Icon: ICON.team },
       { key: 'drafts', label: 'Drafts', value: f.drafts, note: 'Not sent yet', cat: 4, Icon: ICON.draft, onClick: tab('DRAFT') },
     ];
   } else if (kind === 'events') {
@@ -117,7 +118,8 @@ export function RegisterFigures({ kind, cfg, rows, people, working, today, onTab
       { key: 'held', label: 'Held this year', value: f.held, note: `Since 1 Jan ${today.slice(0, 4)}`, cat: 4, Icon: ICON.done, onClick: tab('past') },
     ];
   }
-  return items ? <KpiTiles label={`${cfg.title} figures`} items={items} /> : null;
+  /* A count line under the title, not tiles (DESIGN.md "Page header"); the tiles' notes stay in the data for the tabs. */
+  return items ? <CountLine label={`${cfg.title} figures`} items={items} /> : null;
 }
 
 /* ------------------------------------------------------------------ assets */

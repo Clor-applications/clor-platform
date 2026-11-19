@@ -35,7 +35,8 @@ import { selectedBranchId } from '@platform/context';
 import RoleSelect from './RoleSelect';
 import UserAccessPanel from './UserAccessPanel';
 import UserLocationAccessTable from './UserLocationAccessTable';
-import { Avatar, Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
+import { Avatar, Empty, FilterSelect, Loading, PageHead, WsDrawer } from './wsKit';
+import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 import './ws-access.css';
@@ -721,11 +722,11 @@ export function SettingsUsers({ orgId, params }) {
         />
 
         {users.length ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.people} label="Users" value={users.length} note={`${active} can sign in`} />
-            <Stat icon={ICON.person} tone={users.length - active ? 'warn' : null} label="Inactive" value={users.length - active} note={users.length - active ? 'Kept, but cannot sign in' : 'Nobody is switched off'} onOpen={users.length - active ? () => setFilters((f) => ({ ...f, status: f.status === 'inactive' ? '' : 'inactive' })) : undefined} />
-            <Stat icon={ICON.secure} tone={noRole ? 'warn' : null} label="Without a role" value={noRole} note={noRole ? 'They can sign in but open nothing' : 'Everyone has a role'} />
-          </div>
+          <CountLine label="User figures" items={[
+            { key: 'users', label: users.length === 1 ? 'user' : 'users', value: users.length },
+            { key: 'inactive', label: 'inactive, cannot sign in', value: users.length - active, tone: 'warn', onClick: () => setFilters((f) => ({ ...f, status: f.status === 'inactive' ? '' : 'inactive' })), active: filters.status === 'inactive' },
+            { key: 'norole', label: 'without a role', value: noRole, tone: 'warn' },
+          ]} />
         ) : null}
 
         <div className="ws-filters" role="search">

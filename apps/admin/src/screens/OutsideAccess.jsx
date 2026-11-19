@@ -11,7 +11,8 @@ import {
 import { APP_LABEL, STATUS, actionsFor, appsText } from './outsideAccessModel';
 import { requestOpenScreen } from '@platform/context';
 import { Plus } from '@ui/components/ui/lineIcons';
-import { Avatar, ICON, Loading, PageHead, Stat, StatusPill } from './wsKit';
+import { Avatar, Loading, PageHead, StatusPill } from './wsKit';
+import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 import './ws-access.css';
@@ -153,11 +154,11 @@ export default function OutsideAccess() {
         />
 
         {data ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.team} label="With access" value={count('ACTIVE')} note="From other accounts, active now" />
-            <Stat icon={ICON.history} tone={endingSoon ? 'warn' : null} label="Ending within 30 days" value={endingSoon} note={endingSoon ? 'Change the date to extend' : 'Nothing ends soon'} />
-            <Stat icon={ICON.security} label="On pause" value={count('SUSPENDED')} note="Stopped, and can be resumed" />
-          </div>
+          <CountLine label="Outside access figures" items={[
+            { key: 'active', label: 'with access now', value: count('ACTIVE') },
+            { key: 'ending', label: 'ending within 30 days', value: endingSoon, tone: 'warn' },
+            { key: 'paused', label: 'on pause', value: count('SUSPENDED') },
+          ]} />
         ) : null}
 
         <div className="ws-layout">

@@ -63,8 +63,10 @@ describe('Workspace → Members', () => {
 
   it('shows who holds privileged access and who of them has no authenticator', async () => {
     render(<Members />);
-    expect(await screen.findByRole('button', { name: /Can administer\s*1/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Admins without authenticator\s*1/ }));
+    /* The count line under the title: each figure filters the list (DESIGN.md "Page header"). */
+    expect(await screen.findByRole('button', { name: /^1 can administer$/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^1 admin without an authenticator$/ }));
+    expect(screen.getByRole('button', { name: /^1 admin without an authenticator$/ })).toHaveAttribute('aria-pressed', 'true');
     expect(filterMembers(DIR.members, { risk: 'no2fa' }).map((m) => m.userId)).toEqual(['u1']);
     expect(screen.queryByRole('button', { name: /Kavya/ })).toBeNull();
   });

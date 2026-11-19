@@ -3,7 +3,8 @@ import { Plus, RotateCw, Send, XCircle } from '@ui/components/ui/lineIcons';
 
 import { createInvitation, listInvitations, resendInvitation, revokeInvitation } from '@platform/admin/account';
 import { listRoles } from '@platform/admin/admin';
-import { ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
+import { ICON, Loading, PageHead, WsDrawer } from './wsKit';
+import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 
@@ -154,11 +155,11 @@ export default function Invitations({ tenant, companies = [] }) {
         />
 
         {rows?.length ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.mail} label="Waiting" value={count('PENDING')} note="Link not used yet" />
-            <Stat icon={ICON.people} label="Joined" value={count('ACCEPTED')} />
-            <Stat icon={ICON.warning} tone={count('EXPIRED') ? 'warn' : null} label="Expired" value={count('EXPIRED')} note={count('EXPIRED') ? 'Resend to try again' : undefined} />
-          </div>
+          <CountLine label="Invitation figures" items={[
+            { key: 'waiting', label: 'waiting', value: count('PENDING') },
+            { key: 'joined', label: 'joined', value: count('ACCEPTED') },
+            { key: 'expired', label: 'expired, resend to try again', value: count('EXPIRED'), tone: 'warn' },
+          ]} />
         ) : null}
 
         {notJoined.length ? (
