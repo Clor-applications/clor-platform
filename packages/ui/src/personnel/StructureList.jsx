@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { Plus, Trash2 } from '@ui/components/ui/lineIcons';
 
 import { SkeletonCard, EmptyState } from '@ui/components/ui/Primitives';
@@ -221,7 +222,7 @@ export default function StructureList({ kind, title = '', singular = '' }) {
                     {(cfg.columns || []).map((c) => <td key={c.key} className="ui-col-meta">{(c.value ? c.value(r) : r[c.key]) || '—'}</td>)}
                     <td className="ui-col-h-center">{r.employeeCount || 0}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${r.isActive ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{r.isActive ? 'Active' : 'Inactive'}</span>
+                      <ExceptionTag label={r.isActive ? '' : 'Inactive'} tone="neutral" normal="Active" />
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button type="button" className="ui-icon-btn" aria-label={`Delete ${r.name}`} onClick={() => remove(r)}>

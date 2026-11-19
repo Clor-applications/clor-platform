@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { shownLines } from '@ui/picks/round60';
 import { Banknote, Clock, FileText, MinusCircle, Printer, Wallet } from '@ui/components/ui/lineIcons';
 
@@ -171,7 +172,7 @@ export default function SalarySlips() {
                     <td className="ui-num">{money(x.totalDeductions)}</td>
                     <td className="ui-num font-medium">{money(x.netPay)}</td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${isPaid(x) ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{isPaid(x) ? 'Paid' : 'Unpaid'}</span>
+                      <ExceptionTag label={isPaid(x) ? '' : 'Unpaid'} normal="Paid" />
                     </td>
                   </tr>
                 ))
