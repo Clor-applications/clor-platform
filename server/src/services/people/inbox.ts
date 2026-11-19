@@ -65,6 +65,8 @@ export type InboxItem = {
    * when the company lets one person do both. Decided one at a time, and audited.
    */
   own?: 'ONLY_APPROVER' | 'ALLOWED' | null;
+  /** Approved leave the person asks to cancel (round 47): decided with POST /leave/requests/:id/cancellation. */
+  cancelAsked?: boolean;
 };
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
@@ -122,6 +124,8 @@ export async function waitingFor(req: Request): Promise<{ waiting: number; appro
  */
 export async function hasPersonalInbox(orgId: string, userId: string): Promise<boolean> {
   if (await peoplePrisma.leaveRequest.count({ where: { orgId, status: 'PENDING', ruleId: { not: null }, stepUserIds: { has: userId } } })) return true;
+  /* Leave they approved that the person now asks to cancel (round 47). */
+  if (await peoplePrisma.leaveRequest.count({ where: { orgId, status: 'APPROVED', cancelAskedAt: { not: null }, reviewedByUserId: userId } })) return true;
   if (await peoplePrisma.checklistTask.count({ where: { orgId, ownerUserId: userId, doneAt: null } })) return true;
   const me = await peoplePrisma.employee.findFirst({ where: { orgId, userId }, select: { id: true } });
   if (!me) return false;
@@ -177,6 +181,30 @@ export async function inboxFor(req: Request): Promise<{ items: InboxItem[]; task
         fromDate: r.fromDate, toDate: g?.to || r.toDate, days: g ? Math.round(g.days * 100) / 100 : r.days, halfDay: r.halfDay || null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null,
         since: iso(r.createdAt)!, dueAt: r.ruleId ? iso(r.stepDueAt) : null, overdue: Boolean(r.ruleId && r.stepDueAt && new Date(r.stepDueAt).getTime() < now), managerApproved: Boolean(r.managerApprovedAt), step: r.ruleStep ?? null, bulk: rights.LEAVE.decide && !r.ownDecision, own: r.ownDecision ?? null,
       });
+    }
+  }
+
+  /*
+   * Approved leave the person asks to cancel (round 47): whoever approves leave for them, or whoever approved
+   * it, answers "Approve cancellation" or "Keep leave". Decided one at a time, never in bulk.
+   */
+  {
+    const { cancellationsForReader, withTypes, masked, readsPrivateLeave } = await import('../../routes/leave.js');
+    const rows = await cancellationsForReader(req, { scoped: rights.LEAVE.see && rights.LEAVE.decide });
+    if (rows.length) {
+      const groups = rows.filter((r) => r.groupId).map((r) => r.groupId as string);
+      const parts = groups.length ? await peoplePrisma.leaveRequest.findMany({ where: { orgId, groupId: { in: groups }, status: 'APPROVED' }, select: { groupId: true, toDate: true, days: true } }) : [];
+      const shaped = masked(await withTypes(orgId, rows), await readsPrivateLeave(req));
+      for (const r of shaped) {
+        const mine = r.groupId ? parts.filter((p) => p.groupId === r.groupId) : [r];
+        items.push({
+          key: `LEAVE_CANCEL:${r.id}`, kind: 'LEAVE', id: r.id, what: `Cancel ${r.leaveTypeName || 'leave'}`, subKind: r.leaveTypeName || null,
+          employeeId: r.employeeId, employeeName: r.employeeName, employeeCode: r.employeeCode, photoUrl: r.photoUrl,
+          fromDate: r.fromDate, toDate: mine.reduce((a: string, p: any) => (p.toDate > a ? p.toDate : a), r.toDate), days: Math.round(mine.reduce((a: number, p: any) => a + p.days, 0) * 100) / 100, halfDay: r.halfDay || null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null,
+          reason: r.cancelReason ?? null,
+          since: iso(r.cancelAskedAt)!, dueAt: null, overdue: false, managerApproved: false, bulk: false, cancelAsked: true,
+        });
+      }
     }
   }
 

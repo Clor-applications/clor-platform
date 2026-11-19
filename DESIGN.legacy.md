@@ -97,7 +97,7 @@ Built in the second batch (17 Nov 2026):
 | --- | --- |
 | Form sections | Heading and note on the left, fields on the right from 1024px (`.ui-form-part`; Add employee) |
 | Help text | Behind an "i" beside the label (`HelpTip`); keyboard focus shows it too |
-| Money fields | "INR" after the amount (`MoneyInput`; drawn by CSS so it never joins a label's text) |
+| Money fields | "₹" before the amount (`MoneyInput`; drawn by CSS so it never joins a label's text). Was "INR" after until the 19 Nov conflict ruling |
 | Phone | Country code picker before the number (`PhoneInput`) |
 | Choosing many | A tick list (`TickList`; rotations, data protection) |
 | Date range | Quick periods first: this month, last month, last 3 months, this financial year (`RangePresets`) |
@@ -1510,7 +1510,7 @@ Built (getting around the apps; never in Books):
 | Help for this screen | "How this works ›" at the right of the row above a screen that has a how-to article; it opens the article in a side panel, with "Open in the Help centre" (`ScreenHelp`, same text as the Help centre). |
 | Links that leave CLOR | Marked ↗ and opened in a new tab, so CLOR stays open (another CLOR app is not "leaving"). |
 | Cursor in the first field | A drawer or dialog that opens puts the cursor in its first empty field, ready to type; `data-autofocus` still wins; not on a touch phone, where it would throw the keyboard up. |
-| Copying numbers | The copy control beside employee ID, PAN, UAN, IFSC and other numbers is now a small copy icon, "Copied" for a moment after (replaces the "Copy" word of 17 Nov). IFSC got one. |
+| Copying numbers | Superseded 19 Nov (see "Pick conflicts resolved"): the control beside employee ID, PAN, UAN, IFSC and other numbers is the word "Copy", "Copied" for a moment after. IFSC got one. |
 | Ctrl+S | Ctrl+S (⌘S) saves the form the cursor is in, else the open drawer's or the page's only Save, instead of saving the web page. It only ever presses a button that says Save: a form whose button is Send or Approve is left alone, with "Use “Send” to finish this form." |
 
 Picked and already how the app works: the app switcher top left lists only your apps with the

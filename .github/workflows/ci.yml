@@ -292,12 +292,22 @@ jobs:
   # Each run has a machine of its own, so the Mac-wide lock that kept two
   # end-to-end runs apart (31 Oct 2026, scripts/ci/one-at-a-time.sh) is not
   # needed here.
+  #
+  # Faster since 19 Nov 2026 (owner): the run no longer waits for verify (it
+  # starts beside it, so a PR's checks take about as long as verify alone), and
+  # it is split across three machines (Playwright --shard). A lint failure still
+  # fails the PR through verify; this run's minutes are then spent anyway.
+  # "e2e-smoke" / "e2e-full" below is one line that is green only when all three
+  # parts are.
   e2e:
-    needs: [verify, server-tests, server-tests-related]
-    if: ${{ !cancelled() && needs.verify.result == 'success' && github.event_name != 'push' }}
-    name: ${{ github.event_name == 'pull_request' && 'e2e-smoke' || 'e2e-full' }}
+    if: ${{ !cancelled() && github.event_name != 'push' }}
+    name: ${{ github.event_name == 'pull_request' && 'e2e-smoke' || 'e2e-full' }} (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     env:
       PGHOST: localhost
       PGPORT: 5434
@@ -347,13 +357,13 @@ jobs:
 
       - name: End-to-end, smoke set
         if: github.event_name == 'pull_request'
-        run: npm run e2e:smoke
+        run: npm run e2e:smoke -- --shard=${{ matrix.shard }}/3
         env:
           E2E_SKIP_GENERATE: '1'
 
       - name: End-to-end, every scenario
         if: github.event_name != 'pull_request'
-        run: npm run e2e
+        run: npm run e2e -- --shard=${{ matrix.shard }}/3
         env:
           E2E_SKIP_GENERATE: '1'
 
@@ -380,7 +390,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-report-${{ github.run_id }}-${{ github.run_attempt }}
+          name: e2e-report-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
           path: |
             e2e/report/
             e2e/test-results/
@@ -388,6 +398,17 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
+
+  # One line for the three e2e parts, under the old name.
+  e2e-result:
+    needs: [e2e]
+    if: ${{ !cancelled() && github.event_name != 'push' }}
+    name: ${{ github.event_name == 'pull_request' && 'e2e-smoke' || 'e2e-full' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All parts passed
+        run: test "${{ needs.e2e.result }}" = "success"
 
   # The same scenarios against staging, nightly. Off until the owner adds the
   # secrets and sets the repository variable E2E_STAGING_ENABLED to 'true'

@@ -31,7 +31,7 @@ import { BalanceAfter, InlineDocument, LONG_WAIT_DAYS, isWaitingTooLong, stepChi
 import { MONTH_CLOSED, MonthClosedNote } from './MonthClosed';
 import { useSuggestions } from './suggestions';
 import {
-  PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, bulkReviewLeave, cancelLeave, getTimeOverview, createLeaveRequest, daysText,
+  PRIVATE_LABEL, STATUS_LABEL, STATUS_PILL, approveLeave, bulkReviewLeave, cancelLeave, decideLeaveCancellation, getTimeOverview, createLeaveRequest, daysText,
   getLeaveDocument, getLeaveRequest, getLeaveSettings, listLeaveRequests, listLeaveTypes, pageLeaveRequests, periodChoices, previewLeave, rejectLeave, sendBackLeave, takeBackLeave,
   shortenLeave, swatchOf, updateLeaveRequest, listPeople,
 } from './api';
@@ -62,7 +62,9 @@ export function TypeDot({ row }) {
 export function StatusPill({ row }) {
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>{row.status === 'PENDING' && row.createdAt ? <span className="sr-only">{`, ${waitingSaid(row.createdAt)}`}</span> : null}
+      {row.status === 'APPROVED' && row.cancelAskedAt
+        ? <span className="ui-pill ui-pill-warn">Approved · cancellation asked</span>
+        : <span className={`ui-pill ${STATUS_PILL[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>}{row.status === 'PENDING' && row.createdAt ? <span className="sr-only">{`, ${waitingSaid(row.createdAt)}`}</span> : null}
       {row.status === 'PENDING' && row.managerApprovedAt ? <span className="ui-caption">{row.managerApprovedById ? 'Manager approved' : 'Handed on to HR'}</span> : null}
       {row.status === 'PENDING' && row.ruleStep > 1 ? <span className="ui-caption">Step {row.ruleStep}</span> : null}
     </span>
@@ -364,13 +366,19 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
     const ok = await confirmDialog({ title: 'Take back this approval?', message: 'It waits for a decision again, its days come off the attendance record, and they are told.', confirmLabel: 'Take back' });
     if (ok) act(() => takeBackLeave(r.id, null), 'Approval taken back. It waits again.');
   };
+  /* Round 47: the person asked to cancel this approved leave; it counts until it is agreed. */
+  const cancelAsked = Boolean(r?.status === 'APPROVED' && r?.cancelAskedAt);
+  const agreeCancel = () => act(() => decideLeaveCancellation(r.id, true, note.trim() || null), 'Cancellation approved. The days go back to their balance.');
+  const keepLeave = () => act(() => decideLeaveCancellation(r.id, false, note.trim() || null), 'Leave kept. They are told.');
   const cancel = async () => {
+    /* HR cancelling approved leave says why: the person reads it with the notice. */
+    if (r.status === 'APPROVED' && !note.trim()) { setNoteError('Say why. They read this with the notice.'); noteRef.current?.focus(); return; }
     const ok = await confirmDialog({
       title: r.status === 'APPROVED' ? 'Cancel this leave?' : 'Withdraw this request?',
       message: r.status === 'APPROVED' ? `The days come off the attendance record and go back to the balance${d.parts?.length > 1 ? ', for every part of this leave' : ''}.` : d.parts?.length > 1 ? 'Every part of this leave is withdrawn.' : undefined,
       confirmLabel: r.status === 'APPROVED' ? 'Cancel leave' : 'Withdraw',
     });
-    if (ok) act(() => cancelLeave(r.id), r.status === 'APPROVED' ? 'Leave cancelled.' : 'Request withdrawn.');
+    if (ok) act(() => cancelLeave(r.id, r.status === 'APPROVED' ? note.trim() : null), r.status === 'APPROVED' ? 'Leave cancelled.' : 'Request withdrawn.');
   };
   const shorten = (e) => {
     e?.preventDefault();
@@ -394,6 +402,11 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
       {d.question ? null : <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={sendBack}>Ask a question</button>}
       <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={reject}><X size={16} aria-hidden="true" /> Reject</button>
       {canApprove ? <button type="button" className="ui-btn ui-btn-primary" disabled={busy || (Boolean(d.waitingForManager) && !asHr)} onClick={approve}><Check size={16} aria-hidden="true" /> {asHr ? 'Approve as HR' : 'Approve'}</button> : null}
+    </>
+  ) : cancelAsked && canDecide ? (
+    <>
+      <button type="button" className="ui-btn ui-btn-secondary" disabled={busy} onClick={keepLeave}>Keep leave</button>
+      <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={agreeCancel}><Check size={16} aria-hidden="true" /> Approve cancellation</button>
     </>
   ) : OPEN_STATUSES.includes(r.status) && (canCancel || d?.canTakeBack) ? (
     <>
@@ -503,9 +516,10 @@ export function RequestDrawer({ id, allowed, onClose, onDone }) {
             </ol>
           </section>
 
-          {r.status === 'PENDING' && canDecide ? (
+          {cancelAsked ? <p className="text-sm ui-text-warn">They asked to cancel this leave{r.cancelReason ? <>: <span className="ui-muted">“{r.cancelReason}”</span></> : '.'} It stays approved, and counts, until it is agreed.</p> : null}
+          {(r.status === 'PENDING' && canDecide) || (r.status === 'APPROVED' && (canCancel || (cancelAsked && canDecide))) ? (
             <div>
-              <label htmlFor="lr-note" className="ui-label">Note to them</label>
+              <label htmlFor="lr-note" className="ui-label">{r.status === 'APPROVED' && !cancelAsked ? 'Reason, if you cancel it' : 'Note to them'}</label>
               <textarea id="lr-note" ref={noteRef} className={`ui-input w-full ${noteError ? 'is-invalid' : ''}`} rows={2} maxLength={500} value={note} aria-invalid={Boolean(noteError)} aria-describedby={noteError ? 'lr-note-err' : undefined} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
               {noteError ? <span id="lr-note-err" className="ui-field-error">{noteError}</span> : null}
             </div>

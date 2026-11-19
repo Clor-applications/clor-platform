@@ -34,6 +34,10 @@ import './MyLeave.css';
  */
 const BLANK = { leaveTypeId: '', fromDate: '', toDate: '', halfDay: '', startHalf: false, endHalf: false, fromTime: '', toTime: '', reason: '', forChild: false };
 const STATUS_LABEL = { PENDING: 'Waiting', APPROVED: 'Approved', REJECTED: 'Not approved', CANCELLED: 'Cancelled' };
+/* Approved leave the person asked to cancel (round 47) still counts: it waits on the approver. */
+const StatusPill = ({ r }) => (r.status === 'APPROVED' && r.cancelAskedAt
+  ? <span className="ui-pill ui-pill-warn">Approved · cancellation asked</span>
+  : <span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span>);
 const PRIVATE_LABEL = 'Private leave';
 const daysText = (n) => (n === 0.5 ? 'half a day' : `${n} day${n === 1 ? '' : 's'}`);
 const range = (from, to) => (from === to ? formatDate(from) : `${formatDate(from)} – ${formatDate(to)}`);
@@ -131,12 +135,16 @@ export default function MyLeave() {
     }
   };
 
+  /* A waiting request is withdrawn at once; approved leave is asked to be cancelled and stays approved until agreed (round 47). */
   const cancel = async (r) => {
-    const ok = await confirmDialog({ title: 'Cancel this leave?', message: `${r.leaveTypeName}, ${range(r.fromDate, r.toDate)}`, confirmLabel: 'Yes, cancel it' });
+    const approved = r.status === 'APPROVED';
+    const ok = await confirmDialog(approved
+      ? { title: 'Ask to cancel this leave?', message: `${r.leaveTypeName}, ${range(r.fromDate, r.toDate)}. It stays approved, and counts, until whoever approved it agrees.`, confirmLabel: 'Ask to cancel' }
+      : { title: 'Withdraw this request?', message: `${r.leaveTypeName}, ${range(r.fromDate, r.toDate)}`, confirmLabel: 'Withdraw' });
     if (!ok) return;
     try {
-      await cancelMyLeave(r.id);
-      notify.success('Cancelled.');
+      const out = await cancelMyLeave(r.id);
+      notify.success(out?.asked ? 'Asked to cancel. It stays approved until agreed.' : 'Withdrawn.');
       load();
     } catch (err) {
       notify.error(String(err?.message || 'Not cancelled.'));
@@ -187,7 +195,7 @@ export default function MyLeave() {
   if (error && !me) return <div className="space-y-6">{header}<LoadFailed message={error} onRetry={load} /></div>;
   if (!me) return <div className="space-y-6" aria-busy="true">{header}<SkeletonCard lines={6} /></div>;
 
-  const cancellable = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > me.today);
+  const cancellable = (r) => r.status === 'PENDING' || (r.status === 'APPROVED' && r.fromDate > me.today && !r.cancelAskedAt);
   const shortenable = (r) => r.status === 'APPROVED' && !r.halfDay && !r.minutes && r.fromDate <= me.today && r.toDate > me.today;
   const hidden = (r) => r.reasonHidden || r.leaveTypeName === PRIVATE_LABEL;
   /* A type's identity colour: its own when a request carries it, else the one its name maps to (README §1). */
@@ -204,7 +212,7 @@ export default function MyLeave() {
     { key: 'days', label: 'Days', align: 'right', render: (r) => <span className="tabular-nums">{r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : r.days}</span> },
     { key: 'status', label: 'Status', render: (r) => (
       <span className="inline-flex flex-col items-start gap-0.5">
-        <span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span>
+        <StatusPill r={r} />
         {r.status === 'REJECTED' && r.reviewNote ? <span className="ui-caption whitespace-normal">{r.reviewNote}</span> : null}
         {r.status === 'PENDING' && r.question ? <span className="ui-caption whitespace-normal">Question for you: “{r.question.note}”</span> : null}
         {r.status === 'PENDING' && r.question && canAct ? (
@@ -276,7 +284,7 @@ export default function MyLeave() {
             ] : null}
             card={(r) => (
               <span className="block min-w-0">
-                <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : daysText(r.days)}</span><span className={`ui-pill ${LEAVE_STATUS[r.status] || 'ui-pill-neutral'}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
+                <span className="flex items-center justify-between gap-2"><span className="truncate">{r.leaveTypeName} · {r.fromTime && r.toTime ? hoursWords(hoursBetween(r.fromTime, r.toTime)) : daysText(r.days)}</span><StatusPill r={r} /></span>
                 <span className="flex items-center justify-between gap-2">
                   <span className="block truncate ui-caption tabular-nums">{range(r.fromDate, r.toDate)}</span>
                   {canAct && cancellable(r) ? <button type="button" className="ml-text-btn" onClick={() => cancel(r)} aria-label={`Cancel ${r.leaveTypeName}, ${range(r.fromDate, r.toDate)}`}>Cancel</button> : null}

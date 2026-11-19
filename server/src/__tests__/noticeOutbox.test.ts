@@ -239,7 +239,8 @@ describe('leave and request notices go through the outbox (O-07)', () => {
     expect(await bell(hr, { userId: meUser.userId, dedupeKey: { startsWith: `request-` }, kind: 'attendance.request_decided', title: { contains: 'cancelled' } })).toHaveLength(0);
   });
 
-  it('withdrawn leave reaches a real approver: the rule approved it, or a manager approved it in the employee app', async () => {
+  /* Round 47: cancelling approved leave is an ask now; the ask reaches the same real approver the cancellation used to. */
+  it('an ask to cancel approved leave reaches a real approver: the rule approved it, or a manager approved it in the employee app', async () => {
     const quick = (await att(hr, 'post', '/leave/types', { name: 'Quick', annualDays: 10, autoApproveUpToDays: 2 }).expect(201)).body.type;
     const meUser = await colleague(hr, MY);
     const emp = await person(hr, { name: 'Withdraw Wasim', code: 'NB8' });
@@ -248,11 +249,11 @@ describe('leave and request notices go through the outbox (O-07)', () => {
     /* Approved by the leave rule: nobody approved it by hand, so those who approve leave for him are told. */
     const auto = (await att(meUser, 'post', '/me/leave', { leaveTypeId: quick.id, fromDate: on(23), toDate: on(23), reason: 'Errand' }).expect(201)).body.request;
     expect(auto.status).toBe('APPROVED');
-    await att(meUser, 'post', `/me/leave/${auto.id}/cancel`).expect(200);
+    expect((await att(meUser, 'post', `/me/leave/${auto.id}/cancel`).expect(200)).body.asked).toBe(true);
     await drain();
-    const toApprovers = await bell(hr, { dedupeKey: `leave-withdrawn:${auto.id}` });
+    const toApprovers = await bell(hr, { dedupeKey: { startsWith: `leave-cancel-asked:${auto.id}:` } });
     expect(toApprovers.map((n) => n.userId).sort()).toEqual([hr.userId, approver.userId].sort());
-    expect(toApprovers[0].title).toBe(`Withdraw Wasim (NB8) cancelled Quick, ${words(on(23))}`);
+    expect(toApprovers[0].title).toBe(`Withdraw Wasim (NB8) asks to cancel Quick, ${words(on(23))}`);
 
     /* Approved by a manager in the employee app (portal:<their employee id>): reaches the manager's own sign-in. */
     const managerUser = await colleague(hr, MY);
@@ -261,9 +262,9 @@ describe('leave and request notices go through the outbox (O-07)', () => {
     const byHand = (await att(meUser, 'post', '/me/leave', { leaveTypeId: casual.id, fromDate: on(30), toDate: on(30), reason: 'Wedding' }).expect(201)).body.request;
     await att(hr, 'post', `/leave/requests/${byHand.id}/approve`).expect(200);
     await runInTenant(hr.orgId, () => peoplePrisma.leaveRequest.update({ where: { id: byHand.id }, data: { reviewedByUserId: `portal:${manager.id}` } }));
-    await att(meUser, 'post', `/me/leave/${byHand.id}/cancel`).expect(200);
+    expect((await att(meUser, 'post', `/me/leave/${byHand.id}/cancel`).expect(200)).body.asked).toBe(true);
     await drain();
-    const toManager = await bell(hr, { dedupeKey: `leave-withdrawn:${byHand.id}` });
+    const toManager = await bell(hr, { dedupeKey: { startsWith: `leave-cancel-asked:${byHand.id}:` } });
     expect(toManager.map((n) => n.userId)).toEqual([managerUser.userId]);
     /* No row is ever addressed to a portal id or to "system". */
     expect(await bell(hr, { OR: [{ userId: { startsWith: 'portal:' } }, { userId: 'system' }] })).toHaveLength(0);

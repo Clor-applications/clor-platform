@@ -80,7 +80,7 @@ describe('the employee app: spent for work', () => {
     render(<MyMoney guard={guard} />);
     fireEvent.click(await screen.findByRole('button', { name: /Add a bill/ }));
     const form = screen.getByRole('form', { name: 'Add a bill' });
-    fireEvent.change(within(form).getByPlaceholderText('₹'), { target: { value: '450' } });
+    fireEvent.change(within(form).getByPlaceholderText('0'), { target: { value: '450' } });
     fireEvent.change(within(form).getByRole('combobox', { name: /What it was for/ }), { target: { value: 'c1' } });
     fireEvent.change(within(form).getByPlaceholderText('Shop, cab, hotel'), { target: { value: 'Uber' } });
     fireEvent.click(within(form).getByRole('checkbox', { name: /Paid with the company card/ }));
@@ -98,9 +98,9 @@ describe('the employee app: spent for work', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Add a bill/ }));
     const form = screen.getByRole('form', { name: 'Add a bill' });
     fireEvent.change(within(form).getByRole('combobox', { name: /What it was for/ }), { target: { value: 'c2' } });
-    fireEvent.change(within(form).getByPlaceholderText('₹'), { target: { value: '800' } });
+    fireEvent.change(within(form).getByPlaceholderText('0'), { target: { value: '800' } });
     expect(within(form).getByText(/Food and meals limit is ₹1,000 a bill · ₹200 left/)).toBeTruthy();
-    fireEvent.change(within(form).getByPlaceholderText('₹'), { target: { value: '1250' } });
+    fireEvent.change(within(form).getByPlaceholderText('0'), { target: { value: '1250' } });
     expect(within(form).getByText(/₹250 over/)).toBeTruthy();
   });
 
@@ -147,7 +147,7 @@ describe('the employee app: salary advance', () => {
     expect(await screen.findByText('₹25,000')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ask for one' }));
     const form = screen.getByRole('form', { name: 'Ask for a salary advance' });
-    fireEvent.change(within(form).getByPlaceholderText('₹'), { target: { value: '30000' } });
+    fireEvent.change(within(form).getByPlaceholderText('0'), { target: { value: '30000' } });
     fireEvent.change(within(form).getByRole('combobox', { name: /Repay over/ }), { target: { value: '1' } });
     expect(await screen.findByText(/more than can come off your pay/)).toBeTruthy();
     expect(within(form).getByRole('button', { name: 'Ask' }).disabled).toBe(true);
