@@ -229,7 +229,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
       ) : <p className="ui-caption">A photo, or a PDF up to 5 MB. No bill? Add it anyway and say why in the note.</p>}
       <div className="grid grid-cols-2 gap-3">
         <label className="block"><span className="ui-label">Amount</span>
-          <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+          <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
         </label>
         <label className="block"><span className="ui-label">Day</span>
           <input type="date" className="ui-input w-full" required min={oldestBillDay(todayIst())} max={todayIst()} value={form.spentOn} onChange={(e) => set({ spentOn: e.target.value })} />
@@ -262,7 +262,7 @@ function BillForm({ data, guard, onDone, onCancel }) {
       {form.companyGstin ? (
         /* Round 51 pick (gstbill B): only the GST amount on the bill is asked. */
         <label className="block"><span className="ui-label">GST on the bill</span>
-          <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" value={form.taxAmount} onChange={(e) => set({ taxAmount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+          <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" value={form.taxAmount} onChange={(e) => set({ taxAmount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
         </label>
       ) : null}
       {form.companyGstin && category?.creditBlocked ? <p className="ui-caption">GST credit is usually not available on {category.name.toLowerCase()}. Keep the bill anyway.</p> : null}
@@ -401,7 +401,7 @@ function Advances({ data, guard, reload }) {
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><span className="ui-label">Amount</span>
-              <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+              <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
             </label>
             <label className="block"><span className="ui-label">Needed by</span>
               <input type="date" className="ui-input w-full" min={todayIst()} value={form.neededBy} onChange={(e) => setForm({ ...form, neededBy: e.target.value })} />
@@ -497,7 +497,7 @@ function SalaryAdvance({ info, guard, reload }) {
         <form onSubmit={ask} className="space-y-3" aria-label="Ask for a salary advance">
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><span className="ui-label">Amount</span>
-              <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="₹" />
+              <MoneyInput className="ui-input w-full tabular-nums" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
             </label>
             <label className="block"><span className="ui-label">Repay over</span>
               <select className="ui-select w-full" value={form.months} onChange={(e) => setForm({ ...form, months: Number(e.target.value) })}>

@@ -319,11 +319,13 @@
 
 /* ===== Round 3, form pieces (shared components, used outside Books) ===== */
 
-/* ---- Money: INR after the amount (MoneyInput) ---- */
+/* ---- Money: the rupee sign before the amount (MoneyInput) ----
+   Owner, 19 Nov 2026 ("Pick conflicts resolved"): ₹ before the amount everywhere, replacing
+   round 3's "INR after". The sign sits at the field's left edge; the figure stays right-aligned. */
 .ui-money-field { position: relative; display: inline-block; max-width: 100%; vertical-align: middle; }
 .ui-money-field:has(> .w-full) { display: block; width: 100%; }
-.ui-money-input { padding-right: 2.75rem !important; text-align: right; font-variant-numeric: tabular-nums; }
-.ui-money-field::after { content: 'INR'; position: absolute; right: 0.625rem; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 600; color: rgb(var(--fg-muted, var(--fg))); pointer-events: none; }
+.ui-money-input { padding-left: 1.75rem !important; text-align: right; font-variant-numeric: tabular-nums; }
+.ui-money-field::before { content: '₹'; position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%); font-size: 0.875rem; color: rgb(var(--fg-muted, var(--fg))); pointer-events: none; }
 
 /* ---- Phone: a country picker in front (PhoneInput) ---- */
 .ui-phone-field { display: flex; gap: 0.375rem; width: 100%; min-width: 0; }

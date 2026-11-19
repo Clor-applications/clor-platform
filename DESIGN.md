@@ -97,7 +97,7 @@ Built in the second batch (17 Nov 2026):
 | --- | --- |
 | Form sections | Heading and note on the left, fields on the right from 1024px (`.ui-form-part`; Add employee) |
 | Help text | Behind an "i" beside the label (`HelpTip`); keyboard focus shows it too |
-| Money fields | "INR" after the amount (`MoneyInput`; drawn by CSS so it never joins a label's text) |
+| Money fields | "₹" before the amount (`MoneyInput`; drawn by CSS so it never joins a label's text). Was "INR" after until the 19 Nov conflict ruling |
 | Phone | Country code picker before the number (`PhoneInput`) |
 | Choosing many | A tick list (`TickList`; rotations, data protection) |
 | Date range | Quick periods first: this month, last month, last 3 months, this financial year (`RangePresets`) |
