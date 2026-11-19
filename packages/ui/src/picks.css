@@ -1198,10 +1198,12 @@
 }
 /* externallink A: a link that leaves CLOR carries ↗ (it opens in a new tab). */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) a[data-external]::after { content: ' ↗'; font-size: 0.85em; }
-/* copyvalue A: a small copy icon beside numbers people paste elsewhere; "Copied" for a moment. */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; vertical-align: middle; color: rgb(var(--fg-muted)); border-radius: 6px; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word:hover { color: rgb(var(--fg)); background: #F7F7F7; text-decoration: none; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word-done { color: rgb(var(--pos-ink, var(--fg))); font-size: 0.75rem; font-weight: 600; padding: 0 2px; }
+/* copyvalue: the word "Copy" beside numbers people paste elsewhere, "Copied" for a moment
+   (owner settled the r3 / r61 conflict on 19 Nov 2026: the word, not an icon). */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word { display: inline-flex; align-items: center; vertical-align: baseline; padding: 0 2px; border-radius: 8px; color: rgb(var(--act-ink, var(--fg))); font-size: 0.75rem; font-weight: 600; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word:hover { text-decoration: underline; text-underline-offset: 3px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word.is-done:hover { text-decoration: none; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-copy-word-done { color: rgb(var(--pos-ink, var(--fg))); font-size: 0.75rem; font-weight: 600; }
 
 /* Round 62 */
 /* contactactions A: phone and e-mail in the record header open the call or the mail, Copy beside each. */

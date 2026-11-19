@@ -135,12 +135,13 @@ describe('round 61: sections on the right (sectionjump A)', () => {
   });
 });
 
-describe('round 61: copy icon (copyvalue A)', () => {
-  it('an icon, "Copied" after', async () => {
+describe('copyvalue: the word "Copy" (owner settled r3 / r61, 19 Nov)', () => {
+  it('the word Copy, "Copied" after', async () => {
     Object.assign(navigator, { clipboard: { writeText: vi.fn(() => Promise.resolve()) } });
     render(<p><span>EMP104</span><CopyWord value="EMP104" what="employee ID" /></p>);
     const b = screen.getByRole('button', { name: 'Copy employee ID' });
-    expect(b.textContent).toBe('');
+    expect(b.textContent).toBe('Copy');
+    expect(b.querySelector('svg')).toBeNull();
     await act(async () => { fireEvent.click(b); });
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('EMP104');
     expect(screen.getByText('Copied')).toBeTruthy();
