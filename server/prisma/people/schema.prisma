@@ -1011,6 +1011,13 @@ model LeaveRequest {
   stepUserIds         String[]  @default([])
   stepDueAt           DateTime?
   stepRemindedAt      DateTime?
+  /// The person asked to cancel this approved leave (round 47): it stays
+  /// APPROVED, and keeps counting, until an approver agrees (CANCELLED) or
+  /// keeps it (these are cleared). Who asked (portal:<employeeId> or a user)
+  /// and why.
+  cancelAskedAt       DateTime?
+  cancelAskedBy       String?
+  cancelReason        String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

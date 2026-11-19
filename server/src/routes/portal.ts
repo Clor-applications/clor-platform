@@ -41,7 +41,7 @@ import { REASON_CODES } from '../services/attendance/corrections.js';
 import { KINDS, KIND_WORDS, askRequest, cancelRequest, chainOf, decideRequest, editRequest, rulesFor, shiftChoices, usage as requestUsage } from '../services/attendance/requests.js';
 import { managerStepBy, teamDecidedBy } from '../services/attendance/standIns.js';
 import { daysOfMonth, instants, sendError, today, withNames } from '../services/attendance/days.js';
-import { actorNames, answerLeaveQuestion, cancelOwnLeave, createLeave, openQuestionOf, reminderState, remindLeave, dayWords, decideRuleLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
+import { actorNames, answerLeaveQuestion, cancelOwnLeave, createLeave, decideLeaveCancellation, openQuestionOf, reminderState, remindLeave, dayWords, decideRuleLeave, eligibleFor, decideLeave, editLeave, leaveAudit, leaveChainFor, managerStep, masked, pickRestrictedHoliday, previewOut, restrictedHolidaysFor, shortenLeave, withTypes } from './leave.js';
 import { balancesFor, leavePeriodOf, leaveYearOf } from '../services/attendance/leaveBalances.js';
 import { periodEnd, periodStart } from '../services/attendance/leaveAccrual.js';
 import { compOffExpiringFor, lapseFor } from '../services/attendance/leaveJobs.js';
@@ -857,7 +857,7 @@ portalRouter.get('/leave', check({ query: YEAR_QUERY }), async (req, res) => {
     today: today(),
     types: types.filter((t) => t.isActive && (eligibleFor(t as any, req.portal!.employee as any) || requests.some((r) => r.leaveTypeId === t.id))).map((t) => ({ id: t.id, name: t.name, code: t.code, isPaid: t.isPaid, allowHalfDay: t.allowHalfDay, unit: t.unit, hoursPerDay: t.hoursPerDay ?? null, ...mine.get(t.id), expiring: expiringOf(grants?.get(t.id), mine.get(t.id)?.available, today()) })),
     /* Waiting on the approval engine: who it is with now, "With Ravi (your manager)" (SPEC 5.7). */
-    requests: await Promise.all((await withTypes(orgId, requests)).map(async (r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null, withWhom: r.status === 'PENDING' ? await withWhom(orgId, r) : null, ...questionAndReminder(r) }))),
+    requests: await Promise.all((await withTypes(orgId, requests)).map(async (r: any) => ({ id: r.id, leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, status: r.status, note: r.reviewNote ?? null, groupId: r.groupId ?? null, withWhom: r.status === 'PENDING' ? await withWhom(orgId, r) : null, ...(r.status === 'APPROVED' && r.cancelAskedAt ? { cancelAsked: true, cancelAskedAt: r.cancelAskedAt, cancelReason: r.cancelReason ?? null } : {}), ...questionAndReminder(r) }))),
   });
 });
 
@@ -954,11 +954,12 @@ portalRouter.post('/holidays/restricted/:holidayId', check({ params: z.object({ 
   }
 });
 
-portalRouter.post('/leave/:id/cancel', check({ params: idParams, body: noBody }), async (req, res) => {
+/** A waiting request is withdrawn at once; approved leave is asked to be cancelled (round 47), with an optional reason. */
+portalRouter.post('/leave/:id/cancel', check({ params: idParams, body: z.object({ reason: text(500).nullish() }) }), async (req, res) => {
   const { accountId, orgId, employeeId } = req.portal!;
-  const out = await cancelOwnLeave(accountId, orgId, employeeId, String(req.params.id));
+  const out = await cancelOwnLeave(accountId, orgId, employeeId, String(req.params.id), String(req.body?.reason || '').trim() || null);
   const e = req.portal!.employee;
-  if (out.status === 200) await leaveAudit({ accountId, orgId, userId: e.userId || `portal:${e.id}` }, { entityId: String(req.params.id), action: 'CANCEL', message: `${e.name} cancelled their own leave in the employee app`, metadata: { employeeId } });
+  if (out.status === 200) await leaveAudit({ accountId, orgId, userId: e.userId || `portal:${e.id}` }, { entityId: String(req.params.id), action: out.body.asked ? 'CANCEL_ASKED' : 'CANCEL', message: out.body.asked ? `${e.name} asked to cancel their approved leave in the employee app` : `${e.name} withdrew their leave request in the employee app`, metadata: { employeeId } });
   res.status(out.status).json(out.body);
 });
 
@@ -1019,6 +1020,10 @@ portalRouter.get('/approvals', async (req, res) => {
   /* Only what I may still decide (worked out live): a stand-in whose dates ended, or a manager passed up while away, no longer sees it. */
   const engineLeaves = [];
   for (const r of named) if ((await decidesNow(e.accountId, e.orgId, r, portalOf(e.id))) || (e.userId && (await decidesNow(e.accountId, e.orgId, r, e.userId)))) engineLeaves.push(r);
+  /* Approved leave someone asks to cancel (round 47): my team's (or the team I stand in for), or leave I approved. One row per leave. */
+  const askedRows = await peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, status: 'APPROVED', cancelAskedAt: { not: null }, employeeId: { not: e.id }, OR: [...(leaveIds.length ? [{ employeeId: { in: leaveIds } }] : []), { reviewedByUserId: { in: me } }] }, orderBy: { fromDate: 'asc' }, take: 200 });
+  const askedGroups = new Set<string>();
+  const cancelAsks = askedRows.filter((r) => { if (!r.groupId) return true; if (askedGroups.has(r.groupId)) return false; askedGroups.add(r.groupId); return true; });
   const [leaves, corrections, fieldPunches] = ids.length || decidedIds.length || leaveIds.length
     ? await Promise.all([
         leaveIds.length ? peoplePrisma.leaveRequest.findMany({ where: { orgId: e.orgId, employeeId: { in: leaveIds }, status: 'PENDING' }, orderBy: { createdAt: 'asc' } }) : [],
@@ -1051,11 +1056,16 @@ portalRouter.get('/approvals', async (req, res) => {
     return eng ? eng.chain !== 'HR' && !(eng.chain === 'MANAGER_THEN_HR' && eng.step > 1) : overtimeChainNow !== 'HR';
   };
   res.json({
-    approver: ids.length > 0 || decidedIds.length > 0 || leaveIds.length > 0 || ruleLeaves.length > 0,
+    approver: ids.length > 0 || decidedIds.length > 0 || leaveIds.length > 0 || ruleLeaves.length > 0 || cancelAsks.length > 0,
     team: team.length,
     chain: { leave: leaveChain, correction: correctionChain === 'HR_ONLY' ? 'HR' : correctionChain, overtime: overtimeChainNow },
     /* A manager plans cover from dates, not diagnoses: private leave reads "Private leave" with no reason. */
     leaves: masked(await withTypes(e.orgId, [...(await offEngine(e.orgId, leaves.filter((r) => !r.managerApprovedAt && !r.ruleId))).filter((r) => !engineMine.has(r.id)), ...ruleLeaves, ...engineLeaves]), false).map((r: any) => ({ id: r.id, type: 'leave', ...who(r.employeeId), ...(names.has(r.employeeId) ? {} : { employeeName: r.employeeName, employeeCode: r.employeeCode ?? null }), ...(r.ruleStep ? { step: r.ruleStep } : {}), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: r.toDate, days: r.days, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, overflowOfId: r.overflowOfId ?? null, reason: r.reason, askedAt: r.createdAt })),
+    /* Asks to cancel approved leave: "Approve cancellation" or "Keep leave". The whole leave's span, private leave masked. */
+    cancellations: masked(await withTypes(e.orgId, cancelAsks), false).map((r: any) => {
+      const parts = r.groupId ? askedRows.filter((x) => x.groupId === r.groupId) : [r];
+      return { id: r.id, type: 'leave-cancel', ...who(r.employeeId), ...(names.has(r.employeeId) ? {} : { employeeName: r.employeeName, employeeCode: r.employeeCode ?? null }), leaveTypeName: r.leaveTypeName, fromDate: r.fromDate, toDate: parts[parts.length - 1].toDate, days: Math.round(parts.reduce((a: number, x: any) => a + x.days, 0) * 100) / 100, halfDay: r.halfDay ?? null, fromTime: r.fromTime ?? null, toTime: r.toTime ?? null, reason: r.cancelReason ?? null, askedAt: r.cancelAskedAt };
+    }),
     corrections: corrections.filter((r) => !r.managerApprovedAt && r.kind === 'MISSED_PUNCH' && managerDecides(r)).map((r) => ({ id: r.id, type: 'correction', ...who(r.employeeId), date: r.date, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
     /* Work from home, on duty and permission from my team, waiting on me. */
     requests: corrections.filter((r) => !r.managerApprovedAt && r.kind !== 'MISSED_PUNCH' && managerDecides(r)).map((r) => ({ id: r.id, type: 'request', kind: r.kind, kindName: KIND_WORDS[r.kind as keyof typeof KIND_WORDS]?.name || r.kind, ...who(r.employeeId), date: r.date, toDate: r.toDate, halfDay: r.halfDay, place: r.place, minutes: r.minutes, checkIn: r.checkIn ? istTime(r.checkIn) : null, checkOut: r.checkOut ? istTime(r.checkOut) : null, reason: r.reason, askedAt: r.createdAt })),
@@ -1076,8 +1086,25 @@ portalRouter.post('/approvals/:type/:id', check({ params: z.object({ type: text(
   const e = req.portal!.employee;
   const type = String(req.params.type);
   const decision = String(req.body?.decision || '');
-  if (!['leave', 'correction', 'request', 'punch', 'overtime'].includes(type)) return res.status(400).json({ error: 'Unknown request type.' });
+  if (!['leave', 'leave-cancel', 'correction', 'request', 'punch', 'overtime'].includes(type)) return res.status(400).json({ error: 'Unknown request type.' });
   if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision must be approve or reject.' });
+  if (type === 'leave-cancel') {
+    /* An ask to cancel approved leave (round 47): approve cancels it, reject keeps it. The manager (or stand-in) decides, or whoever approved it. */
+    const r = await peoplePrisma.leaveRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId } });
+    if (!r) return res.status(404).json({ error: 'No such request.' });
+    const ids = [e.userId, portalOf(e.id)].filter(Boolean) as string[];
+    const approvedIt = Boolean(r.reviewedByUserId && ids.includes(r.reviewedByUserId));
+    if (r.employeeId === e.id || (!approvedIt && !(await managerStepBy(e.orgId, e.id, r.employeeId, undefined, 'LEAVE')))) return res.status(403).json({ error: 'This request is not yours to decide.' });
+    const note = String(req.body?.note || '').trim().slice(0, 500) || null;
+    const by = e.userId || portalOf(e.id);
+    try {
+      const out = await decideLeaveCancellation(e.accountId, e.orgId, r.id, by, decision === 'approve', note);
+      if (out.status === 200) await leaveAudit({ accountId: e.accountId, orgId: e.orgId, userId: by }, { entityId: r.id, action: decision === 'approve' ? 'CANCEL' : 'CANCEL_REFUSED', message: `${e.name} (manager) ${decision === 'approve' ? 'agreed to cancel' : 'kept'} leave, ${r.fromDate} to ${r.toDate}${note ? `: ${note}` : ''}`, metadata: { employeeId: r.employeeId } });
+      return res.status(out.status).json(out.status === 200 ? { ...out.body, request: masked([out.body.request], false)[0] } : out.body);
+    } catch (err) {
+      return sendError(res, err);
+    }
+  }
   if (type === 'correction' || type === 'request') {
     /* Every kind of attendance request through one decision (services/attendance/requests.ts): the manager, or whoever stands in for them today. */
     const r = await peoplePrisma.attendanceRequest.findFirst({ where: { id: String(req.params.id), orgId: e.orgId } });
