@@ -29,7 +29,7 @@ const COLUMNS = { employee: (r) => r.name };
  * the back gate". Each person against each reader, with the gaps closed in
  * one click and people who should not be on a reader taken off.
  */
-export default function ReaderSync() {
+export default function ReaderSync({ menuLabel } = {}) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [onlyGaps, setOnlyGaps] = useState(true);
@@ -81,7 +81,7 @@ export default function ReaderSync() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Sync monitoring"
+      title={menuLabel || 'Sync monitoring'}
       description="Who is on which reader. Enrol once on any reader — CLOR copies fingerprints and faces to the rest."
       compact
       tight

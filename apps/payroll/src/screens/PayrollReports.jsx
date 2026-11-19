@@ -53,7 +53,7 @@ const signedPercent = (n) => {
   return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}%`;
 };
 
-export default function PayrollReports() {
+export default function PayrollReports({ menuLabel } = {}) {
   const [report, setReport] = useState('register');
   const [periods, setPeriods] = useState([]);
   const [periodId, setPeriodId] = useState('');
@@ -198,7 +198,7 @@ export default function PayrollReports() {
     <div className="space-y-3">
       <PageHeader
         entity="report"
-        title="Payroll reports"
+        title={menuLabel || 'Payroll reports'}
         description="Read from the payslips themselves, so a report of a month says what was paid rather than what today's rates would say."
         actions={
           report === 'filings' ? null : (

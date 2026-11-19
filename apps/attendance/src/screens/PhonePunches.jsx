@@ -65,7 +65,7 @@ const EXPORT_COLUMNS = [
   { key: 'latitude', label: 'Latitude' },
   { key: 'longitude', label: 'Longitude' },
 ];
-export default function PhonePunches() {
+export default function PhonePunches({ menuLabel } = {}) {
   const [range, setRange] = useState({ from: todayIst(), to: todayIst() });
   const [tab, setTab] = useState('accepted');
   const [data, setData] = useState(null);
@@ -134,7 +134,7 @@ export default function PhonePunches() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Mobile punches"
+      title={menuLabel || 'Mobile punches'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);

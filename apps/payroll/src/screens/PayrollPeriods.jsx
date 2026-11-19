@@ -85,7 +85,7 @@ const EXPORT_COLUMNS = [
   { key: 'isLocked', label: 'Status', value: (p) => (p.isLocked ? 'Closed' : 'Open') },
 ];
 
-export default function PayrollPeriods() {
+export default function PayrollPeriods({ menuLabel } = {}) {
   const [all, setAll] = useState(null);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -178,7 +178,7 @@ export default function PayrollPeriods() {
   return (
     <DocumentListShell
       entity="payPeriod"
-      title="Payroll periods"
+      title={menuLabel || 'Payroll periods'}
       description={`The pay cycles a run belongs to, and which of them are closed. ${CLOSED_MONTH_NOTE}`}
       compact
       tight

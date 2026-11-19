@@ -232,7 +232,7 @@ export const FieldChanges = ({ changes }) => {
   );
 };
 
-export default function AuditTrail({ tenant } = {}) {
+export default function AuditTrail({ tenant, menuLabel } = {}) {
   const [entries, setEntries] = useState([]);
   const [facets, setFacets] = useState({ entities: [], actions: [] });
   const [filters, setFilters] = useState(() => {
@@ -350,7 +350,7 @@ export default function AuditTrail({ tenant } = {}) {
         <PageHead
           crumbs={['Home', 'Activity']}
           icon={PAGE_ICON}
-          title="Activity"
+          title={menuLabel || 'Activity'}
         />
 
         <div className="ws-filters ws-filters--one-row" role="search">
