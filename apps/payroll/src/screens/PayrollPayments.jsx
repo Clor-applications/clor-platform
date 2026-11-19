@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ExceptionTag } from '@ui/components/ui/ExceptionTag';
 import { AlertTriangle, ArrowLeft, Ban, BookOpen, Check, Download, Plus, Send, Wallet, X } from '@ui/components/ui/lineIcons';
 
 import { ColumnHeader, useColumnFilters } from '@ui/components/ColumnFilters';
@@ -255,7 +256,7 @@ export default function PayrollPayments({ menuLabel } = {}) {
                       <span className={`ui-pill ${STATUS[p.status]?.tone || 'ui-pill-neutral'}`}>{STATUS[p.status]?.label || p.status}</span>
                     </td>
                     <td className="ui-col-h-center">
-                      <span className={`ui-pill ${p.postingStatus === 'POSTED' ? 'ui-pill-pos' : 'ui-pill-neutral'}`}>{p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet'}</span>
+                      <ExceptionTag label={p.postingStatus === 'POSTED' ? '' : 'Not yet'} tone="neutral" normal="Posted" />
                     </td>
                   </tr>
                 ))
