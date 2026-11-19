@@ -63,8 +63,8 @@
   --ws-muted: 74 72 66;
   font-size: 0.875rem;
 }
-/* picks.css pins the slim toolbar's title at 16px with !important (style pick, 17 Nov); 20px here, approved 19 Nov. */
-:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-head .ws-title { font-size: 1.25rem !important; line-height: 1.75rem !important; font-weight: 700 !important; letter-spacing: -0.01em; }
+/* Page title 24/32, 700 in every app (DESIGN.md "title"). */
+:root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-head .ws-title { font-size: 1.5rem !important; line-height: 2rem !important; font-weight: 700 !important; letter-spacing: -0.01em; }
 :root:not(#lg1):not(#lg2):not(#lg3) .ws .ws-table td { font-size: 0.875rem; color: rgb(var(--fg)); }
 :root:not(#lg1):not(#lg2):not(#lg3) .ws :is(.ws-cell-sub, .ws-card-blurb, .ws-item-sub, .ws-list-meta, .ws-head-meta, .ws-stat-note) {
   font-size: 0.8125rem;
@@ -88,8 +88,9 @@
    change is noise; after a key it stays, for keyboard users. */
 :root[data-input='pointer']:not(#lg1):not(#lg2) :focus-visible { outline: none !important; }
 :root[data-input='pointer']:not(#lg1):not(#lg2) :is(.ui-input, .ui-select, textarea, select, input):focus-visible { box-shadow: none; }
-/* The selected side-panel item: the orange bar and tint say "here", without a grey ring round it. */
-:root:not(#lg1):not(#lg2):not(#lg3) .ui-split-panel .ui-split-item[aria-current='page'] { box-shadow: inset 3px 0 0 rgb(var(--marker, 255 107 0)); }
+/* The open side-panel item: its word in the app colour on the hover grey says "here" (DESIGN.md). */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-split-panel .ui-split-item[aria-current='page'] { box-shadow: none; color: rgb(var(--act-ink, var(--fg))); }
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-split-rail :is(.ui-split-mod[data-current], .ui-split-mod[aria-pressed='true']) > span { color: rgb(var(--act-ink, var(--fg))); }
 
 /* ---- The 12px floor (DESIGN.md "Don't reach below 12px type"; page audit 19 Nov 2026) ---- */
 /* The crawl of every menu page found counts, key hints, file badges and step numbers at 10–11px. Books keeps its own. */
@@ -102,7 +103,6 @@
 ) { font-size: 0.75rem; }
 :root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-claim-step-dot { width: 1.25rem; height: 1.25rem; }
 
-/* ---- Page titles 20px in People, Payroll and Attendance too (page audit 19 Nov 2026) ---- */
-/* Workspace's titles went to 20px/700 over the slim-toolbar pick's 16px; the other apps' "next, app by app" is this.
-   At 16px/600 a People title read no bigger than its table's names. Books keeps its own. */
-:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-page-heading h1 { font-size: 1.25rem !important; line-height: 1.75rem !important; font-weight: 700 !important; letter-spacing: -0.01em; }
+/* ---- Page titles: 24/32, 700 in every app (DESIGN.md "title", 19 Nov 2026). At 16px a title read no bigger
+   than its table's names; one size in every app replaces the 16, 20 and 28px titles. Books keeps its own. ---- */
+:root:not(#lg1):not(#lg2):not(#lg3):not([data-palette='indigo']) .ui-page-heading h1 { font-size: 1.5rem !important; line-height: 2rem !important; font-weight: 700 !important; letter-spacing: -0.01em; }

@@ -309,8 +309,8 @@
   cursor: pointer;
   box-sizing: content-box;
 }
-.ws-activity-person:hover { background: rgb(var(--hover-blue, 42 120 214) / 0.08); }
-.ws-activity-person[aria-pressed='true'] { background: rgb(var(--select-green, 27 175 122) / 0.14); }
+.ws-activity-person:hover { background: rgb(var(--hover, 247 247 247)); }
+.ws-activity-person[aria-pressed='true'] { background: rgb(var(--hover, 247 247 247)); }
 .ws-activity-person:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 1px; }
 .ws-activity-list li {
   display: flex;
@@ -353,7 +353,7 @@
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: rgb(var(--hover-blue, 42 120 214));
+  color: rgb(var(--act-ink, 165 64 0));
   cursor: pointer;
 }
 .ws .ws-row-link:hover { text-decoration: underline; }
@@ -363,7 +363,7 @@
   width: 8px;
   height: 8px;
   border-radius: 9999px;
-  background: rgb(var(--hover-blue, 42 120 214));
+  background: rgb(var(--act, 201 80 0));
   flex: none;
 }
 /* Empty: a quiet line on the page ground, not a dashed card. */
@@ -390,7 +390,7 @@
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: rgb(var(--hover-blue, 42 120 214));
+  color: rgb(var(--act-ink, 165 64 0));
   cursor: pointer;
 }
 .ws-inbox-link:hover { text-decoration: underline; }
@@ -523,8 +523,8 @@
 }
 :root:not(#pk):not(#pk2) .ws .ws-profile .ui-input:hover { border-color: rgb(var(--fg-muted, 58 63 71) / 0.5) !important; }
 :root:not(#pk):not(#pk2) .ws .ws-profile .ui-input:focus {
-  border-color: rgb(var(--hover-blue, 42 120 214)) !important;
-  box-shadow: 0 0 0 3px rgb(var(--hover-blue, 42 120 214) / 0.15) !important;
+  border-color: rgb(var(--act, 201 80 0)) !important;
+  box-shadow: 0 0 0 3px rgb(var(--act, 201 80 0) / 0.28) !important;
   outline: none !important;
 }
 .ws .ws-profile .ui-input::placeholder { color: rgb(var(--fg-muted, 58 63 71) / 0.55); }

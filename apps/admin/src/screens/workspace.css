@@ -3026,7 +3026,7 @@ button.ws-stat:hover {
   transition: background-color 0.12s ease;
 }
 .ws .ws-table tbody tr:hover {
-  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+  background: rgb(var(--hover, 247 247 247));
 }
 /* Activity: what happened leads with its action tag, then the words, then the kind of record, quiet. */
 .ws .ws-sec-title {
@@ -3170,7 +3170,7 @@ button.ws-stat:hover {
   padding: 14px 16px;
 }
 .ws .ws-list--sheet .ws-tile:has(> .ui-emoji) {
-  background: rgb(var(--hover-blue, 42 120 214) / 0.1);
+  background: rgb(var(--hover, 247 247 247));
 }
 
 /* Workspace → Apps → Automations. The shared list (packages/ui automations) capped itself at 42rem
@@ -3421,7 +3421,7 @@ button.ws-stat:hover {
   background: none;
 }
 .ws .ws-table tbody tr:hover td {
-  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+  background: rgb(var(--hover, 247 247 247));
 }
 /* Tools at the right end of a filter row (Refresh, Export). */
 .ws-filters-end {
