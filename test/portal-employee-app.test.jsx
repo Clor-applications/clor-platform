@@ -350,18 +350,33 @@ describe('The Me tab and Leave in the app', () => {
     expect(screen.getByRole('button', { name: 'View request' })).toBeTruthy();
   });
 
-  it('asks before cancelling approved leave', async () => {
+  /* Round 47: approved leave is not cancelled at once; "Cancel" opens a small ask, with an optional reason. */
+  it('asks the approver before cancelling approved leave', async () => {
     api.getMe.mockResolvedValue(ME);
     api.getUpdates.mockResolvedValue({ decided: [] });
     api.getHolidays.mockResolvedValue({ year: 2026, quota: 0, picked: 0, left: 0, holidays: [] });
     api.getLeave.mockResolvedValue({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 5, allocated: 12 }], requests: [{ id: 'l1', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-03', toDate: '2026-11-04', days: 2, status: 'APPROVED' }] });
-    dialogs.confirmDialog.mockResolvedValueOnce(false);
+    api.cancelLeave.mockResolvedValue({ asked: true });
     render(<EmployeePortal />);
     fireEvent.click(await screen.findByRole('button', { name: 'Leave' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(dialogs.confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Cancel this leave?' })));
+    expect(dialogs.confirmDialog).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep leave' }));
     expect(api.cancelLeave).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(api.cancelLeave).toHaveBeenCalledWith('l1'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    fireEvent.change(screen.getByLabelText('Why cancel (optional)'), { target: { value: 'Trip off' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask to cancel' }));
+    await waitFor(() => expect(api.cancelLeave).toHaveBeenCalledWith('l1', 'Trip off'));
+  });
+
+  it('shows approved leave with a cancellation asked, without Cancel', async () => {
+    api.getMe.mockResolvedValue(ME);
+    api.getUpdates.mockResolvedValue({ decided: [] });
+    api.getHolidays.mockResolvedValue({ year: 2026, quota: 0, picked: 0, left: 0, holidays: [] });
+    api.getLeave.mockResolvedValue({ year: 2026, today: '2026-10-27', types: [{ id: 't1', name: 'Casual', isPaid: true, available: 5, allocated: 12 }], requests: [{ id: 'l1', leaveTypeId: 't1', leaveTypeName: 'Casual', fromDate: '2026-11-03', toDate: '2026-11-04', days: 2, status: 'APPROVED', cancelAsked: true }] });
+    render(<EmployeePortal />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Leave' }));
+    expect(await screen.findByText('Approved · cancellation asked')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 });
