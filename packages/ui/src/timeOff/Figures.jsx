@@ -7,6 +7,8 @@ import { swatchOf } from './api';
 /* People's R&D look for time, leave, hiring, growth and the HR checks (clor-rnd PEOPLE-11..27). The CSS is People's
    own file; these parts are shared with Attendance, so the import travels with them and both apps draw the same. */
 import './time-off.css';
+/* The count line moved to its own component so Workspace can use it without People's time-off CSS. */
+export { CountLine } from '../components/ui/CountLine';
 
 /**
  * The figures every R&D People screen opens with, and the small charts under them.
@@ -61,31 +63,6 @@ export function StatTiles({ items, label = 'Figures' }) {
     <div className="pt-tiles" role="list" aria-label={label}>
       {shown.map(({ key, ...it }) => (it.onClick ? <div key={key || it.label} role="listitem" className="pt-tile-cell"><StatTile {...it} /></div> : <StatTile key={key || it.label} {...it} />))}
     </div>
-  );
-}
-
-/**
- * The count line (DESIGN.md "Page header"): a list page's figures as one quiet line under its title, in place
- * of figure tiles. Same items as StatTiles; a figure at zero or still loading is left out, and an item with
- * `onClick` is a link that filters the list. "12 waiting · 3 approved this month".
- */
-const lowerFirst = (t) => (typeof t === 'string' && /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
-const isZero = (v) => v === 0 || v === '0' || v === null || v === undefined || v === '' || v === '—';
-export function CountLine({ items, label = 'Figures' }) {
-  const shown = (items || []).filter((it) => it && !it.busy && !isZero(it.value));
-  if (!shown.length) return null;
-  return (
-    <p className="ui-count-line" aria-label={label}>
-      {shown.map(({ key, label: what, value, onClick, tone }, i) => {
-        const text = <><span className={`ui-count-line-figure ${tone ? `is-${tone}` : ''}`}>{value}</span> {lowerFirst(what)}</>;
-        return (
-          <React.Fragment key={key || what}>
-            {i ? <span className="ui-count-line-sep" aria-hidden="true"> · </span> : null}
-            {onClick ? <button type="button" className="ui-count-line-link" onClick={onClick}>{text}</button> : <span>{text}</span>}
-          </React.Fragment>
-        );
-      })}
-    </p>
   );
 }
 

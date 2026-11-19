@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { notify } from '@ui/components/ui/notify';
 import { approveSupportGrant, endSupportGrant, listSupportGrants } from '@platform/admin/supportGrants';
-import { ICON, Loading, PageHead, Stat } from './wsKit';
+import { ICON, Loading, PageHead } from './wsKit';
+import { CountLine } from '@ui/components/ui/CountLine';
 import './workspace.css';
 import './ws-security.css';
 
@@ -127,10 +128,10 @@ export default function SupportAccess() {
         </p>
 
         {data ? (
-          <div className="ws-stats">
-            <Stat icon={ICON.inbox} tone={waiting.length ? 'warn' : null} label="Waiting for an answer" value={waiting.length} note={waiting.length ? 'Nothing opens until you answer' : 'Nobody is asking'} />
-            <Stat icon={ICON.secure} label="Open now" value={open.length} note={open.length ? 'End any of them at once' : 'Nobody from CLOR can look'} />
-          </div>
+          <CountLine label="Support access figures" items={[
+            { key: 'waiting', label: 'waiting for your answer', value: waiting.length, tone: 'warn' },
+            { key: 'open', label: 'open now', value: open.length },
+          ]} />
         ) : null}
 
         {failed ? (
