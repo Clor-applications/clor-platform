@@ -3509,10 +3509,10 @@ button.ws-stat:hover {
   border-radius: 9999px;
   background: currentColor;
 }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--ok { --st: 21 128 61; }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--warn { --st: 180 83 9; }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--danger { --st: 185 28 28; }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--info { --st: 28 84 160; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--ok { --st: 22 101 52; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--warn { --st: 146 64 14; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--danger { --st: 153 27 27; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--info { --st: 30 64 175; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ws-pill--off, .ws-pill--neutral) { --st: 92 90 84; }
 /* A count inside a tab or button, or a role name, is not a state: no dot. */
 :root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ws-tab, .ws-btn) .ws-pill::before,
@@ -3602,7 +3602,7 @@ button.ws-stat:hover {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: rgb(42 120 214);
+  color: rgb(29 100 196);
   font-size: 0.8125rem;
   font-weight: 600;
   text-decoration: none;
@@ -3663,7 +3663,7 @@ button.ws-stat:hover {
   display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 0; border-radius: 9999px;
   font-size: 0.75rem; font-weight: 600; line-height: 1.25rem;
 }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill.ui-pill-pos { background: rgb(21 128 61 / 0.1); color: rgb(21 128 61); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill.ui-pill-pos { background: rgb(22 101 52 / 0.1); color: rgb(22 101 52); }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill.ui-pill-neutral { background: rgb(92 90 84 / 0.1); color: rgb(92 90 84); }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill:is(.ui-pill-pos, .ui-pill-neutral)::before { content: ''; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }
 /* Quiet shared buttons inside a Workspace page match the Workspace ones. */

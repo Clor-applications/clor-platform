@@ -456,10 +456,10 @@
   border-radius: 9999px;
   background: currentColor;
 }
-.ws-state[data-tone='ok'] { --st: 21 128 61; }
-.ws-state[data-tone='warn'] { --st: 180 83 9; }
+.ws-state[data-tone='ok'] { --st: 22 101 52; }
+.ws-state[data-tone='warn'] { --st: 146 64 14; }
 .ws-state[data-tone='danger'] { --st: var(--neg, 180 35 24); }
-.ws-state[data-tone='info'] { --st: 28 84 160; }
+.ws-state[data-tone='info'] { --st: 30 64 175; }
 
 /* A list page with a summary column at its right (Inbox, Help and support, Companies, Branches). */
 .ws-side-note { margin: 0; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted, 58 63 71)); }
@@ -746,3 +746,14 @@
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section:has(> .ws-sec-lede) > .ws-sec-section-head { border-bottom: 2px solid rgb(var(--fg)); padding-bottom: 8px; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section:has(> .ws-sec-lede) > .ws-sec-body { border-top: 0; padding-top: 4px; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-grid { border-top: 2px solid rgb(var(--fg)) !important; }
+
+/* Contrast (axe 4.5:1 at 13px): link blue, tab and tag text a shade deeper than their swatch. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-row-link:not(.ws-row-link--danger) { color: rgb(29 100 196); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-tabs .ws-tab:hover,
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) { color: color-mix(in srgb, rgb(var(--tab)) 70%, black); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-count { color: color-mix(in srgb, rgb(var(--tab)) 70%, black); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) .ws-tone-count { background: color-mix(in srgb, rgb(var(--tab)) 70%, black); color: rgb(255 255 255); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-tagbtn[style] { color: color-mix(in srgb, rgb(var(--tag)) 75%, black); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-chip-k { color: rgb(74 72 66); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-chip[data-set] .ws-chip-k { color: rgb(28 84 160); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-inbox-link { color: rgb(29 100 196); }

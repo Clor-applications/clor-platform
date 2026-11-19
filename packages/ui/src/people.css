@@ -710,10 +710,10 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   background: currentColor;
   flex: none;
 }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-pos { --st: 21 128 61; }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-warn { --st: 180 83 9; }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-neg { --st: var(--neg, 180 35 24); }
-:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-info { --st: 28 84 160; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-pos { --st: 22 101 52; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-warn { --st: 146 64 14; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-neg { --st: 153 27 27; }
+:root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .ui-pill-info { --st: 30 64 175; }
 /* Links: the app colour, no underline until hovered. */
 :root[data-app='people']:not(#pl1):not(#pl2):not(#pl3) .people-more {
   text-decoration: none;
