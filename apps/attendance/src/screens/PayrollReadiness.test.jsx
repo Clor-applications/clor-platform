@@ -31,3 +31,13 @@ it('still says when the check itself failed', async () => {
   expect(await screen.findByText('The server could not complete that (500). Nothing was saved.')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
 });
+
+/* Shared with People, whose menu calls it "Ready for payroll?": the page title follows the menu (design audit 19 Nov 2026). */
+it('takes its title from the menu label it was opened from', async () => {
+  getPayrollReadiness.mockRejectedValue(Object.assign(new Error('x'), { status: 500 }));
+  const { unmount } = render(<PayrollReadiness menuLabel="Ready for payroll?" />);
+  expect(await screen.findByRole('heading', { level: 1, name: 'Ready for payroll?' })).toBeTruthy();
+  unmount();
+  render(<PayrollReadiness />);
+  expect(await screen.findByRole('heading', { level: 1, name: 'Payroll readiness' })).toBeTruthy();
+});

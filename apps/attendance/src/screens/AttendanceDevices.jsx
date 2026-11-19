@@ -153,7 +153,7 @@ const exportColumns = (siteNames) => [
   { key: 'userCount', label: 'Enrolled' },
   { key: 'punchesToday', label: 'Punches today' },
 ];
-export default function AttendanceDevices({ openScreen }) {
+export default function AttendanceDevices({ openScreen, menuLabel }) {
   const [data, setData] = useState(null);
   /* Site names for the list; a reader holds only the area's id. */
   const [siteNames, setSiteNames] = useState(() => new Map());
@@ -190,7 +190,7 @@ export default function AttendanceDevices({ openScreen }) {
     <div className="space-y-6">
     <DocumentListShell
       entity="reader"
-      title="All readers"
+      title={menuLabel || 'All readers'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);

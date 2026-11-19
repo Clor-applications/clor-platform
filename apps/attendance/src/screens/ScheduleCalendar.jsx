@@ -38,7 +38,7 @@ const skippedWords = (r) => {
  * count for attendance and show to the people themselves, who are told.
  * Someone who may only view Shifts sees the same grid, read only.
  */
-export default function ScheduleCalendar() {
+export default function ScheduleCalendar({ menuLabel } = {}) {
   const perms = usePermissions();
   const canEdit = Boolean(perms?.isAdmin) || Boolean(perms?.permissions?.has?.('ATTENDANCE::Shifts::EDIT'));
   const [view, setView] = useState('month');
@@ -169,7 +169,7 @@ export default function ScheduleCalendar() {
   return (
     <DocumentListShell
       entity="shift"
-      title="Schedule calendar"
+      title={menuLabel || 'Schedule calendar'}
       compact
       tight
       search={{ value: query, onChange: setQuery, placeholder: 'Search name or code…', label: 'Search people by name or code' }}

@@ -1652,6 +1652,8 @@ function ShellScreens() {
                       <Screen
                         key={screenParams ? `${tenant.id}:${screenKey}:${JSON.stringify(screenParams)}` : tenant.id}
                         params={liveParams || undefined}
+                        /* The menu's name for this page; a screen shared between apps titles itself with it (DESIGN.md: page title equals menu label). */
+                        menuLabel={screenItem?.label}
                         /* Change this screen's own state (a tab, a filter) in place; the address follows. `push` adds a Back step. */
                         updateParams={(patch, opts = {}) => {
                           const next = mergeParams(liveParams, patch);

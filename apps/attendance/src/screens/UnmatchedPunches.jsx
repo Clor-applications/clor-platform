@@ -37,7 +37,7 @@ const EXPORT_COLUMNS = [
   { key: 'first', label: 'First' },
   { key: 'last', label: 'Last' },
 ];
-export default function UnmatchedPunches() {
+export default function UnmatchedPunches({ menuLabel } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
@@ -80,7 +80,7 @@ export default function UnmatchedPunches() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Unmatched punches"
+      title={menuLabel || 'Unmatched punches'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);

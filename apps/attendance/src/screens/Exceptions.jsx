@@ -69,7 +69,7 @@ const EXPORT_COLUMNS = [
   { key: 'assignee', label: 'Owner', value: (r) => r.assignee || 'Nobody' },
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status] || r.status },
 ];
-export default function Exceptions({ openScreen }) {
+export default function Exceptions({ openScreen, menuLabel }) {
   const [range, setRange] = useState({ from: back(14), to: back(1) });
   const [kind, setKind] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -201,7 +201,7 @@ export default function Exceptions({ openScreen }) {
   return (
     <DocumentListShell
       entity="exception"
-      title="Exceptions"
+      title={menuLabel || 'Exceptions'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);

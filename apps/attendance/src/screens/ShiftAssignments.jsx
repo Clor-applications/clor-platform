@@ -31,7 +31,7 @@ const EXPORT_COLUMNS = [
   { key: 'effectiveTo', label: 'Until', value: (r) => r.effectiveTo || 'until changed' },
 ];
 
-export default function ShiftAssignments({ openScreen } = {}) {
+export default function ShiftAssignments({ openScreen, menuLabel } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
@@ -109,7 +109,7 @@ export default function ShiftAssignments({ openScreen } = {}) {
   return (
     <DocumentListShell
       entity="shift"
-      title="Shift assignments"
+      title={menuLabel || 'Shift assignments'}
       moreItems={[exportMenuItem('Export'), ...(openScreen ? [{ key: 'import', label: 'Import from a spreadsheet', Icon: Upload }] : [])]}
       onMoreSelect={(k) => {
         if (k === 'import') return openScreen('dataImport', { kind: 'assignments' });
