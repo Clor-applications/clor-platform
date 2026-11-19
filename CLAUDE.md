@@ -13,8 +13,18 @@ API 4002); CI runs on GitHub's own machines since 14 Nov 2026 (the repository is
 ## Design System
 
 Always read `DESIGN.md` before making any visual or UI decision. Fonts, colors,
-spacing, radii, the type scale, and the five-primitive component contract are
-defined there. Do not deviate without explicit user approval.
+spacing, radii, the type scale and the components are defined there. Ask the user
+before departing from it.
+
+**The calm register (owner, 19 Nov 2026; fresh design system).** `DESIGN.md` was
+rewritten from scratch in the open format; the old 67-round file is
+`DESIGN.legacy.md`, kept for history and for Books' own section only. Outside Books it
+beats `picks.css`, `legibility.css` and anything in the legacy file; the code moves
+to it through the five migration PRs listed at the end of `DESIGN.md`. In short:
+six type sizes (title 24/32 700 in every app); one 44px table row with a white
+header; 36px controls; the app colour has four jobs only (primary button, links,
+the open menu item, focus); totals go in a **count line** under the title, never in
+figure tiles on a list page; status tags only on exception rows.
 
 **Brand (owner, 15 Nov 2026): the frontend redesign** (`frontend-redesign-2026-11-15.md`,
 Books included), with the owner's later choices of the same day: **each app has its own
@@ -53,7 +63,7 @@ Hard rules that come up most often:
   Approve are secondary buttons and Reject is a text button; everywhere else
   approvals are tick and cross buttons (owner's style pick, DESIGN.md).
 - **Colour has one job.** The app's primary only for the primary button, links and
-  "you are here"; its second colour for charts and secondary marks; status colours only for
+  "you are here" and focus; status colours only for
   state, always with a label.
 
 In QA or review, flag any code that does not match `DESIGN.md`.
