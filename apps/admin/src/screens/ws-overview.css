@@ -51,10 +51,12 @@
   gap: 20px;
   max-width: none;
 }
+/* Everything under the hero fills the page beside the screens panel (owner, 19 Nov 2026: "huge empty space"
+   either side when it stopped at 80rem and centred). */
 .wsh-inner > :not(.wsh-hero) {
   width: 100%;
-  max-width: 80rem;
-  justify-self: center;
+  max-width: none;
+  justify-self: stretch;
 }
 @media (max-width: 767px) {
   .wsh {
@@ -102,9 +104,9 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 32px;
   align-items: center;
-  min-height: 248px;
-  /* Its words line up with the cards under it, which stop at 80rem and centre on a wide screen. */
-  padding: 36px calc(var(--wsh-gutter) + max(0px, (100% - 80rem) / 2) + 20px) 32px;
+  min-height: 0;
+  /* Its words start where the cards under it do, at the page's left edge, and sit near the top (owner, 19 Nov 2026). */
+  padding: 20px var(--wsh-gutter) 24px;
   border-bottom: 1px solid var(--wsh-line);
   background:
     radial-gradient(60% 120% at 100% 50%, rgb(var(--cat-1) / 0.06), transparent 65%),
@@ -278,7 +280,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(264px, 320px);
   }
   .wsh-hero:not([data-today]) {
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, max-content) minmax(280px, 1fr);
   }
   .wsh-hero:not([data-today]) .wsh-stage {
     display: block;
@@ -286,7 +288,9 @@
 }
 @container wsh (min-width: 1040px) {
   .wsh-hero[data-today] {
-    grid-template-columns: minmax(0, 1fr) 260px minmax(264px, 320px);
+    /* The words take what they need; the picture takes the rest and sits in its middle, so no gap opens
+       between the greeting and the picture on a wide page (owner, 19 Nov 2026). */
+    grid-template-columns: minmax(0, max-content) minmax(260px, 1fr) minmax(280px, 360px);
   }
   .wsh-stage {
     display: block;
@@ -309,7 +313,7 @@
   justify-self: end;
   width: 100%;
   min-width: 0;
-  max-width: 320px;
+  max-width: 360px;
   display: grid;
   gap: 4px;
   padding: 10px 12px 6px;
@@ -1261,4 +1265,57 @@ button.wsh-attn-row:active {
   .wsh .ws-link {
     min-height: 44px;
   }
+}
+
+/* "How this works ›" rides in the hero's top-right corner instead of taking a row above it, so the hero
+   meets the top bar with no white strip (owner, 19 Nov 2026: "move hero card text to bit top"). */
+:root:not(#rnd):not([data-palette='indigo']) main#main-content:has(.wsh) { position: relative; }
+:root:not(#rnd):not([data-palette='indigo']) main#main-content:has(.wsh) .ui-screen-top {
+  position: absolute;
+  top: 0.75rem;
+  right: 2rem;
+  z-index: 2;
+  margin: 0;
+}
+
+/* Your name and role, tighter (owner, 19 Nov 2026: "fix density"): the name a step firmer, the role a
+   green pill with a live dot. */
+.wsh-facts {
+  gap: 4px 8px;
+  margin-top: 8px;
+}
+.wsh-facts > span:first-child {
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+.wsh .wsh-role {
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  background: rgb(var(--ws-ok-soft, 230 241 238));
+  color: rgb(var(--ws-ok, 1 93 71));
+  border: 1px solid rgb(var(--ws-ok, 1 93 71) / 0.18);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+.wsh-live {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--cat-3, 27 175 122));
+}
+.wsh-live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgb(var(--cat-3, 27 175 122));
+  animation: wsh-live 1.8s var(--ws-ease) infinite;
+}
+@keyframes wsh-live {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsh-live::after { animation: none; }
 }

@@ -8,6 +8,8 @@ import './packages/ui/src/people.css';
 import './packages/ui/src/rnd.css';
 /* The owner's style picks (17 Nov 2026), after everything; never in Books. */
 import './packages/ui/src/picks.css';
+/* Legibility (19 Nov 2026): shell and Workspace text sizes and weights, after the picks so it wins. */
+import './packages/ui/src/legibility.css';
 import { SessionProvider } from './packages/shell/session';
 import Shell from './packages/shell/Shell';
 import TipLayer from './packages/ui/src/components/ui/TipLayer';
@@ -21,6 +23,21 @@ import { OldBrowserPage, browserIsTooOld } from './packages/ui/src/components/ui
  * readable by any script on the page and left behind after sign-out. Removed
  * on every start so it does not outlive the version that needed it.
  */
+/*
+ * Focus rings for keyboard users only (owner, 19 Nov 2026: "remove selection border").
+ * Browsers also draw the ring when focus is handed back after a mouse click, such as a menu closing or
+ * the side panel after a page change, so a dark box stayed round whatever was clicked. The last kind of
+ * input is kept on <html>; legibility.css hides the ring after a pointer and shows it again on a key.
+ */
+if (typeof document !== 'undefined') {
+  const root = document.documentElement;
+  const mark = (kind) => () => { if (root.dataset.input !== kind) root.dataset.input = kind; };
+  document.addEventListener('pointerdown', mark('pointer'), true);
+  /* Escape only closes a panel or menu; the focus it hands back is not keyboard travel. */
+  const toKeyboard = mark('keyboard');
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') toKeyboard(); }, true);
+}
+
 try {
   localStorage.removeItem('userEmail');
 } catch {

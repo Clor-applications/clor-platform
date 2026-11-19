@@ -38,7 +38,7 @@ describe('module landing pages', () => {
     const openScreen = vi.fn();
     render(<AccessHome navItems={NAV(['members', 'invitations'])} openScreen={openScreen} />);
     expect(await screen.findByText('Rohit')).toBeInTheDocument();
-    expect(screen.getByText(/Account owner · no authenticator/)).toBeInTheDocument();
+    expect(screen.getByText('No authenticator')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Invite people/ }));
     expect(openScreen).toHaveBeenCalledWith('invitations');
   });

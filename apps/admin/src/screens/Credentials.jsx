@@ -16,8 +16,9 @@ import {
   suspendCredential,
 } from '@platform/admin/credentials';
 import { KIND, STATUS, actionsFor } from './credentialsModel';
-import { Empty, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
+import { Empty, FilterSelect, ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('locked');
@@ -255,14 +256,14 @@ export default function Credentials() {
           </div>
         ) : null}
 
-        <div className="ws-filters" role="search">
-          <select className="ui-select" aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="">Kind: All</option>
-            {Object.entries(KIND).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={onlyReview} onChange={(e) => setOnlyReview(e.target.checked)} /> Needs review only</label>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="ui-checkbox" checked={showRevoked} onChange={(e) => setShowRevoked(e.target.checked)} /> Show revoked</label>
-          {data ? <span className="ws-head-meta">{rows.length} shown</span> : null}
+        <div className="ws-filters ws-filters--one-row" role="search">
+          <FilterSelect label="Kind" value={kind} onChange={setKind} options={[['', 'All'], ...Object.entries(KIND)]} />
+          {/* Two switches as coloured toggles, like the tabs elsewhere; the boxes drew as tall empty frames. */}
+          <div className="ws-tabs ws-tone-tabs">
+            <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-3)' }} aria-pressed={onlyReview} onClick={() => setOnlyReview((v) => !v)}>Needs review only</button>
+            <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-1)' }} aria-pressed={showRevoked} onClick={() => setShowRevoked((v) => !v)}>Show revoked</button>
+          </div>
+          {data && (kind || onlyReview || showRevoked) ? <span className="ws-head-meta ws-filters-end">{rows.length} shown</span> : null}
         </div>
 
         {failed ? (

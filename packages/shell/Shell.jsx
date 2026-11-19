@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { placeFor, rememberPlace, restorePlace } from './scrollMemory';
 import { ArrowLeft, Ban, Building2, Check, ChevronDown, CircleHelp, LayoutGrid, LogOut, Menu, Plus, Search, Settings, UserRound, X } from '@ui/components/ui/lineIcons';
-import { Contrast, Rows3 } from 'lucide-react';
+import { Contrast, PanelLeftClose, Rows3 } from 'lucide-react';
 import { useDensity } from '@ui/components/ui/useDensity';
 import { TEXT_SIZES, useTextSize } from '@ui/components/ui/useTextSize';
 import { useStrongText } from '@ui/components/ui/useStrongText';
@@ -429,6 +429,8 @@ function ShellScreens() {
     if (!search || !main || typeof ResizeObserver === 'undefined') return undefined;
     const place = () => {
       search.style.marginLeft = '';
+      /* With the screens panel open the bar's CSS places the search (rnd.css, [data-panel]); this measuring is for the rest. */
+      if (search.closest('[data-panel]')) return;
       const pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
       const target = main.getBoundingClientRect().left + pad;
       const gap = target - search.getBoundingClientRect().left;
@@ -971,6 +973,65 @@ function ShellScreens() {
 
   const isCurrent = (key) => screen === key && !platformScreen && !showMoreApps;
 
+  /* The app switcher. Named for the app you are in, because that is the question it answers before it is
+     the control it offers. With the screens panel open on a desktop it sits over that column and the search over the page. */
+  const panelOpenDesktop = Boolean(split && !phone && !tablet && !panelClosed && openModule && !openModule.single);
+  const appSwitcher = app && (app.id !== ADMIN_APP_ID || !phone) ? (
+      <UiMenu open={switcherOpen} onOpenChange={setSwitcherOpen}>
+        <MenuTrigger
+          className="ui-app-switch"
+          /* On a phone the bar's own gap spaces it; the desktop's 1.5rem lead pushed sign-out past a 390 px screen. */
+          style={phone ? { marginLeft: 0, gap: '0.25rem', paddingRight: '0.25rem' } : undefined}
+          aria-label={`${app.name}: switch app`}
+        >
+          {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
+          <span className="ui-app-switch-mark" style={{ '--app-color': `var(--app-${app.id})` }}><app.icon size={16} aria-hidden="true" /></span>
+          {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
+          <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
+          <ChevronDown size={14} aria-hidden="true" />
+        </MenuTrigger>
+
+        <MenuPanel aria-label="Apps" width="16rem" zIndex="var(--z-platform-menu)" sideOffset={4}>
+            {phone && tenants.length > 1 ? (
+              <>
+                <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => pickCompany(t.id)} />
+                <MenuSeparator />
+              </>
+            ) : null}
+            {mine.filter((a) => !a.platform).map((a) => (
+              <MenuItem
+                key={a.id}
+                className="ui-app-menu-item items-start gap-2.5 px-2"
+                aria-current={a.id === app.id ? 'true' : undefined}
+                onClick={() => openApp(a.id)}
+              >
+                {/* The app's mark in its own colour, as the bar shows the open one (owner, 17 Nov 2026: "change drop down color"). */}
+                <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': `var(--app-${a.id})` }}><a.icon size={16} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">{a.name}</span>
+                  <span className="block ui-caption">{a.blurb}</span>
+                </span>
+                {a.id === app.id ? <Check size={16} aria-hidden="true" className="mt-1.5 shrink-0" /> : null}
+              </MenuItem>
+            ))}
+            <MenuSeparator />
+            <MenuItem className="ui-app-menu-item gap-2.5 px-2" onClick={() => setShowMoreApps(true)}>
+              <span className="ui-app-switch-mark ui-app-menu-quiet shrink-0"><LayoutGrid size={16} aria-hidden="true" /></span>
+              <span className="text-sm font-semibold">More apps</span>
+            </MenuItem>
+            {/* Users, roles, sign-in, billing and the audit trail are the company's, not one app's: one workspace, reachable from every app (ADR-010). */}
+            <MenuItem
+              className="ui-app-menu-item gap-2.5 px-2"
+              aria-current={app.id === ADMIN_APP_ID ? 'true' : undefined}
+              onClick={() => openApp(ADMIN_APP_ID)}
+            >
+              <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': 'var(--app-admin, 32 35 41)' }}><Settings size={16} aria-hidden="true" /></span>
+              <span className="text-sm font-semibold flex-1">Workspace</span>
+              {app.id === ADMIN_APP_ID ? <Check size={16} aria-hidden="true" className="shrink-0" /> : null}
+            </MenuItem>
+        </MenuPanel>
+      </UiMenu>
+    ) : null;
   /* The rail of modules. On a desktop a tap opens the module's first screen; in the phone sheet it only
      switches the panel, so the person can pick a screen before the sheet closes (ClorTime's drawer). */
   const moduleRail = (
@@ -1050,14 +1111,15 @@ function ShellScreens() {
           type="button"
           className="ui-icon-btn"
           aria-label={phone ? 'Close menu' : `Close ${openModule.label} menu`}
-          title="Close"
+          title={phone ? 'Close' : 'Hide this menu'}
           onClick={() => {
             if (phone) setNavOpen(false);
             else if (tablet) { setTabletPanel(false); setBrowseModule(null); }
             else { setPanelClosed(true); setBrowseModule(null); }
           }}
         >
-          <X size={18} aria-hidden="true" />
+          {/* Desktop: a fold-the-panel mark, not a bare X (owner, 19 Nov 2026). A phone's sheet keeps X. */}
+          {phone ? <X size={18} aria-hidden="true" /> : <PanelLeftClose size={18} strokeWidth={1.75} aria-hidden="true" />}
         </button>
       </div>
       {openModule.groups.map((g, gi) => (
@@ -1181,6 +1243,8 @@ function ShellScreens() {
           className={`ui-topbar sticky top-0 flex h-14 items-center ${phone ? 'gap-1 px-1.5 max-[389px]:gap-0.5' : 'gap-3 px-4'}`}
           /* A phone bar without an app menu (the Workspace) has room for 44px buttons, DESIGN.md's touch size (#80 QA). */
           data-touch={phone && !(app && !inWorkspace) ? '' : undefined}
+          /* The screens panel is open: the switcher sits over it and the search starts where the page's content does. */
+          data-panel={panelOpenDesktop ? '' : undefined}
           style={{
             backgroundColor: 'rgb(var(--surface))',
             borderBottom: '1px solid rgb(var(--border))',
@@ -1199,66 +1263,8 @@ function ShellScreens() {
             {phone ? <ClorMark size={24} /> : <ClorLogo size={13} />}
           </button>
 
-          {/* The app switcher. Named for the app you are in, because that is the
-              question it answers before it is the control it offers. The
-              Workspace shows it too on a desktop, so every app's bar reads the same (owner, 16 Nov 2026);
-              a phone's Workspace bar keeps its company button instead. */}
-          {app && (!inWorkspace || !phone) ? (
-            <UiMenu open={switcherOpen} onOpenChange={setSwitcherOpen}>
-              <MenuTrigger
-                className="ui-app-switch"
-                /* On a phone the bar's own gap spaces it; the desktop's 1.5rem lead pushed sign-out past a 390 px screen. */
-                style={phone ? { marginLeft: 0, gap: '0.25rem', paddingRight: '0.25rem' } : undefined}
-                aria-label={`${app.name}: switch app`}
-              >
-                {/* The app you are in, as a mark in its own colour and its name in full weight: the first thing the bar answers. */}
-                <span className="ui-app-switch-mark" style={{ '--app-color': `var(--app-${app.id})` }}><app.icon size={16} aria-hidden="true" /></span>
-                {/* On a phone the name is cut short rather than pushing the bar past the screen; the full name is the button's label. */}
-                <span className={`ui-app-switch-name${phone ? ' truncate max-[389px]:hidden' : ''}`} style={phone ? { maxWidth: '3.75rem' } : undefined}>{app.name}</span>
-                <ChevronDown size={14} aria-hidden="true" />
-              </MenuTrigger>
-
-              <MenuPanel aria-label="Apps" width="16rem" zIndex="var(--z-platform-menu)" sideOffset={4}>
-                  {phone && tenants.length > 1 ? (
-                    <>
-                      <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => pickCompany(t.id)} />
-                      <MenuSeparator />
-                    </>
-                  ) : null}
-                  {mine.filter((a) => !a.platform).map((a) => (
-                    <MenuItem
-                      key={a.id}
-                      className="ui-app-menu-item items-start gap-2.5 px-2"
-                      aria-current={a.id === app.id ? 'true' : undefined}
-                      onClick={() => openApp(a.id)}
-                    >
-                      {/* The app's mark in its own colour, as the bar shows the open one (owner, 17 Nov 2026: "change drop down color"). */}
-                      <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': `var(--app-${a.id})` }}><a.icon size={16} aria-hidden="true" /></span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold">{a.name}</span>
-                        <span className="block ui-caption">{a.blurb}</span>
-                      </span>
-                      {a.id === app.id ? <Check size={16} aria-hidden="true" className="mt-1.5 shrink-0" /> : null}
-                    </MenuItem>
-                  ))}
-                  <MenuSeparator />
-                  <MenuItem className="ui-app-menu-item gap-2.5 px-2" onClick={() => setShowMoreApps(true)}>
-                    <span className="ui-app-switch-mark ui-app-menu-quiet shrink-0"><LayoutGrid size={16} aria-hidden="true" /></span>
-                    <span className="text-sm font-semibold">More apps</span>
-                  </MenuItem>
-                  {/* Users, roles, sign-in, billing and the audit trail are the company's, not one app's: one workspace, reachable from every app (ADR-010). */}
-                  <MenuItem
-                    className="ui-app-menu-item gap-2.5 px-2"
-                    aria-current={inWorkspace ? 'true' : undefined}
-                    onClick={() => openApp(ADMIN_APP_ID)}
-                  >
-                    <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': 'var(--app-admin, 32 35 41)' }}><Settings size={16} aria-hidden="true" /></span>
-                    <span className="text-sm font-semibold flex-1">Workspace</span>
-                    {inWorkspace ? <Check size={16} aria-hidden="true" className="shrink-0" /> : null}
-                  </MenuItem>
-              </MenuPanel>
-            </UiMenu>
-          ) : null}
+          {/* The app switcher stays in the bar (owner, 19 Nov 2026); with the screens panel open it lines up over that column. */}
+          {appSwitcher}
 
           {/* Global search: the command palette (⌘K), as a field anyone can see and click. */}
           {app && !Root ? (

@@ -157,3 +157,603 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
   gap: 32px;
 }
+
+/* Activity (19 Nov 2026): fixed widths for when, who and app, so what happened gets the rest. */
+.ws-activity-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.ws-activity-table .ws-col-when { width: 8rem; }
+.ws-activity-table .ws-col-who { width: 13rem; }
+.ws-activity-table .ws-col-app { width: 8.5rem; }
+.ws-activity-table td { overflow: hidden; text-overflow: ellipsis; }
+/* What happened, its action, the record and Details on one line; opened, details take the full width under it. */
+.ws-sec-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+.ws-sec-table .ws-sec-line > :is(.ws-audit-detail, .ws-audit-more) {
+  margin-top: 0;
+}
+.ws-sec-line > :is(details[open], .ws-audit-detail:has(details[open]), .ws-audit-detail:has(> .ws-audit-diffs)) {
+  flex-basis: 100%;
+}
+.ws-sec-line summary {
+  line-height: 1.25rem;
+}
+
+/* Activity's filters keep their own widths (owner, 19 Nov 2026: "reduce filter widths"); Refresh and Export
+   sit at the row's right end. */
+.ws .ws-filters--one-row:has(.ws-filters-end) > .ws-search {
+  flex: 0 1 260px;
+  max-width: 260px;
+}
+.ws .ws-filters--one-row .ws-filters-end {
+  flex: none;
+  margin-left: auto;
+}
+/* Opened details: one quiet sunken panel, the same on every row whether or not the cursor is over it. */
+.ws .ws-sec-line .ws-audit-more dl {
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border, 229 229 229));
+  max-width: 44rem;
+}
+/* Each cell's first line of text on one baseline: the time, the name, what happened and the app tag. */
+.ws .ws-activity-table tbody td {
+  vertical-align: baseline;
+}
+
+/* Activity: the list and a summary column at its right (owner, 19 Nov 2026: "right space empty, add something"). */
+.ws-activity-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: 32px;
+  align-items: start;
+}
+.ws-activity-main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.ws-activity-side {
+  position: sticky;
+  top: 5rem;
+  display: grid;
+  gap: 12px;
+}
+.ws-activity-box {
+  padding: 14px 16px;
+  border: 1px solid rgb(var(--border, 229 229 229));
+  border-radius: 12px;
+  background: rgb(255 255 255);
+}
+.ws .ws-activity-side .ws-activity-box-title {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-activity-big {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+.ws-activity-big .ui-num {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+  color: rgb(var(--fg, 28 27 24));
+  margin-right: 2px;
+}
+.ws-activity-sub {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  color: rgb(var(--fg-subtle, 92 90 84));
+}
+.ws-activity-bars,
+.ws-activity-people,
+.ws-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ws-activity-bars li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) 1.75rem;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+.ws-activity-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(var(--border, 229 229 229) / 0.7);
+  overflow: hidden;
+}
+.ws-activity-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(var(--cat-1, 42 120 214));
+}
+.ws-activity-bars li[data-tone='ok'] .ws-activity-bar > span { background: rgb(var(--cat-3, 27 175 122)); }
+.ws-activity-bars li[data-tone='danger'] .ws-activity-bar > span { background: rgb(var(--neg, 180 35 24)); }
+.ws-activity-bar-n {
+  margin-left: auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.ws-activity-person {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgb(var(--fg, 28 27 24));
+  text-align: left;
+  cursor: pointer;
+  box-sizing: content-box;
+}
+.ws-activity-person:hover { background: rgb(var(--hover-blue, 42 120 214) / 0.08); }
+.ws-activity-person[aria-pressed='true'] { background: rgb(var(--select-green, 27 175 122) / 0.14); }
+.ws-activity-person:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 1px; }
+.ws-activity-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+.ws-activity-record { color: rgb(var(--fg-muted, 58 63 71)); }
+.ws-activity-list li.ws-activity-record:first-of-type,
+.ws-activity-list li:not(.ws-activity-record) + .ws-activity-record {
+  padding-top: 8px;
+  border-top: 1px solid rgb(var(--border, 229 229 229));
+}
+@media (max-width: 1200px) {
+  .ws-activity-layout { grid-template-columns: minmax(0, 1fr); }
+  .ws-activity-side { position: static; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+}
+
+/* Inbox (owner, 19 Nov 2026): Activity's layout, so the two read alike: tabs and filters in one row,
+   a flush list, the summary at the right. */
+.ws .ws-filters--one-row:has(.ws-tabs) { align-items: center; }
+/* Shares, not fixed widths (owner, 19 Nov 2026: even gaps between What, Who, App): What keeps the most room,
+   the rest spread across the row instead of bunching at its right end. */
+.ws .ws-inbox-table .ws-col-what { width: 38%; }
+.ws .ws-inbox-table .ws-col-who { width: 22%; }
+.ws .ws-inbox-table .ws-col-app { width: 14%; }
+.ws .ws-inbox-table .ws-col-when { width: 14%; }
+.ws .ws-inbox-table .ws-col-open { width: 12%; }
+.ws .ws-inbox-table[data-updates] .ws-col-what { width: 60%; }
+.ws-inbox-table td:first-child strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws .ws-inbox-table tbody td { vertical-align: middle; }
+.ws-inbox-table .ws-sec-who { display: inline-flex; align-items: center; gap: 8px; }
+.ws .ws-row-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--hover-blue, 42 120 214));
+  cursor: pointer;
+}
+.ws .ws-row-link:hover { text-decoration: underline; }
+.ws .ws-row-link:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; border-radius: 4px; }
+.ws-inbox-what { display: inline-flex; align-items: center; gap: 8px; }
+.ws-inbox-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgb(var(--hover-blue, 42 120 214));
+  flex: none;
+}
+/* Empty: a quiet line on the page ground, not a dashed card. */
+.ws-inbox-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+  border-top: 1px solid rgb(var(--border, 229 229 229));
+}
+.ws .ws-inbox-empty-title {
+  margin: 0 0 2px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgb(var(--fg, 28 27 24));
+}
+.ws-inbox-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(var(--hover-blue, 42 120 214));
+  cursor: pointer;
+}
+.ws-inbox-link:hover { text-decoration: underline; }
+.ws-inbox-link:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; border-radius: 4px; }
+.ws .ws-inbox-table td.num { overflow: visible; padding-right: 1px; }
+
+/* Inbox tabs (owner, 19 Nov 2026): an underline in each tab's own colour, not the grey pill.
+   The :root prefix matches picks.css, which otherwise paints every selected tab as a pill. */
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs { gap: 8px; border-bottom: 0; }
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  margin-right: 16px;
+  border-radius: 0 !important;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-weight: 500;
+  color: rgb(var(--fg-muted, 58 63 71));
+}
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab:hover { color: rgb(var(--tab)); }
+:root:not(#pk):not(#pk2) .ws .ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) {
+  background: none;
+  color: rgb(var(--tab));
+  font-weight: 600;
+  border-bottom-color: rgb(var(--tab));
+}
+.ws-tone-count {
+  min-width: 1.5rem;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgb(var(--tab) / 0.1);
+  color: rgb(var(--tab));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) .ws-tone-count { background: rgb(var(--tab)); color: rgb(255 255 255); }
+
+/* A state said softly (owner, 19 Nov 2026): a tinted tag with a dot, the same weight as the app tags beside it,
+   not a solid block of colour. Tones: ok, warn, danger, info, off. */
+.ws-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: rgb(var(--st) / 0.1);
+  color: rgb(var(--st));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  --st: var(--neutral-ink, 92 90 84);
+}
+.ws-state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+.ws-state[data-tone='ok'] { --st: 22 101 52; }
+.ws-state[data-tone='warn'] { --st: 146 64 14; }
+.ws-state[data-tone='danger'] { --st: var(--neg, 180 35 24); }
+.ws-state[data-tone='info'] { --st: 30 64 175; }
+
+/* A list page with a summary column at its right (Inbox, Help and support, Companies, Branches). */
+.ws-side-note { margin: 0; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted, 58 63 71)); }
+.ws-side-note + .ws-row-link { margin-top: 8px; }
+.ws-activity-bars--wide li { grid-template-columns: 7rem minmax(0, 1fr) 1.75rem; }
+
+/* Companies (owner, 19 Nov 2026): shares that spread the columns, soft states, link-style Switch. */
+.ws .ws-co-table .ws-co-name { width: 28%; }
+.ws .ws-co-table .ws-co-gstin { width: 20%; }
+.ws .ws-co-table .ws-co-pan { width: 12%; }
+.ws .ws-co-table .ws-co-apps { width: 14%; }
+.ws .ws-co-table .ws-co-people { width: 9%; }
+.ws .ws-co-table .ws-co-status { width: 11%; }
+.ws .ws-co-table .ws-co-act { width: 6.5rem; }
+.ws .ws-co-table tbody td { vertical-align: middle; }
+.ws .ws-co-table td.num { overflow: visible; }
+.ws-here {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  background: rgb(var(--cat-1) / 0.1);
+  color: rgb(28 84 160);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.ws-plan-bar { display: block; margin: 8px 0 4px; }
+.ws-activity-list .ws-row-link { text-align: left; }
+/* One unbroken rule under the headings: separate cell borders left hairline seams at fractional widths. */
+.ws .ws-activity-table { border-collapse: collapse; }
+
+/* Branches (owner, 19 Nov 2026): the same spread columns and soft states as Companies. */
+.ws .ws-br-table .ws-br-name { width: 26%; }
+.ws .ws-br-table .ws-br-type { width: 13%; }
+.ws .ws-br-table .ws-br-state { width: 16%; }
+.ws .ws-br-table .ws-br-gstin { width: 22%; }
+.ws .ws-br-table .ws-br-status { width: 15%; }
+.ws .ws-br-table .ws-br-act { width: 3.5rem; }
+.ws .ws-br-table tbody td { vertical-align: middle; }
+.ws .ws-br-table td.ws-td-menu { overflow: visible; text-align: right; }
+:root:not(#pk):not(#pk2) .ws .ws-activity-table thead th { border-bottom-width: 0; }
+.ws .ws-activity-table thead { border-bottom: 2px solid rgb(var(--fg, 28 27 24)); }
+
+/* Company profile (owner, 19 Nov 2026: "visibility"): important, because picks.css paints every panel and
+   field with an :is() list too heavy to outweigh otherwise; scoped to this one page. White panels with a hairline, and fields that read as
+   fields: white, a visible border, a blue ring on focus. Grey boxes on grey panels hid every input. */
+:root:not(#pk):not(#pk2) .ws .ws-profile .ws-panel {
+  background: rgb(255 255 255) !important;
+  background-image: none !important;
+  border: 1px solid rgb(var(--border, 229 229 229)) !important;
+  box-shadow: none !important;
+}
+.ws .ws-profile .ws-panel-title { font-size: 1rem; line-height: 1.5rem; }
+.ws .ws-profile label > span.text-sm { color: rgb(var(--fg, 28 27 24)); font-weight: 600; font-size: 0.8125rem; }
+:root:not(#pk):not(#pk2) .ws .ws-profile .ui-input {
+  min-height: 40px !important;
+  background: rgb(255 255 255) !important;
+  border: 1px solid rgb(var(--border-field, 214 214 214)) !important;
+  box-shadow: none !important;
+  color: rgb(var(--fg, 28 27 24)) !important;
+}
+:root:not(#pk):not(#pk2) .ws .ws-profile .ui-input:hover { border-color: rgb(var(--fg-muted, 58 63 71) / 0.5) !important; }
+:root:not(#pk):not(#pk2) .ws .ws-profile .ui-input:focus {
+  border-color: rgb(var(--hover-blue, 42 120 214)) !important;
+  box-shadow: 0 0 0 3px rgb(var(--hover-blue, 42 120 214) / 0.15) !important;
+  outline: none !important;
+}
+.ws .ws-profile .ui-input::placeholder { color: rgb(var(--fg-muted, 58 63 71) / 0.55); }
+/* A section still to fill says so in amber, not in the brand's purple. */
+.ws .ws-profile .ws-tile--warn { background: rgb(180 83 9 / 0.1) !important; color: rgb(180 83 9) !important; }
+.ws .ws-profile .ws-meter-bar { background: rgb(var(--border, 229 229 229)) !important; }
+
+/* Integrations (owner, 19 Nov 2026): connected first, then what can be connected, both as flush tables. */
+.ws .ws-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: rgb(var(--fg, 28 27 24));
+}
+.ws-group-n {
+  min-width: 1.5rem;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: rgb(var(--fg, 28 27 24) / 0.07);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  text-align: center;
+}
+.ws .ws-int-table .ws-int-what { width: 46%; }
+.ws .ws-int-table .ws-int-detail { width: 26%; }
+.ws .ws-int-table .ws-int-status { width: 16%; }
+.ws .ws-int-table .ws-int-act { width: 7rem; }
+.ws .ws-int-table td { white-space: normal; }
+.ws .ws-int-table td.num { overflow: visible; }
+.ws-int-parts { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.ws-int-parts li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.875rem; }
+
+/* Automations (owner, 19 Nov 2026): rows divided by a hairline, a switch you can see when it is off. */
+.ws .ws-autos li { border-bottom: 1px solid rgb(var(--border, 229 229 229)); }
+.ws .ws-autos li:last-child { border-bottom: 0; }
+.ws .ws-autos [role='switch'][aria-checked='false'] .ui-switch-track { background: rgb(var(--fg, 28 27 24) / 0.28) !important; }
+.ws .ws-autos .ui-switch-thumb { box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); }
+.ws .ws-autos li p.ui-caption { font-size: 0.8125rem; line-height: 1.25rem; color: rgb(74 72 66); }
+
+/* Email notifications (owner, 19 Nov 2026): flush groups headed by their app, a summary at the right. */
+.ws-mail { gap: 24px; }
+.ws-mail-group { display: grid; gap: 4px; }
+.ws .ws-mail-title { padding-bottom: 10px; border-bottom: 2px solid rgb(var(--fg, 28 27 24)); margin: 0; }
+.ws .ws-mail-title .ws-tag { font-size: 0.875rem; padding: 2px 10px; }
+.ws-mail-count { margin-left: auto; font-size: 0.8125rem; font-weight: 600; color: rgb(74 72 66); }
+.ws .ws-mail .ui-caption { font-size: 0.8125rem; line-height: 1.25rem; color: rgb(74 72 66); }
+.ws .ws-mail .text-sm.font-medium { font-size: 0.9375rem; font-weight: 600; }
+.ws .ws-activity-bars + .ws-row-link { margin-top: 10px; }
+.ws .ws-mail-name { margin: 0; font-size: 1rem; line-height: 1.5rem; font-weight: 700; color: rgb(var(--fg, 28 27 24)); }
+.ws .ws-activity-side h2.ws-activity-box-title { font-size: 0.75rem; line-height: 1rem; }
+
+/* Users & access (owner, 19 Nov 2026): row actions read as links; ending access in red. */
+.ws .ws-row-link--danger { color: rgb(185 28 28); }
+/* The row menu: a bare icon that fills on hover, no box around every row's dots. */
+.ws .ws-more-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: rgb(74 72 66);
+}
+.ws .ws-more-btn:hover, .ws .ws-more-btn[aria-expanded='true'] { background: rgb(var(--fg) / 0.06); color: rgb(var(--fg)); }
+.ws .ws-more-btn:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; }
+
+/* Access overview lists (owner, 19 Nov 2026): a coloured mark for each kind of change, people as initials,
+   the authenticator as a state tag, heading links like the other row links. */
+.ws-change-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 8px;
+  background: rgb(var(--st) / 0.1);
+  color: rgb(var(--st));
+  --st: 92 90 84;
+}
+.ws-change-mark[data-tone='ok'] { --st: 21 128 61; }
+.ws-change-mark[data-tone='warn'] { --st: 180 83 9; }
+.ws-change-mark[data-tone='danger'] { --st: 185 28 28; }
+.ws-change-mark[data-tone='info'] { --st: 28 84 160; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-list .ws-item { gap: 12px; min-height: 3.5rem; padding-block: 8px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-head .ws-row-link { font-size: 0.8125rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-item-end { font-size: 0.8125rem; color: rgb(74 72 66); }
+/* Audit log action: tinted in its kind's colour (owner, 19 Nov 2026). */
+.ws .ws-sec-tagbtn[style] { background: rgb(var(--tag) / 0.1); color: rgb(var(--tag)); font-weight: 600; }
+.ws .ws-sec-tagbtn[style]:hover { background: rgb(var(--tag) / 0.16); }
+
+/* ── Security + Settings tidy (19 Nov): one face, coloured marks, flat rows ── */
+/* DESIGN.md: one face app-wide. Addresses, GSTINs and URLs read in Inter, tabular. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-mono,
+:root:not(#ux1):not(#ux2):not(#ux3) .ws code.ui-mono {
+  font-family: inherit !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0 !important;
+  font-size: inherit;
+}
+.ws-device-mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  color: color-mix(in srgb, rgb(var(--dm)) 70%, black);
+  background: color-mix(in srgb, rgb(var(--dm)) 14%, white);
+}
+.ws-device {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ws-device .ws-item-text { min-width: 0; }
+.ws-who-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws .ws-sec-table td.ws-sec-when,
+.ws .ws-sec-table td.ws-sec-addr { color: rgb(var(--fg-muted, 90 90 100)); font-variant-numeric: tabular-nums; }
+
+/* Fact rows: label left, value right, a hairline between, the look of the member drawer. */
+.ws .ws-rows {
+  display: grid;
+  margin: 0;
+}
+.ws .ws-rows > div {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid rgb(var(--border-subtle, 230 230 235));
+  font-size: 0.875rem;
+}
+.ws .ws-rows > div:last-child { border-bottom: 0; }
+.ws .ws-rows dt { color: rgb(var(--fg-muted, 90 90 100)); }
+.ws .ws-rows dd { margin: 0; font-weight: 500; }
+.ws-rows--num dd { text-align: right; font-variant-numeric: tabular-nums; }
+.ws-quiet-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  font-size: 0.875rem;
+  color: rgb(var(--fg-muted, 90 90 100));
+}
+
+/* SSO: providers as one flat list under the rule, not boxes. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+  border-top: 1px solid rgb(var(--border-subtle, 230 230 235));
+  margin: 0 0 8px;
+  padding: 0;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card {
+  background: none !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgb(var(--border-subtle, 230 230 235)) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 14px 0 !important;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 4px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card > :not(.ws-sso-head):not(.ws-sso-actions) { grid-column: 1; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card .ws-sso-line { margin: 0 0 0 44px !important; font-size: 0.8125rem; color: rgb(var(--fg-muted, 90 90 100)); }
+.ws .ws-sso-chip {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: inline-grid !important;
+  place-items: center;
+  color: color-mix(in srgb, rgb(var(--sso, var(--cat-1))) 72%, black) !important;
+  background: color-mix(in srgb, rgb(var(--sso, var(--cat-1))) 14%, white) !important;
+  border: 0 !important;
+}
+.ws .ws-copy-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 40rem;
+  padding: 8px 8px 8px 12px;
+  border-radius: 8px;
+  background: rgb(var(--cat-1) / 0.06);
+  border: 1px solid rgb(var(--cat-1) / 0.18);
+  font-size: 0.875rem;
+  font-weight: 500;
+  word-break: break-all;
+}
+.ws .ws-copy-box > span { flex: 1; min-width: 0; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-card .ws-sso-actions {
+  grid-column: 2;
+  grid-row: 1 / span 6;
+  margin: 0 !important;
+  align-self: center;
+  justify-content: flex-end;
+}
+.ws .ws-owner-value { display: flex; flex-wrap: wrap; gap: 8px 16px; min-height: 2.5rem; font-weight: 600; }
+.ws .ws-rows > div:first-child { border-top: 0 !important; }
+/* Form sections take the same 2px rule as every panel head. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section > .ws-sec-body { border-top: 2px solid rgb(var(--fg)); }
+.ws input.tracking-widest::placeholder { letter-spacing: 0; }
+/* A section with a lede: the rule sits under the heading, the lede reads beneath it. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section:has(> .ws-sec-lede) > .ws-sec-section-head { border-bottom: 2px solid rgb(var(--fg)); padding-bottom: 8px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-section:has(> .ws-sec-lede) > .ws-sec-body { border-top: 0; padding-top: 4px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sso-grid { border-top: 2px solid rgb(var(--fg)) !important; }
+
+/* Contrast (axe 4.5:1 at 13px): link blue, tab and tag text a shade deeper than their swatch. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-row-link:not(.ws-row-link--danger) { color: rgb(29 100 196); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-tabs .ws-tab:hover,
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) { color: color-mix(in srgb, rgb(var(--tab)) 70%, black); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-count { color: color-mix(in srgb, rgb(var(--tab)) 70%, black); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-tone-tabs .ws-tab:is([aria-selected='true'], [aria-pressed='true']) .ws-tone-count { background: color-mix(in srgb, rgb(var(--tab)) 70%, black); color: rgb(255 255 255); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-sec-tagbtn[style] { color: color-mix(in srgb, rgb(var(--tag)) 75%, black); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-chip-k { color: rgb(74 72 66); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-chip[data-set] .ws-chip-k { color: rgb(28 84 160); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-inbox-link { color: rgb(29 100 196); }

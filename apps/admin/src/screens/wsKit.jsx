@@ -1,7 +1,8 @@
 import React from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { PageIconContext } from './pageIcon';
-import { ArrowLeft, ChevronRight } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Globe, Smartphone } from '@ui/components/ui/lineIcons';
+import { Menu as UiMenu, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '@ui/components/ui/Menu';
 import {
   Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
 } from 'lucide-react';
@@ -231,7 +232,7 @@ export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
       <span className="ws-stat-label">{label}</span>
       {onOpen ? <ChevronRight size={16} aria-hidden="true" className="ws-chev" style={{ opacity: 1 }} /> : <span />}
       <span className="ws-stat-value" style={{ gridColumn: '2 / span 2' }}>{value}</span>
-      {note ? <span className="ws-stat-note" style={{ gridColumn: '2 / span 2' }}>{note}</span> : null}
+      {note ? <span className="ws-stat-note" title={typeof note === 'string' ? note : undefined} style={{ gridColumn: '2 / span 2' }}>{note}</span> : null}
     </>
   );
   return onOpen ? (
@@ -290,6 +291,22 @@ export function device(ua = '') {
   const browser = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
   const os = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Mac OS X|Macintosh/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : /Linux/.test(u) ? 'Linux' : '';
   return os ? `${browser} on ${os}` : browser;
+}
+
+/** An address as people read it: the IPv4 inside an IPv6 wrapper, plain. */
+export const ipText = (v) => (v ? String(v).replace(/^::ffff:/i, '') : '');
+
+const DEVICE_HUE = [[/Edg\//, 3], [/OPR\//, 5], [/Firefox\//, 4], [/Chrome\//, 1], [/Safari\//, 2], [/curl|wget|python|node|axios|okhttp|postman/i, 6]];
+/** A small coloured mark for a sign-in device: phone or browser, tinted by browser. */
+export function DeviceMark({ ua = '' }) {
+  const u = String(ua);
+  const hue = (DEVICE_HUE.find(([re]) => re.test(u)) || [null, 7])[1];
+  const Icon = /iPhone|iPad|Android/.test(u) ? Smartphone : Globe;
+  return (
+    <span className="ws-device-mark" style={{ '--dm': `var(--cat-${hue})` }} aria-hidden="true">
+      <Icon size={16} />
+    </span>
+  );
 }
 
 /** "3 hours ago" from a date, in words. */
@@ -425,5 +442,34 @@ export function SeatRow({ app, used, limit, unit = 'users', note }) {
         {state === 'over' ? <StatusPill tone="danger">Over limit</StatusPill> : state === 'near' ? <StatusPill tone="warn">Near limit</StatusPill> : <StatusPill tone="ok">OK</StatusPill>}
       </span>
     </div>
+  );
+}
+
+/**
+ * A filter chip ("App: All ⌄") that opens the app's own menu right under it (owner, 19 Nov 2026: the
+ * browser's own select list opened in the middle of the page, in its own large type). `options` are
+ * `[value, label]` pairs; the chip shows `label` and the chosen option's label.
+ */
+export function FilterSelect({ label, value, options, onChange, ariaLabel, width = '14rem' }) {
+  const [open, setOpen] = React.useState(false);
+  const chosen = options.find(([v]) => v === value) || options[0];
+  return (
+    <UiMenu open={open} onOpenChange={setOpen}>
+      <MenuTrigger className="ws-chip" aria-label={`${ariaLabel || label}: ${chosen?.[1] || ''}`} data-set={value ? '' : undefined}>
+        <span className="ws-chip-k">{label}:</span>
+        <span className="ws-chip-v">{chosen?.[1]}</span>
+        <ChevronDown size={14} aria-hidden="true" className="ws-chip-caret" />
+      </MenuTrigger>
+      <MenuPanel aria-label={ariaLabel || label} minWidth="10rem" width={width} sideOffset={4}>
+        <MenuRadioGroup value={value} onValueChange={(v) => { onChange(v); setOpen(false); }}>
+          {options.map(([v, l]) => (
+            <MenuRadioItem key={v || '__all'} value={v} className="ws-chip-item">
+              <span className="min-w-0 flex-1 truncate">{l}</span>
+              {v === value ? <Check size={14} aria-hidden="true" /> : null}
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </MenuPanel>
+    </UiMenu>
   );
 }

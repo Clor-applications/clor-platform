@@ -5,6 +5,7 @@ import { createInvitation, listInvitations, resendInvitation, revokeInvitation }
 import { listRoles } from '@platform/admin/admin';
 import { ICON, Loading, PageHead, Stat, WsDrawer } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /**
  * Workspace → Invitations (W-3).
@@ -161,11 +162,17 @@ export default function Invitations({ tenant, companies = [] }) {
         ) : null}
 
         {notJoined.length ? (
-          <div className="ui-not-joined" role="group" aria-label="People who have not joined">
-            <button type="button" className={`ui-chip-toggle${onlyWaiting ? ' is-on' : ''}`} aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((v) => !v)}>
-              Not joined yet <span className="tabular-nums">{notJoined.length}</span>
-            </button>
-            <button type="button" className="ws-btn ws-btn--small" disabled={sendingAll} onClick={sendAll}>
+          /* Tabs in their own colours, as on the Inbox (owner, 19 Nov 2026); the resend is a link at the end. */
+          <div className="ws-filters ws-filters--one-row" role="group" aria-label="People who have not joined">
+            <div className="ws-tabs ws-tone-tabs">
+              <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-1)' }} aria-pressed={!onlyWaiting} onClick={() => setOnlyWaiting(false)}>
+                All <span className="ws-tone-count">{rows.length}</span>
+              </button>
+              <button type="button" className="ws-tab" style={{ '--tab': 'var(--cat-3)' }} aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((v) => !v)}>
+                Not joined yet <span className="ws-tone-count">{notJoined.length}</span>
+              </button>
+            </div>
+            <button type="button" className="ws-row-link ws-filters-end" disabled={sendingAll} onClick={sendAll}>
               <Send size={14} aria-hidden="true" /> {sendingAll ? 'Sending…' : notJoined.length === 1 ? 'Send again' : `Send again to all ${notJoined.length}`}
             </button>
           </div>
@@ -207,11 +214,11 @@ export default function Invitations({ tenant, companies = [] }) {
                       <td>{r.status === 'ACCEPTED' ? `Joined ${day(r.acceptedAt)}` : r.status === 'PENDING' ? <>{r.lastSentAt ? <span className="block">Invited {day(r.lastSentAt)}</span> : null}<span className="ws-cell-sub">Expires {day(r.expiresAt)}</span></> : `Sent ${day(r.lastSentAt)}`}</td>
                       <td className="num">
                         {open ? (
-                          <span className="inline-flex gap-2">
-                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => act(resendInvitation, r.id, `Sent again to ${r.email}.`)}>
+                          <span className="inline-flex gap-4">
+                            <button type="button" className="ws-row-link" onClick={() => act(resendInvitation, r.id, `Sent again to ${r.email}.`)}>
                               <RotateCw size={14} aria-hidden="true" /> Resend
                             </button>
-                            <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => act(revokeInvitation, r.id, `Withdrew the invitation to ${r.email}.`)}>
+                            <button type="button" className="ws-row-link ws-row-link--danger" onClick={() => act(revokeInvitation, r.id, `Withdrew the invitation to ${r.email}.`)}>
                               <XCircle size={14} aria-hidden="true" /> Withdraw
                             </button>
                           </span>

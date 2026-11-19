@@ -3,7 +3,7 @@ import { Download } from 'lucide-react';
 import { emoji } from '@ui/components/ui/emoji';
 
 import NotConnected from '@ui/components/ui/NotConnected';
-import { Empty, KpiTile, LoadError, Loading, PageHead } from './wsKit';
+import { Empty, ICON, LoadError, Loading, PageHead, Stat } from './wsKit';
 import { inr } from './InvoiceDocument';
 import { InvoiceDrawer, InvoiceTable, invoiceDay, useInvoices } from './InvoiceDrawer';
 import BillingDocs from './BillingDocs';
@@ -81,10 +81,11 @@ export default function Invoices() {
         ) : null}
 
         {f ? (
-          <div className="ws-kpis">
-            <KpiTile cat={1} label={`Paid this FY`} value={inr(f.paidThisFy)} note={`${f.paidCount} ${f.paidCount === 1 ? 'invoice' : 'invoices'} · ${fyName}`} />
-            <KpiTile
-              cat={2}
+          <div className="ws-stats">
+            <Stat icon={ICON.payments} label={`Paid this FY`} value={inr(f.paidThisFy)} note={`${f.paidCount} ${f.paidCount === 1 ? 'invoice' : 'invoices'} · ${fyName}`} />
+            <Stat
+              icon={ICON.plan}
+              tone={f.next?.overdue ? 'danger' : null}
               label="Next to pay"
               value={f.next ? inr(f.next.total) : inr(0)}
               note={
@@ -93,8 +94,8 @@ export default function Invoices() {
                   : 'Nothing to pay'
               }
             />
-            <KpiTile
-              cat={3}
+            <Stat
+              icon={ICON.guide}
               label="GST input credit"
               value={inr(f.gstThisFy)}
               note={f.gstThisFy ? `On ${f.gstCount} ${f.gstCount === 1 ? 'invoice' : 'invoices'} · ${fyName}` : `No GST charged · ${fyName}`}

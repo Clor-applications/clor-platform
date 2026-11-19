@@ -2967,9 +2967,10 @@ button.ws-stat:hover {
   color: rgb(var(--ws-blue-ink));
 }
 .ws-tag--workspace {
-  /* A graphite tint, not a solid block: the solid tag was the loudest thing in the row (audit). */
-  background: rgb(var(--graphite, 32 35 41) / 0.09);
-  color: rgb(var(--graphite, 32 35 41));
+  /* The Workspace in its own colour, a soft blue tint (owner, 19 Nov 2026: "workspace also different color");
+     graphite read as a disabled grey. */
+  background: rgb(var(--cat-1, 42 120 214) / 0.1);
+  color: rgb(28 84 160);
   font-weight: 600;
 }
 /* Quiet buttons (Refresh, Export, and their like) carry their icon in the page's blue. */
@@ -3175,16 +3176,17 @@ button.ws-stat:hover {
 .ws-autos > div {
   max-width: none;
 }
+/* Flush groups on the page ground, not boxed sheets (owner, 19 Nov 2026: the same as the other list pages). */
 .ws-autos section {
-  padding: 4px 16px 6px;
-  border: 1px solid rgb(var(--border, 229 229 229));
-  border-radius: 12px;
-  background: rgb(255 255 255);
+  padding: 0 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: none;
 }
 .ws-autos section > h2 {
   margin: 0;
   padding: 12px 0 10px;
-  border-bottom: 1px solid rgb(var(--border, 229 229 229));
+  border-bottom: 2px solid rgb(var(--fg, 28 27 24));
   font-size: 1rem;
   line-height: 1.5rem;
   font-weight: 700;
@@ -3389,3 +3391,287 @@ button.ws-stat:hover {
     align-items: center;
   }
 }
+
+/* ---- 19 Nov 2026 (owner, Activity: "do not add page like card, make full page") ----
+   Workspace pages use the whole width beside the screens panel, not the shell's 80rem column. */
+:root:not(#rnd):not([data-palette='indigo']) main#main-content > :is(.ws, :has(> .ws)) {
+  max-width: none;
+}
+.ws .ws-inner {
+  max-width: none;
+}
+/* A list sits on the page under its header rule: no card around it. Its first and last columns
+   line up with the page's title and filters above. */
+.ws .ws-table-wrap {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.ws .ws-table :is(th, td):first-child {
+  padding-left: 0;
+}
+.ws .ws-table :is(th, td):last-child {
+  padding-right: 0;
+}
+.ws .ws-table tbody tr:hover {
+  background: none;
+}
+.ws .ws-table tbody tr:hover td {
+  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+}
+/* Tools at the right end of a filter row (Refresh, Export). */
+.ws-filters-end {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws .ws-filters-end .ws-btn {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  gap: 6px;
+  font-size: 0.8125rem;
+  border: 1px solid rgb(var(--border-field, 212 212 212));
+  background: rgb(255 255 255);
+  color: rgb(var(--fg, 28 27 24));
+}
+.ws .ws-filters-end .ws-btn:hover:not(:disabled) {
+  border-color: rgb(var(--cat-1, 42 120 214) / 0.5);
+  background: rgb(var(--cat-1, 42 120 214) / 0.06);
+}
+.ws .ws-filters-end .ws-btn--icon,
+.ws .ws-btn--icon {
+  width: 32px;
+  flex: none;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Filter chips (wsKit FilterSelect, 19 Nov 2026): 32px, sunken ground, "Label: value ⌄"; a chosen filter
+   turns soft blue so it reads as on. Their menu opens right under them. */
+.ws .ws-filters :is(input, select) {
+  height: 32px;
+  min-height: 32px;
+}
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgb(var(--surface-sunken, 244 245 242));
+  background: rgb(var(--rail-bg, 243 243 240));
+  font: inherit;
+  font-size: 0.8125rem;
+  color: rgb(var(--fg, 28 27 24));
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ws-chip:hover { border-color: rgb(var(--border-field, 212 212 212)); }
+.ws-chip[data-popup-open] { border-color: rgb(var(--cat-1, 42 120 214) / 0.6); background: rgb(255 255 255); }
+.ws-chip:focus-visible { outline: 2px solid rgb(var(--act, 201 80 0)); outline-offset: 2px; }
+.ws-chip-k { color: rgb(var(--fg-muted, 68 66 61)); }
+.ws-chip-v { font-weight: 600; }
+.ws-chip-caret { margin-left: 2px; color: rgb(var(--fg-subtle, 92 90 84)); }
+.ws-chip[data-set] {
+  background: rgb(var(--cat-1, 42 120 214) / 0.1);
+  color: rgb(28 84 160);
+}
+.ws-chip[data-set] .ws-chip-k { color: rgb(28 84 160 / 0.8); }
+.ws-chip-item { gap: 8px; font-size: 0.8125rem; }
+
+/* ---- Users & access pass (owner, 19 Nov 2026: "colour accent, alignment, filters, cards width") ----
+   The three-id prefix outranks picks.css (two), which paints every pill as a solid block. */
+
+/* States said softly everywhere in the Workspace: a tint with a dot, the colour of what it means. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(var(--st) / 0.1);
+  color: rgb(var(--st));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  --st: 92 90 84;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--ok { --st: 22 101 52; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--warn { --st: 146 64 14; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--danger { --st: 153 27 27; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--info { --st: 30 64 175; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ws-pill--off, .ws-pill--neutral) { --st: 92 90 84; }
+/* A count inside a tab or button, or a role name, is not a state: no dot. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ws-tab, .ws-btn) .ws-pill::before,
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-pill--role::before { content: none; }
+
+/* Figure cards: as wide as they need (a row of four stretched across 1400px read as empty boxes),
+   each with its own colour on top, the figure in that colour. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 16rem));
+  gap: 12px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat {
+  --accent: 42 120 214;
+  box-shadow: inset 0 3px 0 rgb(var(--accent));
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats > :nth-child(4n + 2) { --accent: 21 150 100; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats > :nth-child(4n + 3) { --accent: 217 119 6; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats > :nth-child(4n + 4) { --accent: 124 58 237; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat:has(.ws-tile--warn) { --accent: 180 83 9; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat:has(.ws-tile--danger) { --accent: 185 28 28; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-stat-value { color: rgb(var(--fg, 28 27 24)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws button.ws-stat:hover { border-color: rgb(var(--accent) / 0.5); background: rgb(var(--accent) / 0.04); }
+/* Notes wrap to a second line rather than end in "…". */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat .ws-stat-note { white-space: normal; overflow: visible; text-overflow: clip; }
+/* Rows line up on their middle: a one-line cell beside a two-line one sat high. One rule under the headings, no seams. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table { border-collapse: collapse; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table td { vertical-align: middle; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table thead { border-bottom: 2px solid rgb(var(--fg)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table thead th { border-bottom: 0; }
+/* Access overview: sections on the page ground under a rule, not floating shadowed cards (no card-in-card). */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel {
+  background: none;
+  box-shadow: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-head {
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 2px solid rgb(var(--fg));
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel-title { font-size: 1rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-list > li { padding-inline: 0; }
+/* Cards in a row stretch to the tallest; the extra height went between the label and the figure.
+   Lines stay together at the top, the chip beside the label and figure. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat { align-content: start; row-gap: 2px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-tile { grid-row: 1 / span 2; align-self: center; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-chev { grid-row: 1 / span 2; align-self: center; }
+/* One card size across the Workspace (owner, 19 Nov 2026: "same height and width as the Members page").
+   Label up to two lines, the figure, a one-line note; the rest is cut with "…" rather than growing the card. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(auto-fill, 16rem); grid-auto-rows: 6.5rem; align-items: stretch; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat { height: 6.5rem; align-content: center; overflow: hidden; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-stat-label { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat .ws-stat-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-tile { grid-row: 1 / span 3; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-chev { grid-row: 1 / span 3; }
+@media (max-width: 640px) { :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); } }
+
+/* ==== One Workspace look (owner, 19 Nov 2026: "section, page, colour accent, buttons uniform across workspace") ====
+   What the owner approved on Users & access, Apps and Companies, made the rule for every Workspace page.
+   Home's overview (.wsh) keeps its glassy cards, approved 16 Nov. */
+
+/* Sections sit on the page ground under a rule, not in shadowed cards (no card-in-card). */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ws-panel {
+  background: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  gap: 12px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ws-panel-head {
+  padding-bottom: 8px;
+  border-bottom: 2px solid rgb(var(--fg));
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ws-panel-title { font-size: 1rem; font-weight: 700; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ws-panel .ws-list > li > .ws-item { padding-inline: 0; }
+/* Boxes that only frame a note or an empty state go flat too. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ws-setup { background: none; border: 0; border-top: 1px solid rgb(var(--border, 229 229 229)); border-radius: 0; padding-inline: 0; }
+
+/* Links in a heading or a sentence: Workspace blue, no underline until hover. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ws-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: rgb(29 100 196);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ws-link:hover { text-decoration: underline; }
+
+/* Fields: white with a hairline, as on the member and role panels. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ui-input, .ui-select, select, textarea, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])) {
+  background-color: rgb(255 255 255);
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  border-radius: 8px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ui-input, .ui-select, select, textarea, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])):hover:not(:focus) {
+  background-color: rgb(255 255 255) !important;
+  border-color: rgb(var(--fg) / 0.3) !important;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws :is(.ui-input, .ui-select, select, textarea, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])):focus {
+  background-color: rgb(255 255 255) !important;
+  border-color: rgb(var(--fg) / 0.6) !important;
+  box-shadow: none;
+}
+/* The search boxes in a filter row keep their soft fill: they read as part of the row, not a form. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-filters .ws-search > .ui-input:not(:focus) { background-color: rgb(var(--field-fill, 241 241 241)); border-color: transparent; }
+
+/* Buttons: one height, 8px corners, a hairline on the quiet ones (not a black box), ink for the main one. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn {
+  min-height: 2.25rem;
+  height: auto;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 6px;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn--small { min-height: 2rem; padding: 0 12px; font-size: 0.8125rem; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn:not(.ws-btn--primary):not(.ws-btn--danger) {
+  background: rgb(255 255 255);
+  border: 1px solid rgb(var(--border-field, 220 223 217));
+  color: rgb(var(--fg));
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn:not(.ws-btn--primary):not(.ws-btn--danger):hover:not(:disabled) { border-color: rgb(var(--fg) / 0.45); background: rgb(var(--fg) / 0.03); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn--danger-quiet { color: rgb(185 28 28) !important; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Shared cards dropped into a Workspace page (the authenticator card on Sign-in rules) follow the same flat look. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ui-card {
+  background: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ui-card > :first-child:has(> h2) { padding-bottom: 8px; border-bottom: 2px solid rgb(var(--fg)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws:not(.wsh) .ui-card h2.ui-t-sec { font-size: 1rem; font-weight: 700; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill:is(.ui-pill-pos, .ui-pill-neutral) {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 0; border-radius: 9999px;
+  font-size: 0.75rem; font-weight: 600; line-height: 1.25rem;
+}
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill.ui-pill-pos { background: rgb(22 101 52 / 0.1); color: rgb(22 101 52); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill.ui-pill-neutral { background: rgb(92 90 84 / 0.1); color: rgb(92 90 84); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-pill:is(.ui-pill-pos, .ui-pill-neutral)::before { content: ''; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }
+/* Quiet shared buttons inside a Workspace page match the Workspace ones. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ui-btn-secondary { border: 1px solid rgb(var(--border-field, 220 223 217)); border-radius: 8px; background: rgb(255 255 255); color: rgb(var(--fg)); }
+/* Workspace settings' company table fits its column: tighter cells, the GSTIN a size down. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-acct-co :is(th, td) { padding-inline: 6px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-acct-co :is(th, td):first-child { padding-left: 0; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-acct-co td.ui-mono { font-size: 0.8125rem; }
+/* Danger section: on the page like the others, a red rule under its heading instead of a box. */
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-danger { background: none; border: 0; border-radius: 0; padding: 0; box-shadow: none; display: grid; gap: 12px; }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-danger > h2 { padding-bottom: 8px; border-bottom: 2px solid rgb(185 28 28); color: rgb(185 28 28); font-size: 1rem; font-weight: 700; }

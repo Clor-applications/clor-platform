@@ -7,6 +7,7 @@ import { orgId as platformOrgId } from '@platform/context';
 import { notify } from '@ui/components/ui/notify';
 import { ICON, Loading, PageHead, Panel } from './wsKit';
 import './workspace.css';
+import './ws-security.css';
 
 /* This page's colour icon, the one its menu item wears. */
 const PAGE_ICON = emoji('office-building');
@@ -24,7 +25,7 @@ const url = () => `/orgs/${encodeURIComponent(platformOrgId())}/company-profile`
 const opts = { skipWarehouseHeader: true };
 
 export const SECTIONS = [
-  { key: 'identity', title: 'Identity', fields: [['legalName', 'Legal name', { required: true, wide: true }], ['pan', 'Company PAN', { placeholder: 'AABCC1234D', mono: true }], ['tan', 'TAN', { placeholder: 'BLRC12345D', mono: true }], ['cin', 'CIN / LLPIN', { mono: true }], ['industry', 'Industry']] },
+  { key: 'identity', title: 'Identity', fields: [['legalName', 'Legal name', { required: true, wide: true }], ['pan', 'Company PAN', { placeholder: 'e.g. AABCC1234D', mono: true }], ['tan', 'TAN', { placeholder: 'e.g. BLRC12345D', mono: true }], ['cin', 'CIN / LLPIN', { mono: true }], ['industry', 'Industry']] },
   { key: 'address', title: 'Registered address and contact', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['pincode', 'PIN code', { mono: true }], ['phone', 'Phone'], ['email', 'Email'], ['website', 'Website', { wide: true }]] },
   { key: 'statutory', title: 'Statutory registrations', fields: [['epfCode', 'EPF establishment code', { mono: true }], ['esicCode', 'ESIC employer code', { mono: true }], ['ptRegistration', 'Professional Tax registration', { mono: true }], ['lwfRegistration', 'Labour Welfare Fund registration', { mono: true }]] },
 ];
@@ -90,7 +91,7 @@ export default function CompanyProfile() {
         {!form ? (
           error ? null : <Loading shape="card" rows={3} label="Loading the company profile…" />
         ) : (
-          <div className="ws-layout">
+          <div className="ws-layout ws-profile">
             <form id="company-profile" onSubmit={save} className="grid gap-5 min-w-0" noValidate={false}>
               {SECTIONS.map((sec) => (
                 <Panel key={sec.key} title={sec.title} action={<span className="ws-head-meta">{filled(form, sec)} of {sec.fields.length}</span>}>

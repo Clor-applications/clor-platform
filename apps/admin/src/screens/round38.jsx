@@ -78,11 +78,15 @@ export function RoleAccessList({ modules, granted, roleName = "This role" }) {
               {g.rows.map((row) => (
                 <tr key={row.key}>
                   <td>{row.label}</td>
-                  <td>Yes</td>
                   <td>
-                    {row.change.length
-                      ? `Yes: ${changeWords(row.change)}`
-                      : "No"}
+                    <span className="ws-state" data-tone="ok">Yes</span>
+                  </td>
+                  <td>
+                    {row.change.length ? (
+                      <span className="ws-state" data-tone="ok">Yes: {changeWords(row.change)}</span>
+                    ) : (
+                      <span className="ws-state" data-tone="off">No</span>
+                    )}
                   </td>
                 </tr>
               ))}

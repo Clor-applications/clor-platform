@@ -427,6 +427,11 @@
       "reason": "Employee self-service: reads their own me; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."
     },
     {
+      "method": "PUT",
+      "path": "/api/portal/me/language",
+      "reason": "Employee self-service: sets their own app language (English or Hindi); portal token (authenticate) + anyAppLive (A-11); employee from the token."
+    },
+    {
       "method": "GET",
       "path": "/api/portal/month-review",
       "reason": "Employee self-service: reads their own month review; portal token (authenticate) + anyAppLive (A-11); org and employee from the token."

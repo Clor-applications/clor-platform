@@ -94,6 +94,11 @@ model EmployeePayrollProfile {
   /// Two-letter or full state name, matching how the rest of the schema writes state.
   professionalTaxState String?
 
+  /// Minimum wage skill level: UNSKILLED | SEMI_SKILLED | SKILLED | HIGHLY_SKILLED.
+  skillLevel      String  @default("UNSKILLED")
+  /// Minimum wage zone where a state notifies rates by zone ("Zone I"); empty for the whole state.
+  minimumWageZone String?
+
   pfApplicable  Boolean @default(false)
   esiApplicable Boolean @default(false)
   ptApplicable  Boolean @default(false)
@@ -620,6 +625,11 @@ model PayrollRun {
   /// DRAFT | CALCULATED | REVIEW | APPROVED | LOCKED | PAID | POSTED | CANCELLED
   status String @default("DRAFT")
 
+  /// REGULAR (the month's payroll) | OFF_CYCLE (an extra pay run in the same
+  /// month: a late joiner's days, a bonus or arrears). Only regular runs are
+  /// one per period, pay group and branch.
+  kind String @default("REGULAR")
+
   /// Totals, denormalised so a list of runs does not sum every slip.
   employeeCount             Int     @default(0)
   grossTotal                Decimal @default(0)
@@ -683,8 +693,10 @@ model PayrollRun {
   slips     SalarySlip[]
 
   @@unique([orgId, number])
-  /// One payroll per population per period, which is what stops a double run.
-  @@unique([orgId, periodId, payGroupId, branchId])
+  /// One REGULAR payroll per population per period, which is what stops a
+  /// double run: a partial unique index, SQL only (PayrollRun_regular_period_key,
+  /// migration 20261231090000_offcycle_runs). Off-cycle runs sit beside it.
+  @@index([orgId, periodId, kind])
   @@index([accountId, orgId, status])
   @@index([accountId, orgId, periodId])
 }
@@ -700,6 +712,10 @@ model PayrollRunEmployee {
 
   /// INCLUDED | EXCLUDED
   inclusion String @default("INCLUDED")
+  /// On an off-cycle run: SALARY (their days for the month, a late joiner) or
+  /// EXTRA (only the amounts entered for them, a bonus or arrears). Always
+  /// SALARY on a regular run.
+  pays String @default("SALARY")
   /// PENDING | READY | WARNING | ERROR | CALCULATED
   state     String @default("PENDING")
 
@@ -1458,9 +1474,251 @@ model PayrollSetting {
   /// themselves; this only records that the question was put and answered.
   statutoryRegistrationsAt DateTime?
 
+  /// Statutory bonus (Payment of Bonus Act 1965, carried into the Code on
+  /// Wages 2019). Each is the Act's figure as last checked, kept editable
+  /// because the government changes them by notification: HR checks the
+  /// current rule before a bonus run. A month whose salary or wage (basic +
+  /// DA) is at or under this counts toward the bonus (s.2(13): 21,000).
+  bonusEligibilityCeiling Decimal @default(21000)
+  /// The bonus is worked out on at most this monthly wage, or the minimum
+  /// wage below where that is higher (s.12: 7,000).
+  bonusCalculationCeiling Decimal @default(7000)
+  /// The monthly minimum wage for the company's scheduled employment. 0: not
+  /// set, the ceiling above alone is used.
+  bonusMinimumWage        Decimal @default(0)
+  /// The lowest and highest bonus a year may pay, as a share of the bonus
+  /// wages (s.10: 8.33; s.11: 20).
+  bonusMinPercent         Decimal @default(8.33)
+  bonusMaxPercent         Decimal @default(20)
+  /// The minimum bonus a year in rupees, whatever the share comes to (s.10: 100).
+  bonusMinimumAmount      Decimal @default(100)
+  /// Days worked in the year before a person qualifies (s.8: 30).
+  bonusMinDays            Int     @default(30)
+
   updatedByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([accountId, orgId])
+}
+
+/// A statutory bonus run for one financial year (Payment of Bonus Act 1965):
+/// worked out from the year's approved payslips, checked as a list, approved,
+/// and paid as one earning per person on the pay run of the month chosen.
+/// One open run a year; a cancelled one stays as a record.
+model PayrollBonusRun {
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  /// "2026-27": April to March.
+  financialYear String
+  /// DRAFT | APPROVED | CANCELLED
+  status        String  @default("DRAFT")
+  /// The share of the bonus wages paid, between the minimum and maximum.
+  ratePercent   Decimal
+  /// The rules the run was worked out with, so a later settings change does
+  /// not change what a run says: ceilings, minimum wage, days, limits.
+  rulesJson     String  @default("{}")
+  totalAmount   Decimal @default(0)
+  eligibleCount Int     @default(0)
+  /// Set on approval: the month whose pay run pays it, and the earning used.
+  periodId      String?
+  componentId   String?
+  note          String?
+
+  createdByUserId   String
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  cancelledByUserId String?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  lines PayrollBonusLine[]
+
+  @@index([orgId, financialYear])
+}
+
+/// One person on a bonus run: the year's days and wages, what the bonus is
+/// worked out on, and the bonus, or why they do not qualify.
+model PayrollBonusLine {
+  id           String   @id @default(cuid())
+  accountId    String
+  orgId        String
+  runId        String
+  employeeId   String
+  name         String
+  code         String   @default("")
+  designation  String   @default("")
+  daysWorked   Decimal  @default(0)
+  /// Basic + DA paid in the year (Form C column 7).
+  wages        Decimal  @default(0)
+  /// The wages the bonus is worked out on: month by month, the lower of the
+  /// wage paid and the calculation base, for the months that count.
+  bonusWages   Decimal  @default(0)
+  amount       Decimal  @default(0)
+  eligible     Boolean  @default(false)
+  /// Why somebody does not qualify, or what was left out, in plain words.
+  reason       String?
+  /// Month by month: [{ month, days, wage, counted, bonusWage }].
+  monthsJson   String   @default("[]")
+  /// The payroll earning that pays it, once the run is approved.
+  adjustmentId String?
+  createdAt    DateTime @default(now())
+
+  run PayrollBonusRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, employeeId])
+  @@index([orgId, employeeId])
+}
+
+/// Minimum rates of wages, per state, zone and skill level, from the state's
+/// notification. HR enters or imports them; CLOR ships none, so no rate here
+/// was ever guessed. States revise the dearness part in April and October,
+/// so a new row with a later `effectiveFrom` replaces the one before.
+model PayrollMinimumWage {
+  id        String @id @default(cuid())
+  accountId String
+  orgId     String
+
+  /// Canonical state name (canonicalState), e.g. KARNATAKA.
+  state         String
+  /// Zone as the notification names it; empty for the whole state.
+  zone          String  @default("")
+  /// UNSKILLED | SEMI_SKILLED | SKILLED | HIGHLY_SKILLED
+  skill         String
+  /// ISO date the rate applies from.
+  effectiveFrom String
+  /// A month's minimum wage (basic and dearness allowance together).
+  monthlyRate   Decimal
+  /// Where the figure came from: the notification number or a link.
+  note          String?
+
+  deletedAt       DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orgId, state])
+}
+/// Weekly wages (round 66): the daily rate of a worker paid by the day —
+/// factory hands, site labour, a contractor's gang — in a weekly or
+/// fortnightly pay group. Kept apart from salary structures on purpose: a
+/// daily-rated worker has no monthly CTC, and a weekly wage sheet is not a
+/// payroll run (a run is unique per month and pay group).
+model WeeklyWageRate {
+  id                 String  @id @default(cuid())
+  accountId          String
+  orgId              String
+  employeeId         String
+  /// A WEEKLY or FORTNIGHTLY pay group.
+  payGroupId         String
+  dailyRate          Decimal
+  /// Hours in the day the rate pays for: the hourly rate for overtime.
+  hoursPerDay        Decimal @default(8)
+  /// Overtime is paid at this many times the hourly rate (twice, by law).
+  overtimeMultiplier Decimal @default(2)
+  /// Canteen charge per day worked, taken from each sheet.
+  canteenPerDay      Decimal @default(0)
+  /// Advance still to recover, and how much each sheet takes of it.
+  advanceBalance     Decimal @default(0)
+  advancePerSheet    Decimal @default(0)
+  isActive           Boolean @default(true)
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, employeeId])
+  @@index([orgId, payGroupId])
+}
+
+/// One week's (or fortnight's) wages for a pay group: days × rate plus
+/// overtime, less weekly deductions. The wage month is the month the sheet
+/// ends in; PF, ESI and PT add up across that month's sheets so the monthly
+/// returns still run monthly.
+model WeeklyWageSheet {
+  id            String  @id @default(cuid())
+  accountId     String
+  orgId         String
+  payGroupId    String
+  /// "2027-01-04".
+  startDate     String
+  endDate       String
+  /// "2027-01": the month the sheet ends in.
+  wageMonth     String
+  /// The last sheet ending in its wage month: professional tax is taken here.
+  lastOfMonth   Boolean @default(false)
+  paysWeeklyOff Boolean @default(false)
+  /// DRAFT | APPROVED | PAID
+  status        String  @default("DRAFT")
+  gross         Decimal @default(0)
+  deductions    Decimal @default(0)
+  net           Decimal @default(0)
+
+  approvedByUserId String?
+  approvedAt       DateTime?
+  /// "2027-01-10".
+  paidOn           String?
+  paymentReference String?
+  paidByUserId     String?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lines WeeklyWageLine[]
+
+  @@unique([orgId, payGroupId, startDate])
+  @@index([orgId, wageMonth])
+}
+
+/// One worker on a weekly wage sheet. Bank and statutory numbers are copied
+/// at the time, as a payslip keeps them.
+model WeeklyWageLine {
+  id           String  @id @default(cuid())
+  accountId    String
+  orgId        String
+  sheetId      String
+  employeeId   String
+  employeeName String
+  employeeCode String?
+
+  daysWorked      Decimal @default(0)
+  dailyRate       Decimal @default(0)
+  overtimeHours   Decimal @default(0)
+  overtimeAmount  Decimal @default(0)
+  gross           Decimal @default(0)
+  /// Days × rate: PF is on this, never on overtime.
+  pfWage          Decimal @default(0)
+  pfEmployee      Decimal @default(0)
+  pfEmployer      Decimal @default(0)
+  pfEps           Decimal @default(0)
+  esiEmployee     Decimal @default(0)
+  esiEmployer     Decimal @default(0)
+  ptEmployee      Decimal @default(0)
+  advanceRecovery Decimal @default(0)
+  canteen         Decimal @default(0)
+  totalDeductions Decimal @default(0)
+  net             Decimal @default(0)
+  /// Days typed over attendance's.
+  edited          Boolean @default(false)
+  notes           String?
+  /// [{ scheme, text }]: how each statutory figure was reached.
+  explanationJson String  @default("[]")
+
+  bankAccountName   String?
+  bankAccountNumber String?
+  bankIfsc          String?
+  uan               String?
+  esiNumber         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sheet WeeklyWageSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  @@unique([sheetId, employeeId])
+  @@index([orgId, employeeId])
 }

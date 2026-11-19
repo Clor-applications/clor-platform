@@ -17,6 +17,7 @@ import { usePermissions } from '@ui/permissions/usePermissions';
 import { Empty, Loading, PageHead, WsDrawer } from './wsKit';
 import './workspace.css';
 import './ws-access.css';
+import './ws-security.css';
 
 /* The colour icon an empty list shows: the one its menu item wears. */
 const EMPTY_ICON = emoji('key');
@@ -37,6 +38,8 @@ function permKey(p) {
  */
 const ACCOUNTING_MODULES = new Set(['SALES', 'PURCHASE', 'INVENTORY', 'ACCOUNTING', 'CASHBANK', 'EXPENSES', 'MASTERS']);
 const APP_OF_MODULE = (m) => (ACCOUNTING_MODULES.has(m) ? 'Accounting' : m === 'PAYROLL' ? 'Payroll' : m === 'PEOPLE' || m === 'ATTENDANCE' ? 'People and Attendance' : null);
+/* Each group heading carries its app's colour, as the app tags do elsewhere. */
+const GROUP_COLOUR = { 'Company administration': '42 120 214', Accounting: 'var(--app-accounting, 30 41 99)', Payroll: 'var(--app-payroll, 30 100 160)', 'People and Attendance': 'var(--app-people, 147 51 170)' };
 const GROUP_ORDER = ['Company administration', 'Accounting', 'Payroll', 'People and Attendance', 'Across apps', 'Settings and reports only'];
 export function roleGroup(role) {
   if (String(role?.roleType || '') === 'ADMIN') return 'Company administration';
@@ -335,9 +338,6 @@ export function SettingsRoles({ orgId }) {
           actions={
             <>
               <MoreButton items={[exportMenuItem('Export roles')]} onSelect={exportRoles} />
-              <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={() => openDuplicate(shownRole)} className="ws-btn ws-btn--quiet" disabled={!shownRole}>
-                Copy role
-              </PermissionButton>
               <PermissionButton permission="SETTINGS::Roles::CREATE" type="button" onClick={openCreate} className="ws-btn ws-btn--primary">
                 <Plus size={16} aria-hidden="true" /> New role
               </PermissionButton>
@@ -364,12 +364,12 @@ export function SettingsRoles({ orgId }) {
                       {shownRole.description ? ` · ${shownRole.description}` : ''}
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <button type="button" className="ws-btn ws-btn--quiet ws-btn--small" onClick={() => openEdit(shownRole)}>Edit role</button>
+                  <div className="flex items-center gap-3">
+                    <button type="button" className="ws-row-link" onClick={() => openEdit(shownRole)}>Edit role</button>
                     <button
                       type="button"
                       ref={openMenuForRoleId === shownRole.id ? menuAnchorRef : null}
-                      className="ws-btn ws-btn--quiet ws-btn--small"
+                      className="ws-more-btn"
                       aria-label={`Actions for ${shownRole.name}`}
                       aria-expanded={openMenuForRoleId === shownRole.id}
                       onClick={(e) => {
@@ -381,7 +381,6 @@ export function SettingsRoles({ orgId }) {
                     </button>
                     {openMenuForRoleId === shownRole.id ? (
                       <Popover anchorRef={menuAnchorRef} onClose={() => setOpenMenuForRoleId(null)} minWidth={160} maxWidth={220}>
-                        <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openEdit(shownRole); }}>Edit</button>
                         <button type="button" className="report-menu-item" onClick={() => { setOpenMenuForRoleId(null); openDuplicate(shownRole); }}>Copy</button>
                         <PermissionButton
                           permission="SETTINGS::Roles::DELETE"
@@ -396,7 +395,7 @@ export function SettingsRoles({ orgId }) {
                     ) : null}
                   </div>
                 </div>
-                {shownRole.ownDocumentsOnly ? <p><span className="ws-pill ws-pill--neutral">Own documents only</span></p> : null}
+                {shownRole.ownDocumentsOnly ? <p><span className="ws-state" data-tone="info">Own documents only</span></p> : null}
                 <RoleHolders users={holders} roleId={shownRole.id} />
                 <TemplateDrift template={shownRole.template} modules={catalog.modules} />
                 {/* Round 38: a plain list of what the role can see and change, by screen; the full grid stays one click away. */}
@@ -428,13 +427,13 @@ export function SettingsRoles({ orgId }) {
             </div>
             {groups.map(({ group, rows }) => (
               <section key={group} className="grid gap-1" aria-labelledby={`roles-${group}`}>
-                <h3 id={`roles-${group}`} className="ws-kicker" style={{ padding: '8px 12px 0' }}>{group}</h3>
+                <h3 id={`roles-${group}`} className="ws-role-group" style={{ '--tag': GROUP_COLOUR[group] || 'var(--ws-blue, 42 120 214)' }}><i aria-hidden="true" />{group}</h3>
                 <ul className="ws-role-list">
                   {rows.map((r) => (
                     <li key={r.id}>
                       <button type="button" className="ws-role-pick" aria-current={shownRole?.id === r.id ? 'true' : undefined} onClick={() => openView(r.id)}>
                         <span className="min-w-0 truncate">{r.name}</span>
-                        <span className="num" aria-label={`${peopleOf(r)} ${peopleOf(r) === 1 ? 'person' : 'people'}`}>{peopleOf(r)}</span>
+                        <span className="num" data-zero={peopleOf(r) ? undefined : ''} aria-label={`${peopleOf(r)} ${peopleOf(r) === 1 ? 'person' : 'people'}`}>{peopleOf(r)}</span>
                       </button>
                     </li>
                   ))}
@@ -442,7 +441,7 @@ export function SettingsRoles({ orgId }) {
               </section>
             ))}
             <section className="grid gap-1" aria-labelledby="ws-account-roles">
-              <h3 id="ws-account-roles" className="ws-kicker" style={{ padding: '8px 12px 0' }}>Account roles</h3>
+              <h3 id="ws-account-roles" className="ws-role-group" style={{ '--tag': '42 120 214' }}><i aria-hidden="true" />Account roles</h3>
               <p className="ws-foot-note" style={{ padding: '0 12px' }}>The level above these, given under Members.</p>
               <ul className="ws-list">
                 {ACCOUNT_ROLES.map(([name, what]) => (
@@ -474,8 +473,9 @@ export function SettingsRoles({ orgId }) {
           </>
         )}
       >
-        <form id="role-settings-form" onSubmit={onSubmit} className="grid gap-4">
+        <form id="role-settings-form" onSubmit={onSubmit} className="ws-role-form grid gap-5">
           {errorNote}
+          <div className="ws-role-fields">
           <label className="grid gap-1" htmlFor="settingsroles-role-name">
             <span className="text-sm font-medium">Role name <span className="ui-required" aria-hidden="true">*</span></span>
             <input id="settingsroles-role-name" className="ui-input w-full" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
@@ -492,6 +492,7 @@ export function SettingsRoles({ orgId }) {
             />
             <span className="ui-caption">Shown when picking a role for someone.</span>
           </label>
+          </div>
           <label className="flex items-start gap-2 text-sm" htmlFor="settingsroles-own-docs">
             <input
               id="settingsroles-own-docs"
@@ -506,15 +507,15 @@ export function SettingsRoles({ orgId }) {
             </span>
           </label>
           <div className="grid gap-2">
-            <span className="text-sm font-medium">Permissions</span>
+            <span className="ws-role-form-h">Permissions</span>
             {retired > 0 ? (
               <p className="ui-caption" role="status">
                 {retired} old permission{retired === 1 ? '' : 's'} on this role no longer exist and will be removed when you save. They never granted anything.
               </p>
             ) : null}
             {catalog.modules.length ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="ws-search" style={{ flex: '1 1 auto' }}>
+              <div className="ws-role-find">
+                <label className="ws-search">
                   <span className="sr-only">Find a module or permission</span>
                   <Search size={16} aria-hidden="true" />
                   <input

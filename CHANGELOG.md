@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-0a35d89 - 2026-11-19
+
+API revision `clor-api-00147-n8w`. Previous release `rel-f5a3c97` (roll back there).
+
+- #350 Payroll: statutory bonus, minimum wages, weekly wages, extra pay run; Hindi employee app
+
 ## rel-f5a3c97 - 2026-11-19
 
 API revision `clor-api-00146-dk7`. Previous release `rel-785a0dc` (roll back there).

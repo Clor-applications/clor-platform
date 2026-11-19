@@ -26,7 +26,7 @@ describe('Help and support', () => {
   it('lists tickets with plain statuses and says when CLOR is waiting for an answer', async () => {
     api.listTickets.mockResolvedValue({ wholeAccount: true, tickets: [T(), T({ id: 't2', code: 'T-1002', status: 'OPEN', subject: 'Export fails' })] });
     render(<Support />);
-    const list = within(await screen.findByRole('list', { name: 'Tickets' }));
+    const list = within(await screen.findByRole('table', { name: 'Tickets' }));
     expect(list.getByText('Waiting for you')).toBeInTheDocument();
     expect(list.getByText('With CLOR')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('CLOR replied to one ticket');

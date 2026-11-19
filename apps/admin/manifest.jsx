@@ -33,10 +33,6 @@ import {
 } from '@ui/components/ui/navEmoji';
 import { PageIconContext } from './src/screens/pageIcon.js';
 import { ShieldCheck as AppShieldCheck } from 'lucide-react';
-import { memberDirectory } from '@platform/admin/account';
-import { listBranches } from '@platform/admin/admin';
-import { listOutsideAccess } from '@platform/admin/outsideAccess';
-import { orgId as platformOrgId } from '@platform/context';
 
 import SetupGuide from './src/screens/SetupGuide.jsx';
 
@@ -159,28 +155,7 @@ export const adminApp = {
    * Lucide icons (redesign §7), and the panel grouped as the design draws it. Every
    * screen the Workspace had is still here, in the closest group.
    */
-  /*
-   * Counts beside panel items (R&D shell): companies, members, branches and
-   * outside grants from the APIs the screens read; apps from the plan. A count
-   * that cannot be read is left out, never shown as nought.
-   */
-  panelCounts: async ({ tenant }) => {
-    const settle = (fn) => Promise.resolve().then(fn).catch(() => null);
-    const org = platformOrgId();
-    const [dir, branches, outside] = await Promise.all([
-      settle(memberDirectory),
-      org ? settle(() => listBranches(org)) : null,
-      settle(listOutsideAccess),
-    ]);
-    const counts = {};
-    const apps = (tenant?.subscriptions || []).filter((a) => a !== 'admin');
-    if (apps.length) counts.apps = apps.length;
-    if (Array.isArray(dir?.companies)) counts.companies = dir.companies.length;
-    if (Array.isArray(dir?.members)) counts.members = dir.members.length;
-    if (Array.isArray(branches?.branches)) counts.branches = branches.branches.length;
-    if (Array.isArray(outside?.outsideAccess)) counts.outsideAccess = outside.outsideAccess.length;
-    return counts;
-  },
+  /* No counts beside panel items (owner, 19 Nov 2026): the number belongs on the page it counts. */
   /* Search: people and companies by name, and jobs by the words an administrator uses for them (src/search.js). */
   searchRecords: (q) => import('./src/search.js').then((m) => m.findInWorkspace(q)),
   searchLabel: 'Search people, companies and settings',
