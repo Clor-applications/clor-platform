@@ -2305,8 +2305,12 @@ button.ws-item:hover {
 .ws-layout > .ws-side {
   gap: 32px;
 }
-.ws-layout {
-  grid-template-columns: minmax(0, 1fr) 320px;
+/* Only where there is room for both columns: unconditional, this overrode the 1180px rule above, and on a
+   phone the main column shrank to 0px under a 320px side column, so the two painted over each other. */
+@media (min-width: 1181px) {
+  .ws-layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
 }
 
 /* Page header: H1 (Sora 800 30/38, rnd.css) → 14px secondary line, 8px apart; actions top right, aligned to the title. */
