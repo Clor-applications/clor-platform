@@ -3577,7 +3577,15 @@ button.ws-stat:hover {
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat .ws-stat-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-tile { grid-row: 1 / span 3; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-chev { grid-row: 1 / span 3; }
-@media (max-width: 640px) { :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); } }
+/* Phones: two figures to a row, as the phone rule above says. A 14rem minimum gave one per row on a 375px
+   phone, so four figure cards filled the whole first screen and the list started below it. */
+@media (max-width: 640px) {
+  :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Half a phone is narrow for a long capital word ("AUTHENTICATOR"): less side padding and no tracking
+     give it room, rather than cutting it to "AUTHENTICATOF". */
+  :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat { padding-inline: 10px; column-gap: 6px; }
+  :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-stat-label { letter-spacing: 0; }
+}
 
 /* ==== One Workspace look (owner, 19 Nov 2026: "section, page, colour accent, buttons uniform across workspace") ====
    What the owner approved on Users & access, Apps and Companies, made the rule for every Workspace page.
