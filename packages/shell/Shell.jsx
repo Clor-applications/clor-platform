@@ -1699,7 +1699,8 @@ function ShellScreens() {
                 </PermissionProvider>
               </ScreenBoundary>
             ) : (
-              <p className="ui-caption">Nothing selected.</p>
+              /* While the company's apps are still being read there is nothing to select yet: show the page loading, not "Nothing selected" (page audit 19 Nov 2026). */
+              subscriptions == null ? <AppLoading /> : <p className="ui-caption">Nothing selected.</p>
             )}
             {/* Round 61 "scrolltop" A: "Top ↑" after two screens of scrolling. */}
             <ScrollTop />
