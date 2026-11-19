@@ -216,7 +216,7 @@ export async function previewImpact(opts: {
     notes.push({
       code: 'TAKE_HOME_DID_NOT_RISE',
       message:
-        'Cost to company goes up but take-home pay does not. The increase is being absorbed by deductions — usually provident fund or tax crossing a threshold.',
+        'Cost to company goes up but take-home pay does not. The increase is being absorbed by deductions, usually provident fund or tax crossing a threshold.',
     });
   }
   if (ctcChange > 0 && netChange > 0) {

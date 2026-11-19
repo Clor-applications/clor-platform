@@ -25,13 +25,13 @@ const KINDS = {
   'job-positions': {
     title: 'Designations',
     singular: 'designation',
-    description: 'The designations people hold — Accountant, Store Manager, Driver.',
+    description: 'The designations people hold: Accountant, Store Manager, Driver.',
     parent: { key: 'departmentId', kind: 'departments', label: 'Department' },
   },
   areas: {
     title: 'Areas',
     singular: 'area',
-    description: 'Sites and zones people work at — a plant, a branch, a floor. An area can sit inside another.',
+    description: 'Sites and zones people work at, such as a plant, a branch or a floor. An area can sit inside another.',
     parent: { key: 'parentId', kind: 'areas', label: 'Inside area' },
   },
 };

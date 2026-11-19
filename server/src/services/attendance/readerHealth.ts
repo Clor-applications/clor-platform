@@ -102,7 +102,7 @@ export function assessReader(r: ReaderFacts, now: Date, opts: { offlineMinutes: 
       kind: 'offline',
       severity: 'high',
       title: `${r.name} has stopped reporting`,
-      details: `Nothing from this reader for ${span(silent)}. Punches made there are kept on the reader and arrive when it reconnects — check its power, network cable or Wi-Fi.`,
+      details: `Nothing from this reader for ${span(silent)}. Punches made there are kept on the reader and arrive when it reconnects. Check its power, network cable or Wi-Fi.`,
     });
   }
   if (r.clockOffsetSec !== null && Math.abs(r.clockOffsetSec) >= CLOCK_WARN_SEC) {
@@ -138,7 +138,7 @@ export function assessReader(r: ReaderFacts, now: Date, opts: { offlineMinutes: 
       kind: 'full',
       severity: worst >= FULL_BAD ? 'high' : 'medium',
       title: `${r.name} is nearly full`,
-      details: `${full.join('; ')}. A full reader stops enrolling — or stops keeping punches. Remove people who have left (Sync status → remove extras); a full punch log can be cleared on the reader once CLOR has every punch.`,
+      details: `${full.join('; ')}. A full reader stops enrolling, or stops keeping punches. Remove people who have left (Sync status → remove extras); a full punch log can be cleared on the reader once CLOR has every punch.`,
     });
   }
   if (r.failed24h > 0) {
@@ -189,7 +189,7 @@ export function assessCollection(f: { localHour: number; sunday: boolean; holida
       kind: 'no-punches',
       severity: 'critical',
       title: 'No attendance recorded today',
-      details: `Not one punch from any reader has arrived since midnight${ago ? `; the last was ${ago} ago` : ''}. Readers can look online and still have every punch fail on the way — check the readers’ cloud server setting and the network before assuming everyone is absent.`,
+      details: `Not one punch from any reader has arrived since midnight${ago ? `; the last was ${ago} ago` : ''}. Readers can look online and still have every punch fail on the way. Check the readers’ cloud server setting and the network before assuming everyone is absent.`,
     },
   ];
 }

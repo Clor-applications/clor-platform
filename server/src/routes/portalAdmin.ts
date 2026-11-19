@@ -183,7 +183,7 @@ const fenceSchema = z
     latitude: z.coerce.number(),
     longitude: z.coerce.number(),
     address: z.string().trim().max(300).nullable().optional(),
-    radiusMeters: z.coerce.number().int().min(25, 'At least 25 m — a phone cannot place itself closer than that.').max(5000, 'At most 5 km.'),
+    radiusMeters: z.coerce.number().int().min(25, 'At least 25 m: a phone cannot place itself closer than that.').max(5000, 'At most 5 km.'),
     areaId: z.string().min(1).nullable().optional(),
     isActive: z.boolean().optional(),
   })

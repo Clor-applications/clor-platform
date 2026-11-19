@@ -69,7 +69,7 @@ const EXPORT_COLUMNS = [
   { key: 'assignee', label: 'Owner', value: (r) => r.assignee || 'Nobody' },
   { key: 'status', label: 'Status', value: (r) => STATUS[r.status] || r.status },
 ];
-export default function Exceptions({ openScreen }) {
+export default function Exceptions({ openScreen, menuLabel }) {
   const [range, setRange] = useState({ from: back(14), to: back(1) });
   const [kind, setKind] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -201,13 +201,13 @@ export default function Exceptions({ openScreen }) {
   return (
     <DocumentListShell
       entity="exception"
-      title="Exceptions"
+      title={menuLabel || 'Exceptions'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
         if (format) runListExport({ format, title: 'Exceptions', fileName: 'Exceptions', label: 'item/items', columns: EXPORT_COLUMNS, rows: rows });
       }}
-      description="Everything not settled yet, in one place. Each item opens the screen that fixes it."
+      description="What is still not settled. Each item opens the screen that fixes it."
       compact
       tight
       denseCards

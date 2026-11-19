@@ -102,7 +102,7 @@ const EXPORT_COLUMNS = [
   { key: 'postingStatus', label: 'In books', value: (p) => (p.postingStatus === 'POSTED' ? 'Posted' : 'Not yet') },
 ];
 
-export default function PayrollPayments() {
+export default function PayrollPayments({ menuLabel } = {}) {
   const [payments, setPayments] = useState(null);
   const [runs, setRuns] = useState([]);
   const [banks, setBanks] = useState([]);
@@ -160,7 +160,7 @@ export default function PayrollPayments() {
   return (
     <DocumentListShell
       entity="payment"
-      title="Salary payments"
+      title={menuLabel || 'Salary payments'}
       description="The money going out for an approved payroll, what the bank did with each line, and the entry that clears it."
       compact
       tight
@@ -230,7 +230,7 @@ export default function PayrollPayments() {
                       <EmptyState
                         icon={Wallet}
                         title="No approved payroll to pay"
-                        description="A payroll is paid once it has been checked and approved. Run one under Pay Runs and approve it, and it becomes payable here."
+                        description="A payroll is paid once it has been checked and approved. Run one under Pay runs and approve it, and it becomes payable here."
                       />
                     ) : (
                       <EmptyState

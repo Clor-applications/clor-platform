@@ -139,13 +139,18 @@ export default function PayrollOverview({ onOpen = () => {} }) {
               {setup.nextStep ? ` · next: ${setup.nextStep.title} — ${setup.nextStep.detail}` : ''}
             </p>
           </div>
-          <button type="button" className="ui-btn ui-btn-secondary shrink-0" onClick={() => onOpen('payrollSetup')}>
-            Finish setting up <ArrowRight size={16} aria-hidden="true" />
-          </button>
+          {/* The header's primary already says "Finish setting up" unless a run is open: one button for one job. */}
+          {currentRun ? (
+            <button type="button" className="ui-btn ui-btn-secondary shrink-0" onClick={() => onOpen('payrollSetup')}>
+              Finish setting up <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       ) : null}
 
-      {!currentPeriod ? (
+      {/* While setup is unfinished the strip above already says what is next; a second "No open payroll
+          period" picture under it only repeated the header. */}
+      {!currentPeriod && !notReady ? (
         <EmptyState
           title="No open payroll period"
           description="Payroll runs for a month. Add one under Settings → Payroll → Payroll periods and this month has something to run for."

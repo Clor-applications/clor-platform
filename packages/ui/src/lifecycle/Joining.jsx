@@ -13,7 +13,7 @@ import { notify } from '@ui/components/ui/notify';
 import { hasApp } from '@platform/context';
 import { listInvites, sendHeldToPayroll } from '@ui/personnel/api';
 
-import { StatTiles, TILE_ICON } from '@ui/timeOff/Figures';
+import { CountLine, TILE_ICON } from '@ui/timeOff/Figures';
 
 import { pageJoiners, pageTasks } from './api';
 import { NextTask, PersonCell, can, crumbs } from './shared';
@@ -109,7 +109,7 @@ export default function Joining({ params = {}, updateParams, openScreen }) {
         description="Everyone joining or just joined, with their plan's steps and what comes next."
         secondary={openScreen && can(perms, 'PEOPLE::Employees::EDIT') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen('journeySteps')}><ListChecks size={16} aria-hidden="true" /> Steps</button> : null}
         primary={canAdd ? { label: 'Add employee', icon: UserPlus, onClick: () => openScreen?.('employeeNew') } : null}
-        strip={<StatTiles label="Joining figures" items={tiles} />}
+        strip={<CountLine label="Joining figures" items={tiles} />}
         toolbar={<SearchField value={p.q || ''} onSearch={(q) => set({ q: q || null, page: null })} placeholder="Search name, ID or designation" label="Search joiners" className="w-full sm:w-72" />}
         tabs={VIEWS.map(([k, l]) => ({ key: k, label: l, count: k !== 'all' && k !== 'done' ? counts[k] : 0 }))}
         tab={view}

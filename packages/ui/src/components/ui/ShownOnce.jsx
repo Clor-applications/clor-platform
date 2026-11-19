@@ -8,7 +8,7 @@ const copy = async (text) => {
     await navigator.clipboard.writeText(text);
     notify.success('Copied.');
   } catch {
-    notify.error('Could not copy — select it and copy by hand.');
+    notify.error('Could not copy. Select it and copy by hand.');
   }
 };
 

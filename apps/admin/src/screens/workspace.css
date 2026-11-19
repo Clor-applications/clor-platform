@@ -2305,8 +2305,12 @@ button.ws-item:hover {
 .ws-layout > .ws-side {
   gap: 32px;
 }
-.ws-layout {
-  grid-template-columns: minmax(0, 1fr) 320px;
+/* Only where there is room for both columns: unconditional, this overrode the 1180px rule above, and on a
+   phone the main column shrank to 0px under a 320px side column, so the two painted over each other. */
+@media (min-width: 1181px) {
+  .ws-layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
 }
 
 /* Page header: H1 (Sora 800 30/38, rnd.css) → 14px secondary line, 8px apart; actions top right, aligned to the title. */
@@ -2501,7 +2505,7 @@ button.ws-stat:hover {
   align-content: start;
   padding: 20px;
   border: 1px solid rgb(var(--border-field, 220 223 217));
-  border-top: 3px solid rgb(var(--kpi));
+  /* No coloured top bar (DESIGN.md: tiles never carry coloured bars). */
   border-radius: 12px;
   background: rgb(var(--surface, 255 255 255));
   min-width: 0;
@@ -2691,22 +2695,16 @@ button.ws-stat:hover {
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border-bottom: 0;
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 1px solid rgb(var(--border-strong, 200 200 200));
   vertical-align: middle;
-}
-.ws-table thead th:first-child {
-  border-radius: 8px 0 0 8px;
-}
-.ws-table thead th:last-child {
-  border-radius: 0 8px 8px 0;
 }
 .ws-table tbody td {
   box-sizing: border-box;
-  /* 48px rows (56 before): a one-line row sat in too much air; a two-line row still grows. */
-  height: 48px;
-  padding: 14px 16px;
+  /* 44px rows (DESIGN.md "Tables"); a two-line row still grows. */
+  height: 44px;
+  padding: 12px 16px;
   border-top: 1px solid rgb(var(--border, 228 230 225));
   border-bottom: 0;
   vertical-align: middle;
@@ -2978,9 +2976,9 @@ button.ws-stat:hover {
   color: rgb(var(--cat-1, 42 120 214));
 }
 
-/* List header colour for the Workspace: a clear soft blue. */
+/* List header: white over a rule, as in every app (DESIGN.md "Tables"). */
 .ws {
-  --list-head: 217 231 248;
+  --list-head: 255 255 255;
 }
 /* One line across a row (owner, 17 Nov 2026: "headline and data below, proper alignment"). Cells sit
    at the top, so the first line of every cell is on the same line whether a neighbour runs to two
@@ -3022,7 +3020,7 @@ button.ws-stat:hover {
   transition: background-color 0.12s ease;
 }
 .ws .ws-table tbody tr:hover {
-  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+  background: rgb(var(--hover, 247 247 247));
 }
 /* Activity: what happened leads with its action tag, then the words, then the kind of record, quiet. */
 .ws .ws-sec-title {
@@ -3166,7 +3164,7 @@ button.ws-stat:hover {
   padding: 14px 16px;
 }
 .ws .ws-list--sheet .ws-tile:has(> .ui-emoji) {
-  background: rgb(var(--hover-blue, 42 120 214) / 0.1);
+  background: rgb(var(--hover, 247 247 247));
 }
 
 /* Workspace → Apps → Automations. The shared list (packages/ui automations) capped itself at 42rem
@@ -3417,7 +3415,7 @@ button.ws-stat:hover {
   background: none;
 }
 .ws .ws-table tbody tr:hover td {
-  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+  background: rgb(var(--hover, 247 247 247));
 }
 /* Tools at the right end of a filter row (Refresh, Export). */
 .ws-filters-end {
@@ -3527,7 +3525,7 @@ button.ws-stat:hover {
 }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat {
   --accent: 42 120 214;
-  box-shadow: inset 0 3px 0 rgb(var(--accent));
+  box-shadow: none;
   border-radius: 12px;
   padding: 12px 14px 10px;
 }
@@ -3543,7 +3541,7 @@ button.ws-stat:hover {
 /* Rows line up on their middle: a one-line cell beside a two-line one sat high. One rule under the headings, no seams. */
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table { border-collapse: collapse; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table td { vertical-align: middle; }
-:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table thead { border-bottom: 2px solid rgb(var(--fg)); }
+:root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table thead { border-bottom: 1px solid rgb(var(--border-strong)); } /* DESIGN.md "Tables": a 1px rule */
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-table thead th { border-bottom: 0; }
 /* Access overview: sections on the page ground under a rule, not floating shadowed cards (no card-in-card). */
 :root:not(#ux1):not(#ux2):not(#ux3) .ws.ws-flat .ws-panel {
@@ -3573,7 +3571,15 @@ button.ws-stat:hover {
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat .ws-stat-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-tile { grid-row: 1 / span 3; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-chev { grid-row: 1 / span 3; }
-@media (max-width: 640px) { :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); } }
+/* Phones: two figures to a row, as the phone rule above says. A 14rem minimum gave one per row on a 375px
+   phone, so four figure cards filled the whole first screen and the list started below it. */
+@media (max-width: 640px) {
+  :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Half a phone is narrow for a long capital word ("AUTHENTICATOR"): less side padding and no tracking
+     give it room, rather than cutting it to "AUTHENTICATOF". */
+  :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat { padding-inline: 10px; column-gap: 6px; }
+  :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-stat > .ws-stat-label { letter-spacing: 0; }
+}
 
 /* ==== One Workspace look (owner, 19 Nov 2026: "section, page, colour accent, buttons uniform across workspace") ====
    What the owner approved on Users & access, Apps and Companies, made the rule for every Workspace page.

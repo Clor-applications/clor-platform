@@ -28,7 +28,7 @@ const EXPORT_COLUMNS = [
   { key: 'money', label: 'Pay at stake (estimate)', value: (r) => (r.money == null ? '' : r.money) },
 ];
 
-export default function PayrollReadiness({ openScreen }) {
+export default function PayrollReadiness({ openScreen, menuLabel }) {
   const [month, setMonth] = useState(lastMonth());
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -63,7 +63,7 @@ export default function PayrollReadiness({ openScreen }) {
     <div className="space-y-3">
       <PageHeader
         entity="report"
-        title="Payroll readiness"
+        title={menuLabel || 'Payroll readiness'}
         description="What is in the way of this month's payroll, who fixes it, and the pay at stake if nobody does."
         actions={
           <span className="flex items-center gap-2">

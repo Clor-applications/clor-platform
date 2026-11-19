@@ -23,9 +23,9 @@ describe('UI rules, 8 Nov 2026', () => {
     expect(index).toMatch(/\.ui-btn \{[^}]*min-height: 2\.25rem;/);
   });
 
-  it('leaves People on the R&D geometry: 36px controls and 56px rows from rnd.css', () => {
+  it('leaves People on the R&D geometry: 36px controls and 44px rows from rnd.css (DESIGN.md "Tables")', () => {
     expect(rnd).toMatch(/\.ui-btn \{\s*min-height: 2\.25rem;/);
-    expect(rnd).toMatch(/\.ui-table tbody td \{[^}]*height: 3\.5rem;/);
+    expect(rnd).toMatch(/\.ui-table tbody td \{[^}]*height: 2\.75rem;/);
   });
 
   it('gives a chart on People Home the categorical series, eight colours at most, the rest one grey "Other"', () => {

@@ -159,7 +159,7 @@ export default function TeamAttendance() {
     ) },
     { key: 'day', label: 'Status', render: (p) => (p.day ? <span className={`ui-pill ${DAY_PILL[p.day.status] || 'ui-pill-neutral'}`}>{DAY_LABEL[p.day.status] || p.day.status}</span> : <span className="ui-pill ui-pill-neutral">Not marked</span>) },
     /* The bar only where there is a time to draw; an empty grey track on every unmarked row repeated the Status column. */
-    { key: 'line', label: 'Day (7 am – 9 pm)', render: (p) => (p.day?.checkInTime ? <DayLine day={p.day} isToday={isToday} /> : <span className="ui-subtle" aria-label="No time recorded">—</span>) },
+    { key: 'line', label: 'Day (7 am to 9 pm)', render: (p) => (p.day?.checkInTime ? <DayLine day={p.day} isToday={isToday} /> : <span className="ui-subtle" aria-label="No time recorded">—</span>) },
     { key: 'in', label: 'In', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.checkInTime || '—'}{p.day?.lateMinutes ? <span className="att-late">+{p.day.lateMinutes}m</span> : null}</span> },
     { key: 'out', label: 'Out', align: 'right', render: (p) => <span className="tabular-nums">{p.day?.checkOutTime || '—'}</span> },
     { key: 'worked', label: 'Worked', align: 'right', render: (p) => <span className="tabular-nums">{hours(p.day?.workedMinutes)}</span> },
@@ -236,7 +236,7 @@ export default function TeamAttendance() {
       {view === 'day' && !loading && weekRows && rows.length ? (
         <div className="pt-charts">
           <ChartPanel title="Present, last 7 days" note="% of everyone employed">
-            <Columns label="Present each day, per cent" rows={weekRows} />
+            {weekRows.some((r) => r.value > 0) ? <Columns label="Present each day, per cent" rows={weekRows} /> : <p className="pt-foot">Nobody marked present this week.</p>}
           </ChartPanel>
           <ChartPanel title="Late arrivals by department">
             {lateBy.length ? <BarList label="Late arrivals by department" rows={lateBy} /> : <p className="pt-foot">Nobody was late on {formatDate(date)}.</p>}

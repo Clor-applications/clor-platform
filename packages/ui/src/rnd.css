@@ -51,8 +51,9 @@
   --tint: 255 255 255;         /* white: the active state is the marker and the weight, not a fill (owner, 15 Nov) */
   --panel: 255 255 255;        /* white */
   --rail-bg: 243 243 240;      /* #F3F3F0 (19 Nov 2026: owner, "add light color to first sidebar to differentiate from 2nd sidebar"; #F7F7F7 read as white). The rail's light grey. Neutral, not blue-grey: the text and graphite are warm-neutral, and a cool grey beside them read as a second palette (audit, 17 Nov 2026) */
-  --hover-blue: 42 120 214;    /* #2A78D6: hover tint in the sidebars and the app menu */
-  --select-green: 27 175 122;  /* #1BAF7A: the open (selected) item's tint, a different hue from hover (owner, 17 Nov 2026) */
+  --hover: 247 247 247;        /* #F7F7F7: hover and the open item's ground, everywhere (DESIGN.md, 19 Nov 2026: the calm register) */
+  --list-head: 255 255 255;    /* list header rows are white over a rule, not a band (DESIGN.md "Tables", migration step 2) */
+  --list-head-hover: 247 247 247;
   --panel-border: 229 229 229; /* #E5E5E5 hairline */
 
   /* Neutrals: warm paper, not cool zinc (§6.2) */
@@ -232,7 +233,7 @@
   box-shadow: none;
 }
 
-/* Table header: 40px, sunken, 12px/600 uppercase, 16px sides. Rows ≥ 56px. */
+/* Table header: 40px, white over a rule, 12px/600 sentence case, 16px sides. Rows 44px (DESIGN.md "Tables"). */
 :root:not(#rnd):not([data-palette='indigo']) .ui-table thead th {
   height: 2.5rem;
   padding: 0 1rem;
@@ -241,15 +242,14 @@
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border-bottom: 0;
+  letter-spacing: 0;
+  text-transform: none;
+  border-bottom: 1px solid rgb(var(--border-strong));
+  border-radius: 0;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-table thead th:first-child { border-radius: 0.5rem 0 0 0.5rem; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-table thead th:last-child { border-radius: 0 0.5rem 0.5rem 0; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-table tbody td {
   box-sizing: border-box;
-  height: 3.5rem;
+  height: 2.75rem;
   padding: 0.5rem 1rem;
   vertical-align: middle;
   border-top: 1px solid rgb(var(--border));
@@ -391,10 +391,11 @@
 
 /* The app menu under the switch: each app's mark in its own colour, the open app on a light grey row with a tick. */
 :root:not(#rnd) .ui-app-menu-item { color: rgb(var(--fg)); transition: background-color 0.12s ease; }
-:root:not(#rnd) .ui-app-menu-item:hover { background: rgb(var(--hover-blue) / 0.1); }
-:root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(var(--select-green) / 0.16); }
+:root:not(#rnd) .ui-app-menu-item:hover { background: rgb(var(--hover, 247 247 247)); }
+:root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(var(--hover, 247 247 247)); }
 :root:not(#rnd) .ui-app-menu-item:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
 :root:not(#rnd) .ui-app-menu-item .ui-caption { color: rgb(var(--fg-muted)); }
+:root:not(#rnd) .ui-app-blurb { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 :root:not(#rnd) .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(var(--rail-bg)); color: rgb(var(--fg)); }
 
 /* Menus on base-ui (Menu.jsx): a 12px sheet of 8px rows. The row under the pointer or the arrow keys is
@@ -431,9 +432,9 @@
   outline: 0;
   user-select: none;
 }
-.ui-menu-item[data-highlighted] { background: rgb(var(--hover-blue, 42 120 214) / 0.1); }
+.ui-menu-item[data-highlighted] { background: rgb(var(--hover, 247 247 247)); }
 .ui-menu-item[data-disabled] { color: rgb(var(--fg-muted)); cursor: default; }
-.ui-menu-item[aria-current='true'] { background: rgb(var(--select-green, 27 175 122) / 0.16); }
+.ui-menu-item[aria-current='true'] { background: rgb(var(--hover, 247 247 247)); }
 /* The notifications panel: never wider than the screen less its 16px gutters, so on a phone it sits inside them. */
 .ui-bell-panel { width: min(24rem, calc(100vw - 32px)); padding: 8px; }
 .ui-menu-sep { height: 1px; margin: 4px 0; background: rgb(var(--border)); }
@@ -492,18 +493,18 @@
    side bars and other places"): the flat set's pale greys and pastels washed out on white. */
 :root:not(#rnd) .ui-emoji { filter: saturate(1.35) contrast(1.18); }
 
-/* Hover and the open item are a soft blue, not grey (owner, 17 Nov 2026: "when cursor moves with any
-   option it's grey now, I want different color"). One blue for every app: a tint of the app's own
-   colour came out grey in the Workspace and orange in Attendance. */
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod:hover { background: rgb(var(--hover-blue) / 0.1); color: rgb(var(--fg)); }
+/* Hover is grey, and the open item is its word in the app colour on that grey (DESIGN.md, 19 Nov 2026:
+   the calm register; replaces the blue hover and green selection of 17 Nov). */
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-mod:hover { background: rgb(var(--hover, 247 247 247)); color: rgb(var(--fg)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current],
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[aria-pressed='true'] {
-  background: rgb(var(--select-green) / 0.16);
-  color: rgb(var(--fg));
+  background: rgb(var(--hover, 247 247 247));
+  color: rgb(var(--act-ink, var(--fg)));
+  font-weight: 600;
   box-shadow: none;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod[data-current]::before {
-  content: '';
+  content: none;
   position: absolute;
   left: -0.375rem;
   top: 0.75rem;
@@ -519,16 +520,21 @@
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-mod-count {
   position: absolute;
   top: 4px;
-  right: 10px;
-  min-width: 1rem;
-  height: 1rem;
-  padding: 0 0.25rem;
+  /* Grows to the right from the icon's right half (index.css `left`). With `left` and `right` both set the
+     pill was squeezed to 17px and "99+" spilled out; anchored right, a wide "99+" covered the icon. */
+  right: auto;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
   border-radius: 999px;
-  background: rgb(var(--act));
-  color: rgb(var(--on-brand));
-  font-size: 0.625rem;
-  line-height: 1rem;
-  font-weight: 700;
+  /* A quiet grey pill with ink figures at label size, as every other count (DESIGN.md: the app colour has
+     four jobs only). The app colour under the 12px floor's ink failed contrast (axe, e2e 19 Nov 2026). */
+  background: rgb(var(--hover, 247 247 247));
+  box-shadow: inset 0 0 0 1px rgb(var(--border-strong));
+  color: rgb(var(--fg));
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-weight: 600;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-rail-foot {
   width: 100%;
@@ -565,7 +571,7 @@
   text-align: left;
   cursor: pointer;
 }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:hover { background: rgb(var(--hover-blue) / 0.1); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:hover { background: rgb(var(--hover, 247 247 247)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: 2px; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel > div + .ui-split-panel-foot { margin-top: auto; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-panel-foot-text { display: grid; min-width: 0; }
@@ -619,12 +625,12 @@
   box-shadow: none;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item > svg { width: 1.25rem; height: 1.25rem; font-size: 1.25rem; color: inherit; }
-:root:not(#rnd):not([data-palette='indigo']) .ui-split-item:hover { background: rgb(var(--hover-blue) / 0.1); color: rgb(var(--fg)); }
+:root:not(#rnd):not([data-palette='indigo']) .ui-split-item:hover { background: rgb(var(--hover, 247 247 247)); color: rgb(var(--fg)); }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item[aria-current='page'] {
-  background: rgb(var(--select-green) / 0.14);
-  color: rgb(var(--fg));
+  background: rgb(var(--hover, 247 247 247));
+  color: rgb(var(--act-ink, var(--fg)));
   font-weight: 600;
-  box-shadow: inset 3px 0 0 rgb(var(--marker)), 0 0 0 1px rgb(var(--panel-border));
+  box-shadow: none;
 }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item[aria-current='page'] > svg { color: inherit; }
 :root:not(#rnd):not([data-palette='indigo']) .ui-split-item-count {

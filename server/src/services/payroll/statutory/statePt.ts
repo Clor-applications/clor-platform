@@ -141,7 +141,7 @@ export const PT_SEEDS: SeedRule[] = [
       slabs: bands([[21000, 0], [30000, 180], [45000, 425], [60000, 930], [75000, 1025], [null, 1250]]),
     },
     /* Source: Tamil Nadu is levied by each corporation and municipality. These are the Greater Chennai Corporation’s half-yearly rates from 1 Oct 2024 (circular of 20 Jan 2025), taken in the September and February payroll on six months’ pay. Fairly sure of Chennai’s figures; other local bodies charge their own, so check yours. */
-    'Tamil Nadu (Greater Chennai Corporation): ₹180 to ₹1,250 a half-year by six months’ pay, taken in the September and February payroll. From 1 Oct 2024. Other corporations and municipalities set their own rates. Not yet checked against the state’s own notice — confirm before use.'
+    'Tamil Nadu (Greater Chennai Corporation): ₹180 to ₹1,250 a half-year by six months’ pay, taken in the September and February payroll. From 1 Oct 2024. Other corporations and municipalities set their own rates. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'KERALA',
@@ -155,14 +155,14 @@ export const PT_SEEDS: SeedRule[] = [
       slabs: bands([[11999.99, 0], [17999.99, 320], [29999.99, 450], [44999.99, 600], [99999.99, 750], [124999.99, 1000], [null, 1250]]),
     },
     /* Source: Kerala, from 1 Oct 2024 (G.O. 1149/2024/LSGD): half-yearly bands, taken in the August and February payroll on six months’ pay. One publisher (SGCMS) gives the full table; others confirm only the date. Not fully sure — and check that your municipality or corporation uses the same rates. */
-    'Kerala: ₹320 to ₹1,250 a half-year by six months’ pay, taken in the August and February payroll. From 1 Oct 2024. Check your local body uses these rates. Not yet checked against the state’s own notice — confirm before use.'
+    'Kerala: ₹320 to ₹1,250 a half-year by six months’ pay, taken in the August and February payroll. From 1 Oct 2024. Check your local body uses these rates. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'MADHYA PRADESH',
     '2018-04-01',
     { basis: 'ANNUAL', balanceMonth: 3, slabs: bands([[225000, 0], [300000, 1500], [400000, 2000], [null, 2500]]) },
     /* Source: Madhya Pradesh, from 1 Apr 2018: yearly bands on yearly pay — nil to ₹2.25 lakh, then ₹1,500, ₹2,000 and ₹2,500 a year, spread monthly with the balance in March (₹166 and ₹174; ₹208 and ₹212). greytHR and TankhaPay; one greytHR table disagrees on the ₹3–4 lakh band. Fairly sure. */
-    'Madhya Pradesh: by yearly pay — nothing up to ₹2.25 lakh, then ₹1,500, ₹2,000 or ₹2,500 a year, taken monthly with the balance in March. From 1 Apr 2018. As commonly published; not yet checked against the state’s own notice.'
+    'Madhya Pradesh: by yearly pay. Nothing up to ₹2.25 lakh, then ₹1,500, ₹2,000 or ₹2,500 a year, taken monthly with the balance in March. From 1 Apr 2018. As commonly published; not yet checked against the state’s own notice.'
   ),
   pt(
     'ASSAM',
@@ -176,14 +176,14 @@ export const PT_SEEDS: SeedRule[] = [
     '2011-04-01',
     { basis: 'ANNUAL', collectMonths: [9], slabs: bands([[300000, 0], [500000, 1000], [1000000, 2000], [null, 2500]]) },
     /* Source: Bihar (Act of 2011): yearly bands — nil to ₹3 lakh, then ₹1,000, ₹2,000 and ₹2,500 — taken once a year in September on twelve months’ pay. Payroll publishers only. Fairly sure. */
-    'Bihar: by yearly pay — nothing up to ₹3 lakh, then ₹1,000, ₹2,000 or ₹2,500 a year, taken once in the September payroll. As commonly published; not yet checked against the state’s own notice.'
+    'Bihar: by yearly pay. Nothing up to ₹3 lakh, then ₹1,000, ₹2,000 or ₹2,500 a year, taken once in the September payroll. As commonly published; not yet checked against the state’s own notice.'
   ),
   pt(
     'JHARKHAND',
     '2012-04-01',
     { basis: 'ANNUAL', balanceMonth: 3, needsCheck: true, slabs: bands([[300000, 0], [500000, 1200], [800000, 1800], [1000000, 2100], [null, 2500]]) },
     /* Source: Jharkhand (Act 2 of 2012): yearly bands — nil to ₹3 lakh, then ₹1,200, ₹1,800, ₹2,100 and ₹2,500 — spread monthly. One publisher, which says its own figures are unconfirmed. Not sure. */
-    'Jharkhand: by yearly pay — nothing up to ₹3 lakh, then ₹1,200 to ₹2,500 a year, taken monthly. Not yet checked against the state’s own notice — confirm before use.'
+    'Jharkhand: by yearly pay. Nothing up to ₹3 lakh, then ₹1,200 to ₹2,500 a year, taken monthly. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'MEGHALAYA',
@@ -198,14 +198,14 @@ export const PT_SEEDS: SeedRule[] = [
       ]),
     },
     /* Source: Meghalaya, 2012 schedule: twelve yearly bands from nil to ₹50,000 up to ₹2,500 above ₹5 lakh, spread monthly. One publisher; another reports a ₹1.8 lakh exemption limit. Not sure. */
-    'Meghalaya: by yearly pay — nothing up to ₹50,000, rising to ₹2,500 a year above ₹5 lakh, taken monthly. Not yet checked against the state’s own notice — confirm before use.'
+    'Meghalaya: by yearly pay. Nothing up to ₹50,000, rising to ₹2,500 a year above ₹5 lakh, taken monthly. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'TRIPURA',
     '2018-07-25',
     { needsCheck: true, slabs: bands([[7500, 0], [15000, 150], [null, 208]]) },
     /* Source: Tripura, from the notification of 25 Jul 2018: nil to ₹7,500, ₹150 to ₹15,000, then ₹208. greytHR; the state’s site shows an older schedule. Not sure. */
-    'Tripura: nothing up to ₹7,500 a month, ₹150 up to ₹15,000, then ₹208. From 25 Jul 2018. Not yet checked against the state’s own notice — confirm before use.'
+    'Tripura: nothing up to ₹7,500 a month, ₹150 up to ₹15,000, then ₹208. From 25 Jul 2018. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'SIKKIM',
@@ -219,49 +219,49 @@ export const PT_SEEDS: SeedRule[] = [
     '2012-09-01',
     { basis: 'ANNUAL', balanceMonth: 3, slabs: bands([[50000, 0], [75000, 1200], [100000, 2000], [125000, 2400], [null, 2500]]) },
     /* Source: Manipur, from 1 Sep 2012: yearly bands — nil to ₹50,000, then ₹1,200, ₹2,000, ₹2,400 and ₹2,500 — spread monthly with the balance in March. greytHR. Fairly sure. */
-    'Manipur: by yearly pay — nothing up to ₹50,000, then ₹1,200 to ₹2,500 a year, taken monthly. From 1 Sep 2012. As commonly published; not yet checked against the state’s own notice.'
+    'Manipur: by yearly pay. Nothing up to ₹50,000, then ₹1,200 to ₹2,500 a year, taken monthly. From 1 Sep 2012. As commonly published; not yet checked against the state’s own notice.'
   ),
   pt(
     'MIZORAM',
     '2000-04-01',
     { needsCheck: true, slabs: bands([[5000, 0], [8000, 75], [10000, 120], [12000, 150], [15000, 180], [null, 208]]) },
     /* Source: Mizoram before 11 Jul 2024: nil to ₹5,000, then ₹75, ₹120, ₹150, ₹180 and ₹208. Its start date is not known; it is dated early so older months find it. Not sure. */
-    'Mizoram: nothing up to ₹5,000 a month, rising to ₹208 above ₹15,000. Used for months before 11 Jul 2024. Not yet checked against the state’s own notice — confirm before use.'
+    'Mizoram: nothing up to ₹5,000 a month, rising to ₹208 above ₹15,000. Used for months before 11 Jul 2024. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'MIZORAM',
     '2024-07-11',
     { needsCheck: true, slabs: bands([[5000, 0], [8000, 75], [10000, 120], [12000, 150], [15000, 180], [20000, 195], [null, 208]]) },
     /* Source: Mizoram, from 11 Jul 2024 (J.17011/1/2017-TAX): adds a ₹195 band for ₹15,001–20,000. The one source could not confirm the figures from the notification. Not sure. */
-    'Mizoram: nothing up to ₹5,000 a month, rising to ₹195 up to ₹20,000, then ₹208. From 11 Jul 2024. Not yet checked against the state’s own notice — confirm before use.'
+    'Mizoram: nothing up to ₹5,000 a month, rising to ₹195 up to ₹20,000, then ₹208. From 11 Jul 2024. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'NAGALAND',
     '2000-04-01',
     { needsCheck: true, slabs: bands([[4000, 0], [5000, 35], [7000, 75], [9000, 110], [12000, 180], [null, 208]]) },
     /* Source: Nagaland: nil to ₹4,000, then ₹35, ₹75, ₹110, ₹180 and ₹208. No start date was found; it is dated early so older months find it. Not sure. */
-    'Nagaland: nothing up to ₹4,000 a month, rising to ₹208 above ₹12,000. Not yet checked against the state’s own notice — confirm before use.'
+    'Nagaland: nothing up to ₹4,000 a month, rising to ₹208 above ₹12,000. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'PUDUCHERRY',
     '2017-07-04',
     { basis: 'HALF_YEARLY', collectMonths: [9, 2], localBody: 'Municipalities (minimum rates)', needsCheck: true, slabs: bands([[99999.99, 0], [200000, 250], [300000, 500], [400000, 750], [500000, 1000], [null, 1250]]) },
     /* Source: Puducherry, from 4 Jul 2017 (G.O.Ms.No.24/F3/2017): half-yearly bands on six months’ pay, taken in September and February (CLOR’s choice of months). These are minimum rates; a municipality may charge more. Not sure. */
-    'Puducherry: ₹250 to ₹1,250 a half-year by six months’ pay, taken in the September and February payroll. A municipality may charge more. From 4 Jul 2017. Not yet checked against the state’s own notice — confirm before use.'
+    'Puducherry: ₹250 to ₹1,250 a half-year by six months’ pay, taken in the September and February payroll. A municipality may charge more. From 4 Jul 2017. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'PUNJAB',
     '2018-04-01',
     { needsCheck: true, slabs: bands([[20833.33, 0], [null, 200]]) },
     /* Source: Punjab State Development Tax, from Apr 2018: ₹200 a month on anybody liable to income tax, read here as more than ₹2.5 lakh a year (₹20,833 a month). The rate is sure; who is liable under the new tax regime is not settled. Ask a Punjab CA. */
-    'Punjab (State Development Tax): ₹200 a month for anybody liable to income tax, taken here as pay above ₹2.5 lakh a year. Who is liable is not settled: ask your adviser. Not yet checked against the state’s own notice — confirm before use.'
+    'Punjab (State Development Tax): ₹200 a month for anybody liable to income tax, taken here as pay above ₹2.5 lakh a year. Who is liable is not settled: ask your adviser. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'ODISHA',
     '2026-04-01',
     { notLevied: true, needsCheck: true, slabs: [] },
     /* Source: Odisha has no professional tax from 1 Apr 2026 (Repeal Ordinance 02 of 2026). An ordinance lapses unless an Act replaces it, and CLOR could not confirm that one has. Fairly sure. */
-    'Odisha: no professional tax from 1 Apr 2026. Not yet checked against the state’s own notice — confirm before use.'
+    'Odisha: no professional tax from 1 Apr 2026. Not yet checked against the state’s own notice. Confirm before use.'
   ),
   pt(
     'CHHATTISGARH',

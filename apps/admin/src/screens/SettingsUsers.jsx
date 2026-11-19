@@ -708,7 +708,7 @@ export function SettingsUsers({ orgId, params }) {
       <div className="ws-inner">
         <PageHead
           crumbs={['Users & access', 'Company users']}
-          title="Users"
+          title="Company users"
           description="Everyone who signs in to this company, their role here and whether they can sign in. For every company at once, open Members."
           actions={
             <>

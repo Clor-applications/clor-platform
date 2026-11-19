@@ -33,7 +33,7 @@ const EXPORT_COLUMNS = [
  * Counts only: template data stays on the server and the readers. Someone
  * marked as having left is removed from every reader and from here.
  */
-export default function Enrolments() {
+export default function Enrolments({ menuLabel } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -69,11 +69,11 @@ export default function Enrolments() {
   return (
     <DocumentListShell
       entity="reader"
-      title="Device enrollment"
+      title={menuLabel || 'Device enrolment'}
       moreItems={[exportMenuItem('Export')]}
       onMoreSelect={(k) => {
         const format = exportFormatFromKey(k);
-        if (format) runListExport({ format, title: 'Device enrollment', fileName: 'Enrolments', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
+        if (format) runListExport({ format, title: 'Device enrolment', fileName: 'Enrolments', label: 'person/people', columns: EXPORT_COLUMNS, rows: shown });
       }}
       description="Fingerprints and faces enrolled on the readers. Enrol once on any reader; it is copied to the others."
       compact

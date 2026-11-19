@@ -14,7 +14,7 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
  * code says so), people who have left but are still on a reader, IDs on a
  * reader that belong to no employee, and employees with no reader ID at all.
  */
-export default function IdMapping({ openScreen }) {
+export default function IdMapping({ openScreen, menuLabel }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [sites, setSites] = useState([]);
@@ -58,7 +58,7 @@ export default function IdMapping({ openScreen }) {
     <div className="space-y-3">
       <PageHeader
         entity="reader"
-        title="Employee ID mapping"
+        title={menuLabel || 'Employee ID mapping'}
         description="Reader IDs against employees: what matches nobody, who has left but is still on a reader, who has no ID."
         actions={<button type="button" className="ui-btn ui-btn-primary" onClick={() => setEditing({})}><Plus size={16} aria-hidden="true" /> Add ID at a site</button>}
       />

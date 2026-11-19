@@ -145,7 +145,7 @@ export default function CompanySetup({ onLanding } = {}) {
                 />
                 <p className="ui-caption mt-1">
                   {gstinLooksTyped
-                    ? 'Checked when the company is created — the digits have to add up.'
+                    ? 'Checked when the company is created. The digits have to add up.'
                     : 'Leave it blank if you are not registered yet.'}
                 </p>
               </div>

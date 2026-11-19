@@ -276,7 +276,7 @@ export default function MyDays({ params = {} } = {}) {
         actions={me && canAct ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setAsking(true)}><Plus size={16} aria-hidden="true" /> Ask</button> : null}
       />
       {unlinked ? (
-        <EmptyState title="Your sign-in is not linked to an employee file" description="Ask HR to put your email on your employee file." />
+        <EmptyState title="No employee file is linked to your sign-in" description="Ask HR to put your email on your employee file; your days then show here." />
       ) : req.error && !me ? (
         <ErrorState error={req.error} onRetry={req.reload} />
       ) : !me ? (

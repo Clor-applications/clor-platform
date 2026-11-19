@@ -64,7 +64,7 @@ export async function pullHikvision(ctx: PullContext): Promise<PullResult> {
     try {
       data = JSON.parse(r.text);
     } catch {
-      return { ok: false, message: 'The terminal did not answer with JSON — is the address its ISAPI port?', lines: [], received: 0 };
+      return { ok: false, message: 'The terminal did not answer with JSON. Is the address its ISAPI port?', lines: [], received: 0 };
     }
     if (page === 0) payload = r.text.slice(0, 20_000);
     const ev = data?.AcsEvent || {};

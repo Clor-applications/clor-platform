@@ -60,16 +60,16 @@ export const REPORTS = [
   { id: 'leave', group: 'Statutory Registers', name: 'Leave Register', description: 'Statutory register: leave approved in the period, paid and unpaid.', params: ['from', 'to', 'department'] },
   { id: 'department', group: 'Workforce', name: 'Department Attendance', description: 'Per department: headcount, present, absent, late and overtime for a month.', params: ['month'] },
   { id: 'readers', group: 'Devices', name: 'Reader Health', description: 'Each biometric reader: online, last seen, punches, failed commands.', params: [] },
-  { id: 'biometrics', group: 'Devices', name: 'Biometric Enrolment', description: 'Who has fingerprints and a face enrolled — and who has none.', params: [] },
+  { id: 'biometrics', group: 'Devices', name: 'Biometric Enrolment', description: 'Who has fingerprints and a face enrolled, and who has none.', params: [] },
   { id: 'first-last', group: 'Attendance', name: 'First & Last Punch', description: 'Per person per day: the first punch, the last, and how many between.', params: ['from', 'to', 'department'] },
-  { id: 'missed', group: 'Attendance', name: 'Missed Punches', description: 'Days with an in and no out — the ones to chase before payroll.', params: ['from', 'to', 'department'] },
+  { id: 'missed', group: 'Attendance', name: 'Missed Punches', description: 'Days with an in and no out. The ones to chase before payroll.', params: ['from', 'to', 'department'] },
   { id: 'timecard', group: 'Workforce', name: 'Employee Attendance History', description: 'One person, every day of a month: shift, in, out, worked, late, overtime, status. Everyone if no one is chosen.', params: ['month', 'employee', 'department'] },
   { id: 'work-duration', group: 'Workforce', name: 'Work Duration', description: 'Per person for a month: days under 4 hours, 4–8, 8–10, over 10, and the average.', params: ['month', 'department'] },
   { id: 'people-dates', group: 'People', name: 'Birthdays & Milestones', description: 'Birthdays, work anniversaries, probation and contract ends falling in a month.', params: ['month', 'department'] },
   { id: 'documents', group: 'People', name: 'Expiring Documents', description: 'Employee documents expired or expiring within 90 days.', params: ['department'] },
   { id: 'reader-punches', group: 'Devices', name: 'Reader Activity', description: 'Each reader, each day: how many punches, how many matched to a person.', params: ['from', 'to'] },
   { id: 'mobile', group: 'Devices', name: 'Mobile Punches', description: 'Punches from phones: where, how accurate, with a selfie or not.', params: ['from', 'to', 'department'] },
-  { id: 'contractor', group: 'Workforce', name: 'Contractor Attendance', description: 'Per contractor for a month: workers, present and payable days, approved overtime — what to check a bill against.', params: ['month'] },
+  { id: 'contractor', group: 'Workforce', name: 'Contractor Attendance', description: 'Per contractor for a month: workers, present and payable days, approved overtime: what to check a bill against.', params: ['month'] },
 ] as const;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -358,7 +358,7 @@ export async function build(id: string, accountId: string, orgId: string, q: any
         'P present · HD half day · A absent · L leave · H holiday · W weekly off · – not employed that day.',
         'Includes everyone employed during the month, including people who have since left; door-only staff are not on it.',
         ...(people.some((p) => !p.guardianName)
-          ? [`${people.filter((p) => !p.guardianName).length} of ${people.length} have no father’s or husband’s name on file — the muster roll asks for it (employee file → Attendance).`]
+          ? [`${people.filter((p) => !p.guardianName).length} of ${people.length} have no father’s or husband’s name on file. The muster roll asks for it (employee file → Attendance).`]
           : []),
         ...quietNote(quietDays(ctx)),
       ],

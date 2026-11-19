@@ -23,7 +23,7 @@ const COLUMNS = {
  * A different shift for a few days — cover, a training week, a swap. Wins over
  * every other schedule for those days (ClorTime's Temporary Schedule).
  */
-export default function TemporarySchedule() {
+export default function TemporarySchedule({ menuLabel } = {}) {
   const [rows, setRows] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [people, setPeople] = useState([]);
@@ -84,7 +84,7 @@ export default function TemporarySchedule() {
   return (
     <DocumentListShell
       entity="shift"
-      title="Temporary schedules"
+      title={menuLabel || 'Temporary schedules'}
       description="A different shift for some days. It wins over every other schedule on those days."
       compact
       tight

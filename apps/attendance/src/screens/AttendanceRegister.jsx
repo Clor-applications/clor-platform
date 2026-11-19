@@ -60,7 +60,7 @@ export default function AttendanceRegister() {
     <DocumentListShell
       entity="report"
       title="Daily attendance register"
-      description="One mark per person per day — the muster roll, read across."
+      description="One mark per person per day. The muster roll, read across."
       compact
       tight
       denseCards

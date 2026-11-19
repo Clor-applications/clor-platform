@@ -23,13 +23,13 @@ export type DeclarationItem = { code: string; declared: number; verified?: numbe
 
 export const SECTIONS = [
   { code: '80C', label: 'Section 80C', hint: 'PPF, ELSS, life insurance premium, tuition fees, home loan principal, NSC, 5-year FD. Your PF from salary is counted for you.', cap: 150_000 },
-  { code: '80CCD1B', label: 'Section 80CCD(1B) — NPS', hint: 'Your own NPS contribution, over and above 80C.', cap: 50_000 },
-  { code: '80D_SELF', label: 'Section 80D — health insurance, self and family', hint: 'Premiums and preventive check-ups for you, spouse and children.', cap: 25_000, seniorCap: 50_000 },
-  { code: '80D_PARENTS', label: 'Section 80D — health insurance, parents', hint: 'Premiums for your parents.', cap: 25_000, seniorCap: 50_000 },
+  { code: '80CCD1B', label: 'Section 80CCD(1B): NPS', hint: 'Your own NPS contribution, over and above 80C.', cap: 50_000 },
+  { code: '80D_SELF', label: 'Section 80D: health insurance, self and family', hint: 'Premiums and preventive check-ups for you, spouse and children.', cap: 25_000, seniorCap: 50_000 },
+  { code: '80D_PARENTS', label: 'Section 80D: health insurance, parents', hint: 'Premiums for your parents.', cap: 25_000, seniorCap: 50_000 },
   { code: '24B', label: 'Home loan interest (section 24(b))', hint: 'Interest on a loan for a house you live in.', cap: 200_000 },
-  { code: '80E', label: 'Section 80E — education loan interest', hint: 'Interest only; no limit.', cap: null },
-  { code: '80G', label: 'Section 80G — donations', hint: 'Enter the deductible amount from the receipt.', cap: null },
-  { code: '80TTA', label: 'Section 80TTA — savings bank interest', hint: 'Interest on savings accounts.', cap: 10_000 },
+  { code: '80E', label: 'Section 80E: education loan interest', hint: 'Interest only; no limit.', cap: null },
+  { code: '80G', label: 'Section 80G: donations', hint: 'Enter the deductible amount from the receipt.', cap: null },
+  { code: '80TTA', label: 'Section 80TTA: savings bank interest', hint: 'Interest on savings accounts.', cap: 10_000 },
 ] as const;
 
 export type SectionCode = (typeof SECTIONS)[number]['code'];

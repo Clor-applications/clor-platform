@@ -65,7 +65,7 @@ export default function BankChanges() {
     if (approve) {
       const ok = await confirmDialog({
         title: `Pay ${row.employeeName || 'this person'} into ${row.newAccount}?`,
-        message: 'Confirm the new account with them by phone or in person first — not by replying to an e-mail. Salary goes to the new account from the next payment.',
+        message: 'Confirm the new account with them by phone or in person first, not by replying to an e-mail. Salary goes to the new account from the next payment.',
         confirmLabel: 'Approve',
         tone: 'default',
       });

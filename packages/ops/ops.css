@@ -43,8 +43,8 @@ html[data-portal='ops'] {
 }
 html[data-portal='ops'] .ops {
   --ops-bars: 96px;
-  --ops-hover: rgb(var(--hover-blue, 42 120 214) / 0.1);
-  --ops-open: rgb(var(--select-green, 27 175 122) / 0.16);
+  --ops-hover: rgb(var(--hover, 247 247 247));
+  --ops-open: rgb(var(--hover, 247 247 247));
   --ops-press: rgb(var(--heading-hover, 247 247 247));
   min-height: 100dvh;
   background: rgb(var(--surface));
@@ -746,7 +746,7 @@ html[data-portal='ops'] .ws-table tbody tr {
   transition: background-color 120ms ease;
 }
 html[data-portal='ops'] .ws-table tbody tr:hover {
-  background: rgb(var(--hover-blue, 42 120 214) / 0.05);
+  background: rgb(var(--hover, 247 247 247));
 }
 html[data-portal='ops'] .ws-table .num {
   text-align: right;
@@ -932,7 +932,7 @@ html[data-portal='ops'] .ws-stat-value {
 }
 .ops-kpi:hover {
   border-color: rgb(var(--border-strong));
-  background: rgb(var(--hover-blue, 42 120 214) / 0.04);
+  background: rgb(var(--hover, 247 247 247));
 }
 .ops-kpi-chip {
   grid-area: chip;

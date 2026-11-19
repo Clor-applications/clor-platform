@@ -457,7 +457,7 @@ export const peopleApp = {
   name: 'People',
   /* The app's identity mark stays a line glyph on its colour tile; navigation draws in emoji. */
   icon: AppUserRound,
-  blurb: 'Every HR job in one place: people, time off, hiring, growth and the workplace.',
+  blurb: 'People, time off, hiring, growth and the workplace.',
   available: true,
   database: 'people.db',
   home: 'overview',

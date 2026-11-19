@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-b88dcf3 - 2026-11-19
+
+API revision `clor-api-00149-rnv`. Previous release `rel-8c45cd2` (roll back there).
+
+- #363 Design audit fixes, plain wording, and the calm register design system (step 1)
+
 ## rel-8c45cd2 - 2026-11-19
 
 API revision `clor-api-00148-p7b`. Previous release `rel-0a35d89` (roll back there).

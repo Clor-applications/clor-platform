@@ -431,7 +431,7 @@ const LoanForm = ({ people, components, periods, onCancel, onCreated }) => {
       {schedule ? (
         <p className="ui-caption">
           {count} {count === 1 ? 'instalment' : 'instalments'} of about {money(schedule.schedule[0]?.dueAmount)}, {money(schedule.total)} in all
-          {schedule.interest > 0 ? ` — ${money(schedule.interest)} of that interest` : ''}. Nothing comes out of anybody's pay until this is approved.
+          {schedule.interest > 0 ? `, ${money(schedule.interest)} of it interest` : ''}. Nothing comes out of anybody's pay until this is approved.
         </p>
       ) : null}
 

@@ -10,7 +10,7 @@ const plural = (n, one, many) => `${n.toLocaleString('en-IN')} ${n === 1 ? one :
 /** What a bulk decision did, in one sentence. */
 function bulkSummary(out, action) {
   const parts = [action === 'release' ? `${plural(out.counted, 'punch', 'punches')} counted${out.shiftMinutes ? `, moved back ${out.shiftMinutes} min` : ''}` : `${plural(out.discarded, 'punch', 'punches')} discarded`];
-  if (out.closedDays) parts.push(`${plural(out.closedDays, 'day is', 'days are')} in a closed month, so not changed — adjust in payroll`);
+  if (out.closedDays) parts.push(`${plural(out.closedDays, 'day is', 'days are')} in a closed month, so not changed. Adjust in payroll`);
   if (out.notYet) parts.push(`${plural(out.notYet, 'is', 'are')} still ahead of today`);
   if (out.notMatched) parts.push(`${plural(out.notMatched, 'matches', 'match')} nobody yet`);
   /* Moved back, these land on a time the same reader already sent: repeats. They stay held, and hold the month close, until discarded. */

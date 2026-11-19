@@ -247,7 +247,7 @@ payPageRouter.get('/:token', ...ingestLimiter, async (req, res) => {
   if (!r) return res.status(404).type('html').send(page('Link not found', '<h1>This payment link is not valid</h1><p class="muted">Ask the business for a new one.</p>'));
   const org = await platformPrisma.org.findUnique({ where: { id: r.orgId }, select: { name: true } });
   const head = `<div class="muted">${esc(org?.name || r.payeeName)}</div><h1>${r.docNumber ? `Invoice ${esc(r.docNumber)}` : 'Payment'}</h1>${r.partyName ? `<div class="muted">For ${esc(r.partyName)}</div>` : ''}<div class="amt">₹${esc(Number(rupees(r.amountPaise)).toLocaleString('en-IN', { minimumFractionDigits: 2 }))}</div>`;
-  if (r.status === 'PAID') return res.type('html').send(page('Paid', `${head}<p class="ok">Paid — thank you.</p>`));
+  if (r.status === 'PAID') return res.type('html').send(page('Paid', `${head}<p class="ok">Paid, thank you.</p>`));
   if (r.status === 'CLAIMED') return res.type('html').send(page('Payment received', `${head}<p class="ok">Thank you. We have your UTR <code>${esc(r.payerUtr)}</code>; the business will confirm it shortly.</p>`));
   if (r.status !== 'PENDING' || !r.usable) return res.type('html').send(page('Link closed', `${head}<p class="muted">This link is ${r.status === 'EXPIRED' ? 'past its date' : 'no longer in use'}. Ask the business for a new one.</p>`));
   const intent = upiIntent(r);

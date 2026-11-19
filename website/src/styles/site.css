@@ -2513,14 +2513,14 @@ html.is-scrolled .nav {
 
 /* Scroll reveal: set by App.jsx only on blocks below the first screen, and only with motion allowed. */
 .rv {
-  opacity: 0;
-  transform: translateY(18px);
+  opacity: 0.9;
+  transform: translateY(12px);
 }
 .rv.rv-in {
   opacity: 1;
   transform: none;
-  transition: opacity 700ms var(--ease), transform 700ms var(--ease);
-  transition-delay: calc(var(--rv-i, 0) * 70ms);
+  transition: opacity 500ms var(--ease), transform 500ms var(--ease);
+  transition-delay: calc(var(--rv-i, 0) * 30ms);
 }
 @media (prefers-reduced-motion: reduce) {
   .rv {

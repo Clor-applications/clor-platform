@@ -2975,6 +2975,16 @@ body:has(.fx-secnav) .nav {
   position: relative;
   z-index: 1;
 }
+/* Phones: the rule above left the card flush with the screen edge (0px). Keep 8px of ground either side
+   and move the words in so they still sit 20px inside the card. */
+@media (max-width: 640px) {
+  .pg .section--tight:not(:has(.price-group)) > .wrap.stack {
+    padding-inline: 28px;
+  }
+  .pg .section--tight:not(:has(.price-group)) > .wrap.stack::before {
+    inset-inline: 8px;
+  }
+}
 .pg .plan--lead {
   box-shadow: var(--fx-shadow), inset 0 4px 0 var(--accent);
 }

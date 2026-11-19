@@ -46,7 +46,7 @@ const LimitMeter = ({ label, used, limit }) => {
     );
   }
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-  const words = `${used} of ${limit}${pct >= 100 ? ' — at the limit' : pct >= 80 ? ' — nearly full' : ''}`;
+  const words = `${used} of ${limit}${pct >= 100 ? ', at the limit' : pct >= 80 ? ', nearly full' : ''}`;
   return (
     <div className="ws-meter">
       <div className="ws-meter-row">
@@ -315,7 +315,6 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
               </section>
 
               <div className="ws-stats">
-                <Stat icon={ICON.companies} label="Companies" value={companies.length} note="In this account" />
                 <Stat icon={ICON.people} label="People" value={active} note="Active sign-ins" />
                 <Stat icon={ICON.plan} label="Billed across all companies" value={money(totals.billed)} note={totals.invoices === 1 ? '1 invoice' : `${totals.invoices} invoices`} />
                 <Stat icon={ICON.warning} label="Outstanding" value={money(totals.outstanding)} note="Still owed by customers" />
@@ -468,7 +467,6 @@ export default function AccountOverview({ currentCompany, onOpenCompany = null }
                 <section className="ws-section" aria-labelledby="ws-made-of">
                   <h2 id="ws-made-of" className="ws-h2">What the account is made of</h2>
                   <dl className="ws-kv">
-                    <div><dt>Companies</dt><dd className="num">{entities.companies}</dd></div>
                     <div><dt>Branches</dt><dd className="num">{entities.branches}</dd></div>
                     <div><dt>GST registrations</dt><dd className="num">{entities.taxProfiles}</dd></div>
                     <div><dt>Cost centres</dt><dd className="num">{entities.costCentres}</dd></div>

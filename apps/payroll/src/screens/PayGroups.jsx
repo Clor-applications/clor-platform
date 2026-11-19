@@ -122,7 +122,7 @@ export default function PayGroups() {
     <DocumentListShell
       entity="payGroup"
       title="Pay groups"
-      description="Populations paid on the same rhythm — monthly staff, weekly labour, contractors."
+      description="Populations paid on the same rhythm: monthly staff, weekly labour, contractors."
       compact
       tight
       denseCards

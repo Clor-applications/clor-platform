@@ -75,7 +75,7 @@ export default function DataExport() {
       } else {
         downloadCsv({ fileName: stem, columns: dataset.columns.map(([key, label]) => ({ key, label })), rows: rows.map((r) => Object.fromEntries(dataset.columns.map(([key]) => [key, Array.isArray(r[key]) ? r[key].join(' ') : r[key] ?? '']))) });
       }
-      setNote(`${rows.length.toLocaleString('en-IN')} row${rows.length === 1 ? '' : 's'} exported.${rows.length >= 2000 && dataset.period ? ' That is the most one export carries — narrow the dates for the rest.' : ''}`);
+      setNote(`${rows.length.toLocaleString('en-IN')} row${rows.length === 1 ? '' : 's'} exported.${rows.length >= 2000 && dataset.period ? ' That is the most one export carries. Narrow the dates for the rest.' : ''}`);
     } catch (e) {
       setNote(String(e?.message || 'Not exported.'));
     } finally {
@@ -137,7 +137,7 @@ export default function DataExport() {
           </div>
           <button type="button" className="ui-btn ui-btn-primary w-full" disabled={busy} onClick={go}><Download size={16} aria-hidden="true" /> {busy ? 'Preparing…' : 'Export'}</button>
           {note ? <p className="ui-caption" role="status">{note}</p> : null}
-          <p className="ui-caption">The whole company — every table, for backup or moving away — is under your profile → Export company data.</p>
+          <p className="ui-caption">The whole company (every table, for backup or moving away) is under your profile → Export company data.</p>
         </li>
       </ol>
       </div>

@@ -319,8 +319,8 @@ function Declaration({ employeeId, fy, onClose, onChanged }) {
             <span className="ui-label">Tax regime</span>
             <div className="flex flex-wrap gap-4 text-sm">
               {[
-                ['NEW', 'New regime — lower rates, no investment deductions'],
-                ['OLD', 'Old regime — deductions for investments, rent and home loan'],
+                ['NEW', 'New regime: lower rates, no investment deductions'],
+                ['OLD', 'Old regime: deductions for investments, rent and home loan'],
               ].map(([v, label]) => (
                 <label key={v} className="inline-flex items-center gap-2">
                   <input type="radio" name="regime" value={v} checked={form.regime === v} onChange={() => set({ regime: v })} /> {label}
@@ -529,7 +529,7 @@ async function printForm16(employeeId, fy) {
 <style>body{font:12px system-ui,sans-serif;margin:16px;color:#111}h1{font-size:16px;margin:0}h2{font-size:13px;margin:16px 0 6px}p{margin:2px 0;color:#333}
 table{border-collapse:collapse;width:100%;margin-top:4px}td,th{border:1px solid #bbb;padding:4px 6px;text-align:left}th{background:#f2f2f2}.r{text-align:right}tr.t td{font-weight:600;background:#fafafa}.n{color:#555;margin-top:12px}
 @page{size:portrait;margin:12mm}</style></head><body>
-<h1>Form 16 — Part B</h1>
+<h1>Form 16: Part B</h1>
 <p>Details of salary paid and tax deducted, financial year ${escapeHtml(fy)} (assessment year ${escapeHtml(`${Number(fy.slice(0, 4)) + 1}-${String((Number(fy.slice(0, 4)) + 2) % 100).padStart(2, '0')}`)})</p>
 <h2>Employer and employee</h2>
 <table><tr><th>Employer</th><td>${escapeHtml(r.employer.name)}</td><th>TAN</th><td>${escapeHtml(r.employer.tan || 'not set')}</td><th>PAN</th><td>${escapeHtml(r.employer.pan || '—')}</td></tr>

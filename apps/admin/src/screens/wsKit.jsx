@@ -1,7 +1,7 @@
 import React from 'react';
 import { emoji } from '@ui/components/ui/emoji';
 import { PageIconContext } from './pageIcon';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Globe, Smartphone } from '@ui/components/ui/lineIcons';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, ArrowUpRight, Globe, Smartphone } from '@ui/components/ui/lineIcons';
 import { Menu as UiMenu, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '@ui/components/ui/Menu';
 import {
   Bell, BookOpen, Briefcase, Building, Building2, CalendarDays, Clock, CreditCard, Database, FileText, Flag, History, House, Inbox, LayoutGrid, Library, Lightbulb, Mail, MessageCircle, Receipt, Settings, Shield, ShieldCheck, Timer, TriangleAlert, UserPlus, UserRound, Users, UsersRound, Wallet, Zap,
@@ -230,7 +230,7 @@ export function Stat({ icon: Icon, tone, label, value, note, onOpen }) {
         {Icon ? React.createElement(colourIcon(Icon), { size: 22 }) : null}
       </span>
       <span className="ws-stat-label">{label}</span>
-      {onOpen ? <ChevronRight size={16} aria-hidden="true" className="ws-chev" style={{ opacity: 1 }} /> : <span />}
+      {onOpen ? <ArrowUpRight size={16} aria-hidden="true" className="ws-chev" style={{ opacity: 1 }} /> : <span />}
       <span className="ws-stat-value" style={{ gridColumn: '2 / span 2' }}>{value}</span>
       {note ? <span className="ws-stat-note" title={typeof note === 'string' ? note : undefined} style={{ gridColumn: '2 / span 2' }}>{note}</span> : null}
     </>

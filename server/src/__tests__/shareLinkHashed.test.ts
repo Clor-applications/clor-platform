@@ -237,7 +237,7 @@ describe('payment links', () => {
     const cred = await outsideTenant('test', () => platformPrisma.credential.findFirst({ where: { kind: 'PAY_LINK', ownerId: p.id } }));
     await outsideTenant('test', () => platformPrisma.credential.update({ where: { id: cred!.id }, data: { expiresAt: new Date(Date.now() - DAY) } }));
     const page = await request(app).get(`/pay/${p.token}`).expect(200);
-    expect(page.text).toContain('Paid — thank you.');
+    expect(page.text).toContain('Paid, thank you.');
   });
 
   it('a new payment link replaces the old one, which stops at once', async () => {

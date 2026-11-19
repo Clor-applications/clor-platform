@@ -143,7 +143,7 @@ export const SecuritySettings = ({ openScreen }) => {
     run('pw', async () => {
       await changePassword(pw.current, pw.next);
       setPw(EMPTY_PW);
-    }, 'Password changed — other devices were signed out.');
+    }, 'Password changed. Other devices were signed out.');
   };
 
   /* Lockouts in the recent log: said once, above the rules, so nobody has to read the table to find them. */

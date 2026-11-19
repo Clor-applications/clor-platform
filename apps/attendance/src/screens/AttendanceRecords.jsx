@@ -69,7 +69,7 @@ const TRUST_EXPORT = [
   { key: 'trustReasons', label: 'Why', value: (r) => (Array.isArray(r.trustReasons) ? r.trustReasons.map((x) => x.text).join(' ') : '') },
 ];
 
-export default function AttendanceRecords({ params, openScreen } = {}) {
+export default function AttendanceRecords({ params, openScreen, menuLabel } = {}) {
   /* Opened from a report row or an exception: start on that person and those days. */
   const [filters, setFilters] = useState(() => ({ from: weekAgo(), to: todayIst(), employeeId: '', validated: '', late: '', trust: '', ...(params || {}), status: '' }));
   const [status, setStatus] = useState(() => params?.status || '');
@@ -153,7 +153,7 @@ export default function AttendanceRecords({ params, openScreen } = {}) {
   return (
     <DocumentListShell
       entity="attendance"
-      title="Attendance records"
+      title={menuLabel || 'Attendance records'}
       description="Mark, correct and validate days. A corrected day needs validating again."
       compact
       tight
@@ -531,7 +531,7 @@ function MarkDay({ initial, people, onClose, onSaved }) {
         <label className="block"><span className="ui-label">Out</span><input type="time" className="ui-input w-full" value={form.checkOut} onChange={set('checkOut')} disabled={!form.checkIn} /></label>
         {!form.checkIn ? (
           <label className="block sm:col-span-2">
-            <span className="ui-label">No times — mark as</span>
+            <span className="ui-label">No times: mark as</span>
             <select className="ui-select w-full" value={form.status || 'ABSENT'} onChange={set('status')}>
               <option value="ABSENT">Absent</option>
 

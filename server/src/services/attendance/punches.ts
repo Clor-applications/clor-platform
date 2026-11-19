@@ -334,7 +334,7 @@ async function sendCounted(orgId: string, rows: CountedPunch[], people: Map<stri
   await enqueuePunches(orgId, rows.map((r) => ({ employeeId: r.employeeId, code: emp(r.employeeId)?.code || emp(r.employeeId)?.devicePin || null, readerId: r.pin, time: r.localTime, direction: r.kind, verifyMode: r.verifyMode ?? 0 })));
 }
 
-export const CLOSED_MONTH_COUNTED = 'Counted. The day is in a closed month, so it was not changed — adjust in payroll.';
+export const CLOSED_MONTH_COUNTED = 'Counted. The day is in a closed month, so it was not changed. Adjust in payroll.';
 
 /** Which held punches a bulk decision takes: one reader's, optionally one month's (by the time on the punch), optionally only some people's. */
 export type HeldFilter = { deviceId: string; month?: string | null; employeeIds?: string[] | null };

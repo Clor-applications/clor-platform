@@ -220,7 +220,7 @@ export default function SalaryStructures() {
                       <EmptyState
                         icon={Layers}
                         title="No salary components yet"
-                        description="A structure is a list of components. Add the earnings and deductions this company pays first, under Settings → Salary Components."
+                        description="A structure is a list of components. Add the earnings and deductions this company pays first, under Settings → Salary components."
                       />
                     ) : (
                       <EmptyState
