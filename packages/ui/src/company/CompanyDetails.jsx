@@ -1,72 +1,91 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@platform/http';
+import { me } from '@platform/auth';
 import { orgId as platformOrgId } from '@platform/context';
 import { PageHeader, SkeletonCard } from '../components/ui/Primitives';
 import { notify } from '../components/ui/notify';
 import { SettingHelp } from '../picks/round64';
+import { FROM_ACCOUNTING, LOGO, SECTIONS, bodyOf, isDirty, logoFromMe, usedOn } from './companyFields';
+import './company.css';
 
 /**
- * Settings → Company → Company Details: who the employer is, as letters,
- * statutory forms and payslips quote it (server: routes/companyProfile.ts).
- * GSTIN and state come from the head-office branch, which Accounting owns.
+ * Settings → Company → Company details: who the employer is, as letters, Form 16 and e-invoices
+ * quote it (server: routes/companyProfile.ts, the same record as Workspace → Company profile).
+ *
+ * Round 64 "companyprofile" A (owner, 19 Nov 2026): one page in four flat sections, Identity,
+ * Address, Tax numbers and Logo, each a heading over a 2px rule (no cards), and each field saying
+ * where it is used; companyFields.js says where each use was checked. The name, state, GSTIN and
+ * logo come from Accounting, so they are shown, not edited.
  */
 const url = () => `/orgs/${encodeURIComponent(platformOrgId())}/company-profile`;
 const opts = { skipWarehouseHeader: true };
 
-/*
- * R&D PEOPLE-29: plain sections on the page ground (no cards), two columns of fields, the side column for contact.
- * GSTIN and state are shown read-only where the design puts them; Accounting owns them.
- */
-/*
- * Round 64 "companyprofile" A: grouped as Identity, Address and Tax numbers, and each field says where it is used, so
- * a change shows what it touches before it is saved.
- */
-const MAIN = [
-  { title: 'Identity', fields: [['legalName', 'Legal name', { required: true, wide: true, used: 'On letters, payslips, Form 16 and every return' }], ['industry', 'Industry'], ['cin', 'CIN / LLPIN', { used: 'On appointment and relieving letters' }]] },
-  { title: 'Address', note: 'The registered office, printed on letters and payslips.', fields: [['addressLine', 'Address', { wide: true }], ['city', 'City'], ['state', 'State', { readOnly: 'Comes from the head office in Accounting.' }], ['pincode', 'PIN code']] },
-  { title: 'Tax numbers', help: true, fields: [['pan', 'PAN', { placeholder: 'AABCC1234D', used: 'On Form 16 and the 24Q return' }], ['tan', 'TAN', { placeholder: 'BLRC12345D', used: 'On Form 16, TDS challans and the 24Q return' }], ['gstin', 'GSTIN', { readOnly: 'Changed in Accounting, where tax is worked out.' }], ['epfCode', 'PF establishment code', { used: 'On the PF ECR file and PF challans' }], ['esicCode', 'ESIC code', { used: 'On the ESIC file and challans' }], ['ptRegistration', 'PT registration', { used: 'On professional tax returns' }], ['lwfRegistration', 'Labour Welfare Fund registration', { used: 'On LWF returns' }]] },
-];
-const SIDE = [
-  { title: 'Contact', fields: [['phone', 'Phone'], ['email', 'Email'], ['website', 'Website']] },
-];
-
 function Field({ k, label, o = {}, form, set }) {
+  const note = usedOn(o.used);
+  if (o.readOnly) {
+    return (
+      <div className={`ui-company-field${o.wide ? ' sm:col-span-2' : ''}`}>
+        <span className="ui-label">{label}</span>
+        <span className={`ui-company-value${o.mono ? ' ui-mono' : ''}`}>{form[k] || o.empty || '—'}</span>
+        <span className="ui-caption block">{FROM_ACCOUNTING}</span>
+        {note ? <span className="ui-caption block">{note}</span> : null}
+      </div>
+    );
+  }
   return (
-    <label className={`block ${o.wide ? 'sm:col-span-2' : ''}`}>
+    <label className={`ui-company-field${o.wide ? ' sm:col-span-2' : ''}`}>
       <span className="ui-label">{label}{o.required ? <span aria-hidden="true" style={{ color: 'rgb(var(--neg))' }}> *</span> : null}</span>
       <input
-        className="ui-input w-full"
+        className={`ui-input w-full${o.mono ? ' ui-mono' : ''}`}
         value={form[k] || ''}
-        onChange={o.readOnly ? undefined : set(k)}
-        readOnly={Boolean(o.readOnly)}
-        aria-readonly={o.readOnly ? 'true' : undefined}
-        placeholder={o.readOnly ? '—' : o.placeholder || ''}
+        onChange={set(k)}
+        placeholder={o.placeholder || ''}
         required={Boolean(o.required)}
-        style={o.readOnly ? { background: 'rgb(var(--surface-sunken))' } : undefined}
+        spellCheck={o.mono ? false : undefined}
       />
-      {o.readOnly ? <span className="ui-caption mt-1 block">{o.readOnly}</span> : null}
-      {o.used ? <span className="ui-caption mt-1 block">Used: {o.used.charAt(0).toLowerCase() + o.used.slice(1)}</span> : null}
+      {note ? <span className="ui-caption mt-1 block">{note}</span> : null}
     </label>
+  );
+}
+
+function Section({ id, title, help = null, lede, children }) {
+  return (
+    <section className="ui-company-sec" aria-labelledby={id}>
+      <header>
+        <h2 id={id} className="ui-t-sec inline-flex items-center gap-1">{title}{help}</h2>
+      </header>
+      {lede ? <p className="ui-caption">{lede}</p> : null}
+      {children}
+    </section>
   );
 }
 
 export default function CompanyDetails() {
   const [form, setForm] = useState(null);
+  const [saved, setSaved] = useState(null);
+  const [logo, setLogo] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     apiFetch(url(), opts)
-      .then((r) => setForm(r.company))
+      .then((r) => {
+        setForm(r.company);
+        setSaved(r.company);
+      })
       .catch((e) => setError(String(e?.message || 'Could not load the company details.')));
+    /* The logo lives in Accounting's company settings; the page works without it. */
+    me()
+      .then((r) => setLogo(logoFromMe(r, platformOrgId())))
+      .catch(() => {});
   }, []);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const { state: _s, gstin: _g, name: _n, code: _c, ...body } = form;
-      const r = await apiFetch(url(), { ...opts, method: 'PUT', body });
+      const r = await apiFetch(url(), { ...opts, method: 'PUT', body: bodyOf(form) });
       setForm(r.company);
+      setSaved(r.company);
       notify.success('Company details saved.');
     } catch (err) {
       notify.error(String(err?.message || 'Not saved.'));
@@ -79,42 +98,40 @@ export default function CompanyDetails() {
     <div className="space-y-6">
       <PageHeader
         title="Company details"
-        description="Shown on letters, payslips and statutory returns."
-        actions={form ? <button type="submit" form="company-details" className="ui-btn ui-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button> : null}
+        description="Who the company is, on its letters, tax forms and invoices."
+        actions={form ? <button type="submit" form="company-details" className="ui-btn ui-btn-primary" disabled={saving || !isDirty(form, saved)}>{saving ? 'Saving…' : 'Save changes'}</button> : null}
       />
       {error ? <p className="text-sm" role="alert" style={{ color: 'rgb(var(--neg))' }}>{error}</p> : null}
       {!form ? (
         error ? null : <SkeletonCard lines={8} />
       ) : (
-        <form id="company-details" onSubmit={save} className="grid gap-8 pb-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="space-y-8 min-w-0">
-            {MAIN.map((sec) => (
-              <section key={sec.title} className="space-y-3" aria-label={sec.title}>
-                <div>
-                  <h2 className="ui-t-sec inline-flex items-center gap-1">{sec.title}{sec.help ? <SettingHelp topic="company-branches" label="the tax numbers" /> : null}</h2>
-                  {sec.note ? <p className="ui-caption">{sec.note}</p> : null}
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {sec.fields.map(([k, label, o]) => <Field key={k} k={k} label={label} o={o} form={form} set={set} />)}
-                </div>
-              </section>
-            ))}
-          </div>
-          <aside className="space-y-8 min-w-0">
-            <section className="space-y-3" aria-label="Name in CLOR">
-              <h2 className="ui-t-sec">Name in CLOR</h2>
-              <p className="text-sm font-medium">{form.name}</p>
-              <p className="ui-caption">The name people see in the app and the company switcher.</p>
-            </section>
-            {SIDE.map((sec) => (
-              <section key={sec.title} className="space-y-3" aria-label={sec.title}>
-                <h2 className="ui-t-sec">{sec.title}</h2>
-                <div className="grid gap-4">
-                  {sec.fields.map(([k, label, o]) => <Field key={k} k={k} label={label} o={o} form={form} set={set} />)}
-                </div>
-              </section>
-            ))}
-          </aside>
+        <form id="company-details" onSubmit={save} className="ui-company-page">
+          {SECTIONS.map((sec) => (
+            <Section
+              key={sec.key}
+              id={`company-${sec.key}`}
+              title={sec.title}
+              lede={sec.lede}
+              help={sec.key === 'tax' ? <SettingHelp topic="company-branches" label="the tax numbers" /> : null}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                {sec.fields.map(([k, label, o]) => <Field key={k} k={k} label={label} o={o} form={form} set={set} />)}
+              </div>
+            </Section>
+          ))}
+          <Section id="company-logo" title={LOGO.title}>
+            <div className="ui-company-logo">
+              {logo ? (
+                <span className="ui-company-logo-box"><img src={logo} alt={`${form.name || 'Company'} logo`} /></span>
+              ) : (
+                <span className="ui-company-value">No logo yet</span>
+              )}
+              <span>
+                <span className="ui-caption block">{LOGO.where}</span>
+                <span className="ui-caption block">{usedOn(LOGO.used)}</span>
+              </span>
+            </div>
+          </Section>
         </form>
       )}
     </div>
