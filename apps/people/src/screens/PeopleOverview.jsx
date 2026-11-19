@@ -191,7 +191,7 @@ export function HomeGlance({ glance, go }) {
       : monthClose.blocking
         ? { tone: 'warn', text: `${plural(monthClose.blocking, 'thing')} to fix before closing` }
         : monthClose.noRecordDays
-          ? { tone: 'warn', text: `${monthClose.noRecordDays.toLocaleString('en-IN')} ${monthClose.noRecordDays === 1 ? 'day' : 'days'} with no record to confirm` }
+          ? { tone: 'warn', text: 'Attendance missing, needs confirming' }
           : { tone: undefined, text: 'Ready to close' };
     blocks.push(
       <section key="close" className="people-glance-block" aria-labelledby="glance-close">

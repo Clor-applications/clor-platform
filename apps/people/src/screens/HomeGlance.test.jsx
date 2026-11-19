@@ -52,3 +52,12 @@ it('leaves out what is empty or not for this reader, and draws nothing when noth
   rerender(<HomeGlance glance={{ probation: null, week: null, monthClose: null }} go={none} />);
   expect(container.innerHTML).toBe('');
 });
+
+it('says what is missing at month close, not a raw count of days', () => {
+  const none = () => () => {};
+  render(
+    <HomeGlance glance={{ probation: [], week: null, monthClose: { month: '2026-10', closedAt: null, ready: false, blocking: 0, noRecordDays: 270 } }} go={none} />,
+  );
+  expect(screen.getByText('Attendance missing, needs confirming')).toBeTruthy();
+  expect(screen.queryByText(/270/)).toBeNull();
+});

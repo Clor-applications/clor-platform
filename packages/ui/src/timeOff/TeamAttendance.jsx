@@ -236,7 +236,7 @@ export default function TeamAttendance() {
       {view === 'day' && !loading && weekRows && rows.length ? (
         <div className="pt-charts">
           <ChartPanel title="Present, last 7 days" note="% of everyone employed">
-            <Columns label="Present each day, per cent" rows={weekRows} />
+            {weekRows.some((r) => r.value > 0) ? <Columns label="Present each day, per cent" rows={weekRows} /> : <p className="pt-foot">Nobody marked present this week.</p>}
           </ChartPanel>
           <ChartPanel title="Late arrivals by department">
             {lateBy.length ? <BarList label="Late arrivals by department" rows={lateBy} /> : <p className="pt-foot">Nobody was late on {formatDate(date)}.</p>}

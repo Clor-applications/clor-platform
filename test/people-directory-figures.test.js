@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const directory = readFileSync('apps/people/src/workforce/Directory.jsx', 'utf8');
+const attendance = readFileSync('packages/ui/src/timeOff/TeamAttendance.jsx', 'utf8');
 
 describe('People Employees, figures after the list', () => {
   it('does not put the figure strip above the table', () => {
@@ -18,5 +19,12 @@ describe('People Employees, figures after the list', () => {
   it('does not show a food-preference figure or department tags in Designation', () => {
     expect(directory).not.toMatch(/FOOD_ORDER|label: 'Food'/);
     expect(directory).toMatch(/\{ key: 'designation', label: 'Designation', sortable: true, render: \(r\) => r\.designation \|\| '—' \}/);
+  });
+});
+
+describe('Daily attendance, no present days', () => {
+  it('writes one line instead of drawing a chart of zeros', () => {
+    expect(attendance).toMatch(/weekRows\.some\(\(r\) => r\.value > 0\) \? <Columns/);
+    expect(attendance).toMatch(/Nobody marked present this week\./);
   });
 });
