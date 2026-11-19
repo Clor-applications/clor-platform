@@ -126,8 +126,7 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
     ) },
     { key: 'code', label: 'Employee ID', sortable: true, render: (r) => <span className="tabular-nums">{r.code || '—'}</span> },
     { key: 'department', label: 'Department', sortable: true, render: (r) => (r.department ? <DeptTag name={r.department} /> : '—') },
-    /* The department sits under the designation (PEOPLE-02), so the separate column starts hidden. */
-    { key: 'designation', label: 'Designation', sortable: true, render: (r) => (r.designation ? <span className="pc-two"><span>{r.designation}</span>{r.department ? <span><DeptTag name={r.department} /></span> : null}</span> : r.department ? <DeptTag name={r.department} /> : '—') },
+    { key: 'designation', label: 'Designation', sortable: true, render: (r) => r.designation || '—' },
     { key: 'manager', label: 'Manager', render: (r) => r.reportingManagerName || '—' },
     { key: 'branch', label: 'Works at', render: (r) => <span className="whitespace-nowrap">{r.branchName || '—'}</span> },
     { key: 'location', label: 'Location', sortable: true, render: (r) => r.areaName || r.workLocation || '—' },
@@ -220,13 +219,6 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
         title="Employees"
         count={!firstRun && list.data && (tab === 'directory' || tab === 'team') ? total : null}
         description={firstRun ? 'No one here yet. Add your team to start using leave, attendance and payroll.' : 'Everyone who works here, with where they sit and where they stand.'}
-        /* The strip's figures (working now, joining, left, on notice) are not the tabs' counts, so it stays. */
-        strip={firstRun ? null : (
-          <div className="pc-directory-top">
-            <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
-            {tab === 'directory' ? <Breakdown counts={counts.data} everyone={everyone} types={lists.types} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} /> : null}
-          </div>
-        )}
         secondary={firstRun ? null : <>
           {allowed('PEOPLE::Employees::CREATE') ? <button type="button" className="ui-btn ui-btn-secondary" onClick={() => openScreen?.('employeeImport')}><Upload size={16} aria-hidden="true" /> Import</button> : null}
           {allowed('PEOPLE::Employees::EXPORT') ? <button type="button" className="ui-btn ui-btn-secondary" disabled={exporting} onClick={() => setExportOpen(true)}><Download size={16} aria-hidden="true" /> Export</button> : null}
@@ -314,6 +306,16 @@ export default function Directory({ params = {}, updateParams, openScreen }) {
           ))}
           <button type="button" className="ui-link text-sm" onClick={clearFilters}>Clear all</button>
         </div>
+      ) : null}
+
+      {!firstRun && tab === 'directory' ? (
+        <details className="ui-phone-filters ui-figures-fold">
+          <summary>Show figures</summary>
+          <div className="pc-directory-top">
+            <MetricStrip counts={counts.data} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
+            <Breakdown counts={counts.data} everyone={everyone} types={lists.types} onPick={(patch) => set({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, null])), page: null, ...patch }, true)} />
+          </div>
+        </details>
       ) : null}
 
       {filtersOpen ? <FiltersDrawer params={p} lists={lists} managers={managers} noticeHidden={Boolean(counts.data?.leavingsHidden)} onClose={() => setFiltersOpen(false)} onApply={(f) => { set({ ...f, page: null }, true); setFiltersOpen(false); }} /> : null}
@@ -406,7 +408,6 @@ function MetricStrip({ counts, onPick }) {
  * By department (PEOPLE-02): today's headcount per department on the soft panel, from the same overview Home reads,
  * and beside it the movements the tiles do not carry, each opening the list filtered to them.
  */
-const FOOD_ORDER = [['VEG', 'Veg'], ['NON_VEG', 'Non-veg'], ['EGG', 'Eggetarian'], ['JAIN', 'Jain'], ['NOT_SET', 'Not said']];
 function Breakdown({ counts, everyone, types, onPick }) {
   const overview = useRequest(() => getOverview(), []);
   const depts = overview.data?.byDepartment || [];
@@ -425,8 +426,6 @@ function Breakdown({ counts, everyone, types, onPick }) {
     counts?.leavingsHidden ? null : { k: 'leftMonth', label: 'Left this month', value: counts?.leftThisMonth, patch: counts ? { status: 'LEFT', lfrom: counts.monthStart, lto: todayIst() } : null },
     { k: 'suspended', label: 'Suspended', value: counts?.suspended, patch: { status: 'SUSPENDED' } },
     counts?.leavingsHidden ? null : { k: 'left', label: 'Everyone who left', value: counts?.left, patch: { status: 'LEFT' } },
-    /* Food preference over everyone working now (catering), for those who see personal details only. */
-    counts?.food ? { k: 'food', label: 'Food', value: FOOD_ORDER.filter(([k]) => counts.food[k]).map(([k, w]) => `${w} ${counts.food[k]}`).join(' · ') || 'Not recorded' } : null,
   ].filter(Boolean);
   return (
     <div className="pc-charts">

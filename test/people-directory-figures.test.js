@@ -1,0 +1,22 @@
+/**
+ * @vitest-environment node
+ *
+ * The Employees list is for finding a person. Figures sit behind the list, not above it.
+ */
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+const directory = readFileSync('apps/people/src/workforce/Directory.jsx', 'utf8');
+
+describe('People Employees, figures after the list', () => {
+  it('does not put the figure strip above the table', () => {
+    expect(directory).not.toMatch(/\bstrip=\{/);
+    expect(directory).toMatch(/<summary>Show figures<\/summary>/);
+    expect(directory.indexOf('Show figures')).toBeGreaterThan(directory.indexOf('<DataTable'));
+  });
+
+  it('does not show a food-preference figure or department tags in Designation', () => {
+    expect(directory).not.toMatch(/FOOD_ORDER|label: 'Food'/);
+    expect(directory).toMatch(/\{ key: 'designation', label: 'Designation', sortable: true, render: \(r\) => r\.designation \|\| '—' \}/);
+  });
+});
