@@ -15,7 +15,8 @@
  * Stopping puts every English line back.
  */
 
-const ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
+/* data-word: words drawn by CSS from an attribute, like the password box's Show and Hide. */
+const ATTRS = ['placeholder', 'aria-label', 'title', 'alt', 'data-word'];
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'CODE', 'PRE', 'svg', 'SVG', 'NOSCRIPT']);
 
 export function startDomTranslation(root, t) {
