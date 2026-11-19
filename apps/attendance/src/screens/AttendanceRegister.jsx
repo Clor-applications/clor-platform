@@ -16,9 +16,9 @@ import LoadFailed from '@ui/components/ui/LoadFailed';
  * supervisor opens every morning. ClorTime's Attendance Register.
  */
 const TONE = {
-  P: { label: 'Present', bg: 'rgb(var(--pos) / 0.14)', fg: 'rgb(var(--pos))' },
-  HD: { label: 'Half day', bg: 'rgb(var(--warn) / 0.16)', fg: 'rgb(var(--warn))' },
-  A: { label: 'Absent', bg: 'rgb(var(--neg) / 0.14)', fg: 'rgb(var(--neg))' },
+  P: { label: 'Present', bg: 'rgb(var(--pos) / 0.14)', fg: 'color-mix(in srgb, rgb(var(--pos)) 65%, black)' },
+  HD: { label: 'Half day', bg: 'rgb(var(--warn) / 0.16)', fg: 'color-mix(in srgb, rgb(var(--warn)) 60%, black)' },
+  A: { label: 'Absent', bg: 'rgb(var(--neg) / 0.14)', fg: 'color-mix(in srgb, rgb(var(--neg)) 70%, black)' },
   L: { label: 'Leave', bg: 'rgb(var(--info, var(--accent)) / 0.14)', fg: 'rgb(var(--fg))' },
   H: { label: 'Holiday', bg: 'rgb(var(--surface-sunken))', fg: 'rgb(var(--fg-muted))' },
   W: { label: 'Weekly off', bg: 'rgb(var(--surface-sunken))', fg: 'rgb(var(--fg-muted))' },

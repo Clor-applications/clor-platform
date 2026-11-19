@@ -115,7 +115,7 @@ export default function DataExport() {
           {dataset.period ? (
             <>
               <div className="flex flex-wrap gap-2">
-                {PRESETS.map((p) => <button key={p.id} type="button" className={`ui-btn ui-btn-sm ${preset === p.id ? 'ui-btn-primary' : 'ui-btn-secondary'}`} onClick={() => applyPreset(p.id)}>{p.label}</button>)}
+                {PRESETS.map((p) => <button key={p.id} type="button" className="ui-btn ui-btn-sm ui-btn-secondary ui-btn-choice" aria-pressed={preset === p.id} onClick={() => applyPreset(p.id)}>{p.label}</button>)}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <input type="date" className="ui-input" style={{ width: 'auto' }} value={from} onChange={(e) => { setFrom(e.target.value); setPreset(''); }} aria-label="From" />
