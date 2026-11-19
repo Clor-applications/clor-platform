@@ -991,7 +991,7 @@ function ShellScreens() {
           <ChevronDown size={14} aria-hidden="true" />
         </MenuTrigger>
 
-        <MenuPanel aria-label="Apps" width="16rem" zIndex="var(--z-platform-menu)" sideOffset={4}>
+        <MenuPanel aria-label="Apps" width="19rem" zIndex="var(--z-platform-menu)" sideOffset={4}>
             {phone && tenants.length > 1 ? (
               <>
                 <CompanyMenuItems groups={companyGroups(tenants, accounts)} currentId={tenant.id} onPick={(t) => pickCompany(t.id)} />
@@ -1009,7 +1009,7 @@ function ShellScreens() {
                 <span className="ui-app-switch-mark shrink-0" style={{ '--app-color': `var(--app-${a.id})` }}><a.icon size={16} aria-hidden="true" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{a.name}</span>
-                  <span className="block ui-caption">{a.blurb}</span>
+                  <span className="block ui-caption ui-app-blurb">{a.blurb}</span>
                 </span>
                 {a.id === app.id ? <Check size={16} aria-hidden="true" className="mt-1.5 shrink-0" /> : null}
               </MenuItem>

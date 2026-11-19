@@ -394,6 +394,7 @@
 :root:not(#rnd) .ui-app-menu-item[aria-current='true'] { background: rgb(var(--hover, 247 247 247)); }
 :root:not(#rnd) .ui-app-menu-item:focus-visible { outline: 2px solid rgb(var(--act)); outline-offset: -2px; }
 :root:not(#rnd) .ui-app-menu-item .ui-caption { color: rgb(var(--fg-muted)); }
+:root:not(#rnd) .ui-app-blurb { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 :root:not(#rnd) .ui-app-switch-mark.ui-app-menu-quiet { background: rgb(var(--rail-bg)); color: rgb(var(--fg)); }
 
 /* Menus on base-ui (Menu.jsx): a 12px sheet of 8px rows. The row under the pointer or the arrow keys is
