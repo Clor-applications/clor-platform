@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Plus, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
+import { ArrowUpRight, Plus, Search, ShieldAlert, UserX } from '@ui/components/ui/lineIcons';
 import { emoji } from '@ui/components/ui/emoji';
 import { requestOpenScreen } from '@platform/context';
 
@@ -273,7 +273,7 @@ export default function Members({ params, tenant, openScreen, switchCompany }) {
                         <span className="ws-cell-sub">{lastSignedInLine(m.lastSignInAt)}</span>
                       </td>
                       <td><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
-                      <td className="num"><ChevronRight size={16} aria-hidden="true" className="ws-chev" /></td>
+                      <td className="num"><ArrowUpRight size={16} aria-hidden="true" className="ws-chev" /></td>
                     </tr>
                   );
                 })}
