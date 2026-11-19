@@ -44,8 +44,9 @@ export default function Branches({ openScreen }) {
   const shown = rows.filter((b) => (tab === 'active' ? b.isActive !== false : b.isActive === false)).filter((b) => !q || `${b.branchName} ${b.branchCode} ${b.city || ''} ${b.state}`.toLowerCase().includes(q.toLowerCase()));
   const columns = [
     { key: 'name', label: 'Branch', always: true, render: (b) => <span className="min-w-0"><span className="block truncate font-medium">{b.branchName}</span><span className="block truncate ui-caption tabular-nums">{b.branchCode}</span></span> },
-    { key: 'place', label: 'City, state', render: (b) => [b.city, b.state].filter(Boolean).join(', ') || '—' },
-    { key: 'people', label: 'People', align: 'right', render: (b) => <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('employees', { branch: b.id }); }}>{b.people}</button> },
+    /* Width given so "Hubballi, Karnataka" is not cut in a column narrower than its words (QA, 19 Nov 2026). */
+    { key: 'place', label: 'City, state', width: '40%', render: (b) => [b.city, b.state].filter(Boolean).join(', ') || '—' },
+    { key: 'people', label: 'People', align: 'right', width: '7rem', render: (b) => <button type="button" className="ui-link tabular-nums" onClick={(e) => { e.stopPropagation(); openScreen?.('employees', { branch: b.id }); }}>{b.people}</button> },
   ];
   const rowActions = (b) => [
     canEdit ? { key: 'edit', label: 'Edit', onSelect: () => setEditing({ ...b }) } : null,

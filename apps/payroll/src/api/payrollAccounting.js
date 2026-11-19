@@ -1,5 +1,5 @@
 import { apiFetch } from '@platform/http';
-import { requireOrgId as orgId } from '@platform/context';
+import { hasApp, requireOrgId as orgId } from '@platform/context';
 
 /**
  * What Payroll needs from Accounting, named as Payroll thinks of it.
@@ -44,5 +44,8 @@ export async function withheldToAccounts() {
 
 /** Accounts salary money can actually leave from. */
 export async function paymentAccounts() {
+  /* The ledger is Books'. A company without Books has no accounts to pick, and asking anyway was a 402 on every
+     load of Payments (QA, 19 Nov 2026). */
+  if (!hasApp('accounting')) return [];
   return (await ledgers()).filter((a) => ['CASH', 'BANK'].includes(a.controlKind));
 }

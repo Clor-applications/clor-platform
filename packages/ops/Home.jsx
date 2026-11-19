@@ -452,7 +452,7 @@ function RecentActions({ d, error, go, has }) {
                       {e.accountName ? ` · ${e.accountName}` : ''}
                     </span>
                     {e.summary ? <span className="ws-item-sub">Reason: {e.summary}</span> : null}
-                    {e.details ? <span className="ws-item-sub">{e.details}</span> : null}
+                    {/* The field-by-field detail stays in the Audit log; here it read as raw fields (QA, 19 Nov 2026). */}
                   </span>
                   <span className="ws-item-end">{ago(e.at)}</span>
                 </div>

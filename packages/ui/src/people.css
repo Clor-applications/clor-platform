@@ -290,7 +290,8 @@ html:root[data-app='people'] #main-content .ui-table-scroll > table :is(th, td)[
   color: rgb(var(--fg-muted));
 }
 :root[data-app='people'] #main-content .ui-settings-row-label { grid-area: label; align-self: end; font-size: 0.875rem; font-weight: 600; color: rgb(var(--fg)); }
-:root[data-app='people'] #main-content .ui-settings-row-note { grid-area: note; align-self: start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: rgb(var(--fg-muted)); }
+/* Two lines, not one: at one line 30 settings and 36 reports were cut mid-sentence (QA, 19 Nov 2026). */
+:root[data-app='people'] #main-content .ui-settings-row-note { grid-area: note; align-self: start; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 0.8125rem; line-height: 1.25rem; color: rgb(var(--fg-muted)); }
 :root[data-app='people'] #main-content .ui-settings-row-go { display: none; }
 /* A row with no icon (Reports) is a tile of words. */
 :root[data-app='people'] #main-content .ui-settings-row-icon:empty { display: none; }
