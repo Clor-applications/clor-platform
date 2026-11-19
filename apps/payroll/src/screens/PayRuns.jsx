@@ -283,7 +283,7 @@ export default function PayRuns() {
                       <EmptyState
                         icon={CalendarClock}
                         title="No open payroll period"
-                        description="Payroll runs for a period. Add one under Settings → Pay Calendar, and payroll has a month to run for."
+                        description="Payroll runs for a period. Add one under Settings → Pay calendar, and payroll has a month to run for."
                       />
                     ) : (
                       <EmptyState

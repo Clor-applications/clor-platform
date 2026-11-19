@@ -230,7 +230,7 @@ export default function PayrollPayments() {
                       <EmptyState
                         icon={Wallet}
                         title="No approved payroll to pay"
-                        description="A payroll is paid once it has been checked and approved. Run one under Pay Runs and approve it, and it becomes payable here."
+                        description="A payroll is paid once it has been checked and approved. Run one under Pay runs and approve it, and it becomes payable here."
                       />
                     ) : (
                       <EmptyState

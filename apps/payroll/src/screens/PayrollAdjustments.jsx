@@ -242,7 +242,7 @@ export default function PayrollAdjustments() {
                       <EmptyState
                         icon={Percent}
                         title="No open month to adjust"
-                        description="An adjustment is paid in a particular month. Add an open payroll period under Settings → Pay Calendar first."
+                        description="An adjustment is paid in a particular month. Add an open payroll period under Settings → Pay calendar first."
                       />
                     ) : (
                       <EmptyState
