@@ -363,8 +363,8 @@ export default function AuditTrail({ tenant } = {}) {
           <DateFilter span={span} from={filters.from} to={filters.to} onSpan={chooseSpan} onFrom={set('from')} onTo={set('to')} />
           {/* Refresh and Export close the filter row, at its right end (owner, 19 Nov 2026: use the full width). */}
           <span className="ws-filters-end">
-            <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet ws-btn--icon" disabled={loading} aria-label={loading ? 'Loading' : 'Refresh'} title="Refresh">
-              <RefreshCw size={16} aria-hidden="true" />
+            <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading}>
+              <RefreshCw size={16} aria-hidden="true" /> {loading ? 'Loading…' : 'Refresh'}
             </button>
             <button type="button" onClick={download} className="ws-btn ws-btn--quiet" disabled={!entries.length}>
               <Download size={16} aria-hidden="true" /> Export
