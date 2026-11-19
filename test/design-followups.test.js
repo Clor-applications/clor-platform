@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The Employees list is for finding a person. Figures sit behind the list, not above it.
+ * Follow-ups to the 19 Nov design audit that are now in the code.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -10,6 +10,7 @@ const directory = readFileSync('apps/people/src/workforce/Directory.jsx', 'utf8'
 const attendance = readFileSync('packages/ui/src/timeOff/TeamAttendance.jsx', 'utf8');
 const home = readFileSync('apps/people/src/screens/PeopleOverview.jsx', 'utf8');
 const peopleCss = readFileSync('packages/ui/src/people.css', 'utf8');
+const account = readFileSync('apps/admin/src/screens/AccountOverview.jsx', 'utf8');
 
 describe('People Employees, figures after the list', () => {
   it('does not put the figure strip above the table', () => {
@@ -37,5 +38,14 @@ describe('Daily attendance, no present days', () => {
   it('writes one line instead of drawing a chart of zeros', () => {
     expect(attendance).toMatch(/weekRows\.some\(\(r\) => r\.value > 0\) \? <Columns/);
     expect(attendance).toMatch(/Nobody marked present this week\./);
+  });
+});
+
+describe('Workspace settings, the company count', () => {
+  it('is in the table head and the plan meter, not repeated as a tile or a fact', () => {
+    expect(account).not.toMatch(/<Stat icon=\{ICON\.companies\}/);
+    expect(account).toMatch(/<span className="ws-head-meta">\{companies\.length\}<\/span>/);
+    expect(account).toMatch(/<LimitMeter label="Companies" used=\{companies\.length\}/);
+    expect(account).not.toMatch(/<dt>Companies<\/dt>/);
   });
 });
