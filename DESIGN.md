@@ -18,6 +18,27 @@ every rule below as written. All of it lives in `packages/ui/src/picks.css`, loa
 (`main.jsx`, `console/web/main.jsx`) and scoped away from `[data-palette='indigo']`. Where a
 pick and a rule further down this file disagree, the pick wins outside Books.
 
+### Pick conflicts resolved (owner, 19 Nov 2026)
+
+67 picker rounds left some picks contradicting each other. The owner reviewed them on
+19 Nov 2026 and took this rule: **the newest or more specific pick wins**. These decisions
+override any older row below.
+
+| Topic | Rounds in conflict | Decision |
+| --- | --- | --- |
+| Status label | r1 solid tag · r4 dot and text · 19 Nov soft tag | Soft coloured tag with a dot (ink ≥4.5:1) |
+| Text field | r1 grey fill, no border · 19 Nov white | White with a hairline, app colour on focus |
+| Buttons | r1 3px corners · two-radii rule | 8px on every button |
+| Card | r1 glassy wash, 16px · 19 Nov flat sections | Flat white, hairline, 12px, no shadow; no card-in-card |
+| Page sections | r6 tinted band · 19 Nov 2px rule | Heading over a 2px rule, no band |
+| Icons on buttons | r6 icon and word on every button · icon-only Refresh | Icon and word ("Refresh", "Export") |
+| Long lists | r1 "Show more" · r13 25 / 50 / 100 per page | Pages with 25 / 50 / 100 |
+| Money | r3 "INR after" · r34 "₹18.42 lakh" | ₹ before the amount everywhere |
+| Copying a number | r3 "Copy" word · r61 copy icon | "Copy" word, turning "Copied" (r13) |
+| Team leave calendar | r5 row per person · r8 day by day · r17 bars per person | A row per person across the days |
+| Cancelling approved leave | r18 manager told · r47 manager agrees again | Manager agrees again (r47) |
+| Company details page | r10 profile card · r64 grouped page | One page grouped Identity / Address / Tax / Logo (r64) |
+
 | Building block | Pick | What it replaces outside Books |
 | --- | --- | --- |
 | Buttons | Square and compact: 3px corners, 36px, second button has an ink border | 8px button radius |

@@ -9,14 +9,16 @@
   --field-fill-hover: 233 233 233;
 }
 
-/* ---- Buttons: square and compact ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn, .ws-btn, .ui-page-btn) { border-radius: 3px; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-icon-btn { border-radius: 3px !important; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn-secondary, .ws-btn--quiet) { border-color: rgb(var(--fg)); }
+/* ---- Buttons: compact, 8px corners like every other clickable (19 Nov 2026: replaces the
+   round-1 3px corners, which left primary and secondary buttons with different corners) ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn, .ws-btn, .ui-page-btn) { border-radius: 8px; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-icon-btn { border-radius: 8px !important; }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-btn-secondary, .ws-btn--quiet) { border-color: rgb(var(--border-field, 214 214 214)); }
 
-/* ---- Text fields: soft fill, the border arrives with focus ---- */
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])) { background-color: rgb(var(--field-fill)); border-color: transparent; }
-:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])):hover:not(:focus):not(:focus-within) { background-color: rgb(var(--field-fill-hover)) !important; border-color: transparent !important; }
+/* ---- Text fields: white with a hairline, the app colour on focus (19 Nov 2026: replaces the
+   round-1 grey fill, which broke the white-ground rule) ---- */
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])) { background-color: rgb(var(--surface)); border-color: rgb(var(--border-field, 214 214 214)); }
+:root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])):hover:not(:focus):not(:focus-within) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--fg-muted) / 0.6) !important; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])):is(:focus, :focus-within) { background-color: rgb(var(--surface)) !important; border-color: rgb(var(--act, var(--fg))) !important; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is([data-invalid='true'], [aria-invalid='true'], .is-invalid):is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])),
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) [data-invalid-within='true'] :is(.ui-input, .ui-select, .con-input, .ws select, .ws textarea, .ws input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])) { background-color: rgb(var(--neg-soft)) !important; border-color: rgb(var(--neg)) !important; }
@@ -65,12 +67,13 @@
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-table, .ws-table, .con-table) tbody td { border-top: 0; border-bottom: 0; }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-table :is(thead th + th, tbody td + td) { border-left: 0; }
 
-/* ---- Cards: a wash of the app's colour, white edge, soft lift ---- */
+/* ---- Cards: flat white, hairline, 12px (19 Nov 2026: the round-1 glassy wash with 16px
+   corners gave way to the flat sections the owner approved; DESIGN.md "Pick conflicts") ---- */
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) :is(.ui-card, .ui-panel, .ui-stat, .ws-card, .ws-panel, .ops-card):not(.ui-sonner):not(.ui-confirm):not([role='menu']):not(.ui-popover) {
-  border: 1px solid rgb(255 255 255);
-  border-radius: 1rem !important;
-  background: linear-gradient(135deg, rgb(var(--act, 201 80 0) / 0.07), rgb(var(--surface)) 70%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 8px 28px rgb(0 0 0 / 0.09);
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px !important;
+  background: rgb(var(--surface));
+  box-shadow: none;
 }
 :root:not(#pk):not(#pk2):not([data-palette='indigo']) .ui-card-head { background-color: transparent !important; }
 

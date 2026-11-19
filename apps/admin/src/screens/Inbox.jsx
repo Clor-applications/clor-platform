@@ -119,8 +119,8 @@ export default function Inbox({ openApp, openScreen }) {
             <FilterSelect label="App" value={app} options={[['', 'All'], ...apps.map((a) => [a, label(a)])]} onChange={setApp} />
           ) : null}
           <span className="ws-filters-end">
-            <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet ws-btn--icon" disabled={loading} aria-label={loading ? 'Loading' : 'Refresh'} title="Refresh">
-              <RefreshCw size={16} aria-hidden="true" />
+            <button type="button" onClick={() => load()} className="ws-btn ws-btn--quiet" disabled={loading}>
+              <RefreshCw size={16} aria-hidden="true" /> {loading ? 'Loading…' : 'Refresh'}
             </button>
           </span>
         </div>

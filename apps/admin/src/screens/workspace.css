@@ -3675,3 +3675,8 @@ button.ws-stat:hover {
 /* Danger section: on the page like the others, a red rule under its heading instead of a box. */
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-danger { background: none; border: 0; border-radius: 0; padding: 0; box-shadow: none; display: grid; gap: 12px; }
 :root:not(#ux1):not(#ux2):not(#ux3) .ws .ws-danger > h2 { padding-bottom: 8px; border-bottom: 2px solid rgb(185 28 28); color: rgb(185 28 28); font-size: 1rem; font-weight: 700; }
+
+/* Icon-only buttons (Refresh and the like): a later quiet-button rule gave them
+   the text button's 14px side padding, which left a 2px-wide icon in a 32px box. */
+.ws .ws-btn.ws-btn--icon, .ws-btn.ws-btn--icon:not(#ux1) { padding: 0; width: 36px; min-width: 36px; justify-content: center; }
+.ws-btn.ws-btn--icon svg { flex-shrink: 0; width: 16px; height: 16px; }
