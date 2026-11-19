@@ -8,7 +8,6 @@ import { useStrongText } from '@ui/components/ui/useStrongText';
 
 import { useTheme } from '@ui/components/ui/useTheme';
 import { Menu as UiMenu, MenuGroup, MenuGroupLabel, MenuItem, MenuPanel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from '@ui/components/ui/Menu';
-import { formatDateIn } from '@ui/utils/dates';
 import { ProfileScreen } from '@ui/profile/ProfileScreen';
 import Toaster from '@ui/components/ui/Toaster';
 import { getMyPermissions } from '@ui/api/permissions';
@@ -1805,7 +1804,10 @@ function MoreApps({ tenant, catalog = APPS, onAdd, onOpen }) {
       <div>
         <h1 className="ui-display text-2xl">More apps</h1>
         <p className="ui-caption mt-1">
-          Everything CLOR runs. {tenant.name} has {mineCount} of them.
+          Everything CLOR runs.{' '}
+          {tenant.billing?.restricted
+            ? `Your plan has ${(tenant.billing.ownedApps || []).length} ${(tenant.billing.ownedApps || []).length === 1 ? 'app' : 'apps'}, and ${tenant.name} uses ${mineCount} of them.`
+            : `${tenant.name} uses ${mineCount} of them.`}
         </p>
       </div>
 
@@ -1904,6 +1906,10 @@ const STATUS_LABEL = {
  * been assigned: an account that was never restricted has no plan to describe,
  * and inventing one would be a claim the server did not make.
  */
+/* "8 Dec 2026", the house way of writing a date in words, the same call Workspace's plan page makes
+   (PlanChange.jsx `day`), so both pages name the same renewal day. */
+const dayInWords = (value) => (value ? new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+
 function PlanCard({ billing }) {
   if (!billing?.restricted) return null;
   const end = billing.status === 'trialing' ? billing.trialEndsAt : billing.currentPeriodEnd;
@@ -1913,13 +1919,9 @@ function PlanCard({ billing }) {
         {STATUS_LABEL[billing.status] || billing.status}
       </span>
       <span className="text-sm">
-        {(billing.ownedApps || []).length} app{(billing.ownedApps || []).length === 1 ? '' : 's'} on this plan
-        {end ? (
-          <>
-            {' · '}
-            {billing.status === 'trialing' ? 'trial ends' : 'renews'} {formatDateIn(end)}
-          </>
-        ) : null}
+        {end
+          ? `${billing.status === 'trialing' ? 'Trial ends' : 'Renews'} ${dayInWords(end)}`
+          : `${(billing.ownedApps || []).length} ${(billing.ownedApps || []).length === 1 ? 'app' : 'apps'} on this plan`}
       </span>
     </section>
   );
