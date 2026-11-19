@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## rel-8c45cd2 - 2026-11-19
+
+API revision `clor-api-00148-p7b`. Previous release `rel-0a35d89` (roll back there).
+
+- #362 Cancelling approved leave asks the approver first
+- #361 Leave calendar: a row per person across the days, open first
+- #360 Money fields show the rupee sign before the amount
+- #359 Company details: one page grouped as Identity, Address, Tax numbers and Logo
+- #358 Copy beside a number is the word again, not an icon
+- #357 CI: end-to-end run starts beside verify and splits across three machines
+- #356 Pause the Hindi choice (code kept)
+- #355 Pick conflicts resolved: 8px buttons, white fields, flat cards, worded Refresh
+- #353 Hindi: password box Show/Hide turns too
+- #354 People: last page leftovers from the full sweep
+- #352 Release record: rel-0a35d89
+- #349 Workspace and People: one look across both apps
+
 ## rel-0a35d89 - 2026-11-19
 
 API revision `clor-api-00147-n8w`. Previous release `rel-f5a3c97` (roll back there).
