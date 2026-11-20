@@ -8,20 +8,19 @@
 
 /* The Today tiles became a count line under the title (design audit step 2, 20 Nov 2026). */
 
-/* Charts sit on the soft panel with no border (README §3, the Ramp pattern); series take the categorical palette. */
+/* Charts sit on the white ground (DESIGN.md: every ground is white) and draw in ink first; a series is told
+   apart by its label, not a hue (DESIGN.md "Charts", design audit step 5). */
 .att-chart {
-  padding: 1.25rem 1.5rem;
-  border-radius: 0.75rem;
-  background: rgb(var(--soft-panel));
+  padding: 1.25rem 0;
 }
 :root .att-chart .ui-week [data-k='in'],
-:root .att-chart .ui-legend [data-k='in'] { background: rgb(var(--cat-1)); }
-:root .ui-today-hero .ui-today-hero-meter > span { background: rgb(var(--cat-1)); }
-/* The day's title: Sora 700, the H2 voice. */
+:root .att-chart .ui-legend [data-k='in'] { background: rgb(var(--fg)); }
+:root .ui-today-hero .ui-today-hero-meter > span { background: rgb(var(--fg)); }
+/* The day's title is the page title: 24/32, 700 (DESIGN.md "title"). */
 :root .ui-today-hero .ui-today-hero-greet {
   font-family: var(--font-brand);
-  font-size: 1.375rem !important;
-  line-height: 1.875rem !important;
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
   font-weight: 700;
   letter-spacing: -0.01em;
 }

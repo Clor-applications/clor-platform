@@ -79,7 +79,8 @@ function Request({ g, defaultHours, onDone }) {
           <p className="ws-item-sub">To read only</p>
         )}
         <div className="ws-sg-actions">
-          <button type="button" className="ws-btn ws-btn--primary" disabled={Boolean(busy)} onClick={() => run('approve')}>{busy === 'approve' ? 'Letting in…' : 'Let them in'}</button>
+          {/* One primary per screen (DESIGN.md): a row's decision is a secondary button, never the page's main action. */}
+          <button type="button" className="ws-btn" disabled={Boolean(busy)} onClick={() => run('approve')}>{busy === 'approve' ? 'Letting in…' : 'Let them in'}</button>
           <button type="button" className="ws-btn ws-btn--quiet" disabled={Boolean(busy)} onClick={() => run('refuse')}>{busy === 'refuse' ? 'Refusing…' : 'Refuse'}</button>
         </div>
       </div>
