@@ -53,11 +53,6 @@
 }
 /* Everything under the hero fills the page beside the screens panel (owner, 19 Nov 2026: "huge empty space"
    either side when it stopped at 80rem and centred). */
-.wsh-inner > :not(.wsh-hero) {
-  width: 100%;
-  max-width: none;
-  justify-self: stretch;
-}
 @media (max-width: 767px) {
   .wsh {
     --wsh-gutter: 1rem;
@@ -65,28 +60,11 @@
 }
 
 /* ------------------------------------------------------------ glass card */
-.wsh-card,
 .wsh .ws-panel {
   background: var(--wsh-glass);
   border: 1px solid var(--wsh-line);
   border-radius: 12px;
   box-shadow: var(--wsh-shadow);
-}
-.wsh-card {
-  min-width: 0;
-  padding: 18px 20px 20px;
-}
-.wsh-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.wsh-card-head .ws-h2 {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 .wsh .ws-link {
   display: inline-flex;
@@ -95,29 +73,6 @@
 }
 
 /* ------------------------------------------------------------------ hero */
-.wsh-hero {
-  position: relative;
-  overflow: hidden;
-  /* Edge to edge (owner, 16 Nov): out through the page frame to the top bar and both sides, a hairline under it. */
-  margin: calc(-1 * var(--wsh-gutter)) calc(-1 * var(--wsh-gutter)) 4px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 32px;
-  align-items: center;
-  min-height: 0;
-  /* Its words start where the cards under it do, at the page's left edge, and sit near the top (owner, 19 Nov 2026). */
-  padding: 20px var(--wsh-gutter) 24px;
-  border-bottom: 1px solid var(--wsh-line);
-  background:
-    radial-gradient(60% 120% at 100% 50%, rgb(var(--cat-1) / 0.06), transparent 65%),
-    radial-gradient(30% 70% at 0% 0%, rgb(var(--cat-3) / 0.05), transparent 70%),
-    linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.7));
-}
-.wsh-hero-text {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-}
 .wsh-hello {
   margin: 0;
   display: flex;
@@ -131,45 +86,7 @@
   letter-spacing: -0.03em;
   color: rgb(var(--fg));
 }
-.wsh-wave {
-  transform-origin: 70% 70%;
-  animation: wsh-wave 2.4s ease-in-out 0.4s 2;
-}
-@keyframes wsh-wave {
-  0%, 60%, 100% { transform: rotate(0deg); }
-  10%, 30% { transform: rotate(14deg); }
-  20% { transform: rotate(-8deg); }
-  40% { transform: rotate(-4deg); }
-  50% { transform: rotate(10deg); }
-}
 /* The wave sits in the "Hello, {name}" line under the title, not on a line of its own. */
-.wsh-lede .wsh-wave {
-  display: inline-block;
-  vertical-align: -4px;
-}
-.wsh-lede {
-  margin: 14px 0 0;
-  max-width: 34rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: rgb(var(--fg-muted));
-}
-.wsh-facts {
-  margin: 10px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: rgb(var(--fg-subtle));
-}
-.wsh-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
 
 /* The stage: decoration only, aria-hidden in the markup. */
 /* The picture: off until the page is wide enough for words, picture and card side by side. */
@@ -177,591 +94,34 @@
 /* A slow ring out from the hub: the workspace is live. */
 /* Words and Today side by side from tablet width; the picture joins where there is room for it.
    With no Today card the picture has the right side to itself. */
-@container wsh (min-width: 760px) {
-  .wsh-hero[data-today] {
-    grid-template-columns: minmax(0, 1fr) minmax(264px, 320px);
-  }
-  .wsh-hero:not([data-today]) {
-    grid-template-columns: minmax(0, max-content) minmax(280px, 1fr);
-  }
-}
 @container wsh (min-width: 1040px) {
-  .wsh-hero[data-today] {
-    /* The words take what they need; the picture takes the rest and sits in its middle, so no gap opens
-       between the greeting and the picture on a wide page (owner, 19 Nov 2026). */
-    grid-template-columns: minmax(0, max-content) minmax(260px, 1fr) minmax(280px, 360px);
-  }
 }
 
 /* Today: the hero's right half. How the business stands today, one line per app that reports it. */
-.wsh-today {
-  position: relative;
-  z-index: 1;
-  justify-self: end;
-  width: 100%;
-  min-width: 0;
-  max-width: 360px;
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px 6px;
-  border: 1px solid var(--wsh-line);
-  border-radius: 12px;
-  background: rgb(255 255 255);
-  box-shadow: 0 24px 48px -28px rgb(16 18 22 / 0.28);
-}
-.wsh-today-head {
-  margin: 0;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 4px;
-}
-.wsh-today-label {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 700;
-  color: rgb(var(--fg));
-}
-.wsh-today-date {
-  font-size: 0.75rem;
-  line-height: 1.125rem;
-  color: rgb(var(--fg-muted));
-}
-.wsh-today-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  min-width: 0;
-}
-.wsh-today-list > li {
-  min-width: 0;
-}
-.wsh-today-list > li + li {
-  border-top: 1px solid rgb(var(--border));
-}
-.wsh-today-row {
-  width: 100%;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 4px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-}
-button.wsh-today-row {
-  cursor: pointer;
-}
-button.wsh-today-row:hover {
-  background: var(--wsh-hover);
-}
-button.wsh-today-row:focus-visible {
-  outline: 2px solid rgb(var(--act));
-  outline-offset: 2px;
-}
-.wsh-today-text {
-  display: grid;
-  min-width: 0;
-}
-.wsh-today-what {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  font-weight: 600;
-  color: rgb(var(--fg));
-}
-.wsh-today-sub {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: rgb(var(--fg-muted));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wsh-today-value {
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  color: rgb(var(--fg));
-}
-.wsh-today-value small {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: rgb(var(--fg-muted));
-}
-@keyframes wsh-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wsh-wave {
-    animation: none;
-  }
-}
-@media (max-width: 900px) {
-  .wsh-hero {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-    padding: 24px calc(var(--wsh-gutter) + 4px);
-  }
-  .wsh-today {
-    justify-self: stretch;
-    max-width: none;
-  }
-}
 
 /* ----------------------------------------------------------- figure tiles */
-.wsh-tiles {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
 /* Even rows only: four across, then two by two, never one tile alone. */
-@media (max-width: 1100px) {
-  .wsh-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 640px) {
-  .wsh-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-.wsh-tile {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  /* Graphite, barely: the emoji is the colour. A state (data-tone on the li) swaps --tile and its strength. */
-  --tile: var(--act);
-  --tile-wash: 0.035;
-  --tile-line: 0.1;
-  border: 1px solid rgb(var(--tile) / var(--tile-line));
-  background:
-    linear-gradient(135deg, rgb(var(--tile) / var(--tile-wash)), rgb(var(--tile) / 0) 70%),
-    var(--wsh-glass);
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  transition: transform 0.18s var(--ws-ease), box-shadow 0.18s var(--ws-ease), border-color 0.18s var(--ws-ease);
-}
-button.wsh-tile {
-  cursor: pointer;
-}
-button.wsh-tile:hover {
-  transform: translateY(-2px);
-  border-color: rgb(var(--tile) / 0.3);
-  box-shadow: 0 14px 28px -18px rgb(var(--tile) / 0.45);
-}
 /* Status colours, for state only (DESIGN.md): something urgent, a problem, or setup finished. */
-.wsh-tiles > li[data-tone='warn'] .wsh-tile { --tile: var(--warn); --tile-wash: 0.12; --tile-line: 0.28; }
-.wsh-tiles > li[data-tone='neg'] .wsh-tile { --tile: var(--neg); --tile-wash: 0.1; --tile-line: 0.28; }
-.wsh-tiles > li[data-tone='pos'] .wsh-tile { --tile: var(--pos); --tile-wash: 0.1; --tile-line: 0.26; }
-button.wsh-tile:focus-visible {
-  outline: 2px solid rgb(var(--act));
-  outline-offset: 2px;
-}
 /* One icon square on this page: 40px, 8px corners, here and in the side column's rows. */
-.wsh-tile-ico {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: rgb(255 255 255 / 0.85);
-  box-shadow: 0 6px 14px -10px rgb(var(--tile) / 0.45), inset 0 0 0 1px rgb(var(--tile) / var(--tile-line));
-}
-.wsh-tiles > li[data-hue='blue'] .wsh-tile-ico { background: rgb(var(--hue-blue) / 0.12); box-shadow: inset 0 0 0 1px rgb(var(--hue-blue) / 0.18); }
-.wsh-tiles > li[data-hue='orange'] .wsh-tile-ico { background: rgb(var(--hue-orange) / 0.13); box-shadow: inset 0 0 0 1px rgb(var(--hue-orange) / 0.2); }
-.wsh-tiles > li[data-hue='green'] .wsh-tile-ico { background: rgb(var(--hue-green) / 0.13); box-shadow: inset 0 0 0 1px rgb(var(--hue-green) / 0.2); }
-.wsh-tiles > li[data-tone] .wsh-tile-ico {
-  background: rgb(255 255 255 / 0.85);
-}
-.wsh-tile-text {
-  display: grid;
-  min-width: 0;
-}
-.wsh-tile-value {
-  text-align: left;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: rgb(var(--fg));
-}
-.wsh-tile-value small {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: rgb(var(--fg-subtle));
-}
-.wsh-tile-label {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  font-weight: 500;
-  color: rgb(var(--fg-muted));
-}
 /* A short line under the label: two lines at most, so a narrow tile wraps it instead of cutting it. */
-.wsh-tile-hint {
-  margin-top: 2px;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: rgb(var(--fg-subtle));
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-.wsh-tile-go {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  color: rgb(var(--fg-subtle));
-  opacity: 0;
-  transition: opacity 0.15s var(--ws-ease), transform 0.15s var(--ws-ease);
-}
-button.wsh-tile:hover .wsh-tile-go,
-button.wsh-tile:focus-visible .wsh-tile-go {
-  opacity: 1;
-  transform: translateX(2px);
-}
 
 /* -------------------------------------------------------------- your apps
    One card per built app, four across. The mark wears the app's own colour; the card itself stays
    white with a hairline, and an app that is not on is quieter still. */
-.wsh-apps-wrap {
-  display: grid;
-  gap: 12px;
-}
-.wsh-apps-wrap > .wsh-card-head {
-  padding: 0 4px;
-}
-.wsh-apps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-@media (max-width: 1180px) {
-  .wsh-apps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 480px) {
-  .wsh-apps {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-.wsh-app {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgb(var(--border));
-  border-radius: 12px;
-  background: var(--wsh-glass);
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  transition: box-shadow 0.18s var(--ws-ease), border-color 0.18s var(--ws-ease);
-}
-button.wsh-app {
-  cursor: pointer;
-}
-button.wsh-app:hover {
-  border-color: rgb(var(--border-strong));
-  box-shadow: 0 10px 22px -18px rgb(var(--act) / 0.45);
-}
-button.wsh-app:focus-visible {
-  outline: 2px solid rgb(var(--act));
-  outline-offset: 2px;
-}
-.wsh-app-text {
-  display: grid;
-  min-width: 0;
-}
-.wsh-app-name {
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  font-weight: 700;
-  color: rgb(var(--fg));
-}
-.wsh-app-state {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: rgb(var(--fg-muted));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wsh-app-act {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgb(var(--fg));
-}
-@media (prefers-reduced-motion: reduce) {
-  .wsh-app {
-    transition: none;
-  }
-}
 
 /* ---------------------------------------------------------------- layout
    Main column and a 320px side column (Quick actions first). Inside the main
    column, cards pair up two across; a lone card takes the whole width. */
-.wsh-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 20px;
-  align-items: start;
-}
-.wsh-main,
-.wsh-side {
-  display: grid;
-  gap: 20px;
-  min-width: 0;
-  align-content: start;
-}
-.wsh-main > *,
-.wsh-side > * {
-  min-width: 0;
-}
-.wsh-pair {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-  align-items: stretch;
-}
-.wsh-pair > * {
-  min-width: 0;
-}
 /* Two cards side by side share one height, so their edges line up. */
-.wsh-pair > .wsh-card,
-.wsh-pair > .ws-panel {
-  height: 100%;
-  align-content: start;
-}
 @media (max-width: 1180px) {
-  .wsh-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
   /* The side column, under the main one, lays its cards out two across. */
-  .wsh-side {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    align-items: start;
-  }
 }
 
 /* -------------------------------------------------------- team and access */
-.wsh-team {
-  display: grid;
-  grid-template-columns: auto minmax(120px, 0.7fr) minmax(0, 1.3fr);
-  align-items: center;
-  gap: 20px 28px;
-}
-.wsh-ring {
-  position: relative;
-  margin: 0;
-  width: 132px;
-  height: 132px;
-}
-.wsh-ring svg {
-  display: block;
-}
-.wsh-ring-track {
-  fill: none;
-  stroke: rgb(var(--border) / 0.7);
-  stroke-width: 12;
-}
-.wsh-ring-arc {
-  fill: none;
-  stroke-width: 12;
-  stroke-linecap: round;
-  transition: stroke-dasharray 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.wsh-ring figcaption {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  text-align: center;
-}
-.wsh-ring-n {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  font-weight: 700;
-  text-align: center;
-  color: rgb(var(--fg));
-}
-.wsh-ring-l {
-  font-size: 0.75rem;
-  color: rgb(var(--fg-subtle));
-}
-.wsh-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-  font-size: 0.875rem;
-  color: rgb(var(--fg-muted));
-}
-.wsh-legend li {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-}
-.wsh-legend .ui-num {
-  font-weight: 700;
-  color: rgb(var(--fg));
-}
-.wsh-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-}
-.wsh-seats {
-  min-width: 0;
-  padding-left: 24px;
-  border-left: 1px solid rgb(var(--border));
-}
-.wsh-seats-title {
-  margin: 0 0 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: rgb(var(--fg-subtle));
-}
-.wsh-seats ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-.wsh-seats li {
-  display: grid;
-  grid-template-columns: 22px 76px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.8125rem;
-}
-.wsh-seat-name {
-  font-weight: 600;
-  color: rgb(var(--fg));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wsh-seat-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: rgb(var(--border) / 0.7);
-  overflow: hidden;
-}
-.wsh-seat-bar > span {
-  display: block;
-  height: 100%;
-  min-width: 4px;
-  border-radius: 999px;
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.wsh-seat-n {
-  min-width: 2.5rem;
-  text-align: right;
-  font-weight: 600;
-  color: rgb(var(--fg));
-}
-.wsh-seat-n small {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: rgb(var(--fg-subtle));
-}
-@media (max-width: 900px) {
-  .wsh-team {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-  .wsh-seats {
-    grid-column: 1 / -1;
-    padding-left: 0;
-    padding-top: 16px;
-    border-left: 0;
-    border-top: 1px solid rgb(var(--border));
-  }
-}
 
 /* ---------------------------------------------------------- quick actions
    A vertical list: a tinted emoji square, the action and one line on what it
    does, a chevron. Each row is a button, 8px radius, hover in grey. */
-.wsh-quick {
-  list-style: none;
-  margin: 0 -8px;
-  padding: 0;
-  display: grid;
-  gap: 2px;
-}
-.wsh-quick-btn {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 12px;
-  padding: 8px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  font: inherit;
-  color: rgb(var(--fg));
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 0.15s var(--ws-ease);
-}
-.wsh-quick-btn:hover {
-  background: var(--wsh-hover);
-}
-.wsh-quick-btn:focus-visible {
-  outline: 2px solid rgb(var(--act));
-  outline-offset: 2px;
-}
-.wsh-quick-ico {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: rgb(255 255 255);
-  box-shadow: inset 0 0 0 1px rgb(var(--border));
-  transition: transform 0.18s var(--ws-ease);
-}
-.wsh-quick-btn[data-hue='blue'] .wsh-quick-ico { background: rgb(var(--hue-blue) / 0.1); box-shadow: inset 0 0 0 1px rgb(var(--hue-blue) / 0.16); }
-.wsh-quick-btn[data-hue='orange'] .wsh-quick-ico { background: rgb(var(--hue-orange) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-orange) / 0.18); }
-.wsh-quick-btn[data-hue='green'] .wsh-quick-ico { background: rgb(var(--hue-green) / 0.11); box-shadow: inset 0 0 0 1px rgb(var(--hue-green) / 0.18); }
 /* A colour icon beside each card's headline (owner, 17 Nov 2026). */
 .wsh .ws-h2,
 .wsh .ws-panel-title {
@@ -773,240 +133,13 @@ button.wsh-app:focus-visible {
   flex: none;
 }
 /* Help and support rows are Quick actions rows: same chip, same height (owner, 17 Nov 2026). */
-a.wsh-quick-btn { text-decoration: none; box-sizing: border-box; }
-.wsh-quick-btn:hover .wsh-quick-ico {
-  transform: rotate(-6deg) scale(1.05);
-}
-.wsh-quick-text {
-  display: grid;
-  min-width: 0;
-}
-.wsh-quick-label {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-}
-.wsh-quick-hint {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: rgb(var(--fg-subtle));
-}
-.wsh-quick-go {
-  color: rgb(var(--fg-subtle));
-  transition: transform 0.15s var(--ws-ease), color 0.15s var(--ws-ease);
-}
-.wsh-quick-btn:hover .wsh-quick-go {
-  color: rgb(var(--fg));
-  transform: translateX(2px);
-}
 
 /* -------------------------------------------------------------- attention */
-.wsh-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: rgb(var(--marker));
-  color: rgb(255 255 255);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-.wsh-attn {
-  list-style: none;
-  margin: 0 -8px;
-  padding: 0;
-  container-type: inline-size;
-}
 /* A narrow card: the action drops under the words instead of squeezing them. */
 @container (max-width: 440px) {
-  .wsh-attn-row {
-    grid-template-columns: 36px minmax(0, 1fr);
-  }
-  .wsh-attn-act {
-    grid-column: 2;
-  }
-}
-.wsh-attn > li + li {
-  border-top: 1px solid rgb(var(--border));
-}
-.wsh-attn-row {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-}
-button.wsh-attn-row {
-  cursor: pointer;
-}
-button.wsh-attn-row:hover {
-  background: var(--wsh-hover);
-}
-.wsh-ico {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: rgb(var(--neutral-soft));
-  color: rgb(var(--fg-muted));
-}
-.wsh-ico--neg { background: rgb(var(--neg-soft)); color: rgb(var(--neg)); }
-.wsh-ico--warn { background: rgb(var(--warn-soft)); color: rgb(var(--warn-ink)); }
-.wsh-ico--brand { background: rgb(var(--cat-1) / 0.1); color: rgb(var(--cat-1)); }
-.wsh-attn-text {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.wsh-attn-title {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  color: rgb(var(--fg));
-}
-.wsh-attn-sub {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: rgb(var(--fg-muted));
-}
-.wsh-attn-sub .ws-pill {
-  font-size: 0.75rem;
-}
-.wsh-attn-act {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgb(var(--act-ink));
-  white-space: nowrap;
-}
-.wsh-calm {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-}
-.wsh-calm .ws-card-blurb {
-  margin: 0;
 }
 
 /* -------------------------------------------------------- company overview */
-.wsh-co {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-}
-.wsh-co-ico {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: rgb(var(--act) / 0.05);
-}
-.wsh-co-text {
-  display: grid;
-  min-width: 0;
-  flex: 1 1 120px;
-}
-.wsh-co-name {
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  font-weight: 700;
-  color: rgb(var(--fg));
-}
-.wsh-co-sub {
-  font-size: 0.8125rem;
-  color: rgb(var(--fg-subtle));
-}
-.wsh-setup {
-  margin-top: 16px;
-}
-.wsh-setup-head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgb(var(--fg));
-}
-.wsh-bar {
-  height: 8px;
-  margin: 8px 0 12px;
-  border-radius: 999px;
-  background: rgb(var(--border));
-  overflow: hidden;
-}
-.wsh-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  /* One solid colour: a gradient is decoration (DESIGN.md, colour has one job). */
-  background: rgb(var(--cat-3));
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.wsh-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-  font-size: 0.875rem;
-  color: rgb(var(--fg-muted));
-}
-.wsh-steps li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.wsh-steps li[data-done] {
-  color: rgb(var(--fg));
-}
-.wsh-step-mark {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  border: 1.5px solid rgb(var(--border-strong));
-}
-.wsh-steps li[data-done] .wsh-step-mark {
-  border: 0;
-}
-.wsh-step-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: rgb(var(--fg-muted));
-  text-align: left;
-  cursor: pointer;
-}
-.wsh-step-link:hover {
-  color: rgb(var(--act-ink));
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 
 /* -------------------------------------------------------------- activity */
 .wsh-feed {
@@ -1055,75 +188,11 @@ button.wsh-attn-row:hover {
 }
 
 /* ------------------------------------------------------------ empty, promo */
-.wsh-empty {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.wsh-promo {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid var(--wsh-line);
-  background:
-    radial-gradient(70% 120% at 100% 100%, rgb(var(--cat-1) / 0.07), transparent 70%),
-    var(--wsh-glass);
-  box-shadow: var(--wsh-shadow);
-}
-.wsh-promo-text {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
-  min-width: 0;
-}
-.wsh-promo-text p {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  color: rgb(var(--fg-muted));
-}
-.wsh-promo-face {
-  flex: none;
-  margin-left: auto;
-  filter: drop-shadow(0 10px 12px rgb(16 18 22 / 0.2));
-  animation: wsh-float 6s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .wsh-promo-face {
-    animation: none;
-  }
-}
 
 /* A press is felt (audit, 17 Nov 2026): what can be clicked gives a little under the finger. */
-button.wsh-tile:active,
-button.wsh-app:active,
-.wsh-quick-btn:active,
-button.wsh-today-row:active,
-button.wsh-attn-row:active {
-  transform: scale(0.985);
-}
-@media (prefers-reduced-motion: reduce) {
-  button.wsh-tile:active,
-  button.wsh-app:active,
-  .wsh-quick-btn:active,
-  button.wsh-today-row:active,
-  button.wsh-attn-row:active {
-    transform: none;
-  }
-}
 
 /* Touch: the Overview's rows and links are 44px tall under a finger. */
 @media (max-width: 767px), (pointer: coarse) {
-  .wsh-quick-btn,
-  button.wsh-app,
-  button.wsh-today-row,
-  .wsh-step-link {
-    min-height: 44px;
-  }
   .wsh .ws-link {
     min-height: 44px;
   }
@@ -1142,45 +211,6 @@ button.wsh-attn-row:active {
 
 /* Your name and role, tighter (owner, 19 Nov 2026: "fix density"): the name a step firmer, the role a
    green pill with a live dot. */
-.wsh-facts {
-  gap: 4px 8px;
-  margin-top: 8px;
-}
-.wsh-facts > span:first-child {
-  font-weight: 600;
-  color: rgb(var(--fg));
-}
-.wsh .wsh-role {
-  gap: 6px;
-  padding: 2px 10px 2px 8px;
-  background: rgb(var(--ws-ok-soft, 230 241 238));
-  color: rgb(var(--ws-ok, 1 93 71));
-  border: 1px solid rgb(var(--ws-ok, 1 93 71) / 0.18);
-  font-size: 0.75rem;
-  line-height: 1.125rem;
-}
-.wsh-live {
-  position: relative;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgb(var(--cat-3, 27 175 122));
-}
-.wsh-live::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: rgb(var(--cat-3, 27 175 122));
-  animation: wsh-live 1.8s var(--ws-ease) infinite;
-}
-@keyframes wsh-live {
-  0% { transform: scale(1); opacity: 0.6; }
-  100% { transform: scale(2.6); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wsh-live::after { animation: none; }
-}
 
 /* ======================================================================================================
  * Calm register (DESIGN.md, 19 Nov 2026; design audit step 3, 20 Nov 2026). It replaces the 16-19 Nov
@@ -1192,28 +222,9 @@ button.wsh-attn-row:active {
 .wsh.wsh .wsh-inner { gap: 32px; }
 
 /* The head: title, a secondary line, the facts; the primary at top right. No band, no art. */
-.wsh.wsh .wsh-hero {
-  margin: 0;
-  padding: 0 0 16px;
-  overflow: visible;
-  background: none;
-  border-bottom: 1px solid rgb(var(--border));
-  grid-template-columns: minmax(0, 1fr);
-}
 .wsh.wsh .wsh-hello { font-family: inherit; font-size: 1.5rem; line-height: 2rem; font-weight: 700; letter-spacing: 0; }
-.wsh.wsh .wsh-lede { margin-top: 4px; font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; color: rgb(var(--fg-muted)); }
-.wsh.wsh .wsh-facts { font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; color: rgb(var(--fg-muted)); }
-:root:not(#ux1):not(#ux2):not(#ux3) .wsh.wsh .wsh-role { padding: 0; background: none; border: 0; color: rgb(var(--fg-muted)); font-size: 0.8125rem; font-weight: 400; }
-.wsh.wsh .wsh-live { display: none; }
-@container wsh (min-width: 760px) {
-  .wsh.wsh .wsh-hero { grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); align-items: start; }
-}
-
-/* Today: a short list beside the head, flat. */
-.wsh.wsh .wsh-today { padding: 0; border: 0; border-radius: 0; box-shadow: none; animation: none; justify-self: stretch; }
 
 /* Sections: a heading over a hairline; no card, no shadow (DESIGN.md "No card-in-card", "Elevation"). */
-.wsh.wsh .wsh-card,
 .wsh.wsh .ws-panel {
   padding: 0;
   border: 0;
@@ -1221,28 +232,7 @@ button.wsh-attn-row:active {
   background: none;
   box-shadow: none;
 }
-.wsh.wsh .wsh-card-head { margin-bottom: 0; padding-bottom: 8px; border-bottom: 1px solid rgb(var(--border)); }
-.wsh.wsh .wsh-card-head .ws-h2,
 .wsh.wsh .ws-panel-title { font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; }
 .wsh.wsh .ws-head-ico { display: none; }
-.wsh.wsh .wsh-count { background: none; color: rgb(var(--fg-muted)); padding: 0; min-width: 0; font-weight: 600; }
-
-/* Figures: at most four, flat, 22/28 600; no tinted chip or wash. A state colours the figure only. */
-.wsh.wsh .wsh-tile { padding: 12px 0; border: 0; border-radius: 0; background: none; box-shadow: none; transform: none; }
-.wsh.wsh button.wsh-tile:hover { background: var(--wsh-hover); box-shadow: none; transform: none; }
-.wsh.wsh .wsh-tile-ico { display: none; }
-.wsh.wsh .wsh-tile-value { font-size: 1.375rem; line-height: 1.75rem; font-weight: 600; letter-spacing: 0; }
-.wsh.wsh .wsh-tiles > li[data-tone='warn'] .wsh-tile-value { color: rgb(var(--warn-ink)); }
-.wsh.wsh .wsh-tiles > li[data-tone='neg'] .wsh-tile-value { color: rgb(var(--neg)); }
-
-/* Apps and shortcuts: rows under a hairline, grey on hover; icons keep the app's own mark, no tinted chip. */
-.wsh.wsh .wsh-app { border: 0; border-bottom: 1px solid rgb(var(--border)); border-radius: 0; background: none; box-shadow: none; padding: 10px 0; }
-.wsh.wsh button.wsh-app:hover { background: var(--wsh-hover); box-shadow: none; }
-.wsh.wsh .wsh-quick-btn { border: 0; border-radius: 8px; background: none; box-shadow: none; }
-.wsh.wsh .wsh-quick-btn:hover { background: var(--wsh-hover); }
-.wsh.wsh .wsh-quick-ico { background: none; box-shadow: none; }
-.wsh.wsh .wsh-ico { background: none; }
-.wsh.wsh .wsh-co-ico { background: none; box-shadow: none; }
 
 /* Nothing on this page moves on its own (loading skeletons aside). */
-.wsh.wsh :is(.wsh-wave, .wsh-today, .wsh-live, .wsh-tile, .wsh-app) { animation: none; }
