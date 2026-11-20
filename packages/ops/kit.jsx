@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { WsDrawer } from '../../apps/admin/src/screens/wsKit';
+import Modal from '@ui/components/ui/Modal';
 import { enumWords, errorWords } from '@ui/utils/errorWords';
 
 export { errorWords };
@@ -12,7 +13,7 @@ export const subWord = (status) => SUB_WORD[String(status || '').toLowerCase()] 
 /**
  * Small pieces every operator screen shares: dates in Indian English, the
  * role names staff read, a plain error line, tabs, and the one way any change
- * is confirmed — a side panel that says what will happen and asks why.
+ * is confirmed — a dialog (a side panel when it carries fields) that says what will happen and asks why.
  */
 
 /* Staff roles as the console names them; the codes are the server's (middleware/operator.ts). */
@@ -130,20 +131,15 @@ export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'C
     }
   };
   const okReason = reasonOptional || reason.trim().length >= 3;
-  return (
-    <WsDrawer
-      open={open}
-      onClose={onClose}
-      title={title}
-      actions={
-        <>
-          <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>{cancelLabel}</button>
-          <button type="submit" form="ops-reason" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy || !okReason || !ready}>
-            {busy ? 'Working…' : confirmLabel}
-          </button>
-        </>
-      }
-    >
+  const actions = (
+    <>
+      <button type="button" className="ws-btn ws-btn--quiet" onClick={onClose}>{cancelLabel}</button>
+      <button type="submit" form="ops-reason" className={tone === 'danger' ? 'ws-btn ws-btn--danger' : 'ws-btn ws-btn--primary'} disabled={busy || !okReason || !ready}>
+        {busy ? 'Working…' : confirmLabel}
+      </button>
+    </>
+  );
+  const form = (
       <form id="ops-reason" className="grid gap-5" onSubmit={submit}>
         {what ? <p className="ws-notice">{what}</p> : null}
         {children}
@@ -154,6 +150,19 @@ export function ReasonDrawer({ open, title, what, confirmLabel, cancelLabel = 'C
         <p className="ws-card-blurb">You will be asked for a code from your authenticator app. The change goes in the Staff audit log{reasonOptional ? '' : ' with your reason'}.</p>
         <Err>{error}</Err>
       </form>
+  );
+  /* A confirmation is a 420px dialog (DESIGN.md "Dialogs"); only one that carries fields of its own
+     (children: a date, an amount, a choice) keeps the side panel, where a form belongs. */
+  if (!children) {
+    return open ? (
+      <Modal title={title} onClose={onClose} maxWidthClass="max-w-[420px]" footer={<div className="flex justify-end gap-2">{actions}</div>}>
+        {form}
+      </Modal>
+    ) : null;
+  }
+  return (
+    <WsDrawer open={open} onClose={onClose} title={title} actions={actions}>
+      {form}
     </WsDrawer>
   );
 }
